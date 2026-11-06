@@ -53,7 +53,7 @@ JSON member order is insignificant. Quantities are unsigned 64-bit lowercase hex
 without leading zeroes (`0x0` for zero). Unknown or duplicate members are refused.
 A JSON document is at most 1,500,000 bytes; receipt and optional transaction bytes
 are each nonempty and at most 1,048,576 bytes. See the full wire layout in
-[FORMAT.md](crates/layerx-portable/FORMAT.md).
+[FORMAT.md](../../services/interop/crates/layerx-portable/FORMAT.md).
 
 ### Verification Algorithm (v2)
 
@@ -117,7 +117,7 @@ All receipt, digest, key and height values below come from that recorded case.
 
 ### Implementation Example
 
-The public API in [receipt.rs](crates/layerx-portable/src/receipt.rs) provides:
+The public API in [receipt.rs](../../services/interop/crates/layerx-portable/src/receipt.rs) provides:
 
 - `PortableReceiptV2::from_sequencer_receipt(answer, receipt_keys, raw_transaction)`:
   accepts receipted or committed node answers and rejects submitted answers.
@@ -128,8 +128,8 @@ The public API in [receipt.rs](crates/layerx-portable/src/receipt.rs) provides:
   caller's pinned key list; inspect `result_code()` on the verified value.
 
 The following example is also committed as
-[`examples/portable_v2.rs`](examples/portable_v2.rs). The integration target
-[`repair_22_33_95`](tests/repair_22_33_95.rs) compiles that exact source against
+[`examples/portable_v2.rs`](../../services/interop/examples/portable_v2.rs). The integration target
+[`repair_22_33_95`](../../services/interop/tests/repair_22_33_95.rs) compiles that exact source against
 the current public API, checks that this snippet matches it, and executes both
 functions with recorded producer receipts and independently pinned keys.
 
@@ -169,8 +169,8 @@ successful: a nonzero result remains rejected. Neither function proves BFT
 commit or matches an application payment claim. Parsing with `from_json` alone
 also does not establish trust.
 
-The Rust [independent verifier harness](crates/layerx-portable/tests/independent_verifier.rs)
-compares the crate with a [Python verifier](crates/layerx-portable/tests/python_portable_verifier.py)
+The Rust [independent verifier harness](../../services/interop/crates/layerx-portable/tests/independent_verifier.rs)
+compares the crate with a [Python verifier](../../services/interop/crates/layerx-portable/tests/python_portable_verifier.py)
 that implements the format without importing a LayerX SDK. Python uses
 `cryptography` for Ed25519 and `pycryptodome` for Keccak-256.
 
@@ -243,7 +243,7 @@ apply the relevant data-handling policy before storing or sharing them.
 ### Example: AP2 Mandate Pair
 
 The implemented generic import is
-[`Ap2ExternalMandateVerifier`](crates/layerx-ap2/src/portable.rs).
+[`Ap2ExternalMandateVerifier`](../../services/interop/crates/layerx-ap2/src/portable.rs).
 `Ap2MandatePair::new(checkout, payment).to_json()` constructs an envelope with
 exactly `checkoutMandate` and `paymentMandate`; each value is an unchanged
 upstream SD-JWT presentation. The accepted media type is
@@ -261,7 +261,7 @@ The generic trait permits additional implementations; it is not a list of
 implemented or qualified upstream protocols. In this tree AP2 supplies the
 concrete external mandate verifier above. Other interop adapters expose their
 own verification and transport APIs. Consult their actual compatibility pages,
-including [x402](crates/layerx-x402/COMPATIBILITY.md), for declared coverage;
+including [x402](../../services/interop/crates/layerx-x402/COMPATIBILITY.md), for declared coverage;
 there is no blanket claim of upstream reference-vector conformance.
 
 ## Testing and Portability Proof
@@ -271,9 +271,9 @@ there is no blanket claim of upstream reference-vector conformance.
 The shared receipt corpus is
 [`sequencer-receipt-v1.json`](../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json).
 The fixture filename does not denote the portable JSON version. Receipt export
-and refusal cases live in [receipt_vectors.rs](crates/layerx-portable/tests/receipt_vectors.rs)
-and [sequencer_vectors.rs](crates/layerx-portable/tests/sequencer_vectors.rs).
-[external_verification.rs](crates/layerx-portable/tests/external_verification.rs)
+and refusal cases live in [receipt_vectors.rs](../../services/interop/crates/layerx-portable/tests/receipt_vectors.rs)
+and [sequencer_vectors.rs](../../services/interop/crates/layerx-portable/tests/sequencer_vectors.rs).
+[external_verification.rs](../../services/interop/crates/layerx-portable/tests/external_verification.rs)
 covers the generic binding boundary; it does not qualify every external adapter.
 
 ### Running Tests
@@ -318,13 +318,13 @@ performed by the selected adapter under its supplied context.
 
 ## References
 
-- [Format specification](crates/layerx-portable/FORMAT.md)
-- [Public API](crates/layerx-portable/src/lib.rs)
-- [Portable test sources](crates/layerx-portable/tests/)
-- [x402 compatibility](crates/layerx-x402/COMPATIBILITY.md)
-- [Migration operations](crates/layerx-migrate/OPERATIONS.md)
-- [Mirror archives](crates/layerx-mirror/README.md)
-- [Proof library](../agent/crates/layerx-proof/)
+- [Format specification](../../services/interop/crates/layerx-portable/FORMAT.md)
+- [Public API](../../services/interop/crates/layerx-portable/src/lib.rs)
+- [Portable test sources](../../services/interop/crates/layerx-portable/tests/)
+- [x402 compatibility](../../services/interop/crates/layerx-x402/COMPATIBILITY.md)
+- [Migration operations](../../services/interop/crates/layerx-migrate/OPERATIONS.md)
+- [Mirror archives](../../services/interop/crates/layerx-mirror/README.md)
+- [Proof library](../../services/agent/crates/layerx-proof/)
 
 ## Historical v1 (unsupported archival context)
 

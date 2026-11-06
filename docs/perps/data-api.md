@@ -3,7 +3,7 @@
 REST and WebSocket reference for the perps data gateway in
 [`services/platform/perps-data`](../../services/platform/perps-data). The frontend
 sets `NEXT_PUBLIC_PERPS_GATEWAY_URL` to its bare HTTP(S) origin, without a path,
-credentials, query or fragment. [`gatewayUrls`](src/core/network/gateway.ts)
+credentials, query or fragment. [`gatewayUrls`](../../apps/perps/src/core/network/gateway.ts)
 derives `/api`, `/ws`, and `/graphql` from that origin. Symbol, market and chain
 topics share this gateway; separate per-asset ports are not required.
 
@@ -15,9 +15,9 @@ example `https://api1.mainnet-beta.paxeer.network`. Those node endpoints are
 separate from the application data gateway described here. Tenant sub-chains
 are database domains, not additional networks to deploy for this UI.
 
-See [deployment and environment](deploy/README.md),
-[settings behavior](src/app/modals/SettingsModal.md), and the
-[component integration guide](src/components/paxeer/README.md).
+See [deployment and environment](../../apps/perps/deploy/README.md),
+[settings behavior](../../apps/perps/src/app/modals/SettingsModal.md), and the
+[component integration guide](../../apps/perps/src/components/paxeer/README.md).
 
 ## Table of contents
 
@@ -241,7 +241,7 @@ Candles remain on the external Chainflow feed; the perps data gateway does not
 serve symbol `config`, `history`, `symbols`, `search`, `time` or `quotes` routes.
 The Next.js frontend forwards chart requests through its own
 `/api/candle/<endpoint>` route, implemented in
-[`src/pages/api/candle/[...path].ts`](src/pages/api/candle/%5B...path%5D.ts).
+[`src/pages/api/candle/[...path].ts`](../../apps/perps/src/pages/api/candle/%5B...path%5D.ts).
 It accepts GET/HEAD for `config`, `symbols`, `search`, `history`, `marks`,
 `timescale_marks`, `time` and `quotes`, with allowlisted query parameters.
 
@@ -249,7 +249,7 @@ A typical history request is
 `/api/candle/history?symbol=BTC&resolution=1&from=1747522800&to=1747526400`.
 UDF times are seconds; candles use the upstream UDF arrays (`t`, `o`, `h`, `l`,
 `c`, `v`). The frontend's `MARKET_PROXY_HOST` and required bare
-`MARKET_PROXY_ORIGIN` configure this proxy; see [deployment](deploy/README.md).
+`MARKET_PROXY_ORIGIN` configure this proxy; see [deployment](../../apps/perps/deploy/README.md).
 Missing origin returns HTTP 503, and upstream timeout/unreachability produces
 504/502. There is no gateway `<SYMBOL>@kline_<interval>` subscription.
 
@@ -275,7 +275,7 @@ individual order inserts/deletes or assume integer sizes. The venue REST book
 notional quantities; its payload is not interchangeable with the socket book.
 
 The current symbol adapter
-[`useSidPaxMarketStream`](src/hooks/perps/useSidPaxMarketStream.ts) converts the
+[`useSidPaxMarketStream`](../../apps/perps/src/hooks/perps/useSidPaxMarketStream.ts) converts the
 numeric `last_funding_rate` compatibility field to a nullable decimal string
 with `fundingRateFromJsonNumber`; an already plain decimal string also passes
 unchanged. The wire's `last_funding_rate_hourly` remains the authoritative exact
@@ -294,7 +294,7 @@ Optional external reference estimates use `funding_rate` in the adapter and
 are separate from the last on-chain settlement; their period is defined by
 the reference source, not by the on-chain hourly rate. `est_funding_rate` is
 not a field of the current gateway contract. Absent predicted funding remains `null`;
-[`fundingRowFigure`](src/core/perps/fundingRate.ts) then displays the venue's
+[`fundingRowFigure`](../../apps/perps/src/core/perps/fundingRate.ts) then displays the venue's
 last settled hourly rate. A connected symbol socket does not imply an estimate
 is available. Multiplying the settled hourly rate by 24 is a projection of the
 last settlement, not an estimate of the next funding payment.
@@ -366,7 +366,7 @@ claim that settlement runs every eight hours. The next-hour timestamp does
 not guarantee a future settlement or price. Market records have no estimated
 funding field.
 
-[`useMarketsStream`](src/hooks/perps/useMarketsStream.ts) parses these strings
+[`useMarketsStream`](../../apps/perps/src/hooks/perps/useMarketsStream.ts) parses these strings
 as signed 18-decimal `bigint` values; numbers and exponent notation are not
 accepted as exact funding inputs. A malformed field becomes `null` with a
 rate-limited warning for that symbol/field. Preserve nulls when rendering;
