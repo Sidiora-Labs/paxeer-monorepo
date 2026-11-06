@@ -193524,7 +193524,7 @@ do_5 = "Attempts 1 and 2 (continue): the three excluded client test groups call 
 
 [task.22.99.52]
 title = "Repair the inventory sweep target layerx-mcp"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["18.1578.1", "22.99.160"]
