@@ -658,3 +658,31 @@ source_digest = "sha256:57c0239338db3ffea4990aaeb6f723bad46b44ff539632bae9e234c2
 dist_digest = "sha256:89a03b8d7888d284733eb5baa4f45f7d7b9b15742ece6a3910e005fdd8d1b379"
 observed = "Twenty-one signed native fleet checks pass, including issued Primary revision discovery, bounded bind templates, separate read-only grants and preserved mutation authority."
 scope = "Owned PostgreSQL and actual signed APIs; live provider/model execution has separate evidence."
+
+[qualification.layout_tooling_vendored_22_37_1]
+source_task = "spec/layerx-merge/source-control/source-spec.kvx task 0.8"
+status = "implemented-not-qualified"
+build_evidence = "Private /out/run/gates.jsonl build records bind the candidate revision, exact command, exit code and /out/logs/build-*.log."
+verify_evidence = "Private /out/run/gates.jsonl verify records bind the candidate revision, cg spec done command, exit code and /out/logs/verify-*.log."
+assumption = "Only actual passing gate records qualify this repair; release and prepared-image qualification remain separate and require archive-bound startup and provider read-back receipts."
+
+[finding.layout_tooling_prepared_image_unavailable]
+status = "implemented-not-qualified; prepared-image-generation UNRUN"
+revision = "Candidate revision by reference in private /out/run/gates.jsonl."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_8.py --inputs build/layout/0.8/inputs.json"
+log = "Private /out/logs/verify-*.log; no provider command ran and no provider exit code exists."
+observed = "HF_RAILWAY_API_TOKEN and HF_RAILWAY_ENV_ID are absent; no category-layout-v1 immutable image identity, manifest, command receipt or provider read-back receipt is available."
+
+[finding.layout_tooling_release_executor]
+revision = "5ffae421a0ac4d225c3ed1019c2dde53524acb01"
+command = "bash /work/paxeer-monorepo/tools/hyperfide/tools/repository/release.sh --dry-run --skip-tests --output /work/paxeer-monorepo/tools/hyperfide/build/layout/0.8/release"
+exit_code = 1
+log = "/out/logs/layout-release-command.log"
+observed = "Release assembly is unqualified because the executor lacks cached pnpm@9.15.0 and the existing driver forbids Corepack network access; no archives or installed-control receipt were produced."
+
+[finding.layout_tooling_vendored_gate]
+revision = "8693b4368840c11b08e05e5d11d66c872c906002"
+command = "cg spec done 22.37.1 -f layerx-merge --root /work/paxeer-monorepo"
+exit_code = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and six fixture tests passed at this revision, but the full driver exited 2 with no regressions and missing release/startup and prepared-image evidence; task remains implemented-not-qualified."
