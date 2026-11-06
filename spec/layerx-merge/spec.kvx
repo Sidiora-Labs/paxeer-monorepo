@@ -149366,7 +149366,7 @@ source_task = "7.2"
 
 [task.22.37.26]
 title = "Finish source documentation truthfulness and release driver checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.36.1", "22.37.25"]
