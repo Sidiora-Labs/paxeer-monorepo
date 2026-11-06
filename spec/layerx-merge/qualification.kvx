@@ -33211,3 +33211,11 @@ symbol = "repair_22_31_547.rs"
 observed = "Attempt 6 at 26219f2e8ed4b5f956ac96a77adfc766cb86ed78: build exit 0, dependent-crate check exit 0, verify exit 1 twice: cycle 1 the first Prepare answered 403 owner.refused on the partial preview fixture; cycle 2 on the 22.31.560 harness the first Prepare answered 200 and the SDK verdict was Unknown with operation Prepare at line 313; the other three cases pass."
 assumption = "The daemon accepts the V2 purpose; one bound field of the accepted body disagrees with the SDK expectation and the test does not yet say which."
 severity = "high"
+
+[finding.22.31.547.7]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 7 at 1922bbd43b5525308e8a5bbcb0760a6169ac9115: build exit 0, dependent-crate check exit 0, verify exit 1 twice: the daemon answered 200 and the first named disagreement is not_before (disclosed 0, request 1789365544000); the two included native send cases fail with PoisonError on the fixture lock after that panic; the SDK library cases and the preview case pass."
+assumption = "The window check is a consumer invention for ledger sends; the call carries the client envelope and the daemon binds the window elsewhere."
+severity = "high"
