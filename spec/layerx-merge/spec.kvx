@@ -284238,7 +284238,7 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 
 [task.22.31.584]
 title = "Bind the recorded lease request vector to the usage test that recorded it"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
