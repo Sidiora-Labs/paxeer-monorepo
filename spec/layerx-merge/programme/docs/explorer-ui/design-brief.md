@@ -197,6 +197,6 @@ validators API provides); Epochs with Started, First block, Last block, Duration
 
 ## 8. Out of scope for 22.35.1 to 22.35.8
 
-- An AI assistant, *Explain* buttons or any model-backed feature (a separate owner decision).
+- *Explain* buttons or any further model-backed feature. The Ask assistant is decided: decision 2652 and task 22.35.10 add a server-side route to a configurable OpenAI-compatible chat-completions endpoint (default model xai/grok-4.7) and an Ask row in the search panel; it follows 22.35.8.
 - Watchlist, sign-in and profile flows beyond restyling what exists.
 - New backend endpoints; every page renders from the API the explorer already consumes.
