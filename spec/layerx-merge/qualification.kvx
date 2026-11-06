@@ -32995,3 +32995,11 @@ symbol = "source-control.md"
 observed = "Attempt 2 at aafa9ec1c6982eac339a729ec2a2cd56d99ab2a6: build exit 0, verify exit 1: the closure, the assembly and the reproducibility check pass; the consistency check refuses Full assertion inventory absent or reused: SCM-011 (first run at 7ea2c00bbd5c5aa6fdbcb953cef9c2b4129589f3 failed the closure on the nested string_decoder)."
 assumption = "The refusal is a rule the driver invented against data every producer agrees on."
 severity = "high"
+
+[finding.22.37.19.5]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 5 at 24649c9cb9adfa6e84b08914b861a5c772d6c4a4: build exit 0 (two builds), verify exit 1 (two runs): the first run at e6524bd65bfc5402d71832adfedb77abd6671136 refused the VIRTUAL open with INTERNAL_ERROR because the driver applied no 0747 migration; after that repair the final run refuses the publication cancel with INTERNAL_ERROR Source operation failed and no recorded cause."
+assumption = "The driver proves a schema the service never runs, and the catch hides the column the select refuses; the cancel settlement reads two columns of migration 0764 the driver never applied."
+severity = "high"
