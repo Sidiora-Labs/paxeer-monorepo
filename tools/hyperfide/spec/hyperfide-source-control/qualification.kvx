@@ -722,3 +722,10 @@ exit_code = 1
 log = "/out/logs/verify-2.log"
 observed = "After the component passed, the unchanged 0_1.py driver failed before its SDK build because /root/.nvm/versions/node/v24.22.0/bin/node does not exist in this sandbox."
 assumption = "The full declared verification remains unqualified; repair budget is exhausted, and the owner must supply the expected Node path or set HYPERFIDE_NODE for a later qualification."
+
+[qualification.task_22_37_10_component]
+task = "22.37.10; carried source-control task 1.2"
+build_command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
+command = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_2.py && python3 tests/hyperfide/cases/source_control/events.py"
+evidence = "/out/run/gates.jsonl records exact candidate revision, command, exit and private build/verify logs; component assertions: build/source-control/1.2/receipt.json"
+status = "BY_REFERENCE; only matching passing hf-build and hf-done records qualify the repair; isolated PostgreSQL, production identity and SigV4 component backend, no live-provider claim"
