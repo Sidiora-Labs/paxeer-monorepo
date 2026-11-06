@@ -1,7 +1,7 @@
 [workspace]
 name = "layerx-platform"
 root = "services/platform"
-roots = ["sdk/platform", "tools/platform"]
+roots = ["sdk/platform", "tools/platform", "docs/platform"]
 
 [dir.sdk-generators]
 path = "sdk/platform/generators"
@@ -19,7 +19,7 @@ path = "tools/platform/emulator"
 path = "services/platform/hosted/gateway"
 
 [dir.docs]
-path = "services/platform/docs"
+path = "docs/platform"
 
 [dir.examples]
 path = "services/platform/examples"

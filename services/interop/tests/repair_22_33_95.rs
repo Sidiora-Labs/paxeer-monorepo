@@ -5,7 +5,7 @@ use layerx_portable::{PortableReceiptError, PortableReceiptV2, ReceiptKeyEntry};
 use layerx_proof::receipt::{ReceiptCheck, VerificationFailure};
 use serde_json::Value;
 
-const GUIDE: &str = include_str!("../PORTABILITY.md");
+const GUIDE: &str = include_str!("../../../docs/interop/PORTABILITY.md");
 const EXAMPLE: &str = include_str!("../examples/portable_v2.rs");
 const FIXTURE: &str =
     include_str!("../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json");

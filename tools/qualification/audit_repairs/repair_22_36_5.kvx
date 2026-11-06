@@ -1,0 +1,37 @@
+[task.22.36.5]
+requirement = "22998.1"
+base_revision = "f0bebed1e4f6c22052872170fb54bc8c2b2b9f95"
+repair = "Continue attempt 1's four document moves and reference rewrites; update the perps-data comment and agent audit test consumers, restore historical repair text, and exclude repair records under decision 2670."
+source_proof = "The declared pytest gate reads the real moved documents, asserts the four old paths are absent and new files are nonempty, resolves relative Markdown links and heading fragments, and refuses tracked references to the old paths outside spec/, GOTCHA.kvx, this test and historical repair records."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_5.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact revision of the final kind=verify entry in /out/run/gates.jsonl; qualification requires exit=0 and the same revision as the passing build entry."
+evidence = "hf-build and hf-done record the exact revision, command, exit and private log in the ledger, copied into the final JSON. This reference is written before qualification and asserts no unrun result."
+continuation = "Attempt 1's tree stands; apps/perps/src/core/repair-22-33-78.kvx is restored to its original text and repair_22_33_1565.kvx retains the paths of its time."
+generator = "The platform generator tracks services/agent/sdk/COMPATIBILITY.md, a separate SDK output that stays in place; its output declaration documents the moved daemon matrix without changing SDK ownership."
+
+[qualification.agent_audit]
+command = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1565.py"
+log = "/out/repair_22_36_5_agent_audit.log"
+revision = "Same final candidate as the passing build and verification ledger entries; no source edits follow this supplementary run."
+result = "The private log records the single requested run, including its exit code; no pass is claimed in advance."
+
+[finding.agent_consumers_outside_scope]
+revision = "f0bebed1e4f6c22052872170fb54bc8c2b2b9f95"
+observed = "Inherited relative references in the agent workspace README, daemon README, daemon compat.rs include_str and SDK compatibility page still address the removed agent matrix; those consumers are outside the explicit scope."
+assumption = "Keep the documentation-link assertions intact and record the supplementary audit result without editing excluded consumers or claiming daemon compilation."
+paths = ["services/agent/README.md", "services/agent/crates/layerx-agentd/README.md", "services/agent/crates/layerx-agentd/src/compat.rs", "services/agent/sdk/COMPATIBILITY.md"]
+log = "/out/repair_22_36_5_agent_audit.log"
+
+[gotcha.relative_links]
+observed = "Moving documents changes the base for Markdown links and include_str paths; the older audit's link check also assumed every document was in services/agent."
+resolution = "Rebase the moved links, decode percent escapes, update authorized interop consumers and resolve the older audit's links against each document's actual parent without changing any assertion."
+
+[gotcha.historical_records]
+observed = "Historical repair records intentionally name paths that existed when those repairs ran."
+resolution = "Decision 2670 excludes repair_*.kvx and repair-*.kvx anywhere, plus all kvx files under tools/qualification/audit_repairs and tools/bringup, from the old-path grep."
+
+[gotcha.scope_ledger]
+observed = "GOTCHA.kvx and spec qualification files are outside the explicit write scope."
+resolution = "Keep task-local findings in this authorized record and reference private gate evidence without editing sources after qualification."

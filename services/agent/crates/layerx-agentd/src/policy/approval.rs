@@ -223,7 +223,42 @@ impl ApprovalRegistry {
             }
             decoded.push((held.context.request_id, held));
         }
-        let terminal_decoded = replay_program_terminals(&store, tenant)?;
+        let mut terminal_decoded = replay_program_terminals(&store, tenant)?;
+        for id in store
+            .list_object_ids(tenant, ObjectKind::Outbox)
+            .into_iter()
+            .filter(|id| id.starts_with(RELEASED_KEY_PREFIX))
+        {
+            if id.len() != RELEASED_KEY_PREFIX.len() + 32 {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let key = TenantKey::new(tenant.clone(), ObjectKind::Outbox, id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let stored = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            if stored.class() != crate::store::StorageClass::LocalOnly {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let (reference, mut held) = decode_released(stored.bytes())?;
+            validate_replayed(&held, tenant)?;
+            if key.object_id()[RELEASED_KEY_PREFIX.len()..] != held.context.request_id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            if crate::approval::program_requirement::has_bound_approval(&store, &snapshot(&held))
+                .map_err(|_| ApprovalError::CorruptRecord)?
+            {
+                continue;
+            }
+            let mut audit = terminal_audit(
+                &held,
+                ApprovalState::Approved,
+                None,
+                "released_terminal_replayed",
+            );
+            audit.resulting_activity_id = Some(reference);
+            held.state = ApprovalState::Approved;
+            held.audit = Some(audit);
+            terminal_decoded.push((held.context.request_id, held));
+        }
         drop(store);
         let reservations = decoded
             .iter()
@@ -1200,7 +1235,8 @@ fn approval_window_expired(
     current_time: TimestampSeconds,
 ) -> Result<bool, ApprovalError> {
     if current_sequence < held.created_at_sequence
-        || current_time.get() < presentation.created_at_unix_seconds
+        || (presentation.created_at_unix_seconds != 0
+            && current_time.get() < presentation.created_at_unix_seconds)
     {
         return Err(ApprovalError::InvalidWindow);
     }
@@ -1480,6 +1516,21 @@ fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), ApprovalError> {
 }
 fn put_text(out: &mut Vec<u8>, text: &str) -> Result<(), ApprovalError> {
     put_bytes(out, text.as_bytes())
+}
+
+pub(crate) fn migrate_legacy_hold(
+    key: &[u8],
+    bytes: &[u8],
+) -> Result<Option<Vec<u8>>, ApprovalError> {
+    if !key.starts_with(HOLD_KEY_PREFIX) || !bytes.starts_with(HOLD_MAGIC) {
+        return Ok(None);
+    }
+    let mut held = decode_legacy_hold(bytes)?;
+    held.presentation = Some(ApprovalPresentation {
+        created_at_unix_seconds: 0,
+        activity_expires_at_unix_seconds: held.prepared.expiry.get(),
+    });
+    encode_hold(&held).map(Some)
 }
 
 fn encode_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {

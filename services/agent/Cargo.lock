@@ -1063,6 +1063,7 @@ dependencies = [
  "layerx-client",
  "layerx-crypto",
  "layerx-mirror",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

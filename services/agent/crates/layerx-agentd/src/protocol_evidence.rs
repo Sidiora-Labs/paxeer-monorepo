@@ -28,6 +28,16 @@ use layerx_client::sequencer::SequencerEndpoint;
 const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
 const MAX_CUMULATIVE_EVIDENCE_ITEMS: usize = 4_096;
+const KERNEL_MODULE_COUNT: u16 = 11;
+
+fn select_receipt_key(key: &layerx_client::sequencer::ReceiptKeyEntry) -> SequencerAuthorization {
+    SequencerAuthorization::new(
+        key.key_id,
+        key.public_key,
+        key.first_height,
+        key.last_height,
+    )
+}
 
 /// One sequencer key and validity interval installed by trusted daemon configuration.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -441,6 +451,7 @@ impl ProtocolEvidenceVerifier {
     fn verify_signed_receipt_inclusion(
         &self,
         raw: &RawReceiptEvidence,
+        receipt_keys: &[layerx_client::sequencer::ReceiptKeyEntry],
     ) -> Result<VerifiedCumulativeReceipt, ReceiptEvidenceError> {
         let (header, authorization) = self
             .authorization_for(&raw.canonical_header)
@@ -453,9 +464,24 @@ impl ProtocolEvidenceVerifier {
             &authorization,
         )
         .map_err(ReceiptEvidenceError::Inclusion)?;
-        let receipt =
+        let decoded = decode(&raw.canonical_receipt).map_err(|_| {
+            ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::Decode,
+            })
+        })?;
+        let module_id = decoded
+            .protocol()
+            .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            }))?
+            .module_id();
+        let receipt = if module_id > KERNEL_MODULE_COUNT {
+            let keys: Vec<_> = receipt_keys.iter().map(select_receipt_key).collect();
+            verify_sequencer_signature(&raw.canonical_receipt, keys.as_slice())
+        } else {
             verify_sequencer_signature(&raw.canonical_receipt, authorization.public_key())
-                .map_err(ReceiptEvidenceError::Receipt)?;
+        }
+        .map_err(ReceiptEvidenceError::Receipt)?;
         let protocol =
             receipt
                 .protocol()
@@ -570,6 +596,7 @@ pub enum VerifierPolicyError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EvidenceAuthority {
     verifier: ProtocolEvidenceVerifier,
+    receipt_keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
     committed_validators: Option<(String, Vec<crate::read::CommitValidator>)>,
 }
 
@@ -577,6 +604,7 @@ impl EvidenceAuthority {
     pub(crate) const fn new(verifier: ProtocolEvidenceVerifier) -> Self {
         Self {
             verifier,
+            receipt_keys: Vec::new(),
             committed_validators: None,
         }
     }
@@ -614,6 +642,72 @@ impl EvidenceAuthority {
         raw: &RawReceiptEvidence,
     ) -> Result<VerifiedReceiptEvidence, ReceiptEvidenceError> {
         self.verifier.verify_receipt(raw)
+    }
+
+    /// Installs governed node receipt keys obtained from the trusted node RPC.
+    pub fn with_receipt_keys(
+        mut self,
+        keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+    ) -> Result<Self, VerifierPolicyError> {
+        let mut identities = BTreeSet::new();
+        if keys.is_empty()
+            || keys.iter().any(|key| {
+                key.key_id == [0; 32]
+                    || key.public_key == [0; 32]
+                    || key.first_height > key.last_height
+                    || !identities.insert(key.key_id)
+            })
+        {
+            return Err(VerifierPolicyError::InvalidAuthorization);
+        }
+        self.receipt_keys = keys;
+        Ok(self)
+    }
+
+    /// Re-verifies a persisted current receipt without inventing batch evidence.
+    pub fn verify_current_receipt(
+        &self,
+        raw: &crate::receipt::TransactionReceiptEvidence,
+    ) -> Result<VerifiedSpendReceipt, ReceiptEvidenceError> {
+        let keys: Vec<_> = self.receipt_keys.iter().map(select_receipt_key).collect();
+        let decoded = verify_sequencer_signature(&raw.canonical_receipt, keys.as_slice())
+            .map_err(ReceiptEvidenceError::Receipt)?;
+        let protocol =
+            decoded
+                .protocol()
+                .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                    check: ReceiptCheck::ReceiptShape,
+                }))?;
+        if protocol.protocol_version() != self.verifier.expected_protocol_version {
+            return Err(ReceiptEvidenceError::ProtocolVersion);
+        }
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&raw.metadata.block_height.to_be_bytes());
+        let signature = protocol
+            .sequencer_signature()
+            .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::MissingSignature,
+            }))?;
+        if protocol.batch_id() != height
+            || protocol.activity_id() != raw.metadata.transaction_hash
+            || (protocol.result_code() == 0) != raw.metadata.status
+            || raw.metadata.receipt_signature[..64] != signature
+            || raw.metadata.receipt_signature[64] != crate::receipt::NODE_ED25519_SIGNATURE_TAG
+            || raw.metadata.rung < layerx_types::rung::Rung::Receipted
+        {
+            return Err(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            }));
+        }
+        Ok(VerifiedSpendReceipt {
+            receipt_ref: Sha256::digest(&raw.canonical_receipt).into(),
+            activity_id: protocol.activity_id(),
+            global_sequence: protocol.global_sequence(),
+            result_code: protocol.result_code(),
+            amount: protocol.amount(),
+            module_id: protocol.module_id(),
+            operation: protocol.operation(),
+        })
     }
 
     /// Verifies raw receipt ingress for offline export and retains the
@@ -679,7 +773,7 @@ impl EvidenceAuthority {
                     .map_err(CumulativeUseError::Receipt)?,
                 CumulativeReceiptEvidence::SignedInclusion(raw) => self
                     .verifier
-                    .verify_signed_receipt_inclusion(raw)
+                    .verify_signed_receipt_inclusion(raw, &self.receipt_keys)
                     .map_err(CumulativeUseError::Receipt)?,
             };
             let receipt_ref: [u8; 32] = Sha256::digest(entry.receipt().canonical_receipt()).into();
@@ -760,13 +854,20 @@ impl EvidenceAuthority {
         let mut amount = 0_u128;
         let mut count = 0_u64;
         for (entry, receipt) in entries.iter().zip(receipts) {
-            let module = ModuleId::from_u16(receipt.module_id())
-                .map_err(|_| CumulativeUseError::Activity)?;
+            let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
+                None
+            } else {
+                Some(
+                    ModuleId::from_u16(receipt.module_id())
+                        .map_err(|_| CumulativeUseError::Activity)?,
+                )
+            };
             let kind = peek_signed_activity_type(entry.canonical_activity())
                 .map_err(|_| CumulativeUseError::Activity)?;
-            if kind.module() != module {
+            if receipt_module.is_some_and(|module| kind.module() != module) {
                 return Err(CumulativeUseError::ActivityReceiptMismatch);
             }
+            let module = receipt_module.unwrap_or(kind.module());
             let registration = ModuleRegistration::new(module, &[kind])
                 .map_err(|_| CumulativeUseError::Activity)?;
             let registry =
@@ -1107,7 +1208,7 @@ impl EvidenceAuthority {
                 }
                 let receipt = self
                     .verifier
-                    .verify_signed_receipt_inclusion(receipt_raw)
+                    .verify_signed_receipt_inclusion(receipt_raw, &self.receipt_keys)
                     .map_err(TimeWindowUseError::Receipt)?;
                 let decoded = decode(receipt_raw.canonical_receipt())
                     .map_err(|_| TimeWindowUseError::Identity)?;
@@ -1131,13 +1232,20 @@ impl EvidenceAuthority {
                 if !seen.insert(receipt.activity_id()) {
                     return Err(TimeWindowUseError::Duplicate);
                 }
-                let module = ModuleId::from_u16(receipt.module_id())
-                    .map_err(|_| TimeWindowUseError::Activity)?;
+                let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
+                    None
+                } else {
+                    Some(
+                        ModuleId::from_u16(receipt.module_id())
+                            .map_err(|_| TimeWindowUseError::Activity)?,
+                    )
+                };
                 let kind = peek_signed_activity_type(entry.canonical_activity())
                     .map_err(|_| TimeWindowUseError::Activity)?;
-                if kind.module() != module {
+                if receipt_module.is_some_and(|module| kind.module() != module) {
                     return Err(TimeWindowUseError::Identity);
                 }
+                let module = receipt_module.unwrap_or(kind.module());
                 let registration = ModuleRegistration::new(module, &[kind])
                     .map_err(|_| TimeWindowUseError::Activity)?;
                 let registry = ModuleRegistry::new(&[registration])
@@ -1211,14 +1319,22 @@ impl ReceiptReplayGuard {
         &mut self,
         receipt: &VerifiedReceiptEvidence,
     ) -> Result<(), ReceiptReplayError> {
-        if self.receipt_refs.contains(&receipt.receipt_ref()) {
+        self.admit_identity(receipt.receipt_ref(), receipt.activity_id())
+    }
+
+    pub(crate) fn admit_identity(
+        &mut self,
+        receipt_ref: [u8; 32],
+        activity_id: [u8; 32],
+    ) -> Result<(), ReceiptReplayError> {
+        if self.receipt_refs.contains(&receipt_ref) {
             return Err(ReceiptReplayError::DuplicateReceipt);
         }
-        if self.activity_ids.contains(&receipt.activity_id()) {
+        if self.activity_ids.contains(&activity_id) {
             return Err(ReceiptReplayError::DuplicateActivity);
         }
-        self.receipt_refs.insert(receipt.receipt_ref());
-        self.activity_ids.insert(receipt.activity_id());
+        self.receipt_refs.insert(receipt_ref);
+        self.activity_ids.insert(activity_id);
         Ok(())
     }
 }
@@ -1287,6 +1403,56 @@ pub enum ReceiptEvidenceError {
     ProtocolVersion,
     SequenceRange,
     BatchIdentity,
+}
+
+/// Spend facts issued only after receipt authority verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VerifiedSpendReceipt {
+    receipt_ref: [u8; 32],
+    activity_id: [u8; 32],
+    global_sequence: u64,
+    result_code: i32,
+    amount: u128,
+    module_id: u16,
+    operation: u8,
+}
+
+impl VerifiedSpendReceipt {
+    pub const fn receipt_ref(&self) -> [u8; 32] {
+        self.receipt_ref
+    }
+    pub const fn activity_id(&self) -> [u8; 32] {
+        self.activity_id
+    }
+    pub const fn global_sequence(&self) -> u64 {
+        self.global_sequence
+    }
+    pub const fn result_code(&self) -> i32 {
+        self.result_code
+    }
+    pub const fn amount(&self) -> u128 {
+        self.amount
+    }
+    pub const fn module_id(&self) -> u16 {
+        self.module_id
+    }
+    pub const fn operation(&self) -> u8 {
+        self.operation
+    }
+}
+
+impl From<VerifiedReceiptEvidence> for VerifiedSpendReceipt {
+    fn from(receipt: VerifiedReceiptEvidence) -> Self {
+        Self {
+            receipt_ref: receipt.receipt_ref(),
+            activity_id: receipt.activity_id(),
+            global_sequence: receipt.global_sequence(),
+            result_code: receipt.result_code(),
+            amount: receipt.amount(),
+            module_id: receipt.module_id(),
+            operation: receipt.operation(),
+        }
+    }
 }
 
 /// Inclusive global-sequence window covered by cumulative-use evidence.

@@ -939,6 +939,21 @@ pub fn arbitration_step_commitment_fuel_with_host(
     step_commitment_fuel(work)
 }
 
+pub(crate) fn replay_step_commitment_fuels(
+    legacy_state_bytes: u64,
+    engine_state_bytes: u64,
+    host_state_bytes: u64,
+) -> Result<(u64, u64), CommitmentError> {
+    Ok((
+        step_commitment_fuel(legacy_state_bytes)?,
+        arbitration_step_commitment_fuel_with_host(
+            legacy_state_bytes,
+            engine_state_bytes,
+            host_state_bytes,
+        )?,
+    ))
+}
+
 impl ExecutionState {
     /// Produces the frozen, endian-independent state encoding.
     ///

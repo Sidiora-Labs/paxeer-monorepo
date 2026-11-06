@@ -111,7 +111,7 @@ returns `-32000`. The response contract is in
 [`rpc/sequencer_receipt.go`](../../rpc/sequencer_receipt.go).
 
 Hosted human-plane send (quote then commit), as in
-`services/platform/docs/samples/first-payment-typescript`:
+`services/platform/examples/samples/first-payment-typescript`:
 
 ```ts
 import { ProductionClient, idempotencyKey } from "@sidiora/layerx-sdk";

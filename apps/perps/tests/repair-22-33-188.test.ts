@@ -160,7 +160,7 @@ async function f002EdgeUsesSharedSentrySanitizer(t: TestContext): Promise<void> 
 }
 
 async function f044DocumentedStatsMatchWireAndConsumer(): Promise<void> {
-  const guide = readFileSync(new URL("../data_api.md", import.meta.url), "utf8");
+  const guide = readFileSync(new URL("../../../docs/perps/data-api.md", import.meta.url), "utf8");
   const records = readFileSync(new URL("../../../services/platform/perps-data/internal/records/records.go", import.meta.url), "utf8");
   const { parseSidPaxStats } = await import("../src/hooks/perps/useSidPaxMarketStream");
   const { parseFundingRateHourly, fundingRowFigure, fundingRateFromJsonNumber } = await import("../src/core/perps/fundingRate");

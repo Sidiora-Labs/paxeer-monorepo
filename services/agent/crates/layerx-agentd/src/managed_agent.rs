@@ -609,6 +609,12 @@ pub fn evidence_export(
         .map(|record| record.idempotency_key)
         .chain(
             inventory
+                .with_current_evidence
+                .iter()
+                .map(|record| record.idempotency_key),
+        )
+        .chain(
+            inventory
                 .without_evidence
                 .iter()
                 .map(|metadata| metadata.idempotency_key),

@@ -1,0 +1,34 @@
+[repair.22.31.567]
+decision = "2656"
+gotcha = "3230, 3142, 2962, 3247"
+acceptance = "22998.1"
+base_revision = "980a3a8ebaf8730ea991d581307a07dd552cee80"
+implementation = "RpcClient pins only node commit authority by default, acquires px_getSequenceBatch at each receipt's decimal committed height under the existing deadline, checks the served transaction and leaf hash, decodes the SequenceBatch range, and passes per-wait coverage to the unchanged verify_committed verifier. Missing batches (-32602), wrong sequence coverage and malformed proofs are refused."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.567 -f layerx-merge --root $TASK_ROOT; cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_567 --test repair_22_31_494"
+evidence = "Private gate results by reference: /out/run/gates.jsonl, task 22.31.567. Each hf-build/hf-done row records the exact candidate revision, command, exit code and private log location. This record claims no unrun gate and is written before qualification; no source amendment follows passing gates."
+transport = "The existing repair_22_31_494 loopback peer signs canonical receipts for actual wallet submissions. SequenceBatch::encode, the production ChainHeader hash and canonical validator vote create authenticated committed coverage at heights 1000 and 1001, served through production SDK HTTP transport with an OS clock. No live endpoint, credential or environment binding is required."
+
+[proof.px_getSequenceBatch]
+criterion = "One pinned RPC client waits at heights 1000, 1001 and 1000 again, requests each exact decimal height, verifies its own committed block and preserves the submitted canonical activity."
+
+[proof.batch_not_covering_the_receipt_is_refused]
+criterion = "A valid signed commit and batch proof at the requested height that covers a different submitted receipt and sequence is refused as Verification."
+
+[proof.malformed_or_unbound_served_proofs_are_refused]
+criterion = "Wrong served height, leaf hash, proof index, total, aunts, encoded batch, activity ID and activity count are each refused."
+
+[proof.no_sequence_batch_is_a_verification_refusal]
+criterion = "The real HTTP peer's -32602 Invalid params / no_sequence_batch response is refused as Verification."
+
+[proof.coverage_override_is_explicit_and_never_replaces_verification]
+criterion = "An override requires pinned authority, bypasses only served batch acquisition when explicitly installed, still authenticates activity coverage, and is cleared when authority is replaced. Default waits query the peer and refuse its missing batch."
+
+[gotcha.activity_ids]
+observed = "SequenceBatch::decode and px_getSequenceBatch expose sequence bounds and roots, not an activity-ID list. Ordered IDs come from the existing eth_getBlockByNumber response with full_transactions=false; exact count, target sequence position, signed activity root and every sequence-state transition must verify. Missing or inconsistent lists are refused without fallback."
+
+[gotcha.scope]
+observed = "Attempt 1's --tests build found the prerequisite 22.31.563's old two-argument constructor call. Attempt 2 explicitly includes that test in scope: its caller now pins only authority, its loopback peer serves the production-encoded batch and proof already built by CommitFixture::publish, and its committed-wait assertions stay intact with an added exact-height batch-request assertion. Final-revision qualification is referenced through /out/run/gates.jsonl above."
+
+[gotcha.storage]
+observed = "RpcClient's existing tuple storage is in rpc.rs outside scope. Height zero, which cannot be valid coverage, marks automatic per-wait acquisition in that slot; the single-argument authority setter always clears a prior override. The explicit fixture override setter is hidden from docs and compiled only with debug assertions, including these integration tests."
