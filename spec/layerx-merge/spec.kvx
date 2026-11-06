@@ -9543,6 +9543,18 @@ value = "Extending decision 2735: the replay graph of a composed runtime (the Co
 basis = "The executor and live-snapshot leaves of the same call differ only in the runtime field, 285 against 16 bytes, and the 252-byte difference is the header composition graph repeated in every leaf; the bound is the protocol maximum and is never raised (decision 2675)."
 affects = ["22.31.577"]
 
+[decision.2739]
+title = "The programs precompile serves receipt authorities through callWithReceipts"
+value = "The 0x101D programs precompile exposes callWithReceipts(programId, abiVersion, entrypoint, callData, capabilities, accessDeclaration, responseCapacity, budget, feeLimit, receiptAuthorities), where receiptAuthorities is an array of (bytes canonicalReceipt, uint64 blockHeight) tuples and the outputs are those of call. The handler decodes the nine call inputs as callHandler does, decodes the tuples into ReceiptAuthority values and passes them to submit, so the kernel indexes the cited receipts as TestProgramsSubmitCarriesReceiptAuthorities proves for the Go-level Submit; gas and web-request handling equal call. The call method is unchanged and keeps its selector. A consumer that needs a receipt-authorised program call (the AI market FUND against a balance sight) sends callWithReceipts; the Rust call disclosure decoder and the attestor policy learn the method in their own tasks when a signing consumer sends it."
+basis = "submit has accepted authorities since 13.98.1 but the EVM surface never carried them; the production proof reaches them only through the direct host path (rpc/repair_478_test.go line 409), which no EVM transaction can use."
+affects = ["18.1562.1"]
+
+[decision.2740]
+title = "The bindLayerX registration call is a disclosable construct call"
+value = "decode_method of the call disclosure decodes a call to the addr precompile 0x1004 whose selector is the bindLayerX selector of binding.rs (0xdd9aa628) and whose arguments are exactly 160 bytes (the DID public key word, the offset word 64, the length word 64 and a 64-byte signature: the 164-byte layout managed_agent.rs lines 507 to 512 checks) as ConstructMethod::BindLayerX { public_key, signature }. fields discloses it with ActivityType Governance ordinal 1 (the activity type of the consent onboarding the bind call succeeds, onboarding.rs lines 23 and 232), the sender as actor and authority, no counterparties, amounts or asset, the fee limit every branch computes, and onboarding None. Any other argument length, offset word, length word or selector at 0x1004 stays MalformedPayload."
+basis = "The daemon prepares and the signer verifies every construct call through this disclosure; a registration call that cannot be disclosed can never be prepared or signed, so the agent.register contract (an AuthorityResponse carrying a prepared unsigned type-2 call) was unreachable."
+affects = ["22.31.539"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38433,6 +38445,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.583]
+title = "Disclose the bindLayerX registration call in the call disclosure decoder"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx"]
+tests = ["services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_583 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+do_1 = "do_1 Gotcha 3353, decision 2740. In services/agent/crates/layerx-crypto/src/disclosure/call.rs add ConstructMethod::BindLayerX { public_key: [u8; 32], signature: [u8; 64] } and, in decode_method before the final refusal (line 835), the branch for the target 0x1004 with the selector BIND_SELECTOR of crate::binding (line 10): the arguments are exactly 160 bytes, word 0 the public key, word 1 equal to 64, word 2 equal to 64 and the remaining 64 bytes the signature; any other length, offset word, length word or selector at 0x1004 stays MalformedPayload. In fields give the variant ordinal 1 and module Governance (the consent onboarding activity type of onboarding.rs line 232), the sender as actor and authority, empty counterparties and amounts, a zero asset, the fee limit every branch computes and no onboarding; the match on method at line 904 fills nothing further for it."
+symbols = []
+
+[capability.22.31.582]
+title = "Serve receipt authorities on a programs precompile call through callWithReceipts"
+reqs = ["22998.1"]
+touches = ["precompiles/layerxprograms/abi.json", "precompiles/layerxprograms/LayerXPrograms.sol", "precompiles/layerxprograms/method_call.go", "precompiles/layerxprograms/method_call_receipts.go", "precompiles/layerxprograms/gas.go", "precompiles/layerxprograms/xweb.go", "precompiles/layerxprograms/abi_test.go", "precompiles/layerxprograms/gas_test.go", "precompiles/layerxprograms/gas_charge_test.go", "precompiles/layerxprograms/call_receipts_test.go", "precompiles/layerxprograms/repair_22_31_582.kvx"]
+tests = ["precompiles/layerxprograms/call_receipts_test.go"]
+verification_contract = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsCallWithReceiptsCarriesAuthorities|TestProgramsABIKeepsThirtySixMethods|TestProgramsWriteMethodsChargeGasTable|TestProgramsSubmitCarriesReceiptAuthorities)$'"
+do_1 = "do_1 Gotcha 3352, decision 2739. In precompiles/layerxprograms/abi.json add the nonpayable function callWithReceipts with the nine inputs of call in the same order and types, a tenth input receiptAuthorities of type tuple[] with the components canonicalReceipt (bytes) and blockHeight (uint64), and the three outputs of call; declare the same function in LayerXPrograms.sol under ILayerXPrograms with a struct for the tuple."
+symbols = []
 
 [capability.22.31.581]
 title = "Write the hosted Human timestamp span in milliseconds and document the unit"
@@ -170171,7 +170201,7 @@ title = "Issue #1562: Decode and validate transfer-authority wrappers in AI mark
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463", "22.31.478"]
+requires = ["13.99.1", "22.99.160", "1.23.7", "5.99.1", "22.31.441", "22.31.463", "22.31.478", "22.31.582"]
 reqs = ["181562.1"]
 capabilities = ["18.1562.1"]
 interfaces = []
@@ -170210,6 +170240,7 @@ do_15 = "Attempt 16 (continue after 22.31.478): the Go gate fails because the co
 do_16 = "Attempt 17 (continue, gotcha 3343, decision 2733): the attempt-16 tree stands, including the wasm-opt pass the fixture now runs after the opt-level z build. Before the guest build of the fixture add a wasm-opt presence check that fails the test with the message wasm-opt is required when the tool is absent, matching the Makefile target paxai-host-boundary-build line 2983; keep the 524288 assertion with the 104-byte envelope and keep the opt-level z release build. The qualification environment now provides wasm-opt for this proof. Run the verify at the final revision and record it by reference in the task record; if the optimised guest still exceeds the bound, record the measured size and stop without changing the bound."
 do_17 = "Attempt 18 (requalify, gotcha 3348, decision 2736): the attempt-17 tree at 0ffe1e9e3315f83c8147f3e901364b11216d79f7 stands as it is, including the wasm-opt requirement, the production-optimised guest deployment within 524288 bytes, the separately registered fee asset with occupancy finalised before FUND, and the ABI5 re-registration with profile 1 at line 805 that the budget left unverified. Re-run the build and the verify on that tree without further change and record them by reference in the task record; if the verify fails at a later step of the proof, record the step, the result code and the compared values, and stop at that finding."
 do_18 = "Attempt 19 (continue, gotcha 3349, decision 2737): the attempt-18 tree at bf312fc2181bb527cab3d5cc8602bfa30d55e2a0 stands (the profile-1 re-registration, the wasm-opt requirement, the production-optimised guest). In rpc/sequencer_receipt_vectors_test.go give the main account the production balance 1000000000 in place of 100000000 at line 598 (the balance words) and line 614 (the assertion), the value rpc/repair_478_test.go line 217 uses; keep every fee limit at 100000000 (lines 683, 782 and 831) and keep the occupancy settlement at line 800 and the account read at line 811 as they are. Do not raise the gas allowance or any measuring budget. Run the build and the verify at the final revision and record them by reference in the task record."
+do_19 = "Attempt 20 (continue after 22.31.582, gotcha 3352, decision 2739): the attempt-19 tree stands (the fee balance of 1000000000 at lines 598 and 614, the wrapper decoding and the SDK test). In rpc/sequencer_receipt_vectors_test.go line 831 pack callWithReceipts instead of call with the same nine arguments and a tenth argument of one lxphost.ReceiptAuthority whose CanonicalReceipt is sightReceipt.Encoded and whose BlockHeight is the block height of the context the sight receipt was executed under (the height before next), the authority the production proof passes at rpc/repair_478_test.go line 409; unpack the outputs with the callWithReceipts method and keep the rest of the case. Rebase onto main once 22.31.582 is there, run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"
@@ -177795,6 +177826,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.583]
+title = "Disclose the bindLayerX registration call in the call disclosure decoder"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.583"]
+interfaces = []
+do_1 = "do_1 Gotcha 3353, decision 2740. In services/agent/crates/layerx-crypto/src/disclosure/call.rs add ConstructMethod::BindLayerX { public_key: [u8; 32], signature: [u8; 64] } and, in decode_method before the final refusal (line 835), the branch for the target 0x1004 with the selector BIND_SELECTOR of crate::binding (line 10): the arguments are exactly 160 bytes, word 0 the public key, word 1 equal to 64, word 2 equal to 64 and the remaining 64 bytes the signature; any other length, offset word, length word or selector at 0x1004 stays MalformedPayload. In fields give the variant ordinal 1 and module Governance (the consent onboarding activity type of onboarding.rs line 232), the sender as actor and authority, empty counterparties and amounts, a zero asset, the fee limit every branch computes and no onboarding; the match on method at line 904 fills nothing further for it."
+do_2 = "do_2 Prove it in the crate: bind_call of a 164-byte bindLayerX call to 0x1004 (as BindAuthorization::to_call of binding.rs encodes it) discloses BindLayerX with the key and the signature through construct_method, signing_digest succeeds and the disclosure validates; a call with a 32-byte signature, a wrong offset word, trailing bytes or another selector at 0x1004 is refused; a local signer signs the disclosed call through the disclosure signing path as tests/signer_call.rs does for the ledger calls. Write services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs for these cases and keep the in-file tests of call.rs passing."
+do_3 = "do_3 Record in services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx the branch, decision 2740 and the gates by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The dependent crates match ConstructMethod with wildcard arms (the agent daemon, the MCP tools, the SDK wallet and the hosted core), so no other crate changes. The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["decode_method", "fields", "bind_call", "ConstructMethod"]
+touches = ["services/agent/crates/layerx-crypto/src/disclosure/call.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx"]
+tests = ["services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"]
+planned_paths = ["services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs", "services/agent/crates/layerx-crypto/tests/repair_22_31_583.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --test repair_22_31_583 && cargo test --locked --manifest-path services/agent/crates/layerx-crypto/Cargo.toml --lib -- disclosure::call::tests"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.579]
 title = "Decode the daemon TRACK answer in the Human agent runtime as the daemon writes it"
 status = "done"
@@ -179036,7 +179097,7 @@ title = "Retire the checkpoint-finalised label in the agent daemon: COMMITTED ev
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.538", "22.31.541", "22.31.516", "22.31.558", "22.31.560", "22.31.572"]
+requires = ["22.31.538", "22.31.541", "22.31.516", "22.31.558", "22.31.560", "22.31.572", "22.31.583"]
 reqs = ["22998.1"]
 capabilities = ["22.31.539"]
 interfaces = []
@@ -179068,6 +179129,7 @@ do_8 = "Attempt 4 (requalify after 22.31.558, gotcha 3189, decisions 2628 and 26
 do_9 = "Attempt 5 (requalify, gotcha 3200): the attempt-4 tree stands (the lib suite and five test targets pass; bootstrap_bind_layerx failed only because the qualification environment had no anvil for a target that starts it through LAYERX_TEST_ANVIL, and the environment now installs the Foundry toolchain for such a target). Re-run the gates as they stand."
 do_10 = "Attempt 6 (requalify after 22.31.560, gotcha 3214, decision 2634): the attempt-5 tree stands (library suite 5 passed; build exit 0; dependent-crate check exit 0). agent_register_prepares_bind_layerx failed because the daemon keys the native send preparation under the envelope digest while the purpose names the EVM call digest, the production gap 22.31.560 owns; the session case fell to the poisoned fixture lock as a cascade. Re-run the gates as they stand once 22.31.560 is on main; if the session case then fails on its own assertion, that failure names the next production fact and is recorded in the task record. Rewrite no cache entry and forge no record."
 do_11 = "Attempt 7 (continue, gotcha 3347): the attempt-6 tree stands (the COMMITTED label everywhere, legacy codes 4, 5 and 6 decoded as COMMITTED, repair_22_31_539 with its record, the library suite and five passing test targets). The attempt-5 assumption that 22.31.560 owned the refusal was wrong: 22.31.560 is on main and agent_register_prepares_bind_layerx is still refused with owner.refused. For one diagnostic run add a temporary eprintln naming the file and line at every owner_error Refused site on the bootstrap path: bootstrap_authority and the chain id comparison in the routing module (lines 299 to 360 and the chain id check near line 2115), native_purpose_owner in human_runtime.rs (line 5097: the permit boundary, the peer subject and uid, the peer tenant and origin session, the subject identity read, and each identity condition: frozen, level below COMMITTED, head differing from operations.chain.head().number, revocation sequence 0 or above the head, missing primary key), and verify_context in human_runtime/subject.rs; run the two bootstrap_bind_layerx cases once, record the refusing site and its compared values in tests/repair_22_31_539.kvx, and remove the instrumentation. If the condition is the identity head 50 against the chain head the owner reads, or the retired label the fixture authority peer serves, or a session record field, repair the fixture in tests/bootstrap_bind_layerx.rs to serve the production values and say so in the record; if the condition is a daemon check that refuses a valid bootstrap, repair that check in the named file and add a case to repair_22_31_539.rs that proves it. Run the build and the verify at the final revision and record them by reference in the task record; if the session case then fails on its own assertion, record that assertion and its values."
+do_12 = "Attempt 8 (continue after 22.31.583, gotcha 3353, decision 2740): the attempt-7 tree stands (COMMITTED everywhere, the legacy codes decoded as COMMITTED, the COMMITTED decoding of the finalised checkpoint, the fixture mining 50 real Anvil blocks, repair_22_31_539 with its record and the attempt-7 continuation entry). Change no daemon code for the refusal: once 22.31.583 is on main the call disclosure decodes the bindLayerX bootstrap call and prepare_bootstrap_transaction (the routing module line 187) answers Prepared. Rebase onto main, build and run the verify once; if agent_register_prepares_bind_layerx then fails on a later assertion or session_open_prepares_grant_session_for_the_session_address fails on its own assertion, that failure names the next production fact and is recorded in the task record. Rewrite no cache entry and forge no record."
 
 [task.22.31.538]
 title = "Require the committed verification rank in the approval budget guard and the program presentation budget binding"
@@ -284095,6 +284157,38 @@ do_15 = "Attempt 32 (28dfb4c7c) reverts the funded sandboxExecute with LXP_SEQUE
 do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and sandboxExecute still reverted with a bare LXP_FATAL_INVARIANT returned by host Execute (not by the handler or a receipt code); the stored lease is Active with zero usage, the escrow funded 100000000 with nothing spent, and the ledger is the initial one. This task changes nothing further; it requires 13.27.7 (decision.1890), which fixes the -1001 site on the sandboxed SUCCESS path with an end-to-end SANDBOX_EXECUTE SUCCESS case in tests/codec/lxp_test_sandbox_lifecycle.c; then re-qualify ef3be2b2f unchanged."
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
+
+[task.22.31.582]
+title = "Serve receipt authorities on a programs precompile call through callWithReceipts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.582"]
+interfaces = []
+do_1 = "do_1 Gotcha 3352, decision 2739. In precompiles/layerxprograms/abi.json add the nonpayable function callWithReceipts with the nine inputs of call in the same order and types, a tenth input receiptAuthorities of type tuple[] with the components canonicalReceipt (bytes) and blockHeight (uint64), and the three outputs of call; declare the same function in LayerXPrograms.sol under ILayerXPrograms with a struct for the tuple."
+do_2 = "do_2 Write precompiles/layerxprograms/method_call_receipts.go: a handler registered as callWithReceipts that decodes the nine call arguments exactly as callHandler in method_call.go does, decodes the tenth into a slice of ReceiptAuthority (submit.go line 37) and runs the body of callHandler with those authorities passed to submit (submit.go line 57); move the shared body of method_call.go into one function taking the method name and the authorities so that call and callWithReceipts share it. In xweb.go route callWithReceipts through callWithWebRequests the way call is routed (lines 19 and 128), with the authorities reaching its submit at line 56. In gas.go add the gasTable row callWithReceipts with Write true and executionSurcharge."
+do_3 = "do_3 Update every table and count the new method joins: gas_test.go d2Table gains the callWithReceipts row with its real selector and the surcharge 50000; abi_test.go TestProgramsABIKeepsThirtyFiveMethods becomes TestProgramsABIKeepsThirtySixMethods with the three counts at lines 75, 76 and 109 raised to 36; gas_charge_test.go gasWriteFixture packs callWithReceipts (the call arguments plus an empty authorities slice) and TestProgramsWriteMethodsChargeGasTable counts 16 write methods at line 137."
+do_4 = "do_4 Write precompiles/layerxprograms/call_receipts_test.go with TestProgramsCallWithReceiptsCarriesAuthorities: with programsCallFixture produce two registryRead receipts at earlier heights as TestProgramsSubmitCarriesReceiptAuthorities does, pack callWithReceipts through ProgramsABI with the call arguments and a slice of ReceiptAuthority values, run the packed input the way the write-method cases of gas_charge_test.go run theirs, and assert a zero program outcome status, a verified-receipts index authority_count equal to the cited count with every indexed digest among the cited receipts, and that the same arguments packed as call index none. Keep TestProgramsSubmitCarriesReceiptAuthorities unchanged."
+do_5 = "do_5 Record in precompiles/layerxprograms/repair_22_31_582.kvx the selector of callWithReceipts, the tables changed, decision 2739 and the gates by reference to the gate ledger; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["callHandler", "callWithWebRequests", "submit", "ReceiptAuthority", "gasTable"]
+touches = ["precompiles/layerxprograms/abi.json", "precompiles/layerxprograms/LayerXPrograms.sol", "precompiles/layerxprograms/method_call.go", "precompiles/layerxprograms/method_call_receipts.go", "precompiles/layerxprograms/gas.go", "precompiles/layerxprograms/xweb.go", "precompiles/layerxprograms/abi_test.go", "precompiles/layerxprograms/gas_test.go", "precompiles/layerxprograms/gas_charge_test.go", "precompiles/layerxprograms/call_receipts_test.go", "precompiles/layerxprograms/repair_22_31_582.kvx"]
+tests = ["precompiles/layerxprograms/call_receipts_test.go"]
+planned_paths = ["precompiles/layerxprograms/method_call_receipts.go", "precompiles/layerxprograms/call_receipts_test.go", "precompiles/layerxprograms/repair_22_31_582.kvx"]
+build_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxprograms/..."
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsCallWithReceiptsCarriesAuthorities|TestProgramsABIKeepsThirtySixMethods|TestProgramsWriteMethodsChargeGasTable|TestProgramsSubmitCarriesReceiptAuthorities)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.31.505]
 title = "Restore the GENESIS and GOVERNANCE admission of the system reserve and withdrawals accounts in lx_account_open"
