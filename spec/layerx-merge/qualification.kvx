@@ -32491,3 +32491,11 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 13 at 17649c43798678d3bab9f19c6a4ae788465746e3: build exit 0, dependent-crate check exit 0, verify exit 1: the candidate Fund completes execution at 896330 CPU fuel and ends LXP_ERR_PROGRAM_REFUSED in the occupancy settlement callback after a block advance without finalization; the Rust diagnostic example panics on the terminal wrapper."
 assumption = "Both failures are fixture setup; the production change already meets the allowance."
 severity = "high"
+
+[finding.22.31.571.3]
+task = "22.31.571"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 3 at f87ab3ebe1d677f5732af1f2f6bf0c6c0b36cf06: build exit 0, dependent-crate check exit 0, verify exit 101: PREPARE answers operation.refused at tests/repair_22_31_571.rs line 1073; the proof-frame digest length correction is applied in the tree and unverified."
+assumption = "The proof encoder mismatch is the probable cause; the sited diagnostic settles it if not."
+severity = "high"
