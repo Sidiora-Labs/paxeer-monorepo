@@ -33027,3 +33027,19 @@ symbol = "metrics.ts"
 observed = "Attempt 6 at 7e114a29d64a77c97368d3d2f49fb0f6723b877b: build exit 0, verify exit 1: the publication cancel passes and the product actor fails at line 615 with coverage COMPLETE where it asserted UNAVAILABLE."
 assumption = "The assertion encoded a hand-picked schema; the full series the fixture now applies creates the graphs table."
 severity = "high"
+
+[finding.22.31.478.20]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 20 at 831f32d7ca14a882709094ed26b497c7c2ea7898: build exit 0, dependent-crate check exit 0, verify exit 1: the Go proof and the library tests pass; 17 test binaries of the crate fail, 12 at AdmissionTable::decode on the joint section the unchanged test loaders never split, five on the native harness, the chain-domain environment and the routed fuel cap."
+assumption = "The red suites predate the task and are carried in the 22.99.77 tree; the task proof is the Fund path."
+severity = "high"
+
+[finding.22.36.4.1]
+task = "22.36.4"
+file = "apps/explorer/docs"
+symbol = "docs"
+observed = "Attempt 1 at 7e55d7e34b0cff5aeec2d1f8fce7431ba8d90d91: build exit 0, verify exit 1: five audit tests pass; the tracked-references test reports two deployment files outside the touches that name apps/explorer/docs/ENVS.md."
+assumption = "The references were outside the listed touches; the list is amended."
+severity = "medium"
