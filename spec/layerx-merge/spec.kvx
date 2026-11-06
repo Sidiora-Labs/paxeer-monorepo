@@ -9147,6 +9147,18 @@ value = "ApprovalRegistry::replay_tenant restores the released terminal records 
 basis = "A Human whose reply was lost converges only by asking again after the daemon reopens, and a refusal without a cause cannot be told from a defect."
 affects = ["22.31.570", "22.33.1510"]
 
+[decision.2673]
+title = "A lock file moved with its directory is part of the change"
+value = "When a task moves a sample, crate or module directory, it moves the lock or checksum file the directory holds (Cargo.lock, go.sum, pnpm-lock.yaml, package-lock.json) with git mv and asserts through git ls-files that it is tracked at the new path; the qualification record keeps, under a touched directory, every lock file the index tracks there in addition to the lock files the start tree tracked there, so a moved lock is in the recorded tree. A lock file the task did not stage stays out of the record as before."
+basis = "A sample or crate whose lock file is lost at a move no longer installs with a frozen lockfile, and the 2026-11-03 rule that kept the start tree locks did not see a lock arriving by a move."
+affects = ["22.36.2"]
+
+[decision.2674]
+title = "A changed path compares unquoted against the scope of a task"
+value = "The qualification record reads every path git reports with path quoting off, so a file whose name carries a non-ASCII character (the provider bridge recordings carry an arrow in their names) is matched against the touched directories by its real name, and a task that moves such files neither renames them nor lists them one by one. Paths in spec lists stay ASCII."
+basis = "A move of a directory holding 255 such recordings was refused as out of scope although every file lay under a touched directory and the verify had passed."
+affects = ["22.36.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176064,7 +176076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.569]
 title = "Name the execution observer supplement refusal site and admit a profiled CALL of a large-state guest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324925,6 +324937,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3241, decision 2665): the attempt-1 tree stands (the documentation tree and thirteen samples moved, the in-scope readers rewritten, the dependency checks, the seven cases). The scope now carries tools/bringup/docs-names.sh, tools/deps/floors/platform-node.json, tools/paxeer-x/gates/104.16.5.sh, tools/paxeer-x/gates/104.33.5.sh, tools/paxeer-x/gates/108.0.7.sh, tools/platform/cli/tests/clean-bootstrap.sh, tools/qualification/audit_repairs/test_repair_22_33_1500.py, tools/qualification/audit_repairs/test_repair_22_33_849.py, tools/qualification/tests/test_repair_22_33_809.py and tools/workspace/platform-dependency-roots.txt: rewrite each old path in them to its moved path (docs/platform for the documentation, services/platform/examples/samples for the samples), and rewrite .gitignore line 109 to the moved samples path. Exclude from test_no_tracked_file_retains_the_old_documentation_path every .kvx repair record, spec/ and changelog file (decision 2665); the records tools/bringup/repair-m794.kvx and tools/qualification/audit_repairs/repair_22_33_1500.kvx stay as written. Move services/platform/docs/samples/verify-receipt-rust/Cargo.lock to services/platform/examples/samples/verify-receipt-rust/Cargo.lock with git mv and assert through git ls-files that it is tracked at the new path before the final build; no ignore rule of the main tree matches the new path. Regenerate docs/platform/content/reference/human-api.md from services/human/schema/human-api with docs/platform/build/build_site.py so the committed page matches the generator (minor 10), and keep test_site_generator_reads_moved_samples_and_renders_source_links as it stands. Run the build and the verify at the final revision and record them by reference in the task record."
+do_4 = "Attempt 3 (continue, gotcha 3256, decision 2673): the attempt-2 tree stands (the moved documentation tree and thirteen samples, the ten readers and .gitignore rewritten to the moved paths, the regenerated human API page, the pattern exclusion of the repair records, the seven cases). The recorded tree lacks services/platform/examples/samples/verify-receipt-rust/Cargo.lock and has the old path deleted: recreate the lock at the moved path with the content services/platform/docs/samples/verify-receipt-rust/Cargo.lock has at the start revision (git show of that revision and path), stage it with git add, and keep the old path deleted; the qualification environment now keeps a lock file the index tracks under a touched directory (corrected at 02:28Z on 2026-11-06, before this attempt). Change nothing else. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.36.1]
 title = "Move the vendored project directory under addiqate/ to tools/ and fold its documentation into docs/"
@@ -324954,6 +324967,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3257, decision 2674): the attempt-1 tree stands (the project directory moved under tools/, addiqate/ removed, the eight root documents deleted, the 104 documentation files under docs/, the links rewritten, the tools README row, the 92 cases). The recorded tree lacks two lock files the move carried: recreate pnpm-lock.yaml at the moved directory root and core/control-plane/package-lock.json under it with the content the same files have under addiqate/ at the start revision (git show of that revision and path), stage both with git add, and keep the addiqate/ paths deleted; the qualification environment now keeps a lock file the index tracks under a touched directory and compares paths with non-ASCII names unquoted (both corrected before this attempt). Change nothing else. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.32.191]
 title = "Record the wasmer advisory exemption in the security policy and the repair record"

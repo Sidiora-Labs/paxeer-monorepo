@@ -1235,7 +1235,8 @@ fn approval_window_expired(
     current_time: TimestampSeconds,
 ) -> Result<bool, ApprovalError> {
     if current_sequence < held.created_at_sequence
-        || current_time.get() < presentation.created_at_unix_seconds
+        || (presentation.created_at_unix_seconds != 0
+            && current_time.get() < presentation.created_at_unix_seconds)
     {
         return Err(ApprovalError::InvalidWindow);
     }
@@ -1515,6 +1516,21 @@ fn put_bytes(out: &mut Vec<u8>, bytes: &[u8]) -> Result<(), ApprovalError> {
 }
 fn put_text(out: &mut Vec<u8>, text: &str) -> Result<(), ApprovalError> {
     put_bytes(out, text.as_bytes())
+}
+
+pub(crate) fn migrate_legacy_hold(
+    key: &[u8],
+    bytes: &[u8],
+) -> Result<Option<Vec<u8>>, ApprovalError> {
+    if !key.starts_with(HOLD_KEY_PREFIX) || !bytes.starts_with(HOLD_MAGIC) {
+        return Ok(None);
+    }
+    let mut held = decode_legacy_hold(bytes)?;
+    held.presentation = Some(ApprovalPresentation {
+        created_at_unix_seconds: 0,
+        activity_expires_at_unix_seconds: held.prepared.expiry.get(),
+    });
+    encode_hold(&held).map(Some)
 }
 
 fn encode_hold(h: &HeldApproval) -> Result<Vec<u8>, ApprovalError> {
