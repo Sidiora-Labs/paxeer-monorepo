@@ -4404,16 +4404,20 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 fn decode_tracked(reader: &mut Reader) -> Result<TrackedSubmission, AgentBoundaryError> {
-    let submission_ref =
-        SubmissionRef::new(reader.text()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    let submission_ref = SubmissionRef::new(hex(&reader.fixed::<32>()?))
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
     let state = match reader.u8()? {
         0 => SubmissionState::Prepared,
         1 => SubmissionState::Signed,
         2 => SubmissionState::Queued,
-        3 | 4 => SubmissionState::Submitted,
+        3 => SubmissionState::Submitted,
         5 => SubmissionState::Unknown,
         6 => SubmissionState::Executed {
-            receipt_ref: ReceiptRef::new(reader.text()?)
+            receipt_ref: ReceiptRef::new(hex(&reader.fixed::<32>()?))
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+        },
+        9 => SubmissionState::Committed {
+            receipt_ref: ReceiptRef::new(hex(&reader.fixed::<32>()?))
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?,
         },
         7 => SubmissionState::Failed {
