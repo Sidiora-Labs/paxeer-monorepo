@@ -20,6 +20,7 @@ const tables = {
     "source_git_publications",
     "status AS state,created_at,updated_at",
   ],
+  imports: ["source_git_imports", "state,metrics,created_at,updated_at"],
   graphs: ["source_graph_builds", "state"],
   transfers: [
     "source_transfers",
@@ -90,7 +91,13 @@ export class SourceMetricsService {
     );
     const rows = result.rows.slice(0, maximum) as Row[],
       states: Record<string, number> = {},
-      partitions: Record<string, number> = {};
+      partitions: Record<string, number> = {},
+      ingestion: Record<string, number> = {
+        historical_commits: 0,
+        historical_revisions: 0,
+        mapped_commits: 0,
+        new_authored_revisions: 0,
+      };
     let bytes = 0n,
       hasBytes = false,
       maximumAge: number | null = null,
@@ -100,6 +107,17 @@ export class SourceMetricsService {
     for (const row of rows) {
       const state = typeof row.state === "string" ? row.state : "UNKNOWN";
       states[state] = (states[state] ?? 0) + 1;
+      if (table === "source_git_imports") {
+        const values = row.metrics as Record<string, number>;
+        ingestion.historical_commits! +=
+          values.historical_commits ??
+          values.imported_commits! + values.collapsed_commits!;
+        ingestion.historical_revisions! +=
+          values.historical_revisions ?? values.imported_commits!;
+        ingestion.mapped_commits! += values.mapped_commits ?? 0;
+        ingestion.new_authored_revisions! +=
+          values.new_authored_revisions ?? values.new_authored_commits!;
+      }
       if (typeof row.partition === "string")
         partitions[row.partition] = (partitions[row.partition] ?? 0) + 1;
       if (
@@ -116,6 +134,7 @@ export class SourceMetricsService {
           if (
             [
               "PENDING",
+              "IMPORTING",
               "UPLOADING",
               "UNKNOWN",
               "QUEUED",
@@ -150,6 +169,7 @@ export class SourceMetricsService {
         ? Math.round(durationTotal / durationCount)
         : null,
       partitions,
+      ...(table === "source_git_imports" ? { ingestion } : {}),
     };
   }
 }

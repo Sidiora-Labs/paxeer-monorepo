@@ -1,0 +1,287 @@
+{
+  "source": "https://api1.mainnet-beta.paxeer.network/",
+  "chain_id": 125,
+  "recorded_at": "2026-11-04",
+  "exchanges": [
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "eth_chainId",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "result": "0x7d"
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "method": "px_resolveAccount",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 2,
+        "error": {
+          "code": -32601,
+          "message": "the method px_resolveAccount does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "px_getAccount",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getAccount does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "method": "px_getBalances",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 4,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getBalances does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "method": "px_listAssets",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 5,
+        "error": {
+          "code": -32601,
+          "message": "the method px_listAssets does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "method": "px_getNetwork",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 6,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getNetwork does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "method": "px_getCapabilities",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 7,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getCapabilities does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "method": "px_getRouteCatalogue",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 8,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getRouteCatalogue does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "method": "px_getHistory",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD",
+          null,
+          2
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 9,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getHistory does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "method": "px_getUnifiedHistory",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD",
+          null,
+          2
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 10,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getUnifiedHistory does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 11,
+        "method": "px_listHolderRecords",
+        "params": [
+          "0x000000000000000000000000000000000000dEaD",
+          "budget",
+          null,
+          2
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 11,
+        "error": {
+          "code": -32601,
+          "message": "the method px_listHolderRecords does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "method": "px_getCommit",
+        "params": [
+          "1"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 12,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getCommit does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "method": "px_getValidators",
+        "params": [
+          "1"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 13,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getValidators does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 14,
+        "method": "px_getReceiptKeys",
+        "params": []
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 14,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getReceiptKeys does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 15,
+        "method": "px_getSequenceBatch",
+        "params": [
+          "1"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 15,
+        "error": {
+          "code": -32601,
+          "message": "the method px_getSequenceBatch does not exist/is not available"
+        }
+      }
+    },
+    {
+      "request": {
+        "jsonrpc": "2.0",
+        "id": 16,
+        "method": "pax_sequencerReceipt",
+        "params": [
+          "0x0000000000000000000000000000000000000000000000000000000000000000"
+        ]
+      },
+      "response": {
+        "jsonrpc": "2.0",
+        "id": 16,
+        "error": {
+          "code": -32000,
+          "message": "pax_sequencerReceipt served by sequencer"
+        }
+      }
+    }
+  ]
+}
