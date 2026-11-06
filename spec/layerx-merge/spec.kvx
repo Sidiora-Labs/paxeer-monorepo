@@ -9189,6 +9189,12 @@ value = "The execution observer charges each retained boundary with the bytes it
 basis = "Gotchas 3264 and 3265: a per-boundary charge of the whole linear memory exhausts 64 mebibytes within 58 boundaries for any default-stack Rust guest, and a producer that promotes the rank breaks every consumer that verifies the evidence rank."
 affects = ["22.31.573", "22.99.77"]
 
+[decision.2680]
+title = "An implemented attempt stopped by a build break that another task repairs requalifies on its unchanged tree"
+value = "When an attempt has implemented its task and its build stops on a break outside its touches that a later task repairs, the attempt is requalified on its own tree after that task lands; the ruling names the repairing task, the task requires it, and no continue note asks the agent to work around the break."
+basis = "Gotchas 3263 and 3266: two implemented trees stopped on the same moved-matrix include; re-implementing them would discard finished work for a cause the include repair removes."
+affects = ["22.31.571", "22.33.1569"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -176196,6 +176202,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (requalify, gotcha 3266, decision 2680): the attempt-1 tree stands (the release reference resolves through TRACK from release to the verified receipt; the recovery change and the proof in tests/repair_22_31_571.rs are implemented). The build stopped on the compat.rs include of the matrix that 22.36.5 moved; task 22.31.572 repoints it and this task requires it. Re-run the gates as they stand once 22.31.572 has landed."
 
 [task.22.31.570]
 title = "Restore released terminal approvals on replay and name the cause of every approval refusal"

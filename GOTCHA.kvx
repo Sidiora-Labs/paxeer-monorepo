@@ -16150,3 +16150,8 @@ fix = "Task 22.31.573 charges a boundary with the state it retains (the first re
 title = "22.99.77 attempt 19: view_binding a02_v2_preserves_lower_ranks_and_rejects_invalid_ranks (view_binding.rs line 676, also run inside repair_22_33_217) fails: the restored main-tree assertion expects the binding with the evidence rank substituted and bind_snapshot answers FINALIZED_RANK for every rank below finalized."
 symptom = "The task tree changed production: programs/crates/layerx-programs-ai-market/src/queries.rs line 370 publishes rank FINALIZED_RANK and its documentation says a committed block publishes finalized rank, while main line 368 publishes finality.rank and documents that the evidence rank is preserved; the ruling of attempt 18 restored the assertion but not the producer."
 fix = "Revert the producer to the main-tree semantics; the evidence rank is the rank the consumer verifies against (decision 2679 records it)."
+
+[gotcha.3266]
+title = "22.31.571 attempt 1: the release-reference tracking, the recovery change and the proof were implemented in all five scoped files, then the build stopped with exit 101 on compat.rs line 8 of layerx-agentd (services/agent/COMPATIBILITY.md absent, gotcha 3263); verification never ran."
+symptom = "The attempt started at 03:13Z, eleven minutes before task 22.31.572 was published to repoint the include; the task now requires 572 and its tree is unchanged by the break."
+fix = "Requalify the attempt-1 tree once 22.31.572 has landed (decision 2680)."
