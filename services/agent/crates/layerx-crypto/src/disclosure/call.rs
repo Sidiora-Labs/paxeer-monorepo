@@ -1,4 +1,5 @@
 use super::*;
+use crate::binding::BIND_SELECTOR;
 use crate::payments::Registration;
 use sha3::{Digest as _, Keccak256};
 
@@ -22,6 +23,10 @@ pub use super::program::{decode_program_call, encode_program_call};
 ///   constructor for these in the daemon's EVM preparation module.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstructMethod {
+    BindLayerX {
+        public_key: [u8; 32],
+        signature: [u8; 64],
+    },
     ProgramCall {
         call: Box<DisclosedProgramCall>,
         fee_limit: u128,
@@ -105,6 +110,7 @@ impl ConstructMethod {
     #[must_use]
     pub const fn abi_signature(&self) -> &'static str {
         match self {
+            Self::BindLayerX { .. } => "bindLayerX(bytes32,bytes)",
             Self::ProgramCall { .. } => "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
             Self::LedgerOpenAccount { .. } => "openAccount(bytes32)",
             Self::LedgerRegister { .. } => "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
@@ -298,7 +304,8 @@ impl Disclosure {
                 pointer,
                 value: u128::from_be_bytes(uint(amount)?),
             }],
-            ConstructMethod::ProgramCall { .. }
+            ConstructMethod::BindLayerX { .. }
+            | ConstructMethod::ProgramCall { .. }
             | ConstructMethod::LedgerOpenAccount { .. }
             | ConstructMethod::LedgerRegister { .. }
             | ConstructMethod::LedgerMint { .. }
@@ -831,6 +838,21 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             amount: word(args, 1)?,
         });
     }
+    if target(&call.to, [0x10, 0x04]) {
+        if selector != BIND_SELECTOR
+            || args.len() != 160
+            || word(args, 1)? != abi_word(64)
+            || word(args, 2)? != abi_word(64)
+        {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        return Ok(ConstructMethod::BindLayerX {
+            public_key: word(args, 0)?,
+            signature: args[96..]
+                .try_into()
+                .map_err(|_| DisclosureError::MalformedPayload)?,
+        });
+    }
     Err(DisclosureError::MalformedPayload)
 }
 
@@ -842,7 +864,8 @@ pub(super) fn fields(
     let ordinal = match &method {
         ConstructMethod::ProgramCall { .. } => 3,
         ConstructMethod::LedgerOpenAccount { .. } => 4,
-        ConstructMethod::LedgerRegister { .. }
+        ConstructMethod::BindLayerX { .. }
+        | ConstructMethod::LedgerRegister { .. }
         | ConstructMethod::PayBudgetCreate { .. }
         | ConstructMethod::PayBudgetCreateNative { .. } => 1,
         ConstructMethod::AuthSession { .. } => 5,
@@ -868,7 +891,9 @@ pub(super) fn fields(
         ModuleId::Budget
     } else if matches!(
         &method,
-        ConstructMethod::AuthLifecycle { .. } | ConstructMethod::AuthSession { .. }
+        ConstructMethod::BindLayerX { .. }
+            | ConstructMethod::AuthLifecycle { .. }
+            | ConstructMethod::AuthSession { .. }
     ) {
         ModuleId::Governance
     } else if matches!(&method, ConstructMethod::ProgramCall { .. }) {
@@ -902,6 +927,7 @@ pub(super) fn fields(
         native_operation: None,
     };
     match method {
+        ConstructMethod::BindLayerX { .. } => {}
         ConstructMethod::ProgramCall { call, .. } => {
             if let Some((idempotency_key, expiry)) = program::paxai_envelope_terms(&call)? {
                 fields.idempotency_key = idempotency_key;
