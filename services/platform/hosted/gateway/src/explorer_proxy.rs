@@ -462,7 +462,30 @@ mod tests {
     }
     #[test]
     fn explorer_query_and_finite_routes() {
-        assert_eq!(ROUTES.len(), 142);
+        assert_eq!(ROUTES.len(), 145);
+        let hash = format!("0x{}", "ab".repeat(32));
+        for (path, template) in [
+            (
+                format!("/api/v2/transactions/{hash}/signature"),
+                "/api/v2/transactions/{transaction_hash_param}/signature",
+            ),
+            (
+                "/api/v2/paxeer-x/feed/markets".to_owned(),
+                "/api/v2/paxeer-x/feed/markets",
+            ),
+            (
+                "/api/v2/paxeer-x/feed/markets/0/updates".to_owned(),
+                "/api/v2/paxeer-x/feed/markets/{market_id}/updates",
+            ),
+            (
+                format!("/api/v2/paxeer-x/feed/updates/{hash}"),
+                "/api/v2/paxeer-x/feed/updates/{hash}",
+            ),
+        ] {
+            let route = selected("GET", &path).expect("signature and feed routes are admitted");
+            assert_eq!(route.path, template, "{path}");
+            assert!(!route.session_csrf, "{path}");
+        }
         assert!(selected("GET", "/api/v2/addresses/0xabc/transactions").is_some());
         assert!(selected("POST", "/api/v2/watch").is_none());
         assert!(selected("POST", "/api/v2/webhooks").is_none());

@@ -47,6 +47,9 @@ const (
 	// goroutine creation on high-core machines. Tasks are primarily I/O bound
 	// (fetching and processing block logs), so 2x CPU cores can be excessive.
 	MaxWorkerPoolSize = 64
+
+	// MinFilterTimeout keeps the half-timeout cleanup ticker positive.
+	MinFilterTimeout = 2 * time.Nanosecond
 )
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
@@ -407,7 +410,7 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 			return cfg, fmt.Errorf("%s: %w", flagFilterTimeout, err)
 		}
 	}
-	if cfg.FilterTimeout < 2*time.Nanosecond {
+	if cfg.FilterTimeout < MinFilterTimeout {
 		return cfg, fmt.Errorf("%s must be at least 2ns so the cleanup ticker interval is positive", flagFilterTimeout)
 	}
 	if v := opts.Get(flagMaxTxPoolTxs); v != nil {

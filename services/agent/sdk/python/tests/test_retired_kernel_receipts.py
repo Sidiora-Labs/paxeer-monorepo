@@ -4,6 +4,7 @@ from copy import deepcopy
 from dataclasses import replace
 from importlib.util import find_spec, module_from_spec, spec_from_file_location
 from pathlib import Path
+from collections.abc import Mapping
 
 import pytest
 from typing import get_type_hints
@@ -14,6 +15,8 @@ import layerx_sdk.program_wire as program_wire
 import layerx_sdk.programs as programs
 import layerx_sdk.verifier as verifier
 import layerx_sdk.x402 as x402
+import layerx_sdk.x402_rpc as x402_rpc
+from layerx_sdk.committed import CommitTrust, verify_committed_transaction
 
 
 def test_kernel_receipt_paths_are_gone():
@@ -40,6 +43,9 @@ def test_kernel_receipt_paths_are_gone():
         "decode_batch_header",
         "verify_merkle_inclusion",
         "verify_program_receipt",
+        "AuthorizedReceiptBatch",
+        "PaymentCommitmentEvidence",
+        "_SequencerAuthorization",
     )
     for name in retired:
         assert not hasattr(layerx_sdk, name), name
@@ -50,7 +56,7 @@ def test_kernel_receipt_paths_are_gone():
     assert not hasattr(ai_market.SnapshotBinding, "require_checkpoint")
     assert (
         get_type_hints(ai_market.OperationJournal.finalize)["finality"]
-        is ai_market.CommitFinality
+        == Mapping[str, object]
     )
     for name in ("submit", "resend_exact", "expire"):
         assert callable(getattr(ai_market.OperationJournal, name)), name
@@ -64,14 +70,15 @@ def test_kernel_receipt_paths_are_gone():
         assert not hasattr(x402, name), name
         assert name not in layerx_sdk.__all__, name
     assert find_spec("layerx_sdk.x402_checkpoint") is None
-    assert "checkpoint" not in x402.PaymentCommitmentEvidence.__dataclass_fields__
-    assert get_type_hints(x402.PaymentCommitmentEvidence)["proof"] is verifier.MerkleProof
+    assert not hasattr(x402, "PaymentCommitmentEvidence")
+    assert not hasattr(x402_rpc, "rpc_batch_evidence")
+    assert get_type_hints(x402.PaymentEvidence, globalns={**vars(x402), "CommitTrust": CommitTrust})["finality"] == tuple[CommitTrust, dict] | None
     for name in ("verify_sequencer_receipt", "verify_payment_receipt"):
         assert callable(getattr(x402, name)), name
-    for name in ("PaymentCommitmentEvidence", "verify_payment_receipt"):
+    for name in ("PaymentEvidence", "verify_payment_receipt"):
         assert getattr(layerx_sdk, name) is getattr(x402, name)
         assert name in layerx_sdk.__all__, name
-    for name in ("AuthorizedReceiptBatch", "ReceiptKey", "verify_sequencer_receipt"):
+    for name in ("ReceiptKey", "verify_sequencer_receipt"):
         assert hasattr(layerx_sdk, name), name
         assert hasattr(verifier, name), name
         assert getattr(layerx_sdk, name) is getattr(verifier, name)
@@ -202,7 +209,9 @@ def test_program_execution_requires_pinned_receipt_keys(program_execution_eviden
 
 
 def test_program_receipt_calls_and_declarations_stay_retired():
-    retired = {"verify_program_receipt", "verify_program_lifecycle_receipt"}
+    retired = {"verify_program_receipt", "verify_program_lifecycle_receipt",
+               "AuthorizedReceiptBatch", "PaymentCommitmentEvidence",
+               "_SequencerAuthorization", "rpc_batch_evidence"}
     for path in Path(programs.__file__).parent.glob("*.py*"):
         if path.suffix not in {".py", ".pyi"}:
             continue
@@ -281,3 +290,25 @@ def test_lifecycle_recovery_uses_retained_receipt_verification(program_execution
             activity, key.public_key, signatures, signed_activity=raw, receipt_keys=(key,),
         )
     assert raised.value.check == "bad_signature"
+
+
+
+def test_retained_receipt_and_commit_verification_are_public(program_execution_evidence):
+    from test_repair_22_31_147 import commit_producer, finality_bundle
+    vector, key, _ = program_execution_evidence
+    raw = bytes.fromhex(vector["rawTransaction"][2:])
+    receipt = bytes.fromhex(vector["signedReceipt"][2:])
+    verified = layerx_sdk.verify_sequencer_receipt(receipt, raw, (key,))
+    produced = commit_producer.__wrapped__()(raw, verified.height + 1)
+    trust, evidence = finality_bundle(produced)
+    committed = trust.verify(raw, verified.height, evidence)
+    assert committed.transaction_hash == verified.receipt.activity_id
+    assert committed.block_hash.hex() == produced["header_hash"]
+    assert committed.height == verified.height + 1
+    assert verify_committed_transaction(
+        raw, verified.height, **evidence, chain_id=produced["header"]["chain_id"],
+        trusted_validators=tuple(produced["validators"]),
+    ) == committed
+    for transaction in (raw + b"\0", raw[:-1]):
+        with pytest.raises(ValueError, match="inclusion identity"):
+            trust.verify(transaction, verified.height, evidence)

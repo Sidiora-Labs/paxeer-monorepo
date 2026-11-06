@@ -90,8 +90,9 @@ merging, review every YAML file in `swaggers/overrides` against that producer;
 `yarn merge` deep-merges them in sorted order and removes properties marked
 `__REMOVE__`. Old overrides can overwrite correct local schemas, reintroduce
 unmounted routes or erase native variants. The health override described below
-must be aligned before regeneration. Do not assume upstream operation names or
-schema names match the local document: review generated API names and callers.
+records the current controller contract; preserve it during regeneration. Do
+not assume upstream operation names or schema names match the local document:
+review generated API names and callers.
 
 ```sh
 yarn merge
@@ -126,10 +127,11 @@ neither fetches the Paxeer backend schema.
 
 ### Health contract
 
-Call `GET /api/health` using `client.health_api().health()`. The obsolete
-`/api/v1/health` operation remains in the generator override and generated
-`health_v1()` method, but is not mounted by the current backend. Do not use it
-as a supported health check.
+Call `GET /api/health` using `client.health_api().health()`. The override and
+merged generator input declare this operation with HTTP 200 and HTTP 500
+responses. The obsolete `/api/v1/health` route is not mounted or generated as
+a supported operation. The retained compatibility method `health_v1()` returns
+`Error::UnsupportedCapability` before sending a request; use `health()` instead.
 
 [HealthController](../../../backend/apps/block_scout_web/lib/block_scout_web/controllers/api/health_controller.ex)
 returns HTTP 200 when block indexing is healthy and HTTP 500 otherwise. For
@@ -157,13 +159,17 @@ Heights and timestamps are strings. Unhealthy responses include
 `metadata.blocks.error` and a top-level `error` containing `code` and `message`.
 Standalone media worker mode instead returns `{"healthy":true,"data":{}}`.
 
-The current Rust model supports `HealthCheckResponse.metadata.blocks` and
-`LatestBlock.node`. However,
-[swaggers/overrides/002_health.yaml](swaggers/overrides/002_health.yaml) still
-uses the old `metadata.latest_block` shape, spells the cache height `mber`,
-lacks the node height and HTTP 500 schema, and carries the unmounted v1
-operation. Align the inputs with the producer above before regeneration so it
-does not discard the current Rust model corrections.
+The [health override](swaggers/overrides/002_health.yaml),
+[merged generator input](swaggers/blockscout-api-final.yaml) and Rust models
+preserve `metadata.blocks.latest_block`, with `db`, `cache` and `node` heights
+named `number`. Rollup deployments may also include `metadata.batches`; this
+does not change the block-health decision. HTTP 200 decodes to
+`HealthCheckResponse` through both `try_as_success` and
+`try_parse_as_success_model`. HTTP 500 remains `Error::ResponseError` with the
+original status/body and typed `HealthError::Status500` carrying
+`UnhealthyHealthCheckResponse`, including both block and top-level errors.
+Empty database/cache heights and timestamps are empty strings, not nulls or
+RFC 3339 timestamps; preserve this when refreshing the schema.
 
 ## Tests
 
@@ -186,6 +192,14 @@ cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml -
 
 These offline checks need no credentials, live backend or external toolchain
 process. They do not execute the Elixir producer or certify a deployment.
+
+The focused [doc-13 regression](../tests/repair_22_33_360.rs) is registered in
+the crate manifest. It replays the committed upstream health transcript and
+source-derived controller lifecycle cases over loopback HTTP through the real
+`ApiClient`, checks both success consumers and typed HTTP 500 errors, and
+checks that `health_v1()` refuses before transport. The Python documentation
+gate validates the examples and schemas against those fixtures and checks the
+producer/client source wiring; it does not execute Rust or Elixir.
 
 ### Local backend contract command
 

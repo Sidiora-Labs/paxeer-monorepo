@@ -1,0 +1,38 @@
+[repair.22.31.505]
+gotcha = "3051"
+decision = "2548"
+cause = "22.33.1138 rejected live system reserve and withdrawals accounts before the registry index lookup, including GENESIS and GOVERNANCE creation."
+change = "Refuse module-value opens unconditionally; retain indexed reopening and the existing CREDIT refusal for absent system accounts."
+contract = "All six reserve/withdrawals names reject absent-account CREDIT without registry/log changes, create independently under GENESIS and GOVERNANCE, resolve through lookup and reopen without mutation under all three authorities; module-value creation remains refused under all three."
+withdrawn_findings = ["22.30.5.27", "22.30.5.28"]
+withdrawn_premise = "The reserve and withdrawals accounts are retired custody accounts; the live genesis manifest requires them and bridge withdrawals target them."
+waiting_tasks = ["22.33.1236", "22.33.891", "22.33.892"]
+base_revision = "131ca5cf77d8eea3514d4ccede53ca225703a6af"
+verified_revision = "task/22.31.505"
+revision_evidence = "The runner sets this revision to the immutable candidate SHA printed by hf-done; build and verification must have the same SHA in /out/run/gates.jsonl."
+build_command = "make -s all"
+verify_command = "make -s test-ledger-accounts test-asset-withdraw"
+evidence = "Private runner gate ledger and gate logs; the final response copies the last hf-done evidence line."
+
+[consumer.asset_registry]
+command = "make -s test-asset-registry"
+exit = 0
+log = "/out/logs/repair-22-31-505-asset_registry.log"
+
+[consumer.reserve_build]
+command = "make -s build/tests/test_reserve_reconcile"
+exit = 0
+log = "/out/logs/repair-22-31-505-reserve_build.log"
+
+[consumer.reserve_reconcile]
+command = "./build/tests/test_reserve_reconcile"
+exit = 1
+log = "/out/logs/repair-22-31-505-reserve_reconcile.log"
+
+[qualification.sources]
+implementation_sha256 = "44ba40558c799da926d0cb3ff3088cd8d9341ebbabac4cc42bda0a721b41885a"
+admission_contract_sha256 = "9337e8c12cc6478be8e6dc3726dc691382fdc17dd23b5b6d8a6d8f7ba03455a4"
+
+[qualification.reserve_reconcile]
+observed = "The reserve consumer built successfully, but its executable exited 1 without diagnostics after the admission repair; the failure is recorded without changing or weakening its assertions."
+assumption = "No further reserve-consumer investigation or changes are authorized by this ledger admission scope; the declared ledger-accounts and asset-withdraw gate remains required."

@@ -189,7 +189,7 @@ ensure_runtime() {
 }
 
 ensure_mounts() {
-  for mount in apps config rel mix.exs mix.lock .formatter.exs .credo.exs; do
+  for mount in apps config rel mix.exs mix.lock README.md .formatter.exs .credo.exs; do
     [ -e "$backend_dir/$mount" ] || die "mount source $backend_dir/$mount does not exist"
   done
   [ -d "$repo_root/precompiles" ] || die "mount source $repo_root/precompiles is not a directory"
@@ -312,6 +312,7 @@ mix_in_container() {
     --volume "$backend_dir/rel:$CONTAINER_WORKDIR/rel" \
     --volume "$backend_dir/mix.exs:$CONTAINER_WORKDIR/mix.exs" \
     --volume "$backend_dir/mix.lock:$CONTAINER_WORKDIR/mix.lock" \
+    --volume "$backend_dir/README.md:$CONTAINER_WORKDIR/README.md:ro" \
     --volume "$backend_dir/.formatter.exs:$CONTAINER_WORKDIR/.formatter.exs" \
     --volume "$backend_dir/.credo.exs:$CONTAINER_WORKDIR/.credo.exs" \
     --volume "$repo_root/precompiles:/precompiles:ro" \

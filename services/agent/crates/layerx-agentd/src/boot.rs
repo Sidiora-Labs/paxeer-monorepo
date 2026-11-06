@@ -1,4 +1,9 @@
 //! Startup and reconnection readiness for the node JSON-RPC connection.
+//!
+//! The maintained contract is `contracts/agent-config.md`: Gate::readiness_gate(&NodeRpc)
+//! returns ReadinessStatus, closes writes before every refresh, and increments its
+//! process-local generation only after fresh keys pass the protected key policy.
+//! Chain-id mismatches are refused by NodeRpc::connect before a Gate sees the connection.
 
 use layerx_client::sequencer::ReceiptKeyEntry;
 

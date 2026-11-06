@@ -4,8 +4,55 @@ import config from 'configs/app';
 
 const heroBannerButton = config.UI.homepage.heroBanner?.button;
 
+function roleColor(role: string) {
+  return { value: { _light: `{colors.theme.${ role }._light}`, _dark: `{colors.theme.${ role }._dark}` } };
+}
+
+function aliasColor(token: string) {
+  return { value: { _light: `{colors.${ token }}`, _dark: `{colors.${ token }}` } };
+}
+
 const semanticTokens: ThemingConfig['semanticTokens'] = {
   colors: {
+    canvas: roleColor('canvas'),
+    surface: roleColor('surface'),
+    raised: roleColor('raised'),
+    hairline: roleColor('hairline'),
+    onAccent: roleColor('onAccent'),
+    positive: roleColor('positive'),
+    positiveSoft: roleColor('positiveSoft'),
+    negative: roleColor('negative'),
+    negativeSoft: roleColor('negativeSoft'),
+    warning: roleColor('warning'),
+    warningSoft: roleColor('warningSoft'),
+    headerBar: roleColor('headerBar'),
+    focusRing: roleColor('focusRing'),
+    sparkline: {
+      up: roleColor('sparklineUp'),
+      down: roleColor('sparklineDown'),
+    },
+    chart: {
+      grid: roleColor('chartGrid'),
+      area: {
+        start: roleColor('chartAreaStart'),
+        stop: roleColor('chartAreaStop'),
+      },
+    },
+    graph: {
+      line: aliasColor('accent'),
+      gradient: { start: aliasColor('chart.area.start'), stop: aliasColor('chart.area.stop') },
+    },
+    graphStart: roleColor('graphStart'),
+    graphStop: roleColor('graphStop'),
+    success: aliasColor('positive'),
+    successSoft: aliasColor('positiveSoft'),
+    destructive: aliasColor('negative'),
+    destructiveSoft: aliasColor('negativeSoft'),
+    tonal: aliasColor('accent.soft'),
+    outline: aliasColor('hairline'),
+    dataTableBorder: aliasColor('hairline'),
+    selectedOption: aliasColor('accent.soft'),
+    transparent: { value: { _light: 'transparent', _dark: 'transparent' } },
     // COMMON STATES
     hover: {
       DEFAULT: { value: { _light: '{colors.theme.hover._light}', _dark: '{colors.theme.hover._dark}' } },
@@ -23,8 +70,8 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     // GLOBAL
     global: {
       body: {
-        bg: { value: '{colors.bg.primary}' },
-        fg: { value: '{colors.text.primary}' },
+        bg: { value: { _light: '{colors.bg.primary}', _dark: '{colors.bg.primary}' } },
+        fg: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
       },
       mark: {
         bg: { value: { _light: '{colors.green.100}', _dark: '{colors.green.800}' } },
@@ -33,7 +80,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
         thumb: { value: { _light: '{colors.blackAlpha.300}', _dark: '{colors.whiteAlpha.300}' } },
       },
       selection: {
-        bg: { value: { _light: '#E3CFE7', _dark: '#754B7D' } },
+        bg: aliasColor('accent.soft'),
       },
     },
 
@@ -59,16 +106,19 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
 
     // FOUNDATIONS
     heading: {
-      DEFAULT: { value: '{colors.text.primary}' },
+      DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
     },
     text: {
       primary: { value: { _light: '{colors.theme.text.primary._light}', _dark: '{colors.theme.text.primary._dark}' } },
       secondary: { value: { _light: '{colors.theme.text.secondary._light}', _dark: '{colors.theme.text.secondary._dark}' } },
       muted: { value: { _light: '{colors.theme.text.muted._light}', _dark: '{colors.theme.text.muted._dark}' } },
-      error: { value: '{colors.feedback.error.fg}' },
-      success: { value: '{colors.feedback.success.fg}' },
+      error: { value: { _light: '{colors.feedback.error.fg}', _dark: '{colors.feedback.error.fg}' } },
+      success: { value: { _light: '{colors.feedback.success.fg}', _dark: '{colors.feedback.success.fg}' } },
     },
     bg: {
+      canvas: aliasColor('canvas'),
+      raised: aliasColor('raised'),
+      headerBar: aliasColor('headerBar'),
       primary: { value: { _light: '{colors.theme.bg.primary._light}', _dark: '{colors.theme.bg.primary._dark}' } },
       surface: { value: { _light: '{colors.theme.bg.surface._light}', _dark: '{colors.theme.bg.surface._dark}' } },
       sunken: { value: { _light: '{colors.theme.bg.sunken._light}', _dark: '{colors.theme.bg.sunken._dark}' } },
@@ -77,7 +127,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     border: {
       divider: { value: { _light: '{colors.theme.border.divider._light}', _dark: '{colors.theme.border.divider._dark}' } },
       strong: { value: { _light: '{colors.theme.border.strong._light}', _dark: '{colors.theme.border.strong._dark}' } },
-      error: { value: '{colors.feedback.error.fg}' },
+      error: { value: { _light: '{colors.feedback.error.fg}', _dark: '{colors.feedback.error.fg}' } },
     },
     icon: {
       primary: { value: { _light: '{colors.theme.icon.primary._light}', _dark: '{colors.theme.icon.primary._dark}' } },
@@ -87,11 +137,11 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     // ELEMENTS
     header: {
       sticky: {
-        bg: { value: { _light: 'rgba(255, 255, 255, 0.9)', _dark: 'rgba(18, 19, 23, 0.95)' } },
+        bg: aliasColor('headerBar'),
       },
     },
     card: {
-      border: { value: { _light: 'rgba(47, 48, 52, 0.15)', _dark: '{colors.border.divider}' } },
+      border: aliasColor('hairline'),
     },
     address: {
       highlighted: {
@@ -113,23 +163,23 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
       outline: {
         fg: {
-          DEFAULT: { value: { _light: '{colors.theme.button.primary._light}', _dark: '{colors.theme.button.primary._dark}' } },
+          DEFAULT: aliasColor('text.primary'),
         },
       },
       subtle: {
         fg: {
-          DEFAULT: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+          DEFAULT: aliasColor('text.primary'),
         },
         bg: {
-          DEFAULT: { value: { _light: '{colors.blackAlpha.200}', _dark: '{colors.whiteAlpha.200}' } },
+          DEFAULT: aliasColor('hairline'),
         },
       },
       dropdown: {
         fg: {
-          DEFAULT: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+          DEFAULT: aliasColor('text.primary'),
         },
         border: {
-          DEFAULT: { value: '{colors.border.strong}' },
+          DEFAULT: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         },
       },
       header: {
@@ -143,12 +193,12 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
           highlighted: { value: { _light: '{colors.orange.100}', _dark: '{colors.orange.900}' } },
         },
         border: {
-          DEFAULT: { value: '{colors.border.strong}' },
+          DEFAULT: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         },
       },
       segmented: {
         fg: {
-          DEFAULT: { value: '{colors.text.primary}' },
+          DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
         },
       },
       icon_background: {
@@ -215,13 +265,13 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     link: {
       primary: {
         DEFAULT: { value: { _light: '{colors.theme.link.primary._light}', _dark: '{colors.theme.link.primary._dark}' } },
-        hover: { value: '{colors.hover}' },
+        hover: { value: { _light: '{colors.hover}', _dark: '{colors.hover}' } },
       },
       secondary: {
-        DEFAULT: { value: '{colors.text.secondary}' },
+        DEFAULT: { value: { _light: '{colors.text.secondary}', _dark: '{colors.text.secondary}' } },
       },
       underlaid: {
-        bg: { value: '{colors.accent.soft}' },
+        bg: { value: { _light: '{colors.accent.soft}', _dark: '{colors.accent.soft}' } },
       },
       subtle: {
         DEFAULT: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.gray.400}' } },
@@ -229,10 +279,10 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
       navigation: {
         fg: {
-          DEFAULT: { value: '{colors.text.primary}' },
+          DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
           selected: { value: { _light: '{colors.theme.navigation.text.selected._light}', _dark: '{colors.theme.navigation.text.selected._dark}' } },
-          hover: { value: { _light: '{colors.hover}' } },
-          active: { value: { _light: '{colors.hover}' } },
+          hover: aliasColor('hover'),
+          active: aliasColor('hover'),
         },
         bg: {
           selected: { value: { _light: '{colors.theme.navigation.bg.selected._light}', _dark: '{colors.theme.navigation.bg.selected._dark}' } },
@@ -240,18 +290,18 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
         },
       },
       menu: {
-        DEFAULT: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+        DEFAULT: aliasColor('text.primary'),
       },
     },
     tooltip: {
       DEFAULT: {
-        bg: { value: '{colors.gray.900}' },
-        fg: { value: '{colors.white}' },
+        bg: { value: { _light: '{colors.gray.900}', _dark: '{colors.gray.900}' } },
+        fg: { value: { _light: '{colors.white}', _dark: '{colors.white}' } },
       },
     },
     popover: {
       DEFAULT: {
-        bg: { value: '{colors.bg.overlay}' },
+        bg: { value: { _light: '{colors.bg.overlay}', _dark: '{colors.bg.overlay}' } },
         shadow: { value: { _light: '{colors.blackAlpha.200}', _dark: '{colors.whiteAlpha.300}' } },
       },
     },
@@ -279,15 +329,15 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
       secondary: {
         fg: {
-          DEFAULT: { value: '{colors.text.primary}' },
+          DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
         },
         border: {
-          DEFAULT: { value: '{colors.border.strong}' },
+          DEFAULT: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         },
       },
       segmented: {
         fg: {
-          DEFAULT: { value: '{colors.text.primary}' },
+          DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
         },
       },
     },
@@ -300,7 +350,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     },
     alert: {
       fg: {
-        DEFAULT: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+        DEFAULT: aliasColor('text.primary'),
       },
       bg: {
         info: { value: { _light: '{colors.blackAlpha.50}', _dark: '{colors.whiteAlpha.100}' } },
@@ -312,97 +362,97 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     },
     toast: {
       fg: {
-        DEFAULT: { value: '{colors.alert.fg}' },
+        DEFAULT: { value: { _light: '{colors.alert.fg}', _dark: '{colors.alert.fg}' } },
       },
       bg: {
-        DEFAULT: { value: '{colors.alert.bg.info}' },
+        DEFAULT: { value: { _light: '{colors.alert.bg.info}', _dark: '{colors.alert.bg.info}' } },
         info: { value: { _light: '{colors.blue.100}', _dark: '{colors.blue.900}' } },
-        warning: { value: '{colors.alert.bg.warning}' },
-        success: { value: '{colors.alert.bg.success}' },
-        error: { value: '{colors.alert.bg.error}' },
+        warning: { value: { _light: '{colors.alert.bg.warning}', _dark: '{colors.alert.bg.warning}' } },
+        success: { value: { _light: '{colors.alert.bg.success}', _dark: '{colors.alert.bg.success}' } },
+        error: { value: { _light: '{colors.alert.bg.error}', _dark: '{colors.alert.bg.error}' } },
         loading: { value: { _light: '{colors.blue.100}', _dark: '{colors.blue.900}' } },
       },
     },
     input: {
       fg: {
         DEFAULT: { value: { _light: '{colors.gray.800}', _dark: '{colors.gray.50}' } },
-        error: { value: '{colors.text.error}' },
+        error: { value: { _light: '{colors.text.error}', _dark: '{colors.text.error}' } },
       },
       bg: {
-        DEFAULT: { value: '{colors.bg.surface}' },
-        readOnly: { value: '{colors.bg.sunken}' },
+        DEFAULT: { value: { _light: '{colors.bg.surface}', _dark: '{colors.bg.surface}' } },
+        readOnly: { value: { _light: '{colors.bg.sunken}', _dark: '{colors.bg.sunken}' } },
       },
       border: {
-        DEFAULT: { value: '{colors.border.divider}' },
-        hover: { value: '{colors.border.strong}' },
-        focus: { value: '{colors.accent.strong}' },
-        filled: { value: '{colors.border.strong}' },
+        DEFAULT: { value: { _light: '{colors.border.divider}', _dark: '{colors.border.divider}' } },
+        hover: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
+        focus: { value: { _light: '{colors.accent.strong}', _dark: '{colors.accent.strong}' } },
+        filled: { value: { _light: '{colors.border.strong}', _dark: '{colors.border.strong}' } },
         readOnly: { value: { _light: '{colors.gray.200}', _dark: '{colors.gray.800}' } },
-        error: { value: '{colors.feedback.error.fg}' },
+        error: { value: { _light: '{colors.feedback.error.fg}', _dark: '{colors.feedback.error.fg}' } },
       },
       placeholder: {
-        DEFAULT: { value: '{colors.gray.500}' },
-        error: { value: '{colors.red.500}' },
+        DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+        error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
       },
       element: {
-        DEFAULT: { value: '{colors.gray.500}' },
+        DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
       },
     },
     field: {
       placeholder: {
-        DEFAULT: { value: '{colors.gray.500}' },
-        disabled: { value: '{colors.gray.500/20}' },
-        error: { value: '{colors.red.500}' },
+        DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+        disabled: { value: { _light: '{colors.gray.500/20}', _dark: '{colors.gray.500/20}' } },
+        error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
       },
     },
     dialog: {
       bg: {
-        DEFAULT: { value: '{colors.bg.overlay}' },
+        DEFAULT: { value: { _light: '{colors.bg.overlay}', _dark: '{colors.bg.overlay}' } },
       },
       fg: {
-        DEFAULT: { value: '{colors.text.primary}' },
+        DEFAULT: { value: { _light: '{colors.text.primary}', _dark: '{colors.text.primary}' } },
       },
     },
     drawer: {
       bg: {
-        DEFAULT: { value: '{colors.bg.overlay}' },
+        DEFAULT: { value: { _light: '{colors.bg.overlay}', _dark: '{colors.bg.overlay}' } },
       },
     },
     select: {
       trigger: {
         outline: {
-          fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+          fg: aliasColor('text.secondary'),
         },
       },
       indicator: {
         fg: {
-          DEFAULT: { value: '{colors.gray.500}' },
+          DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
         },
       },
       placeholder: {
         fg: {
-          DEFAULT: { value: '{colors.gray.500}' },
-          error: { value: '{colors.red.500}' },
+          DEFAULT: { value: { _light: '{colors.gray.500}', _dark: '{colors.gray.500}' } },
+          error: { value: { _light: '{colors.red.500}', _dark: '{colors.red.500}' } },
         },
       },
     },
     spinner: {
       track: {
-        DEFAULT: { value: { _light: '{colors.blackAlpha.200}', _dark: '{colors.whiteAlpha.200}' } },
+        DEFAULT: aliasColor('hairline'),
       },
     },
     badge: {
       gray: {
-        bg: { value: { _light: '{colors.blackAlpha.50}', _dark: '{colors.whiteAlpha.100}' } },
-        fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+        bg: aliasColor('surface'),
+        fg: aliasColor('text.secondary'),
       },
       green: {
-        bg: { value: '{colors.feedback.success.bg}' },
-        fg: { value: '{colors.feedback.success.fg}' },
+        bg: { value: { _light: '{colors.feedback.success.bg}', _dark: '{colors.feedback.success.bg}' } },
+        fg: { value: { _light: '{colors.feedback.success.fg}', _dark: '{colors.feedback.success.fg}' } },
       },
       red: {
-        bg: { value: '{colors.feedback.error.bg}' },
-        fg: { value: '{colors.feedback.error.fg}' },
+        bg: { value: { _light: '{colors.feedback.error.bg}', _dark: '{colors.feedback.error.bg}' } },
+        fg: { value: { _light: '{colors.feedback.error.fg}', _dark: '{colors.feedback.error.fg}' } },
       },
       purple: {
         bg: { value: { _light: '{colors.datavis.purple.lowest}', _dark: '{colors.datavis.purple.highest}' } },
@@ -410,23 +460,23 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
       purple_alt: {
         bg: { value: { _light: '{colors.purple.100}', _dark: '{colors.purple.800}' } },
-        fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+        fg: aliasColor('text.secondary'),
       },
       orange: {
-        bg: { value: '{colors.feedback.warning.bg}' },
-        fg: { value: '{colors.feedback.warning.fg}' },
+        bg: { value: { _light: '{colors.feedback.warning.bg}', _dark: '{colors.feedback.warning.bg}' } },
+        fg: { value: { _light: '{colors.feedback.warning.fg}', _dark: '{colors.feedback.warning.fg}' } },
       },
       blue: {
-        bg: { value: '{colors.accent.soft}' },
-        fg: { value: { _light: '{colors.accent.strong}', _dark: '{colors.blue.100}' } },
+        bg: { value: { _light: '{colors.accent.soft}', _dark: '{colors.accent.soft}' } },
+        fg: aliasColor('accent'),
       },
       blue_alt: {
-        bg: { value: '{colors.accent.soft}' },
-        fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+        bg: { value: { _light: '{colors.accent.soft}', _dark: '{colors.accent.soft}' } },
+        fg: aliasColor('text.secondary'),
       },
       yellow: {
-        bg: { value: { _light: '{colors.datavis.yellow.lowest}', _dark: '{colors.feedback.warning.bg}' } },
-        fg: { value: { _light: '{colors.feedback.warning.fg}', _dark: '{colors.datavis.yellow.low}' } },
+        bg: aliasColor('warningSoft'),
+        fg: aliasColor('warning'),
       },
       teal: {
         bg: { value: { _light: '{colors.teal.50}', _dark: '{colors.teal.800}' } },
@@ -443,7 +493,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       // bright badges mainly used in other projects (e.g. autoscout, dev portal, etc.)
       bright: {
         gray: {
-          bg: { value: { _light: '{colors.gray.100}', _dark: '{colors.gray.800}' } },
+          bg: aliasColor('surface'),
           fg: { value: { _light: '{colors.gray.600}', _dark: '{colors.gray.200}' } },
         },
         green: {
@@ -487,12 +537,12 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     tag: {
       root: {
         subtle: {
-          bg: { value: { _light: '{colors.blackAlpha.50}', _dark: '{colors.whiteAlpha.100}' } },
-          fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+          bg: aliasColor('surface'),
+          fg: aliasColor('text.secondary'),
         },
         clickable: {
-          bg: { value: { _light: '{colors.gray.100}', _dark: '{colors.gray.800}' } },
-          fg: { value: { _light: '{colors.blackAlpha.800}', _dark: '{colors.whiteAlpha.800}' } },
+          bg: aliasColor('surface'),
+          fg: aliasColor('text.secondary'),
         },
         filter: {
           bg: { value: { _light: '{colors.blue.50}', _dark: '{colors.whiteAlpha.200}' } },
@@ -511,7 +561,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
         fg: { value: { _light: '{colors.theme.table.header.fg._light}', _dark: '{colors.theme.table.header.fg._dark}' } },
       },
       row: {
-        hover: { value: { _light: 'rgba(47, 48, 52, 0.1)', _dark: 'rgba(230, 234, 240, 0.06)' } },
+        hover: aliasColor('raised'),
       },
     },
     checkbox: {
@@ -534,13 +584,13 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     },
     stat: {
       indicator: {
-        up: { value: { _light: '{colors.datavis.green.high}', _dark: '{colors.datavis.green.low}' } },
-        down: { value: { _light: '{colors.datavis.red.high}', _dark: '{colors.datavis.red.low}' } },
+        up: aliasColor('positive'),
+        down: aliasColor('negative'),
       },
     },
     rating: {
       DEFAULT: { value: { _light: '{colors.gray.200}', _dark: '{colors.gray.700}' } },
-      highlighted: { value: '{colors.yellow.400}' },
+      highlighted: { value: { _light: '{colors.yellow.400}', _dark: '{colors.yellow.400}' } },
     },
   },
   shadows: {
@@ -550,6 +600,9 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
     drawer: {
       DEFAULT: { value: { _light: '{shadows.overlay}', _dark: '{shadows.dark-lg}' } },
     },
+  },
+  blurs: {
+    headerBar: { value: '12px' },
   },
   opacity: {
     control: {

@@ -570,6 +570,7 @@ pub enum VerifierPolicyError {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct EvidenceAuthority {
     verifier: ProtocolEvidenceVerifier,
+    receipt_keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
     committed_validators: Option<(String, Vec<crate::read::CommitValidator>)>,
 }
 
@@ -577,6 +578,7 @@ impl EvidenceAuthority {
     pub(crate) const fn new(verifier: ProtocolEvidenceVerifier) -> Self {
         Self {
             verifier,
+            receipt_keys: Vec::new(),
             committed_validators: None,
         }
     }
@@ -614,6 +616,83 @@ impl EvidenceAuthority {
         raw: &RawReceiptEvidence,
     ) -> Result<VerifiedReceiptEvidence, ReceiptEvidenceError> {
         self.verifier.verify_receipt(raw)
+    }
+
+    /// Installs governed node receipt keys obtained from the trusted node RPC.
+    pub fn with_receipt_keys(
+        mut self,
+        keys: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+    ) -> Result<Self, VerifierPolicyError> {
+        let mut identities = BTreeSet::new();
+        if keys.is_empty()
+            || keys.iter().any(|key| {
+                key.key_id == [0; 32]
+                    || key.public_key == [0; 32]
+                    || key.first_height > key.last_height
+                    || !identities.insert(key.key_id)
+            })
+        {
+            return Err(VerifierPolicyError::InvalidAuthorization);
+        }
+        self.receipt_keys = keys;
+        Ok(self)
+    }
+
+    /// Re-verifies a persisted current receipt without inventing batch evidence.
+    pub fn verify_current_receipt(
+        &self,
+        raw: &crate::receipt::TransactionReceiptEvidence,
+    ) -> Result<VerifiedSpendReceipt, ReceiptEvidenceError> {
+        let keys: Vec<_> = self
+            .receipt_keys
+            .iter()
+            .map(|key| {
+                SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        let decoded = verify_sequencer_signature(&raw.canonical_receipt, keys.as_slice())
+            .map_err(ReceiptEvidenceError::Receipt)?;
+        let protocol =
+            decoded
+                .protocol()
+                .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                    check: ReceiptCheck::ReceiptShape,
+                }))?;
+        if protocol.protocol_version() != self.verifier.expected_protocol_version {
+            return Err(ReceiptEvidenceError::ProtocolVersion);
+        }
+        let mut height = [0; 32];
+        height[24..].copy_from_slice(&raw.metadata.block_height.to_be_bytes());
+        let signature = protocol
+            .sequencer_signature()
+            .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::MissingSignature,
+            }))?;
+        if protocol.batch_id() != height
+            || protocol.activity_id() != raw.metadata.transaction_hash
+            || (protocol.result_code() == 0) != raw.metadata.status
+            || raw.metadata.receipt_signature[..64] != signature
+            || raw.metadata.receipt_signature[64] != crate::receipt::NODE_ED25519_SIGNATURE_TAG
+            || raw.metadata.rung < layerx_types::rung::Rung::Receipted
+        {
+            return Err(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            }));
+        }
+        Ok(VerifiedSpendReceipt {
+            receipt_ref: Sha256::digest(&raw.canonical_receipt).into(),
+            activity_id: protocol.activity_id(),
+            global_sequence: protocol.global_sequence(),
+            result_code: protocol.result_code(),
+            amount: protocol.amount(),
+            module_id: protocol.module_id(),
+            operation: protocol.operation(),
+        })
     }
 
     /// Verifies raw receipt ingress for offline export and retains the
@@ -1211,14 +1290,22 @@ impl ReceiptReplayGuard {
         &mut self,
         receipt: &VerifiedReceiptEvidence,
     ) -> Result<(), ReceiptReplayError> {
-        if self.receipt_refs.contains(&receipt.receipt_ref()) {
+        self.admit_identity(receipt.receipt_ref(), receipt.activity_id())
+    }
+
+    pub(crate) fn admit_identity(
+        &mut self,
+        receipt_ref: [u8; 32],
+        activity_id: [u8; 32],
+    ) -> Result<(), ReceiptReplayError> {
+        if self.receipt_refs.contains(&receipt_ref) {
             return Err(ReceiptReplayError::DuplicateReceipt);
         }
-        if self.activity_ids.contains(&receipt.activity_id()) {
+        if self.activity_ids.contains(&activity_id) {
             return Err(ReceiptReplayError::DuplicateActivity);
         }
-        self.receipt_refs.insert(receipt.receipt_ref());
-        self.activity_ids.insert(receipt.activity_id());
+        self.receipt_refs.insert(receipt_ref);
+        self.activity_ids.insert(activity_id);
         Ok(())
     }
 }
@@ -1287,6 +1374,56 @@ pub enum ReceiptEvidenceError {
     ProtocolVersion,
     SequenceRange,
     BatchIdentity,
+}
+
+/// Spend facts issued only after receipt authority verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct VerifiedSpendReceipt {
+    receipt_ref: [u8; 32],
+    activity_id: [u8; 32],
+    global_sequence: u64,
+    result_code: i32,
+    amount: u128,
+    module_id: u16,
+    operation: u8,
+}
+
+impl VerifiedSpendReceipt {
+    pub const fn receipt_ref(&self) -> [u8; 32] {
+        self.receipt_ref
+    }
+    pub const fn activity_id(&self) -> [u8; 32] {
+        self.activity_id
+    }
+    pub const fn global_sequence(&self) -> u64 {
+        self.global_sequence
+    }
+    pub const fn result_code(&self) -> i32 {
+        self.result_code
+    }
+    pub const fn amount(&self) -> u128 {
+        self.amount
+    }
+    pub const fn module_id(&self) -> u16 {
+        self.module_id
+    }
+    pub const fn operation(&self) -> u8 {
+        self.operation
+    }
+}
+
+impl From<VerifiedReceiptEvidence> for VerifiedSpendReceipt {
+    fn from(receipt: VerifiedReceiptEvidence) -> Self {
+        Self {
+            receipt_ref: receipt.receipt_ref(),
+            activity_id: receipt.activity_id(),
+            global_sequence: receipt.global_sequence(),
+            result_code: receipt.result_code(),
+            amount: receipt.amount(),
+            module_id: receipt.module_id(),
+            operation: receipt.operation(),
+        }
+    }
 }
 
 /// Inclusive global-sequence window covered by cumulative-use evidence.
@@ -1784,7 +1921,7 @@ impl RawStateEvidence {
         }
     }
 
-    /// Committed calls carry checkpoint coordinates rather than a serialized LNI witness.
+    /// Committed calls carry checkpoint coordinates rather than a serialized transport witness.
     #[must_use]
     pub fn proof_material(&self) -> Option<&[u8]> {
         match &self.shape {

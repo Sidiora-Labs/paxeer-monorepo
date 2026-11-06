@@ -1,10 +1,13 @@
+import "./source-loader.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { ed25519 } from "@noble/curves/ed25519.js";
-import { PlatformSdkError, verifySequencerReceipt } from "@sidiora/layerx-sdk";
+import { PlatformSdkError, verifyCometCommit, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import { verifyPaymentCommitment, verifyPaymentCommitmentEvidence } from "../dist/commitment.js";
+
+import { committedPaymentFixture, nodeEvidence, refusesUnboundCommitments } from "./repair-22-33-1478-support.mjs";
 
 const vectors = JSON.parse(readFileSync(new URL(
   "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", import.meta.url,
@@ -85,20 +88,24 @@ async function committedRungAcceptsTwoThirdsCommit() {
   const signedPower = evidence.validatorSet.slice(0, 3).reduce((sum, validator) => sum + validator.votingPower, 0n);
   const totalPower = evidence.validatorSet.reduce((sum, validator) => sum + validator.votingPower, 0n);
   assert(signedPower * 3n > totalPower * 2n);
-  assert.equal(await verifyPaymentCommitmentEvidence(verified, "committed", evidence), undefined);
-  assert.equal(await verifyPaymentCommitmentEvidence(
-    verified, "committed", committedFixture(verified, verified.height + 1n),
-  ), undefined);
+  const quorum = await verifyCometCommit(nodeEvidence(evidence));
+  assert.equal(quorum.signedPower, signedPower);
+  assert.equal(quorum.totalPower, totalPower);
+  // An authentic quorum for an arbitrary block cannot prove receipt inclusion.
+  const recorded = await committedPaymentFixture();
+  await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", evidence,
+    "eip155:125", recorded.resolver), verificationFailure);
   assert.equal(await verifyPaymentCommitment(verified, "eip155:125", "receipted"), undefined);
   await assert.rejects(verifyPaymentCommitment(verified, "eip155:125", "committed"), verificationFailure);
+  await refusesUnboundCommitments();
 
   const tampered = structuredClone(evidence);
   tampered.commit.signatures[0].signature[0] ^= 1;
-  await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", tampered), verificationFailure);
+  await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", tampered, "eip155:125", recorded.resolver), verificationFailure);
   const mismatchedReceipt = structuredClone(evidence);
   mismatchedReceipt.receiptInclusion.transactionHash[0] ^= 1;
   await assert.rejects(verifyPaymentCommitmentEvidence(
-    verified, "committed", mismatchedReceipt,
+    verified, "committed", mismatchedReceipt, "eip155:125", recorded.resolver,
   ), verificationFailure);
 }
 
@@ -108,11 +115,12 @@ async function committedRungRefusesTwoThirdsExactly() {
   const signedPower = evidence.validatorSet.slice(0, 2).reduce((sum, validator) => sum + validator.votingPower, 0n);
   const totalPower = evidence.validatorSet.reduce((sum, validator) => sum + validator.votingPower, 0n);
   assert.equal(signedPower * 3n, totalPower * 2n);
-  await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", evidence), verificationFailure);
+  await assert.rejects(verifyCometCommit(nodeEvidence(evidence)), verificationFailure);
 
   const aboveTwoThirds = structuredClone(evidence);
   aboveTwoThirds.validatorSet[2].votingPower -= 1n;
-  assert.equal(await verifyPaymentCommitmentEvidence(verified, "committed", aboveTwoThirds), undefined);
+  const quorum = await verifyCometCommit(nodeEvidence(aboveTwoThirds));
+  assert(quorum.signedPower * 3n > quorum.totalPower * 2n);
 }
 
 async function committedRungRefusesEarlierLandingBlock() {
@@ -123,9 +131,10 @@ async function committedRungRefusesEarlierLandingBlock() {
   assert.equal(evidence.commit.signatures.length, 3);
   assert.equal(evidence.validatorSet.length, 4);
   await assert.rejects(verifyPaymentCommitmentEvidence(verified, "committed", evidence), verificationFailure);
-  assert.equal(await verifyPaymentCommitmentEvidence(
-    verified, "committed", committedFixture(verified, verified.height),
-  ), undefined);
+  const recorded = await committedPaymentFixture();
+  assert.equal(await verifyPaymentCommitmentEvidence(recorded.verified, "committed", recorded.evidence,
+    "eip155:125", recorded.resolver), undefined);
+
 }
 
 test(committedRungAcceptsTwoThirdsCommit);

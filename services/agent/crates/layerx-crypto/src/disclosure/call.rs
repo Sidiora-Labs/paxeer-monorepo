@@ -801,7 +801,7 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             || payload[0] != 0x71
             || !matches!(
                 (payload[1], payload[2], payload[3], payload.len()),
-                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (3, 0, 3, 70) | (3, 0, 5, 86)
+                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (2, 0, 4, 92) | (3, 0, 3, 70) | (3, 0, 5, 86)
             )
         {
             return Err(DisclosureError::MalformedPayload);

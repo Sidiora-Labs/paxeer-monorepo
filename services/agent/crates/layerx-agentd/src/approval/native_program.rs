@@ -12,7 +12,7 @@ const PRESENTATION_PREFIX: &[u8] = b"native-program-approval-presentation-v2:";
 const MAX_CARRIER: usize = 4 * 1024 * 1024;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub(crate) enum CarrierError {
+pub enum CarrierError {
     Missing,
     Binding,
     Policy,
@@ -1227,6 +1227,7 @@ impl NativeProgramApprovalCarrier {
 
 const RATE_PREFIX: &[u8] = b"native-program-rate-v1:";
 const MAX_PENDING_RATE: usize = 4096;
+const RATE_ARCHIVE_PREFIX: &[u8] = b"native-program-rate-committed-v1:";
 
 #[derive(Clone, Serialize, Deserialize, Eq, PartialEq)]
 #[serde(deny_unknown_fields)]
@@ -1323,6 +1324,7 @@ fn pending_native_uses(
 pub(crate) struct StagedNativeRateUse {
     record: PendingNativeUse,
     previous: Vec<PendingNativeUse>,
+    advancement: StagedNativeRateAdvance,
     counts: std::collections::BTreeMap<[u8; 32], std::collections::BTreeMap<u64, u64>>,
     observed_batch: [u8; 32],
 }
@@ -1367,7 +1369,10 @@ impl StagedNativeRateUse {
             observed_batch = Some(proof.observed_batch_id());
         }
         let previous = pending_native_uses(store, binding.tenant())?;
-        if previous.len() >= MAX_PENDING_RATE
+        let advancement = StagedNativeRateAdvance::stage(store, binding.tenant(), evidence)?;
+        let archived = archived_rate_key(binding.tenant(), digest)?;
+        if advancement.remaining >= MAX_PENDING_RATE
+            || store.get(&archived).is_some()
             || previous.iter().any(|record| record.preparation == digest)
         {
             return Err(CarrierError::Binding);
@@ -1430,6 +1435,7 @@ impl StagedNativeRateUse {
                 committed: None,
             },
             previous,
+            advancement,
             counts,
             observed_batch: observed_batch.ok_or(CarrierError::Binding)?,
         })
@@ -1465,9 +1471,7 @@ impl StagedNativeRateUse {
             return Err(CarrierError::Binding);
         }
         inserts.push((self.record.key()?, self.record.encode()?));
-        store
-            .apply_program_approval_batch(updates, inserts, Vec::new())
-            .map_err(|_| CarrierError::Corrupt)
+        self.advancement.commit_joined(store, updates, inserts)
     }
 }
 
@@ -1636,3 +1640,160 @@ impl super::call_bound::CallCarrier for NativeProgramApprovalCarrier {
     }
 }
 super::call_bound::impl_call_approval!(NativeProgramApprovalCarrier);
+
+fn archived_rate_key(tenant: &TenantId, preparation: [u8; 32]) -> Result<TenantKey, CarrierError> {
+    TenantKey::new(
+        tenant.clone(),
+        ObjectKind::PreparedActivity,
+        [RATE_ARCHIVE_PREFIX, preparation.as_slice()].concat(),
+    )
+    .map_err(|_| CarrierError::Corrupt)
+}
+
+pub struct StagedNativeRateAdvance {
+    tenant: TenantId,
+    previous: Vec<PendingNativeUse>,
+    expired: Vec<PendingNativeUse>,
+    remaining: usize,
+}
+
+impl StagedNativeRateAdvance {
+    pub fn stage(
+        store: &Store,
+        tenant: &TenantId,
+        evidence: &[crate::protocol_evidence::AuthenticatedTimeWindowUse],
+    ) -> Result<Self, CarrierError> {
+        let first = evidence.first().ok_or(CarrierError::Binding)?;
+        let mut windows = std::collections::BTreeSet::new();
+        let mut lower = u64::MAX;
+        for proof in evidence {
+            if proof.actor() != first.actor()
+                || proof.observed_batch_id() != first.observed_batch_id()
+                || proof.through_sequence() != first.through_sequence()
+                || proof.observed_core_ms() != first.observed_core_ms()
+                || !windows.insert(proof.window_seconds())
+            {
+                return Err(CarrierError::Binding);
+            }
+            lower = lower.min(
+                proof
+                    .window_seconds()
+                    .checked_mul(1000)
+                    .and_then(|span| proof.observed_core_ms().checked_sub(span))
+                    .unwrap_or(0),
+            );
+        }
+        let previous = pending_native_uses(store, tenant)?;
+        let mut expired = Vec::new();
+        for record in &previous {
+            if record.actor != first.actor().as_bytes() {
+                continue;
+            }
+            if record.observed_head_sequence > first.through_sequence()
+                || record.admitted_at_ms > first.observed_core_ms()
+            {
+                return Err(CarrierError::Binding);
+            }
+            if let Some((sequence, timestamp)) = record.committed {
+                if sequence > first.through_sequence()
+                    || timestamp > first.observed_core_ms()
+                    || timestamp < record.admitted_at_ms
+                    || sequence <= record.observed_head_sequence
+                    || record.activity_id.is_none()
+                {
+                    return Err(CarrierError::Binding);
+                }
+                if timestamp <= lower {
+                    expired.push(record.clone());
+                }
+            }
+        }
+        let remaining = previous.len() - expired.len();
+        Ok(Self {
+            tenant: tenant.clone(),
+            previous,
+            expired,
+            remaining,
+        })
+    }
+
+    pub fn remaining(&self) -> usize {
+        self.remaining
+    }
+
+    pub fn commit_joined(
+        self,
+        store: &mut Store,
+        updates: Vec<(TenantKey, Vec<u8>)>,
+        mut inserts: Vec<(TenantKey, Vec<u8>)>,
+    ) -> Result<(), CarrierError> {
+        if pending_native_uses(store, &self.tenant)? != self.previous {
+            return Err(CarrierError::Binding);
+        }
+        let mut removals = Vec::new();
+        for record in self.expired {
+            removals.push(record.key()?);
+            inserts.push((
+                archived_rate_key(&self.tenant, record.preparation)?,
+                record.encode()?,
+            ));
+        }
+        store
+            .apply_program_approval_batch(updates, inserts, removals)
+            .map_err(|_| CarrierError::Corrupt)
+    }
+}
+
+impl NativeProgramApprovalCarrier {
+    pub(crate) fn retained_call(&self) -> Option<&super::call_bound::RetainedNativeCall> {
+        self.call_bound.as_ref()
+    }
+
+    pub fn authorize_call_requirement(
+        store: &Store,
+        peer: &crate::human::HumanPeer,
+        id: [u8; 32],
+        prepared: &crate::prepare::EvmPrepared,
+    ) -> Result<(), super::CallApprovalError> {
+        let carrier = Self::read_call(store, peer, id)?;
+        crate::prepare::verify_call_binding(prepared)
+            .map_err(|_| super::CallApprovalError::Binding)?;
+        if carrier.restore_call()? != *prepared {
+            return Err(super::CallApprovalError::Binding);
+        }
+        super::program_requirement::check_call(
+            store,
+            carrier
+                .call_bound
+                .as_ref()
+                .ok_or(super::CallApprovalError::Version)?,
+        )
+    }
+}
+
+impl NativeProgramApprovalCarrier {
+    pub(crate) fn read_presentation_carrier(
+        store: &Store,
+        peer: &crate::human::HumanPeer,
+        id: [u8; 32],
+    ) -> Result<Self, CarrierError> {
+        let tenant = Self::human_tenant(peer)?;
+        let key = TenantKey::new(
+            tenant,
+            ObjectKind::PreparedActivity,
+            [PREFIX, id.as_slice()].concat(),
+        )
+        .map_err(|_| CarrierError::Binding)?;
+        let stored = store.get(&key).ok_or(CarrierError::Missing)?;
+        if stored.class() != StorageClass::LocalOnly || stored.bytes().len() > MAX_CARRIER {
+            return Err(CarrierError::Corrupt);
+        }
+        let candidate: Self =
+            serde_json::from_slice(stored.bytes()).map_err(|_| CarrierError::Corrupt)?;
+        if candidate.call_bound.is_some() {
+            Self::read_call(store, peer, id).map_err(|_| CarrierError::Binding)
+        } else {
+            Self::read_for_human(store, peer, id)
+        }
+    }
+}

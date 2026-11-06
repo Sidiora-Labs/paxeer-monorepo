@@ -14,18 +14,21 @@ const ListItemMobile = ({ children, className, animation }: Props) => {
       rowGap={ 6 }
       alignItems="flex-start"
       flexDirection="column"
-      paddingY={ 6 }
+      paddingY={ 4 }
       w="100%"
       minW={ 0 }
       data-list-item-mobile
-      borderColor="border.divider"
+      borderColor="hairline"
+      bg="canvas"
+      color="text.primary"
+      textStyle="small"
       borderTopWidth="1px"
       _last={{
         borderBottomWidth: '1px',
       }}
       className={ className }
-      fontSize="16px"
-      lineHeight="20px"
+      fontSize="13px"
+      lineHeight="18px"
     >
       { children }
     </Flex>

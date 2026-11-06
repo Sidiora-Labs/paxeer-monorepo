@@ -49,22 +49,25 @@ the current native account, transaction and feed APIs.
 
 | Path | Purpose |
 | --- | --- |
-| `/paxeer-x/capabilities` | Last successful capability probe, plus native feed availability when present |
+| `/paxeer-x/capabilities` | [Last successful capability probe](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex), plus native feed availability when present |
 | `/addresses/:address_hash_param/unified` | Native identities, balances and cursor-paginated activity |
-| `/transactions/:transaction_hash_param/status` | Live `submitted`, `receipted` or `committed` observation and committed height |
+| `/transactions/:transaction_hash_param/status` | [Live native transaction status](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex): `submitted`, `receipted` or `committed` observation and committed height |
 | `/transactions/:transaction_hash_param/signature` | Verified native receipt, receipt key, signature and evidence-backed rung |
-| `/paxeer-x/feed/markets` | Native price-feed markets and latest observations |
+| `/paxeer-x/feed/markets` | [Native price-feed markets](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex) and latest observations |
 | `/paxeer-x/feed/markets/:market_id/updates` | Paginated observations for one market |
 | `/paxeer-x/feed/updates` | Paginated native submissions, optionally filtered by feeder or market |
 | `/paxeer-x/feed/updates/:hash` | One native submission |
 
-Historical archive APIs are separate from current transaction status:
+Historical anchor and old receipt rows are read-only data. Archive APIs serve
+these frozen items with no live settlement status; use the current capability,
+feed and native transaction-status routes linked separately above for live data.
+The three registered archive routes below use full paths:
 
 | Path | Purpose |
 | --- | --- |
-| `/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/paxeer-x/archive/receipts` | Frozen historical receipts |
-| `/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
+| `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
+| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
+| `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration
 
@@ -144,8 +147,20 @@ retention limit. The Compose environment example sets it to `30`.
 
 The [archive controller](apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex)
 serves frozen history, not current finality evidence. Lists return `items` and
-`next_page_params`; each archive item has `frozen: true`. Use the returned
-pagination parameters. An invalid or
+`next_page_params`; each archive item has `frozen: true`. Receipts expose the
+stored historical `verification_status` (`unverified`, `sequencer_signed`,
+`batch_included`, `state_proven`, `checkpoint_finalised` or
+`settlement_anchored`), with no live `status` field. This frozen value does not
+advance as a current transaction progresses; do not poll it for settlement.
+Live transaction consumers should use the committed node's receipt interface:
+`pax_sequencerReceipt` with `px_getReceiptKeys` and native inclusion evidence,
+as verified by the explorer's
+[`SequencerReceipt`](apps/explorer/lib/explorer/chain/paxeer_x/sequencer_receipt.ex).
+Use `/api/v2/transactions/:transaction_hash_param/signature` for the verified
+receipt and evidence-backed rung, and
+`/api/v2/transactions/:transaction_hash_param/status` for current transaction
+observations. A signed receipt alone is `receipted`; verified native inclusion
+establishes `committed`. Follow the archive's returned pagination parameters. An invalid or
 unknown receipt ID returns HTTP `404`. The old unprefixed
 `/api/v2/paxeer-x/anchors` and `/api/v2/paxeer-x/receipts` routes were removed
 and return not-found; use the explicit `/archive/` paths above.

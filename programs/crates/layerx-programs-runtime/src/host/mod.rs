@@ -78,6 +78,7 @@ struct BoundaryCapture {
     maximum_snapshots: usize,
     maximum_bytes: usize,
     retained_bytes: usize,
+    replay_fuel: u64,
     snapshots: Vec<crate::replay::CapturedSemanticReplayV2>,
 }
 
@@ -541,12 +542,16 @@ impl RuntimeState {
             maximum_snapshots,
             maximum_bytes,
             retained_bytes: 0,
+            replay_fuel: 0,
             snapshots: Vec::new(),
         });
         Ok(())
     }
 
-    fn retain_boundary_capture(&mut self) -> Result<(), wasmi::ExecutionObserverError> {
+    fn retain_boundary_capture(
+        &mut self,
+        replay_fuel: u64,
+    ) -> Result<(), wasmi::ExecutionObserverError> {
         let Some(capture) = self.boundary_capture.as_ref() else {
             return Ok(());
         };
@@ -586,8 +591,18 @@ impl RuntimeState {
             .snapshots
             .try_reserve(1)
             .map_err(|_| wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
+        capture.replay_fuel = capture
+            .replay_fuel
+            .checked_add(replay_fuel)
+            .ok_or(wasmi::ExecutionObserverError::SnapshotLimitExceeded)?;
         capture.snapshots.push(source);
         Ok(())
+    }
+
+    pub(crate) fn boundary_capture_replay_fuel(&self) -> Option<u64> {
+        self.boundary_capture
+            .as_ref()
+            .map(|capture| capture.replay_fuel)
     }
 
     pub(crate) fn take_boundary_captures(
@@ -693,10 +708,8 @@ impl RuntimeState {
         if retained_bytes > remaining_bytes || retained_bytes > remaining_work {
             return Err(wasmi::ExecutionObserverError::SnapshotLimitExceeded);
         }
-        let snapshot_fuel = crate::step_commitment_fuel(snapshot_bytes)
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
         let arbitration_engine_bytes = charge.arbitration_engine_canonical_bytes;
-        let arbitration_fuel = crate::arbitration_step_commitment_fuel_with_host(
+        let (snapshot_fuel, arbitration_fuel) = crate::commit::replay_step_commitment_fuels(
             snapshot_bytes,
             arbitration_engine_bytes,
             host_state_bytes,
@@ -705,9 +718,11 @@ impl RuntimeState {
         let total_fuel = snapshot_fuel
             .checked_add(arbitration_fuel)
             .ok_or(wasmi::ExecutionObserverError::SupplementRejected)?;
-        self.meter
-            .charge_cpu(total_fuel)
-            .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+        if self.boundary_capture.is_none() {
+            self.meter
+                .charge_cpu(total_fuel)
+                .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?;
+        }
         let host_state = if let Some(state) = isolated_host_state {
             state
         } else {
@@ -757,7 +772,7 @@ impl RuntimeState {
             .map_err(|_| wasmi::ExecutionObserverError::SupplementRejected)?,
             arbitration_commitment_fuel: arbitration_fuel,
         };
-        self.retain_boundary_capture()?;
+        self.retain_boundary_capture(total_fuel)?;
         Ok(supplement)
     }
 

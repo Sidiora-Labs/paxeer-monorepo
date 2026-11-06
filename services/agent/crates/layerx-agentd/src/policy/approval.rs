@@ -1074,14 +1074,7 @@ pub fn decide_at(
         return Err(ApprovalError::AlreadyDecided(held.state));
     }
     let presentation = held.presentation.ok_or(ApprovalError::LegacyTimeUnits)?;
-    if current_sequence.0 < held.created_at_sequence
-        || current_time.get() < presentation.created_at_unix_seconds
-    {
-        return Err(ApprovalError::InvalidWindow);
-    }
-    if current_sequence.0 >= held.expires_at_sequence
-        || current_time.get() >= presentation.activity_expires_at_unix_seconds
-    {
+    if approval_window_expired(held, presentation, current_sequence.0, current_time)? {
         let audit = terminal_audit(
             held,
             ApprovalState::Expired,
@@ -1200,6 +1193,21 @@ fn replace_durable_with_released(
         })
 }
 
+fn approval_window_expired(
+    held: &HeldApproval,
+    presentation: ApprovalPresentation,
+    current_sequence: u64,
+    current_time: TimestampSeconds,
+) -> Result<bool, ApprovalError> {
+    if current_sequence < held.created_at_sequence
+        || current_time.get() < presentation.created_at_unix_seconds
+    {
+        return Err(ApprovalError::InvalidWindow);
+    }
+    Ok(current_sequence >= held.expires_at_sequence
+        || current_time.get() >= presentation.activity_expires_at_unix_seconds)
+}
+
 fn validate_for_read(
     held: &mut HeldApproval,
     current_sequence: u64,
@@ -1210,14 +1218,7 @@ fn validate_for_read(
     }
     let current_time = current_time.ok_or(ApprovalError::ClockRequired)?;
     let presentation = held.presentation.ok_or(ApprovalError::LegacyTimeUnits)?;
-    if current_sequence < held.created_at_sequence
-        || current_time.get() < presentation.created_at_unix_seconds
-    {
-        return Err(ApprovalError::InvalidWindow);
-    }
-    if current_sequence >= held.expires_at_sequence
-        || current_time.get() >= presentation.activity_expires_at_unix_seconds
-    {
+    if approval_window_expired(held, presentation, current_sequence, current_time)? {
         let audit = terminal_audit(
             held,
             ApprovalState::Expired,
@@ -1803,7 +1804,7 @@ mod released_replay_tests {
     use sha2::{Digest as _, Sha256};
 
     use super::{
-        canonical_digest, encode_released, hold_reserved, released_storage_key, ApprovalContext,
+        canonical_digest, encode_released, hold_reserved_at, released_storage_key, ApprovalContext,
         ApprovalError, ApprovalRegistry,
     };
     use crate::budget::{
@@ -2028,7 +2029,7 @@ mod released_replay_tests {
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
         let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-        hold_reserved(
+        hold_reserved_at(
             &registry,
             ApprovalContext {
                 tenant: tenant(),
@@ -2044,6 +2045,7 @@ mod released_replay_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(1_000_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
         let held = registry

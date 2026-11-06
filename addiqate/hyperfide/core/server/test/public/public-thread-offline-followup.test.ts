@@ -1,0 +1,228 @@
+import { listEvents, listQueuedThreadMessages } from "@hyperfide/db";
+import { queuedMessageWaitingOnSchema } from "@hyperfide/domain";
+import { sendMessageResponseSchema } from "@hyperfide/server-contract";
+import { describe, expect, it } from "vitest";
+import { applyLoggedThreadLifecycleEvent } from "../../src/services/threads/lifecycle-outcome.js";
+import { runQueuedMessageDispatch } from "../../src/services/threads/queued-message-dispatch.js";
+import { onDaemonSocketOpen } from "../../src/ws/daemon-protocol.js";
+import { handleDaemonSocketClosed } from "../../src/internal/session-owner-side-effects.js";
+import {
+  listQueuedThreadCommands,
+  registerTestHostRpcCapture,
+  waitForQueuedCommand,
+} from "../helpers/commands.js";
+import { readJson } from "../helpers/json.js";
+import {
+  seedEnvironment,
+  seedHost,
+  seedHostSession,
+  seedProjectWithSource,
+  seedSession,
+  seedThread,
+  seedThreadRuntimeState,
+  seedTurnStarted,
+} from "../helpers/seed.js";
+import { withTestHarness } from "../helpers/test-app.js";
+
+describe("offline host follow-ups", () => {
+  it("queues a follow-up for a host whose socket just dropped", async () => {
+    await withTestHarness(async (harness) => {
+      const { host, session } = await seedHostSession(harness.deps, {
+        id: "host-dropped-followup",
+        name: "M5",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = await seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+        path: "/tmp/dropped-followup",
+      });
+      const thread = await seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        status: "idle",
+      });
+      await seedThreadRuntimeState(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        providerThreadId: "provider-dropped-followup",
+      });
+      await handleDaemonSocketClosed(harness.deps, { sessionId: session.id });
+      harness.hub.cancelPendingDaemonDisconnect(session.id);
+
+      const response = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            input: [{ type: "text", text: "Sent during a drop", mentions: [] }],
+            mode: "steer-if-active",
+            model: "gpt-5",
+            permissionMode: "full",
+            reasoningLevel: "medium",
+            serviceTier: "default",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(200);
+      expect(
+        sendMessageResponseSchema.parse(await readJson(response)),
+      ).toMatchObject({
+        delivery: "queued",
+        queuedMessage: { waitingOn: { kind: "host-offline", hostName: "M5" } },
+      });
+    });
+  });
+
+  it.each([
+    {
+      mode: "steer-if-active",
+      status: "idle",
+      waitingOn: { kind: "host-offline", hostName: "M5" },
+    },
+    {
+      mode: "queue-if-active",
+      status: "active",
+      waitingOn: { kind: "thread-busy" },
+    },
+  ] as const)("queues an offline $status follow-up", async (testCase) => {
+    await withTestHarness(async (harness) => {
+      const host = await seedHost(harness.deps, {
+        id: "host-offline-followup",
+        name: "M5",
+      });
+      const { project } = await seedProjectWithSource(harness.deps, {
+        hostId: host.id,
+      });
+      const environment = await seedEnvironment(harness.deps, {
+        hostId: host.id,
+        projectId: project.id,
+        path: "/tmp/offline-followup",
+      });
+      const thread = await seedThread(harness.deps, {
+        projectId: project.id,
+        environmentId: environment.id,
+        status: testCase.status,
+      });
+      await seedThreadRuntimeState(harness.deps, {
+        threadId: thread.id,
+        environmentId: environment.id,
+        providerThreadId: "provider-offline-followup",
+      });
+      if (testCase.status === "active") {
+        await seedTurnStarted(harness.deps, {
+          environmentId: environment.id,
+          providerThreadId: "provider-offline-followup",
+          threadId: thread.id,
+          turnId: "turn-current",
+        });
+      }
+      const input = [
+        {
+          type: "text" as const,
+          text: "Continue when M5 reconnects",
+          mentions: [],
+        },
+      ];
+      const eventCountBeforeSend = (
+        await listEvents(harness.db, {
+          threadId: thread.id,
+        })
+      ).length;
+
+      const response = await harness.app.request(
+        `/api/v1/threads/${thread.id}/send`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            input,
+            mode: testCase.mode,
+            model: "gpt-5",
+            permissionMode: "full",
+            reasoningLevel: "medium",
+            serviceTier: "default",
+          }),
+        },
+      );
+
+      expect(response.status).toBe(200);
+      const body = sendMessageResponseSchema.parse(await readJson(response));
+      expect(body).toMatchObject({
+        delivery: "queued",
+        queuedMessage: { sendAt: null },
+      });
+      if (body.delivery !== "queued") {
+        throw new Error("expected the offline follow-up to queue");
+      }
+
+      const queued = await listQueuedThreadMessages(harness.db, thread.id);
+      expect(queued).toHaveLength(1);
+      expect(queued[0]).toMatchObject({
+        id: body.queuedMessage.id,
+        sendAt: null,
+        failureReason: null,
+      });
+      expect(
+        await listEvents(harness.db, { threadId: thread.id }),
+      ).toHaveLength(eventCountBeforeSend);
+
+      const reconnectSession = await seedSession(harness.deps, host.id);
+      const reconnectSocket = await registerTestHostRpcCapture(harness.deps, {
+        hostId: host.id,
+        sessionId: reconnectSession.id,
+      });
+      await onDaemonSocketOpen(harness.deps, {
+        hostId: host.id,
+        sessionId: reconnectSession.id,
+        socket: reconnectSocket,
+      });
+
+      if (testCase.status === "active") {
+        await new Promise<void>((resolve) => setImmediate(resolve));
+        expect(
+          await listQueuedThreadCommands(harness, "turn.submit", thread.id),
+        ).toEqual([]);
+      }
+      expect(body).toMatchObject({
+        queuedMessage: { waitingOn: testCase.waitingOn },
+      });
+      expect(
+        queuedMessageWaitingOnSchema.parse(JSON.parse(queued[0]!.waitingOn!)),
+      ).toEqual(testCase.waitingOn);
+
+      if (testCase.status === "active") {
+        await applyLoggedThreadLifecycleEvent(harness.deps, {
+          event: { type: "run.succeeded" },
+          threadId: thread.id,
+        });
+        await runQueuedMessageDispatch(harness.deps, {
+          kind: "thread-ready",
+          threadId: thread.id,
+        });
+      }
+
+      const dispatched = await waitForQueuedCommand(
+        harness,
+        ({ command }) =>
+          command.type === "turn.submit" && command.threadId === thread.id,
+      );
+      if (dispatched.command.type !== "turn.submit") {
+        throw new Error("expected the queued follow-up to dispatch");
+      }
+      expect(dispatched.command).toMatchObject({
+        threadId: thread.id,
+        input,
+        target: { mode: "start" },
+      });
+      expect(await listQueuedThreadMessages(harness.db, thread.id)).toEqual([]);
+      expect(
+        await listEvents(harness.db, { threadId: thread.id }),
+      ).toHaveLength(eventCountBeforeSend + 1);
+    });
+  });
+});

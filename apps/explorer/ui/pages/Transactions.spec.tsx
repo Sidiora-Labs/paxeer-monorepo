@@ -61,11 +61,11 @@ describe('Transactions', () => {
     const { container } = render(<Transactions/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card]')).toBeTruthy();
+      expect(container.querySelector('[data-list-page]')).toBeTruthy();
     }, { timeout: WAIT_TIMEOUT });
 
     const row = container.querySelector('[data-scan-stat-row]') as HTMLElement;
-    const card = container.querySelector('[data-scan-table-card]') as HTMLElement;
+    const card = container.querySelector('[data-list-page]') as HTMLElement;
 
     expect(row).toBeTruthy();
     expect(row.compareDocumentPosition(card) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -75,7 +75,7 @@ describe('Transactions', () => {
     const { container } = render(<Transactions/>);
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
         .toBe('Latest 3 from a total of 82,258,122 transactions');
     }, { timeout: WAIT_TIMEOUT });
   }, PAGE_TIMEOUT);

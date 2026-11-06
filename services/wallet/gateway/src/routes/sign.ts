@@ -20,6 +20,8 @@ import {
 } from '../provision/bind.js';
 import {
   archivedWalletGuard,
+  findArchivedWallet,
+  WalletArchivedError,
   getMigrationAwareSigningAccountForRow,
   defaultWalletAttestors,
   usesAttestorCustody,
@@ -28,7 +30,7 @@ import {
   type SignatureLogInput,
   type SigningWallet,
 } from '../db/wallets.js';
-import { getPool } from '../db/pool.js';
+import { getPool, withTransaction } from '../db/pool.js';
 import { evaluate, reserveHumanDailyValue } from '../policy/index.js';
 import { env } from '../env.js';
 import {
@@ -59,6 +61,7 @@ import {
 import {
   NonceBelowLatestError,
   NonceOutstandingError,
+  NonceLockReleaseError,
   NonceStore,
   NonceUnresolvedError,
   broadcastReserved,
@@ -157,7 +160,7 @@ async function walletSigner(
     { scheme: 'supabase_jwt', token },
     attestors,
     connection,
-    context
+    { ...context, connection }
   );
   return {
     path: account.path,
@@ -283,25 +286,37 @@ export async function signRoutes(
     sw: SigningWallet,
     req: FastifyRequest,
     payload: SignPayload,
-    digest: Hex
+    digest: Hex,
+    connection: PoolClient
   ) {
-    requireQuorumWallet(sw);
-    const result = await attestors!.sign({
-      keyId: sw.attestorKeyId,
-      payload,
-      authorisation: { scheme: 'supabase_jwt', token: bearerToken(req) },
-    });
-    const signature = serializeSignature(splitSignature(result));
-    if (
-      result.signedBytes.toLowerCase() !== digest.toLowerCase() ||
-      (await recoverAddress({ hash: digest, signature })).toLowerCase() !==
-        sw.row.address.toLowerCase()
-    )
-      throw new AttestorSessionError(
-        'signer_mismatch',
-        'quorum evidence differs from original owned wallet or construction'
-      );
-    return { result, signature };
+    return withTransaction(async (client) => {
+      const current = await loadWalletForSigning(client, req.user!.id);
+      if (
+        !current ||
+        current.row.id !== sw.row.id ||
+        current.row.is_disabled ||
+        current.attestorKeyId !== sw.attestorKeyId
+      )
+        throw new RouteRefusal(403, 'wallet_disabled', { error: 'WALLET_DISABLED' });
+      sw = current;
+      requireQuorumWallet(sw);
+      const result = await attestors!.sign({
+        keyId: sw.attestorKeyId,
+        payload,
+        authorisation: { scheme: 'supabase_jwt', token: bearerToken(req) },
+      });
+      const signature = serializeSignature(splitSignature(result));
+      if (
+        result.signedBytes.toLowerCase() !== digest.toLowerCase() ||
+        (await recoverAddress({ hash: digest, signature })).toLowerCase() !==
+          sw.row.address.toLowerCase()
+      )
+        throw new AttestorSessionError(
+          'signer_mismatch',
+          'quorum evidence differs from original owned wallet or construction'
+        );
+      return { result, signature };
+    }, connection);
   }
   async function run(
     req: FastifyRequest,
@@ -358,15 +373,18 @@ export async function signRoutes(
     const client = await pool.connect();
     let completed: Completed;
     let dailyReservationId: string | null = null;
+    let transactionOpen = false;
     try {
-      await client.query('BEGIN');
-      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
-        `human-sign:${ctx.subject}`,
-      ]);
       let sw = await loadWalletForSigning(client, ctx.subject);
       if (!sw) {
-        const archived = await archivedWalletGuard({ userId: ctx.subject, kind: 'standard' });
-        if (archived) throw new RouteRefusal(archived.status, 'wallet_archived', archived.body);
+        const archived = await findArchivedWallet(
+          { userId: ctx.subject, kind: 'standard' },
+          client
+        );
+        if (archived) {
+          const { refusal } = new WalletArchivedError(archived.id, archived.address);
+          throw new RouteRefusal(refusal.status, 'wallet_archived', refusal.body);
+        }
         throw new RouteRefusal(404, 'no_wallet', {
           error: 'no_wallet',
           message: 'wallet not provisioned',
@@ -387,7 +405,7 @@ export async function signRoutes(
         });
       }
       try {
-        await limiter.consume('account', sw.row.address);
+        await limiter.consume('account', sw.row.address, client);
       } catch (err) {
         if (err instanceof RateLimitedError) {
           throw new RouteRefusal(429, 'rate_limited_account', rateLimitBody(err), {
@@ -396,6 +414,14 @@ export async function signRoutes(
         }
         throw err;
       }
+      await client.query('BEGIN');
+      transactionOpen = true;
+      await client.query('select pg_advisory_xact_lock(hashtextextended($1, 0))', [
+        `human-sign:${ctx.subject}`,
+      ]);
+      sw = await loadWalletForSigning(client, ctx.subject);
+      if (!sw || sw.row.id !== walletId || sw.row.is_disabled)
+        throw new RouteRefusal(403, 'wallet_disabled', { error: 'WALLET_DISABLED' });
       const decision = await evaluate(
         { user_id: ctx.subject, value_wei: valueWei },
         client.query.bind(client)
@@ -431,7 +457,7 @@ export async function signRoutes(
       }
       // This charge survives signing errors, uncertain broadcasts and process loss.
       await client.query('COMMIT');
-      await client.query('BEGIN');
+      transactionOpen = false;
       sw = await loadWalletForSigning(client, ctx.subject);
       if (!sw || sw.row.id !== walletId || sw.row.is_disabled) {
         throw new RouteRefusal(403, 'wallet_disabled', { error: 'WALLET_DISABLED' });
@@ -444,7 +470,7 @@ export async function signRoutes(
           if (dailyReservationId !== null) {
             // Bind the existing policy charge to the custody accounting operation.
             // The signer then completes this row instead of charging the payment twice.
-            await pool.query(
+            await client.query(
               `insert into wallet_signature_reservations(wallet_id,kind,request_hash,operation_hash,signature_id)
                values($1,'transaction',$2,$3,$4)`,
               [sw!.row.id, ctx.requestHash, keccak256(serializeTransaction(tx)), dailyReservationId]
@@ -452,23 +478,22 @@ export async function signRoutes(
           }
           const signed = await accountSigner.signTransaction(tx);
           if (dailyReservationId !== null) {
-            const recorded = await pool.query(
+            const recorded = await client.query(
               'update wallet_signatures set tx_hash=$2 where id=$1 and wallet_id=$3',
               [dailyReservationId, keccak256(signed.value), sw!.row.id]
             );
             if (recorded.rowCount !== 1)
               throw new Error('daily reservation hash was not persisted');
             if (ctx.route === '/v1/wallet/send')
-              await humanSends.retain(dailyReservationId, signed.value);
+              await humanSends.retain(dailyReservationId, signed.value, client);
           }
           return signed;
         },
       };
       completed = await work({ client, sw, signer });
-      await client.query('COMMIT');
     } catch (err) {
-      await client.query('ROLLBACK').catch(() => undefined);
-      client.release();
+      if (transactionOpen) await client.query('ROLLBACK').catch(() => undefined);
+      client.release(err instanceof NonceLockReleaseError);
       if (err instanceof RouteRefusal) return refuse(err.status, err.code, err.body, err.headers);
       if (err instanceof CustodyAuthorityError)
         return refuse(503, err.code, { error: err.code, replication_pending: true });
@@ -589,7 +614,7 @@ export async function signRoutes(
       c.kind === 'sponsored_batch'
         ? c.calls.reduce((sum, call) => sum + BigInt(call.value), 0n)
         : 0n,
-      async ({ sw }) => {
+      async ({ client, sw }) => {
         if (
           BigInt(c.chainId) !== BigInt(sw.row.chain_id) ||
           sw.row.chain_id !== env.HYPERPAXEER_CHAIN_ID
@@ -619,7 +644,8 @@ export async function signRoutes(
           sw,
           req,
           { kind: 'eth_sign_digest', digest, construction: c },
-          digest
+          digest,
+          client
         );
         if (
           c.kind === 'sponsored_batch' &&
@@ -671,21 +697,25 @@ export async function signRoutes(
         to: tx.to,
       },
       valueWei,
-      async ({ sw, signer }) => {
+      async ({ client, sw, signer }) => {
         const prepared = await prepareTx(signer, tx);
         const broadcastDeadline = new Date(Date.now() + BROADCAST_GRACE_MS).toISOString();
-        const { nonce, signed } = await nonces.withLock(sw.row.address, async (lease) => {
-          let nonce: number;
-          if (tx.nonce !== undefined) {
-            await lease.reserveClientNonce(tx.nonce);
-            nonce = tx.nonce;
-          } else {
-            nonce = await lease.next();
+        const { nonce, signed } = await nonces.withSigningLock(
+          client,
+          sw.row.address,
+          async (lease) => {
+            let nonce: number;
+            if (tx.nonce !== undefined) {
+              await lease.reserveClientNonce(tx.nonce);
+              nonce = tx.nonce;
+            } else {
+              nonce = await lease.next();
+            }
+            const signed = await signer.signTransaction({ ...prepared, nonce });
+            await lease.track(nonce, keccak256(signed.value), null);
+            return { nonce, signed };
           }
-          const signed = await signer.signTransaction({ ...prepared, nonce });
-          await lease.track(nonce, keccak256(signed.value), null);
-          return { nonce, signed };
-        });
+        );
         const signatureLog: SignatureLogInput = {
           user_id: userId,
           wallet_id: sw.row.id,
@@ -744,9 +774,9 @@ export async function signRoutes(
         to: tx.to,
       },
       valueWei,
-      async ({ sw, signer }) => {
+      async ({ client, sw, signer }) => {
         const prepared = await prepareTx(signer, tx);
-        const outcome = await nonces.withLock(sw.row.address, async (lease) => {
+        const outcome = await nonces.withSigningLock(client, sw.row.address, async (lease) => {
           if (tx.nonce !== undefined) {
             try {
               await lease.reserveClientNonce(tx.nonce);
@@ -768,11 +798,11 @@ export async function signRoutes(
               return await rpc.sendRawTransactionVia(raw);
             } catch (error) {
               if (error instanceof TransactionRejectedError && valueWei > 0n) {
-                const journal = await pool.query<{ approval_id: string }>(
+                const journal = await client.query<{ approval_id: string }>(
                   "select approval_id from wallet_approval_recovery where domain='human' and binding=$1",
                   [keccak256(raw)]
                 );
-                if (journal.rows[0]) await humanSends.rejected(journal.rows[0].approval_id);
+                if (journal.rows[0]) await humanSends.rejected(journal.rows[0].approval_id, client);
               }
               throw error;
             }
@@ -1187,18 +1217,25 @@ export async function lxApprovalRoutes(
       return refusal(409, 'lx_approval_identity_changed');
     return row;
   }
-  async function transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
+  async function transaction<T>(
+    work: (client: PoolClient) => Promise<T>,
+    connection?: PoolClient,
+    before?: (client: PoolClient) => Promise<void>
+  ): Promise<T> {
+    const client = connection ?? (await pool.connect());
+    let begun = false;
     try {
+      if (before) await before(client);
       await client.query('begin');
+      begun = true;
       const result = await work(client);
       await client.query('commit');
       return result;
     } catch (error) {
-      await client.query('rollback').catch(() => undefined);
+      if (begun) await client.query('rollback').catch(() => undefined);
       throw error;
     } finally {
-      client.release();
+      if (!connection) client.release();
     }
   }
   async function guarded(reply: FastifyReply, work: () => Promise<unknown>): Promise<FastifyReply> {
@@ -1232,76 +1269,82 @@ export async function lxApprovalRoutes(
           return refusal(409, 'lx_protocol_unsupported');
         if (raw.readUInt16BE(2) !== 0x1001 || raw[4] !== 11)
           return refusal(400, 'lx_unsigned_canonical_required');
-        return transaction(async (client) => {
-          const wallet = await original(client, req.user!.id);
-          await limiter.consume('account', wallet.address);
-          await client.query(
-            "delete from wallet_lx_approvals where principal=$1 and state in ('reviewed','approved') and expires_at<=now()",
-            [req.user!.id]
-          );
-          const count = await client.query<{ count: string }>(
-            `select count(*)::text as count from wallet_lx_approvals where principal=$1 and state in ('reviewed','approved','signing_unknown')
+        return transaction(
+          async (client) => {
+            const wallet = await original(client, req.user!.id);
+            await client.query(
+              "delete from wallet_lx_approvals where principal=$1 and state in ('reviewed','approved') and expires_at<=now()",
+              [req.user!.id]
+            );
+            const count = await client.query<{ count: string }>(
+              `select count(*)::text as count from wallet_lx_approvals where principal=$1 and state in ('reviewed','approved','signing_unknown')
            and not exists (select 1 from wallet_approval_recovery r where r.domain='lx'
              and r.approval_id=wallet_lx_approvals.id::text and r.phase='refused')`,
-            [req.user!.id]
-          );
-          if (!count.rows[0] || BigInt(count.rows[0].count) >= 256n)
-            return refusal(429, 'lx_approval_capacity');
-          const id = randomUUID();
-          const session = randomUUID();
-          const review = await attestors.reviewLxActivity({
-            keyId: wallet.layerx_key_id,
-            sessionId: session,
-            activity,
-            kind,
-            owner: req.user!.id,
-            token: bearerToken(req),
-          });
-          const digest = lxSigningPreimage(activity, kind);
-          if (
-            review.signing_preimage !== digest ||
-            review.network_id !== wallet.chain_id ||
-            review.network_id !== env.HYPERPAXEER_CHAIN_ID ||
-            review.disclosure.account !== wallet.main_account_id
-          )
-            return refusal(403, 'lx_review_binding_mismatch');
-          const now = BigInt(Math.floor(Date.now() / 1000));
-          const until = BigInt(review.not_after);
-          const expiry = until < now + 600n ? until : now + 600n;
-          if (expiry <= now || BigInt(review.disclosure.not_before) > now)
-            return refusal(403, 'lx_activity_outside_validity');
-          const artifact: LxArtifact = {
-            id,
-            kind,
-            activity,
-            signing_preimage: digest,
-            public_key: review.public_key,
-            key_id: wallet.layerx_key_id,
-            principal: req.user!.id,
-            did: wallet.did,
-            account_id: wallet.main_account_id,
-            epoch: review.epoch,
-            participants: review.participants,
-            network_id: review.network_id,
-            protocol_version: review.protocol_version,
-            session_id: session,
-            disclosure: review.disclosure,
-            expires_at: expiry.toString(),
-          };
-          await client.query(
-            `insert into wallet_lx_approvals(id,wallet_id,principal,session_id,state,artifact,expires_at,review_evidence) values($1,$2,$3,$4,'reviewed',$5::jsonb,to_timestamp($6::double precision),$7::jsonb)`,
-            [
+              [req.user!.id]
+            );
+            if (!count.rows[0] || BigInt(count.rows[0].count) >= 256n)
+              return refusal(429, 'lx_approval_capacity');
+            const id = randomUUID();
+            const session = randomUUID();
+            const review = await attestors.reviewLxActivity({
+              keyId: wallet.layerx_key_id,
+              sessionId: session,
+              activity,
+              kind,
+              owner: req.user!.id,
+              token: bearerToken(req),
+            });
+            const digest = lxSigningPreimage(activity, kind);
+            if (
+              review.signing_preimage !== digest ||
+              review.network_id !== wallet.chain_id ||
+              review.network_id !== env.HYPERPAXEER_CHAIN_ID ||
+              review.disclosure.account !== wallet.main_account_id
+            )
+              return refusal(403, 'lx_review_binding_mismatch');
+            const now = BigInt(Math.floor(Date.now() / 1000));
+            const until = BigInt(review.not_after);
+            const expiry = until < now + 600n ? until : now + 600n;
+            if (expiry <= now || BigInt(review.disclosure.not_before) > now)
+              return refusal(403, 'lx_activity_outside_validity');
+            const artifact: LxArtifact = {
               id,
-              wallet.id,
-              req.user!.id,
-              session,
-              JSON.stringify(artifact),
-              artifact.expires_at,
-              JSON.stringify(review.audit),
-            ]
-          );
-          return { ...artifact, state: 'reviewed' };
-        });
+              kind,
+              activity,
+              signing_preimage: digest,
+              public_key: review.public_key,
+              key_id: wallet.layerx_key_id,
+              principal: req.user!.id,
+              did: wallet.did,
+              account_id: wallet.main_account_id,
+              epoch: review.epoch,
+              participants: review.participants,
+              network_id: review.network_id,
+              protocol_version: review.protocol_version,
+              session_id: session,
+              disclosure: review.disclosure,
+              expires_at: expiry.toString(),
+            };
+            await client.query(
+              `insert into wallet_lx_approvals(id,wallet_id,principal,session_id,state,artifact,expires_at,review_evidence) values($1,$2,$3,$4,'reviewed',$5::jsonb,to_timestamp($6::double precision),$7::jsonb)`,
+              [
+                id,
+                wallet.id,
+                req.user!.id,
+                session,
+                JSON.stringify(artifact),
+                artifact.expires_at,
+                JSON.stringify(review.audit),
+              ]
+            );
+            return { ...artifact, state: 'reviewed' };
+          },
+          undefined,
+          async (client) => {
+            const wallet = await original(client, req.user!.id);
+            await limiter.consume('account', wallet.address, client);
+          }
+        );
       });
     }
   );
@@ -1311,9 +1354,9 @@ export async function lxApprovalRoutes(
     async (req, reply) => {
       const parsed = approveSchema.safeParse(req.body);
       if (!parsed.success) return reply.code(400).send({ error: 'explicit_lx_approval_required' });
-      return guarded(reply, () =>
-        transaction(async (client) => {
-          await limiter.consume('client', req.user!.id);
+      return guarded(reply, async () => {
+        await limiter.consume('client', req.user!.id);
+        return transaction(async (client) => {
           const wallet = await original(client, req.user!.id);
           const row = await retained(client, req.user!.id, parsed.data.review_id, wallet);
           const a = row.artifact;
@@ -1342,19 +1385,20 @@ export async function lxApprovalRoutes(
             [row.id, JSON.stringify(approval)]
           );
           return response({ ...row, state: 'approved', approval });
-        })
-      );
+        });
+      });
     }
   );
   async function reconcile(id: string, subject: string, token?: string): Promise<LxApprovalRow> {
-    return recovery.locked('lx', id, async () => {
-      const row = await transaction(async (client) =>
-        retained(client, subject, id, await original(client, subject))
+    return recovery.locked('lx', id, async (client) => {
+      const row = await transaction(
+        async (client) => retained(client, subject, id, await original(client, subject)),
+        client
       );
       if (row.state !== 'signing_unknown') return row;
       const a = row.artifact;
       const binding = approvalBinding(a, row.approval);
-      const prior = await recovery.read('lx', id);
+      const prior = await recovery.read('lx', id, client);
       if (!token && !prior?.evidence.result) return row;
       const progress = await retainedSignature(
         recovery,
@@ -1389,7 +1433,8 @@ export async function lxApprovalRoutes(
             return refusal(502, 'lx_signature_evidence_mismatch');
           }
           return undefined;
-        }
+        },
+        client
       );
       const result = progress.evidence.result;
       if (!result) return refusal(502, 'lx_signature_evidence_mismatch');
@@ -1403,7 +1448,7 @@ export async function lxApprovalRoutes(
           [id, JSON.stringify(evidence)]
         );
         return { ...current, state: 'signed' as const, evidence };
-      });
+      }, client);
     });
   }
   app.get('/v1/wallet/lx/approvals/:id', { preHandler: requireAuth }, async (req, reply) => {

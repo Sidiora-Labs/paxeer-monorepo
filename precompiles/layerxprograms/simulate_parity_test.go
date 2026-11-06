@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/sha256"
 	"encoding/binary"
+	"math/big"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -14,6 +15,7 @@ import (
 )
 
 func TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint(t *testing.T) {
+	t.Run("independent guest response matrix", programsSimulationResponseOracle)
 	h, args, _ := programsCallFixture(t)
 	ctx := h.stateDB.Ctx()
 	fee, err := h.host.ReadFeeSchedule(ctx)
@@ -69,6 +71,18 @@ func TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint(t *testing.T) {
 				require.NoError(t, err)
 				before := h.dump(h.stateDB.Ctx())
 				height := h.stateDB.Ctx().BlockHeight()
+				// ABI-1 counter guests return no guest bytes. Decode both real
+				// terminal frames against the independently produced receipt.
+				reference, _ := h.stateDB.Ctx().CacheContext()
+				payload, err := lp.EncodeCallPayload(program, 1, entrypoint, calldata, capabilities,
+					args[5].([]byte), args[6].(uint32), args[7].([7]uint64))
+				require.NoError(t, err)
+				method := lp.ProgramsABI.Methods["call"]
+				var feeLimit [16]byte
+				args[8].(*big.Int).FillBytes(feeLimit[:])
+				receipt, err := lp.Submit(reference, h.executor, lp.NewCallContext(h.caller, &method), 0x00090003, payload, feeLimit)
+				require.NoError(t, err)
+				require.Zero(t, receipt.ResultCode)
 				simulated, _, err := h.evm.StaticCall(h.caller, h.precompile.Address(), simulateInput, 20000000)
 				require.NoError(t, err, "simulateCall(%s, %x): %x", entrypoint, calldata, simulated)
 				require.Equal(t, before, h.dump(h.stateDB.Ctx()))
@@ -87,6 +101,11 @@ func TestProgramsSimulateMatchesCallForEveryFixtureEntrypoint(t *testing.T) {
 				require.Equal(t, simulation[1], actual[1], "kind")
 				require.Equal(t, simulation[2], actual[2], "response")
 				require.Equal(t, simulated, called)
+				for _, frame := range [][]byte{simulated, called} {
+					decoded, err := lp.DecodeProgramExecutionResult(frame, args[6].(uint32), repair251TransferRoot(t, receipt))
+					require.NoError(t, err)
+					require.Empty(t, decoded.GuestResponse)
+				}
 				require.NotEqual(t, before, h.dump(h.stateDB.Ctx()))
 			}
 		})

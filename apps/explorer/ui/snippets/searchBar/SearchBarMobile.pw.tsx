@@ -53,7 +53,7 @@ test('search by token name +@dark-mode', async({ render, page, mockApiResponse }
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by contract name', async({ render, page, mockApiResponse }) => {
+test('search by contract name +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.contract1,
     searchMock.contract2,
@@ -82,7 +82,7 @@ test('search by name homepage +@dark-mode', async({ render, page, mockApiRespons
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 700 } });
 });
 
-test('search by tag', async({ render, page, mockApiResponse }) => {
+test('search by tag +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.label1,
   ], { queryParams: { q: 'o' } });
@@ -94,7 +94,7 @@ test('search by tag', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by address hash', async({ render, page, mockApiResponse }) => {
+test('search by address hash +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.address1,
   ], { queryParams: { q: searchMock.address1.address_hash } });
@@ -106,7 +106,7 @@ test('search by address hash', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by meta tag', async({ render, page, mockApiResponse }) => {
+test('search by meta tag +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.metatag1,
     searchMock.metatag2,
@@ -120,7 +120,7 @@ test('search by meta tag', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by block number', async({ render, page, mockApiResponse }) => {
+test('search by block number +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.block1,
     searchMock.block2,
@@ -134,7 +134,7 @@ test('search by block number', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by block hash', async({ render, page, mockApiResponse }) => {
+test('search by block hash +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.block1,
   ], { queryParams: { q: searchMock.block1.block_hash } });
@@ -146,7 +146,7 @@ test('search by block hash', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by tx hash', async({ render, page, mockApiResponse }) => {
+test('search by tx hash +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.tx1,
   ], { queryParams: { q: searchMock.tx1.transaction_hash } });
@@ -158,7 +158,7 @@ test('search by tx hash', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by tac operation hash', async({ render, page, mockApiResponse }) => {
+test('search by tac operation hash +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.tacOperation1,
   ], { queryParams: { q: searchMock.tacOperation1.tac_operation.operation_id } });
@@ -170,7 +170,7 @@ test('search by tac operation hash', async({ render, page, mockApiResponse }) =>
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by blob hash', async({ render, page, mockApiResponse, mockEnvs }) => {
+test('search by blob hash +@dark-mode', async({ render, page, mockApiResponse, mockEnvs }) => {
   await mockEnvs(ENVS_MAP.dataAvailability);
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.blob1,
@@ -183,7 +183,7 @@ test('search by blob hash', async({ render, page, mockApiResponse, mockEnvs }) =
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by domain name', async({ render, page, mockApiResponse, mockEnvs }) => {
+test('search by domain name +@dark-mode', async({ render, page, mockApiResponse, mockEnvs }) => {
   await mockEnvs(ENVS_MAP.nameService);
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.domain1,
@@ -197,7 +197,7 @@ test('search by domain name', async({ render, page, mockApiResponse, mockEnvs })
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search by user op hash', async({ render, page, mockApiResponse, mockEnvs }) => {
+test('search by user op hash +@dark-mode', async({ render, page, mockApiResponse, mockEnvs }) => {
   await mockEnvs(ENVS_MAP.userOps);
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.userOp1,
@@ -210,7 +210,7 @@ test('search by user op hash', async({ render, page, mockApiResponse, mockEnvs }
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('search with view all link', async({ render, page, mockApiResponse }) => {
+test('search with view all link +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.token1,
     searchMock.token2,
@@ -225,7 +225,7 @@ test('search with view all link', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('scroll suggest to category', async({ render, page, mockApiResponse }) => {
+test('scroll suggest to category +@dark-mode', async({ render, page, mockApiResponse }) => {
   const apiUrl = await mockApiResponse('general:quick_search', [
     searchMock.token1,
     searchMock.token2,
@@ -250,7 +250,7 @@ test('scroll suggest to category', async({ render, page, mockApiResponse }) => {
   await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
 });
 
-test('recent keywords suggest', async({ render, page }, { project }) => {
+test('recent keywords suggest +@dark-mode', async({ render, page }, { project }) => {
   await render(<SearchBarMobile/>);
   const recentKeywords = '["10x2d311959270e0bbdc1fc7bc6dbd8ad645c4dd8d6aa32f5f89d54629a924f112b",' +
     '"0x1d311959270e0bbdc1fc7bc6dbd8ad645c4dd8d6aa32f5f89d54629a924f112b","usd","bob"]';
@@ -263,7 +263,7 @@ test('recent keywords suggest', async({ render, page }, { project }) => {
 test.describe('with apps', () => {
   const MARKETPLACE_CONFIG_URL = 'http://localhost:4000/marketplace-config.json';
 
-  test('default view', async({ render, page, mockApiResponse, mockConfigResponse, mockAssetResponse, mockEnvs }) => {
+  test('default view +@dark-mode', async({ render, page, mockApiResponse, mockConfigResponse, mockAssetResponse, mockEnvs }) => {
     await mockEnvs([
       [ 'NEXT_PUBLIC_MARKETPLACE_ENABLED', 'true' ],
       [ 'NEXT_PUBLIC_MARKETPLACE_CONFIG_URL', MARKETPLACE_CONFIG_URL ],
@@ -289,7 +289,7 @@ test.describe('with apps', () => {
 });
 
 test.describe('block countdown', () => {
-  test('no results', async({ render, page, mockApiResponse }) => {
+  test('no results +@dark-mode', async({ render, page, mockApiResponse }) => {
     const apiUrl = await mockApiResponse('general:quick_search', [], { queryParams: { q: '1234567890' } });
     await render(<SearchBarMobile/>);
     await openSearchDrawer(page);
@@ -299,7 +299,7 @@ test.describe('block countdown', () => {
     await expect(page).toHaveScreenshot({ clip: { x: 0, y: 0, width: 1200, height: 600 } });
   });
 
-  test('with results', async({ render, page, mockApiResponse }) => {
+  test('with results +@dark-mode', async({ render, page, mockApiResponse }) => {
     const apiUrl = await mockApiResponse('general:quick_search', [
       { ...searchMock.token1, name: '1234567890123456789' },
     ], { queryParams: { q: '1234567890' } });

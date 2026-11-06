@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import test from "node:test";
-import { decodeRawEip1559, keccak256, recoverEip1559Sender } from "@sidiora/layerx-sdk";
+import { decodeRawEip1559, keccak256, recoverEip1559Sender, verifySequencerReceipt } from "@sidiora/layerx-sdk";
 import {
   LAYERX_LEDGER_ADDRESS,
   MiddlewareError,
@@ -60,7 +60,9 @@ async function conformanceReceiptVerifiesUnderSellerVerifier() {
     assert.equal(hex(transaction.data.slice(68, 100)), hex(facts.asset));
     assert.equal(BigInt(hex(transaction.data.slice(100, 132))), amount);
     assert.equal(receipt.txHash, hex(keccak256(raw)));
-    assert.equal(receipt.receiptDigest, hex(keccak256(bytes(receipt.signedReceipt))));
+    const signed = await verifySequencerReceipt(bytes(receipt.signedReceipt), raw, keys);
+    assert.equal(receipt.receiptDigest, hex(signed.receiptDigest));
+    assert.notEqual(receipt.receiptDigest, hex(keccak256(bytes(receipt.signedReceipt))));
 
     const header = encodePaymentPayloadHeader(buyerPayload(offer, receipt, "conformance-payment"));
     const payload = decodePaymentPayloadHeader(header);

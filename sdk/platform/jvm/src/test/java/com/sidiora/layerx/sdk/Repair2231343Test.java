@@ -31,7 +31,7 @@ public final class Repair2231343Test {
     private static final ObjectMapper JSON = new ObjectMapper();
     private static final String CHAIN = "committed-fixture";
     private static final byte[] VALIDATOR_ROOT = Base64.getDecoder()
-        .decode("Zc6vQFr0ZD2oXZPWyqjKikf4CkF01FQdfT9YQBmBrKI=");
+        .decode("ZawkHY2ZdOJMgK5e+LSb009M3VIrCogeqWCijke7bCk=");
 
     @Test
     void receiptCommittedRungSurvivesClientRestart() throws Exception {
@@ -322,7 +322,7 @@ public final class Repair2231343Test {
         return new LocalVerifier.ReceiptKeys(List.of(key));
     }
     private static ProgramsClient client(ProgramsClient.Programs connection, LocalVerifier.ReceiptKey key) {
-        return new ProgramsClient(connection, "0xc08e711fe101411a75cc8eb8cbb26dd0efac584e",
+        return new ProgramsClient(connection, "0x2b1e0f87874643a65818291ca1656e62b3dcc7d4",
             BigInteger.ZERO, BigInteger.ONE, keys(key), new byte[32]);
     }
     private static byte[] bytes(JsonNode node, String field) {

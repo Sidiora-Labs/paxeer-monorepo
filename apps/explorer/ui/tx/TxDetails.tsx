@@ -11,6 +11,8 @@ import DataFetchAlert from 'ui/shared/DataFetchAlert';
 
 import TxDetailsActions from './details/txDetailsActions/TxDetailsActions';
 import TxInfo from './details/TxInfo';
+import TxState from './TxState';
+import TxTokenTransfer from './TxTokenTransfer';
 import type { TxQuery } from './useTxQuery';
 
 interface Props {
@@ -26,7 +28,7 @@ const TxDetails = ({ txQuery, tacOperationQuery }: Props) => {
   const isLoading = txQuery.isPlaceholderData || (tacOperationQuery?.isPlaceholderData ?? false);
 
   return (
-    <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-tx-details>
+    <Flex flexDir="column" rowGap={ 8 } data-tx-details>
       <Flex rowGap={{ base: 1, lg: 2 }} flexDir="column" _empty={{ display: 'none' }}>
         <TestnetWarning isLoading={ txQuery.isPlaceholderData }/>
         { txQuery.data?.is_pending_update && <BlockPendingUpdateAlert view="tx"/> }
@@ -41,6 +43,8 @@ const TxDetails = ({ txQuery, tacOperationQuery }: Props) => {
         tacOperations={ tacOperationQuery?.data?.items }
         isLoading={ isLoading }
         socketStatus={ txQuery.socketStatus }
+        transfers={ <TxTokenTransfer txQuery={ txQuery }/> }
+        balanceChanges={ <TxState txQuery={ txQuery }/> }
       />
     </Flex>
   );

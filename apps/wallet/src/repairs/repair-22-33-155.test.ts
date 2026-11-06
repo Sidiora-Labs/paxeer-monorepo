@@ -453,3 +453,28 @@ test(
   send_explorer_proof_transport_commit_reload_and_unavailable.name,
   send_explorer_proof_transport_commit_reload_and_unavailable
 );
+
+function send_explorer_proof_preexecution_refusal_fixture_identity() {
+  const native = producerCase('V2-pax-transfer-insufficient-funds');
+  const signed = Transaction.from(native.rawTransaction);
+  const receipt = native.receiptJson;
+  expect(signed.hash).toBe(receipt.txHash);
+  expect(signed.from?.toLowerCase()).toBe(receipt.from);
+  expect(signed.to?.toLowerCase()).toBe(receipt.to);
+  expect(signed.value).toBe(101_000_000_000_000_000_000n);
+  expect(signed.data).toBe('0x');
+  expect(decodeSequencerReceipt(receipt, signed.hash!, receiptKeys)).toMatchObject({
+    rung: 'receipted',
+    status: '0x0',
+    returnData: '0x',
+    logs: [],
+    vmError: 'insufficient balance for transfer',
+  });
+  expect(receipt).not.toHaveProperty('ledgerResultCode');
+  expect(native).not.toHaveProperty('lxpCode');
+}
+
+test(
+  send_explorer_proof_preexecution_refusal_fixture_identity.name,
+  send_explorer_proof_preexecution_refusal_fixture_identity
+);

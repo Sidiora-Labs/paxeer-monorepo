@@ -1,31 +1,14 @@
 {
   "name": "intent-plan-v1",
   "contract_major": 1,
-  "provenance": "EVM transfer plan wire-shape vector using published account-derivation-v1 bindings and per-leg layerxledger.payExact calls; expected address resolution answers, no execution claim",
+  "provenance": "EVM transfer plan wire-shape vector using published account-derivation-v1 bindings and per-leg layerxledger.payExact calls; request endpoints contain kind and optional account, resolved accounts and EVM addresses appear only in result legs; expected address resolution answers, no execution claim",
   "plan_request": {
     "source": {
-      "kind": "paxeer-wallet",
-      "account": "agent:did:layerx:0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9:main",
-      "layerx_public_key": "0e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
-      "evm_address": "0x9858effd232b4033e47d90003d41ec34ecaeda94",
-      "resolution": {
-        "to": "0x0000000000000000000000000000000000001004",
-        "chainId": 125,
-        "data": "0xc413bad30e0dd0e63aae0420ae0e2aa896013a983facb1ce537be3d368896d81412d7bb9",
-        "result": "0x0000000000000000000000009858effd232b4033e47d90003d41ec34ecaeda94"
-      }
+      "kind": "paxeer-wallet"
     },
     "destination": {
       "kind": "agent",
-      "account": "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main",
-      "layerx_public_key": "8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
-      "evm_address": "0x6006ef1944fb519a746d00cdaf715cbd27a5a008",
-      "resolution": {
-        "to": "0x0000000000000000000000000000000000001004",
-        "chainId": 125,
-        "data": "0xc413bad38020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba",
-        "result": "0x0000000000000000000000006006ef1944fb519a746d00cdaf715cbd27a5a008"
-      }
+      "account": "agent:did:layerx:8020367c3d7d568d84ef8d5b2725431dc7bb21daf42630cceb95cc09cd9e30ba:main"
     },
     "asset_id": "9999999999999999999999999999999999999999999999999999999999999999",
     "money": {
@@ -85,17 +68,14 @@
           "amount": "1",
           "currency": "LXP"
         },
-        "payment": {
-          "from": "b561a61bf15ecceeebb546073c7e1e0bb3918d159e168f704b87c29d31de7f07",
-          "to": "3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a0",
-          "assetId": "9999999999999999999999999999999999999999999999999999999999999999",
-          "amount": "500000",
-          "sequence": 0,
-          "paymentReference": "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1"
-        },
         "to": "0x000000000000000000000000000000000000101a",
-        "data": "0x78ea11dbb561a61bf15ecceeebb546073c7e1e0bb3918d159e168f704b87c29d31de7f073adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a09999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
-        "chainId": 125
+        "calldata": "0x78ea11dbb561a61bf15ecceeebb546073c7e1e0bb3918d159e168f704b87c29d31de7f073adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a09999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+        "chain_id": 125,
+        "value": "0",
+        "nonce": 0,
+        "gas_limit": 100000,
+        "max_fee_per_gas": "30",
+        "max_priority_fee_per_gas": "2"
       },
       {
         "index": 1,
@@ -133,17 +113,14 @@
           "amount": "8",
           "currency": "LXP"
         },
-        "payment": {
-          "from": "3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a0",
-          "to": "5a9a1ffa930befe03eba79060e108d6c8e857550d2f63f4975882bb6313d6960",
-          "assetId": "9999999999999999999999999999999999999999999999999999999999999999",
-          "amount": "500000",
-          "sequence": 0,
-          "paymentReference": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
-        },
         "to": "0x000000000000000000000000000000000000101a",
-        "data": "0x78ea11db3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a05a9a1ffa930befe03eba79060e108d6c8e857550d2f63f4975882bb6313d69609999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
-        "chainId": 125
+        "calldata": "0x78ea11db3adee8af1f92419af0088714906b831214f67dfb23cf1a8a57209f4767aeb6a05a9a1ffa930befe03eba79060e108d6c8e857550d2f63f4975882bb6313d69609999999999999999999999999999999999999999999999999999999999999999000000000000000000000000000000000000000000000000000000000007a1200000000000000000000000000000000000000000000000000000000000000000b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+        "chain_id": 125,
+        "value": "0",
+        "nonce": 1,
+        "gas_limit": 100000,
+        "max_fee_per_gas": "30",
+        "max_priority_fee_per_gas": "2"
       }
     ],
     "signing_requirements": [

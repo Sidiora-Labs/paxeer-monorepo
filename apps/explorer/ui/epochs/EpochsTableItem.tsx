@@ -5,6 +5,7 @@ import type { CeloEpochListItem } from 'types/api/epochs';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
+import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import EpochEntity from 'ui/shared/entities/epoch/EpochEntity';
 import CeloEpochStatus from 'ui/shared/statusTag/CeloEpochStatus';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
@@ -37,31 +38,26 @@ const EpochsTableItem = ({ item, isLoading }: Props) => {
           loading={ isLoading }
         />
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <Skeleton loading={ isLoading }>
-          { item.start_block_number } - { item.end_block_number || '' }
-        </Skeleton>
+      <TableCell color="text.muted"><Skeleton loading={ isLoading }>—</Skeleton></TableCell>
+      <TableCell isNumeric><BlockEntity number={ item.start_block_number } noIcon isLoading={ isLoading } textStyle="number"/></TableCell>
+      <TableCell isNumeric>
+        { item.end_block_number !== null ? <BlockEntity number={ item.end_block_number } noIcon isLoading={ isLoading } textStyle="number"/> : '—' }
+      </TableCell>
+      <TableCell isNumeric color="text.muted"><Skeleton loading={ isLoading }>—</Skeleton></TableCell>
+      <TableCell verticalAlign="middle" isNumeric>
+        { item.distribution?.community_transfer?.value != null ? (
+          <NativeCoinValue amount={ item.distribution.community_transfer.value } noSymbol loading={ isLoading }/>
+        ) : '—' }
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
-        <NativeCoinValue
-          amount={ item.distribution?.community_transfer?.value }
-          noSymbol
-          loading={ isLoading }
-        />
+        { item.distribution?.carbon_offsetting_transfer?.value != null ? (
+          <NativeCoinValue amount={ item.distribution.carbon_offsetting_transfer.value } noSymbol loading={ isLoading }/>
+        ) : '—' }
       </TableCell>
       <TableCell verticalAlign="middle" isNumeric>
-        <NativeCoinValue
-          amount={ item.distribution?.carbon_offsetting_transfer?.value }
-          noSymbol
-          loading={ isLoading }
-        />
-      </TableCell>
-      <TableCell verticalAlign="middle" isNumeric>
-        <NativeCoinValue
-          amount={ item.distribution?.transfers_total?.value }
-          noSymbol
-          loading={ isLoading }
-        />
+        { item.distribution?.transfers_total?.value != null ? (
+          <NativeCoinValue amount={ item.distribution.transfers_total.value } noSymbol loading={ isLoading }/>
+        ) : '—' }
       </TableCell>
     </TableRow>
   );

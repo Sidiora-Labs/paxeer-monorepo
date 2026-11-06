@@ -133,6 +133,7 @@ const TxsListItem = ({
           <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Value</Skeleton>
           { priceUpdate ? <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> : (
             <NativeCoinValue
+              textStyle="number"
               amount={ tx.value }
               exchangeRate={ tx.exchange_rate }
               historicalExchangeRate={ tx.historic_exchange_rate }
@@ -149,7 +150,7 @@ const TxsListItem = ({
               <Skeleton loading={ isLoading } display="inline-block" whiteSpace="pre">Fee</Skeleton>
               { priceUpdate ?
                 <Skeleton loading={ isLoading } color="text.secondary">-</Skeleton> :
-                <TxFee tx={ tx } loading={ isLoading } color="text.secondary"/> }
+                <TxFee textStyle="number" tx={ tx } loading={ isLoading } color="text.secondary"/> }
             </>
           ) }
         </Flex>

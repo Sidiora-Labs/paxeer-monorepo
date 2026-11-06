@@ -14,7 +14,11 @@ import path from 'node:path';
 import { gte, intersects, major, satisfies, validRange } from 'semver';
 import * as v from 'valibot';
 
-import { expect, test } from 'vitest';
+import { beforeAll, expect, test } from 'vitest';
+
+import { exerciseTelemetryStartup, preloadTelemetryDependencies } from './instrumentation.node.fixture';
+
+beforeAll(preloadTelemetryDependencies);
 
 function readInstalledTelemetryManifest(name: string, requirePackage: ReturnType<typeof createRequire>) {
   let directory = path.dirname(requirePackage.resolve(name));
@@ -162,3 +166,13 @@ async function test_explorer_telemetry_dependency_coherence() {
 }
 
 test('test_explorer_telemetry_dependency_coherence', test_explorer_telemetry_dependency_coherence);
+
+test.each([
+  { value: 'true', enabled: true },
+  { value: 'false', enabled: false },
+  { value: undefined, enabled: false },
+])('actual telemetry module startup with OTEL_SDK_ENABLED=$value', async function telemetryModuleStartup({ value, enabled }) {
+  const result = await exerciseTelemetryStartup(value);
+  expect(result.enabled).toBe(enabled);
+  expect(result.sigtermHandlersAdded).toBe(enabled ? 1 : 0);
+});

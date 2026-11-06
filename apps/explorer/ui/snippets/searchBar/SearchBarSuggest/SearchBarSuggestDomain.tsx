@@ -38,12 +38,12 @@ const SearchBarSuggestDomain = ({ data, isMobile, searchTerm, addressFormat }: I
       whiteSpace="nowrap"
       color="text.secondary"
     >
-      <HashStringShortenDynamic hash={ hash } noTooltip/>
+      <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ hash } noTooltip/>
     </Text>
   ) : null;
 
   const isContractVerified = 'is_smart_contract_verified' in data && data.is_smart_contract_verified &&
-    <IconSvg name="status/success" boxSize="14px" color="green.500" flexShrink={ 0 }/>;
+    <IconSvg name="status/success" boxSize="14px" color="positive" flexShrink={ 0 }/>;
 
   const namesCount = 'names_count' in data.ens_info ? data.ens_info.names_count : 0;
 

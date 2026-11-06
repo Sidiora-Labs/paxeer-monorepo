@@ -15,9 +15,10 @@ import BlocksTable from 'ui/blocks/BlocksTable';
 import ActionBar from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
 import IconSvg from 'ui/shared/IconSvg';
+import ListPage from 'ui/shared/Page/ListPage';
 import Pagination from 'ui/shared/pagination/Pagination';
 import type { QueryWithPagesResult } from 'ui/shared/pagination/useQueryWithPages';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
 import * as SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 
 import useBlocksNewBlock from './useBlocksNewBlock';
@@ -130,13 +131,13 @@ const BlocksContent = ({ type, query, enableSocket = true, top, isInsideTableCar
       actionBar={ actionBar }
     >
       { content && (isInsideTableCard ? content : (
-        <ScanTableCard
+        <ListPage
           title={ countLine }
           note={ note }
           pagination={ paginationNode }
         >
           { content }
-        </ScanTableCard>
+        </ListPage>
       )) }
     </DataListDisplay>
   );

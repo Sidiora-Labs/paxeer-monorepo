@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"reflect"
@@ -21,6 +22,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 )
 
@@ -38,6 +40,11 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	if vector.Name != "vector-v4-committed" || vector.Provenance == "" {
 		t.Fatal("missing vector identity or recording provenance")
 	}
+	assertV4CommittedVerifies(t, &vector)
+}
+
+func assertV4CommittedVerifies(t *testing.T, vector *v4Vector) {
+	t.Helper()
 	check := func(t *testing.T, entry v4Case) (*verify.VerifiedReceipt, *codec.BatchHeader, error) {
 		t.Helper()
 		if len(entry.HeaderSignature) != 64 {
@@ -278,5 +285,121 @@ func TestVectorV4CommittedVerifies(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("settled payExact receipt lacks its PaymentExact log")
+	}
+}
+
+func TestRepairM_486_CommittedVectorChainID(t *testing.T) {
+	data, err := os.ReadFile("vectors/vector-v4-committed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var vector v4Vector
+	if err := json.Unmarshal(data, &vector); err != nil {
+		t.Fatal(err)
+	}
+	if vector.Settlement == nil || vector.Settlement.Receipt == nil {
+		t.Fatal("missing committed settlement")
+	}
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(vector.Settlement.RawTransaction); err != nil {
+		t.Fatal(err)
+	}
+	t.Run("chain-125", func(t *testing.T) {
+		if tx.ChainId().Cmp(big.NewInt(125)) != 0 {
+			t.Fatalf("committed transaction chain id = %s, want 125", tx.ChainId())
+		}
+	})
+	t.Run("EIP-1559", func(t *testing.T) {
+		if tx.Type() != ethtypes.DynamicFeeTxType {
+			t.Fatalf("committed transaction type = %d, want 2", tx.Type())
+		}
+	})
+	if tx.Hash() != vector.Settlement.Receipt.TxHash {
+		t.Fatal("committed transaction hash differs from receipt")
+	}
+}
+
+func TestRepairM_486_DerivedCopies(t *testing.T) {
+	source, err := os.ReadFile("vectors/vector-v4-committed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	explorer, err := os.ReadFile("../../apps/explorer/ui/tx/details/fixtures/vector-v4-committed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(source, explorer) {
+		t.Fatal("explorer must retain the exact producer recording")
+	}
+	var recorded v4Vector
+	if err := json.Unmarshal(source, &recorded); err != nil {
+		t.Fatal(err)
+	}
+	var converted struct {
+		Provenance struct {
+			SHA256 string `json:"sha256"`
+		} `json:"provenance"`
+		Positive struct {
+			RawTransaction hexutil.Bytes `json:"rawTransaction"`
+			SignedReceipt  hexutil.Bytes `json:"signedReceipt"`
+			ReceiptDigest  hexutil.Bytes `json:"receiptDigest"`
+		} `json:"positive"`
+	}
+	data, err := os.ReadFile("../../sdk/platform/conformance/fixtures/vector-v4-committed.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &converted); err != nil {
+		t.Fatal(err)
+	}
+	digest := fmt.Sprintf("%x", sha256.Sum256(source))
+	if converted.Provenance.SHA256 != digest {
+		t.Fatal("conformance source digest differs from producer recording")
+	}
+	if recorded.Settlement == nil || recorded.Settlement.Receipt == nil {
+		t.Fatal("missing producer settlement")
+	}
+	if !bytes.Equal(converted.Positive.RawTransaction, recorded.Settlement.RawTransaction) || !bytes.Equal(converted.Positive.SignedReceipt, recorded.Settlement.Receipt.Receipt) {
+		t.Fatal("conformance transaction or receipt differs from producer recording")
+	}
+	verified, err := verify.ReceiptSignature(converted.Positive.SignedReceipt, recorded.Authorization.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(converted.Positive.ReceiptDigest, verified.Digest[:]) {
+		t.Fatal("conformance receipt digest differs from authenticated bytes")
+	}
+	var portable struct {
+		Provenance struct {
+			CommittedSHA256 string `json:"committedSha256"`
+			ReceiptedSHA256 string `json:"receiptedSha256"`
+		} `json:"provenance"`
+		Bundles []struct {
+			Level          string        `json:"verificationLevel"`
+			RawTransaction hexutil.Bytes `json:"rawTransaction"`
+			SignedReceipt  hexutil.Bytes `json:"signedReceipt"`
+			ReceiptDigest  hexutil.Bytes `json:"receiptDigest"`
+		} `json:"bundles"`
+	}
+	data, err = os.ReadFile("../../sdk/platform/conformance/fixtures/vector-v5-portable.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(data, &portable); err != nil {
+		t.Fatal(err)
+	}
+	receipted, err := os.ReadFile("../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if portable.Provenance.CommittedSHA256 != digest || portable.Provenance.ReceiptedSHA256 != fmt.Sprintf("%x", sha256.Sum256(receipted)) {
+		t.Fatal("portable provenance differs from source recordings")
+	}
+	if len(portable.Bundles) != 2 || portable.Bundles[1].Level != "committed" {
+		t.Fatal("missing portable committed case")
+	}
+	bundle := portable.Bundles[1]
+	if !bytes.Equal(bundle.RawTransaction, converted.Positive.RawTransaction) || !bytes.Equal(bundle.SignedReceipt, converted.Positive.SignedReceipt) || !bytes.Equal(bundle.ReceiptDigest, converted.Positive.ReceiptDigest) {
+		t.Fatal("portable committed case differs from V4")
 	}
 }

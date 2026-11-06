@@ -1,0 +1,59 @@
+[repair]
+task = "22.31.530"
+base_revision = "cf1b3df949f49605fd449fb298856816706626d2"
+acceptance = "22998.1"
+decisions = ["2376", "2582", "2538", "2588"]
+gotchas = ["3118", "2962", "3121", "3126"]
+implementation = "Transaction and legacy receipt-digest hints serve identical-request replay from the stored record. A differing request reaches the same authority settlement call as a new request; only a settled outcome permits receipt_reuse, before any fulfillment or release. Existing post-verification reuse checks remain."
+fixture = "The committed V1-layerxledger-pay-exact case from sdk/platform/conformance/fixtures/sequencer-receipt-v1.json, also used by receipt-replay.test.mjs."
+fixture_digest = "Use the real verifySequencerReceipt result receiptDigest; hashing the complete signedReceipt with keccak256, as older tests do, disagrees with the current verifier."
+real_path = "SellerMiddleware, ReceiptPayloadAuthority, DurableFulfillmentRepository and the Next resource handler; source loading uses Node's TypeScript transform, as repair-22-31-434.test.mjs does for consumers, without replacing implementations."
+
+[case.settle]
+test = "settlesOnceAndReleases"
+assertion = "A verified receipt settles once, releases once and persists its claim and fulfilled record."
+
+[case.replay]
+test = "identicalRequestReplaysStoredRecordAfterRestart"
+assertion = "Reopen the durable repository and seller; the identical request returns the stored resource and settlement without authority settlement, a second release or any file change."
+
+[case.tampered]
+test = "changedReceiptKeyFailsVerificationBeforeReuse"
+assertion = "Change only the receipt public key and request description while retaining rawTransaction; the real authority throws verification-failure, and the real Next route answers 402 with that error rather than receipt_reuse. Release count and every repository file remain unchanged. The pre-repair early reuse return fails this rejection assertion."
+
+[case.reuse]
+test = "validDifferingRequestIsReceiptReuse"
+assertion = "The valid receipt under a differing request reaches authority settlement and returns a refused decision with status 409 and errorReason receipt_reuse; release count and repository remain unchanged."
+
+[qualification]
+build = "hf-build"
+verify = "hf-done"
+consumer = "The declared verify_cmd also builds the buyer and Next packages and runs sdk/integrations/next/test/receipt-keys.test.mjs, including the line 296 regression."
+verified_revision = "/out/run/gates.jsonl: the passing final verify entry names the exact candidate revision, command, exit code and private evidence log."
+policy = "Only the declared build and verify gates; no credential or live endpoint. Qualification requires both gates to pass at the same candidate revision; no assertion is weakened."
+
+[finding.inherited-receipt-digests]
+revision = "213bcde78957481df3cc2de1a6f0a64e4569a2da"
+command = "cg spec done 22.31.530 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three receipt-replay.test.mjs cases and all three settlement-response.test.mjs cases fail at verifyReceiptDigest on the initial settlement, before any differing-request reuse behavior."
+assumption = "Those inherited fixtures use keccak256 of the complete signed receipt rather than the real verifier's receiptDigest; preserve them and report the unrelated failure without changing their assertions or production digest verification."
+
+[alignment.attempt-2]
+base_revision = "9e68791413a54856839db57deec771b566b31552"
+receipt_digest = "The receipt-replay, receipt-verification and settlement-response suites now construct valid portable proofs with verifySequencerReceipt.receiptDigest; tampered receipt cases retain unverifiable digests and their refusal assertions."
+principal = "receiptIdentityIsBoundToOnePrincipal asserts receipt_reuse (409) for the second principal and later cross-principal replays, with exactly one release."
+schemes = "meteredOfferRefusesExactEvidence asserts verification-failure for both metered and subscription offers presented with exact-payment evidence, retaining the purpose-hash mismatch refusal."
+committed = "settlementResponseCarriesPortableReceipt uses recordedCommittedReceipt and its independent validator resolver through SellerMiddlewareConfig.commitments; digest and signature/validator counts match the recorded evidence. Stored replay still works after clearing the evidence repository; missing evidence and downgraded proofs remain refused without release."
+settle_count = "replayedSettlementAnswersStoredTransaction retains settleCount 2 because a differing stored request must be verified before receipt_reuse."
+product = "Attempt 1 stands in full; no additional product-code change."
+qualification = "The exact verified candidate revision, command, exit and private log are recorded by hf-done in /out/run/gates.jsonl and copied to the final evidence line; the repair record is frozen before build so build and verify share that candidate."
+
+[finding.next-receipt-backed-digest]
+revision = "f395b47319df596a94c25a7e212234be054ee792"
+command = "cg spec done 22.31.530 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared build and all 27 seller tests pass; Next integrationSettlesSignedSequencerReceipt fails at receipt-keys.test.mjs:273 because its initial paid request returns 500 instead of 200, before the differing-request case."
+assumption = "Next assertReceiptBacked still compares the portable receiptDigest to keccak256(decision.verification.canonicalBytes), contradicting the verifier digest required by decision 2538; that consumer is outside scope and do_5 prohibits further product changes, so record without repair or rerun."

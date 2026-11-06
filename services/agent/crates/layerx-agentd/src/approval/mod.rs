@@ -4,12 +4,13 @@ use std::collections::BTreeMap;
 use std::sync::Mutex;
 
 use layerx_agent_api::prepare::{Disclosure, Prepared};
+use layerx_agent_api::TimestampSeconds;
 use sha2::{Digest as _, Sha256};
 
 use crate::budget::{self, BudgetLimiter, ReleaseKind};
 use crate::policy::approval::{
-    ApprovalError as RegistryError, ApprovalRegistry, ApprovalSnapshot, ApprovalState, ApproverId,
-    ReleasedApproval,
+    ApprovalError as RegistryError, ApprovalRegistry, ApprovalSequence, ApprovalSnapshot,
+    ApprovalState, ApproverId, ReleasedApproval,
 };
 use crate::store::{Store, TenantId};
 
@@ -22,6 +23,23 @@ pub mod native_program;
 pub mod native_program_presentation;
 pub(crate) mod program_requirement;
 pub(crate) use expiry::PreparedDecision;
+
+#[cfg(test)]
+pub(crate) struct TestClock(pub(crate) u64);
+
+#[cfg(test)]
+impl layerx_types::clock::Clock for TestClock {
+    fn sample(
+        &self,
+        _transport_budget: std::time::Duration,
+    ) -> Result<layerx_types::clock::ClockReading, layerx_types::clock::ClockError> {
+        Ok(layerx_types::clock::ClockReading {
+            generation: [1; 16],
+            unix_milliseconds: self.0,
+            monotonic_nanoseconds: 0,
+        })
+    }
+}
 
 #[cfg(test)]
 #[path = "../../tests/approval_ordering/mod.rs"]
@@ -50,7 +68,7 @@ mod receipt_settlement_tests {
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
-        hold_reserved, released_storage_key, ApprovalContext, ApprovalError as RegistryError,
+        hold_reserved_at, released_storage_key, ApprovalContext, ApprovalError as RegistryError,
         ApprovalRegistry, ApprovalState, ApproverId,
     };
     use crate::session::SessionId;
@@ -175,7 +193,7 @@ mod receipt_settlement_tests {
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
         let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-        hold_reserved(
+        hold_reserved_at(
             &registry,
             ApprovalContext {
                 actor_address: [4; 20],
@@ -191,6 +209,7 @@ mod receipt_settlement_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(10_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
         let expiry = ApprovalExpiry::from_shared_store(Arc::clone(&store));
@@ -219,6 +238,7 @@ mod receipt_settlement_tests {
                     approver: ApproverId::new("human:grant")
                         .unwrap_or_else(|error| panic!("approver: {error:?}")),
                     current_sequence: 11,
+                    current_time: TimestampSeconds(12),
                 },
                 &prepared(id),
                 &fixture.queue,
@@ -229,7 +249,7 @@ mod receipt_settlement_tests {
     }
 
     fn durable_consumed(root: &std::path::Path) -> Vec<u128> {
-        let store = Store::open(root).unwrap_or_else(|error| panic!("reopen: {error}"));
+        let store = Store::open_read_only(root).unwrap_or_else(|error| panic!("reopen: {error}"));
         daemon_limits(&store, &tenant())
             .unwrap_or_else(|error| panic!("daemon limits: {error:?}"))
             .iter()
@@ -385,6 +405,7 @@ mod receipt_settlement_tests {
             approver: ApproverId::new("human:reject")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence: 11,
+            current_time: TimestampSeconds(12),
         })
     }
 
@@ -426,7 +447,12 @@ mod receipt_settlement_tests {
         }
         assert_eq!(durable_consumed(&fixture.root), vec![0, 0]);
         let snapshot = registry
-            .get_scoped(&tenant(), [35; 32], 12)
+            .get_scoped_at(
+                &tenant(),
+                [35; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12),
+            )
             .unwrap_or_else(|error| panic!("snapshot: {error:?}"));
         assert_eq!(snapshot.state, ApprovalState::Rejected);
         let store = fixture
@@ -466,7 +492,12 @@ mod receipt_settlement_tests {
         assert_eq!(restarted.held_reservations(), Ok(0));
         assert_eq!(fixture.limiter.held_reservations(), Ok(2));
         let snapshot = registry
-            .get_scoped(&tenant(), [36; 32], 12)
+            .get_scoped_at(
+                &tenant(),
+                [36; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12),
+            )
             .unwrap_or_else(|error| panic!("snapshot: {error:?}"));
         assert_eq!(snapshot.state, ApprovalState::AwaitingApproval);
     }
@@ -495,7 +526,9 @@ mod lock_order_tests {
         DaemonLimitRecord, LimitId, LimitRefusal, ReservationRequest,
     };
     use crate::capability::CapabilityId;
-    use crate::policy::approval::{hold_reserved, ApprovalContext, ApprovalRegistry, ApproverId};
+    use crate::policy::approval::{
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApproverId,
+    };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
@@ -585,6 +618,7 @@ mod lock_order_tests {
             approver: ApproverId::new("human:lock-order")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence,
+            current_time: TimestampSeconds(12),
         }
     }
 
@@ -650,7 +684,7 @@ mod lock_order_tests {
             },
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
-        hold_reserved(
+        hold_reserved_at(
             &shared.registry,
             ApprovalContext {
                 actor_address: [4; 20],
@@ -666,6 +700,7 @@ mod lock_order_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(10_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
     }
@@ -782,7 +817,15 @@ mod lock_order_tests {
             before
         );
         assert_eq!(shared.registry.audit_entry([61; 32]), Ok(None));
-        assert!(shared.registry.claim_scoped(&tenant, [61; 32], 12).is_ok());
+        assert!(shared
+            .registry
+            .claim_scoped_at(
+                &tenant,
+                [61; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12)
+            )
+            .is_ok());
         assert_eq!(shared.limiter.held_reservations(), Ok(2));
         assert_eq!(restarted.held_reservations(), Ok(0));
     }
@@ -810,7 +853,9 @@ mod reject_persist_tests {
         DaemonLimitRecord, LimitId, LimitRefusal, ReservationRequest,
     };
     use crate::capability::CapabilityId;
-    use crate::policy::approval::{hold_reserved, ApprovalContext, ApprovalRegistry, ApproverId};
+    use crate::policy::approval::{
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApproverId,
+    };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
 
@@ -899,6 +944,7 @@ mod reject_persist_tests {
             approver: ApproverId::new("human:lock-order")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence,
+            current_time: TimestampSeconds(12),
         }
     }
 
@@ -963,7 +1009,7 @@ mod reject_persist_tests {
             },
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
-        hold_reserved(
+        hold_reserved_at(
             &shared.registry,
             ApprovalContext {
                 actor_address: [4; 20],
@@ -979,6 +1025,7 @@ mod reject_persist_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(10_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
     }
@@ -1025,17 +1072,20 @@ mod reject_persist_tests {
         let tenant = tenant();
         let service = ApprovalService::new(&shared.registry, &shared.limiter, &shared.expiry);
         service
-            .get(&tenant, [71; 32], 11)
+            .get(&tenant, [71; 32], 11, TimestampSeconds(12))
             .unwrap_or_else(|error| panic!("get: {error:?}"));
         let reject = decision_key("reject-71");
-        std::fs::remove_dir_all(&shared.root).unwrap_or_else(|error| panic!("remove: {error}"));
+        let unavailable = shared.root.with_extension("unavailable");
+        std::fs::rename(&shared.root, &unavailable)
+            .unwrap_or_else(|error| panic!("move store: {error}"));
         assert!(matches!(
             service.reject(request(&tenant, 71, &reject, 12)),
             Err(ApprovalOperationError::Registry(
                 crate::policy::approval::ApprovalError::Unavailable
             ))
         ));
-        std::fs::create_dir_all(&shared.root).unwrap_or_else(|error| panic!("create: {error}"));
+        std::fs::rename(&unavailable, &shared.root)
+            .unwrap_or_else(|error| panic!("restore store: {error}"));
         assert_eq!(shared.expiry.repeated(&tenant, [71; 32], &reject), Ok(None));
         assert_eq!(shared.registry.audit_entry([71; 32]), Ok(None));
         assert_eq!(shared.limiter.held_reservations(), Ok(2));
@@ -1047,7 +1097,15 @@ mod reject_persist_tests {
             .len(),
             1
         );
-        assert!(shared.registry.claim_scoped(&tenant, [71; 32], 12).is_ok());
+        assert!(shared
+            .registry
+            .claim_scoped_at(
+                &tenant,
+                [71; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12)
+            )
+            .is_ok());
         shared
             .registry
             .abort_claim([71; 32])
@@ -1128,7 +1186,7 @@ mod defective_persist_tests {
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
-        hold_reserved, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApprovalState, ApproverId,
     };
     use crate::session::SessionId;
     use crate::store::{ObjectKind, Store, TenantId, TenantKey};
@@ -1218,6 +1276,7 @@ mod defective_persist_tests {
             approver: ApproverId::new("human:lock-order")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence,
+            current_time: TimestampSeconds(12),
         }
     }
 
@@ -1282,7 +1341,7 @@ mod defective_persist_tests {
             },
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
-        hold_reserved(
+        hold_reserved_at(
             &shared.registry,
             ApprovalContext {
                 actor_address: [4; 20],
@@ -1298,6 +1357,7 @@ mod defective_persist_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(10_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
     }
@@ -1373,7 +1433,7 @@ mod defective_persist_tests {
         ));
         assert_eq!(
             service
-                .get(&tenant, [81; 32], 13)
+                .get(&tenant, [81; 32], 13, TimestampSeconds(12))
                 .map(|record| record.state),
             Ok(ApprovalState::Defective)
         );
@@ -1387,10 +1447,12 @@ mod defective_persist_tests {
         let service = ApprovalService::new(&shared.registry, &shared.limiter, &shared.expiry);
         let submissions = ApprovalSubmissionQueue::default();
         service
-            .get(&tenant, [91; 32], 11)
+            .get(&tenant, [91; 32], 11, TimestampSeconds(12))
             .unwrap_or_else(|error| panic!("get: {error:?}"));
         let approve = decision_key("approve-91");
-        std::fs::remove_dir_all(&shared.root).unwrap_or_else(|error| panic!("remove: {error}"));
+        let unavailable = shared.root.with_extension("unavailable");
+        std::fs::rename(&shared.root, &unavailable)
+            .unwrap_or_else(|error| panic!("move store: {error}"));
         assert!(matches!(
             service.approve(
                 request(&tenant, 91, &approve, 12),
@@ -1401,7 +1463,8 @@ mod defective_persist_tests {
                 crate::policy::approval::ApprovalError::Unavailable
             ))
         ));
-        std::fs::create_dir_all(&shared.root).unwrap_or_else(|error| panic!("create: {error}"));
+        std::fs::rename(&unavailable, &shared.root)
+            .unwrap_or_else(|error| panic!("restore store: {error}"));
         assert_eq!(
             shared.expiry.repeated(&tenant, [91; 32], &approve),
             Ok(None)
@@ -1416,7 +1479,15 @@ mod defective_persist_tests {
             .len(),
             1
         );
-        assert!(shared.registry.claim_scoped(&tenant, [91; 32], 12).is_ok());
+        assert!(shared
+            .registry
+            .claim_scoped_at(
+                &tenant,
+                [91; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12)
+            )
+            .is_ok());
         shared
             .registry
             .abort_claim([91; 32])
@@ -1515,7 +1586,9 @@ mod reject_no_store_tests {
         DaemonLimitRecord, LimitId, LimitRefusal, ReservationRequest,
     };
     use crate::capability::CapabilityId;
-    use crate::policy::approval::{hold_reserved, ApprovalContext, ApprovalRegistry, ApproverId};
+    use crate::policy::approval::{
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApproverId,
+    };
     use crate::session::SessionId;
     use crate::store::{Store, TenantId};
 
@@ -1604,6 +1677,7 @@ mod reject_no_store_tests {
             approver: ApproverId::new("human:lock-order")
                 .unwrap_or_else(|error| panic!("approver: {error:?}")),
             current_sequence,
+            current_time: TimestampSeconds(12),
         }
     }
 
@@ -1668,7 +1742,7 @@ mod reject_no_store_tests {
             },
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
-        hold_reserved(
+        hold_reserved_at(
             &shared.registry,
             ApprovalContext {
                 actor_address: [4; 20],
@@ -1684,6 +1758,7 @@ mod reject_no_store_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(10_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
     }
@@ -1695,24 +1770,35 @@ mod reject_no_store_tests {
         let tenant = tenant();
         let service = ApprovalService::new(&shared.registry, &shared.limiter, &shared.expiry);
         service
-            .get(&tenant, [111; 32], 11)
+            .get(&tenant, [111; 32], 11, TimestampSeconds(12))
             .unwrap_or_else(|error| panic!("get: {error:?}"));
         let reject = decision_key("reject-111");
-        std::fs::remove_dir_all(&shared.root).unwrap_or_else(|error| panic!("remove: {error}"));
+        let unavailable = shared.root.with_extension("unavailable");
+        std::fs::rename(&shared.root, &unavailable)
+            .unwrap_or_else(|error| panic!("move store: {error}"));
         assert!(matches!(
             service.reject(request(&tenant, 111, &reject, 12)),
             Err(ApprovalOperationError::Registry(
                 crate::policy::approval::ApprovalError::Unavailable
             ))
         ));
-        std::fs::create_dir_all(&shared.root).unwrap_or_else(|error| panic!("create: {error}"));
+        std::fs::rename(&unavailable, &shared.root)
+            .unwrap_or_else(|error| panic!("restore store: {error}"));
         assert_eq!(shared.limiter.held_reservations(), Ok(2));
         assert_eq!(
             shared.expiry.repeated(&tenant, [111; 32], &reject),
             Ok(None)
         );
         assert_eq!(shared.registry.audit_entry([111; 32]), Ok(None));
-        assert!(shared.registry.claim_scoped(&tenant, [111; 32], 12).is_ok());
+        assert!(shared
+            .registry
+            .claim_scoped_at(
+                &tenant,
+                [111; 32],
+                crate::policy::approval::ApprovalSequence(12),
+                TimestampSeconds(12)
+            )
+            .is_ok());
         shared
             .registry
             .abort_claim([111; 32])
@@ -1810,6 +1896,20 @@ pub struct ApprovalSubmissionQueue {
 }
 
 impl ApprovalSubmissionQueue {
+    pub fn recover_released(
+        &self,
+        registry: &ApprovalRegistry,
+        tenant: &TenantId,
+        limiter: &BudgetLimiter,
+        modules: &layerx_types::payload::ModuleRegistry,
+    ) -> Result<(), ApprovalOperationError> {
+        let released = registry
+            .replay_released(tenant, limiter, modules)
+            .map_err(ApprovalOperationError::Registry)?;
+        self.restore(released)
+            .map_err(|_| ApprovalOperationError::Registry(RegistryError::CorruptRecord))
+    }
+
     pub(crate) fn matches_released_decision(
         &self,
         tenant: &TenantId,
@@ -1968,37 +2068,6 @@ impl ApprovalSubmissionQueue {
         hasher.finalize().into()
     }
 
-    fn release(
-        &self,
-        tenant: TenantId,
-        approval_id: [u8; 32],
-        prepared: Prepared,
-    ) -> Result<[u8; 32], ApprovalOutcome> {
-        let submission_ref = Self::reference(&tenant, approval_id, &prepared);
-        let mut queued = self.queued.lock().map_err(|_| ApprovalOutcome::Conflict)?;
-        match queued.get(&submission_ref) {
-            Some(stored)
-                if stored.tenant == tenant
-                    && stored.approval_id == approval_id
-                    && stored.prepared == prepared =>
-            {
-                Ok(submission_ref)
-            }
-            Some(_) => Err(ApprovalOutcome::Conflict),
-            None => {
-                queued.insert(
-                    submission_ref,
-                    QueuedSubmission {
-                        tenant,
-                        approval_id,
-                        prepared,
-                    },
-                );
-                Ok(submission_ref)
-            }
-        }
-    }
-
     /// Returns the exact preparation released by approval.
     #[must_use]
     pub fn prepared(&self, submission_ref: [u8; 32]) -> Option<Prepared> {
@@ -2029,6 +2098,7 @@ pub struct DecisionRequest<'a> {
     pub idempotency_key: &'a DecisionKey,
     pub approver: ApproverId,
     pub current_sequence: u64,
+    pub current_time: TimestampSeconds,
 }
 
 /// Tenant-authenticated list/get/approve/reject service.
@@ -2071,6 +2141,7 @@ impl<'a> ApprovalService<'a> {
         cursor: Option<[u8; 32]>,
         page_limit: usize,
         current_sequence: u64,
+        current_time: TimestampSeconds,
     ) -> Result<ApprovalPage, ApprovalOperationError> {
         let _decision = self
             .expiry
@@ -2081,7 +2152,7 @@ impl<'a> ApprovalService<'a> {
         }
         let mut snapshots = self
             .registry
-            .list_scoped(tenant, current_sequence)
+            .list_scoped_at(tenant, ApprovalSequence(current_sequence), current_time)
             .map_err(ApprovalOperationError::Registry)?;
         snapshots.sort_by_key(|snapshot| snapshot.context.request_id);
         let mut records = Vec::new();
@@ -2113,6 +2184,7 @@ impl<'a> ApprovalService<'a> {
         tenant: &TenantId,
         approval_id: [u8; 32],
         current_sequence: u64,
+        current_time: TimestampSeconds,
     ) -> Result<ApprovalRecord, ApprovalOperationError> {
         let _decision = self
             .expiry
@@ -2120,7 +2192,12 @@ impl<'a> ApprovalService<'a> {
             .map_err(ApprovalOperationError::Durability)?;
         let mut snapshot = self
             .registry
-            .get_scoped(tenant, approval_id, current_sequence)
+            .get_scoped_at(
+                tenant,
+                approval_id,
+                ApprovalSequence(current_sequence),
+                current_time,
+            )
             .map_err(ApprovalOperationError::Registry)?;
         snapshot.state = self
             .expiry
@@ -2150,6 +2227,7 @@ impl<'a> ApprovalService<'a> {
             idempotency_key,
             approver,
             current_sequence,
+            current_time,
         } = request;
         if let Some(decision) = self
             .expiry
@@ -2160,7 +2238,12 @@ impl<'a> ApprovalService<'a> {
         }
         let snapshot = self
             .registry
-            .get_scoped(tenant, approval_id, current_sequence)
+            .get_scoped_at(
+                tenant,
+                approval_id,
+                ApprovalSequence(current_sequence),
+                current_time,
+            )
             .map_err(ApprovalOperationError::Registry)?;
         let intended = approval_intent(current_prepared, &snapshot.prepared);
         if intended == ApprovalOutcome::Defective {
@@ -2195,10 +2278,12 @@ impl<'a> ApprovalService<'a> {
         if let Some(after_prepare) = self.after_prepare {
             after_prepare();
         }
-        let claimed = match self
-            .registry
-            .claim_scoped(tenant, approval_id, current_sequence)
-        {
+        let claimed = match self.registry.claim_scoped_at(
+            tenant,
+            approval_id,
+            ApprovalSequence(current_sequence),
+            current_time,
+        ) {
             Ok(claimed) => claimed,
             Err(error) => return outcome_or_error(error),
         };
@@ -2223,27 +2308,22 @@ impl<'a> ApprovalService<'a> {
             )?;
             return Ok(decision(ApprovalOutcome::Defective, None));
         }
-        let queued_submission_ref =
-            match submissions.release(tenant.clone(), approval_id, claimed.prepared.clone()) {
-                Ok(reference) => reference,
-                Err(outcome) => {
-                    self.registry
-                        .abort_claim(approval_id)
-                        .map_err(ApprovalOperationError::Registry)?;
-                    return Ok(decision(outcome, None));
-                }
-            };
-        self.persist_grant(
+        let released = submissions.publish_program_release(
+            tenant.clone(),
             approval_id,
-            approver,
-            queued_submission_ref,
-            decision_record,
-        )?;
-        debug_assert_eq!(submission_ref, Some(queued_submission_ref));
-        Ok(decision(
-            ApprovalOutcome::Granted,
-            Some(queued_submission_ref),
-        ))
+            claimed.prepared.clone(),
+            |reference| {
+                self.persist_grant(approval_id, approver, reference, decision_record)?;
+                debug_assert_eq!(submission_ref, Some(reference));
+                Ok(decision(ApprovalOutcome::Granted, Some(reference)))
+            },
+        );
+        if released.is_err() {
+            self.registry
+                .abort_claim(approval_id)
+                .map_err(ApprovalOperationError::Registry)?;
+        }
+        released
     }
 
     fn persist_grant(
@@ -2256,6 +2336,11 @@ impl<'a> ApprovalService<'a> {
         let fallback_decision_record = (!self.registry.has_durable_store())
             .then(|| decision_record.clone())
             .flatten();
+        if let Some(prepared) = fallback_decision_record {
+            self.expiry
+                .persist_prepared_decision(prepared)
+                .map_err(ApprovalOperationError::Durability)?;
+        }
         self.registry
             .complete_claim(
                 approval_id,
@@ -2266,11 +2351,6 @@ impl<'a> ApprovalService<'a> {
                 decision_record,
             )
             .map_err(ApprovalOperationError::Registry)?;
-        if let Some(prepared) = fallback_decision_record {
-            self.expiry
-                .persist_prepared_decision(prepared)
-                .map_err(ApprovalOperationError::Durability)?;
-        }
         Ok(())
     }
 
@@ -2297,10 +2377,16 @@ impl<'a> ApprovalService<'a> {
             idempotency_key,
             approver,
             current_sequence,
+            current_time,
         } = request;
         let snapshot = self
             .registry
-            .get_scoped(tenant, approval_id, current_sequence)
+            .get_scoped_at(
+                tenant,
+                approval_id,
+                ApprovalSequence(current_sequence),
+                current_time,
+            )
             .map_err(ApprovalOperationError::Registry)?;
         self.registry
             .check_reserved_limits(approval_id, self.limiter)?;
@@ -2330,10 +2416,12 @@ impl<'a> ApprovalService<'a> {
                 return Ok(decision(ApprovalOutcome::Expired, None));
             }
         };
-        match self
-            .registry
-            .claim_scoped(tenant, approval_id, current_sequence)
-        {
+        match self.registry.claim_scoped_at(
+            tenant,
+            approval_id,
+            ApprovalSequence(current_sequence),
+            current_time,
+        ) {
             Ok(_) => {}
             Err(error) => return outcome_or_error(error),
         }

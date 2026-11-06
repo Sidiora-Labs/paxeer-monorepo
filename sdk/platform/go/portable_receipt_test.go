@@ -256,6 +256,32 @@ func TestPortableReceiptRefusesVersionOneFormat(t *testing.T) {
 	t.Run("trailing-document", func(t *testing.T) { refuse(t, append(append([]byte(nil), data...), []byte(` {}`)...), keys) })
 }
 
+func TestPortableReceiptRecordedCheckpointProvenance(t *testing.T) {
+	data, err := os.ReadFile("testdata/repair_m1384/checkpoint.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var checkpoint struct {
+		Source         string `json:"source"`
+		SourceSHA256   string `json:"source_sha256"`
+		CaptureCommand string `json:"capture_command"`
+	}
+	if err := json.Unmarshal(data, &checkpoint); err != nil {
+		t.Fatal(err)
+	}
+	if checkpoint.Source != "daemon/committed-fixture/vectors/vector-v4-committed.json" || checkpoint.SourceSHA256 != committedRecordingSHA256 || checkpoint.CaptureCommand != "python3 sdk/platform/conformance/fixtures/refresh_receipt_vectors.py" {
+		t.Fatal("checkpoint must be captured from the pinned producer recording")
+	}
+	trust := portableRecordedTrust(t)
+	if trust != committedRecordingTrust(t) {
+		t.Fatal("external checkpoint differs from the re-recorded fixture network anchor")
+	}
+	_, _, _, evidence, _ := repair141LoadRecorded(t)
+	if evidence.BlockHeader.Hash() != trust.BlockHash || !bytes.Equal(evidence.Commit.BlockID.Hash, trust.BlockHash[:]) || evidence.Commit.Height != trust.Height {
+		t.Fatal("captured checkpoint differs from producer execution header and commit")
+	}
+}
+
 // This checkpoint is an out-of-band fixture pin. Never obtain it from the
 // portable bundle or compute the trusted hash from its untrusted header.
 func portableRecordedTrust(t *testing.T) CommittedTrust {

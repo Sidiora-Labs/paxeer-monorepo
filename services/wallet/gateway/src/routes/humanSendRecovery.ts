@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { PoolClient } from 'pg';
 import { keccak256, type Hex } from 'viem';
 import { TransactionRejectedError, type RpcPool } from '../rpc/pool.js';
 import { ApprovalRecovery, type RecoveryEntry } from './approvalRecovery.js';
@@ -12,24 +13,27 @@ export class HumanSendRecovery {
   ) {
     this.store = new ApprovalRecovery(pool);
   }
-  async retain(signatureId: string, raw: Hex): Promise<void> {
+  async retain(signatureId: string, raw: Hex, connection?: PoolClient): Promise<void> {
     const hash = keccak256(raw);
-    await this.store.save({
-      domain: 'human',
-      approval_id: signatureId,
-      binding: hash,
-      phase: 'signed',
-      evidence: { raw, tx_hash: hash, signature_id: signatureId },
-    });
-    const saved = await this.store.pool.query(
+    await this.store.save(
+      {
+        domain: 'human',
+        approval_id: signatureId,
+        binding: hash,
+        phase: 'signed',
+        evidence: { raw, tx_hash: hash, signature_id: signatureId },
+      },
+      connection
+    );
+    const saved = await (connection ?? this.store.pool).query(
       'update wallet_signatures set tx_hash=$2 where id=$1',
       [signatureId, hash]
     );
     if (saved.rowCount !== 1) throw new Error('human send reservation vanished before submission');
   }
-  async rejected(signatureId: string): Promise<void> {
-    const entry = await this.store.read('human', signatureId);
-    if (entry) await this.store.save({ ...entry, phase: 'rejected' });
+  async rejected(signatureId: string, connection?: PoolClient): Promise<void> {
+    const entry = await this.store.read('human', signatureId, connection);
+    if (entry) await this.store.save({ ...entry, phase: 'rejected' }, connection);
   }
   async reconcile(): Promise<void> {
     const pending = await this.store.pool.query<RecoveryEntry>(
@@ -37,8 +41,8 @@ export class HumanSendRecovery {
     );
     for (const entry of pending.rows) {
       await this.store
-        .locked('human', entry.approval_id, async () => {
-          const current = await this.store.read('human', entry.approval_id);
+        .locked('human', entry.approval_id, async (client) => {
+          const current = await this.store.read('human', entry.approval_id, client);
           if (!current || current.phase !== 'signed') return;
           const { raw, tx_hash: hash } = current.evidence;
           if (!raw || !hash || keccak256(raw) !== hash)
@@ -47,7 +51,7 @@ export class HumanSendRecovery {
           const receipt = await this.rpc.sequencerReceipt(hash);
           if (receipt !== null) {
             if (receipt.rung !== 'submitted')
-              await this.store.save({ ...current, phase: 'settled' });
+              await this.store.save({ ...current, phase: 'settled' }, client);
             return;
           }
           // Recover only the retained signed bytes, never a freshly prepared payment.

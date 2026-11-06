@@ -110,14 +110,14 @@ export async function runProviderSwitchRestartCoverage(): Promise<void> {
         );
         return;
       }
-      expect(['/rpc', '/rpc/chain/1']).toContain(route);
+      expect(['/', '/chain/1']).toContain(route);
       routed.push(route);
       expect(body.method).toBe('eth_blockNumber');
       response.end(
         JSON.stringify({
           jsonrpc: '2.0',
           id: body.id,
-          result: route === '/rpc/chain/1' ? '0x2a' : '0x10',
+          result: route === '/chain/1' ? '0x2a' : '0x10',
         })
       );
     })().catch((error: unknown) => {
@@ -150,8 +150,8 @@ export async function runProviderSwitchRestartCoverage(): Promise<void> {
   try {
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const origin = `https://127.0.0.1:${(server.address() as AddressInfo).port}`;
-    Object.assign(PAXEER_CONFIG, { rpcUrl: `${origin}/rpc`, chainId: 125 });
-    const config = { ...gateway.config, gatewayUrl: origin, rpcUrl: `${origin}/rpc` };
+    Object.assign(PAXEER_CONFIG, { rpcUrl: origin, chainId: 125 });
+    const config = { ...gateway.config, gatewayUrl: origin, rpcUrl: origin };
     const target = new EventTarget();
     async function mount() {
       const identity = IdentitySession.create(config, { detectSessionInUrl: false });
@@ -191,7 +191,7 @@ export async function runProviderSwitchRestartCoverage(): Promise<void> {
     const network = virtualNetwork(125000001, 'Loopback virtual network');
     const recipient = loadConstructions().transaction.to as Hex;
     expect(await provider.request({ method: 'eth_blockNumber' })).toBe('0x10');
-    expect(routed).toEqual(['/rpc']);
+    expect(routed).toEqual(['/']);
     await act(async () => {
       await provider.request({
         method: 'wallet_addEthereumChain',
@@ -218,7 +218,7 @@ export async function runProviderSwitchRestartCoverage(): Promise<void> {
     expect(await wallet.chainId()).toBe(network.chainId);
     expect(getActiveRpcUrl()).toBe(network.rpcUrl);
     expect(await provider.request({ method: 'eth_blockNumber' })).toBe('0x2a');
-    expect(routed).toEqual(['/rpc', '/rpc/chain/1']);
+    expect(routed).toEqual(['/', '/chain/1']);
     await act(async () => {
       const hash = await context().send({ to: recipient, value: '0.001' });
       expect(hash).toBe(sent[0]?.hash);
@@ -265,7 +265,7 @@ export async function runProviderSwitchRestartCoverage(): Promise<void> {
     if (!restored) throw new Error('no restored wallet');
     expect(await restored.chainId()).toBe(network.chainId);
     expect(await restored.provider.request({ method: 'eth_blockNumber' })).toBe('0x2a');
-    expect(routed).toEqual(['/rpc', '/rpc/chain/1', '/rpc/chain/1']);
+    expect(routed).toEqual(['/', '/chain/1', '/chain/1']);
     await act(async () => {
       const hash = await context().sendTransaction({ to: recipient, value: 2n });
       expect(hash).toBe(sent[1]?.hash);

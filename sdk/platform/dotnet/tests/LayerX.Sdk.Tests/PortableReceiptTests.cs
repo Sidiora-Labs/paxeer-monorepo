@@ -528,8 +528,9 @@ public sealed class PortableReceiptTests
     {
         using var recorded = LoadCommittedFixture();
         var commit = recorded.RootElement.GetProperty("settlement").GetProperty("execution_commit");
-        return new PortableReceiptTrust("committed-fixture", 10,
-            Convert.FromHexString(commit.GetProperty("block_id").GetProperty("hash").GetString()!));
+        var pinned = Convert.FromHexString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108");
+        Assert.Equal(pinned, Convert.FromHexString(commit.GetProperty("block_id").GetProperty("hash").GetString()!));
+        return new PortableReceiptTrust("committed-fixture", 10, pinned);
     }
 
     private static JsonDocument LoadConformance(string name, [CallerFilePath] string source = "") => JsonDocument.Parse(File.ReadAllText(

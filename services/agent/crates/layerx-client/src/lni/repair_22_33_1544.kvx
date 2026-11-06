@@ -1,0 +1,29 @@
+[repair.22.33.1544]
+audit = "22.30.96"
+criterion = "22998.1"
+starting_revision = "8a5302e1b13ed685ab2cd21b29cd69052c2a8f6a"
+status = "Retirement already implemented in the starting tree; preserve it and qualify the replacement production paths with the declared integration target."
+evidence = "The private hf-build/hf-done ledger supplies the exact candidate revision, command, exit code and log location; no gate is claimed by this record."
+baseline = "Not run: the declared test target did not exist and the explicit implementation-first, hf-done-only gate order forbids a pre-change verify. No pre-change failure is claimed."
+scope = "All six named Rust files and the public lni module are already absent. This directory contains only this repair record; no protocol code or compatibility surface is restored."
+f19 = "f19_retired_module_leaves_real_generic_frame_transport"
+f20 = "f20_retired_provider_abi_leaves_bounded_canonical_frame_codec"
+f21 = "f21_capability_advertisements_cannot_replace_receipt_key_pins"
+f22 = "f22_handshake_is_replaced_by_explicit_chain_and_verified_commit"
+f24 = "f24_availability_report_cannot_authorize_uncommitted_evidence"
+f25 = "f25_retired_schema_is_replaced_by_real_rpc_storage_witnesses"
+frame = "The public frame producer and consumer cross real loopback TCP with recorded receipt bytes; the wire codec preserves canonical bytes and the frame codec refuses oversized bodies before reading or writing them."
+identity = "Root JSON-RPC exposes EVM chain id 125; committed Comet material is checked against explicitly supplied hyperpax_125-1 identity and validator trust, and foreign chain trust is refused."
+pins = "The independently supplied recorded receipt-key pin authenticates the node receipt through the public HTTP client; missing, foreign, wrong-key, out-of-window and duplicate pins are refused. A receipted result carries no committed header."
+committed = "Reuse committed MemIAVL/SDK and Comet recorder transcripts and the existing focused witness proof helpers through public RPC consumers; valid witnesses survive transport and slot, value, root, signature, missing proof and landing-block substitutions are refused. No subprocess or live endpoint is needed."
+wiring_client = "Domain 9 agent client: services/agent/crates/layerx-client/src/lib.rs, src/frame and src/rpc already own the migrated exports, generic framing and JSON-RPC consumers; preserve that wiring without restoring lni."
+wiring_receipt_pins = "Domain 9 agent runtime: services/agent/crates/layerx-agentd/src/node_rpc.rs must continue supplying expected chain identity and independently governed receipt-key pins; advertisements alone cannot grant receipt or commit authority."
+wiring_node = "Node domain: services/agent/crates/layerx-client/tests/fixtures/repair_22_33_1546_producer/main.go owns the committed proof corpus; maintain recorder provenance when the node interface changes."
+
+[gotcha.gate_order]
+observed = "The inherited baseline-verify step conflicts with the explicit ordered gate constraints, and root GOTCHA.kvx and spec records are outside scope."
+resolution = "Keep baseline limits and finding mappings in this in-scope task record and run only hf-build followed by hf-done after implementation."
+
+[gotcha.retired_paths]
+observed = "The audit names Rust paths already removed from the starting tree; restoring them would reintroduce the retired boundary."
+resolution = "Assert every named source remains absent and exercise the live frame, receipt and committed-evidence paths; retain only this noncompiled repair record under the required touch path."

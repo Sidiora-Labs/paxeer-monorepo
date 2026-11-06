@@ -77,7 +77,7 @@ const SearchBarSuggestAddress = ({ data, isMobile, searchTerm, addressFormat }: 
   const tagEl = data.type === 'metadata_tag' ? (
     <SearchResultEntityTag metadata={ data.metadata } addressHash={ hash } searchTerm={ searchTerm } ml={{ base: 0, lg: 'auto' }}/>
   ) : null;
-  const addressEl = <HashStringShortenDynamic hash={ hash } noTooltip/>;
+  const addressEl = <HashStringShortenDynamic fontFamily="mono" fontVariantNumeric="tabular-nums" hash={ hash } noTooltip/>;
 
   if (isMobile) {
     return (
