@@ -149262,7 +149262,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.580]
 title = "Bring the core server builtin-registry test current with the bundled plugins directory and the source-control plugin"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -149940,7 +149940,7 @@ source_task = "1.2"
 
 [task.22.37.9]
 title = "Complete the object and persistent tree slice with multipart tracking, golden vectors and registered consumer coverage"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
@@ -150289,7 +150289,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.35.8]
 title = "Explorer visual system integration: both colour modes end to end and the production build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.1", "22.35.2", "22.35.3", "22.35.4", "22.35.5", "22.35.6", "22.35.7", "22.31.512", "22.31.522"]
