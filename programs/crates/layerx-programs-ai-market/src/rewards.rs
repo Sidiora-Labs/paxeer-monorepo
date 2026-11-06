@@ -526,10 +526,22 @@ impl<'a> RecipientDictionary<'a> {
             }
         }
         let mut seen = 0;
-        for (index, bytes) in self.raw() {
-            let Some(slot) = self.get(index)? else {
+        let mut index = 0;
+        while index < MAX_PAYOUT_IDENTITIES {
+            let bytes = &self.bytes[index * SLOT_BYTES..(index + 1) * SLOT_BYTES];
+            if bytes[0] == 0 {
+                let start = index;
+                index += 1;
+                while index < MAX_PAYOUT_IDENTITIES && self.bytes[index * SLOT_BYTES] == 0 {
+                    index += 1;
+                }
+                if !unused(&self.bytes[start * SLOT_BYTES..index * SLOT_BYTES]) {
+                    return Err(NON_CANONICAL);
+                }
                 continue;
-            };
+            }
+            let slot = self.slot(u16::try_from(index).map_err(|_| NON_CANONICAL)?)?;
+            index += 1;
             seen += 1;
             if slot.recipient == reserve {
                 return Err(ACCOUNT_BINDING);
@@ -1202,8 +1214,15 @@ const ROWS_AT: usize = DICTIONARY_AT + DICTIONARY_BYTES;
 const LAST_REFUND_AT: usize = ROWS_AT + EPOCH_ROWS_BYTES;
 
 fn unused(bytes: &[u8]) -> bool {
-    let (words, tail) = bytes.as_chunks::<8>();
-    words.iter().all(|word| u64::from_ne_bytes(*word) == 0) && tail.iter().all(|b| *b == 0)
+    let (blocks, tail) = bytes.as_chunks::<32>();
+    blocks.iter().all(|block| {
+        let words = block.as_chunks::<8>().0;
+        (u64::from_ne_bytes(words[0])
+            | u64::from_ne_bytes(words[1])
+            | u64::from_ne_bytes(words[2])
+            | u64::from_ne_bytes(words[3]))
+            == 0
+    }) && tail.iter().all(|b| *b == 0)
 }
 
 /// Borrowed view over the fixed 33-row epoch region. Row `i` occupies bytes
@@ -1436,7 +1455,14 @@ impl<'a> RewardState<'a> {
         RecipientDictionary::init_empty(&mut out[DICTIONARY_AT..ROWS_AT])?;
         EpochRows::init_empty(&mut out[ROWS_AT..LAST_REFUND_AT])?;
         encode_last_refund(None, &mut out[LAST_REFUND_AT..])?;
-        decode_reward_state(out)
+        // The producers above wrote an empty dictionary, empty rows and no
+        // refund. Check their ledger bindings directly rather than decoding
+        // and scanning the 43 KiB of bytes we just initialized.
+        ledger.check_rows(&[])?;
+        if ledger.recipient_count != 0 {
+            return Err(F06_LEDGER_INVARIANT_VIOLATION);
+        }
+        Ok(RewardState { bytes: out })
     }
     #[must_use]
     pub fn bytes(&self) -> &'a [u8] {
@@ -1484,12 +1510,7 @@ impl<'a> RewardState<'a> {
     fn check(&self) -> CodecResult<()> {
         let ledger = self.ledger()?;
         let rows = self.rows();
-        if !rows
-            .bytes
-            .chunks_exact(EPOCH_MAX_BYTES)
-            .skip(rows.used())
-            .all(unused)
-        {
+        if !unused(&rows.bytes[rows.used() * EPOCH_MAX_BYTES..]) {
             return Err(F06_LEDGER_INVARIANT_VIOLATION);
         }
         ledger.check_row_iter(rows.records())?;
@@ -1581,15 +1602,26 @@ impl<'a> RewardState<'a> {
         if phase != FundingPhase::Accepting {
             return Err(WRONG_PHASE);
         }
-        let mut draft = Draft::start(self, next)?;
-        draft.ledger = ledger.deposit(payload.amount)?;
+        if next.len() != REWARD_STATE_BYTES {
+            return Err(NON_CANONICAL);
+        }
+        let deposited = ledger.deposit(payload.amount)?;
         let mut table = replay.table.clone();
         let mut revision = *replay.revision;
         table.record_success(replay.request, replay.height, &mut revision, replay.result)?;
-        let committed = draft.commit(RewardEffect::Deposit {
-            principal: replay.request.principal,
-            amount: payload.amount,
-        })?;
+        // `self` is fully validated. Deposit changes only D and F by the same
+        // amount; reserved/liability, row counts, dictionary references and the
+        // refund cursor keep their proven bindings. Encode the checked ledger
+        // and carry those regions verbatim instead of validating them again.
+        encode_ledger(&deposited, &mut next[..DICTIONARY_AT])?;
+        next[DICTIONARY_AT..].copy_from_slice(&self.bytes[DICTIONARY_AT..]);
+        let committed = (
+            RewardState { bytes: next },
+            RewardEffect::Deposit {
+                principal: replay.request.principal,
+                amount: payload.amount,
+            },
+        );
         *replay.table = table;
         *replay.revision = revision;
         Ok(committed)
@@ -1998,7 +2030,6 @@ pub enum Outcome {
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 enum Kind {
-    Fund,
     Claim,
     Expire,
     Refund,
@@ -2007,7 +2038,6 @@ enum Kind {
 impl Kind {
     fn of(operation: dispatch::Operation) -> CodecResult<Self> {
         match operation.selector() {
-            0x0601 => Ok(Self::Fund),
             0x0602 => Ok(Self::Claim),
             0x0603 => Ok(Self::Expire),
             0x0604 => Ok(Self::Refund),
@@ -2082,7 +2112,7 @@ fn bind(
     rewards: &RewardState<'_>,
 ) -> CodecResult<u64> {
     let (epoch, roster) = match kind {
-        Kind::Fund | Kind::Refund => match view.opened {
+        Kind::Refund => match view.opened {
             None => (0, Presence::Absent),
             Some(epoch) => match rewards.row(epoch) {
                 Ok(row) => (epoch, Presence::Present(row.roster)),
@@ -2219,65 +2249,6 @@ impl Call<'_> {
         })
     }
 
-    /// Fund (0x0601) under the owner or treasury role sequence.
-    fn fund(&self, settlement: &mut [u8], out: Out<'_>) -> CodecResult<Outcome> {
-        let e = &self.envelope.envelope;
-        let request = FundRequest::decode(e.payload)?;
-        let header = &self.view.section.header;
-        let slot = if e.actor == header.owner_principal {
-            ActorSlot::OWNER
-        } else if header.treasury_principal == Presence::Present(e.actor) {
-            ActorSlot::TREASURY
-        } else {
-            return Err(UNAUTHORIZED);
-        };
-        let table = &self.view.state.control.replay;
-        let version = table.actor(slot).ok_or(UNAUTHORIZED)?.authority_version;
-        let replay = ReplayRequest::from_envelope(slot, version, self.envelope)?;
-        let funded = self.before.deposit(request.amount).unwrap_or(self.before);
-        let response = Response::write(|w| {
-            w.put(e.actor.as_bytes())?;
-            w.u128(request.amount)?;
-            w.u128(funded.tracked_deposits)?;
-            w.u128(funded.free)?;
-            w.put(funded.refund_recipient.as_bytes())
-        })?;
-        let mut next_table = table.clone();
-        let mut revision = self.view.state.revision;
-        let head = settlement.get_mut(..REWARD_STATE_BYTES).ok_or(CAPACITY)?;
-        let (next_state, effect) = self.rewards.fund(
-            &FundingAuthority {
-                owner: header.owner_principal,
-                treasury: header.treasury_principal,
-            },
-            phase(header)?,
-            &request,
-            &mut FundReplay {
-                table: &mut next_table,
-                request: &replay,
-                height: self.ctx.height,
-                revision: &mut revision,
-                result: response.result()?,
-            },
-            head,
-        )?;
-        if matches!(effect, RewardEffect::ReplayedFund(_)) {
-            return match table.check(&replay, self.ctx.height)? {
-                ReplayDecision::AlreadyApplied(retained) => Ok(Outcome::Retained(retained)),
-                ReplayDecision::Apply => Err(F06_LEDGER_INVARIANT_VIOLATION),
-            };
-        }
-        let after = next_state.ledger()?;
-        self.commit(
-            settlement,
-            after,
-            Some((next_table, revision)),
-            out,
-            effect,
-            response,
-        )
-    }
-
     /// Claim (0x0602) of one fixed entitlement of the bound retained epoch.
     fn claim(&self, settlement: &mut [u8], out: Out<'_>) -> CodecResult<Outcome> {
         let request = ClaimRequest::decode(self.envelope.envelope.payload)?;
@@ -2380,6 +2351,260 @@ impl Call<'_> {
     }
 }
 
+/// Fund reads the committed heads, never a `RewardState`: that type promises
+/// validation of every dictionary entry, epoch and refund record. Those regions
+/// are owned by their respective transitions and are opaque to a deposit.
+struct FundingView<'a> {
+    state: SharedState<'a>,
+    header: MarketHeader,
+    ledger: RewardLedger,
+    retained: &'a [u8],
+    tail: &'a [u8],
+    epoch: u64,
+    roster: Presence<RosterDigest>,
+}
+
+/// Read only the joint-section framing and its current-epoch binding. Reputation
+/// records and admission members are committed bytes; Fund cannot change them.
+fn funding_epoch(joint: &[u8]) -> CodecResult<Option<u64>> {
+    let mut table = joint;
+    if joint.get(..4) == Some(b"RP07") {
+        use crate::reputation::{CURRENT_BYTES, HEADER_BYTES, HISTORY_BYTES, LIMIT};
+        let mut r = Reader::new(joint);
+        r.take(4)?;
+        if r.u16()? != SCHEMA_VERSION {
+            return Err(crate::errors::BAD_VERSION);
+        }
+        let current = usize::from(r.u8()?);
+        let history = usize::from(r.u8()?);
+        if current > LIMIT || history > LIMIT {
+            return Err(CAPACITY);
+        }
+        r.market_id()?;
+        let completed = r.boolean()?;
+        if r.u64()? != 0 && !completed {
+            return Err(NON_CANONICAL);
+        }
+        r.reserved(15)?;
+        let end = HEADER_BYTES + current * CURRENT_BYTES + history * HISTORY_BYTES;
+        table = joint.get(end..).ok_or(NON_CANONICAL)?;
+        if table.get(..4) == Some(b"HA07") {
+            table = table
+                .get(crate::reputation_transition::SEAL_BYTES..)
+                .ok_or(NON_CANONICAL)?;
+        }
+    }
+    if table.is_empty() {
+        return Ok(None);
+    }
+    let mut r = Reader::new(table);
+    if r.u16()? != SCHEMA_VERSION {
+        return Err(crate::errors::BAD_VERSION);
+    }
+    if r.boolean()? {
+        Ok(Some(r.u64()?))
+    } else {
+        Ok(None)
+    }
+}
+
+impl<'a> FundingView<'a> {
+    fn decode(current: &'a [u8]) -> CodecResult<Self> {
+        let state = decode_shared_state(current)?;
+        let policy = state.feature_sections[Section::PolicyLifecycle.index()];
+        let header_len = match policy.get(226) {
+            Some(0) => crate::registry::MARKET_HEADER_ABSENT_BYTES,
+            Some(1) => crate::registry::MARKET_HEADER_PRESENT_BYTES,
+            _ => return Err(NON_CANONICAL),
+        };
+        let header = MarketHeader::decode(policy.get(..header_len).ok_or(NON_CANONICAL)?)?;
+        if header.state_revision != state.revision {
+            return Err(NON_CANONICAL);
+        }
+        let committed = state.feature_sections[Section::SettlementClaims.index()];
+        let (ledger, retained, tail) = if committed.is_empty() {
+            (
+                RewardLedger::new(
+                    header.funding_asset,
+                    header.rewards_account,
+                    header.refund_recipient_account,
+                )?,
+                &[][..],
+                &[][..],
+            )
+        } else {
+            let (head, tail) = committed
+                .split_at_checked(REWARD_STATE_BYTES)
+                .ok_or(NON_CANONICAL)?;
+            (
+                decode_ledger(&head[..LEDGER_BYTES])?,
+                &head[LEDGER_BYTES..],
+                tail,
+            )
+        };
+        check_bindings(&ledger, &header)?;
+        let opened = funding_epoch(state.feature_sections[Section::ReputationAdmission.index()])?;
+        // Rows are compact and ascending, and pruning never removes the latest
+        // opened row. Read its immutable epoch/roster binding by fixed offset;
+        // do not decode the row or visit any of its entries.
+        let (epoch, roster) = match opened {
+            None => (0, Presence::Absent),
+            Some(epoch) => {
+                let last = usize::from(ledger.retained_epochs)
+                    .checked_sub(1)
+                    .ok_or(WRONG_EPOCH)?;
+                let row_at = DICTIONARY_BYTES + last * EPOCH_MAX_BYTES;
+                let row = retained
+                    .get(row_at..row_at + EPOCH_HEADER_BYTES)
+                    .ok_or(NON_CANONICAL)?;
+                let mut r = Reader::new(row);
+                if r.u64()? != epoch {
+                    return Err(WRONG_EPOCH);
+                }
+                r.take(68)?;
+                (epoch, Presence::Present(r.roster_digest()?))
+            }
+        };
+        Ok(Self {
+            state,
+            header,
+            ledger,
+            retained,
+            tail,
+            epoch,
+            roster,
+        })
+    }
+}
+
+fn apply_fund(
+    ctx: &CallContext,
+    envelope: &ValidatedEnvelope<'_>,
+    current: &[u8],
+    next: &mut [u8],
+    scratch: &mut [u8],
+    event: &mut [u8],
+) -> CodecResult<Outcome> {
+    let view = FundingView::decode(current)?;
+    let e = &envelope.envelope;
+    authenticate(ctx, e, &view.header)?;
+    if e.epoch != view.epoch {
+        return Err(WRONG_EPOCH);
+    }
+    if e.config != view.header.active_config_version {
+        return Err(WRONG_CONFIG);
+    }
+    if e.roster != view.roster {
+        return Err(WRONG_ROSTER);
+    }
+    let request = FundRequest::decode(e.payload)?;
+    let slot = if e.actor == view.header.owner_principal {
+        ActorSlot::OWNER
+    } else if view.header.treasury_principal == Presence::Present(e.actor) {
+        ActorSlot::TREASURY
+    } else {
+        return Err(UNAUTHORIZED);
+    };
+    let mut state = view.state;
+    let version = state
+        .control
+        .replay
+        .actor(slot)
+        .ok_or(UNAUTHORIZED)?
+        .authority_version;
+    let replay = ReplayRequest::from_envelope(slot, version, envelope)?;
+    FundingAuthority {
+        owner: view.header.owner_principal,
+        treasury: view.header.treasury_principal,
+    }
+    .check(&replay)?;
+    if request.policy_version != FUNDING_POLICY_VERSION {
+        return Err(F06_FUNDING_POLICY_MISMATCH);
+    }
+    if !request.consent {
+        return Err(F06_CONTRIBUTION_CONSENT_REQUIRED);
+    }
+    if request.refund_recipient != view.ledger.refund_recipient {
+        return Err(F06_REFUND_RECIPIENT_MISMATCH);
+    }
+    if let ReplayDecision::AlreadyApplied(retained) =
+        state.control.replay.check(&replay, ctx.height)?
+    {
+        return Ok(Outcome::Retained(retained));
+    }
+    if phase(&view.header)? != FundingPhase::Accepting {
+        return Err(WRONG_PHASE);
+    }
+    let after = view.ledger.deposit(request.amount)?;
+    let response = Response::write(|w| {
+        w.put(e.actor.as_bytes())?;
+        w.u128(request.amount)?;
+        w.u128(after.tracked_deposits)?;
+        w.u128(after.free)?;
+        w.put(after.refund_recipient.as_bytes())
+    })?;
+    let result = response.result()?;
+    state
+        .control
+        .replay
+        .record_success(&replay, ctx.height, &mut state.revision, result)?;
+    let (policy, rest) = scratch.split_at_mut_checked(POLICY_CAP).ok_or(CAPACITY)?;
+    let (settlement, control) = rest.split_at_mut_checked(SETTLEMENT_CAP).ok_or(CAPACITY)?;
+    let committed_policy = state.feature_sections[Section::PolicyLifecycle.index()];
+    let mut header = view.header;
+    header.state_revision = state.revision;
+    let n = header.encode(policy)?;
+    policy
+        .get_mut(n..committed_policy.len())
+        .ok_or(CAPACITY)?
+        .copy_from_slice(committed_policy.get(n..).ok_or(NON_CANONICAL)?);
+    // Deposit changes only the ledger's D and F. All binding hashes, dictionary
+    // slots, epoch rows, refund cursor and F05 bytes survive byte-for-byte.
+    let total = REWARD_STATE_BYTES
+        .checked_add(view.tail.len())
+        .ok_or(ARITHMETIC)?;
+    let settlement = settlement.get_mut(..total).ok_or(CAPACITY)?;
+    encode_ledger(&after, &mut settlement[..LEDGER_BYTES])?;
+    if view.retained.is_empty() {
+        settlement[LEDGER_BYTES..REWARD_STATE_BYTES].fill(0);
+    } else {
+        settlement[LEDGER_BYTES..REWARD_STATE_BYTES].copy_from_slice(view.retained);
+    }
+    settlement[REWARD_STATE_BYTES..].copy_from_slice(view.tail);
+    state.feature_sections[Section::PolicyLifecycle.index()] = &policy[..committed_policy.len()];
+    state.feature_sections[Section::SettlementClaims.index()] = settlement;
+    check_f01_capacity(committed_policy.len(), state.encoded_len()?)?;
+    let state_len = encode_shared_state(&state, next, control)?;
+    let event_len = codec::encode_event_frame(
+        dispatch::FUND,
+        &EventCommon {
+            market: header.market_id,
+            epoch: view.epoch,
+            config: Version::new(header.active_config_version)?,
+            revision: state.revision,
+            request: envelope.request_digest()?,
+            result,
+        },
+        response.as_bytes(),
+        event,
+    )?;
+    let effect = RewardEffect::Deposit {
+        principal: e.actor,
+        amount: request.amount,
+    };
+    stage_value(ctx, &view.ledger, &after, effect)?;
+    Ok(Outcome::Applied {
+        effect,
+        before: view.ledger,
+        after,
+        response,
+        revision: state.revision,
+        result,
+        state_len,
+        event_len,
+    })
+}
+
 /// F06 runtime over the complete committed `paxai/state/v1` value: Fund (0x0601),
 /// Claim (0x0602), `ExpireEpochClaims` (0x0603), `RefundFree` (0x0604) and
 /// `PruneEpoch` (0x0605). Writes the whole next state into `next` (at least
@@ -2407,6 +2632,9 @@ pub fn apply(
     event: &mut [u8],
 ) -> CodecResult<Outcome> {
     let e = &envelope.envelope;
+    if e.operation == dispatch::FUND {
+        return apply_fund(ctx, envelope, current, next, scratch, event);
+    }
     let kind = Kind::of(e.operation)?;
     let view = view(current)?;
     let header = &view.section.header;
@@ -2448,10 +2676,229 @@ pub fn apply(
         event,
     };
     match kind {
-        Kind::Fund => call.fund(settlement, out),
         Kind::Claim => call.claim(settlement, out),
         Kind::Expire => call.expire(settlement, out),
         Kind::Refund => call.refund(settlement, out),
         Kind::Prune => call.prune(settlement, out),
+    }
+}
+
+#[cfg(test)]
+mod repair478_tests {
+    #[test]
+    fn repair478_fund_preserves_validated_nonempty_regions() {
+        use super::*;
+        use crate::types::{PublicKey32, RequestId};
+        let owner = PrincipalId::new([5; 32]).unwrap();
+        let version = Version::new(1).unwrap();
+        let ledger = RewardLedger::new(
+            AssetId::new([1; 32]).unwrap(),
+            AccountId::new([2; 32]).unwrap(),
+            AccountId::new([3; 32]).unwrap(),
+        )
+        .unwrap()
+        .deposit(1000)
+        .unwrap();
+        let mut empty = vec![0xa5; REWARD_STATE_BYTES];
+        let initial = RewardState::init(&ledger, &mut empty).unwrap();
+        assert_eq!(decode_reward_state(initial.bytes()).unwrap(), initial);
+        let worker = WorkerRosterEntry {
+            worker: WorkerId::new([6; 32]).unwrap(),
+            owner,
+            recipient: AccountId::new([7; 32]).unwrap(),
+            generation: version,
+            key_version: version,
+            public_key: PublicKey32([8; 32]),
+            metadata: crate::types::MetadataDigest::new([9; 32]).unwrap(),
+        };
+        let mut reserved = vec![0; REWARD_STATE_BYTES];
+        initial
+            .reserve_epoch(
+                7,
+                100,
+                RosterDigest::new([4; 32]).unwrap(),
+                &[worker],
+                0,
+                &mut reserved,
+            )
+            .unwrap();
+        for bytes in [&empty, &reserved] {
+            let source = decode_reward_state(bytes).unwrap();
+            let before = source.ledger().unwrap();
+            let mut table = ReplayTable::new();
+            table.bind(ActorSlot::OWNER, owner, version).unwrap();
+            let request = ReplayRequest {
+                slot: ActorSlot::OWNER,
+                principal: owner,
+                authority_version: version,
+                sequence: 1,
+                request_id: RequestId::new([10; 32]).unwrap(),
+                digest: RequestDigest::new([11; 32]).unwrap(),
+                expiry_height: 100,
+            };
+            let mut revision = 1;
+            let mut next = vec![0xa5; REWARD_STATE_BYTES];
+            let (funded, effect) = source
+                .fund(
+                    &FundingAuthority {
+                        owner,
+                        treasury: Presence::Absent,
+                    },
+                    FundingPhase::Accepting,
+                    &FundRequest {
+                        amount: 25,
+                        refund_recipient: before.refund_recipient,
+                        policy_version: FUNDING_POLICY_VERSION,
+                        consent: true,
+                    },
+                    &mut FundReplay {
+                        table: &mut table,
+                        request: &request,
+                        height: 1,
+                        revision: &mut revision,
+                        result: ResultDigest::new([12; 32]).unwrap(),
+                    },
+                    &mut next,
+                )
+                .unwrap();
+            assert_eq!(
+                effect,
+                RewardEffect::Deposit {
+                    principal: owner,
+                    amount: 25
+                }
+            );
+            assert_eq!(funded.ledger().unwrap(), before.deposit(25).unwrap());
+            assert_eq!(
+                &funded.bytes()[DICTIONARY_AT..],
+                &source.bytes()[DICTIONARY_AT..]
+            );
+            assert_eq!(decode_reward_state(funded.bytes()).unwrap(), funded);
+            assert_eq!(revision, 2);
+            assert_eq!(
+                table
+                    .actor(ActorSlot::OWNER)
+                    .unwrap()
+                    .last
+                    .unwrap()
+                    .applied_revision,
+                2
+            );
+        }
+        for invalid in [
+            RewardLedger {
+                recipient_count: 1,
+                ..ledger
+            },
+            RewardLedger {
+                retained_epochs: 1,
+                ..ledger
+            },
+            RewardLedger {
+                free: 900,
+                reserved: 100,
+                active_reserve: true,
+                ..ledger
+            },
+            RewardLedger {
+                free: 900,
+                liability: 100,
+                ..ledger
+            },
+        ] {
+            let mut bytes = vec![0; REWARD_STATE_BYTES];
+            assert_eq!(
+                RewardState::init(&invalid, &mut bytes),
+                Err(F06_LEDGER_INVARIANT_VIOLATION)
+            );
+        }
+    }
+
+    #[test]
+    fn repair478_dictionary_empty_runs_reject_nonzero_padding() {
+        use crate::types::{AccountId, WorkerId};
+        let reserve = AccountId::new([1; 32]).unwrap();
+        let slot = super::RecipientSlot {
+            worker: WorkerId::new([2; 32]).unwrap(),
+            recipient: AccountId::new([3; 32]).unwrap(),
+            references: 1,
+        };
+        for occupied in [None, Some(0), Some(127), Some(255)] {
+            let mut bytes = vec![0; super::DICTIONARY_BYTES];
+            if let Some(index) = occupied {
+                super::RecipientDictionary::write_slot(&mut bytes, index, Some(&slot)).unwrap();
+            }
+            super::RecipientDictionary::new(&bytes)
+                .unwrap()
+                .validate(reserve)
+                .unwrap();
+            for index in 0..256u16 {
+                if Some(index) == occupied {
+                    continue;
+                }
+                for offset in [0, 1, 7, 8, 31, 32, 63, 64, 65, 66] {
+                    let at = usize::from(index) * super::SLOT_BYTES + offset;
+                    bytes[at] = 0x80;
+                    assert_eq!(
+                        super::RecipientDictionary::new(&bytes)
+                            .unwrap()
+                            .validate(reserve),
+                        Err(crate::errors::NON_CANONICAL),
+                        "occupied {occupied:?}, slot {index}, offset {offset}"
+                    );
+                    bytes[at] = 0;
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn repair478_empty_epoch_rows_reject_nonzero_padding() {
+        use crate::types::{AccountId, AssetId};
+        let ledger = super::RewardLedger::new(
+            AssetId::new([1; 32]).unwrap(),
+            AccountId::new([2; 32]).unwrap(),
+            AccountId::new([3; 32]).unwrap(),
+        )
+        .unwrap();
+        let mut bytes = vec![0; super::REWARD_STATE_BYTES];
+        super::RewardState::init(&ledger, &mut bytes).unwrap();
+        for index in 0..super::MAX_EPOCH_ROWS {
+            for offset in [0, 1, 7, 31, 32, 173, 174, super::EPOCH_MAX_BYTES - 1] {
+                let at = super::ROWS_AT + index * super::EPOCH_MAX_BYTES + offset;
+                bytes[at] = 0x80;
+                assert!(
+                    super::decode_reward_state(&bytes).is_err(),
+                    "row {index}, offset {offset}"
+                );
+                bytes[at] = 0;
+            }
+        }
+    }
+
+    #[test]
+    fn repair478_unused_checks_every_byte_and_tail() {
+        for len in 0..=2 * super::SLOT_BYTES {
+            let mut bytes = vec![0; len];
+            assert!(super::unused(&bytes));
+            for offset in 0..len {
+                bytes[offset] = 0x80;
+                assert!(!super::unused(&bytes), "length {len}, offset {offset}");
+                bytes[offset] = 0;
+            }
+        }
+        for len in [
+            super::EPOCH_MAX_BYTES,
+            super::DICTIONARY_BYTES,
+            super::EPOCH_ROWS_BYTES,
+        ] {
+            let mut bytes = vec![0; len];
+            assert!(super::unused(&bytes));
+            for offset in [0, 7, 8, 31, 32, len - 1] {
+                bytes[offset] = 1;
+                assert!(!super::unused(&bytes));
+                bytes[offset] = 0;
+            }
+        }
     }
 }
