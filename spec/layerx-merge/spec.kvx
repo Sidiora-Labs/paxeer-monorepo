@@ -184644,7 +184644,7 @@ do_8 = "Attempt 2 (continue): the build fails because tools/benchmark/loadtest/c
 
 [task.22.34.5]
 title = "Point the Rust clients of the px_ methods at the node names at the root path once the node serves them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.34.2", "22.34.3", "22.34.4", "22.31.516", "22.31.558", "22.31.572"]
