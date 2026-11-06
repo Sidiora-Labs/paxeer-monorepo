@@ -9345,6 +9345,12 @@ value = "Every build command of tasks 22.37.3 to 22.37.27 starts, inside the ven
 basis = "Four attempts stopped on install-time and generated modules the environment never produced; a self-describing command removes the dependency on environment heuristics."
 affects = ["22.37.3", "22.37.16", "22.37.19", "22.37.20", "22.37.22"]
 
+[decision.2706]
+title = "Proofs over transport-decoded source objects compare canonical content"
+value = "A proof that compares an object read through the source HTTP transport with a service result or an object literal compares the canonical bytes of both sides (canonicalBytes of the source contracts module) or the named fields it checks; strict deep equality over prototypes is no contract of the transport, whose canonical JSON decoder builds null-prototype objects on purpose (contracts.ts line 113). The decoder keeps that behaviour; no task changes it to satisfy an assertion."
+basis = "Field equality is what the contract promises; prototype identity is an artefact of the decoder and would make every transport proof fail for no product reason."
+affects = ["22.37.21"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -149404,6 +149410,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "5.2"
+do_6 = "Attempt 2 (requalify, gotcha 3307, decision 2706): the attempt-1 tree stands (candidate routing of imported contributions, the legacy source maps and their migration, the metrics, the scenarios of the 5_2.py driver, the explicit element type of the validated legacy-map array at import.ts, and the canonical-bytes comparisons in the native source import actor). Re-run the gates as they stand; a further failure in the 5_2.py driver is a finding for the next ruling."
 
 [task.22.37.20]
 title = "Route the platform publisher through native export and observe destination protection"

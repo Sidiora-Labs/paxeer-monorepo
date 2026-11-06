@@ -32731,3 +32731,11 @@ symbol = "1_3.py"
 observed = "Attempt 1 at f1d2f43fa872e15928739bc4d0e62c5cf313ec83: build exit 0 on a filter that matched no project (gotcha 3299), verify exit 1 twice: the native actor compile could not find the generated contracts module (three files) and reported TS18046 twice; the repair pointed the driver at a non-existent contracts path."
 assumption = "The build never produced the generated module; the driver repair must go."
 severity = "medium"
+
+[finding.22.37.21.1]
+task = "22.37.21"
+file = "tools/hyperfide/core/control-plane/src/source_control/git/import.ts"
+symbol = "import.ts"
+observed = "Attempt 1 at 8b68174bec16b1f45a77941078d0219655661d89: the first build stopped on TS7034 and TS7005 at import.ts lines 1012 and 1042 and the repaired build passed; verify exit 1: the strict deep-equality assertion at line 598 of the native source import actor compared a null-prototype scope decoded from the transport with a plain object literal; the comparison was changed to canonical bytes, the build passed (exit 0) and no verify run remained."
+assumption = "The final tree carries an unverified repair of one comparison; the decoder behaviour is production and unchanged."
+severity = "medium"
