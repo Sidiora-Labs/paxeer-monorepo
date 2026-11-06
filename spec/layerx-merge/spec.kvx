@@ -149882,7 +149882,7 @@ source_task = "2.1"
 
 [task.22.37.11]
 title = "Complete source capability qualification through the registered service path"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
