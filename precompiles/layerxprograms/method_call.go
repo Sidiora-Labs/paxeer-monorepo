@@ -7,7 +7,11 @@ import (
 )
 
 func callHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-	method := programsABI.Methods["call"]
+	return callWithAuthorities(ctx, p, call, args, "call", nil)
+}
+
+func callWithAuthorities(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}, methodName string, authorities []ReceiptAuthority) ([]byte, error) {
+	method := programsABI.Methods[methodName]
 	if call.method == nil || call.method.Name != method.Name {
 		return nil, errGateUnknownMethod
 	}
@@ -34,7 +38,7 @@ func callHandler(ctx sdk.Context, p *PrecompileExecutor, call callContext, args 
 	if p == nil || p.host == nil || p.evmKeeper == nil || call.evm == nil || call.evm.StateDB == nil {
 		return nil, fmt.Errorf("LXP_PRECOMPILE_NO_CONTEXT: call requires host, EVM keeper and EVM state")
 	}
-	receipt, err := submit(ctx, p, call, 0x00090003, payload, feeLimit)
+	receipt, err := submit(ctx, p, call, 0x00090003, payload, feeLimit, authorities...)
 	if err != nil {
 		return nil, err
 	}

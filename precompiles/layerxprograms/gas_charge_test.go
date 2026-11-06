@@ -37,8 +37,11 @@ func gasWriteFixture(t *testing.T, name string) (*harness, []byte) {
 		h, program, oldHash, wasm := newUpgradeProgram(t)
 		hash := sha256.Sum256(wasm)
 		return pack(h, program, uint16(1), uint8(0), oldHash, hash, []byte{}, upgradeInterface(hash), wasm, big.NewInt(0))
-	case "call":
+	case "call", "callWithReceipts":
 		h, args, _ := programsCallFixture(t)
+		if name == "callWithReceipts" {
+			args = append(args, []lp.ReceiptAuthority{})
+		}
 		return pack(h, args...)
 	case "sandboxExecute":
 		h, args, _ := gasSandboxExecuteFixture(t)
@@ -145,7 +148,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			names = append(names, name)
 		}
 	}
-	require.Len(t, names, 15)
+	require.Len(t, names, 16)
 	sort.Strings(names)
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
@@ -162,7 +165,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			require.Less(t, required, supplied)
 			var payer, asset, treasury [32]byte
 			var payerBefore, treasuryBefore sdk.Int
-			if name == "call" || name == "sandboxExecute" {
+			if name == "call" || name == "callWithReceipts" || name == "sandboxExecute" {
 				fee, err := h.host.ReadFeeSchedule(h.stateDB.Ctx())
 				require.NoError(t, err)
 				require.GreaterOrEqual(t, len(fee), 97)
@@ -186,7 +189,7 @@ func TestProgramsWriteMethodsChargeGasTable(t *testing.T) {
 			}
 			require.NoError(t, h.stateDB.GetPrecompileError())
 			require.Equal(t, required, supplied-remaining, "%s EVM gas used", name)
-			if name == "call" || name == "sandboxExecute" {
+			if name == "call" || name == "callWithReceipts" || name == "sandboxExecute" {
 				values, err := method.Outputs.Unpack(output)
 				require.NoError(t, err)
 				require.Equal(t, int32(0), values[0])
