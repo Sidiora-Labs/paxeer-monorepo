@@ -176076,7 +176076,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.569]
 title = "Name the execution observer supplement refusal site and admit a profiled CALL of a large-state guest"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
