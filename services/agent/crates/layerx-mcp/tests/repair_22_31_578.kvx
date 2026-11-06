@@ -1,0 +1,20 @@
+[repair.22.31.578]
+requirement = "22998.1"
+gotcha = "3291"
+decision = "2699"
+implementation = "prepare_alias_call_with_receive retains the Payment::Receive authenticated by Payment::decode alongside the EIP-1559 call; prepare carries it with the disclosure and sender into policy_dimensions. DrawGrant checks the validated LedgerDraw grant, idempotency key, amount and recipient against that Receive before returning its amount, asset and payer account."
+compatibility = "The existing public prepare_alias_call returns its Eip1559Call through the shared preparation function. Existing alias_precompiles.rs callers include explicit Eip1559Call assignments and are outside scope; preserving this entry point avoids breaking them. The execution path uses the pair-returning companion directly, without a second decode."
+unchanged = "All other policy arms keep their disclosure or execution sources; execute still compares effect amount, asset, counterparty and activity type before policy evaluation and signing. layerx-crypto disclosure/call.rs remains unchanged and LedgerDraw still has no payment field."
+producer_path = "Committed cryptographically authenticated Receive -> Payment::encode -> prepare_alias_call_with_receive -> Payment::decode -> encode_payment_call -> Eip1559Call -> bind_call -> draw_policy_dimensions. The compatibility entry point produces the identical call."
+cases = ["draw_dimensions_follow_the_encoded_receive_and_bound_ledger_draw", "draw_dimensions_refuse_each_receive_mismatch_and_missing_receive", "draw_dimensions_refuse_other_methods_and_altered_disclosures"]
+refusals = "Each differing grant, idempotency key, amount and recipient is refused as Arguments; absent Receive, another Payment variant, malformed payload, another bound method and a tampered disclosure are also refused."
+
+[qualification]
+build_gate = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_gate = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_578"
+evidence_command = "cg spec done 22.31.578 -f layerx-merge --root /work/paxeer-monorepo"
+evidence = "/out/run/gates.jsonl final build and verify rows record the exact candidate revision, command, exit code and private log. The final verify row identifies the verified revision only if it exits zero; build and verify must name the same revision. This reference is finalized before qualification to avoid changing the candidate after its build."
+private_logs = "/out/logs/build-<run>.log and /out/logs/verify-<run>.log"
+stop = "Stop on hf-done success or the bounded repair/deadline result; no unrun gate is claimed, and no manual spec edit, commit or push is performed."
