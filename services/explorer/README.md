@@ -66,7 +66,7 @@ Use the Elixir and Erlang versions in
 imported prepare step from changing repository hooks. Both Rust workspaces
 resolve shared crates from `services/explorer/services/libs`.
 
-[`UPSTREAM.md`](UPSTREAM.md) records the exact upstream revisions. Keep local
+[`docs/explorer/UPSTREAM.md`](../../docs/explorer/UPSTREAM.md) records the exact upstream revisions. Keep local
 changes to the imported trees small so the fork can still be rebased onto
 later upstream releases.
 
