@@ -9531,7 +9531,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&row.budget_id());
         out.fixed(&row.source());
         out.u128(row.remaining_after_reservations());
-        out.u8(row.verification().wire_rank());
+        out.u8(receipt_rung_code(row.verification())?);
         out.fixed(&row.evidence_digest());
         out.fixed(&row.receipt_digest());
         out.fixed(&row.checkpoint_digest());
@@ -10050,7 +10050,10 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&approval_id);
         out.fixed(&held_digest);
         out.u128(remaining);
-        out.u8(state.verification);
+        out.u8(receipt_rung_code(
+            VerificationLevel::from_wire_rank(state.verification)
+                .map_err(|_| HumanOperationError::Refused)?,
+        )?);
         out.fixed(&digest.finalize());
         out.u64(current_sequence);
         out.fixed(&state.asset);
@@ -10074,7 +10077,7 @@ impl<A: HumanAuthorityBoundary> HumanOperations for UnifiedAgentOwner<A> {
         out.fixed(&digest);
         out.fixed(&receipt.metadata.activity_id);
         out.u64(receipt.metadata.global_sequence);
-        out.u8(receipt.metadata.verification_level.wire_rank());
+        out.u8(receipt_rung_code(receipt.metadata.verification_level)?);
         out.bytes(&receipt.canonical_bytes)?;
         out.finish()
     }
@@ -11957,11 +11960,20 @@ fn install_capability<A: HumanAuthorityBoundary>(
             return Err(HumanOperationError::Refused);
         }
     }
+    let rung = receipt_rung_code(
+        VerificationLevel::from_wire_rank(observed.verification)
+            .map_err(|_| HumanOperationError::Refused)?,
+    )?;
     let mut out = Encoder::new();
     out.fixed(&request.capability_id);
     out.u64(observed.observed_sequence);
-    out.u8(observed.verification);
-    out.fixed(&observed.evidence_digest);
+    out.u8(rung);
+    out.fixed(&agent_evidence_digest(
+        request.action_key,
+        request.capability_id,
+        observed.observed_sequence,
+        rung,
+    ));
     let response = out.finish()?;
     let mut completed = Vec::with_capacity(34 + response.bytes().len());
     completed.push(1);
