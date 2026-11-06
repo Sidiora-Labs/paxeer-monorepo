@@ -3,7 +3,7 @@
 The header chooses an account UI or wallet UI from `config.features.account`
 and `config.features.blockchainInteraction`. Accounts can be used without a
 connected wallet. These are explorer account and wallet controls for the same
-Paxeer network described in the [release notes](../../../RELEASE_NOTES.md).
+Paxeer network described in the [release notes](../../../../../docs/explorer/RELEASE_NOTES.md).
 
 ## Provider selection
 

@@ -6,15 +6,15 @@ identify the original imports, not the current contents of the fork.
 
 | Current path | Upstream repository | Tag | Commit | Licence |
 | --- | --- | --- | --- | --- |
-| [`services/explorer/backend/`](backend/) | `blockscout/blockscout` | `v10.2.6` | `90f7dd8e9348123b74dfd23f69ab7da76191a820` | GPL-3.0 |
+| [`services/explorer/backend/`](../../services/explorer/backend/) | `blockscout/blockscout` | `v10.2.6` | `90f7dd8e9348123b74dfd23f69ab7da76191a820` | GPL-3.0 |
 | [`apps/explorer/`](../../apps/explorer/) | `blockscout/frontend` | `v2.7.2` | `446c409eeb54274aab90ff371a705f9699cd84ef` | GPL-3.0 |
-| [`services/explorer/services/`](services/) | `blockscout/blockscout-rs` | none | `934a80f42976bac8e13dc45770104a0ede8bd7d7` | MIT |
+| [`services/explorer/services/`](../../services/explorer/services/) | `blockscout/blockscout-rs` | none | `934a80f42976bac8e13dc45770104a0ede8bd7d7` | MIT |
 
 `934a80f42976bac8e13dc45770104a0ede8bd7d7` is the last `blockscout-rs` revision
 that still carries `LICENSE-MIT`; the next commit,
 `d1342aaa1ea8beeb3d55601a9989e680a5d79657`, removed it. The imported MIT text
-is retained at [`services/LICENSE-MIT`](services/LICENSE-MIT). GPL-3.0 texts
-are retained at [`LICENSE`](LICENSE), [`backend/LICENSE`](backend/LICENSE)
+is retained at [`services/LICENSE-MIT`](../../services/explorer/services/LICENSE-MIT). GPL-3.0 texts
+are retained at [`LICENSE`](../../services/explorer/LICENSE), [`backend/LICENSE`](../../services/explorer/backend/LICENSE)
 and [`apps/explorer/LICENSE`](../../apps/explorer/LICENSE).
 
 ## What was changed during the import
@@ -40,7 +40,7 @@ and [`apps/explorer/LICENSE`](../../apps/explorer/LICENSE).
   presets are [`paxeer-x.env`](../../apps/explorer/configs/envs/paxeer-x.env)
   and [`paxeer-x-dev.env`](../../apps/explorer/configs/envs/paxeer-x-dev.env)
   in the same directory. Local Compose configuration is under
-  [`deploy/env/`](deploy/env/).
+  [`deploy/env/`](../../services/explorer/deploy/env/).
 
 ## Comparing the fork with upstream
 
@@ -51,8 +51,8 @@ configuration. Compare a current file with its corresponding upstream-relative
 path at the pinned commit, then consult this repository's history for local
 changes; the current trees are not claimed to be byte-identical to upstream.
 
-The [explorer overview](README.md) describes the merged network, the current
+The [explorer overview](../../services/explorer/README.md) describes the merged network, the current
 layout and the independent process and licence boundaries. The
-[backend overview](backend/README.md) and
-[account API blueprint](backend/apps/block_scout_web/API%20blueprint.md)
+[backend overview](../../services/explorer/backend/README.md) and
+[account API blueprint](../../services/explorer/backend/apps/block_scout_web/API%20blueprint.md)
 describe the fork's current HTTP interfaces rather than the imported examples.

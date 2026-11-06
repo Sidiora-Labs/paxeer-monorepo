@@ -32995,3 +32995,51 @@ symbol = "source-control.md"
 observed = "Attempt 2 at aafa9ec1c6982eac339a729ec2a2cd56d99ab2a6: build exit 0, verify exit 1: the closure, the assembly and the reproducibility check pass; the consistency check refuses Full assertion inventory absent or reused: SCM-011 (first run at 7ea2c00bbd5c5aa6fdbcb953cef9c2b4129589f3 failed the closure on the nested string_decoder)."
 assumption = "The refusal is a rule the driver invented against data every producer agrees on."
 severity = "high"
+
+[finding.22.37.19.5]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 5 at 24649c9cb9adfa6e84b08914b861a5c772d6c4a4: build exit 0 (two builds), verify exit 1 (two runs): the first run at e6524bd65bfc5402d71832adfedb77abd6671136 refused the VIRTUAL open with INTERNAL_ERROR because the driver applied no 0747 migration; after that repair the final run refuses the publication cancel with INTERNAL_ERROR Source operation failed and no recorded cause."
+assumption = "The driver proves a schema the service never runs, and the catch hides the column the select refuses; the cancel settlement reads two columns of migration 0764 the driver never applied."
+severity = "high"
+
+[finding.22.31.560.15]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 15 at eac043db6738b1717b13344165490f3e90bfe2ad: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare after the owner preview answers 403 owner.refused at approval carrier reservation identity."
+assumption = "The carrier compares the reservation id with the envelope digest while every producer keys it by the unsigned-call digest of decision 2634."
+severity = "high"
+
+[finding.22.31.577.5]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 5 at 7e4d0a7b73532eddabcccdb32209508cc9bfe4a4: build exit 0, dependent-crate check exit 0, verify exit 1: every carried suite passes; the two 128-call proofs refuse at capture witness bytes 1049962 and 1048801 over the permitted 1048576."
+assumption = "Two record constants repeated in every leaf cost about 58 kilobytes; the overages are 1386 and 225 bytes."
+severity = "high"
+
+[finding.22.37.19.6]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 6 at 7e114a29d64a77c97368d3d2f49fb0f6723b877b: build exit 0, verify exit 1: the publication cancel passes and the product actor fails at line 615 with coverage COMPLETE where it asserted UNAVAILABLE."
+assumption = "The assertion encoded a hand-picked schema; the full series the fixture now applies creates the graphs table."
+severity = "high"
+
+[finding.22.31.478.20]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 20 at 831f32d7ca14a882709094ed26b497c7c2ea7898: build exit 0, dependent-crate check exit 0, verify exit 1: the Go proof and the library tests pass; 17 test binaries of the crate fail, 12 at AdmissionTable::decode on the joint section the unchanged test loaders never split, five on the native harness, the chain-domain environment and the routed fuel cap."
+assumption = "The red suites predate the task and are carried in the 22.99.77 tree; the task proof is the Fund path."
+severity = "high"
+
+[finding.22.36.4.1]
+task = "22.36.4"
+file = "apps/explorer/docs"
+symbol = "docs"
+observed = "Attempt 1 at 7e55d7e34b0cff5aeec2d1f8fce7431ba8d90d91: build exit 0, verify exit 1: five audit tests pass; the tracked-references test reports two deployment files outside the touches that name apps/explorer/docs/ENVS.md."
+assumption = "The references were outside the listed touches; the list is amended."
+severity = "medium"
