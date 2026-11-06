@@ -176045,7 +176045,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.563]
 title = "Carry the canonical activity of an SDK-submitted transaction through later commitment waits"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
