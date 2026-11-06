@@ -64,6 +64,9 @@ use std::{
     process::Command,
 };
 
+#[path = "support/repair_478_fixture.rs"]
+mod repair_478_fixture;
+
 /// The Makefile's default guest chain domain, `PAXAI/host-boundary/chain-domain`.
 const CHAIN: [u8; 32] = *b"PAXAI/host-boundary/chain-domain";
 const PROGRAM: [u8; 32] = [11; 32];
@@ -90,7 +93,7 @@ const LOW: u8 = 0x20;
 const HIGH: u8 = 0x21;
 const REVEALERS: [u8; 3] = [2, 3, 4];
 /// Every selector `dispatch::route` serves.
-const ROUTED: [Operation; 31] = [
+const ROUTED: [Operation; 32] = [
     dispatch::CREATE,
     dispatch::STAGE_POLICY,
     dispatch::CANCEL_POLICY,
@@ -122,6 +125,7 @@ const ROUTED: [Operation; 31] = [
     dispatch::CommitScore,
     dispatch::RevealScore,
     dispatch::SealEvidence,
+    dispatch::FUND,
 ];
 
 /// A failed journey step: an application refusal, a routed call that did not apply, or a
@@ -1617,9 +1621,51 @@ fn journey(module: ValidatedModule) -> Checked<Journey> {
     Ok(j)
 }
 
+fn committed_fund_row() -> Checked<Row> {
+    // Run the candidate guest over the exact state and kernel balance facts
+    // transported by the Go gate, independently of its terminal measurement.
+    let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478");
+    let (fuel, verdict) = repair_478_fixture::execute_kernel_fund(&dir).map_err(Failure::Guest)?;
+    let kernel_fuel = repair_478_fixture::measured_fund_cpu_fuel();
+    assert_eq!(fuel, kernel_fuel);
+    let current =
+        fs::read(Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/repair-478/current"))
+            .map_err(|error| Failure::Guest(format!("committed Fund fixture: {error}")))?;
+    Ok(Row {
+        operation: dispatch::FUND,
+        height: repair_478_fixture::HEIGHT,
+        state: current.len(),
+        fuel,
+        verdict,
+    })
+}
+
+#[test]
+fn fund_fits_the_protocol_cpu_fuel_cap() -> Checked {
+    let row = committed_fund_row()?;
+    println!(
+        "{:<22} {:>6} {:>7} {:>10}  verdict (cap {DEFAULT_CPU_FUEL})",
+        "operation", "height", "state", "fuel"
+    );
+    println!(
+        "{:<22} {:>6} {:>7} {:>10}  {}",
+        row.operation.metadata().name,
+        row.height,
+        row.state,
+        row.fuel,
+        row.verdict
+            .as_ref()
+            .map_or_else(Clone::clone, |()| "ok".to_string())
+    );
+    assert!(row.fuel <= DEFAULT_CPU_FUEL);
+    assert_eq!(row.verdict, Ok(()));
+    Ok(())
+}
+
 #[test]
 fn every_routed_operation_fits_the_protocol_cpu_fuel_cap() -> Checked {
-    let journey = journey(guest_module()?)?;
+    let mut journey = journey(guest_module()?)?;
+    journey.rows.push(committed_fund_row()?);
     println!(
         "{:<22} {:>6} {:>7} {:>10}  verdict (cap {DEFAULT_CPU_FUEL})",
         "operation", "height", "state", "fuel"

@@ -897,6 +897,7 @@ dependencies = [
  "layerx-committed-proof",
  "layerx-program-sdk",
  "layerx-programs-runtime",
+ "layerx-wire",
  "serde_json",
  "sha2",
 ]

@@ -5,6 +5,8 @@ import fs from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { build } from "../../../node_modules/esbuild/lib/main.js";
+import { build as buildStyles } from "../../../apps/web/node_modules/vite/dist/node/index.js";
+import tailwindcss from "../../../apps/web/node_modules/@tailwindcss/vite/dist/index.mjs";
 import { executeSourceAction } from "../../../plugins/hyperfide-source-control/runtime.ts";
 import sourceHost from "../../../plugins/environment-slices/host.ts";
 import { requestSchema } from "../../../plugins/hyperfide-source-control/contract.ts";
@@ -20,7 +22,30 @@ export async function runSourceProductBrowser(f, binding, inspection) {
   await fs.mkdir(output, { recursive: true });
   let server, chrome, socket, cdp;
   let loseCheckpoint = true;
+  const diffRequests = [];
+  const widths = [
+    { name: "desktop", width: 1440, height: 1000 },
+    { name: "tablet", width: 768, height: 1024 },
+    { name: "mobile", width: 390, height: 844 },
+  ];
+  const screenshots = [];
   try {
+    let base = f.base;
+    const baselineContent = "candidate: browser baseline\n";
+    if (!inspection) {
+      base = await f.createRevision({
+        text: baselineContent,
+        parent_revision_ids: [],
+      });
+      const candidate = await f.createCandidate(base, {
+        domain: await f.createDomain(base),
+      });
+      const qualified = await f.qualify(candidate);
+      assert.equal(qualified.execution.observed.exit_code, 0);
+      const accepted = await f.accept(candidate, qualified);
+      assert.equal(accepted.revision_id, base.revision_id);
+      assert.equal(accepted.root_tree_id, base.root_tree_id);
+    }
     const entry = path.join(temp, "entry.tsx"),
       bundle = path.join(temp, "app.js");
     await fs.writeFile(
@@ -33,6 +58,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       bundle: true,
       format: "esm",
       platform: "browser",
+      conditions: ["source"],
       jsx: "automatic",
       alias: {
         react: path.join(
@@ -46,16 +72,36 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       ),
       logLevel: "silent",
     });
-    const cssFiles = (
-      await fs.readdir(path.join(root, "apps/web/dist/assets"))
-    ).filter((name) => /^index-.*\.css$/.test(name));
+    const stylesheet = path.join(temp, "product.css");
+    await fs.writeFile(
+      stylesheet,
+      `@import ${JSON.stringify(path.join(root, "apps/web/src/app.css"))};\n@source ${JSON.stringify(path.join(root, "plugins/hyperfide-source-control"))};\n`,
+    );
+    const styled = await buildStyles({
+      configFile: false,
+      root: path.join(root, "apps/web"),
+      plugins: [tailwindcss()],
+      resolve: { alias: { "@": path.join(root, "apps/web/src") } },
+      logLevel: "silent",
+      build: {
+        write: false,
+        minify: false,
+        cssMinify: false,
+        rollupOptions: { input: stylesheet },
+      },
+    });
     assert(
-      cssFiles.length,
-      "Browser qualification requires the built application stylesheet",
+      !Array.isArray(styled) && "output" in styled,
+      "Application stylesheet compilation must return its actual assets",
     );
-    const css = await fs.readFile(
-      path.join(root, "apps/web/dist/assets", cssFiles[0]),
+    const stylesheetAsset = styled.output.find(
+      (asset) => asset.type === "asset" && asset.fileName.endsWith(".css"),
     );
+    assert(
+      stylesheetAsset && stylesheetAsset.source.length > 0,
+      "Browser qualification requires the compiled application stylesheet",
+    );
+    const css = stylesheetAsset.source;
     server = createServer(async (req, res) => {
       try {
         if (req.url === "/") {
@@ -90,7 +136,7 @@ export async function runSourceProductBrowser(f, binding, inspection) {
               id: f.scope.repository_id,
               name: f.projectName ?? "Browser source project",
               configured: true,
-              revisions: [{ id: f.base.revision_id, label: "Baseline" }],
+              revisions: [{ id: base.revision_id, label: "Baseline" }],
               assignments: [],
             },
           ];
@@ -117,6 +163,11 @@ export async function runSourceProductBrowser(f, binding, inspection) {
             request.operationId,
             request.action,
           );
+          if (request.action.kind === "diff" && result.ok)
+            diffRequests.push({
+              action: request.action,
+              result: result.result,
+            });
           if (
             request.action.kind === "checkpoint" &&
             result.ok &&
@@ -135,7 +186,13 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         res.setHeader("content-type", "application/json");
         res.end(JSON.stringify(result));
       } catch (error) {
-        console.error(JSON.stringify({stage:"source-browser-rpc",code:error.code??null,message:error.message}));
+        console.error(
+          JSON.stringify({
+            stage: "source-browser-rpc",
+            code: error.code ?? null,
+            message: error.message,
+          }),
+        );
         res.statusCode = 400;
         res.end(JSON.stringify({ message: error.message }));
       }
@@ -240,8 +297,32 @@ export async function runSourceProductBrowser(f, binding, inspection) {
     };
     const fill = async (label, value) =>
       evaluate(
-        `(()=>{const label=[...document.querySelectorAll('label')].find(label=>label.textContent.startsWith(${JSON.stringify(label)}));if(!label)throw Error('Missing field');const element=label.querySelector('input,textarea,select');const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:element.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));})()`,
+        `(()=>{const label=[...document.querySelectorAll('label')].find(label=>label.firstChild?.textContent?.trim()===${JSON.stringify(label)});if(!label)throw Error('Missing field');const element=label.querySelector('input,textarea,select');const prototype=element.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype:element.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;Object.getOwnPropertyDescriptor(prototype,'value').set.call(element,${JSON.stringify(value)});element.dispatchEvent(new Event('input',{bubbles:true}));element.dispatchEvent(new Event('change',{bubbles:true}));})()`,
       );
+    const captureWorkspaceState = async (name) => {
+      for (const viewport of widths) {
+        await command("Emulation.setDeviceMetricsOverride", {
+          width: viewport.width,
+          height: viewport.height,
+          deviceScaleFactor: 1,
+          mobile: viewport.name === "mobile",
+        });
+        await sleep(150);
+        assert(
+          await evaluate(
+            "document.documentElement.scrollWidth<=window.innerWidth",
+          ),
+          name + " horizontal overflow " + viewport.name,
+        );
+        const shot = await command("Page.captureScreenshot", {
+          format: "png",
+          captureBeyondViewport: true,
+        });
+        const filename = path.join(output, viewport.name + "-" + name + ".png");
+        await fs.writeFile(filename, Buffer.from(shot.data, "base64"));
+        screenshots.push(filename);
+      }
+    };
     await command("Page.enable");
     await command("Runtime.enable");
     await command("Emulation.setDeviceMetricsOverride", {
@@ -292,30 +373,65 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         }
       };
       let qualification = inspection.resume?.qualification ?? null;
-      if (inspection.resume?.acceptance_id) inspection = { ...inspection, acceptanceId: inspection.resume.acceptance_id };
+      if (inspection.resume?.acceptance_id)
+        inspection = {
+          ...inspection,
+          acceptanceId: inspection.resume.acceptance_id,
+        };
       const persist = async (extra = {}) => {
         if (!inspection.progressFile) return;
-        await fs.writeFile(inspection.progressFile, JSON.stringify({
-          candidate_id: inspection.candidateId, revision_id: inspection.revisionId,
-          root_tree_id: inspection.rootTreeId, acceptance_id: inspection.acceptanceId,
-          qualification, screenshots: [...new Set(screenshots)], ...extra,
-        }, null, 2) + "\n", {mode:0o600});
+        await fs.writeFile(
+          inspection.progressFile,
+          JSON.stringify(
+            {
+              candidate_id: inspection.candidateId,
+              revision_id: inspection.revisionId,
+              root_tree_id: inspection.rootTreeId,
+              acceptance_id: inspection.acceptanceId,
+              qualification,
+              screenshots: [...new Set(screenshots)],
+              ...extra,
+            },
+            null,
+            2,
+          ) + "\n",
+          { mode: 0o600 },
+        );
       };
       if (inspection.candidateId && !inspection.acceptanceId) {
-        assert(Array.isArray(inspection.evidenceIds) && inspection.evidenceIds.length > 0);
+        assert(
+          Array.isArray(inspection.evidenceIds) &&
+            inspection.evidenceIds.length > 0,
+        );
         await click("Changes");
         await fill("Candidate", inspection.candidateId);
         await click("Inspect candidate");
-        await until(`document.body.innerText.includes(${JSON.stringify(inspection.candidateId)})`, "live candidate inspection");
-        await fill("Independent evidence IDs (one per line)", inspection.evidenceIds.join("\n"));
+        await until(
+          `document.body.innerText.includes(${JSON.stringify(inspection.candidateId)})`,
+          "live candidate inspection",
+        );
+        await fill(
+          "Independent evidence IDs (one per line)",
+          inspection.evidenceIds.join("\n"),
+        );
         await click("Qualify candidate");
-        await until('document.body.innerText.includes("qualification_id")', "independent candidate qualification");
-        qualification = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
+        await until(
+          'document.body.innerText.includes("qualification_id")',
+          "independent candidate qualification",
+        );
+        qualification = await evaluate(
+          "JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result",
+        );
         assert(qualification.qualification_id);
         await capture("candidate-qualified");
         await click("Accept qualified candidate");
-        await until('document.body.innerText.includes("acceptance_id")', "qualified candidate acceptance");
-        const result = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
+        await until(
+          'document.body.innerText.includes("acceptance_id")',
+          "qualified candidate acceptance",
+        );
+        const result = await evaluate(
+          "JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result",
+        );
         assert(result.acceptance_id);
         inspection = { ...inspection, acceptanceId: result.acceptance_id };
         await capture("candidate-accepted");
@@ -334,39 +450,80 @@ export async function runSourceProductBrowser(f, binding, inspection) {
         "exact fleet-accepted revision history",
       );
       await capture("accepted-history");
-      const left = await f.createRevision({text:"left conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
-      const right = await f.createRevision({text:"right conflict from accepted fleet source\n",parent_revision_ids:[inspection.revisionId]});
-      const resolved = await f.createRevision({text:"candidate: explicit fleet conflict resolution\n",parent_revision_ids:[left.revision_id,right.revision_id]});
-      assert.deepEqual((await f.client.revision(left.revision_id)).parent_revision_ids,[inspection.revisionId]);
-      assert.deepEqual((await f.client.revision(right.revision_id)).parent_revision_ids,[inspection.revisionId]);
-      assert.deepEqual((await f.client.revision(resolved.revision_id)).parent_revision_ids,[left.revision_id,right.revision_id]);
+      const left = await f.createRevision({
+        text: "left conflict from accepted fleet source\n",
+        parent_revision_ids: [inspection.revisionId],
+      });
+      const right = await f.createRevision({
+        text: "right conflict from accepted fleet source\n",
+        parent_revision_ids: [inspection.revisionId],
+      });
+      const resolved = await f.createRevision({
+        text: "candidate: explicit fleet conflict resolution\n",
+        parent_revision_ids: [left.revision_id, right.revision_id],
+      });
+      assert.deepEqual(
+        (await f.client.revision(left.revision_id)).parent_revision_ids,
+        [inspection.revisionId],
+      );
+      assert.deepEqual(
+        (await f.client.revision(right.revision_id)).parent_revision_ids,
+        [inspection.revisionId],
+      );
+      assert.deepEqual(
+        (await f.client.revision(resolved.revision_id)).parent_revision_ids,
+        [left.revision_id, right.revision_id],
+      );
       await fill("Revision", right.revision_id);
       await fill("Compare from", left.revision_id);
       await click("Merge revisions");
-      await until('document.body.innerText.includes("CONFLICT")',"conflict from exact accepted source family");
+      await until(
+        'document.body.innerText.includes("CONFLICT")',
+        "conflict from exact accepted source family",
+      );
       await capture("accepted-conflict");
-      await fill("Resolved workspace revision",resolved.revision_id);
+      await fill("Resolved workspace revision", resolved.revision_id);
       await click("Apply resolved revision");
-      await until('document.body.innerText.includes("COMPLETED")',"explicit accepted-family conflict resolution");
-      const conflict={status:"PASS",base_revision_id:inspection.revisionId,left_revision_id:left.revision_id,right_revision_id:right.revision_id,resolution_revision_id:resolved.revision_id,result:await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result")};
-      assert.equal(conflict.result.status,"COMPLETED");
+      await until(
+        'document.body.innerText.includes("COMPLETED")',
+        "explicit accepted-family conflict resolution",
+      );
+      const conflict = {
+        status: "PASS",
+        base_revision_id: inspection.revisionId,
+        left_revision_id: left.revision_id,
+        right_revision_id: right.revision_id,
+        resolution_revision_id: resolved.revision_id,
+        result: await evaluate(
+          "JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result",
+        ),
+      };
+      assert.equal(conflict.result.status, "COMPLETED");
       await capture("accepted-resolution");
       await click("Publication");
       await fill("Acceptance receipt", inspection.acceptanceId);
       await fill("Configured destination", inspection.destinationId);
       await fill("Target reference", inspection.targetRef ?? "refs/heads/main");
       if (inspection.expectedOldOid)
-        await fill("Expected remote Git identity", inspection.expectedOldOid);
+        await fill(
+          "Expected remote Git identity (empty for new reference)",
+          inspection.expectedOldOid,
+        );
       if (inspection.resume?.publication_operation_id) {
-        await fill("Publication operation", inspection.resume.publication_operation_id);
+        await fill(
+          "Publication operation",
+          inspection.resume.publication_operation_id,
+        );
       } else {
         await click("Create publication");
         await until(
           'document.body.innerText.includes("QUEUED")',
           "fleet accepted publication intent",
         );
-        const queued = await evaluate("JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result");
-        await persist({publication_operation_id: queued.operation_id});
+        const queued = await evaluate(
+          "JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result",
+        );
+        await persist({ publication_operation_id: queued.operation_id });
       }
       await click("Reconcile publication");
       await until(
@@ -405,6 +562,11 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       return receipt;
     }
     await fill("Paths (one per line)", "main.txt");
+    await click("Check dependency closure");
+    await until(
+      `document.querySelector('[data-source-closure="READY"]') !== null`,
+      "dependency closure verified from native tree",
+    );
     await click("Open workspace");
     await until(
       'document.body.innerText.includes("Generation: 1")',
@@ -413,10 +575,20 @@ export async function runSourceProductBrowser(f, binding, inspection) {
     await fill("File path", "main.txt");
     await click("Load file from revision");
     await until(
-      `document.querySelector("textarea.font-mono")?.value === ${JSON.stringify("baseline\n")}`,
+      `document.querySelector("textarea.font-mono")?.value === ${JSON.stringify(baselineContent)}`,
       "pinned file content",
     );
     await fill("File content", "candidate: browser edit\n");
+    await until(
+      `document.querySelector('[data-source-workspace-state="DIRTY"]') !== null`,
+      "local edit remains dirty",
+    );
+    assert.equal(
+      await evaluate(
+        'document.body.innerText.includes("Receipt-backed revision:")',
+      ),
+      false,
+    );
     await click("Save durable checkpoint");
     await until(
       'document.body.innerText.includes("Unresolved checkpoint operation")',
@@ -426,11 +598,61 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       `JSON.parse(sessionStorage.getItem('hyperfide.source.pending.v1')).operationId`,
     );
     assert.match(pendingId, /^[a-f0-9-]{36}$/);
+    const committedBeforeReceipt = await binding.client.operation(pendingId);
+    assert.equal(committedBeforeReceipt.state, "SUCCEEDED");
+    await command("Page.reload", { ignoreCache: true });
+    await until(
+      `document.body.innerText.includes("Unresolved checkpoint operation") && document.querySelector('[data-source-workspace-state="UPLOADING"]') !== null`,
+      "reconnect retains ambiguous checkpoint as uploading",
+    );
+    await until(
+      'document.body.innerText.includes("Generation: 2")',
+      "reconnect can observe the workspace without acknowledging the retained edit",
+    );
+    assert.equal(
+      await evaluate(
+        'document.querySelector("[data-source-workspace-state]").dataset.sourceWorkspaceState',
+      ),
+      "UPLOADING",
+    );
+    assert.equal(
+      await evaluate(
+        'document.body.innerText.includes("Receipt-backed revision:")',
+      ),
+      false,
+    );
+    assert.equal(
+      await evaluate(
+        'document.body.innerText.includes("Checkpoint committed")',
+      ),
+      false,
+    );
+    assert.equal(
+      await evaluate('document.querySelector("textarea.font-mono").value'),
+      "candidate: browser edit\n",
+    );
+    assert.equal(
+      await evaluate(
+        `JSON.parse(sessionStorage.getItem('hyperfide.source.pending.v1')).operationId`,
+      ),
+      pendingId,
+    );
+    await captureWorkspaceState("checkpoint-unresolved");
     await click("Retry same operation");
     await until(
       `sessionStorage.getItem('hyperfide.source.pending.v1')===null`,
       "checkpoint replay",
     );
+    await until(
+      `document.querySelector('[data-source-workspace-state="ACKNOWLEDGED"]') !== null`,
+      "checkpoint becomes acknowledged only after its bound receipt arrives",
+    );
+    assert(
+      await evaluate(
+        'document.body.innerText.includes("Receipt-backed revision:")',
+      ),
+    );
+    await captureWorkspaceState("checkpoint-acknowledged");
     await click("Refresh workspace");
     await until(
       'document.body.innerText.includes("Generation: 2")',
@@ -446,12 +668,84 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       'document.body.innerText.includes("Workspace checkpoint")',
       "history",
     );
-    await fill("Compare from", f.base.revision_id);
+    await fill("Compare from", base.revision_id);
     await click("Compare revisions");
     await until(
       'document.body.innerText.includes("MODIFIED")',
       "revision diff",
     );
+    assert(
+      f.productPagination,
+      "Product actor must provide its real oversized dataset",
+    );
+    await fill("Revision", f.productPagination.revisionId);
+    await fill("Compare from", f.productPagination.beforeRevisionId);
+    await click("Compare revisions");
+    await until(
+      'document.body.innerText.includes("Next changes page")',
+      "oversized diff exposes next page",
+    );
+    const visiblePaths = [],
+      seenCursors = new Set();
+    let pages = 0;
+    for (;;) {
+      const current = diffRequests.at(-1);
+      assert.equal(
+        current.action.afterRevisionId,
+        f.productPagination.revisionId,
+      );
+      const visible = await evaluate(
+        `[...document.querySelectorAll('main p')].filter(element=>element.querySelector('strong')).map(element=>element.textContent.replace(/^(ADDED|REMOVED|MODIFIED|TYPE_CHANGED)\\s+/,''))`,
+      );
+      assert.deepEqual(
+        visible,
+        current.result.entries.map((entry) => entry.path),
+      );
+      visiblePaths.push(...visible);
+      pages++;
+      assert(pages <= 4, "UI diff pagination must finish within the dataset");
+      if (!current.result.next_cursor) {
+        assert.equal(current.result.coverage.state, "COMPLETE");
+        assert.equal(
+          await evaluate(
+            '[...document.querySelectorAll("button")].some(button=>button.textContent==="Next changes page")',
+          ),
+          false,
+        );
+        break;
+      }
+      assert.equal(current.result.coverage.state, "PARTIAL");
+      assert(!seenCursors.has(current.result.next_cursor));
+      seenCursors.add(current.result.next_cursor);
+      const priorCount = diffRequests.length;
+      await click("Next changes page");
+      for (
+        let attempt = 0;
+        diffRequests.length === priorCount && attempt < 150;
+        attempt++
+      )
+        await sleep(100);
+      assert.equal(diffRequests.length, priorCount + 1);
+      assert.equal(
+        diffRequests.at(-1).action.cursor,
+        current.result.next_cursor,
+      );
+      const nextPath = diffRequests.at(-1).result.entries[0].path;
+      await until(
+        `!![...document.querySelectorAll('main p')].find(element=>element.querySelector('strong')&&element.textContent.endsWith(${JSON.stringify(nextPath)}))`,
+        "continued diff rendered",
+      );
+    }
+    assert(pages > 1);
+    assert.deepEqual(
+      [...visiblePaths].sort(),
+      f.productPagination.expectedPaths,
+    );
+    assert.equal(
+      new Set(visiblePaths).size,
+      f.productPagination.expectedPaths.length,
+    );
+    await captureWorkspaceState("diff-complete");
     const left = await f.createRevision({ text: "left browser change\n" }),
       right = await f.createRevision({ text: "right browser change\n" }),
       resolved = await f.createRevision({ text: "resolved browser change\n" });
@@ -468,16 +762,20 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       'document.body.innerText.includes("COMPLETED")',
       "conflict resolution",
     );
-    const reviewed = await f.createRevision({
-        text: "candidate: browser acceptance\n",
-        parent_revision_ids: [],
-      }),
+    const reviewed = {
+        revision_id: changedRevision,
+        root_tree_id: durable.result.workspace.root_tree_id,
+        change_id: durable.result.receipt.revision_receipt.change_id,
+      },
       candidate = await f.createCandidate(reviewed, {
         domain: await f.createDomain(reviewed),
       }),
       proof = await f.publishEvidence(candidate);
     await fill("Candidate", candidate.candidate_id);
-    await fill("Independent evidence IDs", proof.evidence.evidence_id);
+    await fill(
+      "Independent evidence IDs (one per line)",
+      proof.evidence.evidence_id,
+    );
     await click("Qualify candidate");
     await until(
       '[...document.querySelectorAll("label")].find(label=>label.textContent.trim()==="Qualification")?.querySelector("input")?.value.startsWith("sha256:")',
@@ -492,12 +790,15 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       `JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result.acceptance_id`,
     );
     assert.match(accepted, /^sha256:/);
-    const widths = [
-      { name: "desktop", width: 1440, height: 1000 },
-      { name: "tablet", width: 768, height: 1024 },
-      { name: "mobile", width: 390, height: 844 },
-    ];
-    const screenshots = [];
+    await click("Workspace");
+    await fill("Workspace", durable.result.workspace.workspace_id);
+    await click("Refresh workspace");
+    await until(
+      `document.querySelector('[data-source-workspace-state="ACCEPTED"]') !== null`,
+      "workspace accepted state is bound to the server acceptance receipt",
+    );
+    await captureWorkspaceState("workspace-accepted");
+    await click("Changes");
     for (const viewport of widths) {
       await command("Emulation.setDeviceMetricsOverride", {
         width: viewport.width,
@@ -538,7 +839,10 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       `JSON.parse([...document.querySelectorAll('pre')].at(-1).textContent).result.git_oid`,
     );
     assert.match(publishedIdentity, /^git:sha1:[a-f0-9]{40}$/);
-    await fill("Expected remote Git identity", publishedIdentity);
+    await fill(
+      "Expected remote Git identity (empty for new reference)",
+      publishedIdentity,
+    );
     await click("Create publication");
     await until(
       'document.body.innerText.includes("QUEUED")',
@@ -571,6 +875,14 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       await fs.writeFile(filename, Buffer.from(screenshot.data, "base64"));
       screenshots.push(filename);
     }
+    await click("Workspace");
+    await fill("Workspace", durable.result.workspace.workspace_id);
+    await click("Refresh workspace");
+    await until(
+      `document.querySelector('[data-source-workspace-state="EXPORTED"]') !== null`,
+      "workspace exported state requires remote publication readback",
+    );
+    await captureWorkspaceState("workspace-exported");
     const blob = await f.blob(Buffer.alloc(1100000, 42));
     const transferId = crypto.randomUUID(),
       created = await binding.client.call("source.transfers.create", {
@@ -643,6 +955,14 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       await evaluate('document.body.innerText.includes("partial coverage")'),
     );
     assert(
+      await evaluate(
+        'document.body.innerText.includes("Each family samples up to 50 records")',
+      ),
+    );
+    assert(
+      await evaluate('document.body.innerText.includes("Product requests")'),
+    );
+    assert(
       await evaluate("document.documentElement.scrollWidth<=window.innerWidth"),
     );
     const metricsShot = await command("Page.captureScreenshot", {
@@ -663,7 +983,9 @@ export async function runSourceProductBrowser(f, binding, inspection) {
       checks: [
         "open scoped workspace through the browser",
         "edit and checkpoint with deliberate lost acknowledgment",
+        "reconnect retains uploading state even when the server has committed, until the original checkpoint receipt arrives",
         "reload the same operation without duplicate checkpoint",
+        "page an oversized diff through next_cursor to complete UI coverage without gaps or duplicates",
         "inspect real revision history and changed paths",
         "resolve a real merge conflict and accept independently qualified source",
         "publish accepted source through actual local Git transport",

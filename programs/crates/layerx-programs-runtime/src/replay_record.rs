@@ -2,10 +2,55 @@ use sha2::{Digest, Sha256};
 
 use crate::replay::{append, ReplayWitnessError};
 
+pub const REPLAY_MEMORY_CHUNK_DOMAIN: &[u8] = b"LXP/program-replay-memory-chunk/v1\0";
+pub const REPLAY_MEMORY_NODE_DOMAIN: &[u8] = b"LXP/program-replay-memory-node/v1\0";
+pub const REPLAY_MEMORY_ROOT_DOMAIN: &[u8] = b"LXP/program-replay-memory-root/v1\0";
+
 pub const PROGRAM_REPLAY_RECORD_DOMAIN: &[u8] = b"LXP/program-replay-record/v1\0";
 pub const PROGRAM_REPLAY_WITNESS_DOMAIN: &[u8] = b"LXP/program-replay-witness/v1\0";
 pub const MAX_PROGRAM_REPLAY_BYTES: u32 = 1024 * 1024;
 pub const MAX_PROGRAM_REPLAY_BOUNDARIES: u32 = 4096;
+
+pub(crate) struct ReplayCaptureError {
+    pub error: ReplayWitnessError,
+    pub check: &'static str,
+    pub observed: u128,
+    pub permitted: u128,
+    pub leaf_length: usize,
+}
+
+impl std::fmt::Debug for ReplayCaptureError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{:?}: check={} observed={} permitted={} leaf_length={}",
+            self.error, self.check, self.observed, self.permitted, self.leaf_length
+        )
+    }
+}
+
+impl From<ReplayCaptureError> for ReplayWitnessError {
+    fn from(error: ReplayCaptureError) -> Self {
+        error.error
+    }
+}
+
+fn capture_append(
+    out: &mut Vec<u8>,
+    bytes: &[u8],
+    maximum: usize,
+    check: &'static str,
+    leaf_length: usize,
+) -> Result<(), ReplayCaptureError> {
+    let observed = out.len() as u128 + bytes.len() as u128;
+    append(out, bytes, maximum).map_err(|error| ReplayCaptureError {
+        error,
+        check,
+        observed,
+        permitted: maximum as u128,
+        leaf_length,
+    })
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ProgramReplayProfile {
@@ -43,7 +88,212 @@ impl ProgramReplayProfile {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ReplayRecordHeader {
+    pub identity: crate::ArbitrationExecutionIdentity,
+    pub execution_parameters_digest: [u8; 32],
+    pub storage_baseline: Vec<u8>,
+    pub semantic_constants: Vec<u8>,
+    pub composition_graph: Option<Vec<u8>>,
+    pub response_capacity: Option<u64>,
+}
+
+impl ReplayRecordHeader {
+    pub fn from_boundary(
+        arbitration: &crate::ArbitrationExecutionState,
+        semantic: &[u8],
+        maximum: usize,
+    ) -> Result<Self, ReplayWitnessError> {
+        let header = Self {
+            identity: arbitration.identity,
+            execution_parameters_digest: arbitration.legacy.execution_parameters_digest,
+            storage_baseline: crate::replay::semantic_storage_baseline(semantic, maximum)?,
+            semantic_constants: crate::replay::semantic_record_constants(semantic, maximum)?,
+            composition_graph: crate::replay::semantic_composition_graph(semantic, maximum)?,
+            response_capacity: crate::replay::semantic_response_capacity(semantic, maximum)?,
+        };
+        if arbitration.legacy.module_code_hash != header.identity.module_code_hash
+            || arbitration.legacy.input_digest != header.identity.input_digest
+        {
+            return Err(ReplayWitnessError::Binding);
+        }
+        header.validate()?;
+        Ok(header)
+    }
+    fn validate(&self) -> Result<(), ReplayWitnessError> {
+        let identity = self.identity;
+        let mut parameters = b"LXP/program-trace-parameters/v1\0".to_vec();
+        parameters.extend(identity.runtime_version.to_be_bytes());
+        parameters.extend(identity.abi_version.to_be_bytes());
+        parameters.extend(identity.fee_schedule_version.to_be_bytes());
+        parameters.extend(identity.metering_schedule_version.to_be_bytes());
+        parameters.extend(identity.trace_policy.canonical_bytes());
+        if <[u8; 32]>::from(Sha256::digest(parameters)) != self.execution_parameters_digest {
+            return Err(ReplayWitnessError::Binding);
+        }
+        let baseline = crate::Storage::decode_untrusted_replay_state(
+            &self.storage_baseline,
+            MAX_PROGRAM_REPLAY_BYTES as usize,
+        )?;
+        if crate::replay::market_sandbox_baseline_root(&baseline)? != identity.host_base_state_root
+        {
+            return Err(ReplayWitnessError::Binding);
+        }
+        if let Some(graph) = &self.composition_graph {
+            crate::CallGraph::decode_untrusted_replay_state(
+                graph,
+                MAX_PROGRAM_REPLAY_BYTES as usize,
+            )?;
+        }
+        if self
+            .response_capacity
+            .is_some_and(|capacity| capacity > crate::abi::MAX_CALL_RESPONSE_BYTES as u64)
+        {
+            return Err(ReplayWitnessError::Bounds);
+        }
+        Ok(())
+    }
+    pub fn canonical_bytes(&self, maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
+        self.validate()?;
+        let mut out = Vec::new();
+        let i = self.identity;
+        append(&mut out, &i.module_code_hash, maximum)?;
+        append(&mut out, &i.input_digest, maximum)?;
+        append(&mut out, &i.runtime_version.to_be_bytes(), maximum)?;
+        append(&mut out, &i.abi_version.to_be_bytes(), maximum)?;
+        append(&mut out, &i.fee_schedule_version.to_be_bytes(), maximum)?;
+        append(
+            &mut out,
+            &i.metering_schedule_version.to_be_bytes(),
+            maximum,
+        )?;
+        append(&mut out, &self.execution_parameters_digest, maximum)?;
+        append(&mut out, &i.trace_policy.canonical_bytes(), maximum)?;
+        for root in [
+            i.host_base_state_root,
+            i.receipt_oracle_root,
+            i.balance_oracle_root,
+        ] {
+            append(&mut out, &root, maximum)?;
+        }
+        append(
+            &mut out,
+            &u32::try_from(self.storage_baseline.len())
+                .map_err(|_| ReplayWitnessError::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
+        append(&mut out, &self.storage_baseline, maximum)?;
+        append(
+            &mut out,
+            &u32::try_from(self.semantic_constants.len())
+                .map_err(|_| ReplayWitnessError::Bounds)?
+                .to_be_bytes(),
+            maximum,
+        )?;
+        append(&mut out, &self.semantic_constants, maximum)?;
+        append(
+            &mut out,
+            &[u8::from(self.composition_graph.is_some())],
+            maximum,
+        )?;
+        if let Some(graph) = &self.composition_graph {
+            append(
+                &mut out,
+                &u32::try_from(graph.len())
+                    .map_err(|_| ReplayWitnessError::Bounds)?
+                    .to_be_bytes(),
+                maximum,
+            )?;
+            append(&mut out, graph, maximum)?;
+        }
+        append(
+            &mut out,
+            &[u8::from(self.response_capacity.is_some())],
+            maximum,
+        )?;
+        if let Some(capacity) = self.response_capacity {
+            append(&mut out, &capacity.to_be_bytes(), maximum)?;
+        }
+        Ok(out)
+    }
+    pub fn decode(bytes: &[u8], maximum: usize) -> Result<Self, ReplayWitnessError> {
+        if maximum == 0 || maximum > MAX_PROGRAM_REPLAY_BYTES as usize || bytes.len() > maximum {
+            return Err(ReplayWitnessError::Bounds);
+        }
+        let mut c = crate::replay::ReplayCursor::new(bytes);
+        let module_code_hash = c.array()?;
+        let input_digest = c.array()?;
+        let runtime_version = c.u16()?;
+        let abi_version = c.u16()?;
+        let fee_schedule_version = c.u32()?;
+        let metering_schedule_version = c.u32()?;
+        let execution_parameters_digest = c.array()?;
+        let trace_policy =
+            crate::TracePolicy::new(c.u64()?, c.u32()?).map_err(|_| ReplayWitnessError::Bounds)?;
+        let host_base_state_root = c.array()?;
+        let receipt_oracle_root = c.array()?;
+        let balance_oracle_root = c.array()?;
+        let storage_baseline = c.owned_field(maximum)?;
+        let semantic_constants = c.owned_field(maximum)?;
+        let composition_graph = if c.boolean()? {
+            Some(c.owned_field(maximum)?)
+        } else {
+            None
+        };
+        let response_capacity = if c.boolean()? { Some(c.u64()?) } else { None };
+        if !c.done() {
+            return Err(ReplayWitnessError::Encoding);
+        }
+        let header = Self {
+            identity: crate::ArbitrationExecutionIdentity {
+                module_code_hash,
+                input_digest,
+                runtime_version,
+                abi_version,
+                fee_schedule_version,
+                metering_schedule_version,
+                trace_policy,
+                host_base_state_root,
+                receipt_oracle_root,
+                balance_oracle_root,
+            },
+            execution_parameters_digest,
+            storage_baseline,
+            semantic_constants,
+            composition_graph,
+            response_capacity,
+        };
+        header.validate()?;
+        Ok(header)
+    }
+    pub fn digest(&self) -> Result<[u8; 32], ReplayWitnessError> {
+        let mut hash = Sha256::new();
+        hash.update(b"LXP/program-replay-header/v2\0");
+        hash.update(self.canonical_bytes(MAX_PROGRAM_REPLAY_BYTES as usize)?);
+        Ok(hash.finalize().into())
+    }
+    pub fn boundary_envelope(
+        &self,
+        leaf: &[u8],
+        maximum: usize,
+    ) -> Result<Vec<u8>, ReplayWitnessError> {
+        let mut out = Vec::new();
+        append(
+            &mut out,
+            b"LXP/program-replay-boundary-context/v2\0",
+            maximum,
+        )?;
+        let header = self.canonical_bytes(maximum)?;
+        append(&mut out, &(header.len() as u32).to_be_bytes(), maximum)?;
+        append(&mut out, &header, maximum)?;
+        append(&mut out, leaf, maximum)?;
+        Ok(out)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ProgramReplayRecord {
+    header: ReplayRecordHeader,
     profile: ProgramReplayProfile,
     code_hash: [u8; 32],
     input_digest: [u8; 32],
@@ -71,48 +321,175 @@ impl ProgramReplayRecord {
         metering_schedule_version: u32,
         terminal_status: u8,
         leaves: Vec<Vec<u8>>,
-    ) -> Result<Self, ReplayWitnessError> {
-        if terminal_status > 2
-            || leaves.is_empty()
-            || leaves.len() > profile.maximum_boundaries as usize
+        header: ReplayRecordHeader,
+    ) -> Result<Self, ReplayCaptureError> {
+        let diagnostic = |error, check, observed, permitted, leaf_length| ReplayCaptureError {
+            error,
+            check,
+            observed,
+            permitted,
+            leaf_length,
+        };
+        if header.identity.module_code_hash != code_hash
+            || header.identity.input_digest != input_digest
+            || header.identity.runtime_version != runtime_version
+            || header.identity.abi_version != abi_version
+            || header.identity.fee_schedule_version != fee_schedule_version
+            || header.identity.metering_schedule_version != metering_schedule_version
+            || header.identity.trace_policy != profile.trace_policy()
         {
-            return Err(ReplayWitnessError::Bounds);
+            return Err(diagnostic(
+                ReplayWitnessError::Binding,
+                "from_captured record header",
+                1,
+                0,
+                0,
+            ));
+        }
+        if terminal_status > 2 {
+            return Err(diagnostic(
+                ReplayWitnessError::Bounds,
+                "from_captured terminal status",
+                terminal_status as u128,
+                2,
+                0,
+            ));
+        }
+        if leaves.is_empty() || leaves.len() > profile.maximum_boundaries as usize {
+            return Err(diagnostic(
+                ReplayWitnessError::Bounds,
+                "from_captured leaves (minimum 1)",
+                leaves.len() as u128,
+                profile.maximum_boundaries as u128,
+                0,
+            ));
         }
         let maximum = profile.maximum_bytes as usize;
-        let boundary_count = u32::try_from(leaves.len()).map_err(|_| ReplayWitnessError::Bounds)?;
+        let boundary_count = u32::try_from(leaves.len()).map_err(|_| {
+            diagnostic(
+                ReplayWitnessError::Bounds,
+                "from_captured boundary count",
+                leaves.len() as u128,
+                u32::MAX as u128,
+                0,
+            )
+        })?;
         let mut witness = Vec::new();
-        append(&mut witness, PROGRAM_REPLAY_WITNESS_DOMAIN, maximum)?;
-        append(&mut witness, &boundary_count.to_be_bytes(), maximum)?;
+        capture_append(
+            &mut witness,
+            PROGRAM_REPLAY_WITNESS_DOMAIN,
+            maximum,
+            "from_captured witness bytes",
+            0,
+        )?;
+        let header_digest = header.digest().map_err(|error| {
+            diagnostic(error, "from_captured header digest", 0, maximum as u128, 0)
+        })?;
+        capture_append(
+            &mut witness,
+            &header_digest,
+            maximum,
+            "from_captured witness header binding",
+            0,
+        )?;
+        capture_append(
+            &mut witness,
+            &boundary_count.to_be_bytes(),
+            maximum,
+            "from_captured witness bytes",
+            0,
+        )?;
         let mut hashes = Vec::new();
-        hashes
-            .try_reserve_exact(leaves.len())
-            .map_err(|_| ReplayWitnessError::Allocation)?;
+        hashes.try_reserve_exact(leaves.len()).map_err(|_| {
+            diagnostic(
+                ReplayWitnessError::Allocation,
+                "from_captured hash allocation",
+                leaves.len() as u128,
+                profile.maximum_boundaries as u128,
+                0,
+            )
+        })?;
         let mut replay_fuel = 0u64;
         for (index, leaf) in leaves.iter().enumerate() {
-            let length = u32::try_from(leaf.len()).map_err(|_| ReplayWitnessError::Bounds)?;
-            append(&mut witness, &length.to_be_bytes(), maximum)?;
-            append(&mut witness, leaf, maximum)?;
-            let boundary =
-                crate::portable_replay::PortableBoundary::decode_untrusted(leaf, maximum)?;
+            let length = u32::try_from(leaf.len()).map_err(|_| {
+                diagnostic(
+                    ReplayWitnessError::Bounds,
+                    "from_captured leaf length",
+                    leaf.len() as u128,
+                    u32::MAX as u128,
+                    leaf.len(),
+                )
+            })?;
+            capture_append(
+                &mut witness,
+                &length.to_be_bytes(),
+                maximum,
+                "from_captured witness bytes",
+                leaf.len(),
+            )?;
+            capture_append(
+                &mut witness,
+                leaf,
+                maximum,
+                "from_captured witness bytes",
+                leaf.len(),
+            )?;
+            let boundary = crate::portable_replay::PortableBoundary::decode_with_header(
+                leaf, maximum, &header,
+            )
+            .map_err(|error| {
+                diagnostic(
+                    error,
+                    "from_captured leaf decode",
+                    leaf.len() as u128,
+                    maximum as u128,
+                    leaf.len(),
+                )
+            })?;
             let supplement = &boundary.replay.snapshot.supplement;
             let fuels = crate::commit::replay_step_commitment_fuels(
                 supplement.canonical_state_bytes,
                 supplement.arbitration_engine_canonical_bytes,
                 supplement.arbitration_host_state_bytes,
             )
-            .map_err(|_| ReplayWitnessError::Bounds)?;
+            .map_err(|_| {
+                diagnostic(
+                    ReplayWitnessError::Bounds,
+                    "from_captured commitment fuel",
+                    supplement.canonical_state_bytes as u128
+                        + supplement.arbitration_engine_canonical_bytes as u128
+                        + supplement.arbitration_host_state_bytes as u128,
+                    u64::MAX as u128,
+                    leaf.len(),
+                )
+            })?;
             if fuels
                 != (
                     supplement.commitment_fuel,
                     supplement.arbitration_commitment_fuel,
                 )
             {
-                return Err(ReplayWitnessError::Binding);
+                return Err(diagnostic(
+                    ReplayWitnessError::Binding,
+                    "from_captured commitment fuel binding",
+                    fuels.0 as u128 + fuels.1 as u128,
+                    supplement.commitment_fuel as u128
+                        + supplement.arbitration_commitment_fuel as u128,
+                    leaf.len(),
+                ));
             }
             replay_fuel = replay_fuel
                 .checked_add(fuels.0)
                 .and_then(|total| total.checked_add(fuels.1))
-                .ok_or(ReplayWitnessError::Bounds)?;
+                .ok_or_else(|| {
+                    diagnostic(
+                        ReplayWitnessError::Bounds,
+                        "from_captured fuel sum",
+                        replay_fuel as u128 + fuels.0 as u128 + fuels.1 as u128,
+                        u64::MAX as u128,
+                        leaf.len(),
+                    )
+                })?;
             let mut hash = Sha256::new();
             hash.update(b"LXP/program-replay-leaf/v1\0");
             hash.update((index as u32).to_be_bytes());
@@ -123,7 +500,15 @@ impl ProgramReplayRecord {
         while hashes.len() > 1 {
             let mut next = Vec::new();
             next.try_reserve_exact(hashes.len().div_ceil(2))
-                .map_err(|_| ReplayWitnessError::Allocation)?;
+                .map_err(|_| {
+                    diagnostic(
+                        ReplayWitnessError::Allocation,
+                        "from_captured hash allocation",
+                        leaves.len() as u128,
+                        profile.maximum_boundaries as u128,
+                        0,
+                    )
+                })?;
             for pair in hashes.chunks(2) {
                 let mut hash = Sha256::new();
                 hash.update(b"LXP/program-replay-node/v1\0");
@@ -136,37 +521,105 @@ impl ProgramReplayRecord {
         let boundary_root = hashes[0];
         let witness_digest = <[u8; 32]>::from(Sha256::digest(&witness));
         let mut bytes = Vec::new();
-        append(&mut bytes, PROGRAM_REPLAY_RECORD_DOMAIN, maximum)?;
-        append(&mut bytes, &1u16.to_be_bytes(), maximum)?;
-        append(&mut bytes, &code_hash, maximum)?;
-        append(&mut bytes, &input_digest, maximum)?;
-        append(&mut bytes, &runtime_version.to_be_bytes(), maximum)?;
-        append(&mut bytes, &abi_version.to_be_bytes(), maximum)?;
-        append(&mut bytes, &fee_schedule_version.to_be_bytes(), maximum)?;
-        append(
+        capture_append(
             &mut bytes,
-            &metering_schedule_version.to_be_bytes(),
+            PROGRAM_REPLAY_RECORD_DOMAIN,
             maximum,
+            "from_captured record bytes",
+            0,
         )?;
-        append(
+        capture_append(
+            &mut bytes,
+            &2u16.to_be_bytes(),
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        let header_bytes = header.canonical_bytes(maximum).map_err(|error| {
+            diagnostic(error, "from_captured header bytes", 0, maximum as u128, 0)
+        })?;
+        capture_append(
+            &mut bytes,
+            &(header_bytes.len() as u32).to_be_bytes(),
+            maximum,
+            "from_captured record header",
+            0,
+        )?;
+        capture_append(
+            &mut bytes,
+            &header_bytes,
+            maximum,
+            "from_captured record header",
+            0,
+        )?;
+        capture_append(
             &mut bytes,
             &profile.maximum_boundaries.to_be_bytes(),
             maximum,
+            "from_captured record bytes",
+            0,
         )?;
-        append(&mut bytes, &profile.maximum_bytes.to_be_bytes(), maximum)?;
-        append(&mut bytes, &[terminal_status], maximum)?;
-        append(&mut bytes, &boundary_count.to_be_bytes(), maximum)?;
-        append(&mut bytes, &boundary_root, maximum)?;
-        append(&mut bytes, &witness_digest, maximum)?;
-        append(
+        capture_append(
+            &mut bytes,
+            &profile.maximum_bytes.to_be_bytes(),
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        capture_append(
+            &mut bytes,
+            &[terminal_status],
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        capture_append(
+            &mut bytes,
+            &boundary_count.to_be_bytes(),
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        capture_append(
+            &mut bytes,
+            &boundary_root,
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        capture_append(
+            &mut bytes,
+            &witness_digest,
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
+        capture_append(
             &mut bytes,
             &u32::try_from(witness.len())
-                .map_err(|_| ReplayWitnessError::Bounds)?
+                .map_err(|_| {
+                    diagnostic(
+                        ReplayWitnessError::Bounds,
+                        "from_captured witness length",
+                        witness.len() as u128,
+                        u32::MAX as u128,
+                        0,
+                    )
+                })?
                 .to_be_bytes(),
             maximum,
+            "from_captured record bytes",
+            0,
         )?;
-        append(&mut bytes, &witness, maximum)?;
+        capture_append(
+            &mut bytes,
+            &witness,
+            maximum,
+            "from_captured record bytes",
+            0,
+        )?;
         Ok(Self {
+            header,
             profile,
             code_hash,
             input_digest,
@@ -181,6 +634,9 @@ impl ProgramReplayRecord {
             replay_fuel,
             bytes,
         })
+    }
+    pub fn header(&self) -> &ReplayRecordHeader {
+        &self.header
     }
     pub const fn profile(&self) -> ProgramReplayProfile {
         self.profile
@@ -216,7 +672,7 @@ impl ProgramReplayRecord {
         self.witness_digest
     }
     /// Total replay work, reconstructed from the committed boundary fuel fields
-    /// when a captured or portable record is read, preserving the v1 wire layout.
+    /// when a captured or portable record is read.
     pub const fn replay_fuel(&self) -> u64 {
         self.replay_fuel
     }
@@ -229,45 +685,135 @@ pub(crate) fn captured_leaf(
     replay: &wasmi::ExecutionReplaySnapshot,
     arbitration: &crate::ArbitrationExecutionState,
     semantic: &crate::replay::CapturedSemanticReplayV2,
+    memory: &crate::replay::ReplayMemory,
     maximum: usize,
-) -> Result<Vec<u8>, ReplayWitnessError> {
-    captured_leaf_bytes(
-        replay,
-        arbitration,
-        &semantic.canonical_bytes(maximum)?,
-        maximum,
-    )
+) -> Result<Vec<u8>, ReplayCaptureError> {
+    let semantic_length = semantic.encoded_len().map_err(|error| ReplayCaptureError {
+        error,
+        check: "captured_leaf semantic length sum",
+        observed: usize::MAX as u128 + 1,
+        permitted: usize::MAX as u128,
+        leaf_length: 0,
+    })?;
+    let semantic_bytes = semantic
+        .canonical_bytes(maximum)
+        .map_err(|error| ReplayCaptureError {
+            error,
+            check: "captured_leaf semantic bytes",
+            observed: semantic_length as u128,
+            permitted: maximum as u128,
+            leaf_length: 0,
+        })?;
+    captured_leaf_bytes(replay, arbitration, &semantic_bytes, memory, maximum)
 }
 
 pub(crate) fn captured_leaf_bytes(
     replay: &wasmi::ExecutionReplaySnapshot,
     arbitration: &crate::ArbitrationExecutionState,
     semantic_bytes: &[u8],
+    memory: &crate::replay::ReplayMemory,
     maximum: usize,
-) -> Result<Vec<u8>, ReplayWitnessError> {
-    fn field(bytes: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), ReplayWitnessError> {
-        append(
-            bytes,
-            &u32::try_from(value.len())
-                .map_err(|_| ReplayWitnessError::Bounds)?
-                .to_be_bytes(),
-            maximum,
-        )?;
+) -> Result<Vec<u8>, ReplayCaptureError> {
+    fn append(bytes: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), ReplayCaptureError> {
+        let leaf_length = bytes.len().saturating_add(value.len());
+        capture_append(bytes, value, maximum, "captured_leaf bytes", leaf_length)
+    }
+    fn field(bytes: &mut Vec<u8>, value: &[u8], maximum: usize) -> Result<(), ReplayCaptureError> {
+        let length = u32::try_from(value.len()).map_err(|_| ReplayCaptureError {
+            error: ReplayWitnessError::Bounds,
+            check: "captured_leaf field length",
+            observed: value.len() as u128,
+            permitted: u32::MAX as u128,
+            leaf_length: bytes.len(),
+        })?;
+        append(bytes, &length.to_be_bytes(), maximum)?;
         append(bytes, value, maximum)
     }
+    let diagnostic = |error| ReplayCaptureError {
+        error,
+        check: "captured_leaf canonical state",
+        observed: replay.snapshot.linear_memory.len() as u128,
+        permitted: crate::MAX_ARBITRATION_STATE_BYTES as u128,
+        leaf_length: 0,
+    };
+    let header = ReplayRecordHeader::from_boundary(arbitration, semantic_bytes, maximum)
+        .map_err(diagnostic)?;
     let mut bytes = Vec::new();
-    append(&mut bytes, b"LXP/program-replay-boundary/v1\0", maximum)?;
-    let state = arbitration
+    let mut portable = arbitration.clone();
+    let mut snapshot = replay.snapshot.as_ref().clone();
+    for instance in &mut snapshot.arbitration_instances {
+        if instance.instance_index == 0 {
+            for engine_memory in &mut instance.memories {
+                if engine_memory.memory_index == 0 {
+                    engine_memory.bytes.clear();
+                }
+            }
+        }
+    }
+    portable.engine_state = crate::execute::arbitration_engine_state_bytes(&snapshot)
+        .map_err(|_| diagnostic(ReplayWitnessError::Binding))?;
+    std::sync::Arc::make_mut(&mut portable.legacy).linear_memory =
+        memory.canonical_bytes().map_err(diagnostic)?;
+    // Canonical legacy state without identity, overlay or meter: those have one source.
+    portable
         .canonical_bytes()
-        .map_err(|_| ReplayWitnessError::Binding)?;
-    field(&mut bytes, &portable_state_bytes(&state, maximum)?, maximum)?;
+        .map_err(|_| diagnostic(ReplayWitnessError::Binding))?;
+    let legacy = portable
+        .legacy
+        .canonical_bytes()
+        .map_err(|_| diagnostic(ReplayWitnessError::Binding))?;
+    let memory_length = portable.legacy.linear_memory.len();
+    let globals_length = 4 + portable
+        .legacy
+        .globals
+        .iter()
+        .map(|g| {
+            5 + match g.value {
+                crate::ExecutionValue::I32(_) => 5,
+                crate::ExecutionValue::I64(_) => 9,
+            }
+        })
+        .sum::<usize>();
+    let overlay_length = 4 + portable
+        .legacy
+        .storage_overlay
+        .iter()
+        .map(|entry| match entry {
+            crate::StorageOverlayEntry::Write { key, value } => 9 + key.len() + value.len(),
+            crate::StorageOverlayEntry::Delete { key } => 5 + key.len(),
+        })
+        .sum::<usize>();
+    let usage_length = 8 + 8 + 8 + 8 + 4 + 8 + 16 + 16 + 16;
+    let legacy_end = legacy
+        .len()
+        .checked_sub(overlay_length + 8 + usage_length)
+        .ok_or_else(|| diagnostic(ReplayWitnessError::Encoding))?;
+    if legacy_end < 98 + memory_length + globals_length {
+        return Err(diagnostic(ReplayWitnessError::Encoding));
+    }
+    let mut state = Vec::new();
     append(
-        &mut bytes,
-        &u32::try_from(replay.frames.len())
-            .map_err(|_| ReplayWitnessError::Bounds)?
-            .to_be_bytes(),
+        &mut state,
+        &crate::ARBITRATION_STEP_COMMITMENT_VERSION.to_be_bytes(),
         maximum,
     )?;
+    field(&mut state, &legacy[98..legacy_end], maximum)?;
+    field(&mut state, &portable.engine_state, maximum)?;
+    append(&mut state, &portable.host_state_root, maximum)?;
+    append(
+        &mut state,
+        &portable.host_state_bytes.to_be_bytes(),
+        maximum,
+    )?;
+    field(&mut bytes, &state, maximum)?;
+    let frame_count = u32::try_from(replay.frames.len()).map_err(|_| ReplayCaptureError {
+        error: ReplayWitnessError::Bounds,
+        check: "captured_leaf frame count",
+        observed: replay.frames.len() as u128,
+        permitted: u32::MAX as u128,
+        leaf_length: bytes.len(),
+    })?;
+    append(&mut bytes, &frame_count.to_be_bytes(), maximum)?;
     for frame in &replay.frames {
         append(
             &mut bytes,
@@ -276,13 +822,15 @@ pub(crate) fn captured_leaf_bytes(
         )?;
         append(&mut bytes, &frame.instruction_offset.to_be_bytes(), maximum)?;
         append(&mut bytes, &frame.value_base.to_be_bytes(), maximum)?;
-        append(
-            &mut bytes,
-            &u32::try_from(frame.operand_types.len())
-                .map_err(|_| ReplayWitnessError::Bounds)?
-                .to_be_bytes(),
-            maximum,
-        )?;
+        let operand_count =
+            u32::try_from(frame.operand_types.len()).map_err(|_| ReplayCaptureError {
+                error: ReplayWitnessError::Bounds,
+                check: "captured_leaf operand count",
+                observed: frame.operand_types.len() as u128,
+                permitted: u32::MAX as u128,
+                leaf_length: bytes.len(),
+            })?;
+        append(&mut bytes, &operand_count.to_be_bytes(), maximum)?;
         for value_type in &frame.operand_types {
             append(
                 &mut bytes,
@@ -316,109 +864,82 @@ pub(crate) fn captured_leaf_bytes(
     ] {
         append(&mut bytes, &value.to_be_bytes(), maximum)?;
     }
-    field(&mut bytes, semantic_bytes, maximum)?;
+    let semantic =
+        crate::replay::compact_semantic(semantic_bytes, &header, maximum).map_err(diagnostic)?;
+    field(&mut bytes, &semantic, maximum)?;
     Ok(bytes)
 }
 
-fn portable_state_bytes(state: &[u8], maximum: usize) -> Result<Vec<u8>, ReplayWitnessError> {
-    let mut bytes = Vec::new();
-    append(&mut bytes, &[1], maximum)?;
-    append(
-        &mut bytes,
-        &u32::try_from(state.len())
-            .map_err(|_| ReplayWitnessError::Bounds)?
-            .to_be_bytes(),
-        maximum,
-    )?;
-    let mut offset = 0;
-    let mut literal_start = 0;
-    while offset < state.len() {
-        if state[offset] != 0 {
-            offset += 1;
-            continue;
-        }
-        let zero_start = offset;
-        while offset < state.len() && state[offset] == 0 {
-            offset += 1;
-        }
-        if offset - zero_start < 8 {
-            continue;
-        }
-        if zero_start > literal_start {
-            append(&mut bytes, &[1], maximum)?;
-            append(
-                &mut bytes,
-                &u32::try_from(zero_start - literal_start)
-                    .map_err(|_| ReplayWitnessError::Bounds)?
-                    .to_be_bytes(),
-                maximum,
-            )?;
-            append(&mut bytes, &state[literal_start..zero_start], maximum)?;
-        }
-        append(&mut bytes, &[0], maximum)?;
-        append(
-            &mut bytes,
-            &u32::try_from(offset - zero_start)
-                .map_err(|_| ReplayWitnessError::Bounds)?
-                .to_be_bytes(),
-            maximum,
-        )?;
-        literal_start = offset;
-    }
-    if literal_start < state.len() {
-        append(&mut bytes, &[1], maximum)?;
-        append(
-            &mut bytes,
-            &u32::try_from(state.len() - literal_start)
-                .map_err(|_| ReplayWitnessError::Bounds)?
-                .to_be_bytes(),
-            maximum,
-        )?;
-        append(&mut bytes, &state[literal_start..], maximum)?;
-    }
-    Ok(bytes)
-}
-
-pub fn decode_portable_state_bytes_untrusted(
-    bytes: &[u8],
-    maximum_decoded_bytes: usize,
-) -> Result<Vec<u8>, ReplayWitnessError> {
+pub(crate) fn captured_leaf_breakdown(
+    leaf: &[u8],
+    header: &ReplayRecordHeader,
+    maximum: usize,
+) -> Result<String, ReplayWitnessError> {
     use crate::replay::ReplayCursor;
-    if bytes.len() > MAX_PROGRAM_REPLAY_BYTES as usize
-        || maximum_decoded_bytes == 0
-        || maximum_decoded_bytes > crate::MAX_ARBITRATION_STATE_BYTES
-    {
-        return Err(ReplayWitnessError::Bounds);
+    let boundary =
+        crate::portable_replay::PortableBoundary::decode_with_header(leaf, maximum, header)?;
+    let mut cursor = ReplayCursor::new(leaf);
+    let state = cursor.field()?;
+    let mut arbitration = ReplayCursor::new(state);
+    arbitration.u16()?;
+    let legacy = arbitration.field()?.len();
+    let engine = arbitration.field()?.len();
+    let frames = 4 + boundary
+        .replay
+        .frames
+        .iter()
+        .map(|frame| 16 + frame.operand_types.len())
+        .sum::<usize>();
+    for _ in 0..cursor.count(16)? {
+        cursor.take(12)?;
+        let count = cursor.count(1)?;
+        cursor.take(count)?;
     }
-    let mut cursor = ReplayCursor::new(bytes);
-    if cursor.u8()? != 1 {
-        return Err(ReplayWitnessError::Encoding);
+    let instruction = cursor.field()?.len() + 4;
+    cursor.take(16 + 48)?;
+    let semantic = cursor.field()?;
+    let mut parts = ReplayCursor::new(semantic);
+    let host_bytes = parts.field()?;
+    let host = host_bytes.len();
+    fn present(cursor: &mut ReplayCursor<'_>) -> Result<usize, ReplayWitnessError> {
+        Ok(if cursor.boolean()? {
+            4 + cursor.field()?.len()
+        } else {
+            0
+        })
     }
-    let length = cursor.u32()? as usize;
-    if length > maximum_decoded_bytes {
-        return Err(ReplayWitnessError::Bounds);
+    let mut host_parts = ReplayCursor::new(host_bytes);
+    let code_hash = 1 + present(&mut host_parts)?;
+    let abi = 1 + present(&mut host_parts)?;
+    let runtime = host_parts.field()?;
+    let meter = host_parts.field()?.len();
+    let baseline = 1 + present(&mut host_parts)?;
+    let mut runtime_parts = ReplayCursor::new(runtime);
+    if runtime_parts.boolean()? {
+        runtime_parts.u64()?;
     }
-    let mut decoded = Vec::new();
-    decoded
-        .try_reserve_exact(length)
-        .map_err(|_| ReplayWitnessError::Allocation)?;
-    while decoded.len() < length {
-        let tag = cursor.u8()?;
-        let count = cursor.u32()? as usize;
-        if count == 0 || count > length - decoded.len() {
-            return Err(ReplayWitnessError::Bounds);
-        }
-        match tag {
-            0 => decoded.resize(decoded.len() + count, 0),
-            1 => decoded.extend_from_slice(cursor.take(count)?),
-            _ => return Err(ReplayWitnessError::Encoding),
-        }
+    runtime_parts.u64()?;
+    runtime_parts.boolean()?;
+    if runtime_parts.boolean()? {
+        runtime_parts.take(24)?;
     }
-    if !cursor.done() {
-        return Err(ReplayWitnessError::Encoding);
+    let composition_code_hash = 1 + present(&mut runtime_parts)?;
+    let mut graph_bytes = 2;
+    let mut revision = 0;
+    if runtime_parts.boolean()? {
+        revision = 1 + present(&mut runtime_parts)?;
+        graph_bytes += 1 + present(&mut runtime_parts)?;
     }
-    if portable_state_bytes(&decoded, MAX_PROGRAM_REPLAY_BYTES as usize)? != bytes {
-        return Err(ReplayWitnessError::Encoding);
+    if runtime_parts.boolean()? {
+        graph_bytes += 4 + runtime_parts.field()?.len();
     }
-    Ok(decoded)
+    let storage = parts.field()?.len();
+    let composition = parts.field()?.len();
+    Ok(format!(
+        "step={} arbitration={} arbitration_framing=4 identity=0 legacy={} engine={} host_commitment=40 frames={} instruction={} fuel_expansion=16 supplement=48 semantic={} semantic_framing=4 semantic_host={} semantic_storage={} semantic_composition={} memory={} changed_chunks={} leaf_total={} header_total={} host_code_hash={} host_abi={} host_runtime={} host_meter={} host_storage_baseline={} host_framing=8 runtime_composition_code_hash={} runtime_composition_revision={} runtime_composition_graph={}",
+        boundary.replay.snapshot.step_index,
+        state.len(), legacy, engine, frames, instruction, semantic.len(), host, storage,
+        composition, 40 + boundary.memory.changed_chunks.len() * 4100,
+        boundary.memory.changed_chunks.len(), leaf.len(), header.canonical_bytes(maximum)?.len(), code_hash, abi, runtime.len(), meter, baseline, composition_code_hash, revision, graph_bytes,
+    ))
 }
