@@ -1,0 +1,25 @@
+[repair.22.31.575]
+acceptance = "22998.1"
+decision = 2687
+implementation = "Both cumulative consumers share decode_use_activity. Only receipts above KERNEL_MODULE_COUNT with a leading type-2 activity byte select the canonical EIP-1559 decoder; transaction_hash of the exact signed bytes is the activity id and recover_sender binds its signature to the caller-supplied account. DID envelopes retain module, type, identity, and time-window protocol/network checks. Account-aware consumers count a matching DID or matching recovered account; DID-only consumers delegate without an account and refuse EVM activities with AccountBinding. Receipt success, amount, count and asset/source bookkeeping remains intact. Time-window node receipt batch_id uses the canonical zero-padded block height bound to the authenticated header batch number, while kernel receipts retain the native execution batch hash and both retain the existing maintained selector validation, timestamp and sequence checks."
+exhaustive_matches = "No existing exhaustive match on CumulativeUseError or TimeWindowUseError occurs in this crate; the shared decoder maps its two private refusal variants explicitly for each consumer."
+
+[tests]
+recovered_account = "recover_sender signs a zero-value Eip1559Call on chain 125 to ledger precompile 0x101A using a fixed secp256k1 secret, verifies its recovered sender against the public key address, and authenticates module 12 operation 2 receipts under the independent governed receipt key. Both consumers count one and its receipt amount for that sender and zero for another account. The time consumer also preserves activity id and asset/source accounting."
+transaction_identity = "transaction_hash supplies a receipt id different from the raw transaction hash and requires ActivityReceiptMismatch for sequence use and the existing Identity refusal for time use."
+missing_binding = "did_only_consumers_require_an_account_binding requires AccountBinding from both original DID-only consumers."
+bookkeeping = "failed_receipts_keep_each_consumers_counting_rules requires sequence successful count/amount zero and time attempted count one, successful count zero, no amounts."
+canonicality = "malformed_evm_and_kernel_evm_activities_are_refused requires Activity for truncated and trailing-byte type-2 transactions, and for EVM bytes paired with a kernel receipt."
+envelopes = "account_consumers_retain_envelope_did_binding exercises both new and existing consumers with kernel modules 1 and 11 and node module 12, and proves a mismatching DID contributes zero even when an account is supplied. The verify command additionally runs every unchanged repair_22_31_568 test."
+height = "time_window_refuses_a_node_receipt_from_another_height requires Identity for an independently governed-signed node receipt with a valid key-range height different from the authenticated header batch number."
+encoding = "Real Eip1559Call::sign bytes, canonical wire encoders, Ed25519 governed-receipt and batch signatures, real Merkle proofs, the existing native occupancy maintenance fixture, and signed validator checkpoint votes feed the public EvidenceAuthority consumers."
+qualification_repair = "The first bounded verify exposed two evidence construction errors: governed node receipt batch_id must encode block height rather than the kernel execution hash, and batch-maintenance/v1 requires protocol version 3. The repair preserves every assertion, uses the fixture protocol version, encodes the node height, and supplies the matching node-height identity branch in the time consumer without changing kernel execution hash validation."
+implementation_note = "RawTimeWindowBatch and cumulative facts have private internals; tests retain a clone of public activity evidence for the sequence API and assert time facts through their public accessors."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "Read exact candidate revision from the final build and verify ledger rows; both gates must name the same revision."
+build_command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.575 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_575 --test repair_22_31_568"
+results = "Exact revision, command, exit code and private evidence log are recorded by reference in the final build and verify ledger rows. This record claims no gate result before execution and is not amended after qualification."

@@ -33,6 +33,7 @@ All json-like values should be single-quoted. If it contains a hash (`#`) or a d
     - [NFT](#nft-views)
   - [Misc](#misc)
 - [App features](#app-features)
+  - [Explorer Ask](#explorer-ask)
   - [My account](#my-account)
   - [Gas tracker](#gas-tracker)
   - [Advanced filter](#advanced-filter)
@@ -1103,6 +1104,19 @@ Unified Paxeer X Network surfaces (unified account view, status ladder, anchors 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_PAXEER_X_ENABLED | `boolean` | Set to `true` to enable the Paxeer X Network surfaces | - | `false` | `true` | v2.7.2+ |
+
+&nbsp;
+
+### Explorer Ask
+
+Ask sends a question (at most 2000 characters) and optional current route, entity kind and identifier to an OpenAI-compatible chat-completions endpoint through the explorer server. Answers are labelled **ASK**, with “model output, not chain data” and the configured model name. Enable this only when the endpoint is ready to accept explorer traffic. Without a base URL the route returns 503.
+
+| Variable | Type | Description | Compulsoriness | Default value | Example value | Version |
+| --- | --- | --- | --- | --- | --- | --- |
+| NEXT_PUBLIC_ASSISTANT_ENABLED | `boolean` | Show the Ask row and answer panel in search | Optional | `false` | `true` | - |
+| EXPLORER_ASSISTANT_BASE_URL | `string` | Server-only OpenAI-compatible API base URL; `/chat/completions` is appended, preserving a base path such as `/v1` | Required for answers | - | `https://api.example.com/v1` | - |
+| EXPLORER_ASSISTANT_API_KEY | `string` | Server-only bearer credential; never put this in a `NEXT_PUBLIC_` variable or a tracked preset | Optional if the endpoint accepts unauthenticated requests | - | - | - |
+| EXPLORER_ASSISTANT_MODEL | `string` | Server-only model name sent to the endpoint and returned with the answer | Optional | `xai/grok-4.7` | `xai/grok-4.7` | - |
 
 &nbsp;
 

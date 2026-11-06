@@ -2248,6 +2248,9 @@ pub struct ProductionHumanOperations<A> {
     outboxes: BTreeMap<String, Outbox>,
     prepared: BTreeMap<(String, String, String), CachedPreparation>,
     submissions: BTreeMap<(String, String, String), [u8; 32]>,
+    released_submissions:
+        BTreeMap<(String, [u8; 32]), crate::policy::approval::ReleaseSubmissionLink>,
+    approval_queue: Option<Arc<ApprovalSubmissionQueue>>,
     maximum_payload_bytes: usize,
     timestamp_span: u64,
     last_verified_receipt: Option<([u8; 32], i32, u64)>,
@@ -4946,6 +4949,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
         operations.recover_native_expiry(&restore_peers, &budgets, &preparation_lifecycle)?;
         operations.recover_tenants(&restore_peers, ceiling_maximum);
         operations.unified_owner_active = true;
+        operations.approval_queue = Some(Arc::clone(&approval_queue));
         let cleanup_tenants = shared_store
             .lock()
             .map_err(|_| HumanOperationError::Unavailable)?
@@ -12615,15 +12619,60 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         peer: &HumanPeer,
         submission_ref: &str,
     ) -> Result<HumanResponse, HumanOperationError> {
-        let hash = digest_from_hex(submission_ref).ok_or(HumanOperationError::Refused)?;
-        if self.submissions.get(&(
+        let reference = digest_from_hex(submission_ref).ok_or(HumanOperationError::Refused)?;
+        let own_submission = self.submissions.get(&(
             peer.tenant.clone(),
             peer.principal.clone(),
             submission_ref.to_owned(),
-        )) != Some(&hash)
+        )) == Some(&reference);
+        let hash = if own_submission {
+            reference
+        } else if let Some(link) = self
+            .released_submissions
+            .get(&(peer.tenant.clone(), reference))
         {
-            return Err(HumanOperationError::Refused);
-        }
+            link.submission_id
+        } else {
+            let tenant =
+                TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
+            let store = self
+                .store
+                .lock()
+                .map_err(|_| HumanOperationError::Unavailable)?;
+            let mut released = None;
+            for object in store.list_object_ids(&tenant, ObjectKind::Outbox) {
+                if !object.starts_with(crate::policy::approval::RELEASED_KEY_PREFIX) {
+                    continue;
+                }
+                let tracking = crate::policy::approval::released_tracking(&store, &tenant, &object)
+                    .map_err(|_| HumanOperationError::Refused)?;
+                if tracking.reference == reference {
+                    if released.is_some() {
+                        return Err(HumanOperationError::Refused);
+                    }
+                    released = Some(tracking);
+                }
+            }
+            let released = released.ok_or(HumanOperationError::Refused)?;
+            if released.submission.is_some()
+                || released.prepared()
+                    != self
+                        .approval_queue
+                        .as_ref()
+                        .and_then(|queue| queue.prepared(reference))
+                        .as_ref()
+                || released.prepared().is_none()
+            {
+                return Err(HumanOperationError::Refused);
+            }
+            return Self::observation(&SubmissionStatus {
+                submission_id: reference,
+                activity_id: released.canonical_digest,
+                state: SubmissionState::Queued,
+                evidence: None,
+                transitions: Vec::new(),
+            });
+        };
         let outbox = self
             .outboxes
             .get(&peer.tenant)
@@ -12650,20 +12699,66 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                     .map_err(|_| HumanOperationError::Refused)
             })
             .transpose()?;
-        if let Some(receipt) = &verified {
-            crate::finality::augment_verified(
-                &mut *self
-                    .store
-                    .lock()
-                    .map_err(|_| HumanOperationError::Unavailable)?,
-                TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?,
-                hash,
-                receipt,
-                None,
+        let evidence = if let Some(receipt) = &verified {
+            Some(
+                crate::finality::augment_verified(
+                    &mut *self
+                        .store
+                        .lock()
+                        .map_err(|_| HumanOperationError::Unavailable)?,
+                    TenantId::new(peer.tenant.clone()).map_err(|_| HumanOperationError::Refused)?,
+                    hash,
+                    receipt,
+                    None,
+                )
+                .map_err(|_| HumanOperationError::Refused)?,
             )
-            .map_err(|_| HumanOperationError::Refused)?;
+        } else {
+            None
+        };
+        let tracked = write_submission(status, verified.as_ref())?;
+        if own_submission {
+            return Ok(tracked);
         }
-        write_submission(status, verified.as_ref())
+        let mut out = Encoder::new();
+        out.fixed(&status.activity_id);
+        out.fixed(tracked.bytes());
+        if let Some(evidence) = evidence {
+            let decoded = layerx_wire::receipt::decode(&evidence.receipt_bytes)
+                .map_err(|_| HumanOperationError::Refused)?;
+            let protocol = decoded.protocol().ok_or(HumanOperationError::Refused)?;
+            let authority = AuthorizedBatch::new(
+                protocol.batch_id(),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+                evidence.receipt_key.public_key,
+            );
+            out.fixed(
+                &crate::human_receipt_frame::ReceiptLookupAnswer::Found(
+                    crate::human_receipt_frame::ReceiptLookupFrame {
+                        canonical_bytes: evidence.receipt_bytes.clone(),
+                        authorised_batch: authority,
+                        verification_level: VerificationLevel::SEQUENCER_SIGNED,
+                        tx_hash: hash,
+                        receipt_hash: Sha256::digest(&evidence.receipt_bytes).into(),
+                        block_height: evidence.height,
+                        rung: evidence.rung,
+                        signed_receipt: evidence.receipt_bytes,
+                        receipt_key_id: evidence.receipt_key.key_id,
+                        public_key: evidence.receipt_key.public_key,
+                        first_height: evidence.receipt_key.first_height,
+                        last_height: evidence.receipt_key.last_height,
+                        inclusion_height: evidence.height,
+                    },
+                )
+                .encode()
+                .map_err(|_| HumanOperationError::Refused)?,
+            );
+        } else {
+            out.u8(0);
+        }
+        out.finish()
     }
 
     fn dispatch_queued(
@@ -12936,6 +13031,42 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                         .map_err(|_| HumanOperationError::Refused)?])
                     .map_err(|_| HumanOperationError::Unavailable)?;
             }
+        }
+        if let Some(reference) = request.operation.approval_release_ref {
+            let unsigned_bytes = cached
+                .transaction
+                .as_ref()
+                .ok_or(HumanOperationError::Refused)?
+                .transaction
+                .call
+                .encode_unsigned();
+            let native = store
+                .get(&durable_key)
+                .map(|raw| crate::prepare::DurablePreparation::decode(tenant.clone(), raw.bytes()))
+                .transpose()
+                .map_err(|_| HumanOperationError::Refused)?
+                .is_some_and(|record| {
+                    record.extensions.contains_key(&7)
+                        || record
+                            .extensions
+                            .contains_key(&crate::approval::native_effect::DURABLE_EXTENSION)
+                });
+            let link = crate::policy::approval::ReleaseSubmissionLink {
+                submission_id,
+                principal: peer.principal.clone(),
+            };
+            crate::policy::approval::link_released_submission(
+                &mut store,
+                &tenant,
+                reference,
+                preparation_id,
+                &unsigned_bytes,
+                link.clone(),
+                native,
+            )
+            .map_err(|_| HumanOperationError::Refused)?;
+            self.released_submissions
+                .insert((peer.tenant.clone(), reference), link);
         }
         self.prepared.remove(&prepared_key);
         self.submissions.insert(
@@ -13213,6 +13344,13 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         settlement: Option<&NativeProgramSettlementContext<'_>>,
     ) -> Result<HumanResponse, HumanOperationError> {
         self.last_verified_receipt = None;
+        if !self.submissions.contains_key(&(
+            peer.tenant.clone(),
+            peer.principal.clone(),
+            submission_ref.to_owned(),
+        )) {
+            return self.track_evm(peer, submission_ref);
+        }
         let id = *self
             .submissions
             .get(&(
@@ -13807,6 +13945,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         }
         let mut outboxes = BTreeMap::<String, Outbox>::new();
         let mut submissions = BTreeMap::new();
+        let mut released_submissions = BTreeMap::new();
         let mut tenant_principals = BTreeMap::<String, String>::new();
         let restore_peers = {
             let durable = store.lock().map_err(|_| HumanOperationError::Unavailable)?;
@@ -13827,7 +13966,33 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 TenantId::new(tenant.clone()).map_err(|_| HumanOperationError::Refused)?;
             let outbox = outboxes.entry(tenant.clone()).or_default();
             for object in durable.list_object_ids(&tenant_id, ObjectKind::Outbox) {
-                if object.starts_with(b"approval-released-v1:") {
+                if object.starts_with(crate::policy::approval::RELEASED_KEY_PREFIX) {
+                    let tracking =
+                        crate::policy::approval::released_tracking(&durable, &tenant_id, &object)
+                            .map_err(|_| HumanOperationError::Refused)?;
+                    if let Some(link) = tracking.submission {
+                        let indexed =
+                            indexed_activity_owner(&durable, &tenant_id, link.submission_id)?;
+                        if indexed.principal != link.principal {
+                            return Err(HumanOperationError::Refused);
+                        }
+                        let mut linked_outbox = Outbox::default();
+                        linked_outbox
+                            .restore(&durable, tenant_id.clone(), link.submission_id)
+                            .map_err(|_| HumanOperationError::Refused)?;
+                        let signed = linked_outbox
+                            .exact_signed_bytes(link.submission_id)
+                            .map_err(|_| HumanOperationError::Refused)?;
+                        let (call, _) = layerx_crypto::evm_transaction::decode_signed(signed)
+                            .map_err(|_| HumanOperationError::Refused)?;
+                        if call.encode_unsigned() != tracking.unsigned_bytes
+                            || released_submissions
+                                .insert((tenant.clone(), tracking.reference), link)
+                                .is_some()
+                        {
+                            return Err(HumanOperationError::Refused);
+                        }
+                    }
                     continue;
                 }
                 let id: [u8; 32] = object
@@ -13850,6 +14015,8 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             outboxes,
             prepared: BTreeMap::new(),
             submissions,
+            released_submissions,
+            approval_queue: None,
             maximum_payload_bytes,
             timestamp_span,
             last_verified_receipt: None,

@@ -1,0 +1,78 @@
+[repair.22.35.8]
+decision = 2587
+acceptance = "22998.1"
+baseline = "c237654c0b31fa6ed26b3f94dac4267eab05b67d"
+implementation = "Semantic colours across ui and toolkit components, persisted mode before OS preference, no sidebar calls in the shell, light and dark page integration."
+
+[literals]
+charts = "ChartSelectionX selection and border -> accent.soft/accent; ChartWidget stories -> chart.area/accent/positive."
+indicators = "Home and multichain transaction/address/locked icons -> indicator semantic roles; ChainWidget translucent surface -> surface."
+security = "Six SolidityScan severity colours -> securitySeverity roles; Uniswap brand pink -> brand.uniswap."
+rewards = "Badge pastels, activity-pass background/badge/foreground/icon, merit-icon shadow and congratulations gradient -> rewards roles."
+shared = "UserIdenticon overlay -> identicon.overlay; description fade -> description.fade; multichain promo gradient -> promo roles; social-link empty value -> text.muted."
+editor = "Monaco colours -> LIGHT/DARK semantic palette adapter; RawDataSnippet -> surface; editor search shadow -> editor.search.shadow."
+theme = "Progress stripe -> progress.stripe; invisible scrollbar border -> transparent; empty-state clipping path -> currentColor."
+fixtures = "API payload fixtures and spec files retain arbitrary caller colours; production components and Playwright stories are swept."
+
+[persistence]
+mode = "ColorModeProvider reads the same chakra-ui-color-mode storage key as settings and the toggle; saved cookie supplies the initial mode when localStorage is absent."
+canvas = "Light and dark theme choices share the foundational canvas colours, avoiding a legacy dark background override."
+proof = "Real provider, controls, cookies and localStorage exercised across remount and an opposite system preference; default OS mode checked separately."
+
+[stories]
+paths = ["ui/home/VisualSystem.pw.tsx", "ui/snippets/header/VisualSystem.pw.tsx", "ui/tx/VisualSystem.pw.tsx", "ui/block/VisualSystem.pw.tsx", "ui/address/VisualSystem.pw.tsx", "ui/token/VisualSystem.pw.tsx"]
+variants = "Every story registers +@dark-mode for the default light and existing dark-color-mode projects; shared helper asserts actual body canvas colour and sidebar absence."
+execution = "Stories are supplied for the release browser matrix; this task runs only its declared build and verification."
+
+[qualification]
+build = "hf-build: cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify = "hf-done: cg spec done 22.35.8 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/repair-22-35-8.spec.ts && NEXT_TELEMETRY_DISABLED=1 yarn build"
+results = "The runner records the exact candidate revision, command, exit and private log for each gate in /out/run/gates.jsonl; that ledger is authoritative for this record. No pass is declared by this source file."
+private_evidence = "/out/logs/"
+
+[gate.build_1]
+revision = "a84e8e1e9e885b6ae7728093b84b08764adcbece"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Temporary dependency relocation used a directory whose basename was not node_modules, so package declarations could not resolve transitive dependencies."
+repair = "Keep the real dependency directory named node_modules beneath the temporary cache; link the application to it and rebuild without changing types or checks."
+
+
+[gate.build_2]
+revision = "2f92f10a2353cab44dfa97e05ef07c4206705272"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[gate.verify_1]
+revision = "2f92f10a2353cab44dfa97e05ef07c4206705272"
+command = "cg spec done 22.35.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TypeScript passed, but importing cookies before app configuration exposed the cookies/config cycle during test collection; no tests or production build executed."
+repair = "Read cookie protocol attributes through the dependency-free environment utility, preserving the existing configured protocol and HTTPS default while removing the app-config import cycle."
+
+[implementation_note]
+paths = "Use repository-absolute paths for repair edits when running the formatter from the application directory."
+
+[continuation]
+decision = 2643
+source = "Attempt 1 retained; requalification follows gotcha 3284."
+cookies = "lib/cookies.ts imports getEnvValue directly from configs/app/utils, removing the configuration cycle while preserving the configured protocol and HTTPS default."
+evidence = "The final hf-build and hf-done entries in /out/run/gates.jsonl name the same candidate revision and private logs; hf-done records the focused Vitest suite and production Next.js build together."
+
+[continuation.attempt_6]
+source = "Attempt 5 retained at 1a089a447231409e8813ab0fbf3bc2c36f31b87b; continuation follows gotcha 3298 and decision 2587."
+repair = "Home, Transaction and Address each render in both colour modes in a separate test registered with a 180000 millisecond timeout; the shared page assertions, vi.setConfig and all other cases are unchanged."
+qualification = "The final hf-build and hf-done entries in /out/run/gates.jsonl provide the verified candidate revision, exact commands, exit codes and private evidence paths, including Vitest and the production Next.js build; this record is finalized before those gates run."
+formatting = "The repository ESLint layout formatter made no changes; its inherited lint diagnostics for named test registrations, Vitest assertion messages and the source-file regex are recorded in /tmp/explorer-format.log and left intact."
+
+[gate.continuation_verify_1]
+revision = "04123488e457614c315bb6b414372ca7008d3a14"
+command = "cg spec done 22.35.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TypeScript passed; importing settings first exposed the app UI configuration reading COLOR_THEMES before initialization, so Vitest collected no tests."
+repair = "Settings parses and exports the theme overrides with the dependency-free environment utilities; app UI configuration consumes the same constant, eliminating the cycle without changing override values or tests."
