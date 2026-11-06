@@ -33163,3 +33163,11 @@ symbol = "repair_22_31_539.rs"
 observed = "Attempt 7 at 3c6a1baf032ad489aae2b83554d4b36e901640a0: build exit 0, verify exit 1: owner.refused is cleared; agent_register_prepares_bind_layerx fails at line 709 with envelope.malformed from bind_call on the 0x1004 call; the session case fell to the poisoned fixture lock."
 assumption = "The call disclosure decoder refuses the addr precompile target; the daemon path is right once the decoder discloses the call."
 severity = "high"
+
+[finding.22.31.577.9]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 9 at a097f1b2762bbc7e1bf584114f5c71309f277c5c: build exit 0, dependent-crate check exit 0, verify exit 101: every carried suite passes, the live-snapshot proof admits 128 calls (leaf total 1027329, record total 1032153), the executor proof is refused at step 900 with capture witness observed 1048953 against the permitted 1048576 on a 518-byte leaf whose runtime source is 36 bytes against 16 for the live-snapshot shape."
+assumption = "The remaining twenty bytes per leaf are the response outcome region written verbatim, eighteen of them the record-constant capacity and its framing; the bound is the protocol maximum."
+severity = "high"
