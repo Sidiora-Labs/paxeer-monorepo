@@ -9219,6 +9219,12 @@ value = "The cumulative evidence consumer (verify_cumulative_window, protocol_ev
 basis = "The singleton shape the peer served has activity count zero under the consumer arithmetic; every production writer binds the maintenance leaf to last_sequence, so the peer must too."
 affects = ["22.33.1569"]
 
+[decision.2685]
+title = "A proof that attaches a native storage-environment settlement frames the canonical receipt with its digest"
+value = "The settlement attach function of the runtime terminal storage-environment module takes the canonical usage receipt bytes followed by their 32-byte sha256 digest, as append_receipt_digest completes the frame and the native host does (host_ffi.rs line 853). A consumer proof that passes the bare canonical_usage_receipt bytes asserts the reader as it stood before 22.31.488 and is repaired in the proof by appending the digest; the reader stays. A verify that lists several test binaries stops at the first failing one, so a task whose own binary sorts after a broken consumer suite reports that suite first and runs its own binaries individually to read their results."
+basis = "The receipt producer frames with the digest since 22.31.488; a proof that does not is asserting an old contract."
+affects = ["22.31.574", "22.31.573"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38109,6 +38115,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.574]
+title = "Frame the usage receipt with its digest in the runtime terminal decoder proof"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_574.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test repair_22_31_259 --test repair_22_31_488"
+do_1 = "do_1 Gotcha 3275, decision 2685. In programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs, in the terminal decoder persistence case (from line 897): after let canonical = settlement.canonical_usage_receipt().unwrap() (line 945) compute the digest with rt::hash_bytes(rt::HashAlgorithm::Sha256, &canonical) (the value the binding already uses at line 952), build a frame as a clone of canonical completed with the append_receipt_digest helper of the settlement type as tests/repair_22_31_488.rs lines 71 to 72 do, and pass the frame instead of canonical to the settlement attach call at line 957; keep usage_receipt_digest of the binding as the digest of the bare canonical bytes and keep the assertions from line 958 unchanged. Change no production code."
+symbols = []
 
 [capability.22.31.573]
 title = "Charge a replay boundary with the state it retains so a default-stack guest is admitted under the kernel replay profile"
@@ -176135,12 +176150,41 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.574]
+title = "Frame the usage receipt with its digest in the runtime terminal decoder proof"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.488"]
+reqs = ["22998.1"]
+capabilities = ["22.31.574"]
+interfaces = []
+do_1 = "do_1 Gotcha 3275, decision 2685. In programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs, in the terminal decoder persistence case (from line 897): after let canonical = settlement.canonical_usage_receipt().unwrap() (line 945) compute the digest with rt::hash_bytes(rt::HashAlgorithm::Sha256, &canonical) (the value the binding already uses at line 952), build a frame as a clone of canonical completed with the append_receipt_digest helper of the settlement type as tests/repair_22_31_488.rs lines 71 to 72 do, and pass the frame instead of canonical to the settlement attach call at line 957; keep usage_receipt_digest of the binding as the digest of the bare canonical bytes and keep the assertions from line 958 unchanged. Change no production code."
+do_2 = "do_2 Write programs/crates/layerx-programs-runtime/tests/repair_22_31_574.kvx recording the task, the amended case and the gates by reference."
+symbols = ["append_receipt_digest", "canonical_usage_receipt", "decode_terminal_payload"]
+touches = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_574.kvx"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_574.kvx"]
+build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify_cmd = "cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test repair_22_31_259 --test repair_22_31_488"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.573]
 title = "Charge a replay boundary with the state it retains so a default-stack guest is admitted under the kernel replay profile"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.569", "22.31.572"]
+requires = ["22.31.569", "22.31.572", "22.31.574"]
 reqs = ["22998.1"]
 capabilities = ["22.31.573"]
 interfaces = []
@@ -176167,6 +176211,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_6 = "Attempt 2 (continue, gotcha 3269, decision 2683): the attempt-1 tree stands (the delta observer accounting in the vendored store, the quantified refusal reason, the eight-read case retaining more than 64 MiB of full boundary states under the 128-boundary profile, and the 2-boundary refusal case). Change only the 128-distinct-page case in tests/repair_22_31_573.rs: run it under ProgramReplayProfile::new(MAX_PROGRAM_REPLAY_BOUNDARIES, MAXIMUM_BYTES) (4096), assert replay.boundary_count() greater than 128 and at most 4096, and keep assert_host_boundaries(HOST_CALLS), the storage, event and fuel assertions. If that run is refused on the witness byte bound (ReplayWitnessError::Bounds from the captured leaves or from_captured), lower HOST_CALLS to the largest count whose leaves fit 1048576 bytes, keep the count above 64, and record the measured leaf total and count in the task record. The dependent-crate check stopped on the compat.rs include that 22.31.572 repairs; that repair is on main and this task now requires it. Run the build and the verify at the final revision and record them by reference in the task record."
+do_7 = "Attempt 3 (continue, gotcha 3275, decision 2685): the attempt-2 tree stands (the retained-state supplement accounting in host/mod.rs and execute.rs, the vendored engine changes, the program_replay repair of the first cycle). The task now requires 22.31.574, which frames the receipt in the repair_22_31_259 proof; start from main with 574 merged. Run the repair_22_31_573, repair_22_31_569 and repair_22_31_564 binaries individually first to read their own results, repair what they show, then run the build, the dependent-crate check and the verify as it stands at the final revision and record them by reference in the task record. Change nothing in tests/repair_22_31_259.rs."
 
 [task.22.31.572]
 title = "Point the daemon compatibility include and README link at the matrix moved under docs/agent"

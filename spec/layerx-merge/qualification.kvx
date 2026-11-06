@@ -32443,3 +32443,11 @@ symbol = "human_runtime.rs"
 observed = "Attempt 2 at 71ce741193475ed5ebe3056d32fbfb4b56ff7b60: build exit 101: E0308 at tests/repair_22_31_571.rs line 1067, a mutex guard passed where a Store reference is expected; no verify ran."
 assumption = "A one-line test binding; the production change is untested until the gates run."
 severity = "medium"
+
+[finding.22.31.573.2]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 2 at 75d40437cb33fdfa9428e380d50668b90d8f75f0: build exit 0, dependent-crate check exit 0, verify exit 1 twice: program_replay repaired between the cycles (4 passed); the terminal decoder persistence case of repair_22_31_259 fails with DigestMismatch, a break on main since 22.31.488; the three task binaries never ran."
+assumption = "The 259 break is pre-existing and repaired by 574; the task proof is unread until the binaries run."
+severity = "high"
