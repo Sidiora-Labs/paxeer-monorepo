@@ -175704,7 +175704,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.564]
 title = "Meter replay step commitments outside the guest CPU cap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
