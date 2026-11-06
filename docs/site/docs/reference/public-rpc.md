@@ -29,6 +29,14 @@ node endpoint, with the same chain identity as the numbered nodes.
 | 13 | `https://api13.mainnet-beta.paxeer.network` | `wss://api13.mainnet-beta.paxeer.network` |
 | 14 | `https://api14.mainnet-beta.paxeer.network` | `wss://api14.mainnet-beta.paxeer.network` |
 
+**Retention:** `api2.mainnet-beta.paxeer.network` is the archive node and keeps
+full history; the other thirteen numbered nodes prune. On a pruned node,
+`pax_sequencerReceipt` and state queries for heights outside that node's
+retention return JSON-RPC error `-32000`. This is expected retention behavior,
+not a defect. Send historical receipt and state queries to
+`https://api2.mainnet-beta.paxeer.network` at the root path, on EVM chain ID 125.
+There is no router or separate LayerX interface.
+
 Nodes are numbered, not ranked. Keep more than one configured, use bounded
 timeouts and compare `eth_blockNumber` when choosing a node near the head.
 Check `eth_chainId` before signing or broadcasting. A slow or unreachable
