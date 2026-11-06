@@ -177946,7 +177946,7 @@ do_6 = "Attempt 2 (relaunch, gotcha 3364): attempt 1 produced no change; the eng
 
 [task.22.31.583]
 title = "Disclose the bindLayerX registration call in the call disclosure decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
