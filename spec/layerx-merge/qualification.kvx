@@ -33115,3 +33115,11 @@ symbol = "repair_22_31_539.rs"
 observed = "Attempt 6 at adcd72ce225c3d8feeef7ef6f863f5774f946722: build exit 0, dependent-crate check exit 0, verify exit 101: agent_register_prepares_bind_layerx 403 owner.refused against 200 at line 704; the session case fell to the poisoned fixture lock at line 880; identical to attempt 5 after 22.31.560 landed."
 assumption = "owner_error hides which condition refused; one instrumented run names it."
 severity = "high"
+
+[finding.18.1562.1.11]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 17 at 0ffe1e9e3315f83c8147f3e901364b11216d79f7: build exit 0; verify exit 1 twice: run 1 refused FUND as LXP_ERR_NON_CANONICAL (fixture fee asset and block layout), run 2 refused the ABI5 re-registration with profile 2 as LXP_ERR_VERSION_UNSUPPORTED at line 811; the profile-1 correction is in the final tree and has no verify run."
+assumption = "The final tree carries the correction decision 2736 records; only the gates are missing."
+severity = "medium"
