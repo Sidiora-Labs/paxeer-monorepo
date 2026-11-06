@@ -32299,3 +32299,11 @@ symbol = "stats_controller.ex"
 observed = "Attempt 2 at 2025712473a55c7ea216fe54631bd70b2290e129: build exit 0, verify exit 1: all 18 tests pass; the graph check refuses the symbol BlocksCount as not defined in the graph."
 assumption = "The alias is not a definition; the tree is unchanged."
 severity = "medium"
+
+[finding.22.36.2.2]
+task = "22.36.2"
+file = "services/platform"
+symbol = "platform"
+observed = "Attempt 2 at 79604802cb31be2b52cd71315df8ba60406800fc: build exit 0, verify exit 1: 6 of 7 cases pass; test_documentation_tree_and_all_thirteen_samples_moved reports the moved Cargo.lock missing from the candidate."
+assumption = "The work is complete; the environment dropped one moved lock file and is corrected."
+severity = "medium"
