@@ -9315,6 +9315,36 @@ value = "Every unfinished task of spec/layerx-merge/source-control/source-spec.k
 basis = "The qualification environment holds no provider credentials and the snapshot holds no receipts; a gate that cannot pass by construction qualifies nothing."
 affects = ["22.37.1", "22.37.2", "22.37.3", "22.37.4", "22.37.5", "22.37.6", "22.37.7", "22.37.8", "22.37.9", "22.37.10", "22.37.11", "22.37.12", "22.37.13", "22.37.14", "22.37.15", "22.37.16", "22.37.17", "22.37.18", "22.37.19", "22.37.20", "22.37.21", "22.37.22", "22.37.23", "22.37.24", "22.37.25", "22.37.26", "22.37.27"]
 
+[decision.2701]
+title = "The Human agent runtime decodes the TRACK answer as the daemon writes it"
+value = "The daemon answer to TRACK is the layout write_submission writes (human_runtime.rs line 21778) inside the observation envelope (32-byte activity id first, receipt-presence byte last); the routing module of the daemon (lines 811 to 852) is the reference reading. Every consumer, the Human agent runtime included, decodes the submission id and the receipt digests as 32 fixed bytes, the state codes 0, 1, 2, 3, 5, 6, 7, 8 and 9 of state_code (line 18370), the 4-byte result code of a Failed answer, the rung rank, the evidence items and the transitions. A consumer never invents a text layout, and a test that hand-encodes a daemon answer encodes this layout (gotcha 3046); a fixture that implements the boundary trait in typed form is unaffected."
+basis = "Producer, transport and consumer must agree on bytes; the producer and its own reader agree and the SDK contract names 32-byte identifiers, so the consumer is the side to change."
+affects = ["22.33.1510", "22.31.579"]
+
+[decision.2702]
+title = "The vendored control-plane package builds standalone with npm"
+value = "Inside the vendored project directory the core/control-plane package is outside the pnpm package set by design (its own package-lock.json) and is installed, built and checked with npm --prefix core/control-plane ci --ignore-scripts followed by npm --prefix core/control-plane run build or run check, as the Makefile does (lines 105 to 111); no series task adds it to the pnpm package set. The commands of 22.37.11, 22.37.12, 22.37.13, 22.37.22, 22.37.23 and 22.37.24 are corrected accordingly; the other packages of the series stay on their pnpm filters."
+basis = "A pnpm filter cannot name a package outside the package set, and the original qualification of the series built the package through the Makefile."
+affects = ["22.37.11", "22.37.12", "22.37.13", "22.37.22", "22.37.23", "22.37.24"]
+
+[decision.2703]
+title = "A carried driver that reports BLOCKED on UNRUN live evidence qualifies"
+value = "A verify that runs a carried driver of the source-control series accepts exit code 2 (status BLOCKED: assertions pass, regressions empty, missing evidence kinds only) and refuses exit code 1 (a regression). The missing kinds are the live parts decision 2700 leaves UNRUN pending owner credentials; the task record names them. A driver whose regressions list is non-empty never qualifies."
+basis = "The drivers already separate a missing live run from a broken assertion; collapsing both into failure would hold the series behind the owner credentials the live parts wait for."
+affects = ["22.37.1"]
+
+[decision.2704]
+title = "The daemon core timestamp is milliseconds at the producer"
+value = "The prepare snapshot field protocol_timestamp carries milliseconds: the producer (layerx-agentd prepare/mod.rs line 569) converts the block timestamp of the head (seconds, as the client sequencer type documents) with a checked multiplication by 1000; every consumer keeps reading milliseconds (CoreTimestampMs, the expires_at_ms comparisons, the Human preview, session_control). A fixture proof whose observed_core_ms is the checkpoint seconds times 1000 is the reference."
+basis = "Every consumer already treats the field as milliseconds; one producer in seconds made every expiry and rate window off by a factor of 1000."
+affects = ["22.31.560"]
+
+[decision.2705]
+title = "The source-control series build commands prepare the vendored tree explicitly"
+value = "Every build command of tasks 22.37.3 to 22.37.27 starts, inside the vendored project directory, with pnpm install --frozen-lockfile (which runs the root prepare generation), the generate script of the process utilities library, npm --prefix core/control-plane ci --ignore-scripts and npm --prefix core/control-plane run build, then the task filters follow (decision 2702 stands for the control-plane package). The native-components make target of the vendored tree replaces the undefined target the 22.37.4 and 22.37.5 commands named. The qualification environment installs the repository root node packages only and is not relied on for the vendored tree."
+basis = "Four attempts stopped on install-time and generated modules the environment never produced; a self-describing command removes the dependency on environment heuristics."
+affects = ["22.37.3", "22.37.16", "22.37.19", "22.37.20", "22.37.22"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38205,6 +38235,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.579]
+title = "Decode the daemon TRACK answer in the Human agent runtime as the daemon writes it"
+reqs = ["22998.1"]
+touches = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/support", "services/human/crates/layerx-human-service/tests/repair_22_31_579.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_579.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_579 --test agent_runtime_rungs"
+do_1 = "do_1 Gotcha 3297, decision 2701. In services/human/crates/layerx-human-service/src/server/agent_runtime.rs make decode_tracked (line 4406) read the submission reference as 32 fixed bytes and build it with SubmissionRef::new over the hex helper of the file; map the state codes as the daemon state_code writes them: 0 Prepared, 1 Signed, 2 Queued, 3 Submitted, 5 Unknown, 6 Executed and 9 Committed each followed by a 32-byte receipt digest turned into ReceiptRef::new over its hex, 7 Failed followed by the i32 result code, 8 Expired; any other code stays CorruptResponse. The rung, evidence and transition readings and decode_state_without_data stay as they are."
+symbols = ["decode_tracked", "decode_observation", "write_submission", "state_code"]
 
 [capability.22.37.27]
 title = "Run the released source system and close the release with restore and publication reconciliation"
@@ -149142,7 +149181,7 @@ symbols = ["7_2.py", "native_source_full_journey.mjs"]
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/7_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/7.2.json", "docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
 tests = []
 planned_paths = ["tools/hyperfide/tests/hyperfide/source-control/manifests/release.json"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_2.py --self-test"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149176,7 +149215,7 @@ symbols = ["7_1.py", "native_source_package_smoke.mjs", "package.py"]
 touches = ["docs/hyperfide/hyperfide/source-control.md", "docs/hyperfide/runtime/source-control.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/tests/hyperfide/cases/source_control/7_1.py", "tools/hyperfide/deploy/hyperfide/source-control/package.py", "tools/hyperfide/deploy/hyperfide/source-control/recovery-profile.schema.json", "tools/hyperfide/tests/hyperfide/support/native_source_package_smoke.mjs"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/7_1.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149211,7 +149250,7 @@ symbols = ["6_3.py", "closure.py", "native_source_full_journey.mjs", "release_ca
 touches = ["tools/hyperfide/tests/hyperfide/support/native_source_full_journey.mjs", "tools/hyperfide/tests/hyperfide/source-control/full_case/scm_023.py", "tools/hyperfide/tests/hyperfide/source-control/registry.json", "tools/hyperfide/tests/hyperfide/source-control/claims.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/source-control/registrations/full-SCM-023-owned-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/cases/source_control/6_3.py", "tools/hyperfide/tests/hyperfide/source-control/closure.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign.py", "tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
 tests = ["tools/hyperfide/tests/hyperfide/source-control/release_campaign_test.py"]
 planned_paths = ["tools/hyperfide/tests/hyperfide/source-control/manifests/full/scm-023-api-cli-ui.json", "tools/hyperfide/tests/hyperfide/source-control/manifests/full/scm-024-full.json"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_3.py --self-test && python3 tests/hyperfide/source-control/release_campaign_test.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149245,7 +149284,7 @@ symbols = ["campaign.mjs", "native_source_external_workload.mjs", "native_source
 touches = ["tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_workload.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_external_workload.mjs", "tools/hyperfide/tests/hyperfide/source-control/workloads/storage_observer.mjs", "tools/hyperfide/tests/hyperfide/source-control/registrations/6.2.json", "tools/hyperfide/tests/hyperfide/source-control/workloads/README.md"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_2.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149259,6 +149298,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "6.2"
+do_7 = "Attempt 2 (continue, gotcha 3299, decision 2702): the attempt-1 tree stands at 625d484b7849dfadb2312ccc98ff707a24f466ed (the receipt validation, the registered negatives, the blocked outcomes, the storage accounting and the reachable-object checks). The build command now installs and builds the control-plane package standalone with npm --prefix core/control-plane (ci --ignore-scripts, then run build), which copies the generated contracts module under src before tsc and so supplies the module the recovery actor compile was missing. Change nothing in the product; run the corrected build and the verify once at the final revision and record them by reference in the task record."
 
 [task.22.37.23]
 title = "Finish recovery qualification with concurrent rebalance, stale acceptance refusal and per failure-domain outcomes"
@@ -149279,7 +149319,7 @@ symbols = ["6_1.py", "native_source_recovery_actor.mjs", "routing.ts"]
 touches = ["tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/6_1.py", "docs/hyperfide/hyperfide/source-control-recovery.md", "tools/hyperfide/core/control-plane/src/source_control/routing.ts"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149293,6 +149333,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "6.1"
+do_7 = "Attempt 2 (continue, gotcha 3299, decision 2702): the attempt-1 tree stands at ea2d22a052b7637c0c9f6bc0b0a6d3a911c22962 (the routing changes, the recovery actor, the component mode of 6_1.py). The build command now installs and builds the control-plane package standalone with npm --prefix core/control-plane (ci --ignore-scripts, then run build), which also places the generated contracts module the standalone authority guard compiles against. Change nothing in the product; run the corrected build and the verify once at the final revision and record them by reference in the task record."
 
 [task.22.37.22]
 title = "Complete migration inventory, access and evidence parity, boundary crash coverage and UNRUN deployment record"
@@ -149315,7 +149356,7 @@ symbols = ["5_3.py", "cutover.ts", "epoch_adoption.ts", "inventory.ts", "native_
 touches = ["tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/parity.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/cutover.ts", "tools/hyperfide/core/control-plane/src/source_control/migration/epoch_adoption.ts", "tools/hyperfide/tests/hyperfide/support/native_source_migration_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_3.py", "docs/hyperfide/hyperfide/source-control-migration.md"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_3.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149329,6 +149370,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "5.3"
+do_9 = "Attempt 2 (continue, gotchas 3299 and 3304, decision 2705): the attempt-1 tree stands. The build command now installs and builds the control-plane package, so the generated contracts module the build script copies under src exists when 5_3.py compiles the native actor with the fixture tsconfig (ES2023, NodeNext, strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes). Re-run the build and the verify; if the actor compile still reports TS18046 (error is of type unknown) at the authority module of the preparation area lines 333 and 777, narrow the catch variable with instanceof before reading code and message, which satisfies both the control-plane tsconfig and the fixture tsconfig. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.37.21]
 title = "Route imported contributions into candidates and import legacy source maps"
@@ -149348,7 +149390,7 @@ symbols = ["5_2.py", "candidates.ts", "import.ts", "metrics.ts", "native_source_
 touches = ["tools/hyperfide/core/control-plane/src/source_control/git/import.ts", "tools/hyperfide/core/control-plane/src/source_control/git/projection.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/tests/hyperfide/support/native_source_import_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_2.py"]
 tests = []
 planned_paths = ["tools/hyperfide/core/control-plane/migrations/0765-source-control-import-legacy-maps.sql"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_2.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149381,7 +149423,7 @@ symbols = ["5_1.py", "export.ts", "github.ts", "gitlab.ts", "native_source_git_a
 touches = ["tools/hyperfide/plugins/hyperfide-qualify/publication.ts", "tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts", "tools/hyperfide/core/control-plane/src/integration/publication.ts", "tools/hyperfide/core/control-plane/src/source_control/git/github.ts", "tools/hyperfide/core/control-plane/src/source_control/git/gitlab.ts", "tools/hyperfide/core/control-plane/src/source_control/git/transport.ts", "tools/hyperfide/core/control-plane/src/source_control/git/types.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/tests/hyperfide/support/native_source_git_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/5_1.py"]
 tests = ["tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts"]
 planned_paths = ["tools/hyperfide/core/control-plane/migrations/0764-source-control-publication-credentials.sql"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-qualify typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-qualify typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/5_1.py && pnpm --filter @hyperfide/hyperfide-qualify vitest run publication.test.ts"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149395,6 +149437,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "5.1"
+do_6 = "Attempt 2 (continue, gotcha 3304, decision 2705): the attempt-1 tree stands (the control-plane build passes after install). The build command now prepares the vendored tree before the qualify plugin typecheck, so the workspace and generated modules exist. Re-run the build and the verify (the publication.test.ts vitest); repair only errors that come from the task changes and record any residual error outside the touches in the task record with file and line. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.37.19]
 title = "Complete source product metrics, workspace state display and failure journeys"
@@ -149415,7 +149458,7 @@ symbols = ["4_3.py", "cache.ts", "checkpoint.ts", "contract.ts", "materializer.t
 touches = ["tools/hyperfide/core/host-daemon/src/source-control/metrics.ts", "tools/hyperfide/core/host-daemon/src/source-control/cache.ts", "tools/hyperfide/core/host-daemon/src/source-control/materializer.ts", "tools/hyperfide/core/host-daemon/src/source-control/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/metrics.ts", "tools/hyperfide/plugins/hyperfide-source-control/views/metrics.tsx", "tools/hyperfide/plugins/hyperfide-source-control/views/workspace-detail.tsx", "tools/hyperfide/plugins/hyperfide-source-control/app.tsx", "tools/hyperfide/plugins/hyperfide-source-control/runtime.ts", "tools/hyperfide/plugins/hyperfide-source-control/contract.ts", "tools/hyperfide/tests/hyperfide/support/native_source_product_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_product_browser.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_3.py"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/host-daemon typecheck && pnpm --filter @hyperfide/hyperfide-source-control typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/host-daemon typecheck && pnpm --filter @hyperfide/hyperfide-source-control typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_3.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149429,6 +149472,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "4.3"
+do_7 = "Attempt 2 (continue, gotcha 3304, decision 2705): the attempt-1 tree stands. The build command now prepares the vendored tree before the host-daemon and source-control plugin typechecks, so the generated profile module, the plugin build generated modules and the generated templates exist. Re-run the build; if the host-daemon typecheck still reports errors in sdk/client (TS7006, TS2322 at areas/guide.ts) after the generated modules exist, repair them only when they come from the task changes; otherwise record them in the task record with file and line as pre-existing and continue to the verify. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.37.18]
 title = "Native mode for the plugin router and integration queue with outage, publication and manager integration qualification"
@@ -149450,7 +149494,7 @@ symbols = ["4_2.py", "contracts.ts", "dispatcher.ts", "native_source_fleet_actor
 touches = ["tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/contracts.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/runners.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.ts", "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts", "tools/hyperfide/plugins/hyperfide-dispatch/package.json", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_fleet_reconciliation.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/4_2.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = ["tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"]
 planned_paths = []
-build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check && cd ../.. && pnpm --filter @hyperfide/hyperfide-dispatch typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/hyperfide-dispatch typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/hyperfide-dispatch test && python3 tests/hyperfide/cases/source_control/4_2.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149485,7 +149529,7 @@ symbols = ["4_1.py", "4_1_batches.py", "acceptance.ts", "api.ts", "client.ts", "
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/4_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/4_1_batches.py", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_acceptance_fixture.mjs", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/server.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/acceptance.ts", "tools/hyperfide/sdk/source-control/src/client.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check && cd ../.. && pnpm --filter @hyperfide/source-control typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/4_1.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149520,7 +149564,7 @@ symbols = ["3_3.py", "contract.ts", "host.test.ts", "host.ts", "native.ts", "nat
 touches = ["tools/hyperfide/core/control-plane/src/graph/publication.ts", "tools/hyperfide/core/control-plane/src/graph/native.ts", "tools/hyperfide/core/control-plane/src/preparation/slices.ts", "tools/hyperfide/core/control-plane/src/hierarchy/packets.ts", "tools/hyperfide/core/control-plane/src/review/receipts.ts", "tools/hyperfide/plugins/hyperfide-graph/contract.ts", "tools/hyperfide/plugins/hyperfide-graph/host.ts", "tools/hyperfide/plugins/hyperfide-graph/host.test.ts", "tools/hyperfide/tests/hyperfide/support/native_source_graph_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/3_3.py"]
 tests = ["tools/hyperfide/plugins/hyperfide-graph/host.test.ts"]
 planned_paths = []
-build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_3.py && pnpm --filter @hyperfide/hyperfide-graph test"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149534,6 +149578,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "3.3"
+do_8 = "Attempt 2 (requalify, gotcha 3304, decision 2705): the attempt-1 tree stands (the TS2345 at publication.ts line 254 is repaired, the control-plane check passes, the 3_3.py driver answers PASS with all 17 native actor checks). The build command now prepares the vendored tree (pnpm install, the generate scripts, the control-plane install and build) before the check, so the graph plugin vitest finds the domain package and the generated profile module. Re-run the gates as they stand; a host.test.ts that still collects zero cases after import succeeds is a finding for the next ruling."
 
 [task.22.37.15]
 title = "Bind virtual workspace writes to attempt expiry and qualify the real FUSE case"
@@ -149555,7 +149600,7 @@ symbols = ["3_2.py", "client.ts", "contract.ts", "native_source_virtual_actor.mj
 touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/sdk/source-control/src/host/virtual-filesystem.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/plugins/environment-slices/contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/3_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_virtual_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = ["tools/hyperfide/core/control-plane/migrations/0763-source-control-workspace-attempts.sql"]
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control typecheck && cd core/control-plane && npm run check"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/3_2.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149591,7 +149636,7 @@ symbols = ["2_3.py", "backend.mjs", "candidates.ts", "evidence.ts", "export.ts",
 touches = ["tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/core/control-plane/src/source_control/candidates.ts", "tools/hyperfide/core/control-plane/src/source_control/evidence.ts", "tools/hyperfide/core/control-plane/src/source_control/git/export.ts", "tools/hyperfide/core/control-plane/src/source_control/s3.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/core/control-plane/src/source_control/retention.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_collection_api.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_3.py"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run check"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_3.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149627,7 +149672,7 @@ symbols = ["2_2.py", "checkpoint.ts", "client.ts", "materializer.ts", "native_so
 touches = ["tools/hyperfide/sdk/source-control/src/host/materializer.ts", "tools/hyperfide/sdk/source-control/src/host/client.ts", "tools/hyperfide/sdk/source-control/src/host/checkpoint.ts", "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/2_2.py", "tools/hyperfide/tests/hyperfide/support/native_source_fixture.py", "tools/hyperfide/tests/hyperfide/support/native_source_sparse_fixture.mjs", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = ["tools/hyperfide/core/control-plane/migrations/0762-source-control-workspace-closure.sql"]
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control run typecheck && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/host-daemon run typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run typecheck && pnpm --filter @hyperfide/host-daemon run typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_2.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149663,7 +149708,7 @@ symbols = ["2_1.py", "api.ts", "causal.py", "causal.ts", "contracts.ts", "cursor
 touches = ["tools/hyperfide/core/control-plane/src/source_control/queries.ts", "tools/hyperfide/core/control-plane/src/source_control/cursors.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/core/control-plane/src/source_control/http.ts", "tools/hyperfide/core/control-plane/src/source_control/causal.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/tests/hyperfide/support/native_source_api_actor.mjs", "tools/hyperfide/tests/hyperfide/support/native_source_causal_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/2_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/causal.py"]
 tests = []
 planned_paths = ["tools/hyperfide/core/control-plane/migrations/0761-source-control-ancestry-index.sql"]
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/source-control run typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/2_1.py && python3 tests/hyperfide/cases/source_control/causal.py && python3 tests/hyperfide/cases/source_control/batch.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149698,7 +149743,7 @@ symbols = ["1_3.py", "audit.ts", "capabilities.ts", "contracts.ts", "transfer_gr
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/capabilities.ts", "tools/hyperfide/core/control-plane/src/source_control/transfer_grants.ts", "tools/hyperfide/core/control-plane/src/source_control/audit.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/control-services run check && pnpm --filter @hyperfide/source-control run typecheck"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_3.py && python3 tests/hyperfide/cases/source_control/admin.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149712,6 +149757,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "1.3"
+do_8 = "Attempt 2 (continue, gotchas 3299 and 3304, decision 2705): the attempt-1 tree stands for the four control-plane modules and the qualification record. In the 1_3.py driver of the source-control cases remove the contract-generation setup the attempt added (it names a path under core/contracts that does not exist); the corrected build command installs and builds the control-plane package, which copies the generated contracts module under src before the driver compiles the native actor. Re-run the build and the verify; if the actor compile still reports TS18046 at the authority module of the preparation area line 333 after the generated module exists, narrow the catch variable with instanceof before reading code and message. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.37.10]
 title = "Complete revision metadata replay after lease release, reassignment and real collection interleavings"
@@ -149733,7 +149779,7 @@ symbols = ["1_2.py", "gc.ts", "metadata.ts", "operations.ts", "revisions.ts", "s
 touches = ["tools/hyperfide/core/control-plane/src/source_control/operations.ts", "tools/hyperfide/core/control-plane/src/source_control/metadata.ts", "tools/hyperfide/core/control-plane/src/source_control/revisions.ts", "tools/hyperfide/core/control-plane/src/source_control/gc.ts", "tools/hyperfide/tests/hyperfide/support/source_metadata_actor.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/1_2.py", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_2.py && python3 tests/hyperfide/cases/source_control/events.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149771,7 +149817,7 @@ symbols = ["1_1.py", "api.ts", "backend.mjs", "object_catalog.ts", "objects.ts",
 touches = ["tools/hyperfide/core/control-plane/src/source_control/objects.ts", "tools/hyperfide/core/control-plane/src/source_control/object_catalog.ts", "tools/hyperfide/core/control-plane/src/source_control/storage_contract.ts", "tools/hyperfide/core/control-plane/src/source_control/api.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/1_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/storage.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/objects/backend.mjs", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/1_1.py --component && python3 tests/hyperfide/cases/source_control/0_1.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149806,7 +149852,7 @@ symbols = ["0_1.py", "contracts.ts"]
 touches = ["tools/hyperfide/sdk/source-control/src/contracts.ts", "tools/hyperfide/core/control-plane/src/source_control/contracts.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_1.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/contracts-v1.json", "tools/hyperfide/spec/hyperfide-source-control/decisions.md", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/source-control run build && pnpm --filter @hyperfide/source-control run typecheck && npm --prefix core/control-plane run check"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run build && pnpm --filter @hyperfide/source-control run typecheck"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_1.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149842,7 +149888,7 @@ symbols = ["0_14.py", "0_14_live.py", "0_14_setup.py", "fleet_live_qualification
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_14.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_setup.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "docs/hyperfide/hyperfide/fleet.md", "docs/hyperfide/hyperfide/operations.md", "tools/hyperfide/deploy/hyperfide/sandbox", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_14.py --component"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149876,7 +149922,7 @@ symbols = ["0_13.py", "0_14_live.py", "fleet_live_qualification.py"]
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_13.py", "tools/hyperfide/tests/hyperfide/cases/source_control/0_14_live.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/spec.kvx"]
 tests = []
 planned_paths = []
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_13.py --component"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149911,7 +149957,7 @@ symbols = ["0_12.py", "fleet-supervisor.ts", "fleet_live_qualification.py", "fle
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_12.py", "tools/hyperfide/tests/hyperfide/support/fleet_live_qualification.py", "tools/hyperfide/core/control-plane/src/agents/fleet_orchestration.ts", "tools/hyperfide/core/control-plane/src/fleet-supervisor.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = []
 planned_paths = ["tools/hyperfide/tests/hyperfide/support/model_live_collect.py"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && make hyperfide hyperfide-native"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && make hyperfide-native"
 verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/0_12.py --component"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149946,7 +149992,7 @@ symbols = ["0_11.py", "install-status.test.ts", "install_live_collect.py", "syst
 touches = ["tools/hyperfide/sdk/client/src/areas/system.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_11.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/traceability.md"]
 tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts"]
 planned_paths = ["tools/hyperfide/sdk/client/test/install-status.test.ts", "tools/hyperfide/tests/hyperfide/support/install_live_collect.py"]
-build_cmd = "cd tools/hyperfide && corepack enable && npm --prefix core/control-plane run build && make hyperfide hyperfide-native && pnpm --filter @hyperfide/sdk build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && make hyperfide-native && pnpm --filter @hyperfide/sdk build"
 verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run test/install-status.test.ts && python3 tests/hyperfide/cases/source_control/0_11.py --component"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -149979,7 +150025,7 @@ symbols = ["0_10.py", "agent-group-contracts.test.ts", "contract_surface_consume
 touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_10.py", "tools/hyperfide/sdk/client/src/public-types.ts", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx"]
 tests = ["tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
 planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs", "tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"]
-build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm run build && cd ../.. && pnpm --filter @hyperfide/sdk build"
+build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/sdk build"
 verify_cmd = "cd tools/hyperfide && corepack enable && pnpm --filter @hyperfide/sdk exec vitest run --config vitest.config.ts test/agent-group-contracts.test.ts && python3 tests/hyperfide/cases/source_control/0_10.py"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -150049,7 +150095,7 @@ touches = ["tools/hyperfide/tests/hyperfide/cases/source_control/0_8.py", "tools
 tests = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py"]
 planned_paths = ["tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py", "tools/hyperfide/spec/hyperfide-source-control/layout-reference-exceptions.json"]
 build_cmd = "cd tools/hyperfide/core/control-plane && corepack enable && npm ci --ignore-scripts && npm run build"
-verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_tooling_driver_test.py && python3 tests/hyperfide/cases/source_control/0_8.py"
+verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/layout_tooling_driver_test.py && { python3 tests/hyperfide/cases/source_control/0_8.py || [ $? -eq 2 ]; }"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-tools-ops"
@@ -150062,6 +150108,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "0.8"
+do_7 = "Attempt 2 (requalify, gotcha 3303, decision 2703): the attempt-1 tree stands (the layout driver test passes 6 cases; 0_8.py answers BLOCKED with no regression on the two UNRUN live evidence kinds of decision 2700). The verify command now accepts exit 2 from the carried driver and refuses exit 1. Re-run the gates as they stand and name the two missing evidence kinds in the task record."
 
 [task.22.35.10]
 title = "Add the explorer Ask route and answer panel behind a configurable model endpoint"
@@ -150123,6 +150170,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (requalify, gotcha 3209, decision 2643): the attempt-1 tree stands at 38bc60fa64 (the token tables and markets view; tsc exit 0). The import cycle between apps/explorer/lib/cookies.ts and configs/app, pre-existing on main, is broken in lib/cookies.ts by importing getEnvValue from configs/app/utils; that file is added to the touches. Run vitest and the build at the final revision and record them by reference in the task record; amend no file after the gates run (gotcha 3142)."
 do_5 = "Attempt 5 (continue from the attempt-1 tree at 38bc60fa64, gotcha 3284): the attempt-1 tree stands (the token tables and the markets view; tsc exit 0). Apply the attempt-2 instruction: the import cycle between apps/explorer/lib/cookies.ts and configs/app, pre-existing on main, is broken in lib/cookies.ts by importing getEnvValue from configs/app/utils. Run vitest and the production build once at the final revision and record them by reference in the task record; amend no file after the gates run (gotcha 3142)."
+do_6 = "Attempt 6 (continue, gotcha 3298): the attempt-5 tree stands at 1a089a447231409e8813ab0fbf3bc2c36f31b87b (the import cycle broken in lib/cookies.ts; tsc exit 0; six cases pass). In apps/explorer/ui/repair-22-35-8.spec.ts split pagesRenderInBothColourModes into three cases, one per page (Home, Transaction, Address), each registered with a 180000 millisecond timeout as the third argument of test and each asserting what the loop body asserts today; keep vi.setConfig and every other case unchanged. Run vitest and the production build once at the final revision and record them by reference in the task record; amend no file after the gates run (gotcha 3142)."
 
 [task.22.35.7]
 title = "Explorer network pages: stats, validators, epochs and gas tracker in the visual system"
@@ -169621,6 +169669,7 @@ do_16 = "Attempt 13 (continue, gotcha 3276, decision 2686): the attempt-12 tree 
 do_17 = "Attempt 14 (continue, gotcha 3280, decision 2690): the attempt-13 tree stands (the Fund path under the kernel gas allowance, the fixture transport, the Go proof with the BigInt fix; the candidate Fund runs at 896330 CPU fuel under the cap). Make the two fixture corrections the gate exposed. In rpc/repair_478_test.go, before the block advance at line 363 and the Fund call, run the production block finalization of the host module for the previous height so the occupancy ledger has block 1002 finalized through the same path the chain runs between blocks; fabricate no occupancy state. In programs/crates/layerx-programs-ai-market/examples/repair_478_fixture.rs line 17, decode the kernel terminal wrapper (terminal-applied-legs/v1, the response bytes the log prints) with the canonical terminal decoder of the runtime before reading the candidate failure, instead of panicking on it. Keep every assertion and both allowances (kernel 10000000, CPU 1000000). If the candidate Fund then refuses for another reason, record the callback stage and the code in the task record so the next ruling reads it. Run the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_18 = "Attempt 15 (continue, gotcha 3287, decision 2647): the attempt-14 tree stands at 9f6737b7fe (block 1002 finalized through the production host-module path, the terminal decoder selecting the bare pre-runtime format by its tag, the Fund outcome record); the final decoder correction has not run under a gate. Run the verify once as it stands and read the decoded refusal and the independent executor result the Go case logs. The candidate Fund refuses at pre-runtime with LXP_ERR_NON_CANONICAL (-3), recorded CPU fuel 0 and no callback stage: by decision 2647 that is the native binding mapping of an executor error or a missing replay record of a profiled CALL (ffi_call.rs lines 2896 to 2902), not a fuel stop. Where the independent executor run (the probe mode of examples/repair_478_fixture.rs) refuses, repair the cause its ExecutionError names: a replay bound (replay_record.rs from_captured lines 62 to 90) is met by passing the replay profile at the kernel maximum of 4096 boundaries and 1048576 bytes from the host module call, a guest fault by the guest path it names. Where the executor succeeds and the kernel still answers -3, align the replay profile, budget and inputs the host module (modules/lxphost) passes with those of the executor run and record the differing field in the task record. Keep every assertion and both allowances (kernel 10000000, CPU 1000000). Run the build, the dependent-crate check and the full verify at the final revision and record them by reference in the task record."
 do_19 = "Attempt 16 (requalify, gotcha 3296): the attempt-15 tree stands at cc579828686b96262c97dc0fe3c6b9d72ff41486 (the fresh receipt bound after block 1002 is finalized through the production host path, the kernel gas counter reading, the synchronized node layout of modules/lxphost ctx.go and simulate.go, the independent executor proof answering Fund Ok at 896330 CPU fuel); the fresh-receipt correction has not run under a gate. Run the verify once as it stands. If the candidate Fund still refuses at pre-runtime, read the decoded refusal the Go case logs (the pre-runtime failure wrapper carries the module result and the payload hash) and the native balance sight inputs (the receipt sequence and the state root the fixture passes against the ones the host module holds after finalization) and repair the fixture binding the log names; no kernel or runtime check is relaxed. The touches list now includes programs/Cargo.lock. Run the build and the verify at the final revision and record them by reference in the task record."
+do_20 = "Attempt 17 (continue, gotcha 3302): the attempt-16 tree stands (the decoded callback refusal in the Go fixture, the independent executor probe, the kernel status print). The Fund deposit is refused at ledger apply because the call declares no transfer leg and no transfer capability for it: in rpc/repair_478_test.go declare the transfer capability (index 4 in the capability order of the task record) in the capability set of the Fund call and declare the transfer leg of the deposit (source the actor main account, destination the rewards account, the asset and amount 100) with the actor source kind in the transfer set of the call, as src/modules/programs/call.c lines 2322 to 2412 build one transfer source authority per declared leg and src/ledger/lxp_apply.c lines 103 to 116 admit a leg only against such an authority. Read how the production Fund path through modules/lxphost declares that leg for a program CALL that debits the actor main account; if the host module omits it, repair the host module (within the touches) rather than the fixture alone. Record in the task record that the executor probe proves CPU completion only and applies no ledger leg. Keep the receipt assertions (Transfers[0] to the rewards account, amount 100, ReadBalance 100). Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
@@ -177465,6 +177514,39 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.579]
+title = "Decode the daemon TRACK answer in the Human agent runtime as the daemon writes it"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.579"]
+interfaces = []
+do_1 = "do_1 Gotcha 3297, decision 2701. In services/human/crates/layerx-human-service/src/server/agent_runtime.rs make decode_tracked (line 4406) read the submission reference as 32 fixed bytes and build it with SubmissionRef::new over the hex helper of the file; map the state codes as the daemon state_code writes them: 0 Prepared, 1 Signed, 2 Queued, 3 Submitted, 5 Unknown, 6 Executed and 9 Committed each followed by a 32-byte receipt digest turned into ReceiptRef::new over its hex, 7 Failed followed by the i32 result code, 8 Expired; any other code stays CorruptResponse. The rung, evidence and transition readings and decode_state_without_data stay as they are."
+do_2 = "do_2 decode_observation (line 2325), the request writers (the hex text of the 32-byte reference at lines 4280, 4340 and 5024) and the daemon crate stay unchanged."
+do_3 = "do_3 In services/human/crates/layerx-human-test-support/src/lib.rs (the crate already depends on the daemon crate) add a pub helper that takes a submission id, an activity id and a daemon outbox submission state without receipt and answers the bytes of the daemon TRACK observation: the activity id, the bytes of layerx_agentd::human_runtime::write_submission for that status with no receipt, and a zero receipt-presence byte, exactly as the daemon observation writes them."
+do_4 = "do_4 Rewrite the hand-encoded answer of runtime_decodes_rung_bytes_zero_one_two_and_refuses_three in services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs (lines 135 to 147) in the 32-byte layout; its rung assertions stay."
+do_5 = "do_5 Test services/human/crates/layerx-human-service/tests/repair_22_31_579.rs through the Peer harness of tests/agent_runtime_rungs.rs (lines 42 to 135, moved to tests/support or copied): for the Queued, Submitted, Unknown, Expired and Failed (result code -1) states the answer produced by the do_3 helper decodes to a TrackedSubmission whose reference is the lowercase hex of the submission id, whose state, rung, evidence and transitions match the status, and a hand-built Executed answer with a 32-byte receipt digest and one sequencer_receipt evidence item (the layout of write_submission for code 6) decodes with that digest as the receipt reference; an answer carrying a length-prefixed text reference is refused as CorruptResponse."
+do_6 = "do_6 Write services/human/crates/layerx-human-service/tests/repair_22_31_579.kvx naming gotcha 3297, decision 2701, the files changed and the gate results. Gate: the declared build and verify only; no credential, no live endpoint (gotcha 2962). Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["decode_tracked", "decode_observation", "write_submission", "state_code"]
+touches = ["services/human/crates/layerx-human-service/src/server/agent_runtime.rs", "services/human/crates/layerx-human-test-support/src/lib.rs", "services/human/crates/layerx-human-service/tests/agent_runtime_rungs.rs", "services/human/crates/layerx-human-service/tests/support", "services/human/crates/layerx-human-service/tests/repair_22_31_579.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_579.kvx"]
+tests = []
+planned_paths = ["services/human/crates/layerx-human-service/tests/repair_22_31_579.rs", "services/human/crates/layerx-human-service/tests/repair_22_31_579.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --test repair_22_31_579 --test agent_runtime_rungs"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-human"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.578]
 title = "Derive the MCP DrawGrant policy dimensions from the decoded Receive cross-checked against the bound draw"
 status = "done"
@@ -177528,6 +177610,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_6 = "Attempt 2 (requalify, gotcha 3305): the attempt-1 tree stands, including the repair that refuses module-start snapshots before the profiled entry invocation so actual_module_start_refuses_unobservable_start_state keeps its UnreachableExecuted assertion. Re-run the gates as they stand; a further failure in program_replay or in the 128-call proof is a finding for the next ruling."
 
 [task.22.31.576]
 title = "Bind the signed transaction bytes to MCP wallet execution receipts"
@@ -178002,7 +178085,7 @@ do_1 = "do_1 Gotcha 3192, decision 2634. In services/agent/crates/layerx-agentd/
 do_2 = "do_2 Apply the same single identifier to rpc_prepare_native (near line 5599) and rpc_prepare_native_effect (near line 6503): each finds the preparation its signed purpose names on a genuine first Prepare, and a purpose naming another identifier is still refused."
 do_3 = "do_3 Test services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs through handle_rpc on a daemon runtime with the loopback EVM node fixture that tests/native_send_preview_evm.rs already starts (LAYERX_TEST_ANVIL or anvil on the path, as that fixture does): the owner preview, then the V2 Prepare with the signed purpose answers 200 with canonical bytes, preparation id and signing preimage equal to the preview; close and reopen the store and assert the durable preparation is found under the same identifier and a second Prepare with the same purpose answers the same preparation; a purpose with another preparation_id is refused. Record the sites and the gate results by reference in tests/repair_22_31_560.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint beyond that fixture (gotcha 2962)."
 symbols = ["prepare_gated", "rpc_prepare_native_send", "native_send_owner_preview_on_surface", "verify_native_owner_send_purpose", "DurablePreparation"]
-touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.kvx", "services/agent/crates/layerx-agentd/src/read/committed.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/prepare/expiry.rs", "services/agent/crates/layerx-agentd/src/capability/binding.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.kvx", "services/agent/crates/layerx-agentd/src/read/committed.rs", "services/agent/crates/layerx-agentd/src/approval/native_program.rs", "services/agent/crates/layerx-agentd/src/prepare/mod.rs"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_560.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
@@ -178027,6 +178110,7 @@ do_9 = "Attempt 7 (continue, gotcha 3271): the attempt-6 tree stands (the commit
 do_10 = "Attempt 8 (continue, gotcha 3278, decision 2688): the attempt-7 tree stands (the signed local grant in prepare_rpc, the authenticated history peer, the committed inventory peer, every assertion). First, in src/human_runtime.rs inside rpc_prepare_native_send (lines 7010 to 7461) replace every mapping to HumanOperationError::Refused and every use of the local refused closure with one helper that prints layerx-agentd: native send prepare refused at <site> and returns Refused, naming each site with a short static text; keep the RPC rejection owner.refused unchanged and keep the prints in the production tree. Then run the first-Prepare case alone with --nocapture, read the printed site from the log, and repair the fixture for that site only, as attempts 6 and 7 did for the session scope and the history window; if the site is a production condition the fixture cannot satisfy honestly, record the site and the condition in the task record and stop there so the next ruling reads it. Run the build and the verify at the final revision and record them by reference in the task record."
 do_11 = "Attempt 9 (continue, gotcha 3285, decision 2694): the attempt-8 tree stands (the sited refusal helper, the aligned preparation identifier, the expiry and binding changes, the proof and record). In services/agent/crates/layerx-agentd/src/read/committed.rs make both CommittedCaps::level definitions (lines 166 and 420) return VerificationLevel::COMMITTED; change nothing else in that file, which is added to the touches. Re-run the first-Prepare case with --nocapture; if the helper prints a further refusal site, repair the fixture for that site only, or record the site in the task record and stop. Keep every assertion. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 do_12 = "Attempt 10 (continue, gotcha 3292): the attempt-9 tree stands (the COMMITTED read level, the protected denomination attached through attach_program_budget_denominations, the tenant-bound limit, the refusal helper). In services/agent/crates/layerx-agentd/src/approval/native_program.rs StagedNativeRateUse::stage (lines 1333 to 1420) add a production diagnostic that names which condition refused (the disclosure binding, the canonical digest, the preparation id, the actor, the empty chain or window set, the evidence count, the window proof field that differs, the pending-use advance) in the CarrierError::Binding it answers, so the refusal site is visible in the gate log; keep every condition. Then check the fixture window proof of tests/repair_22_31_560.rs against the binding equalities: through_sequence equal to the prepared observed_head_sequence, observed_core_ms equal to the constraint observed_at_ms, the window set equal to the rate obligations of the constraint chain, exactly one observed batch id per proof, and the proof newer than any pending record; repair the fixture evidence the diagnostic names. No production check is relaxed. Run the build and the verify at the final revision and record them by reference in the task record."
+do_13 = "Attempt 11 (continue, gotcha 3301, decision 2704): the attempt-10 tree stands (the fixture proof, the committed reads, the expiry helper). Two production repairs. In services/agent/crates/layerx-agentd/src/approval/native_program.rs make StagedNativeRateUse::stage (line 1332) compare the envelope digest of the prepared canonical bytes with the envelope_digest of the binding (add a pub accessor envelope_digest() in capability/binding.rs beside preparation_id() and canonical_digest(), lines 2303 to 2306) instead of canonical_digest() and preparation_id(), which carry the call identifier under decision 2634; the pending record stays keyed by the envelope digest (the invariant at line 1261 and the lookups at lines 523, 687 and 732 are consistent with it). In services/agent/crates/layerx-agentd/src/prepare/mod.rs line 569 store protocol_timestamp as the head timestamp multiplied by 1000 with checked_mul, refusing with the existing snapshot error on overflow; every consumer keeps milliseconds. Remove the diagnostic eprintln added to human_runtime.rs (lines 7388 to 7420 of the attempt tree) or keep it as the sited refusal helper of decision 2688 without the log line. The fixture proof already feeds observed_core_ms as checkpoint seconds times 1000 (tests/repair_22_31_560.rs line 865) and the window matches once the units agree. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
@@ -179875,6 +179959,7 @@ do_23 = "Attempt 17 (continue, gotcha 3277, decision 2687, after task 22.31.575 
 do_24 = "Attempt 18 (continue, gotcha 3283, decision 2693): the attempt-17 tree stands (the account-bound evidence calls, the peer responses for the address precompile, the identity sequence, the block, the commit and the validators). In services/agent/qualification/pay2/sequence.rs, in resolve (from line 124), print the failing read and its error to the test diagnostic output at each of the four BoundaryUnavailable mappings (bound_address, get_identity_sequence, block_number, CommittedReads::open) before returning; change nothing else in that file. Run the proof once to read the site. Where it is CommittedReads::open, make the peer serve for height 6 a block, a commit and a validator set that the production verifier in layerx-agentd src/read/committed.rs (open at line 719 and the checkpoint authentication behind it) accepts: the commit signed by the validator keys the peer serves over the block it serves, the app hash non-zero; the verifier is unchanged. Where it is another read, repair that peer response. Keep every assertion of the funded SDK and MCP proof. Run the build and the verify at the final revision and record them by reference in the task record."
 do_25 = "Attempt 19 (continue after 22.31.576, gotcha 3286, decision 2695): the attempt-18 tree stands (the checkpoint the production verifier authenticates, the resolver diagnostics, the verified SDK Send). With 22.31.576 landed the MCP wallet execution receipt carries the signed transaction bytes as its canonical activity, so wait_batched (funded_scenario.rs line 598) accepts the MCP grant issue and draw receipts unchanged; change nothing for that. Re-run the proof. If a committed wait of the MCP path then fails, print the SDK error and the receipt fields (activity id, rung, canonical length, commit coverage height) at the wait_batched call to the test diagnostic output and repair only the peer response the diagnostic names. Keep every assertion. Run the build and the verify at the final revision and record them by reference in the task record."
 do_26 = "Attempt 20 (requalify, gotcha 3291, decision 2699): the attempt-19 tree stands (registration, the SDK Send, the SDK and MCP grant issue and the SDK draw pass). Start from main with 22.31.578 merged, which this task now requires: the MCP DrawGrant policy dimensions derive from the decoded Receive cross-checked against the bound draw. Keep the scenario unchanged unless the MCP draw step of tests/support/funded_scenario.rs passes a Receive whose grant, idempotency key, amount or recipient differs from the draw it binds, in which case align the scenario with the draw it issues. Run the build and the verify at the final revision and record them by reference in the task record."
+do_27 = "Attempt 21 (continue, gotcha 3300): the attempt-20 tree stands (the node-word receipts, the precompile events in the verified logs, the pay2 context and policy). In tests/support/funded_scenario.rs make every MCP draw step authenticate the cumulative use of the session agent: at lines 1005 to 1030 and at the later draw steps near lines 1124 and 1152, call authenticate_account_cumulative_use with the recipient DID (the funding recipient the context names at line 1043) and the EVM account of the recipient wallet, keeping the same entries and the same window so the window stays complete (entries not sent by the recipient count zero). The issue step (lines 888 to 922) keeps the treasury DID of the fixture and the payer account. Do not change policy/eval.rs, protocol_evidence.rs, the MCP wallet tool or the daemon. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
@@ -181867,7 +181952,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562", "22.31.570", "22.31.571", "22.31.572"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562", "22.31.570", "22.31.571", "22.31.572", "22.31.579"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -181905,6 +181990,7 @@ do_14 = "Attempt 7 (requalify, gotcha 3226, decision 2651): the attempt-6 tree s
 do_15 = "Attempt 8 (continue, gotcha 3245): the attempt-7 tree stands (the owner fixture tests/support/approval_owner.rs, the authority fixture files, both cases). In approval_owner.rs Runtime::start (line 585) build the root from fs::canonicalize(std::env::temp_dir()) as tests/production_unhooked.rs line 62 does, keep mode 0700 on it, and on any further refusal of the store root print the given path, its canonical path, its uid against the effective uid and its mode before failing. Re-run both cases; if digest_bound_decisions_converge_and_export_the_agent_outcome still answers Refused from approval_get, record the agent-side log line that precedes the refusal (server/agent_runtime.rs lines 98, 126, 234 and 237 map it) in the task record. Production files unchanged. Run the build and the verify at the final revision and record them by reference in the task record."
 do_16 = "Attempt 9 (continue after 22.31.570, gotcha 3254, decision 2672): the attempt-8 tree stands (the canonical fixture root, the head aligned with each emitted event, the diagnostics). The task now requires 22.31.570, which restores decided approvals on replay and makes every Refused carry its cause. Rebase on main once 22.31.570 has landed, change nothing in production, and re-run the gates; if a case still answers Refused, print the diagnostic the boundary now carries beside the failing call and name both in the task record together with the daemon log line that precedes the refusal."
 do_17 = "Attempt 10 (continue after 22.31.571, gotcha 3260, decision 2677): the attempt-9 tree stands (the canonical fixture root, the recorded authority, the diagnostics beside each tracking call). The task now requires 22.31.571, which makes TRACK answer a release reference of the tenant. Once it has landed, rebase on main and in tests/decide.rs line 424 replace the assertion of Err(NotFound), which map_approval_error at server/agent_runtime.rs line 4387 can never produce, with the tracked state: Ok with state Queued and the reference as submission id; in tests/approvals.rs line 196 Inbox::consume(Granted) then hydrates the Approved item with its tracking and the case asserts it. Close the release-tracking wiring record of the task record against 22.31.571; change no production file; run the build and the verify at the final revision and record them by reference in the task record."
+do_18 = "Attempt 11 (requalify after 22.31.579, gotcha 3297, decision 2701): the attempt-10 tree stands at 052249c11433dc4a9abc628964f9c86e6aff97c0 (the real daemon library behind the recorded authority, the tracking and inbox assertions, the record). The task now requires 22.31.579, which makes the Human decoder read the TRACK answer as the daemon writes it. Once it has landed, rebase on main, change nothing in production, run the build and the verify once and record them by reference in the task record; if a case still answers Corrupt, the record names the field and the reader that refused it."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
@@ -192072,7 +192158,7 @@ title = "Repair audit record 22.30.92 findings in services/agent/crates/layerx-a
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.483", "22.31.497", "22.31.558", "22.31.572"]
+requires = ["22.31.443", "22.31.483", "22.31.497", "22.31.558", "22.31.572", "22.31.560"]
 reqs = ["22998.1"]
 capabilities = ["22.31.217"]
 interfaces = []
@@ -192116,6 +192202,7 @@ do_20 = "Next attempt (after 22.31.483): the gateway test repair_22_31_345.rs re
 do_21 = "Attempt 6 (after 22.31.497): attempt 5 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-5 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_22 = "Attempt 7 (continue, gotcha 3210, decision 2644): the attempt-6 tree stands (the corpus and fixtures under tests/fixtures/repair_22_31_217; 6 passed). One production fact per failing case. (1) The six MalformedPayload cases at lines 337 and 485: the native preparation binder accepts only the ConstructMethod signature table (layerx-crypto disclosure/call.rs lines 106 to 127), so the corpus constructs budgetFundNative, budgetRevoke, deploy, upgrade, deprecate and exitValue are refused by the binder itself; replay through the binder only the constructs in the table (budgetCreateNative, call, burn), and for the others drive the consumer under repair (budget_mutation_identity and confirm_budget_mutation in mutate.rs, the lifecycle and settlement readers) with the signed EIP-1559 call encoded as the real producer encodes it (precompiles/layerxpay/abi.json words for budgetFundNative and budgetRevoke; sdk/platform/conformance/operations.json lines 506 to 532 for deploy, upgrade and deprecate), assert the binder refusal as a recorded fact and write the one-line wiring request for the disclosure domain in the task record (do_3); every construct carries a nonzero chain id and gas limit and a priority fee not above the max fee (prepare/disclose.rs lines 22 to 27). (2) The three Snapshot cases at lines 1055, 1160 and 1221: read_native_effect_budget_sources requires (program_sources.rs lines 430 to 447 and 40 to 52) a nonzero now, caps did equal to the actor, a nonzero state root, level at least STATE_PROVEN, freshness global sequence and observed head sequence equal to the prepared observed head sequence, batch number equal to the caps observed height and the node block number equal to both, and fee_policy.rs lines 126 to 137 require a header at that height with nonzero hash and state root; build the prepared source, the freshness and the loopback node answers to satisfy each and assert the refusal when one is violated. (3) The Refused case at line 852: assert the specific check of verify_budget_proof (budget_proof.rs lines 21 to 365) the counter-above-height export hits and make the export carry a revocation sequence above the height with every other field consistent, as do_7 requires. (4) The panic at line 409: the program_settlement corpus case has no receipt; record the receipt the production peer emitted for that construct or assert the no-receipt refusal path. Record the sites and the gate results by reference in the task record; amend no file after the gates run (gotcha 3142)."
 do_23 = "Attempt 8 (continue, gotcha 3225): the attempt-7 tree stands (12 passed). One production condition per failing case, each verified on main. (1) The MalformedPayload cases at lines 548 and 722: prepare/disclose.rs bind (lines 21 to 26) refuses only chain_id 0, gas_limit 0 or max_priority_fee_per_gas above max_fee_per_gas; give the fixture call chain id 125, a nonzero gas limit and a priority fee at or below the max fee, and assert the bound disclosure. (2) The Snapshot cases at lines 1408, 1507 and 1568: budget/fee_policy.rs native_fee_policy (lines 123 to 137 and 216 to 223) refuses when height is 0, block_number is below height, block_by_number(height) is empty, the header number differs from height, the header hash or the state root is zero, or the re-read differs; make the loopback endpoint of the fixture serve a head at or above the height, the header with that number and a nonzero hash, and a nonzero state root, stable across the two reads. (3) The dependent case follows. Every assertion prints the originating refusal. No production interface is missing; the binder and the reader stay. Run the build and the verify at the final revision and record them by reference in the task record."
+do_24 = "Attempt 9 (continue after 22.31.560, gotcha 3306, decision 2694): the attempt-8 tree stands (12 passed). Three case classes. (1) The Snapshot cases at lines 1461, 1564 and 1629 refuse only on the level: CommittedCaps::level answers the retired CHECKPOINT_FINALISED until 22.31.560 lands decision 2694 (COMMITTED); re-run them on a tree that includes 560 and change nothing in the fixture for them unless another condition of the reader (program_sources.rs lines 559 to 575: did, state root, global and observed head sequence, batch number, block number) refuses afterwards; then name that condition. (2) The deploy and exitValue cases at line 769: the binder table (layerx-crypto disclosure/call.rs lines 102 to 127) has no deploy or exitValue construct, so those cases must not call prepare_bound; drive the lifecycle and settlement readers directly with the signed EIP-1559 call of the corpus as the attempt-7 ruling (do_22 item 1) describes. (3) The create-source case at line 549: call disclosure::call::bind_call directly on the production-encoded corpus call in a probe, name the refusing helper and word index (word, uint, dynamic and tail at call.rs lines 351 to 405 refuse a non-zero high byte, a dynamic offset other than the head words times 32, or bytes after the padded tail); if the corpus argument is at fault, correct the corpus; if the production encoder and the production binder disagree on the layout of that construct, record the construct, the helper and the word index in the task record as a producer-to-consumer defect and leave the case asserting the refusal with that record. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.216]
 title = "Repair audit record 22.30.90 findings in services/agent/crates/layerx-agentd/src/policy: interface-mismatch"
