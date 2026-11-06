@@ -176205,7 +176205,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.574]
 title = "Frame the usage receipt with its digest in the runtime terminal decoder proof"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.488"]
@@ -184469,7 +184469,7 @@ do_15 = "Attempt 7 (continue, gotcha 3202): the attempt-6 tree stands (five case
 
 [task.22.33.260]
 title = "Repair audit record 22.30.130 medium findings in programs/crates/layerx-programs-ai-market/tests (part 1 of 2): restart-recovery, test-gap, wiring-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.266", "22.31.443", "22.31.485", "22.31.497", "22.31.558"]
