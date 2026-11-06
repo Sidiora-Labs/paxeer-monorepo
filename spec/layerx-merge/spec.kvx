@@ -325020,7 +325020,7 @@ do_3 = "Attempt 2 (continue, gotcha 3240, decision 2665): the attempt-1 tree sta
 
 [task.22.36.2]
 title = "Fold the platform documentation into docs/platform and move its code samples beside the examples"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
