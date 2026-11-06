@@ -150315,7 +150315,7 @@ do_8 = "Attempt 3 (requalify, gotcha 3309, decision 2708): the attempt-2 tree st
 
 [task.22.35.10]
 title = "Add the explorer Ask route and answer panel behind a configurable model endpoint"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.8"]
