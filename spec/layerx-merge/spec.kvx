@@ -176053,7 +176053,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.570]
 title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -176112,7 +176112,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.568]
 title = "Authenticate node receipts for cumulative use under the governed receipt keys"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
