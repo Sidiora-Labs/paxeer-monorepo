@@ -32611,3 +32611,123 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 15 at cc579828686b96262c97dc0fe3c6b9d72ff41486: builds 3, verify runs 1, repair cycles 2; verify exit 1: the executor proof passes (Fund Ok, 896330 CPU fuel) and the candidate Fund refuses LXP_ERR_NON_CANONICAL at pre-runtime with recorded CPU fuel 0, before the fresh-receipt correction was built."
 assumption = "The refusal is the stale receipt binding the agent found; the correction is built and unverified."
 severity = "high"
+
+[finding.22.33.1510.10]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 10 at 052249c11433dc4a9abc628964f9c86e6aff97c0: build exit 0, verify exit 101: 1 passed, 2 failed; both approval cases receive Corrupt from track_released at the submission reference field of the answer."
+assumption = "The consumer decodes a layout no producer serves; the repair is in the Human decoder (decision 2701) and the tree is unchanged."
+severity = "high"
+
+[finding.22.35.8.3]
+task = "22.35.8"
+file = "apps/explorer/ui/repair-22-35-8.spec.ts"
+symbol = "repair-22-35-8.spec.ts"
+observed = "Attempt 5 at 1a089a447231409e8813ab0fbf3bc2c36f31b87b: build exit 0, verify exit 1: tsc passes, 6 of 7 vitest cases pass, pagesRenderInBothColourModes timed out at 60 seconds after 66 seconds; the production build was not reached."
+assumption = "Six page mounts in one case exceed the case timeout in the qualification environment; the assertions are sound."
+severity = "medium"
+
+[finding.22.37.23.1]
+task = "22.37.23"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs"
+symbol = "native_source_recovery_actor.mjs"
+observed = "Attempt 1 at ea2d22a052b7637c0c9f6bc0b0a6d3a911c22962: build exit 0 (the pnpm filter matched no package), verify exit 1: the standalone authority guard failed because dist/storage/runtime.js was never built."
+assumption = "The command, not the tree, was wrong; the corrected build produces the artefacts the guard needs."
+severity = "medium"
+
+[finding.22.37.24.1]
+task = "22.37.24"
+file = "tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs"
+symbol = "campaign.mjs"
+observed = "Attempt 1 at 625d484b7849dfadb2312ccc98ff707a24f466ed: build exit 0 (the pnpm filter matched no package), verify exit 1: the actor compile of 6_2.py stopped on the missing generated contracts module."
+assumption = "The command, not the tree, was wrong; the corrected build generates the module."
+severity = "medium"
+
+[finding.22.33.1569.20]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 20 at 888238a7cbe4caf445ef8c41ef22e6ce55465e50: build exit 0, verify exit 1: the MCP draw is refused as WalletToolError::Policy; valid_context answers false because the authenticated cumulative use names the treasury DID while the session agent is the recipient."
+assumption = "The scenario authenticated the wrong actor for the draw session; the engine is right to refuse."
+severity = "high"
+
+[finding.22.31.560.10]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 10 at a506a7e780e7739b1d51686bb9d4c06edf4553ec: build exit 0, dependent-crate check exit 0, verify exit 1: native rate staging refused with canonical_digest_matches_envelope=false and preparation_id_matches_envelope=false, actor matched, pending-use advance Ok(0); observed_core_ms 1789365544000 against constraint_time 1789365544."
+assumption = "The staging compared the envelope digest with the call identifier the binding now carries, and the producer wrote seconds where every consumer reads milliseconds."
+severity = "high"
+
+[finding.22.31.478.16]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 16 at 81fe91e4897e1b4ee4609032a17898ffc5440a3a: build exit 0, dependent-crate check exit 0, verify exit 1: Fund result LXP_ERR_PROGRAM_REFUSED status -736 terminal 2 with callback stage 5 code -207 (LXP_ERR_UNAUTHORIZED_DEBIT) at CPU fuel 896330; the executor probe answers Ok."
+assumption = "The guest work finishes under the cap; the ledger refuses a debit no declared authority covers."
+severity = "high"
+
+[finding.22.37.1.1]
+task = "22.37.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py"
+symbol = "layout_tooling_driver_test.py"
+observed = "Attempt 1 at 703919737580cfdc0147089fd4ddbd150f25d1ff: build exit 0, verify exit 1 (the driver exited 2): layout_tooling_driver_test 6 OK; 0_8.py status BLOCKED, assertions 3, missing_evidence 2, regressions empty."
+assumption = "The series expects BLOCKED on the live parts until the owner credentials arrive."
+severity = "medium"
+
+[finding.22.37.16.1]
+task = "22.37.16"
+file = "tools/hyperfide/plugins/hyperfide-graph/host.test.ts"
+symbol = "host.test.ts"
+observed = "Attempt 1 at 84985536f0084bfbd485beda314acf62883f5e4c: build exit 0 (after one repair of TS2345), verify exit 1: 3_3.py PASS; the graph plugin vitest failed at import on the missing generated profile module and the missing domain package, 4 files failed to import, 4 cases passed."
+assumption = "Environmental: the vendored tree was never installed before the plugin test."
+severity = "medium"
+
+[finding.22.37.19.1]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 1 at 943ab37374ba6f45c67c2bf747cc94fb8e0f749d: build exit 2: the host-daemon typecheck stopped on the missing generated profile module of the process utilities library, the missing generated templates and the missing plugin build generated modules, plus TS7006 and TS2322 in sdk/client; verify not run."
+assumption = "Environmental first; the residual type errors are re-read once the generated modules exist."
+severity = "medium"
+
+[finding.22.37.20.1]
+task = "22.37.20"
+file = "tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts"
+symbol = "publication.test.ts"
+observed = "Attempt 1 at bf2097c94442df679c2330ed7c3d15280c1412c3: build exit 2 twice: the control-plane dependencies were not installed (Cannot find module pg, implicit any), then the qualify plugin typecheck stopped on missing workspace and generated modules; verify not run."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
+
+[finding.22.37.22.1]
+task = "22.37.22"
+file = "tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts"
+symbol = "inventory.ts"
+observed = "Attempt 1 at b34030d82d9cc9b4b136d3566baa0a289af369db: build exit 0 on a filter that matched no project (gotcha 3299), verify exit 1: the native actor compile could not find the generated contracts module in three files and reported TS18046 twice in the authority module of the preparation area."
+assumption = "The build never ran, so the generated module was absent; the TS18046 is re-read under the fixture tsconfig."
+severity = "medium"
+
+[finding.22.31.577.1]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 1 at 4f0c9da2e96c3b88f563e1c402c8c51e8265884e: build exit 101 then 0 (E0624 for_abi private, repaired), dependent-crate check exit 0, verify exit 1: market tests 10 passed; program_replay 3 passed, 1 failed at line 208 (Ok where Err(Fault(UnreachableExecuted)) is required); the repair compiled (build exit 0) and no verify run remained."
+assumption = "The final tree carries an unverified repair of the one failing assertion."
+severity = "medium"
+
+[finding.22.31.217.8]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 8 at 6ae4e720d1dafb3646919052c9eb59c05bf569bc: build exit 0, dependent-crate check exit 0, verify exit 1: 12 passed, 6 failed: three Snapshot refusals with caps.level CheckpointFinalised against the STATE_PROVEN floor, two MalformedPayload refusals for deploy and exitValue through prepare_bound, one MalformedPayload refusal for the create-source construct."
+assumption = "The level class is the producer defect decision 2694 assigns to 560; the lifecycle constructs never meet the binder; the create-source refusal needs its word named."
+severity = "high"
+
+[finding.22.37.11.1]
+task = "22.37.11"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py"
+symbol = "1_3.py"
+observed = "Attempt 1 at f1d2f43fa872e15928739bc4d0e62c5cf313ec83: build exit 0 on a filter that matched no project (gotcha 3299), verify exit 1 twice: the native actor compile could not find the generated contracts module (three files) and reported TS18046 twice; the repair pointed the driver at a non-existent contracts path."
+assumption = "The build never produced the generated module; the driver repair must go."
+severity = "medium"
