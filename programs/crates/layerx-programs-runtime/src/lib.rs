@@ -93,6 +93,8 @@ pub mod meter;
 #[allow(unsafe_code)]
 pub mod native_contract;
 #[deny(unsafe_code)]
+pub mod native_result;
+#[deny(unsafe_code)]
 pub mod occupancy;
 #[deny(unsafe_code)]
 pub mod portable_replay;
