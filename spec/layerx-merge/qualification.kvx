@@ -32499,3 +32499,19 @@ symbol = "human_runtime.rs"
 observed = "Attempt 3 at f87ab3ebe1d677f5732af1f2f6bf0c6c0b36cf06: build exit 0, dependent-crate check exit 0, verify exit 101: PREPARE answers operation.refused at tests/repair_22_31_571.rs line 1073; the proof-frame digest length correction is applied in the tree and unverified."
 assumption = "The proof encoder mismatch is the probable cause; the sited diagnostic settles it if not."
 severity = "high"
+
+[finding.22.31.573.4]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 4 at 67c1a6ac8ab9dc3f2254f62cb1f130a8791ca4bc: build exit 0, dependent-crate check exit 0, verify exit 101: the eight-call case is refused by the legacy trace guard at 333376350 bytes; the 128-call case is refused at the witness byte bound."
+assumption = "The legacy trace duplicates what the replay record commits; the baseline value is fixture scale."
+severity = "high"
+
+[finding.22.33.1569.17]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 17 at 4172b5752d1836d2cba9d22af78e9e2a23ebdb0f: build exit 0, verify exit 101: the funded MCP identity registration fails BoundaryUnavailable at funded_scenario.rs line 138 after the peer served the block, commit and validator reads."
+assumption = "The served checkpoint does not authenticate under the production verifier, and the resolver hides which read failed."
+severity = "high"
