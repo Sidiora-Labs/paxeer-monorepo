@@ -32,22 +32,34 @@ def canonical_digest(value):
     return hashlib.sha256(json.dumps(value, sort_keys=True, separators=(',', ':')).encode()).hexdigest()
 
 
-def capture_bindings():
-    mapping = document(PACK / 'repository-layout.json')
-    paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=ROOT).decode().split('\0')
+def source_tree_id(revision, root):
+    prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip()
+    target = revision + ':' + prefix.rstrip('/') if prefix else revision + '^{tree}'
+    return subprocess.check_output(['git', 'rev-parse', target], cwd=root, text=True).strip()
+
+
+def capture_bindings(root=None):
+    root = ROOT if root is None else Path(root).resolve()
+    pack = root / 'spec/hyperfide-source-control'
+    mapping = document(pack / 'repository-layout.json')
+    host_commit = subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=root, text=True).strip()
+    prefix = subprocess.check_output(['git', 'rev-parse', '--show-prefix'], cwd=root, text=True).strip()
+    paths = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z', '--', '.'], cwd=root).decode().split('\0')
     snapshot = {}
     for name in sorted(set(paths) - {''}):
         if name.startswith(('docs/', 'spec/', 'tests/')) or name.endswith('.md'):
             continue
-        source = ROOT / name
+        source = root / name
         if source.is_symlink():
             snapshot[name] = {'mode': '120000', 'sha256': hashlib.sha256(os.readlink(source).encode()).hexdigest()}
         elif source.is_file():
             snapshot[name] = {'mode': '100755' if source.stat().st_mode & 0o111 else '100644', 'sha256': digest(source)}
     return {
-        'source_revision': subprocess.check_output(['git', 'rev-parse', 'HEAD'], cwd=ROOT, text=True).strip(),
-        'source_tree_id': subprocess.check_output(['git', 'rev-parse', 'HEAD^{tree}'], cwd=ROOT, text=True).strip(),
-        'mapping_sha256': digest(PACK / 'repository-layout.json'),
+        'source_revision': host_commit,
+        'host_commit': host_commit,
+        'source_prefix': prefix,
+        'source_tree_id': source_tree_id('HEAD', root),
+        'mapping_sha256': digest(pack / 'repository-layout.json'),
         'layout_generation': mapping['layout_generation'],
         'source_snapshot': snapshot,
         'source_snapshot_sha256': canonical_digest(snapshot),
@@ -192,7 +204,7 @@ def task_receipt(task, path, bindings):
         raise ValueError('Exact qualifying source revision required')
     if subprocess.run(['git', 'merge-base', '--is-ancestor', revision, bindings['source_revision']], cwd=ROOT, capture_output=True).returncode:
         raise ValueError('Qualifying revision is not an ancestor of the current candidate')
-    tree = subprocess.check_output(['git', 'rev-parse', revision + '^{tree}'], cwd=ROOT, text=True).strip()
+    tree = source_tree_id(revision, ROOT)
     if receipt.get('source_tree_id') != tree or receipt.get('source_snapshot') != bindings['source_snapshot'] or canonical_digest(receipt['source_snapshot']) != receipt['source_snapshot_sha256']:
         raise ValueError('Qualifying runtime input snapshot changed')
     commands, observed = validate_execution(receipt, REQUIRED[task])

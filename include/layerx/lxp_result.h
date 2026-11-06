@@ -26,7 +26,7 @@ typedef enum lxp_result_domain_id {
 /*
  * Result numbers are embedded in canonical receipts and are consensus data.
  * Renumbering any value is a protocol-version change, never a refactor.
- * Service arbitration results -737..-739 cross into LXPCodeName/LXPRevert
+ * Service arbitration and Programs results -737..-741 cross into LXPCodeName/LXPRevert
  * in precompiles/common/lxp_errors.go and layerx_sdk.revert in Python.
  * They are terminal refusals, not retryable transport failures.
  * -804 is permanently reserved (retired DA-missing result).
@@ -147,6 +147,8 @@ typedef enum lxp_result_domain_id {
     X(LXP_ERR_ARBITER_REQUIRED, -737) \
     X(LXP_ERR_UNAUTHORIZED_ARBITER, -738) \
     X(LXP_ERR_ESCROW_LINK_MISMATCH, -739) \
+    X(LXP_ERR_REPLAY_BOUND, -740) \
+    X(LXP_ERR_ENGINE_FAULT, -741) \
     X(LXP_ERR_BATCH_GAP, -800) \
     X(LXP_ERR_ROOT_MISMATCH, -801) \
     X(LXP_ERR_TIMESTAMP_REGRESSION, -802) \

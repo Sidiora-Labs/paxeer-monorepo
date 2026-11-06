@@ -25,7 +25,7 @@
     "apps/web/package-lock.json": {
       "next": "16.4.1"
     },
-    "services/platform/docs/samples/paid-route-next/package.json": {
+    "services/platform/examples/samples/paid-route-next/package.json": {
       "next": "16.4.1"
     }
   }
