@@ -32819,3 +32819,35 @@ symbol = "replay_record.rs"
 observed = "Attempt 2 at 90d0b235fa07e234027346808e644d19df994a79 (the attempt-1 tree under the corrected environment): build exit 0, dependent-crate check exit 0, verify exit 101: the earlier suites pass; profiled_executor_admits_128_distinct_chunk_writes_in_17_wasm_pages and boundary_roots_rebuild_every_live_snapshot_and_authenticate_middle_step_memory fail with program replay record refused: Bounds."
 assumption = "The capture crosses the byte budget by carrying memory the previous leaf already commits; the named bound decides."
 severity = "high"
+
+[finding.22.37.23.3]
+task = "22.37.23"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs"
+symbol = "native_source_recovery_actor.mjs"
+observed = "Attempt 3 at ff0d1acfcc559c8a610924267daa7bb621c5ce1f: build passed; verify passed; the graph check refused three file-name symbols entries."
+assumption = "The task record, not the tree, was wrong; the record is corrected."
+severity = "low"
+
+[finding.22.37.24.3]
+task = "22.37.24"
+file = "tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs"
+symbol = "campaign.mjs"
+observed = "Attempt 3 at 5f00d3ae5ebfc6fb95f43817f0a072505169df92: build passed; verify passed; the graph check refused four file-name symbols entries."
+assumption = "The task record, not the tree, was wrong; the record is corrected."
+severity = "low"
+
+[finding.22.37.11.2]
+task = "22.37.11"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/1_3.py"
+symbol = "1_3.py"
+observed = "Attempt 2 at 33491973fe1497bf1d0248e10ede2a8be890b168: build exit 1: tsc reported TS2305 and TS7006 in audit.ts after the build script replaced the hand-edited control-plane contracts copy with the SDK source; no verify ran."
+assumption = "The attempt edited a generated file; the authored source is in the SDK package."
+severity = "high"
+
+[finding.22.33.1510.11]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 11 at fa10e5e5815247828b312f2efd23b751c034e486: build exit 0, dependent-crate check exit 0, verify exit 101: the approvals case fails with LifecycleMismatch at line 240, the decide case with Refused at line 504 (daemon: approval_get lookup refused: Registry(NotFound); recovery queued 0, awaiting 0); the third case passes."
+assumption = "The daemon registry does not carry the first-session approvals into the reopened owner, and the served record lags the decision; both are in the daemon write or load path or the fixture store, not in the inbox."
+severity = "high"
