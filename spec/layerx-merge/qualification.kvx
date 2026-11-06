@@ -33067,3 +33067,11 @@ symbol = "replay_record.rs"
 observed = "Attempt 6 at c4f94044d50e882971b9ab0c888fafa187d5b3d6: build exit 0, dependent-crate check exit 0, verify exit 101: every carried suite passes; the executor capture measures 1049404 bytes against 1048576 at leaf length 4998, and the live-snapshot adjudicator faulted on shifted function identifiers before the shared-catalog repair could be verified."
 assumption = "The excess is the graph replay state encoded twice per composed leaf; the shared catalog keeps the compiled identifiers stable."
 severity = "high"
+
+[finding.22.37.19.8]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 8 at b374d3e909f57f476d101592d005da3694d1cb2a: build exit 0, verify exit 1: the browser journey stopped at Timed out: button Refresh workspace after the acceptance receipt; the Workspace input was empty because the field helper wrote the workspace id into the Workspace mode select whose label precedes it on the panel."
+assumption = "The prefix rule of the helper is the only cause; the panel labels are unchanged."
+severity = "medium"
