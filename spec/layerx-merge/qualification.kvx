@@ -33019,3 +33019,11 @@ symbol = "replay_record.rs"
 observed = "Attempt 5 at 7e4d0a7b73532eddabcccdb32209508cc9bfe4a4: build exit 0, dependent-crate check exit 0, verify exit 1: every carried suite passes; the two 128-call proofs refuse at capture witness bytes 1049962 and 1048801 over the permitted 1048576."
 assumption = "Two record constants repeated in every leaf cost about 58 kilobytes; the overages are 1386 and 225 bytes."
 severity = "high"
+
+[finding.22.37.19.6]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 6 at 7e114a29d64a77c97368d3d2f49fb0f6723b877b: build exit 0, verify exit 1: the publication cancel passes and the product actor fails at line 615 with coverage COMPLETE where it asserted UNAVAILABLE."
+assumption = "The assertion encoded a hand-picked schema; the full series the fixture now applies creates the graphs table."
+severity = "high"
