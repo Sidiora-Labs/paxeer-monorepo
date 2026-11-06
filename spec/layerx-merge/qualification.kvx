@@ -32243,3 +32243,19 @@ symbol = "rpc_verification.rs"
 observed = "Attempt 1 at 65fe5b490f: build exit 101: tests/repair_22_31_563.rs line 710 passes a second NodeCommitCoverage argument the method no longer takes; no other error."
 assumption = "The caller was outside the scope; the signature change is the task."
 severity = "medium"
+
+[finding.22.31.566.1]
+task = "22.31.566"
+file = "include/layerx/lxp_result.h"
+symbol = "lxp_result.h"
+observed = "Attempt 1 at 95e69efe26beb6dff83b84d67c90938d45d3b6c9: build exit 0 after two repair cycles, dependents exit 0, verify exit 1: four cases pass and the trapping-initializer case fails at line 133 because the executor retains the start trap as a record; ffi_call.rs carries an 8149-line re-indentation for a 95-line change."
+assumption = "The executor never surfaces a guest trap as ExecutionError Fault on the budgeted v2 path; the status name follows the condition that reaches it, and the adapter leaves the gated file unchanged."
+severity = "high"
+
+[finding.22.99.77.20]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 18 at 3122042d8aa21cee0733713bc79aa76de7065c5e: build exit 0, dependents exit 0, verify exit 1: twelve native proofs refused with SupplementRejected, eight fuel residuals, five view-binding cases and three reward cases fail."
+assumption = "The observer refusal is a runtime defect exposed by the 564 landing; the remaining residuals are consumer-side."
+severity = "high"
