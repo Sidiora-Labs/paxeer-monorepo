@@ -184,6 +184,12 @@ function requestPaths(
   action: string,
   input: Record<string, unknown>,
 ): string[] | undefined {
+  if (action === "source.objects.read" && input.path !== undefined)
+    return [parseRepositoryPath(input.path)];
+  if (action === "source.fleet.manifest" && Array.isArray(input.paths))
+    return input.paths.map((path) =>
+      path === "" ? "" : parseRepositoryPath(path),
+    );
   if (action === "source.transfers.create" && Array.isArray(input.paths))
     return input.paths.map((path) =>
       path === "" ? "" : parseRepositoryPath(path),
@@ -473,6 +479,73 @@ export function createSourceApi(dependencies: SourceApiDependencies) {
         };
       }
       if (action === "source.objects.read") {
+        if (input.path !== undefined) {
+          fields(input, ["revision_id", "path"], ["revision_id", "path"]);
+          const revisionId = parseObjectId(input.revision_id),
+            path = parseRepositoryPath(input.path),
+            revision = await dependencies.metadata.readRevision(
+              context,
+              revisionId,
+            ),
+            entry = await dependencies.trees.lookup(
+              scope,
+              revision.root_tree_id,
+              path,
+            );
+          if (!entry)
+            throw new SourceControlError(
+              "NOT_FOUND",
+              "The path is absent from this revision",
+            );
+          const object = await dependencies.objects.read(
+            scope,
+            entry.object_id,
+            principal.signal,
+          );
+          if (
+            !(entry.kind === "file" && object.kind === "file") &&
+            !(
+              entry.kind === "symlink" &&
+              object.kind === "blob" &&
+              object.payload.byteLength <= 4096
+            ) &&
+            !(
+              entry.kind === "directory" &&
+              (object.kind === "tree-leaf" || object.kind === "tree-index")
+            )
+          )
+            throw new SourceControlError(
+              "INVALID_OBJECT",
+              "Source entry differs from its object kind",
+            );
+          const descriptor =
+            object.kind === "file"
+              ? decodeFileDescriptor(object.payload)
+              : null;
+          if (descriptor && BigInt(descriptor.size_bytes) > 65536n)
+            throw new SourceControlError(
+              "LIMIT_EXCEEDED",
+              "Path file read exceeds its 65536 byte budget",
+            );
+          const content = descriptor
+            ? await dependencies.objects.readFile(scope, entry.object_id)
+            : object.payload;
+          await dependencies.metadata.transaction((tx) =>
+            authorization.assertCurrent(tx, action, [path]),
+          );
+          return {
+            object_id: object.object_id,
+            kind: entry.kind,
+            path,
+            revision_id: revisionId,
+            mode: entry.mode,
+            content_base64: Buffer.from(content).toString("base64"),
+            byte_length: String(content.byteLength),
+            ...(descriptor
+              ? { content_digest: descriptor.content_digest }
+              : {}),
+          };
+        }
         fields(input, ["object_id"], ["object_id"]);
         const result = await dependencies.objects.read(
           scope,

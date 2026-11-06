@@ -6,14 +6,48 @@ import {
   type SourceSQL,
 } from "./metadata.js";
 
+export const SOURCE_SERVICE_STATUSES = [
+  "UNKNOWN",
+  "PENDING",
+  "UPLOADING",
+  "IMPORTING",
+  "ACKNOWLEDGED",
+  "COMMITTED",
+  "SUCCEEDED",
+  "FAILED",
+  "CANCELLED",
+  "QUEUED",
+  "READY",
+  "DISPATCHED",
+  "OUTCOME_UNKNOWN",
+  "PUBLISHED",
+  "REMOTE_DIVERGED",
+  "REJECTED",
+  "BUILDING",
+  "COMPLETE",
+  "VERIFIED",
+  "PREPARING",
+  "ACTIVE",
+  "FINALIZING",
+  "COMPLETED",
+  "AVAILABLE",
+  "DELETING",
+  "DELETED",
+] as const;
+export const SOURCE_SERVICE_PARTITIONS = [
+  "OBJECTS",
+  "UPLOADS",
+  "OPERATIONS",
+  "PUBLICATIONS",
+  "IMPORTS",
+  "GRAPHS",
+  "TRANSFERS",
+] as const;
 type Row = Record<string, unknown>;
 const millis = (value: unknown) =>
   value instanceof Date ? value.getTime() : Date.parse(String(value));
 const tables = {
-  objects: [
-    "source_native_objects",
-    "state,kind,size_bytes::text,tableoid::regclass::text AS partition",
-  ],
+  objects: ["source_native_objects", "state,kind,size_bytes::text"],
   uploads: ["source_object_uploads", "status AS state"],
   operations: ["source_metadata_operations", "state,created_at,updated_at"],
   publications: [
@@ -47,6 +81,7 @@ export class SourceMetricsService {
           tx,
           context,
           table,
+          family.toUpperCase() as (typeof SOURCE_SERVICE_PARTITIONS)[number],
           columns,
           maximum,
           Date.parse(observedAt),
@@ -65,6 +100,7 @@ export class SourceMetricsService {
     tx: SourceSQL,
     context: SourceContext,
     table: string,
+    partition: (typeof SOURCE_SERVICE_PARTITIONS)[number],
     columns: string,
     maximum: number,
     now: number,
@@ -84,6 +120,9 @@ export class SourceMetricsService {
         maximum_observed_pending_age_ms: null,
         mean_observed_duration_ms: null,
         partitions: {},
+        queue_depth: null,
+        graph_work_items: null,
+        remote_lag_ms: null,
       };
     const result = await tx.query(
       `SELECT ${columns} FROM hyperfide.${table} WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 LIMIT $4`,
@@ -105,7 +144,9 @@ export class SourceMetricsService {
       durationTotal = 0,
       durationCount = 0;
     for (const row of rows) {
-      const state = typeof row.state === "string" ? row.state : "UNKNOWN";
+      const state =
+        SOURCE_SERVICE_STATUSES.find((state) => state === row.state) ??
+        "UNKNOWN";
       states[state] = (states[state] ?? 0) + 1;
       if (table === "source_git_imports") {
         const values = row.metrics as Record<string, number>;
@@ -118,8 +159,7 @@ export class SourceMetricsService {
         ingestion.new_authored_revisions! +=
           values.new_authored_revisions ?? values.new_authored_commits!;
       }
-      if (typeof row.partition === "string")
-        partitions[row.partition] = (partitions[row.partition] ?? 0) + 1;
+      partitions[partition] = (partitions[partition] ?? 0) + 1;
       if (
         typeof row.size_bytes === "string" &&
         /^[0-9]+$/.test(row.size_bytes)
@@ -170,6 +210,19 @@ export class SourceMetricsService {
         : null,
       partitions,
       ...(table === "source_git_imports" ? { ingestion } : {}),
+      queue_depth:
+        partition === "TRANSFERS"
+          ? rows.filter((row) =>
+              ["PREPARING", "ACTIVE", "FINALIZING"].includes(String(row.state)),
+            ).length
+          : null,
+      graph_work_items:
+        partition === "GRAPHS"
+          ? rows.filter((row) =>
+              ["PENDING", "BUILDING"].includes(String(row.state)),
+            ).length
+          : null,
+      remote_lag_ms: partition === "PUBLICATIONS" ? pendingAge : null,
     };
   }
 }
