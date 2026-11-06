@@ -28,7 +28,25 @@ Every source service uses `SourceRoutedObjectCatalog`. An unspecified owner may 
 
 ## Qualification
 
-Run `python3 tests/hyperfide/cases/source_control/6_1.py` for owned PostgreSQL physical replication, crash, promotion and restore against the configured source/artifact S3 backend with a fresh isolated source scope. Use `--component` for the signed S3 fixture. Receipts under `build/source-control/6.1/` retain the exact acknowledgment inventory, manifest, profile, failure schedule and measured recovery duration. Same-host PostgreSQL evidence qualifies process and primary-instance faults; it does not establish cross-host or cross-region failure independence.
+The task gate runs the component variant from the repository root:
+
+```sh
+cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py --component
+```
+
+This uses owned PostgreSQL 18 processes and a signed HTTP S3 fixture. It kills actual source workers, stops the primary, promotes its physical synchronous standby, and restores a physical backup. The receipt reports `PROCESS_LOSS` and `PRIMARY_INSTANCE_LOSS` as `PASS` only after those checks succeed. Both PostgreSQL instances share one host, so `FAILURE_DOMAIN_LOSS` remains `UNRUN`. Distinct-host or region loss requires a separately qualified topology and external fencing evidence; a live object store alone cannot qualify it.
+
+For the live S3 variant, supply a fresh isolated bucket or a bucket allowing isolated native source scopes and set `HF_SOURCE_S3_ENDPOINT`, `HF_SOURCE_S3_REGION`, `HF_SOURCE_S3_BUCKET`, `HF_SOURCE_S3_ACCESS_KEY_ID`, and `HF_SOURCE_S3_SECRET_ACCESS_KEY` in the environment or `tools/hyperfide/.env`. Set `HF_SOURCE_S3_SESSION_TOKEN` when required. The existing `HF_ARTIFACT_S3_*` configuration aliases are also supported. Credentials need conditional object creation, reads, conditional deletion and multipart upload/abort permissions. Then run this exact command from the repository root:
+
+```sh
+cd tools/hyperfide && corepack enable && python3 tests/hyperfide/cases/source_control/6_1.py
+```
+
+The live variant additionally exercises a real multipart upload and reconciles its abort after a lost acknowledgment. It needs object-store credentials, PostgreSQL 18 binaries and permission to run owned PostgreSQL processes as the `postgres` user; provider and model credentials are not required by this drill. A component pass leaves the live S3 result `UNRUN`, with the exact live command in `unresolved_debt`. Decision 2700 requires the owner to retain that `UNRUN` command in `spec/hyperfide-source-control/qualification.kvx` until credentials are supplied and the live run is recorded. Task 22.37.23 permits changes only to the four implementation/runbook paths, so its receipt and this runbook carry the pending ledger entry without editing a specification file.
+
+Private receipts under `tools/hyperfide/build/source-control/6.1/` retain the verified revision, acknowledgment inventory, manifest, profile, backend identity, adapter version and compiled implementation digest, PostgreSQL version, fault schedule and measured recovery duration. The component backend also records its fixture source digest. The S3 object API does not expose the provider server version; that observation remains explicitly `UNRUN`. `deterministic_faults` records injected missing objects, lost acknowledgments, stale credentials, concurrent ownership movement and delayed deletion separately from `real_infrastructure` outcomes. Every declared `failure_domains` entry is `PASS`, `FAIL` or `UNRUN`; unresolved external qualification and cleanup debt remain visible even when the component checks pass.
+
+During rebalance, continuous immutable reads and revision commits run before, during and after the actual route move. The drill observes the move waiting on an admitted partition transaction, requires both workers to make progress while it waits, then verifies every acknowledged revision and its exact operation replay. The obsolete owner must receive typed `STALE_ROUTE` for upload admission and completion. After restore activation, the SDK sends `source.acceptance.accept` over real HTTP with the retained signed prior-epoch credential. Authentication remains valid, but authorization returns typed `SCOPE_DENIED`; neither acceptance inventory nor the attempted operation may change.
 
 Recovery separately reconciles external effects captured by the backup. `source.recovery.reconcile` accepts the backup, the current preparation operation, and a bounded item limit. It observes the exact upload placement, finishes only an already recorded conditional deletion, and uses readback for an issued Git publication. It never creates a replacement upload or sends another push. An unavailable observation leaves the effect pending. Unacknowledged uploaded bytes remain unacknowledged after reconciliation.
 
