@@ -32267,3 +32267,35 @@ symbol = "production_checklist.md"
 observed = "Attempt 1 at 175a8b06fe6498f54d2783c7bbf6e1c064ba8363: build exit 0, verify exit 1: 8 passed, 1 failed: three tracked files outside the listed scope still name an old document path."
 assumption = "Two of the files are live references the move must follow; the third is a repair record the grep excludes."
 severity = "medium"
+
+[finding.22.31.560.4]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 4 at fd4729c2564e0b3a31b02bc01795a658845c22bd: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare answers 503 owner.unavailable after the chain peer forwards px_getCommit at height 50 to the EVM node, which answers Method not found."
+assumption = "The readiness check needs a committed checkpoint the EVM node cannot serve; the recorded checkpoint with a block answered to match it satisfies the acquisition without a production change."
+severity = "high"
+
+[finding.22.31.568.1]
+task = "22.31.568"
+file = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs"
+symbol = "protocol_evidence.rs"
+observed = "Attempt 1 at a4d6b89d6305c66ef7d68c1eff4470fa0c575152: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the governed case fails with CumulativeUseError::Activity because ModuleId::from_u16(12) has no kernel module."
+assumption = "The consumer binds node receipts by the module word the node never serves; the activity identity is the binding the node chains."
+severity = "high"
+
+[finding.22.33.1510.8]
+task = "22.33.1510"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_1510.rs"
+symbol = "repair_22_33_1510.rs"
+observed = "Attempt 8 at 1e814d5d6e867c26d9fcfa20326bcea7d55c4da8: build exit 0, dependent-crate check exit 0, verify exit 101: the snapshot case passes; the approvals case fails with Agent(Refused) and the decision case with Refused after the lost-reply reopen."
+assumption = "The refusals come from the daemon after a restart; the producer repair precedes a further consumer run."
+severity = "high"
+
+[finding.22.35.9.2]
+task = "22.35.9"
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex"
+symbol = "stats_controller.ex"
+observed = "Attempt 2 at 2025712473a55c7ea216fe54631bd70b2290e129: build exit 0, verify exit 1: all 18 tests pass; the graph check refuses the symbol BlocksCount as not defined in the graph."
+assumption = "The alias is not a definition; the tree is unchanged."
+severity = "medium"

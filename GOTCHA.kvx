@@ -16080,3 +16080,23 @@ fix = "Task 22.31.569 makes the observer refusal name its site and admits a prof
 title = "22.36.5 attempt 1: the four documents are moved and eight of nine cases pass; test_no_tracked_references_to_old_document_paths fails because three tracked files outside the listed scope still name an old path: services/platform/perps-data/internal/records/records.go line 119 (a comment pointing at apps/perps/data_api.md), tools/qualification/audit_repairs/test_repair_22_33_1565.py lines 50, 80 and 110 (a live test that reads services/agent/COMPATIBILITY.md) and tools/qualification/audit_repairs/repair_22_33_1565.kvx line 16 (a repair record)."
 symptom = "The task listed the files its grep found at authoring time by directory and missed two of them; the candidate test excludes only spec/, GOTCHA.kvx and itself, although decision 2665 excludes repair records from a retirement grep."
 fix = "The test excludes repair records by pattern and the two live files join the scope and are rewritten (decision 2670)."
+
+[gotcha.3252]
+title = "22.31.560 attempt 4: the authority fixture serves balance-context and the peer drop reports the bootstrap failure once; the preview and the wrong-identifier refusal pass and the first Prepare still answers 503 owner.unavailable; the chain peer prints the next refused call, px_getCommit at height 50, answered Method not found by the EVM node."
+symptom = "The native send Prepare checks the direct node interface: human_node.rs verify_direct_node_readiness (line 105) calls ServedCheckpoint::acquire_at_committed_block (read/checkpoint.rs line 182), which reads eth_blockNumber, eth_getBlockByNumber, px_getCommit and px_getValidators at the head, decodes the signed header against the served validator set under chain id 125 and requires the block hash to equal the header block hash, the block stateRoot to equal app_hash and the block timestamp to equal the header time (lines 221 to 229); the EVM node serves no px_ method and the attempt-3 interception covers px_getReceiptKeys only."
+fix = "Serve px_getCommit and px_getValidators from the chain peer with the recorded checkpoint at height 64 and answer the head block with the recorded header hash, app hash and time."
+
+[gotcha.3253]
+title = "22.31.568 attempt 1: the sequencer signature of a node receipt verifies under the governed keys and the two refusal cases pass; the governed case fails with CumulativeUseError::Activity after the signature verifies."
+symptom = "authenticate_cumulative_use (protocol_evidence.rs lines 857 to 858) and the time-window path (lines 1228 to 1229) map every receipt module id through ModuleId::from_u16, which knows the kernel modules 1 to 11 only (layerx-types payload.rs line 54); a node receipt carries module 12 (decision 2648) and never names a kernel module, so the activity binding refuses before any identity is compared."
+fix = "Bind a node receipt to its entry by the activity identity and the activity type of the signed envelope, not by the receipt module (decision 2671)."
+
+[gotcha.3254]
+title = "22.33.1510 attempt 8: the fixture root is canonical with mode 0700 and the store no longer refuses; the snapshot case passes; the approvals case fails with Agent(Refused) and the decision case with Refused after the lost-reply reopen; the daemon log before each refusal shows only the recovery lines (writes admitted, protocol_consumed Some(0))."
+symptom = "Two causes stack: the daemon maps every approval lookup and decision error to HumanOperationError::Refused without the originating error (human_runtime.rs lines 7523, 7524, 7534, 7537 and 7543), so no diagnostic names the refusal; and after a restart ApprovalRegistry::replay_tenant (policy/approval.rs line 203) restores only the PreparedActivity holds and the program terminals while the released terminal records that replay_released (line 242) decodes are not restored, so a decided approval is unknown to approval_get and to a replayed decision once the daemon reopens."
+fix = "22.31.570 restores released terminal approvals on replay and carries the originating error in every Refused mapping; 22.33.1510 re-runs after it."
+
+[gotcha.3255]
+title = "22.35.9 attempt 2: the compile and all 18 tests pass, the bypass_through rendering of the chain page included; the task graph check refuses the symbol BlocksCount as not defined in the graph."
+symptom = "The symbol list of the task names BlocksCount, which is an alias of Explorer.Chain.Cache.Counters.BlocksCount in the two controllers and not a definition in the tree; the graph resolves defined symbols only, and total_blocks, block_height and block_count resolve."
+fix = "Drop the alias from the symbol list and requalify the attempt-2 tree unchanged."
