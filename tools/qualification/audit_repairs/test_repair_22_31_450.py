@@ -105,7 +105,10 @@ def test_wasmer_is_outside_affected_range_or_has_the_exact_engine_exception():
     assert record["ghsa"] == ADVISORIES["wasmer"][0]
     assert record["affected"] == ADVISORIES["wasmer"][1]
     assert record["first_patched_version"] == "none"
-    assert record["disposition"] == "retain pinned deterministic engine; owner dismissal required"
+    assert record["disposition"] == (
+        "documented exemption until the next runtime upgrade; "
+        "owner ruling 2026-11-05; SECURITY.md Known exemptions"
+    )
     assert record["engine_version"] == "4.2.2"
     assert record["cosmwasm_revision"] == COSMWASM_REVISION
     for term in ("=4.2.2", "Singlepass", "Gatekeeper", "gas", "canonicalize_nans", "chain upgrade"):
