@@ -176143,7 +176143,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.572]
 title = "Point the daemon compatibility include and README link at the matrix moved under docs/agent"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
