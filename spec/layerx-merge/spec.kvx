@@ -9153,6 +9153,12 @@ value = "When a task moves a sample, crate or module directory, it moves the loc
 basis = "A sample or crate whose lock file is lost at a move no longer installs with a frozen lockfile, and the 2026-11-03 rule that kept the start tree locks did not see a lock arriving by a move."
 affects = ["22.36.2"]
 
+[decision.2674]
+title = "A changed path compares unquoted against the scope of a task"
+value = "The qualification record reads every path git reports with path quoting off, so a file whose name carries a non-ASCII character (the provider bridge recordings carry an arrow in their names) is matched against the touched directories by its real name, and a task that moves such files neither renames them nor lists them one by one. Paths in spec lists stay ASCII."
+basis = "A move of a directory holding 255 such recordings was refused as out of scope although every file lay under a touched directory and the verify had passed."
+affects = ["22.36.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -324961,6 +324967,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3257, decision 2674): the attempt-1 tree stands (the project directory moved under tools/, addiqate/ removed, the eight root documents deleted, the 104 documentation files under docs/, the links rewritten, the tools README row, the 92 cases). The recorded tree lacks two lock files the move carried: recreate pnpm-lock.yaml at the moved directory root and core/control-plane/package-lock.json under it with the content the same files have under addiqate/ at the start revision (git show of that revision and path), stage both with git add, and keep the addiqate/ paths deleted; the qualification environment now keeps a lock file the index tracks under a touched directory and compares paths with non-ASCII names unquoted (both corrected before this attempt). Change nothing else. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.32.191]
 title = "Record the wasmer advisory exemption in the security policy and the repair record"
