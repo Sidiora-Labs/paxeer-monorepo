@@ -32899,3 +32899,19 @@ symbol = "repair_22_33_1510.rs"
 observed = "Attempt 12 at 7b0458e80ef917a4689f0662ab93b279e35efeca: build exit 0, dependent-crate check exit 0, verify exit 101: 2 passed, 1 failed (decide.rs line 511, decision integration: Refused after approval_get Registry(NotFound) on the reopened store)."
 assumption = "A rejected approval leaves no replayable record; decision 2672 covers it and only the released terminal half was built."
 severity = "high"
+
+[finding.22.31.560.12]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 12 at 624b714b52508532c16c3a32524307ca9b1adba2: build exit 0, dependent-crate check exit 0, verify exit 101: three cases failed in 0.24 seconds, the first spawning the local EVM executable (Os NotFound), the other two PoisonError from the shared bootstrap."
+assumption = "Environmental: the local EVM toolchain was not provisioned because the marker sits in an included file; the tree is unchanged."
+severity = "medium"
+
+[finding.22.31.580.1]
+task = "22.31.580"
+file = "tools/hyperfide/core/server/test/services/plugins/builtin-registry.test.ts"
+symbol = "builtin-registry.test.ts"
+observed = "Attempt 2 at 85102ed02a9962949eabd522d15f7ea38c1c1ce3: build exit 0, verify exit 1: vitest stops with ERR_MODULE_NOT_FOUND on the generated profile module of the process utilities library before any case runs, the same stop as attempt 1; the attempt started before the build amendment of decision 2717 reached the task record."
+assumption = "Environmental: the generated module is produced by the amended build; the tree is unchanged and matches the task text."
+severity = "medium"
