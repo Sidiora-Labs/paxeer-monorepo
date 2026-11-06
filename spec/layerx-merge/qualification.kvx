@@ -32363,3 +32363,11 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 13 at aa587ee0f09bcc536e3a95f96551a20cbf4d7287: build exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verification did not run."
 assumption = "The tree is unchanged; the include repair lands first."
 severity = "medium"
+
+[finding.22.99.77.21]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 19 at ed96083576a552e354a8756268e9ff0071e2ea96: build exit 0 and dependent checks exit 0 twice, verify exit 101 twice: twelve native proofs refused at execution_supplement.retained_limit, a02 fails on the rank the producer promotes, five operations 4 to 139 fuel over the cap."
+assumption = "The native refusal is a runtime accounting defect repaired by 573; the rank conflict is a producer change the task tree introduced; the fuel residuals are repeated decoding."
+severity = "high"
