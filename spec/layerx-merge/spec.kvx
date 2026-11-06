@@ -324835,7 +324835,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.36.5]
 title = "Move the remaining sub-project root documents into docs/"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.32.190"]
