@@ -32851,3 +32851,35 @@ symbol = "repair_22_33_1510.rs"
 observed = "Attempt 11 at fa10e5e5815247828b312f2efd23b751c034e486: build exit 0, dependent-crate check exit 0, verify exit 101: the approvals case fails with LifecycleMismatch at line 240, the decide case with Refused at line 504 (daemon: approval_get lookup refused: Registry(NotFound); recovery queued 0, awaiting 0); the third case passes."
 assumption = "The daemon registry does not carry the first-session approvals into the reopened owner, and the served record lags the decision; both are in the daemon write or load path or the fixture store, not in the inbox."
 severity = "high"
+
+[finding.22.31.560.11]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 11 at bb159a15db9db7911d63e604c6071688de760b29: build exit 0, dependent-crate check exit 0; the verify at the earlier candidate exit 101 (three cases: two refusal frames at line 598, bootstrap peer Refused at line 918); no verify at the final revision."
+assumption = "The final tree carries the correction the failing verify asked for; nothing has measured it."
+severity = "medium"
+
+[finding.22.37.16.3]
+task = "22.37.16"
+file = "tools/hyperfide/plugins/hyperfide-graph/host.test.ts"
+symbol = "host.test.ts"
+observed = "Attempt 3 at f5ca2258087f22290577b2713435b45553cfd102: build exit 0; verify: the driver passed, the plugin test run failed three cases (the bundle test could not resolve the signed entry of the source-control SDK package, two core server builtin-registry cases stale on main)."
+assumption = "The tree is right; the gates named more than the task owns and less than the bundle needs."
+severity = "low"
+
+[finding.22.37.19.3]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 3 at 0e3ae2c83927d352711b510b32e729a8aece280f: build exit 0; verify exit 1: the product actor unauthorized-read case asserted ok on the allowed path and received SCOPE_DENIED."
+assumption = "A path-prefixed capability never matches a read that carries no paths; the read must carry its path."
+severity = "high"
+
+[finding.22.31.478.17]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 17 at 085373589a8bb38e5db2220a31eaeee561d7e7cc: build exit 0, dependent-crate check exit 0, verify exit 101: the Go proof passed; the populated Fund test refused WRONG_EPOCH at lib.rs line 492 and the committed-receipt fixture case read 1114 storage bytes against the asserted 1084; 8 cases passed."
+assumption = "The populated test state and the fixture read accounting lag the production path that now passes; both are test-side bindings to name, not kernel or library changes."
+severity = "high"
