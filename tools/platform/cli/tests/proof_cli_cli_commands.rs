@@ -5,40 +5,20 @@
 //! using a retired REST activity receipt route instead of pax_sequencerReceipt.
 //! The existing activity_id argument name is retained; its value is a transaction hash.
 //!
-//! External limitation: tools/platform/emulator/src/main.rs::route has no /rpc
-//! route. Valid receipt, registry, discovery, call and token-list requests therefore
-//! currently refuse with HTTP 404, rather than providing successful EVM results.
-//! services/agent/crates/layerx-sdk/src/rpc.rs::RpcClient::call maps the emulator's
-//! non-RPC error document to RpcError::InvalidResponse; token list consequently
-//! reports rpc_method_unavailable. Assert that exact current consumer behaviour
-//! alongside the real route's 404, without repairing the SDK outside this task.
-//! This proof asserts that behaviour through the real emulator without replacing it.
-//! tools/platform/cli/src/rpc.rs::request intentionally refuses px_listAssets;
-//! token listing uses layerx_sdk::rpc::RpcClient::list_assets_page instead.
-//! Probe the missing /rpc route with the published pax_sequencerReceipt request,
-//! and independently assert both the CLI builder's refusal and the SDK result.
-//! MCP refuses absent or malformed enrolment, rather than manufacturing a session.
-//! Wallet and core state are produced by real commands, snapshotted by the core,
-//! stopped, reopened in a new process and observed by the actual consumers.
+//! The emulator route-absence case is an explicitly named negative boundary.
+//! The audit module adds the positive root-node and authenticated hosted-wallet
+//! consumer contract using committed producer output; it does not count emulator
+//! refusal as evidence that the merged network command path succeeds.
+//! Wallet/core recovery still uses real commands and snapshots.
 #![allow(dead_code)]
 
 mod common;
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/credential.rs"]
-mod credential;
-#[path = "../src/encoding.rs"]
-mod encoding;
 #[path = "../src/faucet.rs"]
 mod faucet;
-#[path = "../src/file_store.rs"]
-mod file_store;
-#[path = "../src/output.rs"]
-mod output;
 #[path = "../src/toolset.rs"]
 mod toolset;
 
-use layerx_platform_cli::http;
+use layerx_platform_cli::{config, credential, encoding, http, output};
 use serde_json::{json, Value};
 use std::io::Write as _;
 use std::net::TcpListener;
@@ -238,7 +218,7 @@ fn consume_shell(output: &Output, kind: &str, expected_success: bool) {
 
 #[test]
 #[allow(non_snake_case)]
-fn Call() -> Result<(), Box<dyn std::error::Error>> {
+fn emulator_rpc_route_absence_is_a_negative_boundary() -> Result<(), Box<dyn std::error::Error>> {
     let temp = tempfile::tempdir()?;
     let root = temp.path();
     {
@@ -350,7 +330,7 @@ fn Call() -> Result<(), Box<dyn std::error::Error>> {
     success(&derive.wait_with_output()?, "wallet.derived");
     let id = "11".repeat(32);
     let hash = format!("0x{}", "22".repeat(32));
-    let rpc = format!("{endpoint}/rpc");
+    let rpc = format!("{endpoint}/");
     for args in [
         vec!["receipt", "get", hash.as_str()],
         vec!["program", "discover", id.as_str()],
@@ -410,7 +390,7 @@ fn Call() -> Result<(), Box<dyn std::error::Error>> {
     );
     let detail = toolset::invoke(&runtime, tool, &json!({"activity_id":hash}))
         .expect_err("no emulator RPC route");
-    assert!(detail.contains("POST /rpc returned HTTP 404"), "{detail}");
+    assert!(detail.contains("POST / returned HTTP 404"), "{detail}");
     assert!(toolset::invoke(&runtime, tool, &json!({"activity_id":id}))
         .expect_err("unprefixed hash")
         .contains("0x-prefixed"));
@@ -478,3 +458,6 @@ fn Call() -> Result<(), Box<dyn std::error::Error>> {
     );
     Ok(())
 }
+
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;

@@ -365,20 +365,22 @@ impl ExecutionTrace {
                 limit: self.policy.maximum_commitments as usize,
             });
         }
-        self.total_commitment_fuel = self
+        let total_commitment_fuel = self
             .total_commitment_fuel
             .checked_add(commitment.commitment_fuel)
             .ok_or(CommitmentError::CostOverflow)?;
-        self.total_state_bytes = self
+        let total_state_bytes = self
             .total_state_bytes
             .checked_add(u64::from(commitment.encoded_state_bytes))
             .ok_or(CommitmentError::CostOverflow)?;
-        if self.total_state_bytes > MAX_TRACE_STATE_BYTES {
+        if total_state_bytes > MAX_TRACE_STATE_BYTES {
             return Err(CommitmentError::TraceByteLimit {
-                attempted: self.total_state_bytes,
+                attempted: total_state_bytes,
                 limit: MAX_TRACE_STATE_BYTES,
             });
         }
+        self.total_commitment_fuel = total_commitment_fuel;
+        self.total_state_bytes = total_state_bytes;
         self.commitments.push(commitment);
         Ok(())
     }
@@ -935,6 +937,21 @@ pub fn arbitration_step_commitment_fuel_with_host(
         .checked_add(host_work)
         .ok_or(CommitmentError::CostOverflow)?;
     step_commitment_fuel(work)
+}
+
+pub(crate) fn replay_step_commitment_fuels(
+    legacy_state_bytes: u64,
+    engine_state_bytes: u64,
+    host_state_bytes: u64,
+) -> Result<(u64, u64), CommitmentError> {
+    Ok((
+        step_commitment_fuel(legacy_state_bytes)?,
+        arbitration_step_commitment_fuel_with_host(
+            legacy_state_bytes,
+            engine_state_bytes,
+            host_state_bytes,
+        )?,
+    ))
 }
 
 impl ExecutionState {

@@ -1,0 +1,78 @@
+[repair.22.33.63]
+audit = "22.30.107"
+acceptance = "22998.1"
+base_revision = "039e5adc21d328c5a1b7275e9649076c7d444e31"
+status = "implemented_not_qualified"
+evidence = "The hf-build/hf-done ledger owns the candidate revision, command, exit code and private log. Completion requires both gates on the same candidate; no positive rotation qualification is claimed."
+
+[baseline.attempt-4]
+revision = "13cab41cf63ec4daa3bd4622e6e78ffad643bde0"
+command = "cg spec done 22.33.63 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Unchanged carried-over tree: 5 passed, 4 failed; journey_faults_producer_not_reopened and move_test_substituted_transaction rejected the pointer-transfer transcript, and session_key_rotation_synthetic_transaction and session_rung_rotation_synthetic_transaction failed current production preparation with Disclosure(MalformedPayload)."
+order = "The requested verify-first hf-done was refused because its wrapper requires a passing hf-build; the unchanged-tree hf-build then passed before this baseline verification. No verify command was run by hand."
+
+[finding.journey-faults-producer-not-reopened]
+test = "journey_faults_producer_not_reopened"
+source_test = "journey_faults::producer_outbox_and_consumer_reopen_at_every_durable_phase"
+proof = "Reconstructs the real custody keystore/signer, daemon Store/Outbox and Human PrincipalStore/MoveJourney across each durable phase; loses the first submit acknowledgement after acceptance, rejects a duplicate raw send, and reopens final producer/consumer evidence with the same action and exactly two nonces."
+fixture = "The task-local bank recording is emitted by production encoders; exact preparation, recovered sender, canonical bank method, nonce, denom, recipient, amount, authenticated receipt, signed batch, validator quorum, recipient balance delta and retained Committed evidence remain asserted."
+
+[finding.move-test-substituted-transaction]
+test = "move_test_substituted_transaction"
+source_test = "move_money::current_bank_preparation_custody_exact_bytes_and_receipt"
+proof = "Current MovePlan preparation traverses CustodySigner::sign_in_scope and EnvelopeKms; the durable outbox holds those exact verified EIP-1559 bytes. Both plan legs are decoded and compared against their original bank calls, and their exact hashes reach the real relay client and committed receipt consumer. The existing intent adapter verifies and enqueues its actual custody transaction instead of signing a replacement."
+
+[finding.native-approval-clock-units]
+test = "native_approval_clock_units"
+source_test = "native_journey_approval::genuine_native_journey_holds_reopens_and_resumes_original_authority"
+proof = "Named ProtocolTime seconds/milliseconds go to their matching APIs. The focused offline case verifies the actual owner grant signature, validates/loads consent before its actual expiry, reopens the store with identical consent, and refuses at and after expiry without changing retained consent. The genuine producer fixture and bounded wait remain."
+
+[finding.native-producer-clock-units]
+test = "native_producer_clock_units"
+source_test = "native_send_producer::genuine_human_owner_session_consent_preview_and_reopen"
+proof = "The same real signed consent crosses the production Unix frame/runtime, scoped store, session validation and pending-nonce reader before expiry and after reopen; exact expiry and later time are refused. The genuine producer uses seconds for session APIs and milliseconds for expiry comparisons."
+
+[finding.native-producer-assumes-static-head]
+test = "native_producer_assumes_static_head"
+source_test = "native_send_producer::genuine_human_owner_session_consent_preview_and_reopen"
+proof = "Successive preview snapshots advance height while binding the same canonical bytes, signing preimage, purpose, capability and nonce. Genuine producer checks resolve each returned committed height/hash, assert monotonic freshness, and preserve authorization and no-side-effect assertions."
+
+[finding.session-key-rotation-synthetic-transaction]
+test = "session_key_rotation_synthetic_transaction"
+source_test = "session_keys::current_rotation_uses_production_preparation_and_custody"
+status = "blocked_on_external_interface"
+observed = "The production compiler emits the exact 92-byte KeyRotation shape: tag 0x7102, field count 4, owner digest, pending key, challenge start/end and effective sequence. The production ABI encoder produces a 196-byte recordLifecycle call with a 64-byte payload offset and the original action key. Both shapes are asserted before the unchanged positive preparation/custody assertion."
+wiring = "Domain 6: services/agent/crates/layerx-crypto/src/disclosure/call.rs must bind the compiler's current KeyRotation payload; recordLifecycle currently admits only lifecycle tags 0x7101 and 0x7103, and must not be bypassed or relabeled by a test."
+wiring_node = "Domain 1: modules/layerxauth/keeper/lifecycle.go must define an accepted current rotation payload and committed evidence contract; RecordLifecycle currently rejects 0x7102 before execution."
+wiring_recovery = "Domain 10: services/human/crates/layerx-human-service/src/custody/sessions.rs needs authenticated durable SessionKeyProvisioner recovery before producer/provisioner acknowledgement-loss recovery can be proven."
+
+[finding.session-rung-rotation-synthetic-transaction]
+test = "session_rung_rotation_synthetic_transaction"
+source_test = "session_rungs::current_rotation_requires_a_real_producer_before_rung_acceptance"
+status = "blocked_on_external_interface"
+observed = "The same production payload/ABI shape and positive preparation/custody boundary remain required. Existing focused below-Committed refusal policy cases remain intact; no fabricated accepted rotation or receipt is supplied."
+wiring = "Domain 1: services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs must provide accepted owner-rotation projection and committed recovery evidence; prepare currently returns rotation_unsupported for every request."
+wiring_human = "Domain 10: services/human/crates/layerx-human-service/src/server/production_rotation.rs must provide supported announce/commit stages and a durable consumer contract; those stages currently return operation_retired."
+
+[custody.public-entry]
+private_symbol = "layerx_human_service::custody::attach_call_signature is a crate-private re-export."
+public_entry = "CustodySigner::sign_in_scope calls the production custody signer; custody::signer::attach_call_signature is its already-public transaction assembly entry."
+production_caller = "services/human/crates/layerx-human-service/src/server/agent_creation.rs"
+
+[gotcha.baseline-order]
+observed = "hf-done refuses verification before a passing hf-build even when continuation instructions request a baseline verify first."
+resolution = "Run the unchanged-tree build through hf-build, then the unchanged-tree baseline through hf-done; never bypass the wrapper."
+
+[gotcha.rotation-shape]
+observed = "A correctly compiled KeyRotation payload is still unsupported by both the current Auth disclosure codec and node lifecycle keeper."
+resolution = "Assert the production tag, field count, fields and ABI envelope, preserve the positive acceptance assertion, and request wiring from the owning domains rather than substituting another lifecycle operation."
+
+[recording.bank]
+path = "services/human/crates/layerx-human-service/tests/support/repair_22_33_63_bank.rs"
+producer = "Unchanged ReceiptInput/Accepted/ReceiptKey.SignReceipt and receipt encoder declarations from node/sequencer plus decodeSequencerReceipt/SequencerReceiptResult.Verify from rpc/sequencer_receipt.go; imported production bank ABI encoder, sequence-batch encoder and Comet Header.Hash, VoteSignBytes and Txs.Proof."
+inputs = "Public fixture custody seed 0x42 repeated, chain 125, nonces 7/8, bank 0x1001, denom uhpx, recipients 0x22/0x55 repeated and amounts 90/40. Receipt and validator test keys are public fixture material; all dependent hashes, signatures, JSON views and proofs are regenerated."
+method = "A private one-shot Go constructor executed the unchanged production encoder declarations during implementation. The focused Rust gate only replays the resulting committed data through the real RPC client and stores; it needs no Go executable, environment, native artifact, credential or live endpoint."
+json_sha256 = "551dc8742bc448023edd7b8d22e048c7fec6578bec55b6fe25bf112e80ab4bf3"
+source_hashes = "Producer source digests are retained as sourceHashes in the immutable task-local recording. The old out-of-scope pointer-transfer transcript is unchanged."

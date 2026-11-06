@@ -410,8 +410,7 @@ fn validate_event(event: &CoreEvent) -> Result<(), IngestError> {
     let log_evidence = !has_receipt
         && matches!(
             event.receipt_verification_level,
-            legacy::VerificationLevel::BATCH_INCLUDED
-                | legacy::VerificationLevel::CHECKPOINT_FINALISED
+            legacy::VerificationLevel::BATCH_INCLUDED | legacy::VerificationLevel::COMMITTED
         )
         && event.log().is_ok();
     if has_receipt != is_verified && !log_evidence {
@@ -528,7 +527,7 @@ fn decode_metadata(
         1 => legacy::VerificationLevel::SEQUENCER_SIGNED,
         2 => legacy::VerificationLevel::BATCH_INCLUDED,
         3 => legacy::VerificationLevel::STATE_PROVEN,
-        4 => legacy::VerificationLevel::CHECKPOINT_FINALISED,
+        4 | 6 => legacy::VerificationLevel::COMMITTED,
         5 => legacy::VerificationLevel::SETTLEMENT_ANCHORED,
         _ => return Err(IngestError::CorruptEvent),
     };
@@ -1014,8 +1013,7 @@ impl EventIngestor {
                     if log.block_hash != Some(checkpoint.block_hash) {
                         return Err(IngestError::InvalidLog);
                     }
-                    event.receipt_verification_level =
-                        legacy::VerificationLevel::CHECKPOINT_FINALISED;
+                    event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
                     updates.push((
                         metadata_key(self.tenant.clone(), sequence)?,
                         encode_metadata(&event),
@@ -1035,8 +1033,7 @@ impl EventIngestor {
         for (&position, event) in &self.pending {
             if position.block_height == checkpoint.height {
                 let mut promoted = event.clone();
-                promoted.receipt_verification_level =
-                    legacy::VerificationLevel::CHECKPOINT_FINALISED;
+                promoted.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
                 updates.push((
                     pending_key(self.tenant.clone(), position)?,
                     encode_pending(&promoted)?,
@@ -1049,7 +1046,7 @@ impl EventIngestor {
                 .position()
                 .is_some_and(|position| position.block_height == checkpoint.height)
             {
-                event.receipt_verification_level = legacy::VerificationLevel::CHECKPOINT_FINALISED;
+                event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
             }
         }
         Ok(())
@@ -1180,4 +1177,174 @@ fn decode_pending(bytes: &[u8]) -> Result<CoreEvent, IngestError> {
     validate_event(&event).map_err(|_| IngestError::CorruptEvent)?;
     event.log().map_err(|_| IngestError::CorruptEvent)?;
     Ok(event)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::read::ServedCheckpoint;
+    use serde_json::json;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
+
+    fn directory() -> std::path::PathBuf {
+        std::env::temp_dir().join(format!(
+            "layerx-event-commit-{}-{}",
+            std::process::id(),
+            NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
+        ))
+    }
+
+    fn receipted_log(checkpoint: &ServedCheckpoint, log_index: u32) -> CoreEvent {
+        CoreEvent::from_log(
+            &json!({
+                "blockNumber": format!("{:#x}", checkpoint.height),
+                "blockHash": format!("0x{}", hex::encode(checkpoint.block_hash)),
+                "transactionIndex": "0x0",
+                "logIndex": format!("{log_index:#x}"),
+                "transactionHash": format!("0x{}", hex::encode([7; 32])),
+                "address": format!("0x{}", hex::encode([8; 20])),
+                "topics": [],
+                "data": "0x0102",
+                "removed": false
+            }),
+            EventAttributes {
+                agent: "agent".into(),
+                account: "account".into(),
+                activity_type: 9,
+                module: "asset".into(),
+                asset: "LXR".into(),
+                counterparty: "counterparty".into(),
+                result_code: 0,
+            },
+        )
+        .unwrap()
+    }
+
+    #[test]
+    fn committed_promotion_validates_and_reopens_pending_and_retained_logs() {
+        let root = directory();
+        let tenant = TenantId::new("committed-promotion").unwrap();
+        let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
+        let mut retained = receipted_log(&checkpoint, 0);
+        retained.receipt_reference = Some([9; 32]);
+        let mut pending = receipted_log(&checkpoint, 1);
+        pending.receipt_reference = Some([10; 32]);
+        let position = pending.position().unwrap();
+        let mut ingestor =
+            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
+        ingestor.queue_log(pending.clone()).unwrap();
+        ingest_with_class(
+            &mut ingestor,
+            retained.clone(),
+            StorageClass::CoreProducedCache,
+        )
+        .unwrap();
+
+        ingestor.commit_block(&checkpoint).unwrap();
+        retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
+        pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
+        assert_eq!(ingestor.pending.get(&position), Some(&pending));
+        validate_event(ingestor.pending.get(&position).unwrap()).unwrap();
+        assert_eq!(ingestor.buffered.front(), Some(&retained));
+        validate_event(ingestor.buffered.front().unwrap()).unwrap();
+        assert_eq!(ingestor.retained_event(0).unwrap(), retained);
+        let metadata = ingestor
+            .store()
+            .get(&metadata_key(tenant.clone(), 0).unwrap())
+            .unwrap();
+        assert_eq!(metadata.bytes()[4], 6);
+        let encoded_pending = ingestor
+            .store()
+            .get(&pending_key(tenant.clone(), position).unwrap())
+            .unwrap();
+        assert_eq!(
+            encoded_pending.bytes()[4 + pending.canonical_bytes.len() + 4],
+            6
+        );
+        assert_eq!(decode_pending(encoded_pending.bytes()).unwrap(), pending);
+        assert_eq!(ingestor.take_next(), Some(retained.clone()));
+        drop(ingestor);
+
+        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
+        let restored = reopened.pending.get(&position).unwrap();
+        assert_eq!(restored, &pending);
+        assert_eq!(restored.rung(), Some(Rung::Committed));
+        validate_event(restored).unwrap();
+        assert_eq!(reopened.retained_event(0).unwrap(), retained);
+        drop(reopened);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn legacy_rank_four_durable_records_migrate_to_committed_on_read() {
+        let root = directory();
+        let tenant = TenantId::new("legacy-commit").unwrap();
+        let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
+        let mut retained = receipted_log(&checkpoint, 0);
+        retained.receipt_reference = Some([9; 32]);
+        retained.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
+        let mut pending = receipted_log(&checkpoint, 1);
+        pending.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
+        let position = pending.position().unwrap();
+        let mut ingestor =
+            EventIngestor::open(Store::open(&root).unwrap(), tenant.clone(), 4, 0).unwrap();
+        ingest_with_class(
+            &mut ingestor,
+            retained.clone(),
+            StorageClass::CoreProducedCache,
+        )
+        .unwrap();
+        let mut metadata = encode_metadata(&retained);
+        metadata[4] = 4;
+        let mut encoded_pending = encode_pending(&pending).unwrap();
+        encoded_pending[4 + pending.canonical_bytes.len() + 4] = 4;
+        ingestor
+            .store
+            .put_local(metadata_key(tenant.clone(), 0).unwrap(), metadata)
+            .unwrap();
+        ingestor
+            .store
+            .put_local(
+                pending_key(tenant.clone(), position).unwrap(),
+                encoded_pending,
+            )
+            .unwrap();
+        drop(ingestor);
+
+        let reopened = EventIngestor::open(Store::open(&root).unwrap(), tenant, 4, 0).unwrap();
+        assert_eq!(reopened.retained_event(0).unwrap(), retained);
+        let restored = reopened.pending.get(&position).unwrap();
+        assert_eq!(restored, &pending);
+        assert_eq!(restored.rung(), Some(Rung::Committed));
+        validate_event(restored).unwrap();
+        assert_eq!(encode_metadata(&reopened.retained_event(0).unwrap())[4], 6);
+        assert_eq!(
+            encode_pending(restored).unwrap()[4 + restored.canonical_bytes.len() + 4],
+            6
+        );
+        drop(reopened);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn committed_log_without_receipt_validates_through_log_evidence() {
+        let checkpoint = ServedCheckpoint::test_fixture(11, 1234, 0);
+        let mut event = receipted_log(&checkpoint, 0);
+        event.receipt_verification_level = legacy::VerificationLevel::COMMITTED;
+        assert!(event.receipt_reference.is_none());
+        assert_eq!(event.log().unwrap().rung, Rung::Committed);
+        validate_event(&event).unwrap();
+        assert_eq!(
+            decode_pending(&encode_pending(&event).unwrap()).unwrap(),
+            event
+        );
+
+        event.canonical_bytes = vec![1];
+        assert!(matches!(
+            validate_event(&event),
+            Err(IngestError::ReceiptEvidenceMismatch)
+        ));
+    }
 }

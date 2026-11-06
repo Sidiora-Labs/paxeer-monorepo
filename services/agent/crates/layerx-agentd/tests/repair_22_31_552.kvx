@@ -1,0 +1,43 @@
+[repair.22.31.552]
+acceptance = "22998.1"
+gotchas = [3142, 3168, 3169]
+decisions = [2602, 2621]
+scope = "Test fixtures only; production store protection and approval behavior are unchanged."
+
+[sites.store]
+directory = "src/store/mod.rs: batch_removing_tests::Directory::new creates a fresh label-and-process-id directory with DirBuilder mode 0o700 under the canonical temporary directory."
+rollback = "update_local_batch_removing_rolls_back_both_lists_on_failed_persist uses Directory::new; a real store.bin.tmp obstruction causes persistence to fail without replacing the locked root inode. Removing the obstruction lets the same writer retry. Existing corruption, rollback, success and reopened-state assertions remain."
+reopen = "The batch rollback test already drops its writer before reopening; retain that ownership boundary."
+
+[sites.capability]
+directory = "src/capability/consume.rs: chain_tests::open canonicalizes the temporary parent, removes the label-and-process-id root, and creates it with DirBuilder mode 0o700 before Store::open."
+sum = "two_preparations_hold_per_asset_on_every_ancestor drops the writer before reopening and drops the reopened writer before cleanup."
+verified = "verified_settlement_moves_held_to_consumed drops the original writer, reopens a mutable store and performs both persisted-total and refusal/conflict assertions through that sole reopened writer."
+unknown = "unknown_outcome_retains_the_hold drops the writer before reopening and drops the reopened writer before cleanup; recovery still asserts one Unknown record."
+cleanup = "failed_settlement_releases_the_hold, replay_of_a_preparation_charges_nothing_more and rate_counts_one_action_per_preparation_per_ancestor drop the store before root cleanup, as do the three reopen cases."
+
+[sites.approval]
+directory = "tests/approval_ordering/mod.rs: Directory::new canonicalizes the temporary parent and preserves its unique label-and-process-id root and mode 0o700."
+ownership = "Directory::open_expiry opens the real Store only on Directory::path and transfers its sole owner to ApprovalExpiry::from_shared_store; store-open failures retain their precise error."
+grant = "rejection_between_grant_prepare_and_persist_conflicts_with_durable_grant uses Directory::open_expiry for its first open and recovery open, preserving drop(expiry) before recovery and every concurrency and durable-grant assertion."
+reject = "stale_prepared_grant_cannot_overwrite_durable_rejection uses Directory::open_expiry for its first open and recovery open, preserving drop(expiry) before recovery and every conditional-write and durable-rejection assertion."
+snapshot = "stale_prepared_grant_cannot_overwrite_durable_rejection uses get_scoped_at with ApprovalSequence(11) and TimestampSeconds(11); the sequence-only get_scoped rejects the timed hold with ClockRequired."
+preparation = "tests/approval_ordering/preparation.rs: produced, adapt and prepared have no filesystem or Store opens; no helper change is needed."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The exact verified revision is the final verify row in the private ledger; it must equal the preceding successful build row and final candidate."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.552 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- store::batch_removing_tests capability::consumption::chain_tests approval::ordering_tests"
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+results = "Record gate results by reference: ledger rows of kind build and verify contain the exact revision, command, exit code and private evidence location, including repair runs if needed. No passing result is asserted before execution."
+immutability = "This record is written before qualification. No source or record is amended after the final build and verify (gotcha 3142); the runner owns publication."
+
+[qualification.first_pass]
+revision = "1baa385e8579ec5107b8999432d9686cdda0ac5f"
+build = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests; exit 0; /out/logs/build-1.log"
+verify = "cg spec done 22.31.552 -f layerx-merge --root /work/paxeer-monorepo; exit 1 (cargo test exit 101); /out/logs/verify-1.log"
+observed = "All ten selected tests executed; nine passed and stale_prepared_grant_cannot_overwrite_durable_rejection failed at tests/approval_ordering/mod.rs:214 with snapshot: ClockRequired."
+repair = "Use the timed snapshot read in this fixture, preserving the same sequence and every assertion; rebuild and verify the final unchanged candidate."

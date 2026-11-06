@@ -1,21 +1,38 @@
 package layerxprograms_test
 
 import (
-	"bytes"
 	"crypto/sha256"
+	_ "embed"
 	"encoding/binary"
 	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	lp "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxprograms"
+	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
 )
+
+//go:embed testdata/repair_m213_lease_request.hex
+var sandboxLeaseRequestHex string
+
+const sandboxLeaseStateDomain = "LayerX/programs/sandbox/lease-state/v3\x00"
+
+func recordedSandboxLeaseRequest(t *testing.T) []byte {
+	t.Helper()
+	request, err := hex.DecodeString(strings.TrimSpace(sandboxLeaseRequestHex))
+	require.NoError(t, err)
+	require.Len(t, request, 643)
+	require.Equal(t, sandboxLeaseStateDomain, string(request[:len(sandboxLeaseStateDomain)]))
+	return request
+}
 
 func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, callPayload []byte) ([]interface{}, func()) {
 	t.Helper()
@@ -31,7 +48,8 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 	asset := [32]byte(feeRecord[65:97])
 	_, tenantAccount, err := lxphost.AssetAccountID(h.publicKey, asset)
 	require.NoError(t, err)
-	program, leaseID := callArgs[0].([32]byte), [32]byte{0x11}
+	recorded := recordedSandboxLeaseRequest(t)
+	program, leaseID := callArgs[0].([32]byte), [32]byte(recorded[len(sandboxLeaseStateDomain):len(sandboxLeaseStateDomain)+32])
 	record, err := h.host.ReadProgram(ctx, program)
 	require.NoError(t, err)
 	codeHash := record.CodeHash
@@ -88,35 +106,17 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 	require.NoError(t, err)
 	seedAccount(mainID, mainName, 1, 0, [32]byte{}, 0, sequence, h.publicKey, 1)
 	seedAccount(fees, "system:fees", 10, 0, asset, 1, 0, [32]byte{}, 0)
-	material = append([]byte("LayerX/programs/sandbox/namespace/v1\x00"), program[:]...)
-	namespace := sha256.Sum256(append(material, leaseID[:]...))
-	var terms []byte
-	for _, word := range [][32]byte{leaseID, authority.Principal, program, codeHash, namespace, asset, escrow, fees} {
-		terms = append(terms, word[:]...)
-	}
-	terms = binary.BigEndian.AppendUint64(terms, 0)
-	terms = binary.BigEndian.AppendUint64(terms, 100000000)
 	budget := callArgs[7].([7]uint64)
-	for _, bound := range append(budget[:], 1048576, 100, 200) {
-		terms = binary.BigEndian.AppendUint64(terms, bound)
-	}
-	schedule := binary.BigEndian.AppendUint32(nil, 1)
-	for range 7 {
-		schedule = binary.BigEndian.AppendUint64(schedule, 1)
-	}
-	requestMaterial := append([]byte("LayerX/programs/sandbox/request/v3\x00"), terms...)
-	requestDigest := sha256.Sum256(append(requestMaterial, schedule...))
-	request := append([]byte("LayerX/programs/sandbox/lease-state/v3\x00"), terms...)
-	request = append(request, make([]byte, 64)...)
-	request = append(request, schedule...)
-	request = append(request, make([]byte, 16)...)
-	request = append(request, 0, 1, 0, 0, 0)
-	request = append(request, bytes.Repeat([]byte{0x81}, 32)...)
-	request = append(request, requestDigest[:]...)
-	requestReceipt := sha256.Sum256(request)
-	request = append(request, requestReceipt[:]...)
-	request = binary.BigEndian.AppendUint64(request, 100)
-	request = append(request, 0, 0, 0)
+	request, err := lp.EncodeSandboxLeaseRequest(lp.SandboxLeaseRequest{
+		LeaseID: leaseID, Tenant: authority.Principal, Program: program, CodeHash: codeHash, Asset: asset,
+		Amount:   big.NewInt(100000000),
+		Limits:   [8]uint64{budget[0], budget[1], budget[2], budget[3], budget[4], budget[5], budget[6], 1048576},
+		OpenedAt: 100, Expiry: 200, FeeVersion: 1, FeeRates: [7]uint64{1, 1, 1, 1, 1, 1, 1},
+		ActivityID:    [32]byte(recorded[len(recorded)-107 : len(recorded)-75]),
+		ReceiptDigest: [32]byte(recorded[len(recorded)-43 : len(recorded)-11]),
+	})
+	require.NoError(t, err)
+	require.Equal(t, recorded, request, "the request codec must match the committed native submission byte for byte")
 	fund, err := lp.ProgramsABI.Pack("sandboxFund", leaseID, authority.Principal, program, escrow, asset,
 		big.NewInt(100000000), uint64(200), uint32(1), [7]uint64{1, 1, 1, 1, 1, 1, 1}, request, program,
 		[]lp.TransferLeg{{From: tenantAccount, Asset: asset, To: escrow, Amount: big.NewInt(100000000)}})
@@ -125,7 +125,7 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 	require.NoError(t, err, "sandboxFund reverted: %x", data)
 	funded, err := h.host.ReadSandbox(h.stateDB.Ctx(), leaseID, 0)
 	require.NoError(t, err)
-	stateOffset := len("LayerX/programs/sandbox/lease-state/v3\x00") + len(terms) + 64 + len(schedule) + 16
+	stateOffset := len("LayerX/programs/sandbox/lease-state/v3\x00") + (8*32 + 16 + 10*8) + 64 + (4 + 7*8) + 16
 	require.Equal(t, byte(1), funded[stateOffset])
 	activate, err := lp.ProgramsABI.Pack("sandboxActivate", leaseID, sha256.Sum256(funded), uint64(3))
 	require.NoError(t, err)
@@ -140,7 +140,7 @@ func prepareSandboxExecute(t *testing.T, h *harness, callArgs []interface{}, cal
 		require.NotEmpty(t, state)
 	}
 	storedTerms := active[len("LayerX/programs/sandbox/lease-state/v3\x00"):]
-	storedSchedule := storedTerms[len(terms)+64:]
+	storedSchedule := storedTerms[(8*32+16+10*8)+64:]
 	var rates [7]uint64
 	for i := range rates {
 		rates[i] = binary.BigEndian.Uint64(storedSchedule[4+8*i : 12+8*i])
@@ -189,7 +189,8 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 		14, 'l', 'a', 'y', 'e', 'r', 'x', '_', 'r', 'e', 's', 'e', 'r', 'v', 'e', 0, 1,
 		6, 'm', 'e', 'm', 'o', 'r', 'y', 2, 0, 10, 11, 2, 4, 0, 65, 0, 11, 4, 0, 65, 0, 11,
 	}
-	program := sha256.Sum256([]byte(t.Name()))
+	recorded := recordedSandboxLeaseRequest(t)
+	program := [32]byte(recorded[len(sandboxLeaseStateDomain)+64 : len(sandboxLeaseStateDomain)+96])
 	codeHash := sha256.Sum256(wasm)
 	iface := append([]byte("LayerX/program-interface/v3\x00"), codeHash[:]...)
 	iface = binary.BigEndian.AppendUint16(iface, 3)
@@ -217,9 +218,9 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, iface, storedInterface.Encoding)
 	h.stateDB.ResetForTracer()
-	callArgs[0], callArgs[1] = program, uint16(3)
+	callArgs[0], callArgs[1], callArgs[4] = program, uint16(3), []byte{0, 2, 1, 2}
 	access, budget := callArgs[5].([]byte), callArgs[7].([7]uint64)
-	callPayload, err := lp.EncodeCallPayload(program, 3, "layerx_call", []byte{0, 0xff}, []byte{0, 1, 3}, access, 64, budget)
+	callPayload, err := lp.EncodeCallPayload(program, 3, "layerx_call", []byte{0, 0xff}, callArgs[4].([]byte), access, 64, budget)
 	require.NoError(t, err)
 	method := lp.ProgramsABI.Methods["sandboxExecute"]
 	args := sandboxExecuteArguments(t, [32]byte{0x44}, big.NewInt(0))
@@ -293,6 +294,9 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(0), plainOutput[0], "sandbox assertion ladder: ordinary ABI-v3 call must settle successfully")
 	require.Equal(t, uint8(1), plainOutput[1], "sandbox assertion ladder: ordinary ABI-v3 call must settle successfully")
+	plainDecoded, err := lp.DecodeProgramExecutionResult(plainData, callArgs[6].(uint32), [32]byte{})
+	require.NoError(t, err)
+	require.Empty(t, plainDecoded.GuestResponse, "the deployed guest returns zero without calling response_write")
 	h.stateDB.RevertToSnapshot(snapshot)
 	require.Equal(t, beforePlainCall, h.dump(h.stateDB.Ctx()))
 	require.Equal(t, beforePlainLogs, h.stateDB.GetAllLogs())
@@ -308,8 +312,64 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEqual(t, last+1, payerBefore.NextSequence, "ledger admission must use the payer sequence independently of the legacy global sequence")
 
+	payload, err = lp.EncodeSandboxExecutePayload(args[0].([32]byte), args[1].(uint64), args[2].([32]byte),
+		args[3].([32]byte), args[4].([32]byte), args[5].([32]byte), args[6].(uint32), args[7].([7]uint64), args[8].([]byte))
+	require.NoError(t, err)
 	input, err := lp.ProgramsABI.Pack(method.Name, args...)
 	require.NoError(t, err)
+	prepared, preparedMethod, wireArgs, err := h.precompile.Prepare(h.evm, input)
+	require.NoError(t, err)
+	require.Equal(t, method.ID, preparedMethod.ID)
+	// Prepare obtains the same state DB context used by registered dispatch.
+	// Run supplies a fresh event manager and the delegate-call flag before Execute.
+	prepared = prepared.WithEventManager(sdk.NewEventManager()).WithEVMPrecompileCalledFromDelegateCall(false)
+	reference, _ := prepared.CacheContext()
+	txHash := [32]byte(reference.EVMTxHash())
+	require.NotEqual(t, [32]byte{}, txHash, "the native reference must retain the EVM transaction hash")
+	var transient *sdk.TransientStoreKey
+	for _, key := range reference.MultiStore().StoreKeys() {
+		if key.Name() == evmtypes.TransientStoreKey {
+			var ok bool
+			transient, ok = key.(*sdk.TransientStoreKey)
+			require.True(t, ok)
+			break
+		}
+	}
+	require.NotNil(t, transient, "the native reference must mount the EVM transient store")
+	ordinalProbe, _ := reference.CacheContext()
+	ordinal := lp.NextOrdinal(ordinalProbe, txHash)
+	decodedArgs, err := lp.DecodeArgs(&method, wireArgs)
+	require.NoError(t, err)
+	handlerPayload, err := lp.EncodeSandboxExecutePayload(
+		decodedArgs[0].([32]byte), decodedArgs[1].(uint64), decodedArgs[2].([32]byte),
+		decodedArgs[3].([32]byte), decodedArgs[4].([32]byte), decodedArgs[5].([32]byte),
+		decodedArgs[6].(uint32), decodedArgs[7].([7]uint64), decodedArgs[8].([]byte))
+	require.NoError(t, err)
+	require.Equal(t, payload, handlerPayload, "the native reference must submit exactly what the registered sandboxExecute handler decodes")
+	require.Equal(t, []byte{1, 1, 0, 0}, handlerPayload[:4])
+	active, err := h.host.ReadSandbox(reference, leaseID, 0)
+	require.NoError(t, err)
+	leaseDigest := sha256.Sum256(active)
+	require.Equal(t, leaseID[:], handlerPayload[4:36])
+	require.Equal(t, leaseDigest[:], handlerPayload[44:76])
+	terms := active[len(sandboxLeaseStateDomain):]
+	require.Equal(t, terms[192:224], handlerPayload[76:108], "the request escrow must match the active lease in the reference context")
+	require.Equal(t, terms[160:192], handlerPayload[108:140])
+	require.Equal(t, terms[224:256], handlerPayload[140:172])
+	require.Equal(t, terms[(8*32+16+10*8)+64:(8*32+16+10*8)+64+60], handlerPayload[172:232])
+	require.Equal(t, callPayload, handlerPayload[236:])
+	feeLimit := decodedArgs[9].([16]byte)
+	receipt, err := lp.Submit(reference, h.executor, lp.NewCallContext(h.caller, &method), 0x00090009, handlerPayload, feeLimit)
+	ordinalKey := append([]byte("layerxprograms/ordinal/v1/"), txHash[:]...)
+	assigned := reference.TransientStore(transient).Get(ordinalKey)
+	require.Len(t, assigned, 4, "Submit must assign the call ordinal before native execution")
+	require.Equal(t, ordinal, binary.BigEndian.Uint32(assigned))
+	t.Logf("sandbox reference context: EVM transaction %x, transient store %s, assigned call ordinal %d", txHash, transient.Name(), ordinal)
+	require.NoError(t, err, "independent native sandbox submission")
+	require.Zero(t, receipt.ResultCode)
+	transferRoot := repair251TransferRoot(t, receipt)
+	require.NotEqual(t, [32]byte{}, transferRoot)
+
 	data, _, err := h.evm.Call(h.caller, h.precompile.Address(), input, 2000000, uint256.NewInt(0))
 	if err != nil {
 		reason, unpackErr := abi.UnpackRevert(data)
@@ -327,6 +387,12 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int32(0), output[0])
 	require.Equal(t, uint8(1), output[1])
+	decoded, err := lp.DecodeProgramExecutionResult(data, callArgs[6].(uint32), transferRoot)
+	require.NoError(t, err)
+	require.Empty(t, decoded.GuestResponse, "the deployed guest returns zero without calling response_write")
+	require.Equal(t, plainDecoded.GuestResponse, decoded.GuestResponse)
+	require.Equal(t, output[2], decoded.TerminalFrame)
+	require.Equal(t, h.dump(reference), h.dump(h.stateDB.Ctx()))
 	payerAfter, err := h.host.ReadAccount(h.stateDB.Ctx(), payerName, payerID)
 	require.NoError(t, err)
 	require.Equal(t, payerBefore.NextSequence+1, payerAfter.NextSequence, "sandbox execution must advance the sequence captured by ledger admission")
@@ -363,6 +429,25 @@ func TestProgramsSandboxExecuteEmitsUsage(t *testing.T) {
 	require.Equal(t, count, chunks)
 	require.Equal(t, int(total), len(usage))
 	require.Contains(t, string(usage), "LayerX/programs/sandbox/usage-receipt/v4\x00")
+	require.Equal(t, usage, decoded.SandboxUsageReceipt)
+	ledger, err := h.host.ReadSandbox(h.stateDB.Ctx(), leaseID, 2)
+	require.NoError(t, err)
+	require.True(t, strings.HasSuffix(string(ledger), string(usage)), "the committed ledger must contain the emitted native usage frame")
+	// Capture the real producer through its ABI and protobuf transport encoders.
+	response := evmtypes.MsgEVMTransactionResponse{ReturnData: data}
+	responseBytes, err := response.Marshal()
+	require.NoError(t, err)
+	messages := sdk.TxMsgData{Data: []*sdk.MsgData{{MsgType: sdk.MsgTypeURL(&evmtypes.MsgEVMTransaction{}), Data: responseBytes}}}
+	resultBytes, err := messages.Marshal()
+	require.NoError(t, err)
+	t.Logf("repair_m213_execute_result=%x", resultBytes)
+	t.Logf("repair_m213_usage_ledger=%x", ledger)
+	recordedResult, err := hex.DecodeString(strings.TrimSpace(repairM213ExecuteResultHex))
+	require.NoError(t, err)
+	require.Equal(t, recordedResult, resultBytes, "the consumer fixture must be the production-encoded live EVM result")
+	recordedLedger, err := hex.DecodeString(strings.TrimSpace(repairM213UsageLedgerHex))
+	require.NoError(t, err)
+	require.Equal(t, recordedLedger, ledger, "the independently recorded ledger must match the live host state")
 }
 
 func TestProgramsSandboxExecuteZeroAssetReverts(t *testing.T) {

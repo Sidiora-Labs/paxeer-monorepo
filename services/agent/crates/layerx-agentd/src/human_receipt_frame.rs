@@ -3,6 +3,9 @@
 //! Verification uses the Human codes 1 SEQUENCER_SIGNED, 2 BATCH_INCLUDED,
 //! 3 STATE_PROVEN, 4 CHECKPOINT_FINALISED, 5 SETTLEMENT_ANCHORED.
 //! The rung is Rung::wire_rank (0 Submitted, 1 Receipted, 2 Committed).
+//! The complete field order and program.receipt JSON projection are maintained in
+//! `contracts/agent-human-peer.md` and `contracts/agent-api.md`. Verification codes
+//! 4 and 5 are historical migration metadata, never additional committed-chain authority.
 
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::{result::KnownResult, rung::Rung, verify::VerificationLevel};
@@ -169,5 +172,134 @@ impl ReceiptLookupAnswer {
         };
         decoder.finish()?;
         Ok(value)
+    }
+}
+
+/// Loopback Human-owner health contract; credentials are separate from outbound authority access.
+pub mod owner_health {
+    use std::io::{Read, Write};
+
+    pub const HEALTH_BEARER_ENV: &str = "LAYERX_AGENT_PROGRAM_BEARER_TOKEN";
+    pub const AUTHORITY_BEARER_ENV: &str = "LAYERX_AGENT_HUMAN_AUTHORITY_BEARER";
+    const HEALTH_HEADER_LIMIT: usize = 16 * 1024;
+
+    /// Enforces the Human owner's loopback address, credential length and separation.
+    ///
+    /// # Errors
+    /// Refuses a non-loopback listener, short health bearer or reused authority bearer.
+    pub fn validate_health_credentials(
+        listen: &str,
+        bearer: &str,
+        authority_bearer: &str,
+    ) -> Result<(), String> {
+        if !listen.starts_with("127.0.0.1:") || bearer.len() < 32 {
+            return Err("human health requires loopback and a bounded credential".to_owned());
+        }
+        if bearer == authority_bearer {
+            return Err("human health and authority credentials must be distinct".to_owned());
+        }
+        Ok(())
+    }
+
+    // The same bounded GET parser previously used through serve_http::parse_request.
+    // S is DeadlineStream in the daemon and a deadline-configured TCP socket in the proof.
+    fn health_request<S: Read>(
+        stream: &mut S,
+        bearer: &str,
+    ) -> Result<Option<String>, (u16, &'static str)> {
+        let mut bytes = [0_u8; HEALTH_HEADER_LIMIT];
+        let mut length = 0;
+        while length < bytes.len() && !bytes[..length].windows(4).any(|v| v == b"\r\n\r\n") {
+            match stream.read(&mut bytes[length..]) {
+                Ok(0) => return Ok(None),
+                Ok(count) => length += count,
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut
+                    ) =>
+                {
+                    return Err((408, "{\"error\":\"request_timeout\"}"))
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(_) => return Ok(None),
+            }
+        }
+        let Some(end) = bytes[..length].windows(4).position(|v| v == b"\r\n\r\n") else {
+            return Err((431, "{\"error\":\"headers_too_large\"}"));
+        };
+        let request = std::str::from_utf8(&bytes[..end])
+            .map_err(|_| (400, "{\"error\":\"invalid_request\"}"))?;
+        let mut parts = request
+            .lines()
+            .next()
+            .unwrap_or_default()
+            .split_ascii_whitespace();
+        let method = parts.next().unwrap_or_default();
+        let path = parts.next().unwrap_or_default();
+        if parts.next() != Some("HTTP/1.1") || parts.next().is_some() || method != "GET" {
+            return Err((400, "{\"error\":\"invalid_request\"}"));
+        }
+        let invalid = (400, "{\"error\":\"invalid_request\"}");
+        let mut body_length = None;
+        for header in request.split("\r\n").skip(1) {
+            let (name, value) = header.split_once(':').ok_or(invalid)?;
+            if name.eq_ignore_ascii_case("transfer-encoding") {
+                return Err(invalid);
+            }
+            if name.eq_ignore_ascii_case("content-length") {
+                let value = value.trim();
+                if body_length.is_some()
+                    || value.is_empty()
+                    || !value.bytes().all(|b| b.is_ascii_digit())
+                {
+                    return Err(invalid);
+                }
+                body_length = Some(value.parse::<usize>().map_err(|_| invalid)?);
+            }
+        }
+        if body_length.unwrap_or(0) != 0 || length != end + 4 {
+            return Err((413, "{\"error\":\"body_too_large\"}"));
+        }
+        let mut credentials = request.lines().filter_map(|header| {
+            let (name, value) = header.split_once(':')?;
+            name.eq_ignore_ascii_case("authorization")
+                .then_some(value.trim())
+        });
+        if credentials.next().and_then(|v| v.strip_prefix("Bearer ")) != Some(bearer)
+            || credentials.next().is_some()
+        {
+            return Err((401, "{\"error\":\"unauthorized\"}"));
+        }
+        Ok(Some(path.to_owned()))
+    }
+
+    /// Serves one bounded loopback health request. The caller supplies a stream with
+    /// an absolute request deadline (the daemon uses DeadlineStream), and probes live
+    /// dependencies only after the distinct inbound health credential is authenticated.
+    ///
+    /// # Errors
+    /// Returns a transport error if the response cannot be written.
+    pub fn serve_health<S: Read + Write>(
+        stream: &mut S,
+        bearer: &str,
+        owner_ready: impl Fn() -> bool,
+        dependencies_ready: impl Fn() -> Result<(), String>,
+    ) -> Result<(), String> {
+        let (status, body) = match health_request(stream, bearer) {
+            Ok(None) => return Ok(()),
+            Err(refusal) => refusal,
+            Ok(Some(path)) if path != "/healthz" => (404, "{\"error\":\"not_found\"}"),
+            Ok(Some(_)) => {
+                if owner_ready() && dependencies_ready().is_ok() && owner_ready() {
+                    (200, "{\"ready\":true}")
+                } else {
+                    (503, "{\"ready\":false}")
+                }
+            }
+        };
+        let reason = if status < 300 { "OK" } else { "Refused" };
+        write!(stream, "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nCache-Control: no-store\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
+        .map_err(|error| format!("agent response failed: {error}"))
     }
 }

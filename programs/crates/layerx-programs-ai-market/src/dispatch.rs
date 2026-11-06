@@ -1222,13 +1222,23 @@ fn identity(
             }
         }
         0x0301..=0x0303 => {
+            let aggregate_sealed =
+                if authority::evaluator_region(state.section(Section::IdentityRoster)?)?
+                    .snapshot()
+                    .is_some()
+                {
+                    aggregation::progress(bytes)?.phase
+                        != crate::aggregation_codec::AggregationPhase::Unsealed
+                } else {
+                    false
+                };
             let call = authority::AuthorityContext {
                 market: &section.header,
                 invoking_principal: ctx.principal,
                 immediate_caller: Presence::Absent,
                 height: ctx.height,
                 approved_rubric: section.current.commitments.rubric,
-                aggregate_sealed: false,
+                aggregate_sealed,
             };
             match authority::apply(bytes, &call, envelope_bytes, scratch, next, event)? {
                 authority::Outcome::Applied {

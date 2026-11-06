@@ -63,13 +63,26 @@ pub struct NodeCommitCoverage {
     pub activity_ids: Vec<[u8; 32]>,
 }
 impl RpcClient {
-    /// Supplies raw sequence-batch inclusion material and independently pinned Comet trust.
-    /// The live signed header is still acquired and authenticated by `wait_for`.
+    /// Pins Comet trust; each committed wait acquires its own sequence-batch coverage.
     pub fn with_node_commit_authority(
         mut self,
         authority: NodeCommitAuthority,
+    ) -> Result<Self, RpcError> {
+        self.node_commit = Some((authority, NodeCommitCoverage::automatic()));
+        Ok(self)
+    }
+
+    /// Overrides served coverage for debug/test fixtures. Comet trust is still required.
+    #[cfg(debug_assertions)]
+    #[doc(hidden)]
+    pub fn with_node_commit_coverage_override(
+        mut self,
         coverage: NodeCommitCoverage,
     ) -> Result<Self, RpcError> {
+        let (authority, stored) = self
+            .node_commit
+            .as_mut()
+            .ok_or(RpcError::MissingFinalityTrust)?;
         if coverage.covering_height < authority.first_height
             || coverage.covering_height > authority.last_height
             || coverage.activity_ids.is_empty()
@@ -79,8 +92,97 @@ impl RpcClient {
         {
             return Err(RpcError::InvalidRequest);
         }
-        self.node_commit = Some((authority, coverage));
+        *stored = coverage;
         Ok(self)
+    }
+}
+
+impl NodeCommitCoverage {
+    // Height zero cannot be valid coverage and denotes acquisition per wait in
+    // RpcClient's existing authority/coverage storage slot.
+    fn automatic() -> Self {
+        Self {
+            covering_height: 0,
+            batch_transaction: Vec::new(),
+            transaction_proof: NodeTransactionProof {
+                total: 0,
+                index: 0,
+                aunts: Vec::new(),
+            },
+            activity_ids: Vec::new(),
+        }
+    }
+
+    pub(super) fn is_override(&self) -> bool {
+        self.covering_height != 0
+    }
+
+    pub(super) fn from_sequence_batch(
+        value: &Value,
+        height: u64,
+        block: &Value,
+        receipt: &layerx_wire::receipt::ProtocolReceipt,
+    ) -> Result<Self, RpcError> {
+        if value["height"].as_str() != Some(height.to_string().as_str()) {
+            return Err(RpcError::Verification);
+        }
+        let batch_transaction = super::node_bytes(value, "tx", 241)?;
+        let batch = layerx_client::rpc::receipt_commit::SequenceBatch::decode(&batch_transaction)
+            .map_err(|_| RpcError::Verification)?;
+        let count = batch
+            .to_sequence
+            .checked_sub(batch.from_sequence)
+            .and_then(|n| n.checked_add(1))
+            .filter(|n| *n > 0 && *n <= 65_536)
+            .ok_or(RpcError::Verification)?;
+        if batch.height != height
+            || receipt.global_sequence() < batch.from_sequence
+            || receipt.global_sequence() > batch.to_sequence
+        {
+            return Err(RpcError::Verification);
+        }
+        // The batch envelope commits to IDs by root, rather than encoding them.
+        // The served block supplies their order; verify_committed authenticates
+        // every ID and sequence state against the signed batch below.
+        let transactions = block["transactions"]
+            .as_array()
+            .filter(|ids| ids.len() as u64 == count)
+            .ok_or(RpcError::Verification)?;
+        let activity_ids = transactions
+            .iter()
+            .map(hex::<32>)
+            .collect::<Result<Vec<_>, _>>()?;
+        if activity_ids[(receipt.global_sequence() - batch.from_sequence) as usize]
+            != receipt.activity_id()
+        {
+            return Err(RpcError::Verification);
+        }
+        let proof = &value["proof"];
+        let leaf: [u8; 32] = Sha256::new()
+            .chain_update([0])
+            .chain_update(Sha256::digest(&batch_transaction))
+            .finalize()
+            .into();
+        if super::node_fixed::<32>(proof, "leafHash")? != leaf {
+            return Err(RpcError::Verification);
+        }
+        let aunts = proof["aunts"]
+            .as_array()
+            .filter(|aunts| aunts.len() <= 64)
+            .ok_or(RpcError::InvalidResponse)?
+            .iter()
+            .map(hex::<32>)
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(Self {
+            covering_height: height,
+            batch_transaction,
+            transaction_proof: NodeTransactionProof {
+                total: number(&proof["total"])?,
+                index: number(&proof["index"])?,
+                aunts,
+            },
+            activity_ids,
+        })
     }
 }
 

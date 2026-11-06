@@ -29,6 +29,7 @@ zeroize = "=1.9.0"
 
 [dev-dependencies]
 ed25519-dalek = "=2.2.0"
+layerx_programs_registry = { package = "layerx-programs-registry", version = "=0.1.0", path = "../../../../programs/crates/layerx-programs-registry" }
 
 [lints]
 workspace = true

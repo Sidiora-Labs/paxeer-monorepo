@@ -914,15 +914,163 @@ mod historical_deployment_support;
 mod historical_deployment_tests {
     use super::*;
     use ed25519_dalek::{Signer, SigningKey};
-    use historical_deployment_support::{deploy_fixture, verifier_for_fixture, NOW, WASM_V1};
+    use historical_deployment_support::{verifier_for_fixture, NOW, WASM_V1};
     use layerx_programs::chain_proof::{
+        merkle::hash_from_byte_slices,
+        results::TxResult,
         validators::TrustedValidator,
         vote::{vote_sign_bytes, BlockIdFlag, CommitSig, Timestamp},
+    };
+    use layerx_programs::{
+        chain_evidence::{deployment::ChainDeploymentProof, programs_state_key},
+        DeploymentExecutionProof, ProgramInterface,
     };
 
     const SEEDS: [[u8; 32]; 4] = [[1; 32], [2; 32], [3; 32], [4; 32]];
     const ROTATED: [[u8; 32]; 4] = [[11; 32], [12; 32], [13; 32], [14; 32]];
     const DAY_SECONDS: i64 = 86_400;
+
+    fn sign_fixture(chain: &mut historical_deployment_support::chain::ChainFixture) {
+        chain.commit.height = chain.header.height;
+        chain.commit.block_id.hash = chain.header.hash().expect("canonical header").to_vec();
+        let timestamp = Timestamp {
+            seconds: chain.header.time.seconds,
+            nanos: chain.header.time.nanos,
+        };
+        let bytes = vote_sign_bytes(
+            &chain.header.chain_id,
+            chain.commit.height,
+            chain.commit.round,
+            Some(&chain.commit.block_id),
+            timestamp,
+        )
+        .expect("canonical precommit");
+        for signature in &mut chain.commit.signatures {
+            let key = SEEDS
+                .iter()
+                .map(SigningKey::from_bytes)
+                .find(|key| {
+                    TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                        .address
+                        .as_slice()
+                        == signature.validator_address
+                })
+                .expect("validator signing key");
+            signature.timestamp = timestamp;
+            signature.signature = key.sign(&bytes).to_bytes().to_vec();
+        }
+    }
+
+    fn historical_deployment_fixture() -> historical_deployment_support::ProtocolFixture {
+        let transcript = include_str!(
+            "../../../../../../programs/crates/layerx-programs-registry/src/repair_22_31_256.hex"
+        );
+        assert_eq!(
+            hex::encode(&digest(transcript.as_bytes())),
+            "5798c9304ce5dd774f153da4f4f3208f1205f4cbfd1854732a49636dc9d76c6e"
+        );
+        let producer = transcript
+            .lines()
+            .map(|line| {
+                let (key, value) = line.split_once('=').expect("producer recording row");
+                (key, hex::decode(value).expect("producer recording bytes"))
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(producer["wasm.1"], WASM_V1);
+        let interface =
+            ProgramInterface::decode(&producer["interface.1"]).expect("producer interface");
+        let mut fixture = historical_deployment_support::deploy_fixture_with_interface(
+            WASM_V1,
+            layerx_programs::UpgradePolicy::Authority(historical_deployment_support::AUTHORITY),
+            100,
+            NOW,
+            &interface,
+        );
+        let program_key = fixture.proof.state.commitment.key.clone();
+        let interface_key = programs_state_key(&layerx_programs::interface_state_key(
+            fixture.proof.state.state.program,
+        ));
+        let transaction_root = hash_from_byte_slices(&[&digest(&producer["deploy"])]);
+        let account = &producer["host.account"];
+        let mut previous = historical_deployment_support::chain::ChainFixture::new(
+            &fixture.chain.verifier.chain_id,
+            &SEEDS,
+            vec![(account[..33].to_vec(), account[33..].to_vec())],
+        )
+        .expect("producer predecessor state");
+        previous.header.height = 100;
+        previous.header.time.seconds = (NOW / 1_000) as i64 - 1;
+        previous.header.time.nanos = 0;
+        previous.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut previous);
+        let result_root = hash_from_byte_slices(&[&producer["success.leaf"]]);
+        assert_eq!(result_root.as_slice(), producer["success.root"]);
+        fixture.chain.header.last_block_id.hash = previous.commit.block_id.hash.clone();
+        fixture.chain.header.last_block_id.part_set_total =
+            previous.commit.block_id.part_set_header.total;
+        fixture.chain.header.last_block_id.part_set_hash =
+            previous.commit.block_id.part_set_header.hash.clone();
+        fixture.chain.header.last_results_hash = result_root.to_vec();
+        fixture.chain.header.data_hash = transaction_root.to_vec();
+        sign_fixture(&mut fixture.chain);
+        fixture.proof.state.commitment = decode_commitment_proof(
+            &fixture
+                .chain
+                .encode_key(&program_key)
+                .expect("program commitment"),
+        )
+        .expect("decode program commitment");
+        fixture.proof.deployment = ChainDeploymentProof::from_state_proofs(
+            fixture.proof.state.state.clone(),
+            WASM_V1.to_vec(),
+            &decode_commitment_proof(
+                &fixture
+                    .chain
+                    .encode_key(&interface_key)
+                    .expect("interface commitment"),
+            )
+            .expect("decode interface commitment"),
+        )
+        .expect("authenticated deployment interface");
+        fixture.proof.state.transaction_proof = SimpleProof {
+            total: 1,
+            index: 0,
+            leaf_hash: transaction_root,
+            aunts: Vec::new(),
+        };
+        fixture
+            .proof
+            .bind_execution(&DeploymentExecutionProof {
+                transaction: producer["deploy"].clone(),
+                previous: decode_commitment_proof(
+                    &previous
+                        .encode_key(&program_key)
+                        .expect("predecessor commitment"),
+                )
+                .expect("decode predecessor commitment"),
+                result: TxResult {
+                    code: 0,
+                    data: producer["success"].clone(),
+                    gas_wanted: 0,
+                    gas_used: 0,
+                },
+                result_proof: SimpleProof {
+                    total: 1,
+                    index: 0,
+                    leaf_hash: result_root,
+                    aunts: Vec::new(),
+                },
+                interface_ops: fixture
+                    .chain
+                    .prove(&interface_key)
+                    .expect("interface proof"),
+                migration: None,
+                migration_ops: Vec::new(),
+                migration_previous_ops: Vec::new(),
+            })
+            .expect("bind producer execution");
+        fixture
+    }
 
     #[test]
     fn historical_checkpoint_preserves_signed_header_commit_and_validators() {
@@ -1022,7 +1170,7 @@ mod historical_deployment_tests {
 
     #[test]
     fn historical_deployment_bridges_a_twenty_day_old_admission() {
-        let fixture = deploy_fixture(WASM_V1, layerx_programs::UpgradePolicy::Immutable, 100, NOW);
+        let fixture = historical_deployment_fixture();
         let verifier = verifier_for_fixture(&fixture, 5_000);
         let original = verifier
             .verify_deployment(&fixture.proof, NOW)
@@ -1076,7 +1224,7 @@ mod historical_deployment_tests {
 
     #[test]
     fn historical_deployment_bridges_a_full_non_adjacent_validator_rotation() {
-        let fixture = deploy_fixture(WASM_V1, layerx_programs::UpgradePolicy::Immutable, 100, NOW);
+        let fixture = historical_deployment_fixture();
         let verifier = verifier_for_fixture(&fixture, 5_000);
         let original = verifier
             .verify_deployment(&fixture.proof, NOW)
@@ -1139,7 +1287,9 @@ mod historical_deployment_tests {
                 .verify_current_chain_head(
                     ProgramHeadKind::Ordinary,
                     &commitment,
-                    &fixture.proof.state.transaction,
+                    &DeploymentExecutionProof::decode(&fixture.proof.state.transaction)
+                        .expect("deployment execution")
+                        .transaction,
                     &fixture.proof.state.transaction_proof,
                     now
                 )

@@ -44,6 +44,10 @@ A report missing any of these three requirements is handled as an ordinary repor
 
 Stop testing at a proof of concept. Never move funds that are not your own, and follow the testing restrictions above. Keep the issue private until it is fixed and the advisory is published.
 
+## Known exemptions
+
+- [GHSA-55f3-3qvg-8pv5](https://github.com/advisories/GHSA-55f3-3qvg-8pv5): `wasmer` 4.2.2 is pinned by `cosmwasm-vm` 1.5.12 in `wasm-runtime/libwasmvm`. The modules load without WASI filesystem access. Under the owner ruling of 2026-11-05, this exemption holds until the next runtime upgrade and is reviewed at that upgrade. The rationale and mitigation are recorded in [repair_22_31_450.kvx](wasm-runtime/libwasmvm/repair_22_31_450.kvx).
+
 ## Supported versions
 
 The supported line is `main` and the current release named in `tools/release/version.json`. Fixes land on `main` and ship in the next chain node release.

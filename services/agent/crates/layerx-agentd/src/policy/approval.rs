@@ -1804,7 +1804,7 @@ mod released_replay_tests {
     use sha2::{Digest as _, Sha256};
 
     use super::{
-        canonical_digest, encode_released, hold_reserved, released_storage_key, ApprovalContext,
+        canonical_digest, encode_released, hold_reserved_at, released_storage_key, ApprovalContext,
         ApprovalError, ApprovalRegistry,
     };
     use crate::budget::{
@@ -2029,7 +2029,7 @@ mod released_replay_tests {
         )
         .unwrap_or_else(|error| panic!("reserve: {error:?}"));
         let registry = ApprovalRegistry::with_store(Arc::clone(&store));
-        hold_reserved(
+        hold_reserved_at(
             &registry,
             ApprovalContext {
                 tenant: tenant(),
@@ -2045,6 +2045,7 @@ mod released_replay_tests {
             10,
             40,
             &reservation,
+            &crate::approval::TestClock(1_000_000),
         )
         .unwrap_or_else(|error| panic!("hold: {error:?}"));
         let held = registry

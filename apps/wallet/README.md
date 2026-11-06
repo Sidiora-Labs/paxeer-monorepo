@@ -25,11 +25,11 @@ The production image is built from [`docker/wallet-pwa/Dockerfile`](../../docker
 
 ## Documentation
 
-- [docs/architecture](docs/architecture/README.md): entry point, routes, providers, server edge
-- [docs/architecture/storage-forensics.md](docs/architecture/storage-forensics.md): browser storage registry
-- [docs/api](docs/api/README.md): server routes under `src/app/api`
-- [docs/development](docs/development/README.md) and [docs/deployment](docs/deployment/README.md)
-- [docs/operations/runbooks.md](docs/operations/runbooks.md): recovery runbooks
+- [architecture](../../docs/wallet/app/architecture/README.md): entry point, routes, providers, server edge
+- [storage forensics](../../docs/wallet/app/architecture/storage-forensics.md): browser storage registry
+- [API](../../docs/wallet/app/api/README.md): server routes under `src/app/api`
+- [development](../../docs/wallet/app/development/README.md) and [deployment](../../docs/wallet/app/deployment/README.md)
+- [operations runbooks](../../docs/wallet/app/operations/runbooks.md): recovery runbooks
 
 ## Configuration
 
