@@ -763,6 +763,11 @@ impl ProtocolEvidence {
                     "lifecycle transaction is a pointer transfer",
                 ))
             }
+            Some(layerx_crypto::disclosure::call::ConstructMethod::BindLayerX { .. }) => {
+                return Err(AgentFailure::Refused(
+                    "lifecycle transaction is a bind registration",
+                ))
+            }
             None => {
                 return Err(AgentFailure::Refused(
                     "missing lifecycle transaction method",

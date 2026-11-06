@@ -33235,3 +33235,43 @@ symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceip
 observed = "Attempt 20 at e3dbfa274ff2cddca3511231349de84aab3f16d7: build exit 0, verify exit 1 at both revisions: the produced ABI5 reward receipt decodes, resolves and survives reopen and every refusal subcase passes; the final assertion demands distinct authority and applied-legs roots and the produced frame carries one leg and equal roots."
 assumption = "The assertion contradicts the response contract; the decoder is tightened to the node binding and the fixture stays as the producer emits it."
 severity = "high"
+
+[finding.9.98.4.9]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 7 at 826111e4097f2dabef46eba727a9365b0803ac17: build 1 exit 101 (E0502 on block.commit), build 2 exit 0, dependent-crate check exit 0, verify exit 1: 6 passed, 6 failed: the submission fixture refuses the programs deploy kind, the history case expects 4 px_getHistory requests and sees 6, and the remaining four cases fail on poisoned locks."
+assumption = "The deploy encoder lands with 22.31.585; the request count follows the reader on main; the lock poisoning is a fixture defect."
+severity = "high"
+
+[finding.22.31.585.1]
+task = "22.31.585"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_585.rs"
+symbol = "repair_22_31_585.rs"
+observed = "Attempt 1 ended with no change inside scope: no command ran during the two-hour working time; no build or verify ran."
+assumption = "Environmental stall before the first command; the task starts again."
+severity = "medium"
+
+[finding.22.31.573.7]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 7 at 3d896d0a9af30e559b0cd70c8c2f47c1eba217a8: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 150 minutes."
+assumption = "Environmental stall before the first command; the ruling of the previous attempt still stands."
+severity = "medium"
+
+[finding.22.31.547.8]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 8 at 94e776988899c68eb77d9c4d2fe71af8f041ab93: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 120 minutes."
+assumption = "The session never reached its model; the ruling of attempt 7 still stands."
+severity = "medium"
+
+[finding.22.31.583.2]
+task = "22.31.583"
+file = "services/agent/crates/layerx-crypto/tests/repair_22_31_583.rs"
+symbol = "repair_22_31_583.rs"
+observed = "Attempt 2 at 0b8900b54f2f78a73ba06fe7b9e3265f18257c5f: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 90 minutes."
+assumption = "The session never reached its model; the ruling of attempt 1 still stands."
+severity = "medium"
