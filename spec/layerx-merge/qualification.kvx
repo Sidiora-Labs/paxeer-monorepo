@@ -32483,3 +32483,11 @@ symbol = "store.rs"
 observed = "Attempt 3 at 8103ae786fa624af5418823451e471ab45aaf020: build exit 0, dependent-crate check exit 0, verify exit 1: program_replay and repair_22_31_259 pass; repair_22_31_564 line 146 expects the unsited SupplementRejected reason and the runtime emits the sited one since 22.31.569 landed; the 573 and 569 binaries did not run."
 assumption = "A pre-existing consumer-contract break on main since the 569 landing; the task verify lists the proof, so the task amends it."
 severity = "high"
+
+[finding.22.31.478.13]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 13 at 17649c43798678d3bab9f19c6a4ae788465746e3: build exit 0, dependent-crate check exit 0, verify exit 1: the candidate Fund completes execution at 896330 CPU fuel and ends LXP_ERR_PROGRAM_REFUSED in the occupancy settlement callback after a block advance without finalization; the Rust diagnostic example panics on the terminal wrapper."
+assumption = "Both failures are fixture setup; the production change already meets the allowance."
+severity = "high"
