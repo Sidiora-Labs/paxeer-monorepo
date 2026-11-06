@@ -3,6 +3,7 @@ from pathlib import Path
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 
@@ -116,7 +117,9 @@ if(outcomes.some(x=>x.outcome!=='PASS'))process.exitCode=1;
 
 
 def main():
-    node = os.environ.get('HYPERFIDE_NODE', '/root/.nvm/versions/node/v24.22.0/bin/node')
+    node = os.environ.get('HYPERFIDE_NODE') or shutil.which('node')
+    if not node:
+        raise RuntimeError('CAPABILITY_MISSING: set HYPERFIDE_NODE or provide node on PATH')
     sdk = ROOT / 'sdk/source-control'
     build = subprocess.run([node, str(ROOT / 'tools/workspace/build-package.mjs')], cwd=sdk, text=True, capture_output=True)
     if build.returncode:
