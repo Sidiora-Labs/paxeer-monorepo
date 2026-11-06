@@ -33043,3 +33043,19 @@ symbol = "docs"
 observed = "Attempt 1 at 7e55d7e34b0cff5aeec2d1f8fce7431ba8d90d91: build exit 0, verify exit 1: five audit tests pass; the tracked-references test reports two deployment files outside the touches that name apps/explorer/docs/ENVS.md."
 assumption = "The references were outside the listed touches; the list is amended."
 severity = "medium"
+
+[finding.22.31.560.16]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 16 at 5708e96eb468dc3804c576f35a88bc01bfe4d294: build exit 0, dependent-crate check exit 0, verify exit 101: two cases pass; the first Prepare answers 403 owner.refused at approval carrier validation envelope preparation identity because validate still requires the preparation field to equal the envelope digest while bind stores the reservation identifier."
+assumption = "The digest equality was a leftover of the envelope-derived identifier; the envelope stays bound through its decode, authority and expiry checks."
+severity = "high"
+
+[finding.22.37.19.7]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 7 at 59ddf413619c4f88131889679378e3960bf3974d: build exit 0, verify exit 1: the product actor passes the metrics check; the browser support fails to spawn /opt/chromium/chrome-headless-shell-linux64/chrome-headless-shell (ENOENT)."
+assumption = "Environmental; the tree is unchanged."
+severity = "medium"
