@@ -168025,7 +168025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.566]
 title = "Name the replay bound and the guest fault with distinct kernel status codes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.564", "22.31.572"]
