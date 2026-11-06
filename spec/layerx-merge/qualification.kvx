@@ -32363,3 +32363,91 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 13 at aa587ee0f09bcc536e3a95f96551a20cbf4d7287: build exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verification did not run."
 assumption = "The tree is unchanged; the include repair lands first."
 severity = "medium"
+
+[finding.22.99.77.21]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 19 at ed96083576a552e354a8756268e9ff0071e2ea96: build exit 0 and dependent checks exit 0 twice, verify exit 101 twice: twelve native proofs refused at execution_supplement.retained_limit, a02 fails on the rank the producer promotes, five operations 4 to 139 fuel over the cap."
+assumption = "The native refusal is a runtime accounting defect repaired by 573; the rank conflict is a producer change the task tree introduced; the fuel residuals are repeated decoding."
+severity = "high"
+
+[finding.22.31.571.1]
+task = "22.31.571"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 1 at a1dff5f6aa8c6f9d05cd76c7c5f8aa989f470a3c: build exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verification did not run."
+assumption = "The tree is unchanged; the include repair lands first."
+severity = "medium"
+
+[finding.22.31.478.11]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 11 at 57e22cd248fe11a5617ae920772fe7275765ad77: build exit 0, dependent-crate check exit 101: layerx-agentd compat.rs line 8 cannot read services/agent/COMPATIBILITY.md; verify did not run."
+assumption = "The tree is unchanged; the include repair is on main."
+severity = "medium"
+
+[finding.22.33.1569.14]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 14 at 9ad1cd6b00e9a0887dcbbebf3c3923612406fc64: build exit 0, verify exit 1: the SDK verified the grant draw; authenticate_cumulative_use at funded_scenario.rs line 892 refused the draw receipt with SequencerSignature because the proof authority holds no governed receipt keys."
+assumption = "The authority is built without the node keys the module 12 receipt requires; the runtime installs them and the proof must too."
+severity = "high"
+
+[finding.22.31.573.1]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 1 at fa018cb34429b27aaca889a654ca1c5554254aab: build exit 0, dependent-crate check exit 101 on the layerx-agentd compat.rs include; verify did not run; the task record states the 128-call case cannot fit a 128-boundary profile."
+assumption = "One boundary per source instruction is the product rule; the proof sizes its profile to the guest, and the include repair is on main."
+severity = "high"
+
+[finding.22.33.1569.15]
+task = "22.33.1569"
+file = "services/agent/qualification/pay2/tests/repair_22_33_1569.rs"
+symbol = "repair_22_33_1569.rs"
+observed = "Attempt 15 at e490843a16097140fa24425a6025a2390e73a6ee: build exit 0, verify exit 101: PAY2 authenticated issue usage: Sequence from verify_cumulative_window on a singleton batch header (fields 5 and 6 equal)."
+assumption = "The consumer, the human runtime and the kernel bind one maintenance leaf at last_sequence; the peer served none."
+severity = "high"
+
+[finding.22.31.560.6]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 6 at 9539c148b2b0dfa3a20905b402bec3aad026d7dd: build exit 0, dependent-crate check exit 0, verify exit 1 twice: the first PREPARE after the preview answers owner.refused (request 80) with no budget read requested; preview and wrong-identifier cases pass."
+assumption = "The refusal site is silent and sits between the ledger reads and the budget sources; one trace run names it."
+severity = "high"
+
+[finding.22.31.566.3]
+task = "22.31.566"
+file = "include/layerx/lxp_result.h"
+symbol = "lxp_result.h"
+observed = "Attempt 3 at a958e8331c69d5d00b1091db79a449b378a5ad71: build exit 0, dependent-crate check exit 0, verify exit 1: TestLXPRevertTable expects LXP_UNKNOWN for -740 and reads LXP_REPLAY_BOUND; the C and Rust stages pass."
+assumption = "The consumer test asserts an old sentinel the task named; the producer is right."
+severity = "high"
+
+[finding.22.33.260.4]
+task = "22.33.260"
+file = "programs/crates/layerx-programs-ai-market/tests/repair_22_33_260.rs"
+symbol = "repair_22_33_260.rs"
+observed = "Attempt 4 at 0b5369ce473eb4154744eb2fa7dd0006f77a898e: build exit 0, dependent-crate check exit 0, verify exit 101 twice: 7 of 8 pass; the retry of the first ProcessAggregation envelope after the committed admission is Routed::Refused at line 1433 where the test expects Routed::Unchanged."
+assumption = "process refuses a stale expected cursor before the already-applied branch by contract; the test must send the current cursor."
+severity = "high"
+
+[finding.22.31.571.2]
+task = "22.31.571"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 2 at 71ce741193475ed5ebe3056d32fbfb4b56ff7b60: build exit 101: E0308 at tests/repair_22_31_571.rs line 1067, a mutex guard passed where a Store reference is expected; no verify ran."
+assumption = "A one-line test binding; the production change is untested until the gates run."
+severity = "medium"
+
+[finding.22.31.573.2]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 2 at 75d40437cb33fdfa9428e380d50668b90d8f75f0: build exit 0, dependent-crate check exit 0, verify exit 1 twice: program_replay repaired between the cycles (4 passed); the terminal decoder persistence case of repair_22_31_259 fails with DigestMismatch, a break on main since 22.31.488; the three task binaries never ran."
+assumption = "The 259 break is pre-existing and repaired by 574; the task proof is unread until the binaries run."
+severity = "high"

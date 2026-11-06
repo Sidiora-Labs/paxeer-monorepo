@@ -943,18 +943,21 @@ fn sandbox_terminal_decoder_persists_usage_and_authenticates_receipt_and_transfe
         cumulative_spent: usage.fee_units,
     };
     let canonical = settlement.canonical_usage_receipt().unwrap();
+    let digest = rt::hash_bytes(rt::HashAlgorithm::Sha256, &canonical).unwrap();
+    let mut frame = canonical.clone();
+    SandboxSettlement::append_receipt_digest(&mut frame, digest);
     let binding = SandboxReceiptBinding {
         activity_id,
         program: program().bytes(),
         kind: 1,
         fee_schedule_version: FeeSchedule::declared().version(),
         usage,
-        usage_receipt_digest: rt::hash_bytes(rt::HashAlgorithm::Sha256, &canonical).unwrap(),
+        usage_receipt_digest: digest,
         transfer_root,
     };
     let inner = record.canonical_evidence();
     let mut terminal = inner.clone();
-    attach_sandbox_settlement(&mut terminal, &canonical, transfer_root).unwrap();
+    attach_sandbox_settlement(&mut terminal, &frame, transfer_root).unwrap();
     let disk = DurableFile::save(&terminal);
     drop(terminal);
     drop(record);
@@ -983,7 +986,7 @@ fn sandbox_terminal_decoder_persists_usage_and_authenticates_receipt_and_transfe
     bad_root[last] ^= 1;
     assert!(decode_terminal_payload(1, 4, &bad_root).is_err());
     let mut duplicate = disk.reopen();
-    attach_sandbox_settlement(&mut duplicate, &canonical, transfer_root).unwrap();
+    attach_sandbox_settlement(&mut duplicate, &frame, transfer_root).unwrap();
     assert!(decode_terminal_payload(1, 4, &duplicate).is_err());
     let mut wrong_usage = settlement.clone();
     wrong_usage.usage.cpu_fuel += 1;
