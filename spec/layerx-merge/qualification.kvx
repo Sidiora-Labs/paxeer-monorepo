@@ -32739,3 +32739,83 @@ symbol = "import.ts"
 observed = "Attempt 1 at 8b68174bec16b1f45a77941078d0219655661d89: the first build stopped on TS7034 and TS7005 at import.ts lines 1012 and 1042 and the repaired build passed; verify exit 1: the strict deep-equality assertion at line 598 of the native source import actor compared a null-prototype scope decoded from the transport with a plain object literal; the comparison was changed to canonical bytes, the build passed (exit 0) and no verify run remained."
 assumption = "The final tree carries an unverified repair of one comparison; the decoder behaviour is production and unchanged."
 severity = "medium"
+
+[finding.22.37.9.1]
+task = "22.37.9"
+file = "tools/hyperfide/core/control-plane/src/source_control/objects.ts"
+symbol = "objects.ts"
+observed = "Attempt 1 at 14978fb543894abf60e02e11075a1d4f335eaabc: build passed twice; verify exit 1 twice: the first on a missing expected rejection at line 199 of the objects storage fixture (corrected), the second after the 1_1.py component pass when the 0_1.py driver raised FileNotFoundError for the literal node path /root/.nvm/versions/node/v24.22.0/bin/node."
+assumption = "The driver carries a developer-machine path; this attempt repairs the driver it runs and the rest of the tree is unchanged."
+severity = "medium"
+
+[finding.22.37.23.2]
+task = "22.37.23"
+file = "tools/hyperfide/tests/hyperfide/support/native_source_recovery_actor.mjs"
+symbol = "native_source_recovery_actor.mjs"
+observed = "Attempt 2 at b59655f02372eb4ad95a75e7fc9d66ab3fef7b39: build passed; verify passed (6_1.py component PASS, PROCESS_LOSS and PRIMARY_INSTANCE_LOSS PASS, FAILURE_DOMAIN_LOSS UNRUN); the graph check refused three symbols entries that were file names."
+assumption = "The task record, not the tree, was wrong."
+severity = "low"
+
+[finding.22.37.24.2]
+task = "22.37.24"
+file = "tools/hyperfide/tests/hyperfide/source-control/workloads/campaign.mjs"
+symbol = "campaign.mjs"
+observed = "Attempt 2 at 4416c5491f7025d076af44c37df75678abd36806: build passed; verify passed (the 6_2.py workload checks); the graph check refused four symbols entries that were file names."
+assumption = "The task record, not the tree, was wrong."
+severity = "low"
+
+[finding.22.37.16.2]
+task = "22.37.16"
+file = "tools/hyperfide/plugins/hyperfide-graph/host.test.ts"
+symbol = "host.test.ts"
+observed = "Attempt 2 at f7b18dc5ec5d663ebd759ccf57fac84542de8bbd: build passed; verify exit 1: the native source graph actor raised ENOENT reading the vendored root binary before any assertion."
+assumption = "The environment lacked a build artefact the drivers execute; the tree is unchanged."
+severity = "medium"
+
+[finding.22.37.1.2]
+task = "22.37.1"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_tooling_driver_test.py"
+symbol = "layout_tooling_driver_test.py"
+observed = "Attempt 2 at 7cc08540a7e39c8a4074ea397d0c70b82147a8d6: build passed; verify passed; the graph check refused three file-name symbols entries."
+assumption = "The task record, not the tree, was wrong."
+severity = "low"
+
+[finding.22.37.21.2]
+task = "22.37.21"
+file = "tools/hyperfide/core/control-plane/src/source_control/git/import.ts"
+symbol = "import.ts"
+observed = "Attempt 2 at e45add2b392a18ae8b0b0dbe8563151bc26c3258: build passed; verify passed; the graph check refused six file-name symbols entries."
+assumption = "The task record, not the tree, was wrong."
+severity = "low"
+
+[finding.22.37.20.2]
+task = "22.37.20"
+file = "tools/hyperfide/plugins/hyperfide-qualify/publication.test.ts"
+symbol = "publication.test.ts"
+observed = "Attempt 2 at 891b4bd7d93a21aa4e000af292e0f98a1234942e: build passed twice; verify exit 1 twice: the first on a PostgreSQL regex constraint (corrected), the second at the strict deep equality of line 1057 between a null-prototype client object and the service object (REMOTE_OBSERVATION_FAILED payloads)."
+assumption = "The transport decoder yields null-prototype objects by contract; the proof, not the product, is wrong."
+severity = "medium"
+
+[finding.22.37.19.2]
+task = "22.37.19"
+file = "tools/hyperfide/core/host-daemon/src/source-control/metrics.ts"
+symbol = "metrics.ts"
+observed = "Attempt 2 at 59e8df11b6df77d5b684f01d441cc743ed278b17: build exit 1: the control-plane build and the host-daemon typecheck passed; the source-control plugin typecheck reported TS2307 on the plugin SDK app entry and 25 TS7006 implicit any errors in app.tsx; no verify ran."
+assumption = "The build command lacked a build product the typecheck resolves through; the tree is unchanged."
+severity = "medium"
+
+[finding.22.37.22.2]
+task = "22.37.22"
+file = "tools/hyperfide/core/control-plane/src/source_control/migration/inventory.ts"
+symbol = "inventory.ts"
+observed = "Attempt 2 at f79cd37c42e22f37dacbc15e561d1cf4462849b0: build passed twice; verify exit 1 twice: the first on an authorization request missing its capability path (corrected), the second at the quiesce case with LEGACY_VISIBILITY_UNAVAILABLE on a process the observer could not inspect; the final driver adjustment is unverified."
+assumption = "A defunct grandchild under the non-reaping pid 1 of the private namespace is the likely uninspectable process; the detail will confirm it or name another."
+severity = "high"
+
+[finding.22.31.577.2]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 2 at 90d0b235fa07e234027346808e644d19df994a79 (the attempt-1 tree under the corrected environment): build exit 0, dependent-crate check exit 0, verify exit 101: the earlier suites pass; profiled_executor_admits_128_distinct_chunk_writes_in_17_wasm_pages and boundary_roots_rebuild_every_live_snapshot_and_authenticate_middle_step_memory fail with program replay record refused: Bounds."
+assumption = "The capture crosses the byte budget by carrying memory the previous leaf already commits; the named bound decides."
+severity = "high"
