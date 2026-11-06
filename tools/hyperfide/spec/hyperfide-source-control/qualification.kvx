@@ -722,3 +722,14 @@ exit_code = 1
 log = "/out/logs/verify-2.log"
 observed = "After the component passed, the unchanged 0_1.py driver failed before its SDK build because /root/.nvm/versions/node/v24.22.0/bin/node does not exist in this sandbox."
 assumption = "The full declared verification remains unqualified; repair budget is exhausted, and the owner must supply the expected Node path or set HYPERFIDE_NODE for a later qualification."
+[qualification.source_capabilities_1_3_registered_service]
+task = "1.3 (layerx-merge/22.37.11)"
+command = "python3 tests/hyperfide/cases/source_control/1_3.py"
+exit_code_ref = "build/source-control/1.3/receipt.json#/exit_code"
+receipt_sha256_ref = "build/source-control/1.3/receipt.sha256"
+evidence = "build/source-control/1.3/receipt.json (revision, source_digest, dist_digest); /out/run/gates.jsonl (last build and verify records: revision, command, exit, log)"
+
+[finding.source_capabilities_22_37_11_generated_contract_scope]
+evidence = "revision=9646904d54b5cbd9de692493a55f5a6cd3d8f514; command=cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && pnpm --filter @hyperfide/source-control run typecheck; exit=2; log=/out/logs/build-1.log"
+observed = "The declared build copies sdk/source-control/src/contracts.ts over core/control-plane/src/source_control/contracts.ts, removing the task schema and causing TS2305 and TS7006 in audit.ts."
+assumption = "Durable schema qualification requires authorizing the SDK contract source or the sync script, both outside this task scope; the overwritten attempt implementation is restored and verification remains unrun."
