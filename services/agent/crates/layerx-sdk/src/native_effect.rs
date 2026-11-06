@@ -1,4 +1,7 @@
-use layerx_agent_api::identity::NativeEffectPrepareRequestV1;
+use layerx_agent_api::identity::{
+    AgentDid, CapabilityId, ContractError, NativeActivity, NativeEffectPrepareRequestV1,
+    NativeLocalGrantConsentV1, NativeSendPurposeV2, SignedNativeSendPurposeV2,
+};
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
@@ -76,10 +79,89 @@ pub fn native_registration_prepare_digest(
     Ok(digest.finalize().into())
 }
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeSendPrepareRequestV2 {
+    pub activity: NativeActivity,
+    pub actor: AgentDid,
+    pub authority: String,
+    pub account_sequence: u64,
+    pub not_before: u64,
+    pub not_after: u64,
+    pub idempotency_key: [u8; 32],
+    pub fee_limit: u128,
+    pub payload: Vec<u8>,
+    pub payload_hash: [u8; 32],
+    pub capability_id: CapabilityId,
+    pub purpose: layerx_agent_api::identity::SignedNativeSendPurposeV2,
+    pub local_grant: Option<NativeLocalGrantConsentV1>,
+}
+
+impl NativeSendPrepareRequestV2 {
+    pub fn validate(self) -> Result<Self, ContractError> {
+        if self.activity != NativeActivity::new(1, 5)? {
+            return Err(ContractError::Mismatch("native_send_prepare.activity"));
+        }
+        layerx_types::ids::Did::new(self.actor.as_str().as_bytes())
+            .map_err(|_| ContractError::Malformed("actor"))?;
+        if self.authority.is_empty() {
+            return Err(ContractError::Empty("authority"));
+        }
+        if self.authority.len() > layerx_types::limits::MAX_AUTHORITY_BYTES {
+            return Err(ContractError::OutOfRange("authority"));
+        }
+        if self.not_after < self.not_before {
+            return Err(ContractError::OutOfRange("timestamp_bound"));
+        }
+        if self.payload.is_empty() {
+            return Err(ContractError::Empty("payload"));
+        }
+        if self.payload.len() > layerx_types::limits::MAX_PAYLOAD_BYTES {
+            return Err(ContractError::OutOfRange("payload"));
+        }
+        self.capability_id.to_bytes()?;
+        if self.actor != self.purpose.purpose.agent_did {
+            return Err(ContractError::Mismatch("actor"));
+        }
+        if self.capability_id != self.purpose.purpose.capability_id {
+            return Err(ContractError::Mismatch("capability_id"));
+        }
+        if self.activity != self.purpose.purpose.activity
+            || self.idempotency_key != self.purpose.purpose.idempotency_key
+        {
+            return Err(ContractError::Mismatch("native_send_prepare.request"));
+        }
+        if let Some(local_grant) = &self.local_grant {
+            local_grant.validate()?;
+        }
+        Ok(Self {
+            purpose: self.purpose.validate()?,
+            ..self
+        })
+    }
+}
+
+pub fn sign_native_send_purpose(
+    purpose: NativeSendPurposeV2,
+    consent_key: &ed25519_dalek::SigningKey,
+) -> Result<SignedNativeSendPurposeV2, EnvelopeError> {
+    use ed25519_dalek::Signer as _;
+    if purpose.consent_public_key != consent_key.verifying_key().to_bytes() {
+        return Err(EnvelopeError::InvalidCredential);
+    }
+    let canonical = purpose
+        .canonical_bytes()
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
+    let digest: [u8; 32] = Sha256::digest(canonical).into();
+    Ok(SignedNativeSendPurposeV2 {
+        purpose,
+        signature: consent_key.sign(&digest).to_bytes(),
+    })
+}
+
 pub const SEND_PREPARE_DOMAIN: &[u8] = b"LXP/agent/native-send-prepare/v1\0";
 
 pub fn encode_native_send_prepare(
-    request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+    request: &NativeSendPrepareRequestV2,
 ) -> Result<Value, EnvelopeError> {
     request
         .clone()
@@ -87,6 +169,14 @@ pub fn encode_native_send_prepare(
         .map_err(|_| EnvelopeError::InvalidRequest)?;
     let signed = &request.purpose;
     let purpose = &signed.purpose;
+    let digest: [u8; 32] = Sha256::digest(
+        purpose
+            .canonical_bytes()
+            .map_err(|_| EnvelopeError::InvalidRequest)?,
+    )
+    .into();
+    layerx_crypto::ed25519::verify_digest(&purpose.consent_public_key, &signed.signature, &digest)
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
     Ok(json!({
         "variant": "native_send_v1",
         "activity": json!({"version":"1", "module":request.activity.module.to_string(), "ordinal":request.activity.ordinal.to_string()}),
@@ -97,17 +187,17 @@ pub fn encode_native_send_prepare(
         "payload": hex(&request.payload), "payload_hash": hex(&request.payload_hash),
         "capability_id": request.capability_id.as_str(),
         "purpose": {
-            "purpose": {"version":"1", "tenant":purpose.tenant.as_str(),
+            "purpose": {"version":NativeSendPurposeV2::VERSION.to_string(), "tenant":purpose.tenant.as_str(),
                 "agent_did":purpose.agent_did.as_str(), "owner_did":purpose.owner_did.as_str(),
-                "owner_public_key":hex(&purpose.owner_public_key), "session_id":purpose.session_id.as_str(),
+                "consent_public_key":hex(&purpose.consent_public_key), "evm_sender":hex(&purpose.evm_sender), "session_id":purpose.session_id.as_str(),
                 "generation":purpose.generation.to_string(), "expires_at_ms":purpose.expires_at_ms.to_string(),
                 "capability_id":purpose.capability_id.as_str(), "preparation_id":hex(&purpose.preparation_id),
                 "canonical_digest":hex(&purpose.canonical_digest),
-                "protocol_version":purpose.protocol_version.to_string(), "network_id":purpose.network_id.to_string(),
+                "transaction_type":purpose.transaction_type.to_string(), "chain_id":purpose.chain_id.to_string(),
                 "activity":{"version":"1", "module":purpose.activity.module.to_string(), "ordinal":purpose.activity.ordinal.to_string()},
                 "economic_action":hex(&purpose.economic_action), "idempotency_key":hex(&purpose.idempotency_key),
                 "commitment":hex(&purpose.commitment)},
-            "owner_public_key":hex(&signed.owner_public_key), "signature":hex(&signed.signature)
+            "signature":hex(&signed.signature)
         },
         "local_grant": request.local_grant.as_ref().map(|grant| json!({
             "version":"1", "capability":hex(&grant.capability), "session_scope":hex(&grant.session_scope),
@@ -118,7 +208,7 @@ pub fn encode_native_send_prepare(
 }
 
 pub fn native_send_prepare_digest(
-    request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+    request: &NativeSendPrepareRequestV2,
 ) -> Result<[u8; 32], EnvelopeError> {
     let canonical = encode_native_send_prepare(request)?;
     let bytes = serde_json::to_vec(&canonical).map_err(|_| EnvelopeError::InvalidRequest)?;
@@ -180,7 +270,7 @@ pub(crate) fn validate_request_binding(
 }
 
 pub(crate) fn validate_send_request_binding(
-    request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+    request: &NativeSendPrepareRequestV2,
     credential: &crate::agent_envelope::EnvelopeCredential,
     key: layerx_agent_api::idempotency::Key,
 ) -> Result<(), EnvelopeError> {
@@ -467,23 +557,23 @@ mod tests {
         )
         .is_err());
     }
-    fn send_request() -> layerx_agent_api::identity::NativeSendPrepareRequestV1 {
-        use layerx_agent_api::identity::{NativeSendPurposeV1, SignedNativeSendPurposeV1};
+    fn send_request() -> NativeSendPrepareRequestV2 {
         let base = request();
         let key = SigningKey::from_bytes(&[7; 32]);
-        let owner_public_key = key.verifying_key().to_bytes();
-        let purpose = NativeSendPurposeV1 {
+        let consent_public_key = key.verifying_key().to_bytes();
+        let purpose = NativeSendPurposeV2 {
             tenant: base.purpose.purpose.tenant,
-            agent_did: base.actor.clone(),
-            owner_did: AgentDid::new(format!("did:layerx:{}", hex(&owner_public_key)))
+            agent_did: AgentDid::new(format!("did:layerx:{}", "44".repeat(32))).expect("agent DID"),
+            owner_did: AgentDid::new(format!("did:layerx:{}", hex(&consent_public_key)))
                 .expect("owner DID"),
-            owner_public_key,
+            consent_public_key,
+            evm_sender: [9; 20],
             session_id: base.purpose.purpose.session_id,
             generation: 1,
             expires_at_ms: 100_000,
             capability_id: base.capability_id.clone(),
-            protocol_version: 3,
-            network_id: 1,
+            transaction_type: NativeSendPurposeV2::TRANSACTION_TYPE,
+            chain_id: NativeSendPurposeV2::CHAIN_ID,
             activity: base.activity,
             preparation_id: [4; 32],
             canonical_digest: [4; 32],
@@ -491,16 +581,10 @@ mod tests {
             idempotency_key: base.idempotency_key,
             commitment: [5; 32],
         };
-        let digest: [u8; 32] =
-            Sha256::digest(purpose.canonical_bytes().expect("Send purpose bytes")).into();
-        let purpose = SignedNativeSendPurposeV1 {
-            purpose,
-            owner_public_key,
-            signature: key.sign(&digest).to_bytes(),
-        };
-        layerx_agent_api::identity::NativeSendPrepareRequestV1 {
+        let purpose = sign_native_send_purpose(purpose, &key).expect("signed V2 consent");
+        NativeSendPrepareRequestV2 {
             activity: base.activity,
-            actor: base.actor,
+            actor: purpose.purpose.agent_did.clone(),
             authority: base.authority,
             account_sequence: base.account_sequence,
             not_before: base.not_before,
@@ -520,6 +604,21 @@ mod tests {
         let request = send_request();
         let value = encode_native_send_prepare(&request).expect("Send codec");
         assert_eq!(value["variant"], "native_send_v1");
+        assert_eq!(value["purpose"]["purpose"]["version"], "2");
+        assert_eq!(value["purpose"]["purpose"]["transaction_type"], "2");
+        assert_eq!(value["purpose"]["purpose"]["chain_id"], "125");
+        assert_eq!(
+            value["purpose"]["purpose"]["consent_public_key"],
+            hex(&request.purpose.purpose.consent_public_key)
+        );
+        assert_eq!(
+            value["purpose"]["purpose"]["evm_sender"],
+            hex(&request.purpose.purpose.evm_sender)
+        );
+        assert_eq!(value["purpose"].as_object().expect("signed V2").len(), 2);
+        for retired in ["owner_public_key", "protocol_version", "network_id"] {
+            assert!(value["purpose"]["purpose"].get(retired).is_none());
+        }
         assert_eq!(
             value["payload"],
             include_str!("../../layerx-crypto/tests/fixtures/payments/native-1-5.hex").trim()
@@ -571,7 +670,19 @@ mod tests {
         changed.idempotency_key[0] ^= 1;
         invalid.push(changed);
         let mut changed = base.clone();
-        changed.purpose.owner_public_key[0] ^= 1;
+        changed.purpose.purpose.consent_public_key[0] ^= 1;
+        invalid.push(changed);
+        let mut changed = base.clone();
+        changed.purpose.signature[0] ^= 1;
+        invalid.push(changed);
+        let mut changed = base.clone();
+        changed.purpose.purpose.evm_sender[0] ^= 1;
+        invalid.push(changed);
+        let mut changed = base.clone();
+        changed.purpose.purpose.transaction_type = 1;
+        invalid.push(changed);
+        let mut changed = base.clone();
+        changed.purpose.purpose.chain_id = 1;
         invalid.push(changed);
         let mut changed = base.clone();
         changed.purpose.purpose.owner_did = AgentDid::new("other-owner").expect("owner");
