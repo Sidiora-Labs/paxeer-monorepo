@@ -32395,3 +32395,11 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 14 at 9ad1cd6b00e9a0887dcbbebf3c3923612406fc64: build exit 0, verify exit 1: the SDK verified the grant draw; authenticate_cumulative_use at funded_scenario.rs line 892 refused the draw receipt with SequencerSignature because the proof authority holds no governed receipt keys."
 assumption = "The authority is built without the node keys the module 12 receipt requires; the runtime installs them and the proof must too."
 severity = "high"
+
+[finding.22.31.573.1]
+task = "22.31.573"
+file = "programs/vendor/wasmi-0.31.2/src/store.rs"
+symbol = "store.rs"
+observed = "Attempt 1 at fa018cb34429b27aaca889a654ca1c5554254aab: build exit 0, dependent-crate check exit 101 on the layerx-agentd compat.rs include; verify did not run; the task record states the 128-call case cannot fit a 128-boundary profile."
+assumption = "One boundary per source instruction is the product rule; the proof sizes its profile to the guest, and the include repair is on main."
+severity = "high"
