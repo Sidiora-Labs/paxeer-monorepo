@@ -32955,3 +32955,43 @@ symbol = "metrics.ts"
 observed = "Attempt 4 at a2ef76dcbf9c58eff00c8eefc94c4ab73a2e8586: build exit 0 (third build, final revision), verify exit 1 at d36d2e3b515193ea108307c9ae933e031eef859e: the unauthorized-read case received SCOPE_DENIED on the allowed path main.txt before the repairs."
 assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
 severity = "medium"
+
+[finding.22.31.478.19]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 19 at 2f504a9330592248fd1227190c6c9c47d0ac4a2c: build exit 0, dependent-crate check exit 0, verify exit 1: the Go proof, the library tests and two binaries pass; artifact_binding fails 13 of 14 cases with ApplicationError(1)."
+assumption = "The library changes of the task break a schema or framing read the unchanged suite exercises; the suite never ran in this lineage because an earlier binary failed first."
+severity = "high"
+
+[finding.22.35.10.1]
+task = "22.35.10"
+file = "apps/explorer/configs/app/features/assistant.ts"
+symbol = "assistant.ts"
+observed = "Attempt 1 at d8e385529522b154a54743c4a998c803477b0fa9: build exit 0 (third build, final revision), verify exit 1 at 7e522f416fbc883cfb611923f21022e430c1ff60: the API spec passed 7 cases and the panel spec failed 4 of 7 before the repairs."
+assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
+severity = "medium"
+
+[finding.22.31.577.4]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 4 at 92a3b8736a87423e7fd2db2494548cb6b477f30f: build exit 0 (third build, final revision), dependent-crate check exit 0, verify exit 1 at 6fb0b19d39df54c03aca69b0b4ee4b8a2bb0dc88: two 128-call proofs refused with capture witness bytes 1050243 and 1052118 over the permitted 1048576 before the repairs."
+assumption = "The final tree is unverified; the verify record belongs to an earlier revision."
+severity = "medium"
+
+[finding.22.31.560.14]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 14 at 71a7033bb7baf2939fb5efec63d46d68379814c4: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare after the owner preview answers 403 owner.refused at approval carrier binding (first run at 03ed5ace871d3e1a5475a856f8eab0aaab42dd57 refused both native send cases at timestamp span exceeded)."
+assumption = "The carrier bind folds a dozen clauses into one code; the fixture clock against the millisecond bound is the first suspect and the print will say."
+severity = "high"
+
+[finding.22.37.26.2]
+task = "22.37.26"
+file = "docs/hyperfide/hyperfide/source-control.md"
+symbol = "source-control.md"
+observed = "Attempt 2 at aafa9ec1c6982eac339a729ec2a2cd56d99ab2a6: build exit 0, verify exit 1: the closure, the assembly and the reproducibility check pass; the consistency check refuses Full assertion inventory absent or reused: SCM-011 (first run at 7ea2c00bbd5c5aa6fdbcb953cef9c2b4129589f3 failed the closure on the nested string_decoder)."
+assumption = "The refusal is a rule the driver invented against data every producer agrees on."
+severity = "high"
