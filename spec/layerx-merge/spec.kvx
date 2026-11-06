@@ -149477,7 +149477,7 @@ do_10 = "Attempt 3 (continue, gotcha 3312, decision 2711): the attempt-2 tree st
 
 [task.22.37.21]
 title = "Route imported contributions into candidates and import legacy source maps"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
