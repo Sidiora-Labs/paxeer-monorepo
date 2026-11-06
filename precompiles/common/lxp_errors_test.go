@@ -224,7 +224,7 @@ func TestLXPRevertTable(t *testing.T) {
 		})
 	}
 
-	for _, value := range []int32{1, -9, -99, -740, -999} {
+	for _, value := range []int32{1, -9, -99, -742, -999} {
 		require.Equal(t, "LXP_UNKNOWN", LXPCodeName(value), "value %d", value)
 	}
 	for _, value := range []int32{-1000, -1004, -2147483648} {
