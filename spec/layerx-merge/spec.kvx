@@ -326913,7 +326913,7 @@ do_3 = "Attempt 2 (continue, gotcha 3251, decision 2670): the attempt-1 tree sta
 
 [task.22.36.4]
 title = "Fold the explorer documentation into docs/explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.35.10"]
