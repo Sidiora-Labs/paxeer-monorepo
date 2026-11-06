@@ -223,7 +223,42 @@ impl ApprovalRegistry {
             }
             decoded.push((held.context.request_id, held));
         }
-        let terminal_decoded = replay_program_terminals(&store, tenant)?;
+        let mut terminal_decoded = replay_program_terminals(&store, tenant)?;
+        for id in store
+            .list_object_ids(tenant, ObjectKind::Outbox)
+            .into_iter()
+            .filter(|id| id.starts_with(RELEASED_KEY_PREFIX))
+        {
+            if id.len() != RELEASED_KEY_PREFIX.len() + 32 {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let key = TenantKey::new(tenant.clone(), ObjectKind::Outbox, id)
+                .map_err(|_| ApprovalError::CorruptRecord)?;
+            let stored = store.get(&key).ok_or(ApprovalError::CorruptRecord)?;
+            if stored.class() != crate::store::StorageClass::LocalOnly {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            let (reference, mut held) = decode_released(stored.bytes())?;
+            validate_replayed(&held, tenant)?;
+            if key.object_id()[RELEASED_KEY_PREFIX.len()..] != held.context.request_id {
+                return Err(ApprovalError::CorruptRecord);
+            }
+            if crate::approval::program_requirement::has_bound_approval(&store, &snapshot(&held))
+                .map_err(|_| ApprovalError::CorruptRecord)?
+            {
+                continue;
+            }
+            let mut audit = terminal_audit(
+                &held,
+                ApprovalState::Approved,
+                None,
+                "released_terminal_replayed",
+            );
+            audit.resulting_activity_id = Some(reference);
+            held.state = ApprovalState::Approved;
+            held.audit = Some(audit);
+            terminal_decoded.push((held.context.request_id, held));
+        }
         drop(store);
         let reservations = decoded
             .iter()
