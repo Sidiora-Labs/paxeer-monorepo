@@ -1358,6 +1358,8 @@ fn replay_profile(token: u64) -> Result<Option<crate::ProgramReplayProfile>, i32
 }
 
 fn publish_replay_record(token: u64, record: &crate::ProgramReplayRecord) -> Result<(), i32> {
+    // The derived replay_fuel field travels as the existing committed boundary
+    // fuel fields; portable decoding reconstructs and checks it without a new ABI.
     let bytes = record.canonical_bytes();
     c_ok(unsafe {
         layerx_programs_call_replay_record_begin(

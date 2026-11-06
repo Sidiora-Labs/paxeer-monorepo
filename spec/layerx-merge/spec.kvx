@@ -9003,6 +9003,24 @@ value = "A loopback peer, like the node, serves every pax_sequencerReceipt as a 
 basis = "The node refuses kernel module ids in receipts and the SDK verifier mirrors it; a peer that encodes a ledger operation into those words serves a receipt no node would."
 affects = ["22.33.1569"]
 
+[decision.2649]
+title = "Replay step-commitment fuel is metered outside the guest CPU cap"
+value = "Under a program replay profile the runtime records a step commitment per execution step; its fuel (commit.rs step_commitment_fuel and arbitration_step_commitment_fuel_with_host) is charged to a replay meter bounded by the profile (maximum_bytes and maximum_boundaries of ProgramReplayProfile), never to the guest CPU meter of the DeclaredBudget; the 1000000 CPU protocol cap covers guest execution and host calls only, and a CALL without a profile is metered exactly as before. A capture that exceeds the profile stays an executor error (the replay bound). This is an owner ruling the engineering process recorded on the evidence of gotcha 3223; it is protocol-visible at the upgrade and is flagged for the owner."
+basis = "The step commitment prices the encoded state size, not guest work; with a state of tens of kilobytes it costs eleven times the whole CPU cap, so no profiled CALL can succeed, and raising the cap would price every unprofiled CALL wrongly."
+affects = ["22.99.77"]
+
+[decision.2650]
+title = "A commitment wait on an SDK-submitted transaction keeps its canonical activity"
+value = "The SDK Wallet exposes a wait that takes the receipt it returned for its own send or payment and a later commitment and returns a receipt carrying the same canonical activity bytes (bind_canonical_activity) with the batch and commit evidence of the new commitment; RpcClient receipts for an activity the SDK did not submit keep canonical_activity None. Consumers that build daemon cumulative ingress (layerx_mcp cumulative_evidence) use the wallet wait on their own receipts."
+basis = "Only the submitter knows the canonical activity bytes; dropping them on the second wait makes every batch-verified receipt useless for cumulative use."
+affects = ["22.33.1569"]
+
+[decision.2651]
+title = "The Human budget-after response carries the rung rank"
+value = "The daemon answer to ApprovalBudgetAfterV2 encodes the verification as the rung rank (Rung::wire_rank: 0 Submitted, 1 Receipted, 2 Committed) derived from the budget-state verification label through VerificationLevel::rung (receipt_rung_code), and refuses a label with no rung; the Human decoder (decode_rung in agent_runtime.rs) is the consumer contract and does not change."
+basis = "The consumer field is a Rung; the label space (0 to 6) belongs to a judgement the daemon makes and the consumer never repeats."
+affects = ["22.33.1510"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -37893,6 +37911,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.564]
+title = "Meter replay step commitments outside the guest CPU cap"
+reqs = ["22998.1"]
+touches = ["programs/crates/layerx-programs-runtime/src/host/mod.rs", "programs/crates/layerx-programs-runtime/src/replay_record.rs", "programs/crates/layerx-programs-runtime/src/commit.rs", "programs/crates/layerx-programs-runtime/src/execute.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.kvx"]
+tests = []
+verification_contract = "cd programs && cargo test -q -p layerx-programs-runtime --test repair_22_31_564"
+do_1 = "do_1 Gotcha 3223, decision 2649. In programs/crates/layerx-programs-runtime/src/host/mod.rs (lines 696 to 710) stop charging the step-commitment fuel to self.meter, the guest CPU meter; account it on a replay meter owned by the capture that the profile bounds (ProgramReplayProfile maximum_bytes and maximum_boundaries; replay_record.rs from_captured lines 62 to 90), so a capture over the profile stays the existing replay-bound executor error and a CALL with no profile is metered exactly as before. Keep step_commitment_fuel and arbitration_step_commitment_fuel_with_host (commit.rs lines 883 and 928) and the per-step commitment values unchanged, and record the replay fuel total in the replay record so a verifier recomputes it. Touch the native binding (programs/crates/layerx-programs-runtime/src/ffi_call.rs replay_profile near line 1341 and publish_replay_record near line 1360) only where the record layout changes; renumber no result code."
+symbols = []
+
+[capability.22.31.563]
+title = "Carry the canonical activity of an SDK-submitted transaction through later commitment waits"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_563"
+do_1 = "do_1 Gotcha 3220, decision 2650. In services/agent/crates/layerx-sdk/src/wallet.rs add Wallet::wait_for_submitted(receipt, commitment, timeout): it waits through self.rpc.wait_for for the activity id of the given receipt (receipt.protocol().activity_id() as the scenarios read it), refuses with RpcError::InvalidRequest when the given receipt carries no canonical activity, and binds the same canonical activity bytes on the returned receipt (bind_canonical_activity, rpc_verification.rs line 80); add wait_for_submitted_with_commit for the Finalised path with commit evidence. RpcClient receipts stay None (rpc_verification.rs line 355); Wallet::send and Wallet::payment (wallet.rs lines 80 and 228) are unchanged."
+symbols = []
+
+[capability.22.31.562]
+title = "Answer the Human budget-after request with the rung rank instead of the verification label"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_562"
+do_1 = "do_1 Gotcha 3226, decision 2651. In services/agent/crates/layerx-agentd/src/human_runtime.rs approval_budget_after (from line 9877) replace out.u8(state.verification) (near line 10053) with the rung rank: VerificationLevel::from_wire_rank(state.verification) then receipt_rung_code (line 11539), answering Refused for a label without a rung; where the response digest (near line 10044) covers that byte it covers the rank written. Check every other Human response that writes state.verification or a verification label into a byte the Human decoder reads as a rung (decode_rung in services/human/crates/layerx-human-service/src/server/agent_runtime.rs line 4477) and align each to its decoder; name every site in the task record."
+symbols = []
 
 [capability.22.31.561]
 title = "Carry ICS23 storage witnesses as the export state evidence and give produce a real state producer"
@@ -167812,6 +167857,7 @@ do_8 = "Attempt 5 (continue after the first verify run since 22.31.550): the att
 do_9 = "Attempt 6 (requalify after 22.31.558, gotcha 3189, decisions 2628 and 2629): the attempt-5 tree stands (actor funding moved before the first fee-bearing call, build exit 0; the record names an earlier revision than the committed tree, so the gates run once at the committed revision); the dependent-crate check failed on the stale site in layerx-human-service tests/native_send_producer.rs line 659 that 22.31.558 ports, before the verify ran. Re-run the gates as they stand once 22.31.558 is on main."
 do_10 = "Attempt 7 (continue, gotcha 3194): the attempt-5 tree stands (actor main account funded before the first fee-bearing call; asset registration, mint, deploy and the rewards account registration now execute with result 0). The CREATE program call at repair_478_test.go line 285 returns LXP_ERR_NON_CANONICAL for the before guest. The payload envelope is not the cause: EncodeCallPayload lays the call out as the hand-built call in modules/lxphost/programs_registration_test.go and the capability bytes 3, 7, 8 are in the CapabilitySet canonical key order (storage read, storage write, event, call, transfer, program spend, receipt read, balance view, shared read, shared write). The kernel surfaces a guest refusing its own input as that code (the pay5 native round-trip fixture pins it for a malformed transfer_from input) and the programs accounts module answers it for a malformed account name or kind. Log the receipt program outcome status and response for the CREATE under each guest, decode the create calldata of the fixture generator against the create entrypoint of the base-revision guest source and of the current source, and repair the refusing side inside the task paths (the fixture encoding per guest, or the guest or host path if the current guest refuses too); change neither allowance. Commit before the gates run."
 do_11 = "Attempt 8 (continue, gotcha 3212, decision 2646): the attempt-7 tree stands (the repository Wasm build flags applied to both guests; deploy succeeds; 29 dependent crates compile). The registration answers LXP_ERR_VERSION_UNSUPPORTED because lxp_programs_account_guest_validate (src/modules/programs/accounts.c lines 432 to 449) requires, for a guest above ABI 2 under the state-commitment protocol, the program-account-profile record, and reports a missing record as VERSION_UNSUPPORTED (lines 446 to 448); the kernel writes that record only through the ABI-2 profile-2 opt-in (lines 451 to 464 and 1091 to 1100). In fixture setup, before the first registration, write into the host store under the module prefix 1,0,9 (the moduleKey helper at repair_478_test.go line 178) the record program-owner NUL || program = 1 || principal and the record program-account-profile NUL || program = 2 || principal, as precompiles/layerxprograms/view_accounts_test.go lines 79 to 80 and task 13.27.1 do_12 do, then register with profile 1 and continue with CREATE and Fund. Record the registration path and the gate results by reference in rpc/repair_478.kvx; amend no file after the gates run (gotcha 3142)."
+do_12 = "Attempt 9 (continue, gotcha 3221): the attempt-8 tree stands (host.go, the ai-market registry, rewards and value adapter changes, the fixtures). Fund is 57 CPU units over the 1000000 cap (attempted 1000057 in the Rust fuel suite of 22.33.223; 999978 consumed at the stop in TestRepair478_). In programs/crates/layerx-programs-ai-market make Fund decode and re-encode only the sections it writes through the joint-section readers, as ADMIT_TASK does since 22.99.77 attempt 17; prove the value in the fuel table (tests/fuel_budget.rs) and rerun the Go harness. The kernel allowance stays 10000000 and the protocol cap 1000000. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.473]
 title = "Guard the explorer release against function terms in build-time configuration"
@@ -175656,9 +175702,96 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.564]
+title = "Meter replay step commitments outside the guest CPU cap"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.564"]
+interfaces = []
+do_1 = "do_1 Gotcha 3223, decision 2649. In programs/crates/layerx-programs-runtime/src/host/mod.rs (lines 696 to 710) stop charging the step-commitment fuel to self.meter, the guest CPU meter; account it on a replay meter owned by the capture that the profile bounds (ProgramReplayProfile maximum_bytes and maximum_boundaries; replay_record.rs from_captured lines 62 to 90), so a capture over the profile stays the existing replay-bound executor error and a CALL with no profile is metered exactly as before. Keep step_commitment_fuel and arbitration_step_commitment_fuel_with_host (commit.rs lines 883 and 928) and the per-step commitment values unchanged, and record the replay fuel total in the replay record so a verifier recomputes it. Touch the native binding (programs/crates/layerx-programs-runtime/src/ffi_call.rs replay_profile near line 1341 and publish_replay_record near line 1360) only where the record layout changes; renumber no result code."
+do_2 = "do_2 Write programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs: the same guest CALL executed with and without a replay profile consumes the same guest CPU fuel; with a profile the replay record is present and its replay fuel equals the sum of the per-step commitments; a profile too small for the capture still answers the replay-bound error; an unprofiled CALL under the 1000000 cap keeps its exact pre-change fuel (pin one value the existing fuel suites already assert). Record the gate results by reference in tests/repair_22_31_564.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["step_commitment_fuel", "arbitration_step_commitment_fuel_with_host", "ProgramReplayProfile", "from_captured", "publish_replay_record"]
+touches = ["programs/crates/layerx-programs-runtime/src/host/mod.rs", "programs/crates/layerx-programs-runtime/src/replay_record.rs", "programs/crates/layerx-programs-runtime/src/commit.rs", "programs/crates/layerx-programs-runtime/src/execute.rs", "programs/crates/layerx-programs-runtime/src/ffi_call.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.kvx"]
+tests = []
+planned_paths = ["programs/crates/layerx-programs-runtime/tests/repair_22_31_564.rs", "programs/crates/layerx-programs-runtime/tests/repair_22_31_564.kvx"]
+build_cmd = "cd programs && cargo build -q -p layerx-programs-runtime --tests"
+verify_cmd = "cd programs && cargo test -q -p layerx-programs-runtime --test repair_22_31_564"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.563]
+title = "Carry the canonical activity of an SDK-submitted transaction through later commitment waits"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.563"]
+interfaces = []
+do_1 = "do_1 Gotcha 3220, decision 2650. In services/agent/crates/layerx-sdk/src/wallet.rs add Wallet::wait_for_submitted(receipt, commitment, timeout): it waits through self.rpc.wait_for for the activity id of the given receipt (receipt.protocol().activity_id() as the scenarios read it), refuses with RpcError::InvalidRequest when the given receipt carries no canonical activity, and binds the same canonical activity bytes on the returned receipt (bind_canonical_activity, rpc_verification.rs line 80); add wait_for_submitted_with_commit for the Finalised path with commit evidence. RpcClient receipts stay None (rpc_verification.rs line 355); Wallet::send and Wallet::payment (wallet.rs lines 80 and 228) are unchanged."
+do_2 = "do_2 Write services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs on the loopback peer fixtures the SDK tests already use (tests/repair_22_31_494.rs): a payment waited to Executed carries canonical activity; wait_for_submitted to Batched returns a receipt with the same canonical_activity, a present batch_evidence and the Batched commitment; a receipt built without canonical activity is refused; the Finalised path binds the same bytes. Record the gate results by reference in tests/repair_22_31_563.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["wait_for_submitted", "wait_for_submitted_with_commit", "bind_canonical_activity", "canonical_activity"]
+touches = ["services/agent/crates/layerx-sdk/src/wallet.rs", "services/agent/crates/layerx-sdk/src/rpc_verification.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-sdk/tests/repair_22_31_563.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_563.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_563"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.562]
+title = "Answer the Human budget-after request with the rung rank instead of the verification label"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = ["22.31.534"]
+reqs = ["22998.1"]
+capabilities = ["22.31.562"]
+interfaces = []
+do_1 = "do_1 Gotcha 3226, decision 2651. In services/agent/crates/layerx-agentd/src/human_runtime.rs approval_budget_after (from line 9877) replace out.u8(state.verification) (near line 10053) with the rung rank: VerificationLevel::from_wire_rank(state.verification) then receipt_rung_code (line 11539), answering Refused for a label without a rung; where the response digest (near line 10044) covers that byte it covers the rank written. Check every other Human response that writes state.verification or a verification label into a byte the Human decoder reads as a rung (decode_rung in services/human/crates/layerx-human-service/src/server/agent_runtime.rs line 4477) and align each to its decoder; name every site in the task record."
+do_2 = "do_2 Write services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs: serve_one over a loopback transport with a budget-state fixture labelled COMMITTED (6) as the existing Human-boundary tests do, send APPROVAL_BUDGET_AFTER_V2 and assert the response byte at the rung position is 2 and decodes as layerx_types::rung::Rung::Committed; a fixture labelled SEQUENCER_SIGNED (1) answers Refused. Record the sites and the gate results by reference in tests/repair_22_31_562.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
+symbols = ["approval_budget_after", "receipt_rung_code", "budget_state_is_committed", "decode_rung"]
+touches = ["services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_562.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_562.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_562"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.561]
 title = "Carry ICS23 storage witnesses as the export state evidence and give produce a real state producer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -175715,10 +175848,11 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3219): the attempt-1 tree stands (2 of 3 cases pass). In rpc_prepare_native_send (human_runtime.rs from line 6976 of the attempt tree) use one tenant, the principal tenant the DurablePreparation::store_key already uses (lines 7009 to 7012), for the retention in prepare_gated (line 7034), the authorization-reference key and the restore in verify_native_owner_purpose (capability/binding.rs line 2938); where the transport tenant of the peer differs from the principal tenant, the principal tenant is the storage tenant. Every mapping to Unavailable (the put_local of the authorization reference, the restore mapped to BindingError::Corrupt and owner_error) carries the originating error in the diagnostic (gotcha 3202). The failing case then matches the reopened Prepare to the owner preview. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.558"]
@@ -177516,7 +177650,7 @@ title = "Repair audit record 22.30.99 medium findings in services/agent/qualific
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494"]
+requires = ["22.31.227", "22.31.228", "22.31.229", "22.31.230", "22.31.494", "22.31.563"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1569"]
 interfaces = []
@@ -177553,6 +177687,7 @@ do_13 = "Attempt 7 (continue, gotcha 3193, decision 2635): the attempt-6 tree st
 do_14 = "Attempt 8 (continue, gotcha 3203, decision 2639): the attempt-7 tree stands (the grant issue verifies with activity-specific coverage and the pinned authority). In services/agent/qualification/pay2/tests/support/funded_peer.rs make execution_receipt take the construct method of the bound disclosure and encode the protocol receipt of that ledger operation: the ledger receipt module id (LXP_LEDGER_RECEIPT_MODULE_ID, include/layerx/lxp_receipt.h line 157), operation tag 6 with the drawn amount and the grant asset for LedgerDraw, 7 for LedgerIssueGrant, and the from and to legs from the disclosure counterparties; keep the current shape for LedgerSend (no scenario assertion names its tag) and the fixed module 12 operation 2 shape only for a call that constructs no ledger operation. Keep the scenario assertions at tests/support/funded_scenario.rs lines 677, 821 and 927 (they match pay2e_test.rs lines 598, 735 and 834 on main). Amend the finding the attempt recorded in spec/layerx-merge/qualification.kvx to state the fixture gap instead of a production receipt mismatch. Commit before the gates run."
 do_15 = "Attempt 9 (continue, gotcha 3211, decision 2645): the attempt-8 tree stands (the peer serves module 1 operation 7 for the grant issue and operation 6 for the draw; build exit 0). The refusal is not an EVM-only SDK limit: verify_node_receipt (layerx-sdk rpc_verification.rs lines 502 to 645) binds the receipt asset to the SHA-256 of paymentDenom, from and to to the 20-byte JSON addresses left-padded to 32 bytes, the context hash to keyId, the signing key to the policy key and the summary effect to the execution fields, and rpc/sequencer_receipt.go lines 579 and 584 bind the same on the node; pay2e_test.rs lines 726 to 737 on main verifies an operation-7 receipt through this path. In funded_peer.rs keep the receipt header words as the node encodes them for every module (asset = the payment digest of uhpx, from = the padded sender, to = the padded call target, balances consistent with amount 0 and the fee) and carry the ledger operation in the module, operation and amount words (and in the log effects if the consumer reads them); then the SDK grant issue and draw verify, and the test asserts the grant and draw outcomes through the SDK and the MCP tool. Remove the out-of-scope note from the task record; record the sites and the gate results by reference; amend no file after the gates run (gotcha 3142)."
 do_16 = "Attempt 10 (continue, gotcha 3216, decision 2648, which supersedes decision 2645 on the module, operation and amount words): the attempt-9 tree stands (the verified batched Send; the asset, from, to and context-hash binding of decision 2645). In tests/support/funded_peer.rs lines 606 to 645 remove the module 1 mapping: every receipt the peer serves carries module 12, operation equal to the EVM transaction type of the raw envelope (2 for the 0x02 envelope the SDK sends) and amount equal to the transaction value, as node/sequencer/receipt.go lines 215, 319, 420 and 421 bind them. Carry the ledger precompile events in the receipt: PayerGrantIssued(grantId) for the grant issue and PaymentDrawn(grantId, from, to, assetId, amount, idempotencyKey, contextHash) for the draw, at address 0x101A with the topics and data the ABI in precompiles/layerxledger/abi.json declares, each with a matching log effect so verify_logs accepts the count. In tests/support/funded_scenario.rs replace the assertions at lines 677 to 678, 821 and 927 to 928 (operation 6 or 7, amount 2) with assertions on the node words and prove the grant issue and the draw by decoding the events from the verified logs the SDK returns. Keep the self-check through verify_node_receipt. Run the build and the verify at the final revision and record them by reference in the task record."
+do_17 = "Attempt 11 (continue, gotcha 3220, decision 2650, after 22.31.563 lands): the attempt-10 tree stands (node receipt words, the verified batched Send, the grant issue and draw proven from the verified logs). In tests/support/funded_scenario.rs replace the bare wait_for calls that produce the prior draw and the batched receipts (lines 614 and 722) with Wallet::wait_for_submitted on the executed receipt, so cumulative_evidence at line 867 receives a receipt with canonical activity and batch evidence; assert the canonical activity equals that of the executed receipt and keep the existing word assertions. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.1567]
 title = "Repair audit record 22.30.99 medium findings in services/agent/fuzz/fuzz_targets (part 1 of 1): test-gap"
@@ -178593,7 +178728,7 @@ do_15 = "Attempt 5 (continue after 22.31.550, gotcha 3166, decision 2620): the a
 
 [task.22.33.1537]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 2 of 3): retired-reference, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.483", "22.31.497", "22.31.559"]
@@ -179544,7 +179679,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -179578,6 +179713,7 @@ do_10 = "Attempt 3 (continue): the build fails because services/human/crates/lay
 do_11 = "Attempt 4 (continue): the build passes and the fixture now runs the real daemon library behind a recorded loopback authority, as decision 2558 asked; all three cases fail because the daemon's startup recovery refuses the served budget state with reason Unavailable (human_runtime.rs line 14521) and keeps the actor read-only, so every decision is Refused (gotcha 3074). Find why the recovery cannot read the budget record the transcript serves (the persisted record shape or the store it expects, human_runtime.rs line 748 names the two causes) and make the transcript carry exactly what the real authority emits, or produce the budget state through the daemon library in-process; do not loosen the daemon. The verify's three cases must pass; if 22.31.515 is on main when you start, rebase on it and keep its approvals.rs and decide.rs signature changes."
 do_12 = "Attempt 5 (continue after 22.31.515 and 22.31.521): attempt 4's fixture work stands (the real daemon library behind a recorded loopback authority); its build failed only on tests/decide_nonces.rs and tests/repair_22_31_159.rs, which still use the signatures 22.31.495 retired (gotcha 3083) and which 22.31.521 repairs while 22.31.515 repairs approvals.rs and decide.rs. Rebase on main once both are there, run the declared build and the verify; if the three cases still report the budget state Unavailable, follow the attempt-4 instruction (human_runtime.rs line 748 names the two causes; make the transcript carry what the real authority emits or produce the state through the daemon library in-process; never loosen the daemon). Record the outcome and any remaining refusal field in the task record."
 do_13 = "Attempt 6 (continue after 22.31.534, gotcha 3124, decision 2585): attempt 5 stands in full (the recorded authority, the owner fixture, the three cases and the record; recovery reconciles and admits). Rebase on main once 22.31.534 has landed, change nothing, run the declared build and verify once and record."
+do_14 = "Attempt 7 (requalify, gotcha 3226, decision 2651): the attempt-6 tree stands (1 passed); the task now requires 22.31.562, which makes the daemon write the rung rank the Human decoder reads. Re-run the gates as they stand once 562 lands; if a case still answers Corrupt, the record names the response byte."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
@@ -183581,6 +183717,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_15 = "Attempt 2 (after 22.31.485): attempt 1 built the ai-market crate; the dependent-crate check failed only in layerx-platform-core, whose public_reads.rs still uses the previous PxAssetEntry shape (gotcha 3004), repaired by 22.31.485. Re-run the gates on the attempt-1 tree once 22.31.485 is on main."
 do_16 = "Attempt 3 (after 22.31.497): attempt 2 re-ran the attempt-1 tree; the build passed and the dependent-crate check failed only on the daemon test target human_approval_budget_actor (crate::committed unresolved, loopback_http, Human, Policy, Config.human; gotcha 3033), so the verify never ran. Re-run the gates on the attempt-2 tree once 22.31.497 is on main and fix inside the paths only what still fails."
+do_17 = "Attempt 4 (continue, gotcha 3227): the attempt-3 tree stands (the merge with main; build and dependent-crate check exit 0). ApplicationError(1) is BAD_VERSION (errors.rs line 64). Give every fixture builder step of tests/repair_22_33_260.rs (create_fixture, enroll, evaluator, grow, open, heartbeat, activate_fixture and the codec helpers header and table) a step label printed on the error path with the step name and the operation, identify the refusing decoder among codec.rs schema (line 428), admission.rs lines 660 and 1148 and aggregation_codec.rs line 198, and repair the fixture bytes to the current layout or, if a producer writes a section another decoder refuses, the producer; the eight cases share prove_admissions, so the record names one site and one fact. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.33.259]
 title = "Repair audit record 22.30.130 medium findings in programs/crates/layerx-programs-runtime/src (part 1 of 1): security, test-gap"
@@ -184450,7 +184587,7 @@ title = "Repair audit record 22.30.125 medium findings in programs/crates/layerx
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558"]
+requires = ["22.31.443", "22.31.485", "22.31.497", "22.31.550", "22.31.558", "22.31.478"]
 reqs = ["22998.1"]
 capabilities = ["22.33.223"]
 interfaces = []
@@ -184486,6 +184623,7 @@ do_12 = "Attempt 5 (continue): the attempt-3 ruling stands, and in addition the 
 do_13 = "Attempt 6 (requalify after 22.31.485): the previous attempt built; the dependent-crate check failed in services/platform/hosted/core on the unported px read types (PxAssetEntry, Uint256 byte conversions), which 22.31.485 ports. Once 22.31.485 is on main, re-run the gates on the previous attempt's tree and fix inside the paths only what still fails."
 do_14 = "Attempt 7 (after 22.31.497): attempt 6 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or ran against a broken build. Re-run the gates on the attempt-6 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_15 = "Attempt 8 (requalify after 22.31.550, gotcha 3172, decision 2623): the attempt-6 tree stands; attempt 7 re-ran the gates and the build passed while the dependent-crate check failed only on the rpc_surface_major_two target of layerx-agentd that 22.31.545 broke on main and 22.31.550 repairs. Re-run the gates on the attempt-6 tree."
+do_16 = "Attempt 9 (requalify, gotcha 3222): the attempt-8 tree stands; the task now requires 22.31.478, whose repair brings Fund under the 1000000 CPU cap. Re-run the gates as they stand once 478 lands; if a case still fails, the record names the attempted fuel per case."
 
 [task.22.33.222]
 title = "Repair audit record 22.30.124 medium findings in programs/crates/layerx-programs-registry/tests/support (part 1 of 1): test-gap"
@@ -189785,6 +189923,7 @@ do_19 = "Attempt 4 (continue): the dependent-crate check failed before this task
 do_20 = "Next attempt (after 22.31.483): the gateway test repair_22_31_345.rs reads the restored manifest and calls handle_connection with its four arguments, so the dependent-crate check passes; re-run the gates on this attempt's tree and fix inside the paths only what still fails."
 do_21 = "Attempt 6 (after 22.31.497): attempt 5 could not qualify because the daemon test targets human_approval_budget_actor and human_projection_facts do not compile on main (gotcha 3033), repaired by 22.31.497; the verify never ran or the dependent-crate check failed on those two targets. Re-run the gates on the attempt-5 tree once 22.31.497 is on main and fix inside the paths only what still fails."
 do_22 = "Attempt 7 (continue, gotcha 3210, decision 2644): the attempt-6 tree stands (the corpus and fixtures under tests/fixtures/repair_22_31_217; 6 passed). One production fact per failing case. (1) The six MalformedPayload cases at lines 337 and 485: the native preparation binder accepts only the ConstructMethod signature table (layerx-crypto disclosure/call.rs lines 106 to 127), so the corpus constructs budgetFundNative, budgetRevoke, deploy, upgrade, deprecate and exitValue are refused by the binder itself; replay through the binder only the constructs in the table (budgetCreateNative, call, burn), and for the others drive the consumer under repair (budget_mutation_identity and confirm_budget_mutation in mutate.rs, the lifecycle and settlement readers) with the signed EIP-1559 call encoded as the real producer encodes it (precompiles/layerxpay/abi.json words for budgetFundNative and budgetRevoke; sdk/platform/conformance/operations.json lines 506 to 532 for deploy, upgrade and deprecate), assert the binder refusal as a recorded fact and write the one-line wiring request for the disclosure domain in the task record (do_3); every construct carries a nonzero chain id and gas limit and a priority fee not above the max fee (prepare/disclose.rs lines 22 to 27). (2) The three Snapshot cases at lines 1055, 1160 and 1221: read_native_effect_budget_sources requires (program_sources.rs lines 430 to 447 and 40 to 52) a nonzero now, caps did equal to the actor, a nonzero state root, level at least STATE_PROVEN, freshness global sequence and observed head sequence equal to the prepared observed head sequence, batch number equal to the caps observed height and the node block number equal to both, and fee_policy.rs lines 126 to 137 require a header at that height with nonzero hash and state root; build the prepared source, the freshness and the loopback node answers to satisfy each and assert the refusal when one is violated. (3) The Refused case at line 852: assert the specific check of verify_budget_proof (budget_proof.rs lines 21 to 365) the counter-above-height export hits and make the export carry a revocation sequence above the height with every other field consistent, as do_7 requires. (4) The panic at line 409: the program_settlement corpus case has no receipt; record the receipt the production peer emitted for that construct or assert the no-receipt refusal path. Record the sites and the gate results by reference in the task record; amend no file after the gates run (gotcha 3142)."
+do_23 = "Attempt 8 (continue, gotcha 3225): the attempt-7 tree stands (12 passed). One production condition per failing case, each verified on main. (1) The MalformedPayload cases at lines 548 and 722: prepare/disclose.rs bind (lines 21 to 26) refuses only chain_id 0, gas_limit 0 or max_priority_fee_per_gas above max_fee_per_gas; give the fixture call chain id 125, a nonzero gas limit and a priority fee at or below the max fee, and assert the bound disclosure. (2) The Snapshot cases at lines 1408, 1507 and 1568: budget/fee_policy.rs native_fee_policy (lines 123 to 137 and 216 to 223) refuses when height is 0, block_number is below height, block_by_number(height) is empty, the header number differs from height, the header hash or the state root is zero, or the re-read differs; make the loopback endpoint of the fixture serve a head at or above the height, the header with that number and a nonzero hash, and a nonzero state root, stable across the two reads. (3) The dependent case follows. Every assertion prints the originating refusal. No production interface is missing; the binder and the reader stay. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.216]
 title = "Repair audit record 22.30.90 findings in services/agent/crates/layerx-agentd/src/policy: interface-mismatch"
@@ -192271,7 +192410,7 @@ title = "Repair the inventory sweep target layerx-programs-ai-market"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.99.160", "22.99.159", "22.31.464", "22.31.497", "22.31.558"]
+requires = ["22.99.160", "22.99.159", "22.31.464", "22.31.497", "22.31.558", "22.31.564"]
 reqs = ["22998.1"]
 capabilities = ["22.99.77"]
 interfaces = []
@@ -192310,6 +192449,7 @@ do_15 = "Attempt 14 (requalify, gotcha 3170): the attempt-12 tree stands; attemp
 do_16 = "Attempt 15 (requalify after 22.31.558, gotcha 3180): the attempt-12 tree stands; attempt 14 built with binaryen present (gotcha 3170) and failed only the dependent-crate check on the stale site in layerx-human-service tests/native_send_producer.rs line 659 that 22.31.558 ports, before the verify ran. Re-run the gates as they stand once 22.31.558 is on main."
 do_17 = "Attempt 16 (continue, gotchas 3198 and 3199, decision 2637): the attempt-12 tree stands. First, in tests/programs/test_ai_host_boundary.c make the execute helper print the kernel status and receipt.result_code on every call and make the Rust harness line carry both in its assertion message: -3 on the status is LXP_ERR_NON_CANONICAL from the kernel (include/layerx/lxp_result.h line 38), not the guest STATUS_BOUNDS. Bisect the response capacity word (16, 4096, 16384) against the payload decoder in call.c (lines 2495 to 2555: the expected length against payload_length and the entrypoint check) and realign the payload the harness writes so its length equals the length the decoder expects; the capacity value itself passes both bounds (call.c line 2522, execute.rs line 4365). Second, every_routed_operation_fits_the_protocol_cpu_fuel_cap: OPEN_EPOCH and ADMIT_TASK exceed DEFAULT_CPU_FUEL by 2 to 626 units at 46 to 50 KB of shared state under the distribution wasm-opt version 120 the qualification environment installs; remove or bound the state-size proportional work on those paths and prove the margin with that toolchain. Commit before the gates run."
 do_18 = "Attempt 17 (continue, gotcha 3215, decision 2647): the attempt-16 tree stands (the kernel-status print per CALL, the layout check, the size-optimised guest). Before touching the harness, add a Rust test in programs/crates/layerx-programs-ai-market that loads the built guest from the manifest as tests/fuel_budget.rs does, runs each of the 12 failing native CALLs through Executor with with_program_replay_profile(ProgramReplayProfile::new(128, 1048576)) and execute_authorized_v2_budgeted under the harness budget, and asserts Ok with replay_record().is_some(), printing the ExecutionError on failure; that error is the cause. If it is the replay bound (from_captured, replay_record.rs lines 62 to 90), raise the harness profile in tests/programs/test_ai_host_boundary.c lines 357 to 382 to 4096 boundaries (the kernel maximum, programs.h line 676) and keep 1048576 bytes; if it is a guest fault, repair the guest path it names. Bring the over-cap operations under 1000000 CPU fuel: OPEN_EPOCH at 896 and 1024 state bytes, ADMIT_TASK at 1033, SealEvidence at 1088 and RevealScore at 1104 decode only the sections they write through the joint-section readers; prove it with the fuel table of tests/fuel_budget.rs. Do not change the native binding mapping (ffi_call.rs lines 2896 to 2902). Run the build and the verify at the final revision and record them by reference in the task record."
+do_19 = "Attempt 18 (continue, gotcha 3223, decision 2649, after 22.31.564 lands): the attempt-17 tree stands (the executor proof in tests/support/native_replay.rs, the size-optimised guest, the kernel-status print per CALL). Bring the seven residual operations under the cap through the joint-section readers: OPEN_EPOCH at 896 and 1024 state bytes, SealEvidence at 1088 (two cases), RevealScore at 1104 (three cases); then rerun the executor proof and the native harness against the runtime of 564: every native case answers Ok with a present replay record and kernel result 0. Keep the native binding mapping (ffi_call.rs lines 2896 to 2902). Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.99.76]
 title = "Repair the inventory sweep target layerx-programs-runtime"
@@ -193099,6 +193239,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 1 (continue): decision 2500. The five native_reads::daemon::proof tests are isolated from the live node by 18.1578.1 (required); do not exclude or edit them. Repair the deterministic failures inside the crate: the three binding tests refused with mcp.binding_retired_key (the fixture binding still names the retired key; rebuild it from the daemon enrolment the served path opens), the_web_section_is_closed_and_typed (daemon_bound.rs:1089, Binding::parse of the served body), web_binding_names_a_receipt_key_index (web_payments_layerxpay.rs:429), a_settlement_under_another_sequencer_key_is_refused, a_web_scoped_session_without_an_attached_payer_is_refused, native_reads_producer_http_consumer_reopens_and_refuses_malformed_results and payer_artifacts_that_do_not_bind_the_offer_are_never_sent. Name in the commit any decision that retired an asserted behaviour; never delete, skip or weaken a test."
 do_5 = "Attempt 2 (continue): the proof suites demand a real local node (NotPresent, LAYERX_TEST_PAXEER_CHAIN_ID is required) and the daemon-bound fixtures still use the retired web public key field; run the suites against loopback node fixtures started by the test with no environment variable, and give the fixtures receipt_key_index as the production reader expects (gotcha 2968)."
+do_6 = "Attempt 3 (requalify, gotcha 3224): the attempt-2 tree stands (the fixture store writer ownership in the layerx-mcp tests; build exit 0 at cc4c6478ac); the verify never ran on that tree. Run the build and the verify as they stand and record them by reference in the task record."
 
 [task.22.99.51]
 title = "Repair the inventory sweep target layerx-agentd-host"
