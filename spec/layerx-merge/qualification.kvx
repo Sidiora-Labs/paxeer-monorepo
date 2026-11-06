@@ -33003,3 +33003,19 @@ symbol = "metrics.ts"
 observed = "Attempt 5 at 24649c9cb9adfa6e84b08914b861a5c772d6c4a4: build exit 0 (two builds), verify exit 1 (two runs): the first run at e6524bd65bfc5402d71832adfedb77abd6671136 refused the VIRTUAL open with INTERNAL_ERROR because the driver applied no 0747 migration; after that repair the final run refuses the publication cancel with INTERNAL_ERROR Source operation failed and no recorded cause."
 assumption = "The driver proves a schema the service never runs, and the catch hides the column the select refuses; the cancel settlement reads two columns of migration 0764 the driver never applied."
 severity = "high"
+
+[finding.22.31.560.15]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 15 at eac043db6738b1717b13344165490f3e90bfe2ad: build exit 0, dependent-crate check exit 0, verify exit 101: 2 of 3 cases pass; the first Prepare after the owner preview answers 403 owner.refused at approval carrier reservation identity."
+assumption = "The carrier compares the reservation id with the envelope digest while every producer keys it by the unsigned-call digest of decision 2634."
+severity = "high"
+
+[finding.22.31.577.5]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 5 at 7e4d0a7b73532eddabcccdb32209508cc9bfe4a4: build exit 0, dependent-crate check exit 0, verify exit 1: every carried suite passes; the two 128-call proofs refuse at capture witness bytes 1049962 and 1048801 over the permitted 1048576."
+assumption = "Two record constants repeated in every leaf cost about 58 kilobytes; the overages are 1386 and 225 bytes."
+severity = "high"
