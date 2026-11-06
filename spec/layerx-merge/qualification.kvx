@@ -32451,3 +32451,11 @@ symbol = "store.rs"
 observed = "Attempt 2 at 75d40437cb33fdfa9428e380d50668b90d8f75f0: build exit 0, dependent-crate check exit 0, verify exit 1 twice: program_replay repaired between the cycles (4 passed); the terminal decoder persistence case of repair_22_31_259 fails with DigestMismatch, a break on main since 22.31.488; the three task binaries never ran."
 assumption = "The 259 break is pre-existing and repaired by 574; the task proof is unread until the binaries run."
 severity = "high"
+
+[finding.22.31.478.12]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 12 at c4fda5afd460d8fdc53a72f95f215db042c78390: build exit 0, dependent-crate check exit 0, verify exit 1: the rpc test binary fails to compile at rpc/repair_478_test.go line 382 (balance.FillBytes undefined on the SDK Int); no test ran."
+assumption = "A one-call test-side fix; the tree is otherwise unproven until the gates run."
+severity = "medium"
