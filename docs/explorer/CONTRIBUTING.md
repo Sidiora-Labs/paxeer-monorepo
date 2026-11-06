@@ -87,7 +87,7 @@ For all types of dependencies:
 *Note*, if the variable should be exposed to the browser don't forget to add prefix `NEXT_PUBLIC_` to its name.
 
 These are the steps that you have to follow to make everything work:
-1. First and foremost, document variable in the [/docs/ENVS.md](./ENVS.md) file; provide short description, its expected type, requirement flag, default and example value; **do not skip this step** otherwise the app will not receive variable value at run-time
+1. First and foremost, document variable in the [docs/explorer/ENVS.md](./ENVS.md) file; provide short description, its expected type, requirement flag, default and example value; **do not skip this step** otherwise the app will not receive variable value at run-time
 2. Make sure that you have added a property to React app config (`configs/app/index.ts`) in appropriate section that is associated with this variable; do not use ENV variable values directly in the application code; decide where this variable belongs to and place it under the certain section:
     - `app` - the front-end app itself
     - `api` - the main API configuration
@@ -117,7 +117,7 @@ These are the steps that you have to follow to make everything work:
 
 ## Writing & Running Tests
 
-Every feature or bugfix should be accompanied by tests, either unit tests or component visual tests, or both, except from trivial fixes (for example, typo fix). All commands for running tests you can find [below](./CONTRIBUTING.md#command-list).
+Every feature or bugfix should be accompanied by tests, either unit tests or component visual tests, or both, except from trivial fixes (for example, typo fix). All commands for running tests you can find [below](./CONTRIBUTING.md#commands-list).
 
 ### Vitest unit tests
 

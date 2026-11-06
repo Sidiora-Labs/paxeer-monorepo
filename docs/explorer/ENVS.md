@@ -33,6 +33,7 @@ All json-like values should be single-quoted. If it contains a hash (`#`) or a d
     - [NFT](#nft-views)
   - [Misc](#misc)
 - [App features](#app-features)
+  - [Explorer Ask](#explorer-ask)
   - [My account](#my-account)
   - [Gas tracker](#gas-tracker)
   - [Advanced filter](#advanced-filter)
@@ -47,7 +48,7 @@ All json-like values should be single-quoted. If it contains a hash (`#`) or a d
   - [Google analytics](#google-analytics)
   - [Mixpanel analytics](#mixpanel-analytics)
   - [GrowthBook feature flagging and A/B testing](#growthbook-feature-flagging-and-ab-testing)
-  - [GraphQL API documentation](#graphql-api-documentation)
+  - [GraphQL API documentation](#api-documentation)
   - [API documentation](#api-documentation)
   - [Marketplace](#marketplace)
   - [Solidity to UML diagrams](#solidity-to-uml-diagrams)
@@ -77,7 +78,7 @@ All json-like values should be single-quoted. If it contains a hash (`#`) or a d
   - [Rewards service API](#rewards-service-api)
   - [DEX pools](#dex-pools)
   - [Flashblocks](#flashblocks)
-  - [Address 3rd party widgets](#address-3rd-party-widgets)
+  - [Address 3rd party widgets](#address-3rd-party-widget)
   - [ZetaChain](#zetachain-cross-chain-transactions)
   - [Multichain explorer](#multichain-explorer)
   - [Paxeer X Network](#paxeer-x-network)
@@ -807,7 +808,7 @@ This feature allows the integration of an external API to fetch user info for ad
 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_ADDRESS_USERNAME_TAG | `{api_url: string; tag_link_template: string; tag_icon: string; tag_bg_color: string; tag_text_color: string}` | Address profile API tag configuration properties. See [below](#user-profile-api-configuration-properties). | - | - | `uniswap` | v1.35.0+ |
+| NEXT_PUBLIC_ADDRESS_USERNAME_TAG | `{api_url: string; tag_link_template: string; tag_icon: string; tag_bg_color: string; tag_text_color: string}` | Address profile API tag configuration properties. See [below](#address-profile-api-configuration-properties). | - | - | `uniswap` | v1.35.0+ |
 
 &nbsp;
 
@@ -1103,6 +1104,19 @@ Unified Paxeer X Network surfaces (unified account view, status ladder, anchors 
 | Variable | Type| Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
 | NEXT_PUBLIC_PAXEER_X_ENABLED | `boolean` | Set to `true` to enable the Paxeer X Network surfaces | - | `false` | `true` | v2.7.2+ |
+
+&nbsp;
+
+### Explorer Ask
+
+Ask sends a question (at most 2000 characters) and optional current route, entity kind and identifier to an OpenAI-compatible chat-completions endpoint through the explorer server. Answers are labelled **ASK**, with “model output, not chain data” and the configured model name. Enable this only when the endpoint is ready to accept explorer traffic. Without a base URL the route returns 503.
+
+| Variable | Type | Description | Compulsoriness | Default value | Example value | Version |
+| --- | --- | --- | --- | --- | --- | --- |
+| NEXT_PUBLIC_ASSISTANT_ENABLED | `boolean` | Show the Ask row and answer panel in search | Optional | `false` | `true` | - |
+| EXPLORER_ASSISTANT_BASE_URL | `string` | Server-only OpenAI-compatible API base URL; `/chat/completions` is appended, preserving a base path such as `/v1` | Required for answers | - | `https://api.example.com/v1` | - |
+| EXPLORER_ASSISTANT_API_KEY | `string` | Server-only bearer credential; never put this in a `NEXT_PUBLIC_` variable or a tracked preset | Optional if the endpoint accepts unauthenticated requests | - | - | - |
+| EXPLORER_ASSISTANT_MODEL | `string` | Server-only model name sent to the endpoint and returned with the answer | Optional | `xai/grok-4.7` | `xai/grok-4.7` | - |
 
 &nbsp;
 
