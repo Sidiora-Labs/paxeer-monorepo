@@ -15,6 +15,6 @@ packages:
   - services/platform/examples/merchant-checkout
   - services/platform/examples/merchant-shop
   - services/platform/examples/paid-api
-  - services/platform/docs/samples/first-payment-typescript
-  - services/platform/docs/samples/paid-endpoint-express
-  - services/platform/docs/samples/paid-route-next
+  - services/platform/examples/samples/first-payment-typescript
+  - services/platform/examples/samples/paid-endpoint-express
+  - services/platform/examples/samples/paid-route-next

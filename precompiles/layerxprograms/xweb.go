@@ -15,11 +15,11 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 )
 
-func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
-	method := programsABI.Methods["call"]
-	if call.method == nil || call.method.Name != method.Name {
+func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}, authorities ...ReceiptAuthority) ([]byte, error) {
+	if call.method == nil || (call.method.Name != "call" && call.method.Name != "callWithReceipts") {
 		return nil, errGateUnknownMethod
 	}
+	method := programsABI.Methods[call.method.Name]
 	decoded, err := decodeArgs(call.method, args)
 	if err != nil {
 		return nil, err
@@ -56,7 +56,7 @@ func callWithWebRequests(ctx sdk.Context, p *PrecompileExecutor, call callContex
 	if err != nil {
 		return nil, err
 	}
-	receipt, err := submit(cached, p, call, 0x00090003, payload, feeLimit)
+	receipt, err := submit(cached, p, call, 0x00090003, payload, feeLimit, authorities...)
 	if err != nil {
 		return nil, err
 	}
@@ -127,6 +127,13 @@ var webHandlers = sync.OnceValue(func() handlerTable {
 	}
 	table["call"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
 		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args)
+	}
+	table["callWithReceipts"] = func(ctx sdk.Context, p *PrecompileExecutor, call callContext, args []interface{}) ([]byte, error) {
+		authorities, err := decodeCallReceiptAuthorities(call, args)
+		if err != nil {
+			return nil, err
+		}
+		return callWithWebRequests(ctx.WithValue(xwebContextKey{}, p.xweb), p, call, args, authorities...)
 	}
 	return table
 })

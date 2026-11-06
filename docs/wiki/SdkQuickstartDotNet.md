@@ -29,7 +29,7 @@ on [Public JSON-RPC](PublicRpc.md).
 ## Send
 
 Human-plane quote then commit, as in
-`services/platform/docs/samples/first-payment-csharp`:
+`services/platform/examples/samples/first-payment-csharp`:
 
 ```csharp
 using System.Text;

@@ -164,7 +164,7 @@ impl CommittedCaps {
         self.checkpoint.height
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn freshness(&self) -> Freshness {
         checkpoint_freshness(&self.checkpoint)
@@ -418,7 +418,7 @@ impl CommittedCall {
         self.checkpoint.app_hash
     }
     pub const fn level(&self) -> VerificationLevel {
-        VerificationLevel::CHECKPOINT_FINALISED
+        VerificationLevel::COMMITTED
     }
     pub const fn achieved(&self) -> VerificationLevel {
         self.level()
@@ -716,6 +716,20 @@ impl<'a> CommittedReads<'a> {
         }
         Ok(())
     }
+    /// Resumes from the saved checkpoint, reacquiring its consensus material
+    /// and state root from the node before any committed read is served.
+    pub fn resume(
+        endpoint: &'a SequencerEndpoint,
+        checkpoint: &ServedCheckpoint,
+    ) -> Result<Self, CommittedReadError> {
+        Ok(Self {
+            endpoint,
+            checkpoint: checkpoint
+                .reacquire(endpoint)
+                .map_err(CommittedReadError::Checkpoint)?,
+        })
+    }
+
     pub fn open(endpoint: &'a SequencerEndpoint, height: u64) -> Result<Self, CommittedReadError> {
         let chain_id = endpoint
             .chain_id()

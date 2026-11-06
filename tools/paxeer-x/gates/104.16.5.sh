@@ -27,8 +27,8 @@ MODE = sys.argv[1]
 COUNT = 0
 CHILDREN = []
 SAMPLES = {
-    'seller': 'services/platform/docs/samples/paid-endpoint-express',
-    'buyer': 'services/platform/docs/samples/first-payment-typescript',
+    'seller': 'services/platform/examples/samples/paid-endpoint-express',
+    'buyer': 'services/platform/examples/samples/first-payment-typescript',
 }
 SOURCES = (
     'services/platform/Cargo.toml', 'services/platform/Cargo.lock',

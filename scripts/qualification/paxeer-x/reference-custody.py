@@ -122,7 +122,7 @@ def source():
         'services/agent/sdk/python/layerx_sdk',
         'tests/programs/test_reference_custody.c',
         'tools/paxeer-x/gates/104.30.7.sh',
-        'services/platform/docs/content/guide/programs.md', 'programs/porting']).splitlines()
+        'docs/platform/content/guide/programs.md', 'programs/porting']).splitlines()
     for path in paths:
         evidence.require(not any(p.startswith('.env') for p in Path(path).parts),
             'credential input is forbidden')

@@ -19,7 +19,7 @@ const UserIdenticon = ({ address, isAutoConnectDisabled }: Props) => {
           position="absolute"
           bottom="-1px"
           right="-3px"
-          backgroundColor="rgba(16, 17, 18, 0.80)"
+          backgroundColor="identicon.overlay"
           borderRadius="full"
           border="1px solid"
           borderColor={{ _light: 'orange.100', _dark: 'orange.900' }}

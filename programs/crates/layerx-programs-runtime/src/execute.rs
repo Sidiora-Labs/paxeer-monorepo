@@ -177,6 +177,7 @@ pub struct ProgramInstance {
     resumable_globals: Option<Vec<String>>,
     validated_code_hash: [u8; 32],
     program_replay_trap: Option<wasmi::ExecutionTrapRecord>,
+    streamed_replay: Option<StreamedReplayCapture>,
 }
 
 fn commitment_fault(error: &crate::CommitmentError) -> ExecutionFault {
@@ -1069,67 +1070,90 @@ fn convert_execution_transitions(
     Ok(trace)
 }
 
-fn capture_program_record_from_store(
-    store: &mut Store<RuntimeState>,
-    profile: crate::replay_record::ProgramReplayProfile,
+#[derive(Debug)]
+struct StreamedReplayCapture {
+    header: Option<crate::replay_record::ReplayRecordHeader>,
+    profile: crate::ProgramReplayProfile,
     identities: TraceIdentities,
-    terminal_status: u8,
-    trap: Option<wasmi::ExecutionTrapRecord>,
-) -> Result<crate::replay_record::ProgramReplayRecord, ExecutionFault> {
-    fn refused(error: crate::replay::ReplayWitnessError) -> ExecutionFault {
-        ExecutionFault::EngineFault {
-            reason: format!("program replay record refused: {error:?}"),
+    previous_memory: Vec<u8>,
+    leaves: Vec<Vec<u8>>,
+    remaining: usize,
+    replay_fuel: u64,
+    next_step: u64,
+}
+
+#[track_caller]
+fn replay_capture_fault(error: impl std::fmt::Debug) -> ExecutionFault {
+    let check = std::panic::Location::caller();
+    ExecutionFault::EngineFault {
+        reason: format!(
+            "program replay record refused: {error:?}; capture check at {}:{}",
+            check.file(),
+            check.line()
+        ),
+    }
+}
+
+fn replay_capture_check(
+    error: crate::replay::ReplayWitnessError,
+    check: &'static str,
+    observed: u128,
+    permitted: u128,
+    leaf_length: usize,
+) -> ExecutionFault {
+    replay_capture_fault(crate::replay_record::ReplayCaptureError {
+        error,
+        check,
+        observed,
+        permitted,
+        leaf_length,
+    })
+}
+
+impl StreamedReplayCapture {
+    fn new(
+        module: &ValidatedModule,
+        profile: crate::ProgramReplayProfile,
+        identities: TraceIdentities,
+    ) -> Result<Self, ExecutionFault> {
+        Ok(Self {
+            profile,
+            identities,
+            header: None,
+            previous_memory: module.initial_replay_memory()?,
+            leaves: Vec::new(),
+            remaining: profile.maximum_bytes() as usize,
+            replay_fuel: 0,
+            next_step: 0,
+        })
+    }
+
+    fn push(
+        &mut self,
+        replay: &wasmi::ExecutionReplaySnapshot,
+        semantic: &crate::replay::CapturedSemanticReplayV2,
+        observe: &mut dyn FnMut(&[u8], &wasmi::ExecutionReplaySnapshot),
+    ) -> Result<(), ExecutionFault> {
+        if self.leaves.len() >= self.profile.maximum_boundaries() as usize {
+            return Err(replay_capture_check(
+                crate::replay::ReplayWitnessError::Bounds,
+                "capture leaves",
+                self.leaves.len() as u128 + 1,
+                self.profile.maximum_boundaries() as u128,
+                0,
+            ));
         }
-    }
-    let transitions = store.take_execution_replay_transitions();
-    let replay_fuel = store.data().boundary_capture_replay_fuel();
-    let captures = store.data_mut().take_boundary_captures();
-    let mut snapshots: Vec<std::sync::Arc<wasmi::ExecutionReplaySnapshot>> = Vec::new();
-    for transition in transitions {
-        for snapshot in [transition.pre, transition.post] {
-            if !snapshots
-                .last()
-                .is_some_and(|last| std::sync::Arc::ptr_eq(last, &snapshot))
-            {
-                if snapshots.len() >= profile.maximum_boundaries() as usize {
-                    return Err(refused(crate::replay::ReplayWitnessError::Bounds));
-                }
-                snapshots
-                    .try_reserve(1)
-                    .map_err(|_| refused(crate::replay::ReplayWitnessError::Allocation))?;
-                snapshots.push(snapshot);
-            }
-        }
-    }
-    if let Some(trap) = &trap {
-        if !snapshots
-            .last()
-            .is_some_and(|last| std::sync::Arc::ptr_eq(last, &trap.pre))
-        {
-            snapshots
-                .try_reserve(1)
-                .map_err(|_| refused(crate::replay::ReplayWitnessError::Allocation))?;
-            snapshots.push(trap.pre.clone());
-        }
-    }
-    if snapshots.len() != captures.len() || snapshots.is_empty() {
-        return Err(refused(crate::replay::ReplayWitnessError::Binding));
-    }
-    let maximum = profile.maximum_bytes() as usize;
-    let mut leaves = Vec::new();
-    let mut remaining = maximum;
-    for (index, (replay, semantic)) in snapshots.iter().zip(&captures).enumerate() {
         semantic
             .compare_boundary(
-                identities.legacy.module_code_hash,
+                self.identities.legacy.module_code_hash,
                 &replay.snapshot.supplement,
             )
-            .map_err(refused)?;
-        let legacy = execution_state_from_snapshot(&replay.snapshot, identities.legacy)?;
+            .map_err(|error| replay_capture_fault(error))?;
+        let legacy = execution_state_from_snapshot(&replay.snapshot, self.identities.legacy)?;
         let arbitration = arbitration_state_from_snapshot(
             &replay.snapshot,
-            identities,
-            profile.trace_policy(),
+            self.identities,
+            self.profile.trace_policy(),
             std::sync::Arc::new(legacy),
         )?;
         let ordinary = wasmi::ExecutionTransition {
@@ -1138,70 +1162,262 @@ fn capture_program_record_from_store(
             memory_expansion_bytes: 0,
         };
         validate_arbitration_commitments(&ordinary, &arbitration, &arbitration)?;
-        let mut leaf =
-            crate::replay_record::captured_leaf(replay, &arbitration, semantic, remaining)
-                .map_err(refused)?;
-        let final_trap = trap.as_ref().filter(|_| index + 1 == snapshots.len());
-        match final_trap {
-            None => crate::replay::append(&mut leaf, &[0], remaining).map_err(refused)?,
-            Some(trap) => {
-                let code = match trap.trap_code {
-                    None => 0,
-                    Some(TrapCode::UnreachableCodeReached) => 1,
-                    Some(TrapCode::MemoryOutOfBounds) => 2,
-                    Some(TrapCode::TableOutOfBounds) => 3,
-                    Some(TrapCode::IndirectCallToNull) => 4,
-                    Some(TrapCode::IntegerDivisionByZero) => 5,
-                    Some(TrapCode::IntegerOverflow) => 6,
-                    Some(TrapCode::BadConversionToInteger) => 7,
-                    Some(TrapCode::StackOverflow) => 8,
-                    Some(TrapCode::BadSignature) => 9,
-                    Some(TrapCode::OutOfFuel) => 10,
-                    Some(TrapCode::GrowthOperationLimited) => 11,
-                };
-                crate::replay::append(&mut leaf, &[1, code, u8::from(trap.host_trap)], remaining)
-                    .map_err(refused)?;
+        let memory = crate::replay::ReplayMemory::capture(
+            &replay.snapshot.linear_memory,
+            &self.previous_memory,
+        )
+        .map_err(|error| replay_capture_fault(error))?;
+        let header = crate::replay_record::ReplayRecordHeader::from_boundary(
+            &arbitration,
+            &semantic
+                .canonical_bytes(self.profile.maximum_bytes() as usize)
+                .map_err(replay_capture_fault)?,
+            self.profile.maximum_bytes() as usize,
+        )
+        .map_err(replay_capture_fault)?;
+        if self
+            .header
+            .as_ref()
+            .is_some_and(|previous| previous != &header)
+        {
+            return Err(replay_capture_check(
+                crate::replay::ReplayWitnessError::Binding,
+                "capture record constants",
+                1,
+                0,
+                0,
+            ));
+        }
+        self.header = Some(header.clone());
+        let mut leaf = crate::replay_record::captured_leaf(
+            replay,
+            &arbitration,
+            semantic,
+            &memory,
+            self.profile.maximum_bytes() as usize,
+        )
+        .map_err(|error| replay_capture_fault(error))?;
+        crate::replay::append(&mut leaf, &[0], self.profile.maximum_bytes() as usize).map_err(
+            |error| {
+                replay_capture_check(
+                    error,
+                    "capture trap marker bytes",
+                    leaf.len() as u128 + 1,
+                    self.profile.maximum_bytes() as u128,
+                    leaf.len(),
+                )
+            },
+        )?;
+        if self.remaining < leaf.len() + 4 {
+            let layout = crate::replay_record::captured_leaf_breakdown(
+                &leaf,
+                &header,
+                self.profile.maximum_bytes() as usize,
+            )
+            .map_err(replay_capture_fault)?;
+            let fault = replay_capture_check(
+                crate::replay::ReplayWitnessError::Bounds,
+                "capture witness bytes",
+                (self.profile.maximum_bytes() as usize - self.remaining) as u128
+                    + leaf.len() as u128
+                    + 4,
+                self.profile.maximum_bytes() as u128,
+                leaf.len(),
+            );
+            return Err(ExecutionFault::EngineFault {
+                reason: format!("{fault}; captured_leaf_breakdown: {layout}"),
+            });
+        }
+        self.remaining -= leaf.len() + 4;
+        let supplement = &replay.snapshot.supplement;
+        self.replay_fuel = self
+            .replay_fuel
+            .checked_add(supplement.commitment_fuel)
+            .and_then(|fuel| fuel.checked_add(supplement.arbitration_commitment_fuel))
+            .ok_or_else(|| {
+                replay_capture_check(
+                    crate::replay::ReplayWitnessError::Bounds,
+                    "capture fuel sum",
+                    self.replay_fuel as u128
+                        + supplement.commitment_fuel as u128
+                        + supplement.arbitration_commitment_fuel as u128,
+                    u64::MAX as u128,
+                    leaf.len(),
+                )
+            })?;
+        self.next_step = replay.snapshot.step_index.checked_add(1).ok_or_else(|| {
+            replay_capture_check(
+                crate::replay::ReplayWitnessError::Bounds,
+                "capture step index",
+                replay.snapshot.step_index as u128 + 1,
+                u64::MAX as u128,
+                leaf.len(),
+            )
+        })?;
+        self.previous_memory
+            .clone_from(&replay.snapshot.linear_memory);
+        let envelope = header
+            .boundary_envelope(&leaf, self.profile.maximum_bytes() as usize)
+            .map_err(replay_capture_fault)?;
+        observe(&envelope, replay);
+        self.leaves.push(leaf);
+        Ok(())
+    }
+
+    fn mark_trap(&mut self, trap: &wasmi::ExecutionTrapRecord) -> Result<(), ExecutionFault> {
+        let leaf = self
+            .leaves
+            .last_mut()
+            .ok_or_else(|| replay_capture_fault(crate::replay::ReplayWitnessError::Binding))?;
+        if leaf.pop() != Some(0) {
+            return Err(replay_capture_fault(
+                crate::replay::ReplayWitnessError::Binding,
+            ));
+        }
+        crate::replay::append(
+            leaf,
+            &[
+                1,
+                crate::portable_replay::trap_tag(&trap.trap_code),
+                u8::from(trap.host_trap),
+            ],
+            self.profile.maximum_bytes() as usize,
+        )
+        .map_err(|error| {
+            replay_capture_check(
+                error,
+                "capture trap bytes",
+                leaf.len() as u128 + 3,
+                self.profile.maximum_bytes() as u128,
+                leaf.len(),
+            )
+        })?;
+        self.remaining = self.remaining.checked_sub(2).ok_or_else(|| {
+            replay_capture_check(
+                crate::replay::ReplayWitnessError::Bounds,
+                "capture trap witness bytes",
+                (self.profile.maximum_bytes() as usize - self.remaining) as u128 + 2,
+                self.profile.maximum_bytes() as u128,
+                leaf.len(),
+            )
+        })?;
+        Ok(())
+    }
+
+    fn finish(self, terminal_status: u8) -> Result<crate::ProgramReplayRecord, ExecutionFault> {
+        let record = crate::ProgramReplayRecord::from_captured(
+            self.profile,
+            self.identities.legacy.module_code_hash,
+            self.identities.legacy.input_digest,
+            self.identities.runtime_version,
+            self.identities.abi_version,
+            self.identities.fee_schedule_version,
+            self.identities.metering_schedule_version,
+            terminal_status,
+            self.leaves,
+            self.header
+                .ok_or_else(|| replay_capture_fault(crate::replay::ReplayWitnessError::Binding))?,
+        )
+        .map_err(|error| replay_capture_fault(error))?;
+        if record.replay_fuel() != self.replay_fuel {
+            return Err(replay_capture_fault(
+                crate::replay::ReplayWitnessError::Binding,
+            ));
+        }
+        Ok(record)
+    }
+}
+
+fn drain_replay_boundaries(
+    store: &mut Store<RuntimeState>,
+    trap: Option<&wasmi::ExecutionTrapRecord>,
+) -> Result<
+    Vec<(
+        std::sync::Arc<wasmi::ExecutionReplaySnapshot>,
+        crate::replay::CapturedSemanticReplayV2,
+    )>,
+    ExecutionFault,
+> {
+    let transitions = store.take_execution_replay_transitions();
+    let fuel = store.data().boundary_capture_replay_fuel();
+    let captures = store.data_mut().take_boundary_captures();
+    let mut snapshots = Vec::new();
+    for transition in transitions {
+        for snapshot in [transition.pre, transition.post] {
+            if !snapshots
+                .last()
+                .is_some_and(|last| std::sync::Arc::ptr_eq(last, &snapshot))
+            {
+                snapshots.push(snapshot);
             }
         }
-        remaining = remaining
-            .checked_sub(leaf.len() + 4)
-            .ok_or_else(|| refused(crate::replay::ReplayWitnessError::Bounds))?;
-        leaves
-            .try_reserve(1)
-            .map_err(|_| refused(crate::replay::ReplayWitnessError::Allocation))?;
-        leaves.push(leaf);
     }
-    let record = crate::replay_record::ProgramReplayRecord::from_captured(
-        profile,
-        identities.legacy.module_code_hash,
-        identities.legacy.input_digest,
-        identities.runtime_version,
-        identities.abi_version,
-        identities.fee_schedule_version,
-        identities.metering_schedule_version,
-        terminal_status,
-        leaves,
-    )
-    .map_err(refused)?;
-    if replay_fuel != Some(record.replay_fuel()) {
-        return Err(refused(crate::replay::ReplayWitnessError::Binding));
+    if let Some(trap) = trap {
+        if !snapshots
+            .last()
+            .is_some_and(|last| std::sync::Arc::ptr_eq(last, &trap.pre))
+        {
+            snapshots.push(trap.pre.clone());
+        }
     }
-    Ok(record)
+    let total = captures
+        .iter()
+        .zip(&snapshots)
+        .try_fold(0u64, |total, (_, snapshot)| {
+            total
+                .checked_add(snapshot.snapshot.supplement.commitment_fuel)?
+                .checked_add(snapshot.snapshot.supplement.arbitration_commitment_fuel)
+        });
+    if snapshots.len() != captures.len()
+        || (fuel != total && !(snapshots.is_empty() && captures.is_empty() && fuel.is_none()))
+    {
+        return Err(replay_capture_fault(
+            crate::replay::ReplayWitnessError::Binding,
+        ));
+    }
+    // The ordinary observer shares these snapshots; discard its redundant references as well.
+    store.take_execution_transitions();
+    Ok(snapshots.into_iter().zip(captures).collect())
+}
+
+fn capture_program_record_from_store(
+    module: &ValidatedModule,
+    store: &mut Store<RuntimeState>,
+    profile: crate::replay_record::ProgramReplayProfile,
+    identities: TraceIdentities,
+    terminal_status: u8,
+    trap: Option<wasmi::ExecutionTrapRecord>,
+    observe: &mut dyn FnMut(&[u8], &wasmi::ExecutionReplaySnapshot),
+) -> Result<crate::replay_record::ProgramReplayRecord, ExecutionFault> {
+    let mut capture = StreamedReplayCapture::new(module, profile, identities)?;
+    for (snapshot, semantic) in drain_replay_boundaries(store, trap.as_ref())? {
+        capture.push(&snapshot, &semantic, observe)?;
+    }
+    if let Some(trap) = &trap {
+        capture.mark_trap(trap)?;
+    }
+    capture.finish(terminal_status)
 }
 
 impl ProgramInstance {
     fn take_program_replay_record(
         &mut self,
+        module: &ValidatedModule,
         profile: crate::replay_record::ProgramReplayProfile,
         identities: TraceIdentities,
         terminal_status: u8,
     ) -> Result<crate::replay_record::ProgramReplayRecord, ExecutionFault> {
+        if let Some(capture) = self.streamed_replay.take() {
+            return capture.finish(terminal_status);
+        }
         capture_program_record_from_store(
+            module,
             &mut self.store,
             profile,
             identities,
             terminal_status,
             self.program_replay_trap.take(),
+            &mut |_, _| {},
         )
     }
 
@@ -1376,6 +1592,7 @@ impl ProgramInstance {
             resumable_globals: None,
             validated_code_hash: [0; 32],
             program_replay_trap: None,
+            streamed_replay: None,
         }
     }
 
@@ -1468,7 +1685,7 @@ impl ProgramInstance {
                 }));
             }
             return Err(ExecutionFault::EngineFault {
-                reason: format!("deterministic execution observer refused: {error:?}"),
+                reason: self.store.data().execution_observer_reason(error),
             });
         }
         let transitions = self.store.take_execution_transitions();
@@ -1495,7 +1712,7 @@ impl ProgramInstance {
                         })
                     }
                     _ => ExecutionFault::EngineFault {
-                        reason: format!("deterministic execution observer refused: {error:?}"),
+                        reason: self.store.data().execution_observer_reason(error),
                     },
                 },
                 |refusal| ExecutionFault::Resource { refusal },
@@ -1528,6 +1745,291 @@ impl ProgramInstance {
             .data_mut()
             .set_legacy_reference_engine_committed(consumed);
         Ok(consumed)
+    }
+
+    fn call_profiled(
+        &mut self,
+        module: &ValidatedModule,
+        export: &str,
+        args: &[WasmValue],
+        profile: crate::ProgramReplayProfile,
+        identities: TraceIdentities,
+        observe: &mut dyn FnMut(&[u8], &wasmi::ExecutionReplaySnapshot),
+    ) -> Result<Vec<WasmValue>, ExecutionFault> {
+        let mut capture = match self.streamed_replay.take() {
+            Some(capture) => capture,
+            None => StreamedReplayCapture::new(module, profile, identities)?,
+        };
+        let result = self.call_profiled_inner(module, export, args, &mut capture, observe);
+        self.streamed_replay = Some(capture);
+        result
+    }
+
+    fn call_profiled_inner(
+        &mut self,
+        module: &ValidatedModule,
+        export: &str,
+        args: &[WasmValue],
+        capture: &mut StreamedReplayCapture,
+        observe: &mut dyn FnMut(&[u8], &wasmi::ExecutionReplaySnapshot),
+    ) -> Result<Vec<WasmValue>, ExecutionFault> {
+        let maximum = capture.profile.maximum_bytes() as usize;
+        // Bootstrap just two authentic boundaries, then keep at most one native step live.
+        // This is a bounded metadata capture; the profile's boundary and byte limits apply
+        // to the entire accumulated record rather than being reset for each native step.
+        let inherited = drain_replay_boundaries(&mut self.store, None)?;
+        for (snapshot, semantic) in inherited {
+            capture.push(&snapshot, &semantic, observe)?;
+        }
+        self.store
+            .data_mut()
+            .enable_boundary_capture(module.code_hash(), 2, maximum)
+            .map_err(|error| replay_capture_fault(error))?;
+        self.store.enable_execution_replay_observer_with_limits(
+            2,
+            crate::MAX_TRACE_STATE_BYTES,
+            crate::MAX_TRACE_STATE_BYTES,
+        );
+        self.store
+            .set_execution_supplement(RuntimeState::execution_supplement);
+        let result_count = self
+            .instance
+            .get_export(&self.store, export)
+            .and_then(Extern::into_func)
+            .ok_or_else(|| ExecutionFault::UnknownExport {
+                name: export.to_string(),
+            })?
+            .ty(&self.store)
+            .results()
+            .len();
+        let output_reservation = self
+            .meter()
+            .clone()
+            .charge_output(result_count)
+            .map_err(|refusal| ExecutionFault::Resource { refusal })?;
+        let offset = capture.next_step;
+        let bootstrap = self.call(export, args);
+        let trap = self.store.take_execution_trap_record();
+        let counts = self.store.execution_observer_snapshot_counts();
+        let slice_ended = self.store.execution_observer_error()
+            == Some(wasmi::ExecutionObserverError::SnapshotLimitExceeded)
+            && counts == Some((2, 2));
+        if !slice_ended {
+            if let Some(fault) = self.execution_observer_fault() {
+                if trap.is_none()
+                    || self.store.execution_observer_error()
+                        != Some(wasmi::ExecutionObserverError::UnsupportedState)
+                {
+                    return Err(fault);
+                }
+            }
+        }
+        let mut boundaries = drain_replay_boundaries(&mut self.store, trap.as_ref())?;
+        if boundaries.is_empty() {
+            return bootstrap;
+        }
+        for (snapshot, _) in &mut boundaries {
+            let snapshot = std::sync::Arc::make_mut(snapshot);
+            let state = std::sync::Arc::make_mut(&mut snapshot.snapshot);
+            state.step_index = state.step_index.checked_add(offset).ok_or_else(|| {
+                replay_capture_check(
+                    crate::replay::ReplayWitnessError::Bounds,
+                    "capture bootstrap step offset",
+                    state.step_index as u128 + offset as u128,
+                    u64::MAX as u128,
+                    0,
+                )
+            })?;
+        }
+        let (mut pre, mut semantic) = boundaries
+            .last()
+            .cloned()
+            .ok_or_else(|| replay_capture_fault(crate::replay::ReplayWitnessError::Binding))?;
+        for (snapshot, semantic) in &boundaries {
+            capture.push(snapshot, semantic, observe)?;
+        }
+        drop(boundaries);
+        if !slice_ended {
+            if let Some(mut trap) = trap {
+                trap.pre = pre;
+                capture.mark_trap(&trap)?;
+                self.program_replay_trap = Some(trap);
+            }
+            return bootstrap;
+        }
+        if bootstrap.is_ok() {
+            return Err(replay_capture_fault(
+                crate::replay::ReplayWitnessError::Binding,
+            ));
+        }
+        loop {
+            if capture.leaves.len() >= capture.profile.maximum_boundaries() as usize {
+                return Err(commitment_fault(&crate::CommitmentError::CommitmentLimit {
+                    limit: capture.profile.maximum_boundaries() as usize,
+                }));
+            }
+            let restored = semantic
+                .restore_untrusted(maximum)
+                .map_err(|error| replay_capture_fault(error))?;
+            restored
+                .recapture(maximum)
+                .and_then(|source| {
+                    source.compare_boundary(module.code_hash(), &pre.snapshot.supplement)
+                })
+                .map_err(|error| replay_capture_fault(error))?;
+            let fresh = module.instantiate_untrusted_replay(restored.into_runtime_state())?;
+            self.store = fresh.store;
+            self.instance = fresh.instance;
+            self.store
+                .data_mut()
+                .enable_boundary_capture(module.code_hash(), 2, maximum)
+                .map_err(|error| replay_capture_fault(error))?;
+            self.store.enable_execution_replay_observer_with_limits(
+                2,
+                crate::MAX_TRACE_STATE_BYTES,
+                crate::MAX_TRACE_STATE_BYTES,
+            );
+            self.store
+                .set_execution_supplement(RuntimeState::execution_supplement);
+            let engine = self.store.engine().clone();
+            let context = wasmi::ExecutionReplayContext::new(
+                wasmi::AsContextMut::as_context_mut(&mut self.store),
+                self.instance,
+            );
+            let outcome = engine.execute_step(context, &pre).map_err(|error| {
+                ExecutionFault::EngineFault {
+                    reason: format!("program replay step refused: {error:?}"),
+                }
+            })?;
+            match outcome {
+                wasmi::ExecutionStepOutcome::Trapped(trap) => {
+                    if trap.pre != pre {
+                        return Err(replay_capture_fault(
+                            crate::replay::ReplayWitnessError::Binding,
+                        ));
+                    }
+                    capture.mark_trap(&trap)?;
+                    let fault = self.store.data().meter().exhaustion().map_or_else(
+                        || {
+                            trap.trap_code
+                                .map_or(ExecutionFault::UnreachableExecuted, fault_from_trap_code)
+                        },
+                        |refusal| ExecutionFault::Resource { refusal },
+                    );
+                    self.program_replay_trap = Some(trap);
+                    self.store
+                        .data_mut()
+                        .meter_mut()
+                        .rollback_output(output_reservation);
+                    return Err(fault);
+                }
+                wasmi::ExecutionStepOutcome::Boundary(transition)
+                | wasmi::ExecutionStepOutcome::Returned(transition) => {
+                    if transition.pre != pre {
+                        return Err(replay_capture_fault(
+                            crate::replay::ReplayWitnessError::Binding,
+                        ));
+                    }
+                    let expected_fuel = self.store.data().boundary_capture_replay_fuel();
+                    let mut sources = self.store.data_mut().take_boundary_captures();
+                    if sources.len() != 1 {
+                        return Err(replay_capture_fault(
+                            crate::replay::ReplayWitnessError::Binding,
+                        ));
+                    }
+                    semantic = sources.pop().ok_or_else(|| {
+                        replay_capture_fault(crate::replay::ReplayWitnessError::Binding)
+                    })?;
+                    let supplement = &transition.post.snapshot.supplement;
+                    if expected_fuel
+                        != supplement
+                            .commitment_fuel
+                            .checked_add(supplement.arbitration_commitment_fuel)
+                    {
+                        return Err(replay_capture_fault(
+                            crate::replay::ReplayWitnessError::Binding,
+                        ));
+                    }
+                    capture.push(&transition.post, &semantic, observe)?;
+                    pre = transition.post;
+                    self.store.take_execution_transitions();
+                    if pre.snapshot.call_frames.is_empty() {
+                        let values = pre
+                            .snapshot
+                            .value_stack
+                            .iter()
+                            .map(|value| match value.value_type {
+                                wasmi::ExecutionValueType::I32 => WasmValue::I32(value.bits as i32),
+                                wasmi::ExecutionValueType::I64 => WasmValue::I64(value.bits as i64),
+                            })
+                            .collect();
+                        return Ok(values);
+                    }
+                }
+            }
+        }
+    }
+
+    fn invoke_profiled(
+        &mut self,
+        module: &ValidatedModule,
+        export: &str,
+        calldata: &[u8],
+        profile: crate::ProgramReplayProfile,
+        identities: TraceIdentities,
+    ) -> Result<i32, EntrypointRefusal> {
+        crate::entrypoint::preflight(calldata)?;
+        let length =
+            i32::try_from(calldata.len()).map_err(|_| EntrypointRefusal::InputTooLarge {
+                bytes: calldata.len(),
+                limit: crate::abi::MAX_CALL_INPUT_BYTES,
+            })?;
+        let pointer = if calldata.is_empty() {
+            0
+        } else {
+            self.consume_copy_fuel(calldata.len() as u64 * crate::calls::CALL_INPUT_FUEL_PER_BYTE)?;
+            let values = self
+                .call_profiled(
+                    module,
+                    crate::calls::CALL_RESERVE_EXPORT,
+                    &[WasmValue::I32(length)],
+                    profile,
+                    identities,
+                    &mut |_, _| {},
+                )
+                .map_err(EntrypointRefusal::Fault)?;
+            let [WasmValue::I32(pointer)] = values.as_slice() else {
+                return Err(EntrypointRefusal::MissingAllocator);
+            };
+            let offset = usize::try_from(*pointer)
+                .map_err(|_| EntrypointRefusal::AllocationRefused { code: *pointer })?;
+            let memory = self
+                .linear_memory()
+                .ok_or(EntrypointRefusal::MissingMemory)?;
+            self.write_linear_memory(memory, offset, calldata)
+                .map_err(EntrypointRefusal::Fault)?;
+            *pointer
+        };
+        let values = self
+            .call_profiled(
+                module,
+                export,
+                &[WasmValue::I32(pointer), WasmValue::I32(length)],
+                profile,
+                identities,
+                &mut |_, _| {},
+            )
+            .map_err(EntrypointRefusal::Fault)?;
+        let [WasmValue::I32(code)] = values.as_slice() else {
+            return Err(EntrypointRefusal::MissingEntry);
+        };
+        if *code < 0 {
+            return Err(self.meter().exhaustion().map_or(
+                EntrypointRefusal::GuestRefused { code: *code },
+                EntrypointRefusal::Resource,
+            ));
+        }
+        Ok(*code)
     }
 
     /// Calls an exported function with integer arguments.
@@ -4480,11 +4982,13 @@ impl Executor {
                     };
                     Some(
                         capture_program_record_from_store(
+                            request.module,
                             &mut store,
                             profile,
                             identities,
                             terminal_status,
                             trap,
+                            &mut |_, _| {},
                         )
                         .map_err(ExecutionError::Fault)?,
                     )
@@ -4498,6 +5002,14 @@ impl Executor {
                 return Ok(record);
             }
         };
+        if self.program_replay_profile.is_some()
+            && instance
+                .store
+                .execution_observer_retained_snapshots()
+                .is_some_and(|count| count != 0)
+        {
+            return Err(ExecutionError::Fault(ExecutionFault::UnreachableExecuted));
+        }
         if self.program_replay_profile.is_none() {
             if let Some(policy) = self.trace_policy {
                 instance
@@ -4505,9 +5017,22 @@ impl Executor {
                     .map_err(ExecutionError::Fault)?;
             }
         }
-        let invocation = entrypoint::invoke(&mut instance, request.entrypoint, request.calldata);
+        let invocation =
+            if let (Some(profile), Some(identities)) = (self.program_replay_profile, identity) {
+                instance.invoke_profiled(
+                    request.module,
+                    request.entrypoint,
+                    request.calldata,
+                    profile,
+                    identities,
+                )
+            } else {
+                entrypoint::invoke(&mut instance, request.entrypoint, request.calldata)
+            };
         if self.program_replay_profile.is_some() {
-            instance.program_replay_trap = instance.store.take_execution_trap_record();
+            if instance.streamed_replay.is_none() {
+                instance.program_replay_trap = instance.store.take_execution_trap_record();
+            }
         }
         if let Some(observer) = instance.execution_observer_fault() {
             if instance.program_replay_trap.is_none()
@@ -4523,7 +5048,9 @@ impl Executor {
                 .budget_exhaustion()
                 .or_else(|| v2_composition_budget_refusal(instance.state()))
             {
-                let trace = if instance.program_replay_trap.is_some() {
+                let trace = if self.program_replay_profile.is_some()
+                    || instance.program_replay_trap.is_some()
+                {
                     None
                 } else {
                     match (self.trace_policy, identity) {
@@ -4541,7 +5068,7 @@ impl Executor {
                     }
                 };
                 let replay_record =
-                    self.capture_program_replay_record(&mut instance, identity, 2)?;
+                    self.capture_program_replay_record(&mut instance, request.module, identity, 2)?;
                 return self.v2_resource_from_state(
                     request.program,
                     resource,
@@ -4668,7 +5195,9 @@ impl Executor {
                             .budget_exhaustion()
                             .or_else(|| BudgetMeterRefusal::try_from(refusal).ok())
                             .ok_or(ExecutionError::Resource(refusal))?;
-                        let trace = if instance.program_replay_trap.is_some() {
+                        let trace = if self.program_replay_profile.is_some()
+                            || instance.program_replay_trap.is_some()
+                        {
                             None
                         } else {
                             match (self.trace_policy, identity) {
@@ -4688,8 +5217,12 @@ impl Executor {
                                 }
                             }
                         };
-                        let replay_record =
-                            self.capture_program_replay_record(&mut instance, identity, 2)?;
+                        let replay_record = self.capture_program_replay_record(
+                            &mut instance,
+                            request.module,
+                            identity,
+                            2,
+                        )?;
                         return self.v2_resource_from_state(
                             request.program,
                             refusal,
@@ -4722,7 +5255,9 @@ impl Executor {
                 .meter()
                 .finish_published_failure()
                 .map_err(ExecutionError::Resource)?;
-            let trace = if instance.program_replay_trap.is_some() {
+            let trace = if self.program_replay_profile.is_some()
+                || instance.program_replay_trap.is_some()
+            {
                 None
             } else {
                 match (self.trace_policy, identity) {
@@ -4739,7 +5274,8 @@ impl Executor {
                     }
                 }
             };
-            let replay_record = self.capture_program_replay_record(&mut instance, identity, 1)?;
+            let replay_record =
+                self.capture_program_replay_record(&mut instance, request.module, identity, 1)?;
             let mut state = instance.into_state();
             let failure_graph = state.take_failure_graph();
             let (_, _, composition) = state.into_parts();
@@ -4772,7 +5308,9 @@ impl Executor {
                     .budget_exhaustion()
                     .or_else(|| BudgetMeterRefusal::try_from(refusal).ok())
                     .ok_or(ExecutionError::Resource(refusal))?;
-                let trace = if instance.program_replay_trap.is_some() {
+                let trace = if self.program_replay_profile.is_some()
+                    || instance.program_replay_trap.is_some()
+                {
                     None
                 } else {
                     match (self.trace_policy, identity) {
@@ -4790,7 +5328,7 @@ impl Executor {
                     }
                 };
                 let replay_record =
-                    self.capture_program_replay_record(&mut instance, identity, 2)?;
+                    self.capture_program_replay_record(&mut instance, request.module, identity, 2)?;
                 return self.v2_resource_from_state(
                     request.program,
                     refusal,
@@ -4806,24 +5344,26 @@ impl Executor {
             .meter()
             .finish()
             .map_err(ExecutionError::Resource)?;
-        let trace = if instance.program_replay_trap.is_some() {
-            None
-        } else {
-            match (self.trace_policy, identity) {
-                (Some(policy), Some(identity)) => Some(
-                    instance
-                        .take_execution_trace(policy, identity)
-                        .map_err(ExecutionError::Fault)?,
-                ),
-                (None, None) => None,
-                _ => {
-                    return Err(ExecutionError::Fault(ExecutionFault::EngineFault {
-                        reason: "execution trace identity and policy diverged".to_string(),
-                    }))
+        let trace =
+            if self.program_replay_profile.is_some() || instance.program_replay_trap.is_some() {
+                None
+            } else {
+                match (self.trace_policy, identity) {
+                    (Some(policy), Some(identity)) => Some(
+                        instance
+                            .take_execution_trace(policy, identity)
+                            .map_err(ExecutionError::Fault)?,
+                    ),
+                    (None, None) => None,
+                    _ => {
+                        return Err(ExecutionError::Fault(ExecutionFault::EngineFault {
+                            reason: "execution trace identity and policy diverged".to_string(),
+                        }))
+                    }
                 }
-            }
-        };
-        let replay_record = self.capture_program_replay_record(&mut instance, identity, 0)?;
+            };
+        let replay_record =
+            self.capture_program_replay_record(&mut instance, request.module, identity, 0)?;
         let (_, abi, composition) = instance.into_state().into_parts();
         let committed = abi
             .ok_or(ExecutionError::Abi(AbiError::CapabilityDenied))?
@@ -4857,6 +5397,7 @@ impl Executor {
     fn capture_program_replay_record(
         &self,
         instance: &mut ProgramInstance,
+        module: &ValidatedModule,
         identities: Option<TraceIdentities>,
         terminal_status: u8,
     ) -> Result<Option<crate::replay_record::ProgramReplayRecord>, ExecutionError> {
@@ -4869,7 +5410,7 @@ impl Executor {
             })
         })?;
         instance
-            .take_program_replay_record(profile, identities, terminal_status)
+            .take_program_replay_record(module, profile, identities, terminal_status)
             .map(Some)
             .map_err(ExecutionError::Fault)
     }
@@ -5522,6 +6063,14 @@ impl ProgramInstance {
         &mut self,
         request: MarketSandboxRequest<'_>,
     ) -> Result<MarketSandboxExecution, RuntimeBoundaryReplayError> {
+        self.call_market_sandbox_untrusted_observed(request, &mut |_, _| {})
+    }
+
+    pub fn call_market_sandbox_untrusted_observed(
+        &mut self,
+        request: MarketSandboxRequest<'_>,
+        observe: &mut dyn FnMut(&[u8], &wasmi::ExecutionReplaySnapshot),
+    ) -> Result<MarketSandboxExecution, RuntimeBoundaryReplayError> {
         let inputs = request.authority;
         let maximum = request.replay_profile.maximum_bytes() as usize;
         if request.replay_profile.maximum_boundaries() > 4096
@@ -5563,89 +6112,20 @@ impl ProgramInstance {
             inputs.fee_schedule_version,
             policy,
         )?;
-        let (values, record, terminal_fault) = match self.call_with_boundary_witnesses(
+        let outcome = self.call_profiled(
             request.module,
             request.entrypoint,
             request.args,
-            policy,
-            maximum,
-        ) {
-            Ok(captured) => {
-                let mut leaves = Vec::new();
-                leaves
-                    .try_reserve_exact(
-                        captured
-                            .boundaries
-                            .len()
-                            .checked_add(1)
-                            .ok_or(crate::replay::ReplayWitnessError::Bounds)?,
-                    )
-                    .map_err(|_| crate::replay::ReplayWitnessError::Allocation)?;
-                let mut previous = None;
-                for boundary in &captured.boundaries {
-                    if let Some(previous) = previous {
-                        if previous != boundary.transition.pre.as_ref() {
-                            return Err(RuntimeBoundaryReplayError::Binding);
-                        }
-                    } else {
-                        let state = captured
-                            .trace
-                            .arbitration_steps()
-                            .first()
-                            .ok_or(RuntimeBoundaryReplayError::Binding)?
-                            .pre_state
-                            .as_ref();
-                        let mut leaf = crate::replay_record::captured_leaf_bytes(
-                            &boundary.transition.pre,
-                            state,
-                            &boundary.semantic.canonical_bytes(maximum)?,
-                            maximum,
-                        )?;
-                        crate::replay::append(&mut leaf, &[0], maximum)?;
-                        leaves.push(leaf);
-                    }
-                    let index = leaves.len() - 1;
-                    let state = captured
-                        .trace
-                        .arbitration_steps()
-                        .get(index)
-                        .ok_or(RuntimeBoundaryReplayError::Binding)?
-                        .post_state
-                        .as_ref();
-                    let mut leaf = crate::replay_record::captured_leaf_bytes(
-                        &boundary.transition.post,
-                        state,
-                        &boundary.expected_semantic.canonical_bytes(maximum)?,
-                        maximum,
-                    )?;
-                    crate::replay::append(&mut leaf, &[0], maximum)?;
-                    leaves.push(leaf);
-                    previous = Some(boundary.transition.post.as_ref());
+            request.replay_profile,
+            identities,
+            observe,
+        );
+        let (values, terminal_fault, terminal) = match outcome {
+            Ok(values) => (values, None, 0),
+            Err(fault) => {
+                if self.program_replay_trap.is_none() {
+                    return Err(fault.into());
                 }
-                let record = crate::replay_record::ProgramReplayRecord::from_captured(
-                    request.replay_profile,
-                    inputs.code_hash,
-                    inputs.input_digest,
-                    RUNTIME_VERSION,
-                    abi_version,
-                    inputs.fee_schedule_version,
-                    inputs.metering_schedule_version,
-                    0,
-                    leaves,
-                )?;
-                (captured.values, record, None)
-            }
-            Err(RuntimeBoundaryReplayError::Execution(fault)) => {
-                let trap = self.store.take_execution_trap_record();
-                if let Some(observer_fault) = self.execution_observer_fault() {
-                    if trap.is_none()
-                        || self.store.execution_observer_error()
-                            != Some(wasmi::ExecutionObserverError::UnsupportedState)
-                    {
-                        return Err(observer_fault.into());
-                    }
-                }
-                let trap = trap.ok_or(RuntimeBoundaryReplayError::Binding)?;
                 let fault = self
                     .store
                     .data()
@@ -5660,17 +6140,15 @@ impl ProgramInstance {
                 } else {
                     1
                 };
-                let record = capture_program_record_from_store(
-                    &mut self.store,
-                    request.replay_profile,
-                    identities,
-                    terminal,
-                    Some(trap),
-                )?;
-                (Vec::new(), record, Some(fault))
+                (Vec::new(), Some(fault), terminal)
             }
-            Err(error) => return Err(error),
         };
+        let record = self.take_program_replay_record(
+            request.module,
+            request.replay_profile,
+            identities,
+            terminal,
+        )?;
         if authority.missing_portable_query() {
             return Err(crate::replay::ReplayWitnessError::StateUnavailable.into());
         }
@@ -5683,18 +6161,24 @@ impl ProgramInstance {
             .map_err(|_| crate::replay::ReplayWitnessError::StateUnavailable)?;
         let (_, boundary_leaves) =
             crate::portable_replay::decode_record(record.canonical_bytes(), maximum)?;
-        let first = crate::portable_replay::PortableBoundary::decode_untrusted(
+        let mut first = crate::portable_replay::PortableBoundary::decode_with_header(
             boundary_leaves
                 .first()
                 .ok_or(RuntimeBoundaryReplayError::Binding)?,
             maximum,
+            record.header(),
         )?;
-        let last = crate::portable_replay::PortableBoundary::decode_untrusted(
-            boundary_leaves
-                .last()
-                .ok_or(RuntimeBoundaryReplayError::Binding)?,
-            maximum,
-        )?;
+        let mut memory = request.module.initial_replay_memory()?;
+        first.rebuild_memory(&memory)?;
+        let mut last = first.clone();
+        for leaf in &boundary_leaves {
+            last = crate::portable_replay::PortableBoundary::decode_with_header(
+                leaf,
+                maximum,
+                record.header(),
+            )?;
+            memory = last.rebuild_memory(&memory)?;
+        }
         let initial_commitment = crate::ArbitrationStepCommitment::from_state(&first.arbitration)
             .map_err(|error| commitment_fault(&error))?;
         let final_commitment = crate::ArbitrationStepCommitment::from_state(&last.arbitration)
@@ -5725,6 +6209,16 @@ impl ProgramInstance {
     }
 }
 
+impl ValidatedModule {
+    pub fn initial_replay_memory(&self) -> Result<Vec<u8>, ExecutionFault> {
+        let instance =
+            self.instantiate_untrusted_replay(RuntimeState::isolated(Meter::declared()))?;
+        Ok(instance
+            .linear_memory()
+            .map_or_else(Vec::new, |memory| memory.data(&instance.store).to_vec()))
+    }
+}
+
 pub fn observe_market_sandbox_step(
     module: &ValidatedModule,
     pre: &crate::portable_replay::PortableBoundary,
@@ -5732,6 +6226,12 @@ pub fn observe_market_sandbox_step(
     maximum: usize,
 ) -> Result<crate::portable_replay::PortableBoundary, RuntimeBoundaryReplayError> {
     pre.reencode_untrusted(maximum)?;
+    if crate::replay::replay_memory_root(&pre.replay.snapshot.linear_memory)? != pre.memory.root
+        || pre.replay.snapshot.linear_memory.len() != pre.memory.length as usize
+        || pre.arbitration.legacy.linear_memory != pre.replay.snapshot.linear_memory
+    {
+        return Err(RuntimeBoundaryReplayError::Binding);
+    }
     let identity = pre.arbitration.identity;
     if identity.trace_policy.interval() != 1 || identity.trace_policy.maximum_commitments() > 4096 {
         return Err(crate::replay::ReplayWitnessError::Bounds.into());
@@ -5833,6 +6333,11 @@ pub fn observe_market_sandbox_step(
             };
             validate_arbitration_commitments(&ordinary, &pre.arbitration, &arbitration)?;
             Ok(crate::portable_replay::PortableBoundary {
+                header: pre.header.clone(),
+                memory: crate::replay::ReplayMemory::capture(
+                    &transition.post.snapshot.linear_memory,
+                    &pre.replay.snapshot.linear_memory,
+                )?,
                 replay: transition.post.as_ref().clone(),
                 arbitration,
                 semantic_bytes: captures[0].canonical_bytes(maximum)?,
@@ -5910,6 +6415,52 @@ pub struct MarketStepProof<'a> {
 pub fn encode_market_step_evidence(
     baseline_storage: &[u8],
     proofs: &[MarketStepProof<'_>],
+    memory_chunks: &[crate::replay::ReplayMemoryChunk],
+) -> Result<Vec<u8>, MarketStepRefusal> {
+    let first = proofs.first().ok_or(MarketStepRefusal::Encoding)?;
+    let boundary = crate::portable_replay::PortableBoundary::decode_untrusted(
+        first.leaf,
+        crate::replay_record::MAX_PROGRAM_REPLAY_BYTES as usize,
+    )
+    .map_err(|_| MarketStepRefusal::Encoding)?;
+    let mut leaves = Vec::with_capacity(proofs.len());
+    for proof in proofs {
+        let decoded = crate::portable_replay::PortableBoundary::decode_untrusted(
+            proof.leaf,
+            crate::replay_record::MAX_PROGRAM_REPLAY_BYTES as usize,
+        )
+        .map_err(|_| MarketStepRefusal::Encoding)?;
+        if decoded.header != boundary.header {
+            return Err(MarketStepRefusal::Evidence);
+        }
+        leaves.push(
+            decoded
+                .reencode_untrusted(crate::replay_record::MAX_PROGRAM_REPLAY_BYTES as usize)
+                .map_err(|_| MarketStepRefusal::Encoding)?,
+        );
+    }
+    let proofs: Vec<_> = proofs
+        .iter()
+        .zip(&leaves)
+        .map(|(proof, leaf)| MarketStepProof {
+            index: proof.index,
+            leaf,
+            siblings: proof.siblings,
+        })
+        .collect();
+    encode_market_step_evidence_with_header(
+        baseline_storage,
+        &proofs,
+        memory_chunks,
+        &boundary.header,
+    )
+}
+
+pub fn encode_market_step_evidence_with_header(
+    baseline_storage: &[u8],
+    proofs: &[MarketStepProof<'_>],
+    memory_chunks: &[crate::replay::ReplayMemoryChunk],
+    header: &crate::replay_record::ReplayRecordHeader,
 ) -> Result<Vec<u8>, MarketStepRefusal> {
     if proofs.is_empty() || proofs.len() > 2 {
         return Err(MarketStepRefusal::Encoding);
@@ -5921,6 +6472,11 @@ pub fn encode_market_step_evidence(
             .to_be_bytes(),
     );
     output.extend(baseline_storage);
+    let header_bytes = header
+        .canonical_bytes(crate::replay_record::MAX_PROGRAM_REPLAY_BYTES as usize)
+        .map_err(|_| MarketStepRefusal::Encoding)?;
+    output.extend((header_bytes.len() as u32).to_be_bytes());
+    output.extend(header_bytes);
     output.push(u8::try_from(proofs.len()).map_err(|_| MarketStepRefusal::Encoding)?);
     for proof in proofs {
         if proof.siblings.len() > MAX_MARKET_STEP_SIBLINGS {
@@ -5938,6 +6494,10 @@ pub fn encode_market_step_evidence(
             output.extend(sibling);
         }
     }
+    let mut memory = Vec::new();
+    crate::replay::append_memory_chunks(&mut memory, memory_chunks, crate::MAX_STEP_STATE_BYTES)
+        .map_err(|_| MarketStepRefusal::Encoding)?;
+    output.extend(memory);
     if output.len() > MAX_MARKET_STEP_EVIDENCE_BYTES {
         return Err(MarketStepRefusal::Encoding);
     }
@@ -5975,11 +6535,25 @@ struct OpenedMarketProof<'a> {
 
 fn decode_market_step_evidence(
     evidence: &[u8],
-) -> Result<(&[u8], Vec<OpenedMarketProof<'_>>), MarketStepRefusal> {
+) -> Result<
+    (
+        &[u8],
+        crate::replay_record::ReplayRecordHeader,
+        Vec<OpenedMarketProof<'_>>,
+        Vec<crate::replay::ReplayMemoryChunk>,
+    ),
+    MarketStepRefusal,
+> {
     let mut reader = MarketStepReader(evidence);
     let baseline_length =
         usize::try_from(reader.u32()?).map_err(|_| MarketStepRefusal::Encoding)?;
     let baseline = reader.take(baseline_length)?;
+    let header_length = reader.u32()? as usize;
+    let header = crate::replay_record::ReplayRecordHeader::decode(
+        reader.take(header_length)?,
+        crate::replay_record::MAX_PROGRAM_REPLAY_BYTES as usize,
+    )
+    .map_err(|_| MarketStepRefusal::Evidence)?;
     let count = reader.byte()?;
     if count == 0 || count > 2 {
         return Err(MarketStepRefusal::Encoding);
@@ -6006,10 +6580,16 @@ fn decode_market_step_evidence(
             siblings,
         });
     }
-    if !reader.0.is_empty() {
+    if reader.0.len() > crate::MAX_STEP_STATE_BYTES {
         return Err(MarketStepRefusal::Encoding);
     }
-    Ok((baseline, proofs))
+    let mut cursor = crate::replay::ReplayCursor::new(reader.0);
+    let memory = crate::replay::decode_memory_chunks(&mut cursor)
+        .map_err(|_| MarketStepRefusal::Encoding)?;
+    if !cursor.done() {
+        return Err(MarketStepRefusal::Encoding);
+    }
+    Ok((baseline, header, proofs, memory))
 }
 
 fn open_market_boundary(
@@ -6017,6 +6597,8 @@ fn open_market_boundary(
     trace_root: [u8; 32],
     boundary_count: u32,
     maximum: usize,
+    memory: Option<(&[u8], &[crate::replay::ReplayMemoryChunk])>,
+    header: &crate::replay_record::ReplayRecordHeader,
 ) -> Result<crate::portable_replay::PortableBoundary, MarketStepRefusal> {
     if proof.index >= boundary_count || proof.leaf.is_empty() || proof.leaf.len() > maximum {
         return Err(MarketStepRefusal::Evidence);
@@ -6040,8 +6622,25 @@ fn open_market_boundary(
     if count != 1 || node != trace_root {
         return Err(MarketStepRefusal::Evidence);
     }
-    crate::portable_replay::PortableBoundary::decode_untrusted(proof.leaf, maximum)
-        .map_err(|_| MarketStepRefusal::Evidence)
+    let mut boundary =
+        crate::portable_replay::PortableBoundary::decode_with_header(proof.leaf, maximum, header)
+            .map_err(|_| MarketStepRefusal::Evidence)?;
+    if let Some((initial, chunks)) = memory {
+        let rebuilt =
+            crate::replay::rebuild_replay_memory(initial, boundary.memory.length as usize, chunks)
+                .map_err(|_| MarketStepRefusal::Evidence)?;
+        if crate::replay::ReplayMemory::capture(&rebuilt, initial)
+            .map_err(|_| MarketStepRefusal::Evidence)?
+            .changed_chunks
+            != chunks
+        {
+            return Err(MarketStepRefusal::Evidence);
+        }
+        boundary
+            .set_rebuilt_memory(rebuilt)
+            .map_err(|_| MarketStepRefusal::Evidence)?;
+    }
+    Ok(boundary)
 }
 
 fn market_boundary_identity_holds(
@@ -6254,7 +6853,8 @@ pub fn adjudicate_market_step(
     {
         return Err(MarketStepRefusal::Denied);
     }
-    let (baseline_bytes, proofs) = decode_market_step_evidence(evidence)?;
+    let (baseline_bytes, record_header, proofs, memory_chunks) =
+        decode_market_step_evidence(evidence)?;
     let maximum = usize::try_from(profile.maximum_bytes).map_err(|_| MarketStepRefusal::Denied)?;
     let count = billing.boundary_count;
     let indices: &[u32] = match request.mode {
@@ -6301,13 +6901,33 @@ pub fn adjudicate_market_step(
             return Err(MarketStepRefusal::Evidence);
         }
     }
+    if record_header.storage_baseline != baseline_bytes
+        || record_header.identity.module_code_hash != profile.code_hash
+        || record_header.identity.input_digest != profile.input_digest
+        || record_header.identity.runtime_version != profile.runtime_version
+        || record_header.identity.abi_version != profile.abi_version
+        || record_header.identity.fee_schedule_version != profile.fee_schedule_version
+        || record_header.identity.metering_schedule_version != profile.metering_schedule_version
+        || record_header.identity.host_base_state_root != profile.baseline_state_root
+        || record_header.identity.trace_policy
+            != crate::ProgramReplayProfile::new(profile.maximum_boundaries, profile.maximum_bytes)
+                .map_err(|_| MarketStepRefusal::Evidence)?
+                .trace_policy()
+    {
+        return Err(MarketStepRefusal::Evidence);
+    }
+    let initial_memory = module
+        .initial_replay_memory()
+        .map_err(|_| MarketStepRefusal::Evidence)?;
     let mut boundaries = Vec::with_capacity(proofs.len());
-    for proof in &proofs {
+    for (index, proof) in proofs.iter().enumerate() {
         boundaries.push(open_market_boundary(
             proof,
             billing.provider_trace_root,
             count,
             maximum,
+            (index == 0).then_some((&initial_memory, &memory_chunks)),
+            &record_header,
         )?);
     }
     let leaf_digest = crate::hash_bytes(crate::HashAlgorithm::Sha256, proofs[0].leaf)
