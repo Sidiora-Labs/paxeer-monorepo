@@ -33203,3 +33203,11 @@ symbol = "repair_22_31_547.rs"
 observed = "Attempt 5 at 9fa0398090d51898f5ba081bcd13ad3139195fad: build exit 0, dependent-crate check exit 0, verify exit 101: case 1 fails at line 307 with 503 owner.unavailable after preparation receipt key read failed with -32601 Method not found from the fixture chain peer; case 2 fell to the poisoned fixture lock."
 assumption = "The shared chain peer predates the receipt key read 22.31.560 added to genuine Prepare; the SDK change under test is untouched."
 severity = "high"
+
+[finding.22.31.547.6]
+task = "22.31.547"
+file = "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs"
+symbol = "repair_22_31_547.rs"
+observed = "Attempt 6 at 26219f2e8ed4b5f956ac96a77adfc766cb86ed78: build exit 0, dependent-crate check exit 0, verify exit 1 twice: cycle 1 the first Prepare answered 403 owner.refused on the partial preview fixture; cycle 2 on the 22.31.560 harness the first Prepare answered 200 and the SDK verdict was Unknown with operation Prepare at line 313; the other three cases pass."
+assumption = "The daemon accepts the V2 purpose; one bound field of the accepted body disagrees with the SDK expectation and the test does not yet say which."
+severity = "high"
