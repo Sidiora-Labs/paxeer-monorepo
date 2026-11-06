@@ -32915,3 +32915,19 @@ symbol = "builtin-registry.test.ts"
 observed = "Attempt 2 at 85102ed02a9962949eabd522d15f7ea38c1c1ce3: build exit 0, verify exit 1: vitest stops with ERR_MODULE_NOT_FOUND on the generated profile module of the process utilities library before any case runs, the same stop as attempt 1; the attempt started before the build amendment of decision 2717 reached the task record."
 assumption = "Environmental: the generated module is produced by the amended build; the tree is unchanged and matches the task text."
 severity = "medium"
+
+[finding.22.31.577.3]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 3 at 5ccf81bdbee9ceb615daa2c7551cff885a4d242a: build exit 0, dependent-crate check exit 0, verify exit 101: the two 128-call cases fail with capture witness bytes observed 1049624 and 1048837 against 1048576 while the chunk payload is 524288 bytes; every other suite passes."
+assumption = "Half the witness budget is spent on identity and state repeated in every leaf and an ad hoc packing stage; carrying each datum once brings the record under the bound with margin."
+severity = "high"
+
+[finding.22.31.478.18]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 18 at 3d86ac86953ad3627e42669b93d4dcec5c1d155c: build exit 0, dependent-crate check exit 0, Go Fund proof passed; verify exit 1: the Rust library test of the market crate does not compile, E0716 temporary value dropped while borrowed at src/lib.rs line 461."
+assumption = "A one-line fixture borrow; the production path and the Go proof already pass."
+severity = "medium"
