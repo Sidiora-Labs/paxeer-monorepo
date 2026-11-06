@@ -32315,3 +32315,11 @@ symbol = "hyperfide"
 observed = "Attempt 1 at fbc63f08b1348e337bc0edf68448235bdd93fbd3: build exit 0, verify exit 0 on the second run (92 cases); the attempt was refused as out of scope for 255 recording files with non-ASCII names under the moved directory, and the two moved lock files are missing from the recorded tree."
 assumption = "The work is complete; the environment misread quoted paths and dropped moved lock files, both corrected."
 severity = "medium"
+
+[finding.22.31.478.10]
+task = "22.31.478"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 10 at d26f9ff6848363969357a5cde27fe60836f81c78: build exit 0, dependent-crate check exit 0, verify exit 1: the 4000000 measuring calls return LXP_ERR_NON_CANONICAL at 0 fuel; the production Fund on the candidate consumes 896330 CPU fuel and returns LXP_ERR_PROGRAM_REFUSED (terminal kind 2); the Rust tests were not reached."
+assumption = "The earlier ruling asked for a budget the runtime cannot admit; the cost is now under the cap and the refusal is a guest check the head-only decode changed, to be named from the response before it is repaired."
+severity = "high"
