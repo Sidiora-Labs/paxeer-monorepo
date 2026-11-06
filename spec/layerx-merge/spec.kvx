@@ -9507,6 +9507,12 @@ value = "The field helper of the browser journey module of the vendored product 
 basis = "Prefix matching picked the Workspace mode select ahead of the Workspace input and left the refresh control disabled; exact matching makes every fill deterministic whatever the panel order."
 affects = ["22.37.19"]
 
+[decision.2733]
+title = "The authority receipt proof deploys the production-optimised AI market guest"
+value = "TestAiMarketTransferAuthorityReceipt builds the guest exactly as the Makefile target paxai-host-boundary-build does: opt-level z, then wasm-opt -Oz --strip-debug --strip-producers, and asserts the optimised artifact plus the 104-byte envelope within LXP_MAX_PAYLOAD_BYTES 524288. The proof requires wasm-opt on PATH and fails with the message wasm-opt is required when the tool is absent, as the target does; it never skips, never deploys the unoptimised artifact and never raises the bound. The qualification environment provides binaryen for this proof."
+basis = "A deployment fixture that measures a different artifact than production deploys proves nothing about the payload, and the bound is the protocol maximum."
+affects = ["18.1562.1"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -170170,6 +170176,7 @@ do_12 = "Attempt 12 (continue): npm ci at the workspace root passes again since 
 do_13 = "Attempt 13 (continue): the receipt vector case reaches the fund step and the committed runtime fixture reverts with the LXP gas-exhausted code. Give the fund call the gas the production client uses (read the fund gas allowance from the agent SDK's AI-market module, the same value its transfer-authority path sends) instead of the vector's smaller allowance, keep the corrected chain domain, re-run the verify command and finish on one commit. If the kernel's metering refuses even the production allowance, record the measured gas as a finding against the fixture, not a wiring request."
 do_14 = "Attempt 15 (continue after 22.31.463): the Go build or test binary could not compile because sdk/x/auth/client/cli, sdk/x/staking/client/cli and modules/tokenfactory/client/cli called tx.NewFactoryCLI as a single value after the sdk/client/tx repair 22.33.1462 changed its return; 22.31.463 repaired those callers and is on main; rerun the task on current main and repair only what its own tests report."
 do_15 = "Attempt 16 (continue after 22.31.478): the Go gate fails because the committed runtime fixture's ABI5 Fund call into the AI market program exhausts the production kernel gas allowance (LXP_ERR_GAS_EXHAUSTED, allowance 10000000, EVM gas used 88480); 22.31.478 repairs the program or the allowance plumbing and this task now requires it. Rerun on current main after it lands and repair only what this task's own tests report."
+do_16 = "Attempt 17 (continue, gotcha 3343, decision 2733): the attempt-16 tree stands, including the wasm-opt pass the fixture now runs after the opt-level z build. Before the guest build of the fixture add a wasm-opt presence check that fails the test with the message wasm-opt is required when the tool is absent, matching the Makefile target paxai-host-boundary-build line 2983; keep the 524288 assertion with the 104-byte envelope and keep the opt-level z release build. The qualification environment now provides wasm-opt for this proof. Run the verify at the final revision and record it by reference in the task record; if the optimised guest still exceeds the bound, record the measured size and stop without changing the bound."
 
 [task.18.1561.1]
 title = "Issue #1561: Prepare the codec replay corpus before agent vector tests"

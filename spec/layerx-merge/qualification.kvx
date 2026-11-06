@@ -33075,3 +33075,11 @@ symbol = "metrics.ts"
 observed = "Attempt 8 at b374d3e909f57f476d101592d005da3694d1cb2a: build exit 0, verify exit 1: the browser journey stopped at Timed out: button Refresh workspace after the acceptance receipt; the Workspace input was empty because the field helper wrote the workspace id into the Workspace mode select whose label precedes it on the panel."
 assumption = "The prefix rule of the helper is the only cause; the panel labels are unchanged."
 severity = "medium"
+
+[finding.18.1562.1.10]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 16 at b48f134b3b15e497e4dba745f1f8f93e52db96a2: build exit 0, verify exit 1 at the first-verify revision 2d27a47f4e4137bfb1caef0906acc50fd4134df9: 586929 is not less than or equal to 524288 at sequencer_receipt_vectors_test.go line 1873; the final tree adds the production optimisation pass unverified."
+assumption = "The optimised guest fits as it does for the production target; the gap was the missing tool in the qualification environment."
+severity = "medium"
