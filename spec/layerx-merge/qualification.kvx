@@ -33123,3 +33123,19 @@ symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceip
 observed = "Attempt 17 at 0ffe1e9e3315f83c8147f3e901364b11216d79f7: build exit 0; verify exit 1 twice: run 1 refused FUND as LXP_ERR_NON_CANONICAL (fixture fee asset and block layout), run 2 refused the ABI5 re-registration with profile 2 as LXP_ERR_VERSION_UNSUPPORTED at line 811; the profile-1 correction is in the final tree and has no verify run."
 assumption = "The final tree carries the correction decision 2736 records; only the gates are missing."
 severity = "medium"
+
+[finding.18.1562.1.12]
+task = "18.1562.1"
+file = "rpc/sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+symbol = "sequencer_receipt_vectors_test.go::TestAiMarketTransferAuthorityReceipt"
+observed = "Attempt 18 at bf312fc2181bb527cab3d5cc8602bfa30d55e2a0: build exit 0, verify exit 1: TestAiMarketTransferAuthorityReceipt refuses FUND at line 839 with LXP_ERR_FEE_UNPAYABLE (kernel gas allowance 10000000, EVM gas used 88480) after the profile-1 re-registration passes."
+assumption = "The kernel limit check compares the spendable fee balance with the fee limit before computing the fee; the fixture balance equals one fee limit and the CREATE fee, the occupancy settlement and the read activity spent part of it."
+severity = "high"
+
+[finding.22.31.217.9]
+task = "22.31.217"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs"
+symbol = "repair_22_31_217.rs"
+observed = "Attempt 9 at 9303d75302808e2710a4d0b3a72aa09a880866cd: build 3 exit 101 (private binder called from the integration test); the verified tree had 12 passed and 6 failed: four SourceOwnership refusals and two lifecycle cases refused Receipt by read_signed_native_execution_observation."
+assumption = "The ownership repair is written but unbuilt; the lifecycle evidence is a fixture the task owns, and the production reader needs a receipt from the endpoint, not a capture file."
+severity = "high"
