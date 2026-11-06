@@ -1,0 +1,119 @@
+[repair.22.33.44]
+audit = "22.30.105"
+acceptance = "22998.1"
+status = "implemented-awaiting-bounded-gate"
+baseline_revision = "c1bf1e7c8686120d5daf0c95bf1c27e9be3a0417"
+baseline = "Not run: the explicit Order prohibits tests before complete implementation and allows only hf-build followed by hf-done; repair_22_33_44.rs did not exist on the starting tree. No pre-change failing tests are claimed."
+evidence = "The runner records the exact immutable candidate revision, command, exit and private log in /out/run/gates.jsonl; the final response copies its last gate evidence."
+scope = "Human service sources and tests only; this in-scope file records repairs and external-domain wiring requests without spec edits."
+
+[finding.nonce-hold-shape]
+tests = ["decide_nonces::approval_releases_a_hold_prepared_at_the_pending_nonce", "decide_nonces::approval_of_a_stale_nonce_hold_is_refused"]
+repair = "Use prepare_bound and a signed transfer payload, retain its type-2 bytes/signing hash and sender disclosure, reserve_and_hold with a durable Store, close all owners, replay and validate_registry after reopening, and keep the Human Decisions step-up/audit and exact nonce assertions."
+
+[finding.render-hold-shape]
+tests = ["render::real_send_hold_has_plain_catalog_copy", "render::unknown_activity_is_explicitly_unrenderable_and_never_approvable", "render::mismatched_digest_and_unverified_budget_are_refused_before_content", "render::property_send_facts_and_budget_equal_their_verified_sources", "render::property_any_changed_disclosure_fact_fails_reencoding", "render::every_real_v1_hold_class_has_plain_catalog_copy"]
+repair = "Use prepare_bound on the compiled signed intent, its sender and unchanged disclosure, reserve_and_hold in a durable Store, close/reopen and validate the registry, then obtain canonical_bytes_digest from ApprovalService::get before the production renderer. Original copy, mutation, budget and property assertions are retained."
+
+[finding.kms-clock-fixture]
+tests = ["kms_clock_authenticated_binding_survives_a_cleared_child_environment", "in_process_gateway::kms_snapshot_parser_retains_exact_registry_refusals", "in_process_gateway::kms_snapshot_serves_real_gateway_frames_with_authenticated_clock"]
+repair = "Start the real runtime-clock authority, explicitly pass its socket/PID/UID after env_clear in both child configurations, and exercise production authenticated clock frames with wrong-PID refusal. Extract the unchanged strict startup snapshot decoder into GatewayChainSnapshot, retain every registry-document refusal, and serve a real LxkpGateway through mutual TLS and RemoteKmsProvider over the committed probe transcript without subprocesses."
+
+[finding.recovery-real-boundary]
+status = "blocked-on-producer-interface"
+tests = []
+observed = "AgentRecoveryBoundary has only the existing test-local implementation; services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs::prepare returns OwnerRotation::Unsupported. No committed key-change producer transcript is present. The original transition tests remain intact."
+wiring_request = "Agent domain 9: services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs and services/human/crates/layerx-human-service/src/server/agent_runtime.rs must expose committed announcement/observation evidence through AgentRecoveryBoundary, with a durable reopenable producer and the exact superseded-key sequence window."
+
+[finding.admission-real-producer]
+status = "blocked-on-producer-interface"
+tests = []
+observed = "The production admission handler and WAL are in Go (node/sequencer and node/sequencer_rpc_option_test.go); no in-process Rust producer binding or committed admission transcript is available. Calling a Go toolchain or node binary would violate the declared gate. The original typed unauthorized/capacity assertions remain intact."
+wiring_request = "Node domain 1: node/sequencer_rpc_option_test.go and node/sequencer/wal must publish committed submit/refusal/receipt/reopen transcripts or a self-contained Rust-callable production submit boundary; Human domain 10 must consume that boundary in tests/evidence_node.rs instead of the local AdmissionSequencer."
+
+[finding.projection-route-coverage]
+tests = ["projection_rungs::authenticated_routes_preserve_reopened_producer_rungs", "projection_rungs::projected_journey_names_rung_vocabulary", "projection_rungs::projection_never_emits_settlement_anchored"]
+repair = "Expose PersistedReadServices over the same production projectors and authenticated PrivilegedHumanComponents. Drive real HTTP/router and UDS component transport with a production passkey session; decode journey/activity responses through ApiSchema for Submitted, Receipted and Committed after reopening the durable evidence and session store. Replay the committed bank transaction, sequencer receipt and consensus transcript through real clients/codecs; retain exact rung and forbidden-vocabulary assertions and assert unauthenticated reads fail. Preserve each journey receipt's rung in Feed and revalidate retained consensus before emitting checkpoint-finalised or checkpoint references."
+
+[qualification_constraints]
+gotcha = "A persistent approval requires a nonempty durable budget reservation; replay_tenant alone does not bind the call/sender, so validate_registry must also run. ApprovalExpiry must share the reopened Store owner with ApprovalRegistry."
+completion = "The gate result is authoritative for qualification; recovery-real-boundary and admission-real-producer remain external-domain wiring requests, not locally proven producer closures."
+
+[qualification.first_build]
+revision = "d0a6ad6f573fb5fba0095d3106d18be3cc275fa1"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Task-scoped E0716 in the signed transfer helper; repaired by retaining the authorization bytes through digest signing."
+
+[qualification.first_verify]
+revision = "d58542fd2031c55fb6e1b77742fe05776559dc19"
+command = "cg spec done 22.33.44 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three tests passed and seven failed at the task helper's envelope reencoder with FieldMismatch(source); repaired by using the production EVM call reencoder."
+
+[repair.render_digest]
+tests = ["render::real_send_hold_has_plain_catalog_copy", "render::mismatched_digest_and_unverified_budget_are_refused_before_content", "render::property_any_changed_disclosure_fact_fails_reencoding"]
+repair = "Validate the complete disclosure against its retained source, reencode its canonical bytes and compare SHA-256 to ApprovalService::get; remove the audit-digest substitution. Keep the original copy, digest, budget and mutation assertions."
+
+[continuation.baseline]
+revision = "43e4a6c1d643348709b47fda62eeec9ec863abf7"
+observed = "The supplied attempt-1 result is FAILED: 3 passed and 7 failed, including nonce-hold and renderer cases. No baseline gate is rerun because the explicit ordered continuation allows only final hf-build followed by hf-done."
+evidence = "The current runner's immutable candidate revision, command, exit and private log are recorded by /out/run/gates.jsonl and copied verbatim in the final response. Earlier qualification sections describe historical attempt-1 evidence, not current gate runs."
+
+[gotcha.continuation]
+observed = "The activity producer hardcoded Receipted for every JourneyStatus receipt; preserving Committed additionally requires retained consensus verification and a validated checkpoint reference before EntryDetail assembly."
+repair = "Carry verified receipt rungs from the engine into Feed, and share configured evidence authorities with the production journey/activity projectors."
+
+[qualification.continuation_verify_1]
+revision = "97bf057074a8a5cef88876559fb6ca4ef1fb06f0"
+command = "cg spec done 22.33.44 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eleven tests passed, including both nonce cases and all renderer assertions; four fixture cases exposed missing explicit component clocks, a non-act_ principal fixture and an absent deadline TLS transport on RemoteKmsProvider."
+repair = "Bind both sides of component transport to their configured clock; use act_alice in durable tenancy and provisioning; make RemoteKmsProvider retain its already authenticated mutual TLS configuration for deadline transport."
+
+[qualification.continuation_verify_2]
+revision = "a6bdf5a082940d4ef2718b1cad7d76a536f63fe2"
+command = "cg spec done 22.33.44 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Fourteen tests passed; the route fixture's clock authority path exceeded Unix SUN_LEN when its generated directory suffix grew."
+repair = "Use the short p44 fixture label and c clock subdirectory, preserving the production clock's generation directory, socket ownership, authentication and all route assertions."
+
+[continuation.attempt_4]
+observed = "The supplied attempt-3 result reports eight passing and seven failing cases at the retired sequence-only reserve_and_hold entry (ClockRequired). No unchanged baseline gate was rerun."
+repair = "Keep all fifteen cases, start the production runtime-clock authority on a short private socket path, sample its authenticated Unix seconds, and register/reopen holds with reserve_and_hold_at and separate ApprovalSequence values; keep producer expiry 900 seconds after the sampled time. Resolve the gateway startup merge by retaining the current startup module and routing its snapshot read through GatewayChainSnapshot::decode."
+
+[wiring.agent_timed_approval_service]
+request = "Agent domain 9: services/agent/crates/layerx-agentd/src/approval/mod.rs::ApprovalService must expose and thread explicit current time through get/list/approve/reject into policy/approval.rs::{get_scoped_at,list_scoped_at,claim_scoped_at}; its existing public service calls pass None to validate_for_read and refuse every awaiting hold with ClockRequired, even after reserve_and_hold_at succeeds. This source is outside this task scope; preserve the service-path assertions."
+
+[continuation.attempt_6]
+observed = "Inherited attempt 5 was blocked by the unrelated approvals.rs build failure; 22.31.515 is now in the base and no baseline gate was rerun."
+repair = "Resolve nonce fixture merge by preserving the landed compiled signed-intent producer and timed service calls beside durable reserve/reopen; sample the authenticated runtime clock for decisions and renderer get, retaining all fifteen cases and nonce assertions. The historical Agent timed-service wiring request is fulfilled by 22.31.495."
+
+[qualification.attempt_6]
+revision = "9cc8f332583609991683e981314f9af298a089a5"
+command = "cg spec done 22.33.44 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision; verification passed fourteen of fifteen cases, failing render::mismatched_digest_and_unverified_budget_are_refused_before_content at render.rs:300 because Submitted budget context renders unverified as completed task 22.33.61 and requirement 10007.1 require."
+assumption = "This task explicitly retains the conflicting refusal assertion, so neither the assertion nor the landed unverified-budget behavior is changed and the unrelated contradiction is recorded without rerunning the gate."
+
+[wiring.budget_presentation_contract]
+request = "Human domain 10: reconcile tests/render.rs::mismatched_digest_and_unverified_budget_are_refused_before_content with completed task 22.33.61 and requirement 10007.1 before requalification; this task preserves both contracts under its no-weakening and record-unrelated-failures instructions."
+
+[continuation.attempt_7]
+baseline_revision = "cdc031c745376234ac010cc61ede4f84eac6abe1"
+observed = "The supplied attempt-6 evidence passed fourteen of fifteen cases; gotcha 3125 and decision 2586 authorize aligning the remaining renderer assertion without product changes. No unchanged baseline gate was rerun."
+repair = "Retain the initial DigestMismatch assertion; assert a Submitted budget with nonzero evidence renders with its complete budget and Submitted rung preserved and cannot approve; assert zero evidence is UnverifiedBudget and a mismatched held digest still takes precedence over zero evidence. All fifteen cases and inherited product changes remain intact."
+evidence = "The bounded hf-build and hf-done ledger at /out/run/gates.jsonl records this continuation's exact candidate revision, command, exit and private log; the final response copies the last gate line without changing the qualified tree."
+
+[qualification.attempt_7_verify_1]
+revision = "188177b1286e4bae43896e3b2576804d535ef900"
+command = "cg spec done 22.33.44 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed and fourteen of fifteen cases passed, including the aligned renderer case; the authenticated projection fixture returned unavailable for activity.entry."
+repair = "Give the HTTP router, Unix client, privileged service and component server separate authenticated RuntimeClock clients to the same authority, so concurrent sides of the simulated process boundary do not share client observation ordering; retain every route, schema, rung and forbidden-vocabulary assertion."

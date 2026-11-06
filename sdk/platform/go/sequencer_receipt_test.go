@@ -33,6 +33,24 @@ type sequencerReceiptCase struct {
 	} `json:"expected"`
 }
 
+func TestSequencerReceiptCommittedRecording(t *testing.T) {
+	receipt, raw, keys, evidence, _ := repair141LoadRecorded(t)
+	verified, err := VerifySequencerReceipt(receipt, raw, keys)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(raw) == 0 || raw[0] != 2 {
+		t.Fatal("committed recording must retain its EIP-1559 transaction")
+	}
+	hash := receiptKeccak256(raw)
+	if hex.EncodeToString(hash[:]) != "0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2" || hex.EncodeToString(verified.ReceiptDigest[:]) != "d75a0928abe94518bec1bf241e4dc4ac875bf61968df9864f357bb755a4997cd" {
+		t.Fatal("committed recording transaction or authenticated receipt digest changed")
+	}
+	if verified.Rung != "receipted" || verified.Level != "receipted" || verified.Status != 1 || verified.TransportBlock == nil || verified.TransportBlock.Height != uint64(evidence.BlockHeader.Height) || verified.TransportBlock.BlockHash != portableRecordedTrust(t).BlockHash {
+		t.Fatal("sequencer authentication must retain the recorded coordinates without promoting finality")
+	}
+}
+
 func sequencerReceiptCases(t *testing.T) []sequencerReceiptCase {
 	t.Helper()
 	data, err := os.ReadFile("../conformance/fixtures/sequencer-receipt-v1.json")
@@ -45,15 +63,16 @@ func sequencerReceiptCases(t *testing.T) []sequencerReceiptCase {
 	if err := json.Unmarshal(data, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	if len(fixture.Cases) != 12 {
-		t.Fatalf("expected 12 conformance cases, got %d", len(fixture.Cases))
+	if len(fixture.Cases) != 13 {
+		t.Fatalf("expected 13 conformance cases, got %d", len(fixture.Cases))
 	}
 	expected := map[string]bool{
 		"V1-pax-transfer": false, "V1-erc20-approve": false,
 		"V1-layerxledger-pay-exact": false, "V1-layerxbridge-bridge-out": false,
-		"V1-layerxprograms-call": false,
-		"V2-layerxledger-revert": false,
-		"V3-key-not-pinned":      false, "V3-height-outside-key-range": false,
+		"V1-layerxprograms-call":             false,
+		"V2-layerxledger-revert":             false,
+		"V2-pax-transfer-insufficient-funds": false,
+		"V3-key-not-pinned":                  false, "V3-height-outside-key-range": false,
 		"V3-activity-id-not-raw-hash": false, "V3-seq-hash-mismatch": false,
 		"V3-tampered-log": false, "V3-non-canonical-bytes": false,
 	}
@@ -219,7 +238,7 @@ func TestSequencerReceiptRefusesForeignSigningKey(t *testing.T) {
 func TestSequencerReceiptV2RevertDecodesReason(t *testing.T) {
 	count := 0
 	for _, c := range sequencerReceiptCases(t) {
-		if c.Vector != "V2" {
+		if c.ID != "V2-layerxledger-revert" {
 			continue
 		}
 		count++
@@ -421,4 +440,36 @@ func TestSequencerReceiptV3RefusalsNameTheirCheck(t *testing.T) {
 		keys.PreviousSequenceHash[0] ^= 1
 		assertRefusal(t, c.ReceiptJSON, raw, keys, ReceiptCheckSequenceHash)
 	})
+}
+
+func TestSequencerReceiptPreexecutionRefusal(t *testing.T) {
+	var found bool
+	for _, c := range sequencerReceiptCases(t) {
+		if c.ID != "V2-pax-transfer-insufficient-funds" {
+			continue
+		}
+		found = true
+		verified, err := VerifySequencerReceipt(c.ReceiptJSON, sequencerFixtureBytes(t, c.RawTransaction), sequencerFixtureKeys(t, c))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if verified.Rung != "receipted" || verified.Status != 0 || verified.Receipt.ResultCode != 1 || len(verified.ReturnData) != 0 || len(verified.Logs) != 0 || c.LXPCode != "" || verified.Revert == nil || verified.Revert.Code != "" || verified.Revert.Reason != "" {
+			t.Fatalf("preexecution refusal lost authenticated outcome: %+v", verified)
+		}
+		if !bytes.Equal(verified.CanonicalBytes, sequencerFixtureBytes(t, c.SignedReceipt)) || !bytes.Equal(verified.ReceiptDigest[:], sequencerFixtureBytes(t, c.ReceiptDigest)) {
+			t.Fatal("preexecution refusal bytes or digest differ from source")
+		}
+		var fields struct {
+			VMError string `json:"vmError"`
+		}
+		if err := json.Unmarshal(c.ReceiptJSON, &fields); err != nil {
+			t.Fatal(err)
+		}
+		if fields.VMError != "insufficient balance for transfer" {
+			t.Fatalf("lost kernel error: %q", fields.VMError)
+		}
+	}
+	if !found {
+		t.Fatal("missing preexecution refusal")
+	}
 }

@@ -1,0 +1,51 @@
+[repair]
+task = "22.31.548"
+acceptance = "22998.1"
+status = "implementation; qualification outcome and verified revision are authoritative only in the gate ledger"
+revision = "gate_ledger.verify.revision; must equal gate_ledger.build.revision"
+gate_ledger = "/out/run/gates.jsonl"
+private_evidence = "/out/logs/build-*.log and /out/logs/verify-*.log, as named by the gate ledger"
+build = "hf-build: gate_ledger entry kind=build records the declared cargo build command, revision, exit and log"
+verify = "hf-done: gate_ledger entry kind=verify records cg spec done 22.31.548 -f layerx-merge --root $TASK_ROOT and its declared cargo test command, revision, exit and log"
+publication = "runner-owned; this record is written before qualification and is not amended after passing gates"
+
+[sites]
+journeys = "src/journeys/engine.rs: preview, signed consent, context binding, admission and persisted record decoders use V2; compare the stable actor DID, current KeyDescriptor.public_key and custody wallet before signing/resume; verify retained consent signatures and signed transaction sender on reopening"
+preview = "src/server/native_send.rs: NativeSendPreviewV2 carries NativeSendPurposeV2; encode_native_send_prepare_v2 emits the daemon V2 consent wire fields"
+runtime = "src/server/agent_runtime.rs: preview canonical decode and prepare/resume take V2, verify SHA256 consent signatures and check current owner and prepared transaction bindings"
+provider = "src/custody/provider.rs: NativeConsent::SendPurpose decodes V2 and checks its consent_public_key against the held verification key before signing"
+attestor = "layerx-human-kms/src/attestor.rs: V2 consent signing checks the current key and authenticated wallet; validate_native_send_release decodes signed V2 consent, verifies its Ed25519 signature, independently recovers the signed type-2 sender and calls check_prepared_transaction before journey release"
+
+[cases.rotation]
+test = "native_send_purpose::native_send_v2_rotated_primary_key_signs_and_releases_under_stable_owner_did"
+proof = "rotate a real envelope keystore primary key, retain the original stable DID, sign the V2 digest with the rotated held key and release a transaction signed through CustodySigner and the real envelope provider"
+
+[cases.mismatch]
+test = "native_send_purpose::native_send_v2_purpose_with_foreign_consent_key_or_sender_is_refused"
+proof = "independently execute the real rotated envelope-keystore and custody transaction path; a correctly signed foreign consent key is refused by NativeConsent and release, and a correctly signed foreign sender is refused against both current owner resolution and the independently recovered transaction sender"
+kms = "attestor::tests::attestor_release_recovers_sender_for_rotated_stable_owner_and_refuses_v1 also checks old keys, another owner, transaction and signature tampering, and retired V1 consent"
+
+[cases.restart]
+test = "native_journey_approval::native_send_v2_journey_persisted_before_restart_revalidates_its_purpose"
+proof = "start a real native JourneyEngine plan, retain a signed V2 purpose and ledger_payment_call preparation in an AwaitingApproval journal fixture on a private 0o700 directory; drop every handle, reopen PrincipalStore and load through JourneyEngine::load; compare retained consent and phase, and refuse changed sender, consent key, canonical digest and signature"
+restart_model = "same-process drop and reopen, matching the persists-and-reopens case of 22.31.545; no environment variable or protected live fixture"
+
+[gotchas]
+sdk = "The SDK encode_native_send_prepare still accepts only NativeSendPrepareRequestV1; Human encodes the daemon's V2 wire contract locally without changing services/agent or weakening the request checks."
+fixtures = "The original live tests require protected runtime-clock, custody and journey fixtures; none is skipped or replaced. The native_send_v2_ verify filter selects the three standalone cases; the protected cases retain their external-fixture contracts."
+evidence = "Gotcha 3142: changing this record after qualification changes the candidate; gate results and exact verified revisions remain exclusively in the runner ledger."
+legacy = "Gotcha 3158: V1 canonical send purpose is retired; native preparation and local-grant V1 are distinct, still-current contracts and remain version 1."
+
+[previous_attempt.qualification_repair]
+observed = "build-1 exited 101: signed_send_payload takes public-key and signature arrays by value, and VerifyError does not implement std::error::Error."
+repair = "Pass both arrays by value and explicitly convert the test signature decoder error; preserve every assertion."
+evidence = "gate_ledger entry kind=build n=1; revision, exact command, exit and private log are recorded there"
+
+[continuation]
+ruling = "decision 2621, finding 10.4.3.2: preserve the existing V2 production port, remove the protected test subprocess and second-environment-variable restart branch, and qualify the three standalone native_send_v2_ cases"
+qualification = "gate_ledger entries for this continuation record the final candidate and commands; this record is not amended after gates"
+
+[qualification_repair.1]
+observed = "verify-1 at 756f88be4ae68e22f0a9568895d3ef241f0536ea exited 1 because both rotation cases opened the same exclusively locked PrincipalStore twice; the standalone restart case passed"
+repair = "Share the single PrincipalStore owner with CustodySigner::new_shared and take its scope through the shared mutex, preserving the real provider path and every assertion"
+evidence = "gate_ledger entry kind=verify n=1; exact command and private log /out/logs/verify-1.log are recorded there"

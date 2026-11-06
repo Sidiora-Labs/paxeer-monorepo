@@ -115,6 +115,7 @@ const OUTPUTS: [(&str, &str, &str, Option<&[&str]>); 12] = [
     (
         "agent-compatibility",
         "markdown",
+        // SDK output is separate from the daemon matrix in docs/agent/COMPATIBILITY.md.
         "services/agent/sdk",
         Some(&["COMPATIBILITY.md"]),
     ),

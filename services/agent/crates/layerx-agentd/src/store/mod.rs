@@ -1287,9 +1287,28 @@ impl Store {
 
 #[cfg(test)]
 mod batch_removing_tests {
+    use std::os::unix::fs::DirBuilderExt;
+
     use super::{ObjectKind, Store, StoreError, TenantId, TenantKey};
 
     struct Directory(std::path::PathBuf);
+
+    impl Directory {
+        fn new(label: &str) -> Self {
+            let root = std::fs::canonicalize(std::env::temp_dir())
+                .unwrap_or_else(|error| panic!("temp directory: {error}"))
+                .join(format!(
+                    "layerx-batch-removing-{label}-{}",
+                    std::process::id()
+                ));
+            let _ = std::fs::remove_dir_all(&root);
+            std::fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&root)
+                .unwrap_or_else(|error| panic!("private directory: {error}"));
+            Self(root)
+        }
+    }
 
     impl Drop for Directory {
         fn drop(&mut self) {
@@ -1312,10 +1331,7 @@ mod batch_removing_tests {
 
     #[test]
     fn update_local_batch_removing_rolls_back_both_lists_on_failed_persist() {
-        let directory = Directory(
-            std::env::temp_dir().join(format!("layerx-batch-removing-{}", std::process::id())),
-        );
-        let _ = std::fs::remove_dir_all(&directory.0);
+        let directory = Directory::new("rollback");
         let mut store = Store::open(&directory.0).unwrap_or_else(|error| panic!("open: {error}"));
         let (kept, removed) = (key(b"kept"), key(b"removed"));
         store
@@ -1334,7 +1350,9 @@ mod batch_removing_tests {
         ));
         assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
 
-        std::fs::remove_dir_all(&directory.0).unwrap_or_else(|error| panic!("remove: {error}"));
+        let obstruction = directory.0.join("store.bin.tmp");
+        std::fs::write(&obstruction, b"blocked")
+            .unwrap_or_else(|error| panic!("obstruct persist: {error}"));
         assert!(matches!(
             store.update_local_batch_removing(
                 vec![(kept.clone(), b"kept-1".to_vec())],
@@ -1345,7 +1363,8 @@ mod batch_removing_tests {
         assert_eq!(bytes(&store, &kept), Some(b"kept-0".to_vec()));
         assert_eq!(bytes(&store, &removed), Some(b"removed-0".to_vec()));
 
-        std::fs::create_dir_all(&directory.0).unwrap_or_else(|error| panic!("create: {error}"));
+        std::fs::remove_file(obstruction)
+            .unwrap_or_else(|error| panic!("unblock persist: {error}"));
         store
             .update_local_batch_removing(
                 vec![(kept.clone(), b"kept-1".to_vec())],

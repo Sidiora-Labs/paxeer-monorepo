@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "1.1",
+  "task": "1.1",
+  "roles": [
+    "control",
+    "provisioner",
+    "dispatch"
+  ],
+  "module": "policy/placement.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "placement.check",
+    "placement.authorize",
+    "placement.delegate",
+    "placement.runner.authorize",
+    "placement.supervisor.authorize",
+    "placement.exec.request",
+    "placement.remote.claim",
+    "placement.remote.complete",
+    "placement.audit"
+  ],
+  "requires": [
+    "4.2",
+    "6.1",
+    "14.1"
+  ]
+}

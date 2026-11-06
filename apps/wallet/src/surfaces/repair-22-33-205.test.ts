@@ -3,21 +3,19 @@ import { createElement } from 'react';
 import { expect, test } from 'vitest';
 import {
   bridge,
-  decodeSequencerReceipt,
   exchange,
-  readReceiptKeyPins,
   readSequencerReceipt,
+  requireAuthenticatedReceipt,
   sendModuleTransactionReceipted,
   type ModuleTransaction,
 } from '@paxeer/wallet';
 import { PERPS_PRECOMPILE, XWEB_PRECOMPILE, abiSelector, encodeAbiCall } from '@sidiora/layerx-sdk';
-import { verifySequencerReceipt } from '@sidiora/layerx-sdk/browser';
-import { bytesToHex, hexToBytes, keccak256, parseTransaction } from 'viem';
+import { keccak256, parseTransaction } from 'viem';
 import { mount } from '@/account/test/render';
 import { ExchangeView, USDL } from './ExchangeView';
 import { SentResult } from './Surface';
 import { WebDataView } from './WebDataView';
-import { readGrantCaps, surfaceReceipt, useWebDataCaps, type SentTransaction } from './useSurface';
+import { readGrantCaps, surfaceReceipt, useWebDataCaps } from './useSurface';
 import {
   buildPerpsPosition,
   perpsCollateralApproval,
@@ -77,19 +75,12 @@ async function rung_not_rendered_distinguishes_authenticated_committed_outcomes(
     await receiptedRendered.unmount();
   }
   const chain = new RecordedBridgeChain('committed-payExact');
-  // This committed recording belongs to the conformance network (713714).
-  // Authenticate its captured pair with the chain-independent SDK codecs before
-  // supplying the result model to the shared renderer. The V1 case above also
-  // exercises the wallet's chain-125 authenticator and surfaceReceipt adapter.
-  const pins = await readReceiptKeyPins((method, params) => chain.request({ method, params }));
-  const receipt = decodeSequencerReceipt(
-    await chain.request({
-      method: 'pax_sequencerReceipt',
-      params: [chain.recording.receiptJson.txHash],
-    }),
-    chain.recording.receiptJson.txHash,
-    pins
+  const receipt = await readSequencerReceipt(
+    (method, params) => chain.request({ method, params }),
+    chain.recording.receiptJson.txHash
   );
+  if (receipt === null) throw new Error('Missing recorded committed receipt');
+  requireAuthenticatedReceipt(receipt);
   expect(receipt.rung).toBe('committed');
   if (receipt.rung !== 'committed' || !receipt.receipt || !receipt.logs)
     throw new Error('Missing recorded committed receipt');
@@ -99,32 +90,18 @@ async function rung_not_rendered_distinguishes_authenticated_committed_outcomes(
       params: [receipt.txHash],
     })
   ).toBe(chain.recording.rawTransaction);
-  const authenticated = await verifySequencerReceipt(
-    hexToBytes(receipt.receipt),
-    hexToBytes(chain.recording.rawTransaction),
-    pins.map((pin) => ({
-      keyId: hexToBytes(pin.keyId),
-      publicKey: hexToBytes(pin.publicKey),
-      first_height: pin.firstHeight,
-      last_height: pin.lastHeight,
-    }))
-  );
-  expect(authenticated.level).toBe('sequencer-signed');
-  expect(bytesToHex(authenticated.receipt.activityId)).toBe(receipt.txHash);
-  expect(bytesToHex(authenticated.canonicalBytes)).toBe(receipt.receipt);
-  expect(authenticated.height).toBe(BigInt(receipt.height!));
-  expect(parseTransaction(chain.recording.rawTransaction).chainId).toBe(713714);
+  expect(keccak256(chain.recording.rawTransaction)).toBe(receipt.txHash);
+  expect(receipt.authentication.level).toBe('sequencer-signed');
+  expect(receipt.authentication.rawTransaction).toBe(chain.recording.rawTransaction);
+  expect(receipt.authentication.keyId).toBe(chain.recording.pinnedKey.keyId);
+  expect(receipt.receipt).toBe(chain.recording.receiptJson.receipt);
+  expect(receipt.height).toBe(chain.recording.receiptJson.height);
+  expect(receipt.authentication.height).toBe(BigInt(receipt.height!));
+  expect(parseTransaction(chain.recording.rawTransaction).chainId).toBe(125);
+  expect(parseTransaction(chain.recording.rawTransaction).type).toBe('eip1559');
   expect(receipt.status).toBe('0x1');
   expect(receipt.blockHash).toBe(chain.recording.receiptJson.blockHash);
-  const module = bridge(chain);
-  const sent: SentTransaction = {
-    hash: receipt.txHash,
-    rung: receipt.rung,
-    status: receipt.status === '0x1' ? 'confirmed' : 'reverted',
-    events: receipt.logs
-      .filter((log) => log.address.toLowerCase() === module.address.toLowerCase())
-      .map((log) => module.decodeEvent(log)),
-  };
+  const sent = surfaceReceipt(receipt, bridge(chain));
   const state = {
     sending: false,
     approving: false,

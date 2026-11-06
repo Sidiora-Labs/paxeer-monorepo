@@ -42,8 +42,8 @@ describe('CHART_COLOR_TOKENS', () => {
 
   it('takes the line and the bar from the same graph token so the chart reads as one mark', () => {
     expect(CHART_COLOR_TOKENS.bar).toEqual(CHART_COLOR_TOKENS.line);
-    expect(CHART_COLOR_TOKENS.line.light).toBe('theme.graph.line._light');
-    expect(CHART_COLOR_TOKENS.line.dark).toBe('theme.graph.line._dark');
+    expect(CHART_COLOR_TOKENS.line.light).toBe('accent');
+    expect(CHART_COLOR_TOKENS.line.dark).toBe('accent');
   });
 });
 
@@ -51,14 +51,14 @@ describe('getChartColorToken', () => {
   it('answers the token of the appearance it is asked for', () => {
     expect(getChartColorToken('line', 'light')).toBe(CHART_COLOR_TOKENS.line.light);
     expect(getChartColorToken('line', 'dark')).toBe(CHART_COLOR_TOKENS.line.dark);
-    expect(getChartColorToken('areaStart', 'light')).toBe('theme.graph.gradient.start._light');
-    expect(getChartColorToken('areaStop', 'dark')).toBe('theme.graph.gradient.stop._dark');
+    expect(getChartColorToken('areaStart', 'light')).toBe('chart.area.start');
+    expect(getChartColorToken('areaStop', 'dark')).toBe('chart.area.stop');
   });
 
   it('answers one semantic token for the axis and the grid in either appearance', () => {
     expect(getChartColorToken('axis', 'light')).toBe(getChartColorToken('axis', 'dark'));
     expect(getChartColorToken('grid', 'light')).toBe(getChartColorToken('grid', 'dark'));
     expect(getChartColorToken('axis', 'light')).toBe('text.secondary');
-    expect(getChartColorToken('grid', 'light')).toBe('border.divider');
+    expect(getChartColorToken('grid', 'light')).toBe('chart.grid');
   });
 });

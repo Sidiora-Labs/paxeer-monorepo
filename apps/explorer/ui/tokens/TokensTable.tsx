@@ -5,6 +5,7 @@ import type { TokensSortingField, TokensSortingValue } from 'types/api/tokens';
 import type { AggregatedTokenInfo } from 'types/client/multichainAggregator';
 
 import { TableBody, TableColumnHeader, TableColumnHeaderSortable, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
+import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 import { default as getNextSortValueShared } from 'ui/shared/sort/getNextSortValue';
 
 import TokensTableItem from './TokensTableItem';
@@ -26,7 +27,7 @@ type Props = {
   coinPrice?: string | null;
 };
 
-const TokensTable = ({ items, page, isLoading, sorting, setSorting, coinPrice }: Props) => {
+const TokensTable = ({ items, page, isLoading, sorting, setSorting }: Props) => {
 
   const hasSorting = setSorting && sorting;
 
@@ -39,10 +40,10 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting, coinPrice }:
   }, [ sorting, setSorting, hasSorting ]);
 
   return (
-    <TableRoot variant="scan" data-tokens-table>
+    <TableRoot variant="scan" css={ LIST_TABLE_STYLES } data-tokens-table>
       <TableHeader>
         <TableRow>
-          <TableColumnHeader w="56px">#</TableColumnHeader>
+          <TableColumnHeader w="56px" isNumeric>#</TableColumnHeader>
           <TableColumnHeader w="26%">Token</TableColumnHeader>
           { hasSorting ? (
             <TableColumnHeaderSortable
@@ -60,8 +61,7 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting, coinPrice }:
               Price
             </TableColumnHeader>
           ) }
-          <TableColumnHeader isNumeric w="10%">Change (%)</TableColumnHeader>
-          <TableColumnHeader isNumeric w="12%">Volume (24H)</TableColumnHeader>
+          <TableColumnHeader isNumeric w="12%">Change 24h</TableColumnHeader>
           { hasSorting ? (
             <TableColumnHeaderSortable
               isNumeric
@@ -71,14 +71,14 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting, coinPrice }:
               onSortToggle={ sort }
               indicatorPosition="right"
             >
-              Circulating market cap
+              Market cap
             </TableColumnHeaderSortable>
           ) : (
             <TableColumnHeader isNumeric w="15%">
-              Circulating market cap
+              Market cap
             </TableColumnHeader>
           ) }
-          <TableColumnHeader isNumeric w="15%">Onchain market cap</TableColumnHeader>
+          <TableColumnHeader isNumeric w="14%">Volume 24h</TableColumnHeader>
           { hasSorting ? (
             <TableColumnHeaderSortable
               isNumeric
@@ -108,7 +108,6 @@ const TokensTable = ({ items, page, isLoading, sorting, setSorting, coinPrice }:
               index={ index }
               page={ page }
               isLoading={ isLoading }
-              coinPrice={ coinPrice }
             />
           );
         }) }

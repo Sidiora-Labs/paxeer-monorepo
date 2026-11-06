@@ -1,0 +1,48 @@
+[repair.22.31.496]
+decision = 2540
+gotcha = 3029
+requirement = "22998.1"
+change = "Admit exactly the compiler's 71020004, 92-byte rotation shape in the disclosure binder and RecordLifecycle; execute retains governance/2 and the supplied idempotency key."
+producer = "layerx_intents::compile with Intent::v3 KeyRotation for the seed-74 actor DID, a distinct seed-75 pending key, and a registered governance/2 activity"
+transport = "layerx_agentd::prepare::evm::PrecompileCall::encode for recordLifecycle(bytes,bytes32)"
+rust_proofs = ["compiled_key_rotation_binds_exact_payload_and_idempotency_key", "key_rotation_wrong_lengths_and_headers_are_malformed"]
+go_proofs = ["TestRepair_22_31_496_CompiledRotationReachesKernel", "TestRepair_22_31_496_RotationWrongLengthIsNonCanonical"]
+fixture = "The Rust proving test emits the compiler's hex and checks the exact constant consumed by the Go keeper proving test, in the hf-done verification command."
+kernel_interface_observation = "Decision 2625 and task 22.31.557 admit protocol 3 KeyRotation and its length-prefixed DID identifier; the proving payload now targets the executing seed-74 actor."
+qualification = "The private hf-build/hf-done gate ledger records the exact candidate revision, command, exit and log; this record makes no claim of a passing gate."
+
+[qualification.build]
+revision = "c0315a27ad5e267bfcd862df96819a93b65bac99"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto -p layerx-agentd --tests && make -s paxd-native-libs && CGO_ENABLED=1 go build ./modules/layerxauth/..."
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The existing human_projection_facts integration target fails with seven errors in included authority budget_state code: unresolved crate::committed, absent crate::loopback_http, super::Human, super::Policy, and Config.human."
+assumption = "These untouched external interfaces are outside task scope; stop without repair or rerun, leaving all assertions intact and the task unqualified."
+
+[qualification.status]
+status = "implemented_not_qualified"
+verification = "Attempt 4: hf-build and dependent-crate checks passed; both Rust proofs passed and emitted the matching compiler fixture; Go keeper tests did not execute because the linker exhausted sandbox disk space."
+kernel_owner_ruling = "Decision 2625 satisfies do_2: retain admission and compile the proving rotation as V3 for the executing actor after 22.31.557."
+
+[qualification.attempt_3]
+revision = "e9c0af246991635c8d7e9ce1e90a098a29f5cb14"
+command = "cg spec done 22.31.496 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "TestRepair_22_31_496_CompiledRotationReachesKernel received an encoded kernel receipt with result -204 (LXP_AUTH_SCOPE); validate in src/modules/governance/lxp_governance.c:185 refuses the compiler payload's DID digest at memcmp(did, p->bytes + 4U, 32U)."
+assumption = "The compiler's did helper uses layerx_wire::hash::did_id over the unprefixed DID, while validate calls lxp_did_id_derive over the length-prefixed DID; changing either external interface requires the owner's ruling under do_2."
+
+[qualification.attempt_4]
+owner_decision = 2625
+compiler_dependency = "22.31.557"
+change = "Compile a V3 rotation for the public-key DID derived from seed 74 and pending key derived from seed 75; the keeper harness binds and registers that same owner before RecordLifecycle."
+proof = "The Rust compiler emits and pins the Go constant; the keeper asserts result 0, an encoded receipt, the persisted pending key and challenge bounds, the unchanged primary key, and the incremented identity sequence."
+evidence = "The private hf-build/hf-done ledger records the verified revision, command, exit and log without changing the candidate after its build."
+
+[qualification.attempt_4_gate]
+revision = "4219176dddd974d6ac922fe2f1a3cd824cd67204"
+command = "cg spec done 22.31.496 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The Go keeper test linker failed with mapping output file failed: no space left on device; both Rust proofs passed, but the keeper tests never executed."
+assumption = "Sandbox disk exhaustion is unrelated to the implementation; record it without chasing environment changes or claiming task completion."

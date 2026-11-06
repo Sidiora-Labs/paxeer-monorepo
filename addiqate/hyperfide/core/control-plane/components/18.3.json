@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "finding-routing",
+  "task": "18.3",
+  "roles": [
+    "control"
+  ],
+  "module": "findings/routing.js",
+  "entry": "createComponent",
+  "api_version": 1,
+  "actions": [
+    "finding.route",
+    "finding.route.assign",
+    "finding.route.acknowledge",
+    "finding.route.collaborator.acknowledge",
+    "finding.leader-queue.list",
+    "finding.leader-queue.acknowledge",
+    "finding.leader-queue.route"
+  ],
+  "requires": [
+    "finding-registry"
+  ]
+}

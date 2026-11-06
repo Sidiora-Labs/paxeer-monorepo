@@ -68,9 +68,9 @@ describe('AccountsPageContent', () => {
   it('counts the accounts found with the total balance beside them', async() => {
     const { container } = await renderPage();
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe(`A total of 2 accounts found (2,000 ${ currencyUnits.ether })`);
-    expect(container.querySelector('[data-scan-table-card] [data-note]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-note]')?.textContent)
       .toBe('Showing 2 accounts ranked by balance');
   });
 
@@ -80,17 +80,17 @@ describe('AccountsPageContent', () => {
       next_page_params: { fetched_coin_balance: '42', hash: addressMock.hash, items_count: 2 },
     });
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe(`More than 2 accounts found (2,000 ${ currencyUnits.ether })`);
-    expect(container.querySelector('[data-scan-table-card] [data-actions] [data-pagination]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-actions] [data-pagination]')).not.toBeNull();
   });
 
   it('puts the page-data download in the card header and the row selector in its footer', async() => {
     const { container } = await renderPage();
 
-    expect(container.querySelector('[data-scan-table-card] [data-actions] [data-accounts-download]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-actions] [data-accounts-download]')?.textContent)
       .toContain('Download Page Data');
-    expect(container.querySelector('[data-scan-table-card] [data-footer-rows] [data-scan-show-rows]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-footer-rows] [data-scan-show-rows]')).not.toBeNull();
   });
 
   it('lists the scan columns of the account table', async() => {

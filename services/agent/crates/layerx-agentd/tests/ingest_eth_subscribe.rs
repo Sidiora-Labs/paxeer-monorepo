@@ -31,6 +31,13 @@ fn logs_are_ingested_in_block_position_order() {
     let checkpoint = ingest_integration::committed_checkpoint(11);
     let mut wire_logs = vec![log(11, 0, 0), log(10, 2, 3), log(10, 1, 2), log(10, 1, 0)];
     wire_logs[0]["blockHash"] = json!(format!("0x{}", hex::encode(checkpoint.block_hash)));
+    let closing_event = CoreEvent::from_log(&wire_logs[0], attributes()).unwrap();
+    assert_eq!(closing_event.log().unwrap().block_height, checkpoint.height);
+    assert_eq!(
+        closing_event.log().unwrap().block_hash,
+        Some(checkpoint.block_hash)
+    );
+    assert_eq!(closing_event.rung(), Some(Rung::Receipted));
     let server = SubscriptionServer::new(json!(["logs", {"topics": []}]), wire_logs.clone());
     let mut logs = subscribe(
         &server.url,
@@ -384,6 +391,8 @@ fn receipted_logs_recover_committed_without_duplicate_delivery() {
         assert!(copy.get("seq").is_none());
         let event =
             CoreEvent::from_log_bytes(serde_json::to_vec(receipt).unwrap(), attributes()).unwrap();
+        assert_eq!(event, CoreEvent::from_log(receipt, attributes()).unwrap());
+        assert_eq!(event.canonical_bytes, serde_json::to_vec(receipt).unwrap());
         assert_eq!(event.rung(), Some(Rung::Receipted));
         assert_eq!(event.log().unwrap().block_hash, None);
         assert!(event.log().unwrap().transaction_hash.is_some());

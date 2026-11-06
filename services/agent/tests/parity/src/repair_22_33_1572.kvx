@@ -1,0 +1,88 @@
+[meta]
+task = "22.33.1572"
+audit = "22.30.99"
+finding = "parity-synthetic-owner"
+baseline = "Not run: the explicit ordered instructions prohibit tests before complete implementation and reserve the verify command to hf-done; no unchanged-tree failure is claimed."
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; no gate is claimed before execution."
+
+[finding.parity-synthetic-owner]
+tests = ["parity_synthetic_owner_compares_node_receipts_and_reopened_state", "parity_synthetic_owner_rejects_invalid_node_evidence_and_mismatched_envelopes", "parity_synthetic_owner_preserves_refusals_and_detects_changed_or_missing_results"]
+implementation = "Remove the expectation-cloning Unix server and its fabricated economic and vocabulary observations. Read an explicit real-daemon provisioning plan, send current authenticated /rpc operation envelopes using AgentEnvelopeTransport, validate every response, and compare complete actual envelope evidence across all 21 declared scenarios. Missing provisioning, drivers, scenarios, malformed evidence or transport failure cannot report parity success."
+proof = "Committed Go-recorded signed transaction and receipt traverse NodeRpc and the SDK node transport; the production owner receipt lookup validates transaction/sender/nonce, the real daemon store persists the production-encoded receipt proof and the finality store persists verified evidence, and the production proof and envelope renderers supply current envelopes through AgentRpcTls and AgentEnvelopeTransport. Idempotency executes a real node submission once; the TLS listener, outbox, receipt/finality store and idempotency store are stopped/dropped and reopened, and recovered evidence is compared byte-for-byte."
+boundary = "The loopback peers are committed node transcripts and the production daemon proof codec and envelope renderer, not a simulated expectation server. The test proves the repaired Rust transport/evidence path and durable components; it does not claim a full independently provisioned multi-language deployment or node consensus execution."
+
+[provisioning]
+path = "services/agent/tests/parity/provisioned.json is an operator-owned private runtime input, never an inferred success fixture."
+daemon = "daemon contains endpoint (https), client_certificate, client_key, trust_anchors (PEM file paths relative to the plan), tenant, session_id, token_id (64 lowercase hex), and generation (decimal string); provision a real daemon and native session before invoking the live suite."
+cases = "cases maps exactly the 21 scenarios.kvx names to operation (current catalogue name), request_id (decimal string), request (real operation JSON), and idempotency_key (64 lowercase hex for mutations, null for queries). Every language sends these requests to the provisioned owner; responses are scenario<TAB>JSON with status and document. No expected response is supplied to the server."
+
+[wiring]
+typescript = "services/agent/tests/parity/typescript.mjs — agent TypeScript SDK domain: replace the custom scenario socket and retired StateProven vocabulary with --envelope-plan <path>, current authenticated envelopes, and scenario<TAB>JSON status/document evidence from the provisioned daemon, including recovered owner state."
+python = "services/agent/tests/parity/python.py — agent Python SDK domain: replace the custom scenario socket and retired STATE_PROVEN vocabulary with --envelope-plan <path>, current authenticated envelopes, and scenario<TAB>JSON status/document evidence from the provisioned daemon, including recovered owner state."
+provision = "services/agent/tests/parity qualification orchestration — agent daemon domain: provide the private provisioned.json and real daemon lifecycle for all 21 live scenarios, including authority-issued sessions and reopened owner operations; this bounded Rust gate uses committed peers and no external process or credential."
+
+[gotcha.baseline]
+observed = "The proposal requests a baseline verify but the explicit task order forbids it."
+resolution = "Follow the explicit gate order and claim no baseline result."
+
+[gotcha.fixture_generation]
+observed = "The system Python lacks cryptography and the repository ignores PEM paths."
+resolution = "Generate committed test-only TLS material once with uv's isolated cryptography environment under src/fixture; hf-build/hf-done carry all allowed source files, including PEM fixtures, and the test itself needs no generator, Python package, environment variable or external binary."
+
+[qualification.first_build]
+revision = "a06e8b3792aa74112f315dfb9bbad51e431ce943"
+command = "cargo build --locked --manifest-path services/agent/tests/parity/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Refresh the explicitly scoped parity Cargo.lock to the current dependency manifests; the locked gate stopped before compilation."
+
+[qualification.second_build]
+revision = "dd38eaaa467984c8244b317b3361aa0bb402e49a"
+command = "cargo build --locked --manifest-path services/agent/tests/parity/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+repair = "The earlier attempt selected the idempotency namespace; the continuation checks the actual exported namespace before building."
+
+[continuation.actual_api]
+key = "The checked-out layerx-agent-api/src/lib.rs exports Key in pub mod idempotency and does not export it in pub mod error; retain the actual public API used by layerx-sdk itself rather than introduce an unresolved import."
+constructors = "Replace four unresolvable inferred proof constructors with the public production receipt_proof_operation and proof_bundle_operation_value APIs; persist their exact output in the real daemon Store and recover finality with restore_finality. No dependency manifest outside scope is edited."
+assertions = "Retain the three proving tests, exact signed-receipt comparison, raw-transaction binding, node submission count, below-requested rung checks, durable receipt count, and byte-for-byte recovered envelope equality."
+
+[gotcha.proof_envelope_contract]
+observed = "The production VerifiedRead<ProofBundle>::encode_json renders achieved_verification_level while AgentEnvelopeTransport::decode_proof_bundle_response expects achieved_rung; the bounded test retains the real producer bytes and the real consumer checks to expose this mismatch."
+resolution = "Do not rename producer fields or bypass consumer verification in the parity fixture."
+
+[wiring.proof_envelope_contract]
+request = "services/agent/crates/layerx-agent-api/src/read.rs and services/agent/crates/layerx-sdk/src/agent_envelope.rs — agent API and Rust SDK domains: reconcile the production proof-bundle response field achieved_verification_level versus achieved_rung across both endpoints."
+
+[qualification.continuation_first_build]
+revision = "9d2541913190503efd847f3003f728116487dd64"
+command = "cargo build --locked --manifest-path services/agent/tests/parity/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Wrap the decoded envelope request map in its JSON Value for the production SDK request decoder; preserve the decoder and all assertions."
+
+[qualification.continuation_verify]
+revision = "a5d8e7e28707217663ab53018df931a36b1305f3"
+command = "cg spec done 22.33.1572 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+repair = "Keep exact equality assertions and include the producer's required 0x hex prefix; the declared cargo test exited 101 with two passing tests and one encoding expectation failure."
+
+[gotcha.proof_hex_encoding]
+observed = "The production proof bundle encodes signedReceipt and rawTransaction as 0x-prefixed lowercase hex, unlike envelope digest identifiers."
+resolution = "Decode both sides through the same hex codec and compare every receipt and transaction byte exactly; malformed hex still fails and no content assertion is weakened."
+
+[continuation.hex_comparison]
+repair = "Compare persisted and transported signed receipts and raw transactions as decoded bytes, retaining signature verification, exact transaction binding and byte-for-byte recovered envelope comparison."
+baseline = "The preceding attempt's declared verification ran three tests: two passed and parity_synthetic_owner_compares_node_receipts_and_reopened_state failed on the hex prefix comparison; no additional baseline gate is run."
+
+[gotcha.ignored_tls_fixtures]
+observed = "The seeded test-only PEM fixtures are ignored and untracked, so the runner excludes them from the candidate unless explicitly staged."
+resolution = "Stage only the five existing scoped TLS fixtures so the qualified revision includes the loopback test inputs; the runner owns committing and publication."
+
+[continuation.proof_response]
+baseline = "Attempt 4 ran the declared verification: two tests passed and parity_synthetic_owner_compares_node_receipts_and_reopened_state failed with Decode ReadProofBundle; this continuation does not repeat the unchanged-tree gate."
+repair = "Decode the persisted production document as VerifiedRead<ProofBundle>, assert its freshness coordinates, and serve proof_bundle_operation_value of that typed proof with its achieved verification level through the production success renderer."
+below = "The SDK requires an achieved proof at the requested level and refuses a below-rung ReadProofBundle response. Keep every below-rung envelope assertion and additionally assert the real SDK's Decode rejection using send_operation_recorded; no invalid proof is accepted as parity evidence by DaemonParity::observe."
+evidence = "The final private hf-build/hf-done ledger identifies the exact qualified candidate revision and logs without editing the candidate after qualification."

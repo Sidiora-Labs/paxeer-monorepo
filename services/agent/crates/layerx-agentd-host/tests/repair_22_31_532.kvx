@@ -1,0 +1,78 @@
+[repair.22.31.532]
+acceptance = "22998.1"
+fields = "ProductionWebPayer.approval_resources is optional WebApprovalResources; with_approval_resources takes the shared Store, shared BudgetLimiter and limit ids and constructs ApprovalExpiry::from_shared_store; preparation retains the production EVM pending/header reader."
+wiring = "main.rs carries the sole shared_store from start_shared_owner to start_agent_rpc and attach_mcp_payers; attach_mcp_payers builds one BudgetLimiter from mcp_limit, shares it across payers and supplies only that limit id. publish_mcp_binding already receives this same store; payer construction now lives in attach_mcp_payers."
+held_path = "prepare_bound uses the signer sender and the node pending nonce, base fee, head height and pending gas estimate; submit_transaction validates canonical bytes, signing hash, digest, sender and chain, signs without re-preparation, and verifies the raw transaction hash through send."
+tests = "Four executing tests cover shared resources and durable rejection recovery, EVM preparation binding, exact prepared-byte submission after payer restart and changed node state with malformed hash refusal, node hash mismatch refusal, and unavailable defaults without resources. Local TLS attestor protocol and receipt signing use real cryptography in process; no external credential, live endpoint or subprocess toolchain is used by this repair target."
+
+[gates]
+build = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --test repair_22_31_532 --test payer_evm --test payer && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+results = "The bounded runner records each gate result, exact verified candidate revision, command, exit code and private log in /out/run/gates.jsonl; the final response copies the terminal gate evidence. This record is included in that candidate before qualification to keep build and verify on the same revision."
+
+[interface_limitation]
+observed = "The existing layerx-crypto disclosure call decoder does not implement payExact; prepare_bound therefore refuses exact payments, while ledger draw and issueGrant have real decoding paths."
+assumption = "The shared disclosure decoder is outside this task's allowed paths; its missing payExact interface is preserved and recorded rather than replaced with a fallback or weakened binding."
+
+[gate.build.1]
+revision = "717228471bd733c562334244ef92882723c072b8"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Specify the canonical four-byte selector type in payment_call; Rust cannot infer an array conversion from the match arms alone."
+
+[gate.build.2]
+revision = "55367fd5aeeb9c43f2894c0bafb861b8ce4e9b23"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+exit = 0
+log = "/out/logs/build-2.log"
+
+[gate.dependents.1]
+revision = "55367fd5aeeb9c43f2894c0bafb861b8ce4e9b23"
+exit = 0
+log = "/out/logs/dependents-1.log"
+observed = "The hf-done wrapper checked thirteen dependent crates successfully."
+
+[gate.verify.1]
+revision = "55367fd5aeeb9c43f2894c0bafb861b8ce4e9b23"
+command = "cg spec done 22.31.532 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The underlying cargo command exited 101: payer passed 3/3; payer_evm passed 4/6 and failed web_pay_exact_submits_a_signed_layerxpay_call with Configuration(node_rpc) and web_grant_submits_a_signed_ledger_issue_grant_call with Boundary(Refused); Cargo stopped before repair_22_31_532 executed."
+assumption = "These failures precede the new resource/held-transaction path: exact_terms obtains a separately configured node at web.rs:245, and the resource-free grant path retains its original validation and signing behavior; preserve the recorded failures without an unrelated repair or repeat investigation."
+status = "implemented_not_qualified; no passing runtime evidence is claimed for the new repair target; task remains in_progress."
+
+[continuation.attempt_2]
+exact_terms = "payer_evm resolves exact terms through exact_terms_with_payer over a second ProductionWebPayer on the same local node, converted with into_web_payer; the expected transcript names accountId and both accountOwner views and retains all transaction and receipt assertions."
+native_clock = "SigningFixture installs with_native_replay_journal under the attestor harness root, using Arc::clone of cluster.clock as the Clock shared with the assertion minter; grant signing no longer depends on the ambient runtime clock."
+product = "The accepted attempt-1 implementation and four repair cases are preserved without product changes."
+qualification = "hf-build and hf-done will record this continuation candidate and exact gate results in /out/run/gates.jsonl; final evidence names the verified revision without changing the candidate between gates."
+
+[continuation.attempt_2.build]
+revision = "d11f55e9d674614dc02abae15d12870593140959"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd-host --tests && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[continuation.attempt_2.dependents]
+revision = "d11f55e9d674614dc02abae15d12870593140959"
+exit = 0
+log = "/out/logs/dependents-1.log"
+observed = "The hf-done wrapper's thirteen dependent crates passed."
+
+[continuation.attempt_2.verify]
+revision = "d11f55e9d674614dc02abae15d12870593140959"
+command = "cg spec done 22.31.532 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The underlying cargo command exited 101: payer passed 3/3 and payer_evm passed 5/6, including web_grant_submits_a_signed_ledger_issue_grant_call; web_pay_exact_submits_a_signed_layerxpay_call failed with Payer(Unavailable), so Cargo did not execute repair_22_31_532."
+assumption = "WebPayerBoundary does not implement WebPayer::view and inherits its Unavailable default; exact_terms_with_payer requires that missing interface for accountId(bytes32,bytes32), while this continuation explicitly prohibits product changes."
+status = "implemented_not_qualified; the build and verification used the same candidate, no assertion was weakened, and the task is not marked done; this post-gate evidence entry is not claimed as a verified revision."
+
+[continuation.attempt_3]
+view = "WebPayerBoundary::view checks owner authority, refuses PrecompileCall encoding failures, reads the target precompile through SequencerEndpoint::call_pending and preserves its answer bytes; node errors follow the same node_error and WebPayerError conversion as accountOwner validation."
+case_5 = "boundary_view_returns_node_bytes_and_refuses_when_owner_check_refuses sends accountId(bytes32,bytes32) through the production boundary to the in-process node, asserts the exact target, encoded arguments and pending tag at the node, and asserts unchanged answer bytes; revoking owner authority refuses the same view before any additional node request or signing."
+preserved = "The optional resources, held preparation and submission, shared-store daemon wiring, four original repair tests and two payer_evm suite alignments remain applied."
+qualification = "The declared hf-build and hf-done gates record revision, command, exit and private log in /out/run/gates.jsonl and print terminal evidence; this entry is fixed before both gates so the same candidate is built and verified. No post-gate edits are made to this candidate."

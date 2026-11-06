@@ -1,4 +1,4 @@
-import { chakra, Flex } from '@chakra-ui/react';
+import { Flex } from '@chakra-ui/react';
 import BigNumber from 'bignumber.js';
 import React from 'react';
 
@@ -9,7 +9,6 @@ import config from 'configs/app';
 import multichainConfig from 'configs/multichain';
 import getItemIndex from 'lib/getItemIndex';
 import { getTokenTypeName } from 'lib/token/tokenTypes';
-import { currencyUnits } from 'lib/units';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { Tag } from 'toolkit/chakra/tag';
@@ -23,10 +22,9 @@ export type TokensTableToken = TokenInfo | AggregatedTokenInfo;
 
 // The token list carries no figure for every column the scan layout shows, and a figure the payload
 // never sent reads as this dash rather than as a number nobody measured.
-export const TOKEN_VALUE_PLACEHOLDER = '–';
+export const TOKEN_VALUE_PLACEHOLDER = '—';
 
 const PRICE_ACCURACY = 4;
-const NATIVE_PRICE_ACCURACY = 6;
 
 // The onchain capitalisation is the supply the contract reports taken at the price the list carries,
 // which is the capitalisation the chain itself can answer for.
@@ -71,8 +69,16 @@ export function getNativePrice(exchangeRate: string | null, coinPrice: string | 
   return nativePrice.isFinite() ? nativePrice : undefined;
 }
 
+export function getTokenVolume(token: TokensTableToken): BigNumber | undefined {
+  if (!('volume_24h' in token) || (typeof token.volume_24h !== 'string' && typeof token.volume_24h !== 'number')) {
+    return undefined;
+  }
+  const volume = BigNumber(token.volume_24h);
+  return volume.isFinite() ? volume : undefined;
+}
+
 export const TokenValuePlaceholder = ({ isLoading }: { isLoading?: boolean }) => (
-  <Skeleton loading={ isLoading } display="inline-block" color="text.secondary" data-token-value-placeholder>
+  <Skeleton loading={ isLoading } display="inline-block" color="text.muted" data-token-value-placeholder>
     <span>{ TOKEN_VALUE_PLACEHOLDER }</span>
   </Skeleton>
 );
@@ -95,7 +101,8 @@ export const TokenChangePercent = ({ value, isLoading }: TokenChangePercentProps
       display="inline-flex"
       alignItems="center"
       columnGap={ 1 }
-      color={ isUp ? 'feedback.success.fg' : 'feedback.error.fg' }
+      color={ isUp ? 'positive' : 'negative' }
+      textStyle="number"
       data-token-change={ isUp ? 'up' : 'down' }
     >
       <IconSvg name="arrows/up-head" boxSize={ 3 } transform={ isUp ? undefined : 'rotate(180deg)' }/>
@@ -133,7 +140,6 @@ const TokensTableItem = ({
   page,
   index,
   isLoading,
-  coinPrice,
 }: Props) => {
 
   const {
@@ -160,13 +166,10 @@ const TokensTableItem = ({
     return chain;
   }, [ chainInfos ]);
 
-  const nativePrice = getNativePrice(exchangeRate, coinPrice);
-  const onchainMarketCap = getOnchainMarketCap(token);
-
   return (
     <TableRow className="group" data-token-row>
-      <TableCell>
-        <Skeleton loading={ isLoading } textStyle="sm" color="text.secondary" display="inline-block" minW={ 5 } data-token-rank>
+      <TableCell isNumeric>
+        <Skeleton loading={ isLoading } textStyle="sm" color="text.muted" display="inline-block" minW={ 5 } data-token-rank>
           { getItemIndex(index, page) }
         </Skeleton>
       </TableCell>
@@ -177,7 +180,6 @@ const TokensTableItem = ({
             chain={ chainInfo }
             isLoading={ isLoading }
             jointSymbol
-            noCopy
             textStyle="sm"
             fontWeight="600"
             noLink={ type === 'NATIVE' }
@@ -198,35 +200,27 @@ const TokensTableItem = ({
           </Flex>
         </Flex>
       </TableCell>
-      <TableCell isNumeric>
+      <TableCell isNumeric data-market-field="price">
         <Flex flexDir="column" alignItems="flex-end" rowGap={ 1 } data-token-price>
           <TokenFiatValue
             value={ exchangeRate ? BigNumber(exchangeRate) : undefined }
             accuracy={ PRICE_ACCURACY }
             isLoading={ isLoading }
           />
-          { nativePrice && (
-            <Skeleton loading={ isLoading } textStyle="xs" color="text.secondary" data-token-native-price>
-              <chakra.span>{ `${ nativePrice.dp(NATIVE_PRICE_ACCURACY).toFormat() } ${ currencyUnits.ether }` }</chakra.span>
-            </Skeleton>
-          ) }
         </Flex>
       </TableCell>
-      <TableCell isNumeric>
+      <TableCell isNumeric data-market-field="change">
         <TokenChangePercent isLoading={ isLoading }/>
       </TableCell>
-      <TableCell isNumeric>
-        <TokenValuePlaceholder isLoading={ isLoading }/>
-      </TableCell>
-      <TableCell isNumeric>
+      <TableCell isNumeric data-market-field="market-cap">
         <TokenFiatValue value={ marketCap ? BigNumber(marketCap) : undefined } isLoading={ isLoading }/>
       </TableCell>
-      <TableCell isNumeric>
-        <TokenFiatValue value={ onchainMarketCap } isLoading={ isLoading }/>
+      <TableCell isNumeric data-market-field="volume">
+        <TokenFiatValue value={ getTokenVolume(token) } isLoading={ isLoading }/>
       </TableCell>
       <TableCell isNumeric>
         <Skeleton loading={ isLoading } display="inline-block" data-token-holders>
-          { Number(holdersCount ?? 0).toLocaleString() }
+          { (holdersCount === null || holdersCount === undefined) ? TOKEN_VALUE_PLACEHOLDER : Number(holdersCount).toLocaleString() }
         </Skeleton>
       </TableCell>
     </TableRow>

@@ -1131,7 +1131,6 @@ mod tests {
 
         let fee_asset = [9; 32];
         let ordinary = registration(1_000);
-        let asset = ordinary.asset;
         let disclosure = registration_disclosure(ordinary);
         assert_eq!(
             derive_native_effects(&disclosure, &none()),
@@ -1141,27 +1140,17 @@ mod tests {
             derive_native_profile_effects(&disclosure, NativeAdmissionProfile::Effect),
             Err(EffectsError::Unsupported("Register"))
         );
-        let account = must(layerx_types::account::AccountId::for_asset(
-            "did:layerx:alice",
-            fee_asset,
-            fee_asset,
-        ));
-        let principal = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-        let admitted = must(derive_native_profile_effects(
-            &disclosure,
-            NativeAdmissionProfile::Registration { fee_asset },
-        ));
         assert_eq!(
-            admitted.effects(),
-            [Effect::Authorization {
-                kind: AuthorizationKind::SupplyCap,
-                account: principal,
-                asset: Some(asset),
-                amount: 1_000,
-            }]
+            derive_native_profile_effects(
+                &disclosure,
+                NativeAdmissionProfile::Registration { fee_asset },
+            ),
+            Err(EffectsError::Unsupported("Register"))
         );
-        assert!(admitted.gross_per_asset().is_empty());
-        assert_eq!(admitted.rate_actions(), 1);
+        assert_eq!(
+            derive_native_registration(&disclosure, fee_asset),
+            Err(EffectsError::Unsupported("Register"))
+        );
         assert_eq!(
             derive_native_registration(&disclosure, [0; 32]),
             Err(EffectsError::Unsupported("Register"))
@@ -1192,33 +1181,16 @@ mod tests {
             Err(EffectsError::InvalidNativeDisclosure)
         );
 
-        let commitment = must(native_registration_commitment(
-            &disclosure,
-            3,
-            17,
-            [5; 32],
-            fee_asset,
-        ));
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [5; 32],
-                [8; 32]
-            ))
-        );
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(
-                &disclosure,
-                3,
-                17,
-                [6; 32],
-                fee_asset
-            ))
-        );
+        for (digest, fee) in [
+            ([5; 32], fee_asset),
+            ([5; 32], [8; 32]),
+            ([6; 32], fee_asset),
+        ] {
+            assert_eq!(
+                native_registration_commitment(&disclosure, 3, 17, digest, fee,),
+                Err(EffectsError::Unsupported("Register"))
+            );
+        }
         for (protocol, network, fee) in [(2, 17, fee_asset), (3, 0, fee_asset), (3, 17, [0; 32])] {
             assert_eq!(
                 native_registration_commitment(&disclosure, protocol, network, [5; 32], fee),

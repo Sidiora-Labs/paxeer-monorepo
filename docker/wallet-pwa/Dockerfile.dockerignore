@@ -25,4 +25,4 @@ apps/wallet/android
 services/wallet/attestor
 services/wallet/ceremony
 services/wallet/deploy
-services/wallet/docs
+docs/wallet

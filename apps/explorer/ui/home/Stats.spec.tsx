@@ -36,8 +36,8 @@ const socketBlock = (offset: number): Block => ({
   hash: `0x${ (1000 + offset).toString(16).padStart(64, '0') }`,
 });
 
-const latestBlockCounter = (container: HTMLElement) => container
-  .querySelector('[data-highlight="total_blocks"] [data-value]')?.textContent;
+const totalBlocksCounter = (container: HTMLElement) => container
+  .querySelector('[data-stat="total_blocks"] [data-value]')?.textContent;
 
 const renderHomeStats = (socketUrl: string, onRender: React.ProfilerOnRenderCallback) => render(
   <SocketProvider url={ socketUrl }>
@@ -88,43 +88,41 @@ describe('Stats', () => {
     mockHomeApi();
   });
 
-  it('divides the card into the coin, the chain and the history columns', async() => {
+  it('places five stat tiles above the history card', async() => {
     const { container } = render(<Stats/>);
 
-    await screen.findByText('$0.001997');
+    await screen.findByText('30,215,608');
 
-    expect(Array.from(container.querySelectorAll('[data-label^="home-stats-"]')).map((item) => item.getAttribute('data-label')))
-      .toEqual([ 'home-stats-coin', 'home-stats-chain', 'home-stats-history' ]);
+    expect(Array.from(container.querySelectorAll('[data-stat]')).map((item) => item.getAttribute('data-stat')))
+      .toEqual([ 'total_blocks', 'average_block_time', 'total_txs', 'wallet_addresses', 'gas_tracker' ]);
+    const tiles = container.querySelector('[data-label="home-stat-tiles"]') as HTMLElement;
+    const history = container.querySelector('[data-label="home-stats-history"]') as HTMLElement;
+    expect(tiles.compareDocumentPosition(history) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('puts the coin price with its change above the market cap', async() => {
+  it('uses the stats fields for the block total, wallet count and gas price', async() => {
     const { container } = render(<Stats/>);
 
-    await screen.findByText('$0.001997');
+    await screen.findByText('30,215,608');
 
-    const column = container.querySelector('[data-label="home-stats-coin"]') as HTMLElement;
-
-    expect(Array.from(column.querySelectorAll('[data-highlight]')).map((item) => item.getAttribute('data-highlight')))
-      .toEqual([ 'coin_price', 'market_cap' ]);
-    expect(column.querySelector('[data-highlight="coin_price"] [data-label]')?.textContent).toBe('ETH price');
-    expect(column.querySelector('[data-highlight="coin_price"] [data-delta="down"]')?.textContent).toBe('(-7.42%)');
-    expect(column.querySelector('[data-highlight="market_cap"] [data-value]')?.textContent).toBe('$330,809.96');
+    expect(container.querySelector('[data-stat="total_blocks"] h2')?.textContent).toBe('Total blocks');
+    expect(totalBlocksCounter(container)).toBe('30,215,608');
+    expect(container.querySelector('[data-stat="wallet_addresses"] [data-value]')?.textContent).toBe('19,667,249');
+    expect(container.querySelector('[data-stat="gas_tracker"] [data-value]')?.textContent).toBe('23.75 Gwei');
   });
 
-  it('puts the transaction count with its rate beside the latest block with its block time', async() => {
+  it('gives transaction count and average block time their own labelled tiles', async() => {
     const { container } = render(<Stats/>);
 
-    await screen.findByText('82.26M');
+    await screen.findByText('82,258,122');
 
-    const column = container.querySelector('[data-label="home-stats-chain"]') as HTMLElement;
-
-    expect(column.querySelector('[data-highlight="total_txs"] [data-label]')?.textContent).toBe('Transactions');
-    expect(column.querySelector('[data-highlight="total_txs"] [data-secondary]')?.textContent).toBe('(0.3 TPS)');
-    expect(column.querySelector('[data-highlight="total_blocks"] [data-value]')?.textContent).toBe('30,146,364');
-    expect(column.querySelector('[data-highlight="total_blocks"] [data-secondary]')?.textContent).toBe('(6.2s)');
+    expect(container.querySelector('[data-stat="total_txs"] h2')?.textContent).toBe('Total transactions');
+    expect(container.querySelector('[data-stat="total_txs"] [data-value]')?.textContent).toBe('82,258,122');
+    expect(container.querySelector('[data-stat="average_block_time"] h2')?.textContent).toBe('Average block time');
+    expect(container.querySelector('[data-stat="average_block_time"] [data-value]')?.textContent).toBe('6.2s');
   });
 
-  it('moves the latest block counter on the flush cadence and leaves the columns beside it alone', async() => {
+  it('keeps API totals and history unchanged while the latest block list flushes', async() => {
     const socket = await createTestSocket();
 
     try {
@@ -133,10 +131,11 @@ describe('Stats', () => {
         commits.push(phase);
       });
 
-      await screen.findByText('$0.001997');
+      await screen.findByText('30,215,608');
 
       await vi.waitFor(() => {
-        expect(latestBlockCounter(container)).toBe(blockMock.base.height.toLocaleString());
+        expect(container.querySelector('[data-latest-block]')?.getAttribute('data-latest-block')).toBe(String(blockMock.base.height));
+        expect(totalBlocksCounter(container)).toBe('30,215,608');
       }, { timeout: 30_000, interval: 100 });
 
       await socket.join(TOPIC);
@@ -146,16 +145,15 @@ describe('Stats', () => {
       socket.send(TOPIC, 'new_block', { average_block_time: '1000', block: socketBlock(1) });
 
       await vi.waitFor(() => {
-        expect(latestBlockCounter(container)).toBe((blockMock.base.height + 1).toLocaleString());
+        expect(container.querySelector('[data-latest-block]')?.getAttribute('data-latest-block')).toBe(String(blockMock.base.height + 1));
+        expect(totalBlocksCounter(container)).toBe('30,215,608');
       }, { timeout: 30_000, interval: 50 });
 
       await new Promise((resolve) => {
         setTimeout(resolve, 300);
       });
 
-      const untouched = [ 'home-stats-coin' ]
-        .map((label) => container.querySelector(`[data-label="${ label }"]`) as HTMLElement)
-        .concat(container.querySelector('[data-highlight="total_txs"]') as HTMLElement);
+      const untouched = Array.from(container.querySelectorAll('[data-stat]'));
       const mutations: Array<MutationRecord> = [];
       const observer = new MutationObserver((records) => {
         mutations.push(...records);
@@ -173,10 +171,12 @@ describe('Stats', () => {
       }
 
       expect(commits.length - commitsBeforeBurst).toBe(0);
-      expect(latestBlockCounter(container)).toBe((blockMock.base.height + 1).toLocaleString());
+      expect(container.querySelector('[data-latest-block]')?.getAttribute('data-latest-block')).toBe(String(blockMock.base.height + 1));
+      expect(totalBlocksCounter(container)).toBe('30,215,608');
 
       await vi.waitFor(() => {
-        expect(latestBlockCounter(container)).toBe((blockMock.base.height + 21).toLocaleString());
+        expect(container.querySelector('[data-latest-block]')?.getAttribute('data-latest-block')).toBe(String(blockMock.base.height + 21));
+        expect(totalBlocksCounter(container)).toBe('30,215,608');
       }, { timeout: 30_000, interval: 50 });
 
       expect(mutations).toHaveLength(0);
@@ -188,10 +188,10 @@ describe('Stats', () => {
     }
   });
 
-  it('titles the history column with the last fourteen days', async() => {
+  it('titles the history card with the last fourteen days', async() => {
     const { container } = render(<Stats/>);
 
-    await screen.findByText('$0.001997');
+    await screen.findByText('30,215,608');
 
     const column = container.querySelector('[data-label="home-stats-history"]') as HTMLElement;
 

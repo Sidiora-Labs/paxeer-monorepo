@@ -492,6 +492,24 @@ func TestLoadTestAgainstFiveHardenedDaemons(t *testing.T) {
 	duration := 15 * time.Second
 	summary, raw := runTool(t, nw, nw.env(token), "-duration", duration.String(), "-concurrency", "4")
 	checkShape(t, "owner token", summary, raw, concurrency, duration)
+	// Keep measured signing latency alongside the bounded gate's private logs.
+	if evidenceRoot := os.Getenv("HF_OUT_DIR"); evidenceRoot != "" {
+		evidence, err := os.CreateTemp(filepath.Join(evidenceRoot, "logs"), "wallet-owner-signing-*.json")
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = evidence.Chmod(0600); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = evidence.Write(raw); err != nil {
+			t.Fatal(err)
+		}
+		if err = evidence.Close(); err != nil {
+			t.Fatal(err)
+		}
+		t.Logf("owner signing evidence: %s", evidence.Name())
+	}
+	t.Logf("owner bearer signing concurrency=%d duration=%s sessions=%d successes=%d latency_ms=%+v curves=%+v refusals=%v", concurrency, duration, summary.Sessions, summary.Successes, summary.LatencyMillis, summary.Curves, summary.Refusals)
 	if len(summary.Refusals) != 0 {
 		t.Fatalf("owner token: refusals %v\n%s", summary.Refusals, raw)
 	}

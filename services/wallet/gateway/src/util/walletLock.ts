@@ -6,15 +6,15 @@ export async function withWalletLock<T>(
   key: string,
   fn: (lease: NonceLease) => Promise<T>,
   store: NonceStore = sharedNonceStore(),
-  ownerActionId?: string,
+  ownerActionId?: string
 ): Promise<T> {
   const k = key.toLowerCase();
-  const locked = (): Promise<T> => store.withLock(k, fn, ownerActionId);
+  const locked = (): Promise<T> => store.withSigningSession(k, fn, ownerActionId);
   const prev = tails.get(k) ?? Promise.resolve();
   const next = prev.then(locked, locked);
   const swallowed = next.then(
     () => undefined,
-    () => undefined,
+    () => undefined
   );
   tails.set(k, swallowed);
   try {

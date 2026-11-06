@@ -209,6 +209,7 @@ pub trait ApprovalBoundary {
 pub enum ApprovalBoundaryError {
     Unavailable,
     NotFound,
+    Refused,
     VerificationFailed,
     Corrupt,
 }

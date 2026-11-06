@@ -30,6 +30,7 @@ func TestRepairM_1384_occupancy_public_contract(t *testing.T) {
 }
 
 func TestRepairM_1384_portable_external_anchor(t *testing.T) {
+	t.Run("producer-checkpoint-provenance", TestPortableReceiptRecordedCheckpointProvenance)
 	t.Run("recorded-checkpoint-and-replacement-chain", TestPortableReceiptRequiresExternalNetworkAnchor)
 	t.Run("validator-rotation", TestPortableReceiptAuthenticatesValidatorRotation)
 }

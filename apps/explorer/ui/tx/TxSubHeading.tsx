@@ -12,6 +12,7 @@ import { useMultichainContext } from 'lib/contexts/multichain';
 import { publicClient } from 'lib/web3/client';
 import { NOVES_TRANSLATE } from 'stubs/noves/NovesTranslate';
 import { TX_INTERPRETATION } from 'stubs/txInterpretation';
+import { Badge } from 'toolkit/chakra/badge';
 import { Link } from 'toolkit/chakra/link';
 import AccountActionsMenu from 'ui/shared/AccountActionsMenu/AccountActionsMenu';
 import AppActionButton from 'ui/shared/AppActionButton/AppActionButton';
@@ -22,6 +23,7 @@ import IconSvg from 'ui/shared/IconSvg';
 import NetworkExplorers from 'ui/shared/NetworkExplorers';
 import PageTitle from 'ui/shared/Page/PageTitle';
 import PrevNext from 'ui/shared/PrevNext';
+import TxStatus from 'ui/shared/statusTag/TxStatus';
 import TxInterpretation from 'ui/shared/tx/interpretation/TxInterpretation';
 
 import { createNovesSummaryObject } from './assetFlows/utils/createNovesSummaryObject';
@@ -210,7 +212,18 @@ const TxSubHeading = ({ hash, hasTag, txQuery, titleContentAfter }: Props) => {
 
   return (
     <PageTitle
-      title="Transaction details"
+      kind="TRANSACTION"
+      title={ hash }
+      identifier={ hash }
+      tags={ (
+        <>
+          <TxStatus status={ txQuery.data?.status } isLoading={ txQuery.isPlaceholderData }/>
+          { txQuery.data?.method && (
+            <Badge borderRadius="full" loading={ txQuery.isPlaceholderData }>{ txQuery.data.method }</Badge>
+          ) }
+          { titleContentAfter }
+        </>
+      ) }
       afterTitle={ (
         <PrevNext
           ml={{ base: 0, lg: 3 }}
@@ -222,7 +235,6 @@ const TxSubHeading = ({ hash, hasTag, txQuery, titleContentAfter }: Props) => {
           isLoading={ txQuery.isPlaceholderData }
         />
       ) }
-      contentAfter={ titleContentAfter }
       secondRow={ secondRow }
     />
   );

@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Output};
@@ -164,6 +165,20 @@ fn pipeline_lock_matches_repository() {
 #[test]
 fn pipeline_lock_lists_no_kernel_receipt_fixture() {
     let root = repository_root();
+    let recording =
+        fs::read(root.join("daemon/committed-fixture/vectors/vector-v4-committed.json"))
+            .unwrap_or_else(|error| panic!("read committed recording: {error}"));
+    assert_eq!(
+        format!("{:x}", Sha256::digest(&recording)),
+        "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b",
+        "committed recording changed"
+    );
+    let conformance =
+        fs::read_to_string(root.join("sdk/platform/conformance/fixtures/vector-v4-committed.json"))
+            .unwrap_or_else(|error| panic!("read committed conformance: {error}"));
+    assert!(conformance.contains(
+        "\"sha256\": \"5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b\""
+    ));
     let source = fs::read_to_string(root.join(LOCK_PATH))
         .unwrap_or_else(|error| panic!("read pipeline lock: {error}"));
     let lock = layerx_platform_kvx::parse(&source)

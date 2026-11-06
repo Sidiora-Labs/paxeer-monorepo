@@ -15,7 +15,7 @@ use layerx_agentd::agent_rpc::{self, AgentRpcResponse};
 use layerx_agentd::agent_rpc_tls::{AgentRpcTls, AgentRpcTlsPaths};
 use layerx_agentd::audit::Redacted;
 use layerx_agentd::boot::readiness_gate;
-use layerx_agentd::budget::{LimitConfig, LimitId, LimitScope};
+use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::enrolment::{
     self, BindingMode, BindingPublisher, DaemonSurface, EnrolmentRequest, ListenerDeclaration,
@@ -697,7 +697,7 @@ fn start_human_owner(mcp: Option<McpBoot>) -> Result<OwnerStatus, String> {
         &denomination_sources,
         runtime_clock,
     )
-    .map(|(receiver, _, _)| receiver)
+    .map(|(receiver, _, _, _)| receiver)
 }
 
 fn start_shared_owner(
@@ -717,6 +717,7 @@ fn start_shared_owner(
         OwnerStatus,
         SharedAgentOwner<RemoteHumanAuthority>,
         mpsc::SyncSender<Result<(), String>>,
+        Arc<Mutex<Store>>,
     ),
     String,
 > {
@@ -824,7 +825,7 @@ fn start_shared_owner(
     .map_err(|error| format!("human session key registry is invalid: {error:?}"))?;
     let mut unified = UnifiedAgentOwner::new(
         operations,
-        shared_store,
+        Arc::clone(&shared_store),
         &peers,
         vec![verified_limit()?],
         session_keys,
@@ -869,13 +870,14 @@ fn start_shared_owner(
             );
         })
         .map_err(|error| format!("human listener thread failed: {error}"))?;
-    Ok((receiver, owner, sender))
+    Ok((receiver, owner, sender, shared_store))
 }
 
 /// Starts the dedicated mutually authenticated agent RPC listener when it is
 /// configured. A configured listener without its complete TLS material refuses boot.
 fn start_agent_rpc(
     owner: SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: Arc<Mutex<Store>>,
 ) -> Result<Option<HttpPool>, String> {
     let Some(listen) = optional("LAYERX_AGENTD_RPC_LISTEN") else {
         return Ok(None);
@@ -916,7 +918,7 @@ fn start_agent_rpc(
         })
         .transpose()?
         .unwrap_or_default();
-    attach_mcp_payers(&owner, &mut mcp_bindings)?;
+    attach_mcp_payers(&owner, &shared_store, &mut mcp_bindings)?;
     let listener = TcpListener::bind(&listen)
         .map_err(|error| format!("agent rpc listener failed: {error}"))?;
     HttpPool::start(listener, move |stream| {
@@ -972,6 +974,7 @@ fn mcp_config_digest(value: &str) -> Result<[u8; 32], String> {
 
 fn attach_mcp_payers(
     owner: &SharedAgentOwner<RemoteHumanAuthority>,
+    shared_store: &Arc<Mutex<Store>>,
     bindings: &mut [layerx_mcp::binding::Binding],
 ) -> Result<(), String> {
     let Some(source) = optional("LAYERX_AGENTD_MCP_PAYERS") else {
@@ -986,6 +989,10 @@ fn attach_mcp_payers(
     if configs.is_empty() || configs.len() > 64 {
         return Err("MCP payer configuration count is invalid".to_owned());
     }
+    let limit = mcp_limit()?;
+    let limit_id = limit.id;
+    let limiter =
+        Arc::new(BudgetLimiter::new(vec![limit]).map_err(|_| "MCP payer budget limit is invalid")?);
     let mut attached = BTreeSet::new();
     for config in configs {
         let session_id = mcp_config_digest(&config.session_id)?;
@@ -1043,13 +1050,21 @@ fn attach_mcp_payers(
             &[&ca_der],
             receipt_keys,
         )
-        .map_err(|_| "MCP payer owner authority is unavailable")?;
+        .map_err(|_| "MCP payer owner authority is unavailable")?
+        .with_approval_resources(
+            Arc::clone(shared_store),
+            Arc::clone(&limiter),
+            vec![limit_id],
+        );
         let approvals = owner
             .lock()
             .map_err(|_| "MCP approval owner is unavailable")?
             .approvals
             .clone();
         binding.attach_web(layerx_mcp::binding::WebAuthority::new(
+            owner
+                .mcp_clock()
+                .map_err(|_| "MCP approval clock is unavailable")?,
             approvals,
             Box::new(payer.into_web_payer()),
         ));
@@ -1722,7 +1737,7 @@ fn serve(config: Config) -> Result<(), String> {
     let export_trust = receipt_keys
         .map(|keys| export_trust_source(keys, &config.authority_ca_der))
         .transpose()?;
-    let (human, owner, status) = start_shared_owner(
+    let (human, owner, status, shared_store) = start_shared_owner(
         mcp,
         Some(programs),
         export_trust,
@@ -1732,7 +1747,7 @@ fn serve(config: Config) -> Result<(), String> {
         &config.program_budget_denomination_sources,
         runtime_clock,
     )?;
-    let rpc = start_agent_rpc(owner)?;
+    let rpc = start_agent_rpc(owner, shared_store)?;
     drop(status);
     let node_config = NodeRpcConfig {
         url: config.node_endpoint.clone(),

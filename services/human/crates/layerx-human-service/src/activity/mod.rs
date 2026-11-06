@@ -715,14 +715,22 @@ impl Feed {
             .iter()
             .zip(status.receipt_material())
             .zip(status.receipt_authorities())
-            .filter_map(|((digest, material), authority)| {
-                digest.map(|digest| StoredReceipt {
-                    reference: hex(digest),
-                    level: rung_code(Rung::Receipted),
-                    canonical: material.clone(),
-                    authority: authority.as_ref().map(StoredReceiptAuthority::from_public),
-                })
+            .zip(status.receipt_rungs())
+            .map(|(((digest, material), authority), rung)| {
+                digest
+                    .map(|digest| {
+                        Ok(StoredReceipt {
+                            reference: hex(digest),
+                            level: rung_code(rung.ok_or(FeedError::UnverifiedReceipt)?),
+                            canonical: material.clone(),
+                            authority: authority.as_ref().map(StoredReceiptAuthority::from_public),
+                        })
+                    })
+                    .transpose()
             })
+            .collect::<Result<Vec<_>, FeedError>>()?
+            .into_iter()
+            .flatten()
             .collect();
         let activity_status = journey_status(kind, status, refusal)?;
         validate_completion(activity_status, &receipts)?;

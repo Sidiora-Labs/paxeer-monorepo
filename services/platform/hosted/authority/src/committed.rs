@@ -1,4 +1,4 @@
-use super::{hex, Config};
+use crate::{chain_receipt::ChainReceipts, hex};
 use layerx_client::sequencer::SequencerEndpoint;
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
@@ -20,8 +20,10 @@ enum ChainProofError {
     Mismatch,
 }
 
+pub const EXPECTED_CHAIN_ID: u64 = 125;
+
 #[derive(Clone)]
-pub(crate) struct CommittedHeader {
+pub struct CommittedHeader {
     pub height: u64,
     pub block_hash: [u8; 32],
     pub app_hash: [u8; 32],
@@ -30,9 +32,9 @@ pub(crate) struct CommittedHeader {
 }
 
 impl CommittedHeader {
-    pub(crate) fn open(config: &Config) -> Result<Self, ()> {
-        let endpoint = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-        if endpoint.chain_id().map_err(|_| ())? != super::trust::EXPECTED_CHAIN_ID {
+    pub fn open(rpc_url: &str) -> Result<Self, ()> {
+        let endpoint = SequencerEndpoint::new(rpc_url, &[]).map_err(|_| ())?;
+        if endpoint.chain_id().map_err(|_| ())? != EXPECTED_CHAIN_ID {
             return Err(());
         }
         let height = endpoint.block_number().map_err(|_| ())?;
@@ -62,17 +64,21 @@ impl CommittedHeader {
             app_hash,
             // A Comet header at H authenticates the state committed at H-1.
             state_height: height.checked_sub(1).ok_or(())?,
-            rpc_url: config.chain_rpc_url.clone(),
+            rpc_url: rpc_url.to_owned(),
         };
         pinned.unchanged()?;
         Ok(pinned)
     }
 
-    pub(crate) fn bind_receipt(&self, config: &Config, bytes: &[u8]) -> Result<(), ()> {
-        let locator = layerx_platform_authority::receipt_locator(bytes).map_err(|_| ())?;
-        let endpoint = SequencerEndpoint::new(&config.chain_rpc_url, &[]).map_err(|_| ())?;
-        let (receipt, block_number, block_hash) = config
-            .chain_receipts
+    pub fn bind_receipt(
+        &self,
+        rpc_url: &str,
+        chain_receipts: &ChainReceipts,
+        bytes: &[u8],
+    ) -> Result<(), ()> {
+        let locator = crate::receipt_locator(bytes).map_err(|_| ())?;
+        let endpoint = SequencerEndpoint::new(rpc_url, &[]).map_err(|_| ())?;
+        let (receipt, block_number, block_hash) = chain_receipts
             .committed(locator.activity_id)
             .map_err(|_| ())?;
         if receipt != bytes || block_number == 0 || block_number > self.state_height {
@@ -88,7 +94,7 @@ impl CommittedHeader {
         self.unchanged()
     }
 
-    pub(crate) fn prove(&self, module: u16, key: &[u8], value: &[u8]) -> Result<(), ()> {
+    pub fn prove(&self, module: u16, key: &[u8], value: &[u8]) -> Result<(), ()> {
         if module == 0 || key.is_empty() || key.len() > 129 || value.is_empty() {
             return Err(());
         }
@@ -135,13 +141,13 @@ impl CommittedHeader {
         Ok(())
     }
 
-    pub(crate) fn document(&self) -> Value {
+    pub fn document(&self) -> Value {
         json!({"height": self.height, "block_hash": hex::encode(&self.block_hash),
             "app_hash": hex::encode(&self.app_hash), "state_height": self.state_height})
     }
 }
 
-pub(crate) fn verify_membership(
+pub fn verify_membership(
     key: &[u8],
     value: &[u8],
     inner: &[u8],
@@ -170,7 +176,7 @@ pub(crate) fn verify_membership(
     multistore::verify_store_root("lxphost", root, outer, app_hash).map_err(|_| ())
 }
 
-pub(crate) fn base64(text: &str) -> Result<Vec<u8>, ()> {
+pub fn base64(text: &str) -> Result<Vec<u8>, ()> {
     const ALPHABET: &[u8] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     if text.is_empty() || !text.len().is_multiple_of(4) || text.len() > 2 * 1024 * 1024 {
         return Err(());

@@ -3,6 +3,7 @@ package layerx
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -105,10 +106,26 @@ type committedRecordedTxProof struct {
 	Proof committedRecordedProof `json:"proof"`
 }
 
+const committedRecordingSHA256 = "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b"
+
+func committedRecordingTrust(t *testing.T) CommittedTrust {
+	t.Helper()
+	var hash [32]byte
+	decoded, err := hex.DecodeString("a7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108")
+	if err != nil || len(decoded) != len(hash) {
+		t.Fatal("invalid independently pinned committed recording hash")
+	}
+	copy(hash[:], decoded)
+	return CommittedTrust{ChainID: "committed-fixture", Height: 10, BlockHash: hash}
+}
+
 func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 	recorded, err := os.ReadFile("../../../daemon/committed-fixture/vectors/vector-v4-committed.json")
 	if err != nil {
 		t.Fatal(err)
+	}
+	if digest := sha256.Sum256(recorded); hex.EncodeToString(digest[:]) != committedRecordingSHA256 {
+		t.Fatal("committed producer recording changed")
 	}
 	var vector struct {
 		Authorization struct {
@@ -185,7 +202,7 @@ func TestCommittedInclusionBindsTheWrappedTransaction(t *testing.T) {
 		validators = append(validators, CometValidator{PublicKey: public, VotingPower: validator.Power})
 	}
 	header, commit := s.ExecutionHeader.decode(t), s.ExecutionCommit.decode(t)
-	trust := portableRecordedTrust(t)
+	trust := committedRecordingTrust(t)
 	inclusion := ReceiptInclusion{
 		Transaction: s.TransactionProof.Data, TransactionProof: s.TransactionProof.Proof.decode(t),
 		Result:      ExecTxResult{Code: s.Result.Code, Data: s.Result.Data, GasWanted: s.Result.GasWanted, GasUsed: s.Result.GasUsed},

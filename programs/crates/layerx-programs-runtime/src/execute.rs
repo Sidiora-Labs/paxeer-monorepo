@@ -1082,6 +1082,7 @@ fn capture_program_record_from_store(
         }
     }
     let transitions = store.take_execution_replay_transitions();
+    let replay_fuel = store.data().boundary_capture_replay_fuel();
     let captures = store.data_mut().take_boundary_captures();
     let mut snapshots: Vec<std::sync::Arc<wasmi::ExecutionReplaySnapshot>> = Vec::new();
     for transition in transitions {
@@ -1170,7 +1171,7 @@ fn capture_program_record_from_store(
             .map_err(|_| refused(crate::replay::ReplayWitnessError::Allocation))?;
         leaves.push(leaf);
     }
-    crate::replay_record::ProgramReplayRecord::from_captured(
+    let record = crate::replay_record::ProgramReplayRecord::from_captured(
         profile,
         identities.legacy.module_code_hash,
         identities.legacy.input_digest,
@@ -1181,7 +1182,11 @@ fn capture_program_record_from_store(
         terminal_status,
         leaves,
     )
-    .map_err(refused)
+    .map_err(refused)?;
+    if replay_fuel != Some(record.replay_fuel()) {
+        return Err(refused(crate::replay::ReplayWitnessError::Binding));
+    }
+    Ok(record)
 }
 
 impl ProgramInstance {
@@ -1463,7 +1468,7 @@ impl ProgramInstance {
                 }));
             }
             return Err(ExecutionFault::EngineFault {
-                reason: format!("deterministic execution observer refused: {error:?}"),
+                reason: self.store.data().execution_observer_reason(error),
             });
         }
         let transitions = self.store.take_execution_transitions();
@@ -1490,7 +1495,7 @@ impl ProgramInstance {
                         })
                     }
                     _ => ExecutionFault::EngineFault {
-                        reason: format!("deterministic execution observer refused: {error:?}"),
+                        reason: self.store.data().execution_observer_reason(error),
                     },
                 },
                 |refusal| ExecutionFault::Resource { refusal },
