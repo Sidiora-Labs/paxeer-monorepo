@@ -176224,7 +176224,7 @@ do_3 = "Attempt 2 (continue, gotcha 3247): the attempt-1 tree stands (coverage f
 
 [task.22.31.565]
 title = "Migrate legacy approval holds to the timed form in a store schema version 4"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
