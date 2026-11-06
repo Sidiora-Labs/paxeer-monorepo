@@ -10,6 +10,8 @@
 #[path = "repair_22_33_261.rs"]
 mod repair_22_33_261;
 
+#[path = "repair_22_33_260.rs"]
+mod repair;
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_program_sdk::{Field, HostRefusal, ProgramError, Reason, ValueError};
 use layerx_programs_ai_market::{
@@ -82,7 +84,8 @@ const TREASURY: u8 = 0x71;
 const OUTSIDER: u8 = 0x72;
 const KEEPER: u8 = 0x7f;
 const LOW: u8 = 0x20;
-const ORIGIN: u64 = 128;
+// Epoch 7 settles from height 1096, before the existing terminal/claim heights.
+const ORIGIN: u64 = 104;
 const METADATA: [u8; 32] = [0x44; 32];
 const BUDGET_CAP: Amount = 101;
 const TERMINAL_AT: u64 = 1100;
@@ -767,36 +770,28 @@ impl World {
         weights: &[(WorkerRosterEntry, u32)],
         at: u64,
     ) -> TestResult {
-        self.edit(|parts, market| {
-            let binding = FrozenBinding {
-                chain: market.deployment_chain_domain,
-                program: market.program_id,
-                market: market.market_id,
-                epoch: frozen.epoch,
-                config: frozen.config,
-                roster: frozen.roster,
-            };
-            let (head, tail) = parts
-                .rewards
-                .split_at_checked(REWARD_STATE_BYTES)
-                .ok_or(NOT_FOUND)?;
-            let mut terminal = terminalized(head, binding, frozen.budget, weights, at)?;
-            terminal.extend_from_slice(tail);
-            parts.rewards = terminal;
-            Ok(())
-        })
+        if reward_view(&self.bytes)?.row(frozen.epoch)?.status != EpochStatus::Reserved {
+            return Err(F06_EPOCH_TERMINAL);
+        }
+        repair::prepare_scores(&mut self.bytes, weights, evaluator_key)?;
+        repair::settle(&mut self.bytes, at)?;
+        self.owner_sequence = repair::next_sequence(&self.bytes, PrincipalId::new(OWNER)?)?;
+        Ok(())
     }
-    /// The market lifecycle set directly in the F01 header; `REQUEST_CLOSE` has no routed
-    /// producer yet.
-    fn lifecycle(&mut self, lifecycle: u8) -> TestResult {
-        self.edit(|parts, _| {
-            let mut section = PolicySection::decode(&parts.policy)?;
-            section.header.lifecycle = lifecycle;
-            let mut policy = vec![0; section.encoded_len()?];
-            section.encode(&mut policy)?;
-            parts.policy = policy;
-            Ok(())
-        })
+    /// Registered owner RequestClose, including the real revision and replay checks.
+    fn request_close(&mut self, at: u64) -> TestResult {
+        let mut payload = self.revision()?.to_be_bytes().to_vec();
+        payload.extend_from_slice(&[0x5e; 32]);
+        repair::call(
+            &mut self.bytes,
+            dispatch::REQUEST_CLOSE,
+            PrincipalId::new(OWNER)?,
+            &payload,
+            at,
+        )?;
+        self.owner_sequence = repair::next_sequence(&self.bytes, PrincipalId::new(OWNER)?)?;
+        assert_eq!(self.section()?.header.lifecycle, WINDING_DOWN);
+        Ok(())
     }
 }
 
@@ -973,7 +968,7 @@ impl World {
     }
 }
 
-/// The reward state after the real `TerminalizeRewards` of the reserved row bound to
+/// Codec-only reward ring fixture after `TerminalizeRewards` of the reserved row bound to
 /// `binding`, allocating `budget` by one weight per frozen worker (zero weights are a
 /// scored-zero vote).
 fn terminalized(
@@ -1230,7 +1225,7 @@ fn journey() -> TestResult {
 
     let accepting = w.context_call(dispatch::REFUND_FREE, owner, refund_payload(0, 20)?)?;
     assert_eq!(w.refused(&accepting, EXPIRY_AT + 2), WRONG_PHASE);
-    w.lifecycle(WINDING_DOWN)?;
+    w.request_close(EXPIRY_AT + 2)?;
     let closing = w.fund_call(0, fund_payload(5, REFUND, FUNDING_POLICY_VERSION, true))?;
     assert_eq!(w.refused(&closing, EXPIRY_AT + 3), WRONG_PHASE);
     w.owner_sequence -= 1;
@@ -2132,6 +2127,7 @@ fn opened_market() -> CodecResult<(World, Frozen, WorkerRosterEntry, WorkerRoste
 /// neither R before terminalization nor C after it.
 fn late_settlement_and_close() -> TestResult {
     let (mut w, frozen, low, high) = opened_market()?;
+    repair::prepare_scores(&mut w.bytes, &allocated(low, high), evaluator_key)?;
     let reserved = w.counters()?;
     for at in [1152, 1280] {
         assert_eq!(w.open_refused(at)?, WRONG_PHASE);
@@ -2145,7 +2141,27 @@ fn late_settlement_and_close() -> TestResult {
     let accepting = w.refund_call(1, 0, 19)?;
     assert_eq!(w.refused(&accepting, 1281), WRONG_PHASE);
 
-    w.lifecycle(WINDING_DOWN)?;
+    w.request_close(1282)?;
+    let closing = w.section()?.header;
+    let mut advance = w.revision()?.to_be_bytes().to_vec();
+    advance.push(closing.close_phase);
+    advance.extend_from_slice(&closing.close_cursor.to_be_bytes());
+    let encoded = repair::envelope(
+        &w.bytes,
+        dispatch::ADVANCE_CLOSE,
+        principal(KEEPER)?,
+        &advance,
+        0,
+    )?;
+    let before_close = w.bytes.clone();
+    let refused = repair::compose(&w.bytes, &encoded, principal(KEEPER)?, 1283)?;
+    assert!(matches!(refused.routed, dispatch::Routed::Refused { .. }));
+    assert_eq!(
+        codec::decode_result(&refused.result)?.error,
+        Some(layerx_programs_ai_market::errors::F01_OBLIGATIONS_OUTSTANDING)
+    );
+    assert!(refused.event.is_empty());
+    assert_eq!(w.bytes, before_close);
     assert_eq!(w.open_refused(1408)?, F01_LIFECYCLE_CLOSED);
     let reserve = w.refund_call(2, 0, 20)?;
     assert_eq!(w.refused(&reserve, 1409), INSUFFICIENT_FREE);

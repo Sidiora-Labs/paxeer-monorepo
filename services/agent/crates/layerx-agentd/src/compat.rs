@@ -5,7 +5,7 @@ pub const DAEMON_VERSION: &str = env!("CARGO_PKG_VERSION");
 /// Contract major 1 is deliberately unsupported by `verify`.
 pub const CONTRACT_VERSION: u16 = 2;
 pub const SDK_VERSION: &str = "0.1.0";
-pub const PUBLISHED_MATRIX: &str = include_str!("../../../COMPATIBILITY.md");
+pub const PUBLISHED_MATRIX: &str = include_str!("../../../../../docs/agent/COMPATIBILITY.md");
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Compatibility {

@@ -1,0 +1,33 @@
+[repair]
+task = "22.31.572"
+requirement = "22998.1"
+gotcha = "3263"
+decision = "2678"
+base = "3c613943aea7afd3d1ae8fcaad3b4902ec55ff38"
+
+[sites.include]
+path = "services/agent/crates/layerx-agentd/src/compat.rs"
+symbol = "PUBLISHED_MATRIX"
+previous = "../../../COMPATIBILITY.md"
+repointed = "../../../../../docs/agent/COMPATIBILITY.md"
+preserved = "verify_published and its callers are unchanged."
+
+[sites.readme]
+path = "services/agent/crates/layerx-agentd/README.md"
+previous = "../../COMPATIBILITY.md"
+repointed = "../../../../docs/agent/COMPATIBILITY.md"
+
+[proof]
+path = "services/agent/crates/layerx-agentd/tests/repair_22_31_572.rs"
+content = "published_matrix_embeds_the_moved_document asserts non-empty embedded content and equality with docs/agent/COMPATIBILITY.md."
+row = "published_matrix_contains_the_current_daemon_row asserts the exact line expected for DAEMON_VERSION, the executable node interface, CONTRACT_VERSION and SDK_VERSION."
+validation = "published_matrix_passes_release_validation calls the production verify_published and asserts Ok."
+
+[evidence]
+policy = "Record qualification by reference before running the gates; no result is claimed before execution."
+ledger = "/out/run/gates.jsonl"
+verified_revision = "The final passing verify row revision must equal the preceding passing build row revision."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.572 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_572"
+results = "Exact revision, command, exit and private log location are the fields in the final build and verify ledger rows, including any bounded repairs."

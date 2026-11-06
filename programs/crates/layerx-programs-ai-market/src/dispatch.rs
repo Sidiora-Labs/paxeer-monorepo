@@ -1223,15 +1223,11 @@ fn identity(
         }
         0x0301..=0x0303 => {
             let aggregate_sealed =
-                if authority::evaluator_region(state.section(Section::IdentityRoster)?)?
+                authority::evaluator_region(state.section(Section::IdentityRoster)?)?
                     .snapshot()
                     .is_some()
-                {
-                    aggregation::progress(bytes)?.phase
-                        != crate::aggregation_codec::AggregationPhase::Unsealed
-                } else {
-                    false
-                };
+                    && aggregation::progress(bytes)?.phase
+                        != crate::aggregation_codec::AggregationPhase::Unsealed;
             let call = authority::AuthorityContext {
                 market: &section.header,
                 invoking_principal: ctx.principal,

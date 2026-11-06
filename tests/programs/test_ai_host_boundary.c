@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 
 static void write_u16(uint8_t *out, uint16_t value)
 {
@@ -95,6 +96,7 @@ typedef struct fixture {
     lx_programs_transfer_runtime runtime;
     lxp_fee_params fees;
     uint64_t parameters, height;
+    uint64_t call_fuel, call_storage_write;
     uint32_t module_version;
     uint8_t program[32], keys[3][32], principals[3][32], account_ids[3][32];
     uint8_t rewards[32];
@@ -156,6 +158,8 @@ static int initialize(fixture *f)
     size_t i;
     f->parameters = 1U;
     f->height = 10U;
+    f->call_fuel = 1000000U;
+    f->call_storage_write = 1048576U;
     f->module_version = LX_PROGRAMS_GUEST_ABI_V5_VERSION;
     (void)memset(f->program, 0x71, 32U);
     if (lx_account_registry_init(&f->accounts) != LXP_OK) return 1;
@@ -301,7 +305,7 @@ static size_t call_payload(const fixture *f, uint8_t *out, const uint8_t *data, 
 {
     static const uint8_t domain[] = "LXP/program-replay-profile/v1";
     static const uint8_t access[] = "LayerX/programs/access-declaration/v1\0";
-    static const uint64_t budget[7] = {1000000U,16777216U,1048576U,1048576U,64U,1048576U,4096U};
+    const uint64_t budget[7] = {f->call_fuel,16777216U,1048576U,f->call_storage_write,64U,1048576U,4096U};
     static const uint8_t capabilities[] = {0U, 3U, 3U, 7U, 8U};
     size_t n = 34U, i, original;
     (void)memset(out, 0, 34U);
@@ -519,6 +523,114 @@ static int deploy(fixture *f, const char *path)
     return failed;
 }
 
+/* Close the old kernel/store and reopen its real, fsync'd production snapshot. */
+static int reopen_store(fixture **current)
+{
+    fixture *old = *current, *next = NULL;
+    char directory[] = "/tmp/paxai-host-reopen-XXXXXX", path[160];
+    size_t capacity = 64U * 1024U * 1024U;
+    uint8_t *write_bytes = malloc(capacity), *read_bytes = malloc(capacity);
+    lxp_arena write_arena, read_arena;
+    lxp_byte_span snapshot, stored;
+    lxp_snapshot_manifest_record manifest, reopened;
+    uint8_t root[32];
+    uint64_t sequence = old->state.next_sequence - 1U;
+    int failed = 1, length;
+    if (write_bytes == NULL || read_bytes == NULL || mkdtemp(directory) == NULL)
+        goto finish;
+    if (lxp_state_root(&old->kernel, root) != LXP_OK ||
+        lxp_arena_init(&write_arena, write_bytes, capacity) != LXP_OK ||
+        lxp_snapshot_write(&old->kernel, sequence, &write_arena, &snapshot) != LXP_OK ||
+        lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length, sequence, root,
+                                    old->kernel.current_state_root, &manifest) != LXP_OK ||
+        lxp_snapshot_store_write(directory, &manifest, snapshot.bytes, snapshot.length) != LXP_OK)
+        goto remove_directory;
+    length = snprintf(path, sizeof(path), "%s/%020llu.lxs", directory,
+                       (unsigned long long)sequence);
+    if (length <= 0 || (size_t)length >= sizeof(path)) goto remove_directory;
+    /* Only identity authorities are external peers of the Programs store. The account
+       registry, module state, blobs and application replay rows come from the snapshot. */
+    next = calloc(1U, sizeof(*next));
+    if (next == NULL || initialize(next) != 0) goto remove_snapshot;
+    next->identities = old->identities;
+    next->height = old->height;
+    if (lxp_state_store_destroy(&old->state) != LXP_OK) goto remove_snapshot;
+    while (old->kernel.blob_count != 0U)
+        free(old->kernel.blobs[--old->kernel.blob_count].bytes);
+    free(old);
+    *current = next;
+    if (lxp_arena_init(&read_arena, read_bytes, capacity) != LXP_OK ||
+        lxp_snapshot_store_read(path, &read_arena, &reopened, &stored) != LXP_OK ||
+        lxp_snapshot_load(stored.bytes, stored.length, &reopened, &next->kernel) != LXP_OK ||
+        lxp_snapshot_verify_root(&next->kernel, &reopened) != LXP_OK ||
+        memcmp(next->kernel.current_state_root, manifest.receipt_state_root, 32U) != 0)
+        goto remove_snapshot;
+    failed = 0;
+remove_snapshot:
+    if (unlink(path) != 0) failed = 1;
+remove_directory:
+    if (rmdir(directory) != 0) failed = 1;
+finish:
+    free(write_bytes); free(read_bytes);
+    return failed;
+}
+
+/* Drive the real deployed guest: refusal during execution, successful retry, optional
+   store restart after response loss, and identical inner-request replay exactly once.
+   The complete persisted value includes F05 cursor, F06 accounting and F07 observation. */
+static int prove_atomic(fixture **current, unsigned actor, const uint8_t *envelope,
+                         size_t length, uint8_t *payload, uint64_t fuel,
+                         uint64_t storage_write, unsigned restart)
+{
+    fixture *f = *current;
+    const lxp_module_blob *manifest, *value;
+    uint8_t *before = NULL, *committed = NULL;
+    size_t before_length, committed_length;
+    uint64_t rewards_before = balance(f, f->rewards), rewards_committed;
+    int failed = 1;
+    if (shared_state(f, &manifest, &value) != 1) return 1;
+    before_length = value->length;
+    before = malloc(before_length);
+    if (before == NULL) return 1;
+    (void)memcpy(before, value->bytes, before_length);
+    f->call_fuel = fuel;
+    f->call_storage_write = storage_write;
+    if (call(f, actor, envelope, length, payload) != 0 ||
+        !f->receipt.program_outcome.present || f->receipt.result_code == LXP_OK ||
+        f->receipt.program_outcome.cpu_fuel == 0U ||
+        f->receipt.program_outcome.event_envelope_payload.length != 0U ||
+        shared_state(f, &manifest, &value) != 1 || value->length != before_length ||
+        memcmp(value->bytes, before, before_length) != 0 ||
+        balance(f, f->rewards) != rewards_before) goto finish;
+    f->call_fuel = 1000000U;
+    f->call_storage_write = 1048576U;
+    if (call(f, actor, envelope, length, payload) != 0 ||
+        f->receipt.result_code != LXP_OK ||
+        f->receipt.program_outcome.event_envelope_payload.length == 0U ||
+        shared_state(f, &manifest, &value) != 1) goto finish;
+    committed_length = value->length;
+    committed = malloc(committed_length);
+    if (committed == NULL) goto finish;
+    (void)memcpy(committed, value->bytes, committed_length);
+    if (committed_length == before_length &&
+        memcmp(committed, before, before_length) == 0) goto finish;
+    rewards_committed = balance(f, f->rewards);
+    if (restart != 0U) {
+        if (reopen_store(current) != 0) goto finish;
+        f = *current;
+    }
+    if (call(f, actor, envelope, length, payload) != 0 ||
+        f->receipt.result_code != LXP_OK ||
+        f->receipt.program_outcome.event_envelope_payload.length != 0U ||
+        shared_state(f, &manifest, &value) != 1 || value->length != committed_length ||
+        memcmp(value->bytes, committed, committed_length) != 0 ||
+        balance(f, f->rewards) != rewards_committed) goto finish;
+    failed = 0;
+finish:
+    free(before); free(committed);
+    return failed;
+}
+
 int main(int argc, char **argv)
 {
     fixture *f;
@@ -548,6 +660,23 @@ int main(int argc, char **argv)
         unsigned long long height;
         int offset = 0, length;
         size_t text;
+        unsigned long long fuel, storage_write;
+        unsigned restart;
+        if (strncmp(line, "prove ", 6U) == 0) {
+            if (sscanf(line + 6U, "%u %llu %llu %llu %u %n", &actor, &height,
+                       &fuel, &storage_write, &restart, &offset) != 5 ||
+                actor > 2U || height == 0U || fuel == 0U || storage_write == 0U ||
+                restart > 1U || offset <= 0) { failed = 1; break; }
+            text = strcspn(line + 6U + offset, "\n");
+            length = unhex(line + 6U + offset, text, envelope, LXP_MAX_ACTIVITY_BYTES / 2U);
+            if (length <= 0) { failed = 1; break; }
+            f->height = (uint64_t)height;
+            if (prove_atomic(&f, actor, envelope, (size_t)length, payload,
+                             (uint64_t)fuel, (uint64_t)storage_write, restart) != 0) {
+                failed = 1; break;
+            }
+            continue;
+        }
         if (sscanf(line, "%u %llu %n", &actor, &height, &offset) != 2 || actor > 2U ||
             height == 0U || offset <= 0) { failed = 1; break; }
         text = strcspn(line + offset, "\n");
