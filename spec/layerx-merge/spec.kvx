@@ -9093,6 +9093,12 @@ value = "Every sub-project under apps/ and services/ keeps its README, tooling a
 basis = "Owner ruling of 2026-11-05: one documentation root, and the vendored project under the most fitting sub-module, tools."
 affects = ["22.36.1", "22.36.2", "22.36.3", "22.36.4", "22.36.5", "22.36.6"]
 
+[decision.2664]
+title = "A task path absent at the base is a specification defect"
+value = "When a task names a file that does not exist at the base revision and the agent stops without changing anything, as 22.31.565 attempt 1 did, the ruling corrects the path and continues the attempt; no agent substitutes a path on its own. Before a batch lands, every entry of every new or amended task path list is checked against the main tree: it must be an existing file, an existing directory or a declared planned path."
+basis = "A wrong path costs a full environment preparation and an attempt for nothing; the check is mechanical."
+affects = ["22.31.565"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -175990,7 +175996,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 3228, decision 2653. In services/agent/crates/layerx-agentd/src/store/migrate.rs raise CURRENT_SCHEMA_VERSION to 4 and add migrate_v3_to_v4 to the migrate_store loop (lines 66 to 116): for every record of kind PreparedActivity (6) whose key starts with approval-hold-v1: and whose value starts with the magic LXAPHLD4, re-encode the value in the LXAPHLD5 form (approval.rs encode_hold, line 1485) with created_at_unix_seconds 0 and activity_expires_at_unix_seconds equal to the prepared expiry that decode_legacy_hold (line 1638) yields; every other record is copied byte for byte and the core bytes (kinds 1, 4 and 8) are unchanged. Extend validate_v2_or_v3 to version 4. In approval.rs approval_window_expired (lines 1198 to 1208) treat created_at 0 as satisfied for the lower bound; validate_replayed keeps refusing an LXAPHLD4 value."
 do_2 = "do_2 Extend services/agent/crates/layerx-agentd/tests/migration.rs so every_supported_prior_schema_migrates_forward_without_changing_core_bytes covers version 3 with a legacy hold in the prior store. Write services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs: a version-3 store holding one LXAPHLD4 hold and one LXAPHLD5 hold migrates to 4, the legacy value decodes through decode_hold with created_at 0 and the prepared expiry, the tenant listing returns both holds, a store already at version 4 is not rewritten, and a value still under LXAPHLD4 is refused with LegacyTimeUnits. Record the gate results by reference in tests/repair_22_31_565.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = ["migrate_v3_to_v4", "CURRENT_SCHEMA_VERSION", "encode_hold", "decode_legacy_hold", "approval_window_expired"]
-touches = ["services/agent/crates/layerx-agentd/src/store/migrate.rs", "services/agent/crates/layerx-agentd/src/approval.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
+touches = ["services/agent/crates/layerx-agentd/src/store/migrate.rs", "services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/tests/migration.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
 tests = []
 planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_565.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_565.kvx"]
 build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
@@ -176006,6 +176012,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3239, decision 2664): attempt 1 left no tree. The hold module is services/agent/crates/layerx-agentd/src/policy/approval.rs (HOLD_KEY_PREFIX line 24, the tenant listing lines 205 to 225, approval_window_expired line 1196, validate_replayed line 1439, encode_hold line 1485, decode_legacy_hold line 1638); it replaces the absent src/approval.rs in the task paths, and do_1 and do_2 apply to it word for word. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.564]
 title = "Meter replay step commitments outside the guest CPU cap"
@@ -176068,7 +176075,7 @@ do_3 = "Attempt 2 (continue, gotcha 3235): the attempt-1 tree stands (the wallet
 
 [task.22.31.562]
 title = "Answer the Human budget-after request with the rung rank instead of the verification label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.534"]
@@ -324774,7 +324781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.191]
 title = "Record the wasmer advisory exemption in the security policy and the repair record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324803,7 +324810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.190]
 title = "Document the public node retention policy and the archive node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
