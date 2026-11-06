@@ -57,35 +57,40 @@ pub struct MarketHeader {
 /// # Errors
 /// Returns `F01_ACCOUNT_BINDING_MISSING` when the SDK refuses the program, asset, or derived account.
 pub fn derive_rewards_account(program: ProgramId, asset: AssetId) -> CodecResult<AccountId> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        static DERIVED: crate::guest_cell::GuestCell<Option<(ProgramId, AssetId, AccountId)>> =
-            crate::guest_cell::GuestCell::new(None);
-        let mut derived = DERIVED
-            .try_borrow_mut()
-            .ok_or(F01_ACCOUNT_BINDING_MISSING)?;
-        if let Some((p, a, account)) = *derived {
-            if (p, a) == (program, asset) {
-                return Ok(account);
-            }
-        }
-        let account = prepare_rewards_account(program, asset)?;
-        *derived = Some((program, asset, account));
-        Ok(account)
-    }
-    #[cfg(not(target_arch = "wasm32"))]
-    prepare_rewards_account(program, asset)
+    let prepared = prepare_rewards_account(program, asset)?;
+    AccountId::new(prepared.account().bytes()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)
 }
 
-/// The SDK program-account derivation behind [`derive_rewards_account`].
-fn prepare_rewards_account(program: ProgramId, asset: AssetId) -> CodecResult<AccountId> {
-    let program = layerx_program_sdk::ProgramId::new(program.bytes())
+/// Reuses the SDK binding across header validation and value settlement in one call.
+pub(crate) fn prepare_rewards_account(
+    program: ProgramId,
+    asset: AssetId,
+) -> CodecResult<PreparedProgramAccount<'static>> {
+    #[cfg(target_arch = "wasm32")]
+    static DERIVED: crate::guest_cell::GuestCell<
+        Option<(ProgramId, AssetId, PreparedProgramAccount<'static>)>,
+    > = crate::guest_cell::GuestCell::new(None);
+    #[cfg(target_arch = "wasm32")]
+    let mut derived = DERIVED
+        .try_borrow_mut()
+        .ok_or(F01_ACCOUNT_BINDING_MISSING)?;
+    #[cfg(target_arch = "wasm32")]
+    if let Some((p, a, account)) = *derived {
+        if (p, a) == (program, asset) {
+            return Ok(account);
+        }
+    }
+    let sdk_program = layerx_program_sdk::ProgramId::new(program.bytes())
         .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    let asset =
+    let sdk_asset =
         layerx_program_sdk::AssetId::new(asset.bytes()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    let prepared = PreparedProgramAccount::new(program, b"paxai/rewards/v1", asset)
+    let prepared = PreparedProgramAccount::new(sdk_program, crate::REWARDS_ACCOUNT_SEED, sdk_asset)
         .map_err(|_| F01_ACCOUNT_BINDING_MISSING)?;
-    AccountId::new(prepared.account().bytes()).map_err(|_| F01_ACCOUNT_BINDING_MISSING)
+    #[cfg(target_arch = "wasm32")]
+    {
+        *derived = Some((program, asset, prepared));
+    }
+    Ok(prepared)
 }
 
 impl MarketHeader {
