@@ -176075,7 +176075,7 @@ do_3 = "Attempt 2 (continue, gotcha 3235): the attempt-1 tree stands (the wallet
 
 [task.22.31.562]
 title = "Answer the Human budget-after request with the rung rank instead of the verification label"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.534"]
@@ -324781,7 +324781,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.191]
 title = "Record the wasmer advisory exemption in the security policy and the repair record"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -324810,7 +324810,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.32.190]
 title = "Document the public node retention policy and the archive node"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
