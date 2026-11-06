@@ -33139,3 +33139,11 @@ symbol = "repair_22_31_217.rs"
 observed = "Attempt 9 at 9303d75302808e2710a4d0b3a72aa09a880866cd: build 3 exit 101 (private binder called from the integration test); the verified tree had 12 passed and 6 failed: four SourceOwnership refusals and two lifecycle cases refused Receipt by read_signed_native_execution_observation."
 assumption = "The ownership repair is written but unbuilt; the lifecycle evidence is a fixture the task owns, and the production reader needs a receipt from the endpoint, not a capture file."
 severity = "high"
+
+[finding.22.31.577.8]
+task = "22.31.577"
+file = "programs/crates/layerx-programs-runtime/src/replay_record.rs"
+symbol = "replay_record.rs"
+observed = "Attempt 8 at 8b8f7f4246c2a20e64ed8dc46263ad1d19dd8a41: build exit 0, dependent-crate check exit 0, verify exit 1: the live-snapshot proof admits 128 calls (leaf_total 1027329, record_total 1032152); the executor proof refuses the capture at step 743, 1052740 bytes against 1048576, leaf 4918 against the live-snapshot 4649, the host runtime field 285 against 16."
+assumption = "The 252-byte difference per leaf is the header composition graph repeated in every leaf; 221 leaves times 252 bytes is 55692 bytes, far above the 4164-byte excess."
+severity = "high"
