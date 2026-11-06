@@ -28,6 +28,16 @@ use layerx_client::sequencer::SequencerEndpoint;
 const MAX_AUTHORITY_SOURCE_BYTES: usize = 65_536;
 const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
 const MAX_CUMULATIVE_EVIDENCE_ITEMS: usize = 4_096;
+const KERNEL_MODULE_COUNT: u16 = 11;
+
+fn select_receipt_key(key: &layerx_client::sequencer::ReceiptKeyEntry) -> SequencerAuthorization {
+    SequencerAuthorization::new(
+        key.key_id,
+        key.public_key,
+        key.first_height,
+        key.last_height,
+    )
+}
 
 /// One sequencer key and validity interval installed by trusted daemon configuration.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -441,6 +451,7 @@ impl ProtocolEvidenceVerifier {
     fn verify_signed_receipt_inclusion(
         &self,
         raw: &RawReceiptEvidence,
+        receipt_keys: &[layerx_client::sequencer::ReceiptKeyEntry],
     ) -> Result<VerifiedCumulativeReceipt, ReceiptEvidenceError> {
         let (header, authorization) = self
             .authorization_for(&raw.canonical_header)
@@ -453,9 +464,24 @@ impl ProtocolEvidenceVerifier {
             &authorization,
         )
         .map_err(ReceiptEvidenceError::Inclusion)?;
-        let receipt =
+        let decoded = decode(&raw.canonical_receipt).map_err(|_| {
+            ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::Decode,
+            })
+        })?;
+        let module_id = decoded
+            .protocol()
+            .ok_or(ReceiptEvidenceError::Receipt(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            }))?
+            .module_id();
+        let receipt = if module_id > KERNEL_MODULE_COUNT {
+            let keys: Vec<_> = receipt_keys.iter().map(select_receipt_key).collect();
+            verify_sequencer_signature(&raw.canonical_receipt, keys.as_slice())
+        } else {
             verify_sequencer_signature(&raw.canonical_receipt, authorization.public_key())
-                .map_err(ReceiptEvidenceError::Receipt)?;
+        }
+        .map_err(ReceiptEvidenceError::Receipt)?;
         let protocol =
             receipt
                 .protocol()
@@ -643,18 +669,7 @@ impl EvidenceAuthority {
         &self,
         raw: &crate::receipt::TransactionReceiptEvidence,
     ) -> Result<VerifiedSpendReceipt, ReceiptEvidenceError> {
-        let keys: Vec<_> = self
-            .receipt_keys
-            .iter()
-            .map(|key| {
-                SequencerAuthorization::new(
-                    key.key_id,
-                    key.public_key,
-                    key.first_height,
-                    key.last_height,
-                )
-            })
-            .collect();
+        let keys: Vec<_> = self.receipt_keys.iter().map(select_receipt_key).collect();
         let decoded = verify_sequencer_signature(&raw.canonical_receipt, keys.as_slice())
             .map_err(ReceiptEvidenceError::Receipt)?;
         let protocol =
@@ -758,7 +773,7 @@ impl EvidenceAuthority {
                     .map_err(CumulativeUseError::Receipt)?,
                 CumulativeReceiptEvidence::SignedInclusion(raw) => self
                     .verifier
-                    .verify_signed_receipt_inclusion(raw)
+                    .verify_signed_receipt_inclusion(raw, &self.receipt_keys)
                     .map_err(CumulativeUseError::Receipt)?,
             };
             let receipt_ref: [u8; 32] = Sha256::digest(entry.receipt().canonical_receipt()).into();
@@ -839,13 +854,20 @@ impl EvidenceAuthority {
         let mut amount = 0_u128;
         let mut count = 0_u64;
         for (entry, receipt) in entries.iter().zip(receipts) {
-            let module = ModuleId::from_u16(receipt.module_id())
-                .map_err(|_| CumulativeUseError::Activity)?;
+            let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
+                None
+            } else {
+                Some(
+                    ModuleId::from_u16(receipt.module_id())
+                        .map_err(|_| CumulativeUseError::Activity)?,
+                )
+            };
             let kind = peek_signed_activity_type(entry.canonical_activity())
                 .map_err(|_| CumulativeUseError::Activity)?;
-            if kind.module() != module {
+            if receipt_module.is_some_and(|module| kind.module() != module) {
                 return Err(CumulativeUseError::ActivityReceiptMismatch);
             }
+            let module = receipt_module.unwrap_or(kind.module());
             let registration = ModuleRegistration::new(module, &[kind])
                 .map_err(|_| CumulativeUseError::Activity)?;
             let registry =
@@ -1186,7 +1208,7 @@ impl EvidenceAuthority {
                 }
                 let receipt = self
                     .verifier
-                    .verify_signed_receipt_inclusion(receipt_raw)
+                    .verify_signed_receipt_inclusion(receipt_raw, &self.receipt_keys)
                     .map_err(TimeWindowUseError::Receipt)?;
                 let decoded = decode(receipt_raw.canonical_receipt())
                     .map_err(|_| TimeWindowUseError::Identity)?;
@@ -1210,13 +1232,20 @@ impl EvidenceAuthority {
                 if !seen.insert(receipt.activity_id()) {
                     return Err(TimeWindowUseError::Duplicate);
                 }
-                let module = ModuleId::from_u16(receipt.module_id())
-                    .map_err(|_| TimeWindowUseError::Activity)?;
+                let receipt_module = if receipt.module_id() > KERNEL_MODULE_COUNT {
+                    None
+                } else {
+                    Some(
+                        ModuleId::from_u16(receipt.module_id())
+                            .map_err(|_| TimeWindowUseError::Activity)?,
+                    )
+                };
                 let kind = peek_signed_activity_type(entry.canonical_activity())
                     .map_err(|_| TimeWindowUseError::Activity)?;
-                if kind.module() != module {
+                if receipt_module.is_some_and(|module| kind.module() != module) {
                     return Err(TimeWindowUseError::Identity);
                 }
+                let module = receipt_module.unwrap_or(kind.module());
                 let registration = ModuleRegistration::new(module, &[kind])
                     .map_err(|_| TimeWindowUseError::Activity)?;
                 let registry = ModuleRegistry::new(&[registration])

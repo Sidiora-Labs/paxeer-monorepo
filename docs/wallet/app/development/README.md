@@ -12,7 +12,7 @@ pnpm install --frozen-lockfile
 pnpm dev                       # http://localhost:3099
 ```
 
-Set the build-time variables listed in the [app README](../../README.md#configuration) in the environment, or in a local `.env.local`, which git ignores.
+Set the build-time variables listed in the [app README](../../../../apps/wallet/README.md#configuration) in the environment, or in a local `.env.local`, which git ignores.
 
 ## Checks
 

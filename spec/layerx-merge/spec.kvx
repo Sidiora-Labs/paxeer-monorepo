@@ -9129,6 +9129,24 @@ value = "The runtime records the site of every SupplementRejected it raises in t
 basis = "Gotcha 3250: twelve native proofs fail on one undifferentiated value, and the 564 proof never exercised the sites a real guest reaches."
 affects = ["22.31.569", "22.99.77"]
 
+[decision.2670]
+title = "A document-move retirement grep excludes repair records by pattern and counts code comments and live tests as references"
+value = "The test of a task that moves or retires a document runs git grep for the old paths over the tracked tree excluding spec/, GOTCHA.kvx, CHANGELOG and CODEMAP files, the test itself and every repair record (paths matching repair_*.kvx and repair-*.kvx and the .kvx files under tools/qualification/audit_repairs, tools/bringup and test directories). A source comment that points a reader at the document and a live test that reads it are references: the moving task rewrites them to the new path and lists the files in its scope."
+basis = "Gotcha 3251: the scope was written by directory and missed a Go comment and a Python test; a repair record keeps the path of its time (decision 2665)."
+affects = ["22.36.5"]
+
+[decision.2671]
+title = "A node receipt in cumulative and time-window use binds by activity identity"
+value = "In protocol_evidence.rs authenticate_cumulative_use and the time-window authentication, a receipt whose module id is above KERNEL_MODULE_COUNT (11) is a node receipt: the consumer decodes the entry canonical activity under the kernel module its signed activity type names (peek_signed_activity_type), requires the activity_id of the decoded activity to equal receipt.activity_id() and the decoded activity type to equal the peeked type, and skips the kernel module equality against the receipt module; the result code, the actor DID and the amount word are counted exactly as for a kernel receipt, and where the receipt log effects carry a PaymentDrawn event of the ledger precompile (decision 2648) the counted amount is that event amount. A kernel receipt keeps the module equality."
+basis = "ModuleId knows the eleven kernel modules and the node serves module 12 on every receipt (decision 2648), so the module word can never bind a node receipt while the activity identity the node chains into seqHash can."
+affects = ["22.31.568"]
+
+[decision.2672]
+title = "A decided approval stays known to the daemon across a restart"
+value = "ApprovalRegistry::replay_tenant restores the released terminal records that replay_released decodes beside the PreparedActivity holds and the program terminals, in their terminal state with their release identity, so approval_get and approval_list after a restart answer the decision and a replayed decision with the same digest answers the recorded outcome instead of a refusal; every mapping of an approval lookup or decision error to HumanOperationError::Refused in human_runtime.rs carries the originating error in the diagnostic (gotcha 3202)."
+basis = "A Human whose reply was lost converges only by asking again after the daemon reopens, and a refusal without a cause cannot be told from a defect."
+affects = ["22.31.570", "22.33.1510"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38019,6 +38037,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.570]
+title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_570.kvx"]
+tests = []
+verification_contract = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_570"
+do_1 = "do_1 Gotcha 3254, decision 2672. In services/agent/crates/layerx-agentd/src/policy/approval.rs make ApprovalRegistry::replay_tenant (line 203) also decode the released terminal records of the tenant (the records replay_released at line 242 reads through decode_released) and insert each into the registry in its terminal state with its release identity, refusing a duplicate identifier as the existing loop does (lines 233 to 239), so get_scoped (line 389) and list_scoped (line 355) answer them after a restart and decide (line 1040) answers a replayed decision with the same digest with the recorded outcome; keep replay_released and the reservation replay unchanged."
+symbols = []
 
 [capability.22.31.569]
 title = "Name the execution observer supplement refusal site and admit a profiled CALL of a large-state guest"
@@ -176005,6 +176032,36 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.570]
+title = "Restore released terminal approvals on replay and name the cause of every approval refusal"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.570"]
+interfaces = []
+do_1 = "do_1 Gotcha 3254, decision 2672. In services/agent/crates/layerx-agentd/src/policy/approval.rs make ApprovalRegistry::replay_tenant (line 203) also decode the released terminal records of the tenant (the records replay_released at line 242 reads through decode_released) and insert each into the registry in its terminal state with its release identity, refusing a duplicate identifier as the existing loop does (lines 233 to 239), so get_scoped (line 389) and list_scoped (line 355) answer them after a restart and decide (line 1040) answers a replayed decision with the same digest with the recorded outcome; keep replay_released and the reservation replay unchanged."
+do_2 = "do_2 In services/agent/crates/layerx-agentd/src/human_runtime.rs carry the originating error in the diagnostic of every mapping to HumanOperationError::Refused in rpc_approval_get_native (lines 7523 and 7524) and rpc_approval_decide_native (lines 7534, 7537 and 7543), and in the approval_get implementations at lines 3146, 10301 and 15425 where a lookup error is mapped to Refused, in the shape gotcha 3202 set for the native send mappings; the response class stays Refused."
+do_3 = "do_3 Test services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs on a daemon runtime with the store fixture tests/human_approval_budget_actor.rs opens: hold one prepared activity, decide it granted through the approval boundary, release it, close and reopen the store, replay the tenant and assert approval_get answers the terminal record with the same identifier and release identity, approval_list includes it in the terminal state, a second decision with the same digest answers the same outcome, and a lookup of an unknown identifier answers Refused with a diagnostic naming the cause. Record the sites and the gate results by reference in tests/repair_22_31_570.kvx."
+symbols = ["replay_tenant", "replay_released", "rpc_approval_get_native", "rpc_approval_decide_native", "get_scoped", "list_scoped"]
+touches = ["services/agent/crates/layerx-agentd/src/policy/approval.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_570.kvx"]
+tests = []
+planned_paths = ["services/agent/crates/layerx-agentd/tests/repair_22_31_570.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_570.kvx"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_570"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.31.569]
 title = "Name the execution observer supplement refusal site and admit a profiled CALL of a large-state guest"
 status = "pending"
@@ -176062,10 +176119,11 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3253, decision 2671): the attempt-1 tree stands (the governed-key signature path in verify_signed_receipt_inclusion, the three cases). In protocol_evidence.rs authenticate_cumulative_use (lines 857 to 874) and the time-window authentication (lines 1228 to 1243) treat a receipt whose module id is above KERNEL_MODULE_COUNT as a node receipt: decode the entry canonical activity under the kernel module its peeked activity type names, require the decoded activity identity to equal receipt.activity_id() and the decoded type to equal the peeked type, skip the module equality against the receipt module, and count the result code, actor and amount as for a kernel receipt; where the receipt log effects carry a PaymentDrawn event of the ledger precompile the counted amount is the event amount. A kernel receipt keeps every existing check. The failing case then authenticates with count 1 and the recorded amount; add one case in which a node receipt whose activity identity differs from the entry is refused with ActivityReceiptMismatch. Run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.567]
 title = "Fetch SDK node commit coverage per wait from the served batch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.563"]
@@ -176273,6 +176331,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 do_4 = "Attempt 2 (continue, gotcha 3219): the attempt-1 tree stands (2 of 3 cases pass). In rpc_prepare_native_send (human_runtime.rs from line 6976 of the attempt tree) use one tenant, the principal tenant the DurablePreparation::store_key already uses (lines 7009 to 7012), for the retention in prepare_gated (line 7034), the authorization-reference key and the restore in verify_native_owner_purpose (capability/binding.rs line 2938); where the transport tenant of the peer differs from the principal tenant, the principal tenant is the storage tenant. Every mapping to Unavailable (the put_local of the authorization reference, the restore mapped to BindingError::Corrupt and owner_error) carries the originating error in the diagnostic (gotcha 3202). The failing case then matches the reopened Prepare to the owner preview. Run the build and the verify at the final revision and record them by reference in the task record."
 do_5 = "Attempt 3 (continue, gotcha 3238): the attempt-2 tree stands (one principal tenant through the native send prepare; 2 of 3 cases pass). The remaining 503 is the receipt key read of Prepare: human_node.rs receipt_key_at_head (line 45) calls px_getReceiptKeys (sequencer.rs line 532), which the EVM node behind the test chain peer does not serve. In tests/repair_22_31_560.rs intercept px_getReceiptKeys in the chain peer (the pattern of native_send_preview_evm.rs lines 245 to 330) and answer keys as one entry with a nonzero 32-byte keyId, a valid ed25519 publicKey, firstHeight 1 and a lastHeight above the head, as decode_receipt_keys (sequencer.rs line 947) requires; where the daemon path then needs a receipt signed by that key, sign with the matching private key the peer holds. Change no production code for this; if the first Prepare still answers 503, print the daemon log line and name it in the record. Run the build, the dependent-crate check and the verify at the final revision and record them by reference."
 do_6 = "Attempt 4 (continue, gotcha 3243): the attempt-3 tree stands (the receipt-key fixture, both passing cases). The scope now carries tests/native_send_preview_evm.rs. In its authority fixture (the route match at line 448) serve /v1/agent/balance-context with the balance document shape tests/human_approval_budget_actor.rs line 419 and tests/repair_22_31_562.rs line 426 serve, bound to the fixture asset and account, and serve every further route of src/human_runtime.rs (budget-proof line 1743, subject-context 1754, authorized-batch 1770, registry 1786, balance-context 1833, identity 1872, core-clock 1924, capability-scope 1952, budget-state 2048, key-policy 2095) that the first and the reopened Prepare request, each with the document the two named tests use; the fixture keeps panicking on an unknown route. Make the peer drop (line 107) report the bootstrap failure without a second panic. Production files unchanged. Run the build and the verify at the final revision and record them by reference in the task record."
+do_7 = "Attempt 5 (continue, gotcha 3252): the attempt-4 tree stands (balance-context served, the peer drop cleanup, both passing cases). The first Prepare now reaches the committed checkpoint acquisition of human_node.rs verify_direct_node_readiness (line 105) through ServedCheckpoint::acquire_at_committed_block (read/checkpoint.rs lines 182 to 230): eth_blockNumber must equal the height, then eth_getBlockByNumber, px_getCommit and px_getValidators at that height, the signed header decoded against the served validators under chain id 125, and the block hash, stateRoot and timestamp must equal the header block hash, app_hash and time; the EVM node serves no px_ method. In tests/repair_22_31_560.rs serve px_getCommit and px_getValidators from the chain peer at HEAD with the recorded checkpoint tests/support/human_budget_checkpoint.json (height 64, chain 125, one validator) exactly as tests/human_approval_budget_actor.rs lines 210 to 222 answer them, which moves HEAD to 64 in tests/native_send_preview_evm.rs (line 54; the anvil_mine count at line 613 follows). Answer eth_getBlockByNumber for HEAD from the chain peer with the EVM node block whose hash is replaced by the recorded header hash, stateRoot by its app hash and timestamp by its header time in seconds; take the two hashes from the VerifiedChainHead that layerx_client::rpc::commit::verify_commit_material returns for the recorded signedHeader under a ChainProofVerifier of chain id 125 and the validators decode_validators yields (its header_hash and app_hash). The peer keeps printing every call the EVM node refuses; if the first Prepare still answers 503, the record names the next refused method and the daemon diagnostic. Production files unchanged. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.559]
 title = "Recover tenant budgets from current transaction receipt evidence after a restart"
@@ -180104,7 +180163,7 @@ title = "Repair audit record 22.30.90 medium findings in services/human/crates/l
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562"]
+requires = ["22.31.214", "22.31.215", "22.31.216", "22.31.443", "22.31.462", "22.31.515", "22.31.521", "22.31.534", "22.31.562", "22.31.570"]
 reqs = ["22998.1"]
 capabilities = ["22.33.1510"]
 interfaces = []
@@ -180140,6 +180199,7 @@ do_12 = "Attempt 5 (continue after 22.31.515 and 22.31.521): attempt 4's fixture
 do_13 = "Attempt 6 (continue after 22.31.534, gotcha 3124, decision 2585): attempt 5 stands in full (the recorded authority, the owner fixture, the three cases and the record; recovery reconciles and admits). Rebase on main once 22.31.534 has landed, change nothing, run the declared build and verify once and record."
 do_14 = "Attempt 7 (requalify, gotcha 3226, decision 2651): the attempt-6 tree stands (1 passed); the task now requires 22.31.562, which makes the daemon write the rung rank the Human decoder reads. Re-run the gates as they stand once 562 lands; if a case still answers Corrupt, the record names the response byte."
 do_15 = "Attempt 8 (continue, gotcha 3245): the attempt-7 tree stands (the owner fixture tests/support/approval_owner.rs, the authority fixture files, both cases). In approval_owner.rs Runtime::start (line 585) build the root from fs::canonicalize(std::env::temp_dir()) as tests/production_unhooked.rs line 62 does, keep mode 0700 on it, and on any further refusal of the store root print the given path, its canonical path, its uid against the effective uid and its mode before failing. Re-run both cases; if digest_bound_decisions_converge_and_export_the_agent_outcome still answers Refused from approval_get, record the agent-side log line that precedes the refusal (server/agent_runtime.rs lines 98, 126, 234 and 237 map it) in the task record. Production files unchanged. Run the build and the verify at the final revision and record them by reference in the task record."
+do_16 = "Attempt 9 (continue after 22.31.570, gotcha 3254, decision 2672): the attempt-8 tree stands (the canonical fixture root, the head aligned with each emitted event, the diagnostics). The task now requires 22.31.570, which restores decided approvals on replay and makes every Refused carry its cause. Rebase on main once 22.31.570 has landed, change nothing in production, and re-run the gates; if a case still answers Refused, print the diagnostic the boundary now carries beside the failing call and name both in the task record together with the daemon log line that precedes the refusal."
 
 [task.22.33.1508]
 title = "Repair audit record 22.30.90 medium findings in services/agent/crates/layerx-agentd/src (part 1 of 1): runtime-risk"
@@ -324759,7 +324819,7 @@ interfaces = []
 do_1 = "do_1 Gotcha 3232, decision 2663. Move apps/launchpad/production_checklist.md to docs/launchpad/production-checklist.md, apps/perps/data_api.md to docs/perps/data-api.md, services/agent/COMPATIBILITY.md to docs/agent/COMPATIBILITY.md and services/interop/PORTABILITY.md to docs/interop/PORTABILITY.md; rewrite every reference outside spec/ and GOTCHA.kvx (apps/perps/deploy/README.md, apps/perps/src/components/paxeer/README.md, apps/perps/tests/repair-22-33-188.test.ts, docs/site/docs/interop/x402.md, docs/wiki/X402Transport.md, sdk/platform/generators/src/main.rs, services/interop/README.md, services/interop/crates/layerx-ap2/tests/portability_v2.rs, services/interop/crates/layerx-migrate/OPERATIONS.md, README.md and the rest the grep finds) so the tests and generators that read these files resolve. docs/README.md rows come with 22.36.6."
 do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_36_5.py: the four old paths do not exist and the four new files exist; every relative Markdown link in the four files resolves; no tracked file outside spec/, GOTCHA.kvx and this test contains the four old paths. Record the gate results by reference in tools/qualification/audit_repairs/repair_22_36_5.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint (gotcha 2962)."
 symbols = []
-touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
+touches = ["apps/launchpad/production_checklist.md", "apps/perps/data_api.md", "services/agent/COMPATIBILITY.md", "services/interop/PORTABILITY.md", "docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "apps/perps", "docs/site/docs/interop/x402.md", "docs/wiki/X402Transport.md", "sdk/platform/generators/src/main.rs", "services/interop", "README.md", "services/platform/perps-data/internal/records/records.go", "tools/qualification/audit_repairs/test_repair_22_33_1565.py", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
 tests = []
 planned_paths = ["docs/launchpad", "docs/perps", "docs/agent", "docs/interop", "tools/qualification/audit_repairs/test_repair_22_36_5.py", "tools/qualification/audit_repairs/repair_22_36_5.kvx"]
 build_cmd = "python3 --version"
@@ -324775,6 +324835,7 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3251, decision 2670): the attempt-1 tree stands (the four moves and the rewritten references). Rewrite the comment at services/platform/perps-data/internal/records/records.go line 119 to docs/perps/data-api.md and the three reads at tools/qualification/audit_repairs/test_repair_22_33_1565.py lines 50, 80 and 110 to docs/agent/COMPATIBILITY.md, and run that test once to show it still passes against the moved file. In tools/qualification/audit_repairs/test_repair_22_36_5.py extend the git grep excludes with the repair-record patterns of decision 2670 (repair_*.kvx and repair-*.kvx anywhere, and the .kvx files under tools/qualification/audit_repairs and tools/bringup), so that repair_22_33_1565.kvx and apps/perps/src/core/repair-22-33-78.kvx keep the paths of their time; if the attempt rewrote repair-22-33-78.kvx, restore its original text. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.36.4]
 title = "Fold the explorer documentation into docs/explorer"
@@ -324807,7 +324868,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.36.3]
 title = "Fold the wallet documentation into docs/wallet"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -372486,7 +372547,7 @@ capabilities = ["22.35.9"]
 interfaces = []
 do_1 = "do_1 Gotcha 3231, decision 2659. In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex line 99 fill total_blocks with Explorer.Chain.block_height() (services/explorer/backend/apps/explorer/lib/explorer/chain.ex line 1322, the maximum consensus block number) rendered as a string, and in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex line 19 use the same value for block_count; BlocksCount stays in place for its other readers. The frontend readers of total_blocks (types/api/stats.ts, ui/home/Stats.tsx, ui/home/BlocksContent.tsx) are unchanged."
 do_2 = "do_2 Write services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs: with consensus blocks at numbers 10, 11 and 500 inserted and a non-consensus block at 600, GET /api/v2/stats answers total_blocks 500 as a string and the chain controller renders the same number; extend the stats_controller_test assertion at line 45 from key presence to the value. Record the gate results by reference in services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx; amend no file after the gates run (gotcha 3142). The gates need no credential, environment variable or live endpoint beyond the test database the explorer test configuration already starts (gotcha 2962)."
-symbols = ["total_blocks", "block_height", "BlocksCount", "block_count"]
+symbols = ["total_blocks", "block_height", "block_count"]
 touches = ["services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex", "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex", "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"]
 tests = []
 planned_paths = ["services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9_test.exs", "services/explorer/backend/apps/block_scout_web/test/repair/repair_22_35_9.kvx"]
@@ -372504,6 +372565,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3242, decision 2667): the attempt-1 tree stands (stats_controller.ex and chain_controller.ex report Chain.block_height, the stats test). In apps/block_scout_web/test/repair/repair_22_35_9_test.exs replace the two chain_path requests: build the connection with Phoenix.ConnTest.bypass_through(conn, BlockScoutWeb.Routers.WebRouter, [:browser]), issue a GET of the root path and call BlockScoutWeb.ChainController.call(conn, BlockScoutWeb.ChainController.init(:show)), then assert the rendered HTML carries the block height (500 and 0) as before; drop the WebRouter.Helpers import. Keep the stats assertions. Run the compile and the test at the final revision and record them by reference in the task record."
+do_4 = "Attempt 3 (requalify, gotcha 3255): the attempt-2 tree stands (Chain.block_height in both controllers, the bypass_through rendering, the stats test; 18 tests pass). The symbol list of the task no longer names the BlocksCount alias. Re-run the compile and the test as they stand and record them by reference in the task record."
 
 [task.22.31.490]
 title = "Fail over on node error envelopes and keep the price-acceptance replay moving past a held block"
