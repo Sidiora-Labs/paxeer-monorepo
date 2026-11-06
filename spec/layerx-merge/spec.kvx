@@ -150141,7 +150141,7 @@ source_task = "0.9"
 
 [task.22.37.1]
 title = "Make the tooling and release layout driver self contained and qualify it against the vendored tree"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
