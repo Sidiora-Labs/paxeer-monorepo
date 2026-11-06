@@ -177467,7 +177467,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.578]
 title = "Derive the MCP DrawGrant policy dimensions from the decoded Receive cross-checked against the bound draw"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
