@@ -32,7 +32,7 @@ the agent plane. Use [Hosted faucet](HostedFaucet.md) or
 ## Send
 
 The shipped send path is the human-plane quote then commit, as in
-`services/platform/docs/samples/first-payment-go`:
+`services/platform/examples/samples/first-payment-go`:
 
 ```go
 package main
