@@ -326757,7 +326757,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.581]
 title = "Write the hosted Human timestamp span in milliseconds and document the unit"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
