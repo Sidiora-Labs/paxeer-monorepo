@@ -32467,3 +32467,11 @@ symbol = "repair_22_33_1569.rs"
 observed = "Attempt 16 at c9dd5a758268a7586b6b2e7f25a22b72eb8b6cc5: build exit 101 then 0, verify exit 1: the maintained batches verify and the funded path stops at funded_scenario.rs line 900, PAY2 authenticated issue usage: Activity, the consumer refusing the EIP-1559 activity of the verified draw."
 assumption = "The consumer never read a node EVM activity; task 22.31.575 adds the path and the scenario binds the payer account."
 severity = "high"
+
+[finding.22.31.560.7]
+task = "22.31.560"
+file = "services/agent/crates/layerx-agentd/src/human_runtime.rs"
+symbol = "human_runtime.rs"
+observed = "Attempt 7 at 661d628ea707925fad072075c300160943ec367a: build exit 0, dependent-crate check exit 0, verify exit 1 twice: two cases pass; the genuine first Prepare passes session admission, the committed inventory and the history proof and still answers 403 owner.refused with no diagnostic line naming the site."
+assumption = "The refusal is one of about thirty silent Refused mappings after the history proof; naming them in production ends the blind search."
+severity = "high"
