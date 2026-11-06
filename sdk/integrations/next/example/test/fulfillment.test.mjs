@@ -31,7 +31,7 @@ const proposed = {
 };
 
 async function parseReceiptKeys() {
-  const environment = await readFile(new URL("../../../../../services/platform/docs/samples/paid-route-next/.env", import.meta.url), "utf8");
+  const environment = await readFile(new URL("../../../../../services/platform/examples/samples/paid-route-next/.env", import.meta.url), "utf8");
   const declared = environment.split("\n").find(line => line.startsWith("LAYERX_RECEIPT_KEYS_JSON="));
   assert.ok(declared);
   const keys = JSON.parse(declared.slice(declared.indexOf("=") + 1));

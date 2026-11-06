@@ -1,0 +1,12 @@
+[repair.22.31.574]
+mode = "BUILD"
+base_revision = "3817a73b3af8c6f4f7f1e05896e6ef94e990bb47"
+decisions = ["2685"]
+gotchas = ["3275"]
+requirement = "22998.1"
+case = "programs/crates/layerx-programs-runtime/tests/repair_22_31_259.rs::sandbox_terminal_decoder_persists_usage_and_authenticates_receipt_and_transfer"
+implementation = "Hash the bare canonical usage receipt with SHA-256, clone it and append that digest with SandboxSettlement::append_receipt_digest. Both the initial and duplicate settlement attachments use the frame; SandboxReceiptBinding keeps the digest of the bare canonical bytes. All persistence, authentication, corruption, duplication and truncation assertions remain unchanged."
+producer_reference = "programs/crates/layerx-programs-runtime/tests/repair_22_31_488.rs::native_settlement"
+build = "hf-build: cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --tests"
+verify = "hf-done: cg spec done 22.31.574 -f layerx-merge --root /work/paxeer-monorepo; verify_cmd: cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test repair_22_31_259 --test repair_22_31_488"
+evidence = "Exact candidate revision, gate commands, exit codes and private evidence locations are recorded by reference to /out/run/gates.jsonl. The final response copies the last bounded gate result; this record is not amended after qualification."

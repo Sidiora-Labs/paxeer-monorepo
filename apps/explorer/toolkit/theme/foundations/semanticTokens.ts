@@ -14,6 +14,47 @@ function aliasColor(token: string) {
 
 const semanticTokens: ThemingConfig['semanticTokens'] = {
   colors: {
+    indicator: {
+      transactions: aliasColor('accent'),
+      addresses: { value: { _light: '{colors.datavis.purple.high}', _dark: '{colors.datavis.purple.mid}' } },
+      locked: aliasColor('accent'),
+    },
+    brand: {
+      uniswap: { value: { _light: '#ff007a', _dark: '#ff007a' } },
+    },
+    securitySeverity: {
+      critical: { value: { _light: '#891F11', _dark: '#FF5C5C' } },
+      high: { value: { _light: '#EC672C', _dark: '#F6AD55' } },
+      medium: aliasColor('warning'),
+      low: aliasColor('positive'),
+      informational: aliasColor('text.muted'),
+      gas: { value: { _light: '{colors.datavis.purple.high}', _dark: '{colors.datavis.purple.low}' } },
+    },
+    rewards: {
+      badge: {
+        first: { value: { _light: '#DFE8F5', _dark: '{colors.surface}' } },
+        second: { value: { _light: '#D2E5FE', _dark: '{colors.accent.soft}' } },
+        third: { value: { _light: '#EFE1FF', _dark: '{colors.datavis.purple.highest}' } },
+      },
+      pass: {
+        bg: { value: { _light: '#FFEFCE', _dark: '#E1910E' } },
+        badge: { value: { _light: '#FFD57C', _dark: '#FFBA0D' } },
+        fg: { value: { _light: '#2B1A3F', _dark: '#2B1A3F' } },
+        icon: { value: { _light: 'rgba(43, 26, 63, 0.3)', _dark: 'rgba(43, 26, 63, 0.3)' } },
+      },
+      icon: { shadow: { value: { _light: 'rgba(141, 179, 204, 0.25)', _dark: 'transparent' } } },
+      banner: {
+        start: { value: { _light: '#9CD8FF', _dark: '#1B253B' } },
+        stop: { value: { _light: '#D0EFFF', _dark: '#222C3F' } },
+      },
+    },
+    identicon: { overlay: { value: { _light: 'rgba(16, 17, 18, 0.80)', _dark: 'rgba(16, 17, 18, 0.80)' } } },
+    description: { fade: { value: { _light: 'rgba(255, 255, 255, 0.8)', _dark: 'rgba(11, 12, 16, 0.8)' } } },
+    promo: {
+      start: { value: { _light: '{colors.accent}', _dark: '{colors.accent}' } },
+      stop: { value: { _light: '{colors.datavis.purple.mid}', _dark: '{colors.datavis.purple.low}' } },
+    },
+    editor: { search: { shadow: { value: { _light: 'rgba(0, 0, 0, 0.05)', _dark: 'rgba(0, 0, 0, 0.3)' } } } },
     canvas: roleColor('canvas'),
     surface: roleColor('surface'),
     raised: roleColor('raised'),
@@ -306,6 +347,7 @@ const semanticTokens: ThemingConfig['semanticTokens'] = {
       },
     },
     progress: {
+      stripe: { value: { _light: 'rgba(255, 255, 255, 0.3)', _dark: 'rgba(0, 0, 0, 0.3)' } },
       track: {
         DEFAULT: { value: { _light: '{colors.gray.100}', _dark: '{colors.whiteAlpha.100}' } },
       },

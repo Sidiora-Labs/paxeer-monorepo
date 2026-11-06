@@ -8,7 +8,7 @@ The current receipt format is `layerx-receipt-proof-v2`. The public API exports
 Paxeer mainnet-beta is one network, chain ID 125 (`0x7d`). The kernel participates
 in that network and proposes blocks; block commit is finality. A portable proof
 at level `receipted` authenticates a signature and does not prove block commit.
-For acquisition and application guidance, see [PORTABILITY.md](../../PORTABILITY.md).
+For acquisition and application guidance, see [PORTABILITY.md](../../../../docs/interop/PORTABILITY.md).
 
 ## Verification Portability
 

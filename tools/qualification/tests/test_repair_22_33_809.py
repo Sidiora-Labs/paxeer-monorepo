@@ -12,7 +12,7 @@ Wiring request: tools/qualification/release_runner.py (domain 16) owns renaming 
 historical crash-before/after-batch-wal case IDs to native WAL names.
 Wiring request: node/sequencer (domain 11) owns deployed fault-injection controls;
 local native restart tests cannot qualify a deployed recovery journey.
-Wiring request: services/platform/docs/samples (domain 15) must export each
+Wiring request: services/platform/examples/samples (domain 15) must export each
 journey's exact transaction identity before those cases can claim real_stack.
 """
 from __future__ import annotations

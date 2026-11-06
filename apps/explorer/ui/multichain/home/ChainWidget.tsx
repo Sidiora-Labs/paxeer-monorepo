@@ -61,7 +61,7 @@ const ChainWidget = ({ data, isLoading, metrics }: Props) => {
   if (isMobile) {
     return (
       <LinkBox
-        bgColor={{ _light: 'rgba(246, 246, 248, 0.5)', _dark: 'whiteAlpha.50' }}
+        bgColor="surface"
         borderRadius="xl"
         border="1px solid"
         borderColor={{ _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' }}
@@ -92,7 +92,7 @@ const ChainWidget = ({ data, isLoading, metrics }: Props) => {
     <LinkBox
       className="group"
       // as the designer said, for the light theme "there is no gray color that suits well, so we use a custom one"
-      bgColor={{ _light: 'rgba(246, 246, 248, 0.5)', _dark: 'whiteAlpha.50' }}
+      bgColor="surface"
       borderRadius="xl"
       border="1px solid"
       borderColor={{ _light: 'blackAlpha.200', _dark: 'whiteAlpha.200' }}
