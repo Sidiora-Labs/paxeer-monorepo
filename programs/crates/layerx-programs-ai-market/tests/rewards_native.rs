@@ -7,6 +7,9 @@
 //! holds across the ledger and the account. The native part runs Fund through the registered
 //! Program activity, where the transfer, the next state and the replay record commit or
 //! refuse together.
+#[path = "repair_22_33_261.rs"]
+mod repair_22_33_261;
+
 use ed25519_dalek::{Signer, SigningKey};
 use layerx_program_sdk::{Field, HostRefusal, ProgramError, Reason, ValueError};
 use layerx_programs_ai_market::{
@@ -2533,6 +2536,7 @@ fn sustained_retention() -> TestResult {
 /// the rewards account balance unchanged.
 #[allow(clippy::too_many_lines)]
 fn native_recovery_and_capacity() -> Checked {
+    repair_22_33_261::reward_native_reopen();
     let mut n = Native::start()?;
     n.create(1000)?;
     let created = n
@@ -2645,6 +2649,7 @@ fn native_recovery_and_capacity() -> Checked {
 
 #[test]
 fn reward_finality_recovery_and_capacity() -> Checked {
+    repair_22_33_261::reward_finality_proof_origin();
     late_settlement_and_close()?;
     finality_recovery()?;
     dictionary_capacity()?;

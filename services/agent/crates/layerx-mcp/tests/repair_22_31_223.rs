@@ -701,37 +701,37 @@ impl ExchangeServer {
                             "freshness":{"observed_sequence":HEIGHT,"observed_at":1,"receipt_digest":"33".repeat(32),"state_root":"44".repeat(32),"valid_through":400}});
                         respond(&mut stream, 200, &[], body.to_string().as_bytes());
                     }
-                    ("POST", "/rpc") => {
-                        // Existing web offer discovery asks for the ledger account at this path.
-                        // Return the account bytes held by the captured ledger producer, without
-                        // changing that separate seller_rpc_misroute finding in this task.
-                        let query: Value =
-                            serde_json::from_slice(&request.body).expect("account query");
-                        assert_eq!(query["method"], "eth_call");
-                        let data = query["params"][0]["data"].as_str().expect("ABI data");
-                        let prefix = format!("0x3f050cbc{}{}", "0".repeat(24), "ab".repeat(20));
-                        let asset = data
-                            .strip_prefix(&prefix)
-                            .expect("accountId selector and owner");
-                        let grant = gateway["ledger"]["grants"]
-                            .as_array()
-                            .expect("ledger grants")
-                            .iter()
-                            .find(|grant| {
-                                grant["canonical"]
-                                    .as_str()
-                                    .expect("canonical grant")
-                                    .get(192..256)
-                                    == Some(asset)
-                            })
-                            .expect("captured account for asset");
-                        let canonical = grant["canonical"].as_str().expect("canonical bytes");
-                        let body = json!({"jsonrpc":"2.0", "id":query["id"], "result":format!("0x{}", &canonical[64..128])});
-                        respond(&mut stream, 200, &[], body.to_string().as_bytes());
-                    }
                     ("POST", "/") => {
                         let query: Value =
                             serde_json::from_slice(&request.body).expect("node query");
+                        if query["method"] == "eth_call"
+                            && query["params"][0]["data"]
+                                .as_str()
+                                .is_some_and(|data| data.starts_with("0x3f050cbc"))
+                        {
+                            assert_eq!(query["method"], "eth_call");
+                            let data = query["params"][0]["data"].as_str().expect("ABI data");
+                            let prefix = format!("0x3f050cbc{}{}", "0".repeat(24), "ab".repeat(20));
+                            let asset = data
+                                .strip_prefix(&prefix)
+                                .expect("accountId selector and owner");
+                            let grant = gateway["ledger"]["grants"]
+                                .as_array()
+                                .expect("ledger grants")
+                                .iter()
+                                .find(|grant| {
+                                    grant["canonical"]
+                                        .as_str()
+                                        .expect("canonical grant")
+                                        .get(192..256)
+                                        == Some(asset)
+                                })
+                                .expect("captured account for asset");
+                            let canonical = grant["canonical"].as_str().expect("canonical bytes");
+                            let body = json!({"jsonrpc":"2.0", "id":query["id"], "result":format!("0x{}", &canonical[64..128])});
+                            respond(&mut stream, 200, &[], body.to_string().as_bytes());
+                            continue;
+                        }
                         calls_worker
                             .lock()
                             .expect("node traffic")
@@ -837,7 +837,8 @@ impl Drop for ExchangeServer {
 #[derive(Default)]
 struct PayerTraffic {
     standing: u64,
-    views: u64,
+    account_views: u64,
+    grant_views: u64,
     issued: u64,
     submitted: u64,
 }
@@ -912,10 +913,18 @@ impl WebPayer for NodePayer {
             .map(|grant| grant.id))
     }
     fn view(&mut self, call: &PrecompileCall) -> Result<Vec<u8>, WebPayerError> {
-        self.traffic
-            .lock()
-            .map_err(|_| WebPayerError::Unavailable)?
-            .views += 1;
+        assert_eq!(call.target, PrecompileTarget::Ledger);
+        {
+            let mut traffic = self
+                .traffic
+                .lock()
+                .map_err(|_| WebPayerError::Unavailable)?;
+            match call.selector {
+                [0x3f, 0x05, 0x0c, 0xbc] => traffic.account_views += 1,
+                [0x42, 0x3f, 0xe4, 0xb2] => traffic.grant_views += 1,
+                selector => panic!("unexpected ledger view selector: {selector:?}"),
+            }
+        }
         let data = call.encode().map_err(|_| WebPayerError::Refused)?;
         self.node
             .call_pending(&call.target.address(), &data)
@@ -1021,6 +1030,7 @@ fn existing_grant_exchange(offered: bool, corrupt_receipt: bool) {
         buyer["payerDid"].as_str().expect("recorded payer"),
     );
     let mut document = fixture.binding_document(&server.address, "full");
+    drop(fixture.control);
     document["web"] = json!({
         "endpoint":server.endpoint(), "payer_address":"0xabababababababababababababababababababab",
         "receiver_address":recording("gateway/metered.json")["ledger"]["receiverAddress"], "network":"eip155:125",
@@ -1074,7 +1084,11 @@ fn existing_grant_exchange(offered: bool, corrupt_receipt: bool) {
         "host standing-grant method must survive the shared adapter"
     );
     assert_eq!(
-        traffic.views, 1,
+        traffic.account_views, 1,
+        "payer account must be resolved through WebPayer::view"
+    );
+    assert_eq!(
+        traffic.grant_views, 1,
         "existing grant must be checked through WebPayer::view"
     );
     assert_eq!(

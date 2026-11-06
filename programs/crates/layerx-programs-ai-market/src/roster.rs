@@ -77,6 +77,8 @@ pub fn health(table: &AdmissionTable) -> CodecResult<Health> {
 }
 
 /// New evaluation-dependent task admission gate.
+/// `tasks::admit` supplies the committed F08 table after exact-retry handling,
+/// before writing a new task.
 ///
 /// # Errors
 /// `F08_QUORUM_UNAVAILABLE` below three eligible frozen evaluators.

@@ -529,50 +529,53 @@ pub enum Availability {
 /// Availability of content actually decoded from the exact capture, in F01..F10 order.
 /// Unknown codec versions and malformed content remain explicit to consumers.
 pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10]> {
-    fn decoded<T>(result: CodecResult<T>, produced: bool) -> Availability {
-        match result {
-            Ok(_) if produced => Availability::Available,
-            Ok(_) => Availability::NotYetProduced,
+    fn decoded<T>(bytes: &[u8], decode: impl FnOnce() -> CodecResult<T>) -> Availability {
+        if bytes.is_empty() {
+            return Availability::NotYetProduced;
+        }
+        match decode() {
+            Ok(_) => Availability::Available,
             Err(BAD_VERSION) => Availability::UnsupportedVersion,
             Err(_) => Availability::ContentUnavailable,
         }
     }
     let shared = state::decode_shared_state(state_bytes)?;
     let mut out = [Availability::NotYetProduced; 10];
-    out[0] = decoded(policy_of(&shared), !shared.feature_sections[0].is_empty());
-    out[1] = decoded(
-        worker_table(&shared),
-        !shared.feature_sections[1].is_empty(),
-    );
+    let policy = shared.section(Section::PolicyLifecycle)?;
+    out[0] = decoded(policy, || policy_of(&shared));
+    out[1] = decoded(shared.section(Section::IdentityRoster)?, || {
+        worker_table(&shared)
+    });
     let identity = split_identity_section(shared.section(Section::IdentityRoster)?);
     out[2] = match identity {
-        Ok((_, bytes)) => decoded(
-            crate::evaluators::authority::EvaluatorRegion::decode(bytes),
-            !bytes.is_empty(),
-        ),
+        Ok((_, bytes)) => decoded(bytes, || {
+            crate::evaluators::authority::EvaluatorRegion::decode(bytes)
+        }),
+        Err(BAD_VERSION) => Availability::UnsupportedVersion,
         Err(_) => Availability::ContentUnavailable,
     };
     let reports = crate::evaluators::admission::ReportRegion::decode(
         shared.section(Section::CurrentReports)?,
     );
     out[3] = match reports {
-        Ok(reports) => decoded(
-            crate::commit_reveal::CommitRegion::decode(reports.rest()),
-            !reports.rest().is_empty(),
-        ),
+        Ok(reports) => decoded(reports.rest(), || {
+            crate::commit_reveal::CommitRegion::decode(reports.rest())
+        }),
+        Err(BAD_VERSION) => Availability::UnsupportedVersion,
         Err(_) => Availability::ContentUnavailable,
     };
     let settlement = shared.section(Section::SettlementClaims)?;
     if !settlement.is_empty() {
-        out[5] = decoded(
+        out[5] = decoded(settlement, || {
             settlement
                 .get(..crate::rewards::REWARD_STATE_BYTES)
                 .ok_or(NON_CANONICAL)
-                .and_then(crate::rewards::decode_reward_state),
-            true,
-        );
+                .and_then(crate::rewards::decode_reward_state)
+        });
         if settlement.len() > crate::rewards::REWARD_STATE_BYTES {
-            out[4] = decoded(crate::aggregation::progress(state_bytes), true);
+            out[4] = decoded(&settlement[crate::rewards::REWARD_STATE_BYTES..], || {
+                crate::aggregation::progress(state_bytes)
+            });
         }
     }
     match crate::reputation_transition::split_joint(shared.section(Section::ReputationAdmission)?) {
@@ -582,10 +585,7 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10
             } else {
                 Availability::NotYetProduced
             };
-            out[7] = decoded(
-                crate::admission::AdmissionTable::decode(table),
-                !table.is_empty(),
-            );
+            out[7] = decoded(table, || crate::admission::AdmissionTable::decode(table));
         }
         Err(BAD_VERSION) => {
             out[6] = Availability::UnsupportedVersion;
@@ -596,11 +596,12 @@ pub fn feature_availability(state_bytes: &[u8]) -> CodecResult<[Availability; 10
             out[7] = Availability::ContentUnavailable;
         }
     }
-    out[8] = decoded(
-        crate::evidence::SealRegion::decode(shared.control.feature_bytes),
-        !shared.control.feature_bytes.is_empty(),
-    );
-    out[9] = Availability::Available;
+    out[8] = decoded(shared.control.feature_bytes, || {
+        crate::evidence::SealRegion::decode(shared.control.feature_bytes)
+    });
+    if !policy.is_empty() {
+        out[9] = Availability::Available;
+    }
     Ok(out)
 }
 

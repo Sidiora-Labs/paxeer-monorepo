@@ -1,0 +1,18 @@
+[repair]
+task = "22.35.9"
+requirement = "22998.1"
+gotcha = "3231, 3242"
+decision = "2659, 2667"
+change = "Serve the maximum consensus block number through stats total_blocks as a string and chain block_count as an integer; preserve BlocksCount for its other readers."
+proof = "Real database blocks at consensus heights 10, 11 and 500 and non-consensus height 600 produce total_blocks 500 and rendered block_count 500; no consensus blocks produce zero."
+controller_request = "Initialize the browser session and endpoint metadata, bypass through WebRouter's browser pipeline with a GET of /, then call the real ChainController show action; WebRouter is dispatched directly because the test endpoint does not forward to the disabled web application."
+
+[qualification]
+policy = "Results are recorded by reference; this file is finalized before formatting and gates and is not amended afterward."
+ledger = "/out/run/gates.jsonl"
+build = "The final passing build entry in /out/run/gates.jsonl names the exact revision, command, exit code and private /out/logs/build-N.log."
+verify = "The final verify entry in /out/run/gates.jsonl names the exact revision, command, exit code and private /out/logs/verify-N.log."
+verified_revision = "The revision of the final passing verify entry in the gate ledger; the build entry must name the same revision."
+build_command = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_command = "cg spec done 22.35.9 -f layerx-merge --root /work/paxeer-monorepo"
+behavior_command = "services/explorer/deploy/tools/mix-in-builder.sh test apps/block_scout_web/test/repair/repair_22_35_9_test.exs apps/block_scout_web/test/block_scout_web/controllers/api/v2/stats_controller_test.exs"

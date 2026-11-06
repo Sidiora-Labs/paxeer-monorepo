@@ -490,17 +490,21 @@ pub fn payer_binding_bypass() {
         fixed::<32>(&document["web"]["sequencer_id"]),
         keys[1].key_id
     );
-    let published_keys = document["web"]["receipt_key_index"]
+    let mut rpc_keys = document["web"]["receipt_key_index"]
         .as_array()
         .expect("published governed keys")
-        .iter()
-        .map(|key| ReceiptKeyEntry {
-            key_id: fixed(&key["keyId"]),
-            public_key: fixed(&key["publicKey"]),
-            first_height: key["firstHeight"].as_u64().expect("first height"),
-            last_height: key["lastHeight"].as_u64().expect("last height"),
-        })
-        .collect::<Vec<_>>();
+        .clone();
+    for key in &mut rpc_keys {
+        for field in ["keyId", "publicKey"] {
+            key[field] = json!(format!(
+                "0x{}",
+                key[field].as_str().expect("binding receipt key digest")
+            ));
+        }
+    }
+    let published_keys = must(layerx_client::sequencer::decode_receipt_keys(&json!({
+        "keys": rpc_keys,
+    })));
     assert_eq!(published_keys, keys);
     for (case, call) in [
         (&exact, exact_call(&exact)),

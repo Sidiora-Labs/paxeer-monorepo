@@ -1,3 +1,7 @@
+#[path = "support/protocol_time.rs"]
+mod protocol_time;
+use protocol_time::ProtocolTime;
+
 use layerx_client::rpc::evidence::checkpoint;
 use layerx_client::runtime_clock::RuntimeClock;
 use layerx_client::sequencer::SequencerEndpoint;
@@ -97,7 +101,7 @@ fn frame_limits() -> FrameLimits {
         deadline: Duration::from_secs(8),
     }
 }
-fn clock(fixture: &Value) -> (u64, u64) {
+fn clock(fixture: &Value) -> ProtocolTime {
     let runtime_clock = checked(RuntimeClock::from_environment());
     let mut agent = runtime_with_clock(
         fixture,
@@ -107,6 +111,11 @@ fn clock(fixture: &Value) -> (u64, u64) {
         runtime_clock.clone(),
     );
     let head = checked(agent.head());
+    clock_at(fixture, head.chain_sequence)
+}
+
+fn clock_at(fixture: &Value, height: u64) -> ProtocolTime {
+    let runtime_clock = checked(RuntimeClock::from_environment());
     let listener = checked(TcpListener::bind("127.0.0.1:0"));
     let endpoint = checked(SequencerEndpoint::new(
         &format!("http://{}/", checked(listener.local_addr())),
@@ -114,7 +123,6 @@ fn clock(fixture: &Value) -> (u64, u64) {
     ));
     checked(listener.set_nonblocking(true));
     let upstream = text(fixture, "rpc_url").to_owned();
-    let height = head.chain_sequence;
     let server = std::thread::spawn(move || {
         let mut deadline = checked(Deadline::start(
             runtime_clock.as_ref(),
@@ -182,14 +190,8 @@ fn clock(fixture: &Value) -> (u64, u64) {
     });
     let observed = checked(checkpoint(&endpoint, height));
     checked(server.join());
-    assert_eq!(observed.number, head.chain_sequence);
-    (
-        observed
-            .timestamp
-            .checked_mul(1_000)
-            .expect("protocol milliseconds"),
-        observed.number,
-    )
+    assert_eq!(observed.number, height);
+    ProtocolTime::from_block(&observed)
 }
 
 fn store(fixture: &Value) -> PrincipalStore {
@@ -650,7 +652,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &scope,
             &mut agent,
             id(text(case, "capability_id")),
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
         checked(
             agent.bind_native_journey_context(
@@ -664,7 +666,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &mut scope,
             &plan,
             &registry,
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
         let signer = custody(&fixture, &registry);
         for _ in 0..3 {
@@ -678,7 +680,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 &signer,
                 &registry,
                 &trace,
-                clock(&fixture).0,
+                clock(&fixture).seconds,
             )));
         }
         assert_eq!(
@@ -805,7 +807,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 wrong_digest,
                 text(case, "decision_key"),
                 true,
-                clock(&fixture).1
+                clock(&fixture).height
             )
             .is_err());
         let mut foreign = runtime(
@@ -838,15 +840,24 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &scope,
             &mut agent,
             id(text(case, "capability_id")),
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
+        checked(
+            context
+                .session
+                .validate(&scope, context.session.expires_at_ms / 1_000 - 1),
+        );
+        assert!(context
+            .session
+            .validate(&scope, context.session.expires_at_ms.div_ceil(1_000))
+            .is_err());
         checked(agent.bind_native_journey_context(context, purpose.purpose.expires_at_ms));
         assert_eq!(
             checked(JourneyEngine::start_native(
                 &mut scope,
                 &plan,
                 &registry,
-                clock(&fixture).0
+                clock(&fixture).seconds
             ))
             .native_approval_binding(),
             Some((approval, digest))
@@ -859,12 +870,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 runtime_clock.as_ref(),
                 Duration::from_secs(45),
             ));
-            while clock(&fixture)
-                .0
-                .checked_mul(1000)
-                .expect("protocol time bound")
-                < expires
-            {
+            while clock(&fixture).milliseconds < expires {
                 assert!(
                     !checked(deadline.remaining(runtime_clock.as_ref())).is_zero(),
                     "genuine fixture expiry must be within bounded window"
@@ -877,7 +883,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             digest,
             text(case, "decision_key"),
             index != 1,
-            clock(&fixture).1,
+            clock(&fixture).height,
         ));
         assert_eq!(
             decided.state,
@@ -896,7 +902,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &signer,
             &registry,
             &trace,
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         )));
         assert_eq!(
             checked(engine.status()).phases(),
@@ -948,7 +954,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 &signer,
                 &registry,
                 &trace,
-                clock(&fixture).0,
+                clock(&fixture).seconds,
             )));
             assert_eq!(checked(engine.status()).phases(), [JourneyPhase::Signed]);
             let signed = journal(&scope, case);

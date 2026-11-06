@@ -13,6 +13,25 @@ fn must<T, E: Debug>(result: Result<T, E>, what: &str) -> T {
     result.unwrap_or_else(|error| panic!("{what}: {error:?}"))
 }
 
+pub(crate) fn node_authority(
+    config: &layerx_agentd::config::StartupConfig,
+    node: &NodeRpc,
+) -> layerx_agentd::protocol_evidence::EvidenceAuthority {
+    let mut gate = must(Gate::new(config), "protected authority");
+    assert!(gate.guard_write(|| ()).is_err());
+    let status = must(gate.readiness_gate(node), "current node readiness");
+    assert_eq!(status.chain_id, config.expected_chain_id);
+    let keys = status.receipt_keys.clone();
+    let authority = must(
+        must(gate.evidence_authority(), "ready authority")
+            .clone()
+            .with_receipt_keys(keys),
+        "governed receipt authority",
+    );
+    assert_eq!(gate.guard_write(|| ()), Ok(()));
+    authority
+}
+
 fn repository_root() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest.ancestors().nth(4).map_or_else(

@@ -15,7 +15,7 @@ from urllib.parse import urlsplit
 
 
 ROOT = Path(__file__).resolve().parents[3]
-INSTALL_PATH = "services/platform/docs/content/install.md"
+INSTALL_PATH = "docs/platform/content/install.md"
 CLI = "tools/platform/cli/"
 RECORD = Path(__file__).with_name("repair_22_33_1500.kvx")
 

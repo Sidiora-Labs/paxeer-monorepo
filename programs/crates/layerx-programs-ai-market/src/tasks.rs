@@ -798,6 +798,10 @@ fn admit(call: &Call<'_>, buffers: Buffers<'_>) -> CodecResult<Outcome> {
     let windows = call.check_work()?;
     let height = call.ctx.height;
     check_frozen_worker(&opened.state, &opened.rewards, binding, &body, height)?;
+    let (_, table) = crate::reputation_transition::split_joint(
+        opened.state.feature_sections[Section::ReputationAdmission.index()],
+    )?;
+    crate::roster::require_quorum(&AdmissionTable::decode(table)?)?;
     let policy = &opened.section.current;
     if opened.set.len() >= usize::from(policy.max_tasks_per_epoch) {
         return Err(F01_NO_TASK_CAPACITY);
