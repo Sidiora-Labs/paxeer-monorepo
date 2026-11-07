@@ -150610,7 +150610,7 @@ do_3 = "Attempt 3 (requalify, gotcha 3322, decision 2717): the attempt-2 tree st
 
 [task.22.37.27]
 title = "Run the released source system and close the release with restore and publication reconciliation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 4
 requires = ["22.36.1", "22.37.26", "22.37.25"]
