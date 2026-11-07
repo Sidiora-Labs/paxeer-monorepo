@@ -33499,3 +33499,19 @@ symbol = "layout_receipt_gate_test.py"
 observed = "Attempt 2 at d80dd7ef9388: build 1 exit 0, verify 1 exit 1: layout_receipt_gate_test.py passed twelve cases; 0_9.py printed status BLOCKED with checks 5, regressions 0 and missing_evidence 35 (one aggregation-input, 29 follow-on-authorization, five task-runtime-receipt) and exit 2."
 assumption = "The aggregation input and the follow-on allowlist are derivable from the repository history at the final revision; the five driver receipts are outside any task of this feature and the pending check keeps the case honest about them."
 severity = "high"
+
+[finding.22.31.612.1]
+task = "22.31.612"
+file = "tools/qualification/audit_repairs/test_repair_22_31_612.py"
+symbol = "test_repair_22_31_612.py"
+observed = "Attempt 1 at 217fb415fd43: build 1 exit 0 at 6990b432 and verify 1 exit 0 at 217fb415 (fifteen cases passed, every graph check green, drift of 23 generated paths named); publication refused because the built revision differs from the verified revision."
+assumption = "The lockfile was committed after the build; without it the tree is the attempt-1 work and the two steps run on one revision."
+severity = "high"
+
+[finding.22.37.18.1]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 1 at 7b7ced4f9328: build 2 exit 0, verify 2 exit 1: the routing module, runners and image builder suites and the native outage case failed to resolve the source-control SDK package (dist entries never built; the ssr resolve block is missing from the plugin vitest configuration), and the two legacy lockfile cases of queue.test.ts failed with status held and the reason Merge conflict: platform/pnpm-lock.yaml at the base tree as well as at the attempt tree."
+assumption = "The resolution failure is one configuration line proven by the graph plugin, and the legacy lockfile mismatch is pre-existing at the base tree and inside the touches of this task."
+severity = "high"
