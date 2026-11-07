@@ -331452,7 +331452,7 @@ do_4 = "Attempt 2 (continue, gotcha 3420, decisions 2762 and 2796, after 22.31.6
 
 [task.22.39.25]
 title = "Retire the two tests/ci modules that pytest never collects and whose inputs are gone"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
