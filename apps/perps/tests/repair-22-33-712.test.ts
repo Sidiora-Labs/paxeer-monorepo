@@ -38,8 +38,6 @@ const repairRecord = {
   "spot-stream-fetch-cancellation": "spotStreamFetchCancellation",
   "registry-spot-state": "registrySpotState",
   "spot-user-frame-selection": "spotUserFrameSelection",
-  wiring:
-    "Domain 3: reconcile spec/layerx-merge/interfaces.kvx row 3.ts-perps-hooks-usespottokenstate-j27 with contracts/perps-client.md#hooks (outside scope).",
 };
 
 // Use the installed React reconciler with an in-memory host, as repair-22-33-11 does.
@@ -817,8 +815,14 @@ async function spotUserFrameSelection() {
 // or external toolchain is involved, and the parent owns the loopback RPC endpoint.
 async function tokenStateWorker() {
   configure(workerData.origin as string);
-  const { useSpotTokenState } =
-    await import("../src/hooks/spot/useSpotTokenState");
+  const { useSpotTokenState, spotTokenStateQueryOptions } = await import(
+    "../src/hooks/spot/useSpotTokenState"
+  );
+  const options = spotTokenStateQueryOptions(TOKEN);
+  assert.deepEqual(options.queryKey, ["spot", "tokenState", TOKEN, false]);
+  assert.equal(options.retry, false);
+  assert.equal(options.retryOnMount, false);
+  assert.equal(options.refetchInterval, 8_000);
   const queries = new QueryClient({
     defaultOptions: { queries: { gcTime: Infinity } },
   });
@@ -888,8 +892,19 @@ async function registrySpotState() {
     /While the initial read is loading, both fields are null/,
   );
   assert.match(hooks, /failed read makes it unavailable/);
-  assert.match(hooks, /3\.ts-perps-hooks-usespottokenstate-j27/);
-  assert.equal(Object.keys(repairRecord).length, 6);
+  assert.match(hooks, /`native` defaults to `false`/);
+  assert.match(
+    hooks,
+    /Native reads resolve\s+the PAX pointer before reading the vault/,
+  );
+  assert.match(hooks, /Queries do not retry and\s+refresh every eight seconds/);
+  assert.deepEqual(repairRecord, {
+    "spot-portfolio-address-state": "spotPortfolioAddressState",
+    "spot-snapshot-live-ordering": "spotSnapshotLiveOrdering",
+    "spot-stream-fetch-cancellation": "spotStreamFetchCancellation",
+    "registry-spot-state": "registrySpotState",
+    "spot-user-frame-selection": "spotUserFrameSelection",
+  });
   const worker = new Worker(new URL(import.meta.url), {
     workerData: { origin },
     execArgv: ["--import", "tsx"],
@@ -941,8 +956,9 @@ if (isMainThread) {
     origin = `http://127.0.0.1:${(gateway.server.address() as AddressInfo).port}`;
     configure(origin);
     // All application modules, including RPC ABIs, are imported after fixture URLs.
-    const { pecorVaultAbi } =
-      await import("../src/core/network/spot_abi/PECORVault");
+    const { pecorVaultAbi } = await import(
+      "../src/core/network/spot_abi/PECORVault"
+    );
     const { pecorAbi } = await import("../src/core/network/spot_abi/PECOR");
     gateway.rpcResult = (data) => {
       try {

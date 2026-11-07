@@ -79,35 +79,35 @@ export class EndpointClient {
   }
 
   private isHosted(method: string): boolean {
-    return method.startsWith('px_') && method !== 'px_getReceiptKeys';
+    return method === 'px_register' || method === 'px_requestFunds';
   }
 
   async resolveAccount(account: string): Promise<UnifiedAccountDocument> {
-    return decodeAccountDocument(await this.hosted().call('px_resolveAccount', [account]));
+    return decodeAccountDocument(await this.rpc.call('px_resolveAccount', [account]));
   }
 
   async getChainAccount(address: string): Promise<ChainAccount> {
-    return decodeChainAccount(await this.hosted().call('px_getAccount', [address]), address);
+    return decodeChainAccount(await this.rpc.call('px_getAccount', [address]), address);
   }
 
   async listBankAssets(): Promise<AssetPage> {
-    return decodeBankAssetPage(await this.hosted().call('px_listAssets', []));
+    return decodeBankAssetPage(await this.rpc.call('px_listAssets', []));
   }
 
   async getRouteCatalogue(): Promise<RouteCatalogue> {
-    return decodeRouteCatalogue(await this.hosted().call('px_getRouteCatalogue', []));
+    return decodeRouteCatalogue(await this.rpc.call('px_getRouteCatalogue', []));
   }
 
   async getCapabilities(): Promise<Capabilities> {
-    return decodeCapabilities(await this.hosted().call('px_getCapabilities', []));
+    return decodeCapabilities(await this.rpc.call('px_getCapabilities', []));
   }
 
   async getNetwork(): Promise<NetworkHead> {
-    return decodeNetwork(await this.hosted().call('px_getNetwork', []));
+    return decodeNetwork(await this.rpc.call('px_getNetwork', []));
   }
 
   async getBankBalances(address: string): Promise<Balances> {
-    return decodeBankBalances(await this.hosted().call('px_getBalances', [address]));
+    return decodeBankBalances(await this.rpc.call('px_getBalances', [address]));
   }
 
   async getChainHistory(
@@ -124,7 +124,7 @@ export class EndpointClient {
       throw new RangeError('history limit must be an integer from 1 to 100');
     }
     return decodeChainHistoryPage(
-      await this.hosted().call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])
+      await this.rpc.call('px_getUnifiedHistory', [address, cursor, query.limit ?? null, null])
     );
   }
 

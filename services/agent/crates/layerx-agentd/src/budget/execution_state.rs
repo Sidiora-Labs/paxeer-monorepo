@@ -11,7 +11,7 @@ use sha2::{Digest as _, Sha256};
 use std::collections::BTreeMap;
 
 #[derive(Clone, Debug)]
-pub(crate) struct CommittedExecutionState {
+pub struct CommittedExecutionState {
     pub(super) block_number: u64,
     pub(super) block_hash: [u8; 32],
     pub(super) prestate_height: u64,
@@ -201,6 +201,61 @@ pub(crate) fn committed_execution_state(
     _correlation: u64,
     _authorization: SequencerAuthorization,
 ) -> Result<CommittedExecutionState, ProgramSettlementError> {
+    committed_execution_state_with_account_proofs(
+        node,
+        _verifier,
+        _sequencer_key,
+        endpoint,
+        caps,
+        receipt,
+        program,
+        accounts,
+        _correlation,
+        _authorization,
+        &BTreeMap::new(),
+    )
+}
+
+/// Acquires receipt-bound prestate with separately authenticated account status.
+pub fn committed_execution_state_with_account_proofs(
+    node: &mut SequencerEndpoint,
+    _verifier: &EvidenceAuthority,
+    _sequencer_key: [u8; 32],
+    endpoint: &SequencerEndpoint,
+    caps: &crate::read::CommittedCaps,
+    receipt: &VerifiedReceiptEvidence,
+    program: [u8; 32],
+    accounts: &[[u8; 32]],
+    _correlation: u64,
+    _authorization: SequencerAuthorization,
+    account_proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+) -> Result<CommittedExecutionState, ProgramSettlementError> {
+    acquire_execution_state(
+        node,
+        endpoint,
+        caps,
+        receipt.canonical_receipt(),
+        receipt.activity_id(),
+        receipt.global_sequence(),
+        receipt.receipt_ref(),
+        program,
+        accounts,
+        account_proofs,
+    )
+}
+
+pub(super) fn acquire_execution_state(
+    node: &mut SequencerEndpoint,
+    endpoint: &SequencerEndpoint,
+    caps: &crate::read::CommittedCaps,
+    canonical_receipt: &[u8],
+    activity_id: [u8; 32],
+    global_sequence: u64,
+    receipt_ref: [u8; 32],
+    program: [u8; 32],
+    accounts: &[[u8; 32]],
+    account_proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+) -> Result<CommittedExecutionState, ProgramSettlementError> {
     let fail = |_| ProgramSettlementError::SourceSnapshot;
     let observed_head = endpoint.block_number().map_err(fail)?;
     if node.chain_id().map_err(fail)? != endpoint.chain_id().map_err(fail)?
@@ -210,14 +265,14 @@ pub(crate) fn committed_execution_state(
         return Err(ProgramSettlementError::SourceSnapshot);
     }
     let observed = endpoint
-        .sequencer_receipt(&receipt.activity_id())
+        .sequencer_receipt(&activity_id)
         .map_err(fail)?
         .ok_or(ProgramSettlementError::SourceSnapshot)?;
     let (block_number, block_hash) = committed_coordinates(
         &observed,
-        receipt.canonical_receipt(),
-        receipt.activity_id(),
-        receipt.global_sequence(),
+        canonical_receipt,
+        activity_id,
+        global_sequence,
         caps.level(),
         observed_head,
     )?;
@@ -234,9 +289,15 @@ pub(crate) fn committed_execution_state(
     let prestate_height = block_number - 1;
     let reads = crate::read::CommittedReads::open(node, prestate_height)
         .map_err(|_| ProgramSettlementError::SourceSnapshot)?;
-    let program_records = read_program_records(node, reads.checkpoint(), program, accounts)?;
+    let program_records = read_program_records_with_account_proofs(
+        node,
+        reads.checkpoint(),
+        program,
+        accounts,
+        account_proofs,
+    )?;
     let prestate_block_hash = reads.checkpoint().block_hash;
-    let balances = if program_records.program.is_some() {
+    let mut balances = if program_records.program.is_some() {
         Some(
             crate::read::program_balances_from_protocol(
                 endpoint,
@@ -249,6 +310,18 @@ pub(crate) fn committed_execution_state(
     } else {
         None
     };
+    if let Some(balances) = &mut balances {
+        for value in &mut balances.accounts {
+            let account = program_records
+                .accounts
+                .get(&value.account)
+                .ok_or(ProgramSettlementError::SourceSnapshot)?;
+            if value.asset != account.asset || value.amount != account.balance {
+                return Err(ProgramSettlementError::SourceSnapshot);
+            }
+            value.frozen = Some(account.frozen);
+        }
+    }
     if endpoint.block_number().map_err(fail)? != observed_head
         || node.block_number().map_err(fail)? != observed_head
         || endpoint
@@ -269,11 +342,11 @@ pub(crate) fn committed_execution_state(
         program_records,
         accounts: caps.all_accounts().clone(),
         observed_head_sequence: observed_head,
-        activity_id: receipt.activity_id(),
-        global_sequence: receipt.global_sequence(),
-        receipt_ref: receipt.receipt_ref(),
+        activity_id: activity_id,
+        global_sequence: global_sequence,
+        receipt_ref: receipt_ref,
     };
-    state.validate_receipt(receipt)?;
+    state.validate_binding(activity_id, global_sequence, receipt_ref)?;
     Ok(state)
 }
 
@@ -417,6 +490,16 @@ pub(crate) fn read_program_records(
     program: [u8; 32],
     accounts: &[[u8; 32]],
 ) -> Result<CommittedProgramRecords, ProgramSettlementError> {
+    read_program_records_with_account_proofs(node, checkpoint, program, accounts, &BTreeMap::new())
+}
+
+pub(crate) fn read_program_records_with_account_proofs(
+    node: &SequencerEndpoint,
+    checkpoint: &crate::read::ServedCheckpoint,
+    program: [u8; 32],
+    accounts: &[[u8; 32]],
+    account_proofs: &BTreeMap<[u8; 32], layerx_proof::state::VerifiedAccountState>,
+) -> Result<CommittedProgramRecords, ProgramSettlementError> {
     if program == [0; 32] || accounts.len() > layerx_programs::MAX_PROGRAM_VALUE_ACCOUNTS {
         return Err(ProgramSettlementError::SourceSnapshot);
     }
@@ -549,13 +632,32 @@ pub(crate) fn read_program_records(
         if bytes.len() != 64 {
             return Err(ProgramSettlementError::SourceSnapshot);
         }
+        let observed = decode_program_value_observation(&bytes)?;
+        if !observed.exists {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
+        let proof = account_proofs
+            .get(account)
+            .ok_or(ProgramSettlementError::AccountStatusUnavailable)?;
+        let authenticated = proof.account();
+        let header = proof.header().header();
+        if authenticated.account_id != *account
+            || authenticated.kind != 13
+            || authenticated.authority_key.is_some()
+            || authenticated.asset_id() != asset
+            || authenticated.balance() != observed.balance
+            || header.batch_number() != checkpoint.height
+            || header.resulting_state_root() != checkpoint.app_hash
+        {
+            return Err(ProgramSettlementError::SourceSnapshot);
+        }
         let value = ProgramAccountView {
             program,
             asset,
             seed,
             registered_sequence,
-            balance: abi_uint(&bytes, 0, 16)?,
-            frozen: abi_bool(&bytes, 1)?,
+            balance: observed.balance,
+            frozen: authenticated.frozen,
         };
         bindings.insert(*account, value);
         if wind_down.status >= 2 {
@@ -790,4 +892,25 @@ mod tests {
             );
         }
     }
+}
+
+/// Committed getValueAccount observations do not authenticate a frozen flag.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct ProgramValueObservation {
+    pub balance: u128,
+    pub exists: bool,
+}
+
+pub fn decode_program_value_observation(
+    bytes: &[u8],
+) -> Result<ProgramValueObservation, ProgramSettlementError> {
+    if bytes.len() != 64 {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
+    let balance = abi_uint(bytes, 0, 16)?;
+    let exists = abi_bool(bytes, 1)?;
+    if !exists && balance != 0 {
+        return Err(ProgramSettlementError::SourceSnapshot);
+    }
+    Ok(ProgramValueObservation { balance, exists })
 }

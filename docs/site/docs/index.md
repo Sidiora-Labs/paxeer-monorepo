@@ -80,10 +80,10 @@ curl --fail --silent --show-error --max-time 30 \
 ```
 
 The expected chain ID result is `"0x7d"`. Node namespaces include `debug`,
-`echo`, `eth`, `net`, `pax`, `test`, and `txpool`; availability also depends on
-node configuration. Hosted `px_` methods are described by
-`services/platform/hosted/gateway/openrpc.json`; they are gateway methods, not a
-promise that every node exposes them. `node.hyperpaxeer.com` is the hpx library mirror
+`echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`; availability also depends on
+node configuration. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. `node.hyperpaxeer.com` is the hpx library mirror
 used by build tooling, not a transaction endpoint.
 
 ## Fees
@@ -123,8 +123,6 @@ See [Assets and tokens](concepts/assets.md) for asset-specific material.
 - [SDK terminal verification](agents/sdk-verification.md)
 - [Portable receipt verifier](interop/portable-receipts.md)
 - [x402 transport](interop/x402.md)
-- [402LXP protocol](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/protocol.md)
-- [402LXP RPC verification guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/README.md)
 - [Agentd](agents/agentd.md)
 - [CLI](platform/cli.md)
 - [Hosted core](platform/hosted-core.md)

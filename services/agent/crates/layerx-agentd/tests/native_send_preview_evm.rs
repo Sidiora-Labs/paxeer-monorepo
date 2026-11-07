@@ -240,6 +240,22 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
     }
 
     must(binding.verify());
+    let key_id: [u8; 32] = Sha256::digest(binding.public_key()).into();
+    assert_ne!(key_id, [0; 32]);
+    let keys = json!({"keys": [{
+        "keyId": format!("0x{}", hex::encode(key_id)),
+        "publicKey": format!("0x{}", hex::encode(binding.public_key())),
+        "firstHeight": 1,
+        "lastHeight": HEAD + 1000
+    }]});
+    let decoded = must(layerx_client::sequencer::decode_receipt_keys(&keys));
+    assert_eq!(decoded.len(), 1);
+    assert_eq!(decoded[0].key_id, key_id);
+    assert_eq!(decoded[0].public_key, binding.public_key());
+    assert!((decoded[0].first_height..=decoded[0].last_height).contains(&HEAD));
+    let checkpoint_reads: Vec<Value> = must(serde_json::from_str(include_str!(
+        "support/human_budget_checkpoint.json"
+    )));
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let url = format!("http://{}/", must(listener.local_addr()));
     must(listener.set_nonblocking(true));
@@ -255,6 +271,16 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
             let result = if method == "eth_sendRawTransaction" || method == "eth_sendTransaction" {
                 writes.fetch_add(1, Ordering::SeqCst);
                 panic!("prepare attempted to broadcast: {method}");
+            } else if method == "px_getReceiptKeys" {
+                assert_eq!(request["params"], json!([]));
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":keys})
+            } else if method == "px_getCommit" || method == "px_getValidators" {
+                assert_eq!(request["params"], json!([HEAD.to_string()]));
+                let recorded = checkpoint_reads
+                    .iter()
+                    .find(|read| read["method"] == method && read["params"] == request["params"])
+                    .expect("checkpoint RPC recorded at the fixture head");
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":recorded["result"]})
             } else if method == "eth_call"
                 && request["params"][0]["to"]
                     == format!(
@@ -330,8 +356,18 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
                     panic!("unsupported fee read");
                 };
                 json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(answer))})
-            } else {
+            } else if matches!(
+                method,
+                "eth_chainId"
+                    | "eth_blockNumber"
+                    | "eth_getBlockByNumber"
+                    | "eth_getTransactionCount"
+                    | "eth_getBalance"
+                    | "eth_estimateGas"
+            ) {
                 rpc(&upstream, &request)
+            } else {
+                panic!("unexpected chain read: {method}: {request}");
             };
             http_response(&mut stream, &result);
         }
@@ -574,6 +610,19 @@ impl Fixture {
             authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
         };
         let (mut authority, authority_worker) = authority_peer(peer.clone(), identity, activity);
+        let resolved = must(authority.core_identity(&peer, &did));
+        assert_eq!(resolved.canonical_bytes, public_key);
+        assert_eq!(resolved.head_sequence, HEAD);
+        assert_eq!(resolved.revocation_sequence, 1);
+        assert_eq!(
+            resolved.verification_level,
+            layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED
+        );
+        assert!(!resolved.frozen);
+        assert_eq!(
+            resolved.authorities,
+            vec![ProtocolAuthority::PrimaryKey(public_key)]
+        );
         let mut store = must(Store::open(root.join("store")));
         let identity = must(identity::register(
             &mut store,
@@ -629,6 +678,12 @@ impl Fixture {
             deadline: Duration::from_secs(3),
         }));
         let node_head = must(endpoint.block_number());
+        assert_eq!(node_head, HEAD);
+        assert_eq!(
+            must(chain.bound_address(&public_key)),
+            Some(account.evm_address()),
+            "the pending addr-precompile binding must resolve the consent key"
+        );
         let mut operations = must(ProductionHumanOperations::new(
             authority,
             must(SequencerEndpoint::new(&url, &[])),
@@ -707,6 +762,17 @@ impl Fixture {
     ) -> (
         HumanPrepare,
         layerx_agent_api::identity::NativeLocalGrantConsentV1,
+    ) {
+        let (prepare, consent, _) = self.request_with_payload_expiry();
+        (prepare, consent)
+    }
+
+    fn request_with_payload_expiry(
+        &self,
+    ) -> (
+        HumanPrepare,
+        layerx_agent_api::identity::NativeLocalGrantConsentV1,
+        u64,
     ) {
         use layerx_agentd::capability::binding::SignedNativeLocalGrantV1;
         use layerx_agentd::capability::timed::{
@@ -822,6 +888,7 @@ impl Fixture {
                 capability_id: Some([8; 32]),
             },
             consent,
+            debit.expires_at,
         )
     }
 

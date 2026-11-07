@@ -2,10 +2,6 @@ import { parseHttpsUrl } from '@/domains/shared';
 
 export const EXTERNAL_NAVIGATION_ORIGINS: ReadonlySet<string> = new Set([
   'https://app.hyperpax.xyz',
-  'https://app.webpoints.app',
-  'https://colosseum.hyperpaxeer.com',
-  'https://crossverse.app',
-  'https://dao.hyperpaxeer.com',
   'https://kindlelaunch.com',
   'https://paxscan.io',
   'https://t.me',
@@ -34,7 +30,11 @@ export function openExplorerPath(path = ''): boolean {
   if (typeof window === 'undefined') return false;
   if (path && (!path.startsWith('/') || path.startsWith('//'))) return false;
   const url = new URL(`/explorer${path}`, window.location.origin);
-  if (url.origin !== window.location.origin || (url.pathname !== '/explorer' && !url.pathname.startsWith('/explorer/'))) return false;
+  if (
+    url.origin !== window.location.origin ||
+    (url.pathname !== '/explorer' && !url.pathname.startsWith('/explorer/'))
+  )
+    return false;
   const opened = window.open(url.toString(), '_blank', 'noopener,noreferrer');
   if (opened) opened.opener = null;
   return opened !== null;

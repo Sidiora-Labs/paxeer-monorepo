@@ -40,6 +40,11 @@ describes enforcement and portable offline evidence.
 
 ## Release checks
 
+The [inference market guides](inference-market/README.md) cover rooms, F11,
+operator and client flows, and the development attestation limits. They describe
+the planned contract and identify surfaces still pending at this revision;
+the compatibility matrix above does not establish F11 availability.
+
 From the repository root, `make agent-test-agentd-migration` runs the daemon's
 [`migration`](../../services/agent/crates/layerx-agentd/tests/migration.rs) integration target,
 including `verify_published` and unsupported-tuple refusals, and then

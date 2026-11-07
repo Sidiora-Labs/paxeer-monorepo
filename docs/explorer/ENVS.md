@@ -300,7 +300,7 @@ Settings for meta tags, OG tags and SEO
 
 | Variable | Type | Description | Compulsoriness  | Default value | Example value | Version |
 | --- | --- | --- | --- | --- | --- | --- |
-| NEXT_PUBLIC_VIEWS_ADDRESS_IDENTICON_TYPE | `"github" \| "jazzicon" \| "gradient_avatar" \| "blockie" \| "nouns"` | Default style of address identicon appearance. Choose between [GitHub](https://github.blog/2013-08-14-identicons/), [Metamask Jazzicon](https://metamask.github.io/jazzicon/), [Gradient Avatar](https://github.com/varld/gradient-avatar), [Ethereum Blocky](https://mycryptohq.github.io/ethereum-blockies-base64/) and [Nouns](https://nouns.wtf) | - | `blockie` | `gradient_avatar` | v1.12.0+ |
+| NEXT_PUBLIC_VIEWS_ADDRESS_IDENTICON_TYPE | `"github" \| "jazzicon" \| "gradient_avatar" \| "blockie" \| "nouns"` | Default style of address identicon appearance. Choose between [GitHub](https://github.blog/2013-08-14-identicons/), [Metamask Jazzicon](https://metamask.github.io/jazzicon/), Gradient Avatar, [Ethereum Blocky](https://mycryptohq.github.io/ethereum-blockies-base64/) and [Nouns](https://nouns.wtf) | - | `blockie` | `gradient_avatar` | v1.12.0+ |
 | NEXT_PUBLIC_VIEWS_ADDRESS_FORMAT | `Array<"base16" \| "bech32">` | Displayed address format, could be either `base16` standard or [`bech32`](https://github.com/bitcoin/bips/blob/master/bip-0173.mediawiki#bech32) standard. If the array contains multiple values, the address format toggle will appear in the UI, allowing the user to switch between formats. The first item in the array will be the default format. | - | `'["base16"]'` | `'["bech32", "base16"]'` | v1.36.0+ |
 | NEXT_PUBLIC_VIEWS_ADDRESS_BECH_32_PREFIX | `string` | Human-readable prefix of `bech32` address format. | Required, if `NEXT_PUBLIC_VIEWS_ADDRESS_FORMAT` contains "bech32" value | - | `duck` | v1.36.0+ |
 | NEXT_PUBLIC_VIEWS_ADDRESS_HIDDEN_VIEWS | `Array<AddressViewId>` | Address views that should not be displayed. See below the list of the possible id values.  | - | - | `'["top_accounts"]'` | v1.15.0+ |
@@ -1017,8 +1017,8 @@ This feature allows to display widgets on the address page with data from 3rd pa
 
 #### Address 3rd party widget configuration properties
 
-| Property | Type | Description | Compulsoriness | Example value |
-| --- | --- | --- | --- | --- |
+| Property | Type | Description | Compulsoriness | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
 | name | `string` | Displayed name of the widget | Required | - | `'Widget'` |
 | url | `string` | Link URL for widget card. Can contain `{address}`, `{addressLowercase}` and `{chainId}` variables | Required | - | `'https://example.com/widget/{address}?chainId={chainId}'` |
 | icon | `string` | Widget icon URL | Required | - | `'https://example.com/icon.svg'` |
@@ -1042,10 +1042,10 @@ This feature enables cross-chain transactions pages and views on ZetaChain insta
 | NEXT_PUBLIC_ZETACHAIN_EXTERNAL_SEARCH_CONFIG | `Array<{ regex: string; template: string }>` | List of objects with regex, template and name fields to build redirect links for external searches. The first matching regex will be used to generate the URL from the provided hash. | - | - | `'[{"regex":"^0x[0-9a-fA-F]{64}$","template":"https://example.com/cosmos/tx/{hash}","name":"Cosmos SDK style transaction"}]'` | v2.4.0+ |
 
 
-#### ZetaChain supported cain configuration properties
+#### ZetaChain supported chain configuration properties
 
-| Property | Type | Description | Compulsoriness | Example value |
-| --- | --- | --- | --- | --- |
+| Property | Type | Description | Compulsoriness | Default value | Example value |
+| --- | --- | --- | --- | --- | --- |
 | chain_id | `string` | Id of the chain | Required | - | `'11155111'` |
 | chain_name | `string` | Displayed name of the chain | Required | - | `'Sepolia Testnet'` |
 | chain_logo | `string` | Chain logo URL. Image should be at least 40x40 px  | - | - | `'https://example.com/logo.svg'` |

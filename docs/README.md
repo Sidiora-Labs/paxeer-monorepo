@@ -13,9 +13,9 @@ in the database, rather than separately deployed networks.
 
 Start integrations with the public node JSON-RPC at the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`. The hosted gateway's `px_` methods are
-defined in its OpenRPC contract; that contract does not imply those methods
-are available on every public node.
+`api14.mainnet-beta.paxeer.network`. The node serves the `px` namespace at
+the same root; `px_register` and `px_requestFunds` are hosted identity and
+faucet operations defined in the gateway OpenRPC contract.
 The former router and separate LayerX interface are retired.
 
 The historical references below retain useful background, but their pre-merge
@@ -49,7 +49,7 @@ node reference and checked-in gateway contract for current integrations.
 | [paxeer-chain-docs.md](paxeer-chain-docs.md) | Chain documentation index: Swagger/OpenAPI and EVM JSON-RPC notes; pre-merge boundary descriptions are historical |
 | [evm_jsonrpc_unsupported.md](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that are registered but return a documented error |
 | [swagger-ui/](swagger-ui/), [swagger/](swagger/) | Swagger UI assets, and the `statik.go` package that embeds them for `paxd` |
-| [hyperfide/](hyperfide/) | Vendored Hyperfide project documentation: CLI, architecture, workflows and integrations |
+| [hyperfide/](hyperfide/) | Vendored Hyperfide project documentation: CLI, architecture, workflows and integrations; source paths in it are relative to [`tools/hyperfide/`](../tools/hyperfide/) |
 | [platform/](platform/) | Platform developer documentation, API references, integration guides and documentation site tooling |
 | [wallet/](wallet/) | Wallet [app](wallet/app/) development, architecture and operations, and [service](wallet/service/) security reviews and runbooks |
 | [explorer/](explorer/) | Explorer build configuration, environment variables, contribution guides and upstream notes |

@@ -30,6 +30,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub mod rooms;
 pub mod roster;
 pub mod state;
 pub mod tasks;
@@ -343,7 +344,12 @@ mod guest {
     }
 }
 
-pub use errors::{ApplicationError, CodecResult};
+pub use errors::{
+    ApplicationError, CodecResult, F11_ASK_UNFUNDED, F11_BATCH_UNSEALED, F11_BID_BELOW_FLOOR,
+    F11_BOND_INSUFFICIENT, F11_BOND_LOCKED, F11_CHALLENGE_WINDOW_CLOSED, F11_ROOM_CLOSED,
+    F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, F11_SPLIT_EXCEEDS_SETTLED,
+};
+pub use policy::{MarketPolicy, RoomProfile};
 pub use types::*;
 
 pub const SCHEMA_VERSION: u16 = 1;
