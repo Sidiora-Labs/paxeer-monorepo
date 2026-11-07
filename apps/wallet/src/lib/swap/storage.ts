@@ -1,8 +1,10 @@
+import { swapRecordsStorage } from '@/platform/storage/swap-records';
+
 export type SwapStorage = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 export function swapStorage(): SwapStorage {
   if (typeof window === 'undefined') throw new Error('Durable swap storage is unavailable');
-  return window.localStorage;
+  return swapRecordsStorage;
 }
 
 export function writeSwapRecord(storage: SwapStorage, key: string, value: unknown): void {

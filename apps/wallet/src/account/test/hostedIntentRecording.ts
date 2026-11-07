@@ -1,5 +1,7 @@
 import { expect } from 'vitest';
 import { createHash } from 'node:crypto';
+import { gunzipSync } from 'node:zlib';
+import producerSources from './fixtures/hosted-intent-producer-sources.json';
 import { readFileSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
@@ -97,7 +99,7 @@ function PlanFees({ plan }: { plan: IntentPlan }) {
   });
 }
 
-export async function proveHostedIntentReopen(): Promise<void> {
+export async function proveHostedIntentReopen(): Promise<IntentPlan> {
   const recording: HostedIntentRecording = JSON.parse(
     readFileSync(join(__dirname, '../../hosted-intent-22-33-152.recording.json'), 'utf8')
   );
@@ -115,8 +117,12 @@ export async function proveHostedIntentReopen(): Promise<void> {
     'services/human/crates/layerx-human-service/src/server/http.rs',
     'services/human/crates/layerx-human-service/src/store/mod.rs',
   ]);
+  expect(producerSources.revision).toBe(recording.provenance.revision);
+  expect(Object.keys(producerSources.sources)).toEqual(Object.keys(recording.provenance.sources));
   for (const [path, digest] of Object.entries(recording.provenance.sources)) {
-    const producerSource = readFileSync(join(__dirname, '../../../../..', path));
+    const producerSource = gunzipSync(
+      Buffer.from(producerSources.sources[path as keyof typeof producerSources.sources], 'base64')
+    );
     expect(createHash('sha256').update(producerSource).digest('hex')).toBe(digest);
   }
   const original = recordedPlan(recording.before);
@@ -237,6 +243,7 @@ export async function proveHostedIntentReopen(): Promise<void> {
     });
     expect(served).toBe(3);
     expect(failures).toEqual([]);
+    return original;
   } finally {
     await new Promise<void>((resolve, reject) => {
       server.close((error) => (error ? reject(error) : resolve()));

@@ -1,0 +1,165 @@
+[repair.22.39.123]
+mode = "BUILD"
+base_revision = "5270ffe0c8f871af74c084e373eff14525baa872"
+authority = "Decisions 2800 and 2824; GOTCHA.kvx gotcha.3482 and gotcha.3046; acceptance 22998.1"
+inventory = ["src/wallet/signer.test.ts", "src/wallet/session.test.ts", "src/wallet/repair-22-31-248.test.ts", "src/server/push-ownership.test.ts", "src/server/repair-22-31-246.test.ts", "src/server/repair-22-33-168.test.ts", "src/platform/storage/storage-forensics.test.ts", "src/account/HistoryView.test.tsx", "src/account/repair-22-33-161.test.ts", "src/proof_wallet_app.test.ts", "src/repair-22-33-152.test.ts"]
+baseline = "The fourteen failures are the inherited inventory of gotcha 3482, not a new baseline measurement. No prior gate ledger existed on entry. Implementation precedes formatting, hf-build and hf-done."
+scope = "Preserve the runner-owned .cgignore and spec task-state changes; edit only authorized wallet paths; no commits, pushes or spec edits."
+qualification = "The final verify row of /out/run/gates.jsonl and the final hf-done JSON receipt name the exact verified revision, command, exit and private log. Completion requires hf-done exit zero and a passing build at that same revision. No gate result is claimed before execution."
+
+[decision.signer]
+path = "apps/wallet/src/wallet/signer.test.ts"
+side = "test"
+authority = "The real wallet SDK serializes the selected chain on every send; gotcha 3046 requires consumer expectations to follow that producer."
+change = "Retain the base's exact transaction payload including PAXEER_CHAIN_ID, add the real producer's from address, and also assert the chain of the returned RPC transaction and exactly one send request."
+
+[decision.session]
+path = "apps/wallet/src/wallet/session.test.ts"
+side = "test"
+change = "Retain exact embedded/native/ERC20 chainId assertions already present on this base, add the embedded producer's from address to the exact payload, and assert chain identity on the actual signed injected transaction as well."
+
+[decision.network_selection]
+path = "apps/wallet/src/wallet/repair-22-31-248.test.ts"
+side = "test"
+authority = "repair-22-31-248.kvx requires selected-chain transport, mismatched-response refusal and successful root-chain recovery."
+change = "Keep both exact virtual-chain payloads and every identity, refusal, restart and epoch assertion, and require the actual from address in both requests; assert the third send's exact root-chain payload and total send count after switching back."
+
+[decision.push_ownership]
+path = "apps/wallet/src/server/push-ownership.test.ts"
+side = "test"
+authority = "repair-22-33-168.kvx requires canonical allowlisted production-provider endpoints and valid uncompressed P-256 keys."
+change = "Use allowlisted FCM URLs and actual browser-generated P-256 public keys and 16-byte authentication secrets; preserve successful signed ownership, exact 200/401 responses, timestamp boundaries, tampering, absent-record and byte-identical store assertions."
+
+[decision.push_corruption]
+path = "apps/wallet/src/server/repair-22-31-246.test.ts"
+side = "test"
+authority = "repair-22-31-246.kvx requires corruption quarantine, persistent refusal after reopen and explicitly verified backup recovery."
+change = "Seed the actual push store with a valid FCM subscription and real browser keys, so corruption checks reach persistence; retain all corruption, permission, schema, size, backup and recovery assertions. Register the existing named functions explicitly."
+
+[decision.push_egress_and_reopen]
+path = "apps/wallet/src/server/repair-22-33-168.test.ts"
+side = "test"
+authority = "repair-22-33-168.kvx requires real encrypted TLS delivery, unchanged egress bounds, notification metadata and durable resubscription recovery."
+change = "Construct the real service through createPushService and its existing createAgent hook. Each request gets a real HTTPS Agent routed to the isolated TLS peer with certificate/hostname verification enabled. Preserve redirect refusal, all invalid endpoints and key encodings, exact egress counts, VAPID authorization, decryption and reopened metadata/ownership assertions. Re-import the store and service after unloading."
+
+[decision.swap_storage]
+paths = ["apps/wallet/src/lib/swap/storage.ts", "apps/wallet/src/platform/storage/swap-records.ts", "apps/wallet/src/platform/storage/storage-forensics.test.ts"]
+side = "code"
+authority = "storage-forensics.test.ts restricts browser Storage access to registry.ts; repair-22-33-151.kvx requires acknowledged persistence and lossless migration; repair-22-33-121.kvx requires network/wallet-scoped recovery."
+change = "Keep the forensic allowlist unchanged and include account sources in its scan. Back the existing SwapStorage interface with one registered, bounded, fail-closed namespace in registry.ts; preserve the consumers' scoped native keys, serialized format and read-after-write check. Validate existing version-1 records in place, with no destructive migration or second source of truth. Persistence errors propagate and invalid source bytes remain available for recovery."
+proof = ["swap_records_migrate_and_reopen_without_crossing_network_or_wallet_keys", "swap_records_quota_refusal_retains_legacy_data_across_reopen_and_retry", "swap_records_corruption_refuses_recovery_and_preserves_invalid_legacy_source"]
+
+[decision.history]
+path = "apps/wallet/src/account/HistoryView.test.tsx"
+side = "test"
+authority = "The current TransactionLadder independently observes sequencer receipts and explorer status; the history fixture records neither for its placeholder hashes."
+change = "Find the explorer alert by its actual title and wait for that specific consumer before asserting the unchanged HTTP 404 text. Assert every exact missing receipt request as well as every exact explorer request; retain pagination, amounts, account identity and collapse assertions. Execute the previously bodyless named pagination/status case with an explicit callback."
+
+[decision.account_numeric_heights]
+path = "apps/wallet/src/account/repair-22-33-161.test.ts"
+side = "test"
+authority = "The completed task 22.31.591 routes every px_ read to the node root; only px_register and px_requestFunds remain hosted operations. This supersedes the historical hosted-bank routing in repair-22-33-161.kvx."
+change = "Serve the existing numeric-height/nullable-metadata bank responses on the configured node root and forward receipt authentication over real HTTP to the recorded receipt peer. Keep the exact large balance, nullability, committed explorer, configuration validation and transport-count assertions; assert all five node reads explicitly."
+
+[decision.account_hosted_origin]
+path = "apps/wallet/src/account/repair-22-33-161.test.ts"
+side = "test"
+change = "Retarget the obsolete bank-hosted-origin refusal case to both live hosted-only operations. Both actual EndpointClient calls must refuse with the unchanged hostedUrl-required text and cause zero node or unexpected requests; no node fallback or SDK change is introduced."
+
+[decision.hosted_intent_proof]
+paths = ["apps/wallet/src/proof_wallet_app.test.ts", "apps/wallet/src/repair-22-33-152.test.ts", "apps/wallet/src/account/test/hostedIntentRecording.ts", "apps/wallet/src/account/test/fixtures/hosted-intent-producer-sources.json"]
+side = "test"
+authority = "repair-22-33-152.kvx requires replay of exact committed production HTTP/store bytes and source provenance from their recorded revision, without a native toolchain at gate time."
+change = "Archive the four exact producer source blobs from the recording's existing provenance revision as deterministic compressed bytes. Assert archive revision and source paths against the original recording and SHA-256 every decompressed blob against the unchanged recorded digest. Future edits to the live producer no longer invalidate historical provenance; no HTTP response, persisted row, digest, signing binding or fee assertion changes. Both entry suites also assert the recovered plan's digest format and nonempty legs."
+recorded_revision = "0d67b10a1307bd87573ba79cf46b7f9c0337f7e3"
+archive = "Generated during implementation with git show <recorded_revision>:<recorded_source_path> and deterministic gzip mtime=0; gate replay reads only committed files, never git history, a live endpoint or a compiler."
+
+[gotcha.recorded_provenance]
+observed = "Three of the recording's four producer files have changed since capture; all four recorded digests exactly match their original revision. Comparing archived evidence to live source confuses historical provenance with current-source freshness."
+
+[gotcha.independent_status_errors]
+observed = "A missing sequencer receipt produces its own alert before the explorer's HTTP 404; selecting the first generic alert asserts the wrong transport."
+
+[gotcha.storage_migration]
+observed = "The first candidate wrapped native keys in an envelope and broke the unchanged raw-cache consumer. Registered namespaces preserve existing native keys and serialized bytes, while centralizing browser access, quotas and lifecycle ownership; quota or validation refusal preserves source bytes across reopen."
+
+[gotcha.tools]
+observed = "cortex_guard and a local Prettier executable are absent. No destructive, production, secret or network-write action is required. Repository formatting uses its existing Prettier configuration through an ephemeral formatter invocation."
+
+[gotcha.evidence_budget]
+observed = "The wrapper counts every repeat build and every repeat verification as one repair unit, so the available two units permit one complete build/verify repair pair. Record references are finalized before qualification so evidence writes do not change the candidate after a passing gate."
+
+
+[qualification.repair_1]
+revision = "758d7cb8ee1e0d623efabed6d4d920c72c371fc7"
+command = "cg spec done 22.39.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "651 tests passed, seven failed and one suite could not load; the send payloads additionally carry from and the new swap envelope broke an unchanged native-cache consumer."
+repair = "Assert the exact producer from address in all embedded payloads and retain swap's native storage format through a registered namespace; preserve all assertions and format before the final build/verify pair."
+
+[qualification.unrelated_surfaces]
+revision = "758d7cb8ee1e0d623efabed6d4d920c72c371fc7"
+command = "cg spec done 22.39.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "src/surfaces/repair-22-31-250.test.ts cannot locate the repository workspace during module loading."
+assumption = "The unchanged surfaces file is outside scope; record without investigation or modification."
+
+[qualification.unrelated_widget_storage]
+revision = "758d7cb8ee1e0d623efabed6d4d920c72c371fc7"
+command = "cg spec done 22.39.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Storage forensics now reports only src/widgets/swap/useSwapExecution.ts after the authorized lib/swap direct access was removed."
+assumption = "The remaining production file is outside scope; keep the forensic assertion and allowlist unchanged and record without investigation."
+
+[qualification.unrelated_token_detail]
+revision = "758d7cb8ee1e0d623efabed6d4d920c72c371fc7"
+command = "cg spec done 22.39.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "src/widgets/tokenDetail/repair-22-33-140.test.ts expects Decimals 0 but observes Unknown at line 531."
+assumption = "The unchanged widget/test is outside scope; record without investigation or modification."
+
+[qualification.unrelated_push_deadline]
+revision = "758d7cb8ee1e0d623efabed6d4d920c72c371fc7"
+command = "cg spec done 22.39.123 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "push_deadlines_bound_stalled_tls_and_trickling_batches in the unchanged repair-22-33-167 suite receives 44 trickling requests against its exact expected 50."
+assumption = "This is outside the task's enumerated fourteen failures and unchanged by its implementation; record without investigating or repairing the timing behavior."
+
+[qualification.final_pair]
+build = "The final build row (n=2) of /out/run/gates.jsonl and /out/logs/build-2.log records the final candidate revision, command and exit."
+verify = "The final verify row (n=2) of /out/run/gates.jsonl, /out/logs/verify-2.log and final hf-done receipt record that same candidate revision, command and exit."
+stop = "The wrapper's remaining two repair units are consumed by build-2 and verify-2. Stop on that bounded result; do not edit after these gates or claim completion unless hf-done passes."
+
+[continuation.2]
+base_revision = "f9eba5cd3830db8b94bc032efb90e57d3ffb8591"
+inherited_revision = "38aa1e8e41b6ec952af203c49a78baa8fa1bd463"
+authority = "Gotcha 3515; decisions 2812, 2838 and 2843; task do_3"
+ledger = "The earlier qualification sections describe attempt 1 only. On continuation entry /out/run/gate.json reports zero build and verify runs and two available repair cycles; no /out/run/gates.jsonl exists yet. The final current-attempt ledger and hf-done receipt supply the exact verified revision."
+
+[decision.execution_journal]
+paths = ["apps/wallet/src/widgets/swap/useSwapExecution.ts", "apps/wallet/src/platform/storage/swap-records.ts", "apps/wallet/src/platform/storage/registry.ts", "apps/wallet/src/platform/storage/swap-records.test.ts"]
+side = "code"
+change = "Route the real SwapJournal through a registered fail-closed journal namespace beside swap records, preserving existing chain/account keys and bytes. The registered namespace implements the full Storage contract, with enumeration and clear restricted to its prefix. Existing SwapJournal intent validation and write acknowledgement remain in force."
+proof = "swap_journal_reopens_producer_intents_and_clears_only_its_namespace drives the real journal producer through registered browser persistence, reopens its intent, checks chain/account isolation, preserves corrupt bytes, and proves namespace clearing retains unrelated swap records."
+
+[decision.token_precision_continuation]
+path = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+side = "test"
+authority = "The adjacent repair record requires explicit zero from each metadata source and Unknown for truly absent or invalid precision, with Send/Swap disabled."
+change = "Wait for the real scoped token metadata query to succeed after restoring each provider, rather than treating ready identity plus zero currently fetching queries as completed metadata. Keep all zero, Unknown, balance, bound and action assertions unchanged; no null-to-zero fallback is introduced."
+
+[decision.receipt_fixture_root]
+path = "apps/wallet/src/surfaces/repair-22-31-250.test.ts"
+side = "test"
+change = "Locate the repository root by sdk/platform/conformance/fixtures/kernel-receipt-v1.json, the tracked corpus the suite reads, retaining the filesystem-root refusal and both root-location assertions."
+
+[gotcha.continuation_namespaces]
+observed = "SwapJournal uses paxeer:swap-journal:v1 keys and the full Storage type, whereas swap operation/cache records use pax:swap keys and only three methods. A separate registered namespace preserves both existing formats and avoids changing the journal producer outside scope."
+
+[qualification.continuation]
+evidence = "The last verify row of /out/run/gates.jsonl and final hf-done receipt name this attempt's exact revision, command, exit and private log. Qualification requires that same candidate's successful hf-build and successful hf-done. Stop immediately on success or exhausted repair budget; the runner publishes."
