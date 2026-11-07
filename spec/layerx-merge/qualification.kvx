@@ -35121,3 +35121,11 @@ symbol = "test_qualification_suites_collect.py"
 observed = "Attempt 3 at 9b83f21f4914: build exit 0; verification exit 1: 23 failed, 4427 passed, 12 skipped after two repair cycles that settled 80 cases; the collect test never ran."
 assumption = "The remaining cases are named and bounded; one more pass settles them under the same rules."
 severity = "high"
+
+[finding.22.39.54.6]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 6 at d1ba75e3c32a: build exit 0; verification exit 1: 2 failed, 110 passed, 275 subtests passed; both failures are the routing check refusing the seven fixed runners 22.39.98 introduced."
+assumption = "Nothing in the task tree is wrong; the producer defect is repaired by 22.39.147 and the merge completes the task."
+severity = "high"
