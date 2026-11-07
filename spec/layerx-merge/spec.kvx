@@ -333679,7 +333679,7 @@ do_3 = "Attempt 2 (continue, gotcha 3426, decision 2787): the attempt-1 tree at 
 
 [task.22.39.38]
 title = "Remove internal decision, gotcha and private tooling references from the SDK and interop READMEs and the wiki adapter pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.37"]
