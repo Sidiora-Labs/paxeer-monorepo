@@ -183553,7 +183553,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.549]
 title = "Emit and require the committed verification label for subject identity and context across the authority and the daemon"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.535", "22.31.545", "22.31.539", "22.31.572", "22.31.620"]
@@ -333238,7 +333238,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.85]
 title = "Wire the JS packages with test scripts that no workflow runs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
