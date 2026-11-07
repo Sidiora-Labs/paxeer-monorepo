@@ -132,7 +132,21 @@ export interface SourceMultipartBackend extends SourceObjectBackend {
   ): Promise<"ACKNOWLEDGED" | "UNKNOWN">;
 }
 
+export interface SourceBackendLifecycleRule {
+  id: string | null;
+  enabled: boolean;
+  prefix: string;
+  expiration: boolean;
+  noncurrent_version_expiration: boolean;
+}
+export interface SourceBackendLifecycleConfiguration {
+  versioning: "Enabled" | "Suspended" | "Unversioned";
+  rules: SourceBackendLifecycleRule[];
+}
 export interface SourceDeletionBackend extends SourceObjectBackend {
+  lifecycleConfiguration(
+    signal?: AbortSignal,
+  ): Promise<SourceBackendLifecycleConfiguration>;
   delete(
     key: string,
     expectedDigest: string,

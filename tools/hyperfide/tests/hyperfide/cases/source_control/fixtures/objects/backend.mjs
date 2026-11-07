@@ -15,7 +15,14 @@ export async function createSourceS3Fixture() {
       unavailableReads: 0,
       corrupt: false,
     },
-    pendingDeletes = [];
+    pendingDeletes = [],
+    configuration = {
+      lifecycle: null,
+      versioning:
+        '<VersioningConfiguration xmlns="http://s3.amazonaws.com/doc/2006-03-01/"/>',
+      lifecycleStatus: 200,
+      versioningStatus: 200,
+    };
   const hmac = (key, text) => createHmac("sha256", key).update(text).digest();
   const backend = http.createServer(async (req, res) => {
     try {
@@ -62,6 +69,28 @@ export async function createSourceS3Fixture() {
         bytes: bytes.length,
         query: Object.fromEntries(url.searchParams),
       });
+      if (
+        url.pathname === "/fixture-bucket" &&
+        req.method === "GET" &&
+        (url.searchParams.has("lifecycle") ||
+          url.searchParams.has("versioning"))
+      ) {
+        assert.equal(url.searchParams.size, 1);
+        if (url.searchParams.has("lifecycle")) {
+          if (configuration.lifecycle === null)
+            res
+              .writeHead(404)
+              .end("<Error><Code>NoSuchLifecycleConfiguration</Code></Error>");
+          else
+            res
+              .writeHead(configuration.lifecycleStatus)
+              .end(configuration.lifecycle);
+        } else
+          res
+            .writeHead(configuration.versioningStatus)
+            .end(configuration.versioning);
+        return;
+      }
       if (req.method === "POST" && url.searchParams.has("uploads")) {
         assert.equal(url.searchParams.size, 1);
         const id = randomUUID();
@@ -210,6 +239,7 @@ export async function createSourceS3Fixture() {
   await new Promise((resolve) => backend.listen(0, "127.0.0.1", resolve));
   return {
     backendObjects,
+    configuration,
     multipartUploads,
     requests,
     faults,
