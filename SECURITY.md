@@ -12,9 +12,16 @@ Report suspected security vulnerabilities privately before disclosing them publi
 
 ## Handling and disclosure
 
-- Acknowledgement: We aim to acknowledge receipt of reports as promptly as possible.
-- Triage: Reports are reviewed and triaged by the core security team.
-- Coordinated disclosure: We follow responsible disclosure principles and request that you coordinate public announcements with us until a fix is released.
+- Receipt acknowledgement: Best-effort response.
+- Initial triage: Best-effort response.
+- Status updates: Best-effort updates provided every two weeks while remediation
+  is in progress.
+- Resolution & coordinated disclosure: Best-effort remediation targets depend on
+  severity (Critical, High, Medium, Low). We follow responsible disclosure
+  principles and request that you coordinate public announcements with us until
+  a fix is released.
+- Escalation path: If a response target is missed, you may escalate by emailing
+  <security@paxeer.app> with the reference to your original advisory or report.
 
 ## Bug bounty
 
@@ -48,5 +55,11 @@ Out of scope:
 - denial of service by sheer traffic volume against hosted endpoints
 - findings from automated scanners without a demonstrated impact
 - defects in an upstream project that do not affect how this repository uses it; report those upstream
+
+## Supported versions
+
+Security fixes are provided for the `main` branch and the release recorded in
+`tools/release/version.json`. Fixes for reported vulnerabilities are shipped in
+the next scheduled release.
 
 A conduct concern that is not a vulnerability follows [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).
