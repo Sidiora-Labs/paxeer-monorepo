@@ -65,7 +65,9 @@ jobs:
       - name: Install platform sample and policy dependencies
         run: make platform-dependencies-install
       - name: Install private Secret Service dependencies for CLI tests
-        run: sudo apt-get update && sudo apt-get install --yes dbus gnome-keyring
+        run: sudo apt-get update && sudo apt-get install --yes dbus gnome-keyring python3-pytest python3-yaml
+      - name: Check workflow Make recipes and beta module paths
+        run: python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py
       - name: Enforce workspace, dependency, license and audit policies
         run: make platform-lint
       - name: Build the platform workspace and run its drift and release gates
