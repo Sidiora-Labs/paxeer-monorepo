@@ -171025,7 +171025,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.586]
 title = "Port the C decoder of the program replay record to the version-2 layout the runtime writes"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -194707,7 +194707,7 @@ do_17 = "Attempt 2: native_checkpoint_proof_acquisition_and_restart_use_real_nod
 
 [task.22.31.217]
 title = "Repair audit record 22.30.92 findings in services/agent/crates/layerx-agentd/src/budget: interface-mismatch"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.443", "22.31.483", "22.31.497", "22.31.558", "22.31.572", "22.31.560", "22.31.585"]
