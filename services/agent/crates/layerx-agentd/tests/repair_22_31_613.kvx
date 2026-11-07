@@ -1,0 +1,70 @@
+[repair.22.31.613]
+acceptance = "22998.1"
+decision = 2837
+gotchas = [3396, 3506]
+base_revision = "5989465ed996eff127b982c0150f80533bbc9c34"
+policy = "Every managed-agent guard returns a typed HumanRefusal::ManagedAgent check with a unique stable managed_agent snake-case reason; only the two unclassifiable apply_lifecycle_request routing fallbacks remain bare. The Human refusal frame and decoder are unchanged."
+
+[sites.production]
+checks = "src/managed_agent.rs: ManagedAgentCheck names record shape and digest, tenant and budget ownership, session coordinates and lookup, lifecycle kind and state, revocation kind, delay and window, finalization source and effect, observation and snapshot codec checks; ALL enumerates every variant once."
+human = "src/human.rs: HumanRefusal::ManagedAgent delegates reason to the check and classifies it as PolicyRefusal; encode_response carries the reason through the existing refusal frame."
+runtime = "src/human_runtime.rs: the registry boundary explicitly maps managed-agent typed refusals to Unverified, preserving fail-closed behavior."
+compatibility = "Refusals outside managed_agent retain their original reason. The existing direct key-policy rank assertion now requires its precise typed check; wire Refused assertions retain their variant."
+
+[case.managed_agent_refusal_reasons_are_unique_and_prefixed]
+file = "tests/repair_22_31_613.rs"
+assertion = "Walk ALL, require a nonempty inventory, a managed_agent. prefix, unique reasons and variants, and exact HumanRefusal reason delegation."
+
+[case.lifecycle_request_refusal_names_its_check_over_the_socket]
+file = "tests/repair_22_31_613.rs"
+assertion = "Minimal test-free lifecycle producers copied from the 219 fixture publish an archived agent, emits real budget snapshots and a signed reclaim transaction with committed receipt, closes and reopens Store and confirms state 4, then sends the real lifecycle encoder through AcceptedTransport, serve_one_with and apply_lifecycle_request. decode_response must return Refused with managed_agent.archived_state, no nonce and a reason unequal to operation.refused."
+
+[case.authority_revocation_refusal_names_the_window_check]
+file = "tests/repair_22_31_613.rs"
+assertion = "For rotation and recovery, ready_at equal to or before finalized_at returns exactly Typed(ManagedAgent(RevocationWindow)) from validate_authority_revocation against a real Store."
+
+[regressions]
+modules = ["human_approval_budget_actor", "human_projection_facts", "human_peer_retired", "native_send_preview_evm", "repair_22_31_545", "repair_22_31_562", "repair_22_31_571", "repair_22_31_539"]
+execution = "Each of the eight existing regression targets runs alone once with RUST_TEST_THREADS=1, with its result recorded in /out/run/regressions-22.31.613.jsonl. The new target has only its three declared tests and test-free copied lifecycle producers. The declared verify_cmd separately runs repair_22_31_219 and managed_agent library tests."
+preserved = "Existing fixture recorders retain their recording-only ignore attributes; no behavioral test is deleted, skipped, ignored or weakened."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.613 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_613 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_219 && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- managed_agent::"
+revision = "The revision in the final passing verify row of the private gate ledger is the verified revision for this repair and must equal the final passing build revision."
+evidence = "Exact command, exit and private log are recorded by hf-build and hf-done in the gate ledger; this record is finalized before qualification and claims no pass before execution."
+
+[qualification.attempt_1_failures]
+revision = "05b44625099ad22752613f3b4716f8637bec21ca"
+command = "cg spec done 22.31.613 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All three new managed-agent refusal tests passed; existing regressions failed at repair_22_31_562.rs:1068 (rank 6 versus 2), native_send_preview_evm.rs:171 (missing bootstrap executable, then poisoned locks), human_projection_facts.rs:371 (rank 0 versus 1), and repair_22_31_571.rs:1073 (PREPARE returned operation.refused)."
+ruling = "Decision 2837 supersedes the prior unrelated-failure attribution: isolate all eight targets, record anvil-only environmental failures by name, and repair the three persistent assertions. The original verify stopped before its remaining && commands."
+
+[continuation.attempt_2]
+seed_revision = "50812234f9c106953c9dcefa23a6d69e6e837719"
+fixtures = "Removed every regression path include, including the test-bearing 219 include; copied only the archived reclaim fixture dependency closure into a test-free module. The socket case still emits a signed native reclaim receipt, retains committed inclusion, records independent budget observations and reopens the durable store before production request encoding, transport, dispatch and response decoding."
+rung_repair = "human_runtime::receipt_rung_code encodes current evidence through Rung::wire_rank for COMMITTED as for the other levels, restoring committed byte 2 rather than label 6. The 562 exact byte, decoder and full digest assertions are retained. Projection budget and receipt assertions compare wire rungs, using the current level-to-rung mapping rather than observation labels; no authorization check or negative refusal changes."
+prepare_repair = "The release fixture converts the real node block timestamp from seconds to milliseconds before creating the PREPARE bound, matching ProductionCorePreparationBoundary. The existing 30-unit span, successful PREPARE assertion and exact retained EVM call assertion are retained."
+regression_ledger = "/out/run/regressions-22.31.613.jsonl"
+regression_evidence = "Each row names target, exact cargo command, candidate revision taken from the latest hf-build row, exit and private log. A rerun is permitted only after a relevant task-scoped repair; no pass is claimed before execution."
+final_gates = "The final build and verify rows in /out/run/gates.jsonl supply the exact qualified revision, commands, exits and private logs. They must match each other and the final candidate; no task file changes after the final gates."
+
+[qualification.unrelated_545_bootstrap]
+revision = "e6178e1498f17882ecae3b4c495620adc23038a6"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_545"
+exit = 101
+log = "/out/logs/regression-22.31.613-repair_22_31_545-1.log"
+observed = "The native preview case passed; the existing V2 consent fixture failed before reaching managed-agent checks at repair_22_31_545.rs:91 with bootstrap peer: TimestampBoundWidened."
+assumption = "This inherited fixture bound disagreement is outside the refusing managed-agent check paths; preserve its assertion, record once and do not rerun or investigate it further."
+
+[repair.cycle_1]
+revision = "e6178e1498f17882ecae3b4c495620adc23038a6"
+command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_approval_budget_actor"
+exit = 101
+log = "/out/logs/regression-22.31.613-human_approval_budget_actor-1.log"
+observed = "The exact approval budget response now carries committed rung 2, but the companion test still expected observation label 6."
+change = "Keep the independent committed observation-label assertion and compare the response to both Rung::Committed.wire_rank and the decoded observation's rung; preserve every amount, byte length, digest, refusal and restart assertion. The private regression ledger records the one repaired rerun; passing targets are not repeated."

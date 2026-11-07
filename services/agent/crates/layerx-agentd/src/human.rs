@@ -1501,6 +1501,7 @@ pub enum HumanRefusal {
     ExportResponseTooLarge,
     ExportLevelUnattainable,
     Policy(crate::policy::PolicyDryRunRefusal),
+    ManagedAgent(crate::managed_agent::ManagedAgentCheck),
     BudgetCodec,
     BudgetExpired,
     BudgetStaleRevocation,
@@ -1534,6 +1535,7 @@ impl HumanRefusal {
             Self::ExportResponseTooLarge => "export.response_too_large",
             Self::ExportLevelUnattainable => "export.rung_unattainable",
             Self::Policy(refusal) => refusal.code(),
+            Self::ManagedAgent(check) => check.reason(),
             Self::BudgetCodec => "budget.codec",
             Self::BudgetExpired => "budget.expired",
             Self::BudgetStaleRevocation => "budget.stale_revocation",
@@ -1578,6 +1580,7 @@ impl HumanRefusal {
             | Self::ExportLevelUnattainable => ErrorClass::VerificationFailure,
             Self::ExportResponseTooLarge
             | Self::Policy(_)
+            | Self::ManagedAgent(_)
             | Self::PolicyContextMismatch(_)
             | Self::SessionBindingMissing
             | Self::SessionExpiryBindingMissing
