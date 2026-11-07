@@ -36,7 +36,7 @@ The proposer executes and orders transactions; validators verify execution
 and commit the block. Submission or an early signed receipt does not establish
 block finality. The committed block is the finality boundary for program
 storage, transfers, events, and receipts; there is no later checkpoint
-settlement stage. See [Commitment levels](CommitmentLevels.md).
+settlement stage. See [Commitment levels (retired)](CommitmentLevels.md).
 
 Sub-chains are tenant domains: namespaces in the database that share the
 network and can be launched without provisioning another chain. See
@@ -93,7 +93,7 @@ availability from its operator.
 - [Public payment API transcript](PublicAPI.md)
 - [SDK quickstarts](SdkQuickstarts.md): [Rust](SdkQuickstartRust.md) · [TypeScript](SdkQuickstartTypeScript.md) · [Python](SdkQuickstartPython.md) · [Go](SdkQuickstartGo.md) · [JVM](SdkQuickstartJvm.md) · [.NET](SdkQuickstartDotNet.md) · [Swift](SdkQuickstartSwift.md)
 - [Assets and tokens](Assets.md)
-- [Commitment levels](CommitmentLevels.md)
+- [Commitment levels (retired)](CommitmentLevels.md)
 - [Running an agent](RunningAnAgent.md)
 - [Protocol](Protocol.md)
 - [Unified network architecture](UnifiedNetwork.md)
