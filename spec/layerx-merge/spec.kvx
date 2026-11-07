@@ -331689,7 +331689,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.91]
 title = "Fix the clone URL and working directories of the explorer backend container README pages"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331777,7 +331777,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.88]
 title = "Repoint the source map and documentation map of the six translated README pages of the vendored project docs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
