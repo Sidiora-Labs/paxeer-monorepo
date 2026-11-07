@@ -331126,7 +331126,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.39]
 title = "Keep the documentation site links inside the mkdocs docs directory so the strict build resolves them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331306,7 +331306,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.33]
 title = "Repoint the wiki pages that cite specification files missing from the tree and drop their task status lines"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.32"]
