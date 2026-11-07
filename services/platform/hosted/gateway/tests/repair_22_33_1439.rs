@@ -142,6 +142,8 @@ pub mod evaluators {
 mod guest_cell;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/host_adapter.rs"]
 pub mod host_adapter;
+#[path = "../../../../../programs/crates/layerx-programs-ai-market/src/laps.rs"]
+pub mod laps;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/policy.rs"]
 pub mod policy;
 #[path = "../../../../../programs/crates/layerx-programs-ai-market/src/queries.rs"]
