@@ -289905,7 +289905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.12]
 title = "Serve the market reads at the node root as px_ methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.8"]
