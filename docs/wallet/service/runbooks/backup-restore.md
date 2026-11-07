@@ -15,10 +15,9 @@ Two backup layers exist:
   `services/wallet/attestor/internal/store/backup.go`, encrypted under the backup
   key (`ATTESTOR_BACKUP_KEY`) and restored by `store.Restore` into an empty
   data directory. The daemon does not write them yet and no command restores
-  them (observation 4.5.2); shipping them to the replica server
-  (`ATTESTOR_REPLICA_` variables in `services/wallet/deploy/env`) is added by
-  task 3.14. Until a writer and a restore command exist, the volume snapshot
-  is the restore path.
+  them; shipping them to the replica server (`ATTESTOR_REPLICA_` variables
+  in `services/wallet/deploy/env`) still needs implementation. Until a writer
+  and a restore command exist, the volume snapshot is the restore path.
 
 ## Trigger
 
@@ -33,8 +32,8 @@ Two backup layers exist:
   `node-replacement.md` Case B instead.
 - No refresh of any key has completed since the snapshot was taken. A restored
   share from an older epoch no longer combines with its peers; if the last
-  refresh recorded in `spec/paxeer-x-wallet/qualification.kvx` is newer than
-  the snapshot, use `node-replacement.md` Case B instead.
+  refresh in the operator's change record, with its command, exit code and log
+  path, is newer than the snapshot, use `node-replacement.md` Case B instead.
 - At least three other nodes answer ready (`scripts/wallet/check-live.sh attestors`).
 - The operator shell of `node-replacement.md`, and the node's region, the
   `primary_region` of `services/wallet/deploy/attestor-<N>.toml`.
@@ -102,7 +101,7 @@ scripts/wallet/check-live.sh attestors
 The restored node passes with `peers=4/4`, its `shares=` equals its peers'
 count, and the quorum line reads `pass quorum ready=5/5 need=3`. Record the
 revision, the command, its exit code, the log path and the snapshot id used in
-`spec/paxeer-x-wallet/qualification.kvx`.
+the operator's change record.
 
 ## Rollback
 

@@ -9,7 +9,7 @@ import {
   encodeAbiCall,
   perpsDepositCall,
   perpsOpenPositionCall,
-} from '@sidiora/layerx-sdk';
+} from '@sidiora/layerx-sdk/browser';
 import { exchange } from '@paxeer/wallet';
 import { ethers } from 'ethers';
 import { FIXTURE_KEY } from '@/wallet/test/gateway';

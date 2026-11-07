@@ -788,25 +788,25 @@ make hyperfide-check     # type-check them
 Structure du dépôt :
 
 ```
-src/                 C modules and focused headers; src/cg.h is the shared core header
-src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
+core/native/src/                 C modules and focused headers; core/native/src/cg.h is the shared core header
+core/native/src/hyperfide/       native Hyperfide components: branding, sandbox supervisor,
                      launch, readiness, preparation, transport, control client
-src/govern.c         brief, review, guard, check, handoff, resume — the governance layer
-src/orchestrate.c    hyperfide spec run and the fleet supervisor (hyperfide fleet up):
+core/native/src/govern.c         brief, review, guard, check, handoff, resume — the governance layer
+core/native/src/orchestrate.c    hyperfide spec run and the fleet supervisor (hyperfide fleet up):
                      durable runs, three levels at once, stalls, budgets, retries, escalation
-src/syncgate.c       the single-writer index gate and machine-wide parse slots
-src/fleet.c          roles and capabilities, the branch lifecycle, merge lock,
+core/native/src/syncgate.c       the single-writer index gate and machine-wide parse slots
+core/native/src/fleet.c          roles and capabilities, the branch lifecycle, merge lock,
                      approval gates, fleet tree
-src/events.c         the append-only event log and hyperfide events
-src/serve.c          hyperfide serve — one JSON-RPC connection with pushed events
-src/drivers.c        agent launch argv, structured output read into events, steering
-src/drift.c          spec drift, collision prediction, interface drift, coverage
-src/changelog.c      release notes from git history, optional model highlights
-src/recap.c          resume brief from agent transcripts: System One picks, chat model writes
-src/jev.c            typed decisions over curl
-src/skills.c         memories classed as skills, rendered as .agents/skills
-src/lsp.c            language server over the graph
-src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
+core/native/src/events.c         the append-only event log and hyperfide events
+core/native/src/serve.c          hyperfide serve — one JSON-RPC connection with pushed events
+core/native/src/drivers.c        agent launch argv, structured output read into events, steering
+core/native/src/drift.c          spec drift, collision prediction, interface drift, coverage
+core/native/src/changelog.c      release notes from git history, optional model highlights
+core/native/src/recap.c          resume brief from agent transcripts: System One picks, chat model writes
+core/native/src/jev.c            typed decisions over curl
+core/native/src/skills.c         memories classed as skills, rendered as .agents/skills
+core/native/src/lsp.c            language server over the graph
+core/native/src/gitint.c         git history ingestion, churn, branch identity, commit mirroring
 core/control-plane/  TypeScript control, provisioner and dispatch services
 tests/unit/          kvx grammar, SHA-256 vectors, JSON scanner, StrBuf/IO
 tests/integration/   graph, vcs, agentic, MCP protocol, spec engine, watcher,
@@ -825,20 +825,20 @@ scripts/             install/uninstall scripts (not advertised for 2.0 yet),
                      release construction, native component discovery
 spec/hyperfide/      the Hyperfide 2.0 specification, design and contracts
 artifacts/hyperfide/ per-task evidence indexes
-docs/ARCHITECTURE.md how the pieces fit together
-docs/hyperfide/operations.md  the control plane: build, start, PostgreSQL,
+../ARCHITECTURE.md how the pieces fit together
+../hyperfide/operations.md  the control plane: build, start, PostgreSQL,
                      providers, verification, recovery, migration
-docs/sync.md         the sync gate, freshness, slots, incremental resolution
-docs/config.md       project configuration: relocated spec/context/skills paths, auto-sync
-docs/journal.md      the write journal: what is queued when the database is busy, replay,
+../sync.md         the sync gate, freshness, slots, incremental resolution
+../config.md       project configuration: relocated spec/context/skills paths, auto-sync
+../journal.md      the write journal: what is queued when the database is busy, replay,
                      hyperfide journal
-docs/retrieval.md    declarations, phrase ranking, path outlines, the budget
-docs/hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
+../retrieval.md    declarations, phrase ranking, path outlines, the budget
+../hierarchy.md    roles, branch flow, the supervisor, supervision, approvals,
                      briefings
-docs/drift.md        spec, collision, interface, and coverage drift
-docs/events.md       the event log, hyperfide serve, drivers, steering
-docs/branches.md     the unified multi-branch graph and its schema
-docs/jev.md          typed decisions: types, transport, configuration, limits
+../drift.md        spec, collision, interface, and coverage drift
+../events.md       the event log, hyperfide serve, drivers, steering
+../branches.md     the unified multi-branch graph and its schema
+../jev.md          typed decisions: types, transport, configuration, limits
 ```
 
 Les sorties de référence du rendu de specs ont été générées par le specgen original en Go, si bien que la parité de rendu est verrouillée par `make test`. La CI (`.github/workflows/ci.yml`) compile et exécute les suites unitaires et d'intégration à chaque push sur `main` et sur les pull requests.

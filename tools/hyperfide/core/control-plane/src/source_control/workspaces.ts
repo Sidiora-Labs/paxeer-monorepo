@@ -139,6 +139,49 @@ function derivedOperation(scope: SourceScope, operation: string): string {
   const hex = bytes.toString("hex");
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
+export async function pinWorkspaceRoot(
+  tx: SourceSQL,
+  context: SourceContext,
+  id: string,
+  root: string,
+  position: number,
+  expires: string,
+): Promise<void> {
+  const object = await lockSourcePlacement(tx, context.scope, root);
+  if (
+    !["VERIFIED", "QUARANTINED"].includes(object.state) ||
+    !object.verified_at
+  )
+    throw new SourceControlError(
+      "OBJECT_NOT_READY",
+      "Workspace root must be verified",
+    );
+  const valid = (
+    await tx.query("SELECT $1::timestamptz>clock_timestamp() AS valid", [
+      expires,
+    ])
+  ).rows[0]?.valid;
+  if (!valid)
+    throw new SourceControlError(
+      "WORKSPACE_EXPIRED",
+      "Workspace retention has expired",
+    );
+  await tx.query(
+    "DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4 AND position=$5",
+    [...sourceScopeValues(context.scope), id, position],
+  );
+  await tx.query(
+    "INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at) VALUES($1,$2,$3,$4,$5,'WORKSPACE',$6,$7,$8)",
+    [
+      ...sourceScopeValues(context.scope),
+      root,
+      object.incarnation_id,
+      id,
+      position,
+      expires,
+    ],
+  );
+}
 export class SourceWorkspaceService {
   readonly budgets: WorkspaceBudgets;
   constructor(
@@ -161,49 +204,6 @@ export class SourceWorkspaceService {
     )
       invalid("Explicit positive workspace budgets are required");
     this.budgets = Object.freeze({ ...budgets });
-  }
-  private async pin(
-    tx: SourceSQL,
-    context: SourceContext,
-    id: string,
-    root: string,
-    position: number,
-    expires: string,
-  ): Promise<void> {
-    const object = await lockSourcePlacement(tx, context.scope, root);
-    if (
-      !["VERIFIED", "QUARANTINED"].includes(object.state) ||
-      !object.verified_at
-    )
-      throw new SourceControlError(
-        "OBJECT_NOT_READY",
-        "Workspace root must be verified",
-      );
-    const valid = (
-      await tx.query("SELECT $1::timestamptz>clock_timestamp() AS valid", [
-        expires,
-      ])
-    ).rows[0]?.valid;
-    if (!valid)
-      throw new SourceControlError(
-        "WORKSPACE_EXPIRED",
-        "Workspace retention has expired",
-      );
-    await tx.query(
-      "DELETE FROM hyperfide.source_object_pins WHERE organisation_id=$1 AND repository_id=$2 AND security_domain_id=$3 AND owner_kind='WORKSPACE' AND owner_id=$4 AND position=$5",
-      [...sourceScopeValues(context.scope), id, position],
-    );
-    await tx.query(
-      "INSERT INTO hyperfide.source_object_pins(organisation_id,repository_id,security_domain_id,object_id,incarnation_id,owner_kind,owner_id,position,expires_at) VALUES($1,$2,$3,$4,$5,'WORKSPACE',$6,$7,$8)",
-      [
-        ...sourceScopeValues(context.scope),
-        root,
-        object.incarnation_id,
-        id,
-        position,
-        expires,
-      ],
-    );
   }
   async expire(
     context: SourceContext,
@@ -357,7 +357,7 @@ export class SourceWorkspaceService {
           "Workspace retention has expired",
         );
       if (!prior)
-        await this.pin(
+        await pinWorkspaceRoot(
           tx,
           context,
           id,
@@ -794,7 +794,7 @@ export class SourceWorkspaceService {
           "WORKSPACE_EXPIRED",
           "Workspace base retention is unavailable",
         );
-      await this.pin(
+      await pinWorkspaceRoot(
         tx,
         context,
         id,

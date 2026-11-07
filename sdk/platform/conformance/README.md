@@ -13,7 +13,7 @@ the Go SDK's sequencer, committed and portable receipt verifiers.
 | [`vector-v6-sponsored-bind.json`](fixtures/vector-v6-sponsored-bind.json) | Sponsor-paid type-4 `executeSponsored` with a user-signed delegation and executed `bindLayerX`; independent type-2 transfer refusal. Includes raw transactions, signed receipts, genesis pins, measured fees and delegation code readback. | [`daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json`](../../../daemon/committed-fixture/vectors/vector-v6-sponsored-bind.json), recorded on the private chain with EVM chain id 125. |
 | [`vector-v7-named-payee.json`](fixtures/vector-v7-named-payee.json) | Committed payExact into the named payee asset sub-account, payer/payee DIDs, main and asset account names and native identifiers, asset, amount and reference; V4 inclusion, Comet evidence and refusals. | [`daemon/committed-fixture/vectors/vector-v7-named-payee.json`](../../../daemon/committed-fixture/vectors/vector-v7-named-payee.json), recorded through the V4 production ledger path on local EVM chain id 125. |
 
-Decision 2537 adds `V2-pax-transfer-insufficient-funds` to the retained corpus.
+The retained corpus includes `V2-pax-transfer-insufficient-funds`.
 The transfer value exceeds its funded sender's balance. Its authenticated status
 is failed, return data and logs are empty, and `vmError` retains the kernel's
 `insufficient balance for transfer` text. It carries no ledger result code;
@@ -23,7 +23,7 @@ receipted rung. `TestRepair_22_31_491_PreexecutionRefusal` checks these facts.
 and checks the committed RPC receipt preserves the refusal, unchanged balances
 and zero gas and fees. It proves this is the corpus's only preexecution refusal
 and that removing the case leaves none. The native terminal-outcome checker
-proof belongs to task 22.33.877 (gotcha 3098).
+requires a separate proof.
 
 V1–V3 copy the sequencer fixture cases without changing receipt bytes, pinned
 keys, predecessor hashes or expectations. The daemon's V1 is a separate contract
@@ -102,8 +102,8 @@ account has `name` and `identifier`), `asset`, decimal-string `amount` and
 64 lowercase asset hex digits without `0x`. Both account identifiers use the
 native `LX:ACCOUNT:v1` domain and four-byte big-endian name length. The payment
 settles into the asset account. The main account name identifies the payee in
-an offer's `extra.layerx.account`. Task 22.31.492 consumes these fields for the
-buyer human-evidence rung under decision 2555.
+an offer's `extra.layerx.account`. These fields are consumed for the
+buyer human-evidence rung.
 
 Generate V7 with the declared build's local node and recorder:
 

@@ -5,8 +5,8 @@ Fees are computed from the committed canonical schedule
 returns the schedule and snapshot that produced the value. It does not
 reserve the fee or prove execution.
 
-Normative rules: `spec/layerx-protocol/spec.kvx` requirements 2 (acceptance 8),
-14 (encodings 3 and 4), and 26.
+Sources: `include/layerx/lxp_fee.h`, `src/protocol/lxp_fee.c`,
+`src/protocol/lxp_fee_policy.c`, `src/modules/governance/lxp_fee_params.c`.
 
 ---
 
@@ -90,7 +90,7 @@ Unsupported schedule versions are `LXP_ERR_VERSION_UNSUPPORTED`.
 ## Admission and failed activities
 
 `lxp_fee_admission_check` / `lxp_fee_rejection_policy`
-(`src/protocol/lxp_fee_policy.c`) and requirement 26:
+(`src/protocol/lxp_fee_policy.c`) enforce these rules:
 
 - Admission failure: no global sequence, no account sequence, no fee, no
   module effects.

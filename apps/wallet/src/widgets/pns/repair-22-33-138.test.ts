@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
-import * as workerThreads from 'node:worker_threads';
+import { locks } from 'node:worker_threads';
 import { act, createElement, useLayoutEffect } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ethers } from 'ethers';
@@ -222,9 +222,10 @@ async function rpc(method: string, params: unknown[]): Promise<unknown> {
 }
 
 beforeAll(async () => {
-  const locks: unknown = Reflect.get(workerThreads, 'locks');
   if (!locks) throw new Error('PNS recovery tests require Node Web Locks');
   Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
+  expect(navigator.locks).toBe(locks);
+  expect(typeof navigator.locks.request).toBe('function');
   server = createServer(async (request, response) => {
     const chunks: Buffer[] = [];
     for await (const chunk of request) chunks.push(Buffer.from(chunk));

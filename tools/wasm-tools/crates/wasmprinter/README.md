@@ -38,7 +38,7 @@ fn main() -> Result<()> {
 ## License
 
 This project is licensed under the Apache 2.0 license with the LLVM exception.
-See [LICENSE](LICENSE) for more details.
+See [LICENSE](../../LICENSE-Apache-2.0_WITH_LLVM-exception) for more details.
 
 ### Contribution
 

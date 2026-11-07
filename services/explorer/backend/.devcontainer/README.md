@@ -21,10 +21,12 @@ Key benefits include:
 
 ## Setting Up VSCode Devcontainer Locally
 
-1. Clone the Paxeer X Network repository and change into the explorer backend, the directory that holds this `.devcontainer`:
+Run the clone command block from the parent directory of `paxeer-monorepo`. Run subsequent commands from `paxeer-monorepo/services/explorer/backend`.
+
+1. Clone `paxeer-monorepo` and change into the explorer backend, the directory that holds this `.devcontainer`:
    ```
-   git clone https://github.com/Sidiora-Labs/Paxeer-X-Network.git
-   cd Paxeer-X-Network/services/explorer/backend
+   git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
+   cd paxeer-monorepo/services/explorer/backend
    ```
 
 2. Open the backend in VS Code:

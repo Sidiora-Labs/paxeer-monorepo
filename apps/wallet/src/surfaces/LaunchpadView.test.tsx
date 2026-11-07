@@ -9,7 +9,7 @@ import {
   launchpadSellCall,
   launchpadApproveCall,
   launchpadCreateMarketCall,
-} from '@sidiora/layerx-sdk';
+} from '@sidiora/layerx-sdk/browser';
 import { launchpad } from '@paxeer/wallet';
 import * as walletModules from '@paxeer/wallet';
 import { LaunchpadView } from './LaunchpadView';

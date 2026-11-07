@@ -36,7 +36,7 @@ The proposer executes and orders transactions; validators verify execution
 and commit the block. Submission or an early signed receipt does not establish
 block finality. The committed block is the finality boundary for program
 storage, transfers, events, and receipts; there is no later checkpoint
-settlement stage. See [Commitment levels](CommitmentLevels.md).
+settlement stage. See [Commitment levels (retired)](CommitmentLevels.md).
 
 Sub-chains are tenant domains: namespaces in the database that share the
 network and can be launched without provisioning another chain. See
@@ -93,7 +93,7 @@ availability from its operator.
 - [Public payment API transcript](PublicAPI.md)
 - [SDK quickstarts](SdkQuickstarts.md): [Rust](SdkQuickstartRust.md) · [TypeScript](SdkQuickstartTypeScript.md) · [Python](SdkQuickstartPython.md) · [Go](SdkQuickstartGo.md) · [JVM](SdkQuickstartJvm.md) · [.NET](SdkQuickstartDotNet.md) · [Swift](SdkQuickstartSwift.md)
 - [Assets and tokens](Assets.md)
-- [Commitment levels](CommitmentLevels.md)
+- [Commitment levels (retired)](CommitmentLevels.md)
 - [Running an agent](RunningAnAgent.md)
 - [Protocol](Protocol.md)
 - [Unified network architecture](UnifiedNetwork.md)
@@ -109,7 +109,7 @@ availability from its operator.
 - [Bridge](Bridge.md)
 - [Fees](Fees.md)
 - [Sequencing](Sequencing.md)
-- [Finality](Finality.md)
+- [Finality (retired)](Finality.md)
 - [Data availability](DataAvailability.md)
 - [Agent API](AgentApi.md)
 - [MCP](Mcp.md)
@@ -118,10 +118,10 @@ availability from its operator.
 - [Human journeys](HumanJourneys.md)
 - [Human custody](HumanCustody.md)
 - [Human owner registration](HumanOwnerRegistration.md)
-- [Contributing guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
-- [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
-- [Qualification documentation](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/QUALIFICATION.md)
-- [Monorepo layout](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/MONOREPO.md)
+- [Contributing guide](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)
+- [Security policy](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)
+- [Qualification documentation](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/QUALIFICATION.md)
+- [Monorepo layout](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/MONOREPO.md)
 - [Programs](Programs.md): native WASM execution, guest ABIs, LXT-20, simulation, and committed receipts
 - [Sandbox](Sandbox.md)
 - [Storage scan](StorageScan.md)

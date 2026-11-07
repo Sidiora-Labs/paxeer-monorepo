@@ -81,10 +81,13 @@ tests
 !services/interop/crates/layerx-mirror-signer/**
 !services/interop/crates/layerx-mirror/**
 !services/interop/crates/layerx-portable/**
+# Test target declared by services/interop/crates/layerx-portable/Cargo.toml.
+!services/interop/tests/repair_22_33_95.rs
 !services/interop/crates/layerx-ucp/**
 !services/interop/crates/layerx-visa-tap/**
 !services/interop/crates/layerx-x402/**
 !services/interop/crates/x-websearch/**
+!services/platform/hosted/authority/**
 !services/platform/hosted/gateway/**
 !services/platform/hosted/indexer/**
 !services/platform/hosted/internal/**

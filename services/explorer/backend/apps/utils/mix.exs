@@ -3,6 +3,7 @@ defmodule Utils.MixProject do
 
   def project do
     [
+      aliases: [test: "test --no-start"],
       app: :utils,
       version: "10.2.6",
       build_path: "../../_build",
