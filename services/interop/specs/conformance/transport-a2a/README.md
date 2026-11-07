@@ -64,8 +64,10 @@ guards without a native toolchain. It also executes the production deployment
 renderer in process to check this suite's count and digest. These Python source
 proofs do not execute Rust semantic validation or mounted HTTP requests.
 The additional expectation metadata is not consumed by the existing Rust
-round-trip harness. The repair record names the owning domain's wiring requests
-for that runtime coverage and the profile-policy contradiction.
+round-trip harness. Runtime coverage must exercise those expectations through
+the model and mounted HTTP routes; the interop owner must resolve the
+profile-policy contradiction before profile-free records can describe usable
+payments.
 
 Ingress expectations apply after authentication and operation admission with a
 configured x402 adapter and supported kind. Each body is the record's document,

@@ -354,7 +354,9 @@ a timeout does not authorize a new owner or regenerated keys.
 The following retained paths require migration by their production owners;
 they are not a provisioning recipe for merged accounts. Do not deploy a
 separate sequencer, kernel daemon, movement custody service or guarantor to
-satisfy them. Track the owning paths in [the repair record](repair_22_33_40.kvx).
+satisfy them. The [committed observation, receipt refusal, bank contract and
+migration barrier tests](test_repair_22_33_40.py) check the producer's receipt
+bindings and the retained configuration described here.
 
 - [`provision-owner-job.yaml`](provision-owner-job.yaml) and
   `human_owner_provision` still stage the offline identity Job and
@@ -379,7 +381,9 @@ satisfy them. Track the owning paths in [the repair record](repair_22_33_40.kvx)
 - `registry_kernel_material` validates an explicitly retained/imported signed
   registry generation and its network and signer pins. It never executes a
   separate daemon or edits genesis. Fresh registry generation remains an owning
-  domain wiring request in [this task's repair record](repair_22_33_1401.kvx).
+  domain integration requirement: the registry producer must supply an
+  authenticated signed generation with matching network and signer pins before
+  publication.
 - The node manifest's security provider still requests legacy trust history.
   Its production owner must migrate that consumer to authenticated committed
   receipts before deployment; the Human material producer no longer manufactures

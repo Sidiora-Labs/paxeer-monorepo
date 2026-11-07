@@ -2,7 +2,7 @@
 
 This repository contains one Paxeer X Network: the `paxd` node with the LayerX kernel embedded in it, contracts, hosted services, SDKs and applications. The kernel participates in block proposal and execution inside the network; a receipt is final when its block is committed. Source directories and language-specific builds are development boundaries within that network.
 
-See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and tenant domains. The target directory layout is specified in [`spec/monorepo-layout/spec.kvx`](../spec/monorepo-layout/spec.kvx); the tables below distinguish existing paths from planned moves.
+See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and tenant domains. The tables below distinguish existing paths from planned moves. See [Contributing](../CONTRIBUTING.md#specifications-come-first) for the specifications that govern layout changes.
 
 ## Target groups
 
