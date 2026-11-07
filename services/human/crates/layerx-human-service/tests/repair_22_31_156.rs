@@ -109,6 +109,10 @@ fn recorded_receipt() -> (
     let v: Value = serde_json::from_str(COMMITTED).expect("Go node conformance recording");
     let c = &v["cases"][0];
     let raw: Value = serde_json::from_str(RECORDED).expect("original Go recorder output");
+    assert_eq!(
+        v["provenance"]["sourceSha256"],
+        hex(&Sha256::digest(RECORDED.as_bytes()))
+    );
     // Pin the recording's provenance and retain the actual tx-zero bytes.
     assert_eq!(c["signedReceipt"], raw["positive"]["receipt"]);
     assert_eq!(
@@ -147,6 +151,19 @@ fn recorded_receipt() -> (
         .as_array()
         .expect("votes")
         .iter()
+        .filter(|vote| {
+            if vote["block_id_flag"] == 1 {
+                assert_eq!(vote["validator_address"], "0x");
+                assert!(vote["signature"].is_null());
+                assert_eq!(
+                    vote["timestamp"],
+                    json!({"seconds": -62_135_596_800_i64, "nanos": 0})
+                );
+                false
+            } else {
+                true
+            }
+        })
         .map(|vote| {
             assert_eq!(vote["block_id_flag"], 2);
             let address = fixed(&vote["validator_address"]);

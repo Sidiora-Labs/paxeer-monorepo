@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { parseWalletReadRequest, walletReadResponseHeaders } from '@/lib/wallet-read-contract';
 import { createServer, type ServerResponse, type Server } from 'node:http';
 import { once } from 'node:events';
 import { act, createElement, type ReactElement } from 'react';
@@ -11,6 +12,8 @@ import { afterAll, afterEach, beforeAll, beforeEach, expect, test } from 'vitest
 import type { SwapToken } from '@/lib/swap';
 import type { PaxscanToken } from '@/lib/api';
 import type { UseSwapQuotesOptions, UseSwapQuotesResult } from './useSwapQuotes';
+import { setSwapNetwork } from '@/lib/swap/network';
+import { writeSwapRecord } from '@/lib/swap/storage';
 import type { SwapBalances } from './useSwapBalances';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -50,6 +53,8 @@ const explorerTokens = [
 
 let server: Server;
 let baseUrl: string;
+let quoteProvider: ethers.JsonRpcProvider;
+let includeUnknownCatalogue = true;
 let originalRpc: string | undefined;
 let sdk: typeof import('@/lib/swap/sdk');
 let swap: typeof import('@/lib/swap');
@@ -87,6 +92,16 @@ function rpcResult(method: string, values: unknown[]): unknown {
   if (method === 'eth_chainId') return '0x7d';
   if (method !== 'eth_call') throw new Error(`Unexpected RPC method: ${method}`);
   const call = values[0] as { to: string; data: string };
+  if (call.to.toLowerCase() === sdk.CONTRACTS.PoolRegistry.toLowerCase()) {
+    const registry = new ethers.Interface(sdk.SIDIORA_POOL_REGISTRY_ABI);
+    const decoded = registry.parseTransaction(call)!;
+    expect(decoded.name).toBe('getPoolByToken');
+    return registry.encodeFunctionResult('getPoolByToken', [
+      String(decoded.args[0]).toLowerCase() === zeroAddress
+        ? '0x0000000000000000000000000000000000000099'
+        : ethers.ZeroAddress,
+    ]);
+  }
   expect(call.to.toLowerCase()).toBe(sdk.CONTRACTS.PECORQuoter.toLowerCase());
   const decoded = codec.parseTransaction(call)!;
   expect(decoded.name).toBe('quoteExactIn');
@@ -130,7 +145,14 @@ function sendJson(response: ServerResponse, data: unknown) {
 beforeAll(async () => {
   server = createServer(async (request, response) => {
     try {
-      const path = new URL(request.url!, 'http://localhost').pathname;
+      const url = new URL(request.url!, 'http://localhost');
+      const path = url.pathname;
+      if (request.method === 'GET' && url.searchParams.has('chain_id')) {
+        const read = parseWalletReadRequest(url);
+        expect(read.chainId).toBe(125);
+        for (const [key, value] of Object.entries(walletReadResponseHeaders(read)))
+          response.setHeader(key, value);
+      }
       if (request.method === 'POST') {
         let body = '';
         for await (const chunk of request) body += chunk;
@@ -154,8 +176,12 @@ beforeAll(async () => {
         else reply();
         return;
       }
+      if (path === '/metadata') return sendJson(response, {});
       if (path === '/api/v2/tokens')
-        return sendJson(response, { items: explorerTokens, next_page_params: null });
+        return sendJson(response, {
+          items: includeUnknownCatalogue ? explorerTokens : explorerTokens.slice(0, 1),
+          next_page_params: null,
+        });
       if (path.endsWith('/token-balances'))
         return sendJson(response, [
           { value: '42', token: explorerTokens[0], token_id: null, token_instance: null },
@@ -182,6 +208,11 @@ beforeAll(async () => {
   // Configure the production provider before importing it; no external configuration is needed.
   originalRpc = process.env.NEXT_PUBLIC_PAXEER_RPC_URL;
   process.env.NEXT_PUBLIC_PAXEER_RPC_URL = baseUrl;
+  quoteProvider = new ethers.JsonRpcProvider(baseUrl, 125, {
+    staticNetwork: true,
+    batchMaxCount: 1,
+    cacheTimeout: -1,
+  });
   sdk = await import('@/lib/swap/sdk');
   codec = new ethers.Interface(sdk.PECOR_QUOTER_ABI);
   swap = await import('@/lib/swap');
@@ -203,6 +234,15 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
+  localStorage.clear();
+  includeUnknownCatalogue = true;
+  setSwapNetwork({
+    chainId: 125,
+    endpoint: baseUrl,
+    provider: quoteProvider,
+    indexerUrl: baseUrl,
+    metadataUrl: `${baseUrl}/metadata`,
+  });
   client = new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: Infinity, gcTime: Infinity } },
   });
@@ -233,11 +273,12 @@ afterEach(async () => {
   client.clear();
   // Let the real provider's short RPC deduplication window expire between scenarios.
   await new Promise((resolve) => setTimeout(resolve, 260));
-  cache.cacheDel('sidiora-token-list');
+  localStorage.removeItem(`pax:swap:tokens:v1:125:${encodeURIComponent(baseUrl)}`);
   expect(serverErrors).toEqual([]);
 });
 
 afterAll(async () => {
+  quoteProvider.destroy();
   if (originalRpc === undefined) delete process.env.NEXT_PUBLIC_PAXEER_RPC_URL;
   else process.env.NEXT_PUBLIC_PAXEER_RPC_URL = originalRpc;
   server.closeAllConnections();
@@ -357,15 +398,17 @@ async function catalogue_zero_decimals_survives_http_codec_and_conversion() {
 }
 
 async function swap_output_cache_shape_reopens_merged_list_with_original_freshness() {
-  const records = await api.fetchTopTokens();
-  const token = util.paxscanToSwapToken(records[0])!;
-  const persisted: SwapToken[] = JSON.parse(JSON.stringify([{ ...token, isLaunchpad: true }]));
-  cache.cacheSet('sidiora-token-list', persisted);
+  includeUnknownCatalogue = false;
+  const discovered = await swap.fetchLaunchpadTokens();
+  expect(discovered.discovery.status).toBe('complete');
+  expect(discovered.discovery.complete).toBe(true);
+  expect(discovered).toHaveLength(1);
+  expect(discovered[0]).toMatchObject({ address: zeroAddress, decimals: 0, isLaunchpad: true });
   const writtenAt = Date.now() - 60_000;
-  repositories.metadataCacheRepository.update((entries) => ({
-    ...entries,
-    'sidiora-token-list': { ...entries['sidiora-token-list'], ts: writtenAt },
-  }));
+  const recordKey = `pax:swap:tokens:v1:125:${encodeURIComponent(baseUrl)}`;
+  const stored = JSON.parse(localStorage.getItem(recordKey)!);
+  expect(stored.tokens).toEqual(JSON.parse(JSON.stringify([...discovered])));
+  writeSwapRecord(localStorage, recordKey, { ...stored, updatedAt: writtenAt });
   for (let mount = 0; mount < 2; ++mount) {
     await render(createElement(OutputProbe));
     expect(output[0].isNative).toBe(true);
@@ -529,28 +572,28 @@ async function swap_two_quote_authorities_share_and_freeze_the_displayed_approva
   expect(latestSelection.quotes.bestQuote!.amountOut).not.toBe(displayed.amountOut);
 }
 
-test(held_zero_decimals_preserves_producer_units, held_zero_decimals_preserves_producer_units);
+test(held_zero_decimals_preserves_producer_units.name, held_zero_decimals_preserves_producer_units);
 test(
-  swap_balance_zero_decimals_displays_actual_units_and_blocks_unknown_spending,
+  swap_balance_zero_decimals_displays_actual_units_and_blocks_unknown_spending.name,
   swap_balance_zero_decimals_displays_actual_units_and_blocks_unknown_spending
 );
 test(
-  catalogue_zero_decimals_survives_http_codec_and_conversion,
+  catalogue_zero_decimals_survives_http_codec_and_conversion.name,
   catalogue_zero_decimals_survives_http_codec_and_conversion
 );
 test(
-  swap_output_cache_shape_reopens_merged_list_with_original_freshness,
+  swap_output_cache_shape_reopens_merged_list_with_original_freshness.name,
   swap_output_cache_shape_reopens_merged_list_with_original_freshness
 );
 test(
-  swap_stale_quote_after_clear_rejects_inflight_and_debounced_results,
+  swap_stale_quote_after_clear_rejects_inflight_and_debounced_results.name,
   swap_stale_quote_after_clear_rejects_inflight_and_debounced_results
 );
 test(
-  swap_stale_quote_after_invalid_input_and_identity_change_never_resurrects,
+  swap_stale_quote_after_invalid_input_and_identity_change_never_resurrects.name,
   swap_stale_quote_after_invalid_input_and_identity_change_never_resurrects
 );
 test(
-  swap_two_quote_authorities_share_and_freeze_the_displayed_approval,
+  swap_two_quote_authorities_share_and_freeze_the_displayed_approval.name,
   swap_two_quote_authorities_share_and_freeze_the_displayed_approval
 );
