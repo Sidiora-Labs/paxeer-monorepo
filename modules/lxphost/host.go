@@ -98,6 +98,16 @@ typedef struct lxphost_outcome {
 
 static _Thread_local uint64_t lxphost_programs_kernel_gas_used;
 
+static void lxphost_programs_gas_reset(void)
+{
+    lxphost_programs_kernel_gas_used = 0U;
+}
+
+static void lxphost_programs_gas_capture(lxphost_node *node)
+{
+    node->programs_kernel_gas_used = lxphost_programs_kernel_gas_used;
+}
+
 static lxp_result lxphost_programs_execute_metered(
     lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority, const void *decoded,
@@ -635,10 +645,10 @@ static int32_t lxphost_execute(lxphost_node *node, uint32_t network_id,
             return status;
     }
     node->kernel.applied_transfers_out = &execution->applied_transfers;
-    lxphost_programs_kernel_gas_used = 0U;
+    lxphost_programs_gas_reset();
     status = lxp_kernel_execute_activity(&node->kernel, &node->envelope.activity,
                                          execution, &node->receipt);
-    node->programs_kernel_gas_used = lxphost_programs_kernel_gas_used;
+    lxphost_programs_gas_capture(node);
     node->kernel.applied_transfers_out = NULL;
     if (status != LXP_OK || node->receipt.result_code != LXP_OK)
         (void)memset(&execution->applied_transfers, 0,
@@ -834,6 +844,14 @@ func kernelResultName(code int32) string {
 }
 
 type lxphost_outcome = C.lxphost_outcome
+
+func resetProgramsKernelGas() {
+	C.lxphost_programs_gas_reset()
+}
+
+func captureProgramsKernelGas(node *C.lxphost_node) {
+	C.lxphost_programs_gas_capture(node)
+}
 
 func lxphost_outcome_read(node *C.lxphost_node, outcome *lxphost_outcome) error {
 	return result(C.lxphost_outcome_read(node, outcome))
