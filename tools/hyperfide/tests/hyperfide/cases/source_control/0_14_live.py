@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import signal
+import shutil
 import subprocess
 import sys
 import time
@@ -20,7 +21,7 @@ import uuid
 
 ROOT = Path(__file__).resolve().parents[4]
 AREA = ROOT / 'build/fleet/integration/private'
-NODE = Path('/root/.nvm/versions/node/v24.22.0/bin/node')
+NODE = Path(os.environ.get('HYPERFIDE_FLEET_NODE') or shutil.which('node') or 'node')
 BRIDGE = AREA / '0_14-api.mjs'
 CHUNK = 240 * 1024
 
@@ -718,20 +719,48 @@ const socket=tls.connect({host:origin.hostname,port:Number(origin.port||443),ser
         return {'status':'AUTH_STATUS_OBSERVED','inference_qualified':False,
                 'connector_capabilities_qualified':False}
 
+    def evidence_index(self):
+        sys.path.insert(0, str(ROOT / 'tests/hyperfide/support'))
+        from fleet_live_qualification import TASK_CASES, captured_case, private_json, require, Refused
+        try:
+            # Captures stay beside the pinned index; copying an archive cannot manufacture a live result.
+            index = private_json(AREA / '0_13-index-input.json')
+            target = private_json(AREA / '0_13-target-input.json')
+            require(index.get('schema_version') == 1 and index.get('kind') == 'hyperfide.fleet-live-evidence'
+                    and index.get('target_digest') == digest(target), 'EVIDENCE_TARGET_MISMATCH')
+            require(target.get('organisation_id') == self.bindings['organisation_id']
+                    and target.get('run_id') == self.bindings['run_id']
+                    and target.get('origin') == self.config['origin'], 'EVIDENCE_CAMPAIGN_SCOPE_MISMATCH')
+            cases = index.get('cases', {})
+            require(isinstance(cases, dict) and all(name in cases for name in TASK_CASES['0.13']), 'REQUIRED_LIVE_CASES_MISSING')
+            for name in TASK_CASES['0.13']:
+                try:
+                    captured_case(name, cases[name], target, AREA)
+                except Refused as error:
+                    raise Blocked(str(error) + ':' + name) from error
+            write(AREA / '0_13-target.json', target)
+            write(AREA / '0_13-index.json', index)
+            return {'status': 'PINNED_UNQUALIFIED', 'target_digest': digest(target),
+                    'evidence_digest': digest(index), 'cases': list(TASK_CASES['0.13']),
+                    'target_file': str(AREA / '0_13-target.json'), 'index_file': str(AREA / '0_13-index.json'),
+                    'live_verification': 'UNRUN'}
+        except Refused as error:
+            raise Blocked(str(error)) from error
+
     def inspect(self):
         return {'status':'OBSERVATION_ONLY','steps':{k:v['state'] for k,v in self.journal['steps'].items()},
                 'production_success_claimed':False,'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument('phase',choices=['capacity-renew','renew-operator','environment-register','capacity-prepare','capacity-attest','provider-progress','provisioner-setup','model-cycle','native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
+    parser.add_argument('phase',choices=['evidence-index','capacity-renew','renew-operator','environment-register','capacity-prepare','capacity-attest','provider-progress','provisioner-setup','model-cycle','native-qualification','native-credential','native-auth','trust','readiness-artifact','activate-run','sessions','artifacts','registration','profile','enrollment','qualification','run','cleanup','inspect'])
     parser.add_argument('--config',default=str(AREA / '0_14-live-config.json'))
     args = parser.parse_args()
     receipt = {'schema_version':1,'phase':args.phase,'status':'BLOCKED','proof_scope':'actual production APIs only',
                'future_provider_assertions':FUTURE_PROVIDER_ASSERTIONS}
     try:
         journey = Journey(args.config)
-        method = {'capacity-renew':journey.capacity_renew,'renew-operator':journey.renew_operator,'environment-register':journey.environment_register,'capacity-prepare':journey.capacity_prepare,'capacity-attest':journey.capacity_attest,'provider-progress':journey.provider_progress,'provisioner-setup':journey.provisioner_setup,'model-cycle':journey.model_cycle,'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
+        method = {'evidence-index':journey.evidence_index,'capacity-renew':journey.capacity_renew,'renew-operator':journey.renew_operator,'environment-register':journey.environment_register,'capacity-prepare':journey.capacity_prepare,'capacity-attest':journey.capacity_attest,'provider-progress':journey.provider_progress,'provisioner-setup':journey.provisioner_setup,'model-cycle':journey.model_cycle,'native-qualification':journey.native_qualification,'native-credential':journey.native_credential,'native-auth':journey.native_auth,'trust':journey.trust,'readiness-artifact':journey.readiness_artifact,'activate-run':journey.activate_run,'sessions':journey.sessions,'profile':journey.profile,
                   'artifacts':journey.artifacts,'registration':journey.registration,'run':journey.run,
                   'cleanup':journey.cleanup,'inspect':journey.inspect}.get(args.phase)
         result = method() if method else journey.steps(args.phase)

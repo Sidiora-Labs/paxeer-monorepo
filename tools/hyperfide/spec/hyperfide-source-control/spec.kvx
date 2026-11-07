@@ -429,6 +429,17 @@ do_2 = "Bind task assignment packages to ready package.kvx environment generatio
 do_3 = "Route worker progress, findings, checkpoints and failures to the owning manager, and unresolved cross-wave changes to the Primary. Persist decisions and reconcile uncertain creation/dispatch before issuing replacements or cleanup."
 do_4 = "Qualify real provider creation, install, worker execution and changed manager decisions; reject stale or cross-wave actions, demonstrate limits and cancellation, and preserve worker results across manager replacement."
 
+source_task = "0.13"
+carried_source = "spec/layerx-merge/source-control/source-spec.kvx"
+repair_task = "layerx-merge/22.37.6"
+evidence_ledger = "/out/run/gates.jsonl"
+build_evidence = "BY_REFERENCE: final build.revision, command, exit and private log in evidence_ledger"
+verify_evidence = "BY_REFERENCE: final verify.revision, command, exit and private log in evidence_ledger; must match the final build revision with both exits zero"
+component_verify_cmd = "cd tools/hyperfide && corepack enable && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/cases/source_control/0_13.py --component"
+qualification_record = "qualification.kvx: qualification.manager_assignment_component_22_37_6, qualification.manager_prerequisite_live_22_37_6 and qualification.manager_assignment_live_22_37_6"
+live_status = "UNRUN"
+qualification = "Decision 2700: bounded component refusal qualification only; no owner provider/model/object-store campaign credentials or trusted target supplied; retain in_progress until the complete pinned live evidence passes and its revision, command, exit and private receipt are appended to qualification.kvx before marking 0.13 done."
+
 [task.0.14]
 title = "Qualify the final fleet prerequisite and native-source handoff"
 status = "in_progress"

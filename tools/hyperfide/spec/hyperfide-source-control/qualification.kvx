@@ -1123,3 +1123,24 @@ command = "cg spec done 22.37.5 -f layerx-merge --root /work/paxeer-monorepo"
 exit_code = 1
 log = "/out/logs/verify-1.log; matching build exit 0: /out/logs/build-1.log; final repair evidence by reference in private /out/run/gates.jsonl."
 observed = "The component reached its real installed native CLI declaration but looked beneath the obsolete vendor codex/codex directory; resolve the installed platform payload at vendor/<target>/bin/codex, retaining the ELF, version, digest, profile and unavailable-model assertions."
+
+[qualification.manager_prerequisite_live_22_37_6]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.6 and carried source-control task 0.13."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_14_live.py run --config /private/hyperfide-manager/0_14-live-config.json && python3 tests/hyperfide/cases/source_control/0_14_live.py qualification --config /private/hyperfide-manager/0_14-live-config.json && python3 tests/hyperfide/cases/source_control/0_14_live.py evidence-index --config /private/hyperfide-manager/0_14-live-config.json"
+exit_code = "UNRUN"
+log = "tools/hyperfide/build/fleet/integration/private/0_14-run-receipt.json; tools/hyperfide/build/fleet/integration/private/0_14-qualification-receipt.json; tools/hyperfide/build/fleet/integration/private/0_14-evidence-index-receipt.json (UNRUN; reserved private owner evidence locations)."
+observed = "Decision 2700: no owner campaign configuration, trusted live database target, configured provider pool, model backend or object-store credentials were supplied; the owner must supply actual scenario captures and pinned 0_13-index-input.json and 0_13-target-input.json beside them in build/fleet/integration/private, covering every TASK_CASES[0.13] case; index production is UNRUN and no live PASS is claimed."
+
+[qualification.manager_assignment_live_22_37_6]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.6 and carried source-control task 0.13."
+command = "cd tools/hyperfide && python3 tests/hyperfide/cases/source_control/0_13.py --live-evidence build/fleet/integration/private/0_13-index.json --target build/fleet/integration/private/0_13-target.json --receipt build/fleet/integration/private/0_13-live-receipt.json"
+exit_code = "UNRUN"
+log = "tools/hyperfide/build/fleet/integration/private/0_13-live-receipt.json (UNRUN; reserved private owner receipt; any attempted case refusal retains refused_case and exact refusal_code)."
+observed = "Decision 2700: fresh_install, repeated_install, interrupted_install, missing_code, missing_dependencies, missing_configuration, stale_install, path_escape, concurrent_isolation, interface_subset, fetch_volume, co_located_models, model_delegation, model_replan, constraint_refusal, supervisor_box_loss, stale_generation_replay, model_unavailability, provider_creation, coding_worker, independent_test, worker_cancellation, failed_worker, manager_replacement and ambiguous_provider_outcome are all UNRUN; source task 0.13 remains in_progress until its live evidence passes."
+
+[qualification.manager_assignment_component_22_37_6]
+revision = "BY_REFERENCE: final matching build.revision and verify.revision in private /out/run/gates.jsonl for task 22.37.6; source task spec/layerx-merge/source-control/source-spec.kvx task 0.13."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-build runs the declared control-plane build and hf-done runs cg spec done 22.37.6 -f layerx-merge --root /work/paxeer-monorepo including withpg.py -- python3 tests/hyperfide/cases/source_control/0_13.py --component."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; qualification requires both zero at the same candidate revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; component receipt tools/hyperfide/build/fleet/0.13/receipt.json retains typed refusal codes and operation identities."
+observed = "The bounded component gate retains every unjournalled proposal assertion and exercises current-manager journal admission, stale manager generation and cross-package selection for assignment and destruction through signed HTTPS and real PostgreSQL; full durable-state snapshots must remain unchanged on every manager refusal, with no effect receipts; all live qualification remains UNRUN."

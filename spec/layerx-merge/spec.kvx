@@ -289905,7 +289905,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.12]
 title = "Serve the market reads at the node root as px_ methods"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.38.8"]
@@ -333893,7 +333893,7 @@ do_3 = "Attempt 2 (continue, gotcha 3514, decisions 2820, 2821 and 2842): the at
 
 [task.22.39.81]
 title = "Make the forge step of the main workflow select real suites and run the names, governance and mirror profiles"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
