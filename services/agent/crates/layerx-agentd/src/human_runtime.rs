@@ -5122,7 +5122,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             .subject_identity(&bound, &principal.agent)
             .map_err(|_| HumanOperationError::Refused)?;
         if identity.frozen
-            || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+            || identity.verification_level < VerificationLevel::COMMITTED
             || identity.head_sequence != core_sequence
             || identity.revocation_sequence == 0
             || identity.revocation_sequence > identity.head_sequence
@@ -11742,17 +11742,20 @@ fn rank(value: u8) -> Result<VerificationLevel, HumanOperationError> {
         1 => Ok(VerificationLevel::SEQUENCER_SIGNED),
         2 => Ok(VerificationLevel::BATCH_INCLUDED),
         3 => Ok(VerificationLevel::STATE_PROVEN),
-        4 => Ok(VerificationLevel::CHECKPOINT_FINALISED),
-        5 => Ok(VerificationLevel::SETTLEMENT_ANCHORED),
+        4 | 5 | 6 => Ok(VerificationLevel::COMMITTED),
         _ => Err(HumanOperationError::Refused),
     }
 }
 
 pub(crate) fn receipt_rung_code(level: VerificationLevel) -> Result<u8, HumanOperationError> {
-    level
-        .rung()
-        .map(layerx_types::rung::Rung::wire_rank)
-        .ok_or(HumanOperationError::Refused)
+    if level == VerificationLevel::COMMITTED {
+        Ok(6)
+    } else {
+        level
+            .rung()
+            .map(layerx_types::rung::Rung::wire_rank)
+            .ok_or(HumanOperationError::Refused)
+    }
 }
 
 impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
@@ -12036,7 +12039,7 @@ impl<A: HumanAuthorityBoundary> UnifiedAgentOwner<A> {
             || identity.canonical_bytes.len() != 223
             || !identity.canonical_bytes.starts_with(b"LXGI1")
             || identity.canonical_bytes[5..37] != grantor
-            || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+            || identity.verification_level < VerificationLevel::COMMITTED
             || !identity.authorities.contains(&owner_authority(request)?)
         {
             return Err(HumanOperationError::Refused);
@@ -12086,7 +12089,7 @@ fn subject_bound_address(
 ) -> Result<[u8; 20], HumanOperationError> {
     if identity.frozen
         || identity.head_sequence == 0
-        || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+        || identity.verification_level < VerificationLevel::COMMITTED
     {
         return Err(HumanOperationError::Refused);
     }
@@ -13390,7 +13393,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
             .subject_identity(peer, did)
             .map_err(|_| HumanOperationError::Refused)?;
         if identity.frozen
-            || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
+            || identity.verification_level < VerificationLevel::COMMITTED
             || !identity
                 .authorities
                 .contains(&ProtocolAuthority::PrimaryKey(key))
@@ -14098,7 +14101,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
                 tenant,
                 idempotency_key,
                 &served.canonical_bytes,
-                VerificationLevel::CHECKPOINT_FINALISED,
+                VerificationLevel::COMMITTED,
             )
             .map_err(|_| HumanOperationError::Refused)?;
             // The v2 transaction receipt store retains this native result/commit proof.
@@ -14722,8 +14725,7 @@ impl<A: HumanAuthorityBoundary> ProductionHumanOperations<A> {
         let identity = self
             .subject_identity(peer, &did)
             .map_err(|_| HumanOperationError::Refused)?;
-        if identity.frozen || identity.verification_level < VerificationLevel::CHECKPOINT_FINALISED
-        {
+        if identity.frozen || identity.verification_level < VerificationLevel::COMMITTED {
             return Err(HumanOperationError::Refused);
         }
         let mut addresses = Vec::new();
@@ -18084,8 +18086,9 @@ fn verification_level(value: &Value) -> Result<VerificationLevel, IdentityError>
         Some("sequencer_signed") => Ok(VerificationLevel::SEQUENCER_SIGNED),
         Some("batch_included") => Ok(VerificationLevel::BATCH_INCLUDED),
         Some("state_proven") => Ok(VerificationLevel::STATE_PROVEN),
-        Some("checkpoint_finalised") => Ok(VerificationLevel::CHECKPOINT_FINALISED),
-        Some("settlement_anchored") => Ok(VerificationLevel::SETTLEMENT_ANCHORED),
+        Some("committed" | "checkpoint_finalised" | "settlement_anchored") => {
+            Ok(VerificationLevel::COMMITTED)
+        }
         _ => Err(IdentityError::Unverified),
     }
 }
@@ -18586,19 +18589,7 @@ fn state_code(state: SubmissionState) -> u8 {
     }
 }
 fn verification_code(level: VerificationLevel) -> u8 {
-    if level == VerificationLevel::UNVERIFIED {
-        0
-    } else if level == VerificationLevel::SEQUENCER_SIGNED {
-        1
-    } else if level == VerificationLevel::BATCH_INCLUDED {
-        2
-    } else if level == VerificationLevel::STATE_PROVEN {
-        3
-    } else if level == VerificationLevel::CHECKPOINT_FINALISED {
-        4
-    } else {
-        5
-    }
+    level.wire_rank()
 }
 fn hex(bytes: &[u8]) -> String {
     const H: &[u8; 16] = b"0123456789abcdef";
@@ -20224,7 +20215,7 @@ const fn production_rung_floor(rung: layerx_types::rung::Rung) -> VerificationLe
     match rung {
         layerx_types::rung::Rung::Submitted => VerificationLevel::UNVERIFIED,
         layerx_types::rung::Rung::Receipted => VerificationLevel::BATCH_INCLUDED,
-        layerx_types::rung::Rung::Committed => VerificationLevel::CHECKPOINT_FINALISED,
+        layerx_types::rung::Rung::Committed => VerificationLevel::COMMITTED,
     }
 }
 
@@ -22834,6 +22825,25 @@ mod tests {
     use std::sync::atomic::{AtomicBool, Ordering};
 
     #[test]
+    fn committed_verification_codecs_accept_current_and_legacy_records() {
+        assert_eq!(verification_code(VerificationLevel::COMMITTED), 6);
+        for code in [4, 5, 6] {
+            assert_eq!(rank(code), Ok(VerificationLevel::COMMITTED));
+        }
+        for name in ["committed", "checkpoint_finalised", "settlement_anchored"] {
+            assert_eq!(
+                verification_level(&json!({"verification_level":name})),
+                Ok(VerificationLevel::COMMITTED)
+            );
+        }
+        assert_eq!(rank(7), Err(HumanOperationError::Refused));
+        assert_eq!(
+            verification_level(&json!({"verification_level":"unknown"})),
+            Err(IdentityError::Unverified)
+        );
+    }
+
+    #[test]
     fn repair_22_31_538_approval_budget_accepts_committed_rank() {
         assert_eq!(
             committed_budget_rank(VerificationLevel::COMMITTED.wire_rank()),
@@ -22964,7 +22974,7 @@ mod tests {
                 123,
                 (1_u128 << 80) + 456,
                 terminal,
-                VerificationLevel::CHECKPOINT_FINALISED,
+                VerificationLevel::COMMITTED,
                 [6; 32],
                 [7; 32],
                 [8; 32],

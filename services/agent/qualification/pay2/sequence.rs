@@ -175,7 +175,7 @@ impl IdentityResolver for Pay2GatewayIdentity<'_> {
             canonical_bytes: canonical,
             head_sequence: authenticated.height,
             revocation_sequence: 1,
-            verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::CapabilityGrant(self.capability)],
         }))
