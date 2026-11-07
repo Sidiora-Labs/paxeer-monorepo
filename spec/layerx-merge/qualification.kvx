@@ -34223,3 +34223,43 @@ symbol = "test_frontend_asset_names.py"
 observed = "Attempt 4 at 4b2b61b87edf: build exit 0; verification exit 2: seven asset tests passed, frozen install of apps/perps passed, tsc failed with TS2307 on @sidiora/layerx-sdk/browser from sdk/wallet/src/receipt.ts and four implicit-any errors; no repair cycle used."
 assumption = "The errors come from an unbuilt linked package, not from the asset changes; the wallet test workflow shows the producer steps."
 severity = "high"
+
+[finding.22.37.4.3]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 3 at 3c30292c67f3: build exit 0 twice; verification 1 failed at fixture startup on missing object-store settings; verification 2 exit 1 in test/install-status.test.ts line 188, the spawned status process was refused hierarchy.packet.create with AUTH_SCOPE_DENIED; both repair cycles used."
+assumption = "The grant tuple of sdk_status.py omits component 3.2 while the claim path calls its create action; the identity component is correct."
+severity = "high"
+
+[finding.22.39.43.2]
+task = "22.39.43"
+file = "tests/ci/test_wallet_repair_suites_listed.py"
+symbol = "test_wallet_repair_suites_listed.py"
+observed = "Attempt 2 at 732101e6cd82: build exit 0; verification exit 1: scope test passed, 644 wallet tests passed, 16 failed in 14 files, one file inside the touches; both repair cycles used."
+assumption = "The whole-suite verification exposed failures outside the eleven files; decision 2824 scopes the task run and decision 2800 gives the rest a repair task."
+severity = "high"
+
+[finding.22.39.74.1]
+task = "22.39.74"
+file = "tests/ci/test_interop_workspace_tests_wired.py"
+symbol = "test_interop_workspace_tests_wired.py"
+observed = "Attempt 1 at dd1e10e4b474: build exit 0 twice; verification 1 failed in the recipe parser on duplicate INTEROP_MANIFEST assignments; verification 2 exit 2: three wiring tests passed, make interop-test reported 52 failed targets and 145 failed tests across 12 members with 350 tests passing in the failing targets; both repair cycles used."
+assumption = "The failures are in member tests the task does not touch; the baseline keeps the public gate honest while four repair tasks retire the entries."
+severity = "high"
+
+[finding.22.39.8.6]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 6 at 30ec04278493: build exit 0 twice; verification 1 failed on clock regression refusals and Kms(KeyNotFound); verification 2 exit 1: custody RealProfiles passed, send RealProfiles failed with 404 key_not_found from all five public-wallet calls and Kms(KeyNotFound) exit 101; both repair cycles used."
+assumption = "The handler requires a held secp256k1 wallet identity for the owner and the send fixture holds only the ed25519 primary; the custody test does not look up a wallet identity."
+severity = "high"
+
+[finding.22.39.118.2]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 2 at 2366732b3535: build exit 0; verification exit 1: rpc tests and 132 CLI tests passed, the credential target failed 1 of 8 on the missing dbus-daemon panic; no repair cycle used."
+assumption = "The test skips the guard its siblings use; the public check installs the daemon so the skip never hides the test there."
+severity = "high"
