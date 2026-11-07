@@ -746,7 +746,7 @@ fn blank() -> ParticipantRow {
     }
 }
 impl Captured {
-    fn projection(&self) -> ([Availability; 10], Vec<ParticipantRow>) {
+    fn projection(&self) -> ([Availability; 11], Vec<ParticipantRow>) {
         ok(self.binding.verify_capture(&self.state, &self.facts));
         let mut rows = vec![blank(); 40];
         let (features, len) = ok(queries::project_capture(
@@ -909,7 +909,7 @@ fn availability_hides_enabled_features() {
     w.score(800_000);
     w.settle();
     let capture = w.capture();
-    assert_eq!(capture.projection().0, [Availability::Available; 10]);
+    assert_eq!(capture.projection().0, [Availability::Available; 11]);
     let saved = Saved::new();
     saved.save(&capture);
     let facts = capture.facts;
@@ -917,7 +917,7 @@ fn availability_hides_enabled_features() {
     drop(w);
     assert_eq!(
         saved.reopen(facts).projection().0,
-        [Availability::Available; 10]
+        [Availability::Available; 11]
     );
     let recovered = saved.reopen(facts);
     let shared = ok(state::decode_shared_state(&recovered.state));
