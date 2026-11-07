@@ -35193,3 +35193,11 @@ symbol = "test_workflow_live_inputs_guarded.py"
 observed = "Attempt 1 at 94f1769f81b7be0ae0070751721ff5075a9ad9d8: build exit 0; verification exit 1 at the routing check with thirteen refusals in four workflows outside the touches; the pytest step never ran."
 assumption = "The seven restored lines are right; the check sees the whole repository and every refusal belongs to this repair."
 severity = "high"
+
+[finding.22.33.50.8]
+task = "22.33.50"
+file = "services/human/crates/layerx-human-service/tests/repair_22_33_50.rs"
+symbol = "repair_22_33_50.rs"
+observed = "Attempt 9 at 25a24db46b439d58676e672db44e5f371bfcffa8: build exit 0; verification exit 101 twice: 1 passed, 2 failed, the helper asserting CHECKPOINT_FINALISED against Committed and the control case receiving the typed AgentLookup refusal where the generic Refused was asserted."
+assumption = "Both failures are test-side: one stale level in a helper the attempt-8 ruling did not name, and a control case that never installed the agent it finalizes."
+severity = "high"
