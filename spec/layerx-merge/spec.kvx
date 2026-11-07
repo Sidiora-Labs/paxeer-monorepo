@@ -177913,7 +177913,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.585]
 title = "Disclose the programs lifecycle calls in the call disclosure decoder"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
