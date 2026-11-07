@@ -137,7 +137,7 @@ on:
       - '.github/workflows/paxeer-golangci.yml'
   merge_group:
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 permissions:
   contents: read
