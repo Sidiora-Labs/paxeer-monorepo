@@ -34953,3 +34953,11 @@ symbol = "test_http.py"
 observed = "Attempt 3 at 6a49f8b1242e: build exit 1 at the seller install (E404 for @sidiora/layerx-sdk@0.1.0 from the registry); the verification never ran; attempts 1 and 2 failed earlier at the peers for the missing @noble/hashes package."
 assumption = "The build step form was wrong, not the task tree or the seller manifest; the root workspace install is the only supported form."
 severity = "high"
+
+[finding.22.39.140.1]
+task = "22.39.140"
+file = "services/platform/ramps/toolkit/tests/contracts.rs"
+symbol = "contracts.rs"
+observed = "Attempt 1 at e7b1e04f43fa: build exit 0; verification exit 101: 7 passed, 1 failed, payment_direction_selects_direct_send_or_customer_grant at line 237 expecting PayerGrantRequired where the producer returns InvalidOrder."
+assumption = "The second stale assertion sits in the same test and follows the same producer change; the instruction not to touch it was too narrow."
+severity = "high"

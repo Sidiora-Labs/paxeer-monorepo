@@ -10251,6 +10251,12 @@ value = "When a build or verification step needs the dependencies of a package t
 basis = "Task 22.39.136 attempt 3 at 6a49f8b1242e (gotcha 3533): the per-directory install of the seller package asked the registry for the unpublished SDK version; task 22.39.78 attempt 1 reached the pay6 assertions through the root install. Extends decisions 2829, 2849 and 2853."
 affects = ["22.39.136", "22.39.137", "22.39.78"]
 
+[decision.2857]
+title = "A consumer test repair corrects every assertion of the named test that disagrees with the producer, and an instruction to leave the rest unchanged yields where the producer contract differs"
+value = "When a repair task names a consumer test and the assertions it corrects, the attempt also corrects every further assertion of that same test that disagrees with the current producer contract, each one recorded with the producer line it follows, instead of stopping at a mismatch the task text did not name; the instruction to leave every other assertion unchanged protects assertions the producer still satisfies and never a stale one. Nothing in the producer sources changes for such a repair."
+basis = "Task 22.39.140 attempt 1 at e7b1e04f43fa (gotcha 3534): the two named assertions were corrected and the verification failed at the next assertion of the same test, which expects a variant the producer stopped returning at 22.31.211. Extends decisions 2762 and 2771 and gotcha 3046."
+affects = ["22.39.140", "22.39.68"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -181884,6 +181890,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3534, decisions 2771 and 2800, gotcha 3046): the attempt-1 tree e7b1e04f43fa stands (the PAY_ADDRESS destination, the budgetSpend selector assertion, the record). The assertion at contracts.rs line 237 follows the producer as well: compile_payer_grant_draw on the on-ramp order returns RampError::InvalidOrder because compile_customer_payment (src/lib.rs lines 365 to 375) refuses an order without a customer payment authorization that way since 22.31.211; change that expected variant to InvalidOrder. The do_2 instruction to leave every other assertion unchanged yields wherever the producer contract differs; every corrected assertion is recorded in tests/repair_22_39_140.kvx with the producer line it follows, and nothing in src changes. Run the build once and the verification once at the final revision and record both by reference; if a further assertion of the test still disagrees with the producer after that, correct it the same way in the one allowed repair cycle and rerun once."
 
 [task.22.39.135]
 title = "Give the MCP submit tool the A2A outcome shape: invoke refuses an indeterminate submission, invoke_task keeps it unknown"
