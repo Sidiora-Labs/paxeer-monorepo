@@ -180095,7 +180095,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.5]
 title = "Implement canary challenges with commit-reveal and fixed-point tolerance"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.38.1"]
@@ -184384,7 +184384,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1521]
 title = "Repair audit record 22.30.92 medium findings in services/agent/crates/layerx-agentd/src/read (part 1 of 1): runtime-risk, test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.217", "22.31.218", "22.31.443", "22.31.572"]
