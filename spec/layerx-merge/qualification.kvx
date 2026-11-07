@@ -35041,3 +35041,11 @@ symbol = "cli::rpc::tests::positional_requests_match_published_contract"
 observed = "Attempt 8 at 05b9761fffef: build exit 0; verification exit 1: the three required rpc tests and the library tests pass; make platform-test-tooling fails two lifecycle cases at program_evm_lifecycle.rs line 150 asserting an error where the producer returns the unknown rung."
 assumption = "The two failures are the stale indeterminate assertion in a second test file; the task tree is complete."
 severity = "high"
+
+[finding.22.39.94.1]
+task = "22.39.94"
+file = "tests/ci/test_pnpm_workspace_roots.py"
+symbol = "test_pnpm_workspace_roots.py"
+observed = "Attempt 1 at 8e020814aea8: build exit 0; verification exit 1: the three wiring tests pass, the frozen install resolves, vitest reports 31 failed, 109 passed, 38 todo in ten files the task never touched."
+assumption = "The wallet suite rotted at main outside this task; the wiring lands with a recorded per-name baseline and a retiring task repairs the suite."
+severity = "high"

@@ -10269,6 +10269,12 @@ value = "Every workflow job whose tests or recipes run forge, cast or anvil inst
 basis = "Task 22.39.75 attempt 2 (gotcha 3537) waited ten minutes per package for anvil; task 22.39.76 attempt 2 (gotcha 3538) failed at the Solidity state surface recipe without forge. Extends decisions 2068, 2719 and 2804."
 affects = ["22.39.75", "22.39.76", "22.39.117"]
 
+[decision.2860]
+title = "A JavaScript suite baseline is recorded per test name and applied through a name filter the public job and the gate share"
+value = "When a wiring task finds a vitest or node test suite red at main for cases outside its scope, it records each failing case in a tests/ci/data baseline file (test file, full test name, one-sentence reason, retiring task) and runs the suite through one small script under tools/ci that derives a name filter from the file so the recorded cases are reported as skipped, never as passed, and every other case runs; the public workflow step and the gate of the task call the same script, and the retiring task deletes the entries as the cases pass. A whole-file exclusion is never written for a file whose other cases pass."
+basis = "Task 22.39.94 attempt 1 at 8e020814aea8 (gotcha 3544): 31 wallet SDK cases in ten files fail at main while 109 pass, and the public wallet job runs the same command. Extends decisions 2820 and 2821."
+affects = ["22.39.94", "22.39.145"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39159,6 +39165,15 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.145]
+title = "Make the 31 recorded wallet SDK cases follow their producers and retire the wallet suite baseline"
+reqs = ["22998.1"]
+touches = ["sdk/wallet", "tests/ci/data"]
+tests = ["sdk/wallet/test/receipt.test.ts", "sdk/wallet/test/kernel-reads.test.ts", "sdk/wallet/test/repair-22-31-238.test.ts", "sdk/wallet/test/modules.test.ts", "sdk/wallet/test/provider.test.ts", "sdk/wallet/test/endpoint.test.ts", "sdk/wallet/test/ladder.test.ts", "sdk/wallet/test/client.test.ts", "sdk/wallet/test/agent.test.ts", "sdk/wallet/test/repair-22-33-135.test.ts"]
+verification_contract = "test -s sdk/wallet/test/repair_22_39_145.kvx && pnpm --dir sdk/wallet --ignore-workspace exec vitest run && python3 tools/ci/run_wallet_vitest.py && python3 -m pytest -q tests/ci/test_pnpm_workspace_roots.py"
+do_1 = "do_1 Decisions 2762, 2820, 2857 and 2860, gotcha 3544. tests/ci/data/wallet_vitest_baseline.json (written by 22.39.94) records the 31 cases of sdk/wallet/test that fail at main: six receipt cases and the kernel read case that expect receipt shapes from before src/receipt.ts authenticated every receipt through the key pins (readReceiptKeyPins, authenticateSequencerReceipt, waitForSequencerReceipt); the four repair-22-31-238 cases about hosted methods and receipt authentication; the five module cases that read payer grants and funded accounts the SDK retired and decode events from the precompile ABIs; the five provider cases around eth_accounts, eth_sign, the gas station digest and provider parity; the three endpoint cases whose batch fixture answers do not match the request ids; the two ladder cases against the journey schema; the three client cases about public routes and error bodies; the agent claim case; the React refresh case that loses its renderer."
+symbols = []
 
 [capability.22.39.144]
 title = "Make the release candidate suite of tools/paxeer-x pass again following its producers and retire its baseline entries"
@@ -152155,6 +152170,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.145]
+title = "Make the 31 recorded wallet SDK cases follow their producers and retire the wallet suite baseline"
+status = "pending"
+mode = "BUILD"
+wave = 3
+requires = ["22.39.94"]
+reqs = ["22998.1"]
+capabilities = ["22.39.145"]
+interfaces = []
+do_1 = "do_1 Decisions 2762, 2820, 2857 and 2860, gotcha 3544. tests/ci/data/wallet_vitest_baseline.json (written by 22.39.94) records the 31 cases of sdk/wallet/test that fail at main: six receipt cases and the kernel read case that expect receipt shapes from before src/receipt.ts authenticated every receipt through the key pins (readReceiptKeyPins, authenticateSequencerReceipt, waitForSequencerReceipt); the four repair-22-31-238 cases about hosted methods and receipt authentication; the five module cases that read payer grants and funded accounts the SDK retired and decode events from the precompile ABIs; the five provider cases around eth_accounts, eth_sign, the gas station digest and provider parity; the three endpoint cases whose batch fixture answers do not match the request ids; the two ladder cases against the journey schema; the three client cases about public routes and error bodies; the agent claim case; the React refresh case that loses its renderer."
+do_2 = "do_2 For each case find the producer in sdk/wallet/src or the node interface it reads and make the assertion or its fixture follow it: a retired capability is asserted as its retirement error, a moved px route is asserted at the node root (decision 2521 of the record), an authenticated receipt fixture carries the key pins and header the producer verifies, a batch fixture answers each request id, a golden journey table lists every schema state. Where a case exposes a producer defect (an answer that cannot satisfy its own contract), repair the producer in sdk/wallet/src with the smallest change and record it. Never delete, skip or weaken a case."
+do_3 = "do_3 Delete every baseline entry whose case passes; the file ends empty and stays in place so tools/ci/run_wallet_vitest.py keeps running the whole suite."
+do_4 = "do_4 Record every correction with its producer line in sdk/wallet/test/repair_22_39_145.kvx. Run the build once and the verification once at the final tree."
+symbols = []
+touches = ["sdk/wallet", "tests/ci/data"]
+tests = ["sdk/wallet/test/receipt.test.ts", "sdk/wallet/test/kernel-reads.test.ts", "sdk/wallet/test/repair-22-31-238.test.ts", "sdk/wallet/test/modules.test.ts", "sdk/wallet/test/provider.test.ts", "sdk/wallet/test/endpoint.test.ts", "sdk/wallet/test/ladder.test.ts", "sdk/wallet/test/client.test.ts", "sdk/wallet/test/agent.test.ts", "sdk/wallet/test/repair-22-33-135.test.ts"]
+planned_paths = ["sdk/wallet/test/repair_22_39_145.kvx"]
+build_cmd = "npm ci --ignore-scripts --no-audit --no-fund && npm --prefix services/agent/sdk/typescript run build && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/wallet --ignore-workspace exec tsc --noEmit -p tsconfig.json"
+verify_cmd = "test -s sdk/wallet/test/repair_22_39_145.kvx && pnpm --dir sdk/wallet --ignore-workspace exec vitest run && python3 tools/ci/run_wallet_vitest.py && python3 -m pytest -q tests/ci/test_pnpm_workspace_roots.py"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.139]
 title = "Make every public workflow install the pnpm release its working directory manifest declares and extend the pins test to workflow lines"
 status = "done"
@@ -152286,11 +152332,11 @@ interfaces = []
 do_1 = "do_1 Decision 2815, gotcha 3462. In .github/workflows/launchpad-test.yml lines 34 to 42 and 64 to 66 the matrix jobs run pnpm run test inside sdk/launchpad packages, which sit outside apps/launchpad, so pnpm walks up to the root pnpm-workspace.yaml and the root package.json line 45 declares npm; 9 of 11 jobs of the last run fail with This project is configured to use npm. Run each matrix package through pnpm --dir apps/launchpad --filter ./<relative path> (the launchpad workspace file lists the sdk packages), and in .github/workflows/wallet-test.yml line 51 run the sdk/wallet suite with pnpm --ignore-workspace exec vitest run as its install step at line 44 already does."
 do_2 = "do_2 Write tests/ci/test_pnpm_workspace_roots.py with test_pnpm_steps_resolve_a_pnpm_workspace_root (every pnpm step of every workflow runs in a directory whose nearest workspace file is a pnpm one, or passes --ignore-workspace), test_launchpad_matrix_runs_from_launchpad_workspace and test_sdk_wallet_vitest_ignores_root_workspace."
 symbols = []
-touches = [".github/workflows/launchpad-test.yml", ".github/workflows/wallet-test.yml", "apps/launchpad/pnpm-workspace.yaml", "sdk/wallet/package.json"]
+touches = [".github/workflows/launchpad-test.yml", ".github/workflows/wallet-test.yml", "apps/launchpad/pnpm-workspace.yaml", "sdk/wallet/package.json", "tests/ci/data", "tools/ci"]
 tests = ["tests/ci/test_pnpm_workspace_roots.py"]
 planned_paths = ["tests/ci/test_pnpm_workspace_roots.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_pnpm_workspace_roots.py"
-verify_cmd = "python3 -m pytest -q tests/ci/test_pnpm_workspace_roots.py && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts && pnpm --dir sdk/wallet --ignore-workspace exec vitest run"
+verify_cmd = "python3 -m pytest -q tests/ci/test_pnpm_workspace_roots.py && pnpm --dir sdk/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts && python3 tools/ci/run_wallet_vitest.py"
 gate_kind = "planned"
 sandbox_profile = "node"
 owner_role = "fm-tools-ops"
@@ -152298,10 +152344,11 @@ rollback = "Revert the task's commit."
 max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
-time_limit_minutes = 45
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3544, decisions 2771, 2820, 2821 and 2860): the attempt-1 tree 8e020814aea8 stands (the launchpad matrix through the launchpad workspace, the ignore-workspace wallet step, the three wiring tests). The 31 failing wallet cases are outside this task: write tests/ci/data/wallet_vitest_baseline.json listing each of them (test file, full test name as vitest prints it, one-sentence reason from the error class, retiring task 22.39.145), and write tools/ci/run_wallet_vitest.py, which reads that file, builds the vitest name filter that skips exactly the recorded names, and runs pnpm --ignore-workspace exec vitest run with that filter in sdk/wallet, passing any further arguments through and exiting with the vitest status. The Run Vitest suite step of .github/workflows/wallet-test.yml calls that script for the sdk/wallet matrix entry and keeps the plain command for apps/wallet; add test_sdk_wallet_job_runs_the_baseline_script to the wiring tests asserting that, and that the baseline file parses and names only tests that exist in sdk/wallet/test. The verification of the task now runs the wiring tests, the frozen install and the script; a recorded case that passes is reported, never deleted by this task. Nothing under sdk/wallet/src or sdk/wallet/test changes. Run the build once and the verification once at the final revision and record both by reference."
 
 [task.22.39.70]
 title = "Shrink the web assets that ship to every visitor"
