@@ -152216,7 +152216,7 @@ source_task = "0.10"
 
 [task.22.37.2]
 title = "Re-anchor layout qualification to the vendored history and emit a schema checked layout receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1", "22.37.1"]
@@ -330565,7 +330565,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.22]
 title = "Remove the retired bridge finalize and exit-claim symbols from the wiki Bridge page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.20"]
@@ -330594,7 +330594,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.21]
 title = "Align the wiki CommitmentLevels page with the retired text of the site page"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.20"]
