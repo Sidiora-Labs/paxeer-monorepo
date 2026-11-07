@@ -129,4 +129,4 @@ This policy skips the base denom. It changes the destination of collected fee to
 - The repository contains a pointer-binding proposal and a proxy timelock handover proposal. Neither file establishes applied state. The `v6.12.0` handler additionally implements legacy-balance migration, metadata and pointer setup; inspect committed state to determine which upgrades and bindings have taken effect.
 - Fee-token collection includes the EVM end-of-block sweep and governed holding or distribution policy.
 
-The implementation paths above are in the [repository](https://github.com/Sidiora-Labs/Paxeer-X-Network). Treat deployed contract state, the pointer registry, upgrade records and governed parameters as the evidence for activation on a particular network.
+The implementation paths above are in the [repository](https://github.com/Sidiora-Labs/paxeer-monorepo). Treat deployed contract state, the pointer registry, upgrade records and governed parameters as the evidence for activation on a particular network.
