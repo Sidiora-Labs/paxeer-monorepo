@@ -17,6 +17,7 @@ on:
       - 'services/agent/crates/layerx-crypto/**'
       - 'services/agent/crates/layerx-types/**'
       - 'Makefile'
+      - 'chain.mk'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -41,6 +42,7 @@ on:
       - 'services/agent/crates/layerx-crypto/**'
       - 'services/agent/crates/layerx-types/**'
       - 'Makefile'
+      - 'chain.mk'
       - 'layerxproof/**'
       - 'go.mod'
       - 'go.sum'
@@ -91,10 +93,10 @@ jobs:
           CARGO_TARGET_DIR: ${{ runner.temp }}/wallet-rust
           RUSTUP_TOOLCHAIN: 1.91.1
         run: python3 tools/qualification/paxeer-x/wallet_go_consumers.py --output "$RUNNER_TEMP/wallet-rust-consumers"
-      - name: Build native attestor library
+      - name: Build native attestor libraries
         working-directory: .
         run: |
-          make build/liblayerx.a
+          make paxd-native-libs
           echo "CGO_LDFLAGS=-L${GITHUB_WORKSPACE}/build" >> "$GITHUB_ENV"
       - name: Test attestor (including TestABICopiesMatchRepository)
         env:
