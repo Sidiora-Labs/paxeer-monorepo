@@ -236,7 +236,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         STANDARD.decode(&fixture.client_pkcs8)?,
         Duration::from_secs(120),
     )?;
-    let provider = AttestorKms::connect(config)?;
+    let provider = AttestorKms::connect_with_clock(config, clock.clone())?;
     provider.admit_assertion(&fixture.owner, &fixture.owner_assertion)?;
     let principal = PrincipalId::new("native-owner")?;
     let key = KeyId::new("primary")?;
@@ -274,7 +274,17 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     wait(&directory.join("signing.json"), clock.as_ref())?;
     let material: Material =
         serde_json::from_slice(&read_private(&directory.join("signing.json"))?)?;
-    let purpose = NativeSendPurposeV2::from_canonical_bytes(&STANDARD.decode(&material.purpose)?)
+    let purpose_bytes = STANDARD.decode(&material.purpose)?;
+    let bound_domain = purpose_bytes
+        .split_inclusive(|byte| *byte == 0)
+        .next()
+        .ok_or("native send purpose domain missing")?;
+    eprintln!(
+        "native send domains: consumer={:?} producer={:?}",
+        String::from_utf8_lossy(NativeSendPurposeV2::DOMAIN),
+        String::from_utf8_lossy(bound_domain)
+    );
+    let purpose = NativeSendPurposeV2::from_canonical_bytes(&purpose_bytes)
         .map_err(|error| format!("{error:?}"))?;
     let foreign_principal = PrincipalId::new("native-foreign")?;
     let tenancy = TenancyMap::new([
@@ -284,7 +294,7 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     let store_root = directory.join("human-store");
     let tenancy_digest = tenancy.install(&store_root)?;
     let period = RetentionPeriod::new(86400);
-    let mut store = PrincipalStore::open(
+    let shared_store = Arc::new(std::sync::Mutex::new(PrincipalStore::open(
         &store_root,
         RetentionPolicy {
             journeys: period,
@@ -294,20 +304,10 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
             cache: period,
         },
         tenancy_digest,
-    )?;
+    )?));
     let custody = CustodySigner::new_shared(
         keystore,
-        Arc::new(std::sync::Mutex::new(PrincipalStore::open(
-            &store_root,
-            RetentionPolicy {
-                journeys: period,
-                notifications: period,
-                audit: period,
-                telemetry: period,
-                cache: period,
-            },
-            tenancy_digest,
-        )?)),
+        Arc::clone(&shared_store),
         ModuleRegistry::new(&[]).map_err(|error| format!("{error:?}"))?,
         SigningLimits::new(32, 60)?,
     );
@@ -316,6 +316,9 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
     getrandom::fill(&mut trace_entropy)
         .map_err(|error| std::io::Error::other(error.to_string()))?;
     let trace = TraceId::mint(trace_entropy);
+    let mut store = shared_store
+        .lock()
+        .map_err(|_| "native send store lock poisoned")?;
     let mut scope = store.principal(&principal)?;
     let result = ready(custody.sign_native_consent_in_scope(
         &mut scope,
@@ -577,18 +580,8 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         ),
         Err(CustodyError::InvalidEvidence)
     ));
-    let mut foreign_store = PrincipalStore::open(
-        &store_root,
-        RetentionPolicy {
-            journeys: period,
-            notifications: period,
-            audit: period,
-            telemetry: period,
-            cache: period,
-        },
-        tenancy_digest,
-    )?;
-    let mut foreign_scope = foreign_store.principal(&foreign_principal)?;
+    drop(scope);
+    let mut foreign_scope = store.principal(&foreign_principal)?;
     assert!(matches!(
         CustodySigner::bind_authenticated_step_up(
             &passkeys,
@@ -602,6 +595,8 @@ fn native_send_provider_and_sdk_real_cluster() -> Result<()> {
         ),
         Err(CustodyError::InvalidEvidence)
     ));
+    drop(foreign_scope);
+    let mut scope = store.principal(&principal)?;
     let evidence = CustodySigner::bind_authenticated_step_up(
         &passkeys,
         &mut scope,
