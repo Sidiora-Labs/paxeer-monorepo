@@ -153773,7 +153773,7 @@ source_task = "0.13"
 
 [task.22.37.5]
 title = "Qualify co-located Primary and Wave Manager model sessions live with restoration after process loss"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 5
 requires = ["22.36.1", "22.37.4"]
