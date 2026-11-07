@@ -183616,7 +183616,7 @@ do_20 = "Attempt 7 (continue after 22.31.559, gotcha 3190, decision 2632): the a
 
 [task.22.33.1536]
 title = "Repair audit record 22.30.95 medium findings in services/agent/crates/layerx-agentd/tests (part 1 of 3): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.368", "22.31.443", "22.31.497", "22.31.550", "22.31.558", "22.31.561", "22.31.572"]
@@ -289229,7 +289229,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1135]
 title = "Repair audit record 22.30.5 medium findings in src/codec (part 1 of 1): runtime-risk"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.98", "22.31.99", "22.31.100", "22.31.101"]
