@@ -33891,3 +33891,51 @@ symbol = "test_tools_ci_suite_passes.py"
 observed = "Attempt 1 at 799a0dafcb68: builds exit 0 (two), verification exit 1 (two runs): 112 passed, 277 subtests passed, 1 failed: the beta ledger check over spec/layerx-merge/qualification.kvx reports 6448 violations (unterminated string at line 494, repeated section headers and keys)."
 assumption = "The 18 settlements are complete; the ledger faults belong to the ledger file and are repaired by 22.39.87."
 severity = "high"
+
+[finding.22.39.51.1]
+task = "22.39.51"
+file = "tests/ci/test_action_pins_consistent.py"
+symbol = "test_action_pins_consistent.py"
+observed = "Attempt 1 at b70c71c3cbf2: build exit 0; verification exit 1: 1 passed, 2 failed: conflicting SHAs across 51 workflow files and three toolchain pins whose comment reads stable."
+assumption = "The task text named a repository-wide unification; the touches named three files. Scope is widened to the directory."
+severity = "high"
+
+[finding.22.37.4.1]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 1 at 3ff690464a5b: builds exit 0 (two); verification exit 1 (two runs): install_status_reads_actual_ready_and_preserves_typed_errors failed with FileNotFoundError for /usr/bin/python3 raised by the component fixture; the component cases otherwise passed."
+assumption = "The attempt-1 implementation is complete; the fault is a fixed interpreter path in an inherited fixture outside the original touches."
+severity = "high"
+
+[finding.22.39.30.3]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 3 at fe2b3029520b: build exit 0; verification exit 1: 13 tests passed, then the site check refused: capabilities declared but documented on no page: Scheduled beta resets."
+assumption = "The missing row pre-exists on main (the reference page that carries it is generated and not counted); one row on a page already in the touches closes it."
+severity = "high"
+
+[finding.22.39.68.1]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 1 at 5ba896bc2b9b: no gate ran; the agent stopped on the destination directories and the four consumer tests outside the touches and reported seven more key-like files in two other crates."
+assumption = "The move is right; the touches named the source directories but not the destination directories or the consumers. The seven other files belong to two crates of other owners and get their own task."
+severity = "high"
+
+[finding.22.39.61.1]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 1 at 7fd627359bac: build exit 2: tsc in apps/launchpad/web could not resolve the two launchpad SDK packages because they were linked but not built; verification never ran."
+assumption = "The build command omitted the SDK build step the launchpad web type check depends on; the implementation is complete."
+severity = "high"
+
+[finding.22.39.65.1]
+task = "22.39.65"
+file = "tests/ci/test_no_deployment_hosts_in_source.py"
+symbol = "test_no_deployment_hosts_in_source.py"
+observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
