@@ -2,6 +2,8 @@
 name = "mirror-deployment-repair-22-31-233"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
+authors = ["Sidiora Labs"]
 
 [workspace]
 

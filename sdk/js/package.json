@@ -1,4 +1,5 @@
 {
+  "author": "Sidiora Labs",
   "name": "@pax-js/cosmos",
   "version": "1.0.6-pax.1",
   "description": "A Typescript library for building on Pax generated using the official Pax proto files on buf.build.",
@@ -22,7 +23,7 @@
     "url": "https://github.com/Sidiora-Labs/paxeer-monorepo.git",
     "directory": "sdk/js"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "publishConfig": {
     "access": "public"
   },
