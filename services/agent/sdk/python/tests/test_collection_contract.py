@@ -26,6 +26,7 @@ def test_default_sdk_collection_contract(monkeypatch):
         assert config.getini("pythonpath") == [SDK_ROOT]
         assert config.getini("python_files") == ["test_*.py", "*_test.py"]
         assert config.getini("python_functions") == ["test"]
+        assert all(path.is_dir() for path in (CENTRAL_TESTS, SDK_ROOT / "tests"))
         assert config.getini("addopts") == []
         assert config.getoption("ignore") is None
         assert config.getoption("ignore_glob") is None

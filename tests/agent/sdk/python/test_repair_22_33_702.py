@@ -15,7 +15,7 @@ from layerx_sdk.evm_transaction import (
     decode_signed, decode_signed_transaction,
 )
 from layerx_sdk.production import SdkErrorCode
-from layerx_sdk.verifier import SequencerReceiptVerificationError, verify_sequencer_receipt
+from layerx_sdk.verifier import SequencerReceiptVerification, SequencerReceiptVerificationError, verify_sequencer_receipt
 from layerx_sdk.web_search import WebSearchError, WebSearchOffer, verify_web_search_payment
 from layerx_sdk.x402_rpc import PaymentRpc, verify_rpc_payment
 
@@ -314,6 +314,8 @@ def test_web_search_authorized_batch_cannot_replace_raw_payment_binding():
     verified = verify_sequencer_receipt(
         unhex(vector["signedReceipt"]), unhex(vector["rawTransaction"]), (receipt_key(vector),),
     )
+    assert type(verified) is SequencerReceiptVerification
+    assert verified.receipt.activity_id == keccak256(unhex(vector["rawTransaction"]))
     terms = payment_terms(vector)
     offer = WebSearchOffer(
         scheme="exact", network="eip155:125", amount=terms["amount"],
