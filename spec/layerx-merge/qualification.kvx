@@ -34373,3 +34373,11 @@ command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/p
 evidence = "exit=101; log=/out/logs/dependents-1.log; hf-done exit=7 before task verification"
 observed = "layerx-platform-gateway test repair_22_33_1439 fails with E0432 for crate::canary and crate::rooms in dispatch.rs and twelve E0433 missing crate::canary errors in commit_reveal.rs."
 assumption = "The out-of-scope gateway test omits existing guest modules from its crate root; record the failure without changing or re-running it."
+
+[finding.22.31.542.3]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 3 at 9e1018dc32ac: build exit 0; verification exit 1: 29 library tests passed, the repair_22_31_535 consumer target panicked on the missing committed authority corpus before the task targets ran; no repair cycle used."
+assumption = "The gate command omitted the producer step the corpus needs; the tree is not at fault."
+severity = "high"
