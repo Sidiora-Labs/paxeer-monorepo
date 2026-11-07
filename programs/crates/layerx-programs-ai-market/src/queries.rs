@@ -1,6 +1,8 @@
 //! F10 read-only selectors, exact snapshot binding and bounded off-chain page framing.
 //! Selectors read one captured common state value; they never write, emit, pay or stage blobs.
 //! Host `ProgramRead` facts and finality evidence are inputs; nothing here establishes them.
+#[path = "placement.rs"]
+pub mod placement;
 #[cfg(target_arch = "wasm32")]
 use crate::codec::Sha256State as Sha256;
 use crate::{
@@ -39,6 +41,14 @@ pub const CURSOR_TOKEN_BYTES: usize = 2 * (CURSOR_PAYLOAD_BYTES + CURSOR_TAG_BYT
 const BINDING_PREFIX_MAX_BYTES: usize = 2 + 3 * 32 + 8 + 8 + 32 + 32 + 8 + 32 + 9 + 8 + 32 + 33;
 pub const BINDING_MAX_BYTES: usize = BINDING_PREFIX_MAX_BYTES + 8 + 32 + 32 + 32 + 1 + 8 + 8;
 const HEX: &[u8; 16] = b"0123456789abcdef";
+
+pub fn answer_book_view(state_bytes: &[u8], payload: &[u8], out: &mut [u8]) -> CodecResult<usize> {
+    let mut reader = Reader::new(payload);
+    let model = reader.digest32()?;
+    reader.finish()?;
+    let shared = state::decode_shared_state(state_bytes)?;
+    placement::PlacementBook::decode(shared.room_market()?.1, model)?.encode_view(out)
+}
 
 /// Off-chain view failures keep their own names, separate from on-chain application codes.
 #[derive(Clone, Copy, Eq, PartialEq)]

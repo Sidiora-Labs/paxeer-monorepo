@@ -427,7 +427,13 @@ impl PrincipalStore {
     ) -> Result<Self, StoreError> {
         let root_path = root.as_ref().to_path_buf();
         let root = Directory::open(&root_path)?;
-        let ownership = provider::ownership_lock(&root)?;
+        let ownership = provider::ownership_lock(&root).inspect_err(|error| {
+            if std::env::var_os("PAXEER_X_NATIVE_CUSTODY_LIVE_FIXTURE").is_some()
+                || std::env::var_os("PAXEER_X_NATIVE_SEND_LIVE_FIXTURE").is_some()
+            {
+                eprintln!("native principal store ownership error={error:?}");
+            }
+        })?;
         let version = migrate::prepare(&root)?;
         verify_principals_tree(&root)?;
         let tenancy = tenancy::load_installed(&root)?;

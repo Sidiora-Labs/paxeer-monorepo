@@ -10,7 +10,7 @@
   <description>Receipt-gated x402 auto-configuration for Spring Boot services</description>
   <url>https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/sdk/integrations/spring</url>
   <licenses>
-    <license><name>LayerX Protocol License</name><url>https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE</url></license>
+    <license><name>Apache-2.0</name><url>https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE</url></license>
   </licenses>
   <developers><developer><organization>Sidiora Labs</organization></developer></developers>
   <scm>
