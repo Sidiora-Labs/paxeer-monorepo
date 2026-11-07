@@ -1,4 +1,6 @@
 {
+  "author": "Sidiora Labs",
+  "license": "Apache-2.0",
   "name": "@sidiora/layerx-example-merchant-shop",
   "version": "0.1.0",
   "private": true,
@@ -12,5 +14,7 @@
     "@sidiora/layerx-merchant-middleware": "0.1.0",
     "@sidiora/layerx-seller-middleware": "0.1.0"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }
