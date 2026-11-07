@@ -151573,7 +151573,7 @@ do_10 = "Attempt 3 (continue, gotcha 3389, decision 2773): the attempt-2 tree st
 
 [task.22.37.13]
 title = "Complete workspace readiness receipts, host name checks and a standalone qualification for sparse materialization"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 3
 requires = ["22.36.1", "22.37.12"]
@@ -330047,7 +330047,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.14]
 title = "Point the perf-db README, manifest and templates at the monorepo and drop the dead banner"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330249,7 +330249,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.6]
 title = "Copy the muslc archive name the alpine builder image writes in the wasm runtime release build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
