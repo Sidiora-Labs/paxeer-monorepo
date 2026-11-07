@@ -1,0 +1,22 @@
+[meta]
+task = "22.39.141"
+acceptance = "22998.1"
+reference = "Decisions 2800, 2848 and 2854; gotcha 3530"
+verified_revision = "The final hf-done evidence row binds this record to the identical hf-build and hf-done candidate revision."
+evidence = "hf-build and hf-done retain the exact candidate revision, command, exit code and private log location."
+
+[assertion.program_call_submits_raw_transaction]
+file = "tools/platform/cli/tests/program_evm_calls.rs"
+symbol = "program_call_submits_raw_transaction"
+change = "Require submit_program_transaction to return a value after the capture peer reads the request and closes without responding; assert tx_hash and txHash both equal the 0x-prefixed hex transaction_hash of the signed raw bytes, rung equals unknown and detail is a non-empty string."
+preserved = "The request capture assertions and all following submitted_program_result assertions remain unchanged."
+
+[producer.submission_outcome]
+file = "tools/platform/cli/src/rpc.rs:205-213"
+symbol = "submission_outcome"
+behavior = "SubmissionFailure::Indeterminate returns an Ok value containing txHash, rung unknown and detail."
+
+[producer.submit_program_transaction]
+file = "tools/platform/cli/src/programs.rs:1777-1786"
+symbol = "submit_program_transaction"
+behavior = "Prepare the signed submission, resolve the HTTP result through submission_outcome, copy txHash into tx_hash and return the recoverable value."

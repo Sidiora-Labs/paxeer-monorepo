@@ -107,6 +107,9 @@ all: lint install
 .PHONY: paxd-native-libs
 paxd-native-libs:
 	$(MAKE) -C $(PAXEER_PROJECT_HOME) -f Makefile paxd-native-libs
+	@for archive in $(NATIVE_ARCHIVES); do \
+		test -f "$$archive" || { echo "Missing native archive: $$archive" >&2; exit 1; }; \
+	done
 
 install: go.sum paxd-native-libs
 		go install $(BUILD_FLAGS) ./daemon/paxd

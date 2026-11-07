@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -13,10 +12,10 @@ import (
 )
 
 var (
-	ErrFeeTokenRateStale       = errors.New("fee-token rate is stale")
-	ErrFeeTokenRateUnavailable = errors.New("fee-token rate is unavailable")
-	ErrFeeTokenRateInvalid     = errors.New("fee-token rate is invalid")
-	ErrFeeTokenRateSpread      = errors.New("fee-token rate update exceeds max_fee_token_spread")
+	ErrFeeTokenRateStale       = types.ErrFeeTokenRateStale
+	ErrFeeTokenRateUnavailable = types.ErrFeeTokenRateUnavailable
+	ErrFeeTokenRateInvalid     = types.ErrFeeTokenRateInvalid
+	ErrFeeTokenRateSpread      = types.ErrFeeTokenRateSpread
 )
 
 const BaseDenom = "uhpx"

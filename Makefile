@@ -2405,7 +2405,7 @@ agent-test-sdk-ts:
 
 agent-test-sdk-py:
 	$(MAKE) agent-test-sdk-generate
-	PYTHONPATH=services/agent/sdk/python python3 -m unittest discover -s tests/agent/sdk/python -p 'test_*.py'
+	PYTHONPATH=services/agent/sdk/python python3 -m pytest -q tests/agent/sdk/python services/agent/sdk/python/tests
 	PYTHONPATH=services/agent/sdk/python python3 -m compileall -q services/agent/sdk/python/layerx_sdk services/agent/sdk/python/examples
 
 agent-test-sdk-parity:
@@ -2727,16 +2727,13 @@ interop-build-ramps:
 interop-test-ramps-sandbox:
 	sh services/platform/ramps/sandbox-journey.sh
 
-INTEROP_CARGO ?= cargo
-INTEROP_MANIFEST := services/interop/Cargo.toml
-
 .PHONY: interop-build interop-test interop-lint interop-test-x402 interop-test-mandates interop-test-migration interop-test-migration-testnets interop-test-ucp interop-test-portable interop-test-visa-tap interop-test-mirrors
 
 interop-build:
 	$(INTEROP_CARGO) build --manifest-path $(INTEROP_MANIFEST) --locked --workspace
 
 interop-test:
-	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked --workspace
+	python3 tests/ci/interop_workspace_test.py --cargo "$(INTEROP_CARGO)" --manifest-path "$(INTEROP_MANIFEST)"
 
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
