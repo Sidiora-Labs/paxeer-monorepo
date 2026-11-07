@@ -32,17 +32,21 @@ This vocabulary is fixed. A journey never reports a state outside it.
 | `getting-ready` | Accepted, preparing the legs |
 | `sending` | At least one leg is in flight |
 | `waiting-for-you` | Held for a human decision, with a deterministic expiry |
-| `processing` | Submitted and settling |
+| `processing` | Submitted and awaiting the outcome |
 | `still-checking` | The outcome is genuinely unknown and resolves by receipt lookup under your idempotency key |
 | `done` | Settled, with a verified receipt or finality proof in the evidence |
-| `done-finalised` | The receipt-backed outcome is additionally covered by a finalised checkpoint proof |
+| `done-finalised` | Retained API name for an outcome backed by the `committed` rung; block commit is finality |
 | `refused` | Refused, naming who refused and whether any money left the account |
 
 Two of those deserve attention. `refused` always carries a `refusal` record with `refused_by` and a `money_left` boolean, so you never have to guess whether a failed payment cost anything. `still-checking` is not a spinner - it is an honest statement that the outcome is not yet knowable, and every control that could duplicate the payment stays locked while it lasts. See [Retries and unknown outcomes](idempotency.md).
 
+A receipt is final once its block is committed. `checkpoint-finalised` is also a retained API name for the `committed` rung; neither label adds another checkpoint or settlement step. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network. The quote-and-commit service operation submits the payment; it does not itself prove a block commit.
+
 ## Evidence
 
 A journey carries evidence references rather than raw protocol structures. A reference with class `layerx-receipt` points at a canonical receipt you can fetch and verify yourself; see [Receipts and verification](receipts.md).
+
+For finality, use [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence): authenticate the block header and CometBFT commit, then verify transaction or state inclusion at the relevant height.
 
 ## Enforced by
 

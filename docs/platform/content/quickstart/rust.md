@@ -18,7 +18,13 @@ That quotes and commits under a key you chose and prints the journey. Fetch the 
 layerx receipt get "$EVIDENCE_ID" --json
 ```
 
+The retained command example uses the compatibility evidence identifier. On the merged network, `receipt get` takes a transaction hash and fetches `pax_sequencerReceipt`; fetching that response does not verify its execution or finality.
+
 ## Verify it yourself
+
+The sample is a local compatibility verifier for receipt bytes and caller-supplied batch facts, like `layerx receipt verify`. Its wire rank does not establish current network finality. A receipt is final once its block is committed. Verify the block header, CometBFT commit and transaction or state inclusion at the relevant height as described in [Committed block evidence](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/abc81fd2cead6b2b9d5612c6e09a6ab56f13c1ed/docs/site/docs/concepts/checkpoints.md#committed-block-evidence).
+
+The network rungs are `submitted`, `receipted` and `committed`. `checkpoint-finalised` and `done-finalised` are retained API names for the `committed` rung. `settlement-anchored` and `paxeer-finalised` are never reached on the merged network.
 
 ```text
 cargo add layerx-sdk layerx-proof
@@ -38,7 +44,7 @@ fn settlement(receipt: &[u8], batch: &BatchFacts) -> Result<Settlement, String> 
 
 `AuthorizedBatch::new` takes the five 32-byte facts that identify the batch you are checking against: the batch identifier, the asset, the previous and resulting state roots, and the sequencer public key. `verify_receipt` returns the exact check that failed - canonical encoding, invariant, root chain or signature - rather than a generic error, and on success gives you the verification level, the protocol facts and the receipt digest.
 
-Get those five facts from a source you trust. Taking them from the same service that gave you the receipt proves nothing; that is the entire point of verifying locally.
+Get those five compatibility facts from an independently trusted source. If the receipt supplier also supplies all the trust inputs, the check establishes only internal consistency. Neither those facts nor the sample's result replace committed block evidence.
 
 ## Run the whole sample
 
@@ -58,13 +64,13 @@ The batch facts are read from files here for a reason: they must come from somew
 
 ## Verifying without any LayerX component
 
-`verify_mirror_receipt` checks a receipt out of an untrusted mirror archive: it validates the archive, checks the batch header against trust you configure, proves inclusion, and returns freshness alongside the result instead of implying it. That path needs no node, no gateway and no hosted service.
+`verify_mirror_receipt` checks a compatibility receipt out of an untrusted mirror archive: it validates the archive, checks the batch header against trust you configure, proves inclusion, and returns freshness alongside the result instead of implying it. That local path needs no node, gateway or hosted service; it does not establish the merged network's committed rung.
 
 ## Enforced by
 
 | Capability | Layer | What that means here |
 |---|---|---|
-| Offline receipt verification | `protocol` | This program is the proof: receipt bytes plus batch facts, and nothing else. |
+| Offline receipt verification | `protocol` | This program checks compatibility receipt bytes against trusted batch facts; finality requires committed block evidence. |
 | Atomic settlement | `protocol` | The receipt describes a state change that either happened whole or not at all. |
 | Conserved supply | `protocol` | A receipt describing a balance change outside a 402LXP transfer would not verify. |
 | Honest verification levels | `agent-layer` | The level returned is the one the evidence justifies, never a requested one that was not achieved. |
