@@ -2,7 +2,7 @@
 
 Paxeer X Network 将支付、程序执行和自主智能体操作整合到同一网络。
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · 简体中文 · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · [日本語](ja.md) · [Русский](ru.md) · 简体中文 · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
 ## LayerX Network 是什么
 
@@ -10,7 +10,7 @@ LayerX 是集成在 Paxeer X Network 中的内核。`paxd` 节点运行一条 BF
 
 `modules/lxphost` 将 C17 内核和 Rust 程序运行时嵌入 Go 节点。`node/app.go` 注册原生模块，并验证区块提案中的交易顺序。链的持久化状态记录余额、权限、支付和程序。子链是租户域，即数据库中的命名空间，创建时无需部署一套新网络基础设施。
 
-Sidiora Labs 的本 monorepo 包含节点、内核、合约、服务、应用和 SDK。集成规范见 [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-merge/spec.kvx)。
+Sidiora Labs 的本 monorepo 包含节点、内核、合约、服务、应用和 SDK。集成规范见 [`spec/layerx-merge/spec.kvx`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/spec/layerx-merge/spec.kvx)。
 
 ### 模块与预编译合约
 
@@ -90,7 +90,7 @@ make paxd-build
 - [公共 JSON-RPC 端点](../../reference/public-rpc.md)
 - [Monorepo 布局](../monorepo.md)
 - [验收门禁](../../operators/qualification.md)
-- [规范](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/)
+- [规范](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/)
 
 ## SDK 与集成
 
@@ -108,14 +108,14 @@ make paxd-build
 
 ## 贡献
 
-提交 pull request 前请阅读 [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)。协议变更从 `spec/` 开始。不要在公开 issue 中披露疑似漏洞；请遵循 [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)。
+提交 pull request 前请阅读 [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md)。协议变更从 `spec/` 开始。不要在公开 issue 中披露疑似漏洞；请遵循 [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)。
 
 ## 安全
 
-通过 GitHub 私下报告渠道提交漏洞，具体见 [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)。
+通过 GitHub 私下报告渠道提交漏洞，具体见 [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md)。
 
 ## 许可证
 
-依 Apache 许可证 2.0 版授权。参见 [`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) 和 [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE)。
+依 Apache 许可证 2.0 版授权。参见 [`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) 和 [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE)。
 
 Paxeer X Network 由 Sidiora Labs 开发。

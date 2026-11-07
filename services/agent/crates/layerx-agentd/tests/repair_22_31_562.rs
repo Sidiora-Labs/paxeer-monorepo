@@ -1088,6 +1088,7 @@ fn budget_after(label: u8) {
     } else {
         assert_eq!(
             response,
+            // approval_budget_after owns the committed-state guard outside managed_agent.
             refusal_frame(b"operation.refused"),
             "label {label}"
         );

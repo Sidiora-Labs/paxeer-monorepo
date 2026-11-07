@@ -77,7 +77,7 @@ the corresponding committed evidence.
 The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`. Availability depends on the node configuration; this list does
 not promise that every upstream Geth method is supported. See
-[EVM JSON-RPC differences](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/evm_jsonrpc_unsupported.md).
+[EVM JSON-RPC differences](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/docs/evm_jsonrpc_unsupported.md).
 
 The `px` namespace answers from node state; `px_register` and
 `px_requestFunds` are operations of the hosted identity and faucet

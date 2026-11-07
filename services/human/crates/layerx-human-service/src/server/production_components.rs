@@ -6280,10 +6280,7 @@ impl ProductionComponents {
                     (
                         Some("approval-hold" | "local-journey-state"),
                         Some("unverified")
-                    ) | (
-                        Some("checkpoint-proof"),
-                        Some("checkpoint-finalised" | "settlement-anchored")
-                    )
+                    ) | (Some("checkpoint-proof"), Some("committed"))
                 )
             {
                 return Err(ApiFailure::upstream_degraded());

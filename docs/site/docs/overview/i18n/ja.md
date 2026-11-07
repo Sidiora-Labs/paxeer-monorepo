@@ -2,12 +2,12 @@
 
 Paxeer X Network は、自律エージェント、決済、プログラム実行を支える単一の BFT ネットワークです。LayerX は Paxeer ノード `paxd` に統合されています。
 
-[English](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/README.md) · [Español](es.md) · 日本語 · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
+[English](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/README.md) · [Español](es.md) · 日本語 · [Русский](ru.md) · [简体中文](zh-cn.md) · [Português](pt-br.md) · [Deutsch](de.md) · [Français](fr.md)
 
 *内容が異なる場合は、英語版 README を参照版とします。*
 
-[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE)
-[![CI](https://github.com/Sidiora-Labs/Paxeer-X-Network/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/.github/workflows/ci.yml)
+[![License](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE)
+[![CI](https://github.com/Sidiora-Labs/paxeer-monorepo/actions/workflows/ci.yml/badge.svg)](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/.github/workflows/ci.yml)
 
 ## Paxeer X Network とは
 
@@ -15,7 +15,7 @@ Paxeer mainnet-beta の EVM チェーン ID は **125**（`0x7d`）です。カ�
 
 ネイティブカーネルは `modules/lxphost/` を通じて `paxd` に組み込まれています。資金の移動は、チェーンの台帳、bank、EVM 状態の処理経路に反映されます。コンセンサスに関わるネイティブ実行では正規エンコーディングと検査付き整数演算を使い、リプレイの検証で再現性を確認します。
 
-サブチェーンはデータベース内の名前空間であるテナントドメインです。独自のバリデーターネットワークや新しいノード基盤は必要ありません。このモノレポには単一ネットワークの構成要素が収められています。現在の仕様は [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge) にあります。
+サブチェーンはデータベース内の名前空間であるテナントドメインです。独自のバリデーターネットワークや新しいノード基盤は必要ありません。このモノレポには単一ネットワークの構成要素が収められています。現在の仕様は [`spec/layerx-merge/`](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/layerx-merge) にあります。
 
 ## 接続を試す
 
@@ -70,7 +70,7 @@ make paxd-version-check
 - [ネットワーク概要](../../index.md)
 - [モノレポ構成](../monorepo.md)
 - [適格性検証](../../operators/qualification.md)
-- [仕様](https://github.com/Sidiora-Labs/Paxeer-X-Network/tree/main/spec/layerx-merge)
+- [仕様](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/spec/layerx-merge)
 
 ## SDK と統合
 
@@ -88,14 +88,14 @@ make paxd-version-check
 
 ## コントリビューション
 
-プルリクエストを開く前に [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md) を読んでください。プロトコル変更は `spec/` から始めます。疑わしい脆弱性を公開 Issue に記載しないでください。[`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md) に従ってください。
+プルリクエストを開く前に [`CONTRIBUTING.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/CONTRIBUTING.md) を読んでください。プロトコル変更は `spec/` から始めます。疑わしい脆弱性を公開 Issue に記載しないでください。[`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md) に従ってください。
 
 ## セキュリティ
 
-脆弱性は GitHub の非公開報告機能で報告してください。手順は [`SECURITY.md`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md) にあります。
+脆弱性は GitHub の非公開報告機能で報告してください。手順は [`SECURITY.md`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/SECURITY.md) にあります。
 
 ## ライセンス
 
-Apache License, Version 2.0 のもとでライセンスされます。[`LICENSE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/LICENSE) および [`NOTICE`](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/NOTICE) を参照してください。
+Apache License, Version 2.0 のもとでライセンスされます。[`LICENSE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/LICENSE) および [`NOTICE`](https://github.com/Sidiora-Labs/paxeer-monorepo/blob/main/NOTICE) を参照してください。
 
 Paxeer X Network は Sidiora Labs が開発しています。

@@ -7,7 +7,7 @@ use layerx_agentd::{
         HumanRefusal, HumanRequest, HumanWireResponse,
     },
     identity::{self, ProtocolAuthority},
-    managed_agent::{self, ManagedAgent, SessionObservationV1},
+    managed_agent::{self, ManagedAgent, ManagedAgentCheck, SessionObservationV1},
     outbox::Outbox,
     prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget},
     read::{
@@ -1462,8 +1462,16 @@ pub(crate) fn assert_persisted_key_policy_rank_over_socket(policy_rank: u8) {
             evidence.into(),
         );
         if !matches!(policy_rank, 4 | 5 | 6) {
-            assert!(
-                matches!(validation, Err(HumanOperationError::Refused)),
+            let check = if VerificationLevel::from_wire_rank(policy_rank).is_err() {
+                ManagedAgentCheck::KeyPolicyVerification
+            } else {
+                ManagedAgentCheck::KeyPolicyObservationBinding
+            };
+            assert_eq!(
+                validation.err(),
+                Some(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    check
+                ))),
                 "rank {policy_rank}"
             );
             continue;
@@ -1629,4 +1637,54 @@ fn human_refusal_wire_preserves_budget_session_capability_export_policy_and_nonc
         panic!("{response:?}")
     };
     assert_eq!(refusal.reason, human::capability_refusal_reason(dimension));
+}
+
+/// Reuse the real receipt, budget snapshot, durable store and socket producers.
+pub(crate) fn archived_reclaim_over_socket() -> HumanWireResponse {
+    let directory = Directory::new();
+    let tenant = must(TenantId::new("repair219"));
+    let mut store = must(Store::open(&directory.0));
+    let seed = seed();
+    let mut agent = must(ManagedAgent::from_creation(
+        &seed,
+        &seed.actor,
+        [10; 32],
+        [11; 32],
+        1,
+    ));
+    agent.state = 4;
+    must(managed_agent::publish_creation(&mut store, &tenant, &agent));
+    let pre = observe_budget(&mut store, &tenant, agent.active_budget_id, 61, 100);
+    let post = observe_budget(&mut store, &tenant, agent.active_budget_id, 62, 90);
+    let evidence = evidence(
+        &mut store,
+        &tenant,
+        63,
+        LifecycleCall::Reclaim {
+            budget: agent.active_budget_id,
+            amount: 10,
+            limit: 100,
+        },
+    );
+    drop(store);
+    let store = must(Store::open(&directory.0));
+    assert_eq!(
+        agent_state(must(managed_agent::get(&store, &tenant, &seed.agent_id)).bytes()),
+        4
+    );
+    drop(store);
+    lifecycle(
+        &directory,
+        &tenant,
+        &HumanRequest::AgentJourney {
+            agent_id: seed.agent_id,
+            kind: HumanAgentJourneyKind::Reclaim {
+                amount: 10,
+                currency: seed.currency,
+            },
+            pre_observation: pre,
+            post_observation: post,
+            evidence,
+        },
+    )
 }
