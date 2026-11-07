@@ -151231,7 +151231,7 @@ do_10 = "Attempt 3 (continue, gotcha 3315, decision 2713): the attempt-2 tree st
 
 [task.22.37.10]
 title = "Complete revision metadata replay after lease release, reassignment and real collection interleavings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
@@ -377492,7 +377492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.590]
 title = "Accept the chain receipt key rule in the explorer configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
