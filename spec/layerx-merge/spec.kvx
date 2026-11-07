@@ -206199,7 +206199,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.596]
 title = "Repair the node benchmark and proof-node genesis tests of the node-build check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
