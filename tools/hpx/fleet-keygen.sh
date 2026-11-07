@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
-# fleet-keygen.sh — one-shot: push updated hpx to every server, generate the
-#                   per-node operator account, and collect all pax1 addresses.
+# fleet-keygen.sh — install hpx, collect operator identities and verify the fleet.
 #
-# Why push first: the fleet still runs the OLD hpx (no `validator keygen`), so
-# we scp the local updated ./hpx to /usr/local/bin/hpx on each host, THEN run
-# `hpx validator keygen` there. The operator key lands where `hpx validator
-# stake` expects it (/root/.paxeer/keyring, key name "operator").
+# By default, copy the local hpx to /usr/local/bin/hpx on each selected host,
+# then run `hpx validator keygen`. The operator key stays in the node's keyring;
+# collection returns public pax1 and validator operator addresses only.
 #
-# Output: .fleet/operators.tsv  (moniker \t ip \t pax1 \t valoper)
-#         -> consumed by stake-fleet.sh `fund` and `stake-cmds`.
+# State: HPX_WORKDIR, otherwise .fleet beside this script. Preserve state.json
+# and operators.tsv (moniker \t ip \t pax1 \t valoper) between runs. Unreachable
+# or changed identities remain unresolved and block funding and staking.
 #
 # Usage:
 #   ./fleet-keygen.sh                      # servers from registry /api/nodes

@@ -2,13 +2,13 @@
 
 This is a coordinator-operated local workflow tool, not an OS sandbox against malicious code running as the same user. Only the coordinator owns the private state directory, signing key, reviewed check registry and canonical task statuses. Workers receive an isolated workspace and the applicable task/lease identity. No command here edits canonical KVX or marks a canonical task done.
 
-The dispatcher models 50 logical lanes. Its AI admission code requires a 31-slot ceiling, including the coordinator, and accepts at most 30 available worker slots. This is a configured ceiling, not an observation of the current agent tool: the coordinator must supply the actual available count, reduced by other active agents. Fifty simultaneous OS fixture processes are a separate qualification target. They do not establish 50 AI agents or product throughput.
+Concurrency is bounded by the configured admission ceiling, resource capacity and currently available worker slots. The coordinator must supply a fresh available-slot count from the actual agent tool, reduced by other active agents. Logical lanes separate ownership and resource namespaces; process overlap in local tests does not establish AI worker capacity or product throughput.
 
 ## Coordinator lifecycle
 
 Run commands from the repository root. The examples use the launchpad production-system inputs referenced by the root qualifier: `launchpad/spec/production-system/spec.kvx` and `launchpad/spec/production-system/execution-plan.json`. Both files are absent from this checkout. Restore the reviewed pair or supply explicit reviewed `--spec` and `--plan` paths before running the lifecycle or qualification harness. The dispatcher expects a two-part task-ID DAG with lane ownership and a matching plan; the layerx-merge specification is not a drop-in replacement.
 
-Use the current specification and matching execution-plan projection. Graph layout identity excludes status; the execution-plan projection must still match the full current spec SHA and task states. After `cg spec start/done`, the canonical coordinator refreshes that projection before subsequent dispatcher commands. A worker must never do so.
+Use the current specification and matching execution-plan projection. Graph layout identity excludes status; the execution-plan projection must still match the full current spec SHA and task states. After canonical task states change, the coordinator refreshes that projection before subsequent dispatcher commands. A worker must never do so.
 
 Prepare coordinator-reviewed JSON capacity and per-worker resource files. Units are CPU cores, bytes for memory/disk, and integral PIDs/executor/build/container counts. All seven classes are required for capacity; a lease must reserve positive CPU/memory/PIDs/disk and exactly one executor. The coordinator supplies a fresh available-AI-slot observation from the actual agent tool, never the configured logical lane count. Admission also measures affinity/cgroup CPU, current memory/PID headroom and filesystem free space. These are resource reservations and point-in-time observations, not OS-enforced workload limits. The actual process harness records worker high-water RSS against its reserved envelope.
 
@@ -60,11 +60,17 @@ Frozen contracts under `sdk/launchpad/shared/interfaces` and `sdk/launchpad/pack
 
 `accept` validates the live fence, actual test receipts, current candidate, exact trusted ownership and fresh patch. Files are flushed before an atomic SQLite acceptance index and lease retirement. Historical acceptance remains usable after the worker exits and its workspace disappears. Signed filesystem orphans without a committed index are rejected. An interrupted acceptance may leave an unindexed artifact requiring coordinator inspection; it cannot qualify. Accepted artifacts remain under the private state directory; do not move them or edit the index.
 
-Acceptance frees resources, allowing the remaining lanes to run in another batch. The latest accepted fence for each task is authoritative; superseded artifacts cannot substitute for the selected attempt. Acceptance alone does not qualify the canonical task or integrate code. The root qualifier needs its separate explicit reviewed per-task policy and accepted-candidate adapter. Only the coordinator runs `cg spec done` after those checks pass.
+Acceptance frees resources, allowing waiting workers to run in another batch. The latest accepted fence for each task is authoritative; superseded artifacts cannot substitute for the selected attempt. Acceptance alone does not integrate code. Before integration, the coordinator runs the reviewed native test commands against the accepted candidate. For the dispatcher source tests, run from the repository root:
+
+```bash
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover \
+  -s tools/launchpad/production/dispatcher/tests \
+  -t tools/launchpad/production -v
+```
 
 ## Serial integration
 
-Collect all 50 accepted directories from the same baseline/interface/layout and selected wave. Combined checks also require explicit positive native proof policies. Full-wave staging rejects missing/duplicate/wrong-wave artifacts before publication.
+Collect every accepted directory from the same baseline/interface/layout and selected wave. Combined checks also require explicit positive native proof policies. Full-wave staging rejects missing/duplicate/wrong-wave artifacts before publication.
 
 ```bash
 python3 tools/launchpad/production/dispatcher/cli.py --state-dir /tmp/kindle-wave1-state stage \
@@ -73,7 +79,7 @@ python3 tools/launchpad/production/dispatcher/cli.py --state-dir /tmp/kindle-wav
   --output /tmp/kindle-wave1-staged --checks /tmp/reviewed-wave1-combined-checks.json
 ```
 
-Supply every accepted directory; the abbreviated example intentionally does not pass a real 50-lane gate. Staging reconstructs each authenticated candidate, checks the committed index, exact trusted registry/ownership and copied outputs, then applies sorted disjoint patches to a fresh tree. Combined commands run on that tree. Failure removes the stage and leaves the baseline/canonical repository unchanged. A successful complete-wave stage still reports `canonical_integrated:false`: canonical publication and serial-gate `cg spec done` belong to the root coordinator. Partial staging is available only for explicitly initialized `--fixture` ledgers using `--fixture-partial`; it reports `qualified:false` and `complete_wave:false`.
+Supply every accepted directory; the abbreviated example needs the remaining directories to stage a complete wave. Staging reconstructs each authenticated candidate, checks the committed index, exact trusted registry/ownership and copied outputs, then applies sorted disjoint patches to a fresh tree. Combined native test commands run on that tree. Failure removes the stage and leaves the baseline/canonical repository unchanged. A successful complete-wave stage still reports `canonical_integrated:false`: the coordinator must review the combined test results and publish the staged changes. Partial staging is available only for explicitly initialized `--fixture` ledgers using `--fixture-partial`; it reports `qualified:false` and `complete_wave:false`.
 
 ## Actual local qualification
 
