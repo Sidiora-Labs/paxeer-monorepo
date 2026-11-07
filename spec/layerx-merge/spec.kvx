@@ -10185,6 +10185,12 @@ value = "The repair writes the runs-on line of the routed jobs of agent.yml byte
 basis = "Three Go workflow jobs landed by 22.39.82 carry a fixed runner and break the routing check that two tools/ci tests run, so the tools/ci settlement task cannot pass without the file."
 affects = ["22.39.54", "22.39.82"]
 
+[decision.2846]
+title = "A build break in a caller outside touches ends the attempt at the boundary, and the relaunch carries every caller of the changed signature in touches"
+value = "The attempt records the break and stops; the ruling lists every file that calls the changed function (from a repository-wide search of the function names) and adds them to touches, so the relaunch repairs all of them at once and never widens one call site at a time (decision 2838)."
+basis = "Attempt 2 of 22.39.128 stopped at two calls in one test file; a search finds the same readers called from 3 file(s) outside touches, and a relaunch that repaired only the reported lines would stop again at the next caller."
+affects = ["22.39.128"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -181666,7 +181672,7 @@ do_2 = "do_2 In src/budget/program_sources.rs validate_prepared and its three ca
 do_3 = "do_3 Add to tests/repair_22_31_217.rs a test in which a carrier produced by prepare::restore_canonical from a real unsigned envelope passes validate_retained_preparation and a carrier whose signing preparation disagrees is refused; the retained settlement tests of human_runtime pass unchanged."
 do_4 = "do_4 Decision 2829: services/agent/Cargo.lock is a planned path and changes only if a dependency changes."
 symbols = []
-touches = ["services/agent/crates/layerx-agentd/src/budget/native_binding.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs"]
+touches = ["services/agent/crates/layerx-agentd/src/budget/native_binding.rs", "services/agent/crates/layerx-agentd/src/budget/program_sources.rs", "services/agent/crates/layerx-agentd/tests/repair_22_31_217.rs", "services/agent/crates/layerx-agentd/src/human_runtime.rs", "services/agent/crates/layerx-agentd/src/budget/repair_22_31_217.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_31_560.kvx", "services/agent/crates/layerx-agentd/tests/repair_22_33_1520.rs"]
 tests = []
 planned_paths = ["services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
@@ -181683,6 +181689,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (relaunch, gotcha 3507, decision 2838): attempt 1 made no change. services/agent/crates/layerx-agentd/src/human_runtime.rs is now in touches: pass the retained sign::SigningPreparation to the budget sources from the settlement path at its read_program_budget_sources call and from the retained settlement fixture of the retained_settlement_tests module, and make the fixture create the preparation before it validates the sources, so the verifier binds through the preparation as do_1 and do_2 direct. Implement do_1 to do_4 from current main, run the build and the verification at the final revision and record both by reference."
+do_6 = "Attempt 3 (continue, gotcha 3518, decisions 2771, 2834 and 2846): the attempt-2 tree 29b48212d94c stands (the verifier bound through the retained sign::SigningPreparation in native_binding.rs, the preparation parameter of the three budget source readers in program_sources.rs, the settlement path and the retained settlement fixture of human_runtime.rs, the carrier tests of repair_22_31_217.rs). Every caller of read_program_budget_sources, read_native_effect_budget_sources and read_native_lifecycle_budget_sources is now in touches: pass the retained signing preparation at each call site (the preparation the case constructs, or None where the case constructs no preparation and asserts a refusal), then run the build once and the verification once at the final tree and record both by reference."
 
 [task.22.39.127]
 title = "Bring the ucp, x402 and web search test suites to green and retire their baseline entries"

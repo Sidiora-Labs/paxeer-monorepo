@@ -34825,3 +34825,11 @@ symbol = "repair_22_31_540.rs"
 observed = "Attempt 3 at 9814e658da2c: build exit 0; verification exit 1 twice: three of the four regression tests passed; committed_budget_proof_is_accepted_and_state_proven_proof_is_refused_at_ingress panicked on an unrecorded eth_call to the addr precompile with selector c413bad3 at height 0x8, so the real committed proof verifier refused."
 assumption = "The vector is the only gap; the verifier is right to re-execute the derivation."
 severity = "high"
+
+[finding.22.39.128.1]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 2 at 29b48212d94c: build exit 101: two calls in tests/repair_22_33_1520.rs supply six arguments to a reader that now takes seven; the verification did not run."
+assumption = "The reported two calls and the other callers found by the search are the only remaining arity mismatches."
+severity = "high"
