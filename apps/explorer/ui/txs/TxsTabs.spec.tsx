@@ -16,7 +16,7 @@ vi.setConfig({ testTimeout: 60_000 });
 import TxsTabs from './TxsTabs';
 
 const paginationsOutsideTheCard = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll('[data-scan-pagination]')).filter((node) => !node.closest('[data-scan-table-card]'));
+  Array.from(container.querySelectorAll('[data-scan-pagination]')).filter((node) => !node.closest('[data-list-page]'));
 
 describe('TxsTabs', () => {
   beforeEach(() => {
@@ -45,13 +45,13 @@ describe('TxsTabs', () => {
     const link = container.querySelector('a[href^="/advanced-filter"]');
 
     expect(link).not.toBeNull();
-    expect(link?.closest('[data-scan-table-card]')).toBeNull();
+    expect(link?.closest('[data-list-page]')).toBeNull();
   });
 
   it('leaves the pagination to the table card', () => {
     const { container } = render(<TxsTabs/>);
 
-    expect(container.querySelector('[data-scan-table-card]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page]')).not.toBeNull();
     expect(paginationsOutsideTheCard(container)).toHaveLength(0);
   });
 

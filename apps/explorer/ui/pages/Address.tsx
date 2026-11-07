@@ -23,12 +23,14 @@ import useSocketMessage from 'lib/socket/useSocketMessage';
 import useFetchXStarScore from 'lib/xStarScore/useFetchXStarScore';
 import { ADDRESS_TABS_COUNTERS } from 'stubs/address';
 import { USER_OPS_ACCOUNT } from 'stubs/userOps';
+import { Badge } from 'toolkit/chakra/badge';
 import { Link } from 'toolkit/chakra/link';
 import RoutedTabs from 'toolkit/components/RoutedTabs/RoutedTabs';
 import Address3rdPartyWidgets from 'ui/address/Address3rdPartyWidgets';
 import useAddress3rdPartyWidgets from 'ui/address/address3rdPartyWidgets/useAddress3rdPartyWidgets';
 import AddressAccountHistory from 'ui/address/AddressAccountHistory';
 import AddressAdvancedFilterLink from 'ui/address/AddressAdvancedFilterLink';
+import AddressAnalytics from 'ui/address/AddressAnalytics';
 import AddressBlocksValidated from 'ui/address/AddressBlocksValidated';
 import AddressCoinBalance from 'ui/address/AddressCoinBalance';
 import AddressContract from 'ui/address/AddressContract';
@@ -67,6 +69,7 @@ import sortEntityTags from 'ui/shared/EntityTags/sortEntityTags';
 import IconSvg from 'ui/shared/IconSvg';
 import NetworkExplorers from 'ui/shared/NetworkExplorers';
 import PageTitle from 'ui/shared/Page/PageTitle';
+import { entityTabGroup } from 'ui/shared/RoutedTabs/EntityTabs';
 
 const TOKEN_TABS = [ 'tokens_erc20', 'tokens_nfts', 'tokens_nfts_collection', 'tokens_nfts_list' ];
 const PREDEFINED_TAG_PRIORITY = 100;
@@ -349,6 +352,23 @@ const AddressPageContent = () => {
     addressType,
   ]);
 
+  const historyTabs = tabs.filter(({ id }) => id === 'txs' || id === 'internal_txns');
+  const portfolioTabs = tabs.filter(({ id }) => id === 'tokens' || id === 'coin_balance_history');
+  const moreTabs = tabs.filter(({ id }) => ![ 'txs', 'internal_txns', 'tokens', 'coin_balance_history', 'token_transfers', 'contract' ].includes(String(id)));
+  const entityTabs: Array<TabItemRegular> = [
+    {
+      id: 'overview',
+      title: 'Overview',
+      component: <AddressDetails addressQuery={ addressQuery } countersQuery={ countersQuery } isLoading={ isTabsLoading }/>,
+    },
+    entityTabGroup('history', 'History', historyTabs),
+    ...tabs.filter(({ id }) => id === 'token_transfers').map((item) => ({ ...item, title: 'Transfers' })),
+    entityTabGroup('portfolio', 'Portfolio', portfolioTabs),
+    { id: 'analytics', title: 'Analytics', component: <AddressAnalytics addressQuery={ addressQuery } countersQuery={ countersQuery }/> },
+    ...tabs.filter(({ id }) => id === 'contract').map((item) => ({ ...item, title: 'Contract' })),
+    entityTabGroup('more', 'More', moreTabs),
+  ];
+
   const usernameApiTag = userPropfileApiQuery.data?.user_profile?.username;
 
   const tags: Array<EntityTag> = React.useMemo(() => {
@@ -458,7 +478,7 @@ const AddressPageContent = () => {
   }, [ hash, addressQuery.data?.hash, isLoading ]);
 
   const titleAfter = (
-    <Flex alignItems="center" columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" ml={{ base: 0, lg: 3 }} minW={ 0 }>
+    <Flex alignItems="center" columnGap={ 2 } rowGap={ 2 } flexWrap="wrap" minW={ 0 }>
       { addressQuery.data?.ens_domain_name && (
         <EnsEntity
           domain={ addressQuery.data?.ens_domain_name }
@@ -534,19 +554,21 @@ const AddressPageContent = () => {
     <>
       <TextAd mb={ 6 }/>
       <PageTitle
-        title={ addressQuery.data?.is_contract && addressQuery.data?.proxy_type !== 'eip7702' ? 'Contract' : 'Address' }
+        kind={ addressQuery.data?.is_contract && addressQuery.data?.proxy_type !== 'eip7702' ? 'CONTRACT' : 'ADDRESS' }
+        title={ addressQuery.data?.name || addressQuery.data?.ens_domain_name || checkSummedHash }
+        identifier={ checkSummedHash }
+        identifierContent={ titleAfter }
         beforeTitle={ <AddressIdenticon size={ 30 } hash={ checkSummedHash }/> }
-        afterTitle={ titleAfter }
-        contentAfter={ titleContentAfter }
+        tags={ <>{ addressQuery.data?.is_verified && <Badge borderRadius="full" colorPalette="green">Verified</Badge> }{ titleContentAfter }</> }
         secondRow={ titleSecondRow }
         isLoading={ isLoading }
       />
       { !addressMetadataQuery.isPending &&
         <AddressAlerts tags={ addressMetadataQuery.data?.addresses?.[hash.toLowerCase()]?.tags }/> }
       { config.features.metasuites.isEnabled && <Box display="none" id="meta-suites__address" data-ready={ !isLoading }/> }
-      <AddressDetails addressQuery={ addressQuery } countersQuery={ countersQuery } isLoading={ isTabsLoading }/>
       <RoutedTabs
-        tabs={ tabs }
+        tabs={ entityTabs }
+        displayMode="entity"
         isLoading={ isTabsLoading }
         variant="pill"
         size="sm"

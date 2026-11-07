@@ -1358,6 +1358,8 @@ fn replay_profile(token: u64) -> Result<Option<crate::ProgramReplayProfile>, i32
 }
 
 fn publish_replay_record(token: u64, record: &crate::ProgramReplayRecord) -> Result<(), i32> {
+    // The derived replay_fuel field travels as the existing committed boundary
+    // fuel fields; portable decoding reconstructs and checks it without a new ABI.
     let bytes = record.canonical_bytes();
     c_ok(unsafe {
         layerx_programs_call_replay_record_begin(
@@ -2440,8 +2442,10 @@ fn execution_with_sandbox_receipt(
     if execution.len().checked_add(added).ok_or(LENGTH_LIMIT)? > execution.capacity() {
         return Err(FATAL_INVARIANT);
     }
-    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root)
-        .map_err(|_| NON_CANONICAL)
+    crate::terminal::attach_sandbox_settlement(execution, receipt, transfer_root).map_err(|error| {
+        eprintln!("Programs sandbox settlement: {error}");
+        error.result_code()
+    })
 }
 
 #[no_mangle]
@@ -2883,16 +2887,16 @@ pub extern "C" fn layerx_programs_call_begin(
             )
             .map_err(|_| NON_CANONICAL)?;
             let mut final_storage = storage.clone();
-            let record = executor
-                .execute_authorized_v2_budgeted(
+            let record = crate::native_result::from_captured(
+                executor.execute_authorized_v2_budgeted(
                     &mut final_storage,
                     BudgetedAuthorizedExecutionRequest::new(request, admitted, payer, binding)
                         .with_access_declaration(access_declaration.clone())
                         .with_committed_oracle(Arc::new(CCommittedOracle { token }))
                         .with_committed_web(Arc::new(CCommittedWeb { token }))
                         .with_authenticated_execution_context(execution_context),
-                )
-                .map_err(|_| NON_CANONICAL)?;
+                ),
+            )?;
             match (profile, record.replay_record()) {
                 (Some(_), Some(replay)) => publish_replay_record(token, replay)?,
                 (None, None) => {}

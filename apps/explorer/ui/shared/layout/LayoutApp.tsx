@@ -7,7 +7,6 @@ import HeaderMobile from 'ui/snippets/header/HeaderMobile';
 
 import * as Layout from './components';
 
-const TOP_BAR_HEIGHT = 36;
 const HEADER_HEIGHT_MOBILE = 56;
 
 const LayoutApp = ({ children }: Props) => {
@@ -19,12 +18,12 @@ const LayoutApp = ({ children }: Props) => {
         display="flex"
         flexDirection="column"
       >
-        <Layout.TopRow/>
+        <Layout.NavBar/>
         <HeaderMobile/>
         <Layout.MainArea
           minH={{
-            base: `calc(100dvh - ${ TOP_BAR_HEIGHT + HEADER_HEIGHT_MOBILE }px)`,
-            lg: `calc(100dvh - ${ TOP_BAR_HEIGHT }px)`,
+            base: `calc(100dvh - ${ HEADER_HEIGHT_MOBILE }px)`,
+            lg: `calc(100dvh - ${ HEADER_HEIGHT_MOBILE }px)`,
           }}
           flex={ 1 }
         >

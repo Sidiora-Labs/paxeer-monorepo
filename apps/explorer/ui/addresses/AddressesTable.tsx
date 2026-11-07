@@ -6,6 +6,7 @@ import type { AddressesItem } from 'types/api/addresses';
 import { currencyUnits } from 'lib/units';
 import { TableBody, TableColumnHeader, TableHeader, TableRoot, TableRow } from 'toolkit/chakra/table';
 import { ZERO } from 'toolkit/utils/consts';
+import { LIST_TABLE_STYLES } from 'ui/shared/Page/ListPage';
 
 import AddressesTableItem from './AddressesTableItem';
 
@@ -21,10 +22,10 @@ const AddressesTable = ({ items, totalSupply, pageStartIndex, isLoading }: Props
   const hasPercentage = !totalSupply.eq(ZERO);
 
   return (
-    <TableRoot variant="scan" data-addresses-table>
+    <TableRoot variant="scan" css={ LIST_TABLE_STYLES } data-addresses-table>
       <TableHeader>
         <TableRow>
-          <TableColumnHeader w="56px">#</TableColumnHeader>
+          <TableColumnHeader w="56px" isNumeric>#</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '32%' : '40%' }>Address</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '20%' : '22%' }>Name tag</TableColumnHeader>
           <TableColumnHeader w={ hasPercentage ? '22%' : '26%' } isNumeric>{ `Balance ${ currencyUnits.ether }` }</TableColumnHeader>

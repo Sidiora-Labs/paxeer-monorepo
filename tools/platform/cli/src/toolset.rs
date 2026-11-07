@@ -1,6 +1,6 @@
 use std::collections::BTreeSet;
 
-use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use layerx_crypto::evm_transaction::transaction_hash;
 use layerx_mcp::catalogue;
 use layerx_mcp::server::{DeploymentMode, ToolDefinition, ToolKind, FAUCET_REQUEST};
 use serde_json::{json, Value};
@@ -58,6 +58,10 @@ impl Runtime {
         mode: DeploymentMode,
     ) -> Result<Self, String> {
         let (environment_name, environment) = configuration.active_environment()?;
+        let (_, path) = layerx_platform_cli::rpc::endpoint_parts(&environment.endpoint)?;
+        if path != "/" {
+            return Err("node RPC URL must name the root endpoint".into());
+        }
         let credential = credential::gateway(gateway_credential)?.ok_or_else(|| {
             format!(
                 "gateway credential alias {gateway_credential} is absent; rerun layerx install for this runtime"
@@ -222,7 +226,7 @@ pub fn invoke(runtime: &Runtime, tool: ToolDefinition, arguments: &Value) -> Res
             fixed_hex::<32>("transaction hash", digits)?;
             let request =
                 layerx_platform_cli::rpc::request("pax_sequencerReceipt", &json!([hash]))?;
-            let response = runtime.client.post("/rpc", &request, None)?;
+            let response = runtime.client.post("/", &request, None)?;
             layerx_platform_cli::rpc::decode_response("pax_sequencerReceipt", &response)
         }
         "activity.submit" => submit(runtime, arguments),
@@ -239,16 +243,7 @@ pub fn invoke_task(
     tool: ToolDefinition,
     arguments: &Value,
 ) -> Result<Value, String> {
-    if tool.name != "activity.submit" {
-        return invoke(runtime, tool, arguments);
-    }
-    match submit_classified(runtime, arguments) {
-        Ok(value) => Ok(value),
-        Err(SubmitFailure::Indeterminate { tx_hash, detail }) => {
-            Ok(json!({"txHash": tx_hash, "rung": "unknown", "detail": detail}))
-        }
-        Err(SubmitFailure::Unsent(detail) | SubmitFailure::Refused(detail)) => Err(detail),
-    }
+    invoke(runtime, tool, arguments)
 }
 
 fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
@@ -270,8 +265,22 @@ fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
             runtime.environment, runtime.environment
         )
     })?;
-    let client = Client::new(&runtime.endpoint, Some(token))?;
-    let response = client.post("/rpc", &crate::faucet::request(&did, &public_key), None)?;
+    let gateway_url = std::env::var("LAYERX_GATEWAY_RPC_URL").map_err(|_| {
+        "gateway_endpoint_required: configure LAYERX_GATEWAY_RPC_URL for faucet claims"
+    })?;
+    claim_faucet_at(&gateway_url, token, &did, &public_key)
+}
+
+/// Claim through an explicitly configured hosted faucet service with a bearer session.
+pub fn claim_faucet_at(
+    endpoint: &str,
+    session: zeroize::Zeroizing<String>,
+    did: &str,
+    public_key: &str,
+) -> Result<Value, String> {
+    let (origin, path) = layerx_platform_cli::rpc::endpoint_parts(endpoint)?;
+    let client = Client::new(&origin, Some(session))?;
+    let response = client.post(&path, &crate::faucet::request(did, public_key), None)?;
     layerx_mcp::tools::faucet::decode_funding_response(&response, &json!("faucet"))
         .map_err(|error| format!("faucet response refused: {error:?}"))?;
     let claim = crate::faucet::decode(&response)?;
@@ -282,18 +291,10 @@ fn claim_faucet(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
     }))
 }
 
-pub enum SubmitFailure {
-    Unsent(String),
-    Refused(String),
-    Indeterminate { tx_hash: String, detail: String },
-}
+pub use layerx_platform_cli::rpc::SubmissionFailure as SubmitFailure;
 
 fn submit(runtime: &Runtime, arguments: &Value) -> Result<Value, String> {
-    submit_classified(runtime, arguments).map_err(|failure| match failure {
-        SubmitFailure::Unsent(detail)
-        | SubmitFailure::Refused(detail)
-        | SubmitFailure::Indeterminate { detail, .. } => detail,
-    })
+    layerx_platform_cli::rpc::submission_outcome(submit_classified(runtime, arguments))
 }
 
 fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, SubmitFailure> {
@@ -311,7 +312,7 @@ fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, Subm
                 "activity.submit requires a signed raw_transaction hex string".into(),
             )
         })?;
-    let request = layerx_platform_cli::rpc::request("eth_sendRawTransaction", &json!([raw]))
+    layerx_platform_cli::rpc::request("eth_sendRawTransaction", &json!([raw]))
         .map_err(SubmitFailure::Unsent)?;
     let bytes = hex_decode(
         "raw transaction",
@@ -319,38 +320,10 @@ fn submit_classified(runtime: &Runtime, arguments: &Value) -> Result<Value, Subm
             .ok_or_else(|| SubmitFailure::Unsent("raw transaction requires 0x".into()))?,
     )
     .map_err(SubmitFailure::Unsent)?;
-    let (call, signature) = decode_signed(&bytes).map_err(|error| {
-        SubmitFailure::Unsent(format!("invalid signed EIP-1559 transaction: {error}"))
-    })?;
-    recover_sender(&call, &signature)
-        .map_err(|error| SubmitFailure::Unsent(format!("invalid EIP-1559 signature: {error}")))?;
-    if call.chain_id != u64::from(runtime.network_id) {
-        return Err(SubmitFailure::Unsent(
-            "raw transaction chain id does not match the active environment".into(),
-        ));
-    }
-    let tx_hash = format!("0x{}", hex_encode(&transaction_hash(&bytes)));
-    let response = runtime
-        .client
-        .post("/rpc", &request, None)
-        .map_err(|detail| SubmitFailure::Indeterminate {
-            tx_hash: tx_hash.clone(),
-            detail,
-        })?;
-    submission_result(&bytes, &response).map_err(|detail| {
-        if response.get("jsonrpc") == Some(&json!("2.0"))
-            && response.get("id") == Some(&json!(1))
-            && response.get("result").is_none()
-            && response.get("error").is_some_and(|error| {
-                error.get("code").and_then(Value::as_i64).is_some()
-                    && error.get("message").and_then(Value::as_str).is_some()
-            })
-        {
-            SubmitFailure::Refused(detail)
-        } else {
-            SubmitFailure::Indeterminate { tx_hash, detail }
-        }
-    })
+    let prepared =
+        layerx_platform_cli::rpc::prepare_submission(&bytes, Some(u64::from(runtime.network_id)))?;
+    let response = runtime.client.post("/", prepared.request(), None);
+    prepared.resolve(response)
 }
 
 fn submission_result(raw: &[u8], response: &Value) -> Result<Value, String> {
@@ -380,4 +353,38 @@ fn text(arguments: &Value, field: &str) -> Result<String, String> {
 fn validate_hex32(value: &str, name: &str) -> Result<(), String> {
     validate_resource_id(value, name)?;
     fixed_hex::<32>(name, value).map(|_| ())
+}
+
+#[cfg(test)]
+#[test]
+fn submission_rejects_wrong_chain_before_transport() {
+    use layerx_crypto::evm_transaction::Eip1559Call;
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("node listener");
+    listener.set_nonblocking(true).expect("bounded listener");
+    let runtime = Runtime::loopback(
+        &format!("http://{}", listener.local_addr().expect("node origin")),
+        125,
+    )
+    .expect("root node runtime");
+    let raw = Eip1559Call {
+        chain_id: 126,
+        nonce: 0,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 2,
+        gas_limit: 21000,
+        to: [2; 20],
+        data: vec![],
+    }
+    .sign(&[1; 32])
+    .expect("signed EIP-1559 transaction");
+    let result = submit_classified(
+        &runtime,
+        &json!({"raw_transaction": format!("0x{}", hex_encode(&raw))}),
+    );
+    assert!(
+        matches!(result, Err(SubmitFailure::Unsent(ref detail)) if detail.contains("chain id"))
+    );
+    assert!(
+        matches!(listener.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock)
+    );
 }

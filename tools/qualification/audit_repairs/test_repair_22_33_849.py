@@ -577,7 +577,7 @@ def test_f021_keeps_unserved_host_refusal_and_private_page_corpus():
     assert hashlib.sha256(corpus.encode()).hexdigest() == "795b4896435ae93c81738d19542161b89b386f179c1009f6db716cfa8da35656"
     assert "docs-names: docs/offending.md: faucet.paxeer.network is not a public name" in text
     assert '[[ $(wc -l <<<"$out") -eq 2 ]]' in text
-    assert "services/platform/docs/beta-resets.ics" in text
+    assert "docs/platform/beta-resets.ics" in text
     assert "check package-info-docs-location no_docs_host" in text
     scanner = (ROOT / "tools/bringup/docs-names.sh").read_text()
     assert "inventory=docs/site/docs/reference/public-rpc.md" in scanner

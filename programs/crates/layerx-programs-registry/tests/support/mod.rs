@@ -1,4 +1,12 @@
+//! Primitive proof fixtures. The constructors below synthesize state and signed
+//! headers for individual verifier tests; even `produced_deployment` is not a
+//! node/host deployment export. Integration consumers must use
+//! `node_deployment_fixture` with an already exported canonical admission.
+
 pub mod chain;
+mod node_deployment;
+
+pub use node_deployment::{node_deployment_fixture, NodeDeploymentFixture};
 
 use chain::ChainFixture;
 use ed25519_dalek::{Signer as _, SigningKey};
@@ -342,8 +350,8 @@ fn deploy_payload(wasm: &[u8], policy: UpgradePolicy, interface: &ProgramInterfa
     .unwrap_or_else(|error| panic!("native deployment encoding: {error:?}"))
 }
 
-/// Produces an actual runtime deployment before constructing its signed chain
-/// membership proofs. The expected record comes from the runtime receipt.
+/// Primitive runtime/record fixture, followed by independently synthesized chain
+/// proofs. This does not prove a node/host producer-to-consumer deployment.
 pub fn produced_deployment(
     wasm: &[u8],
     policy: UpgradePolicy,

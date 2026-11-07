@@ -88,10 +88,10 @@ const GasTracker = () => {
         secondRow={ titleSecondRow }
         withTextAd
       />
-      <Heading level="2" mt={ 8 } mb={ 4 }>{ `Track ${ config.chain.name } gas fees` }</Heading>
+      <Heading level="2" mt={ 8 } mb={ 2 } textStyle="label" color="text.muted">{ `Track ${ config.chain.name } gas fees` }</Heading>
       { snippets }
       { config.features.stats.isEnabled && (
-        <Box mt={ 12 } _empty={{ display: 'none' }}>
+        <Box mt={ 8 } _empty={{ display: 'none' }}>
           <GasTrackerChart/>
         </Box>
       ) }

@@ -20,12 +20,18 @@ pub struct WebApprovalResources {
     pub expiry: Arc<ApprovalExpiry>,
 }
 
+pub(super) enum HeldAuthorisation {
+    Payment(Value),
+    ReceiverDraw([u8; 32]),
+}
+
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct StoredSpend {
     bytes: Vec<u8>,
     signing_hash: [u8; 32],
     digest: [u8; 32],
+    // The registry binds both the disclosure actor and hold agent to this sender.
     sender: [u8; 20],
     commitment: [u8; 32],
     expiry: u64,
@@ -112,16 +118,42 @@ impl StoredSpend {
         }
     }
 
+    fn receiver_draw(&self) -> bool {
+        self.grant_id.is_some()
+            && self.selector == layerx_crypto::disclosure::call::ledger_selector(DRAW_SIGNATURE)
+    }
+
+    fn draw_signing_hash(bytes: &[u8], commitment: [u8; 32]) -> [u8; 32] {
+        let mut hash = Sha256::new();
+        hash.update(b"layerx-web-receiver-draw-v1");
+        hash.update(commitment);
+        hash.update(bytes);
+        hash.finalize().into()
+    }
+
     fn prepared(&self) -> Result<Prepared, WebToolError> {
-        let call = decode_unsigned(&self.bytes).map_err(|_| changed())?;
-        bind_call(&call, self.sender).map_err(|_| changed())?;
-        if call.to != PrecompileTarget::Ledger.address()
-            || call.data != self.call().encode().map_err(|_| changed())?
-            || call.signing_hash() != self.signing_hash
-            || <[u8; 32]>::from(Sha256::digest(&self.bytes)) != self.digest
-        {
-            return Err(changed());
-        }
+        let fee_limit = if self.receiver_draw() {
+            if self.bytes != self.call().encode().map_err(|_| changed())?
+                || Self::draw_signing_hash(&self.bytes, self.commitment) != self.signing_hash
+                || <[u8; 32]>::from(Sha256::digest(&self.bytes)) != self.digest
+            {
+                return Err(changed());
+            }
+            0
+        } else {
+            let call = decode_unsigned(&self.bytes).map_err(|_| changed())?;
+            bind_call(&call, self.sender).map_err(|_| changed())?;
+            if call.to != PrecompileTarget::Ledger.address()
+                || call.data != self.call().encode().map_err(|_| changed())?
+                || call.signing_hash() != self.signing_hash
+                || <[u8; 32]>::from(Sha256::digest(&self.bytes)) != self.digest
+            {
+                return Err(changed());
+            }
+            call.max_fee_per_gas
+                .checked_mul(u128::from(call.gas_limit))
+                .ok_or_else(changed)?
+        };
         let receiver = AgentDid::new(self.receiver.clone()).map_err(|_| changed())?;
         Ok(Prepared {
             preparation_ref: PreparationRef::new(format!("web-{}", hex(&self.digest)))
@@ -142,11 +174,7 @@ impl StoredSpend {
                     amount: Amount(self.amount),
                 }]),
                 asset: Asset::new(self.asset.clone()).map_err(|_| changed())?,
-                fee_limit: Amount(
-                    call.max_fee_per_gas
-                        .checked_mul(u128::from(call.gas_limit))
-                        .ok_or_else(changed)?,
-                ),
+                fee_limit: Amount(fee_limit),
                 expiry: TimestampSeconds(self.expiry),
                 idempotency_key: IdempotencyRef::new(hex(&self.key)).map_err(|_| changed())?,
             },
@@ -176,7 +204,7 @@ impl WebPlane<'_, '_> {
         offer: &PaymentRequirements,
         facts: &OfferFacts,
         key: [u8; 32],
-    ) -> Result<Value, WebToolError> {
+    ) -> Result<HeldAuthorisation, WebToolError> {
         let resources = self.payer.approval_resources().ok_or_else(unavailable)?;
         let boundary = self.approval;
         if boundary.context.agent.as_bytes() != self.config.payer_did.as_bytes()
@@ -212,25 +240,40 @@ impl WebPlane<'_, '_> {
                     boundary.clock,
                 )?;
                 let (call, grant_id) = self.approval_call(offer, facts, metadata.clone())?;
-                let transaction = self
-                    .payer
-                    .prepare_transaction(&call)
-                    .map_err(WebToolError::Payer)?;
-                verify_call_binding(&transaction).map_err(|_| changed())?;
-                if transaction.from != boundary.context.actor_address
-                    || transaction.call.to != call.target.address()
-                    || transaction.call.data != call.encode().map_err(|_| changed())?
-                    || self.config.network != format!("eip155:{}", transaction.call.chain_id)
+                let commitment = self.spend_commitment(metadata.expiry.0)?;
+                let (bytes, signing_hash, sender) = if self.call.scheme == Scheme::Metered
+                    && call.selector
+                        == layerx_crypto::disclosure::call::ledger_selector(DRAW_SIGNATURE)
+                    && grant_id.is_some()
                 {
-                    return Err(changed());
-                }
-                let bytes = transaction.call.encode_unsigned();
+                    let bytes = call.encode().map_err(|_| changed())?;
+                    let signing_hash = StoredSpend::draw_signing_hash(&bytes, commitment);
+                    (bytes, signing_hash, boundary.context.actor_address)
+                } else {
+                    let transaction = self
+                        .payer
+                        .prepare_transaction(&call)
+                        .map_err(WebToolError::Payer)?;
+                    verify_call_binding(&transaction).map_err(|_| changed())?;
+                    if transaction.from != boundary.context.actor_address
+                        || transaction.call.to != call.target.address()
+                        || transaction.call.data != call.encode().map_err(|_| changed())?
+                        || self.config.network != format!("eip155:{}", transaction.call.chain_id)
+                    {
+                        return Err(changed());
+                    }
+                    (
+                        transaction.call.encode_unsigned(),
+                        transaction.signing_hash,
+                        transaction.from,
+                    )
+                };
                 let spend = StoredSpend {
                     digest: Sha256::digest(&bytes).into(),
                     bytes,
-                    signing_hash: transaction.signing_hash,
-                    sender: transaction.from,
-                    commitment: self.spend_commitment(metadata.expiry.0)?,
+                    signing_hash,
+                    sender,
+                    commitment,
                     expiry: metadata.expiry.0,
                     expires_at_height: boundary
                         .current_height()
@@ -335,7 +378,7 @@ impl WebPlane<'_, '_> {
             };
             return Err(WebToolError::ApprovalRequired(Box::new(held)));
         }
-        // A durable granted decision binds the exact unsigned bytes, including after restart.
+        // A durable granted decision binds the exact canonical bytes, including after restart.
         let decision = decision.map_err(|_| changed())?;
         let mut reference = Sha256::new();
         reference.update(b"layerx-approved-preparation-v1");
@@ -361,18 +404,25 @@ impl WebPlane<'_, '_> {
                 .validate_search_quote(facts.asset, facts.amount)
                 .map_err(WebToolError::Payer)?;
         }
+        if spend.receiver_draw() {
+            return Ok(HeldAuthorisation::ReceiverDraw(
+                spend.grant_id.ok_or_else(changed)?,
+            ));
+        }
         let payment = self
             .payer
             .submit_transaction(&prepared)
             .map_err(WebToolError::Payer)?;
         if let Some(grant_id) = spend.grant_id {
             check_grant(self.config, &payment, grant_id)?;
-            Ok(json!({"grantId": hex(&grant_id), "idempotencyKey": hex(&key)}))
+            Ok(HeldAuthorisation::Payment(
+                json!({"grantId": hex(&grant_id), "idempotencyKey": hex(&key)}),
+            ))
         } else {
             let digest = check_receipt(self.config, &payment, facts, None, key)?;
-            Ok(
+            Ok(HeldAuthorisation::Payment(
                 json!({"idempotencyKey": hex(&key), "receiptDigest": hex(&digest), "txHash": format!("0x{}", hex(&payment.tx_hash)), "verificationLevel": "receipted"}),
-            )
+            ))
         }
     }
 
@@ -385,6 +435,11 @@ impl WebPlane<'_, '_> {
             payer_did: self.config.payer_did.clone(),
             payer_account: facts.payer_accounts[0],
             recipient: facts.pay_to,
+            receiver_did_key: facts
+                .receiver_did
+                .strip_prefix("did:layerx:")
+                .and_then(unhex32)
+                .ok_or(WebToolError::OfferMismatch("account"))?,
             asset: facts.asset,
             amount: facts.amount,
             expires_at_ms: expiry_milliseconds(disclosure.expiry.0)?,
@@ -430,9 +485,12 @@ impl WebPlane<'_, '_> {
                 };
                 if let Some(id) = existing {
                     self.validate_existing_grant(&terms, id)?;
-                    // The receiver executes this draw. A payer transaction would not be
-                    // the call the sidecar submits, so it cannot stand in for its approval.
-                    Err(WebToolError::Configuration("metered_receiver_approval"))
+                    let result = self
+                        .payer
+                        .view(&terms.next_sequence_call())
+                        .map_err(WebToolError::Payer)?;
+                    let sequence = sequence_result(&result).map_err(WebToolError::Payer)?;
+                    Ok((terms.prepare_draw(id, sequence), Some(id)))
                 } else {
                     let call = self.payer.grant(&terms).map_err(WebToolError::Payer)?;
                     let grant = <dyn WebPayer>::decode_grant_call(&terms, &call)?;
@@ -484,6 +542,12 @@ impl WebPlane<'_, '_> {
             Scheme::Metered => {
                 let terms = self.grant_terms(facts, &prepared.disclosure)?;
                 let id = spend.grant_id.ok_or_else(changed)?;
+                if spend.receiver_draw() {
+                    terms
+                        .validate_draw_call(id, &spend.call())
+                        .map_err(|_| changed())?;
+                    return self.validate_existing_grant(&terms, id);
+                }
                 let grant = <dyn WebPayer>::decode_grant_call(&terms, &spend.call())?;
                 if grant.id != id {
                     return Err(changed());

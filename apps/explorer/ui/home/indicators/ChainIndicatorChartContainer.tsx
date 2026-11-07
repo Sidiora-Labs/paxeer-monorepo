@@ -24,8 +24,8 @@ const ChainIndicatorChartContainer = ({ data, isError, isPending }: Props) => {
     return <DataFetchAlert fontSize="xs"/>;
   }
 
-  if (data[0].items.length === 0) {
-    return <chakra.span fontSize="xs">no data</chakra.span>;
+  if (!data[0] || data[0].items.length < 2) {
+    return <chakra.span textStyle="small" color="text.muted" aria-label="Network chart unavailable">—</chakra.span>;
   }
 
   return (

@@ -19,14 +19,16 @@ const LEGACY_EVIDENCE_PREFIX: &[u8] = b"receipt-legacy-evidence:";
 pub const NODE_ED25519_SIGNATURE_TAG: u8 = 255;
 const IDEMPOTENCY_INDEX_PREFIX: &[u8] = b"receipt:idempotency:";
 
-/// Retained kernel evidence for recovery of legacy receipt indexes.
+/// Persisted evidence and index identities used by restart recovery.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ReceiptEvidenceRecord {
+pub struct ReceiptEvidenceRecord<E = RawReceiptEvidence> {
     pub idempotency_key: [u8; 32],
     pub activity_id: [u8; 32],
     pub global_sequence: u64,
-    pub evidence: RawReceiptEvidence,
+    pub evidence: E,
 }
+
+pub type CurrentReceiptEvidenceRecord = ReceiptEvidenceRecord<TransactionReceiptEvidence>;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct TransactionReceiptMetadata {
@@ -46,12 +48,39 @@ pub struct TransactionReceiptEvidence {
     pub canonical_receipt: Vec<u8>,
 }
 
-/// Every served receipt of one tenant split by whether legacy recovery evidence was
-/// persisted for it. A receipt without evidence is an older store record that
+/// A v2 ingress capability derived only from the node verifier's pinned-key result.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AuthenticatedTransactionReceipt {
+    evidence: TransactionReceiptEvidence,
+}
+
+impl AuthenticatedTransactionReceipt {
+    pub fn from_authenticated(
+        receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    ) -> Result<Self, ReceiptStoreError> {
+        if (receipt.rung() == Rung::Committed || receipt.covering_block().is_some())
+            && receipt.committed_header().is_none()
+        {
+            return Err(ReceiptStoreError::UnauthenticatedIngress);
+        }
+        Ok(Self {
+            evidence: TransactionReceiptEvidence::from_authenticated(receipt)?,
+        })
+    }
+
+    #[must_use]
+    pub fn evidence(&self) -> &TransactionReceiptEvidence {
+        &self.evidence
+    }
+}
+
+/// Every served receipt of one tenant split by its persisted evidence kind.
+/// A receipt without evidence is an older store record that
 /// recovery must hold rather than skip.
 #[derive(Clone, Debug, Default, Eq, PartialEq)]
 pub struct ReceiptEvidenceInventory {
     pub with_evidence: Vec<ReceiptEvidenceRecord>,
+    pub with_current_evidence: Vec<CurrentReceiptEvidenceRecord>,
     pub without_evidence: Vec<ReceiptMetadata>,
 }
 
@@ -98,12 +127,14 @@ pub enum ReceiptStoreError {
     Missing,
     EvidenceVersion,
     BelowReceipted,
+    UnauthenticatedIngress,
 }
 
 impl ReceiptStoreError {
     #[must_use]
     pub const fn reason(&self) -> &'static str {
         match self {
+            Self::UnauthenticatedIngress => "receipt.unauthenticated_ingress",
             Self::EvidenceVersion => "receipt.evidence_version",
             Self::BelowReceipted => "receipt.not_receipted",
             Self::Verification(_) => "receipt.verification",
@@ -240,7 +271,15 @@ pub fn store_verified_if_absent<V: ReceiptIngress>(
     verified.store_if_absent(durable, tenant, key, receipt_bytes)
 }
 
-pub trait ReceiptIngress {
+mod ingress_seal {
+    pub trait Sealed {}
+}
+impl ingress_seal::Sealed for AuthorizedBatch {}
+impl ingress_seal::Sealed for TransactionReceiptEvidence {}
+impl ingress_seal::Sealed for AuthenticatedTransactionReceipt {}
+impl ingress_seal::Sealed for layerx_client::rpc::receipt::AuthenticatedReceipt {}
+
+pub trait ReceiptIngress: ingress_seal::Sealed {
     type Stored;
 
     fn store_if_absent(
@@ -468,8 +507,9 @@ fn serve_kernel_evidence(
 ///
 /// # Errors
 ///
-/// Returns `Corrupt` when an idempotency index or evidence record does not
-/// decode, and the store failure otherwise.
+/// Returns `EvidenceVersion` for stale persisted evidence, `Corrupt` when an
+/// idempotency index or evidence record does not decode, and the store failure
+/// otherwise.
 pub fn evidence_inventory(
     durable: &Store,
     tenant: &TenantId,
@@ -481,6 +521,60 @@ pub fn evidence_inventory(
         };
         let idempotency_key: [u8; 32] =
             suffix.try_into().map_err(|_| ReceiptStoreError::Corrupt)?;
+        if durable
+            .get(&legacy_evidence_key(tenant.clone(), idempotency_key)?)
+            .is_some()
+        {
+            return Err(ReceiptStoreError::EvidenceVersion);
+        }
+        if let Some(value) = durable.get(&evidence_key(tenant.clone(), idempotency_key)?) {
+            check_evidence_version(value.bytes())?;
+        }
+        let served = serve(
+            durable,
+            tenant.clone(),
+            ReceiptLookupKey::Idempotency(idempotency_key),
+        )?;
+        if let Some(value) =
+            durable.get(&evidence_key(tenant.clone(), served.metadata.activity_id)?)
+        {
+            if value.bytes().get(..4) != Some(EVIDENCE_MAGIC.as_slice()) {
+                return Err(ReceiptStoreError::Corrupt);
+            }
+            match value.bytes().get(4) {
+                Some(&1 | &EVIDENCE_VERSION) => {}
+                Some(_) => return Err(ReceiptStoreError::EvidenceVersion),
+                None => return Err(ReceiptStoreError::Corrupt),
+            }
+            if value.bytes().get(4) == Some(&EVIDENCE_VERSION) {
+                let evidence = decode_transaction_evidence(value.bytes())?;
+                if evidence.canonical_receipt != served.canonical_bytes
+                    || evidence.metadata.transaction_hash != served.metadata.activity_id
+                {
+                    return Err(ReceiptStoreError::Corrupt);
+                }
+                let decoded = layerx_wire::receipt::decode(&evidence.canonical_receipt)
+                    .map_err(|_| ReceiptStoreError::Corrupt)?;
+                let protocol = decoded.protocol().ok_or(ReceiptStoreError::Corrupt)?;
+                if protocol.activity_id() != served.metadata.activity_id
+                    || protocol.global_sequence() != served.metadata.global_sequence
+                    || served.metadata.idempotency_key != idempotency_key
+                    || served.metadata.result
+                        != classify(ResultCode::from_raw(protocol.result_code()))
+                {
+                    return Err(ReceiptStoreError::Corrupt);
+                }
+                inventory
+                    .with_current_evidence
+                    .push(CurrentReceiptEvidenceRecord {
+                        idempotency_key,
+                        activity_id: served.metadata.activity_id,
+                        global_sequence: served.metadata.global_sequence,
+                        evidence,
+                    });
+                continue;
+            }
+        }
         if let Some(record) = serve_kernel_evidence(durable, tenant.clone(), idempotency_key)? {
             inventory.with_evidence.push(record);
         } else {
@@ -494,6 +588,9 @@ pub fn evidence_inventory(
     }
     inventory
         .with_evidence
+        .sort_by(|left, right| left.idempotency_key.cmp(&right.idempotency_key));
+    inventory
+        .with_current_evidence
         .sort_by(|left, right| left.idempotency_key.cmp(&right.idempotency_key));
     inventory
         .without_evidence
@@ -593,7 +690,7 @@ pub(crate) fn persist_authenticated_receipt(
     if idempotency_key != receipt.activity_id() || receipt_bytes != receipt.canonical_bytes() {
         return Err(ReceiptStoreError::Corrupt);
     }
-    let mut evidence = TransactionReceiptEvidence::from_authenticated(receipt)?;
+    let mut evidence = AuthenticatedTransactionReceipt::from_authenticated(receipt)?.evidence;
     let mut metadata = ReceiptMetadata {
         activity_id: receipt.activity_id(),
         idempotency_key,
@@ -859,43 +956,77 @@ impl ReceiptIngress for TransactionReceiptEvidence {
 
     fn store_if_absent(
         &self,
+        _durable: &mut Store,
+        _tenant: TenantId,
+        _transaction_hash: [u8; 32],
+        _receipt_bytes: &[u8],
+    ) -> Result<Self, ReceiptStoreError> {
+        Err(if self.metadata.rung < Rung::Receipted {
+            ReceiptStoreError::BelowReceipted
+        } else {
+            ReceiptStoreError::UnauthenticatedIngress
+        })
+    }
+}
+
+impl ReceiptIngress for AuthenticatedTransactionReceipt {
+    type Stored = TransactionReceiptEvidence;
+
+    fn store_if_absent(
+        &self,
         durable: &mut Store,
         tenant: TenantId,
         transaction_hash: [u8; 32],
         receipt_bytes: &[u8],
-    ) -> Result<Self, ReceiptStoreError> {
-        if self.metadata.rung < Rung::Receipted {
-            return Err(ReceiptStoreError::BelowReceipted);
-        }
-        if self.metadata.transaction_hash != transaction_hash
-            || self.canonical_receipt != receipt_bytes
-            || receipt_bytes.is_empty()
-        {
-            return Err(ReceiptStoreError::Corrupt);
-        }
-        let key = evidence_key(tenant.clone(), transaction_hash)?;
-        if let Some(existing) = serve_evidence(durable, tenant.clone(), transaction_hash)? {
-            let mut comparable = existing.clone();
-            comparable.metadata.rung = self.metadata.rung;
-            if comparable != *self {
-                return Err(ReceiptStoreError::Store(StoreError::Corrupt(
-                    "conflicting receipt metadata",
-                )));
-            }
-            if self.metadata.rung > existing.metadata.rung {
-                durable.put_local(key, encode_transaction_evidence(self)?)?;
-                return Ok(self.clone());
-            }
-            return Ok(existing);
-        }
-        durable.record_verified_receipt(
-            &[transaction_key(tenant, transaction_hash)?],
+    ) -> Result<Self::Stored, ReceiptStoreError> {
+        persist_transaction_evidence(
+            &self.evidence,
+            durable,
+            tenant,
+            transaction_hash,
             receipt_bytes,
-            key,
-            encode_transaction_evidence(self)?,
-        )?;
-        Ok(self.clone())
+        )
     }
+}
+
+fn persist_transaction_evidence(
+    evidence: &TransactionReceiptEvidence,
+    durable: &mut Store,
+    tenant: TenantId,
+    transaction_hash: [u8; 32],
+    receipt_bytes: &[u8],
+) -> Result<TransactionReceiptEvidence, ReceiptStoreError> {
+    if evidence.metadata.rung < Rung::Receipted {
+        return Err(ReceiptStoreError::BelowReceipted);
+    }
+    if evidence.metadata.transaction_hash != transaction_hash
+        || evidence.canonical_receipt != receipt_bytes
+        || receipt_bytes.is_empty()
+    {
+        return Err(ReceiptStoreError::Corrupt);
+    }
+    let key = evidence_key(tenant.clone(), transaction_hash)?;
+    if let Some(existing) = serve_evidence(durable, tenant.clone(), transaction_hash)? {
+        let mut comparable = existing.clone();
+        comparable.metadata.rung = evidence.metadata.rung;
+        if comparable != *evidence {
+            return Err(ReceiptStoreError::Store(StoreError::Corrupt(
+                "conflicting receipt metadata",
+            )));
+        }
+        if evidence.metadata.rung > existing.metadata.rung {
+            durable.put_local(key, encode_transaction_evidence(evidence)?)?;
+            return Ok(evidence.clone());
+        }
+        return Ok(existing);
+    }
+    durable.record_verified_receipt(
+        &[transaction_key(tenant, transaction_hash)?],
+        receipt_bytes,
+        key,
+        encode_transaction_evidence(evidence)?,
+    )?;
+    Ok(evidence.clone())
 }
 
 fn encode_transaction_evidence(
@@ -1128,7 +1259,7 @@ pub fn persist_committed_protocol_receipt(
         native_commit_key(tenant.clone(), protocol.activity_id())?,
         bytes,
     )?;
-    record.store_if_absent(durable, tenant, protocol.activity_id(), canonical)
+    persist_transaction_evidence(&record, durable, tenant, protocol.activity_id(), canonical)
 }
 
 pub fn persist_committed_native_receipt(

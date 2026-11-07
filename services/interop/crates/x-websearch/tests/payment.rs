@@ -1364,11 +1364,15 @@ fn exact_exchange() -> Outcome<Value> {
         amount[16..].copy_from_slice(&asset.price.to_be_bytes());
         let mut expires = [0; 32];
         expires[24..].copy_from_slice(&GRANT_EXPIRATION.to_be_bytes());
-        let signed = LedgerTransaction {
+        let signed = x_websearch::submit::Transaction {
             chain_id: 125,
             nonce: 7,
-            gas_price: 1,
+            fees: x_websearch::submit::Fees {
+                max_fee_per_gas: 1,
+                max_priority_fee_per_gas: 1,
+            },
             gas_limit: 210_000,
+            to: LEDGER_PRECOMPILE,
             data: [
                 &[0x78, 0xea, 0x11, 0xdb][..],
                 &payer,
@@ -1495,6 +1499,128 @@ fn an_exact_payment_settles_from_its_pay_exact_transaction() -> Outcome {
     assert_eq!(harness.gateway.calls("pax_sequencerReceipt"), 4);
     for method in ["lx_getReceipt", "lx_sendActivity", "eth_sendRawTransaction"] {
         assert_eq!(harness.gateway.calls(method), 0);
+    }
+    Ok(())
+}
+
+#[test]
+fn recorded_exact_type_two_transactions_bind_their_receipts() -> Outcome {
+    let recording = read_json(&fixtures().join("gateway/exact.json"))?;
+    let exchange = read_json(&fixtures().join("client-exchange.json"))?;
+    let keys = [SequencerAuthorization::new(
+        receipt_key_id(),
+        test_key("sequencer").verifying_key().to_bytes(),
+        9,
+        9,
+    )];
+    for (step, &(currency, _)) in FETCHED.iter().enumerate() {
+        let payment = &recording["payments"][currency];
+        let raw = x_websearch::payment::unhex(
+            text(payment, "/rawTransaction")?
+                .strip_prefix("0x")
+                .ok_or("transaction prefix")?,
+        )
+        .ok_or("transaction hex")?;
+        assert_eq!(raw[0], 2);
+        let (list, body, consumed) = rlp_item(&raw[1..])?;
+        assert!(list);
+        assert_eq!(consumed + 1, raw.len());
+        let mut remaining = body;
+        let mut fields = Vec::new();
+        let mut signing_length = 0;
+        while !remaining.is_empty() {
+            let (list, field, length) = rlp_item(remaining)?;
+            assert_eq!(list, fields.len() == 8);
+            if fields.len() < 9 {
+                signing_length += length;
+            }
+            fields.push(field);
+            remaining = &remaining[length..];
+        }
+        assert_eq!(fields.len(), 12);
+        assert_eq!(fields[0], &[125]);
+        assert_eq!(fields[1], &[7]);
+        assert_eq!(fields[2], &[1]);
+        assert_eq!(fields[3], &[1]);
+        assert_eq!(fields[4], &[0x03, 0x34, 0x50]);
+        assert_eq!(fields[5], LEDGER_PRECOMPILE);
+        assert!(fields[6].is_empty());
+        assert!(fields[8].is_empty());
+        let data = fields[7];
+        let asset = accepted(currency)?;
+        let payee = account_id(&wallet_account(&receiver_did(), &asset)).ok_or("payee")?;
+        assert_eq!(data.len(), 196);
+        assert_eq!(
+            &data[..4],
+            &x_websearch::watch::keccak(
+                b"payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"
+            )[..4]
+        );
+        assert_eq!(&data[4..36], &payer_account(&asset)?);
+        assert_eq!(&data[36..68], &payee);
+        assert_eq!(&data[68..100], &asset.asset_id);
+        assert_eq!(&data[100..116], &[0; 16]);
+        assert_eq!(&data[116..132], &asset.price.to_be_bytes());
+        assert_eq!(&data[132..156], &[0; 24]);
+        assert_eq!(&data[156..164], &GRANT_EXPIRATION.to_be_bytes());
+        assert_eq!(
+            &data[164..196],
+            &receive_key_bytes(&format!("pay-exact-{currency}"))
+        );
+        let length = u8::try_from(signing_length)?;
+        assert!(length >= 56);
+        let unsigned = [&[2, 0xf8, length][..], &body[..signing_length]].concat();
+        let parity = match fields[9] {
+            [] => 0,
+            [1] => 1,
+            _ => return Err(fail("invalid type-2 parity")),
+        };
+        let mut r = [0; 32];
+        let mut s = [0; 32];
+        r[32 - fields[10].len()..].copy_from_slice(fields[10]);
+        s[32 - fields[11].len()..].copy_from_slice(fields[11]);
+        let signature = k256::ecdsa::Signature::from_scalars(r, s)?;
+        assert!(signature.normalize_s().is_none());
+        let signer = k256::ecdsa::VerifyingKey::recover_from_prehash(
+            &x_websearch::watch::keccak(&unsigned),
+            &signature,
+            k256::ecdsa::RecoveryId::try_from(parity)?,
+        )?;
+        assert_eq!(signer, *receiver_secret()?.verifying_key());
+        let hash = x_websearch::watch::keccak(&raw);
+        assert_eq!(payment["txHash"], format!("0x{}", hex(&hash)));
+        let entry = &exchange["exchange"][3 + 2 * step];
+        assert_eq!(
+            entry["request"]["headers"][PAYMENT_SIGNATURE]["payload"],
+            exact_payment_fields(payment)?
+        );
+        let response = &entry["response"]["headers"][PAYMENT_RESPONSE];
+        assert_eq!(response["transaction"], payment["txHash"]);
+        let evidence = &response["extensions"]["layerx"];
+        let receipt = STANDARD.decode(text(evidence, "/receipt")?)?;
+        let verified = wire(verify_sequencer_signature(
+            &receipt,
+            ReceiptKeys::HeightRanges(&keys),
+        ))?;
+        let facts = verified.protocol().ok_or("protocol receipt")?;
+        assert_eq!(facts.activity_id(), hash);
+        assert_eq!(facts.module_id(), 12);
+        assert_eq!(facts.operation(), raw[0]);
+        assert_eq!(facts.result_code(), 0);
+        assert_eq!(facts.debit_sequence(), 7);
+        assert_eq!(&facts.to()[12..], fields[5]);
+        assert_eq!(&facts.from()[12..], &receiver_public_key()?);
+        assert_eq!(facts.amount(), 0);
+        let digest = layerx_interop_gateway::evidence::canonical_receipt_digest(&receipt)?;
+        assert_eq!(evidence["receiptDigest"], hex(&digest));
+        assert_eq!(payment["receiptDigest"], hex(&digest));
+        let rule = recording["endpoints"]["gateway"]["*"]
+            .as_array()
+            .ok_or("gateway rules")?
+            .iter()
+            .find(|rule| rule["params"] == json!([payment["txHash"]]))
+            .ok_or("receipt rule")?;
+        assert_eq!(rule["result"]["receipt"], format!("0x{}", hex(&receipt)));
     }
     Ok(())
 }
@@ -3391,6 +3517,46 @@ fn exchange_entry(target: &str, headers: &[(&str, &str)], reply: &Reply) -> Outc
 
 /// The page each asset's exact fetch is recorded for.
 const FETCHED: [(&str, usize); 4] = [("SID", 0), ("PAX", 1), ("USDC", 2), ("USDL", 3)];
+
+#[test]
+fn recorded_exact_client_exchange_matches_the_server() -> Outcome {
+    let harness = Harness::start("client-exact", &["exact.json"])?;
+    let pages = vectors()?;
+    let path = fixtures().join("client-exchange.json");
+    let mut recorded = read_json(&path)?;
+    let mut exact = Vec::new();
+    for (currency, page) in FETCHED {
+        let target = format!("/fetch?url={}", percent(&pages[page].payload));
+        let challenge = harness.get(&target, &[])?;
+        assert_eq!(challenge.status, 402);
+        exact.push(exchange_entry(&target, &[], &challenge)?);
+        let signature =
+            harness.signature(&target, None, EXACT, currency, &exact_fixture(currency)?)?;
+        let paid = harness.pay(&target, None, &signature)?;
+        assert_settled(&paid)?;
+        assert_eq!(paid.body["digest"], pages[page].digest);
+        exact.push(exchange_entry(
+            &target,
+            &[(PAYMENT_SIGNATURE, &signature)],
+            &paid,
+        )?);
+    }
+    assert_eq!(harness.served(), CURRENCIES.len());
+    assert_eq!(
+        harness.gateway.calls("pax_sequencerReceipt"),
+        CURRENCIES.len()
+    );
+    let exchange = recorded["exchange"]
+        .as_array_mut()
+        .ok_or("client exchange")?;
+    assert_eq!(exchange.len(), 11);
+    exchange[2..10].clone_from_slice(&exact);
+    if std::env::var_os(RECORD_VARIABLE).is_some() {
+        std::fs::write(&path, pretty(&recorded)?)?;
+    }
+    assert_eq!(read_json(&path)?, recorded);
+    Ok(())
+}
 
 #[test]
 fn the_client_exchange_matches_the_recording() -> Outcome {

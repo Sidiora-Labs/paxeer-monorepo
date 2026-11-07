@@ -100,7 +100,10 @@ const Footer = () => {
     const configGroups = (linksData || []).map((group) => ({ group, isExternal: true }));
     const fixedGroups = fixedLinkGroups.map((group) => ({ group, isExternal: false }));
 
-    return [ ...configGroups, ...fixedGroups ].slice(0, MAX_LINKS_COLUMNS);
+    const columns = Array.from({ length: MAX_LINKS_COLUMNS }, () => [] as Array<{ group: CustomLinksGroup; isExternal: boolean }>);
+    [ ...fixedGroups, ...configGroups ].forEach((group, index) => columns[index % MAX_LINKS_COLUMNS].push(group));
+
+    return columns;
   }, [ linksData, fixedLinkGroups ]);
 
   const handleBackToTop = React.useCallback(() => {
@@ -115,16 +118,16 @@ const Footer = () => {
   };
 
   const contentProps: HTMLChakraProps<'div'> = {
-    px: { base: 4, lg: config.UI.navigation.layout === 'horizontal' ? 6 : 12, '2xl': 6 },
-    py: { base: 6, lg: 8 },
+    px: { base: 4, lg: 6 },
+    py: { base: 4, lg: 5 },
     maxW: `${ CONTENT_MAX_WIDTH }px`,
     m: '0 auto',
   };
 
   const columnsProps: GridProps = {
-    gridTemplateColumns: { base: '1fr', lg: 'minmax(auto, 360px) repeat(3, 1fr)' },
-    columnGap: { lg: 8, xl: 12 },
-    rowGap: 8,
+    gridTemplateColumns: { base: '1fr', md: 'repeat(3, minmax(0, 1fr))' },
+    columnGap: 6,
+    rowGap: 4,
   };
 
   const renderRecaptcha = () => {
@@ -153,7 +156,7 @@ const Footer = () => {
           columnGap={ 4 }
           rowGap={ 3 }
           flexWrap="wrap"
-          mb={{ base: 6, lg: 8 }}
+          mb={ 4 }
         >
           <Flex data-label="footer-social" alignItems="center" columnGap={ 4 } rowGap={ 2 } flexWrap="wrap" _empty={{ display: 'none' }}>
             { config.UI.navigation.otherLinks.map((link) => (
@@ -166,51 +169,48 @@ const Footer = () => {
           </Button>
         </Flex>
 
-        <Grid { ...columnsProps }>
-          <Box data-label="footer-brand">
-            <NetworkLogo display="inline-block" mb={ 3 }/>
+        <Flex align="center" justify="space-between" gap={ 4 } flexWrap="wrap" mb={ 4 }>
+          <Flex data-label="footer-brand" align="center" gap={ 4 } flexWrap="wrap" w="100%">
+            <NetworkLogo display="inline-block"/>
             <Text textStyle="sm" fontWeight={ 500 } color="heading">{ config.chain.name }</Text>
-            <Text mt={ 3 } textStyle="xs" color="text.secondary">
+            <Text maxW="360px" textStyle="xs" color="text.secondary">
               The block explorer for { config.chain.name }: search blocks, transactions, addresses, tokens
               and kernel activity across the network.
             </Text>
-            <Flex mt={ 5 } alignItems="center" flexWrap="wrap" columnGap={ 3 } rowGap={ 2 } _empty={{ display: 'none' }}>
+            <Flex alignItems="center" flexWrap="wrap" columnGap={ 3 } rowGap={ 2 } _empty={{ display: 'none' }}>
               { !config.UI.indexingAlert.intTxs.isHidden && <IntTxsIndexingStatus/> }
               { !config.features.multichain.isEnabled && <NetworkAddToWallet source="Footer"/> }
             </Flex>
-            <Box mt={ 6 } textStyle="xs" color="text.secondary" _empty={{ display: 'none' }}>
+            <Box ml={{ lg: 'auto' }} textStyle="xs" color="text.secondary" _empty={{ display: 'none' }}>
               { backendVersionData?.backend_version && <Text>Backend { backendVersionData.backend_version }</Text> }
               { config.UI.footer.frontendVersion && <Text>Frontend { config.UI.footer.frontendVersion }</Text> }
             </Box>
-          </Box>
-
-          { linkColumns.map(({ group, isExternal }) => (
-            <Box key={ group.title } data-label="footer-column">
-              <Skeleton fontWeight={ 500 } mb={ 3 } display="inline-block" loading={ isLinksLoading }>{ group.title }</Skeleton>
-              <VStack gap={ 1 } alignItems="start">
-                { group.links.map((link) => isExternal ? (
-                  <FooterLinkItem { ...link } key={ link.text } isLoading={ isLinksLoading }/>
-                ) : (
-                  <Link
-                    key={ link.text }
-                    href={ link.url }
-                    display="flex"
-                    alignItems="center"
-                    h="30px"
-                    variant="subtle"
-                    textStyle="xs"
-                  >
-                    { link.text }
-                  </Link>
-                )) }
-              </VStack>
+          </Flex>
+        </Flex>
+        <Grid { ...columnsProps } data-label="footer-columns">
+          { linkColumns.map((groups, index) => (
+            <Box key={ index } data-label="footer-column" borderTopWidth="1px" borderColor="hairline" pt={ 3 }>
+              { groups.map(({ group, isExternal }) => (
+                <Box key={ group.title } _notFirst={{ mt: 4 }}>
+                  <Skeleton as="h2" textStyle="label" color="text.muted" mb={ 2 } loading={ isLinksLoading }>{ group.title }</Skeleton>
+                  <VStack gap={ 0 } alignItems="start">
+                    { group.links.map((link) => isExternal ? (
+                      <FooterLinkItem { ...link } key={ link.text } isLoading={ isLinksLoading }/>
+                    ) : (
+                      <Link key={ link.text } href={ link.url } display="flex" alignItems="center" minH="28px" variant="subtle" textStyle="small">
+                        { link.text }
+                      </Link>
+                    )) }
+                  </VStack>
+                </Box>
+              )) }
             </Box>
           )) }
         </Grid>
 
         <Flex
           data-label="footer-bottom"
-          mt={{ base: 8, lg: 10 }}
+          mt={ 4 }
           pt={ 4 }
           borderTopWidth="1px"
           borderTopColor="border.divider"

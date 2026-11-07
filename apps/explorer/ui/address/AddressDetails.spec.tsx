@@ -22,6 +22,7 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 // default per-test budget.
 vi.setConfig({ testTimeout: 60_000 });
 
+import AddressAnalytics from './AddressAnalytics';
 import AddressDetails from './AddressDetails';
 import useAddressCountersQuery from './utils/useAddressCountersQuery';
 import useAddressQuery from './utils/useAddressQuery';
@@ -60,11 +61,16 @@ const Harness = () => {
   const addressQuery = useAddressQuery({ hash: HASH });
   const countersQuery = useAddressCountersQuery({ hash: HASH, isLoading: addressQuery.isPlaceholderData });
 
-  return <AddressDetails addressQuery={ addressQuery } countersQuery={ countersQuery } isLoading={ addressQuery.isPlaceholderData }/>;
+  return (
+    <>
+      <AddressDetails addressQuery={ addressQuery } countersQuery={ countersQuery } isLoading={ addressQuery.isPlaceholderData }/>
+      <AddressAnalytics addressQuery={ addressQuery } countersQuery={ countersQuery }/>
+    </>
+  );
 };
 
 const cardTitles = (container: HTMLElement) =>
-  Array.from(container.querySelectorAll('[data-address-card] [data-card-title]')).map((item) => item.textContent);
+  Array.from(container.querySelectorAll('[data-address-card] h2')).map((item) => item.textContent);
 
 describe('AddressDetails', () => {
   beforeEach(() => {
@@ -73,16 +79,17 @@ describe('AddressDetails', () => {
     fetchMock.resetMocks();
   });
 
-  it('lays the details out as three cards in one grid', async() => {
+  it('stacks balance tiles and labelled address information groups', async() => {
     answer(addressMock.validator, false);
 
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      expect(cardTitles(container)).toEqual([ 'Overview', 'More info', 'Other info' ]);
+      expect(cardTitles(container)).toEqual([ 'ADDRESS INFO', 'Other info' ]);
     });
 
     expect(container.querySelectorAll('[data-address-details]')).toHaveLength(1);
+    expect(container.querySelector('[data-address-balances]')).not.toBeNull();
   });
 
   it('heads the third card with the contract information when the address has no unified account', async() => {
@@ -91,25 +98,28 @@ describe('AddressDetails', () => {
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      expect(cardTitles(container)).toEqual([ 'Overview', 'More info', 'Contract info' ]);
+      expect(cardTitles(container)).toEqual([ 'ADDRESS INFO', 'Contract info' ]);
     });
 
     expect(container.querySelector('[data-unified-account-link]')).toBeNull();
   });
 
-  it('counts the transactions and the transfers in the more-info card', async() => {
+  it('counts transactions and transfers in Analytics and keeps the funding source in ADDRESS INFO', async() => {
     answer(addressMock.eoa, false);
 
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      expect(cardTitles(container)[1]).toBe('More info');
+      expect(cardTitles(container)[0]).toBe('ADDRESS INFO');
     });
 
-    const moreInfo = container.querySelector('[data-address-card="More info"]') as HTMLElement;
+    const moreInfo = container.querySelector('[data-address-card="ADDRESS INFO"]') as HTMLElement;
 
     await waitFor(() => {
-      expect(moreInfo.textContent).toContain('Transactions');
+      expect(container.querySelector('[data-stat-tile="Transactions"]')?.textContent)
+        .toContain(Number(countersMock.forAddress.transactions_count).toLocaleString());
+      expect(container.querySelector('[data-stat-tile="Transfers"]')?.textContent)
+        .toContain(Number(countersMock.forAddress.token_transfers_count).toLocaleString());
     });
 
     expect(moreInfo.textContent).toContain('Funded by');
@@ -121,7 +131,7 @@ describe('AddressDetails', () => {
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      const moreInfo = container.querySelector('[data-address-card="More info"]') as HTMLElement;
+      const moreInfo = container.querySelector('[data-address-card="ADDRESS INFO"]') as HTMLElement;
       expect(moreInfo.textContent).toContain('Creator');
     });
   });
@@ -132,7 +142,7 @@ describe('AddressDetails', () => {
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      expect(cardTitles(container)).toEqual([ 'Overview', 'More info', 'Paxeer X account' ]);
+      expect(cardTitles(container)).toEqual([ 'ADDRESS INFO', 'Paxeer X account' ]);
     });
 
     const unifiedCard = container.querySelector('[data-address-card="Paxeer X account"]') as HTMLElement;
@@ -169,7 +179,7 @@ describe('AddressDetails', () => {
     const { container } = render(<Harness/>);
 
     await waitFor(() => {
-      const overview = container.querySelector('[data-address-card="Overview"]') as HTMLElement;
+      const overview = container.querySelector('[data-address-balances]') as HTMLElement;
       expect(overview.textContent).toContain('Token holdings');
     });
   });

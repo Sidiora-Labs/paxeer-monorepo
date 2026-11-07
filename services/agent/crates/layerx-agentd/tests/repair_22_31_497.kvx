@@ -1,0 +1,45 @@
+[repair.22.31.497]
+acceptance = "22998.1"
+decision = 2541
+gotcha = 3033
+base_revision = "77e6aa67194dac604e249ad0b0bbbfa9d112492f"
+targets = ["human_approval_budget_actor", "human_projection_facts"]
+stalled_attempts = ["22.31.212 attempt 6", "22.33.1544 attempt 2", "22.33.217 attempt 3", "22.33.218 attempt 4", "22.33.222 attempt 3", "22.33.224 attempt 3", "22.33.233 attempt 3", "22.33.1547 attempt 2", "22.33.249 attempt 2", "22.33.261 attempt 2"]
+repair = "Consume the shared hosted authority library and its own configuration, policy, response and committed-proof verifier in both daemon test targets; remove the obsolete authority_producer and committed stand-ins."
+changed_expectation = "Budget state is produced from native receipt-sequence and account membership proofs at H-1 authenticated by a matching committed header at H, rather than projected account JSON alone; both live harnesses preserve the recorded remaining, sequence and checkpoint assertions and assert the exact receipt digest of the current canonical budget ABI and refresh the evidence digest through the real authority producer."
+negative_cases = "Both targets reject changed native proof values and mismatched Comet app hashes with budget_state_proof_unavailable; existing hold, binding, signature, projection and reopen assertions remain intact."
+source_boundary = "The authority library supplies the production budget-state, committed-header and membership verification implementations. The retained shared native-store fixture constructs the account proofs consumed by both targets, and the checkpoint recording supplies the signed commit and validator set at height 64; no authority source is copied or changed."
+verified_revision = "The final hf-done JSON ledger entry names the exact content-addressed verified revision; embedding that revision in its own candidate would change it."
+evidence = "Private /out/run/gates.jsonl and /out/logs/build-1.log and /out/logs/verify-1.log retain exact candidate revision, command, exit and log; only a passing hf-done qualifies this repair."
+
+[qualification.repair_1]
+revision = "d84ebd131c5e493e6bd68ef987d4fbd9192c64a5"
+command = "cg spec done 22.31.497 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The native account decoder rejects placeholder owner and budget IDs because they are not derived from canonical account names."
+repair = "Derive both IDs with the production protocol-3 account hash, encode the canonical budget name with kind 2, bind those IDs into the budget ABI and policy, and serve the pinned ledger balanceOf call required by the native evidence join."
+
+[continuation.attempt_2]
+source_revision = "c092429a9ddd0e71c02991a076116e48a9f0f18b"
+gotcha = 3042
+repair = "Preserve the previous native-budget implementation; make fixture destructors best-effort and assert explicit clean shutdown in test bodies. Replay recorded px_getCommit and px_getValidators responses keyed by height 64, independently verified by the production ServedCheckpoint reader before either live harness starts."
+recording = "support/record_human_budget_checkpoint.py records the Ed25519-signed canonical Comet header, commit and validator responses into support/human_budget_checkpoint.json, using the native account tree and the retained block timestamp and roots."
+changed_expectation = "The checkpoint digest is the signed Comet header hash authenticating the native tree, replacing the old receipt-batch-header hash; both targets retain their exact checkpoint equality assertions and reject mismatched app hashes. Remaining budget and receipt sequence remain exactly 77 and 64."
+
+[qualification.attempt_2]
+evidence = "{\"revision\": \"65631dabdff1bcaf98ea5a8c05febf6190b75f6b\", \"command\": \"cg spec done 22.31.497 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
+observed = "Build and dependent-crate checks passed at the recorded revision; four actor cases passed, then human_approval_budget_actor_serves_evm_holds_and_refuses_changed_bindings failed at line 1220 with Registry(ClockRequired) from ApprovalService::get; Cargo did not execute human_projection_facts."
+assumption = "The pre-existing untimed approval-service reader requires the production clock interface assigned to task 22.31.495; that source is outside this task scope, so retain all assertions and record the failure without rerunning or changing it."
+
+[continuation.attempt_4]
+decisions = [2541, 2547, 2564]
+gotchas = [3033, 3042, 3077]
+prerequisites = "The runner supplied the current main base plus 22.31.495 and 22.31.516; approval_semantics contains the explicit-time repair from 22.31.519. No rebase or out-of-scope source edit is needed."
+repair = "Resolve both conflicts in favor of the shared authority library interface landed by 516. Delete the duplicated committed verifier and every production path include and stand-in from attempt 3. Retain the shared native-account proof fixture and signed checkpoint recording because both live targets now consume them."
+remaining_work = "Replay px_getCommit and px_getValidators keyed by recorded height 64; derive canonical owner and budget account IDs, bind policy.account_id to that owner, and drive the shared producer on fixture load. Retain all hold, binding, projection, reopen and negative native/header proof assertions and explicitly join server workers in the tests."
+changed_signature = "ApprovalService::get receives TimestampSeconds from runtime.clock.sample(DEADLINE) in both recovery reads, as already landed by 516; no untimed service read is restored."
+changed_expectation = "Keep 516's exact COMMITTED wire rank instead of attempt 3's rank 4. The authenticated checkpoint digest is the recorded signed Comet header hash; remaining budget and receipt sequence remain exactly 77 and 64."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test human_approval_budget_actor --test human_projection_facts"
+gate_result = "The final hf-done row in private /out/run/gates.jsonl records the exact verified revision, command, exit and log; its referenced /out/logs/verify-N.log contains each target result. Qualification requires build and verification to pass on that same candidate. This record is written before both gates and does not assert an unrun gate passed."

@@ -74,11 +74,11 @@ describe('TokenPageTitle', () => {
     fetchMock.mockResponse(JSON.stringify({ addresses: {} }), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it('heads the page with the word Token and carries the name and symbol beside it', () => {
+  it('heads the page with its name and symbol under the TOKEN kind', () => {
     const { container } = renderTitle();
 
-    expect(container.querySelector('h1')?.textContent).toContain('Token');
-    expect(container.querySelector('[data-token-name]')?.textContent).toBe('ARIANEE (ARIA)');
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
+    expect(container.querySelector('h1')?.textContent).toBe('ARIANEE (ARIA)');
   });
 
   it('marks the token as verified when the contract info service answered for it', () => {

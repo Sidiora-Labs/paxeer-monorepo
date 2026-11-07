@@ -43,6 +43,8 @@ typedef struct lxphost_node {
     lx_asset_runtime asset_runtime;
     lx_escrow_runtime escrow_runtime;
     lx_programs_transfer_runtime programs_runtime;
+    lxp_module_iface programs_iface;
+    uint64_t programs_kernel_gas_used;
     uint64_t parameters;
     uint64_t epoch;
     uint16_t programs_guest_abi;

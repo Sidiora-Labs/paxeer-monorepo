@@ -28,7 +28,7 @@ test.beforeEach(async({ mockApiResponse, mockAssetResponse, mockTextAd }) => {
   await mockAssetResponse(tokenInstanceMock.base.image_url as string, './playwright/mocks/image_md.jpg');
 });
 
-test('metadata update', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
+test('metadata update +@dark-mode', async({ render, page, createSocket, mockApiResponse, mockAssetResponse }) => {
   const hooksConfig = {
     router: {
       query: { hash, id, tab: 'metadata' },
@@ -97,7 +97,7 @@ test('metadata update', async({ render, page, createSocket, mockApiResponse, moc
   });
 });
 
-test('metadata update failed', async({ render, page }) => {
+test('metadata update failed +@dark-mode', async({ render, page }) => {
   const hooksConfig = {
     router: {
       query: { hash, id, tab: 'metadata' },

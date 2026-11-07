@@ -57,10 +57,17 @@ fn activity_submit_schema_declares_signer_address() {
             branch.pointer("/properties/variant/enum/0") == Some(&json!("native_send_submit_v1"))
         })
         .expect("native submit schema");
+    assert_eq!(native["type"], json!("object"));
     assert_eq!(native["additionalProperties"], json!(false));
     let properties = native["properties"].as_object().expect("submit properties");
     assert!(!properties.contains_key("signer_public_key"));
     let required = native["required"].as_array().expect("required fields");
+    assert_eq!(
+        required,
+        json!(["variant", "preparation_ref", "signature", "signer_address"])
+            .as_array()
+            .expect("native required fields")
+    );
     assert!(required.contains(&json!("signature")));
     assert!(required.contains(&json!("signer_address")));
     assert!(!required.contains(&json!("signer_public_key")));

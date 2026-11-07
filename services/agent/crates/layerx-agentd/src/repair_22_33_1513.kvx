@@ -1,0 +1,26 @@
+[repair.22.33.1513]
+mode = "BUILD"
+record = "spec/layerx-merge/programme/audit/records/22.30.91.kvx"
+starting_revision = "91fb5b27a85fa2ef8951324a5d04ff1b0a71fb3b"
+evidence = "The private hf-build/hf-done ledger records the exact verified candidate revision, commands, exit codes and log locations; this record does not claim an unrun gate."
+baseline = "Continued the retained attempt-2 implementation and tests as instructed. The supplied previous-attempt build failed before test execution: repair_22_33_1513 lacked SessionControl::observability_stats (E0599), and rpc_surface_major_two had E0308. No baseline behavioral failure or passing verify is claimed; the explicit bounded implementation-first gate order precludes a separate baseline run."
+prerequisite = "The starting revision already contains the 22.31.550 merge f962769107, so no rebase is needed for its rpc_surface_major_two repair."
+
+[finding.enrolment_publication_recovery]
+repair = "The durable session records the enrolment generation. Boot validation checks authority and every surviving publication file before recreating missing files and syncing the directory; invalid secrets, paths and generation mismatches fail closed."
+tests = ["enrolment_publication_recovery_reopens_every_boundary_with_one_generation", "enrolment_publication_recovery_preserves_fail_closed_secret_checks"]
+proof = "Stop publication after session persistence, token creation, bearer creation, binding creation and directory sync; reopen the production store and registry twice and assert one consistent generation, protected files and idempotent recovery."
+
+[finding.receipt_v2_unverified_ingress]
+repair = "Sealed ingress accepts an opaque AuthenticatedTransactionReceipt derived from the production node verifier's pinned-key result. Public raw evidence cannot create durable indexes; claimed committed evidence requires a verified committed header."
+tests = ["receipt_v2_unverified_ingress_authenticates_producer_transport_and_restart", "receipt_v2_unverified_ingress_rejects_raw_metadata_and_claimed_commit_before_indexes", "receipt_v2_unverified_ingress_refuses_wire_forgery_and_unpinned_keys", "receipt_v2_unverified_ingress_requires_real_committed_block_and_sequence_coverage"]
+proof = "Committed node transcripts cross loopback HTTP, the real node receipt and commit verifier, the agent ingress and the reopened production store. Forged metadata, bytes, signatures, keys, committed headers and activity coverage are refused before index writes."
+
+[finding.tenant_observability_growth]
+repair = "Authorization queues have global and per-tenant bounds and finite tenant cardinality, with saturating overflow and delivery-failure counters. Production SessionControl uses the store root's durable audit and trace sinks and exposes bounded observability statistics; each sink dequeues only after durable delivery."
+tests = ["tenant_observability_growth_bounds_sustained_allowed_and_refused_authorizations", "tenant_observability_growth_accounts_for_sink_failure_and_recovers_delivery", "tenant_observability_growth_caps_tenant_cardinality_and_total_queues", "tenant_observability_growth_session_control_wires_durable_sinks"]
+proof = "Sustained allowed and refused traffic and tenant churn assert finite queues and metric cardinality. A real filesystem sink failure proves explicit accounting and independent retry, and production SessionControl delivery is checked by reopening both durable logs."
+
+[wiring]
+requests = []
+reason = "All requested repair and SessionControl wiring paths are in scope; existing out-of-path node verifier, transcript fixtures and durable sinks are consumed without modification."

@@ -1,0 +1,24 @@
+[task.22.36.6]
+mode = "BUILD"
+requirement = "22998.1"
+base_revision = "c5ecbd90509097340574db8a098106acd4b96868"
+gotcha = "3232"
+decision = "2663"
+repair = "Append eight rows to docs/README.md for Hyperfide, platform, wallet, explorer, launchpad, perps, agent and interop documentation, preserving every existing row. Include both wallet app and service links in the wallet description."
+proof = "The declared pytest gate asserts exactly one described table row per consolidated tree, links to both wallet trees, and existence of every relative Markdown or HTML link target in docs/README.md. It reads actual repository paths in process without credentials, environment variables or live endpoints (gotcha 2962)."
+baseline = "Only runner-supplied .cgignore and spec task-status changes existed on inspection. No earlier private gate ledger was present. Preserve those setup changes and leave commits and publication to the runner."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_6.py"
+done_cmd = "cg spec done 22.36.6 -f layerx-merge --root /work/paxeer-monorepo"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The exact revision in the final passing kind=verify row of evidence_ledger; it must equal the revision of the final passing kind=build row."
+evidence = "The private ledger records the exact revision, command, exit code and log path for hf-build and hf-done. Copy the final hf-done evidence line into the final report. This reference records no unrun pass and is finalized before qualification; no task file is amended after the gates (gotcha 3142)."
+
+[format]
+policy = "No Python, Markdown or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF and final-newline rules, preserve Markdown whitespace and trim non-Markdown trailing whitespace after implementation."
+
+[gotcha.inspection]
+observed = "Broad combined file reads exceeded the output budget, and cg brief described an unrelated next task and changed-file inventory."
+resolution = "Use the exact supplied task, actual git status and diff, and bounded file reads. Record the finding here because GOTCHA.kvx and spec files are outside the explicit write scope."

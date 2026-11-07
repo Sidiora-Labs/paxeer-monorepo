@@ -1,0 +1,16 @@
+[manifest]
+task = "22.32.191"
+domain = 17
+owner_role = "fm-programme"
+pages = 1
+
+[page.1]
+path = "SECURITY.md"
+status = "current"
+bytes = 6310
+source_1 = "Decision 2662, owner ruling 2026-11-05 and repair_22_31_450.kvx [alert.1116]: Document GHSA-55f3-3qvg-8pv5 for wasmer 4.2.2 pinned by cosmwasm-vm 1.5.12, the absence of WASI filesystem access, and exemption review at the next runtime upgrade."
+
+[qualification]
+build = "Reference: the runner's private gate ledger, hf-build row for task 22.32.191."
+verify = "Reference: the runner's private gate ledger and final hf-done JSON for task 22.32.191."
+evidence = "The referenced records name the exact content-derived verified revision, command, exit code and private log location. Build and verification must pass at the same revision; no source changes follow successful verification. The runner commits."

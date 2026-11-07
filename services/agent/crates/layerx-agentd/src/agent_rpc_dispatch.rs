@@ -558,14 +558,9 @@ pub(crate) fn native_send_submit_variant(request: &Map<String, Value>) -> bool {
 }
 
 pub(crate) fn native_send_prepare_digest(
-    request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+    request: &crate::agent_rpc_wire::NativeSendPrepareRequestV2,
 ) -> Result<[u8; 32], serde_json::Error> {
-    use sha2::{Digest, Sha256};
-    Ok(Sha256::new()
-        .chain_update(b"LXP/agent/native-send-prepare/v1\0")
-        .chain_update(serde_json::to_vec(&request.canonical())?)
-        .finalize()
-        .into())
+    request.prepare_digest()
 }
 
 pub(crate) fn native_prepare_digest(

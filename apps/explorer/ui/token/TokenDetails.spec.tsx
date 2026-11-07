@@ -14,6 +14,7 @@ import { waitFor } from 'vitest/lib';
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
 import TokenDetails from './TokenDetails';
+import TokenMarkets from './TokenMarkets';
 
 Object.defineProperty(document, 'fonts', {
   configurable: true,
@@ -46,56 +47,59 @@ describe('TokenDetails', () => {
     fetchMock.mockResponse(JSON.stringify(tokenCounters), { headers: { 'Content-Type': 'application/json' } });
   });
 
-  it('splits the details into an overview, a market and an other-info card', () => {
+  it('groups metadata into TOKEN INFO and CONTRACT INFO', () => {
     const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC20b) }/>);
 
-    expect(cardTitles(container)).toEqual([ 'Overview', 'Market', 'Other info' ]);
+    expect(cardTitles(container)).toEqual([ 'TOKEN INFO', 'CONTRACT INFO' ]);
   });
 
   it('carries the supply, the holders and the transfers in the overview card', () => {
     const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC20b) }/>);
 
-    expect(cardRows(container, 'Overview')).toEqual([ 'Max total supply', 'Holders', 'Transfers' ]);
+    expect(cardRows(container, 'TOKEN INFO')).toEqual([ 'Max total supply', 'Holders', 'Transfers' ]);
   });
 
   it('links the holders and the transfers to their counts once the counters answered', async() => {
     const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC20b) }/>);
 
     await waitFor(() => {
-      const overview = container.querySelector('[data-token-card="Overview"]') as HTMLElement;
+      const overview = container.querySelector('[data-token-card="TOKEN INFO"]') as HTMLElement;
 
       expect(overview.textContent).toContain('8,838,883');
       expect(overview.textContent).toContain('88,282,281');
     });
   });
 
-  it('carries the price and both market capitalisations in the market card', () => {
-    const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC20b) }/>);
+  it('shows API market data in tiles without deriving an onchain market cap', () => {
+    const { container } = render(<TokenMarkets tokenQuery={ query(tokenInfoERC20b) }/>);
+    expect(Array.from(container.querySelectorAll('[data-stat-tile]')).map((tile) => tile.getAttribute('data-stat-tile')))
+      .toEqual([ 'Price', 'Market cap', 'Volume 24h', 'Holders' ]);
+    expect(container.querySelector('[data-stat-tile="Price"] [data-stat-value]')?.textContent).toBe('$0.982');
+    expect(container.querySelector('[data-stat-tile="Market cap"] [data-stat-value]')?.textContent).toBe('$115,060,192.36105014');
+    expect(container.querySelector('[data-stat-tile="Volume 24h"] [data-stat-value]')?.textContent).toBe('—');
+    expect(container.querySelector('[data-onchain-market-cap]')).toBeNull();
 
-    const market = container.querySelector('[data-token-card="Market"]') as HTMLElement;
-
-    expect(cardRows(container, 'Market')).toEqual([ 'Price', 'Onchain market cap', 'Circulating supply market cap' ]);
-    expect(market.textContent).toContain('$0.9820');
-    expect(market.querySelector('[data-onchain-market-cap]')?.textContent).toBe('$883,800,000,000,000,000,000.00');
-    expect(market.textContent).toContain('$115,060,192.36105014');
   });
 
   it('names the token contract with its decimals in the other-info card', () => {
     const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC20b) }/>);
 
-    expect(cardRows(container, 'Other info')[0]).toBe('Token contract (with 6 decimals)');
+    expect(cardRows(container, 'CONTRACT INFO')[0]).toBe('Token contract (with 6 decimals)');
     expect(container.querySelector('[data-token-contract] [data-entity-kind="address"]')).not.toBeNull();
   });
 
-  it('drops the market card for a token with neither a rate nor a market cap', () => {
-    const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC721a) }/>);
+  it('keeps all market tiles with dashes when their API fields are absent', () => {
+    const { container } = render(<TokenMarkets tokenQuery={ query(tokenInfoERC721a) }/>);
+    expect(container.querySelectorAll('[data-stat-tile]')).toHaveLength(4);
+    expect(container.querySelector('[data-stat-tile="Price"] [data-stat-value]')?.textContent).toBe('—');
+    expect(container.querySelector('[data-stat-tile="Market cap"] [data-stat-value]')?.textContent).toBe('—');
+    expect(container.querySelector('[data-stat-tile="Volume 24h"] [data-stat-value]')?.textContent).toBe('—');
 
-    expect(cardTitles(container)).toEqual([ 'Overview', 'Other info' ]);
   });
 
   it('keeps the contract row without a decimals note when the token has no decimals', () => {
     const { container } = render(<TokenDetails tokenQuery={ query(tokenInfoERC721a) }/>);
 
-    expect(cardRows(container, 'Other info')[0]).toBe('Token contract');
+    expect(cardRows(container, 'CONTRACT INFO')[0]).toBe('Token contract');
   });
 });

@@ -1,4 +1,5 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
 
 use layerx_types::ids::Did;
 
@@ -302,6 +303,8 @@ pub struct TenantAuditEntry {
     pub surface: Surface,
     pub operation: String,
     pub outcome: AuthorizationOutcome,
+    agent: Did,
+    session: crate::session::SessionId,
 }
 
 impl std::fmt::Debug for TenantAuditEntry {
@@ -332,15 +335,128 @@ pub struct TenantTrace {
     pub outcome: AuthorizationOutcome,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct TenantObservabilityStats {
+    pub queued_audits: usize,
+    pub queued_traces: usize,
+    pub tenants: usize,
+    pub metric_series: usize,
+    pub overflowed: u64,
+    pub delivery_failures: u64,
+    pub audits_delivered: u64,
+    pub traces_delivered: u64,
+}
+
 /// Observable evidence emitted by the common tenant gate.
 #[derive(Debug, Default)]
 pub struct TenantObservability {
     audit: Vec<TenantAuditEntry>,
     metrics: BTreeMap<MetricKey, u64>,
     traces: Vec<TenantTrace>,
+    tenants: BTreeSet<TenantId>,
+    sink_root: Option<PathBuf>,
+    overflowed: u64,
+    delivery_failures: u64,
+    audit_delivered: u64,
+    traces_delivered: u64,
 }
 
 impl TenantObservability {
+    pub const RETAINED_LIMIT: usize = 1024;
+    pub const TENANT_RETAINED_LIMIT: usize = 128;
+    pub const TENANT_LIMIT: usize = 64;
+
+    #[must_use]
+    pub fn with_durable_sinks(root: PathBuf) -> Self {
+        Self {
+            sink_root: Some(root),
+            ..Self::default()
+        }
+    }
+
+    #[must_use]
+    pub const fn overflowed(&self) -> u64 {
+        self.overflowed
+    }
+
+    #[must_use]
+    pub const fn delivery_failures(&self) -> u64 {
+        self.delivery_failures
+    }
+
+    #[must_use]
+    pub const fn delivered(&self) -> (u64, u64) {
+        (self.audit_delivered, self.traces_delivered)
+    }
+
+    pub fn flush_to(&mut self, root: &Path) -> Result<(), crate::audit::RecordError> {
+        use crate::audit::{self, Coverage, Decision, Entry, EventClass, Log, Redacted};
+        while let Some(entry) = self.audit.first() {
+            let mut log = Log::open(root.join("tenant-authorization"), &entry.tenant)?;
+            let record = Entry {
+                class: EventClass::Authentication,
+                observed_at_ms: 0,
+                tenant: entry.tenant.clone(),
+                agent: entry.agent.clone(),
+                session: Some(entry.session),
+                capability: None,
+                policy_version: "tenant-gate-v1".to_owned(),
+                request_id: entry.token_correlation,
+                idempotency_key: None,
+                decision: if entry.outcome == AuthorizationOutcome::Allowed {
+                    Decision::Allowed
+                } else {
+                    Decision::Refused
+                },
+                reason: Redacted::boot_diagnostic(&format!(
+                    "{} {:?}",
+                    entry.operation, entry.outcome
+                )),
+                resulting_activity_id: None,
+                verification_level: layerx_types::verify::VerificationLevel::UNVERIFIED,
+                protocol_authority: None,
+                submitted_bytes: None,
+                receipt_id: None,
+                tx_hash: None,
+                nonce: None,
+                rung: None,
+            };
+            // The sink has no in-memory history: append and fsync precede dequeue.
+            audit::record(&mut log, &mut Coverage::default(), &record, || ())?;
+            self.audit.remove(0);
+            self.audit_delivered = self.audit_delivered.saturating_add(1);
+        }
+        while let Some(trace) = self.traces.first() {
+            let mut log = Log::open(root.join("tenant-traces"), &trace.tenant)?;
+            let payload = serde_json::json!({
+                "version": 1,
+                "tenant": trace.tenant.as_str(),
+                "surface": format!("{:?}", trace.surface),
+                "operation": trace.operation,
+                "outcome": format!("{:?}", trace.outcome),
+            })
+            .to_string();
+            log.before_operation(payload.as_bytes(), || ())?;
+            self.traces.remove(0);
+            self.traces_delivered = self.traces_delivered.saturating_add(1);
+        }
+        Ok(())
+    }
+
+    #[must_use]
+    pub fn stats(&self) -> TenantObservabilityStats {
+        TenantObservabilityStats {
+            queued_audits: self.audit.len(),
+            queued_traces: self.traces.len(),
+            tenants: self.tenants.len(),
+            metric_series: self.metrics.len(),
+            overflowed: self.overflowed,
+            delivery_failures: self.delivery_failures,
+            audits_delivered: self.audit_delivered,
+            traces_delivered: self.traces_delivered,
+        }
+    }
+
     #[must_use]
     pub fn audit(&self) -> &[TenantAuditEntry] {
         &self.audit
@@ -364,13 +480,13 @@ impl TenantObservability {
         outcome: AuthorizationOutcome,
     ) {
         let tenant = token.tenant().clone();
-        self.audit.push(TenantAuditEntry {
-            tenant: tenant.clone(),
-            token_correlation: token.audit_correlation(),
-            surface,
-            operation: operation.to_owned(),
-            outcome,
-        });
+        if !self.tenants.contains(&tenant) {
+            if self.tenants.len() == Self::TENANT_LIMIT {
+                self.overflowed = self.overflowed.saturating_add(1);
+                return;
+            }
+            self.tenants.insert(tenant.clone());
+        }
         let counter = self
             .metrics
             .entry(MetricKey {
@@ -380,12 +496,49 @@ impl TenantObservability {
             })
             .or_default();
         *counter = counter.saturating_add(1);
+        if let Some(root) = self.sink_root.clone() {
+            if self.flush_to(&root).is_err() {
+                self.delivery_failures = self.delivery_failures.saturating_add(1);
+            }
+        }
+        let tenant_audits = self
+            .audit
+            .iter()
+            .filter(|entry| entry.tenant == tenant)
+            .count();
+        let tenant_traces = self
+            .traces
+            .iter()
+            .filter(|entry| entry.tenant == tenant)
+            .count();
+        if self.audit.len() >= Self::RETAINED_LIMIT
+            || self.traces.len() >= Self::RETAINED_LIMIT
+            || tenant_audits >= Self::TENANT_RETAINED_LIMIT
+            || tenant_traces >= Self::TENANT_RETAINED_LIMIT
+        {
+            self.overflowed = self.overflowed.saturating_add(1);
+            return;
+        }
+        self.audit.push(TenantAuditEntry {
+            tenant: tenant.clone(),
+            token_correlation: token.audit_correlation(),
+            surface,
+            operation: operation.to_owned(),
+            outcome,
+            agent: token.agent().clone(),
+            session: token.session_id(),
+        });
         self.traces.push(TenantTrace {
             tenant,
             surface,
             operation: operation.to_owned(),
             outcome,
         });
+        if let Some(root) = self.sink_root.clone() {
+            if self.flush_to(&root).is_err() {
+                self.delivery_failures = self.delivery_failures.saturating_add(1);
+            }
+        }
     }
 }
 

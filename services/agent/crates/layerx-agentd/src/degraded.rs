@@ -103,6 +103,8 @@ pub enum OperationError {
 pub struct Controller {
     mode: Mode,
     reference: Option<Reference>,
+    trusted_reference: Option<Reference>,
+    trusted_maximum_rung: Rung,
     maximum_rung: Rung,
     transitions: BTreeMap<Mode, u64>,
 }
@@ -112,6 +114,8 @@ impl Default for Controller {
         Self {
             mode: Mode::Unreachable,
             reference: None,
+            trusted_reference: None,
+            trusted_maximum_rung: Rung::Submitted,
             maximum_rung: Rung::Submitted,
             transitions: BTreeMap::new(),
         }
@@ -235,6 +239,17 @@ impl Controller {
         }
     }
 
+    pub fn guard_new_inference_deal<T>(
+        &self,
+        operation: impl FnOnce() -> T,
+    ) -> Result<T, OperationError> {
+        self.guard_preparation(operation)
+    }
+
+    pub fn serve_open_inference_deal<T>(&self, operation: impl FnOnce() -> T) -> T {
+        operation()
+    }
+
     /// Acknowledges a submission only while the core is live.
     ///
     /// # Errors
@@ -311,13 +326,28 @@ pub fn enter(controller: &mut Controller, observation: Observation) -> Status {
     };
     if mode == Mode::Healthy
         && (controller
-            .reference
+            .trusted_reference
             .zip(reference)
-            .is_some_and(|(previous, current)| current.head_sequence < previous.head_sequence)
-            || maximum_rung < controller.maximum_rung)
+            .is_some_and(|(previous, current)| {
+                current.head_sequence < previous.head_sequence
+                    || (current.head_sequence == previous.head_sequence
+                        && current.checkpoint != previous.checkpoint)
+            })
+            || maximum_rung < controller.trusted_maximum_rung)
     {
         mode = Mode::Behind;
     }
+    // Keep independent high-water marks: a regressed observation never lowers
+    // either requirement, even across unreachable or explicitly degraded modes.
+    if let Some(current) = reference {
+        if controller
+            .trusted_reference
+            .is_none_or(|previous| current.head_sequence > previous.head_sequence)
+        {
+            controller.trusted_reference = Some(current);
+        }
+    }
+    controller.trusted_maximum_rung = controller.trusted_maximum_rung.max(maximum_rung);
     controller.mode = mode;
     controller.reference = reference;
     controller.maximum_rung = maximum_rung;

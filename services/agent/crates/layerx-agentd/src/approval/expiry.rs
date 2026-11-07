@@ -476,6 +476,8 @@ const fn state_for(outcome: Option<ApprovalOutcome>, fallback: ApprovalState) ->
 
 #[cfg(test)]
 mod tests {
+    use std::os::unix::fs::DirBuilderExt;
+
     use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
     use layerx_agent_api::prepare::{
         CanonicalBytes, Disclosure, IdempotencyRef, PreparationRef, Prepared, SigningPreimage,
@@ -490,7 +492,7 @@ mod tests {
     };
     use crate::capability::CapabilityId;
     use crate::policy::approval::{
-        hold_reserved, ApprovalContext, ApprovalRegistry, ApprovalSnapshot, ApprovalState,
+        hold_reserved_at, ApprovalContext, ApprovalRegistry, ApprovalSnapshot, ApprovalState,
     };
     use crate::session::SessionId;
     use crate::store::TenantId;
@@ -503,6 +505,12 @@ mod tests {
     fn offline_expiry_publishes_the_staged_release_after_the_durable_write() {
         let root = std::env::temp_dir().join(format!("lxp-expiry-stage-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
+        must(
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(&root),
+        );
         let expiry = must(ApprovalExpiry::open(&root));
         let tenant = must(TenantId::new("tenant-a"));
         let limiter = must(BudgetLimiter::new(vec![LimitConfig {
@@ -540,6 +548,12 @@ mod tests {
     fn fixture(name: &str) -> (std::path::PathBuf, ApprovalExpiry, TenantId, BudgetLimiter) {
         let root = std::env::temp_dir().join(format!("lxp-expiry-{name}-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&root);
+        must(
+            std::fs::DirBuilder::new()
+                .recursive(true)
+                .mode(0o700)
+                .create(&root),
+        );
         let expiry = must(ApprovalExpiry::open(&root));
         let tenant = must(TenantId::new("tenant-a"));
         let limiter = must(BudgetLimiter::new(vec![LimitConfig {
@@ -579,7 +593,8 @@ mod tests {
     fn offline_expiry_with_a_failed_durable_write_keeps_the_hold() {
         let (root, expiry, tenant, limiter) = fixture("recover-io-failure");
         let before = persisted_bytes(&expiry, &tenant);
-        must(std::fs::remove_dir_all(&root));
+        let unavailable = root.with_extension("unavailable");
+        must(std::fs::rename(&root, &unavailable));
         assert!(matches!(
             expiry.recover(&tenant, [7; 32], 5, 5, &limiter),
             Err(ApprovalExpiryError::Store)
@@ -591,7 +606,7 @@ mod tests {
         assert_eq!(persisted_bytes(&expiry, &tenant), before);
         assert!(!root.exists());
 
-        must(std::fs::create_dir_all(&root));
+        must(std::fs::rename(&unavailable, &root));
         assert!(expiry.recover(&tenant, [7; 32], 5, 5, &limiter).is_ok());
         assert_eq!(limiter.held_reservations(), Ok(0));
         assert_eq!(limiter.consumed(LimitId([1; 16])), Ok(0));
@@ -643,7 +658,7 @@ mod tests {
                 applicable_limits: vec![LimitId([1; 16])],
             },
         ));
-        must(hold_reserved(
+        must(hold_reserved_at(
             &registry,
             ApprovalContext {
                 tenant: tenant.clone(),
@@ -658,8 +673,14 @@ mod tests {
             1,
             5,
             &reservation,
+            &crate::approval::TestClock(1_000),
         ));
-        must(registry.get_scoped(tenant, [7; 32], 1))
+        must(registry.get_scoped_at(
+            tenant,
+            [7; 32],
+            crate::policy::approval::ApprovalSequence(1),
+            TimestampSeconds(1),
+        ))
     }
 
     #[test]
@@ -667,7 +688,8 @@ mod tests {
         let (root, expiry, tenant, limiter) = fixture("observe-io-failure");
         let snapshot = snapshot(&tenant);
         let before = persisted_bytes(&expiry, &tenant);
-        must(std::fs::remove_dir_all(&root));
+        let unavailable = root.with_extension("unavailable");
+        must(std::fs::rename(&root, &unavailable));
         assert!(matches!(
             expiry.observe(&snapshot, 5, &limiter),
             Err(ApprovalExpiryError::Store)
@@ -679,7 +701,7 @@ mod tests {
         assert_eq!(persisted_bytes(&expiry, &tenant), before);
         assert!(!root.exists());
 
-        must(std::fs::create_dir_all(&root));
+        must(std::fs::rename(&unavailable, &root));
         assert!(matches!(
             expiry.observe(&snapshot, 5, &limiter),
             Ok(ApprovalState::Expired)
