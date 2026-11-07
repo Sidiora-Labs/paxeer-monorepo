@@ -332278,7 +332278,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.62]
 title = "Lock every intentional copy of a generated or shared file with a sync test and remove the copies that are not intentional"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
