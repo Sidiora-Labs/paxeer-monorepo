@@ -332537,7 +332537,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.114]
 title = "Carry v7.0.0 from the release version file into the core image tags, the make-built paxd version and the node API documents"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.82"]
