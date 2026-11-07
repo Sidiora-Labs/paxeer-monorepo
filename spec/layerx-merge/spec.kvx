@@ -178973,7 +178973,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.14]
 title = "Add the inference-market profile to the agent daemon with its configuration, boot and degraded rules"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179212,7 +179212,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.2]
 title = "Extend the participant manifest with inference capability fields"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
