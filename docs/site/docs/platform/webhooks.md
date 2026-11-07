@@ -56,20 +56,21 @@ address from `LAYERX_HEALTH_ADDR`, then `[::]:$PORT`, then the role default.
 `LAYERX_WEBHOOKS_ROLE`, `LAYERX_WEBHOOKS_LISTENER=tls` and
 `LAYERX_WEBHOOKS_HEALTH_LISTEN` settings.
 
-The reusable Railway dependency values in
-`services/platform/hosted/webhooks/railway.env.example` are:
+Supply operator-specific dependency values for
+`services/platform/hosted/webhooks/railway.env.example`:
 
 | Dependency | Example URL |
 | --- | --- |
-| Redis | `rediss://redis-internal.railway.internal:6379` |
-| KMS | `https://internal-kms.railway.internal:9443` |
-| Developer identity (public role) | `https://identity.railway.internal:9443` |
-| Journey source | `https://internal-journeys.railway.internal:9443` |
-| Payment source | `https://internal-payments.railway.internal:9443` |
-| Approval source | `https://internal-approvals.railway.internal:9443` |
-| Program source | `https://internal-programs.railway.internal:9443` |
+| Redis | `rediss://OPERATOR_HOST:6379` |
+| KMS | `https://OPERATOR_HOST:9443` |
+| Developer identity (public role) | `https://OPERATOR_HOST:9443` |
+| Journey source | `https://OPERATOR_HOST:9443` |
+| Payment source | `https://OPERATOR_HOST:9443` |
+| Approval source | `https://OPERATOR_HOST:9443` |
+| Program source | `https://OPERATOR_HOST:9443` |
 
-These are example private service addresses, not public node endpoints.
+Replace `OPERATOR_HOST` with the operator-supplied hostname of the dependency named in that row.
+
 Provision the node receipt dependencies below for the ingress role as well.
 
 ### Node receipt trust and network identity

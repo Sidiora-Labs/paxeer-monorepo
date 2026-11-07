@@ -222,6 +222,6 @@ conformance claim.
 [sysmodel_v1]: ./pbts-sysmodel_001_draft.md
 [proposertla]: ../tla/TendermintPBT_001_draft.tla
 [bfttime]: ../../bft-time.md
-[tlatender]: https://github.com/tendermint/spec/blob/master/rust-spec/tendermint-accountability/README.md
+[tlatender]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/accountability/README.md
 [lcspec]: ../../light-client/
 [arXiv]: https://arxiv.org/abs/1807.04938
