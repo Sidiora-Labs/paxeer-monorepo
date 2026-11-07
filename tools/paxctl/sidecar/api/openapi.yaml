@@ -1,8 +1,8 @@
 openapi: 3.1.0
 info:
-  title: sei-sidecar API
+  title: Paxeer paxctl sidecar API
   description: |
-    HTTP API for the sei-sidecar task executor.
+    HTTP API for the Paxeer paxctl sidecar task executor.
 
     ## Authentication
 
@@ -26,7 +26,7 @@ info:
       - `/v0/metrics` — Prometheus scrape
 
       `kube-rbac-proxy` must include all four in its `--allow-paths`.
-  version: 0.8.0
+  version: 7.0.0
   license:
     name: Apache-2.0
 

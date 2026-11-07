@@ -78,9 +78,7 @@ impl Operation {
     /// Returns `UNKNOWN_OPERATION` when the selector is not in the table.
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(selector: u16) -> CodecResult<Self> {
-        OPERATIONS
-            .iter()
-            .find(|m| m.operation.0 == selector)
+        metadata_for_selector(selector)
             .map(|m| m.operation)
             .ok_or(UNKNOWN_OPERATION)
     }
@@ -89,22 +87,22 @@ impl Operation {
         self.0
     }
     #[must_use]
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn metadata(self) -> &'static OperationMetadata {
-        // The private constructor and static table make this branch unreachable.
-        for m in OPERATIONS {
-            if m.operation == self {
-                return m;
-            }
+        if let Some(metadata) = metadata_for_selector(self.0) {
+            return metadata;
         }
         #[cfg(target_arch = "wasm32")]
         core::arch::wasm32::unreachable();
         #[cfg(not(target_arch = "wasm32"))]
         unreachable!("Operation is constructed only by the frozen table")
     }
+
     /// Checks a payload length against the operation's bounds.
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the length is outside the operation's bounds, or is neither 40 nor 48 for `0x0106`/`0x0107`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate_payload_length(self, length: usize) -> CodecResult<()> {
         if self == CommitScore {
             return if length == 224 || length == canary::CANARY_COMMIT_BYTES {
@@ -1135,9 +1133,27 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         payload_min: 32,
         payload_max: 32,
         authority: AuthorityClass::PublicRead,
-        sections: &[Section::IdentityRoster],
+        sections: &[Section::PolicyLifecycle, Section::SettlementClaims],
     },
 ];
+
+static OPERATION_INDICES: [[u8; 32]; 12] = {
+    let mut indices = [[u8::MAX; 32]; 12];
+    let mut i = 0;
+    while i < OPERATIONS.len() {
+        let selector = OPERATIONS[i].operation.0 as usize;
+        indices[selector >> 8][selector & 0xff] = i as u8;
+        i += 1;
+    }
+    indices
+};
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn metadata_for_selector(selector: u16) -> Option<&'static OperationMetadata> {
+    let family = OPERATION_INDICES.get(usize::from(selector >> 8))?;
+    let index = *family.get(usize::from(selector & 0xff))?;
+    OPERATIONS.get(usize::from(index))
+}
 
 const CONTROL_CAP: usize = Section::Control.payload_cap();
 const REBIND_SCRATCH_BYTES: usize = F01_SECTION_CAP + CONTROL_CAP + MAX_STATE_BYTES;
@@ -1212,6 +1228,7 @@ enum Payload {
     Record([u8; RECORD_PAYLOAD_BYTES], usize),
 }
 impl Payload {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     fn record(bytes: &[u8]) -> CodecResult<Self> {
         let mut out = [0; RECORD_PAYLOAD_BYTES];
         out.get_mut(..bytes.len())
@@ -1248,6 +1265,9 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if queries::placement::is_book_view(envelope_bytes) {
+        return route_book_view(ctx, envelope_bytes, current, buffers);
+    }
     if commit_reveal::is_canary_score(envelope_bytes) {
         return route_canary_score(ctx, envelope_bytes, current, buffers);
     }
@@ -1330,6 +1350,49 @@ pub fn route(
     match framed {
         Ok(routed) => Ok(routed),
         Err(error) => refuse(error, Presence::Present(request), visible(), result),
+    }
+}
+
+fn route_book_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::placement::decode_book_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let len = queries::answer_book_view(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
     }
 }
 
@@ -1585,7 +1648,8 @@ fn transition_inner(
         }
         0x0A01 | 0x0A02 => read(ctx, envelope, present(current)?, scratch),
         0x0B01..=0x0B04 | 0x0B0C => {
-            match rooms::apply(ctx, envelope, present(current)?, next, scratch, event)? {
+            match queries::placement::apply(ctx, envelope, present(current)?, next, scratch, event)?
+            {
                 rooms::Outcome::Applied {
                     revision,
                     state_len,

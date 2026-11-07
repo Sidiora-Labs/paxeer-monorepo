@@ -39,6 +39,8 @@
 
 import { NextResponse, type NextRequest } from 'next/server';
 import { walletLimiter } from '@/lib/rateLimit';
+import { PAXEER_CONFIG } from '@/lib/constants';
+import { parseWalletReadChainId, WALLET_CHAIN_HEADER } from '@/lib/wallet-read-contract';
 import {
   boundaryErrorResponse,
   encodePathSegments,
@@ -273,11 +275,16 @@ async function forward(req: NextRequest, ctx: RouteContext): Promise<Response> {
 }
 
 export async function GET(req: NextRequest, ctx: RouteContext) {
-  return forward(req, ctx);
+  return walletResponse(await forward(req, ctx));
 }
 
 export async function HEAD(req: NextRequest, ctx: RouteContext) {
-  return forward(req, ctx);
+  return walletResponse(await forward(req, ctx));
+}
+
+function walletResponse(response: Response): Response {
+  response.headers.set(WALLET_CHAIN_HEADER, String(PAXEER_CONFIG.chainId));
+  return response;
 }
 
 function methodNotAllowed(): Response {
@@ -309,8 +316,21 @@ async function forwardPortfolio(req: NextRequest, ctx: RouteContext): Promise<Re
     if (!authorization || !/^Bearer [A-Za-z0-9._~+/-]{16,512}={0,2}$/.test(authorization)) {
       return publicError(401, 'PORTFOLIO_UNAUTHORIZED', 'Portfolio authorization is required');
     }
-    validateQuery(req, { maxPairs: 1, maxValueLength: 128 });
-    for (const [key, value] of req.nextUrl.searchParams) {
+    const query = new URL(req.nextUrl.href);
+    const hasReadChain =
+      (req.method === 'GET' || req.method === 'HEAD') && query.searchParams.has('chain_id');
+    validateQuery(req, { maxPairs: hasReadChain ? 2 : 1, maxValueLength: 128 });
+    if (hasReadChain) {
+      try {
+        if (parseWalletReadChainId(query) !== PAXEER_CONFIG.chainId) {
+          throw new TypeError('Portfolio chain is unavailable');
+        }
+      } catch {
+        throw new HttpBoundaryError(400, 'QUERY_INVALID', 'Query is invalid');
+      }
+      query.searchParams.delete('chain_id');
+    }
+    for (const [key, value] of query.searchParams) {
       if (
         !(req.method === 'GET' || req.method === 'HEAD') ||
         (!(path === 'api/v2/webhooks' && key === 'address' && /^0x[0-9a-fA-F]{40}$/.test(value)) &&
@@ -369,7 +389,7 @@ async function forwardPortfolio(req: NextRequest, ctx: RouteContext): Promise<Re
     } else if (req.body !== null) {
       throw new HttpBoundaryError(400, 'BODY_INVALID', 'This method does not accept a body');
     }
-    const response = await fetch(`${origin.origin}/${path}${req.nextUrl.search}`, {
+    const response = await fetch(`${origin.origin}/${path}${query.search}`, {
       method: req.method,
       headers: {
         Accept: 'application/json',
@@ -413,15 +433,15 @@ export function POST(): Response;
 export function POST(req: NextRequest, ctx: RouteContext): Promise<Response>;
 export function POST(req?: NextRequest, ctx?: RouteContext): Response | Promise<Response> {
   // Preserve explicit refusal for legacy callers that supply no route request.
-  if (!req || !ctx) return methodNotAllowed();
-  return forwardPortfolio(req, ctx);
+  if (!req || !ctx) return walletResponse(methodNotAllowed());
+  return forwardPortfolio(req, ctx).then(walletResponse);
 }
 export function PUT() {
-  return methodNotAllowed();
+  return walletResponse(methodNotAllowed());
 }
 export async function PATCH(req: NextRequest, ctx: RouteContext) {
-  return forwardPortfolio(req, ctx);
+  return walletResponse(await forwardPortfolio(req, ctx));
 }
 export async function DELETE(req: NextRequest, ctx: RouteContext) {
-  return forwardPortfolio(req, ctx);
+  return walletResponse(await forwardPortfolio(req, ctx));
 }

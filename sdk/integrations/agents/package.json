@@ -57,7 +57,7 @@
   "scripts": {
     "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-agent-integrations",
     "build": "node scripts/patch-dependencies.mjs && tsc -p tsconfig.json",
-    "test": "npm run build && node --test test/dependency-contracts.test.mjs test/daemon-providers-receipts.test.mjs test/tools-receipts.test.mjs && node test/a2a-store.test.mjs",
+    "test": "npm run build && node --test test/*.test.mjs",
     "integration:real": "node examples/agent-runtime/index.mjs",
     "integration:webhooks": "node examples/agent-runtime/webhook-conformance.mjs",
     "postinstall": "node scripts/patch-dependencies.mjs"

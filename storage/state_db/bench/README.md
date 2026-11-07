@@ -83,17 +83,13 @@ the store and check every generated key and the recovered version:
 | Bursty `(1, 2, 3, 0)` | 8 | 4 | 16 |
 | Empty blocks | 0 | 3 | 0 |
 
-Qualification uses `hf-build` followed by `hf-done` from the repository root.
-`hf-done` runs `cg spec done 22.33.1194 -f layerx-merge --root "$TASK_ROOT"`;
-its focused test invocation is:
+Run the storage correctness tests from the repository root:
 
 ```bash
 go test -count=1 -v -run '^TestRepairM_1194_' ./storage/state_db/bench/
 ```
 
-The gate captures test output in `/tmp/repair-m1194.log` and records the exact
-candidate revision, command, exit status and private evidence location. The
-multi-iteration fixture also asserts 16 committed pairs and four blocks per
+The multi-iteration fixture also asserts 16 committed pairs and four blocks per
 iteration, and checks throughput against the aggregate elapsed time. These are
 correctness fixtures, not qualified performance comparisons. For performance
 evidence, record the revision, exact invocation, backend, explicit distribution,

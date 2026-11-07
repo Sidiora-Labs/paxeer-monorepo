@@ -17,6 +17,7 @@ use crate::{
     MAX_CHUNK_BYTES, MAX_ENVELOPE_BYTES, MAX_EVENT_BYTES, MAX_PAYLOAD_BYTES, MAX_RESULT_BYTES,
     MAX_RESULT_PAYLOAD_BYTES, MAX_STATE_BYTES, MAX_WORKERS, SCHEMA_VERSION,
 };
+#[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
 use sha2::{Digest, Sha256};
 
 pub const PARTICIPANT_METADATA_DOMAIN_V1: &str = "PAXAI/worker-metadata/v1";
@@ -45,25 +46,130 @@ pub fn encode_manifest_v2(
     Ok(w.len())
 }
 
-/// One concrete streaming implementation shared by the artifact, reputation and
-/// cursor codecs. Slice arguments keep array lengths out of monomorphization;
-/// guest calls retain one copy of SHA-256's update and finalization paths.
-pub(crate) struct Sha256State(Sha256);
+/// One compact streaming implementation for guest software hashing, including
+/// preimages larger than the host primitive accepts. Native debug calls compare
+/// every result with the existing sha2 implementation.
+pub(crate) struct Sha256State {
+    state: [u32; 8],
+    block: [u8; 64],
+    used: usize,
+    length: u64,
+    #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+    reference: Sha256,
+}
+
+const SHA256_ROUNDS: [u32; 64] = [
+    0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+    0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+    0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+    0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+    0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+    0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+    0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+    0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+];
 
 impl Sha256State {
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn new() -> Self {
-        Self(Sha256::new())
+        Self {
+            state: [
+                0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab,
+                0x5be0cd19,
+            ],
+            block: [0; 64],
+            used: 0,
+            length: 0,
+            #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+            reference: Sha256::new(),
+        }
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub(crate) fn update(&mut self, bytes: &[u8]) {
-        self.0.update(bytes);
+        #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+        self.reference.update(bytes);
+        self.length = self.length.wrapping_add(bytes.len() as u64);
+        self.absorb(bytes);
     }
 
     #[cfg_attr(target_arch = "wasm32", inline(never))]
-    pub(crate) fn finalize(self) -> [u8; 32] {
-        self.0.finalize().into()
+    fn absorb(&mut self, mut bytes: &[u8]) {
+        while !bytes.is_empty() {
+            let n = bytes.len().min(64 - self.used);
+            self.block[self.used..self.used + n].copy_from_slice(&bytes[..n]);
+            self.used += n;
+            bytes = &bytes[n..];
+            if self.used == 64 {
+                compress_sha256(&mut self.state, &self.block);
+                self.used = 0;
+            }
+        }
+    }
+
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn finalize(mut self) -> [u8; 32] {
+        let bits = self.length.wrapping_mul(8).to_be_bytes();
+        self.absorb(&[0x80]);
+        if self.used > 56 {
+            self.absorb(&[0; 64][..64 - self.used]);
+        }
+        self.absorb(&[0; 64][..56 - self.used]);
+        self.absorb(&bits);
+        let mut digest = [0; 32];
+        for (chunk, word) in digest.chunks_exact_mut(4).zip(self.state) {
+            chunk.copy_from_slice(&word.to_be_bytes());
+        }
+        #[cfg(all(not(target_arch = "wasm32"), debug_assertions))]
+        {
+            let reference: [u8; 32] = self.reference.finalize().into();
+            debug_assert_eq!(digest, reference);
+        }
+        digest
+    }
+}
+
+// The table-driven rounds of the vendored sha2 soft_compact backend, shared by
+// every block instead of instantiating its unrolled software backend in the guest.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+fn compress_sha256(state: &mut [u32; 8], block: &[u8; 64]) {
+    let mut schedule = [0_u32; 64];
+    for (word, bytes) in schedule.iter_mut().zip(block.chunks_exact(4)) {
+        *word = u32::from_be_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
+    }
+    for i in 16..64 {
+        let x = schedule[i - 15];
+        let s0 = x.rotate_right(7) ^ x.rotate_right(18) ^ (x >> 3);
+        let y = schedule[i - 2];
+        let s1 = y.rotate_right(17) ^ y.rotate_right(19) ^ (y >> 10);
+        schedule[i] = schedule[i - 16]
+            .wrapping_add(s0)
+            .wrapping_add(schedule[i - 7])
+            .wrapping_add(s1);
+    }
+    let [mut a, mut b, mut c, mut d, mut e, mut f, mut g, mut h] = *state;
+    for (word, constant) in schedule.iter().zip(SHA256_ROUNDS) {
+        let s1 = e.rotate_right(6) ^ e.rotate_right(11) ^ e.rotate_right(25);
+        let choose = (e & f) ^ ((!e) & g);
+        let t1 = h
+            .wrapping_add(s1)
+            .wrapping_add(choose)
+            .wrapping_add(constant)
+            .wrapping_add(*word);
+        let s0 = a.rotate_right(2) ^ a.rotate_right(13) ^ a.rotate_right(22);
+        let majority = (a & b) ^ (a & c) ^ (b & c);
+        let t2 = s0.wrapping_add(majority);
+        h = g;
+        g = f;
+        f = e;
+        e = d.wrapping_add(t1);
+        d = c;
+        c = b;
+        b = a;
+        a = t1.wrapping_add(t2);
+    }
+    for (word, value) in state.iter_mut().zip([a, b, c, d, e, f, g, h]) {
+        *word = word.wrapping_add(value);
     }
 }
 
@@ -112,7 +218,7 @@ macro_rules! read_identity {
         /// Propagates the reader and the identity constructor's refusals.
         #[cfg_attr(target_arch = "wasm32", inline(never))]
         pub fn $method(&mut self) -> CodecResult<$ty> {
-            $ty::new(self.fixed()?)
+            $ty::new(self.take(32)?.try_into().map_err(|_| NON_CANONICAL)?)
         }
     )+};
 }
@@ -190,6 +296,11 @@ impl<'a> Reader<'a> {
     pub fn remaining(&self) -> usize {
         self.input.len() - self.offset
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn room_profile(&mut self) -> CodecResult<crate::policy::RoomProfile> {
+        crate::policy::RoomProfile::decode(self.take(crate::policy::ROOM_PROFILE_BYTES)?)
+    }
+
     /// Consumes exactly `length` bytes.
     ///
     /// # Errors
@@ -364,6 +475,13 @@ impl<'a> Writer<'a> {
         self.offset = end;
         Ok(())
     }
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    pub(crate) fn room_profile(&mut self, value: &crate::policy::RoomProfile) -> CodecResult<()> {
+        let mut bytes = [0; crate::policy::ROOM_PROFILE_BYTES];
+        value.encode(&mut bytes)?;
+        self.put(&bytes)
+    }
+
     /// Writes one byte.
     ///
     /// # Errors
@@ -494,12 +612,14 @@ pub fn decimal_u64(text: &str) -> CodecResult<u64> {
 ///
 /// # Errors
 /// Returns `NON_CANONICAL` when the domain is empty, non-ASCII or contains NUL, or the digest is all zero.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn domain_hash(domain: &str, bytes: &[u8]) -> CodecResult<Digest32> {
     if domain.is_empty() || !domain.is_ascii() || domain.as_bytes().contains(&0) {
         return Err(NON_CANONICAL);
     }
     hash_parts(domain, &[bytes])
 }
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 fn hash_parts(domain: &str, parts: &[&[u8]]) -> CodecResult<Digest32> {
     Digest32::new(sha256(
         [domain.as_bytes(), &[0]]
@@ -671,6 +791,7 @@ impl<'a> ValidatedEnvelope<'a> {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the digest is all zero.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn request_digest(&self) -> CodecResult<RequestDigest> {
         RequestDigest::new(domain_hash("PAXAI/request/v1", self.unsigned)?.bytes())
     }
@@ -741,6 +862,7 @@ impl Envelope<'_> {
     ///
     /// # Errors
     /// Returns `EXPIRED` when `expiry` is zero or `height` has reached it.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check_expiry(&self, height: u64) -> CodecResult<()> {
         if self.expiry == 0 || height >= self.expiry {
             Err(EXPIRED)
@@ -752,6 +874,7 @@ impl Envelope<'_> {
     ///
     /// # Errors
     /// Returns `WRONG_DOMAIN`, `WRONG_PROGRAM` or `WRONG_MARKET` for the first mismatch, in that order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn check_domain(
         &self,
         chain: ChainDomain,
@@ -778,6 +901,16 @@ fn registry_before_epoch(selector: u16) -> bool {
 /// Returns `CAPACITY` when the input or payload exceeds its cap; `NON_CANONICAL` for a bad magic, zero identity, unknown authentication kind, short or trailing input; `BAD_VERSION` for a wrong schema; `UNKNOWN_OPERATION` for an unknown selector; propagates `Envelope::validate` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
+    let (envelope, unsigned) = decode_envelope_fields(input, false)?;
+    envelope.validate()?;
+    Ok(ValidatedEnvelope { envelope, unsigned })
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn decode_envelope_fields(
+    input: &[u8],
+    canary: bool,
+) -> CodecResult<(Envelope<'_>, &[u8])> {
     if input.len() > MAX_ENVELOPE_BYTES {
         return Err(CAPACITY);
     }
@@ -793,13 +926,21 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
     let actor = r.principal_id()?;
     let epoch = r.u64()?;
     let config = r.u64()?;
-    let roster = read_optional_roster(&mut r)?;
+    let roster = if canary {
+        Presence::Present(r.roster_digest()?)
+    } else {
+        read_optional_roster(&mut r)?
+    };
     let sequence = r.u64()?;
     let expiry = r.u64()?;
     let request = r.request_id()?;
     let payload = r.bytes(MAX_PAYLOAD_BYTES)?;
     let unsigned = &input[..r.offset()];
-    let authentication = match r.u8()? {
+    let kind = r.u8()?;
+    if canary && kind != 0 {
+        return Err(UNAUTHORIZED);
+    }
+    let authentication = match kind {
         0 => Authentication::Native,
         1 => Authentication::Delegate {
             key: PublicKey32(r.fixed()?),
@@ -823,8 +964,7 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
         payload,
         authentication,
     };
-    envelope.validate()?;
-    Ok(ValidatedEnvelope { envelope, unsigned })
+    Ok((envelope, unsigned))
 }
 /// Encodes a validated envelope into `output`.
 ///
@@ -833,6 +973,14 @@ pub fn decode_envelope(input: &[u8]) -> CodecResult<ValidatedEnvelope<'_>> {
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<usize> {
     value.validate()?;
+    encode_envelope_fields(value, output)
+}
+
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn encode_envelope_fields(
+    value: &Envelope<'_>,
+    output: &mut [u8],
+) -> CodecResult<usize> {
     let size = ENVELOPE_PREFIX_BYTES
         .checked_add(value.payload.len())
         .and_then(|n| {
@@ -873,18 +1021,23 @@ pub fn encode_envelope(value: &Envelope<'_>, output: &mut [u8]) -> CodecResult<u
     Ok(w.len())
 }
 
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn write_frozen_binding(w: &mut Writer<'_>, b: &FrozenBinding) -> CodecResult<()> {
+    w.put(b.chain.as_bytes())?;
+    w.put(b.program.as_bytes())?;
+    w.put(b.market.as_bytes())?;
+    w.u64(b.epoch)?;
+    w.u64(b.config.get())?;
+    w.put(b.roster.as_bytes())
+}
+
 /// Writes the common evaluator binding without a schema prefix.
 ///
 /// # Errors
 /// Propagates the writer's `ARITHMETIC`/`CAPACITY` refusals.
 #[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn write_evaluator_binding(w: &mut Writer<'_>, b: &EvaluatorBinding) -> CodecResult<()> {
-    w.put(b.frozen.chain.as_bytes())?;
-    w.put(b.frozen.program.as_bytes())?;
-    w.put(b.frozen.market.as_bytes())?;
-    w.u64(b.frozen.epoch)?;
-    w.u64(b.frozen.config.get())?;
-    w.put(b.frozen.roster.as_bytes())?;
+    write_frozen_binding(w, &b.frozen)?;
     w.put(b.evaluator.as_bytes())?;
     w.u64(b.grant.get())?;
     w.u64(b.key_version.get())
@@ -907,6 +1060,7 @@ impl EvaluatorBinding {
     ///
     /// # Errors
     /// Propagates `check_domain` refusals; returns `WRONG_EPOCH`, `WRONG_CONFIG` or `WRONG_ROSTER` for the first mismatch, in that order.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn matches_envelope(&self, e: &Envelope<'_>) -> CodecResult<()> {
         e.check_domain(self.frozen.chain, self.frozen.program, self.frozen.market)?;
         if e.epoch != self.frozen.epoch {
@@ -919,6 +1073,31 @@ impl EvaluatorBinding {
             Ok(())
         }
     }
+}
+
+/// Checks the common domain, expiry and frozen epoch binding in wire refusal order.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
+pub(crate) fn check_frozen_envelope(
+    envelope: &Envelope<'_>,
+    ctx: &crate::registry_ops::CallContext,
+    frozen: &FrozenBinding,
+) -> CodecResult<()> {
+    let market = derive_market(ctx.chain, ctx.program)?;
+    envelope.check_domain(ctx.chain, ctx.program, market)?;
+    envelope.check_expiry(ctx.height)?;
+    if frozen.market != market {
+        return Err(WRONG_MARKET);
+    }
+    if envelope.epoch != frozen.epoch {
+        return Err(WRONG_EPOCH);
+    }
+    if envelope.config != frozen.config.get() {
+        return Err(WRONG_CONFIG);
+    }
+    if envelope.roster != Presence::Present(frozen.roster) {
+        return Err(WRONG_ROSTER);
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
@@ -1820,6 +1999,7 @@ pub fn decode_reveal_event(input: &[u8]) -> CodecResult<RevealScoreEvent> {
 ///
 /// # Errors
 /// Returns `CAPACITY` when the topic exceeds 64 bytes or `out` is too small.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn event_topic(operation: Operation, out: &mut [u8]) -> CodecResult<usize> {
     let name = operation.metadata().name.as_bytes();
     let n = 9 + name.len();
@@ -2284,6 +2464,7 @@ pub fn state_digest(input: &[u8]) -> CodecResult<StateDigest> {
 ///
 /// # Errors
 /// Returns `UNAUTHORIZED` when an immediate caller program is present.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn compare_direct_call(immediate_caller: Presence<ProgramId>) -> CodecResult<()> {
     if immediate_caller == Presence::Absent {
         Ok(())
@@ -2295,6 +2476,7 @@ pub fn compare_direct_call(immediate_caller: Presence<ProgramId>) -> CodecResult
 ///
 /// # Errors
 /// Returns `UNAUTHORIZED` when authentication is not native or the actor differs.
+#[cfg_attr(target_arch = "wasm32", inline(never))]
 pub fn compare_native_principal(
     envelope: &Envelope<'_>,
     invoking_principal: PrincipalId,

@@ -43,16 +43,11 @@ decision is recorded there.
 
 ## Evidence ledger
 
-`spec/layerx-beta/qualification.kvx` is the single beta ledger. It holds two
-append-only record shapes: `[gate.<task>.<n>]`, an executed gate with its
-revision, command, environment, start time, outcome (`pass`, `fail` or
-`blocked`) and evidence location, and `[observation.<task>.<n>]`, an
-assumption, contradiction or external blocker with its severity.
-
-The `[meta]` header declares the ledger name, kind
-(`beta-qualification-ledger`), version and `record_kinds` (`gate` and
-`observation`). An empty ledger has only this header and no record sections;
-it reports `no-go` and leaves every surface at `source_present`.
+The beta report shows executed checks with their revision, command, environment,
+start time, outcome (`pass`, `fail` or `blocked`) and evidence location. It also
+lists assumptions, contradictions and external blockers with their severity.
+Without executed checks, the report stays `no-go` and every surface stays at
+`source_present`.
 
 - Only a gate record raises a surface. A task status, an observation, a
   document or a plan never raises a rung.
