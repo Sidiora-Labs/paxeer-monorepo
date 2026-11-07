@@ -20,7 +20,7 @@ The public node endpoints serve JSON-RPC at the root path:
 | Canonical alias | `https://api-mainnet-beta.paxeer.network` | `wss://api-mainnet-beta.paxeer.network` |
 | Numbered nodes | `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network` | The same node names with `wss://` |
 
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 Check `eth_chainId` for `0x7d` and compare `eth_blockNumber` across configured nodes.
 Node availability does not imply that every method in an upstream Geth namespace
 is supported. See [Public RPC endpoints](../site/docs/reference/public-rpc.md)

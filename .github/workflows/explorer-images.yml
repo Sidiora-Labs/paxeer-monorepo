@@ -8,6 +8,14 @@ on:
       - 'apps/explorer/**'
       - 'services/explorer/**'
       - 'docker/explorer-*/**'
+      - 'precompiles/**'
+      - '.github/workflows/explorer-images.yml'
+  pull_request:
+    paths:
+      - 'apps/explorer/**'
+      - 'services/explorer/**'
+      - 'docker/explorer-*/**'
+      - 'precompiles/**'
       - '.github/workflows/explorer-images.yml'
   workflow_dispatch:
 
@@ -19,7 +27,20 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  explorer-backend-test:
+    name: Explorer backend tests
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Run mix test in the explorer builder
+        run: services/explorer/deploy/tools/mix-in-builder.sh test
+
   publish:
+    if: github.event_name != 'pull_request'
     permissions:
       contents: read
       packages: write

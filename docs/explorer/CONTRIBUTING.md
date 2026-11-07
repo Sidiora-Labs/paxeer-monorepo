@@ -185,19 +185,19 @@ We have 3 pre-configured projects. You can run your test with the desired projec
 
 | Command | Description |
 | --- | --- |
-| **Running and building** |
+| **Running and building** | |
 | `yarn dev` | run local Dev Server with user's configuration |
 | `yarn dev:preset <config_preset_name>` | run local Dev Server with predefined configuration |
 | `yarn build:docker` | build a docker image locally |
 | `yarn start:docker:local` | start an application from previously built local docker image with user's configuration |
 | `yarn start:docker:preset <config_preset_name>` | start an application from previously built local docker image with predefined configuration |
-| **Linting and formatting** |
+| **Linting and formatting** | |
 | `yarn lint:eslint` | lint project files with ESLint |
 | `yarn lint:eslint:fix` | lint project files with ESLint and automatically fix problems |
 | `yarn lint:tsc` | compile project typescript files using TypeScript Compiler |
 | `yarn svg:format` | format and optimize SVG icons in the `/icons` folder using SVGO tool |
 | `yarn svg:build-sprite` | build SVG icons sprite |
-| **Testing** |
+| **Testing** | |
 | `yarn test:vitest` | run all Vitest unit tests |
 | `yarn test:pw:local` | run Playwright component tests locally |
 | `yarn test:pw:docker` | run Playwright component tests in docker container |

@@ -9651,6 +9651,36 @@ value = "tools/release/version.json records version v7.0.0 and upgrade v7.0, the
 basis = "The release tooling still describes v6.12.0 and refuses the registered plan name, and a proposal without the plan info halts the chain at the upgrade height."
 affects = ["22.31.587", "22.31.588", "22.31.607"]
 
+[decision.2757]
+title = "A producer width change lists every literal of the old width before the first build"
+value = "When a task widens or narrows an array, a tuple or a table that the crate tests spell out by width (a fixed-size array literal, a projection type, an expected array), the task or the ruling that continues it lists every literal of the old width found by a search of the crate tests, and the attempt changes all of them before its first build; the compiler names one failing test target per build and is not the inventory."
+basis = "22.38.1 attempt 2 failed at the third of five sites after a ruling written from one compiler output (gotcha 3372)."
+affects = ["2", "2", ".", "3", "8", ".", "1", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "a", "s", "k", " ", "t", "h", "a", "t", " ", "c", "h", "a", "n", "g", "e", "s", " ", "f", "e", "a", "t", "u", "r", "e", "_", "a", "v", "a", "i", "l", "a", "b", "i", "l", "i", "t", "y", " ", "o", "r", " ", "a", "n", "o", "t", "h", "e", "r", " ", "w", "i", "d", "t", "h", "-", "s", "p", "e", "l", "l", "e", "d", " ", "p", "r", "o", "d", "u", "c", "e", "r", "."]
+
+[decision.2758]
+title = "A task that removes a path from version control declares the directory that holds it"
+value = "The qualification step records into the candidate commit the content of every declared file that exists on disk and, for a declared directory, every file under it that the ignore rules do not exclude; a task whose purpose is to stop tracking a file therefore declares the smallest directory holding the file (with its directory-level ignore file) and never the file itself, so the untracked and ignored file stays out of the candidate."
+basis = "22.31.600 attempt 1 re-tracked .claude/settings.local.json through its own file-level declaration while its two directory-level declarations stayed untracked (gotcha 3374); 22.31.480 untracked apps/perps/node_modules through a directory entry."
+affects = ["2", "2", ".", "3", "1", ".", "6", "0", "0", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "l", "a", "t", "e", "r", " ", "u", "n", "t", "r", "a", "c", "k", "i", "n", "g", " ", "t", "a", "s", "k", "."]
+
+[decision.2759]
+title = "A proof diagnostic names the refusing site and stage for every refusal on the path it exercises"
+value = "When a native proof fails with a bare kernel status, the task that repairs it first instruments every site on the exercised path that can answer that status (preparation, execution and record finish alike) with a process-wide site and stage recorder printed in the CALL diagnostic line, reads the named site from one proof run, and only then repairs that site; a diagnostic that names a field of one parser while the refusal is raised elsewhere is not a diagnostic."
+basis = "22.31.586 attempt 1 instrumented the record parser alone and spent its repair budget without learning where the -3 is raised (gotcha 3373)."
+affects = ["2", "2", ".", "3", "1", ".", "5", "8", "6", ",", " ", "2", "2", ".", "9", "9", ".", "7", "7", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "a", "s", "k", " ", "w", "h", "o", "s", "e", " ", "v", "e", "r", "i", "f", "y", " ", "i", "s", " ", "t", "h", "e", " ", "h", "o", "s", "t", " ", "b", "o", "u", "n", "d", "a", "r", "y", " ", "p", "r", "o", "o", "f", "."]
+
+[decision.2760]
+title = "An exhausted store iterator reports no error"
+value = "A test that walks a store iterator to its end asserts that Valid answers false and that Error answers nil afterwards; the pre-repair text invalid cacheMergeIterator is the panic of an invalid use, not the error of an exhausted walk, and no test asserts it from Error."
+basis = "conformance_escrow_test.go line 28 asserted the pre-repair behaviour and failed once 22.31.611 made the package compile (gotcha 3375)."
+affects = ["2", "2", ".", "3", "1", ".", "6", "1", "1", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "e", "s", "t", " ", "u", "n", "d", "e", "r", " ", "p", "r", "e", "c", "o", "m", "p", "i", "l", "e", "s", " ", "a", "n", "d", " ", "s", "d", "k", "/", "s", "t", "o", "r", "e", " ", "t", "h", "a", "t", " ", "a", "s", "s", "e", "r", "t", "s", " ", "i", "t", "e", "r", "a", "t", "o", "r", " ", "e", "r", "r", "o", "r", "s", "."]
+
+[decision.2761]
+title = "A daemon test builds its configuration in process and a chain reader requires the task that serves the record"
+value = "A layerx-agentd test builds the inference configuration from a map of values in process (as tests/inference_profile_boot.rs does) and never from the process environment, obtains its node the way the existing chain-backed suites of the crate do or stubs the authority behind the trait the listener consumes, and a task whose code reads a chain record through an F11 read requires the task that serves the read and the task that writes the record."
+basis = "22.38.16 attempt 1 took its configuration and its node from the environment and read an enrolment that no landed task serves (gotcha 3376)."
+affects = ["2", "2", ".", "3", "8", ".", "1", "6", " ", "(", "r", "e", "q", "u", "i", "r", "e", "s", " ", "2", "2", ".", "3", "8", ".", "8", " ", "a", "n", "d", " ", "2", "2", ".", "3", "8", ".", "1", "5", ",", " ", "w", "a", "v", "e", " ", "4", ")", ",", " ", "2", "2", ".", "3", "8", ".", "1", "7", " ", "a", "n", "d", " ", "t", "h", "e", " ", "l", "a", "t", "e", "r", " ", "s", "i", "g", "n", "a", "l", " ", "c", "o", "n", "s", "u", "m", "e", "r", "s", "."]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -150108,7 +150138,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.609]
 title = "Remove the wiring requests from the perps client contract and the tests that pin them"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150137,7 +150167,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.606]
 title = "Accept any served API version in the wallet health route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150167,7 +150197,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.603]
 title = "Remove the unreachable origins from the wallet and perps apps and ship their assets locally"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150198,7 +150228,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.591]
 title = "Route the px reads of the wallet SDK and the seller middleware to the node root"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150490,7 +150520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.24]
 title = "Implement the room wire protocol and transport for the peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.38.23"]
@@ -150519,7 +150549,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.23]
 title = "Vendor the MIT inference engine under apps/inference-peer with its attribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -151201,7 +151231,7 @@ do_10 = "Attempt 3 (continue, gotcha 3315, decision 2713): the attempt-2 tree st
 
 [task.22.37.10]
 title = "Complete revision metadata replay after lease release, reassignment and real collection interleavings"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.36.1"]
@@ -170830,6 +170860,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue, gotcha 3373, decision 2759): the attempt-1 tree stands (the version-2 parser of layerx_programs_call_replay_record_finish, the digest binding, the refusal-field recorder and test_replay_record_v2 in the proof). The proof still answers kernel status -3 at the first CALL (execute type 0x90003) with replay_field none, so the refusal is raised outside the parser; 22.99.77 attempt 20 placed it in activity preparation (prepare_activity=-3), and the 22.31.577 commit changed no C source. Do this in order: (1) widen the recorder into a site-and-stage recorder and set it at every site on the CALL path that answers LXP_ERR_NON_CANONICAL, LXP_ERR_VERSION_UNSUPPORTED or LXP_ERR_ROOT_MISMATCH in preparation (lxp_programs_call_decode, lxp_programs_call_validate, lxp_programs_call_profile_decode, lxp_programs_call_schedule_decode, lxp_programs_call_replay_take, replay_capture_authority, call_catalog_build, call_namespace_for_program, call_execution_principal, catalog_interface and the schedule item preparation) as well as in execution and record finish, naming the function and the checked field; print it in the CALL diagnostic line of tests/programs/test_ai_host_boundary.c together with the stage; (2) run the proof once and read the named site from the diagnostic; (3) repair that site so the host accepts what the runtime and the guest emit since 577, matching the Rust side in programs/crates/layerx-programs-runtime (replay.rs, replay_record.rs, portable_replay.rs, execute.rs) field by field; (4) run the build and the verify at the final revision and record them, with the three diagnostic lines, by reference in the task record. If the budget ends before step 3, record the named site and stage in the task record so the next ruling targets it."
 
 [task.22.38.38]
 title = "Prove ask to stream to lap settlement to claim"
@@ -179116,7 +179147,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.592]
 title = "Move the agent SDK faucet call to the hosted px_requestFunds operation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179357,8 +179388,8 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 title = "Signal peers through chain-anchored offers over a WebSocket listener"
 status = "pending"
 mode = "BUILD"
-wave = 2
-requires = ["22.38.14"]
+wave = 4
+requires = ["22.38.14", "22.38.8", "22.38.15"]
 reqs = ["22380.3"]
 capabilities = ["22.38.16"]
 interfaces = ["interface.22.inference-signal-hello-frame", "interface.22.ws-inference-signal"]
@@ -179382,6 +179413,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3376, decision 2761, after 22.38.8 and 22.38.15 land): the attempt-1 tree stands (src/inference_market/signal.rs, the daemon wiring and tests/inference_signal.rs). Merge current main before the first build. In the chain-backed cases build the InferenceConfig from a map of values in process the way tests/inference_profile_boot.rs does (model digest, runtime digest and a room profile file under a temporary directory) and never from the process environment; obtain the node the way the existing chain-backed suites of layerx-agentd do, or exercise the listener through a test implementation of the authority trait it consumes when no suite in the crate starts a node; read the peer enrolment through the F11 peer read 22.38.8 serves (peer key and enrolled flag) against a peer 22.38.15 enrolled, and keep the refusal cases (bad signature, unenrolled key, manifest digest mismatch). Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.38.15]
 title = "Enrol the host and peers with a v2 manifest, a bond lock and a price quote"
@@ -179696,7 +179728,7 @@ do_2 = "do_2 Add the F11 error codes 0x0B01 upward in errors.rs (room unknown, r
 do_3 = "do_3 Extend feature_availability in queries.rs to eleven entries and the market policy codec in policy.rs with the room profile fields: minimum bond, canary ratio in basis points, lap size in tokens, challenge window in blocks, slash fraction in basis points, host share and protocol share in basis points, and settlement account."
 do_4 = "do_4 Write tests/f11_family_table.rs asserting every F11 selector routes, the availability array has eleven entries, each new error code is distinct from the F01 to F10 codes, and the policy codec round-trips the room profile fields."
 symbols = ["Operation::OpenRoom", "Operation::SettleLaps", "Operation::RoomView", "F11_ROOM_UNKNOWN", "MarketPolicy::room_profile", "feature_availability"]
-touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_31_253.rs"]
+touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_31_253.rs", "programs/crates/layerx-programs-ai-market/tests/view_binding.rs"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
 planned_paths = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
@@ -179713,6 +179745,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_5 = "Attempt 2 (continue): the attempt-1 tree stands (the F11 selectors, metadata, errors, the eleventh availability entry, the policy codec and f11_family_table.rs). The build failed in this task, not outside it: feature_availability now answers eleven entries and the crate tests that enumerate the array still expect ten. Update every consumer the compiler names: in tests/identity_section_sharing.rs (line 618) widen the expected array to eleven entries with the F11 entry at index 10 set to the availability the policy implies for a walk state without a room profile (NotEnabled), and in tests/repair_22_31_253.rs (line 749) widen the projection type to eleven; the consumer asserts the names and arity of the producer. Remove the unused imports the build warns about in the new f11 test files. Run the build and the verify at the final revision and record them by reference in the task record."
+do_6 = "Attempt 3 (continue, gotcha 3372, decision 2757): the attempt-2 tree stands (the F11 family, the eleventh availability entry, the widened identity_section_sharing.rs and repair_22_31_253.rs projection). Three ten-entry literals remain in the crate tests: tests/view_binding.rs line 353 (the NotYetProduced array compared with feature_availability of a fresh capture), tests/repair_22_31_253.rs line 912 and line 920 (the Available arrays compared with the projection and with feature_availability). Widen each to eleven entries with the F11 entry at index 10 set to the availability the policy implies for that state (NotYetProduced for the fresh capture, Available where every family is available); then search the crate tests for any other literal of width ten before the first build and widen it the same way. Remove the unused imports the build warns about in the new f11 test files. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.585]
 title = "Disclose the programs lifecycle calls in the call disclosure decoder"
@@ -180763,7 +180796,7 @@ do_5 = "Attempt 2 (continue, decision 2621, finding 10.4.3.2): the attempt-1 por
 
 [task.22.31.547]
 title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.545", "22.31.550", "22.31.560", "22.31.572"]
@@ -180776,7 +180809,7 @@ do_3 = "do_3 Change nothing under layerx-agentd or layerx-agent-api. Record in s
 symbols = []
 touches = ["services/agent/crates/layerx-sdk/src/native_effect.rs", "services/agent/crates/layerx-sdk/src/agent_envelope.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-sdk/tests/repair_22_31_547.kvx", "services/agent/crates/layerx-mcp/src/catalogue.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs", "services/agent/crates/layerx-agentd/tests/native_send_preview_evm.rs"]
 tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_547.rs", "services/agent/crates/layerx-mcp/tests/repair_22_31_224.rs"]
-planned_paths = ["services/agent/crates/layerx-sdk", "services/agent/crates/layerx-mcp"]
+planned_paths = ["services/agent/crates/layerx-sdk", "services/agent/crates/layerx-mcp", "services/agent/Cargo.lock"]
 build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 && cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_224"
 verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --lib --test repair_22_31_547 -- native && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_224"
 gate_kind = "planned"
@@ -206105,7 +206138,7 @@ do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete ap
 
 [task.22.31.602]
 title = "Delete the commented-out code blocks of the litt storage utilities"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286212,10 +286245,11 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3375, decision 2760): the attempt-1 tree stands (the fourteen three-value call sites with require.NoError). In precompiles/layerxpay/conformance_escrow_test.go replace the line that asserts iterator.Error() equals invalid cacheMergeIterator (line 28, in escrowConformanceRows) with require.False(t, iterator.Valid()) followed by require.NoError(t, iterator.Error()); the merge iterator repair made Error answer nil once the walk is exhausted and the old text is the panic of an invalid use. Change nothing else. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.598]
 title = "Build the native library and refresh the ABI copies in the wallet attestor check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286245,7 +286279,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.597]
 title = "Repair the accepter receipt tests of the sequencer that time out in the node-build check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286275,7 +286309,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.595]
 title = "Make execution and simulation agree on the kernel gas of a hosted program receipt"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -286305,7 +286339,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.589]
 title = "Refuse the anchor store delete plan unless the merge plan was applied at a lower height"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329392,7 +329426,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.605]
 title = "Run the untested projects in the continuous checks"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329464,7 +329498,7 @@ do_1 = "do_1 Remove from version control, keeping the files on disk, .claude/set
 do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_600.py: git ls-files lists no path under either package tree and not the settings file; each directory-level ignore file names its path."
 do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
 symbols = []
-touches = [".claude/settings.local.json", "apps/explorer/deploy/tools/envs-validator", "programs/sdk/assemblyscript"]
+touches = [".claude", "apps/explorer/deploy/tools/envs-validator", "programs/sdk/assemblyscript"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_31_600.py"]
 planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_600.py", ".claude/.gitignore", "apps/explorer/deploy/tools/envs-validator/.gitignore", "programs/sdk/assemblyscript/.gitignore"]
 build_cmd = "python3 --version"
@@ -329480,10 +329514,11 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3374, decision 2758): the attempt-1 tree stands (the three untracked paths, the three directory-level ignore files and test_repair_22_31_600.py). The task now declares the directory .claude instead of the file .claude/settings.local.json, so the untracked and ignored file stays out of the candidate the way the two package trees did in attempt 1; do not change the test. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.599]
 title = "Read the explorer environment registry from the consolidated docs location in the image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329513,7 +329548,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.594]
 title = "Point the hosted service deployment at the public node roots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329575,7 +329610,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.587]
 title = "Carry the 7.0.0 release identity in the release tooling and the release check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329636,7 +329671,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.35]
 title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -377457,7 +377492,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.590]
 title = "Accept the chain receipt key rule in the explorer configuration"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

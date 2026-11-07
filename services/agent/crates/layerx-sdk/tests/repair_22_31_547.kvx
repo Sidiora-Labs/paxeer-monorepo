@@ -1,0 +1,97 @@
+[meta]
+task = "22.31.547"
+requirement = "22998.1"
+basis = "Gotcha 3158; decision 2614; consume the daemon's NativeSendPurposeV2 contract without editing production layerx-agent-api or layerx-agentd code; attempt 4 permits assertions in the included daemon preview fixture."
+
+[ported]
+carrier = "native_effect.rs::NativeSendPrepareRequestV2 is the SDK-owned request carrying SignedNativeSendPurposeV2; it preserves every structural request validation from the retired API request."
+signing = "native_effect.rs::sign_native_send_purpose checks the held consent key against consent_public_key, validates the V2 purpose and signs SHA256 of its exact canonical bytes with Ed25519."
+wire = "native_effect.rs::encode_native_send_prepare retains native_send_v1 as the outer operation variant, emits purpose version 2 with consent_public_key, evm_sender, transaction_type and chain_id, and emits only purpose and signature in the signed wrapper; it verifies the consent signature before transmission."
+transport = "agent_envelope.rs::prepare_native_send and prepare_native_send_mcp accept the V2 SDK request, authenticate the consent key, bind the purpose's EVM sender to the caller's independently pinned sender, preserve session and idempotency checks, and check the returned canonical unsigned transaction against the V2 preparation digest and chain."
+catalogue = "layerx-mcp/src/catalogue.rs::native_purpose_schema advertises NativeSendPurposeV2::VERSION, its V2 field names and exact type-2 chain-125 domain; the signed Send wrapper has purpose and signature only. Other native preparation and local-grant schemas retain their V1 contract."
+
+[tests]
+sdk = "repair_22_31_547.rs::native_sdk_v2_consent_crosses_daemon_rpc_and_legacy_is_malformed reuses the existing native_send_preview_evm daemon fixture with its actual owner, durable store, clock, TLS authority and Anvil transaction producer. It obtains canonical V2 consent from the daemon owner preview, signs it through the SDK, validates the daemon wire decoder, and uses the SDK's HTTPS envelope transport against the real daemon RPC handler."
+acceptance = "The test asserts HTTP 200 for V2 and the exact preparation bytes, digest and signing preimage from the producer; it asserts HTTP 400 envelope.malformed for a complete legacy V1 body through the same SDK transport. No synthetic success response is emitted."
+authentication = "The SDK integration test independently verifies the SHA256 V2 signature and refuses a different held consent key; existing native library tests preserve invalid-coordinate, signature, session and idempotency refusals with V2 types."
+mcp = "repair_22_31_224.rs::native_catalogue_advertises_v2_send_purpose_and_preserves_preparation_v1 pins V2 version, required key/sender/type/chain fields, exact key/sender widths, retired-field exclusion, strict signed wrapper, and unchanged V1 preparation schemas. Existing tests are preserved."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+dependent_check = "The dependents entry produced by hf-done in the same gate ledger records the dependent-crate command, candidate revision, exit code and private log."
+revision = "The matching candidate revision in the final passing build and verify ledger entries is the verified revision for this repair."
+build_command = "The command field of the final build entry produced by hf-build in the gate ledger."
+verify_command = "The command field of the final verify entry produced by hf-done in the gate ledger; hf-done invokes cg spec done 22.31.547 with the declared verify_cmd and graph checks."
+evidence = "The ledger's revision, command, exit and log fields are authoritative; this pre-gate record makes no success claim. No file is amended after the final gates."
+
+[implementation_notes]
+api_request = "The unchanged API NativeSendPrepareRequestV1 still embeds SignedNativeSendPurposeV1; the SDK owns its V2 request to match the daemon-owned V2 request without changing the API."
+daemon_fixture = "Decision 2620 (gotchas 3166 and 3167): the end-to-end case reuses layerx-agentd/tests/native_send_preview_evm.rs through include! because the SDK crate has no harness that starts a daemon; tests/native_capabilities.rs reads conformance fixtures and tests/sdk.rs only names the daemon socket path. The checked-out base 0c9ea2c53e7997cef4beea00fb2fe79e1f915465 already contains both 22.31.548 (e41e4a7b37) and 22.31.550 (d9054f4423); no rebase is needed."
+
+[diagnosis.attempt_3]
+base_revision = "0c9ea2c53e7997cef4beea00fb2fe79e1f915465"
+method = "The carried implementation was run against a private git-archive copy at /out/run/sdk-diagnostic with eprintln instrumentation only in rpc_prepare_native_send. No repository file under layerx-agentd or layerx-agent-api was changed. The task gates use the unchanged repository daemon."
+command = "LAYERX_TEST_ANVIL=/out/run/foundry/node_modules/.bin/anvil /out/run/sdk-diagnostic-target/debug/deps/repair_22_31_547-4f06c8559e763b1a native_sdk_v2_consent_crosses_daemon_rpc_and_legacy_is_malformed --exact --nocapture"
+exit = 101
+log = "/out/run/sdk-diagnostic-case.log"
+observed = "retained=false; after prepare_gated succeeds, the purpose preparation_id is absent from operations.prepared and the cache contains a different key. The refusal fires at the cached preparation lookup, original human_runtime.rs line 7031 (instrumented copy line 7034), before the observed-head comparison, native_send_purpose_owner lookup or local-grant staging."
+cause = "native_send_owner_preview_on_surface sets purpose.preparation_id to SHA256(prepared.call.encode_unsigned()). prepare_gated instead caches under SHA256(prepared.canonical_bytes), the native authorization envelope. rpc_prepare_native_send looks up the former. Its verifier verify_native_owner_send_purpose independently requires purpose.preparation_id to equal the EVM canonical digest, so changing the SDK purpose to the native envelope digest cannot satisfy the contract."
+comparison = "The test now asserts every SDK preparation and local-grant field equals the original HumanPrepare and signed grant used by the daemon preview. It also asserts the consent key, EVM sender, credential tenant, session, generation and SHA256 transaction digest match the preview. The preview fixture itself sends only a legacy V1 prepare RPC rejection; its successful cases exercise preview, not V2 prepare acceptance."
+limitation = "A genuine first V2 prepare requires the daemon producer and consumer to agree on the preparation identifier. Cache rewriting, forged durable approval records, altered signed purpose fields or a synthetic success response would hide the defect and are not used. The existing HTTP 200 acceptance assertion remains intact. The necessary daemon repair is outside this task's scope."
+
+[environment]
+anvil = "The sandbox initially lacked anvil, so the first private diagnostic stopped at fixture startup (sdk-diagnostic.log). Installed @foundry-rs/anvil 1.7.1 under /out/run/foundry and selected its executable through LAYERX_TEST_ANVIL for the diagnostic and declared gates."
+
+[diagnosis.attempt_4]
+base_revision = "1d30c9d6d01c4eab489370dca1250b2c5a9152bb"
+identity = "The included fixture now calls RemoteHumanAuthority::core_identity and asserts the decoded account key, head 50, CHECKPOINT_FINALISED, revocation 1, unfrozen status and exact PrimaryKey authority before registering the owner. It also asserts the real node head and pending addr-precompile binding before constructing the daemon."
+owner = "Before the RPC crossing, assert_native_owner_resolution authorizes the real session, asserts tenant, agent, session ID, retained peer, uid and subject owner, then calls the public native_send_purpose_owner. That method calls the private native_purpose_owner, pending bound_address, head and permit-boundary checks in production; its successful result is asserted without manufacturing an owner."
+snapshot = "The SDK case parses the preview's observed head and account key, obtains a fresh preparation snapshot through ProductionCorePreparationBoundary and compares its observed_head_sequence to HumanNode::head().number and the preview head. The pending account-key binding is independently resolved through NodeRpc and asserted equal to the fixture EVM address."
+digest = "Before transmission, the SDK native_send_prepare_digest is compared with SHA256 of its exact domain plus the encoded JSON body; validate_mcp_native_request decodes that same body through the daemon wire conversion and native_send_prepare_digest. The daemon wire request and digest function are private to its crate, so the SDK cannot call that private function directly without changing daemon production visibility."
+remaining_check = "The current daemon still keys prepare_gated's operations.prepared cache by SHA256(prepared.canonical_bytes), the native authorization envelope, while rpc_prepare_native_send looks up the preview's purpose.preparation_id, the SHA256 EVM unsigned transaction digest. These are different producer encodings; the cache lookup at human_runtime.rs:7031 cannot succeed for a first genuine V2 Prepare, independent of owner resolution. The attempt-3 private diagnostic already identified this check; no repeated instrumented run is needed."
+wiring_request = "Domain 9 must align native_send_owner_preview_on_surface, prepare_gated, rpc_prepare_native_send and verify_native_owner_send_purpose on one preparation identifier. Production daemon files remain outside scope. Keep the HTTP 200 assertion intact and report implemented-not-qualified if the declared gate reaches this unchanged refusal; do not rewrite cache entries or alter signed purpose fields."
+gate_evidence = "The final candidate revision and exact commands, exit codes and private logs are the last matching hf-build/hf-done entries in /out/run/gates.jsonl; this record is written before qualification and does not assert a passing result."
+
+[implementation.attempt_6]
+basis = "Gotcha 3358; decision 2744. Preserve the carried V2 SDK, MCP and daemon-crossing assertions and extend only the included daemon fixture's chain peer."
+receipt_keys = "chain_peer serves px_getReceiptKeys with one nonzero SHA256 key ID and the binding's consent public key, which is also the authority peer's account signing key. Both fixed-size hex fields have the required 0x prefix; the height range includes HEAD. The production decode_receipt_keys path asserts the entry, key ID, public key and covering height before the peer starts."
+checkpoint_reads = "chain_peer serves px_getCommit and px_getValidators only for HEAD using the existing recorded human_budget_checkpoint.json responses. The peer keeps its broadcast panic, forwards the explicit EVM preparation read methods to the real Anvil producer and panics on every unexpected method. No cache entry or durable record is rewritten."
+gates = "The final hf-build, dependent-crate and hf-done results are recorded by reference to /out/run/gates.jsonl as described in qualification; no file is amended after the final gates. Any remaining independent preview assertion failure is preserved and identified by its private verify log."
+
+[repair.attempt_6]
+first_candidate = "e26f163ffd9518a3e006d2f5ea18834bae184c4c"
+first_verify = "The initial hf-done entry in /out/run/gates.jsonl records exit 1 at /out/logs/verify-1.log: the ten SDK library cases and unsigned preview passed, while the first SDK V2 Prepare returned 403 owner.refused."
+fixture = "The SDK crossing now includes the existing repair_22_31_560.rs harness, which itself includes native_send_preview_evm.rs, and uses fixture_with_receipt_keys. That harness provides the daemon's authenticated committed reads, complete policy-history window, export trust, native effect policy and denomination configuration in addition to the original owner, clock and Anvil producer. Reuse its production-verified checkpoint and preparation setup rather than construct a second partial harness."
+assertions = "All existing SDK acceptance and malformed legacy assertions remain intact. The included native-send first-prepare/reopen and wrong-identifier cases also execute under the declared native filter; the original unsigned-preview case remains included."
+evidence = "The final matching build, dependent-crate and verify ledger entries identify the repaired candidate and all private qualification evidence. No success is claimed before hf-done passes."
+
+[implementation.attempt_7]
+basis = "Gotcha 3359; decision 2745. Preserve the carried implementation and assertions; decode the accepted daemon response before unwrapping the SDK verdict."
+response_assertions = "Each assertion names its field: version, preparation_id against the purpose and SHA256 canonical bytes, canonical_digest, activity, canonical re-encoding, sender, actor payer account derived from the request DID and decoded asset, account_sequence, not_before, not_after, idempotency_key, fee_limit, payload, payload_hash, signing_preimage, chain_id, transaction_type and approval_id. The call is decoded from the daemon canonical bytes with the production EIP-1559 decoder and disclosure binder."
+evidence = "The final matching hf-build, dependents and hf-done entries in /out/run/gates.jsonl record the revision, commands, exits and private logs. This record is written before the gates and makes no passing claim; any named disagreement remains asserted."
+
+[diagnosis.attempt_7]
+revision = "c644024850dd610168a9b9ed6a3199d32a87aa91"
+command = "cg spec done 22.31.547 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "First disagreeing field: not_before; disclosure.expiry.not_before is 0, request.not_before is 1789365544000. The daemon accepted V2 with HTTP 200 and refused legacy V1 as envelope.malformed; version, preparation identifiers, canonical digest and re-encoding, activity, sender, actor payer account and account_sequence assertions all passed before this failure."
+daemon_site = "layerx-agentd/src/human_runtime.rs::rpc_prepare_native_send, native_response near line 7606, returns transaction.transaction.call.encode_unsigned(). layerx-agentd/src/prepare/mod.rs::evm::build_call, near line 412, constructs the standard Eip1559Call without native envelope time bounds. layerx-crypto/src/disclosure/call.rs::disclose_call, near line 891, initializes the call's not_before to 0 and not_after to u64::MAX; LedgerSend near line 941 only fills payload_expires_at, leaving those defaults."
+disposition = "The SDK preserved the original fixture request coordinates byte for byte before transport; the returned EVM call does not encode its native envelope lower bound. No SDK purpose or wire field was changed to conceal that producer/consumer disagreement, no assertion was relaxed, and no daemon or API production code was edited. This finding requires the next ruling's repair before qualification can pass. The fixture-lock PoisonErrors in later cases cascade from this first panic."
+final_evidence = "After recording this diagnosis and adding the producer site to the not_before assertion, run the bounded hf-build and hf-done gates on the final candidate. Their last build, dependents and verify entries in /out/run/gates.jsonl record the final revision, exact commands, exits and private logs; final dynamic request bounds are shown by the named assertion in that verify log. No file is amended after those gates."
+
+[implementation.attempt_9]
+basis = "Gotchas 3360 and 3366; decisions 2746, 2750 and 2751. Continue the carried tree with the SDK consumer repair specified in the ruling."
+window = "raw_call_matches_request compares the request activity window for every activity except Asset ordinal 5. Ledger send encodes its expiry in the signed payload; target, nonce, activity, idempotency key, fee limit, expected payload, canonical bytes and payload hash checks remain intact."
+expiry = "The included fixture's request_with_payload_expiry exposes the exact SendDebit.expires_at used to sign the payload while request retains its existing pair return type. The crossing asserts not_before 0, not_after u64::MAX and payload_expires_at equal to that signed expiry, with each field named in its assertion."
+lock = "The crossing runs inside repair_22_31_560.rs::with_fixture_lock, which catches a panic before dropping the fixture lock and resumes unwinding afterward, preventing cascading lock poisoning."
+gates = "The last matching build, dependents and verify entries in /out/run/gates.jsonl identify the verified revision, exact commands, exit codes and private evidence paths. hf-build runs the declared build; hf-done runs the dependent-crate check and cg spec done 22.31.547 with the declared verify_cmd and graph checks. This record is written before qualification and no task file is amended after the final gates."
+
+[repair.attempt_9]
+revision = "ee9ea1f3bfaaec3a22238e24c3c77143d97d7368"
+command = "cg spec done 22.31.547 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Window and payload expiry assertions pass; the next field is fee_limit: disclosed gas_limit times max_fee_per_gas is 15825563320, while the fixture request uses the fixed amount 1000000000000. Ten SDK native library cases and the other three included integration cases pass; there is no poisoned fixture lock cascade."
+fixture_alignment = "Before the owner preview signs the purpose, the SDK crossing case uses the production EVM prepare_activity with the fixture sender, original signed payload and pending nonce against the real node. It sets this case's request fee to that independently prepared call's disclosed maximum fee. The SDK fee equality check, the per-field fee assertion, all other binding assertions and the original fixture request used by the included tests remain unchanged. No cache or durable record is rewritten."
+evidence = "The final repaired revision, build, dependent-crate and verification evidence are the last matching entries of /out/run/gates.jsonl. This repair record precedes those gates and makes no success claim."

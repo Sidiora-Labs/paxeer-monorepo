@@ -10,13 +10,13 @@ Describe the change, the affected trust boundary, and why it is necessary.
 ## Test evidence
 
 List every command run, the verified revision, and its exact outcome. Explain any gate not run.
-Keep raw qualification records in access-controlled storage; include only reviewed technical evidence here.
+Include only reviewed technical evidence; never paste credentials or private logs.
 
 ```
 revision:
 command:
 exit code:
-private evidence location:
+log or CI run link:
 ```
 
 ## Checklist

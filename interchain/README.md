@@ -36,7 +36,7 @@ In this repo, `node/app.go` wires the IBC core module and the ICS 20 transfer ap
 
     3.3 [ICS 09 Localhost](modules/light-clients/09-localhost) (non-functional)
 
-Also here: [`proto`](proto) definitions, protobuf generation [`scripts`](scripts), the [`testing`](testing) package with its simapp, and [`third_party`](third_party) proto dependencies.
+Also here: [`proto`](proto) definitions, the [`testing`](testing) package with its simapp, and [`third_party`](third_party) proto dependencies.
 
 ## Resources
 
