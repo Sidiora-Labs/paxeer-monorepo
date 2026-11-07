@@ -151848,7 +151848,7 @@ do_6 = "Attempt 4 (continue, gotcha 3473): the attempt-3 tree 83b3d4a201b6 stand
 
 [task.22.39.55]
 title = "Settle the twenty-seven wallet surface assertions against the live receipt model"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.42"]
