@@ -33611,3 +33611,11 @@ symbol = "native_purpose_test.go"
 observed = "Attempt 1 at 072c86dbd9c7: build 1 exit 0, verify 1 exit 1: both real-profile tests failed at the consumer requirement (prebuilt real Rust custody consumer is required) after the inventory wiring passed."
 assumption = "With the consumer executable built and exported and the clock socket provided, the two tests reach their assertions; the gate of 18.1110.1 proves the shape."
 severity = "high"
+
+[finding.22.99.77.24]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 22 at 7d5daec19bd1: build 3 exit 2 at the bound check of the host boundary target (guest 553180 bytes against 524184); the routing conflict and the availability assertions were repaired before the check; the verification never ran because both repair cycles were spent."
+assumption = "The growth sits on main (four room-market commits since attempt 10) and inside the attempt tree alike; the repair at main plus the same techniques on the attempt code bring the merged guest under the bound."
+severity = "high"
