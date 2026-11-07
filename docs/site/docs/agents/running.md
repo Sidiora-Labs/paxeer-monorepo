@@ -102,8 +102,8 @@ seeds out of runtime host JSON and logs.
 `layerx install a2a` provisions a hosted key through `/v1/keys` or the key
 rotation route. Its payment scopes are `activity:write` and `receipt:read`;
 read-only uses `receipt:read`. These hosted scopes differ from MCP daemon
-scopes such as `write:submit`. The A2A transport has compatibility limitations
-described under [Submit one signed activity](#submit-one-signed-activity).
+scopes such as `write:submit`. The A2A transport is described under
+[A2A transport](#a2a-transport).
 
 `layerx install mcp` does not provision a gateway key or read an identity
 session from the CLI profile. It writes an empty process `env` into the host
@@ -301,17 +301,17 @@ unknown outcome; resolve the original transaction before authorizing another
 economic action. Daemon invocation recovery reconciles a retained submission
 reference instead of blindly replaying an uncertain effect.
 
-### A2A compatibility limitation
+### A2A transport
 
 `layerx a2a serve` exposes `receipt.get` (`receipt:read`),
 `activity.submit` (`activity:write`) and `faucet.request`
 (`write:faucet:claim`). A2A `activity.submit` accepts only `raw_transaction`
-and returns `txHash` with `rung: "submitted"`. However,
-`tools/platform/cli/src/toolset.rs` still posts these operations to the retired `/rpc` path.
-The current A2A implementation therefore does not provide a working public
-root-node submission path. Changing its profile URL does not remove the
-hard-coded path. Use a root-aware node client for native broadcasting; do
-not describe the compatibility A2A route as a public network endpoint.
+and returns `txHash` with `rung: "submitted"`.
+`tools/platform/cli/src/toolset.rs` refuses a configured node RPC URL that
+does not name the root endpoint and posts node operations to `/`.
+`faucet.request` posts to the hosted faucet URL in `LAYERX_GATEWAY_RPC_URL`
+with the stored identity session; without that variable it refuses with
+`gateway_endpoint_required`.
 Hosted funding is a separate authenticated service governed by its declared
 `px_requestFunds` contract, not a public-node faucet method.
 

@@ -343,10 +343,10 @@ See [A2A transport](../../tools/platform/cli/src/a2a.rs) and
 
 The A2A submit adapter accepts only `raw_transaction`, validates the signed
 EIP-1559 transaction and chain ID, and checks the returned hash against the
-signed bytes. Its result is `{txHash, rung: "submitted"}`. The adapter still contains a pre-merge `/rpc` forwarding path, which is retired as a public node route.
-Do not assume that selecting a public node origin makes this hosted adapter
-usable; direct public submission uses the root-path example above. Hosted
-adapter deployment must match its actual gateway contract.
+signed bytes. Its result is `{txHash, rung: "submitted"}`. The toolset
+refuses a configured node RPC URL that does not name the root endpoint and
+posts node operations to `/`; `faucet.request` posts to the hosted faucet URL
+in `LAYERX_GATEWAY_RPC_URL`.
 
 ## Approve
 

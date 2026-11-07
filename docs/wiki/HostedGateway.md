@@ -253,15 +253,10 @@ Without that group, outbound service mTLS may use the paired
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12` and
 `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE` variables.
 
-There is a remaining configuration limitation in `capabilities::chain_rpc`:
-it rewrites a bare node origin to the retired `/rpc` path, although public
-nodes serve JSON-RPC at the root.
-`Endpoint::parse` also normalizes a single trailing slash to an empty base
-path, so adding that slash does not bypass the rewrite. Check the deployed
-upstream routing rather than assuming a bare public node URL works in this
-build. The checked-in testnet manifest also supplies only one node-pool
-entry, while the current parser requires at least two. These are existing
-source/manifest limitations, not instructions to use the retired topology.
+`capabilities::chain_rpc` sends upstream node calls to the root path: a
+bare node origin gets the base path `/`. The checked-in testnet manifest
+supplies only one node-pool entry, while the current parser requires at least
+two.
 
 ## Redis state and ACL
 
