@@ -6,7 +6,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 RUN corepack enable \
-    && corepack prepare pnpm@12.6.0 --activate
+    && corepack prepare pnpm@10.34.9 --activate
 COPY services/agent/sdk/typescript /src/services/agent/sdk/typescript
 COPY services/wallet /src/services/wallet
 COPY sdk/wallet /src/sdk/wallet
@@ -19,7 +19,7 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 RUN corepack enable \
-    && corepack prepare pnpm@12.6.0 --activate
+    && corepack prepare pnpm@10.34.9 --activate
 COPY --from=sdk /src /src
 COPY apps/wallet/package.json apps/wallet/pnpm-lock.yaml apps/wallet/pnpm-workspace.yaml apps/wallet/.npmrc ./
 RUN pnpm install --frozen-lockfile --ignore-scripts

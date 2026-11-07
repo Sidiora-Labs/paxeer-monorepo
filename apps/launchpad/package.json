@@ -60,5 +60,8 @@
   "dependencies": {
     "@tanstack/react-virtual": "^3.13.24",
     "motion": "^12.38.0"
+  },
+  "engines": {
+    "pnpm": "9.15.0"
   }
 }
