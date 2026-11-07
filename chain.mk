@@ -4,22 +4,24 @@
 # - Extract vX.Y.Z (+ any suffix) from the branch name when present.
 # - Compare only the base vX.Y.Z (strip any suffix) between branch/tag.
 # - Prefer tag if bases are equal; otherwise use whichever base is newer.
+# - Use the release version file when no matching release tag is available.
+PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+RELEASE_VERSION := $(shell jq -er .version "$(PAXEER_PROJECT_HOME)/tools/release/version.json")
 BRANCH_NAME := $(shell git rev-parse --abbrev-ref HEAD)
 BRANCH_VERSION := $(shell echo "$(BRANCH_NAME)" | sed -E -n 's|.*(v[0-9]+\.[0-9]+\.[0-9]+[-A-Za-z0-9._]*).*|\1|p')
-TAG_VERSION := $(shell git describe --tags --always --match 'paxeer-network/v*' | sed 's|^paxeer-network/||')
+TAG_VERSION := $(shell git describe --tags --match 'paxeer-network/v*' 2>/dev/null | sed 's|^paxeer-network/||')
 VERSION := $(shell \
 	bv="$(BRANCH_VERSION)"; tv="$(TAG_VERSION)"; \
 	bb=$$(echo "$$bv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
 	tb=$$(echo "$$tv" | sed 's/^\(v[0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/'); \
-	if [ -z "$$bv" ]; then echo "$$tv"; \
-	elif [ -z "$$tv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
+	if [ -z "$$tv" ]; then echo "$(RELEASE_VERSION)"; \
+	elif [ -z "$$bv" ] || [ "$$bb" = "$$tb" ]; then echo "$$tv"; \
 	elif [ "$$(printf '%s\n%s\n' "$$tb" "$$bb" | sort -V | tail -n 1)" = "$$bb" ]; then echo "$$bv"; \
 	else echo "$$tv"; fi)
 COMMIT := $(shell git log -1 --format='%H')
 
 BUILDDIR ?= $(CURDIR)/build
 INVARIANT_CHECK_INTERVAL ?= $(INVARIANT_CHECK_INTERVAL:-0)
-PAXEER_PROJECT_HOME := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
 export PROJECT_HOME := $(PAXEER_PROJECT_HOME)
 export GO_PKG_PATH=$(HOME)/go/pkg
 export GO111MODULE = on

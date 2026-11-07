@@ -1,0 +1,49 @@
+[repair.22.39.85]
+mode = "BUILD"
+decision = "2804"
+gotcha = "3438"
+acceptance = "22998.1"
+base_revision = "a2eba65986da02648e4a8c7f536a3fb3878c51dd"
+build_cmd = "python3 -m py_compile tests/ci/test_js_suites_have_runner.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_js_suites_have_runner.py"
+verified_revision = "The exact verified candidate revision, command, exit and private log are recorded in /out/run/gates.jsonl by hf-done and copied into the final handoff. This record is part of that candidate; no JavaScript suite execution is claimed by the Python inventory gate."
+publication = "The external runner publishes the qualified candidate; no worker commit or push."
+
+[runner.inference_peer]
+path = "apps/inference-peer/package.json"
+repair = "Expand the default test command from the vendored engine check to every test/*.test.mjs, including the wire and transport tests; js-node-tests runs the unfiltered package script with Node 24."
+
+[runner.integrations]
+paths = ["sdk/integrations/agents", "sdk/integrations/express", "sdk/integrations/next", "sdk/integrations/next/example"]
+repair = "Run every test/*.test.mjs through the existing build prerequisite, including the receipt regressions and A2A store check. Express and Next invoke their example test scripts; the Next example preloads its existing production source resolver for every isolated test process. The root npm workspace lock supplies linked SDK and middleware dependencies."
+example = "Add the Express example test script and reach it from the parent suite, preserving all assertions and tests."
+
+[repair.next_declared_configuration]
+path = "sdk/integrations/next/example/test/fulfillment.test.mjs"
+observed = "The retained fulfillment regression reads services/platform/examples/samples/paid-route-next/.env, which is untracked and absent from a clean checkout. The declared public configuration exists in .env.example."
+repair = "Read the tracked .env.example at the same source boundary and retain every receipt-key validation and mounted-route assertion."
+verification = "The allowed task gate verifies runner inventory; the js-workspace-tests job executes this expanded JavaScript suite. No starting-revision JavaScript gate was run or represented as passing."
+
+[runner.additional_inventory]
+repair = "Give sdk/js, apps/web, contracts/launchpad, sdk/names, wallet ceremony import, wallet gateway, middleware packages, marketplace and the agent TypeScript SDK explicit package test invocations in CI. Retain existing launchpad and wallet app/SDK matrices. Trace the dashboard and AssemblyScript test scripts through their workflow-reached Make targets."
+inventory = "Sweep tracked package.json scripts named test or test:*, excluding node_modules and the imported Hyperfide, Blockscout backend and vendor trees. Expand workflow matrices and working directories; follow npm prefixes, workspace selectors and package-script calls. Installation, builds, quoted runner names, comments and failure-masked commands do not count."
+
+[runner.live_services]
+paths = ["apps/perps/package.json", "tests/integration/rpc_tests/package.json", "services/wallet/package.json", "services/explorer/services/libs/blockscout-client/package.json"]
+decision = "Record exact manifest paths and external prerequisites in tests/ci/data/js_suite_exclusions.txt. Perps retains the funded-node round trip and now includes its retained MJS regression as well as all TypeScript tests, serialized to avoid process-level resource collisions. The RPC package gains the conventional test entry point to its existing full rpc:ci orchestrator; the dedicated integration workflow already calls that orchestrator. No service-dependent test is removed, skipped or filtered."
+
+[runner.codebase_map]
+path = "tools/codebase-map/package.json"
+repair = "Expose test as the existing full check, and expose the existing portable regressions as test:portable for js-node-tests. repair-22-33-800.test.mjs imports map.test.mjs and registers the complete shared assertion suite against its retained recorded sources; the full live-index check stays intact."
+external_interface = "The full check opens a separately provisioned schema-14 .codegraph/graph.db; tools/hyperfide/core/native/src/db.c declares schema 18. Record that pre-existing incompatibility in the exclusion ledger instead of relabeling the index, inventing an index fixture or weakening the schema assertion."
+
+[qualification.policy]
+allowed = "Only hf-build and hf-done execute local gates. The task's Python tests establish package runner reachability and exclusion validity; they do not execute JavaScript suites or establish that every newly wired suite passes."
+gotcha = "The perps default test glob omitted its MJS regression, integration default scripts omitted retained regression files, and the Next fulfillment regression required an untracked local environment file. The scoped manifest/configuration repairs retain every existing assertion."
+
+[qualification.matrix_parser_repair]
+revision = "e6aa6ccffdded05bf3dc057dbb49909b9e490e2a"
+command = "cg spec done 22.39.85 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The inventory assumed every matrix was a mapping; paxeer-x-qualification supplies its complete matrix as a runtime expression. Do not credit runtime-generated matrices as static coverage evidence; every inventoried package still requires a concrete workflow runner or exact exclusion."

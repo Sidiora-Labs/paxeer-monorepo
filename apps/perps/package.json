@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --import tsx tests/*.test.ts",
+    "test": "node --test --test-concurrency=1 --import tsx tests/*.test.ts tests/*.test.mjs",
     "check:transport": "node scripts/check-transport.cjs"
   },
   "dependencies": {

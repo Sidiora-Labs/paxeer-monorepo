@@ -859,7 +859,7 @@ impl LocalServer {
             "canonical_core_bytes":fixture.agent_did.strip_prefix("did:layerx:").unwrap(),
             "head_sequence":fixture.budget_state["observed_head_sequence"],
             "revocation_sequence":fixture.budget_state["revocation_sequence"],
-            "verification_level":"checkpoint_finalised", "frozen":false,
+            "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "frozen":false,
             "authorities":[{"kind":"primary_key","id":fixture.agent_did.strip_prefix("did:layerx:").unwrap()}]
         });
         let subject_peer = fixture.subject_peer(0);
@@ -869,7 +869,7 @@ impl LocalServer {
             "tenant":subject.transport_tenant,"subject_principal":subject_peer.principal,
             "agent_tenant":subject_peer.tenant,"owner_did":subject.owner,
             "account_id":hex::encode(must(layerx_wire::hash::account_id_for_protocol(&account,3))),
-            "asset_id":hex::encode(subject.asset),"verification_level":"checkpoint_finalised",
+            "asset_id":hex::encode(subject.asset),"verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(),
             "observed_head_sequence":fixture.budget_state["observed_head_sequence"],
             "checkpoint_digest":fixture.budget_state["checkpoint_digest"],
         });

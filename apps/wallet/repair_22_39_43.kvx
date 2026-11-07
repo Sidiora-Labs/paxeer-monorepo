@@ -1,0 +1,229 @@
+[repair.22.39.43]
+mode = "BUILD"
+criterion = "22998.1"
+base_revision = "31084c2a39cdb49c1bbd01b48422cc3b169c76b6"
+attempt_2_base_revision = "ee355f88697cff0e92f01537e2e8537368b52e28"
+previous_attempt_base_revision = "a9167fbc68cb22ef78b223a753236832c99cda2f"
+state = "Implementation complete; qualification is determined only by the bounded hf-done receipt."
+verified_revision = "The exact candidate revision in the last hf-done receipt and matching build/verify rows of /out/run/gates.jsonl; this pointer does not claim a passing result before qualification."
+evidence_ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/wallet && corepack enable && pnpm install --frozen-lockfile && cd ../.. && python3 -m py_compile tests/ci/test_wallet_repair_suites_listed.py"
+verify_command = "python3 -m pytest -q tests/ci/test_wallet_repair_suites_listed.py && cd apps/wallet && corepack enable && pnpm exec vitest run src/widgets/txDetail/repair-22-33-141.test.ts src/lib/data/ src/lib/portfolio-api/repair-22-31-235.test.ts src/widgets/swap/repair-22-33-139.test.ts src/widgets/portfolio/repair-22-33-137.test.ts src/widgets/send/repair-22-33-136.test.ts src/widgets/tokenDetail/repair-22-33-140.test.ts src/app/api/push/subscribe/repair-22-33-166.test.ts src/lib/swap/executor.test.ts src/account/AccountView.test.tsx src/app/api/wallet/"
+baseline = "No pre-change tests ran: the ordered task requires complete implementation before hf-build and hf-done. The initial working tree contained only runner-owned .cgignore and spec task-state changes, and no previous gate ledger."
+
+[decision.account]
+path = "apps/wallet/src/account/AccountView.test.tsx"
+authority = "repair-22-33-161.kvx and current sdk/wallet chain-account and consensus decoders"
+wrong_side = "The test replayed the retired available-network recording without consensus or account height, asserted a nonce absent from that recording, and registered the chain-account regression without a callback."
+change = "Use the existing chain recording with consensus and numeric height, assert its exact 0x3 nonce, retain every identity/transport/error assertion, execute the named regression, and assert the consensus-unavailable notice for the three scenarios the peer now translates into that state."
+
+[decision.push]
+path = "apps/wallet/src/app/api/push/subscribe/repair-22-33-166.test.ts"
+authority = "repair-22-33-166.kvx: exact endpoint/current stored owner/time/operation binding; current push-store provider/key validation and immutable ownership"
+wrong_side = "The test supplied forbidden arbitrary push origins, invalid P-256/auth key bytes, and attempted to overwrite an existing endpoint owner."
+change = "Generate real P-256 and 16-byte auth key material, use an admitted FCM origin, prove an attempted takeover leaves storage unchanged, then relinquish and resubscribe through real signed routes before asserting the old owner's proof is refused. All original signature, time, operation, endpoint, persistence and successful-removal assertions remain."
+
+[decision.facades]
+path = "apps/wallet/src/lib/data/facades/repair-22-33-126.test.ts"
+authority = "repair-22-33-126.kvx: exact large-integer valuation, explicit partial/unknown valuation, and structured transfer errors"
+wrong_side = "The existing peer omitted the wallet read chain acknowledgment required before decoding its payloads."
+change = "Parse the actual request with parseWalletReadRequest, assert root identity, and emit walletReadResponseHeaders. Preserve exact path/query assertions after consuming the reserved chain parameter and retain all valuation and failure/retry assertions."
+
+[decision.hooks]
+path = "apps/wallet/src/lib/data/hooks/repair-22-33-132.test.ts"
+authority = "repair-22-33-132.kvx: generation-guarded account reads and serialized pagination"
+wrong_side = "The strict transcript peer compared requests without the subsequently required chain_id and returned no acknowledgment."
+change = "Validate and consume the production chain identity contract at the HTTP boundary, then compare the original exact application path/query and headers; retain controlled out-of-order successes/errors, disconnect and pagination assertions."
+
+[decision.portfolio_api]
+path = "apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts"
+authority = "repair-22-31-235.kvx: real proxy authorization, authenticated lifecycle, bounded transport and unchanged producer errors"
+wrong_side = "Production mismatch: Portfolio API GET clients now require chain_id and response acknowledgment, while the real portfolio proxy rejects that query parameter and emits no chain acknowledgment. The production proxy is outside this task's scope."
+change = "Keep the real proxy/client lifecycle assertions intact and strengthen unauthorized mutation cases to prove no request reaches the producer. Do not strip identity from real client requests or inject acknowledgment headers into real proxy responses to conceal this mismatch."
+
+[decision.executor]
+path = "apps/wallet/src/lib/swap/executor.test.ts"
+authority = "repair-22-31-236.kvx and repair-22-33-121.kvx: immutable confirmed minimums, real transaction execution and atomic slippage protection"
+wrong_side = "The test depended on an absent external Anvil binary and unbuilt Hardhat artifacts rather than the wallet-owned JavaScript EVM environment introduced by later repairs."
+change = "Compile the actual Solidity sources with the wallet's pinned solc during suite setup and execute them through the existing createSwapEvm state manager. A controlled mining queue signs real EthereumJS transactions and checks pending/mined hashes agree. Retain every original receipt, revert, decoded calldata, balance delta and adverse-price assertion with unchanged test timeouts."
+
+[decision.portfolio]
+path = "apps/wallet/src/widgets/portfolio/repair-22-33-137.test.ts"
+authority = "repair-22-33-137.kvx: zero precision, persistent filters and chain/sender/hash-scoped pending reconciliation"
+wrong_side = "The HTTP peer predated chain-aware wallet reads and fresh-read acknowledgments."
+change = "Use the production read parser and response headers on real loopback reads, including fresh reconciliation; preserve layout, precision, filter, signed-send, account isolation, restart, durable retry and exact read-count assertions."
+
+[decision.send]
+path = "apps/wallet/src/widgets/send/repair-22-33-136.test.ts"
+authority = "repair-22-33-136.kvx and repair-22-33-137.kvx wiring.legacy-pending-interface"
+wrong_side = "The peer omitted chain/freshness acknowledgment and the optimistic assertion consumed the retired unscoped pending repository."
+change = "Acknowledge real chain reads and inspect the actual scoped pending send produced by useSendForm; assert sender, chain, key, hash, zero precision and raw subtraction through that repository. Preserve all QR atomicity, network, account change, signing and recovery checks."
+
+[decision.swap]
+path = "apps/wallet/src/widgets/swap/repair-22-33-139.test.ts"
+authority = "repair-22-33-139.kvx and repair-22-33-121.kvx: one frozen approval, validated units, and chain/endpoint-scoped discovery"
+wrong_side = "The test never selected the new required swap network, replayed no registry membership read, persisted the retired token-list cache shape, and omitted wallet read acknowledgments."
+change = "Select the real loopback JSON-RPC provider, replay ABI-encoded registry reads alongside existing quote responses, and obtain the persisted discovery record through fetchLaunchpadTokens. Age that actual serialized record through writeSwapRecord and retain exact freshness, merged-list, quote-count, immutable approval and stale-response assertions."
+
+[decision.token_detail]
+path = "apps/wallet/src/widgets/tokenDetail/repair-22-33-140.test.ts"
+authority = "repair-22-33-140.kvx: independent 24-hour window, validated precision, contract/chain identity and disabled unknown-precision actions"
+wrong_side = "The peer omitted wallet chain/freshness acknowledgment, while cache reads and updates still addressed keys from before network scoping."
+change = "Use the production read boundary headers and production queryKeys/scopedQueryKey factories for portfolio, price and metadata; preserve exact candle coverage, zero-decimal units, action, contract identity and wrong-chain activity assertions."
+
+[decision.tx_detail]
+path = "apps/wallet/src/widgets/txDetail/repair-22-33-141.test.ts"
+authority = "repair-22-33-141.kvx: wallet-related movements, separate outer status/fee, zero and unknown precision"
+wrong_side = "The peer omitted the read identity contract and the tests refetched transaction metadata after transfers moved into an independent query."
+change = "Validate real HTTP chain reads, wait for both independent queries, and refetch txTransfers when the peer's transfers change. Preserve all movement, precision, fee, status and counterparty assertions, including every invalid-precision parameter."
+
+[decision.inventory]
+path = "tests/ci/test_wallet_repair_suites_listed.py"
+change = "Inventory every repair record under wallet/src, require its canonical or explicitly referenced colocated suite to exist, and prove each suite matches the Vitest includes used by the unconditional wallet matrix workflow. Existing records with different repair filenames resolve through their declared test paths rather than being exempted."
+
+[gotcha.scope]
+observed = "The task forbids edits to GOTCHA.kvx, qualification.kvx and spec files, and forbids committing/pushing; task-local decisions and findings stay in this repair record and qualification receipts stay in private runner storage."
+
+[gotcha.query_split]
+observed = "Transaction metadata and token transfers now have separate queries; refetching txDetail cannot update the token-transfer consumer."
+
+[gotcha.tools]
+observed = "The graph's scoped grep returned no results for a known route; direct source inspection established the actual interfaces. Anvil, compiled launchpad artifacts and an installed Prettier executable were absent."
+
+[gotcha.formatter_directory]
+observed = "An optional unused-import cleanup used repository-relative paths from apps/wallet and failed before writing; the formatter uses wallet-relative scoped paths."
+
+[qualification.repair_1]
+revision = "dd4d95c50588f8258e3252f1d899be7b3db069c4"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The existence test passed; workflow coverage failed because Python Path.match does not treat ** as Vitest's recursive glob; Vitest did not run."
+repair = "Expand the configured patterns with Path.glob and require every declared suite to belong to that resulting set; retain every workflow and inventory assertion."
+
+[qualification.repair_2]
+revision = "1b57f12ce46239a7282e1653b3893d5b79f076a8"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Both Python inventory tests passed; Vitest reported 595 passed and 47 failed, including the preserved proxy read-contract failure, one token-metadata race and the new takeover assertion's incorrect status assumption."
+repair = "Wait for successful metadata in the new network-scoped query before exact display assertions; assert the exact current INTERNAL_ERROR 500 refusal for the store's owner-change TypeError, with unchanged storage and subsequent signed lifecycle checks; reset transcript state before each case after retaining the prior case's strict afterEach assertions."
+
+[qualification.unrelated_2]
+revision = "1b57f12ce46239a7282e1653b3893d5b79f076a8"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Forty-one failures in eighteen unchanged suites include hosted-intent provenance, bank/account fixtures, receipt-backed surfaces, retired grant expectations, push/server validation, wallet sends and storage forensics (swap/storage.ts and useSwapExecution.ts)."
+assumption = "These unchanged suites and their production dependencies are outside the task scope; their exact failure details remain in the private gate log and are not investigated or repaired."
+
+[qualification.production_proxy_2]
+revision = "1b57f12ce46239a7282e1653b3893d5b79f076a8"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "The watch lifecycle GET returns PortfolioApiError 400 because the real route rejects the chain_id sent by the real client; strict remaining transcript assertions also fail and previously leaked those exchanges into later cases."
+assumption = "The proxy route must implement the wallet read contract in a separately scoped production change; these lifecycle expectations must remain intact."
+
+[qualification.stop]
+status = "implemented_not_qualified"
+last_executed_revision = "1b57f12ce46239a7282e1653b3893d5b79f076a8"
+last_executed_command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+last_executed_exit = 1
+last_executed_log = "/out/logs/verify-2.log"
+next_build = "hf-build refused with exit 3: repair budget spent (2 of 2); no third build or verification executed."
+budget_observed = "The wrapper counts build-2 and verify-2 separately as the two repair units, so the follow-up metadata wait, exact takeover refusal and transcript isolation edits remain unqualified."
+remaining = "The whole wallet suite is not passing; no completion or same-revision qualification is claimed. The production proxy mismatch and the recorded failures outside scope remain intact."
+
+[continuation.attempt_2]
+seed_revision = "cc9ee73d4a2c1958dcb804c2c13fd0a72ce52e3e"
+prior_evidence = "The qualification sections above describe attempt 1 and its private receipts, not this continuation's results; this runner starts with no build or verification runs."
+implementation = "Retain all eleven seeded test repairs and their assertions. Resolve repository-relative, wallet-relative and bare suite references in every wallet source repair record; bare nonlocal names must identify exactly one existing source suite. Require a colocated suite even for records without explicit paths."
+account_mapping = "apps/wallet/src/account/test/repair-22-33-162.kvx resolves to the existing apps/wallet/src/account/test/repair-22-33-162.test.ts; both inventory checks explicitly retain this regression. No source repair record path correction is needed on this base."
+workflow_mapping = "Expand each actual include pattern from apps/wallet/vitest.config.ts with recursive Path.glob, and map every inventoried suite to at least one pattern. Require nonempty patterns and preserve the unconditional public workflow and no-exclusion checks."
+additional_references = "Include ordinary bare suite names as well as repair suites: privacy/page.test.ts, server/atomic-json-store.test.ts and the uniquely resolved src/proof_wallet_app.test.ts are referenced by existing records."
+build_evidence = "The final build row of /out/run/gates.jsonl records the exact candidate revision, build command, exit code and private log."
+verify_evidence = "The final verify row of /out/run/gates.jsonl and the final hf-done JSON receipt record the exact candidate revision, command, exit code and private log; qualification requires passing build and verification on that same revision."
+scope = "Only the thirteen authorized files are edited; runner-owned .cgignore and spec task-state changes remain untouched. Historical findings outside scope remain recorded without changing their tests or production code."
+
+[qualification.attempt_2_inventory_and_suite]
+revision = "42605319afdc77b6876155e7f10d8da6e2842e1f"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both inventory tests pass; Vitest reports 644 passed, 16 failed and 38 inherited TODOs across 698 tests; ten of the eleven scoped suites pass and the remaining portfolio lifecycle tests fail with HTTP 400 at the unchanged proxy."
+assumption = "The existing chain_id client/proxy mismatch requires production files outside the thirteen authorized paths; preserve the real lifecycle and transcript assertions rather than bypassing that contract."
+
+[qualification.attempt_2_unrelated]
+revision = "42605319afdc77b6876155e7f10d8da6e2842e1f"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Fourteen other failures remain in eleven out-of-scope suites covering hosted intent provenance, account/history transports, push validation/delivery, wallet send shapes and storage forensics; the surfaces failures recorded in attempt 1 no longer appear."
+assumption = "These are the inherited failures already identified in attempt 1; no assertion, production file or test registration outside this task is changed to conceal them."
+
+[qualification.attempt_2_final_revision]
+record_change = "This evidence update records the executed continuation gate rather than claiming that the historical attempt-1 stop is this attempt's final result."
+build = "Final build evidence is the build n=2 row of /out/run/gates.jsonl, with private log /out/logs/build-2.log."
+verify = "Final verification evidence is the verify n=2 row of /out/run/gates.jsonl, with private log /out/logs/verify-2.log and the final hf-done receipt."
+qualification = "Run the mandatory build and verification on this final unchanged record revision; their rows must name the same candidate. Do not claim completion unless hf-done succeeds. No further source edits follow those gates."
+
+[continuation.attempt_3]
+seed_revision = "732101e6cd82b31be3fd2a3051aaee0e6f2acbac"
+scope = "Retain the eleven seeded suite changes and both repair-inventory tests; the fourteen failures assigned to 22.39.123 are outside this continuation's verification and remain untouched. Runner-owned .cgignore and spec task-state edits remain untouched."
+prior_evidence = "Earlier qualification sections are historical attempt-1 and attempt-2 receipts. This continuation's exact build and verification evidence comes only from the matching final rows of /out/run/gates.jsonl and the final hf-done receipt."
+build_evidence = "Final build row of /out/run/gates.jsonl: candidate revision, exact command, exit and private log."
+verify_evidence = "Final verify row of /out/run/gates.jsonl and final hf-done receipt: same candidate revision, exact command, exit and private log. No passing result is claimed before that gate."
+
+[decision.portfolio_api_attempt_3]
+path = "apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts"
+authority = "repair-22-31-235.kvx finding.2 and finding.3 require real authenticated client/proxy lifecycle reads, restart recovery, no-store responses and unchanged producer errors. The current wallet-read-contract requires canonical chain_id and response acknowledgment."
+wrong_side = "Production code: portfolio-api/client.ts sends chain_id on every GET and validates x-wallet-chain-id, but app/api/wallet/[...path]/route.ts forwardPortfolio admits only address or limit query parameters and copies no chain acknowledgment. Both successful lifecycle read assertions remain valid."
+required_change = "The real proxy must consume and validate the wallet read identity before portfolio query validation and upstream routing, preserve credential and response bounds, and acknowledge the served chain. Both production files are outside the thirteen authorized paths."
+preserved = "Keep the real client GET calls, exact successful lifecycle payload/status assertions, all recorded exchanges, restart checks and authorization/error checks intact. Do not strip chain_id or synthesize response headers in the HTTP adapter, replace real reads with direct fetch, or turn successful reads into expected failures."
+
+[gotcha.attempt_3_scope]
+observed = "The continuation explicitly requires settling test versus code, but its only authorized functional paths are test files. The two remaining lifecycle failures require the production route to implement the current client read contract. A scope clarification is pending; no production file is changed without authorization."
+
+
+[continuation.attempt_4]
+seed_revision = "5e1842ada7db2a8d31c29996bec354648fad48a9"
+base_revision = "4cf8a3b9e9bafcb2d1ed169fd0002258302ec30d"
+authority = "Decision 2833 and do_6 authorize the production route and wallet-read-contract in addition to the prior attempt's thirteen paths."
+preserved = "Retain the seeded eleven suites, inventory checks and decision history. The portfolio client, both lifecycle test functions and the route's colocated cache/capacity/method tests remain unchanged. Runner-owned .cgignore and spec changes remain untouched."
+build_evidence = "The final build row of /out/run/gates.jsonl records this continuation's exact revision, build command, exit and private log."
+verify_evidence = "The final verify row of /out/run/gates.jsonl and final hf-done JSON receipt record this continuation's exact revision, command, exit and private log; qualification requires passing build and verification at that same revision."
+prior_evidence = "All earlier qualification sections are historical receipts. No gate ledger existed at the start of this continuation; they do not claim a result for attempt 4."
+
+[decision.portfolio_api_attempt_4]
+paths = ["apps/wallet/src/app/api/wallet/[...path]/route.ts", "apps/wallet/src/lib/wallet-read-contract.ts", "apps/wallet/src/lib/portfolio-api/repair-22-31-235.test.ts"]
+wrong_side = "Production code, as established in attempt 3: canonical root-chain reads are valid client requests and must reach the authenticated producer without the wallet-only identity parameter."
+change = "Extract the existing canonical query-chain validator as parseWalletReadChainId and reuse it in both parseWalletReadRequest and forwardPortfolio. Admit exactly one chain_id on GET/HEAD, require the configured root chain and return the existing QUERY_INVALID 400 for malformed, duplicate or foreign identities; consume chain_id before upstream routing. Legacy reads without the reserved parameter remain supported."
+bounds = "Permit only the existing one address or limit application parameter in addition to chain identity; preserve address syntax, delivery limits 1 through 100, mutation query refusal, authorization precedence, body/response bounds, rate limiting, timeouts, concurrency and all cache budgets/TTLs/deduplication."
+response = "Every exported handler decorates its final response with WALLET_CHAIN_HEADER for the configured chain, including successful, cached, HEAD, upstream-error, admission-error and unsupported-method responses; cached payloads and upstream cache-control headers stay unchanged."
+regression = "portfolio_reads_consume_chain_identity_and_preserve_query_bounds drives real GET/HEAD handlers and native loopback transport, asserting consumed identity, unchanged address/limit forwarding, legacy reads, no-store, bodyless HEAD, chain acknowledgment, and zero producer requests for invalid/duplicate/foreign chain and invalid application query cases. Existing authenticated restart lifecycle assertions remain unchanged."
+
+[gotcha.attempt_4_contract]
+observed = "validateWalletChainId intentionally admits virtual chain identities for general wallet reads, while the portfolio producer serves only the configured root chain; forwardPortfolio must additionally refuse valid-but-foreign virtual identities before upstream admission."
+
+[gotcha.attempt_4_tools]
+observed = "cortex_guard and a local Prettier executable are absent; no destructive or production action is needed. The scoped formatter uses the repository's existing Prettier configuration through an ephemeral package invocation."
+
+[gotcha.attempt_4_formatter]
+observed = "An ephemeral npx formatter invocation from apps/wallet failed before formatting because npm rejects the existing direct ws dependency override; invoking Prettier from /tmp with the same wallet configuration and explicit scoped paths succeeded without manifest changes."
+
+
+[qualification.attempt_4_repair_1]
+revision = "6769ee46feec2626c470c7db68688860542745af"
+command = "cg spec done 22.39.43 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both inventory checks and 89 Vitest cases pass, including both preserved portfolio lifecycles, the new chain/query boundary regression and all route cache tests; the zero-decimal token-detail case reads Balance before its successful portfolio query has rendered."
+repair = "Wait within the existing bounded until helper for the actual scoped portfolio query to succeed and its Balance metric to render, then retain every exact precision, balance, value, action, cache and activity assertion unchanged."
+
+[gotcha.attempt_4_observer]
+observed = "QueryClient.isFetching() can become zero before the React observer renders the portfolio result; token metadata may already render while the Balance metric is still absent. Readiness for the balance regression must include the relevant query and rendered metric."
+
+[qualification.attempt_4_final_evidence]
+build = "The final build row (n=2) of /out/run/gates.jsonl and /out/logs/build-2.log record the final unchanged candidate's revision, exact build command and exit."
+verify = "The final verify row (n=2) of /out/run/gates.jsonl, /out/logs/verify-2.log and the final hf-done receipt record that same candidate's revision, exact verification command and exit. Completion requires both exits zero; no subsequent source edit or extra gate is permitted."

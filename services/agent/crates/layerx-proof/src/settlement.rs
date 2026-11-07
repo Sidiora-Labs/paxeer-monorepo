@@ -10,6 +10,8 @@ use crate::checkpoint::{GuarantorKey, SettlementDomain};
 
 /// Exact text of the declared checkpoint settlement document embedded from
 /// `contracts/config/checkpoint-settlement.json`.
+/// The document is a compile-time input to the image builders; runtime stages
+/// copy only their executables and shared libraries, without this source file.
 #[deprecated(
     note = "historical settlement configuration cannot establish BFT commitment; checkpoint::verify_declared_certificate returns CheckpointError::RetiredCertificateVerifier; use receipt or inclusion verification"
 )]

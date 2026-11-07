@@ -8,7 +8,15 @@ IMAGE_NAMES=(layerx-testnet-control layerx-gateway layerx-faucet layerx-program-
     gas-station hpx-registry kernel layerx localnode platform-indexer platform-registry-builder rpcnode
     search-front wallet-attestor wallet-gateway wallet-pwa x-websearch redis feeder)
 
+core_image_version() {
+    jq -er .version "${REPO_ROOT:-$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../../../.." && pwd)}/tools/release/version.json"
+}
+
 image_source() {
+    local core_version
+    case "$1" in
+        paxd-node|paxd|kernel|layerx|localnode|rpcnode) core_version=$(core_image_version) || return ;;
+    esac
     case "$1" in
         layerx-testnet-control) printf 'ghcr.io/sidiora-labs/layerx-testnet-control:0.1.0 docker/platform-testnet/Dockerfile' ;;
         layerx-gateway) printf 'ghcr.io/sidiora-labs/layerx-gateway:0.1.0 docker/platform-gateway/Dockerfile' ;;
@@ -26,8 +34,8 @@ image_source() {
         layerx-mirror) printf 'ghcr.io/sidiora-labs/layerx-mirror:0.1.0 docker/interop-mirror/Dockerfile' ;;
         layerx-interop-gateway) printf 'ghcr.io/sidiora-labs/layerx-interop-gateway:0.1.0 docker/interop-gateway/Dockerfile' ;;
         layerx-reference-ramp) printf 'ghcr.io/sidiora-labs/layerx-reference-ramp:0.1.0 docker/ramps/Dockerfile' ;;
-        paxd-node) printf 'ghcr.io/sidiora-labs/paxd-node:0.1.0 docker/paxeer/Dockerfile.paxd-node' ;;
-        paxd) printf 'ghcr.io/sidiora-labs/paxd:0.1.0 docker/paxeer/Dockerfile.paxd' ;;
+        paxd-node) printf 'ghcr.io/sidiora-labs/paxd-node:%s docker/paxeer/Dockerfile.paxd-node' "$core_version" ;;
+        paxd) printf 'ghcr.io/sidiora-labs/paxd:%s docker/paxeer/Dockerfile.paxd' "$core_version" ;;
         bridge-relayer) printf 'ghcr.io/sidiora-labs/bridge-relayer:0.1.0 docker/bridge-relayer/Dockerfile' ;;
         explorer-backend) printf 'ghcr.io/sidiora-labs/explorer-backend:0.1.0 docker/explorer-backend/Dockerfile' ;;
         explorer-elixir-builder) printf 'ghcr.io/sidiora-labs/explorer-elixir-builder:0.1.0 docker/explorer-elixir-builder/Dockerfile' ;;
@@ -38,12 +46,12 @@ image_source() {
         flyci-runner) printf 'ghcr.io/sidiora-labs/flyci-runner:0.1.0 docker/flyci-runner/Dockerfile' ;;
         gas-station) printf 'ghcr.io/sidiora-labs/gas-station:0.1.0 docker/gas-station/Dockerfile' ;;
         hpx-registry) printf 'ghcr.io/sidiora-labs/hpx-registry:0.1.0 docker/hpx-registry/Dockerfile' ;;
-        kernel) printf 'ghcr.io/sidiora-labs/kernel:0.1.0 docker/kernel/Dockerfile' ;;
-        layerx) printf 'ghcr.io/sidiora-labs/layerx:0.1.0 docker/layerx/Dockerfile' ;;
-        localnode) printf 'ghcr.io/sidiora-labs/localnode:0.1.0 docker/localnode/Dockerfile' ;;
+        kernel) printf 'ghcr.io/sidiora-labs/kernel:%s docker/kernel/Dockerfile' "$core_version" ;;
+        layerx) printf 'ghcr.io/sidiora-labs/layerx:%s docker/layerx/Dockerfile' "$core_version" ;;
+        localnode) printf 'ghcr.io/sidiora-labs/localnode:%s docker/localnode/Dockerfile' "$core_version" ;;
         platform-indexer) printf 'ghcr.io/sidiora-labs/platform-indexer:0.1.0 docker/platform-indexer/Dockerfile' ;;
         platform-registry-builder) printf 'ghcr.io/sidiora-labs/platform-registry-builder:0.1.0 docker/platform-registry-builder/Dockerfile' ;;
-        rpcnode) printf 'ghcr.io/sidiora-labs/rpcnode:0.1.0 docker/rpcnode/Dockerfile' ;;
+        rpcnode) printf 'ghcr.io/sidiora-labs/rpcnode:%s docker/rpcnode/Dockerfile' "$core_version" ;;
         search-front) printf 'ghcr.io/sidiora-labs/search-front:0.1.0 docker/search-front/Dockerfile' ;;
         wallet-attestor) printf 'ghcr.io/sidiora-labs/wallet-attestor:0.1.0 docker/wallet-attestor/Dockerfile' ;;
         wallet-gateway) printf 'ghcr.io/sidiora-labs/wallet-gateway:0.1.0 docker/wallet-gateway/Dockerfile' ;;
