@@ -34509,3 +34509,23 @@ symbol = "test_wallet_repair_suites_listed.py"
 observed = "Attempt 4 at fadf6bebf6d1: two repair cycles; the inventory check passed, 89 wallet tests passed, execute_swap_refuses_a_reverted_swap timed out at 5000 ms."
 assumption = "The test completes under the bound; the in-process EVM startup is the only cost."
 severity = "high"
+
+[observation.22.31.622.snapshot]
+revision = "f152d39452ecf083ab5a3e16dd58f095fa2a69e9"
+observed = "Read-only inspection: services/interop/specs/conformance/x402/sequenced-settlement.json still pins transaction 0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544, while the current source pins 0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2."
+assumption = "The snapshot is outside task scope; retain its consumer assertions and record the bounded gate result without rewriting that fixture."
+
+[finding.22.31.622.dependency_gate]
+evidence = "{\"revision\": \"518e976ff9c228f89bc771daa0f5bc51997047da\", \"command\": \"cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-indexer -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks\", \"exit\": 101, \"log\": \"/out/logs/dependents-1.log\"}"
+observed = "hf-done exited 7 before running cg spec done or verify_cmd because the pre-existing gateway test repair_22_33_1439 has 13 unresolved canary/rooms errors (gotcha 3417); the task build passed."
+assumption = "The missing module mirror belongs to 22.31.620 and is outside this task scope; retain the failure and do not rerun or repair it here."
+
+[finding.22.31.622.attempt_2_facilitator]
+evidence = "{\"revision\": \"6818b77d7a9f74d6406c6006755de17f8142f9b6\", \"command\": \"cg spec done 22.31.622 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
+observed = "The verify_cmd exited 101 at facilitator_evidence.rs:712: facilitator_reports_committed_only_with_a_proof expects success for committed evidence in the None-proof iteration, while Seller::settled requires a committed proof and returns EvidenceMismatch."
+assumption = "This pre-existing test/verifier disagreement is independent of recording values and remains unchanged under do_3; sequenced_vectors and the human target were not reached, and no unchanged gate is rerun."
+
+[finding.22.31.622.attempt_3_snapshot_gate]
+evidence = "{\"revision\": \"e074b9a73aeb29ef355db1cd205396cee51b9344\", \"command\": \"cg spec done 22.31.622 -f layerx-merge --root /work/paxeer-monorepo\", \"exit\": 1, \"log\": \"/out/logs/verify-1.log\"}"
+observed = "The declared verify_cmd exited 101 in sequenced_vectors.rs:557: both sequenced_settlement_vectors_carry_the_recorded_receipt and x402_committed_vector_settles_as_committed compare the historical x402 snapshot transaction 0xf2cc445b433833da2cdc895138ec30725dba72171ae8267f010ed517ca7b2544 with the current recording transaction 0x0825b6d3abe886f04d91e13108cb78adfbe18f8a28204de0bae9901f910c64e2; the human-service target was not reached."
+assumption = "This gate confirms observation.22.31.622.snapshot: refreshing services/interop/specs/conformance/x402/sequenced-settlement.json requires a path outside the explicit scope, while changing either assertion or fabricating replacement snapshot values is forbidden; retain both assertions and do not rerun the unchanged failure."
