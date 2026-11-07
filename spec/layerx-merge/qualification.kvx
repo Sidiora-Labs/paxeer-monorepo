@@ -33323,3 +33323,43 @@ symbol = "f11_family_table.rs"
 observed = "Attempt 1 at ab795ff9f885b93b572afde929f55b25fd79de9e: build 2 exit 101: tests/identity_section_sharing.rs line 624 cannot compare an eleven-entry Availability array with the ten-entry expected array; the task widened feature_availability and left the enumerating tests at ten."
 assumption = "The arity change of feature_availability is the task scope; the enumerating tests are its consumers and belong to the task."
 severity = "high"
+
+[finding.22.38.1.2]
+task = "22.38.1"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
+observed = "Attempt 2 at db395981948730c731f4876881507c64af8a6c7c: build 1 exit 101: tests/view_binding.rs line 351 cannot compare an eleven-entry Availability array with the ten-entry expected array; the two sites the attempt-2 ruling named were widened and three further sites remained."
+assumption = "The remaining sites are enumerating consumers of the producer the task widened and belong to the task; a search of the crate tests lists them all."
+severity = "high"
+
+[finding.22.31.586.1]
+task = "22.31.586"
+file = "tests/programs/test_ai_host_boundary.c"
+symbol = "test_ai_host_boundary.c"
+observed = "Attempt 1 at ee7494592804197259f5a42bb270b3eac9ef625e: build 2 exit 0, verify 2 exit 2: CALL execute type=0x90003 kernel_status=-3 receipt_status=0 replay_field=none, native bring-up failed; the parser recorder reports no refused field."
+assumption = "The refusal is raised in activity preparation at a site the attempt did not instrument; once the diagnostic names it the repair is one site."
+severity = "high"
+
+[finding.22.31.600.1]
+task = "22.31.600"
+file = "tools/qualification/audit_repairs/test_repair_22_31_600.py"
+symbol = "test_repair_22_31_600.py"
+observed = "Attempt 1 at 2acf3ca313215169c02ba07359f1854e90599cdb: build exit 0, verify exit 1: test_personal_settings_and_package_trees_are_untracked for .claude/settings.local.json found the path tracked; the five other cases passed."
+assumption = "The file-level declaration re-tracked the file at qualification; the directory-level declaration drops ignored untracked files."
+severity = "high"
+
+[finding.22.31.611.1]
+task = "22.31.611"
+file = "precompiles/layerxpay/escrow_test.go"
+symbol = "escrow_test.go"
+observed = "Attempt 1 at 5e65653502bfa9fb163063948aeb2587bbf15a09: build exit 0, verify exit 1: TestPayEscrowPathMatchesHostExecute/timeout failed at conformance_escrow_test.go line 28, an error is expected but got nil."
+assumption = "The helper asserts the pre-repair iterator behaviour; the exhausted iterator reports nil since the cachekv repair."
+severity = "high"
+
+[finding.22.38.16.1]
+task = "22.38.16"
+file = "services/agent/crates/layerx-agentd/tests/inference_signal.rs"
+symbol = "inference_signal.rs"
+observed = "Attempt 1 at 882ef8b2a60ed2e3bdd9c337a41b25fe73b8ebeb: build exit 0, verify exit 101: five cases passed and five chain-backed cases panicked at tests/inference_signal.rs line 24 with LAYERX_AGENT_INFERENCE_MODEL_DIGEST is required and must be nonblank."
+assumption = "The cases took their configuration from the process environment and read an enrolment that 22.38.8 serves and 22.38.15 writes; both land before the listener reruns."
+severity = "high"
