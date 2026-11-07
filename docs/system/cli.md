@@ -17,20 +17,18 @@ There is no separate LayerX interface or sequencer service in the merged network
 Public node JSON-RPC uses the root path on `https://api1.mainnet-beta.paxeer.network`
 through `https://api14.mainnet-beta.paxeer.network` and
 `https://api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods belong to
-[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json);
-they are not an additional node namespace.
+`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is the hpx library mirror, not an RPC endpoint.
 
 The router and its `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
-The current CLI still requires the retired `/rpc` suffix in `rpc.rs` and several
-`--rpc` handlers, and appends that retired path in `programs.rs`, `chains.rs`,
-`register.rs` and `faucet.rs`.
-These are client migration gaps: supplying a root node URL to those handlers does
-not make them compatible, and adding the retired suffix to a public node URL does
-not create a supported endpoint. Selecting a profile changes stored configuration;
-it does not repair the transport. Local key operations, scaffolding, builds and
-offline receipt verification do not require a live network endpoint.
+The CLI's node transport (`rpc.rs`, `chains.rs`, `programs.rs`, `a2a.rs` and
+the subscription transport) requires an HTTP(S) origin at the root path and
+refuses any other path. `register` and `faucet` take an explicit hosted
+service URL (`--gateway-endpoint` and `--service-endpoint`) and post to exactly
+that URL. Local key operations, scaffolding, builds and offline receipt
+verification do not require a live network endpoint.
 
 For local network development, use `paxd` with an initialized local genesis, the
 merged modules activated, and the node's configured EVM JSON-RPC listener. The

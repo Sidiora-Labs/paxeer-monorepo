@@ -317,6 +317,9 @@ include:
 | [sequenced_vectors.rs](../../services/interop/crates/layerx-x402/tests/sequenced_vectors.rs) | Recorded receipt/payment bindings and committed proof cases |
 | [buyer_sequencer.rs](../../services/interop/crates/layerx-x402/tests/buyer_sequencer.rs) | Buyer-side receipt capture |
 
+See the [portable verification guide](../interop/PORTABILITY.md) for offline
+receipt verification and its trust boundaries.
+
 Vector parsing establishes only the assertions in those tests. A local pass is
 not evidence that a public endpoint is live, that a merchant fulfills resources,
 or that a third-party facilitator interoperates with this deployment.

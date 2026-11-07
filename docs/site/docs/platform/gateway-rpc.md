@@ -10,7 +10,7 @@ gateway expose different method contracts over that same network.
 Send JSON-RPC to the root of `https://api-mainnet-beta.paxeer.network` or
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. The public namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `test` and `txpool`; individual methods depend on
+`echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; individual methods depend on
 node configuration. The full node list and root WebSocket URLs are in
 [Public RPC endpoints](../reference/public-rpc.md).
 

@@ -43,6 +43,8 @@ typedef struct lxphost_node {
     lx_asset_runtime asset_runtime;
     lx_escrow_runtime escrow_runtime;
     lx_programs_transfer_runtime programs_runtime;
+    lxp_module_iface programs_iface;
+    uint64_t programs_kernel_gas_used;
     uint64_t parameters;
     uint64_t epoch;
     uint16_t programs_guest_abi;
@@ -167,9 +169,12 @@ func lxphost_simulate(node *C.lxphost_node, cfg Config, branch *branchCtx, bindi
 	if err != nil {
 		return err
 	}
-	return result(C.lxphost_simulate(node, C.uint32_t(cfg.NetworkID), C.uint64_t(branch.batchNumber),
+	resetProgramsKernelGas()
+	status := C.lxphost_simulate(node, C.uint32_t(cfg.NetworkID), C.uint64_t(branch.batchNumber),
 		C.uint64_t(branch.timestampMs), C.uint64_t(cfg.TimestampWindowMs), C.uint64_t(branch.sequence),
-		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority), balance, batch))
+		C.uint32_t(cfg.ParameterVersion), C.uint64_t(cfg.GasLimit), C.bool(bindingAuthority), balance, batch)
+	captureProgramsKernelGas(node)
+	return result(status)
 }
 
 // Simulate returns the kernel's hypothetical receipt without publishing state.

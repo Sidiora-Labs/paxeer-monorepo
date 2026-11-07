@@ -1,10 +1,10 @@
 use crate::{
     codec::{domain_hash, Reader, Writer},
     errors::{
-        CodecResult, CAPACITY, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY, F01_POLICY_MISMATCH,
-        F01_VERSION_MISMATCH, NON_CANONICAL,
+        CodecResult, BAD_VERSION, CAPACITY, F01_CAPACITY_UNAVAILABLE, F01_INVALID_POLICY,
+        F01_POLICY_MISMATCH, F01_VERSION_MISMATCH, NON_CANONICAL,
     },
-    types::{Digest32, PolicyDigest, Presence, PrincipalId, RubricDigest, Version},
+    types::{AccountId, Digest32, PolicyDigest, Presence, PrincipalId, RubricDigest, Version},
 };
 
 pub const TASK_POLICY_BYTES: usize = 307;
@@ -408,4 +408,123 @@ pub fn validate_policy_records(
         return Err(F01_VERSION_MISMATCH);
     }
     Ok(())
+}
+
+pub const ROOM_PROFILE_BYTES: usize = 72;
+pub const MARKET_POLICY_VERSION: u16 = 2;
+pub const MARKET_POLICY_BYTES: usize = 2 + TASK_POLICY_BYTES + ROOM_PROFILE_BYTES;
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct RoomProfile {
+    pub minimum_bond: u128,
+    pub canary_ratio_bps: u16,
+    pub lap_size_tokens: u64,
+    pub challenge_window_blocks: u64,
+    pub slash_fraction_bps: u16,
+    pub host_share_bps: u16,
+    pub protocol_share_bps: u16,
+    pub settlement_account: AccountId,
+}
+impl RoomProfile {
+    pub fn validate(&self) -> CodecResult<()> {
+        if self.minimum_bond == 0
+            || self.lap_size_tokens == 0
+            || self.challenge_window_blocks == 0
+            || self.canary_ratio_bps > 10_000
+            || self.slash_fraction_bps > 10_000
+            || u32::from(self.host_share_bps) + u32::from(self.protocol_share_bps) > 10_000
+        {
+            return Err(F01_INVALID_POLICY);
+        }
+        Ok(())
+    }
+
+    pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
+        self.validate()?;
+        if output.len() < ROOM_PROFILE_BYTES {
+            return Err(CAPACITY);
+        }
+        let mut w = Writer::new(output);
+        w.u128(self.minimum_bond)?;
+        w.u16(self.canary_ratio_bps)?;
+        w.u64(self.lap_size_tokens)?;
+        w.u64(self.challenge_window_blocks)?;
+        w.u16(self.slash_fraction_bps)?;
+        w.u16(self.host_share_bps)?;
+        w.u16(self.protocol_share_bps)?;
+        w.put(self.settlement_account.as_bytes())?;
+        Ok(w.len())
+    }
+
+    pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(input);
+        let value = Self {
+            minimum_bond: r.u128()?,
+            canary_ratio_bps: r.u16()?,
+            lap_size_tokens: r.u64()?,
+            challenge_window_blocks: r.u64()?,
+            slash_fraction_bps: r.u16()?,
+            host_share_bps: r.u16()?,
+            protocol_share_bps: r.u16()?,
+            settlement_account: AccountId::new(r.fixed()?).map_err(|_| F01_INVALID_POLICY)?,
+        };
+        r.finish()?;
+        value.validate()?;
+        Ok(value)
+    }
+}
+
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
+pub struct MarketPolicy {
+    pub task_policy: TaskPolicyV1,
+    pub room_profile: RoomProfile,
+}
+impl MarketPolicy {
+    #[must_use]
+    pub const fn room_profile_ref(&self) -> &RoomProfile {
+        &self.room_profile
+    }
+
+    pub fn validate(&self) -> CodecResult<()> {
+        self.task_policy.validate()?;
+        self.room_profile.validate()
+    }
+
+    pub fn encode(&self, output: &mut [u8]) -> CodecResult<usize> {
+        self.validate()?;
+        if output.len() < MARKET_POLICY_BYTES {
+            return Err(CAPACITY);
+        }
+        let mut w = Writer::new(output);
+        w.u16(MARKET_POLICY_VERSION)?;
+        let mut task = [0; TASK_POLICY_BYTES];
+        self.task_policy.encode(&mut task)?;
+        w.put(&task)?;
+        let mut room = [0; ROOM_PROFILE_BYTES];
+        self.room_profile.encode(&mut room)?;
+        w.put(&room)?;
+        Ok(w.len())
+    }
+
+    pub fn decode(input: &[u8]) -> CodecResult<Self> {
+        let mut r = Reader::new(input);
+        if r.u16()? != MARKET_POLICY_VERSION {
+            return Err(BAD_VERSION);
+        }
+        let value = Self {
+            task_policy: TaskPolicyV1::decode(r.take(TASK_POLICY_BYTES)?)?,
+            room_profile: RoomProfile::decode(r.take(ROOM_PROFILE_BYTES)?)?,
+        };
+        r.finish()?;
+        value.validate()?;
+        Ok(value)
+    }
+
+    pub fn digest(&self) -> CodecResult<PolicyDigest> {
+        let mut bytes = [0; MARKET_POLICY_BYTES];
+        self.encode(&mut bytes)?;
+        PolicyDigest::new(domain_hash("PAXAI/policy/v2", &bytes)?.bytes())
+    }
 }

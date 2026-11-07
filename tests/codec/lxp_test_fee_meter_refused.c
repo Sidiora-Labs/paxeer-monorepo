@@ -471,11 +471,131 @@ static int prepare_refuses_host_fee_meter(void)
     return 0;
 }
 
+static int codec_nfc_kernel_transport(void)
+{
+    static const char *const canonical[] = {
+        "did:key:nfc:\xcc\x81",
+        "did:key:nfc:\xea\xb0\x80",
+        "did:key:nfc:\xe1\x84\x80\xcc\x81\xe1\x85\xa1"
+    };
+    static const char *const noncanonical[] = {
+        "did:key:nfc:e\xcc\x81",
+        "did:key:nfc:\xe1\x84\x80\xe1\x85\xa1",
+        "did:key:nfc:\xea\xb0\x80\xe1\x86\xa8"
+    };
+    for (size_t i = 0U; i < sizeof(canonical) / sizeof(canonical[0]); ++i) {
+        fee_fixture *f = calloc(1U, sizeof(*f));
+        uint8_t text_bytes[128];
+        uint8_t text_before[sizeof(text_bytes)];
+        uint8_t text_transport[sizeof(text_bytes)];
+        uint8_t root[32];
+        uint8_t activity_id[32];
+        uint8_t material[144];
+        uint8_t message[512];
+        uint8_t digest[32];
+        lxp_arena text_arena;
+        lxp_codec_writer writer;
+        lxp_codec_reader reader;
+        lxp_byte_span text;
+        lxp_byte_span wire;
+        lxp_activity received;
+        lxp_send send;
+        lxp_send received_send;
+        size_t payload_length;
+        size_t message_length;
+        size_t mark;
+        LXP_CASE_CHECK(f != NULL && fee_fixture_open(f) == 0);
+        (void)memcpy(root, f->kernel.current_state_root, sizeof(root));
+        LXP_CASE_CHECK(lxp_arena_init(&text_arena, text_bytes, sizeof(text_bytes)) == LXP_OK);
+        LXP_CASE_CHECK(lxp_codec_writer_init(&writer, &text_arena, sizeof(text_bytes)) == LXP_OK);
+        (void)memset(text_bytes, 0xa5, sizeof(text_bytes));
+        (void)memcpy(text_before, text_bytes, sizeof(text_before));
+        LXP_CASE_CHECK(lxp_codec_write_text(&writer, noncanonical[i],
+            strlen(noncanonical[i]), LXP_MAX_DID_LENGTH) == LXP_ERR_NON_CANONICAL);
+        LXP_CASE_CHECK(writer.length == 0U &&
+            memcmp(text_bytes, text_before, sizeof(text_bytes)) == 0);
+        LXP_CASE_CHECK(fee_state_unchanged(f, root) == 0);
+        LXP_CASE_CHECK(lxp_codec_write_text(&writer, canonical[i],
+            strlen(canonical[i]), LXP_MAX_DID_LENGTH) == LXP_OK);
+        (void)memcpy(text_transport, writer.bytes, writer.length);
+        LXP_CASE_CHECK(lxp_codec_reader_init(&reader, text_transport, writer.length) == LXP_OK);
+        LXP_CASE_CHECK(lxp_codec_read_bytes(&reader, &text, LXP_MAX_DID_LENGTH) == LXP_OK);
+        LXP_CASE_CHECK(lxp_codec_finish(&reader) == LXP_OK);
+        LXP_CASE_CHECK(text.length == strlen(canonical[i]) &&
+            memcmp(text.bytes, canonical[i], text.length) == 0);
+        /* Application text fits in the real Send request key. The account's
+         * actor remains its existing owner, as required by the asset module. */
+        LXP_CASE_CHECK(lxp_send_decode(f->payload, f->activity.payload.length, &send) == LXP_OK);
+        LXP_CASE_CHECK(writer.length <= sizeof(send.idempotency_key));
+        (void)memset(send.idempotency_key, 0, sizeof(send.idempotency_key));
+        (void)memcpy(send.idempotency_key, text_transport, writer.length);
+        (void)memcpy(material, send.from, 32U);
+        (void)memcpy(material + 32U, send.to, 32U);
+        (void)memcpy(material + 64U, send.asset, 32U);
+        LXP_CASE_CHECK(lxp_u128_to_be(send.amount, material + 96U) == LXP_OK);
+        (void)memcpy(material + 112U, send.idempotency_key, 32U);
+        LXP_CASE_CHECK(lxp_hash_context_value(material, sizeof(material), send.context_hash) == LXP_OK);
+        (void)memcpy(send.authorization.signed_context_hash, send.context_hash, 32U);
+        LXP_CASE_CHECK(lxp_send_authorization_message(&send, message,
+            sizeof(message), &message_length) == LXP_OK);
+        LXP_CASE_CHECK(lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE,
+            message, message_length, digest) == LXP_OK);
+        LXP_CASE_CHECK(fee_sign(digest, send.authorization.signature, f->public_key) == 0);
+        LXP_CASE_CHECK(lxp_send_encode(&send, f->payload, sizeof(f->payload), &payload_length) == LXP_OK);
+        f->activity.payload = (lxp_byte_span){f->payload, payload_length};
+        (void)memcpy(f->activity.idempotency_key, send.idempotency_key, 32U);
+        LXP_CASE_CHECK(fee_activity_sign(f) == 0);
+        mark = lxp_arena_mark(&f->arena);
+        LXP_CASE_CHECK(lxp_activity_encode(&f->activity, &f->arena, &wire) == LXP_OK);
+        LXP_CASE_CHECK(lxp_arena_reset(&f->arena, mark + wire.length) == LXP_OK);
+        LXP_CASE_CHECK(lxp_activity_decode(wire.bytes, wire.length, &received) == LXP_OK);
+        LXP_CASE_CHECK(lxp_send_decode(received.payload.bytes,
+            received.payload.length, &received_send) == LXP_OK);
+        LXP_CASE_CHECK(memcmp(received_send.idempotency_key, send.idempotency_key, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(received.idempotency_key, send.idempotency_key, 32U) == 0);
+        LXP_CASE_CHECK(lxp_codec_reader_init(&reader,
+            received_send.idempotency_key, writer.length) == LXP_OK);
+        LXP_CASE_CHECK(lxp_codec_read_bytes(&reader, &text, LXP_MAX_DID_LENGTH) == LXP_OK);
+        LXP_CASE_CHECK(lxp_codec_finish(&reader) == LXP_OK);
+        LXP_CASE_CHECK(text.length == strlen(canonical[i]) &&
+            memcmp(text.bytes, canonical[i], text.length) == 0);
+        LXP_CASE_CHECK(lxp_activity_verify_signature(&received) == LXP_OK);
+        LXP_CASE_CHECK(lxp_activity_id(wire.bytes, wire.length, activity_id) == LXP_OK);
+        LXP_CASE_CHECK(lxp_kernel_execute_activity(&f->kernel, &received,
+            &f->execution, &f->receipt) == LXP_OK);
+        LXP_CASE_CHECK(f->receipt.result_code == LXP_OK);
+        LXP_CASE_CHECK(memcmp(f->receipt.activity_id, activity_id, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(f->receipt.context_hash, send.context_hash, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(f->receipt.authorization_hash, digest, 32U) == 0);
+        LXP_CASE_CHECK(f->identities.count == 1U &&
+            f->identities.identities[0].next_sequence == 1U);
+        LXP_CASE_CHECK(f->state.next_sequence == 2U && !f->journal.open);
+        LXP_CASE_CHECK(f->from->balance.hi == 0U && f->from->balance.lo == 6U);
+        LXP_CASE_CHECK(f->to->balance.hi == 0U && f->to->balance.lo == 1U);
+        LXP_CASE_CHECK(f->treasury->balance.hi == 0U && f->treasury->balance.lo == 3U);
+        LXP_CASE_CHECK(f->from->next_sequence == 1U && f->to->next_sequence == 0U);
+        LXP_CASE_CHECK(f->treasury->next_sequence == 1U);
+        LXP_CASE_CHECK(f->receipt.fee_charged.hi == 0U && f->receipt.fee_charged.lo == 3U);
+        LXP_CASE_CHECK(f->receipt.effects.count == 1U && f->receipt.global_sequence == 1U);
+        LXP_CASE_CHECK(memcmp(f->receipt.previous_state_root, root, 32U) == 0);
+        LXP_CASE_CHECK(lxp_state_root(&f->kernel, root) == LXP_OK);
+        LXP_CASE_CHECK(memcmp(f->receipt.resulting_state_root, root, 32U) == 0);
+        LXP_CASE_CHECK(memcmp(f->kernel.current_state_root, root, 32U) == 0);
+        LXP_CASE_CHECK(fee_receipt_round_trip(f) == 0);
+        LXP_CASE_CHECK(fee_fixture_close(f) == 0);
+    }
+    (void)puts("codec_nfc_kernel_transport passed");
+    return 0;
+}
+
 int main(int argc, char **argv)
 {
+    int result;
     const lxp_kernel_case cases[] = {
         {"execute_refuses_host_fee_meter", execute_refuses_host_fee_meter},
         {"prepare_refuses_host_fee_meter", prepare_refuses_host_fee_meter}
     };
-    return lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]), argc, argv);
+    result = lxp_kernel_case_main(cases, sizeof(cases) / sizeof(cases[0]), argc, argv);
+    if (result != 0) return result;
+    return codec_nfc_kernel_transport();
 }

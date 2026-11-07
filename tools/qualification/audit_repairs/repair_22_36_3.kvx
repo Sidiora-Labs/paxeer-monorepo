@@ -1,0 +1,21 @@
+[task.22.36.3]
+base_revision = "980a3a8ebaf8730ea991d581307a07dd552cee80"
+repair = "Preserve the sixteen-document move into docs/wallet/app and docs/wallet/service and the changelog note. Rewrite the six app README documentation links and the service README documentation row, and replace the retired Docker ignore entry with docs/wallet to preserve the small image context."
+proof = "Five offline tests assert removal of all three original locations, the exact sixteen-file destination inventory, resolution of relative Markdown file and heading links, resolution of every relative link in both wallet READMEs to a tracked file, and absence of retired documentation path references across tracked files except repair records, spec history, changelogs, GOTCHA.kvx and this task's test. Git reads the local working tree only; no credential, environment variable or live endpoint is required."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_3.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The build and verify rows in the private gate ledger name the exact candidate revision, command, exit code and log path. Closure requires hf-done passing on the same candidate as hf-build. This record is written before qualification and is not amended after gates run."
+baseline = "Attempt 2 starts with all sixteen moved documents and the prior repair record and test in the working tree, plus inherited .cgignore and spec task-status changes. No /out/run/gates.jsonl exists for this attempt before qualification; the supplied attempt-1 failure names the retired Docker ignore entry."
+
+[continuation]
+observed = "docker/wallet-pwa/Dockerfile.dockerignore line 28 contains a retired service documentation reference; apps/wallet/README.md lines 28 through 32 link to the relocated app documents, and services/wallet/README.md line 23 describes its former documentation directory."
+resolution = "All three readers are now explicitly in scope and updated. The reference assertion excludes only the historical categories authorized by decision 2665 and this test; the root documentation index belongs to task 22.36.6."
+evidence = "The verify row in /out/run/gates.jsonl and its referenced log retain the bounded gate result, including the exact revision, command, exit code and private evidence location."
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF and final-newline rules after implementation; preserve Markdown whitespace and unchanged moved content."
+
+[gotcha.1]
+observed = "Broad Codify and combined file reads exceeded the output budget, and cg brief reported unrelated task and changed-file state."
+resolution = "Use the runner's task declaration, actual git status/diff, and targeted file reads; this scoped record retains the note because GOTCHA.kvx and spec files are excluded."

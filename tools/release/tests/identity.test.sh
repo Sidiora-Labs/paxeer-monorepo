@@ -5,7 +5,7 @@ root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)
 version_file=$root/tools/release/version.json
 work=$(mktemp -d)
 trap 'rm -rf -- "$work"' EXIT
-want=v6.12.0
+want=v7.0.0
 semver_re='^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$'
 
 # The comparison of .github/workflows/paxeer-release-check.yml:57-65 against the tags of repository $1.
@@ -23,21 +23,36 @@ newer_than_latest_tag() {
   echo "Paxeer release identity is paxeer-network/$version (upgrade $(jq -er '.upgrade' "$version_file"))"
 }
 
-version_and_upgrade_are_v6120() {
+version_and_upgrade_are_v700() {
   local version upgrade
   version=$(jq -er '.version' "$version_file") || return 1
   upgrade=$(jq -er '.upgrade' "$version_file") || return 1
   [ "$version" = "$want" ] || { echo "$version_file: version is $version, want $want" >&2; return 1; }
-  [ "$upgrade" = "$want" ] || { echo "$version_file: upgrade is $upgrade, want $want" >&2; return 1; }
+  [ "$upgrade" = "v7.0" ] || { echo "$version_file: upgrade is $upgrade, want v7.0" >&2; return 1; }
   [ "$(jq -er 'keys | join(",")' "$version_file")" = "upgrade,version" ] || { echo "$version_file carries keys beyond version and upgrade" >&2; return 1; }
 }
 
 upgrade_name_is_declared() {
-  local upgrade decl
+  local upgrade plans symbol name declared=0
   upgrade=$(jq -er '.upgrade' "$version_file") || return 1
-  decl="V6120Upgrade = \"$upgrade\""
-  grep -rqF -- "$decl" "$root/node" "$root/modules" || { echo "Upgrade name $upgrade is not declared as V6120Upgrade under node/ or modules/" >&2; return 1; }
-  grep -qF -- "const $decl" "$root/node/upgrades_v6120.go" || { echo "node/upgrades_v6120.go lacks const $decl" >&2; return 1; }
+  plans=$(python3 - "$root/tools/release" <<'PY'
+import sys
+
+sys.path.insert(0, sys.argv[1])
+from upgrade_info import REGISTERED_PLAN_NAMES
+
+for symbol, name in REGISTERED_PLAN_NAMES.items():
+    print(symbol, name)
+PY
+  ) || return 1
+  while read -r symbol name; do
+    if [[ "$name" = "$upgrade" ]]; then
+      grep -qxF -- "const $symbol = \"$name\"" "$root/node/upgrades.go" "$root/precompiles/common/precompiles.go" ||
+        { echo "Upgrade name $upgrade is not declared as $symbol" >&2; return 1; }
+      declared=1
+    fi
+  done <<< "$plans"
+  [ "$declared" -eq 1 ] || { echo "Upgrade name $upgrade is not in the registered plan-name table" >&2; return 1; }
 }
 
 version_is_newer_than_latest_tag() {
@@ -76,7 +91,7 @@ tag_is_free_and_derived() {
 
 passed=0
 failed=0
-for t in version_and_upgrade_are_v6120 upgrade_name_is_declared version_is_newer_than_latest_tag tag_is_free_and_derived; do
+for t in version_and_upgrade_are_v700 upgrade_name_is_declared version_is_newer_than_latest_tag tag_is_free_and_derived; do
   if (set -e; "$t"); then
     echo "PASS $t"
     passed=$((passed + 1))

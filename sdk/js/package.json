@@ -9,7 +9,7 @@
   "scripts": {
     "test": "node --test test/"
   },
-  "homepage": "https://github.com/pax-protocol/pax-js#readme",
+  "homepage": "https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js#readme",
   "keywords": [
     "pax",
     "typescript",
@@ -17,7 +17,11 @@
     "enums",
     "interfaces"
   ],
-  "repository": "git@github.com:pax-protocol/pax-js.git",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Sidiora-Labs/paxeer-monorepo.git",
+    "directory": "sdk/js"
+  },
   "license": "MIT",
   "publishConfig": {
     "access": "public"

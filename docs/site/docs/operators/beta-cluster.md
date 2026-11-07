@@ -18,10 +18,10 @@ creating a tenant does not require another consensus network.
 Public JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network` or
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. See [Public RPC endpoints](../reference/public-rpc.md).
-The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and
-`txpool`. Hosted `px_` methods belong to the gateway contract in
-`services/platform/hosted/gateway/openrpc.json`; see
-[Hosted gateway JSON-RPC](../platform/gateway-rpc.md).
+The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../platform/gateway-rpc.md).
 `node.hyperpaxeer.com` is only the hpx library mirror, never an RPC endpoint.
 
 The native StatefulSet in `services/platform/hosted/node/deployment.yaml` is

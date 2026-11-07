@@ -18,6 +18,41 @@ env:
   TZ: UTC
 
 jobs:
+  tests-python:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native test dependencies
+        run: >-
+          sudo apt-get update && sudo apt-get install --yes
+          build-essential libssl-dev libsqlite3-dev ripgrep python3-venv
+      - name: Install Python test dependencies
+        run: |
+          python3 -m venv "$RUNNER_TEMP/tests-python"
+          "$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest cryptography PyYAML
+          echo "$RUNNER_TEMP/tests-python/bin" >> "$GITHUB_PATH"
+      - name: Run Python repository tests
+        run: make test-tests-python
+
+  programs-reference-fixtures:
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native build dependencies
+        run: sudo apt-get update && sudo apt-get install --yes build-essential libssl-dev pkg-config
+      - name: Install pinned guest toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal --target wasm32-unknown-unknown
+      - name: Build program reference fixtures
+        run: make programs-reference-fixtures
+
   repository-audit:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
     timeout-minutes: 10

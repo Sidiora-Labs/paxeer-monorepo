@@ -48,19 +48,22 @@ const exact = nodeVectors.cases.find((entry) => entry.id === "V1-layerxledger-pa
 const committed = JSON.parse(readFileSync(new URL("vector-v4-committed.json", fixtures), "utf8")).positive;
 const pinFor = (vector) => ({ keyId: bytes(vector.pinnedKey.keyId), publicKey: bytes(vector.pinnedKey.publicKey),
   first_height: BigInt(vector.pinnedKey.firstHeight), last_height: BigInt(vector.pinnedKey.lastHeight) });
-const proofFor = (vector) => ({ format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
-  rawTransaction: vector.rawTransaction, signedReceipt: vector.signedReceipt,
-  receiptDigest: hex(keccak256(bytes(vector.signedReceipt))),
-  receiptKey: { keyId: vector.pinnedKey.keyId, publicKey: vector.pinnedKey.publicKey,
-    firstHeight: `0x${BigInt(vector.pinnedKey.firstHeight).toString(16)}`,
-    lastHeight: `0x${BigInt(vector.pinnedKey.lastHeight).toString(16)}` } });
+const proofFor = async (vector) => {
+  const verified = await verifySequencerReceipt(bytes(vector.signedReceipt), bytes(vector.rawTransaction), [pinFor(vector)]);
+  return { format: "layerx-receipt-proof-v2", verificationLevel: "receipted",
+    rawTransaction: vector.rawTransaction, signedReceipt: vector.signedReceipt,
+    receiptDigest: hex(verified.receiptDigest),
+    receiptKey: { keyId: vector.pinnedKey.keyId, publicKey: vector.pinnedKey.publicKey,
+      firstHeight: `0x${BigInt(vector.pinnedKey.firstHeight).toString(16)}`,
+      lastHeight: `0x${BigInt(vector.pinnedKey.lastHeight).toString(16)}` } };
+};
 const exactLog = exact.receiptJson.logs.find((log) => log.topics[0] ===
   hex(keccak256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"))));
 const payment = decodePaymentExactLog({ address: exactLog.address, data: bytes(exactLog.data), topics: exactLog.topics.map(bytes) });
 const requirements = { scheme: "exact", network: "eip155:125", amount: payment.amount.toString(),
   asset: hex(payment.assetId), payTo: hex(payment.to), maxTimeoutSeconds: 120,
   extra: { layerx: { commitment: "receipted", payer: hex(payment.from).slice(2), purposeHash: hex(payment.paymentReference).slice(2) } } };
-const proof = proofFor(exact);
+const proof = await proofFor(exact);
 const pin = pinFor(exact);
 const resource = { url: "https://merchant.example/paid" };
 const header = (value = proof, accepted = requirements, description = "first") => encodePaymentPayloadHeader({
@@ -138,11 +141,11 @@ function signTransaction(transaction) {
     transaction.maxFeePerGas, transaction.gasLimit].map(integer).concat([transaction.to, integer(transaction.value), transaction.data,
       [], integer(BigInt(signature[0])), integer(parsed.r), integer(parsed.s)]))]);
 }
-const grantDraw = { from: payment.to, assetId: payment.paymentReference, amount: payment.amount,
-  grantId: word(0x31), receiverSequence: 1n, idempotencyKey: word(0x32), contextHash: word(0x33) };
+const grantDraw = { recipient: payment.to, purposeHash: payment.paymentReference, amount: payment.amount,
+  grantId: word(0x31), sequence: 1n, idempotencyKey: word(0x32), contextHash: word(0x33) };
 function grantTransaction(recipient = payment.to) {
   return hex(signTransaction({ ...decodeRawEip1559(bytes(exact.rawTransaction)), accessList: [],
-    data: encodeLedgerDraw({ ...grantDraw, from: recipient }) }));
+    data: encodeLedgerDraw({ ...grantDraw, recipient }) }));
 }
 function grantRequest(rawTransaction, scheme = "metered") {
   const accepted = { ...requirements, scheme, extra: { layerx: { ...requirements.extra.layerx,
@@ -210,7 +213,7 @@ async function sellerGrantFinalVerifier(t) {
 
 // An adversarial, cryptographically authentic foreign-chain witness is derived
 // from the recorded node envelope. It is not a claim of a live ledger debit.
-function foreignChainWitness() {
+async function foreignChainWitness() {
   const pair = generateKeyPairSync("ed25519");
   const publicKey = pair.publicKey.export({ type: "spki", format: "der" }).subarray(-32);
   const rawTransaction = signTransaction({ ...decodeRawEip1559(bytes(proof.rawTransaction)), chainId: 1n, accessList: [] });
@@ -232,9 +235,11 @@ function foreignChainWitness() {
   const signature = sign(null, sha(Buffer.from("LXP/v1/receipt\0"), prefix, Buffer.of(0)), pair.privateKey);
   const signedReceipt = Buffer.concat([prefix, Buffer.of(1), uint(64n, 4), signature]);
   const receiptKey = { ...proof.receiptKey, keyId: hex(keyId), publicKey: hex(publicKey) };
+  const foreignPin = { ...pin, keyId, publicKey };
+  const verified = await verifySequencerReceipt(signedReceipt, rawTransaction, [foreignPin]);
   return { proof: { ...proof, rawTransaction: hex(rawTransaction), signedReceipt: hex(signedReceipt),
-    receiptDigest: hex(keccak256(signedReceipt)), receiptKey },
-  pin: { ...pin, keyId, publicKey } };
+    receiptDigest: hex(verified.receiptDigest), receiptKey },
+    pin: foreignPin };
 }
 
 class OrderStore {
@@ -257,7 +262,7 @@ class OrderStore {
 }
 
 async function sellerNetworkUnbound(t) {
-  const foreign = foreignChainWitness();
+  const foreign = await foreignChainWitness();
   const directory = await temporary(t);
   const decoded = await verifySequencerReceipt(bytes(foreign.proof.signedReceipt), bytes(foreign.proof.rawTransaction), [foreign.pin]);
   assert.equal(decoded.receipt.resultCode, 0);

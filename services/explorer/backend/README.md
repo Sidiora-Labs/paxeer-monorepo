@@ -2,7 +2,7 @@
 
 This is the backend of the Paxeer X Network block explorer: a fork of the
 Blockscout Elixir umbrella application, imported from `blockscout/blockscout`
-at tag `v10.2.6` (see [upstream provenance](../UPSTREAM.md)). It indexes
+at tag `v10.2.6` (see [upstream provenance](../../../docs/explorer/UPSTREAM.md)). It indexes
 Paxeer mainnet-beta over node EVM JSON-RPC, stores indexed data in PostgreSQL,
 and serves the explorer frontend in [`apps/explorer`](../../../apps/explorer).
 
@@ -61,12 +61,12 @@ the current native account, transaction and feed APIs.
 Historical anchor and old receipt rows are read-only data. Archive APIs serve
 these frozen items with no live settlement status; use the current capability,
 feed and native transaction-status routes linked separately above for live data.
-The archive examples below use full paths:
+The three registered archive routes below use full paths:
 
 | Path | Purpose |
 | --- | --- |
 | `/api/v2/paxeer-x/archive/anchors` | Frozen historical anchor checkpoints |
-| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts |
+| `/api/v2/paxeer-x/archive/receipts` | Frozen historical receipts and their recorded verification status |
 | `/api/v2/paxeer-x/archive/receipts/:id` | One frozen receipt by its full hash |
 
 ### Frontend integration

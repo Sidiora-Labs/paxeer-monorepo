@@ -1380,7 +1380,7 @@ fn proof_bundle_decoder_negatives(
     }
     for rung in ["submitted", "CheckpointFinalised", "SettlementAnchored"] {
         let mut changed = response.value.clone();
-        changed["achieved_rung"] = json!(rung);
+        changed["achieved_verification_level"] = json!(rung);
         response_cases.push(changed);
     }
     for (field, value) in [
@@ -1426,7 +1426,7 @@ fn proof_bundle_decoder_negatives(
         .map_err(|error| format!("receipt target refused: {error:?}"))?;
     higher_request.requested_rung = Rung::Receipted;
     let mut receipt_response = response.clone();
-    receipt_response.value["achieved_rung"] = json!("receipted");
+    receipt_response.value["achieved_verification_level"] = json!("receipted");
     receipt_response.value["value"]["verificationLevel"] = json!("receipted");
     for name in [
         "blockHeader",

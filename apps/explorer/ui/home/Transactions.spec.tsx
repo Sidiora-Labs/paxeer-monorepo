@@ -35,27 +35,27 @@ describe('Transactions', () => {
     });
   });
 
-  it('heads one card with the latest transactions', async() => {
+  it('heads one table section with the latest transactions', async() => {
     const { container } = render(
       <HomeRpcDataContextProvider>
         <Transactions/>
       </HomeRpcDataContextProvider>,
     );
 
-    await screen.findByText('View all transactions');
+    await screen.findByRole('link', { name: 'View all transactions' });
 
     expect(container.querySelectorAll('[data-scan-table-card]')).toHaveLength(1);
     expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent).toBe('Latest transactions');
   });
 
-  it('holds the transaction rows inside that card', async() => {
+  it('holds the transaction rows inside that section', async() => {
     const { container } = render(
       <HomeRpcDataContextProvider>
         <Transactions/>
       </HomeRpcDataContextProvider>,
     );
 
-    await screen.findByText('View all transactions');
+    await screen.findByRole('link', { name: 'View all transactions' });
 
     const card = container.querySelector('[data-scan-table-card]') as HTMLElement;
 

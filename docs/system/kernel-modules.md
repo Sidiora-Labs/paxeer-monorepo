@@ -2,13 +2,13 @@
 
 # LayerX kernel modules
 
-Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_iface` registration with its `activity_types` table under `src/modules/`.
+Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_iface` registration with its `activity_types` table under `src/modules/`. The bridge sources expose helpers without an interface registration.
 
 ## Summary
 
-| Id | Module | ABI version | Activity types | Registration |
+| Id | Module | ABI version | Activity types | Registration / sources |
 |---|---|---|---|---|
-| 1 | asset | 1 | 8 | `src/modules/asset/lx_asset_registry.c` |
+| 1 | asset | 1 | 7 | `src/modules/asset/lx_asset_registry.c` |
 | 2 | escrow | 1 | 7 | `src/modules/escrow/lx_escrow_module.c` |
 | 3 | budget | 1 | 10 | `src/modules/budget/lx_budget_module.c` |
 | 4 | stream | 1 | 8 | `src/modules/stream/lx_stream_open.c` |
@@ -17,7 +17,7 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | 6 | perps | 2 | 11 | `src/modules/perps/lx_perps_dispatch.c` |
 | 6 | perps | 3 | 12 | `src/modules/perps/lx_perps_dispatch.c` |
 | 7 | governance | 1 | 2 | `src/modules/governance/lxp_governance.c` |
-| 8 | bridge | 1 | 1 | `src/modules/bridge/lxp_bridge_credit.c` |
+| 8 | bridge | - | - | No interface registration; `src/modules/bridge/lxp_bridge_deposit.c`, `src/modules/bridge/lxp_bridge_exit.c`, `src/modules/bridge/lxp_bridge_withdraw.c`, `src/modules/bridge/lxp_reserve.c` |
 | 9 | programs | 1 | 5 | `src/modules/programs/registration.c` |
 | 9 | programs | 2 | 7 | `src/modules/programs/registration.c` |
 | 9 | programs | 3 | 8 | `src/modules/programs/registration.c` |
@@ -35,7 +35,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 | `LX_ASSET_UNPAUSE` | `0x00010003` |
 | `LX_ASSET_ACCOUNT_OPEN` | `0x00010004` |
 | `LX_ASSET_SEND` | `0x00010005` |
-| `LX_ASSET_WITHDRAW` | `0x00010009` |
 | `LX_ASSET_MINT` | `0x0001000a` |
 | `LX_ASSET_BURN` | `0x0001000b` |
 
@@ -152,12 +151,6 @@ Source: the module ids in `include/layerx/lxp_module.h` and each `lxp_module_ifa
 |---|---|
 | `LXP_GOVERNANCE_MIGRATION_BUDGET` | `0x0007000a` |
 | `LXP_GOVERNANCE_PROGRAMS_FEE` | `0x0007000b` |
-
-## bridge (`LXP_MODULE_BRIDGE` = 8)
-
-| Activity type | Value |
-|---|---|
-| `LXP_BRIDGE_CREDIT` | `(8U << 16U) \| 1U` |
 
 ## programs (`LXP_MODULE_PROGRAMS` = 9)
 

@@ -10,26 +10,17 @@ import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 interface Props {
   data: ValidatorsZilliqaItem;
   isLoading?: boolean;
+  columns: { index: boolean; stake: boolean };
 }
 
-const ValidatorsTableItem = ({ data, isLoading }: Props) => {
+const ValidatorsTableItem = ({ data, isLoading, columns }: Props) => {
   return (
     <TableRow>
       <TableCell verticalAlign="middle">
         <ValidatorEntity id={ data.bls_public_key } isLoading={ isLoading } fontWeight="700"/>
       </TableCell>
-      <TableCell verticalAlign="middle">
-        <Skeleton loading={ isLoading } display="inline-block">
-          { data.index }
-        </Skeleton>
-      </TableCell>
-      <TableCell verticalAlign="middle" isNumeric>
-        <NativeCoinValue
-          amount={ data.balance }
-          loading={ isLoading }
-          noSymbol
-        />
-      </TableCell>
+      { columns.index && <TableCell isNumeric><Skeleton loading={ isLoading }>{ data.index ?? '—' }</Skeleton></TableCell> }
+      { columns.stake && <TableCell isNumeric>{ data.balance == null ? '—' : <NativeCoinValue amount={ data.balance } loading={ isLoading } noSymbol/> }</TableCell> }
     </TableRow>
   );
 };

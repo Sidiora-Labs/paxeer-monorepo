@@ -74,10 +74,11 @@ storage also carries deterministic occupancy charges. See
 [Programs](Programs.md#occupancy-and-committed-state), [Fees](Fees.md), and
 [Assets and tokens](Assets.md).
 
-Hosted `px_*` methods belong to `services/platform/hosted/gateway/`, whose
-`openrpc.json` defines their contract. They are not node namespaces. The
-public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
-`txpool`; obtain hosted service availability from its operator.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`,
+`test`, and `txpool`. The `px` namespace answers from node state; `px_register`
+and `px_requestFunds` are hosted identity and faucet operations whose contract
+is `services/platform/hosted/gateway/openrpc.json`. Obtain hosted service
+availability from its operator.
 
 ## Resources
 
@@ -117,7 +118,6 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Human journeys](HumanJourneys.md)
 - [Human custody](HumanCustody.md)
 - [Human owner registration](HumanOwnerRegistration.md)
-- [Protocol design](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/layerx-protocol/design.md)
 - [Contributing guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
 - [Security policy](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/SECURITY.md)
 - [Qualification documentation](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/docs/QUALIFICATION.md)
@@ -136,8 +136,6 @@ public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and
 - [Market-maker ramps](MarketMakerRamps.md)
 - [Ethereum and Solana mirrors](Mirrors.md)
 - [Ethereum and Solana migration](Migration.md)
-- [402LXP protocol](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/protocol.md)
-- [402LXP RPC verification guide](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/spec/402lxp/README.md)
 - [Agentd](Agentd.md)
 - [CLI](Cli.md)
 - [Hosted core](HostedCore.md)

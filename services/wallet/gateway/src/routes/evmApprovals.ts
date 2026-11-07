@@ -178,18 +178,25 @@ export async function evmApprovalRoutes(
     return row;
   }
 
-  async function transaction<T>(work: (client: PoolClient) => Promise<T>): Promise<T> {
-    const client = await pool.connect();
+  async function transaction<T>(
+    work: (client: PoolClient) => Promise<T>,
+    connection?: PoolClient,
+    before?: (client: PoolClient) => Promise<void>
+  ): Promise<T> {
+    const client = connection ?? (await pool.connect());
+    let begun = false;
     try {
+      if (before) await before(client);
       await client.query('begin');
+      begun = true;
       const result = await work(client);
       await client.query('commit');
       return result;
     } catch (error) {
-      await client.query('rollback').catch(() => undefined);
+      if (begun) await client.query('rollback').catch(() => undefined);
       throw error;
     } finally {
-      client.release();
+      if (!connection) client.release();
     }
   }
 
@@ -243,68 +250,74 @@ export async function evmApprovalRoutes(
         } catch {
           return refuse(400, 'evm_unsigned_canonical_required');
         }
-        return transaction(async (client) => {
-          const wallet = await original(client, req.user!.id);
-          await limiter.consume('account', wallet.address);
-          await client.query(
-            "delete from wallet_evm_approvals where principal=$1 and state in ('reviewed','approved') and expires_at<=now()",
-            [req.user!.id]
-          );
-          const count = await client.query<{ count: string }>(
-            `select count(*)::text as count from wallet_evm_approvals where principal=$1 and state in ('reviewed','approved','signing_unknown')
+        return transaction(
+          async (client) => {
+            const wallet = await original(client, req.user!.id);
+            await client.query(
+              "delete from wallet_evm_approvals where principal=$1 and state in ('reviewed','approved') and expires_at<=now()",
+              [req.user!.id]
+            );
+            const count = await client.query<{ count: string }>(
+              `select count(*)::text as count from wallet_evm_approvals where principal=$1 and state in ('reviewed','approved','signing_unknown')
            and not exists (select 1 from wallet_approval_recovery r where r.domain='evm'
              and r.approval_id=wallet_evm_approvals.id::text and r.phase='refused')`,
-            [req.user!.id]
-          );
-          if (!count.rows[0] || BigInt(count.rows[0].count) >= 256n)
-            return refuse(429, 'evm_approval_capacity');
-          const id = randomUUID();
-          const session = randomUUID();
-          const review = await attestors.reviewEvmTransaction({
-            keyId: wallet.attestor_key_id,
-            sessionId: session,
-            transaction: canonical,
-            owner: req.user!.id,
-            token: req.headers.authorization!.slice('Bearer '.length).trim(),
-          });
-          if (
-            review.signing_hash !== keccak256(unsigned) ||
-            review.chain_id !== wallet.chain_id ||
-            review.chain_id !== env.HYPERPAXEER_CHAIN_ID ||
-            review.to.toLowerCase() !== decoded.to!.toLowerCase() ||
-            review.value !== (decoded.value ?? 0n).toString() ||
-            review.data.toLowerCase() !== (decoded.data ?? '0x').toLowerCase()
-          ) {
-            return refuse(403, 'evm_review_binding_mismatch');
-          }
-          const key = requireInventoryKey(wallet.attestor_key_id, 'sign', req.user!.id);
-          const { audit, ...disclosure } = review;
-          const artifact: EvmArtifact = {
-            ...disclosure,
-            id,
-            transaction: canonical,
-            principal: req.user!.id,
-            key_id: wallet.attestor_key_id,
-            public_key: key.public_key,
-            epoch: key.epoch,
-            session_id: session,
-            expires_at: String(Math.floor(Date.now() / 1000) + 600),
-          };
-          await client.query(
-            `insert into wallet_evm_approvals(id,wallet_id,principal,session_id,state,artifact,expires_at,review_evidence)
-           values($1,$2,$3,$4,'reviewed',$5::jsonb,to_timestamp($6::double precision),$7::jsonb)`,
-            [
+              [req.user!.id]
+            );
+            if (!count.rows[0] || BigInt(count.rows[0].count) >= 256n)
+              return refuse(429, 'evm_approval_capacity');
+            const id = randomUUID();
+            const session = randomUUID();
+            const review = await attestors.reviewEvmTransaction({
+              keyId: wallet.attestor_key_id,
+              sessionId: session,
+              transaction: canonical,
+              owner: req.user!.id,
+              token: req.headers.authorization!.slice('Bearer '.length).trim(),
+            });
+            if (
+              review.signing_hash !== keccak256(unsigned) ||
+              review.chain_id !== wallet.chain_id ||
+              review.chain_id !== env.HYPERPAXEER_CHAIN_ID ||
+              review.to.toLowerCase() !== decoded.to!.toLowerCase() ||
+              review.value !== (decoded.value ?? 0n).toString() ||
+              review.data.toLowerCase() !== (decoded.data ?? '0x').toLowerCase()
+            ) {
+              return refuse(403, 'evm_review_binding_mismatch');
+            }
+            const key = requireInventoryKey(wallet.attestor_key_id, 'sign', req.user!.id);
+            const { audit, ...disclosure } = review;
+            const artifact: EvmArtifact = {
+              ...disclosure,
               id,
-              wallet.id,
-              req.user!.id,
-              session,
-              JSON.stringify(artifact),
-              artifact.expires_at,
-              JSON.stringify(audit),
-            ]
-          );
-          return { ...artifact, state: 'reviewed' };
-        });
+              transaction: canonical,
+              principal: req.user!.id,
+              key_id: wallet.attestor_key_id,
+              public_key: key.public_key,
+              epoch: key.epoch,
+              session_id: session,
+              expires_at: String(Math.floor(Date.now() / 1000) + 600),
+            };
+            await client.query(
+              `insert into wallet_evm_approvals(id,wallet_id,principal,session_id,state,artifact,expires_at,review_evidence)
+           values($1,$2,$3,$4,'reviewed',$5::jsonb,to_timestamp($6::double precision),$7::jsonb)`,
+              [
+                id,
+                wallet.id,
+                req.user!.id,
+                session,
+                JSON.stringify(artifact),
+                artifact.expires_at,
+                JSON.stringify(audit),
+              ]
+            );
+            return { ...artifact, state: 'reviewed' };
+          },
+          undefined,
+          async (client) => {
+            const wallet = await original(client, req.user!.id);
+            await limiter.consume('account', wallet.address, client);
+          }
+        );
       });
     }
   );
@@ -339,12 +352,12 @@ export async function evmApprovalRoutes(
   });
 
   async function reconcile(id: string, subject: string, token?: string): Promise<EvmApprovalRow> {
-    return recovery.locked('evm', id, async () => {
-      let row = await transaction((client) => retained(client, subject, id));
+    return recovery.locked('evm', id, async (client) => {
+      let row = await transaction((client) => retained(client, subject, id), client);
       if (row.state !== 'signing_unknown' && row.state !== 'signed') return row;
       const a = row.artifact;
       const binding = approvalBinding(a, row.approval);
-      const prior = await recovery.read('evm', id);
+      const prior = await recovery.read('evm', id, client);
       if (!token && !prior?.evidence.raw) return row;
       const progress = await retainedSignature(
         recovery,
@@ -386,13 +399,17 @@ export async function evmApprovalRoutes(
           )
             return refuse(502, 'evm_signature_evidence_mismatch');
           return raw;
-        }
+        },
+        client
       );
       const raw = progress.evidence.raw;
       if (!raw || !progress.evidence.result) return refuse(502, 'evm_signature_evidence_mismatch');
       const hash = keccak256(raw);
       // The verified bytes and local hash commit before the first network write.
-      await recovery.save({ ...progress, evidence: { ...progress.evidence, tx_hash: hash } });
+      await recovery.save(
+        { ...progress, evidence: { ...progress.evidence, tx_hash: hash } },
+        client
+      );
       let receipt: SequencerReceiptResult | null = row.evidence?.receipt ?? null;
       let rejection = row.evidence?.submission_error;
       try {
@@ -409,11 +426,14 @@ export async function evmApprovalRoutes(
       } catch (error) {
         if (error instanceof TransactionRejectedError) {
           rejection = error.message;
-          await recovery.save({
-            ...progress,
-            phase: 'rejected',
-            evidence: { ...progress.evidence, tx_hash: hash, body: { error: rejection } },
-          });
+          await recovery.save(
+            {
+              ...progress,
+              phase: 'rejected',
+              evidence: { ...progress.evidence, tx_hash: hash, body: { error: rejection } },
+            },
+            client
+          );
         }
         app.log.warn({ err: error, approval: id }, 'EVM submission retained for reconciliation');
       }
@@ -435,13 +455,16 @@ export async function evmApprovalRoutes(
           [id, JSON.stringify(evidence)]
         );
         return { ...current, state: 'signed' as const, evidence };
-      });
+      }, client);
       if (receipt !== null && receipt.rung !== 'submitted')
-        await recovery.save({
-          ...progress,
-          phase: 'settled',
-          evidence: { ...progress.evidence, tx_hash: hash },
-        });
+        await recovery.save(
+          {
+            ...progress,
+            phase: 'settled',
+            evidence: { ...progress.evidence, tx_hash: hash },
+          },
+          client
+        );
       return row;
     });
   }
@@ -449,11 +472,12 @@ export async function evmApprovalRoutes(
   app.post('/v1/wallet/evm/sign', { preHandler: requireAuth }, async (req, reply) => {
     const parsed = signSchema.safeParse(req.body);
     if (!parsed.success) return reply.code(400).send({ error: 'explicit_evm_approval_required' });
+    const approvalId = parsed.data.approval_id;
     return guarded(reply, async () => {
       await limiter.consume('client', req.user!.id);
       if (!attestors) return refuse(503, 'attestor_custody_required');
-      const staged = await transaction(async (client) => {
-        const row = await retained(client, req.user!.id, parsed.data.approval_id);
+      async function ready(client: PoolClient): Promise<EvmApprovalRow> {
+        const row = await retained(client, req.user!.id, approvalId);
         if (row.state === 'signed' || row.state === 'signing_unknown') return row;
         if (row.state !== 'approved' || !row.approval)
           return refuse(403, 'explicit_evm_approval_required');
@@ -470,13 +494,29 @@ export async function evmApprovalRoutes(
           approval.expires_at !== a.expires_at
         )
           return refuse(409, 'evm_review_changed');
-        await limiter.consume('account', publicKeyToAddress(`0x${a.public_key}`));
-        await client.query(
-          "update wallet_evm_approvals set state='signing_unknown',attempted_at=now() where id=$1",
-          [row.id]
-        );
-        return { ...row, state: 'signing_unknown' as const };
-      });
+        return row;
+      }
+      const staged = await transaction(
+        async (client) => {
+          const row = await ready(client);
+          if (row.state === 'signed' || row.state === 'signing_unknown') return row;
+          await client.query(
+            "update wallet_evm_approvals set state='signing_unknown',attempted_at=now() where id=$1",
+            [row.id]
+          );
+          return { ...row, state: 'signing_unknown' as const };
+        },
+        undefined,
+        async (client) => {
+          const row = await ready(client);
+          if (row.state !== 'signed' && row.state !== 'signing_unknown')
+            await limiter.consume(
+              'account',
+              publicKeyToAddress(`0x${row.artifact.public_key}`),
+              client
+            );
+        }
+      );
       try {
         return response(
           await reconcile(

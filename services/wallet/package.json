@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "Paxeer X wallet workspace: the wallet gateway, the wallet SDK and the demo app.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">=20.10.0"
   },

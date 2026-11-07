@@ -1,0 +1,13 @@
+[repair.22.31.595]
+base_revision = "bb24cab1fbbb7e703dfe89fdc2a9301543f0f5ef"
+field = "Receipt.KernelGasUsed"
+finding = "Simulate drops kernel gas: its private node is reset to zero and never receives the Programs callback's ctx->gas_used; Execute already captures that counter after kernel execution."
+change = "Reset and capture the same thread-local Programs gas counter around simulation and execution, preserving the gas reported by the real module context."
+proof = "TestSimulateMatchesExecuteReceipt retains complete receipt equality and adds nonzero gas assertions, including signed and bound unsigned funded Wasm guest calls with nonzero CPU fuel."
+baseline = "Not run: the explicit order permits verification only through hf-done after complete implementation and hf-build; no pre-change test result is claimed."
+build_evidence = "/out/run/gates.jsonl build entry: exact candidate revision, command, exit and private log."
+verify_evidence = "/out/run/gates.jsonl verify entry: exact candidate revision, cg spec done command, exit and private log."
+
+[gotcha.cgo_meter_translation_unit]
+observed = "Simulation and execution have separate cgo preambles; a second static thread-local counter in simulate.go would not be the Programs callback's counter."
+action = "Access the existing counter through host.go helpers while Simulate holds the same OS thread through reset, execution and capture."

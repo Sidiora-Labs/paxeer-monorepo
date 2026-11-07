@@ -1,0 +1,206 @@
+{
+  "task": "22.33.1478",
+  "acceptance": "22998.1",
+  "audit": "spec/layerx-merge/programme/audit/records/22.30.86.kvx",
+  "baseRevision": "4edd7ec43f9bb5bdfa1acd81692ec21d8c16009a",
+  "qualification": "Runner-owned hf-build/hf-done ledger records the exact qualified candidate revision, command, exit code and private log; no success is claimed by this record alone.",
+  "baseline": "Not run: the explicit gate order requires complete implementation before build and verification, overriding the contradictory unchanged-tree verification step. No baseline failures are claimed.",
+  "inheritedFailures": "Attempt 4 candidate d947025a1ad320fd834e487facec5d7d70dca134 failed the four grant tests at encodeLedgerDraw and the exports proof at the missing HostedGatewayRpc re-export, as recorded in the runner's continuation ruling; these failures were not rerun before implementation.",
+  "findings": {
+    "commit-test-unbound-block": [
+      "committedRungAcceptsTwoThirdsCommit",
+      "committedRungRefusesTwoThirdsExactly",
+      "committedRungRefusesEarlierLandingBlock",
+      "recordedNodePaymentCrossesExampleAndRecovers"
+    ],
+    "seller-draw-fixture": [
+      "grantAuthorityForwardsLedgerDrawTransaction",
+      "grantAuthorityRefusesDrawToAnotherAddress",
+      "grantAuthorityRefusesKernelReceivePayload",
+      "grantWireConsumerRefusesAndRecoversDurableClaims"
+    ],
+    "seller-rpc-route-test": [
+      "paymentRpcSendsRawTransaction",
+      "paymentRpcReadsSequencerReceipt",
+      "paymentRpcSeparatesNodeAndHostedOrigins",
+      "paymentRpcRetainsEndpointAndBodyBounds"
+    ],
+    "seller-export-unbound-block": [
+      "sellerExportsPersistCommittedPaymentsAcrossConsumers",
+      "recordedNodePaymentCrossesExampleAndRecovers"
+    ],
+    "seller-export-rpc-route-test": [
+      "rpcProducerEvidenceCrossesThePublicNextExports"
+    ],
+    "replay-test-second-release": [
+      "receiptIdentityIsBoundToOnePrincipal",
+      "authenticatedReceiptRaceSurvivesServerReopen"
+    ],
+    "settlement-test-unbound-block": [
+      "settlementResponseCarriesPortableReceipt",
+      "recordedNodePaymentCrossesExampleAndRecovers",
+      "receiptAuthorityPreservesSdkRefusal"
+    ]
+  },
+  "producerEvidence": {
+    "committed": "sdk/platform/conformance/fixtures/vector-v4-committed.json carries independently collected node Comet headers, commits, transaction/result paths, and the recorder-signed sequencer inclusion envelope; its provenance is retained unchanged. The resolver transports this evidence through encodePaymentCommitmentEvidence, JSON serialization and decodePaymentCommitmentEvidence before the production commitment verifier consumes it.",
+    "draw": "grant-draw-wire.json is the existing signed ABI contract fixture from buyer repair 22.31.436, not a node debit transcript. The local tests prove production seller consumer binding, refusal, uncertain delivery and durable reopen. Full node execution remains an explicit wiring request, not a claimed closure."
+  },
+  "wiringRequests": [
+    "Domain 7: precompiles/layerxledger/payments.go getPayerGrant still returns ErrNoPayerGrant; provide real grant lookup and a committed node-produced 0x101A draw transcript with distinct source/recipient, refused, unknown and restarted outcomes in sdk/platform/conformance/fixtures (SDK fixture owner domain 8).",
+    "Domain 8: sdk/integrations/next/src/index.ts mountLayerX needs a PaymentCommitmentResolver option, passed into SellerMiddleware, to admit committed payments with independently trusted validators; current mount coverage proves receipted success and committed-offer refusal."
+  ],
+  "gotchas": [
+    "ES module linking parses static TypeScript dependencies before source-loader.mjs registers its transform hook; the repair entrypoint dynamically imports production modules and suites after hook registration.",
+    "Committed recovery must retain independent validator trust even when all inclusion evidence is recovered from disk; stored evidence cannot authenticate its own validator set.",
+    "Preserving MiddlewareError.cause distinguishes SDK signature refusals (code verification-failure, check bad_signature) from the actual committed fixture failure (TypeError without a code: Expected EIP-1559 transaction type 2); a generic HTTP 400 alone cannot identify either cause.",
+    "The SDK authenticates SequencerReceiptVerification by object identity in a WeakMap; passing the spread seller PaymentReceiptVerification to verifyPaymentCommitmentEvidence loses that identity. Direct commitment verification must consume the original recorded.verified result, leaving the seller return type and SDK checks unchanged.",
+    "Decision 2538 requires the SDK receipt signature digest as PortableReceiptV2.receiptDigest. The committed recording positive.receiptDigest and the ABI recording grant-draw-wire.json receiptDigest fields used Keccak of signed bytes; scoped fixtures now derive the proof digest from the verifier or the same signed receipt payload without changing signed evidence.",
+    "Decision 2570 requires full committed inclusion evidence to remain persisted, while the HTTP settlement exposes its landing height and block hash for independent resolver verification.",
+    "A negative unverified-receipt mutation in receipt-replay.test.mjs still uses keccak256 even though positive proof digests now come from verifySequencerReceipt; retain both imports.",
+    "Continuation merge left two constructors and duplicate resolveValidators methods in CommitmentEvidenceRepository outside conflict markers; keep the current validator resolver implementation once.",
+    "Next readDeclaredConfig advertises purposeHash without an optional payer requirement; construct the buyer payload from the mount paymentRequired response so accepted terms match exactly."
+  ],
+  "qualificationFailures": [
+    {
+      "revision": "987a3c3e3f23406ef461eb808a879904f2d26777",
+      "command": "cg spec done 22.33.1478 -f layerx-merge --root /work/paxeer-monorepo",
+      "exit": 1,
+      "log": "/out/logs/verify-1.log",
+      "observed": "21 of 24 tests passed; sellerExportsPersistCommittedPaymentsAcrossConsumers, settlementResponseCarriesPortableReceipt and recordedNodePaymentCrossesExampleAndRecovers failed because the shared portable fixture used the SDK signing digest instead of the signed receipt's Keccak256 digest."
+    },
+    {
+      "revision": "aae680a84619feb09e9625ae028ea5e52dd14665",
+      "command": "cg spec done 22.33.1478 -f layerx-merge --root /work/paxeer-monorepo",
+      "exit": 1,
+      "log": "/out/logs/verify-1.log",
+      "observed": "19 of 25 tests passed. Three committed positives failed on the legacy recorded transaction (TypeError: Expected EIP-1559 transaction type 2); the conformance RPC response lacks the full receiptJson schema; the merchant tamper assertion receives order-conflict; the settlement replay assertion expects a second authority call but the stored-request conflict returns before authority execution.",
+      "assumption": "Keep all six assertions strict; do not broaden the EIP-1559 decoder, accept an incomplete node response, change another domain, or synthesize node commitment evidence."
+    },
+    {
+      "revision": "5103797efa86ededc10fa0fe3c908285ed195313",
+      "command": "cg spec done 22.33.1478 -f layerx-merge --root /work/paxeer-monorepo",
+      "exit": 1,
+      "log": "/out/logs/verify-1.log",
+      "observed": "20/25 tests passed, with no skipped tests. Null vote decoding and receiptAuthorityPreservesSdkRefusal passed. The export proof supplied a spread seller verification object to an SDK verifier that requires the authenticated SDK object identity; the committed HTTP example overflowed the fetch response header limit. The merchant terminal-order, incomplete conformance RPC schema and settlement authority-count conflicts recorded earlier also failed.",
+      "repair": "Use recorded.verified, the original authenticated SDK result, for the direct public commitment verification calls; retain both the positive and tampered-evidence assertions.",
+      "assumption": "Retain all header limits and the three previously recorded strict assertions; the bounded rerun reports remaining interface conflicts rather than weakening checks."
+    },
+    {
+      "revision": "5b13132930ddf1f664af1c1645cb761e77d65826",
+      "command": "cg spec done 22.33.1478 -f layerx-merge --root /work/paxeer-monorepo",
+      "exit": 1,
+      "log": "/out/logs/verify-1.log",
+      "observed": "21/25 tests passed, no skips. All committed inclusion, block-reference HTTP recovery, grant, RPC-route, settlement and durable replay cases passed except unverifiedReceiptCannotClaimFulfillment, whose negative receipt mutation needs its retained keccak256 import. Direct export commitment verification passed and reached the out-of-scope Express receipt-not-backed check; merchant and conformance RPC positives failed at the out-of-scope conformance producer digest.",
+      "repair": "Restore keccak256 beside verifySequencerReceipt in receipt-replay.test.mjs; do not alter any assertion or production verification check.",
+      "assumption": "The three downstream integration failures require their owning domains to implement decision 2538; they are recorded, not repaired or independently re-investigated here."
+    },
+    {
+      "revision": "9e0a16db77240654cafedde5d59c32930e45d2a8",
+      "command": "cg spec done 22.33.1478 -f layerx-merge --root /work/paxeer-monorepo",
+      "exit": 1,
+      "log": "/out/logs/verify-1.log",
+      "observed": "23/25 passed, no skips. Next mounted-offer proof supplied an extra payer requirement absent from the real mount offer (402); merchant tampered digest correctly failed verification before receipt_reuse under landed 22.31.530.",
+      "repair": "Construct the Next payload from its actual advertised offer. Assert invalid-digest rejection and unchanged paid order; separately send an authenticated conflicting replay and retain refused/unchanged-order assertions."
+    }
+  ],
+  "qualificationStatus": "Attempt 11 continues the prior implementation after 22.31.492 and 22.31.493 landed. The runner-owned final hf-build/hf-done ledger records the bounded result at the same candidate revision; this record does not predeclare success.",
+  "sdkRefusal": {
+    "test": "receiptAuthorityPreservesSdkRefusal",
+    "outerCode": "verification-failure",
+    "innerCode": "verification-failure",
+    "innerCheck": "bad_signature",
+    "note": "A deliberately corrupted recorded signature proves that the SDK refusal remains available as MiddlewareError.cause; the test emits the observed inner code/check into the private verification log."
+  },
+  "observedCommittedFailure": {
+    "outerCode": "verification-failure",
+    "causeName": "TypeError",
+    "innerCode": null,
+    "innerMessage": "Expected EIP-1559 transaction type 2",
+    "evidence": "/out/logs/verify-1.log",
+    "note": "Historical attempt 7/8 failure, resolved by the EIP-1559 recording prerequisite; retained as prior evidence only."
+  },
+  "continuation9": {
+    "recording": "sdk/platform/conformance/fixtures/vector-v4-committed.json:positive.receiptInclusion.NextCommit.Signatures[1].Signature",
+    "recordedValue": null,
+    "blockIdFlag": 1,
+    "decoder": "services/platform/middleware/seller/test/repair-22-33-1478-support.mjs:commit",
+    "repair": "Decode null vote signatures as empty Uint8Arrays while retaining BlockIDFlag and ValidatorAddress. All other recording decoders are unchanged; the scoped support adapter leaves the out-of-scope shared committed-fixture.mjs untouched.",
+    "test": "recordedNodePaymentCrossesExampleAndRecovers",
+    "inheritedResult": "Attempt 8: 18/20 passed; recordedNodePaymentCrossesExampleAndRecovers and receiptAuthorityPreservesSdkRefusal failed decoding the absent vote signature with ERR_INVALID_ARG_TYPE (gotcha 3082, decision 2568).",
+    "result": {
+      "source": "/out/run/gates.jsonl",
+      "gate": "verify",
+      "fields": [
+        "revision",
+        "command",
+        "exit",
+        "log"
+      ],
+      "note": "The final hf-done row records the declared verification result for this recording; this record does not predeclare success.",
+      "observedFirstRun": "hf-build passed and hf-done failed with 20/25 tests passing at 5103797efa86ededc10fa0fe3c908285ed195313; receiptAuthorityPreservesSdkRefusal passed and recordedNodePaymentCrossesExampleAndRecovers reached HTTP response parsing after the null-vote assertions passed."
+    }
+  },
+  "startRevision": "fc467dcd09d7007a52ef4c9cdeb874b0573e6883",
+  "resolvedWiringRequests": [
+    "22.31.486 replaced the committed recording legacy transaction with an EIP-1559 chain-125 transaction.",
+    "22.31.525 is present on the start revision: merchant refuses a later payment attempt without changing a paid order; the scoped merchant proof asserts that result.",
+    "Decision 2570 is implemented in seller src/index.ts: settlement headers carry landingBlockHeight and landingBlockHash; complete inclusion evidence stays in the durable fulfillment.",
+    "Decision 2538 is restored at both seller receipt checks and in verifyRpcPayment; a stored conflicting request is refused without a second settlement or release.",
+    "Domain 8 conformance: services/platform/middleware/conformance/src/scenarios.ts ConformancePaymentRpcSession.call must return the complete node pax_sequencerReceipt schema, including nonce, sequence, timestamp, status, logs, gas, fee and address fields; its current five-field response is refused by the strict seller RPC consumer.",
+    "Domain 8 integrations: sdk/integrations/express/src/index.ts and sdk/integrations/next/src/index.ts assertReceiptBacked compare extensions.layerx.receiptDigest to keccak256(canonicalBytes); align with decision 2538 and the SDK verifier receiptDigest without weakening receipt authenticity checks.",
+    "Domain 8 conformance: services/platform/middleware/conformance/src/receipts.ts buildSignedReceipt emits keccak256(signedReceipt) as receiptDigest; align with decision 2538 and verifySequencerReceipt.receiptDigest so its real exported consumers can verify the receipt."
+  ],
+  "continuation10": {
+    "recordingField": "sdk/platform/conformance/fixtures/vector-v4-committed.json:positive.receiptDigest",
+    "proofDigest": "committedPaymentFixture uses hex(verified.receiptDigest) from verifySequencerReceipt; the recording field and signed receipt remain unchanged.",
+    "drawRecordingFields": [
+      "services/platform/middleware/seller/test/grant-draw-wire.json:proof.receiptDigest",
+      "services/platform/middleware/seller/test/grant-draw-wire.json:wrongRecipient.receiptDigest",
+      "services/platform/middleware/seller/test/grant-draw-wire.json:wrongPayer.receiptDigest"
+    ],
+    "drawDigest": "Receipt signature SHA-256 domain digest; all recorded signed receipt and transaction bytes are unchanged.",
+    "diagnosticTest": "sellerExportsPersistCommittedPaymentsAcrossConsumers reports the entire cause chain and innermost check before rethrowing any committed verification failure.",
+    "priorResult": "Attempt 9: 20/25 cases passed; inherited failures were committed header overflow, direct export commitment verification, settlement replay authority count, merchant terminal order handling and incomplete conformance RPC response.",
+    "evidence": {
+      "source": "/out/run/gates.jsonl",
+      "gate": "verify",
+      "fields": [
+        "revision",
+        "command",
+        "exit",
+        "log"
+      ]
+    },
+    "productionCheckConflict": {
+      "path": "sdk/integrations/express/src/index.ts:assertReceiptBacked",
+      "observed": "The strict guard derives keccak256(decision.verification.canonicalBytes) while the restored seller header carries decision.verification.receiptDigest (the SDK receipt signature digest); direct committed verification, persistence and reopen passed before this guard refused receipt-not-backed.",
+      "action": "Record a wiring request to the integrations owner, retain the guard assertion and seller digest checks unchanged, and stop at the bounded result."
+    },
+    "conformanceProducerConflict": {
+      "path": "services/platform/middleware/conformance/src/receipts.ts:buildSignedReceipt",
+      "observed": "The exported producer returns keccak256(signedReceipt) in receiptDigest; the restored seller correctly refuses that proof before the merchant or RPC positive path can proceed.",
+      "action": "Record the owning-domain wiring request without substituting a corrected proof into the real producer/consumer test."
+    }
+  },
+  "continuation11": {
+    "inheritedResult": "Attempt 10 passed 22 of 25 cases; the three export proofs failed at out-of-scope integration/conformance digest interfaces, as recorded in the continuation ruling.",
+    "prerequisites": [
+      "22.31.492",
+      "22.31.493"
+    ],
+    "mergeResolution": "Preserve current verifier-derived receipt digests, asynchronous seller fixtures, validator resolution and principal-bound receipt identity. Integrate the prior inclusion-evidence, landing-block and durable-recovery assertions beside them; remove the duplicate constructor introduced by the merge.",
+    "replayContract": "The landed 22.31.530 behavior authenticates a differing request before receipt_reuse; retain the current settleCount 2 assertion and releaseCount 1. This supersedes the historical attempt-10 settleCount 1 expectation.",
+    "evidence": {
+      "source": "/out/run/gates.jsonl",
+      "gate": "verify",
+      "fields": [
+        "revision",
+        "command",
+        "exit",
+        "log"
+      ]
+    },
+    "repair": "Align two scoped export fixture inputs with real mounted offers and the differing-request authentication contract; retain every success/refusal expectation and add explicit invalid-digest rejection."
+  }
+}

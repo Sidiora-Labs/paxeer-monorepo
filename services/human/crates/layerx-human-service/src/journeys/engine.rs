@@ -6,7 +6,7 @@ use std::fmt::{Display, Formatter};
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
 use layerx_agent_api::identity::{
-    AgentDid, AuthorityRef, ContractError, NativeSendPurposeV1, SignedNativeSendPurposeV1,
+    AgentDid, AuthorityRef, ContractError, NativeSendPurposeV2, SignedNativeSendPurposeV2,
 };
 use layerx_agent_api::prepare::{
     IdempotencyRef, PayloadBytes, PreparationRef, PrepareRequest, TimestampBound,
@@ -265,7 +265,7 @@ pub enum NativeJourneyApprovalState {
 
 pub struct NativeJourneyPreview {
     pub preparation: AgentPreparation,
-    pub purpose: NativeSendPurposeV1,
+    pub purpose: NativeSendPurposeV2,
     pub owner_public_key: [u8; 32],
     pub head_sequence: u64,
     pub protocol_time_ms: u64,
@@ -401,14 +401,14 @@ pub trait AgentBoundary {
     fn native_journey_prepare(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
-        _purpose: &SignedNativeSendPurposeV1,
+        _purpose: &SignedNativeSendPurposeV2,
     ) -> Result<NativeJourneyAdmission, AgentBoundaryError> {
         Err(AgentBoundaryError::Unavailable)
     }
     fn native_journey_resume(
         &mut self,
         _call: &Call<IdempotentMutation<PrepareRequest>>,
-        _purpose: &SignedNativeSendPurposeV1,
+        _purpose: &SignedNativeSendPurposeV2,
         _approval_id: [u8; 32],
         _held_digest: [u8; 32],
     ) -> Result<NativeJourneyAdmission, AgentBoundaryError> {
@@ -492,6 +492,7 @@ pub struct JourneyStatus {
     receipt_digests: Vec<Option<[u8; 32]>>,
     receipt_material: Vec<Option<Vec<u8>>>,
     receipt_authorities: Vec<Option<AuthorizedBatch>>,
+    receipt_rungs: Vec<Option<Rung>>,
     refusal_codes: Vec<Option<i32>>,
 }
 
@@ -528,6 +529,11 @@ impl JourneyStatus {
     #[must_use]
     pub fn receipt_authorities(&self) -> &[Option<AuthorizedBatch>] {
         &self.receipt_authorities
+    }
+
+    #[must_use]
+    pub fn receipt_rungs(&self) -> &[Option<Rung>] {
+        &self.receipt_rungs
     }
 
     /// Returns the exact protocol result for each refused leg.
@@ -628,12 +634,13 @@ struct StoredNativePreparation {
 }
 
 impl StoredNativePreparation {
-    fn signed_purpose(&self) -> Result<SignedNativeSendPurposeV1, JourneyError> {
-        Ok(SignedNativeSendPurposeV1 {
-            purpose: NativeSendPurposeV1::from_canonical_bytes(&self.purpose)?,
-            owner_public_key: self
-                .owner_public_key
-                .ok_or(JourneyError::PreparationMismatch)?,
+    fn signed_purpose(&self) -> Result<SignedNativeSendPurposeV2, JourneyError> {
+        let purpose = NativeSendPurposeV2::from_canonical_bytes(&self.purpose)?;
+        if self.owner_public_key != Some(purpose.consent_public_key) {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        Ok(SignedNativeSendPurposeV2 {
+            purpose,
             signature: self
                 .purpose_signature
                 .as_deref()
@@ -830,13 +837,13 @@ impl JourneyEngine {
             .approval_state
     }
 
-    pub fn native_context_binding(&self) -> Result<Option<NativeSendPurposeV1>, JourneyError> {
+    pub fn native_context_binding(&self) -> Result<Option<NativeSendPurposeV2>, JourneyError> {
         self.record
             .legs
             .get(self.record.current_leg)
             .and_then(|leg| leg.native.as_ref())
             .map(|native| {
-                NativeSendPurposeV1::from_canonical_bytes(&native.purpose)
+                NativeSendPurposeV2::from_canonical_bytes(&native.purpose)
                     .map_err(JourneyError::from)
             })
             .transpose()
@@ -1105,7 +1112,8 @@ impl JourneyEngine {
         if matches!(
             phase,
             JourneyPhase::Preparing | JourneyPhase::Prepared | JourneyPhase::AwaitingApproval
-        ) {
+        ) || self.record.version == 2 && phase == JourneyPhase::Signed
+        {
             let key = KeyId::new(self.record.custody_key.clone())?;
             agent.bind_transaction_sender(custody.evm_wallet(scope.principal(), &key)?)?;
         }
@@ -1235,9 +1243,27 @@ impl JourneyEngine {
         let index = self.record.current_leg;
         let phase = self.record.legs[index].phase;
         let call = self.prepare_call(contract, index)?;
+        let key = KeyId::new(self.record.custody_key.clone())?;
+        let current_key = custody.describe_key(scope.principal(), &key)?;
+        let sender = custody.evm_wallet(scope.principal(), &key)?;
+        if current_key.class != crate::custody::KeyClass::HumanPrimary {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        if let Some(native) = &self.record.legs[index].native {
+            NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?.check_current_owner(
+                &call.request().operation.actor,
+                &current_key.public_key,
+                &sender,
+            )?;
+        }
         if phase == JourneyPhase::Preparing {
             if self.record.legs[index].native.is_none() {
                 let preview = agent.native_journey_preview(&call)?;
+                preview.purpose.check_current_owner(
+                    &call.request().operation.actor,
+                    &current_key.public_key,
+                    &sender,
+                )?;
                 self.validate_preparation(index, &preview.preparation, registry)?;
                 validate_native_send_purpose(
                     &preview.preparation,
@@ -1299,7 +1325,7 @@ impl JourneyEngine {
                     .native
                     .as_ref()
                     .ok_or(JourneyError::PreparationMismatch)?;
-                let purpose = NativeSendPurposeV1::from_canonical_bytes(&native.purpose)?;
+                let purpose = NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?;
                 let owner_key = native.owner_key;
                 let principal = scope.principal().clone();
                 let key = KeyId::new(self.record.custody_key.clone())?;
@@ -1418,6 +1444,20 @@ impl JourneyEngine {
             {
                 return Err(JourneyError::PreparationMismatch);
             }
+            let raw_transaction =
+                signed_transaction(&prepared.unsigned_canonical_bytes, signature.signature())?;
+            let native = self.record.legs[index]
+                .native
+                .as_ref()
+                .ok_or(JourneyError::PreparationMismatch)?;
+            layerx_human_kms::attestor::validate_native_send_release(
+                &native.signed_purpose()?.canonical_bytes()?,
+                &call.request().operation.actor,
+                &current_key.public_key,
+                &sender,
+                &raw_transaction,
+            )
+            .map_err(|_| JourneyError::PreparationMismatch)?;
             self.record.legs[index].signed = Some(SignedEvidence {
                 preparation_ref: prepared.preparation_ref.as_str().to_owned(),
                 canonical_digest: Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
@@ -1425,10 +1465,7 @@ impl JourneyEngine {
                     .as_bytes()
                     .to_vec(),
                 signer_public_key: signature.signer_public_key(),
-                raw_transaction: Some(signed_transaction(
-                    &prepared.unsigned_canonical_bytes,
-                    signature.signature(),
-                )?),
+                raw_transaction: Some(raw_transaction),
             });
             return self.transition(scope, index, JourneyPhase::Signed, now);
         }
@@ -1470,7 +1507,7 @@ impl JourneyEngine {
             .native
             .as_ref()
             .ok_or(JourneyError::PreparationMismatch)?;
-        let purpose = NativeSendPurposeV1::from_canonical_bytes(&native.purpose)?;
+        let purpose = NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?;
         validate_native_send_purpose(&admission.preparation, &purpose, native.owner_key, registry)?;
         if admission.preparation.unsigned_canonical_bytes != native.unsigned_canonical_bytes
             || admission.preparation.signing_preimage != native.signing_preimage
@@ -1890,6 +1927,17 @@ impl JourneyEngine {
             receipt_digests,
             receipt_material,
             receipt_authorities,
+            receipt_rungs: self
+                .record
+                .legs
+                .iter()
+                .map(|leg| {
+                    leg.rung_evidence
+                        .as_ref()
+                        .map(|evidence| evidence.rung())
+                        .transpose()
+                })
+                .collect::<Result<Vec<_>, JourneyError>>()?,
             refusal_codes,
         })
     }
@@ -2507,23 +2555,28 @@ fn compile_plan(
 
 fn validate_native_send_purpose(
     prepared: &AgentPreparation,
-    purpose: &NativeSendPurposeV1,
+    purpose: &NativeSendPurposeV2,
     owner_public_key: [u8; 32],
     registry: &ModuleRegistry,
 ) -> Result<(), JourneyError> {
     let canonical = purpose.canonical_bytes()?;
-    if NativeSendPurposeV1::from_canonical_bytes(&canonical)? != *purpose {
+    if NativeSendPurposeV2::from_canonical_bytes(&canonical)? != *purpose {
         return Err(JourneyError::PreparationMismatch);
     }
     let transaction =
         crate::server::agent_runtime::decode_unsigned(&prepared.unsigned_canonical_bytes)
             .map_err(|_| JourneyError::PreparationMismatch)?;
     let _ = registry;
-    if purpose.owner_public_key != owner_public_key
+    purpose.check_prepared_transaction(
+        2,
+        transaction.chain_id,
+        &purpose.evm_sender,
+        &Sha256::digest(&prepared.unsigned_canonical_bytes).into(),
+    )?;
+    if purpose.consent_public_key != owner_public_key
         || purpose.agent_did != prepared.actor
         || purpose.activity.activity_type()? != prepared.activity_type
-        || purpose.network_id
-            != u32::try_from(transaction.chain_id).map_err(|_| JourneyError::PreparationMismatch)?
+        || purpose.chain_id != transaction.chain_id
         || prepared.pending_nonce != transaction.nonce
         || purpose.idempotency_key != prepared.idempotency_key
         || purpose.preparation_id
@@ -2552,13 +2605,54 @@ fn validate_native_record(leg: &LegRecord) -> Result<(), JourneyError> {
             Err(JourneyError::PreparationMismatch)
         };
     };
-    let purpose = NativeSendPurposeV1::from_canonical_bytes(&native.purpose)?;
+    let purpose = NativeSendPurposeV2::from_canonical_bytes(&native.purpose)?;
     let digest: [u8; 32] = Sha256::digest(&native.unsigned_canonical_bytes).into();
+    let transaction =
+        layerx_crypto::evm_transaction::decode_unsigned(&native.unsigned_canonical_bytes)
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+    purpose.check_prepared_transaction(2, transaction.chain_id, &purpose.evm_sender, &digest)?;
+    if native.signing_preimage != transaction.signing_hash() {
+        return Err(JourneyError::PreparationMismatch);
+    }
+    if let Some(signature) = &native.purpose_signature {
+        let signature: &[u8; 64] = signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        layerx_crypto::ed25519::verify_digest(
+            &purpose.consent_public_key,
+            signature,
+            &Sha256::digest(&native.purpose).into(),
+        )
+        .map_err(|_| JourneyError::PreparationMismatch)?;
+    }
+    if let Some(signed) = &leg.signed {
+        let raw = signed
+            .raw_transaction
+            .as_ref()
+            .ok_or(JourneyError::PreparationMismatch)?;
+        let signature: &[u8; 65] = signed
+            .signature
+            .as_slice()
+            .try_into()
+            .map_err(|_| JourneyError::PreparationMismatch)?;
+        if signed_transaction(&native.unsigned_canonical_bytes, signature)? != *raw {
+            return Err(JourneyError::PreparationMismatch);
+        }
+        layerx_human_kms::attestor::validate_native_send_release(
+            &native.signed_purpose()?.canonical_bytes()?,
+            &purpose.owner_did,
+            &native.owner_key,
+            &purpose.evm_sender,
+            raw,
+        )
+        .map_err(|_| JourneyError::PreparationMismatch)?;
+    }
     if purpose.agent_did.as_str() != leg.preparation.actor
         || purpose.preparation_id != digest
         || purpose.canonical_digest != digest
         || purpose.idempotency_key != leg.action_key
-        || purpose.owner_public_key != native.owner_key
+        || purpose.consent_public_key != native.owner_key
         || purpose.activity.activity_type()?.value() != leg.activity_type
         || native.signing_preimage.is_empty()
         || native.owner_key == [0; 32]

@@ -12,6 +12,7 @@ import type { ResourceError } from 'lib/api/resources';
 import { useSettingsContext } from 'lib/contexts/settings';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import type { ExternalSearchItem as ExternalSearchItemType } from 'lib/search/externalSearch';
+import { Button } from 'toolkit/chakra/button';
 import AdaptiveTabs from 'toolkit/components/AdaptiveTabs/AdaptiveTabs';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import * as regexp from 'toolkit/utils/regexp';
@@ -21,14 +22,25 @@ import ExternalSearchItem from 'ui/shared/search/ExternalSearchItem';
 import type { ApiCategory, Category, ItemsCategoriesMap } from 'ui/shared/search/utils';
 import { getItemCategory, searchCategories } from 'ui/shared/search/utils';
 
+import type { useSearchAssistant } from '../useSearchQuery';
+
 import SearchBarSuggestApp from './SearchBarSuggestApp';
 import SearchBarSuggestBlockCountdown from './SearchBarSuggestBlockCountdown';
 import SearchBarSuggestItem from './SearchBarSuggestItem';
 import SearchBarSuggestZetaChainCCTX from './SearchBarSuggestZetaChainCCTX';
 
-const TABS_HEIGHT = 72;
+const TABS_HEIGHT = 52;
+const PROMPT_ORDER: Array<Category> = [ 'transaction', 'address', 'block', 'token', 'app' ];
+const PROMPT_CATEGORY: Partial<Record<Category, ApiCategory>> = {
+  nft: 'token', confidential_token: 'token', public_tag: 'address', domain: 'address', cluster: 'address',
+  user_operation: 'transaction', tac_operation: 'transaction',
+};
+const PROMPT_LABELS: Partial<Record<Category, string>> = {
+  transaction: 'TRANSACTIONS', address: 'ADDRESSES', block: 'BLOCKS', token: 'TOKENS', app: 'APPS',
+};
 
 interface Props {
+  assistant?: ReturnType<typeof useSearchAssistant>;
   query: UseQueryResult<Array<QuickSearchResultItem>, ResourceError<unknown>>;
   zetaChainCCTXQuery: UseQueryResult<ListCctxsResponse, ResourceError<unknown>>;
   externalSearchItem: ExternalSearchItemType;
@@ -37,7 +49,7 @@ interface Props {
   category?: Category;
 }
 
-const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searchTerm, onItemClick, category }: Props) => {
+const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searchTerm, onItemClick, category, assistant }: Props) => {
   const isMobile = useIsMobile();
 
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -49,7 +61,10 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
   const [ currentTab, setCurrentTab ] = React.useState<Category | undefined>(undefined);
 
   const visibleCategories = React.useMemo(() => {
-    return category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
+    const categories = category ? searchCategories.filter((cat) => cat.id === category) : searchCategories;
+    const rank = (id: Category) => PROMPT_ORDER.includes(id) ? PROMPT_ORDER.indexOf(id) : PROMPT_ORDER.length;
+    return categories.map(cat => ({ ...cat, title: PROMPT_LABELS[PROMPT_CATEGORY[cat.id] ?? cat.id] ?? cat.title.toUpperCase() }))
+      .sort((a, b) => rank(a.id) - rank(b.id));
   }, [ category ]);
 
   const handleScroll = React.useCallback(() => {
@@ -93,7 +108,8 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
     const map: Partial<ItemsCategoriesMap> = {};
 
     query.data?.forEach(item => {
-      const cat = getItemCategory(item) as ApiCategory;
+      const itemCategory = getItemCategory(item) as ApiCategory;
+      const cat = category ? itemCategory : PROMPT_CATEGORY[itemCategory] ?? itemCategory;
       if (cat) {
         if (cat in map) {
           map[cat]?.push(item);
@@ -122,7 +138,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
     }
 
     return map;
-  }, [ query.data, marketplaceApps.displayedApps, searchTerm, zetaChainCCTXQuery.data?.items ]);
+  }, [ query.data, marketplaceApps.displayedApps, searchTerm, zetaChainCCTXQuery.data?.items, category ]);
 
   React.useEffect(() => {
     const resultCategories = visibleCategories.filter(cat => itemsGroups[cat.id]);
@@ -199,7 +215,7 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
               overflowX: 'auto',
               mb: 0,
               mt: 0,
-              bgColor: 'dialog.bg',
+              bgColor: 'raised',
             }}
           />
         ) }
@@ -208,11 +224,11 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
             return (
               <Box key={ cat.id } data-scroll-target={ `cat_${ cat.id }` }>
                 <Text
-                  textStyle="sm"
-                  fontWeight={ 600 }
-                  color="text.secondary"
-                  mt={ index === 0 ? 1 : 6 }
-                  mb={{ base: 2, lg: 3 }}
+                  textStyle="label"
+                  role="heading"
+                  aria-level={ 3 }
+                  mt={ index === 0 ? 1 : 4 }
+                  mb={ 2 }
                   ref={ (el: HTMLParagraphElement | null) => {
                     if (el) {
                       categoriesRefs.current.set(cat.id, el);
@@ -251,8 +267,39 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   return (
     <>
+      { config.features.assistant.isEnabled && assistant && (assistant.canAsk || assistant.answer || assistant.error) && (
+        <Box bgColor="raised" color="text.primary" borderColor="hairline" borderBottomWidth="1px" pb={ 3 } mb={ 3 }>
+          <Text textStyle="label" role="heading" aria-level={ 3 } mb={ 2 }>ASK</Text>
+          <Button
+            type="button"
+            variant="plain"
+            color="text.primary"
+            w="100%"
+            justifyContent="flex-start"
+            whiteSpace="normal"
+            height="auto"
+            minH="44px"
+            textAlign="left"
+            disabled={ assistant.pending }
+            onClick={ assistant.ask }
+          >
+            { assistant.pending ? 'Asking…' : `Ask: ${ assistant.question }` }
+          </Button>
+          <Box role="status" aria-live="polite" overflowY="auto" maxH="30vh">
+            { assistant.answer && (
+              <>
+                <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{ assistant.answer.answer }</Text>
+                <Text color="text.muted" textStyle="xs" mt={ 2 }>
+                  model output, not chain data · { assistant.answer.model }
+                </Text>
+              </>
+            ) }
+          </Box>
+          { assistant.error && <Text role="alert" color="text.muted">{ assistant.error }</Text> }
+        </Box>
+      ) }
       { !isMobile && (
-        <Box pb={ 4 } mb={ 5 } borderColor="border.divider" borderBottomWidth="1px" _empty={{ display: 'none' }}>
+        <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
           <TextAd textStyle={{ lg: 'sm' }}/>
         </Box>
       ) }

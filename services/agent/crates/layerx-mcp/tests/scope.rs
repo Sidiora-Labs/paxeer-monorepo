@@ -440,6 +440,7 @@ fn bound_server_refuses_every_tool_once_its_session_is_closed_or_revoked() {
         Err(ServerError::RevokedSession)
     ));
     drop(server);
+    drop(closing);
     drop(control);
 
     let restored = restart(&root, &tenant);

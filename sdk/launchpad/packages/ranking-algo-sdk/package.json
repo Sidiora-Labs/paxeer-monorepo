@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "type": "module",
-  "license": "SEE LICENSE IN ../../../LICENSE",
+  "license": "Apache-2.0",
   "exports": {
     ".": {
       "types": "./src/index.ts",

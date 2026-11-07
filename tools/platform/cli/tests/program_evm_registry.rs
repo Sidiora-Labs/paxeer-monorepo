@@ -1,13 +1,4 @@
-#[path = "../src/config.rs"]
-mod config;
-#[path = "../src/credential.rs"]
-mod credential;
-#[path = "../src/encoding.rs"]
-mod encoding;
-#[path = "../src/file_store.rs"]
-mod file_store;
-#[path = "../src/http.rs"]
-mod http;
+use layerx_platform_cli::{encoding, http};
 #[path = "../src/programs.rs"]
 mod programs;
 
@@ -60,7 +51,7 @@ fn capture() -> (String, std::thread::JoinHandle<Value>) {
         reader
             .read_line(&mut line)
             .unwrap_or_else(|error| panic!("{error}"));
-        assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+        assert_eq!(line, "POST / HTTP/1.1\r\n");
         let mut length = None;
         loop {
             line.clear();
@@ -118,7 +109,7 @@ fn captured_command(arguments: &[&str]) -> Result<Value, String> {
     let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
     let (endpoint, recorded) = capture();
     let mut command = vec!["--json", "--rpc"];
-    let rpc = format!("{endpoint}/rpc");
+    let rpc = endpoint.clone();
     command.push(&rpc);
     command.push("program");
     command.extend_from_slice(arguments);
@@ -150,7 +141,7 @@ fn registry_listing(
     let directory = tempfile::tempdir().map_err(|error| error.to_string())?;
     let listener = TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
     let endpoint = format!(
-        "http://{}/rpc",
+        "http://{}/",
         listener.local_addr().map_err(|e| e.to_string())?
     );
     listener
@@ -178,7 +169,7 @@ fn registry_listing(
             reader
                 .read_line(&mut line)
                 .unwrap_or_else(|error| panic!("{error}"));
-            assert_eq!(line, "POST /rpc HTTP/1.1\r\n");
+            assert_eq!(line, "POST / HTTP/1.1\r\n");
             let mut length = None;
             loop {
                 line.clear();
@@ -637,3 +628,7 @@ fn program_registry_list_pages_bounded_ranges() -> Result<(), String> {
     );
     Ok(())
 }
+
+// Audit proofs use committed node output and production CLI consumers.
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;

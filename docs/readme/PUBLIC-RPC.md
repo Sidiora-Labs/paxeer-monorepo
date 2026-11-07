@@ -10,8 +10,9 @@ is `hyperpax_125-1`.
 | --- | --- |
 | HTTPS JSON-RPC | `https://api-mainnet-beta.paxeer.network` |
 
-Send requests directly to the node's root path. There is no separate public
-LayerX interface. The node does not serve `/rpc`, `/rpc/ws`, or `/rpc/schema`.
+Send requests directly to the node's root path.
+There is no separate public LayerX interface or router.
+The `/rpc`, `/rpc/ws` and `/rpc/schema` routes are retired; use the root path.
 
 ```bash
 curl -s https://api-mainnet-beta.paxeer.network \
@@ -42,18 +43,29 @@ Use `api1` through `api14.mainnet-beta.paxeer.network` or
 | 14 | `https://api14.mainnet-beta.paxeer.network` |
 | Mainnet beta | `https://api-mainnet-beta.paxeer.network` |
 
+**Retention:** `api2.mainnet-beta.paxeer.network` is the archive node and keeps
+full history; the other thirteen numbered nodes prune. On a pruned node,
+`pax_sequencerReceipt` and state queries for heights outside that node's
+retention return JSON-RPC error `-32000`. This is expected retention behavior,
+not a defect. Send historical receipt and state queries to
+`https://api2.mainnet-beta.paxeer.network` at the root path, on EVM chain ID 125.
+
 Names are numbered, not ranked. Pick any one and fall back to another if it
 stops answering; compare `eth_blockNumber` across two names when you need the
 newest head.
 
 WebSocket upgrades were observed at
 `wss://api-mainnet-beta.paxeer.network` and
-`wss://api-mainnet-beta.paxeer.network/ws`. The `/rpc/ws` path did not upgrade.
+`wss://api-mainnet-beta.paxeer.network/ws`.
+There is no WebSocket upgrade at `/rpc/ws`.
 
-## Hosted gateway methods
+## The px namespace
 
-`px_*` and `lx_*` methods belong to the operator-deployed
-[hosted gateway](../site/docs/platform/gateway-rpc.md). At the public node's
-root, `px_getReceiptKeys` and `px_getHistory` return JSON-RPC error `-32601`
-(method not available). Obtain a gateway URL from its operator for those
-methods; the node names do not expose a public gateway endpoint.
+The node serves the `px` namespace at the root path beside `debug`, `echo`,
+`eth`, `net`, `pax`, `test` and `txpool`, answering from node state. The
+retired `lx_*` methods are not served. `px_register` and `px_requestFunds`
+validate their parameters and answer `-32004` with error data code
+`hosted_gateway_service_required`: registration and funding are operations of
+the operator-deployed [hosted gateway](../site/docs/platform/gateway-rpc.md),
+whose contract is
+[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).

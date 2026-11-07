@@ -1,0 +1,220 @@
+[repair]
+task = "22.31.524"
+base_revision = "3b65013ae1452a2d8e05851c0d02513a1de58c33"
+attempt2_base_revision = "603f707f71e5cfe7896841be5d1e735eb7db966f"
+previous_attempt_base_revision = "d3ac46e4fe98ec88cc1947dd85a9a8b1bbe86ee8"
+decision = "2568"
+gotcha = "3088"
+decoder = "Only a null or absent vote Signature becomes an empty Uint8Array in the shared commit decoder; BlockIDFlag, validator address, timestamp, vote ordering and all other decoders are preserved."
+pay6 = "recordedCommittedFixture directly aliases the seller recording consumer; PAY6 has no separate vote decoder."
+coverage = "The committed vector's flag-1 vote retains its fields; null and absent signatures are exercised in both commits; other null byte fields and a non-null invalid signature still throw; the real seller verifier checks the recorded receipt."
+
+[attempt1.qualification]
+build_command = "hf-build"
+verify_command = "hf-done"
+importers = ["services/platform/middleware/seller/test/repair-22-31-524.test.mjs", "services/platform/middleware/seller/test/repair-22-31-434.test.mjs", "services/platform/middleware/seller/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-457.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+gate_results = "/out/run/gates.jsonl: authoritative build and verify rows contain exact candidate revision, command, exit and private log path."
+tested_revision = "efa4f8371ab496f331dabb582c65bcc6d65b390b"
+qualified_revision = "none: the declared verification failed on unrelated importer cases; task remains in_progress."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+failure_policy = "An unrelated importer failure is preserved and recorded here with its first assertion; no assertion is weakened."
+external_access = "No credential or live endpoint; only the declared build and verification gates."
+
+[attempt1.gate.build.1]
+revision = "efa4f8371ab496f331dabb582c65bcc6d65b390b"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt1.gate.verify.1]
+revision = "efa4f8371ab496f331dabb582c65bcc6d65b390b"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All five declared importer files loaded: 21 tests executed, 14 passed, 7 failed, 0 skipped; all four 524 regressions, both PAY6 cases, agent cases and the seller committed-receipt verifier regression passed."
+
+[attempt1.importer.sellerDrawRecipient]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:163"
+first_failure = "The first assert.rejects cannot receive a promise: grantTransaction calls encodeLedgerDraw, whose encodeUint throws invalid-payment-payload."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; payment draw encoding is unrelated to recorded vote decoding."
+
+[attempt1.importer.drawProducerUnavailable]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:185"
+first_failure = "grantTransaction throws invalid-payment-payload in encodeLedgerDraw/encodeUint before the first assert.deepEqual."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; payment draw encoding is unrelated to recorded vote decoding."
+
+[attempt1.importer.sellerGrantFinalVerifier]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:200"
+first_failure = "The first assert.equal cannot evaluate its actual value because verifyPaymentReceipt throws verification-failure."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; this receipted payment check does not consume committed vote evidence."
+
+[attempt1.importer.sellerNetworkUnbound]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:264"
+first_failure = "The payment.amount assert.equal cannot evaluate its actual value because verifyPaymentReceipt throws verification-failure."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; this foreign-chain receipted payment check does not consume committed vote evidence."
+
+[attempt1.importer.receiptReusePrincipal]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:299"
+first_failure = "assert.equal(releases, 1) observed 0 instead of 1."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; this receipted fulfillment check does not consume committed vote evidence."
+
+[attempt1.importer.interruptedReleaseNeverDebitsAgain]
+file = "services/platform/middleware/seller/test/repair-22-31-434.test.mjs:322"
+first_failure = "The first assert.rejects expected /interrupted/u but received MiddlewareError: verification-failure from verifyReceiptDigest."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; this receipted fulfillment check does not consume committed vote evidence."
+
+[attempt1.importer.sellerAcceptsRecordedCommittedReceipt]
+file = "services/platform/middleware/seller/test/repair-22-31-457.test.mjs:26"
+first_failure = "assert.equal(committed.signedPower, committed.totalPower) observed 7000000000n instead of 7000000001n."
+evidence = "attempt1.gate.verify.1"
+action = "Preserved unchanged; the recorded commit verifies but not every validator voted for the block."
+
+[consumer_ports]
+seller_draw = "repair-22-31-434.test.mjs: grantDraw uses recipient, purposeHash and sequence; grantTransaction overrides recipient. Original assertions remain intact (gotcha 3099)."
+agent_draw = "agent/test/repair-22-31-435.test.mjs: draw uses recipient, purposeHash and sequence throughout requirements, registration and adversarial receipt checks; reversed calldata overrides recipient. Original assertions remain intact (gotcha 3099)."
+committed_power = "repair-22-31-457.test.mjs: pin signedPower to 7000000000n and totalPower to 7000000001n, and require signedPower * 3n > totalPower * 2n for the recorded absent power-1 vote (gotcha 3100)."
+prior_findings = "The continuation ruling reclassifies the seven attempt1 importer failures as consumer defects in scope; their original first failures are retained above as historical evidence."
+
+[qualification]
+build_command = "hf-build"
+verify_command = "hf-done"
+importers = ["services/platform/middleware/seller/test/repair-22-31-524.test.mjs", "services/platform/middleware/seller/test/repair-22-31-434.test.mjs", "services/platform/middleware/seller/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-435.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+gate_results = "/out/run/gates.jsonl: current attempt's authoritative build and verify rows record exact candidate revision, command, exit and private log location; qualification requires both passing on the same candidate."
+verified_revision = "The revision field of the current attempt's passing verify row in /out/run/gates.jsonl; no completion is claimed without that evidence."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+external_access = "No credential or live endpoint; only the declared build and verification gates."
+
+[attempt2.gate.build.1]
+revision = "478c92b42c540a794a54a703d6c4948b5ce5495a"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt2.gate.verify.1]
+revision = "478c92b42c540a794a54a703d6c4948b5ce5495a"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "25 tests executed: 17 passed, 8 failed, 0 skipped; all four absent-vote cases, both PAY6 cases, both seller draw ports and the recorded voting-power check pass. Task remains in_progress. Six receipt cases fail verification and two daemon cases fail transport construction."
+
+[attempt2.importer.receiptDigest]
+revision = "478c92b42c540a794a54a703d6c4948b5ce5495a"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "sellerGrantFinalVerifier and sellerNetworkUnbound throw verification-failure before the first amount assertion; receiptReusePrincipal first observes releases 0 instead of 1; interruptedReleaseNeverDebitsAgain first receives verification-failure instead of /interrupted/; agentDrawRecipientBindsAuthenticatedGrant and agentDrawUnknownReservationSurvivesReopen throw at verifyReceiptDigest before their settled assertions."
+assumption = "These consumers still supply keccak(signedReceipt), whereas the real verifier requires its receipt-signature digest; preserve assertions and production code and leave these pre-existing failures unchanged under the unrelated-failure rule."
+
+[attempt2.importer.gatewayCredential]
+revision = "478c92b42c540a794a54a703d6c4948b5ce5495a"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "daemonSubmissionShapeUsesDispatchTranscripts and daemonSubmissionRecoversAfterLostSubmit throw invalid-argument at envelopeClient's AgentEnvelopeTransport construction before the first receipt assertion."
+assumption = "The existing test helper supplies a session but no required LayerXKeyCredential; this predates the absent-vote decoder and the three authorized consumer ports, so it is recorded and left unchanged."
+
+[attempt3.consumer_fixtures]
+decision = "2538"
+gotcha = "3108"
+prior_findings = "The continuation ruling authorizes repairing all eight attempt2 failures; historical observations above remain evidence of those attempts."
+seller_recorded_digest = "seller/test/repair-22-31-434.test.mjs proofFor awaits verifySequencerReceipt with the recorded pin and takes hex(verified.receiptDigest)."
+seller_foreign_digest = "seller/test/repair-22-31-434.test.mjs foreignChainWitness awaits verifySequencerReceipt with its signing pin and takes hex(verified.receiptDigest)."
+agent_signed_digest = "agent/test/repair-22-31-435.test.mjs signedProof awaits verifySequencerReceipt with pin and takes hex(verified.receiptDigest); all callers await the authentic proof."
+agent_canonical_digest = "agent/test/repair-22-31-435.test.mjs RegisteredDrawExecution.execute verifies result.canonicalReceipt against input.rawTransaction and pin and takes hex(verified.receiptDigest)."
+receipt_stores = "AgentReceiptRepository already keys its retained proofs by proof.receiptDigest.slice(2), so both receipt producers and replay now use the verifier digest; daemon retained receipts use result.reservation.receiptDigest."
+gateway = "agent/test/repair-22-31-435.test.mjs envelopeClient supplies surface gateway and a LayerXKeyCredential from fixed local bytes beside the session, matching repair-support.mjs. No external credential or live endpoint is used."
+assertions = "No assertion or production file changed in attempt3; the absent-vote decoder, four regression cases, draw-field ports and explicit quorum assertions from attempt2 are preserved."
+
+[attempt3.repaired_sites]
+sellerGrantFinalVerifier = "The recorded proof digest comes from verifySequencerReceipt before the unchanged amount, event and release assertions."
+sellerNetworkUnbound = "The signed foreign-chain proof digest comes from verifySequencerReceipt before the unchanged amount and network-refusal assertions."
+receiptReusePrincipal = "The recorded proof digest reaches the unchanged single-release, principal-reuse and durable-replay assertions."
+interruptedReleaseNeverDebitsAgain = "The recorded proof digest reaches the unchanged interrupted-release and no-second-debit assertions."
+agentDrawRecipientBindsAuthenticatedGrant = "Signed and canonical receipt producers use the verifier digest before the unchanged settlement, retained-proof and authenticated-grant assertions."
+agentDrawUnknownReservationSurvivesReopen = "Signed and canonical receipt producers use the verifier digest before the unchanged durable reservation and settled-replay assertions."
+daemonSubmissionShapeUsesDispatchTranscripts = "The gateway credential permits the real transport to reach the unchanged dispatch transcript, verified receipt and replay assertions."
+daemonSubmissionRecoversAfterLostSubmit = "The gateway credential permits the real transport to reach the unchanged lost-submit, reopen and committed-recovery assertions."
+
+[attempt3.qualification]
+build_command = "hf-build"
+verify_command = "hf-done"
+gate_results = "/out/run/gates.jsonl: attempt3 build and verify rows are the authoritative exact revision, command, exit and private log location; both must pass on the same candidate."
+verified_revision = "The revision in the attempt3 verify row of /out/run/gates.jsonl, repeated verbatim in the final evidence line; no gate outcome is claimed before it runs."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+importers = ["services/platform/middleware/seller/test/repair-22-31-524.test.mjs", "services/platform/middleware/seller/test/repair-22-31-434.test.mjs", "services/platform/middleware/seller/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-435.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+failure_policy = "A remaining unrelated failure is preserved and recorded with its first assertion and exact gate evidence; no assertion is weakened."
+
+[attempt3.gate.build.1]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[attempt3.gate.verify.1]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All six importer suites load; 25 tests execute, 21 pass, 4 fail, none are skipped or cancelled. All four absent-vote cases, every seller case, both PAY6 cases and both configured-grant-store executions pass. Task remains in_progress and is not qualified. This evidence append follows the gates and does not claim a new build or verified candidate."
+
+[attempt3.importer.daemonSubmissionShapeUsesDispatchTranscripts]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "repair-22-31-435.test.mjs:309: the amount assertion cannot evaluate its actual value because verifyAgentPayment throws MiddlewareError verification-failure from seller verifyPaymentReceipt; transport construction and preceding receipt assertions now succeed. Preserved unchanged under the continuation's remaining-failure rule."
+
+[attempt3.importer.daemonSubmissionRecoversAfterLostSubmit]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "repair-22-31-435.test.mjs:495: assert.equal(result.kind, verified) receives unknown instead of verified after the committed resume; transport construction, lost-submit and reopened-reservation assertions now succeed. Preserved unchanged under the continuation's remaining-failure rule."
+
+[attempt3.importer.agentDrawRecipientBindsAuthenticatedGrant]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "repair-22-31-435.test.mjs:595: middleware.execute throws AgentMiddlewareError verification-failure in #verifyDrawReceipt (agent/dist/index.js:785) before the first assert.equal(outcome.kind, settled); receipt-digest verification now succeeds. Preserved unchanged under the continuation's remaining-failure rule."
+
+[attempt3.importer.agentDrawUnknownReservationSurvivesReopen]
+revision = "f689c61e63b79220b33a8c8299a19907f3b007b7"
+command = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "repair-22-31-435.test.mjs:672: the recovered middleware.execute throws AgentMiddlewareError verification-failure in #verifyDrawReceipt (agent/dist/index.js:785) before assert.equal(outcome.kind, settled); the lost-admission and reopened-reservation assertions succeed. Preserved unchanged under the continuation's remaining-failure rule."
+
+[attempt4.handover]
+decision = "2579"
+gotcha = "3115"
+base_revision = "1c423688bf5ced46198671e6635f4e51a064f090"
+main = "The continuation checkout already has HEAD equal to origin/main at base_revision, with all seven attempt3 paths applied and no seed conflicts."
+preserved = "Attempt3 stands in full: the null-or-absent vote decoder, four regression cases, shared PAY6 consumer, draw-field ports, verifier-derived receipt digests, gateway transport construction and every existing assertion remain intact."
+owner_task = "22.31.492"
+consumer = "services/platform/middleware/agent/test/repair-22-31-435.test.mjs"
+production_sites = "services/platform/middleware/agent/src/index.ts:896 and :1037; services/platform/middleware/agent/src/daemon.ts:241"
+remaining_cases = ["daemonSubmissionShapeUsesDispatchTranscripts", "daemonSubmissionRecoversAfterLostSubmit", "agentDrawRecipientBindsAuthenticatedGrant", "agentDrawUnknownReservationSurvivesReopen"]
+handover = "The four attempt3 first failures above require the agent production digest port owned by 22.31.492, which requires 22.31.524. Decision 2579 assigns the intact 435 suite to that task's verify; this task uses the revised declared verify without 435."
+
+[attempt4.qualification]
+build_command = "hf-build"
+verify_command = "hf-done"
+importers = ["services/platform/middleware/seller/test/repair-22-31-524.test.mjs", "services/platform/middleware/seller/test/repair-22-31-434.test.mjs", "services/platform/middleware/seller/test/repair-22-31-457.test.mjs", "services/platform/middleware/agent/test/repair-22-31-457.test.mjs", "services/platform/middleware/conformance/pay6/committed-rung.test.mjs"]
+build = "npm ci --ignore-scripts && npm --prefix services/agent/sdk/typescript run build && npm --prefix services/platform/middleware/seller run build && npm --prefix services/platform/middleware/buyer run build && npm --prefix services/platform/middleware/agent run build && npm --prefix services/platform/middleware/conformance run build"
+verify = "cg spec done 22.31.524 -f layerx-merge --root /work/paxeer-monorepo"
+gate_results = "/out/run/gates.jsonl: attempt4's authoritative build and verify rows record the exact revision, command, exit and private log path; qualification requires both passing on the same candidate."
+verified_revision = "Read the revision of attempt4's passing verify row in /out/run/gates.jsonl, copied verbatim in the final evidence line; no completion is claimed before hf-done passes."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+record_policy = "This record precedes qualification and references the private gate results so recording evidence does not change the candidate after its build or verification. Earlier attempt evidence remains historical."
+external_access = "No credential or live endpoint; only the declared build and verification gates."

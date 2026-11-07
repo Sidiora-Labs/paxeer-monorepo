@@ -74,77 +74,86 @@ fn serve(exchanges: Vec<(&'static str, Value)>) -> (String, JoinHandle<Vec<Value
     (url, server)
 }
 
-#[test]
-fn withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc() {
-    let asset_id = [0xab; 32];
-    let call = CallRequest {
+fn producer_asset_table() -> Value {
+    let transcript: Value = must(serde_json::from_str(include_str!(
+        "fixtures/repair_22_33_1546_gateway.json"
+    )));
+    assert_eq!(transcript["provenance"]["assets"], "services/platform/hosted/gateway/tests/one_source_reads.rs::px_list_assets_joins_indexer_assets_with_chain_metadata, exact asserted result");
+    transcript["assets"].clone()
+}
+
+fn producer_custody_configuration() -> Value {
+    let vectors: Value = must(serde_json::from_str(include_str!(
+        "../src/rpc/withdrawal_get_asset.json"
+    )));
+    assert_eq!(
+        vectors["provenance"]["producer"],
+        "precompiles/layerxcustody/layerxcustody.go::Execute/GetAssetMethod and assetRecord"
+    );
+    assert_eq!(
+        vectors["provenance"]["abi"],
+        "precompiles/layerxcustody/abi.json::getAsset"
+    );
+    vectors
+}
+
+fn assert_custody_request(request: &Value) {
+    assert_eq!(request["method"], "eth_call");
+    let selector = &layerx_crypto::evm_transaction::transaction_hash(b"getAsset(bytes32)")[..4];
+    assert_eq!(
+        request["params"],
+        json!([{
+        "to": "0x0000000000000000000000000000000000001013",
+        "data": hex(&[selector, &[0x11; 32]].concat())
+    }, "0x10"])
+    );
+}
+
+fn withdrawal_call() -> CallRequest {
+    CallRequest {
         from: Some([0x12; 20]),
         to: Some([0x34; 20]),
         value: 7,
         data: vec![0xde, 0xad, 0xbe, 0xef, 0, 0xff],
-    };
-    let custody = json!({
-        "asset_id": "ab".repeat(32), "denom": "upax",
-        "pointer": hex(&[0xcd; 20]), "enabled": true, "paused": false,
-        "minimum_deposit": "7", "custody_cap": "1000000",
-        "custodied": "100", "released": "9", "pending": "10"
-    });
-    let row = json!({
-        "asset_id": "ab".repeat(32), "layerx": null, "paxeer": custody
-    });
-    let mut unavailable_rows = vec![
-        vec![],
-        vec![json!({"asset_id": "11".repeat(32), "layerx": null, "paxeer": null})],
-        vec![json!({"asset_id": "ab".repeat(32), "layerx": null, "paxeer": null})],
-    ];
-    for (field, value) in [
-        ("enabled", json!(false)),
-        ("paused", json!(true)),
-        ("pointer", json!(hex(&[0; 20]))),
-        ("asset_id", json!("11".repeat(32))),
-    ] {
-        let mut unavailable = row.clone();
-        unavailable["paxeer"][field] = value;
-        unavailable_rows.push(vec![unavailable]);
     }
-    let table = |rows: Vec<Value>| json!({"result": {"assets": rows, "joined_limit": 16}});
-    let mut exchanges = vec![
-        ("eth_estimateGas", json!({"result": "0x12345"})),
+}
+
+#[test]
+fn withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc() {
+    let call = withdrawal_call();
+    let table = producer_asset_table();
+    assert_eq!(table["height"], 16);
+    assert_eq!(table["assets"][0]["asset_id"], hex(&[0x11; 32]));
+    assert_eq!(table["assets"][0]["paused"], false);
+    assert_eq!(
+        table["assets"][0]["verification"],
+        "authenticated_committed_snapshot"
+    );
+    assert!(table["assets"][0].get("paxeer").is_none());
+    let (url, server) = serve(vec![
+        ("eth_estimateGas", json!({"result":"0x12345"})),
+        ("px_listAssets", json!({"result":table})),
         (
-            "px_listAssets",
-            table(vec![
-                json!({"asset_id": "11".repeat(32), "layerx": null, "paxeer": null}),
-                row,
-            ]),
-        ),
-    ];
-    for rows in &unavailable_rows {
-        exchanges.push(("eth_estimateGas", json!({"result": "0x5208"})));
-        exchanges.push(("px_listAssets", table(rows.clone())));
-    }
-    exchanges.extend([
-        (
-            "eth_estimateGas",
-            json!({"error": {"code": 3, "message": "execution reverted"}}),
-        ),
-        ("eth_estimateGas", json!({"result": "invalid"})),
-        ("eth_estimateGas", json!({"result": "0x5208"})),
-        (
-            "px_listAssets",
-            json!({"result": {"assets": [], "joined_limit": "invalid"}}),
-        ),
-        ("eth_estimateGas", json!({"result": "0x5208"})),
-        (
-            "px_listAssets",
-            json!({"error": {"code": -32603, "message": "asset read failed"}}),
+            "eth_call",
+            json!({"result":producer_custody_configuration()["eligible"]}),
         ),
     ]);
-    let expected_requests = exchanges.len();
-    let (url, server) = serve(exchanges);
     let endpoint = must(SequencerEndpoint::new(&url, &[]));
     let assets = must(PxEndpoint::new(&url, &[]));
-
-    let modules = must(registry(&endpoint, &call, &assets, asset_id));
+    let result = registry(&endpoint, &call, &assets, [0x11; 32]);
+    let requests = must(server.join());
+    assert_eq!(requests.len(), 3);
+    assert_custody_request(&requests[2]);
+    assert_eq!(
+        requests[0]["params"],
+        json!([{
+        "from":hex(&[0x12;20]),"to":hex(&[0x34;20]),"value":"0x7","data":hex(&call.data)
+    }, "pending"])
+    );
+    assert_eq!(requests[1]["params"], json!([]));
+    // The committed ABI contract vector exercises eligibility; live replacement
+    // producer wiring remains recorded separately in repair_22_33_1547.kvx.
+    let modules = must(result);
     assert_eq!(modules.registrations().len(), 2);
     for (registration, (module, ordinal)) in modules
         .registrations()
@@ -157,32 +166,146 @@ fn withdrawal_registry_reads_the_fee_schedule_and_asset_through_json_rpc() {
         assert!(modules.declares(activity));
     }
     assert!(!modules.declares(must(ActivityType::new(ModuleId::Asset, 1))));
-    for _ in unavailable_rows {
+}
+
+#[test]
+fn withdrawal_registry_refuses_missing_assets_malformed_metadata_and_rpc_failures() {
+    let call = withdrawal_call();
+    let mut empty = producer_asset_table();
+    empty["assets"] = json!([]);
+    let mut unrelated = producer_asset_table();
+    unrelated["assets"]
+        .as_array_mut()
+        .unwrap_or_else(|| panic!("assets"))
+        .remove(0);
+    for table in [empty, unrelated] {
+        let (url, server) = serve(vec![
+            ("eth_estimateGas", json!({"result":"0x5208"})),
+            ("px_listAssets", json!({"result":table})),
+        ]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
         assert_eq!(
-            registry(&endpoint, &call, &assets, asset_id),
+            registry(&endpoint, &call, &assets, [0x11; 32]),
             Err(WithdrawalConfigurationError::AssetUnavailable)
         );
+        assert_eq!(must(server.join()).len(), 2);
     }
-    for _ in 0..4 {
+    for (field, invalid) in [
+        ("joined_limit", json!("invalid")),
+        ("height", json!(-1)),
+        ("assets", Value::Null),
+    ] {
+        let mut table = producer_asset_table();
+        table[field] = invalid;
+        let (url, server) = serve(vec![
+            ("eth_estimateGas", json!({"result":"0x5208"})),
+            ("px_listAssets", json!({"result":table})),
+        ]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
         assert_eq!(
-            registry(&endpoint, &call, &assets, asset_id),
+            registry(&endpoint, &call, &assets, [0x11; 32]),
             Err(WithdrawalConfigurationError::Unavailable)
         );
+        assert_eq!(must(server.join()).len(), 2);
     }
+    for failure in [
+        json!({"error":{"code":3,"message":"execution reverted"}}),
+        json!({"result":"invalid"}),
+    ] {
+        let (url, server) = serve(vec![("eth_estimateGas", failure)]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
+        assert_eq!(
+            registry(&endpoint, &call, &assets, [0x11; 32]),
+            Err(WithdrawalConfigurationError::Unavailable)
+        );
+        assert_eq!(must(server.join()).len(), 1);
+    }
+    let (url, server) = serve(vec![
+        ("eth_estimateGas", json!({"result":"0x5208"})),
+        (
+            "px_listAssets",
+            json!({"error":{"code":-32603,"message":"asset read failed"}}),
+        ),
+    ]);
+    let endpoint = must(SequencerEndpoint::new(&url, &[]));
+    let assets = must(PxEndpoint::new(&url, &[]));
+    assert_eq!(
+        registry(&endpoint, &call, &assets, [0x11; 32]),
+        Err(WithdrawalConfigurationError::Unavailable)
+    );
+    assert_eq!(must(server.join()).len(), 2);
+}
 
-    let requests = must(server.join());
-    assert_eq!(requests.len(), expected_requests);
-    for request in requests {
-        match request["method"].as_str() {
-            Some("eth_estimateGas") => assert_eq!(
-                request["params"],
-                json!([{
-                "from": hex(&[0x12; 20]), "to": hex(&[0x34; 20]),
-                "value": "0x7", "data": hex(&call.data),
-            }, "pending"])
-            ),
-            Some("px_listAssets") => assert_eq!(request["params"], json!([])),
-            method => panic!("unexpected RPC method: {method:?}"),
-        }
+#[test]
+fn withdrawal_registry_compares_asset_bytes_and_requires_authoritative_configuration() {
+    let call = withdrawal_call();
+    let vectors = producer_custody_configuration();
+    // Equal byte identities need not share the gateway's hex presentation.
+    for id in ["11".repeat(32), hex(&[0x11; 32])] {
+        let mut table = producer_asset_table();
+        table["assets"][0]["asset_id"] = json!(id);
+        let (url, server) = serve(vec![
+            ("eth_estimateGas", json!({"result":"0x5208"})),
+            ("px_listAssets", json!({"result":table})),
+            ("eth_call", json!({"result":vectors["eligible"]})),
+        ]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
+        let modules = must(registry(&endpoint, &call, &assets, [0x11; 32]));
+        assert!(modules.declares(must(ActivityType::new(ModuleId::Asset, 9))));
+        assert!(modules.declares(must(ActivityType::new(ModuleId::Bridge, 1))));
+        let requests = must(server.join());
+        assert_eq!(requests.len(), 3);
+        assert_custody_request(&requests[2]);
+    }
+    for id in [
+        "11".repeat(31),
+        "11".repeat(33),
+        format!("0x{}zz", "11".repeat(31)),
+        format!("0x0x{}", "11".repeat(32)),
+    ] {
+        let mut table = producer_asset_table();
+        table["assets"][0]["asset_id"] = json!(id);
+        let (url, server) = serve(vec![
+            ("eth_estimateGas", json!({"result":"0x5208"})),
+            ("px_listAssets", json!({"result":table})),
+        ]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
+        assert_eq!(
+            registry(&endpoint, &call, &assets, [0x11; 32]),
+            Err(WithdrawalConfigurationError::AssetUnavailable)
+        );
+        assert_eq!(must(server.join()).len(), 2);
+    }
+    let mut refusals: Vec<_> = ["disabled", "paused", "zero_pointer", "wrong_asset"]
+        .iter()
+        .map(|case| {
+            (
+                json!({"result":vectors[case]}),
+                WithdrawalConfigurationError::AssetUnavailable,
+            )
+        })
+        .collect();
+    refusals.extend([
+        (json!({"result":"0x00"}), WithdrawalConfigurationError::Unavailable),
+        (json!({"error":{"code":-32000,"message":"historical state unavailable"}}), WithdrawalConfigurationError::Unavailable),
+        (json!({"error":{"code":3,"message":"execution reverted: LXP_MODULE_DISABLED: module disabled; layerxCustody retired"}}), WithdrawalConfigurationError::Unsupported),
+    ]);
+    for (answer, error) in refusals {
+        let (url, server) = serve(vec![
+            ("eth_estimateGas", json!({"result":"0x5208"})),
+            ("px_listAssets", json!({"result":producer_asset_table()})),
+            ("eth_call", answer),
+        ]);
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let assets = must(PxEndpoint::new(&url, &[]));
+        assert_eq!(registry(&endpoint, &call, &assets, [0x11; 32]), Err(error));
+        let requests = must(server.join());
+        assert_eq!(requests.len(), 3);
+        assert_custody_request(&requests[2]);
     }
 }

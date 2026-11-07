@@ -70,6 +70,7 @@ describe('BlockDetails', () => {
       'Burnt fees',
       'Priority fee / Tip',
       'Extra data',
+      'Parent hash',
     ]);
   });
 
@@ -144,7 +145,8 @@ describe('BlockDetails', () => {
       expect(expander.getAttribute('data-open')).toBe('true');
     });
 
-    expect(labelsOf(expander)).toEqual([ 'Parent hash', 'Nonce' ]);
+    expect(labelsOf(expander)).toEqual([ 'Nonce' ]);
+    expect(card().querySelector('[data-section-group="BLOCK INFO"]')?.textContent).toContain('Parent hash');
     expect(expander.querySelector('[data-content]')?.textContent).toContain(blockMock.base.nonce);
   });
 

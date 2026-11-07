@@ -14,7 +14,7 @@
     "e2e:staking": "tsx test/run-staking-test.ts"
   },
   "author": "",
-  "license": "ISC",
+  "license": "Apache-2.0",
   "devDependencies": {
     "@fastify/busboy": "^3.2.2",
     "@nomicfoundation/hardhat-foundry": "^1.1.1",

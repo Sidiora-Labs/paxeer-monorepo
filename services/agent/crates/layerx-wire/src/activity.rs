@@ -1,4 +1,7 @@
-//! Canonical signed and unsigned activity-envelope wire forms.
+//! Historical kernel activity envelopes, retained only for archive compatibility.
+//!
+//! These bytes are not native transactions or current submission signing input.
+//! Use `layerx_crypto::evm_transaction` and call-bound disclosures for live calls.
 
 use layerx_types::activity::{Envelope, UnsignedEnvelope};
 use layerx_types::payload::{ActivityType, ModuleRegistry};

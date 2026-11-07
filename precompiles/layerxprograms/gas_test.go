@@ -38,6 +38,7 @@ var d2Table = map[string]gasRow{
 	"deploy":           {"bde3ff66", classWrite, 100000},
 	"upgrade":          {"a860929f", classWrite, 100000},
 	"call":             {"54bd2b48", classWrite, 50000},
+	"callWithReceipts": {"abc313ef", classWrite, 50000},
 	"registryRead":     {"fb28c4b1", classWrite, 0},
 	"transfer":         {"59849fe7", classWrite, 0},
 	"registerAccount":  {"fc786007", classWrite, 0},

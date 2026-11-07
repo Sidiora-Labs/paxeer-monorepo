@@ -20,10 +20,10 @@ Use HTTPS JSON-RPC at the root of `https://api-mainnet-beta.paxeer.network` or
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`;
 check `eth_chainId` before signing. See
 [Public RPC endpoints](../../../../docs/site/docs/reference/public-rpc.md).
-Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
-Hosted gateway `px_` methods are defined by
-[`gateway/openrpc.json`](../gateway/openrpc.json), not implied by the public
-node contract. `node.hyperpaxeer.com` is only the hpx library mirror.
+Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../gateway/openrpc.json). `node.hyperpaxeer.com` is only the hpx library mirror.
 Sub-chains are tenant domains in the database, launchable without new chain
 infrastructure or a separate public endpoint.
 

@@ -52,7 +52,7 @@ describe('SearchBarDesktop', () => {
     typeTerm(container);
 
     await vi.waitFor(() => {
-      expect(shownCategories()).toEqual([ 'address', 'transaction', 'block' ]);
+      expect(shownCategories()).toEqual([ 'transaction', 'address', 'block' ]);
     }, { timeout: 30_000, interval: 100 });
   });
 

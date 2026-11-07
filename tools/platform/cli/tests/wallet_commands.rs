@@ -96,7 +96,7 @@ fn unavailable_rpc_asset_methods_fail_closed() {
         return;
     }
     let cli = Cli::new();
-    let output = cli.run(&["--json", "--rpc", "http://127.0.0.1:1/rpc", "token", "list"]);
+    let output = cli.run(&["--json", "--rpc", "http://127.0.0.1:1/", "token", "list"]);
     assert!(!output.status.success());
     assert_eq!(
         error_envelope(&output)["error"]["code"],
@@ -115,7 +115,7 @@ fn unpublished_registration_and_history_preserve_local_keys() {
     let create = cli.run(&[
         "--json",
         "--rpc",
-        "http://127.0.0.1:1/rpc",
+        "http://127.0.0.1:1/",
         "wallet",
         "create",
         "unpublished",
@@ -153,7 +153,7 @@ fn malformed_balance_asset_is_refused_before_rpc() {
     let output = cli.run(&[
         "--json",
         "--rpc",
-        "http://127.0.0.1:1/rpc",
+        "http://127.0.0.1:1/",
         "wallet",
         "balance",
         "--did",
@@ -169,3 +169,7 @@ fn malformed_balance_asset_is_refused_before_rpc() {
     assert!(detail.contains("asset"), "{detail}");
     assert!(!detail.contains("connect"), "{detail}");
 }
+
+use layerx_platform_cli::{encoding, http};
+#[path = "repair_22_33_1496.rs"]
+mod audit_22_33_1496;

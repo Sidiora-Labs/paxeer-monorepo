@@ -1,0 +1,98 @@
+[meta]
+task = "22.33.1537"
+audit = "22.30.95"
+base_revision = "e10f9259ee12f1c3a5844cab3d0331703298a243"
+status = "implemented_pending_qualification"
+evidence = "/out/run/gates.jsonl; the last hf-done row records the exact candidate revision, command, exit and private log"
+prerequisites = "The supplied base includes the 22.31.559 current-evidence recovery consumer and the 22.31.558 dependent test port; no rebase needed."
+
+[baseline]
+source = "Continuation ruling and attempt-4 gate output supplied with the task; no unchanged gate was rerun."
+revision = "436d9b36f1c7d3ab0597a2d5010c9ea8e56c8009"
+command = "cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+observed = "Attempt 4 failed to compile outbox_recover because support::current_node was absent; no runtime test result from that attempt is claimed."
+earlier_failures = "Attempt 2: legacy_receipt_evidence_is_refused_after_restart admitted obsolete evidence; startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence inventoried zero evidenced receipts instead of one."
+
+[finding.17]
+tests = ["native_routes_rpc::native_receipt_route_serves_a_signed_receipt", "native_routes_rpc::native_receipt_refuses_missing_and_changed_payment_denomination"]
+repair = "Current paymentDenom field and SHA-256 denomination binding; exact node receipt fields also used by shared and human budget producers."
+
+[finding.14]
+tests = ["native_routes_rpc::native_receipt_route_serves_a_signed_receipt", "native_routes_rpc::native_keys_refuse_empty_sets_and_out_of_window_receipts"]
+repair = "ReceiptKeysResult object with numeric windows, preserved key ordering and signing-key index, empty-key authority refusal after the real codec and both window-boundary receipt refusals."
+
+[finding.13]
+tests = ["finding_13_real_node_transport_accepts_current_keys_and_refuses_empty_keys"]
+repair = "Real NodeRpc chain check and readiness transport consume a nonempty governed-key result and refuse empty keys; standalone node_rpc preserves all method and parameter assertions."
+
+[finding.29]
+tests = ["outbox_recover::legacy_receipt_evidence_is_refused_after_restart", "outbox_recover::archived_legacy_receipt_evidence_is_refused_after_restart", "outbox_recover::startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence"]
+repair = "Current signed transaction receipt for amount 25 and independently repeated committed getBudget proof; real store close/reopen retains receipt bytes; original admission, accounting and tenant-hold assertions remain."
+
+[finding.23]
+tests = ["prepare_expiry::expiry_during_and_after_signing_releases_every_reservation", "prepare_expiry::retention_discards_terminal_bytes_but_preserves_unknown_and_redacts_payload", "prepare_expiry::expiry_equality_sequence_and_binding_refusals_preserve_preparation"]
+repair = "Real ledger EIP-1559 preparation and disclosure binder feed production canonical restoration and retained lifecycle; equality, sequence mutation refusal, reservation release and payload redaction remain asserted."
+
+[finding.30]
+tests = ["finding_30_loaded_startup_restarts_and_refuses_malformed_producer"]
+repair = "Protected startup configuration is reopened for two successful Gate/NodeRpc starts, followed by empty and malformed node-key refusals with the write gate closed."
+
+[finding.32]
+tests = ["protocol_evidence::trusted_policy_issues_state_evidence_only_for_its_exact_identity", "protocol_evidence::canonical_genesis_batch_zero_is_inside_a_bounded_trusted_range", "protocol_evidence::revocation_handover_selects_only_the_key_active_at_each_batch", "protocol_evidence::an_attacker_signed_header_cannot_supply_its_own_trust_key", "protocol_evidence::cross_network_and_cross_protocol_headers_are_refused_before_signature_use", "protocol_evidence::revoked_and_out_of_range_keys_cannot_issue_evidence"]
+repair = "Positive authority and receipt rotation use current node key replies and real authenticated receipt lookup; committed state/time use signed consensus checkpoints; existing network, protocol, epoch and attacker refusals remain."
+
+[finding.20]
+tests = ["recovery::restart_resolution_uses_receipts_without_duplicate_delivery", "recovery::restarted_resolution_refuses_missing_and_changed_payment_denomination_without_delivery"]
+repair = "Exact current receipt fields survive resolution after reopen; missing and changed denominations retain Unknown and signed bytes, send nothing and persist no receipt, including another reopen."
+
+[wiring.main_loader]
+request = "Domain 9: services/agent/crates/layerx-agentd/src/main.rs::config must use the protected services/agent/crates/layerx-agentd/src/config.rs loader or expose a common startup producer; main currently reads LAYERX_AGENT_NODE_ENDPOINT independently."
+
+[wiring.node_key_source]
+request = "Domain 9: services/agent/crates/layerx-agentd/src/protocol_evidence.rs::ProtocolEvidenceVerifier::load must support current governed NodeRpc receipt keys; current readiness uses its existing protected pinned-file contract."
+
+[gotcha.current_node]
+observed = "The continued repair imports support::current_node, support::serve_node and support::sequencer_receipt_with_seed but none existed on the supplied tree."
+repair = "Define the helpers using real NodeRpc, Gate, committed calls, Ed25519 signatures and the production receipt authenticator; publish the current_node module from support/mod.rs."
+
+[qualification.first]
+revision = "065041dc80317b12496363b9924551eefd1868bd"
+command = "cg spec done 22.33.1537 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 15 dependent crate checks passed; focused tests reported 27 passed and 5 failed because receipt producers omitted signingKey, so positive lookup, key-window and restart cases stopped at the decoder."
+repair = "Keep signingKey exactly as the current Go producer and strict Rust decoder require, preserve paymentDenom binding, and persist the authenticated receipt rather than its untrusted evidence DTO; the startup receipt uses sequence 100 inside the budget period."
+
+[gotcha.current_receipt_fields]
+observed = "Audit 22.30.95's statement that signingKey is outside the node view is stale at the supplied base: rpc/sequencer_receipt.go and layerx-client/src/sequencer.rs require it, as does the committed node conformance transcript."
+repair = "Retain signingKey in current test fixtures and continue to authenticate against the independently fetched governed key response; no decoder check is weakened."
+
+[continuation.attempt_6]
+baseline_revision = "10ce47e73ff19e23ac69121cede1646125ce3812"
+baseline_command = "cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_33_1537"
+baseline_observed = "Supplied attempt-5 evidence reports 31 passing cases and startup_recovery_reconciles_evidenced_tenant_and_holds_tenant_without_evidence failing on with_evidence.len() == 1."
+repair = "Reject evidence retained under the legacy archive key with EvidenceVersion, including after store reopen; keep the current-transaction startup assertion intact."
+observed = "At the supplied base serve_evidence returns TransactionReceiptEvidence directly, whereas ReceiptEvidenceRecord.evidence, PersistedReceipt.evidence, recover_tenant_budget and EvidenceAuthority::verify_receipt require RawReceiptEvidence with an actual signed batch header and Merkle proof; the conversion described by the continuation ruling does not exist."
+assumption = "A current receipt cannot supply a signed legacy header or inclusion proof; manufacturing either would violate the no-fake rule, and the downstream evidence types needed the recovery wiring subsequently supplied by 22.31.559."
+evidence = "/out/run/gates.jsonl; the final gate row records the exact candidate revision, command, exit and private log without changing the candidate after qualification."
+
+
+[continuation.attempt_7]
+base_revision = "e10f9259ee12f1c3a5844cab3d0331703298a243"
+repair = "Keep the current inventory consumer from 22.31.559 beside the continued legacy-version refusal; after store reopen assert exactly one current receipt for tenant a, no legacy records, and only the unevidenced tenant b receipt in without_evidence."
+consumer = "BudgetRecoveryRequest<TransactionReceiptEvidence> drives recover_tenant_budget_with_evidence, the production implementation used by recover_tenant_budget and the managed startup path; all admission, spend reconciliation, hold and invalid-budget assertions remain."
+resolved_wiring = "22.31.559 supplies CurrentReceiptEvidenceRecord, governed current receipt verification and the production budget recovery consumer; no header or inclusion proof is manufactured for a current transaction receipt."
+qualification = "Run only hf-build then hf-done on the final candidate; /out/run/gates.jsonl records the exact verified revision, command, exit and private evidence path."
+
+
+[qualification.attempt_7_first]
+revision = "cfbdb9dffe41ca6d853cb6b496b94bc65d351f13"
+command = "cg spec done 22.33.1537 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and 15 dependent crates passed; 29 focused cases passed and four failed: three expected malformed empty-key decoding while current consumers refuse decoded empty keys, and startup receipt recovery lacked governed keys on its authority."
+repair = "Retain exact empty-key refusals at NativeReadRoute and readiness, add a separate structurally malformed startup response, and install the node keys validated by Gate through EvidenceAuthority::with_receipt_keys before verifying the reopened current receipt and recovering the tenant budget."
+
+[gotcha.current_empty_keys]
+observed = "As already recorded by gotcha 3200, decode_receipt_keys accepts an empty keys array; boot readiness refuses NoReceiptKeys and NativeReadRoute::signed_authority refuses Verification. Gate readiness validates protected authority but does not install the current receipt verifier keys."
+repair = "Exercise both actual refusal consumers and explicitly install their governed keys on the fixture authority using the production API; retain every spend, hold, restart and write-gate assertion."

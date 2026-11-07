@@ -78,123 +78,107 @@ fn cumulative_use_refuses_invalid_or_incomplete_windows_before_receipt_use() {
 
 #[test]
 fn trusted_policy_issues_state_evidence_only_for_its_exact_identity() {
-    let raw = support::raw_state_leaf(b"canonical-state-value".to_vec(), 50);
-    let verified = support::evidence_verifier()
-        .verify_state(&raw)
-        .unwrap_or_else(|error| panic!("trusted evidence: {error:?}"));
+    let authority = support::current_node::authority(8, 100, 199);
+    let (protocol, checkpoint) = support::current_node::committed_budget([9; 32], 25);
+    let verified = authority
+        .verify_state(&protocol.evidence)
+        .expect("committed state evidence");
     assert_eq!(
         verified.level(),
-        layerx_types::verify::VerificationLevel::STATE_PROVEN
+        layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED
     );
-    assert_eq!(verified.observed_head_sequence(), 50);
+    assert_eq!(verified.observed_head_sequence(), 150);
+    let authority = authority
+        .pin_committed_validators("125".to_owned(), checkpoint.validators.clone())
+        .expect("pinned consensus validators");
+    let time = authority
+        .authenticate_committed_time(&checkpoint)
+        .expect("authenticated committed time");
+    assert_eq!(time.observed_core_ms(), 1_700_000_000_123);
+    let mut altered = checkpoint.clone();
+    altered.commit.votes[0].signature[0] ^= 1;
+    assert!(authority.authenticate_committed_time(&altered).is_err());
 }
 
 #[test]
 fn canonical_genesis_batch_zero_is_inside_a_bounded_trusted_range() {
-    let genesis = state(StateHeaderIdentity {
-        signing_seed: [0x4a; 32],
-        protocol_version: PROTOCOL_VERSION,
-        network_id: 42,
-        epoch: 0,
-        batch_number: 0,
-    });
-    let verified = verifier(PolicyIdentity {
-        signing_seed: [0x4a; 32],
-        protocol_version: PROTOCOL_VERSION,
-        network_id: 42,
-        epoch: 0,
-        first_batch: 0,
-        last_batch: 0,
-        revoked_at_batch: None,
-        handshake_signing_seed: [0x4a; 32],
-        handshake_batch: 0,
-    })
-    .verify_state(&genesis)
-    .unwrap_or_else(|error| panic!("genesis evidence: {error:?}"));
-    assert_eq!(verified.observed_head_sequence(), 50);
+    // The old batch-zero authority does not exist in the node's height-based
+    // key contract: firstHeight must be positive. Preserve the zero boundary
+    // coverage as an exact parser refusal, and prove the first valid window.
+    let (endpoint, server) = support::serve(vec![(
+        "px_getReceiptKeys",
+        serde_json::json!([]),
+        Some(support::current_node::keys(8, 0, 0)),
+    )]);
+    assert_eq!(
+        endpoint.receipt_keys(),
+        Err(layerx_client::sequencer::SequencerError::Malformed)
+    );
+    server.join().expect("genesis node server");
+    let _authority = support::current_node::authority(8, 1, 1);
 }
 
 #[test]
 fn revocation_handover_selects_only_the_key_active_at_each_batch() {
-    let sequencer_id = [0x91; 32];
-    let authority = support::evidence_authority_for_sequencer(
-        TestAuthorityPolicy {
-            protocol_version: PROTOCOL_VERSION,
-            network_id: 42,
-            records: &[
-                TestAuthorityRecord {
-                    signing_seed: [0x4a; 32],
-                    epoch: 2,
-                    first_batch: 0,
-                    last_batch: 10,
-                    revoked_at_batch: Some(5),
-                },
-                TestAuthorityRecord {
-                    signing_seed: [0x5a; 32],
-                    epoch: 2,
-                    first_batch: 5,
-                    last_batch: 10,
-                    revoked_at_batch: None,
-                },
-            ],
-            handshake_signing_seed: [0x5a; 32],
-            handshake_batch: 5,
-        },
-        sequencer_id,
-    );
-    let old_before_handover = support::raw_state_leaf_with_sequencer_id(
-        b"old-before-handover".to_vec(),
-        50,
-        StateHeaderIdentity {
-            signing_seed: [0x4a; 32],
-            protocol_version: PROTOCOL_VERSION,
-            network_id: 42,
-            epoch: 2,
-            batch_number: 4,
-        },
-        sequencer_id,
-    );
-    let new_at_handover = support::raw_state_leaf_with_sequencer_id(
-        b"new-at-handover".to_vec(),
-        51,
-        StateHeaderIdentity {
-            signing_seed: [0x5a; 32],
-            protocol_version: PROTOCOL_VERSION,
-            network_id: 42,
-            epoch: 2,
-            batch_number: 5,
-        },
-        sequencer_id,
-    );
-    let old_at_handover = support::raw_state_leaf_with_sequencer_id(
-        b"old-at-handover".to_vec(),
-        51,
-        StateHeaderIdentity {
-            signing_seed: [0x4a; 32],
-            protocol_version: PROTOCOL_VERSION,
-            network_id: 42,
-            epoch: 2,
-            batch_number: 5,
-        },
-        sequencer_id,
-    );
-
-    assert_eq!(
-        authority
-            .verify_state(&old_before_handover)
-            .map(|verified| verified.observed_head_sequence()),
-        Ok(50)
-    );
-    assert_eq!(
-        authority
-            .verify_state(&new_at_handover)
-            .map(|verified| verified.observed_head_sequence()),
-        Ok(51)
-    );
-    assert!(matches!(
-        authority.verify_state(&old_at_handover),
-        Err(StateEvidenceError::Inclusion(_))
-    ));
+    use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext, ReceiptError};
+    let raw = support::signed_transaction(2);
+    let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+    for (first, last, seed, signing_seed, accepted) in [
+        (100, 150, 8, 8, true),
+        (150, 199, 9, 9, true),
+        (100, 149, 8, 8, false),
+        (151, 199, 8, 8, false),
+        (150, 199, 9, 8, false),
+    ] {
+        let (view, _) = support::sequencer_receipt_with_seed(&raw, true, signing_seed);
+        let mut exchanges = vec![
+            (
+                "px_getReceiptKeys",
+                serde_json::json!([]),
+                Some(support::current_node::keys(seed, first, last)),
+            ),
+            (
+                "pax_sequencerReceipt",
+                serde_json::json!([support::rpc_hex(&hash)]),
+                Some(view.clone()),
+            ),
+        ];
+        if accepted {
+            exchanges.push((
+                "eth_getTransactionReceipt",
+                serde_json::json!([support::rpc_hex(&hash)]),
+                Some(serde_json::Value::Null),
+            ));
+        }
+        let (endpoint, server) = support::serve(exchanges);
+        let keys = endpoint.receipt_keys().expect("node key response");
+        let observed = lookup_authenticated(
+            &endpoint,
+            hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        );
+        if accepted {
+            assert!(matches!(observed, Ok(Lookup::Verified(_))));
+        } else {
+            assert!(matches!(observed, Err(ReceiptError::Verification(_))));
+        }
+        server.join().expect("rotation node server");
+    }
+    let checkpoint = support::current_node::signed_checkpoint(150, 1_700_000_000, 123_000_000);
+    for seed in [8, 9] {
+        let authority = support::current_node::authority(seed, 100, 199)
+            .pin_committed_validators("125".to_owned(), checkpoint.validators.clone())
+            .expect("consensus authority");
+        assert_eq!(
+            authority
+                .authenticate_committed_time(&checkpoint)
+                .expect("committed chain independent of receipt rotation")
+                .through_sequence(),
+            150
+        );
+    }
 }
 
 #[test]

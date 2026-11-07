@@ -21,7 +21,7 @@ vi.hoisted(() => {
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
-import LatestTxs from './LatestTxs';
+import Transactions from './Transactions';
 
 const TOPIC = 'transactions:new_transaction';
 
@@ -45,9 +45,9 @@ describe('LatestTxs', () => {
   });
 
   it('lists the transactions in the order the api returns them', async() => {
-    const { container } = render(<LatestTxs/>);
+    const { container } = render(<Transactions/>);
 
-    await screen.findByText('View all transactions');
+    await screen.findByRole('link', { name: 'View all transactions' });
 
     await vi.waitFor(() => {
       const rows = Array.from(container.querySelectorAll('[data-latest-tx]'))
@@ -58,9 +58,9 @@ describe('LatestTxs', () => {
   });
 
   it('keeps a mobile row and a desktop row for every transaction', async() => {
-    const { container } = render(<LatestTxs/>);
+    const { container } = render(<Transactions/>);
 
-    await screen.findByText('View all transactions');
+    await screen.findByRole('link', { name: 'View all transactions' });
 
     await vi.waitFor(() => {
       expect(container.querySelectorAll(`[data-latest-tx="${ txMock.base.hash }"]`)).toHaveLength(2);
@@ -68,9 +68,9 @@ describe('LatestTxs', () => {
   });
 
   it('lets the desktop rows fit the half-width card with the parties and the value as columns', async() => {
-    const { container } = render(<LatestTxs/>);
+    const { container } = render(<Transactions/>);
 
-    await screen.findByText('View all transactions');
+    await screen.findByRole('link', { name: 'View all transactions' });
 
     await vi.waitFor(() => {
       expect(container.querySelectorAll(`[data-latest-tx="${ txMock.base.hash }"]`)).toHaveLength(2);
@@ -85,13 +85,14 @@ describe('LatestTxs', () => {
     expect(labels).not.toContain('tx-tags');
   });
 
-  it('closes the list with the link to every transaction', async() => {
-    const { container } = render(<LatestTxs/>);
+  it('links to every transaction from the label row', async() => {
+    const { container } = render(<Transactions/>);
 
-    const footer = await screen.findByText('View all transactions');
+    const footer = await screen.findByRole('link', { name: 'View all transactions' });
 
     expect(footer.getAttribute('href')).toBe('/txs');
-    expect(container.querySelector('[data-label="view-all-txs"]')).not.toBeNull();
+    expect(container.querySelector('[data-header]')?.contains(footer)).toBe(true);
+    expect(footer.textContent).toBe('View all');
   });
 
   it('counts twenty transactions that arrive inside half a second in one notice', async() => {
@@ -100,11 +101,11 @@ describe('LatestTxs', () => {
     try {
       const { container } = render(
         <SocketProvider url={ socket.url }>
-          <LatestTxs/>
+          <Transactions/>
         </SocketProvider>,
       );
 
-      await screen.findByText('View all transactions');
+      await screen.findByRole('link', { name: 'View all transactions' });
 
       await vi.waitFor(() => {
         expect(noticeText(container)).toContain('scanning new transactions...');
@@ -147,11 +148,11 @@ describe('LatestTxs', () => {
     try {
       const { container } = render(
         <SocketProvider url={ socket.url }>
-          <LatestTxs/>
+          <Transactions/>
         </SocketProvider>,
       );
 
-      await screen.findByText('View all transactions');
+      await screen.findByRole('link', { name: 'View all transactions' });
 
       await socket.join(TOPIC);
 

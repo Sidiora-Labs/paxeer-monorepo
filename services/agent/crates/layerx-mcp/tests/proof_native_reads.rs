@@ -12,8 +12,10 @@
 //! refusal naming history.list and px_getHistory instead of a transport status.
 //!
 //! The proof belongs to the consumer crate so layerx-agentd does not depend on
-//! layerx-mcp. The HTTP implementation below is the exact module main.rs imports,
-//! including its listener, parser, dispatcher and response writer.
+//! layerx-mcp. The shared HTTP implementation is also imported by main.rs through
+//! proof_serve_errors, including its listener, parser, dispatcher and response writer.
+//! Its daemon HTTP assertions remain in the separate agentd proof_serve_errors
+//! target and are not included in this disposable-node proof.
 //! Out-of-scope behavior: src/read/native.rs::NativeReadRoute::receipt labels even
 //! committed receipts "receipted". Assert that current behavior below; the expected
 //! eventual behavior is to preserve the authenticated receipt's strongest rung.
@@ -25,25 +27,32 @@
 #[path = "../../layerx-agentd/tests/proof_native_reads.rs"]
 mod native_reads;
 
-use native_reads::Service;
-
-use std::os::unix::fs::{DirBuilderExt, OpenOptionsExt};
-use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
+use std::net::{SocketAddr, TcpListener};
+use std::process::Command;
 use std::thread;
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant};
 
+use ed25519_dalek::SigningKey;
 use layerx_agentd::node_rpc::NodeRpcConfig;
+use layerx_agentd::read::{LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute};
 use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
-use layerx_client::sequencer::{SequencerBlock, SequencerEndpoint};
+use layerx_client::sequencer::{SequencerBlock, SequencerEndpoint, SequencerError};
 use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
 use layerx_mcp::boundary::{
     decode_native_read_result, AgentSurface, BoundaryRefusal, ProgramReads, ToolBoundary,
 };
 use layerx_mcp::server::catalogue;
-use layerx_programs::hex;
+use layerx_programs::chain_proof::validators::TrustedValidator;
+use layerx_programs::{hex, ProtocolDeploymentVerifier, Registry};
+use openssl::asn1::Asn1Time;
+use openssl::hash::MessageDigest;
+use openssl::pkey::PKey;
+use openssl::x509::extension::BasicConstraints;
+use openssl::x509::{X509NameBuilder, X509};
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
+
+use native_reads::disposable_node::LocalNode;
 
 const BEARER: &str = "native-reads-proof-agent-credential";
 
@@ -52,98 +61,126 @@ fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|error| panic!("native reads proof: {error:?}"))
 }
 
-struct LocalNode {
-    script: PathBuf,
-    home: PathBuf,
+fn endpoint(config: &NodeRpcConfig) -> SequencerEndpoint {
+    must(SequencerEndpoint::new(&config.url, &[]))
 }
 
-impl LocalNode {
-    fn start() -> (Self, String, Zeroizing<String>) {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .ancestors()
-            .nth(4)
-            .expect("repository root for tools/qualification/localnode/v6120-node.sh");
-        let script = root.join("tools/qualification/localnode/v6120-node.sh");
-        assert!(
-            script.is_file(),
-            "missing producer harness: {}",
-            script.display()
+fn producer_read<T>(
+    result: Result<T, SequencerError>,
+    url: &str,
+    method: &str,
+    params: Value,
+    expected_fields: &[&str],
+) -> Result<T, SequencerError> {
+    result.inspect_err(|error| {
+        let request = json!({"jsonrpc": "2.0", "id": 1, "method": method, "params": params});
+        let answer = Command::new("curl")
+            .args([
+                "--silent",
+                "--show-error",
+                "--max-time",
+                "5",
+                "-H",
+                "Content-Type: application/json",
+                "--data",
+            ])
+            .arg(request.to_string())
+            .arg(url)
+            .output()
+            .expect("capture refused producer method's raw JSON answer");
+        eprintln!(
+            "{method} refused: {error:?}; raw JSON answer: {}",
+            String::from_utf8_lossy(&answer.stdout)
         );
-        let directory = Path::new("/tmp/lx-localnode").join(format!(
-            "native-reads-{}-{}",
-            std::process::id(),
-            must(SystemTime::now().duration_since(UNIX_EPOCH)).as_nanos()
-        ));
-        must(
-            std::fs::DirBuilder::new()
-                .recursive(true)
-                .mode(0o700)
-                .create(&directory),
+        eprintln!(
+            "raw answer capture status: {}; {}",
+            answer.status,
+            String::from_utf8_lossy(&answer.stderr)
         );
-        let environment = directory.join("localnode.env");
-        let log_path = directory.join("startup.log");
-        let log = must(
-            std::fs::OpenOptions::new()
-                .write(true)
-                .create_new(true)
-                .mode(0o600)
-                .open(&log_path),
-        );
-        let status = Command::new("bash")
-            .arg(&script)
-            .args(["--sequencer", "--env-out"])
-            .arg(&environment)
-            .env("TMPDIR", "/tmp")
-            .env_remove("PAXD")
-            .stdout(Stdio::from(must(log.try_clone())))
-            .stderr(Stdio::from(log))
-            .status()
-            .expect("start tools/qualification/localnode/v6120-node.sh producer");
-        assert!(
-            status.success(),
-            "tools/qualification/localnode/v6120-node.sh failed ({status}); evidence: {}",
-            log_path.display()
-        );
-        let text = Zeroizing::new(must(std::fs::read_to_string(&environment)));
-        let field = |name: &str| {
-            text.lines()
-                .filter_map(|line| line.split_once('='))
-                .find_map(|(key, value)| (key == name).then_some(value))
-                .unwrap_or_else(|| panic!("producer localnode.env is missing {name}"))
-        };
-        // Install cleanup before decoding the endpoint or key so assertion failures
-        // in the proof also stop the producer's node and feeder processes.
-        let node = Self {
-            script,
-            home: PathBuf::from(field("LOCAL_NODE_HOME")),
-        };
-        let url = field("LOCAL_NODE_SEQUENCER_RPC").to_owned();
-        let key = Zeroizing::new(field("LOCAL_NODE_KEY").to_owned());
-        must(std::fs::remove_file(environment));
-        (node, url, key)
-    }
-}
-
-impl Drop for LocalNode {
-    fn drop(&mut self) {
-        let status = Command::new("bash")
-            .arg(&self.script)
-            .arg("--stop")
-            .arg(&self.home)
-            .env("TMPDIR", "/tmp")
-            .status();
-        if !matches!(status, Ok(status) if status.success()) {
-            if thread::panicking() {
-                eprintln!(
-                    "failed to stop native reads producer: {}",
-                    self.home.display()
-                );
+        eprintln!("layerx-client decoder expects fields: {expected_fields:?}");
+        if let Ok(value) = serde_json::from_slice::<Value>(&answer.stdout) {
+            let result = &value["result"];
+            let fields = if method == "px_getReceiptKeys" {
+                &result["keys"][0]
             } else {
-                panic!(
-                    "failed to stop native reads producer: {}",
-                    self.home.display()
+                result
+            };
+            if let Some(object) = fields.as_object() {
+                let actual: std::collections::BTreeSet<_> =
+                    object.keys().map(String::as_str).collect();
+                let expected: std::collections::BTreeSet<_> =
+                    expected_fields.iter().copied().collect();
+                eprintln!(
+                    "{method} missing fields: {:?}; additional fields: {:?}",
+                    expected.difference(&actual).collect::<Vec<_>>(),
+                    actual.difference(&expected).collect::<Vec<_>>()
                 );
             }
+        }
+    })
+}
+
+fn authority_ca() -> Vec<u8> {
+    let key = must(PKey::generate_ed25519());
+    let mut name = must(X509NameBuilder::new());
+    must(name.append_entry_by_text("CN", "native-reads-proof"));
+    let name = name.build();
+    let mut certificate = must(X509::builder());
+    must(certificate.set_version(2));
+    must(certificate.set_subject_name(&name));
+    must(certificate.set_issuer_name(&name));
+    must(certificate.set_pubkey(&key));
+    let not_before = must(Asn1Time::days_from_now(0));
+    let not_after = must(Asn1Time::days_from_now(1));
+    must(certificate.set_not_before(not_before.as_ref()));
+    must(certificate.set_not_after(not_after.as_ref()));
+    must(certificate.append_extension(must(BasicConstraints::new().critical().ca().build())));
+    must(certificate.sign(&key, MessageDigest::null()));
+    must(certificate.build().to_der())
+}
+
+struct Service {
+    address: SocketAddr,
+    _pool: native_reads::HttpPool,
+}
+
+impl Service {
+    fn start(config: &NodeRpcConfig, address: SocketAddr, node: &LocalNode) -> Self {
+        // The production read server also owns the program route. Construct its
+        // real reader; native reads never contact this separate program authority.
+        let ca = authority_ca();
+        let validator = SigningKey::from_bytes(&[21; 32]).verifying_key().to_bytes();
+        let verifier = must(ProtocolDeploymentVerifier::from_chain_trust(
+            format!("paxeer-{}", config.chain_id),
+            vec![TrustedValidator::new(validator, 1)],
+            1_000,
+        ));
+        let reader = must(LayerxdProgramBalanceReader::connect(
+            &config.url,
+            "native-reads-node-credential".to_owned(),
+            ProgramAuthority {
+                endpoint: "https://localhost:1",
+                authorization: "native-reads-authority-credential".to_owned(),
+                replica_id: [21; 32],
+                ca_der: &ca,
+            },
+            verifier,
+            Registry::new(),
+        ));
+        let listener = must(TcpListener::bind(address));
+        let address = must(listener.local_addr());
+        let pool = must(native_reads::serve_read_routes(
+            listener,
+            BEARER.to_owned(),
+            ProgramBalanceReadRoute::new(reader),
+            Some(node.native_read_route(&config.url, config.chain_id)),
+            config.clone(),
+            ca,
+            endpoint(config),
+        ));
+        Self {
+            address,
+            _pool: pool,
         }
     }
 }
@@ -159,12 +196,48 @@ impl Service {
     }
 }
 
-fn execute(reads: &mut ProgramReads, name: &str, arguments: Value) -> Value {
+fn execute(reads: &mut ProgramReads, address: SocketAddr, name: &str, arguments: Value) -> Value {
     let tool = *catalogue()
         .iter()
         .find(|tool| tool.name == name)
         .expect("real catalogue tool");
-    must(reads.execute(tool, &arguments))
+    let result = reads.execute(tool, &arguments);
+    if let Err(error) = &result {
+        let (kind, selector) = match name {
+            "receipt.get" => ("receipt", "activity_id"),
+            "proof.get" => ("proof", "activity_id"),
+            "checkpoint.get" => ("checkpoint", "sequence"),
+            "availability.get" => ("availability", "batch"),
+            _ => panic!("unexpected proof tool: {name}"),
+        };
+        let path = format!(
+            "/v1/reads/{kind}/{}",
+            arguments[selector].as_str().expect("proof read selector")
+        );
+        let answer = Command::new("curl")
+            .args([
+                "--silent",
+                "--show-error",
+                "--include",
+                "--max-time",
+                "5",
+                "-H",
+            ])
+            .arg(format!("Authorization: Bearer {BEARER}"))
+            .arg(format!("http://{address}{path}"))
+            .output()
+            .expect("capture unexpectedly refused daemon read's status and body");
+        eprintln!(
+            "{name} {path} refused: {error:?}; raw daemon status and body: {}",
+            String::from_utf8_lossy(&answer.stdout)
+        );
+        eprintln!(
+            "daemon answer capture status: {}; {}",
+            answer.status,
+            String::from_utf8_lossy(&answer.stderr)
+        );
+    }
+    result.unwrap_or_else(|error| panic!("{name} {arguments} unexpectedly refused: {error:?}"))
 }
 
 fn produce_transaction(
@@ -205,22 +278,107 @@ fn produce_transaction(
     }
 }
 
-fn observe(reads: &mut ProgramReads, hash: [u8; 32], block: &SequencerBlock) -> Vec<Value> {
+fn observe(
+    reads: &mut ProgramReads,
+    address: SocketAddr,
+    node_url: &str,
+    hash: [u8; 32],
+    block: &SequencerBlock,
+) -> Vec<Value> {
     let transaction = hex::encode(&hash);
-    let receipt = execute(reads, "receipt.get", json!({"activity_id": transaction}));
+    let receipt = execute(
+        reads,
+        address,
+        "receipt.get",
+        json!({"activity_id": transaction}),
+    );
     assert_eq!(receipt["transaction_hash"], transaction);
     assert_eq!(receipt["height"], block.number);
     assert_eq!(receipt["rung"], "receipted");
     assert!(receipt["receipt"]
         .as_str()
         .is_some_and(|value| !value.is_empty()));
-    let proof = execute(reads, "proof.get", json!({"activity_id": transaction}));
-    assert_eq!(proof["receipt"], receipt["receipt"]);
-    assert_eq!(proof["receipt_key"], receipt["receipt_key"]);
+    let height = receipt["height"]
+        .as_u64()
+        .expect("authenticated receipt height");
+    let request = json!({
+        "jsonrpc": "2.0", "id": 1, "method": "eth_getBlockByNumber",
+        "params": [format!("{height:#x}"), true],
+    });
+    let answer = Command::new("curl")
+        .args([
+            "--silent",
+            "--show-error",
+            "--max-time",
+            "5",
+            "-H",
+            "Content-Type: application/json",
+            "--data",
+        ])
+        .arg(request.to_string())
+        .arg(node_url)
+        .output()
+        .expect("read the receipt height directly from the disposable node");
+    eprintln!(
+        "receipt height {height} eth_getBlockByNumber at {node_url}: {}; status: {}; {}",
+        String::from_utf8_lossy(&answer.stdout),
+        answer.status,
+        String::from_utf8_lossy(&answer.stderr)
+    );
+    assert!(answer.status.success(), "direct receipt-height block read");
+    let answer: Value = must(serde_json::from_slice(&answer.stdout));
+    assert!(
+        answer.get("error").is_none(),
+        "receipt-height block RPC error: {answer}"
+    );
+    assert_eq!(
+        answer["result"]["hash"],
+        format!("0x{}", hex::encode(&block.hash)),
+        "the node serving the route must retain the authenticated receipt's block"
+    );
+    let proof = execute(
+        reads,
+        address,
+        "proof.get",
+        json!({"activity_id": transaction}),
+    );
+    assert_eq!(
+        proof["signedReceipt"],
+        format!("0x{}", receipt["receipt"].as_str().expect("signed receipt"))
+    );
+    let receipt_key = &receipt["receipt_key"];
+    assert_eq!(
+        proof["receiptKey"],
+        json!({
+            "keyId": format!("0x{}", receipt_key["key_id"].as_str().expect("receipt key id")),
+            "publicKey": format!("0x{}", receipt_key["public_key"].as_str().expect("receipt public key")),
+            "firstHeight": receipt_key["first_height"].as_u64().expect("receipt key first height").to_string(),
+            "lastHeight": receipt_key["last_height"].as_u64().expect("receipt key last height").to_string(),
+        })
+    );
     assert_eq!(proof["kind"], "receipt");
-    assert_eq!(proof["proof_type"], "sequencer_signature");
+    assert_eq!(proof["format"], "layerx-receipt-proof-v2");
+    assert_eq!(proof["verificationLevel"], "committed");
+    assert_eq!(proof["rung"], "committed");
+    assert_eq!(proof["height"], block.number);
+    assert_eq!(proof["commitment_height"], block.number + 1);
+    assert_eq!(proof["transaction_hash"], transaction);
+    let raw = block
+        .transactions
+        .iter()
+        .find(|raw| transaction_hash(raw) == hash)
+        .expect("the committed block contains the produced transaction");
+    assert_eq!(proof["rawTransaction"], format!("0x{}", hex::encode(raw)));
+    for field in ["blockHeader", "receiptInclusion", "commit", "validatorSet"] {
+        let bytes = proof[field]
+            .as_str()
+            .and_then(|value| value.strip_prefix("0x"))
+            .unwrap_or_else(|| panic!("committed proof must carry {field}"));
+        assert!(!must(hex::decode(bytes)).is_empty(), "{field}");
+    }
     let checkpoint = execute(
         reads,
+        address,
         "checkpoint.get",
         json!({"sequence": block.number.to_string()}),
     );
@@ -236,10 +394,11 @@ fn observe(reads: &mut ProgramReads, hash: [u8; 32], block: &SequencerBlock) -> 
         checkpoint["receipts_root"],
         hex::encode(&block.receipts_root)
     );
-    assert_eq!(checkpoint["verified"], false);
-    assert!(checkpoint["rung"].is_null());
+    assert_eq!(checkpoint["verified"], true);
+    assert_eq!(checkpoint["rung"], "committed");
     let availability = execute(
         reads,
+        address,
         "availability.get",
         json!({"batch": block.number.to_string()}),
     );
@@ -269,16 +428,40 @@ fn observe(reads: &mut ProgramReads, hash: [u8; 32], block: &SequencerBlock) -> 
 
 #[test]
 fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
-    let (_node, url, key) = LocalNode::start();
+    let (node, url, key) = LocalNode::start();
     let client = must(SequencerEndpoint::new(&url, &[]));
     let config = NodeRpcConfig {
+        chain_id: producer_read(client.chain_id(), &url, "eth_chainId", json!([]), &[])
+            .expect("producer eth_chainId must decode as a canonical chain-id quantity"),
         url,
-        chain_id: must(client.chain_id()),
         deadline: Duration::from_secs(5),
     };
     let (hash, height) = produce_transaction(&client, config.chain_id, &key);
-    let block = must(client.block_by_number(height)).expect("committed producer block");
-    let keys = must(client.receipt_keys());
+    let block = producer_read(
+        client.block_by_number(height),
+        &config.url,
+        "eth_getBlockByNumber",
+        json!([format!("{height:#x}"), true]),
+        &[
+            "number",
+            "hash",
+            "parentHash",
+            "timestamp",
+            "transactionsRoot",
+            "receiptsRoot",
+            "transactions",
+        ],
+    )
+    .expect("producer eth_getBlockByNumber must decode the committed block and its transactions")
+    .expect("committed producer block");
+    let keys = producer_read(
+        client.receipt_keys(),
+        &config.url,
+        "px_getReceiptKeys",
+        json!([]),
+        &["keyId", "publicKey", "firstHeight", "lastHeight"],
+    )
+    .expect("producer px_getReceiptKeys must decode the keys object and its numeric height ranges");
     let Lookup::Verified(verified) = must(lookup_authenticated(
         &client,
         hash,
@@ -289,12 +472,12 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
         panic!("real sequencer must emit a signed receipt for the produced transaction");
     };
 
-    let service = Service::start(&config, "127.0.0.1:0".parse().expect("loopback"));
+    let service = Service::start(&config, "127.0.0.1:0".parse().expect("loopback"), &node);
     let address = service.address;
     let surface = service.surface(BEARER);
     let wrong_credential = service.surface("wrong-native-reads-agent-credential");
     let mut reads = ProgramReads::new(service.surface(BEARER));
-    let first = observe(&mut reads, hash, &block);
+    let first = observe(&mut reads, address, &config.url, hash, &block);
     assert_eq!(first[0]["receipt"], hex::encode(verified.canonical_bytes()));
     assert_eq!(
         first[0]["receipt_key"]["key_id"],
@@ -348,8 +531,8 @@ fn native_reads_producer_http_consumer_reopens_and_refuses_malformed_results() {
         ),
         "a stopped server must never be answered from a cache"
     );
-    let reopened = Service::start(&config, address);
-    let second = observe(&mut reads, hash, &block);
+    let reopened = Service::start(&config, address, &node);
+    let second = observe(&mut reads, address, &config.url, hash, &block);
     assert_eq!(first, second);
     assert_eq!(must(surface.native_read(&path)), second[2]);
     drop(reopened);

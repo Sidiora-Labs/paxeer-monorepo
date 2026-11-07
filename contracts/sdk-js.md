@@ -13,8 +13,10 @@ Tenant domains do not require another SDK package or public EVM chain ID.
 ## Package
 
 The authoritative manifest is [sdk/js/package.json](../sdk/js/package.json),
-currently version `1.0.6-pax.1`. The maintained implementation is checked in
-under `dist/cjs` and `dist/esm`, with declarations under `dist/types`.
+currently version `1.0.6-pax.1`, in
+[paxeer-monorepo](https://github.com/Sidiora-Labs/paxeer-monorepo/tree/main/sdk/js).
+It selects runtime artifacts under `dist/cjs` and `dist/esm`, with declarations
+under `dist/types`; these directories are absent from this checkout.
 There is no `src` build tree or `build` script in this package. Its test
 script is `node --test test/`. The upstream tag in the README records
 provenance; the old `VENDOR.kvx` pin is removed.
@@ -38,7 +40,7 @@ a message or broadcast automatically.
 
 ## encoding-index
 
-[encoding/index.d.ts](../sdk/js/dist/types/encoding/index.d.ts) declares
+The [encoding package contract](../sdk/js/README.md#pax-jscosmosencoding) describes
 `Encoder`, `aminoConverters` and `paxProtoRegistry`. `Encoder` groups codecs
 under namespaces including `cosmos`, `epoch`, `eth`, `evm`, `mint.v1beta1`,
 `oracle`, `tokenfactory`, `confio`, `google` and `tendermint`.
@@ -65,7 +67,8 @@ consumers that require a pre-encoded value.
 
 ## encoding-common
 
-The internal [common.d.ts](../sdk/js/dist/types/encoding/common.d.ts) defines
+The internal `common.d.ts` in the distribution's
+[encoding export](../sdk/js/package.json) defines
 `MessageFns<T, V>`: `$type`, `encode`, `decode`, `fromJSON`, `toJSON`, `create`
 and `fromPartial`. `encode` returns a binary writer; call `.finish()` for a
 `Uint8Array`. `decode` accepts bytes or a binary reader. `DeepPartial`,
@@ -84,9 +87,9 @@ call these conversions for you.
 
 `paxProtoRegistry` is declared as an array of `[typeUrl, GeneratedType]`
 pairs. Entries use slash-prefixed fully qualified protobuf names; codec
-`$type` values omit the leading slash. See the maintained
-[registry implementation](../sdk/js/dist/esm/encoding/registry.js) for the
-actual registration list. A registered codec is not proof that the node
+`$type` values omit the leading slash. See the
+[registry package contract](../sdk/js/README.md#usage-with-cosmjsstargate) for
+registration and signing usage. A registered codec is not proof that the node
 exposes a query or accepts a transaction; check the corresponding node
 module and transport contract.
 
@@ -153,8 +156,8 @@ handling raw REST responses. Bindings are in [epoch queries](rpc.md#epoch-querie
 `Encoder.eth` and `types/eth` cover `AccessTuple`, `AssociateTx`, `LegacyTx`,
 `AccessListTx`, `DynamicFeeTx`, `BlobTx`, `BlobTxSidecar` and
 `ExtensionOptionsEthereumTx`. Fee/value/chain-ID strings and signature/data
-byte arrays are defined in
-[eth/tx.d.ts](../sdk/js/dist/types/types/eth/tx.d.ts). The node proto also
+byte arrays are part of the
+[module type contract](../sdk/js/README.md#pax-jscosmostypes). The node proto also
 declares `SetCodeAuthorization` and `SetCodeTx`; this SDK does not currently
 export those messages. These native envelopes are not Ethereum raw
 transaction RLP or JSON-RPC request objects.
@@ -173,7 +176,7 @@ matches the seven node values, but its `AssetType` declaration still has
 `TYPECW20=0`, `TYPECW721=1`, whereas the node proto declares
 `TYPEUNKNOWN=0`, `TYPECW20=1`, `TYPECW721=2`, `TYPENATIVE=3`. Those SDK
 `AssetType` values must not be used as node enum numbers. Compare
-[SDK enums](../sdk/js/dist/types/types/evm/enums.d.ts) with
+[SDK module types](../sdk/js/README.md#pax-jscosmostypes) with
 [node enums](../api/evm/enums.proto).
 
 <a id="types-google"></a>
@@ -251,8 +254,8 @@ async function readTokenfactoryParams(restOrigin: string) {
 ### rest-index
 
 `Querier` groups `cosmos`, `epoch`, `evm`, `mint.v1beta1`, `oracle` and
-`tokenfactory`. See [rest/index.d.ts](../sdk/js/dist/types/rest/index.d.ts)
-for the complete namespace tree. No endpoint or chain is selected by default.
+`tokenfactory`. See the [REST package contract](../sdk/js/README.md#pax-jscosmosrest)
+for query usage and transport behavior. No endpoint or chain is selected by default.
 
 ### rest-fetch
 

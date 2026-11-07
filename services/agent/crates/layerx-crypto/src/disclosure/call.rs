@@ -1,8 +1,12 @@
 use super::*;
+use crate::binding::BIND_SELECTOR;
 use crate::payments::Registration;
 use sha3::{Digest as _, Keccak256};
 
-pub use super::program::{decode_program_call, encode_program_call};
+pub use super::program::{
+    decode_program_call, decode_program_deploy, decode_program_upgrade, decode_program_wind_down,
+    encode_program_call, encode_program_deploy, encode_program_upgrade, encode_program_wind_down,
+};
 
 /// Supported constructors (paths are relative to `services/agent/crates`):
 ///
@@ -22,6 +26,20 @@ pub use super::program::{decode_program_call, encode_program_call};
 ///   constructor for these in the daemon's EVM preparation module.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ConstructMethod {
+    BindLayerX {
+        public_key: [u8; 32],
+        signature: [u8; 64],
+    },
+    ProgramDeploy {
+        deploy: Box<DisclosedProgramDeploy>,
+    },
+    ProgramUpgrade {
+        upgrade: Box<DisclosedProgramUpgrade>,
+        fee_limit: u128,
+    },
+    ProgramWindDown {
+        wind_down: Box<DisclosedProgramWindDown>,
+    },
     ProgramCall {
         call: Box<DisclosedProgramCall>,
         fee_limit: u128,
@@ -105,7 +123,17 @@ impl ConstructMethod {
     #[must_use]
     pub const fn abi_signature(&self) -> &'static str {
         match self {
-            Self::ProgramCall { .. } => "call(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128)",
+            Self::BindLayerX { .. } => "bindLayerX(bytes32,bytes)",
+            Self::ProgramDeploy { .. } => program::PROGRAM_DEPLOY_SIGNATURE,
+            Self::ProgramUpgrade { .. } => program::PROGRAM_UPGRADE_SIGNATURE,
+            Self::ProgramWindDown { wind_down } => match &wind_down.operation {
+                DisclosedProgramWindDownOperation::Route { .. } => program::PROGRAM_ROUTE_SIGNATURE,
+                DisclosedProgramWindDownOperation::Deprecate { .. } => program::PROGRAM_DEPRECATE_SIGNATURE,
+                DisclosedProgramWindDownOperation::Tombstone => program::PROGRAM_TOMBSTONE_SIGNATURE,
+                DisclosedProgramWindDownOperation::Exit { .. } => program::PROGRAM_EXIT_SIGNATURE,
+                DisclosedProgramWindDownOperation::BoundedExit { .. } => program::PROGRAM_BOUNDED_EXIT_SIGNATURE,
+            },
+            Self::ProgramCall { .. } => program::PROGRAM_CALL_SIGNATURE,
             Self::LedgerOpenAccount { .. } => "openAccount(bytes32)",
             Self::LedgerRegister { .. } => "register(bytes32,bytes32,string,string,uint8,uint128,uint8,bytes)",
             Self::LedgerMint { .. } => "mint(bytes32,bytes32,uint128)",
@@ -273,13 +301,14 @@ impl Disclosure {
         let method = decode_method(call)?;
         let execution_fee_bound = match (&method, context) {
             (
-                ConstructMethod::ProgramCall { fee_limit, .. },
+                ConstructMethod::ProgramCall { fee_limit, .. }
+                | ConstructMethod::ProgramUpgrade { fee_limit, .. },
                 CallFeeContext::ProgramExecution { fee_asset },
             ) if fee_asset != [0; 32] => Some(ExecutionFeeBound {
                 asset: fee_asset,
                 amount_base_units: *fee_limit,
             }),
-            (ConstructMethod::ProgramCall { .. }, _)
+            (ConstructMethod::ProgramCall { .. } | ConstructMethod::ProgramUpgrade { .. }, _)
             | (_, CallFeeContext::ProgramExecution { .. }) => {
                 return Err(DisclosureError::FieldMismatch("execution_fee_asset"));
             }
@@ -298,7 +327,11 @@ impl Disclosure {
                 pointer,
                 value: u128::from_be_bytes(uint(amount)?),
             }],
-            ConstructMethod::ProgramCall { .. }
+            ConstructMethod::BindLayerX { .. }
+            | ConstructMethod::ProgramCall { .. }
+            | ConstructMethod::ProgramDeploy { .. }
+            | ConstructMethod::ProgramUpgrade { .. }
+            | ConstructMethod::ProgramWindDown { .. }
             | ConstructMethod::LedgerOpenAccount { .. }
             | ConstructMethod::LedgerRegister { .. }
             | ConstructMethod::LedgerMint { .. }
@@ -550,11 +583,43 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
         .map_err(|_| DisclosureError::MalformedPayload)?;
     let args = &call.data[4..];
     if target(&call.to, [0x10, 0x1d]) {
-        let (call, fee_limit) = decode_program_call(&call.data)?;
-        return Ok(ConstructMethod::ProgramCall {
-            call: Box::new(call),
-            fee_limit,
-        });
+        return match selector {
+            value if value == ledger_selector(program::PROGRAM_CALL_SIGNATURE) => {
+                let (call, fee_limit) = decode_program_call(&call.data)?;
+                Ok(ConstructMethod::ProgramCall {
+                    call: Box::new(call),
+                    fee_limit,
+                })
+            }
+            value if value == ledger_selector(program::PROGRAM_DEPLOY_SIGNATURE) => {
+                Ok(ConstructMethod::ProgramDeploy {
+                    deploy: Box::new(decode_program_deploy(&call.data)?),
+                })
+            }
+            value if value == ledger_selector(program::PROGRAM_UPGRADE_SIGNATURE) => {
+                let (upgrade, fee_limit) = decode_program_upgrade(&call.data)?;
+                Ok(ConstructMethod::ProgramUpgrade {
+                    upgrade: Box::new(upgrade),
+                    fee_limit,
+                })
+            }
+            value
+                if [
+                    program::PROGRAM_ROUTE_SIGNATURE,
+                    program::PROGRAM_DEPRECATE_SIGNATURE,
+                    program::PROGRAM_TOMBSTONE_SIGNATURE,
+                    program::PROGRAM_EXIT_SIGNATURE,
+                    program::PROGRAM_BOUNDED_EXIT_SIGNATURE,
+                ]
+                .iter()
+                .any(|signature| value == ledger_selector(signature)) =>
+            {
+                Ok(ConstructMethod::ProgramWindDown {
+                    wind_down: Box::new(decode_program_wind_down(&call.data)?),
+                })
+            }
+            _ => Err(DisclosureError::MalformedPayload),
+        };
     }
     if target(&call.to, [0x10, 0x1a]) {
         return match selector {
@@ -801,7 +866,7 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             || payload[0] != 0x71
             || !matches!(
                 (payload[1], payload[2], payload[3], payload.len()),
-                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (3, 0, 3, 70) | (3, 0, 5, 86)
+                (1, 0, 2, 68) | (1, 2, 1, 8..=1024) | (2, 0, 4, 92) | (3, 0, 3, 70) | (3, 0, 5, 86)
             )
         {
             return Err(DisclosureError::MalformedPayload);
@@ -831,6 +896,21 @@ pub(super) fn decode_method(call: &Eip1559Call) -> Result<ConstructMethod, Discl
             amount: word(args, 1)?,
         });
     }
+    if target(&call.to, [0x10, 0x04]) {
+        if selector != BIND_SELECTOR
+            || args.len() != 160
+            || word(args, 1)? != abi_word(64)
+            || word(args, 2)? != abi_word(64)
+        {
+            return Err(DisclosureError::MalformedPayload);
+        }
+        return Ok(ConstructMethod::BindLayerX {
+            public_key: word(args, 0)?,
+            signature: args[96..]
+                .try_into()
+                .map_err(|_| DisclosureError::MalformedPayload)?,
+        });
+    }
     Err(DisclosureError::MalformedPayload)
 }
 
@@ -840,9 +920,13 @@ pub(super) fn fields(
 ) -> Result<DisclosureFields, DisclosureError> {
     let method = decode_method(call)?;
     let ordinal = match &method {
+        ConstructMethod::ProgramDeploy { .. } => 1,
+        ConstructMethod::ProgramUpgrade { .. } => 2,
+        ConstructMethod::ProgramWindDown { .. } => 7,
         ConstructMethod::ProgramCall { .. } => 3,
         ConstructMethod::LedgerOpenAccount { .. } => 4,
-        ConstructMethod::LedgerRegister { .. }
+        ConstructMethod::BindLayerX { .. }
+        | ConstructMethod::LedgerRegister { .. }
         | ConstructMethod::PayBudgetCreate { .. }
         | ConstructMethod::PayBudgetCreateNative { .. } => 1,
         ConstructMethod::AuthSession { .. } => 5,
@@ -868,10 +952,18 @@ pub(super) fn fields(
         ModuleId::Budget
     } else if matches!(
         &method,
-        ConstructMethod::AuthLifecycle { .. } | ConstructMethod::AuthSession { .. }
+        ConstructMethod::BindLayerX { .. }
+            | ConstructMethod::AuthLifecycle { .. }
+            | ConstructMethod::AuthSession { .. }
     ) {
         ModuleId::Governance
-    } else if matches!(&method, ConstructMethod::ProgramCall { .. }) {
+    } else if matches!(
+        &method,
+        ConstructMethod::ProgramCall { .. }
+            | ConstructMethod::ProgramDeploy { .. }
+            | ConstructMethod::ProgramUpgrade { .. }
+            | ConstructMethod::ProgramWindDown { .. }
+    ) {
         ModuleId::Programs
     } else {
         ModuleId::Asset
@@ -902,6 +994,16 @@ pub(super) fn fields(
         native_operation: None,
     };
     match method {
+        ConstructMethod::BindLayerX { .. } => {}
+        ConstructMethod::ProgramDeploy { deploy } => {
+            fields.native_operation = Some(DisclosedNativeOperation::ProgramDeploy(deploy));
+        }
+        ConstructMethod::ProgramUpgrade { upgrade, .. } => {
+            fields.native_operation = Some(DisclosedNativeOperation::ProgramUpgrade(upgrade));
+        }
+        ConstructMethod::ProgramWindDown { wind_down } => {
+            fields.native_operation = Some(DisclosedNativeOperation::ProgramWindDown(wind_down));
+        }
         ConstructMethod::ProgramCall { call, .. } => {
             if let Some((idempotency_key, expiry)) = program::paxai_envelope_terms(&call)? {
                 fields.idempotency_key = idempotency_key;
