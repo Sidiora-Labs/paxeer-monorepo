@@ -23,6 +23,11 @@ use std::sync::atomic::{AtomicU64, Ordering};
 const NETWORK: u32 = 125;
 static NEXT: AtomicU64 = AtomicU64::new(0);
 
+#[test]
+fn subject_registration_test_gap_resolves_reads_and_writes_across_commitment_and_restart() {
+    prove_registration_resolution(|_, alice, bob, _| (alice.clone(), bob.clone()));
+}
+
 fn must<T, E: Debug>(value: Result<T, E>) -> T {
     value.unwrap_or_else(|error| panic!("managed subject registration: {error:?}"))
 }
