@@ -137,6 +137,10 @@ In production put this on shared durable storage, not on a function's local disk
 
 ## Run it
 
+For this sample, the `dev` script first runs the matching `predev` hook, which invokes
+the repository-root `build:dependencies` script for `@sidiora/layerx-doc-paid-route-next`
+before starting the Next.js development server.
+
 ```text
 cd services/platform/examples/samples/paid-route-next
 npm install
