@@ -33275,3 +33275,51 @@ symbol = "repair_22_31_583.rs"
 observed = "Attempt 2 at 0b8900b54f2f78a73ba06fe7b9e3265f18257c5f: no gate ran; the tree is the launch tree, unchanged by the session, which issued no command in 90 minutes."
 assumption = "The session never reached its model; the ruling of attempt 1 still stands."
 severity = "medium"
+
+[finding.22.99.77.22]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 20 at f0788359b8a81afb1b616ca5e549bd0b7da35a49: build exit 2 at the host boundary target (CALL diagnostic prepare_activity=-3, short CALL replay capture failed) before the ai-market build; no verify ran; the same target built at the attempt-19 base."
+assumption = "The C decoder of the replay record is at version 1 while the runtime of 22.31.577 writes version 2; the task tree itself did not change the decoder or the record."
+severity = "high"
+
+[finding.9.98.4.10]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 8 at 3614b8b0925dc59a1bf7b9079e4f0cb9346fdc11: build exit 0, dependent-crate check exit 0, verify exit 1 with 8 passed and 4 failed: retained_settlement_settles_after_the_head_advances, retained_settlement_settles_once_across_replay and retained_settlement_refuses_a_failed_receipt panic at line 23748 with retained settlement: Refused; policy_usage_sums_only_proven_receipts_in_the_window expects 4 eth_blockNumber calls and observes 6."
+assumption = "The settle function refuses at a site the evidence cannot name; the fixture commit answer was built for the field set before 22.31.585; the history double answers eth_blockNumber twice per read."
+severity = "high"
+
+[finding.22.38.35.1]
+task = "22.38.35"
+file = "tools/qualification/audit_repairs/test_repair_22_38_35.py"
+symbol = "test_repair_22_38_35.py"
+observed = "Attempt 1 at e32810b2c27b1741d08d13519328d628b84f3b3d: build exit 0, verify: 19 tests passed, done gate refused with three symbol entries not defined in the graph (the three paths of the symbols field)."
+assumption = "The symbols field carried file paths; the tree is complete."
+severity = "low"
+
+[finding.22.38.23.1]
+task = "22.38.23"
+file = "apps/inference-peer/test/vendored_engine.test.mjs"
+symbol = "vendored_engine.test.mjs"
+observed = "Attempt 1 at 390cd756f0f784a00c80326d5931284bc8210f6d: build exit 0, verify: 5 tests passed, done gate refused with three symbol entries not defined in the graph (the three paths of the symbols field)."
+assumption = "The symbols field carried file paths; the tree is complete."
+severity = "low"
+
+[finding.22.38.9.1]
+task = "22.38.9"
+file = "precompiles/layerxpay/stream_ask_test.go"
+symbol = "stream_ask_test.go"
+observed = "Attempt 1 at 3eba70e030fcad0404550f152e22f7b287946817: build exit 0, verify exit 1: the precompiles/layerxpay test package failed to compile with assignment mismatch at thirteen GetEscrow and GetEscrowResult call sites of four pre-existing test files; TestStreamAsk never ran."
+assumption = "The pay keeper returns three values since 22.33.1303 and the precompile tests still take two; the task tree did not touch those files."
+severity = "high"
+
+[finding.22.38.1.1]
+task = "22.38.1"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"
+symbol = "f11_family_table.rs"
+observed = "Attempt 1 at ab795ff9f885b93b572afde929f55b25fd79de9e: build 2 exit 101: tests/identity_section_sharing.rs line 624 cannot compare an eleven-entry Availability array with the ten-entry expected array; the task widened feature_availability and left the enumerating tests at ten."
+assumption = "The arity change of feature_availability is the task scope; the enumerating tests are its consumers and belong to the task."
+severity = "high"

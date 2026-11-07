@@ -16660,3 +16660,23 @@ fix = "The engineering process now checks the endpoint with a small request befo
 title = "Every feature 22 task references requirement 22998.1 in its reqs list, and the spec carries no [req.22998.1] block; the requirement index of the audit programme therefore pointed at nothing for the whole feature."
 symptom = "The audit series was generated from a template whose requirement id was never materialised as a block; the lint checks block syntax, not requirement references."
 fix = "Batch 581 creates [req.22998.1] with the feature-wide acceptance text; a new series creates its requirement blocks before its tasks and the generator asserts every reqs id has a block."
+
+[gotcha.3368]
+title = "The host boundary build target has failed on main since task 22.31.577 landed: the runtime writes the program replay record in its version-2 layout (domain, version 2, a u32 header length and the canonical header bytes of ReplayRecordHeader, then the profile bounds, the terminal status, the boundary count, the chunk-root boundary leaves and the witness digest) while the C decoder layerx_programs_call_replay_record_finish in src/modules/programs/call.c (line 3024) still parses the version-1 layout; the activity preparation of the short CALL replay capture answers non-canonical (status -3) and the host boundary proof stops before the ai-market build (22.99.77 attempt 20 at base 552412ccad; attempt 19 built at the base before 577)."
+symptom = "Task 577 changed the record bytes in the Rust runtime and ported the Rust decoders, but the C host decoder of the same record was outside its touches and no gate of the task ran the host boundary target that decodes a live record."
+fix = "Task 22.31.586 ports the C decoder to the version-2 layout under decision 2753; 22.99.77 and 22.38.13 require it; a task that changes a record layout lists every decoder of the record or a required follow-up for it, and its gates include the shared proof that decodes a live record."
+
+[gotcha.3369]
+title = "9.98.4 attempt 8: three retained-settlement tests fail with the bare value Refused at the must helper of human_runtime.rs (line 23748) because every refusal site of settle_retained_native_program_call (line 3799 and after) maps to the unit HumanOperationError::Refused through one closure, so the evidence cannot name the refusing check; and policy_usage_sums_only_proven_receipts_in_the_window counts six eth_blockNumber calls for four because the HistoryRpc double answers that method at two sites (lines 23425 and 23842)."
+symptom = "A refusal type without a site field hides which of a dozen checks refused, and a test double that answers one method from two arms double-counts it."
+fix = "Attempt 9 names the refusing site in a test-visible way before changing any check, and the double answers eth_blockNumber from one arm."
+
+[gotcha.3370]
+title = "Seven tasks of the inference series (22.38.23, 22.38.29, 22.38.30, 22.38.33, 22.38.35, 22.38.36 and 22.38.39) listed file paths in their symbols field; the graph check of the done gate treats every symbols entry as a code symbol, so 22.38.23 attempt 1 and 22.38.35 attempt 1 were refused with every test passing."
+symptom = "The series generator accepted paths in the symbols lists; the graph check only resolves identifiers."
+fix = "Batch 582 strips the path entries from the seven symbols lists and the generator refuses a symbols entry containing a slash or a file extension; the two refused attempts requalify on their trees."
+
+[gotcha.3371]
+title = "The precompile test package of the pay module has not compiled on main since task 22.33.1303 (2026-11-04) changed GetEscrow and GetEscrowResult of the pay keeper to return a third error value: thirteen call sites in precompiles/layerxpay (conformance_escrow_test.go, conformance_service_test.go, escrow_test.go and service_test.go) still take two values, so every go test of that package fails at compile time; 22.38.9 attempt 1 was refused that way with its own test never run."
+symptom = "The keeper repair ported the production callers (escrow.go) but not the precompile tests, and its gate ran the keeper tests only."
+fix = "Task 22.31.611 ports the thirteen call sites; 22.38.9 requires it; a signature change lists every caller the compiler names, tests included, and its gate compiles the test packages of every touched directory (go vet)."

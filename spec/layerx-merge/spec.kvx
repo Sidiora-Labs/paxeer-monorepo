@@ -9627,6 +9627,30 @@ value = "The pooled inference market is split into three planes. The chain plane
 basis = "The owner ruled that the chain is purely for verifying, paying and connecting peers and that orchestration runs off chain without relying on validators or nodes; the existing ai-market program, evidence sealing, reward ledger, metered streams and attestation verifier already cover the chain half."
 affects = ["22.38.1", "22.38.2", "22.38.3", "22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.8", "22.38.9", "22.38.10", "22.38.11", "22.38.12", "22.38.13", "22.38.14", "22.38.15", "22.38.16", "22.38.17", "22.38.18", "22.38.19", "22.38.20", "22.38.21", "22.38.22", "22.38.23", "22.38.24", "22.38.25", "22.38.26", "22.38.27", "22.38.28", "22.38.29", "22.38.30", "22.38.31", "22.38.32", "22.38.33", "22.38.34", "22.38.35", "22.38.36", "22.38.37", "22.38.38", "22.38.39"]
 
+[decision.2753]
+title = "A record format change lands with every decoder of the record"
+value = "When a task changes the byte layout of a record that another language or component decodes (the C host, a Go precompile, the explorer, an SDK), the task or a follow-up it requires ports every decoder in the same series, and the shared proof that decodes a live record (for the program replay record, the host boundary target) is among the gates. The C decoder of the program replay record follows ReplayRecordHeader::canonical_bytes of the runtime and binds the header digest under the version-2 header domain exactly as the runtime does (task 22.31.586)."
+basis = "The version-2 replay record of 22.31.577 left the C decoder at version 1 and the host boundary proof has been red on main since; the producer-to-consumer quality ruling (gotcha 3046) applies across languages as well as across crates."
+affects = ["22.31.586", "22.99.77", "22.38.13"]
+
+[decision.2754]
+title = "The chain receipt key rule is the one rule"
+value = "The explorer accepts the governed receipt key entries under the rule the chain enforces in modules/sequencer/keeper/receipt_keys.go (a 32-byte non-zero key id, a 32-byte public key, a first height not above the last height) and no longer requires the key id to equal the SHA-256 digest of the public key; a plan whose key ids are not digests boots the explorer."
+basis = "The explorer refused a configuration the chain accepts and could not boot against the merge plan; the consumer asserts the rule of the producer."
+affects = ["22.31.590"]
+
+[decision.2755]
+title = "Unreachable origins leave the allowlists and their assets ship in the repository"
+value = "Hosts that do not resolve or refuse connections at the time of the audit (the app, colosseum and dao names under hyperpaxeer.com, sidiora.fun, the ocfstudio content host, connect.paxportwallet.com, app.webpoints.app and crossverse.app) are removed from the wallet and perps origin lists, routes and media policies; an image one of those hosts served is stored under the public directory of the app that shows it; a remote connector endpoint becomes a configured value with no default and a clear refusal when unset."
+basis = "A broken origin in an allowlist is a dead link at best and a takeover target at worst; the apps must not depend on hosts nobody operates."
+affects = ["22.31.603"]
+
+[decision.2756]
+title = "Release identity 7.0.0 carries the plan v7.0"
+value = "tools/release/version.json records version v7.0.0 and upgrade v7.0, the plan name the node declares as MergeUpgrade; the release check compares the upgrade name with the plan names declared in node/upgrades.go (MergeUpgrade and AnchorStoreDeleteUpgrade) instead of one constant of an earlier release; the release tag is paxeer-network/v7.0.0 and the release URL names the paxeer-monorepo repository; the proposal info of the merge plan is generated and checked by the release tooling."
+basis = "The release tooling still describes v6.12.0 and refuses the registered plan name, and a proposal without the plan info halts the chain at the upgrade height."
+affects = ["22.31.587", "22.31.588", "22.31.607"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38517,6 +38541,240 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.31.611]
+title = "Port the pay precompile tests to the three-value escrow views of the keeper"
+reqs = ["22998.1"]
+touches = ["precompiles/layerxpay/conformance_escrow_test.go", "precompiles/layerxpay/conformance_service_test.go", "precompiles/layerxpay/escrow_test.go", "precompiles/layerxpay/service_test.go"]
+tests = ["precompiles/layerxpay/escrow_test.go"]
+verification_contract = "CGO_ENABLED=1 go vet ./precompiles/layerxpay/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/ -run '^(TestPrecompileEscrowViews|TestPayEscrowPathMatchesHostExecute)$'"
+do_1 = "do_1 Gotcha 3371. GetEscrow and GetEscrowResult of the pay keeper (modules/layerxpay/keeper/escrow_views.go lines 42 and 52) return a record, a found flag and an error since 22.33.1303; thirteen call sites in precompiles/layerxpay/conformance_escrow_test.go, conformance_service_test.go, escrow_test.go and service_test.go still take two values and the test package does not compile. Port every call site to the three-value form, asserting a nil error with require.NoError before the found flag and record assertions, and port any further site the compiler names in the same package."
+symbols = ["TestPrecompileEscrowViews", "TestPayEscrowPathMatchesHostExecute"]
+
+[capability.22.31.610]
+title = "Replace private infrastructure host names in the hosted documentation with operator placeholders"
+reqs = ["22998.1"]
+touches = ["docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/site/docs/platform/webhooks.md", "services/explorer/deploy/railway/README.md", "deploy/launchpad/README.md", "contracts/operations.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_610.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_610.py"
+do_1 = "do_1 docs/wiki/HostedDashboard.md, docs/wiki/HostedWebhooks.md, docs/site/docs/platform/webhooks.md, the README.md of the service-definitions directory under services/explorer/deploy, deploy/launchpad/README.md and contracts/operations.md name private infrastructure hosts (in-network service DNS names and hosting-provider host names). Replace each with an operator-supplied placeholder of the form OPERATOR_HOST with a one-line note of what the operator substitutes, keeping the paths, ports and methods the pages describe."
+symbols = []
+
+[capability.22.31.609]
+title = "Remove the wiring requests from the perps client contract and the tests that pin them"
+reqs = ["22998.1"]
+touches = ["contracts/perps-client.md", "apps/perps/tests/repair-22-33-711.test.ts", "apps/perps/tests/repair-22-33-712.test.ts"]
+tests = ["apps/perps/tests/repair-22-33-711.test.ts", "apps/perps/tests/repair-22-33-712.test.ts"]
+verification_contract = "pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-711.test.ts tests/repair-22-33-712.test.ts && ! grep -qi 'wiring request' contracts/perps-client.md"
+do_1 = "do_1 contracts/perps-client.md carries two process paragraphs (lines 149 to 152 and 237 to 240) asking that interface rows be reconciled, pinned by apps/perps/tests/repair-22-33-711.test.ts and apps/perps/tests/repair-22-33-712.test.ts. Change the two tests to assert the product facts the paragraphs sit beside (the signatures and behaviour of the two client functions) rather than the paragraph text, then remove the two paragraphs."
+symbols = []
+
+[capability.22.31.608]
+title = "Create the beta ledger, correct the generated system pages and align the SDK compatibility template"
+reqs = ["22998.1"]
+touches = ["docs/platform/content/beta.md", "tools/ci/beta-report.sh", "tools/docs/gen/gen_system_docs.py", "docs/system/INDEX.md", "docs/system/kernel-modules.md", "services/agent/sdk/COMPATIBILITY.md", "services/agent/tools/sdk-gen/templates/compatibility.md.tpl"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_608.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_608.py"
+do_1 = "do_1 docs/platform/content/beta.md (lines 19, 38 and 44) and tools/ci/beta-report.sh name spec/layerx-beta/qualification.kvx as the beta ledger and the file does not exist; create it with the header the beta page describes (a [meta] block and the two record kinds the page names) and an empty record list so the report script runs."
+symbols = []
+
+[capability.22.31.607]
+title = "Build the container image from the released binary and stamp the explorer image with the release tag"
+reqs = ["22998.1"]
+touches = [".github/workflows/paxeer-docker-publish.yml", ".github/workflows/explorer-images.yml", "docker/layerx/Dockerfile"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_607.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_607.py"
+do_1 = "do_1 Decision 2756. .github/workflows/paxeer-docker-publish.yml builds docker/layerx/Dockerfile from source, so the image never matches the binaries listed in the release SHA256SUMS; make the publish job download the released paxd asset of the tag it runs for, verify it against SHA256SUMS, and build the image from that binary (a Dockerfile stage that copies the verified binary), and write the image digest into the release notes step."
+symbols = []
+
+[capability.22.31.606]
+title = "Accept any served API version in the wallet health route"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/app/api/health/route.ts", "apps/wallet/src/app/api/health/route.test.ts"]
+tests = ["apps/wallet/src/app/api/health/route.test.ts"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/app/api/health/route.test.ts"
+do_1 = "do_1 apps/wallet/src/app/api/health/route.ts (line 94) passes only when the API answers version 0.1.0 exactly, so every API release breaks the health check. Accept a non-empty semantic version string, report it in the health answer, and keep the service name and chain id checks."
+symbols = []
+
+[capability.22.31.605]
+title = "Run the untested projects in the continuous checks"
+reqs = ["22998.1"]
+touches = [".github/workflows/ci.yml", ".github/workflows/explorer-images.yml"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_605.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_605.py"
+do_1 = "do_1 In .github/workflows/ci.yml add a job that runs make test-tests-python (the target exists in the Makefile and nothing calls it) and a job that runs make programs-reference-fixtures for the program examples. Add .github/workflows/wallet-test.yml running the vitest suites of apps/wallet and sdk/wallet on pull requests and pushes to main. In .github/workflows/explorer-images.yml, or a new explorer-backend-test.yml, add a job that runs mix test through services/explorer/deploy/tools/mix-in-builder.sh for the explorer backend."
+symbols = []
+
+[capability.22.31.604]
+title = "Repair the remaining dead links and stale package fields in the public documentation"
+reqs = ["22998.1"]
+touches = ["docs/site/mkdocs.yml", "sdk/js/package.json", "sdk/js/README.md", "contracts/sdk-js.md", "consensus/spec/light-client/verification/verification_001_published.md", "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md", "sdk/x/evidence/spec/06_begin_block.md", "tools/paxctl/sidecar/docs/keyring.md", "apps/perps/src/page-modules/legal/CookiePolicy.tsx", "apps/explorer/toolkit/package/package.json", "docs/explorer/ENVS.md", "services/platform/hosted/registry/README.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_604.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_604.py"
+do_1 = "do_1 In docs/site/mkdocs.yml set repo_url to the paxeer-monorepo repository and site_url to the pages address of that repository. In sdk/js/package.json and sdk/js/README.md point homepage and repository at the paxeer-monorepo repository and replace the seven links into a dist directory that is not in the tree with links to the type sources under sdk/js/src or to the published package; contracts/sdk-js.md follows."
+symbols = []
+
+[capability.22.31.603]
+title = "Remove the unreachable origins from the wallet and perps apps and ship their assets locally"
+reqs = ["22998.1"]
+touches = ["apps/wallet/src/lib/security/navigation.ts", "apps/wallet/src/lib/security/media-policy.ts", "apps/wallet/src/app/api/candle/[...path]/route.ts", "apps/wallet/src/lib/swap/constants.ts", "apps/perps/src/core/wallet/embedded/client.ts"]
+tests = ["apps/wallet/src/lib/security/repair-22-31-603.test.ts", "apps/perps/tests/repair-22-31-603.test.ts"]
+verification_contract = "pnpm --dir apps/wallet exec vitest run src/lib/security/repair-22-31-603.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-603.test.ts"
+do_1 = "do_1 Decision 2755. In apps/wallet/src/lib/security/navigation.ts and apps/wallet/src/lib/security/media-policy.ts remove the origins that do not resolve or answer errors (the app, colosseum and dao names under hyperpaxeer.com, sidiora.fun, the ocfstudio content host, app.webpoints.app and crossverse.app); in apps/wallet/src/app/api/candle/[...path]/route.ts and the sdk and sidiora routes under apps/wallet/src/app/api make a route whose only upstream was one of those hosts answer 503 with a named reason instead of proxying; in apps/wallet/src/lib/swap/constants.ts point the USID token icon at a file stored under apps/wallet/public."
+symbols = []
+
+[capability.22.31.602]
+title = "Delete the commented-out code blocks of the litt storage utilities"
+reqs = ["22998.1"]
+touches = ["storage/db_engine/litt/util/ssh_test_utils.go", "storage/db_engine/litt/util/ssh_self_destruct_test.go"]
+tests = []
+verification_contract = "go vet ./storage/db_engine/litt/util/ && test $(cat storage/db_engine/litt/util/ssh_test_utils.go storage/db_engine/litt/util/ssh_self_destruct_test.go 2>/dev/null | wc -l) -lt 40"
+do_1 = "do_1 storage/db_engine/litt/util/ssh_test_utils.go (734 lines, almost all commented out from line 10) and storage/db_engine/litt/util/ssh_self_destruct_test.go (101 lines, commented out from line 10) carry large commented-out code blocks. Delete the commented-out code; where a file is left with no live declaration delete the file; if any live code references a symbol only the commented code declared, record it in the task record and keep a minimal live declaration."
+symbols = []
+
+[capability.22.31.601]
+title = "Remove hard-coded host addresses, the stray comment and the invalid licence references"
+reqs = ["22998.1"]
+touches = ["tools/hpx/hosting/deploy.sh", "tools/hpx/stake-fleet.sh", "modules/evm/replay/config.go", "sdk/server/rosetta/client_online.go", "services/launchpad/LICENSE", "sdk/launchpad/packages/ranking-algo-sdk/package.json", "services/explorer/services/libs/blockscout-client/crate/Cargo.toml", "services/platform/perf-db/README.md"]
+tests = ["tools/qualification/audit_repairs/check_repair_22_31_601.sh"]
+verification_contract = "bash tools/qualification/audit_repairs/check_repair_22_31_601.sh"
+do_1 = "do_1 In tools/hpx/hosting/deploy.sh (lines 22 to 24) and the staking script of the same tools directory (lines 59 and 60) the peer list, the state-sync RPC and the EVM RPC default to one hard-coded public address; make each of those variables required (the script exits with a message naming the variable when it is unset) with no address in the file. In modules/evm/replay/config.go DefaultConfig (line 17) carries a hard-coded public RPC address; make the default empty and refuse replay when Enabled is set and EthRPC is empty."
+symbols = ["DefaultConfig"]
+
+[capability.22.31.600]
+title = "Untrack personal settings and installed package trees from the public repository"
+reqs = ["22998.1"]
+touches = [".claude/settings.local.json", "apps/explorer/deploy/tools/envs-validator", "programs/sdk/assemblyscript"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_600.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_600.py"
+do_1 = "do_1 Remove from version control, keeping the files on disk, .claude/settings.local.json (personal permissions), apps/explorer/deploy/tools/envs-validator/node_modules (472 tracked files) and programs/sdk/assemblyscript/node_modules; add ignore rules for them in the nearest directory-level ignore file (.claude/.gitignore for the settings file, apps/explorer/deploy/tools/envs-validator/.gitignore and programs/sdk/assemblyscript/.gitignore for the package trees), not in the root ignore file."
+symbols = []
+
+[capability.22.31.599]
+title = "Read the explorer environment registry from the consolidated docs location in the image build"
+reqs = ["22998.1"]
+touches = ["docker/explorer-frontend/Dockerfile", "apps/explorer/deploy/scripts/collect_envs.sh"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_599.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_599.py"
+do_1 = "do_1 The explorer-images check of the public repository is red: docker/explorer-frontend/Dockerfile (line 92) runs the env collection script on ./docs/ENVS.md, a file the docs consolidation moved to docs/explorer/ENVS.md, so .env.registry is never written and the copy at line 194 fails. Copy docs/explorer/ENVS.md into the builder stage and run apps/explorer/deploy/scripts/collect_envs.sh on that path; the registry file is produced from the moved document."
+symbols = []
+
+[capability.22.31.598]
+title = "Build the native library and refresh the ABI copies in the wallet attestor check"
+reqs = ["22998.1"]
+touches = [".github/workflows/wallet-go-test.yml", "services/wallet/attestor"]
+tests = ["services/wallet/attestor/internal/policy/evm/evm_test.go"]
+verification_contract = "grep -q liblayerx .github/workflows/wallet-go-test.yml && cd services/wallet/attestor && go test -count=1 ./internal/policy/evm/ -run '^(TestABICopiesMatchRepository)$'"
+do_1 = "do_1 The wallet-go-test check of the public repository is red: the attestor test job (.github/workflows/wallet-go-test.yml, the go test step at line 95) links against the native library that nothing in the job builds (cannot find -llayerx), the ABI copies under services/wallet/attestor drifted from precompiles/layerxprograms/abi.json so TestABICopiesMatchRepository (services/wallet/attestor/internal/policy/evm/evm_test.go line 618) fails, and the RealProfiles tests answer Unavailable. Add a step to the job that builds build/liblayerx.a with make before the Go tests and exports the library path the cgo directives expect; refresh every ABI copy the test compares from its repository source."
+symbols = ["TestABICopiesMatchRepository"]
+
+[capability.22.31.597]
+title = "Repair the accepter receipt tests of the sequencer that time out in the node-build check"
+reqs = ["22998.1"]
+touches = ["node/sequencer/accepter_test.go", "node/sequencer"]
+tests = ["node/sequencer/accepter_test.go"]
+verification_contract = "go test -count=1 -timeout 15m ./node/sequencer/ -run '^TestAccepterReceipts'"
+do_1 = "do_1 The node-build check of the public repository is red in node/sequencer: TestAccepterReceiptsASendSealedBeforeItsReceipt (node/sequencer/accepter_test.go line 256) and TestAccepterReceiptsASendAcrossASeal (line 322) fail and the package then runs past its ten-minute limit. Run both tests with a short timeout, record the failing assertion or the waiting site (a channel or seal wait that never returns) in the task record, and fix the accepter or the test fixture so a send sealed before its receipt and a send across a seal both settle as the tests state."
+symbols = ["TestAccepterReceiptsASendSealedBeforeItsReceipt", "TestAccepterReceiptsASendAcrossASeal"]
+
+[capability.22.31.596]
+title = "Repair the node benchmark and proof-node genesis tests of the node-build check"
+reqs = ["22998.1"]
+touches = ["node/benchmark_test.go", "node/proof_node_genesis_test.go", "node"]
+tests = ["node/benchmark_test.go", "node/proof_node_genesis_test.go"]
+verification_contract = "go test -count=1 -timeout 20m ./node/ -run '^(TestInitBenchmark_PanicsOnLiveChainID|TestProofNodeGenesis)$'"
+do_1 = "do_1 The node-build check of the public repository is red in the node package: TestInitBenchmark_PanicsOnLiveChainID (node/benchmark_test.go line 42) and TestProofNodeGenesis (node/proof_node_genesis_test.go line 35) fail at the tip of main. Run each test, record the failing assertion in the task record, and fix the producer when the test states the required behaviour (the benchmark init refuses the live chain id; the built daemon starts from the proof genesis) or the stale expectation when the behaviour moved (a chain id or genesis field the merge renamed), naming in the task record which it was."
+symbols = ["TestInitBenchmark_PanicsOnLiveChainID", "TestProofNodeGenesis"]
+
+[capability.22.31.595]
+title = "Make execution and simulation agree on the kernel gas of a hosted program receipt"
+reqs = ["22998.1"]
+touches = ["modules/lxphost/simulate_test.go", "modules/lxphost"]
+tests = ["modules/lxphost/simulate_test.go"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestSimulateMatchesExecuteReceipt|TestSimulateBindingAuthorityRefusals)$'"
+do_1 = "do_1 The node-build check of the public repository is red in modules/lxphost: the simulate test compares the executed receipt with the simulated one at modules/lxphost/simulate_test.go line 435 and the executed receipt carries KernelGasUsed 0x0 where the simulated carries 0x163. Run the two simulate tests, record which receipt field diverges and which path (Execute or Simulate) drops the kernel gas, and fix that path so both receipts carry the gas the kernel reports; the receipt the chain commits is the executed one, so the simulated receipt follows it if the executed value is the one the kernel reports."
+symbols = []
+
+[capability.22.31.594]
+title = "Point the hosted service deployment at the public node roots"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/deployment.yaml"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_594.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_594.py"
+do_1 = "do_1 Decision 2521. In services/platform/hosted/gateway/deployment.yaml the RPC URL list (line 92) holds one in-network URL of a test namespace on a deployment labelled for the main network. Set LAYERX_GATEWAY_PAXEER_RPC_URLS to the first eight public node roots (api1 to api8 under mainnet-beta.paxeer.network, https, root path) and move the faucet and cache in-network names of the test namespace (lines 89 and 93) to values the operator supplies through a config map named in a comment, so the manifest carries no test-namespace name."
+symbols = []
+
+[capability.22.31.593]
+title = "Bring the node, release and interop documentation to the 7.0.0 facts"
+reqs = ["22998.1"]
+touches = ["services/platform/hosted/gateway/README.md", "docs/site/docs/agents/running.md", "services/explorer/README.md", "docs/paxeer-network.md", "docs/runbooks/paxeer-x-fork.md", "RELEASE.md", "docs/release/consensus-commits.md", "services/interop/README.md", "spec/layerx-merge/docs/activation-runbook.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_593.py"]
+verification_contract = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_593.py"
+do_1 = "do_1 Decision 2521 and decision 2756. Remove the statement that public nodes do not serve px_ methods and replace it with the served fact (the px namespace is served at the node root; only px_register and px_requestFunds are hosted operations) in services/platform/hosted/gateway/README.md (lines 14 and 50 to 51), docs/site/docs/agents/running.md (line 30), services/explorer/README.md (line 17), docs/paxeer-network.md (line 59) and docs/runbooks/paxeer-x-fork.md (line 16)."
+symbols = []
+
+[capability.22.31.592]
+title = "Move the agent SDK faucet call to the hosted px_requestFunds operation"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "docs/wiki/SdkQuickstartDotNet.md"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_592.rs"]
+verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test repair_22_31_592"
+do_1 = "do_1 In services/agent/crates/layerx-sdk/src/rpc.rs request_funds (line 1123) calls lx_requestFunds, a method no service serves; the hosted service serves px_requestFunds (services/platform/hosted/gateway/src/rpc_faucet.rs, openrpc.json). Call px_requestFunds with the parameter shape the hosted service declares in openrpc.json, decode its result into FaucetGrant, keep the funded-confirmation refusal, and send the call to the hosted URL the client is configured with."
+symbols = ["request_funds", "FaucetGrant"]
+
+[capability.22.31.591]
+title = "Route the px reads of the wallet SDK and the seller middleware to the node root"
+reqs = ["22998.1"]
+touches = ["sdk/wallet/src/endpoint.ts", "services/platform/middleware/seller/src/rpc.ts"]
+tests = ["sdk/wallet/test/repair-22-31-591.test.ts", "services/platform/middleware/seller/test/repair-22-31-591.test.mjs"]
+verification_contract = "pnpm --dir sdk/wallet exec vitest run test/repair-22-31-591.test.ts && node --test services/platform/middleware/seller/test/repair-22-31-591.test.mjs"
+do_1 = "do_1 Decision 2521. In sdk/wallet/src/endpoint.ts isHosted (line 82) sends every px_ method except px_getReceiptKeys to the hosted URL; only px_register and px_requestFunds are hosted operations, every other px_ method is served at the node root. Make isHosted true for exactly those two methods, so resolveAccount, getChainAccount and the other px_ reads go to the node endpoint and a wallet configured without a hosted URL still reads accounts."
+symbols = ["isHosted", "HostedGatewayRpc"]
+
+[capability.22.31.590]
+title = "Accept the chain receipt key rule in the explorer configuration"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/config/runtime.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs"]
+verification_contract = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs"
+do_1 = "do_1 Decision 2754. services/explorer/backend/config/runtime.exs (line 324) raises receipt key id mismatch unless the key id equals the SHA-256 digest of the public key, a rule the chain does not enforce (modules/sequencer/keeper/receipt_keys.go validates a 32-byte non-zero id, a 32-byte key and the height range). Move the parsing of the governed receipt key entries into a module Explorer.Chain.PaxeerX.ReceiptKeysConfig with parse/1 under services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_keys_config.ex that applies the chain rule and raises ArgumentError naming the failing field, and call it from runtime.exs."
+symbols = []
+
+[capability.22.31.589]
+title = "Refuse the anchor store delete plan unless the merge plan was applied at a lower height"
+reqs = ["22998.1"]
+touches = ["node/upgrades.go"]
+tests = ["node/repair_22_31_589_test.go"]
+verification_contract = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestRepair_22_31_589_'"
+do_1 = "do_1 In node/upgrades.go the handler registered for AnchorStoreDeleteUpgrade (line 219) runs the module migrations with no check that MergeUpgrade ran first. Make the handler read the done height of MergeUpgrade from the upgrade keeper and return an error naming both plans when the merge plan has not been applied or was applied at a height not below the current one; the migrations run only after that check."
+symbols = ["TestRepair_22_31_589_AnchorDeleteRefusesWithoutMerge"]
+
+[capability.22.31.588]
+title = "Generate and check the merge plan info the node decodes at the upgrade height"
+reqs = ["22998.1"]
+touches = ["tools/release/upgrade_info.py", "node/upgrades.go"]
+tests = ["node/repair_22_31_588_test.go"]
+verification_contract = "python3 tools/release/upgrade_info.py plan-info --check tools/release/upgradeinfo/merge-plan-info.example.json && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestRepair_22_31_588_'"
+do_1 = "do_1 Decision 2756. The merge handler continueMergeUpgradePlan in node/upgrades.go (line 472) decodes plan.Info in migrateMergeState (line 507) into leaders, receipt_keys, last_seq, last_seq_hash and activation_height and refuses a plan whose receipt keys do not cover the first sequenced height; a proposal built from the release tooling today carries only binaries in its info and would halt the chain at the plan height. Add a plan-info subcommand to tools/release/upgrade_info.py that writes that JSON from arguments (leader public keys, the receipt key entries as the chain validates them in modules/sequencer/keeper/receipt_keys.go, last sequence and hash, activation height) and merges it with the binaries map the release subcommand writes, and a --check mode that validates a file against the same rules (32-byte non-zero key ids, 32-byte public keys, first height not above last height, coverage of the first sequenced height when a plan height is given)."
+symbols = ["TestRepair_22_31_588_PlanInfoDecodes"]
+
+[capability.22.31.587]
+title = "Carry the 7.0.0 release identity in the release tooling and the release check"
+reqs = ["22998.1"]
+touches = ["tools/release/upgrade_info.py", "tools/release/version.json", "tools/release/tests/identity.test.sh", ".github/workflows/paxeer-release-check.yml"]
+tests = ["tools/release/tests/test_upgrade_info.py"]
+verification_contract = "bash tools/release/tests/identity.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py"
+do_1 = "do_1 Decision 2756. In tools/release/upgrade_info.py accept the registered plan names as upgrade names: the semantic-version form and the plan names the node declares (v7.0 as MergeUpgrade and v7.0-anchor-store-delete as AnchorStoreDeleteUpgrade), read from a small table in the module that a test compares with node/upgrades.go and precompiles/common/precompiles.go; set RELEASE_URL to the releases download path of the paxeer-monorepo repository."
+symbols = []
+
+[capability.22.31.586]
+title = "Port the C decoder of the program replay record to the version-2 layout the runtime writes"
+reqs = ["22998.1"]
+touches = ["src/modules/programs/call.c", "tests/programs/test_ai_host_boundary.c"]
+tests = ["tests/programs/test_ai_host_boundary.c"]
+verification_contract = "make -s paxai-host-boundary-build"
+do_1 = "do_1 Gotcha 3368, decision 2753. In src/modules/programs/call.c layerx_programs_call_replay_record_finish (line 3024) parses the program replay record in its version-1 layout (version 1 after the domain, then code hash, input digest, runtime and ABI versions, fee and metering versions, maximum boundaries and bytes, terminal status, boundary count); since 22.31.577 the runtime writes version 2: after the domain a u16 version 2, a u32 header length and the canonical header bytes of ReplayRecordHeader as canonical_bytes in programs/crates/layerx-programs-runtime/src/replay_record.rs writes them (identity with code hash, input digest, runtime, ABI, fee schedule and metering schedule versions, the execution parameters digest, the storage baseline, the semantic constants, the composition graph and the response capacity with their presence flags), then the profile maximum boundaries and bytes, the terminal status, the boundary count, the boundary leaves as chunk-root leaves and the witness digest as from_captured appends them. Port the C parser to that layout field by field in the order the runtime writes it, keep refusing version 1 and any other version with LXP_ERR_VERSION_UNSUPPORTED, bind the header digest under the domain LXP/program-replay-header/v2 over the canonical header bytes exactly as ReplayRecordHeader::digest does, and compute the boundary root over the version-2 leaves as replay_boundary_root (line 2968) must to agree with the runtime."
+symbols = ["layerx_programs_call_replay_record_finish"]
 
 [capability.22.38.39]
 title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
@@ -149848,6 +150106,127 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.609]
+title = "Remove the wiring requests from the perps client contract and the tests that pin them"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.609"]
+interfaces = []
+do_1 = "do_1 contracts/perps-client.md carries two process paragraphs (lines 149 to 152 and 237 to 240) asking that interface rows be reconciled, pinned by apps/perps/tests/repair-22-33-711.test.ts and apps/perps/tests/repair-22-33-712.test.ts. Change the two tests to assert the product facts the paragraphs sit beside (the signatures and behaviour of the two client functions) rather than the paragraph text, then remove the two paragraphs."
+do_2 = "do_2 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["contracts/perps-client.md", "apps/perps/tests/repair-22-33-711.test.ts", "apps/perps/tests/repair-22-33-712.test.ts"]
+tests = ["apps/perps/tests/repair-22-33-711.test.ts", "apps/perps/tests/repair-22-33-712.test.ts"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-33-711.test.ts tests/repair-22-33-712.test.ts && ! grep -qi 'wiring request' contracts/perps-client.md"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.606]
+title = "Accept any served API version in the wallet health route"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.606"]
+interfaces = []
+do_1 = "do_1 apps/wallet/src/app/api/health/route.ts (line 94) passes only when the API answers version 0.1.0 exactly, so every API release breaks the health check. Accept a non-empty semantic version string, report it in the health answer, and keep the service name and chain id checks."
+do_2 = "do_2 Extend apps/wallet/src/app/api/health/route.test.ts: an API answering version 1.4.2 passes and the answer carries that version; an empty version fails; the chain id check still fails on 124."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["apps/wallet/src/app/api/health/route.ts", "apps/wallet/src/app/api/health/route.test.ts"]
+tests = ["apps/wallet/src/app/api/health/route.test.ts"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/wallet run typecheck"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/app/api/health/route.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.603]
+title = "Remove the unreachable origins from the wallet and perps apps and ship their assets locally"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.603"]
+interfaces = []
+do_1 = "do_1 Decision 2755. In apps/wallet/src/lib/security/navigation.ts and apps/wallet/src/lib/security/media-policy.ts remove the origins that do not resolve or answer errors (the app, colosseum and dao names under hyperpaxeer.com, sidiora.fun, the ocfstudio content host, app.webpoints.app and crossverse.app); in apps/wallet/src/app/api/candle/[...path]/route.ts and the sdk and sidiora routes under apps/wallet/src/app/api make a route whose only upstream was one of those hosts answer 503 with a named reason instead of proxying; in apps/wallet/src/lib/swap/constants.ts point the USID token icon at a file stored under apps/wallet/public."
+do_2 = "do_2 In apps/perps/src/core/wallet/embedded/client.ts make the connector endpoint a configured value read from the app configuration with no default; when unset the embedded wallet client refuses to connect with a message naming the setting."
+do_3 = "do_3 Write apps/wallet/src/lib/security/repair-22-31-603.test.ts (no removed host appears in the navigation and media policy lists; the USID icon path is a local public path that exists) and apps/perps/tests/repair-22-31-603.test.ts (the client refuses with the setting name when the endpoint is unset and uses the configured value when set)."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["apps/wallet/src/lib/security/navigation.ts", "apps/wallet/src/lib/security/media-policy.ts", "apps/wallet/src/app/api/candle/[...path]/route.ts", "apps/wallet/src/lib/swap/constants.ts", "apps/perps/src/core/wallet/embedded/client.ts"]
+tests = ["apps/wallet/src/lib/security/repair-22-31-603.test.ts", "apps/perps/tests/repair-22-31-603.test.ts"]
+planned_paths = ["apps/wallet/src/lib/security/repair-22-31-603.test.ts", "apps/perps/tests/repair-22-31-603.test.ts"]
+build_cmd = "pnpm --dir apps/wallet run typecheck && pnpm --dir apps/perps exec tsc --noEmit"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/lib/security/repair-22-31-603.test.ts && pnpm --dir apps/perps exec node --test --import tsx tests/repair-22-31-603.test.ts"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.591]
+title = "Route the px reads of the wallet SDK and the seller middleware to the node root"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.591"]
+interfaces = []
+do_1 = "do_1 Decision 2521. In sdk/wallet/src/endpoint.ts isHosted (line 82) sends every px_ method except px_getReceiptKeys to the hosted URL; only px_register and px_requestFunds are hosted operations, every other px_ method is served at the node root. Make isHosted true for exactly those two methods, so resolveAccount, getChainAccount and the other px_ reads go to the node endpoint and a wallet configured without a hosted URL still reads accounts."
+do_2 = "do_2 In services/platform/middleware/seller/src/rpc.ts HostedGatewayRpc (line 90) posts to the /rpc path, which the hosted service answers with 404; post to the root path as contracts/platform-middleware.md records."
+do_3 = "do_3 Write sdk/wallet/test/repair-22-31-591.test.ts (px_getAccount and px_resolveAccount reach the node transport, px_register and px_requestFunds reach the hosted transport, a batch mixing both splits accordingly) and services/platform/middleware/seller/test/repair-22-31-591.test.mjs (the hosted client posts to the endpoint root with no /rpc suffix and still refuses a non-px method)."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["isHosted", "HostedGatewayRpc"]
+touches = ["sdk/wallet/src/endpoint.ts", "services/platform/middleware/seller/src/rpc.ts"]
+tests = ["sdk/wallet/test/repair-22-31-591.test.ts", "services/platform/middleware/seller/test/repair-22-31-591.test.mjs"]
+planned_paths = ["sdk/wallet/test/repair-22-31-591.test.ts", "services/platform/middleware/seller/test/repair-22-31-591.test.mjs"]
+build_cmd = "pnpm --dir sdk/wallet exec tsc -p tsconfig.json --noEmit && npm --prefix services/platform/middleware/seller run build"
+verify_cmd = "pnpm --dir sdk/wallet exec vitest run test/repair-22-31-591.test.ts && node --test services/platform/middleware/seller/test/repair-22-31-591.test.mjs"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.38.34]
 title = "Fund an ask and show peer earnings in the wallet"
 status = "pending"
@@ -149888,7 +150267,7 @@ capabilities = ["22.38.33"]
 interfaces = ["interface.22.http-explorer-api-inference", "interface.22.ts-explorer-paxeerxinference"]
 do_1 = "do_1 Add pages/api/inference.ts (a server route in the shape of pages/api/assistant.ts that calls px_getInferenceRooms, px_getInferenceRoom, px_getInferenceDeal and px_getInferenceReceipts on the configured node root and never exposes the node address to the browser), the resource entries in lib/api/services/general/paxeerXInference.ts, pages/paxeer-x/inference.tsx and ui/pages/PaxeerXInference.tsx with a rooms table (model, host, peers, open asks, settled tokens), a deal panel and a receipt batch table in the dense market-data style of the design brief, and the Inference item under the paxeer-x group of useNavItems.tsx."
 do_2 = "do_2 Write ui/pages/PaxeerXInference.spec.tsx asserting the page renders a fixture room list, the deal panel renders the split, and the server route refuses a method outside the five."
-symbols = ["PaxeerXInference", "apps/explorer/pages/api/inference.ts", "paxeerXInference"]
+symbols = ["PaxeerXInference", "paxeerXInference"]
 touches = ["apps/explorer/lib/hooks/useNavItems.tsx", "apps/explorer/pages/api/assistant.ts", "apps/explorer/pages/paxeer-x", "apps/explorer/lib/api/services/general/index.ts"]
 tests = ["apps/explorer/ui/pages/PaxeerXInference.spec.tsx"]
 planned_paths = ["apps/explorer/pages/api/inference.ts", "apps/explorer/lib/api/services/general/paxeerXInference.ts", "apps/explorer/pages/paxeer-x/inference.tsx", "apps/explorer/ui/pages/PaxeerXInference.tsx", "apps/explorer/ui/pages/PaxeerXInference.spec.tsx"]
@@ -149946,7 +150325,7 @@ capabilities = ["22.38.30"]
 interfaces = ["interface.22.cli-inference-peer-join", "interface.22.cli-inference-peer-serve", "interface.22.cli-inference-peer-status"]
 do_1 = "do_1 Add bin/inference-peer.mjs with the commands join (host address, room id, optional attestation envelope file that the peer submits to bindPeer through the host before enrolling), serve (runs a local OpenAI-compatible route that forwards to the host completion route with the ask bearer) and status; native mode uses node-datachannel for WebRTC and the webgpu package when present, else the CPU path of the engine."
 do_2 = "do_2 Write test/cli.test.mjs: join parses its arguments and sends hello, an attestation file whose report data does not match the identity is refused locally before any send, and serve forwards a request and streams the answer from a stand-in host."
-symbols = ["apps/inference-peer/bin/inference-peer.mjs", "joinCommand", "serveCommand"]
+symbols = ["joinCommand", "serveCommand"]
 touches = ["docs/MONOREPO.md"]
 tests = ["apps/inference-peer/test/cli.test.mjs"]
 planned_paths = ["apps/inference-peer/bin/inference-peer.mjs", "apps/inference-peer/src/cli.mjs", "apps/inference-peer/test/cli.test.mjs"]
@@ -149975,7 +150354,7 @@ capabilities = ["22.38.29"]
 interfaces = []
 do_1 = "do_1 Add index.html and src/page.mjs: a single page that shows the WebGPU adapter and measured manifest, lets the visitor paste a host signalling address and a room id, joins the room with the persisted identity, shows the assigned layer range, lap count, countersigned receipts and the earnings read from the host status frame, and leaves cleanly with bye on unload; no bundler, plain ES modules served by npm run serve (a static file server script in scripts/serve.mjs)."
 do_2 = "do_2 Write test/page.test.mjs with jsdom: the join flow sends hello with the stored key, the status panel renders a deal frame, and unload sends bye."
-symbols = ["apps/inference-peer/index.html", "PeerPage", "renderStatus"]
+symbols = ["PeerPage", "renderStatus"]
 touches = ["docs/MONOREPO.md"]
 tests = ["apps/inference-peer/test/page.test.mjs"]
 planned_paths = ["apps/inference-peer/index.html", "apps/inference-peer/src/page.mjs", "apps/inference-peer/scripts/serve.mjs", "apps/inference-peer/test/page.test.mjs"]
@@ -150150,7 +150529,7 @@ interfaces = []
 do_1 = "do_1 Create apps/inference-peer as a standalone npm package (type module, own package-lock.json, no build step) with engine/ copied from the upstream MIT project (the dense and quantised model loaders, tokenizer, sampling, generation loop and WGSL shaders), LICENSE-ENGINE carrying the upstream MIT notice, NOTICE naming the upstream project and commit, and a README that states what is vendored and what is ours."
 do_2 = "do_2 Add the package to the apps table of docs/MONOREPO.md and keep every vendored file byte-identical to upstream except a header comment naming its origin; local changes go into src/, never into engine/."
 do_3 = "do_3 Write test/vendored_engine.test.mjs: the engine modules import, the tokenizer round-trips a fixture string, and NOTICE names the upstream commit."
-symbols = ["apps/inference-peer/package.json", "apps/inference-peer/engine", "apps/inference-peer/NOTICE"]
+symbols = []
 touches = ["docs/MONOREPO.md"]
 tests = ["apps/inference-peer/test/vendored_engine.test.mjs"]
 planned_paths = ["apps/inference-peer/package.json", "apps/inference-peer/package-lock.json", "apps/inference-peer/LICENSE-ENGINE", "apps/inference-peer/NOTICE", "apps/inference-peer/README.md", "apps/inference-peer/engine", "apps/inference-peer/test/vendored_engine.test.mjs"]
@@ -150167,6 +150546,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 3 (requalify, gotcha 3370): the attempt-1 tree stands (the pinned engine under apps/inference-peer/engine, the MIT notice and licence copy, the package manifest, the README and the five passing tests). The done gate refused the task only because its symbols field listed three file paths; batch 582 clears that field. Re-run the build and the verify as they stand at the final revision and record them by reference in the task record; no product change is asked."
 
 [task.22.31.580]
 title = "Bring the core server builtin-registry test current with the bundled plugins directory and the source-control plugin"
@@ -170420,6 +170800,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.586]
+title = "Port the C decoder of the program replay record to the version-2 layout the runtime writes"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.586"]
+interfaces = []
+do_1 = "do_1 Gotcha 3368, decision 2753. In src/modules/programs/call.c layerx_programs_call_replay_record_finish (line 3024) parses the program replay record in its version-1 layout (version 1 after the domain, then code hash, input digest, runtime and ABI versions, fee and metering versions, maximum boundaries and bytes, terminal status, boundary count); since 22.31.577 the runtime writes version 2: after the domain a u16 version 2, a u32 header length and the canonical header bytes of ReplayRecordHeader as canonical_bytes in programs/crates/layerx-programs-runtime/src/replay_record.rs writes them (identity with code hash, input digest, runtime, ABI, fee schedule and metering schedule versions, the execution parameters digest, the storage baseline, the semantic constants, the composition graph and the response capacity with their presence flags), then the profile maximum boundaries and bytes, the terminal status, the boundary count, the boundary leaves as chunk-root leaves and the witness digest as from_captured appends them. Port the C parser to that layout field by field in the order the runtime writes it, keep refusing version 1 and any other version with LXP_ERR_VERSION_UNSUPPORTED, bind the header digest under the domain LXP/program-replay-header/v2 over the canonical header bytes exactly as ReplayRecordHeader::digest does, and compute the boundary root over the version-2 leaves as replay_boundary_root (line 2968) must to agree with the runtime."
+do_2 = "do_2 Name every refusal: each check of the parser that answers LXP_ERR_NON_CANONICAL, LXP_ERR_VERSION_UNSUPPORTED or LXP_ERR_ROOT_MISMATCH records the field name it refused in the activity diagnostic the host boundary proof prints (the CALL diagnostic lines of tests/programs/test_ai_host_boundary.c), so a future layout drift names the field instead of a bare status."
+do_3 = "do_3 The host boundary proof (make -s paxai-host-boundary-build) passes at the final revision: the short CALL replay capture of execute type 0x90003 answers kernel status 0 and the proof continues through its remaining operations; record the diagnostic lines of the three execute types in the task record."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["layerx_programs_call_replay_record_finish"]
+touches = ["src/modules/programs/call.c", "tests/programs/test_ai_host_boundary.c"]
+tests = ["tests/programs/test_ai_host_boundary.c"]
+planned_paths = []
+build_cmd = "make -s build/liblayerx.a"
+verify_cmd = "make -s paxai-host-boundary-build"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.38.38]
 title = "Prove ask to stream to lap settlement to claim"
 status = "pending"
@@ -170488,7 +170899,7 @@ interfaces = ["interface.22.cli-inference-market-room-driver"]
 do_1 = "do_1 Add tools/qualification/paxeer-x/inference_market_room.py on the RuntimeFixture of tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py: it starts the isolated chain, deploys the ai-market program and opens the market with a room profile, starts the agent daemon in inference-market mode against the chain, starts two native peers from apps/inference-peer on the scripted CPU model, and an asker script that funds an ask stream and sends a completion request; the driver records every chain write and answer as evidence in the PAXEER_X_EVIDENCE_DIR layout."
 do_2 = "do_2 Support the --begin-build and --build steps like the other drivers so the daemon and the peer package are built once per run."
 do_3 = "do_3 The first proof: the completion answer equals the scripted model output token for token and a deal with two peers is recorded on chain."
-symbols = ["tools/qualification/paxeer-x/inference_market_room.py", "InferenceRoomDriver"]
+symbols = ["InferenceRoomDriver"]
 touches = ["tools/qualification/paxeer-x/fixtures/merged_runtime_fixture.py", "tools/qualification/paxeer-x/agent_operation_envelope.py"]
 tests = []
 planned_paths = ["tools/qualification/paxeer-x/inference_market_room.py"]
@@ -170511,7 +170922,7 @@ title = "Prove every F11 operation under the fuel cap and the replay profile thr
 status = "pending"
 mode = "BUILD"
 wave = 6
-requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11"]
+requires = ["22.38.4", "22.38.5", "22.38.6", "22.38.7", "22.38.11", "22.31.586"]
 reqs = ["22380.1"]
 capabilities = ["22.38.13"]
 interfaces = []
@@ -178703,6 +179114,37 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.31.592]
+title = "Move the agent SDK faucet call to the hosted px_requestFunds operation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.592"]
+interfaces = []
+do_1 = "do_1 In services/agent/crates/layerx-sdk/src/rpc.rs request_funds (line 1123) calls lx_requestFunds, a method no service serves; the hosted service serves px_requestFunds (services/platform/hosted/gateway/src/rpc_faucet.rs, openrpc.json). Call px_requestFunds with the parameter shape the hosted service declares in openrpc.json, decode its result into FaucetGrant, keep the funded-confirmation refusal, and send the call to the hosted URL the client is configured with."
+do_2 = "do_2 In docs/wiki/SdkQuickstartDotNet.md replace the two lx_requestFunds mentions (lines 21 and 24) with px_requestFunds and the hosted faucet page."
+do_3 = "do_3 Write services/agent/crates/layerx-sdk/tests/repair_22_31_592.rs: request_funds posts method px_requestFunds with the declared parameters to a local answering server and decodes a funded grant; an unfunded answer is refused; the method name lx_requestFunds appears nowhere in the crate sources."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["request_funds", "FaucetGrant"]
+touches = ["services/agent/crates/layerx-sdk/src/rpc.rs", "docs/wiki/SdkQuickstartDotNet.md"]
+tests = ["services/agent/crates/layerx-sdk/tests/repair_22_31_592.rs"]
+planned_paths = ["services/agent/crates/layerx-sdk/tests/repair_22_31_592.rs"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --tests"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-sdk --test repair_22_31_592"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.38.32]
 title = "Expose the market operations and reads in the Rust SDK"
 status = "pending"
@@ -179254,7 +179696,7 @@ do_2 = "do_2 Add the F11 error codes 0x0B01 upward in errors.rs (room unknown, r
 do_3 = "do_3 Extend feature_availability in queries.rs to eleven entries and the market policy codec in policy.rs with the room profile fields: minimum bond, canary ratio in basis points, lap size in tokens, challenge window in blocks, slash fraction in basis points, host share and protocol share in basis points, and settlement account."
 do_4 = "do_4 Write tests/f11_family_table.rs asserting every F11 selector routes, the availability array has eleven entries, each new error code is distinct from the F01 to F10 codes, and the policy codec round-trips the room profile fields."
 symbols = ["Operation::OpenRoom", "Operation::SettleLaps", "Operation::RoomView", "F11_ROOM_UNKNOWN", "MarketPolicy::room_profile", "feature_availability"]
-touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs"]
+touches = ["programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/errors.rs", "programs/crates/layerx-programs-ai-market/src/queries.rs", "programs/crates/layerx-programs-ai-market/src/policy.rs", "programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/tests/identity_section_sharing.rs", "programs/crates/layerx-programs-ai-market/tests/repair_22_31_253.rs"]
 tests = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
 planned_paths = ["programs/crates/layerx-programs-ai-market/tests/f11_family_table.rs"]
 build_cmd = "cargo build --locked --manifest-path programs/Cargo.toml -p layerx-programs-ai-market --tests"
@@ -179270,6 +179712,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_5 = "Attempt 2 (continue): the attempt-1 tree stands (the F11 selectors, metadata, errors, the eleventh availability entry, the policy codec and f11_family_table.rs). The build failed in this task, not outside it: feature_availability now answers eleven entries and the crate tests that enumerate the array still expect ten. Update every consumer the compiler names: in tests/identity_section_sharing.rs (line 618) widen the expected array to eleven entries with the F11 entry at index 10 set to the availability the policy implies for a walk state without a room profile (NotEnabled), and in tests/repair_22_31_253.rs (line 749) widen the projection type to eleven; the consumer asserts the names and arity of the producer. Remove the unused imports the build warns about in the new f11 test files. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.31.585]
 title = "Disclose the programs lifecycle calls in the call disclosure decoder"
@@ -195494,6 +195937,7 @@ do_9 = "Attempt 5 (after 22.31.497): attempt 4 could not qualify because the dae
 do_10 = "Attempt 6 (continue, gotcha 3321, decision 2716; after 22.31.560): the attempt-5 tree stands (paymentDenom in every receipt fixture, the asset hash in the AuthorizedBatch authority). In the HistoryRpc double of human_runtime.rs (lines 22969 onward) publish the native results endpoint URL that read_policy_history reads (line 22589) as the fixture listener URL, through a guard that holds a module-level environment lock and restores the previous value on drop in the manner of the Environment guard at lines 23947 to 23966, taken by policy_usage_sums_only_proven_receipts_in_the_window and native_policy_usage_refuses_a_page_without_a_proof; answer commit, validators and block_results on that listener (read/result_source.rs lines 58, 75, 187 and 204) with the fixture checkpoint, its validator set and per-height results that match the px_getHistory entries, keeping the assertions on count 2, two successes, amount sum 18, activity ids 8 and 7 and the method counts at lines 23172 to 23206, and keeping the unproven refusal with code read.history_item_unproven. Do not change read_policy_history, CommittedCaps::level (read/committed.rs line 166) or the COMMITTED requirement at budget/budget_proof.rs line 22; the four retained settlement cases pass once 22.31.560 is on main (decision 2694), which this attempt now waits for. Run the build and the verify at the final revision and record them by reference in the task record."
 do_11 = "Attempt 7 (continue, gotcha 3361, decision 2747; the task time limit is now 150 minutes): the attempt-6 tree stands (paymentDenom in every receipt fixture, the asset hash in the AuthorizedBatch authority, history_result, history_checkpoints, the environment guard and the listener in the HistoryRpc double of human_runtime.rs). Do not re-read the reader chain: the remaining work is wiring only. Make policy_usage_sums_only_proven_receipts_in_the_window take the environment guard the same way native_policy_usage_refuses_a_page_without_a_proof does, confirm the listener answers block_results for heights 6 to 8 and commit and validators for heights 6 to 9 from history_checkpoints with the px_getHistory entries at the heights the checkpoints cover, keep the assertions on count 2, two successes, amount sum 18, activity ids 8 and 7 and the method counts, and keep the unproven refusal with code read.history_item_unproven by omitting the results of height 7 only. Then run the build at once and the verify; the first verify names any remaining mismatch, and one repair cycle follows it. Do not change read_policy_history, read_policy_history_from_sources, CommittedCaps::level or the COMMITTED requirement of budget_proof.rs. Record the build, the dependent-crate check and the verify by reference in the task record."
 do_12 = "Attempt 8 (continue after 22.31.585, gotcha 3363, decision 2749): the attempt-7 tree stands (paymentDenom in every receipt fixture, the linked-block history fixture, the environment guard, the repaired checkpoint builder). This task now requires 22.31.585 and runs after it lands. In human_runtime.rs transaction_submission (match at lines 20548 to 20584) add the arm for module 9 ordinal 1 that builds the programs precompile deploy call with the deploy encoder 22.31.585 adds to the call disclosure codec, from the disclosed deploy of the prepared activity, with the fee limit the retained cases reserve; keep the governance and bridge arms. In policy_usage_sums_only_proven_receipts_in_the_window replace the px_getHistory count 4 at line 23567 and the eth_blockNumber count at line 23573 with the counts the reader on main makes (read_newest in read/history.rs lines 420 onward issues the history requests of one page; the policy reader in policy_history.rs calls it at lines 73 and 190 and block_number once per read); the verify of attempt 7 observed 6 px_getHistory requests. Take the history environment lock (line 23268) and the retained settlement environment lock (lines 24347, 24380, 24405 and 24420) with unwrap_or_else(PoisonError::into_inner) instead of expect. Change nothing in read_policy_history, read_policy_history_from_sources or budget_proof.rs. Then run the build, the dependent-crate check and the verify at the final revision and record them by reference in the task record."
+do_13 = "Attempt 9 (continue, gotcha 3369, the task time limit is 150 minutes): the attempt-8 tree stands (paymentDenom in every quote, the module-9 ordinal-1 arm of the transaction submission at lines 20545 to 20635, the test doubles at lines 23108 to 23540, the fixture and the eight passing tests). First make the refusal visible: in services/human/crates/layerx-human-service/src/human_runtime.rs give settle_retained_native_program_call a site-naming refusal under cfg(test) (a refused_at helper taking a static site name that records the name in a thread-local the fixture reads, with the production value still HumanOperationError::Refused) and apply it at every refusal site of the function from line 3799 onward: the durable decode and state checks (lines 3815 to 3838), the carrier and restore steps (3840 to 3849), verify_before_submit, decode_unsigned, the committed-state path (the NativeProgramDeploy decode for ordinal 1, committed_prepared_caps, read_rpc_endpoint over read_rpc_config, committed_execution_state) and read_retained_lifecycle_debit_settlement_at_execution; make the must helper at line 23748 print the recorded site in its panic message. Run the three failing retained_settlement tests once and record the site each one names in the task record. Then fix only that site; the expected site is the committed-state path, whose px_getCommit answer the fixture builds through rpc_commit under the field set 22.31.585 changed: align the fixture answer with the fields the decoder reads from main, not the decoder with the fixture. For policy_usage_sums_only_proven_receipts_in_the_window make the HistoryRpc double answer eth_blockNumber from one arm so one read_policy_history call issues one eth_blockNumber request and the assertion at line 23605 counts four; if the reader on main issues two per call by design, change the assertion to the count the reader issues and record why. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.99.159]
 title = "Restore the provider-subject consent fixture the agent daemon tests include"
@@ -196540,7 +196984,7 @@ title = "Repair the inventory sweep target layerx-programs-ai-market"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = ["22.99.160", "22.99.159", "22.31.464", "22.31.497", "22.31.558", "22.31.564", "22.31.569", "22.31.573"]
+requires = ["22.99.160", "22.99.159", "22.31.464", "22.31.497", "22.31.558", "22.31.564", "22.31.569", "22.31.573", "22.31.586"]
 reqs = ["22998.1"]
 capabilities = ["22.99.77"]
 interfaces = []
@@ -196583,6 +197027,7 @@ do_19 = "Attempt 18 (continue, gotcha 3223, decision 2649, after 22.31.564 lands
 do_20 = "Attempt 19 (continue, gotcha 3250, decision 2669, after 22.31.569 lands): the attempt-18 tree stands. First rerun the executor proof of tests/support/native_replay.rs against the runtime of 569; if a CALL is still refused, the EngineFault reason now names the site, and that site is recorded in the task record as a runtime finding, not worked around. Bring the eight residual operations under 1000000 CPU fuel through the joint-section readers: OPEN_EPOCH at 896 and 1024 state bytes, the three RevealScore cases at 1104 and ScheduleEvaluator, RotateEvaluatorKey and RevokeEvaluator at 1107, proven by the fuel table of tests/fuel_budget.rs. Reconcile the five view-binding cases to production at the current tree: restore the a02 lower-rank assertion of the main tree (the binding equals the published one with the evidence rank substituted, view_binding.rs line 664), assert what feature_availability answers for an uncreated market after reading its producer, and build the a04 fixture so that production admits it instead of refusing with application error 14 (read the producer of that code before changing the fixture). Read the commit-process message behind repair_22_33_261.rs line 1529 (print the child output in the assertion) and repair reward_native_reopen and reward_finality_recovery_and_capacity from it; reward_native_reopen also keeps the produced F07 region (line 1280). Keep the native binding mapping of 22.31.566. Run the build and the verify at the final revision and record them by reference in the task record."
 do_21 = "Attempt 20 (continue, gotchas 3264 and 3265, decision 2679, after 22.31.573 lands): the attempt-19 tree stands (the evaluator mutations under the cap, the reused evaluator regions, the recovery child-process repair, the restored a02 assertion). Revert the producer change in programs/crates/layerx-programs-ai-market/src/queries.rs: bind_snapshot publishes finality.rank as main line 368 does and the documentation says the evidence rank is preserved; a02 then passes in view_binding and in repair_22_33_217 without touching the assertion. Rerun the executor proof of tests/support/native_replay.rs against the runtime of 573; a refusal now carries the retained and remaining numbers after the site name and is recorded as a runtime finding, not worked around. Bring the five residual operations under 1000000 CPU fuel: OPEN_EPOCH at 896 and 1024 state bytes (139 and 6 over) and the three RevealScore cases at 1104 (4, 15 and 7 over); with the fuel table of tests/fuel_budget.rs find the section each of them decodes or validates more than once in one call and decode it once through the joint-section readers; no budget above the cap is ruled. Run the build and the verify at the final revision and record them by reference in the task record."
 do_22 = "Harness profile (decision 2683, gotcha 3269): in tests/programs/test_ai_host_boundary.c send the twelve real operations as plain call payloads without the 34-zero-byte replay-profile prefix (call.c lines 2902 to 2911 decode a plain payload as an ordinary call and the programs module publishes no record for it), so a real operation of about 1000000 fuel is never asked for a replay record that interval 1 cannot hold within 4096 boundaries; keep call_payload with the profile for one short guest CALL so the replay capture path of the harness stays covered, and keep the retained-state repair of 22.31.573 as the base."
+do_23 = "Attempt 21 (continue, gotcha 3368, decision 2753, after 22.31.586 lands): the attempt-20 tree stands (the evaluator mutations under the cap, the reused evaluator regions, the recovery child-process repair, the restored a02 assertion and the attempt-20 changes). The attempt-20 build failed outside this task: the C decoder of the program replay record in src/modules/programs/call.c parsed the version-1 layout while the runtime writes version 2, so the short CALL replay capture of the host boundary proof was refused as non-canonical before the ai-market build; 22.31.586 ports the decoder. Merge current main before the first build so the host boundary target runs against the ported decoder, then apply the attempt-20 ruling unchanged: revert the producer change in programs/crates/layerx-programs-ai-market/src/queries.rs so bind_snapshot publishes finality.rank as main does; rerun the executor proof of tests/support/native_replay.rs and record a refusal with its site name and numbers as a runtime finding; bring OPEN_EPOCH at 896 and 1024 state bytes and the three RevealScore cases at 1104 under 1000000 CPU fuel by decoding each section once through the joint-section readers; no budget above the cap is ruled. If the host boundary target still refuses the short CALL replay capture after the merge, record the diagnostic line with the refusing field name as a finding and stop; that is a defect of 22.31.586, not of this task. Run the build and the verify at the final revision and record them by reference in the task record."
 
 [task.22.99.76]
 title = "Repair the inventory sweep target layerx-programs-runtime"
@@ -205657,6 +206102,97 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Decision 2141: continue from attempt 1 (2f7d8e2e5), which is complete apart from the pins. Add the {'recordLifecycle', true, 36680} row to the expected list in gas_test.go and move the three require.Len pins at surface_test.go:28-30 to 10, adding the recordLifecycle signature to any frozen listing the test holds. Build once and verify once."
+
+[task.22.31.602]
+title = "Delete the commented-out code blocks of the litt storage utilities"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.602"]
+interfaces = []
+do_1 = "do_1 storage/db_engine/litt/util/ssh_test_utils.go (734 lines, almost all commented out from line 10) and storage/db_engine/litt/util/ssh_self_destruct_test.go (101 lines, commented out from line 10) carry large commented-out code blocks. Delete the commented-out code; where a file is left with no live declaration delete the file; if any live code references a symbol only the commented code declared, record it in the task record and keep a minimal live declaration."
+do_2 = "do_2 The package builds and vets at the final revision; the two files together have fewer than forty lines or no longer exist."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["storage/db_engine/litt/util/ssh_test_utils.go", "storage/db_engine/litt/util/ssh_self_destruct_test.go"]
+tests = []
+planned_paths = []
+build_cmd = "go build ./storage/db_engine/litt/..."
+verify_cmd = "go vet ./storage/db_engine/litt/util/ && test $(cat storage/db_engine/litt/util/ssh_test_utils.go storage/db_engine/litt/util/ssh_self_destruct_test.go 2>/dev/null | wc -l) -lt 40"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.601]
+title = "Remove hard-coded host addresses, the stray comment and the invalid licence references"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.601"]
+interfaces = []
+do_1 = "do_1 In tools/hpx/hosting/deploy.sh (lines 22 to 24) and the staking script of the same tools directory (lines 59 and 60) the peer list, the state-sync RPC and the EVM RPC default to one hard-coded public address; make each of those variables required (the script exits with a message naming the variable when it is unset) with no address in the file. In modules/evm/replay/config.go DefaultConfig (line 17) carries a hard-coded public RPC address; make the default empty and refuse replay when Enabled is set and EthRPC is empty."
+do_2 = "do_2 Reword the comment at sdk/server/rosetta/client_online.go line 501 to state what the code does. Fix the licence references: services/launchpad/LICENSE points at a contracts/LICENSE that does not exist (name the licence file that does exist or inline the text); sdk/launchpad/packages/ranking-algo-sdk/package.json uses a SEE LICENSE IN path that does not resolve (use the SPDX identifier of the licence in force); services/explorer/services/libs/blockscout-client/crate/Cargo.toml declares Apache 2.0 (use Apache-2.0); services/platform/perf-db/README.md claims MIT or Apache-2.0 while only the Apache licence file exists (state Apache-2.0 only)."
+do_3 = "do_3 Write tools/qualification/audit_repairs/check_repair_22_31_601.sh: no file of the two tools scripts, config.go or the four licence sites contains the removed address, the removed comment or the invalid identifiers; the launchpad licence file names a file that exists; the script exits non-zero on any hit."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["DefaultConfig"]
+touches = ["tools/hpx/hosting/deploy.sh", "tools/hpx/stake-fleet.sh", "modules/evm/replay/config.go", "sdk/server/rosetta/client_online.go", "services/launchpad/LICENSE", "sdk/launchpad/packages/ranking-algo-sdk/package.json", "services/explorer/services/libs/blockscout-client/crate/Cargo.toml", "services/platform/perf-db/README.md"]
+tests = ["tools/qualification/audit_repairs/check_repair_22_31_601.sh"]
+planned_paths = ["tools/qualification/audit_repairs/check_repair_22_31_601.sh"]
+build_cmd = "go build ./modules/evm/replay/ ./sdk/server/rosetta/"
+verify_cmd = "bash tools/qualification/audit_repairs/check_repair_22_31_601.sh"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.596]
+title = "Repair the node benchmark and proof-node genesis tests of the node-build check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.596"]
+interfaces = []
+do_1 = "do_1 The node-build check of the public repository is red in the node package: TestInitBenchmark_PanicsOnLiveChainID (node/benchmark_test.go line 42) and TestProofNodeGenesis (node/proof_node_genesis_test.go line 35) fail at the tip of main. Run each test, record the failing assertion in the task record, and fix the producer when the test states the required behaviour (the benchmark init refuses the live chain id; the built daemon starts from the proof genesis) or the stale expectation when the behaviour moved (a chain id or genesis field the merge renamed), naming in the task record which it was."
+do_2 = "do_2 Both tests pass at the final revision within the twenty-minute timeout of the verify."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestInitBenchmark_PanicsOnLiveChainID", "TestProofNodeGenesis"]
+touches = ["node/benchmark_test.go", "node/proof_node_genesis_test.go", "node"]
+tests = ["node/benchmark_test.go", "node/proof_node_genesis_test.go"]
+planned_paths = []
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 20m ./node/ -run '^(TestInitBenchmark_PanicsOnLiveChainID|TestProofNodeGenesis)$'"
+gate_kind = "planned"
+sandbox_profile = "go"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
 [task.22.31.507]
 title = "Bring the launchpad go directives under the pinned image toolchain and regenerate the six module graphs the image build rejects"
@@ -285647,6 +286183,187 @@ do_16 = "Attempt 34 re-qualified the attempt 33 files on a base with 13.27.6 and
 do_17 = "Attempt 35 (566d189c8) reverts TestProgramsSandboxExecuteEmitsUsage with LXP_FATAL_INVARIANT on a base that holds 13.27.7 (7331258b0), and the test output carries no sandbox.c invariant line although sandbox_invariant (src/modules/programs/sandbox.c:82, called at :395, :411 and :440) prints the line, site and state to stderr: run the test so the kernel's stderr reaches the output (go test -v; the precompile harness must not redirect fd 2) and include the printed site with the lease-state record in the failure message. When the site shows the precompile's request out of order or missing a step (admit host, open lease, execute, publish usage, release), fix method_sandbox_execute.go; when the kernel refuses a legal sequence, record file, line and site as a finding and stop without changing src/."
 do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection (src/protocol/lxp_kernel.c:2389-2394) refuses the sandbox escrow-charge effect that task 13.27.7 made the call emit; task 13.27.8 binds it in the kernel (decision.1898). Once 13.27.8 is on main, continue attempt 35 unchanged: one build, one verify."
 
+[task.22.31.611]
+title = "Port the pay precompile tests to the three-value escrow views of the keeper"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.611"]
+interfaces = []
+do_1 = "do_1 Gotcha 3371. GetEscrow and GetEscrowResult of the pay keeper (modules/layerxpay/keeper/escrow_views.go lines 42 and 52) return a record, a found flag and an error since 22.33.1303; thirteen call sites in precompiles/layerxpay/conformance_escrow_test.go, conformance_service_test.go, escrow_test.go and service_test.go still take two values and the test package does not compile. Port every call site to the three-value form, asserting a nil error with require.NoError before the found flag and record assertions, and port any further site the compiler names in the same package."
+do_2 = "do_2 The package compiles under go vet and TestPrecompileEscrowViews and TestPayEscrowPathMatchesHostExecute pass at the final revision."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestPrecompileEscrowViews", "TestPayEscrowPathMatchesHostExecute"]
+touches = ["precompiles/layerxpay/conformance_escrow_test.go", "precompiles/layerxpay/conformance_service_test.go", "precompiles/layerxpay/escrow_test.go", "precompiles/layerxpay/service_test.go"]
+tests = ["precompiles/layerxpay/escrow_test.go"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./precompiles/layerxpay/ ./modules/layerxpay/..."
+verify_cmd = "CGO_ENABLED=1 go vet ./precompiles/layerxpay/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxpay/ -run '^(TestPrecompileEscrowViews|TestPayEscrowPathMatchesHostExecute)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.598]
+title = "Build the native library and refresh the ABI copies in the wallet attestor check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.598"]
+interfaces = []
+do_1 = "do_1 The wallet-go-test check of the public repository is red: the attestor test job (.github/workflows/wallet-go-test.yml, the go test step at line 95) links against the native library that nothing in the job builds (cannot find -llayerx), the ABI copies under services/wallet/attestor drifted from precompiles/layerxprograms/abi.json so TestABICopiesMatchRepository (services/wallet/attestor/internal/policy/evm/evm_test.go line 618) fails, and the RealProfiles tests answer Unavailable. Add a step to the job that builds build/liblayerx.a with make before the Go tests and exports the library path the cgo directives expect; refresh every ABI copy the test compares from its repository source."
+do_2 = "do_2 Run the attestor tests locally after the native build and record the RealProfiles outcome; if they still answer Unavailable because a profile needs a running service, mark them with a build tag the job sets only when the service is present and record the tag in the task record."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestABICopiesMatchRepository"]
+touches = [".github/workflows/wallet-go-test.yml", "services/wallet/attestor"]
+tests = ["services/wallet/attestor/internal/policy/evm/evm_test.go"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a && cd services/wallet/attestor && go build ./..."
+verify_cmd = "grep -q liblayerx .github/workflows/wallet-go-test.yml && cd services/wallet/attestor && go test -count=1 ./internal/policy/evm/ -run '^(TestABICopiesMatchRepository)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.597]
+title = "Repair the accepter receipt tests of the sequencer that time out in the node-build check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.597"]
+interfaces = []
+do_1 = "do_1 The node-build check of the public repository is red in node/sequencer: TestAccepterReceiptsASendSealedBeforeItsReceipt (node/sequencer/accepter_test.go line 256) and TestAccepterReceiptsASendAcrossASeal (line 322) fail and the package then runs past its ten-minute limit. Run both tests with a short timeout, record the failing assertion or the waiting site (a channel or seal wait that never returns) in the task record, and fix the accepter or the test fixture so a send sealed before its receipt and a send across a seal both settle as the tests state."
+do_2 = "do_2 Both tests pass at the final revision in under five minutes together."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestAccepterReceiptsASendSealedBeforeItsReceipt", "TestAccepterReceiptsASendAcrossASeal"]
+touches = ["node/sequencer/accepter_test.go", "node/sequencer"]
+tests = ["node/sequencer/accepter_test.go"]
+planned_paths = []
+build_cmd = "go build ./node/sequencer/..."
+verify_cmd = "go test -count=1 -timeout 15m ./node/sequencer/ -run '^TestAccepterReceipts'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.595]
+title = "Make execution and simulation agree on the kernel gas of a hosted program receipt"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.595"]
+interfaces = []
+do_1 = "do_1 The node-build check of the public repository is red in modules/lxphost: the simulate test compares the executed receipt with the simulated one at modules/lxphost/simulate_test.go line 435 and the executed receipt carries KernelGasUsed 0x0 where the simulated carries 0x163. Run the two simulate tests, record which receipt field diverges and which path (Execute or Simulate) drops the kernel gas, and fix that path so both receipts carry the gas the kernel reports; the receipt the chain commits is the executed one, so the simulated receipt follows it if the executed value is the one the kernel reports."
+do_2 = "do_2 The tests TestSimulateMatchesExecuteReceipt and TestSimulateBindingAuthorityRefusals pass at the final revision; add an assertion to the matching test that KernelGasUsed is non-zero for a program call that executes guest code."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["modules/lxphost/simulate_test.go", "modules/lxphost"]
+tests = ["modules/lxphost/simulate_test.go"]
+planned_paths = []
+build_cmd = "CGO_ENABLED=1 go build ./modules/lxphost/..."
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./modules/lxphost/ -run '^(TestSimulateMatchesExecuteReceipt|TestSimulateBindingAuthorityRefusals)$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.589]
+title = "Refuse the anchor store delete plan unless the merge plan was applied at a lower height"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.589"]
+interfaces = []
+do_1 = "do_1 In node/upgrades.go the handler registered for AnchorStoreDeleteUpgrade (line 219) runs the module migrations with no check that MergeUpgrade ran first. Make the handler read the done height of MergeUpgrade from the upgrade keeper and return an error naming both plans when the merge plan has not been applied or was applied at a height not below the current one; the migrations run only after that check."
+do_2 = "do_2 Write node/repair_22_31_589_test.go: TestRepair_22_31_589_AnchorDeleteRefusesWithoutMerge runs the handler on a context where the merge plan is not done and asserts the error names both plan names; TestRepair_22_31_589_AnchorDeleteRunsAfterMerge marks the merge plan done at a lower height and asserts the handler returns the migrated version map."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestRepair_22_31_589_AnchorDeleteRefusesWithoutMerge"]
+touches = ["node/upgrades.go"]
+tests = ["node/repair_22_31_589_test.go"]
+planned_paths = ["node/repair_22_31_589_test.go"]
+build_cmd = "CGO_ENABLED=1 go build ./node/"
+verify_cmd = "CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestRepair_22_31_589_'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.588]
+title = "Generate and check the merge plan info the node decodes at the upgrade height"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.588"]
+interfaces = []
+do_1 = "do_1 Decision 2756. The merge handler continueMergeUpgradePlan in node/upgrades.go (line 472) decodes plan.Info in migrateMergeState (line 507) into leaders, receipt_keys, last_seq, last_seq_hash and activation_height and refuses a plan whose receipt keys do not cover the first sequenced height; a proposal built from the release tooling today carries only binaries in its info and would halt the chain at the plan height. Add a plan-info subcommand to tools/release/upgrade_info.py that writes that JSON from arguments (leader public keys, the receipt key entries as the chain validates them in modules/sequencer/keeper/receipt_keys.go, last sequence and hash, activation height) and merges it with the binaries map the release subcommand writes, and a --check mode that validates a file against the same rules (32-byte non-zero key ids, 32-byte public keys, first height not above last height, coverage of the first sequenced height when a plan height is given)."
+do_2 = "do_2 Make the node subcommand of upgrade_info.py carry the same info into the upgrade-info file it writes, so the operator path that reads disk.Info (line 751) sees the plan info the proposal carries."
+do_3 = "do_3 Commit tools/release/upgradeinfo/merge-plan-info.example.json produced by the subcommand with example keys, and write node/repair_22_31_588_test.go: TestRepair_22_31_588_PlanInfoDecodes unmarshals the example through the same struct shape migrateMergeState uses and validates every receipt key entry with ReceiptKeyEntry.Validate; TestRepair_22_31_588_PlanInfoCoversFirstHeight asserts the example covers plan height plus one."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = ["TestRepair_22_31_588_PlanInfoDecodes"]
+touches = ["tools/release/upgrade_info.py", "node/upgrades.go"]
+tests = ["node/repair_22_31_588_test.go"]
+planned_paths = ["node/repair_22_31_588_test.go", "tools/release/upgradeinfo/merge-plan-info.example.json"]
+build_cmd = "CGO_ENABLED=1 go build ./node/"
+verify_cmd = "python3 tools/release/upgrade_info.py plan-info --check tools/release/upgradeinfo/merge-plan-info.example.json && CGO_ENABLED=1 go test -count=1 ./node/ -run '^TestRepair_22_31_588_'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-release"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.38.12]
 title = "Serve the market reads at the node root as px_ methods"
 status = "pending"
@@ -285712,7 +286429,7 @@ title = "Bind ask funding to a metered stream whose meter authority is the room 
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.611"]
 reqs = ["22380.2"]
 capabilities = ["22.38.9"]
 interfaces = ["interface.22.pc-0x101b-streamopenforask", "interface.22.pc-0x101b-askstreamof", "interface.22.pc-0x101b-evt-askstreamopened"]
@@ -285736,6 +286453,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3371, after 22.31.611 lands): the attempt-1 tree stands (streamOpenForAsk, askStreamOf, the AskStreamOpened event, the ask-reference metadata and the stream_ask_test.go cases). The attempt-1 verify failed outside this task: the precompile test package did not compile because thirteen two-value calls of GetEscrow and GetEscrowResult in four older test files predate the three-value keeper signature; 22.31.611 ports them. Merge current main before the first build so the package compiles, then run the build and the verify as they stand at the final revision and record them by reference in the task record. If the package still fails to compile at a site outside stream_ask_test.go, record the compiler line as a finding and stop; that is a defect of 22.31.611, not of this task."
 
 [task.22.31.584]
 title = "Bind the recorded lease request vector to the usage test that recorded it"
@@ -328579,6 +329297,314 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.31.610]
+title = "Replace private infrastructure host names in the hosted documentation with operator placeholders"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.610"]
+interfaces = []
+do_1 = "do_1 docs/wiki/HostedDashboard.md, docs/wiki/HostedWebhooks.md, docs/site/docs/platform/webhooks.md, the README.md of the service-definitions directory under services/explorer/deploy, deploy/launchpad/README.md and contracts/operations.md name private infrastructure hosts (in-network service DNS names and hosting-provider host names). Replace each with an operator-supplied placeholder of the form OPERATOR_HOST with a one-line note of what the operator substitutes, keeping the paths, ports and methods the pages describe."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_610.py: none of the six files contains the in-network service DNS suffix or a hosting-provider application host name, and each placeholder is explained once in the page."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["docs/wiki/HostedDashboard.md", "docs/wiki/HostedWebhooks.md", "docs/site/docs/platform/webhooks.md", "services/explorer/deploy/railway/README.md", "deploy/launchpad/README.md", "contracts/operations.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_610.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_610.py"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_610.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.608]
+title = "Create the beta ledger, correct the generated system pages and align the SDK compatibility template"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.608"]
+interfaces = []
+do_1 = "do_1 docs/platform/content/beta.md (lines 19, 38 and 44) and tools/ci/beta-report.sh name spec/layerx-beta/qualification.kvx as the beta ledger and the file does not exist; create it with the header the beta page describes (a [meta] block and the two record kinds the page names) and an empty record list so the report script runs."
+do_2 = "do_2 tools/docs/gen/gen_system_docs.py titles the hosted route page Router routes (line 40 and the index entry at line 427) and the kernel module table in docs/system/kernel-modules.md names src/modules/bridge/lxp_bridge_credit.c, a file that does not exist; title the page Hosted route catalogue, make the module table list only files that exist (the bridge module has deposit, exit, withdraw and reserve sources) and regenerate docs/system/INDEX.md and docs/system/kernel-modules.md."
+do_3 = "do_3 services/agent/sdk/COMPATIBILITY.md no longer matches what the generator renders from services/agent/tools/sdk-gen/templates/compatibility.md.tpl; correct the template so that it renders the current committed page (the fixed links included) and note in the template comment that the committed file is generated."
+do_4 = "do_4 Write tools/qualification/audit_repairs/test_repair_22_31_608.py: the ledger file parses with a [meta] block; the generated pages contain no Router routes title and name no file that does not exist; every static line of the template appears in COMPATIBILITY.md."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["docs/platform/content/beta.md", "tools/ci/beta-report.sh", "tools/docs/gen/gen_system_docs.py", "docs/system/INDEX.md", "docs/system/kernel-modules.md", "services/agent/sdk/COMPATIBILITY.md", "services/agent/tools/sdk-gen/templates/compatibility.md.tpl"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_608.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_608.py", "spec/layerx-beta/qualification.kvx"]
+build_cmd = "python3 -m py_compile tools/docs/gen/gen_system_docs.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_608.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.607]
+title = "Build the container image from the released binary and stamp the explorer image with the release tag"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.607"]
+interfaces = []
+do_1 = "do_1 Decision 2756. .github/workflows/paxeer-docker-publish.yml builds docker/layerx/Dockerfile from source, so the image never matches the binaries listed in the release SHA256SUMS; make the publish job download the released paxd asset of the tag it runs for, verify it against SHA256SUMS, and build the image from that binary (a Dockerfile stage that copies the verified binary), and write the image digest into the release notes step."
+do_2 = "do_2 .github/workflows/explorer-images.yml passes no GIT_TAG build argument (docker/explorer-frontend/Dockerfile line 76), so the explorer footer shows no version; pass the release tag from tools/release/version.json (or the git tag of the run) as GIT_TAG."
+do_3 = "do_3 Write tools/qualification/audit_repairs/test_repair_22_31_607.py: both workflows parse as YAML; the publish workflow downloads the release asset, checks SHA256SUMS and records a digest; the explorer workflow passes GIT_TAG in its build arguments."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = [".github/workflows/paxeer-docker-publish.yml", ".github/workflows/explorer-images.yml", "docker/layerx/Dockerfile"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_607.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_607.py"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_607.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-release"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.605]
+title = "Run the untested projects in the continuous checks"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.605"]
+interfaces = []
+do_1 = "do_1 In .github/workflows/ci.yml add a job that runs make test-tests-python (the target exists in the Makefile and nothing calls it) and a job that runs make programs-reference-fixtures for the program examples. Add .github/workflows/wallet-test.yml running the vitest suites of apps/wallet and sdk/wallet on pull requests and pushes to main. In .github/workflows/explorer-images.yml, or a new explorer-backend-test.yml, add a job that runs mix test through services/explorer/deploy/tools/mix-in-builder.sh for the explorer backend."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_605.py: every edited or added workflow parses as YAML, the ci workflow names the two make targets, the wallet workflow runs vitest in both directories, and the explorer job runs the mix test step."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = [".github/workflows/ci.yml", ".github/workflows/explorer-images.yml"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_605.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_605.py", ".github/workflows/wallet-test.yml"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_605.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.604]
+title = "Repair the remaining dead links and stale package fields in the public documentation"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.604"]
+interfaces = []
+do_1 = "do_1 In docs/site/mkdocs.yml set repo_url to the paxeer-monorepo repository and site_url to the pages address of that repository. In sdk/js/package.json and sdk/js/README.md point homepage and repository at the paxeer-monorepo repository and replace the seven links into a dist directory that is not in the tree with links to the type sources under sdk/js/src or to the published package; contracts/sdk-js.md follows."
+do_2 = "do_2 Repoint the eight links into the archived tendermint repositories in consensus/spec/light-client/verification/verification_001_published.md, consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md and sdk/x/evidence/spec/06_begin_block.md at the matching cometbft pages; remove the reference to a private repository from tools/paxctl/sidecar/docs/keyring.md; replace the cookie help link in apps/perps/src/page-modules/legal/CookiePolicy.tsx with the current support article; drop or correct the toolkit repository field in apps/explorer/toolkit/package/package.json; remove the dead avatar link at docs/explorer/ENVS.md line 303; in services/platform/hosted/registry/README.md (line 16) replace the statement that a deployment manifest file deploys the service with the deployment path that exists."
+do_3 = "do_3 Write tools/qualification/audit_repairs/test_repair_22_31_604.py asserting every edited file no longer contains the old host or path and that the repointed links name cometbft, paxeer-monorepo or an existing path in the tree."
+do_4 = "do_4 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["docs/site/mkdocs.yml", "sdk/js/package.json", "sdk/js/README.md", "contracts/sdk-js.md", "consensus/spec/light-client/verification/verification_001_published.md", "consensus/spec/consensus/proposer-based-timestamp/v1/pbts_001_draft.md", "sdk/x/evidence/spec/06_begin_block.md", "tools/paxctl/sidecar/docs/keyring.md", "apps/perps/src/page-modules/legal/CookiePolicy.tsx", "apps/explorer/toolkit/package/package.json", "docs/explorer/ENVS.md", "services/platform/hosted/registry/README.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_604.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_604.py"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_604.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.600]
+title = "Untrack personal settings and installed package trees from the public repository"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.600"]
+interfaces = []
+do_1 = "do_1 Remove from version control, keeping the files on disk, .claude/settings.local.json (personal permissions), apps/explorer/deploy/tools/envs-validator/node_modules (472 tracked files) and programs/sdk/assemblyscript/node_modules; add ignore rules for them in the nearest directory-level ignore file (.claude/.gitignore for the settings file, apps/explorer/deploy/tools/envs-validator/.gitignore and programs/sdk/assemblyscript/.gitignore for the package trees), not in the root ignore file."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_600.py: git ls-files lists no path under either package tree and not the settings file; each directory-level ignore file names its path."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = [".claude/settings.local.json", "apps/explorer/deploy/tools/envs-validator", "programs/sdk/assemblyscript"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_600.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_600.py", ".claude/.gitignore", "apps/explorer/deploy/tools/envs-validator/.gitignore", "programs/sdk/assemblyscript/.gitignore"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_600.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.599]
+title = "Read the explorer environment registry from the consolidated docs location in the image build"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.599"]
+interfaces = []
+do_1 = "do_1 The explorer-images check of the public repository is red: docker/explorer-frontend/Dockerfile (line 92) runs the env collection script on ./docs/ENVS.md, a file the docs consolidation moved to docs/explorer/ENVS.md, so .env.registry is never written and the copy at line 194 fails. Copy docs/explorer/ENVS.md into the builder stage and run apps/explorer/deploy/scripts/collect_envs.sh on that path; the registry file is produced from the moved document."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_599.py: the Dockerfile references docs/explorer/ENVS.md and no longer ./docs/ENVS.md; running collect_envs.sh on docs/explorer/ENVS.md in a temporary directory writes a non-empty .env.registry whose every line starts with NEXT_PUBLIC_."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["docker/explorer-frontend/Dockerfile", "apps/explorer/deploy/scripts/collect_envs.sh"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_599.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_599.py"]
+build_cmd = "bash -n apps/explorer/deploy/scripts/collect_envs.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_599.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-explorer"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.594]
+title = "Point the hosted service deployment at the public node roots"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.594"]
+interfaces = []
+do_1 = "do_1 Decision 2521. In services/platform/hosted/gateway/deployment.yaml the RPC URL list (line 92) holds one in-network URL of a test namespace on a deployment labelled for the main network. Set LAYERX_GATEWAY_PAXEER_RPC_URLS to the first eight public node roots (api1 to api8 under mainnet-beta.paxeer.network, https, root path) and move the faucet and cache in-network names of the test namespace (lines 89 and 93) to values the operator supplies through a config map named in a comment, so the manifest carries no test-namespace name."
+do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_31_594.py: the manifest parses as YAML, the RPC URL list has eight entries that all match the public node root pattern, and no value in the manifest ends with the in-network service DNS suffix."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["services/platform/hosted/gateway/deployment.yaml"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_594.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_594.py"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_594.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-platform"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 60
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.593]
+title = "Bring the node, release and interop documentation to the 7.0.0 facts"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.593"]
+interfaces = []
+do_1 = "do_1 Decision 2521 and decision 2756. Remove the statement that public nodes do not serve px_ methods and replace it with the served fact (the px namespace is served at the node root; only px_register and px_requestFunds are hosted operations) in services/platform/hosted/gateway/README.md (lines 14 and 50 to 51), docs/site/docs/agents/running.md (line 30), services/explorer/README.md (line 17), docs/paxeer-network.md (line 59) and docs/runbooks/paxeer-x-fork.md (line 16)."
+do_2 = "do_2 In RELEASE.md remove the publishing sentence that says the release process enables the retired daemon option; in docs/release/consensus-commits.md open the 7.0.0 ledger section (plan v7.0, the merge handler, the anchor store delete plan) and change the next-release statement from v6.12.0 to v7.0.0; in services/interop/README.md replace the pre-merge custody description with the current model (the mirror archive, the attestation bindings and the sequencer receipts) as docs/interop and contracts/interop.md describe it."
+do_3 = "do_3 Regenerate spec/layerx-merge/docs/activation-runbook.md from the current store list and plan list of node/upgrades.go (the plans registered at lines 207 to 221 and the store keys the merge touches) so its tables name the stores and plans that exist."
+do_4 = "do_4 Write tools/qualification/audit_repairs/test_repair_22_31_593.py asserting the five files no longer contain the retired statement, RELEASE.md no longer names the retired option, consensus-commits.md names v7.0.0, the interop README names the mirror archive, and the activation runbook lists every plan name registered in node/upgrades.go."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["services/platform/hosted/gateway/README.md", "docs/site/docs/agents/running.md", "services/explorer/README.md", "docs/paxeer-network.md", "docs/runbooks/paxeer-x-fork.md", "RELEASE.md", "docs/release/consensus-commits.md", "services/interop/README.md", "spec/layerx-merge/docs/activation-runbook.md"]
+tests = ["tools/qualification/audit_repairs/test_repair_22_31_593.py"]
+planned_paths = ["tools/qualification/audit_repairs/test_repair_22_31_593.py"]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_593.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.587]
+title = "Carry the 7.0.0 release identity in the release tooling and the release check"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.587"]
+interfaces = []
+do_1 = "do_1 Decision 2756. In tools/release/upgrade_info.py accept the registered plan names as upgrade names: the semantic-version form and the plan names the node declares (v7.0 as MergeUpgrade and v7.0-anchor-store-delete as AnchorStoreDeleteUpgrade), read from a small table in the module that a test compares with node/upgrades.go and precompiles/common/precompiles.go; set RELEASE_URL to the releases download path of the paxeer-monorepo repository."
+do_2 = "do_2 Set tools/release/version.json to version v7.0.0 and upgrade v7.0; in tools/release/tests/identity.test.sh set the wanted version to v7.0.0 and make its upgrade-name check accept the plan-name table of do_1."
+do_3 = "do_3 In .github/workflows/paxeer-release-check.yml replace the check that the upgrade name is declared as V6120Upgrade in node/upgrades_v6120.go with a check that the upgrade name is one of the plan names declared in node/upgrades.go or precompiles/common/precompiles.go (MergeUpgrade, AnchorStoreDeleteUpgrade, V6120Upgrade), grepping the declaring lines."
+do_4 = "do_4 Write tools/release/tests/test_upgrade_info.py: the plan-name table matches the constants in node/upgrades.go and precompiles/common/precompiles.go; the release subcommand accepts upgrade v7.0 and refuses v7; version.json carries v7.0.0 and v7.0; the release URL names paxeer-monorepo; the workflow greps the declaring lines."
+do_5 = "do_5 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["tools/release/upgrade_info.py", "tools/release/version.json", "tools/release/tests/identity.test.sh", ".github/workflows/paxeer-release-check.yml"]
+tests = ["tools/release/tests/test_upgrade_info.py"]
+planned_paths = ["tools/release/tests/test_upgrade_info.py"]
+build_cmd = "python3 -m py_compile tools/release/upgrade_info.py"
+verify_cmd = "bash tools/release/tests/identity.test.sh && python3 -m pytest -q tools/release/tests/test_upgrade_info.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-release"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.38.39]
 title = "Close the inference market series: interface rows served, docs cross-checked, reconcile clean"
 status = "pending"
@@ -328590,7 +329616,7 @@ capabilities = ["22.38.39"]
 interfaces = []
 do_1 = "do_1 Run spec/layerx-merge/programme/interfaces_reconcile.py over the tree and update every interface.22.inference-* row of spec/layerx-merge/interfaces.kvx from status new to served with its real path, line, signature and callers; update the contracts/inference-market.md revision and status column to match."
 do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_38_39.py asserting every interface.22.inference-* row has status served and a present symbol at its path, protocol.md names every served F11 operation, the explorer, wallet and SDK test files of 22.38.31 to 22.38.34 exist, and the record repair_22_38_39.kvx lists the qualified tasks of the series."
-symbols = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
+symbols = []
 touches = ["spec/layerx-merge/interfaces.kvx", "spec/layerx-merge/contracts/inference-market.md", "spec/layerx-merge/programme/interfaces_reconcile.py", "tools/qualification/audit_repairs"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_38_39.py"]
 planned_paths = ["tools/qualification/audit_repairs/test_repair_22_38_39.py", "tools/qualification/audit_repairs/repair_22_38_39.kvx"]
@@ -328619,7 +329645,7 @@ capabilities = ["22.38.35"]
 interfaces = []
 do_1 = "do_1 Create docs/agent/inference-market/ with README.md (what the market is, the three planes, who runs what), protocol.md (room lifecycle, F11 operations and payload layouts, lap receipts, canary derivation, payout split, bonds, the metered stream rule), operator.md (running the daemon profile, enrolling, opening a room, funding, claiming), client.md (SDK calls, completion routes, wallet and explorer paths) and threats.md stating plainly that only the development attestation envelope is accepted today, that canaries bound but do not eliminate wrong answers, and the liveness and collusion limits; link the directory from docs/agent/COMPATIBILITY.md."
 do_2 = "do_2 Write tools/qualification/audit_repairs/test_repair_22_38_35.py asserting the five pages exist, every F11 operation name of 22.38.1 appears in protocol.md, threats.md carries the development-envelope sentence, no page names a retired reference of docs_check.py, and the record tools/qualification/audit_repairs/repair_22_38_35.kvx lists the pages."
-symbols = ["docs/agent/inference-market/README.md", "docs/agent/inference-market/protocol.md", "docs/agent/inference-market/threats.md"]
+symbols = []
 touches = ["docs/agent/COMPATIBILITY.md", "tools/qualification/audit_repairs"]
 tests = ["tools/qualification/audit_repairs/test_repair_22_38_35.py"]
 planned_paths = ["docs/agent/inference-market", "tools/qualification/audit_repairs/test_repair_22_38_35.py", "tools/qualification/audit_repairs/repair_22_38_35.kvx"]
@@ -328636,6 +329662,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 3 (requalify, gotcha 3370): the attempt-1 tree stands (the five guides under docs/agent/inference-market, the compatibility link, the audit record and the nineteen passing tests). The done gate refused the task only because its symbols field listed three file paths; batch 582 clears that field. Re-run the build and the verify as they stand at the final revision and record them by reference in the task record; no product change is asked."
 
 [task.22.31.581]
 title = "Write the hosted Human timestamp span in milliseconds and document the unit"
@@ -376424,6 +377451,36 @@ max_builds = 1
 max_verify_runs = 1
 max_repair_cycles = 2
 time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.31.590]
+title = "Accept the chain receipt key rule in the explorer configuration"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.31.590"]
+interfaces = []
+do_1 = "do_1 Decision 2754. services/explorer/backend/config/runtime.exs (line 324) raises receipt key id mismatch unless the key id equals the SHA-256 digest of the public key, a rule the chain does not enforce (modules/sequencer/keeper/receipt_keys.go validates a 32-byte non-zero id, a 32-byte key and the height range). Move the parsing of the governed receipt key entries into a module Explorer.Chain.PaxeerX.ReceiptKeysConfig with parse/1 under services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_keys_config.ex that applies the chain rule and raises ArgumentError naming the failing field, and call it from runtime.exs."
+do_2 = "do_2 Write services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs: an entry whose id is not the digest of its key parses; a zero id, a 31-byte key and a first height above the last height each raise with the field name; the parsed map carries key_id, public_key, first_height and last_height."
+do_3 = "do_3 Run the build and the verify at the final revision and record them by reference in the task record."
+symbols = []
+touches = ["services/explorer/backend/config/runtime.exs"]
+tests = ["services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs"]
+planned_paths = ["services/explorer/backend/apps/explorer/lib/explorer/chain/paxeer_x/receipt_keys_config.ex", "services/explorer/backend/apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs"]
+build_cmd = "services/explorer/deploy/tools/mix-in-builder.sh compile"
+verify_cmd = "services/explorer/deploy/tools/mix-in-builder.sh test apps/explorer/test/explorer/config/paxeer_x_receipt_keys_config_test.exs"
+gate_kind = "planned"
+sandbox_profile = "elixir"
+owner_role = "fm-explorer"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
