@@ -1,8 +1,11 @@
 # Gateway rollback
 
-The wallet gateway runs as the application `paxeer-wallet-gateway` from
-`services/wallet/deploy/gateway.toml`, built from `docker/wallet-gateway/Dockerfile`
-at the repository root and deployed with `--image` (observation 3.7.4). It
+The wallet gateway image is built from `docker/wallet-gateway/Dockerfile`
+with the repository root as its build context. Deployment environment examples
+are tracked in `services/wallet/deploy/railway.env.example` and
+`services/wallet/deploy/redis.railway.env.example`. For the Fly application
+`paxeer-wallet-gateway` used below, the operator supplies its deployment
+configuration and deploys the selected image with `--image`. The gateway
 applies the SQL files under `services/wallet/gateway/migrations` in filename
 order at start and never reverts one. A rollback therefore returns the
 gateway's code to an earlier image; it never returns the database schema.
@@ -11,7 +14,7 @@ gateway's code to an earlier image; it never returns the database schema.
 
 - After a deployment, `curl -sS https://<gateway-base>/readyz` answers 503
   for a component that was `up` before it, or `/healthz` stops answering.
-- `scripts/wallet/check-live.sh gateway` (added by task 4.1) fails where it
+- `scripts/wallet/check-live.sh gateway` fails where it
   passed on the previous release.
 - Signing, provisioning or broadcast errors rise after a deployment with the
   attestor network, the identity provider and the RPC pool healthy.
@@ -28,6 +31,9 @@ gateway's code to an earlier image; it never returns the database schema.
   `src/routes/sign.ts`; an older image cannot sign for a migrated wallet.
 - After the endpoint cutover, the proxy on the current host keeps pointing at
   `paxeer-wallet-gateway`; a gateway rollback does not touch the proxy.
+- The operator has the gateway deployment configuration used for the running
+  release, named `<gateway-config-path>` below, with its environment and
+  secrets preserved and its readiness check set to `/readyz`.
 
 ## Commands
 
@@ -53,7 +59,7 @@ gateway's code to an earlier image; it never returns the database schema.
 3. Deploy the target image.
 
    ```sh
-   flyctl deploy --config services/wallet/deploy/gateway.toml --image <previous-image> --app paxeer-wallet-gateway --ha=false -y
+   flyctl deploy --config <gateway-config-path> --image <previous-image> --app paxeer-wallet-gateway --ha=false -y
    ```
 
    Expected: every machine replaced with the target image and passing the
@@ -77,10 +83,9 @@ curl -sS https://<gateway-base>/readyz
 
 `/healthz` answers `ok: true`; `/readyz` answers 200 with `"ready":true`
 and `attestors`, `nonce_store`, `rpc_pool` and `identity_provider` all `up`;
-`scripts/wallet/check-live.sh gateway` passes. The platform check in
-`gateway.toml` requests `/health/ready`, a path the gateway does not serve
-(observation 4.5.1); readiness is read from `/readyz`. Record revision,
-command, exit code and log path in `spec/paxeer-x-wallet/qualification.kvx`.
+`scripts/wallet/check-live.sh gateway` passes. Readiness is read from `/readyz`;
+`/health/ready` is not served. Record revision, command, exit code and log path
+in the operator's change record.
 
 ## Rollback
 
