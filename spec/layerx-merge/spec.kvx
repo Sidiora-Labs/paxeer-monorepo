@@ -10035,6 +10035,18 @@ value = "When a recipe that a public check runs fails on tests the task did not 
 basis = "Gotchas 3464 and 3468, decisions 2762 and 2800"
 affects = ["22.39.40", "22.39.75", "22.39.116", "22.39.117"]
 
+[decision.2821]
+title = "Tests that need an external tool skip when it is absent and the public check installs the tool"
+value = "A test that needs an external binary or a built fixture (anvil, a signed-request fixture binary, a protected service fixture, a database or broker) skips with a reason naming the tool and the environment variable that points at it when neither the variable nor the tool is present; the public check job that runs the suite installs the tool at its pinned version so the test runs there, and a skip is never recorded as a pass in a qualification record."
+basis = "Gotcha 3471"
+affects = ["22.39.73"]
+
+[decision.2822]
+title = "Vendored third-party sources match their checksum files"
+value = "Every vendored crate or package directory matches its checksum manifest file for file; a deliberate change to a vendored file updates the manifest digest in the same commit and records the reason in a PATCHES.md beside the manifest, and the registry image context preparation keeps refusing any mismatch."
+basis = "Gotcha 3472"
+affects = ["22.39.121", "22.39.108"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38925,6 +38937,33 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.121]
+title = "Reconcile the vendored wasm-instrument crate with its checksum manifest and guard every vendored crate"
+reqs = ["22998.1"]
+touches = ["programs/vendor/wasm-instrument", "tests/ci"]
+tests = ["tests/ci/test_vendored_checksums.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_vendored_checksums.py"
+do_1 = "do_1 Decision 2822, gotcha 3472. Commit b022d25a24 changed programs/vendor/wasm-instrument/Cargo.toml without updating programs/vendor/wasm-instrument/.cargo-checksum.json, so services/platform/hosted/registry/builder-environment/verify-vendor.py line 31 refuses the crate and every registry image context preparation fails. Compare Cargo.toml with Cargo.toml.orig: if the change is needed by the programs build, keep it, update the digest in the manifest and record the reason in programs/vendor/wasm-instrument/PATCHES.md; otherwise restore the upstream manifest. Check the programs build still resolves with cargo metadata --locked --manifest-path programs/Cargo.toml."
+symbols = []
+
+[capability.22.39.120]
+title = "Repair the x402, web-search and ai-market payment tests of the agent SDK Python suite and retire their baseline entries"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data"]
+tests = ["services/agent/sdk/python/tests/test_repair_22_33_702.py", "services/agent/sdk/python/tests/test_web_search.py", "services/agent/sdk/python/tests/test_ai_market.py", "services/agent/sdk/python/tests/test_x402.py"]
+verification_contract = "python3 -m pytest -q services/agent/sdk/python/tests/test_repair_22_33_702.py services/agent/sdk/python/tests/test_repair_22_33_16.py services/agent/sdk/python/tests/test_ai_market.py services/agent/sdk/python/tests/test_web_search.py services/agent/sdk/python/tests/test_x402.py"
+do_1 = "do_1 Decision 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_702.py (x402 RPC payment refusals, current receipts, web-search receipts), test_repair_22_33_16.py (exact amounts reaching the real intermediary), test_ai_market.py, test_web_search.py (offer-account-mismatch, unpaid refusal, metered side, version threshold) and test_x402.py (payment binding mismatch, supported verification): the payment producers (the x402 module, the web-search client, the ai-market program ABI and the receipt format) changed and the consumers did not follow; one web-search case calls verify_web_search_payment without its two new keyword-only arguments. Bring each test to the current producer contract, repairing the producer only where it regressed, and never loosen an assertion to pass."
+symbols = []
+
+[capability.22.39.119]
+title = "Repair the transport, EVM and program tests of the agent SDK Python suite and retire their baseline entries"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data"]
+tests = ["services/agent/sdk/python/tests/test_evm_transaction.py", "services/agent/sdk/python/tests/test_account_derivation.py", "services/agent/sdk/python/tests/test_repair_22_33_701.py", "services/agent/sdk/python/tests/test_program_pre_runtime.py"]
+verification_contract = "python3 -m pytest -q services/agent/sdk/python/tests"
+do_1 = "do_1 Decisions 2521 and 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_701.py, test_repair_22_33_15.py, test_repair_22_31_312.py, test_program_trust.py, test_program_typed_responses.py, test_program_response_code.py, test_program_executed_v3.py, test_program_pre_runtime.py, test_program_account_bound.py, test_program_http.py, test_account_derivation.py, test_evm_transaction.py, test_precompile_calls.py, test_native_program_binding.py, test_revert.py, test_px.py and test_mirror_process.py: 23 raise ValueError invalid-rpc-endpoint because they build node URLs with a path (the SDK requires the root endpoint of a node name on chain 125), 37 raise EvmTransactionError invalid_transaction because their transaction vectors predate the current producer format, and the rest assert program document fields, the stale program head message and mirror verification codes that the producers changed. Bring each test to the current producer (the SDK module, the node RPC document and the agent API golden files), repairing the producer only where it regressed, and never loosen an assertion to pass."
+symbols = []
 
 [capability.22.39.118]
 title = "Bring the three CLI RPC tests to the published contract and the root endpoint"
@@ -151779,7 +151818,7 @@ title = "Give the launchpad and perps assets descriptive names and one copy each
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.105"]
 reqs = ["22998.1"]
 capabilities = ["22.39.61"]
 interfaces = []
@@ -151805,6 +151844,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3451): the attempt-1 tree 7fd627359bac stands (the 78 renames, the two rename records, the consolidated assets, stylesheets and chart declaration, the three tests). The build command now installs at apps/launchpad, builds the two launchpad SDK packages and then type-checks the web app. Make test_no_duplicate_assets_within_an_app exempt apps/perps/public/windows, whose tile names and sizes are prescribed by the platform, and state the exemption in a comment. Merge current main, run the build and the verification at the final revision and record both by reference."
 do_5 = "Attempt 3 (continue, gotcha 3458, gotcha 3451): start from the current main, whose build command installs the launchpad workspace, builds the @kindle/sdk packages and then type-checks the web application. The attempt-1 renames stand (78 asset files); apps/perps/public/windows stays exempt from the duplicate test as the platform-prescribed tile set. Run the build and the verification at the final revision and record both by reference."
+do_6 = "Attempt 4 (continue, gotcha 3473): the attempt-3 tree 83b3d4a201b6 stands (asset changes, Windows tile exemption, seven asset tests). The task now requires 22.39.105, whose published attempt adds the wallet gateway PGlite packages to apps/perps/pnpm-lock.yaml; once it is on main, rebase, run the build and the verification (frozen install and type check of apps/perps) and record both by reference."
 
 [task.22.39.55]
 title = "Settle the twenty-seven wallet surface assertions against the live receipt model"
@@ -208754,7 +208794,7 @@ interfaces = []
 do_1 = "do_1 Decision 2804, gotcha 3438. .github/workflows/paxeer-go-test.yml passes only -tags=ledger,test_ledger_mock, so the tests behind mock_block_validation, mock_chain_validation, libsecp256k1_sdk, release (consensus/rpc/jsonrpc/client/integration_test.go) and gofuzz (consensus/test/fuzz) never run; the autobahn integration runs only through a chain.mk target no workflow calls; tools/hpx/registry runs only through paxeer-manifest-test. Add a matrix leg per tag set and a job for tools/hpx/registry, settle any failing test at the starting revision in the same change and record it in consensus/repair_22_39_82.kvx."
 do_2 = "do_2 Write tests/ci/test_go_build_tags_wired.py with test_go_test_matrix_covers_build_tags and test_hpx_registry_go_test_wired."
 symbols = []
-touches = [".github/workflows/paxeer-go-test.yml", "chain.mk", "consensus/rpc/jsonrpc/client/integration_test.go", "consensus/test/fuzz", "tools/hpx/registry/go.mod"]
+touches = [".github/workflows/paxeer-go-test.yml", "chain.mk", "consensus/rpc/jsonrpc/client/integration_test.go", "consensus/test/fuzz", "tools/hpx/registry/go.mod", "consensus/types/block_test.go", "consensus/types"]
 tests = ["tests/ci/test_go_build_tags_wired.py"]
 planned_paths = ["tests/ci/test_go_build_tags_wired.py", "consensus/repair_22_39_82.kvx"]
 build_cmd = "python3 -m py_compile tests/ci/test_go_build_tags_wired.py && go vet -tags=mock_block_validation ./consensus/..."
@@ -208771,6 +208811,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_3 = "Attempt 2 (continue, gotcha 3455, decision 2817): the attempt-1 tree 4c33ac989e9e stands (the matrix, the Autobahn and registry jobs and the wiring tests). Make the matrix run each mock tag alone over ./consensus/types/... as its own leg, keep the release and gofuzz legs and the registry job, and extend test_go_test_matrix_covers_build_tags to fail when any leg combines the two mock tags or runs a mock tag outside consensus/types. The verification command now runs the two tags separately over ./consensus/types/... and then the registry tests. Run the build and the verification at the final revision and record both by reference."
+do_4 = "Attempt 3 (continue, gotcha 3474, decision 2817): the attempt-2 tree ddb3191922ab stands (separate mock legs, strengthened wiring tests). Move TestBlockValidateBasic and any other test in consensus/types that asserts the default validation policy into a file carrying the constraint !mock_block_validation && !mock_chain_validation (consensus/types/consensus_policy_test.go is the pattern), leave the tag-free tests in block_test.go, and if the chain validation leg exposes a second default-policy test treat it the same way. Run the build and the full verification (both legs and the registry tests) at the final revision and record both by reference, citing the revision the evidence records."
 
 [task.22.39.75]
 title = "Run the launchpad Go backend tests from the launchpad workflow"
@@ -332097,6 +332138,93 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.121]
+title = "Reconcile the vendored wasm-instrument crate with its checksum manifest and guard every vendored crate"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.121"]
+interfaces = []
+do_1 = "do_1 Decision 2822, gotcha 3472. Commit b022d25a24 changed programs/vendor/wasm-instrument/Cargo.toml without updating programs/vendor/wasm-instrument/.cargo-checksum.json, so services/platform/hosted/registry/builder-environment/verify-vendor.py line 31 refuses the crate and every registry image context preparation fails. Compare Cargo.toml with Cargo.toml.orig: if the change is needed by the programs build, keep it, update the digest in the manifest and record the reason in programs/vendor/wasm-instrument/PATCHES.md; otherwise restore the upstream manifest. Check the programs build still resolves with cargo metadata --locked --manifest-path programs/Cargo.toml."
+do_2 = "do_2 Write tests/ci/test_vendored_checksums.py with test_every_vendored_crate_matches_its_manifest (every .cargo-checksum.json under programs/vendor and any other vendor directory matches the files it lists) and test_patched_vendored_crates_record_reasons (a crate whose Cargo.toml differs from Cargo.toml.orig has a PATCHES.md)."
+symbols = []
+touches = ["programs/vendor/wasm-instrument", "tests/ci"]
+tests = ["tests/ci/test_vendored_checksums.py"]
+planned_paths = ["tests/ci/test_vendored_checksums.py", "programs/vendor/wasm-instrument/PATCHES.md"]
+build_cmd = "python3 -m py_compile tests/ci/test_vendored_checksums.py && cargo metadata --locked --manifest-path programs/Cargo.toml --format-version 1 > /dev/null"
+verify_cmd = "python3 -m pytest -q tests/ci/test_vendored_checksums.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-programs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.120]
+title = "Repair the x402, web-search and ai-market payment tests of the agent SDK Python suite and retire their baseline entries"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.73"]
+reqs = ["22998.1"]
+capabilities = ["22.39.120"]
+interfaces = []
+do_1 = "do_1 Decision 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_702.py (x402 RPC payment refusals, current receipts, web-search receipts), test_repair_22_33_16.py (exact amounts reaching the real intermediary), test_ai_market.py, test_web_search.py (offer-account-mismatch, unpaid refusal, metered side, version threshold) and test_x402.py (payment binding mismatch, supported verification): the payment producers (the x402 module, the web-search client, the ai-market program ABI and the receipt format) changed and the consumers did not follow; one web-search case calls verify_web_search_payment without its two new keyword-only arguments. Bring each test to the current producer contract, repairing the producer only where it regressed, and never loosen an assertion to pass."
+do_2 = "do_2 Delete the retired entries from the baseline file, leaving the entries of 22.39.119 in place, and keep the conftest reading the file."
+symbols = []
+touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data"]
+tests = ["services/agent/sdk/python/tests/test_repair_22_33_702.py", "services/agent/sdk/python/tests/test_web_search.py", "services/agent/sdk/python/tests/test_ai_market.py", "services/agent/sdk/python/tests/test_x402.py"]
+planned_paths = []
+build_cmd = "python3 -m pytest -q --collect-only services/agent/sdk/python/tests > /dev/null"
+verify_cmd = "python3 -m pytest -q services/agent/sdk/python/tests/test_repair_22_33_702.py services/agent/sdk/python/tests/test_repair_22_33_16.py services/agent/sdk/python/tests/test_ai_market.py services/agent/sdk/python/tests/test_web_search.py services/agent/sdk/python/tests/test_x402.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 180
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.119]
+title = "Repair the transport, EVM and program tests of the agent SDK Python suite and retire their baseline entries"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.73"]
+reqs = ["22998.1"]
+capabilities = ["22.39.119"]
+interfaces = []
+do_1 = "do_1 Decisions 2521 and 2820, gotcha 3471. The baseline tests/ci/data/agent_sdk_python_baseline.json lists the failing cases of services/agent/sdk/python/tests in test_repair_22_33_701.py, test_repair_22_33_15.py, test_repair_22_31_312.py, test_program_trust.py, test_program_typed_responses.py, test_program_response_code.py, test_program_executed_v3.py, test_program_pre_runtime.py, test_program_account_bound.py, test_program_http.py, test_account_derivation.py, test_evm_transaction.py, test_precompile_calls.py, test_native_program_binding.py, test_revert.py, test_px.py and test_mirror_process.py: 23 raise ValueError invalid-rpc-endpoint because they build node URLs with a path (the SDK requires the root endpoint of a node name on chain 125), 37 raise EvmTransactionError invalid_transaction because their transaction vectors predate the current producer format, and the rest assert program document fields, the stale program head message and mirror verification codes that the producers changed. Bring each test to the current producer (the SDK module, the node RPC document and the agent API golden files), repairing the producer only where it regressed, and never loosen an assertion to pass."
+do_2 = "do_2 Delete the retired entries from the baseline file, leaving the payment entries of 22.39.120 in place, and keep the conftest reading the file."
+symbols = []
+touches = ["services/agent/sdk/python/tests", "services/agent/sdk/python/layerx_sdk", "tests/ci/data"]
+tests = ["services/agent/sdk/python/tests/test_evm_transaction.py", "services/agent/sdk/python/tests/test_account_derivation.py", "services/agent/sdk/python/tests/test_repair_22_33_701.py", "services/agent/sdk/python/tests/test_program_pre_runtime.py"]
+planned_paths = []
+build_cmd = "python3 -m pytest -q --collect-only services/agent/sdk/python/tests > /dev/null"
+verify_cmd = "python3 -m pytest -q services/agent/sdk/python/tests"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 240
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.115]
 title = "Set the twelve first-party packages that are not at 0.1.0 to 0.1.0 and test the rule"
 status = "pending"
@@ -332305,7 +332433,7 @@ title = "Admit the chain trust script to the registry image context and check ev
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.39.121"]
 reqs = ["22998.1"]
 capabilities = ["22.39.108"]
 interfaces = []
@@ -332328,6 +332456,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3472, decision 2822): the attempt-1 tree 920e84d2505b stands (registry context fix, inventory tests). The task now requires 22.39.121, which reconciles the vendored wasm-instrument crate with its checksum manifest; once it is on main, rerun the build and the verification on the attempt-1 tree rebased onto main and record both by reference."
 
 [task.22.39.107]
 title = "Let the layerx image stages see the compile-time files their crates include"
@@ -333012,7 +333141,7 @@ do_1 = "do_1 Decision 2804, gotcha 3438. Seven modules under tests/agent/sdk/pyt
 do_2 = "do_2 Add jobs to .github/workflows/agent.yml that run the agent-test-sdk-py make target (the 43 modules), the services/agent/sdk/python/tests tree (98 tests) and the agent-test-sdk-ts make target (the full TypeScript SDK suite, not only the web-search test), and add the eight agent crates with no runner (tests/parity, tests/qualify, tests/boundary, qualification/pay2, tests/isolation, tools/sdk-gen, tools/policy-harness, tools/doc-check) to the agent cargo test job."
 do_3 = "do_3 Write tests/ci/test_agent_sdk_suites_wired.py with test_agent_sdk_python_collects_cleanly, test_agent_workflow_runs_sdk_python, test_agent_workflow_runs_sdk_typescript and test_agent_workflow_runs_unwired_crates."
 symbols = []
-touches = ["tests/agent/sdk/python/test_ai_market.py", "tests/agent/sdk/python/test_evm_transaction.py", "tests/agent/sdk/python/test_precompile_calls.py", "tests/agent/sdk/python/test_repair_22_31_312.py", "tests/agent/sdk/python/test_repair_22_33_701.py", "tests/agent/sdk/python/test_repair_22_33_702.py", "tests/agent/sdk/python/test_xweb_api.py", "services/agent/sdk/python/tests", "services/agent/sdk/typescript/package.json", "Makefile", ".github/workflows/agent.yml"]
+touches = ["tests/agent/sdk/python/test_ai_market.py", "tests/agent/sdk/python/test_evm_transaction.py", "tests/agent/sdk/python/test_precompile_calls.py", "tests/agent/sdk/python/test_repair_22_31_312.py", "tests/agent/sdk/python/test_repair_22_33_701.py", "tests/agent/sdk/python/test_repair_22_33_702.py", "tests/agent/sdk/python/test_xweb_api.py", "services/agent/sdk/python/tests", "services/agent/sdk/typescript/package.json", "Makefile", ".github/workflows/agent.yml", "tests/ci/data"]
 tests = ["tests/ci/test_agent_sdk_suites_wired.py"]
 planned_paths = ["tests/ci/test_agent_sdk_suites_wired.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_agent_sdk_suites_wired.py && python3 -m pytest -q --collect-only tests/agent/sdk/python services/agent/sdk/python/tests > /dev/null"
@@ -333028,6 +333157,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3471, decisions 2820 and 2821): the attempt-1 tree 0ea617dfcb24 stands (import repairs, wiring, four wiring tests). In services/agent/sdk/python/tests make the BindTransportTest cases skip when neither ANVIL_BIN nor anvil on PATH is present, the native-effect cases skip when the signed-request fixture binary is absent and the protected native fixture cases skip when their fixture is absent, each naming the environment variable; install Foundry at the version the repository pins in the agent check job of .github/workflows/agent.yml so the anvil cases run there. Record every remaining failing test (node id, first error line, retiring task 22.39.119 for the transport, EVM and program files or 22.39.120 for the x402, web-search, ai-market and payment files) in tests/ci/data/agent_sdk_python_baseline.json and apply it from a conftest.py in services/agent/sdk/python/tests that skips the listed node ids with a reason naming the retiring task. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.72]
 title = "Remove the deleted scripts and the deleted fixture generator from the make recipes that workflows call"

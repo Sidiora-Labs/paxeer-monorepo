@@ -34143,3 +34143,35 @@ symbol = "install-status.test.ts"
 observed = "Attempt 2 at 1fdf0eaffdd6: build exit 0; verification exit 1: the install-status test failed, Actual HTTPS service did not become ready, COMPONENT_LOAD_FAILED, Factory actions differ from declared operations."
 assumption = "The declaration is the only place the operation is missing; the registry comparison is exact set equality."
 severity = "high"
+
+[finding.22.39.73.1]
+task = "22.39.73"
+file = "tests/ci/test_agent_sdk_suites_wired.py"
+symbol = "test_agent_sdk_suites_wired.py"
+observed = "Attempt 1 at 0ea617dfcb24: build exit 0; verification 2 exit 1: wiring tests passed, combined suites 541 passed, 90 failed, 25 errors, all in services/agent/sdk/python/tests; two repair cycles used."
+assumption = "The second tree was never run by a public check before this task; its failures predate the wiring and belong to the two repair tasks."
+severity = "high"
+
+[finding.22.39.108.1]
+task = "22.39.108"
+file = "tests/ci/test_image_copy_sources_in_context.py"
+symbol = "test_image_copy_sources_in_context.py"
+observed = "Attempt 1 at 920e84d2505b: build exit 0; verification exit 1: one passed, two setup errors, both Vendored source checksum mismatch: wasm-instrument/Cargo.toml from verify-vendor.py line 31; two repair cycles used."
+assumption = "The checksum mismatch is on main since b022d25a24 and outside the registry context task."
+severity = "high"
+
+[finding.22.39.61.3]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 3 at 83b3d4a201b6: build exit 0; verification exit 1 at pnpm install --frozen-lockfile in apps/perps: ERR_PNPM_OUTDATED_LOCKFILE against services/wallet/gateway/package.json."
+assumption = "The lockfile defect is the one 22.39.105 repairs; nothing else in the perps verification is known to fail."
+severity = "high"
+
+[finding.22.39.82.2]
+task = "22.39.82"
+file = "tests/ci/test_go_build_tags_wired.py"
+symbol = "test_go_build_tags_wired.py"
+observed = "Attempt 2 at ddb3191922ab: build exit 0; verification exit 1: wiring tests passed, go test -tags=mock_block_validation ./consensus/types/... failed in TestBlockValidateBasic; the chain validation leg and the registry tests were not reached."
+assumption = "The mock policy replaces the default one by design (decision 2817); a default-policy assertion belongs behind the default-policy constraint."
+severity = "high"
