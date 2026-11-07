@@ -1,19 +1,16 @@
 # Governance module
 
 Module ID `7` (`LXP_MODULE_GOVERNANCE`). Activity types occupy `0x0007xxxx`.
-Constants for ordinals 1–8 are not in `include/layerx/lxp_governance.h`; they
-are the values `lxp_governance_activity` accepts
-(`src/modules/governance/lxp_governance.c`). Handover is
-`LXP_GOVERNANCE_HANDOVER` in `include/layerx/lxp_handover.h`.
+Ordinals 1, 2, 3, 5, 6 and 8 are literal values accepted by
+`lxp_governance_activity` (`src/modules/governance/lxp_governance.c`).
+Ordinals 10 and 11 are named constants in `include/layerx/lxp_governance.h`.
 
 Governance changes are ordinary activities: same envelope, authority,
-ordering, fee, and receipt rules (`spec/layerx-protocol/spec.kvx`
-requirement 4 acceptance 9). Parameter tables and emergency pauses live in
+ordering, fee, and receipt rules. Parameter tables and emergency pauses live in
 `include/layerx/lxp_governance.h`.
 
 Sources: `src/modules/governance/lxp_governance.c`,
-`include/layerx/lxp_governance.h`, `include/layerx/lxp_handover.h`,
-`spec/layerx-protocol/spec.kvx` requirements 3 and 20.
+`include/layerx/lxp_governance.h`.
 
 ---
 
@@ -27,11 +24,11 @@ Sources: `src/modules/governance/lxp_governance.c`,
 | `0x00070005` | 5 | Session-key grant |
 | `0x00070006` | 6 | Grant revocation |
 | `0x00070008` | 8 | Issue delegated capability or budget allowance |
-| `0x00070009` | 9 | Sequencer handover (`LXP_GOVERNANCE_HANDOVER`) |
+| `0x0007000a` | 10 | Migration budget proposal (`LXP_GOVERNANCE_MIGRATION_BUDGET`) |
+| `0x0007000b` | 11 | Programs fee proposal (`LXP_GOVERNANCE_PROGRAMS_FEE`) |
 
-Ordinals `0x00070004` and `0x00070007` are not registered and are not
-accepted by `lxp_governance_activity`. Handover is advertised only when the
-handover iface is enabled (`lxp_governance_module_iface_for_handover`).
+Ordinals `0x00070004`, `0x00070007` and `0x00070009` are not registered
+and are not accepted by `lxp_governance_activity`.
 
 ---
 
@@ -59,16 +56,15 @@ Length is 4–1024 bytes. Any other header is `LXP_ERR_NON_CANONICAL`.
 | 6 | 0 | 3 | 45 | `grant_id32` at 4; reason byte at 36; sequence u64 at 37 |
 | 8 | 1 | 1 | ≥ 9 | Grant body after the four-byte header |
 
-Requirement 3 acceptance 11 states activity 7:8 issues kind 3 (delegated
-capability) or kind 4 (budget allowance). The payload is `0x71 0x08 0x01 0x01`
+Activity 7:8 issues kind 3 (delegated capability) or kind 4 (budget allowance).
+The payload is `0x71 0x08 0x01 0x01`
 followed by `lxp_grant_encode` bytes (structure `0x2001`, version 1). No
 trailing bytes. The inner grantor signature is all zero because the outer
 owner signature binds the body. Identity must already exist via 7:1.
 
-Handover (ordinal 9) is not this envelope. The full payload is
-`lxp_handover_evidence_decode`. The certificate is 392 bytes
-(`LXP_HANDOVER_CERTIFICATE_BYTES`) and names old/new epoch, sequencer ids
-and keys, predecessor batch facts, and activation batch.
+Ordinal 10 uses `lxp_programs_migration_proposal_decode`; ordinal 11 uses
+`lxp_programs_fee_governance_proposal_validate`. These proposal payloads
+have their own layouts rather than the four-byte envelope above.
 
 ---
 
@@ -76,8 +72,7 @@ and keys, predecessor batch facts, and activation batch.
 
 Decode: `LXP_ERR_NON_CANONICAL`.
 
-Validate: `LXP_ERR_AUTH_SCOPE` when the actor, DID, or handover governance
-key does not match.
+Validate: `LXP_ERR_AUTH_SCOPE` when the actor or DID does not match.
 
 Execute: `LXP_ERR_SEQUENCE_REUSED` (identity already exists),
 `LXP_ERR_BAD_SIGNATURE` (create key mismatch), `LXP_ERR_AUTH_SCOPE` (rotation,

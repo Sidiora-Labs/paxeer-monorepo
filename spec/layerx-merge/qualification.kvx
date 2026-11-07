@@ -33707,3 +33707,51 @@ symbol = "test_ai_market_guest_bound.py"
 observed = "Attempt 1 at 273d1905d0e1 (base 20f1f239c8): builds 1 to 3 exit 0 with the guest at 509009 bytes after the third (target 504184, bound 524184); the dependent-crate check refused the gateway mirror test with the canary and rooms errors of gotcha 3417; the verification never ran; both repair cycles spent."
 assumption = "The remaining 4825 bytes sit in dead helpers and formatted messages the first pass left; the mirror refusal is removed by 22.31.620 and the attempt tree needs no change for it."
 severity = "high"
+
+[finding.22.37.28.1]
+task = "22.37.28"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"
+symbol = "layout_driver_receipts_test.py"
+observed = "Attempt 1 at 79746e9864 (base c71bbe8cb4): build exit 0; verification failed in test_every_required_driver_has_a_tracked_pass_receipt because receipts 0.4 to 0.8 are absent; all five drivers ran and none reached PASS for want of layout build artifacts, pinned Node installations, runtime artifacts, executor evidence and release evidence."
+assumption = "The inputs are environmental and belong to the owner; component mode per decision 2797 qualifies the test module and the drivers while the live receipts stay UNRUN."
+severity = "high"
+
+[finding.22.37.3.1]
+task = "22.37.3"
+file = "tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"
+symbol = "agent-group-contracts.test.ts"
+observed = "Attempt 1 at 2db44337329e (base c71bbe8cb4): builds 2; verification exit 2: the SDK test passed (2 tests) and 0_10.py refused with LAYOUT_RECEIPT_REQUIRED because build/layout/0.9/receipt.json is absent, so the consumer module never ran."
+assumption = "The refusal is the specified behaviour of the check (do_1) and the receipt is an owner input; the gate asserts the refusal and exercises the consumer directly."
+severity = "high"
+
+[finding.22.39.8.3]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 3 at 36cbc27b99 (base c71bbe8cb4): build exit 0; verification: the inventory refusal token_unavailable asserted, then the Rust consumer failed with Error: Io(Os code 11 WouldBlock) after 0.88 seconds while the Go side logged twenty-four TLS handshake EOF errors in the same second, and TestNativeSendPurposeRealProfiles stopped because PAXEER_X_NATIVE_SEND_RUST_TEST was not set."
+assumption = "Code 11 on a blocking socket is the SO_RCVTIMEO read timeout, so the per-call budget was near zero and the raw transport error escaped the classification; the send executable was never built by the gate."
+severity = "high"
+
+[finding.22.31.540.2]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 2 at 3810cd465592 (base 9ef707c66718): builds 2, dependent-crate check exit 0; verification exit 101: five committed-receipt tests of repair_22_31_156 failed at the provenance assertion comparing the signed receipt of the conformance copy with the positive receipt of the source; every other suite of the verification passed."
+assumption = "The mismatch is on main since 74ef78b42b and belongs to the repair task 22.31.622; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.620.1]
+task = "22.31.620"
+file = "tests/ci/test_ai_market_module_mirror.py"
+symbol = "test_ai_market_module_mirror.py"
+observed = "Attempt 1 at 34d49ec60d93 (base 97835484dd): build exit 101 with E0277 at rooms.rs line 572 in the mirrored compilation (no PartialOrd between a byte slice and a 32-byte array); the verification never ran."
+assumption = "A slice-against-slice comparison compiles in both module trees, so the one-line change inside the crate closes the build without a separate task."
+severity = "high"
+
+[finding.22.39.39.1]
+task = "22.39.39"
+file = "tests/ci/test_site_links_inside_docs_dir.py"
+symbol = "test_site_links_inside_docs_dir.py"
+observed = "Attempt 1 at 76f5c401454d (base abc81fd2ce): build exit 0; verification exit 1: test_site_relative_links_resolve passed and test_site_relative_links_stay_inside_docs_dir failed on docs/site/docs/protocol/finality.md line 9 linking ../../../paxeer-network.md outside docs/site/docs."
+assumption = "The link resolves to a tracked file and so escaped the survey of the task text; it is the one remaining link outside the site directory and belongs to this task."
+severity = "high"

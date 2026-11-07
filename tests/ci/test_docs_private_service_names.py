@@ -46,9 +46,42 @@ INTEROP_GATEWAY_ENDPOINTS = {
         INTEROP_GATEWAY_AUTHORITY,
     ),
 }
-DOC_ENDPOINTS = {**BETA_AND_FAUCET_ENDPOINTS, **INTEROP_GATEWAY_ENDPOINTS}
+HOSTED_INTERNAL_ENDPOINTS = {
+    "docs/site/docs/operators/hosted-internal.md": (
+        "<kms-origin>",
+        "<human-service-origin>",
+        "<gateway-origin>",
+        "<redis-url>",
+    ),
+    "docs/wiki/HostedInternal.md": (
+        "<kms-origin>",
+        "<human-service-origin>",
+        "<gateway-origin>",
+        "<redis-url>",
+    ),
+}
+BUYER_AGENT_ENDPOINTS = {
+    "services/platform/examples/buyer-agent/README.md": (
+        "<human-service-origin>",
+        "LAYERX_TESTNET_HUMAN_URL",
+    ),
+}
+INTEROP_GATEWAY_README_ENDPOINTS = {
+    "services/interop/deploy/gateway/README.md": (
+        "LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK=1",
+        "plain HTTP to an operator's private network host",
+    ),
+}
+DOC_ENDPOINTS = {
+    **BETA_AND_FAUCET_ENDPOINTS,
+    **INTEROP_GATEWAY_ENDPOINTS,
+    **HOSTED_INTERNAL_ENDPOINTS,
+    **BUYER_AGENT_ENDPOINTS,
+    **INTEROP_GATEWAY_README_ENDPOINTS,
+}
 PRIVATE_SERVICE_HOST = re.compile(
-    r"\.svc\b|\.cluster\.local\b|\.layerx-testnet\b|\blayerx-testnet\.",
+    r"\.svc\b|\.cluster\.local\b|\.layerx-testnet\b|\blayerx-testnet\.|"
+    r"\.railway\.internal\b",
     re.IGNORECASE,
 )
 
@@ -105,3 +138,48 @@ def test_render_self_check_fixture_matches_examples():
             assert [entry[field] for entry in roots[section]] == [
                 entry[field] for entry in example[section]
             ], (page, section, field)
+
+
+@pytest.mark.parametrize("page", HOSTED_INTERNAL_ENDPOINTS)
+def test_hosted_internal_pages_name_no_service_dns_hosts(page):
+    content = (ROOT / page).read_text(encoding="utf-8")
+    assert PRIVATE_SERVICE_HOST.search(content) is None, page
+    for endpoint in HOSTED_INTERNAL_ENDPOINTS[page]:
+        assert endpoint in content, (page, endpoint)
+    assert "operator" in content.lower(), page
+
+
+@pytest.mark.parametrize("page", BUYER_AGENT_ENDPOINTS)
+def test_buyer_agent_readme_names_no_service_dns_host(page):
+    content = (ROOT / page).read_text(encoding="utf-8")
+    assert PRIVATE_SERVICE_HOST.search(content) is None, page
+    for endpoint in BUYER_AGENT_ENDPOINTS[page]:
+        assert endpoint in content, (page, endpoint)
+    assert "operator-supplied HTTPS origin" in content, page
+
+
+@pytest.mark.parametrize("page", INTEROP_GATEWAY_README_ENDPOINTS)
+def test_interop_gateway_readme_names_no_provider_private_host(page):
+    content = (ROOT / page).read_text(encoding="utf-8")
+    assert PRIVATE_SERVICE_HOST.search(content) is None, page
+    for endpoint in INTEROP_GATEWAY_README_ENDPOINTS[page]:
+        assert endpoint in content, (page, endpoint)
+    flag = "LAYERX_INTEROP_ALLOW_RAILWAY_PRIVATE_NETWORK"
+    assert "railway" not in content.replace(flag, "").lower(), page
+
+
+@pytest.mark.parametrize(
+    "host",
+    (
+        "service.namespace.svc",
+        "service.namespace.svc:9443",
+        "service.namespace.svc.cluster.local",
+        "service.cluster.local",
+        "service.layerx-testnet",
+        "layerx-testnet.service",
+        "service.railway.internal",
+        "http://SERVICE.RAILWAY.INTERNAL:8080",
+    ),
+)
+def test_private_service_host_pattern_rejects_private_suffixes(host):
+    assert PRIVATE_SERVICE_HOST.search(host) is not None, host

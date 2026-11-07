@@ -36,5 +36,11 @@
     "16576cfcf65c8118ee689c6b8134bd51f18787f5",
     "fdb5915e70bf2b61955af6f5d3bf1fa5363ddafc"
   ],
-  "task_receipts": {}
+  "task_receipts": {
+    "0.4": "spec/hyperfide-source-control/receipts/0.4.json",
+    "0.5": "spec/hyperfide-source-control/receipts/0.5.json",
+    "0.6": "spec/hyperfide-source-control/receipts/0.6.json",
+    "0.7": "spec/hyperfide-source-control/receipts/0.7.json",
+    "0.8": "spec/hyperfide-source-control/receipts/0.8.json"
+  }
 }
