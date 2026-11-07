@@ -16,6 +16,11 @@ hosted service APIs and historical protocol encodings have different contracts.
 
 ## Specifications
 
+This index and [CONTRIBUTING.md](https://github.com/Sidiora-Labs/Paxeer-X-Network/blob/main/CONTRIBUTING.md)
+provide the contributor specification references. Product guides explain behavior
+and link tests by what they check; numbered development history belongs in
+contributor records.
+
 The current merged-network specification is `spec/layerx-merge/spec.kvx`.
 It describes one execution domain in `paxd`, including the kernel, native
 ledger and authority modules, markets and committed receipts. Its `[meta]`

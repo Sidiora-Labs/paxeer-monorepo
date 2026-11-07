@@ -36,6 +36,17 @@ A change to planned behavior changes the specification in the same pull request.
 
 Files generated from KVX are not edited by hand: `AGENTS.md`, `CLAUDE.md` and the other IDE rule files are rendered from `spec/workflow.kvx` by `tools/specgen`. `make specgen-lint` checks that they are current.
 
+## Product documentation
+
+Explain behavior, configuration and limits directly. Link tests with labels that
+say what they check. Keep numbered task, decision, gotcha, audit and repair
+history in contributor records rather than product guides. Test filenames may
+remain in code spans and commands so readers can locate and run them.
+
+Specification references belong here and in the
+[reference index](docs/site/docs/reference/index.md). Product guides should link
+the relevant implementation, API contract or user-facing guide instead.
+
 ## Commits
 
 - Sign off every commit (`git commit -s`).

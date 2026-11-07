@@ -83,8 +83,8 @@ The local v1 suite uses the explicitly pinned
 
 Final phase-4 readout additionally requires `coordinator_authority_path` and
 `coordinator_authority_sha256`. That document has the same `bindings`, a `spec`
-entry with `path: "spec/layerx-merge/spec.kvx"` and its exact `sha256`, plus the
-root-approved `freeze_task` and `final_task`. The native runtime authority must
+entry with the reviewed coordinator specification's `path` and exact `sha256`,
+plus the root-approved `freeze_task` and `final_task`. The native runtime authority must
 repeat the coordinator authority digest and final task and bind
 `coordinator_source_sha256` to the candidate. Missing authority fails admission.
 
@@ -111,22 +111,20 @@ required evidence. Implemented runners, configured targets and isolated componen
 proofs do not establish full managed-provider playback, four-host calibration,
 100,000/200,000 sockets, a 24-hour soak, reconciliation/lag or durability.
 Final shared execution requires a root-reviewed coordinator authority bound to
-`spec/layerx-merge/spec.kvx`. Its `freeze_task` must be done, its `final_task` must
-be in progress and depend on that freeze, and all 49 other runtime lane bindings
+the candidate's coordinator specification. Its `freeze_task` must be done, its
+`final_task` must be in progress and depend on that freeze, and all 49 other runtime lane bindings
 must match the candidate, interface and topology. The old `9.1` scenario labels
 identify frozen workload definitions only. Capacity and release qualification
 remain false without actual final evidence. The root programme owns the reviewed
-freeze/final task mapping; this repair does not invent one.
+freeze/final task mapping.
 
-Set `TASK_ID` to the repair being qualified, then run:
-
-```sh
-python3 tools/launchpad/production/qualify.py --task "$TASK_ID" \
-  --spec spec/layerx-merge/spec.kvx --require-current-source
-```
-
-This command proves the repair only; the provider commands above retain their
-own runtime assertions and admission requirements.
+The [workload accounting, calibration and loopback transport tests](test_load.py)
+check scheduled-arrival accounting, capacity refusal, receiver pauses and masked
+subscriptions. The [contract and final-admission tests](repair_m965_cases.py),
+`test_v1_contract`, `test_v2_contract`, `test_final_admission` and
+`test_phase4_qualification`, check schema authority and coordinator admission.
+These local checks do not supply provider or final shared-capacity evidence;
+the phase commands above retain their runtime assertions and admission requirements.
 
 See the [integration phases](../integration/README.md),
 [bootstrap baseline](../bootstrap/README.md),
