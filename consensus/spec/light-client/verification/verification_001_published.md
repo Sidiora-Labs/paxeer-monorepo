@@ -1236,7 +1236,7 @@ read with the mode restrictions above.
 [TMBC-SOUND-DISTR-POSS-COMMIT-link]: #tmbc-sound-distr-poss-commit1
 
 [lightclient]: https://github.com/interchainio/tendermint-rs/blob/e2cb9aca0b95430fca2eac154edddc9588038982/docs/architecture/adr-002-lite-client.md
-[fork-detector]: https://github.com/informalsystems/tendermint-rs/blob/master/docs/spec/lightclient/detection.md
+[fork-detector]: ../detection/README.md
 [fullnode]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
 [ibc-rs]:https://github.com/informalsystems/ibc-rs

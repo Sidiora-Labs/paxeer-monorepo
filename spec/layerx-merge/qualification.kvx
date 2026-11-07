@@ -33595,3 +33595,11 @@ symbol = "layout_receipt_gate_test.py"
 observed = "Attempt 4 at 97407a1e9e: build 1 exit 0, verify 1 exit 1: seventeen gate fixtures passed, the aggregation report recorded zero regressions and the five pending driver receipts, and the pending aggregation check refused on the one failed check source.final-revision-clean."
 assumption = "The dirty state comes from the untracked lockfile and prepare outputs the dependency installation generates (gotcha 3397); with the check reading tracked content only the report is clean at the candidate revision."
 severity = "high"
+
+[finding.9.98.4.12]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 10 at aaf20e51047e: build 1 exit 0, verify 1 exit 101 before any test ran: the clock helper refused because services/platform/Cargo.lock needs to be updated under the locked flag."
+assumption = "The refusal is the stale platform lockfile of the main tree (reproduced there), not the attempt tree; after 22.31.614 lands the verification reaches the tests."
+severity = "high"

@@ -10,8 +10,8 @@ use crate::registry_ops::{self, CallContext, PolicySection};
 use crate::state::{self, RetainedResult, Section, SharedState};
 use crate::types::{Presence, RequestDigest};
 use crate::{
-    admission, aggregation, closure, commit_reveal, epoch, evidence, queries, rewards, rooms,
-    tasks, value_adapter, workers, MAX_STATE_BYTES,
+    admission, aggregation, canary, closure, commit_reveal, epoch, evidence, queries, rewards,
+    rooms, tasks, value_adapter, workers, MAX_STATE_BYTES,
 };
 #[derive(Clone, Copy, Eq, PartialEq)]
 #[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
@@ -106,6 +106,21 @@ impl Operation {
     /// # Errors
     /// Returns `NON_CANONICAL` when the length is outside the operation's bounds, or is neither 40 nor 48 for `0x0106`/`0x0107`.
     pub fn validate_payload_length(self, length: usize) -> CodecResult<()> {
+        if self == CommitScore {
+            return if length == 224 || length == canary::CANARY_COMMIT_BYTES {
+                Ok(())
+            } else {
+                Err(NON_CANONICAL)
+            };
+        }
+        if self == RevealScore {
+            if length == canary::CANARY_REVEAL_BYTES {
+                return Ok(());
+            }
+            if length < 364 {
+                return Err(NON_CANONICAL);
+            }
+        }
         let m = self.metadata();
         if matches!(self.0, 0x0106 | 0x0107) && length != 40 && length != 48 {
             return Err(NON_CANONICAL);
@@ -564,7 +579,7 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         sequence: SequencePolicy::Role,
         delegate_allowed: true,
         payload_min: 224,
-        payload_max: 224,
+        payload_max: canary::CANARY_COMMIT_BYTES,
         authority: AuthorityClass::FeatureDefined,
         sections: &[],
     },
@@ -575,7 +590,7 @@ pub const OPERATIONS: &[OperationMetadata] = &[
         boundary: CallBoundary::Mutation,
         sequence: SequencePolicy::Role,
         delegate_allowed: true,
-        payload_min: 364,
+        payload_min: canary::CANARY_REVEAL_BYTES,
         payload_max: 1480,
         authority: AuthorityClass::FeatureDefined,
         sections: &[],
@@ -1142,6 +1157,7 @@ const fn max_of(values: &[usize]) -> usize {
 
 const TRANSITION_SCRATCH_BYTES: usize = max_of(&[
     tasks::SCRATCH_BYTES,
+    canary::SCRATCH_BYTES,
     commit_reveal::SCRATCH_BYTES,
     evidence::SEAL_SCRATCH_BYTES,
     challenge::CHALLENGE_SCRATCH_BYTES,
@@ -1232,6 +1248,9 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if commit_reveal::is_canary_score(envelope_bytes) {
+        return route_canary_score(ctx, envelope_bytes, current, buffers);
+    }
     let visible = || {
         current
             .and_then(|bytes| state::decode_shared_state(bytes).ok())
@@ -1311,6 +1330,78 @@ pub fn route(
     match framed {
         Ok(routed) => Ok(routed),
         Err(error) => refuse(error, Presence::Present(request), visible(), result),
+    }
+}
+
+fn route_canary_score(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|s| state::decode_shared_state(s).ok())
+        .map_or(0, |s| s.revision);
+    let score = match commit_reveal::decode_canary_envelope(input) {
+        Ok(score) => score,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let request = match score.request_digest() {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let Buffers {
+        next,
+        scratch,
+        event,
+        result,
+    } = buffers;
+    let applied = present(current).and_then(|current| {
+        commit_reveal::apply_canary_score(ctx, &score, current, next, scratch, event)
+    });
+    let operation = score.envelope.operation;
+    match applied {
+        Ok(canary::Outcome::Applied {
+            record,
+            revision,
+            state_len,
+            event_len,
+        }) => {
+            let (payload, n) =
+                commit_reveal::canary_score_payload(&record, operation, score.envelope.sequence)?;
+            match applied_frame(
+                operation,
+                request,
+                revision,
+                event,
+                event_len,
+                &Payload::record(&payload[..n])?,
+                result,
+            ) {
+                Ok(result_len) => Ok(Routed::Applied {
+                    operation,
+                    revision,
+                    state_len,
+                    event_len,
+                    result_len,
+                }),
+                Err(error) => refuse(error, Presence::Present(request), visible, result),
+            }
+        }
+        Ok(canary::Outcome::Retained(retained)) => {
+            let result_len = frame(
+                ApplicationResult::success(
+                    ResultStatus::AlreadyApplied,
+                    request,
+                    retained.applied_revision,
+                    &retained.result_digest.bytes(),
+                ),
+                result,
+            )?;
+            Ok(Routed::Unchanged { result_len })
+        }
+        Ok(canary::Outcome::AlreadyApplied) => Err(NON_CANONICAL),
+        Err(error) => refuse(error, Presence::Present(request), visible, result),
     }
 }
 
@@ -1509,6 +1600,35 @@ fn transition_inner(
                 rooms::Outcome::AlreadyApplied(subject) => {
                     Ok(Step::Unchanged(Payload::record(subject.as_bytes())?))
                 }
+            }
+        }
+        0x0B06 | 0x0B07 => {
+            let outcome = if operation == ChallengeLap {
+                canary::apply_challenge_lap(ctx, envelope, present(current)?, next, scratch, event)?
+            } else {
+                canary::apply_resolve_challenge(
+                    ctx,
+                    envelope,
+                    present(current)?,
+                    next,
+                    scratch,
+                    event,
+                )?
+            };
+            match outcome {
+                canary::Outcome::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    ..
+                } => Ok(Step::Applied {
+                    revision,
+                    state_len,
+                    event_len,
+                    payload: Payload::Suffix,
+                }),
+                canary::Outcome::AlreadyApplied => Ok(Step::Unchanged(Payload::Empty)),
+                canary::Outcome::Retained(retained) => Ok(Step::Retained(retained)),
             }
         }
         _ => Err(UNKNOWN_OPERATION),
