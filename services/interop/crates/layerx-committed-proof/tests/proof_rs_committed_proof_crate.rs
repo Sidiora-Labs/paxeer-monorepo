@@ -228,6 +228,19 @@ fn proof_rs_committed_proof_crate() {
 
         let produced = proof(case);
         let set = validators(case);
+        assert_eq!(set.len(), 2);
+        assert_eq!(set[1].voting_power, 1);
+        assert_eq!(produced.commit.signatures.len(), 2);
+        assert_eq!(
+            produced.commit.signatures[1].block_id_flag,
+            BlockIdFlag::Absent
+        );
+        assert_eq!(
+            set.iter()
+                .map(|validator| validator.voting_power as u64)
+                .sum::<u64>(),
+            number(&case["expected"], "power")
+        );
         let chain = string(&vectors["provenance"], "chainId");
         let expected = CommittedBlock {
             number: number(&vectors["provenance"], "executionHeight"),
@@ -254,7 +267,7 @@ fn proof_rs_committed_proof_crate() {
                 produced.header.height.try_into().unwrap(),
                 &produced.commit
             ),
-            Ok(number(&case["expected"], "power")),
+            Ok(number(&case["expected"], "power") - set[1].voting_power as u64),
         );
         assert_eq!(
             verify_proof(
