@@ -26,6 +26,7 @@ mod guest_cell;
 pub mod host_adapter;
 pub mod policy;
 pub mod queries;
+pub use queries::placement;
 pub mod registry;
 pub mod registry_ops;
 pub mod reputation;
