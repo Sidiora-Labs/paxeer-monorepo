@@ -2448,6 +2448,25 @@ fn execution_with_sandbox_receipt(
     })
 }
 
+/// Copies the current thread's captured CALL fault, NUL-terminating when capacity
+/// is nonzero, and returns the full byte length excluding the terminator.
+/// A null buffer queries the length without copying.
+///
+/// # Safety
+/// A non-null buffer must be writable for `capacity` bytes.
+#[no_mangle]
+pub unsafe extern "C" fn layerx_programs_call_fault_text(
+    buffer: *mut u8,
+    capacity: usize,
+) -> usize {
+    let buffer = if buffer.is_null() || capacity == 0 {
+        &mut []
+    } else {
+        unsafe { std::slice::from_raw_parts_mut(buffer, capacity) }
+    };
+    crate::native_result::copy_captured_fault(buffer)
+}
+
 #[no_mangle]
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub extern "C" fn layerx_programs_call_begin(
@@ -2514,6 +2533,7 @@ pub extern "C" fn layerx_programs_call_begin(
     output_bytes: u64,
     table_elements: u64,
 ) -> i32 {
+    crate::native_result::clear_captured_fault();
     let run = || -> Result<i32, i32> {
         clear_call_event_logs(token)?;
         let access_declaration_length =
