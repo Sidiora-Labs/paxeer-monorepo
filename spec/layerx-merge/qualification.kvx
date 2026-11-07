@@ -34937,3 +34937,11 @@ symbol = "f11_payout_split.rs"
 observed = "Attempt 1 at e8614e7d1265: the build gate failed three times on the guest size, 533903 bytes at the first build and 534099 bytes after the second repair cycle against the bound 524184; the verification never ran."
 assumption = "The base tree is already above the qualification bound of the size record, so the reduction task of the programs owner lands first and the additions of this task are trimmed as well."
 severity = "high"
+
+[finding.22.39.128.3]
+task = "22.39.128"
+file = "services/agent/crates/layerx-agentd/src/budget/native_binding.rs"
+symbol = "native_binding.rs"
+observed = "Attempt 4 at 75cdab1dfc4c: build exit 0; verification exit 1: 18 passed, 1 failed, the recorded case proof_revocation_counter refused at the owner address authentication of 22.33.1520, which the attempt diagnosed and left unrepaired as instructed."
+assumption = "The recorded case lacks the three capability answers a producer repair began requiring after the case last passed; the test support records them, nothing else changes."
+severity = "high"
