@@ -922,3 +922,31 @@ command = "BY_REFERENCE: final build.command and verify.command in /out/run/gate
 exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; only zero for both at the same candidate revision qualifies."
 log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl; initial frozen-install failure at revision 8675d151129a7310b8ee14c326339767f3e9b18a, exit 1, /out/logs/build-1.log."
 observed = "The carried plugin requires its source-control workspace dependency to be regenerated in pnpm-lock.yaml; the continuation preserves the full WORKSPACE_READINESS receipt equality and all native outage, manager, publication and zero-Git assertions."
+
+[qualification.task_22_37_29_legacy_manager_contracts]
+revision = "BY_REFERENCE: task 22.37.29 final matching build.revision and verify.revision in private /out/run/gates.jsonl; do not infer PASS from this entry."
+command = "BY_REFERENCE: final build.command and verify.command in /out/run/gates.jsonl; hf-done invokes cg spec done 22.37.29 -f layerx-merge --root /work/paxeer-monorepo and the declared full dispatch plugin test."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in /out/run/gates.jsonl; qualification requires both zero at one revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Server cases now assert manager-directed paused status, all three registered contracts, refusal of cap/pause/cancel/destroy without mutation, default manager waiting and refusal of resume despite configured compute; dispatcher.test.ts additionally proves default manager waiting without execution and preserves all ten legacy execution cases unchanged."
+
+[finding.task_22_37_29_missing_manager_dispatch_interface]
+revision = "BY_REFERENCE: task 22.37.29 final gate revision in private /out/run/gates.jsonl."
+command = "BY_REFERENCE: task 22.37.29 final gate command in private /out/run/gates.jsonl."
+exit_code = "BY_REFERENCE: task 22.37.29 final gate exit in private /out/run/gates.jsonl."
+log = "BY_REFERENCE: task 22.37.29 final gate log in private /out/run/gates.jsonl."
+observed = "Dispatcher.start and schedule return in manager mode, and registerManagerDecisions only forwards to remote fleet.manager.execute, which does not activate local Dispatcher jobs; assumption: driving the ten retained execution cases through authenticated manager decisions needs an absent execution/fixture interface, while selecting legacy-nonadaptive would bypass the requested manager path and changing the remote producer is outside scope."
+
+[qualification.task_22_37_29_install_repair]
+revision = "72354327e6b7e6e579936e219ab342af34d72b82"
+command = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && pnpm --filter @hyperfide/hyperfide-dispatch typecheck"
+exit_code = 1
+log = "/out/logs/build-1.log; final repair evidence is retained by reference in private /out/run/gates.jsonl."
+observed = "Frozen install found the existing source-control dependency absent from the dispatch importer in pnpm-lock.yaml and the workspace formatter was not installed; install with regenerated permitted lockfile before formatting the two touched tests and running the bounded build repair."
+
+[qualification.task_22_37_29_explicit_legacy_planning]
+revision = "BY_REFERENCE: task 22.37.29 final matching build.revision and verify.revision in private /out/run/gates.jsonl."
+command = "BY_REFERENCE: final build.command and verify.command in private /out/run/gates.jsonl; hf-build then hf-done run the declared commands at the final revision."
+exit_code = "BY_REFERENCE: final build.exit and verify.exit in private /out/run/gates.jsonl; both must be zero at one revision."
+log = "BY_REFERENCE: final build.log and verify.log in private /out/run/gates.jsonl."
+observed = "Decision 2831, gotcha 3489 supersedes the missing-interface finding: the typed fixture planning parameter explicitly selects legacy-nonadaptive for pause/cap, cancellation, HTTP 429 backoff, membership claims, reservations, availability, single retry, backoff ceiling, interrupted ledgers and preparation cleanup; all assertions, the default WAITING_FOR_MANAGER case, five server cases and production sources remain as carried from attempt 1 at 85ff403ccf24."

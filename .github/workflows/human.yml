@@ -56,6 +56,8 @@ jobs:
           python3 -m venv --system-site-packages .lane-venv
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
+      - name: Check workflow Make recipes and beta module paths
+        run: python3 -m pytest -q tests/ci/test_make_recipe_paths_exist.py
       - name: Build the real withdrawal fixture prerequisites
         run: |
           make -j4 CC=gcc LXP_REVISION="$(git rev-parse HEAD)" \

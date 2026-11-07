@@ -34373,3 +34373,51 @@ command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/p
 evidence = "exit=101; log=/out/logs/dependents-1.log; hf-done exit=7 before task verification"
 observed = "layerx-platform-gateway test repair_22_33_1439 fails with E0432 for crate::canary and crate::rooms in dispatch.rs and twelve E0433 missing crate::canary errors in commit_reveal.rs."
 assumption = "The out-of-scope gateway test omits existing guest modules from its crate root; record the failure without changing or re-running it."
+
+[finding.22.31.542.3]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 3 at 9e1018dc32ac: build exit 0; verification exit 1: 29 library tests passed, the repair_22_31_535 consumer target panicked on the missing committed authority corpus before the task targets ran; no repair cycle used."
+assumption = "The gate command omitted the producer step the corpus needs; the tree is not at fault."
+severity = "high"
+
+[finding.22.31.622.2]
+task = "22.31.622"
+file = "tests/ci/test_committed_vector_copy_current.py"
+symbol = "test_committed_vector_copy_current.py"
+observed = "Attempt 2 at 6943962d5cb6: build exit 0; verification exit 101: both copy checks and the four committed-proof targets passed, facilitator_reports_committed_only_with_a_proof panicked with settlement evidence does not match in its no-proof iteration; sequenced_vectors and repair_22_31_156 were not reached; no repair cycle used."
+assumption = "The failing test is independent of the recording (it fails identically in the 22.39.74 attempt-1 run) and belongs to 22.39.127."
+severity = "high"
+
+[finding.22.37.29.1]
+task = "22.37.29"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/dispatcher/dispatcher.test.ts"
+symbol = "dispatcher.test.ts"
+observed = "Attempt 1 at 85ff403ccf24: build exit 0; verification exit 1: 40 cases passed, the ten scheduler cases of the routing module test failed with zero jobs because the routing module starts in manager mode and returns before scheduling; one repair cycle used."
+assumption = "The plugin has no in-process manager path into the routing module; the scheduler behaviour under test exists only under the legacy planning option."
+severity = "high"
+
+[finding.22.39.118.3]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 3 at 39533d5aec16: build exit 0; verification exit 2: 24 library tests, 80 and 8 integration tests and the 8 credential tests passed, bootstrap::clean_bootstrap panicked because services/platform/docs/content/install.md does not exist; no repair cycle used."
+assumption = "The install document moved to docs/platform/content/install.md in 0295d41349 and the emulator test kept the old path."
+severity = "high"
+
+[finding.22.39.43.3]
+task = "22.39.43"
+file = "tests/ci/test_wallet_repair_suites_listed.py"
+symbol = "test_wallet_repair_suites_listed.py"
+observed = "Attempt 3 at 5e1842ada7db: build exit 0; verification exit 1: both inventory tests and 80 wallet tests passed, the two lifecycle tests of lib/portfolio-api/repair-22-31-235.test.ts failed with Portfolio API error 400 because the proxy answers QUERY_INVALID to the chain_id the client appends; no repair cycle used."
+assumption = "The producer (the read contract module and client) and the consumer (the proxy route) were repaired by two audit tasks on the same day without a shared gate; the proxy is the side to fix."
+severity = "high"
+
+[finding.22.39.70.1]
+task = "22.39.70"
+file = "tests/ci/test_web_asset_weight.py"
+symbol = "test_web_asset_weight.py"
+observed = "Attempt 1 at 1cedcb49d76f: build exit 0; verification exit 1: four tests passed, test_public_assets_under_weight_cap listed the two empty style files of the vendored chart bundle under apps/launchpad/web/public/charting_library/bundles as offenders; two repair cycles used on source mappings."
+assumption = "The acceptance criterion asks for a weight cap only; the emptiness condition was added by the attempt."
+severity = "high"

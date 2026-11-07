@@ -49,7 +49,11 @@ let package = Package(
     ),
     .testTarget(
       name: "LayerXMobileTests",
-      dependencies: ["LayerXMobile", "LayerXMobileSampleKit"],
+      dependencies: [
+        "LayerXMobile", "LayerXMobileSampleKit",
+        .product(name: "LayerXSDK", package: "swift"),
+        .product(name: "Crypto", package: "swift-crypto"),
+      ],
       path: "Tests/LayerXMobileTests"
     ),
   ]

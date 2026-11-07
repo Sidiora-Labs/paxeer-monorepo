@@ -493,7 +493,7 @@ fn authority_peer_with_identity(
                 "/v1/agent/subject-context" => {
                     json!({"subject_principal":peer.principal, "tenant":subject.transport_tenant, "agent_tenant":peer.tenant,
                     "owner_did":subject.owner, "account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
-                    "verification_level":"committed", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
+                    "verification_level":layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
                 }
                 "/v1/agent/balance-context" => {
                     json!({"account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
@@ -505,7 +505,7 @@ fn authority_peer_with_identity(
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": match identity.verification_level { layerx_types::verify::VerificationLevel::COMMITTED => "committed", layerx_types::verify::VerificationLevel::STATE_PROVEN => "state_proven", _ => panic!("identity floor case") },
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": match identity.verification_level { layerx_types::verify::VerificationLevel::COMMITTED => layerx_types::verify::VerificationLevel::COMMITTED.wire_label(), layerx_types::verify::VerificationLevel::STATE_PROVEN => layerx_types::verify::VerificationLevel::STATE_PROVEN.wire_label(), _ => panic!("identity floor case") },
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),

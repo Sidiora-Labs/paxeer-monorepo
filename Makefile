@@ -2922,13 +2922,6 @@ programs-check-executed-v4-fixture: programs-build
 	$(MAKE) $(BUILD_DIR)/tests/programs_call_activity
 	python3 sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py --encoder $(BUILD_DIR)/tests/programs_call_activity --check
 
-.PHONY: programs-executed-fixture programs-check-executed-fixture
-programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<
-
-programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $< --check
-
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
