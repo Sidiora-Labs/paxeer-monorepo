@@ -33867,3 +33867,27 @@ symbol = "test_docs_release_version_examples.py"
 observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 passed, 1 failed: five placeholder markers, two in vendored library READMEs and three in the example and plugin READMEs of the vendored project directory."
 assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
 severity = "high"
+
+[finding.22.31.622.1]
+task = "22.31.622"
+file = "tests/ci/test_committed_vector_copy_current.py"
+symbol = "test_committed_vector_copy_current.py"
+observed = "Attempt 1 at 812ee7db75e9: build exit 0; the dependent-crate check failed to compile the gateway test target (unresolved imports canary and rooms, thirteen errors, gotcha 3417); verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+
+[finding.22.39.38.1]
+task = "22.39.38"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 5b1a56176a9c: build exit 0; verification exit 1: 4 passed, 1 failed: two task numbers remain in sdk/contrib/rosetta/node/README.md line 29 and tools/launchpad/production/load/README.md line 124."
+assumption = "The guard is right; the two pages were outside the scope the task text named."
+severity = "high"
+
+[finding.22.39.54.1]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 1 at 799a0dafcb68: builds exit 0 (two), verification exit 1 (two runs): 112 passed, 277 subtests passed, 1 failed: the beta ledger check over spec/layerx-merge/qualification.kvx reports 6448 violations (unterminated string at line 494, repeated section headers and keys)."
+assumption = "The 18 settlements are complete; the ledger faults belong to the ledger file and are repaired by 22.39.87."
+severity = "high"
