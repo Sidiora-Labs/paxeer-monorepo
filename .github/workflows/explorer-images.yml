@@ -8,6 +8,7 @@ on:
       - 'apps/explorer/**'
       - 'services/explorer/**'
       - 'docker/explorer-*/**'
+      - 'tools/release/version.json'
       - '.github/workflows/explorer-images.yml'
   workflow_dispatch:
 
@@ -62,6 +63,17 @@ jobs:
       - name: Set up Buildx
         uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
+      - name: Resolve release tag
+        id: version
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            tag="$GITHUB_REF_NAME"
+          else
+            tag=$(jq -er '.version | strings | select(length > 0)' tools/release/version.json)
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
       - name: Log in to the container registry
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -89,7 +101,9 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          build-args: ${{ matrix.build_args }}
+          build-args: |
+            ${{ matrix.build_args }}
+            GIT_TAG=${{ steps.version.outputs.tag }}
           platforms: linux/amd64
           push: true
           tags: ${{ steps.tags.outputs.tags }}
