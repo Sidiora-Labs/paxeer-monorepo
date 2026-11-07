@@ -2,7 +2,7 @@
 header = """
 # Changelog
 
-All notable changes to Paxeer X Network are documented in this file.
+All notable changes to paxeer-monorepo are documented in this file.
 """
 body = """
 {% if version %}\
