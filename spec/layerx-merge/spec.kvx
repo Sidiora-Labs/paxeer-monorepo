@@ -179608,7 +179608,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.614]
 title = "Refresh the platform lockfile so the runtime clock builds with the locked flag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184358,7 +184358,7 @@ do_14 = "Attempt 2 (requalify after 22.31.483): the previous attempt built and w
 
 [task.22.33.1523]
 title = "Repair audit record 22.30.92 medium findings in services/agent/crates/layerx-wire/tests (part 1 of 1): test-gap"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.217", "22.31.218", "22.31.443", "22.31.572"]
