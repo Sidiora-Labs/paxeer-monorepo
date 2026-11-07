@@ -33515,3 +33515,27 @@ symbol = "queue.test.ts"
 observed = "Attempt 1 at 7b7ced4f9328: build 2 exit 0, verify 2 exit 1: the routing module, runners and image builder suites and the native outage case failed to resolve the source-control SDK package (dist entries never built; the ssr resolve block is missing from the plugin vitest configuration), and the two legacy lockfile cases of queue.test.ts failed with status held and the reason Merge conflict: platform/pnpm-lock.yaml at the base tree as well as at the attempt tree."
 assumption = "The resolution failure is one configuration line proven by the graph plugin, and the legacy lockfile mismatch is pre-existing at the base tree and inside the touches of this task."
 severity = "high"
+
+[finding.22.38.5.1]
+task = "22.38.5"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_canary_challenge.rs"
+symbol = "f11_canary_challenge.rs"
+observed = "Attempt 1 at 7926dcea0ed4: build 1 exit 0, verify 1 exit 0; held at publication with a merge conflict on the routing module source file of the ai-market program against 4e648d9573 (22.38.3), which rewrites the same import line and scratch maximum."
+assumption = "The two additions are disjoint in operation codes and the conflict is the union of two lines plus neighbouring arms."
+severity = "high"
+
+[finding.22.33.1135.2]
+task = "22.33.1135"
+file = "src/codec/lxp_codec.c"
+symbol = "lxp_codec.c"
+observed = "Attempt 1 at 5846420674: build exit 0, verify exit 0; held at publication because tests/repair_22_33_1135.kvx, tests/vectors/codec/NormalizationTest-15.0.0.txt and tests/vectors/codec/UNICODE-LICENSE.txt were outside the touches and planned paths of that spec revision."
+assumption = "The work is complete and only the path declaration was missing."
+severity = "high"
+
+[finding.22.33.1536.9]
+task = "22.33.1536"
+file = "services/agent/crates/layerx-agentd/tests/repair_22_33_1536.rs"
+symbol = "repair_22_33_1536.rs"
+observed = "Attempt 8 at 34a1e6edcd85: build 1 exit 0, verify green; held at publication with a merge conflict on services/agent/crates/layerx-agentd/tests/human_node_budgets.rs against dbd4e68ed9."
+assumption = "The sibling part changed four lines of a file the attempt rewrites; the union is the intended state of the file."
+severity = "high"
