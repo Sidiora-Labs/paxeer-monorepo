@@ -74,6 +74,11 @@ jobs:
         run: make platform-test
       - name: Run Go and JVM conformance and compile Swift and C sharp SDKs
         run: make platform-verify-sdks
+      - name: Install Maven for the Android sample
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes maven
+          mvn -v
       - name: Compile the Android sample against the installed JVM SDK
         run: >-
           mvn -B -f sdk/platform/jvm/pom.xml -DskipTests install &&
