@@ -267,6 +267,12 @@ test-tests-python:
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
 
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
+
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
 
