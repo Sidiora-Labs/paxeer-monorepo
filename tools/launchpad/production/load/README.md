@@ -126,6 +126,13 @@ subscriptions. The [contract and final-admission tests](repair_m965_cases.py),
 These local checks do not supply provider or final shared-capacity evidence;
 the phase commands above retain their runtime assertions and admission requirements.
 
+Run the contract and admission tests directly from the repository root:
+
+```sh
+python3 -m unittest discover \
+  -s tools/launchpad/production/load -p 'repair_m965_cases.py' -v
+```
+
 See the [integration phases](../integration/README.md),
 [bootstrap baseline](../bootstrap/README.md),
 [security evidence limits](../bootstrap/security/GAPS.md) and

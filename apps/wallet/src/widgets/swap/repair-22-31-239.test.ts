@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { createServer, type Server } from 'node:http';
 import { once } from 'node:events';
-import { locks } from 'node:worker_threads';
+import * as workerThreads from 'node:worker_threads';
 import { act, createElement, useLayoutEffect, type ReactElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { ethers } from 'ethers';
@@ -24,6 +24,8 @@ import { useJournaledSwapExecution, type UseSwapExecutionResult } from './useSwa
 import { SwapRecoveryActions } from './SwapRecoveryActions';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+const locks: unknown = Reflect.get(workerThreads, 'locks');
 
 // The peer is a loopback JSON-RPC fixture backed by an in-memory transaction store.
 // Transactions are signed/decoded by ethers and all contract results use the SDK ABI.
@@ -246,7 +248,15 @@ async function rpcFixture(method: string, args: unknown[]): Promise<unknown> {
 }
 
 beforeAll(async () => {
-  if (!locks) throw new Error('The recovery test requires Node Web Locks support.');
+  if (
+    typeof locks !== 'object' ||
+    locks === null ||
+    !('request' in locks) ||
+    typeof locks.request !== 'function' ||
+    !('query' in locks) ||
+    typeof locks.query !== 'function'
+  )
+    throw new Error('The recovery test requires Node Web Locks support.');
   Object.defineProperty(navigator, 'locks', { value: locks, configurable: true });
   expect(navigator.locks).toBe(locks);
   expect(typeof navigator.locks.request).toBe('function');
@@ -432,6 +442,14 @@ async function swap_broadcast_recovery_reopens_original_transaction() {
   await until(() => current().progress === 'confirmed');
   const receipt = await provider.getTransactionReceipt(hash);
   expect(current().completedLegs).toBe(1);
+  expect(receipt).toMatchObject({
+    hash,
+    blockHash,
+    blockNumber: 1,
+    status: 1,
+    from: owner,
+    to: ethers.getAddress(original.transactions[0].to),
+  });
   expect(journal().current()?.transactions[0].receipt).toEqual({
     status: 1,
     blockNumber: receipt!.blockNumber,
