@@ -152685,7 +152685,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.33]
 title = "List rooms, deals and receipt batches in the explorer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 6
 requires = ["22.38.12"]
@@ -153748,7 +153748,7 @@ do_8 = "Gotcha 3308, decision 2707. In the 0_1.py driver of the source-control c
 
 [task.22.37.7]
 title = "Run the final prerequisite journey and publish the native source handoff"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 7
 requires = ["22.36.1", "22.37.6"]
