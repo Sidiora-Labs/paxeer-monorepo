@@ -804,9 +804,11 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
-    let visible = current
-        .and_then(|bytes| state::decode_shared_state(bytes).ok())
-        .map_or(0, |s| s.revision);
+    let visible = || {
+        current
+            .and_then(|bytes| state::decode_shared_state(bytes).ok())
+            .map_or(0, |s| s.revision)
+    };
     let envelope = match codec::decode_envelope(envelope_bytes) {
         Ok(envelope) => envelope,
         Err(error) => return refuse(error, Presence::Absent, 0, buffers.result),
@@ -866,7 +868,7 @@ pub fn route(
                 Payload::Record(bytes, n) => &bytes[..*n],
             };
             frame(
-                ApplicationResult::success(ResultStatus::AlreadyApplied, request, visible, bytes),
+                ApplicationResult::success(ResultStatus::AlreadyApplied, request, visible(), bytes),
                 result,
             )
             .map(|result_len| Routed::Unchanged { result_len })
@@ -874,13 +876,13 @@ pub fn route(
         Ok(Step::Read { payload_len }) => scratch
             .get(..payload_len)
             .ok_or(NON_CANONICAL)
-            .and_then(|body| queries::frame_read_result(request, visible, body, result))
+            .and_then(|body| queries::frame_read_result(request, visible(), body, result))
             .map(|result_len| Routed::Unchanged { result_len }),
         Err(error) => Err(error),
     };
     match framed {
         Ok(routed) => Ok(routed),
-        Err(error) => refuse(error, Presence::Present(request), visible, result),
+        Err(error) => refuse(error, Presence::Present(request), visible(), result),
     }
 }
 
@@ -940,7 +942,7 @@ fn transition(
     if current.is_none()
         || matches!(
             envelope.envelope.operation.0,
-            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
+            0x0105 | 0x0111 | 0x0501..=0x0503 | 0x0601 | 0x0701..=0x0703 | 0x0A01 | 0x0A02
         )
     {
         return transition_inner(ctx, envelope, envelope_bytes, current, next, scratch, event);
@@ -1223,15 +1225,11 @@ fn identity(
         }
         0x0301..=0x0303 => {
             let aggregate_sealed =
-                if authority::evaluator_region(state.section(Section::IdentityRoster)?)?
+                authority::evaluator_region(state.section(Section::IdentityRoster)?)?
                     .snapshot()
                     .is_some()
-                {
-                    aggregation::progress(bytes)?.phase
-                        != crate::aggregation_codec::AggregationPhase::Unsealed
-                } else {
-                    false
-                };
+                    && aggregation::progress(bytes)?.phase
+                        != crate::aggregation_codec::AggregationPhase::Unsealed;
             let call = authority::AuthorityContext {
                 market: &section.header,
                 invoking_principal: ctx.principal,

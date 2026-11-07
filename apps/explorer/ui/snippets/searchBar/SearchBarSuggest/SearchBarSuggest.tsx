@@ -12,6 +12,7 @@ import type { ResourceError } from 'lib/api/resources';
 import { useSettingsContext } from 'lib/contexts/settings';
 import useIsMobile from 'lib/hooks/useIsMobile';
 import type { ExternalSearchItem as ExternalSearchItemType } from 'lib/search/externalSearch';
+import { Button } from 'toolkit/chakra/button';
 import AdaptiveTabs from 'toolkit/components/AdaptiveTabs/AdaptiveTabs';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import * as regexp from 'toolkit/utils/regexp';
@@ -20,6 +21,8 @@ import TextAd from 'ui/shared/ad/TextAd';
 import ExternalSearchItem from 'ui/shared/search/ExternalSearchItem';
 import type { ApiCategory, Category, ItemsCategoriesMap } from 'ui/shared/search/utils';
 import { getItemCategory, searchCategories } from 'ui/shared/search/utils';
+
+import type { useSearchAssistant } from '../useSearchQuery';
 
 import SearchBarSuggestApp from './SearchBarSuggestApp';
 import SearchBarSuggestBlockCountdown from './SearchBarSuggestBlockCountdown';
@@ -37,6 +40,7 @@ const PROMPT_LABELS: Partial<Record<Category, string>> = {
 };
 
 interface Props {
+  assistant?: ReturnType<typeof useSearchAssistant>;
   query: UseQueryResult<Array<QuickSearchResultItem>, ResourceError<unknown>>;
   zetaChainCCTXQuery: UseQueryResult<ListCctxsResponse, ResourceError<unknown>>;
   externalSearchItem: ExternalSearchItemType;
@@ -45,7 +49,7 @@ interface Props {
   category?: Category;
 }
 
-const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searchTerm, onItemClick, category }: Props) => {
+const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searchTerm, onItemClick, category, assistant }: Props) => {
   const isMobile = useIsMobile();
 
   const scrollContainerRef = React.useRef<HTMLDivElement>(null);
@@ -263,6 +267,37 @@ const SearchBarSuggest = ({ query, zetaChainCCTXQuery, externalSearchItem, searc
 
   return (
     <>
+      { config.features.assistant.isEnabled && assistant && (assistant.canAsk || assistant.answer || assistant.error) && (
+        <Box bgColor="raised" color="text.primary" borderColor="hairline" borderBottomWidth="1px" pb={ 3 } mb={ 3 }>
+          <Text textStyle="label" role="heading" aria-level={ 3 } mb={ 2 }>ASK</Text>
+          <Button
+            type="button"
+            variant="plain"
+            color="text.primary"
+            w="100%"
+            justifyContent="flex-start"
+            whiteSpace="normal"
+            height="auto"
+            minH="44px"
+            textAlign="left"
+            disabled={ assistant.pending }
+            onClick={ assistant.ask }
+          >
+            { assistant.pending ? 'Asking…' : `Ask: ${ assistant.question }` }
+          </Button>
+          <Box role="status" aria-live="polite" overflowY="auto" maxH="30vh">
+            { assistant.answer && (
+              <>
+                <Text whiteSpace="pre-wrap" overflowWrap="anywhere">{ assistant.answer.answer }</Text>
+                <Text color="text.muted" textStyle="xs" mt={ 2 }>
+                  model output, not chain data · { assistant.answer.model }
+                </Text>
+              </>
+            ) }
+          </Box>
+          { assistant.error && <Text role="alert" color="text.muted">{ assistant.error }</Text> }
+        </Box>
+      ) }
       { !isMobile && (
         <Box pb={ 4 } mb={ 5 } borderColor="hairline" borderBottomWidth="1px" _empty={{ display: 'none' }}>
           <TextAd textStyle={{ lg: 'sm' }}/>

@@ -1,0 +1,40 @@
+[task.22.36.4]
+base_revision = "0bb28b5341edaeed7bbec68610f2525dc8771ed9"
+decision = "2663"
+repair = "Move nine explorer documents into docs/explorer, rewrite moved pages and scoped readers, and point environment collection and diagnostic references at the monorepo environment catalogue. Correct stale heading links exposed by requiring every relative Markdown link to resolve."
+proof = "Six offline tests assert removal of all original locations, the exact nine-file inventory, relative Markdown paths and heading fragments, the validator collector input, validator and reporter documentation references, and absence of retired path strings in tracked files. The audit excludes only spec history, GOTCHA.kvx and this task's own test. No credential, environment variable or live endpoint is required."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_36_4.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The private build and verify ledger rows name the exact candidate revision, command, exit code and log path. Closure requires hf-done passing on the same candidate as hf-build. This record is written before qualification and is not amended after gates run."
+baseline = "Only runner-supplied .cgignore and spec task-status changes were present before implementation; no gate ledger existed. Preserve those setup changes and leave commits and publication to the runner."
+
+[scope_finding]
+files = ["services/explorer/deploy/env/frontend.example.env", "services/explorer/deploy/railway/README.md"]
+observed = "Attempt 1 found two tracked deployment documents referencing the retired environment catalogue outside its editable scope; the continuation explicitly includes both files."
+resolution = "Rewrite both deployment references to docs/explorer/ENVS.md while preserving the six audit tests and all existing document moves."
+
+[format]
+policy = "The explorer ESLint configuration ignores deploy/tools/, so it does not format the two touched sources. No Markdown, shell, Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and non-Markdown trailing-whitespace rules; preserve existing source layout."
+
+[gotcha.1]
+observed = "Broad Codify output and combined file reads exceeded output budgets; cg brief also described a different task from the supplied claim."
+resolution = "Use actual git status/diff, the exact task block, and focused reads for implementation. Record this note here because GOTCHA.kvx is outside the explicit task scope."
+
+[gotcha.2]
+observed = "The moved environment catalogue and contribution guide contained stale heading fragments, and the upstream attribution page lacked a final newline."
+resolution = "Rewrite the fragments to existing headings while relocating the pages and normalize final newlines during formatting."
+
+[gotcha.3]
+observed = "Overlapping path substitutions affected two frontend README references, and the explorer ESLint executable is not installed."
+resolution = "Correct both paths explicitly before qualification and preserve existing JavaScript/TypeScript formatting without installing a full application dependency tree for string-only changes."
+
+[repair_cycle.1]
+evidence = "The first build and verify rows in /out/run/gates.jsonl record candidate 4a2daac6cd17e5d3828e329f921c208f8db5ba76; verification found four passing tests, a missing top-level PR-template heading and the previously recorded scope conflict."
+repair = "Add the missing top-level heading to the moved pull-request template, preserving every test assertion. Reformat the two repaired files and rerun hf-build followed by hf-done on the repaired candidate; the final ledger rows remain the qualification authority."
+
+[continuation.2]
+decision = "Gotcha 3338 expands the scope to the two deployment references; retain the attempt-1 tree and qualify the completed move."
+repair = "Update the frontend example environment and Railway README to name docs/explorer/ENVS.md, retaining all six audit tests without weakening assertions."
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final build and verify rows in this continuation's private ledger identify the exact verified revision, command, exit code and log path. Qualification requires hf-build and hf-done to pass on that same revision; no task file is amended after the gates. Earlier repair-cycle evidence describes attempt 1's separate ledger."

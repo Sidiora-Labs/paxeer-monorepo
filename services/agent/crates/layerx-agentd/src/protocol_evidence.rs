@@ -30,6 +30,57 @@ const AUTHORITY_SOURCE_VERSION: &str = "layerx-sequencer-authority-v1";
 const MAX_CUMULATIVE_EVIDENCE_ITEMS: usize = 4_096;
 const KERNEL_MODULE_COUNT: u16 = 11;
 
+#[derive(Debug)]
+enum ActivityActorBinding {
+    Did(Vec<u8>),
+    Account([u8; 20]),
+}
+
+struct UseActivity {
+    id: [u8; 32],
+    actor: ActivityActorBinding,
+    envelope_context: Option<(u16, u32)>,
+}
+
+enum UseActivityError {
+    Activity,
+    Identity,
+}
+
+fn decode_use_activity(
+    canonical: &[u8],
+    receipt_module: Option<ModuleId>,
+) -> Result<UseActivity, UseActivityError> {
+    if receipt_module.is_none() && canonical.first() == Some(&0x02) {
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(canonical)
+            .map_err(|_| UseActivityError::Activity)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| UseActivityError::Activity)?;
+        return Ok(UseActivity {
+            id: layerx_crypto::evm_transaction::transaction_hash(canonical),
+            actor: ActivityActorBinding::Account(sender),
+            envelope_context: None,
+        });
+    }
+    let kind = peek_signed_activity_type(canonical).map_err(|_| UseActivityError::Activity)?;
+    if receipt_module.is_some_and(|module| kind.module() != module) {
+        return Err(UseActivityError::Identity);
+    }
+    let module = receipt_module.unwrap_or(kind.module());
+    let registration =
+        ModuleRegistration::new(module, &[kind]).map_err(|_| UseActivityError::Activity)?;
+    let registry = ModuleRegistry::new(&[registration]).map_err(|_| UseActivityError::Activity)?;
+    let activity = decode_signed(canonical, &registry).map_err(|_| UseActivityError::Activity)?;
+    if activity.activity_type() != kind {
+        return Err(UseActivityError::Identity);
+    }
+    Ok(UseActivity {
+        id: activity_id(&activity).map_err(|_| UseActivityError::Activity)?,
+        actor: ActivityActorBinding::Did(activity.actor_did().to_vec()),
+        envelope_context: Some((activity.protocol_version(), activity.network_id())),
+    })
+}
+
 fn select_receipt_key(key: &layerx_client::sequencer::ReceiptKeyEntry) -> SequencerAuthorization {
     SequencerAuthorization::new(
         key.key_id,
@@ -850,6 +901,30 @@ impl EvidenceAuthority {
         window: CumulativeUseWindow,
         entries: &[RawActivityReceiptEvidence],
     ) -> Result<AuthenticatedCumulativeUse, CumulativeUseError> {
+        self.authenticate_cumulative_use_bound(actor, None, window, entries)
+    }
+
+    /// Authenticates cumulative use bound to the actor DID or the supplied EVM account.
+    ///
+    /// # Errors
+    /// Refuses invalid evidence and incomplete or mismatched activity windows.
+    pub fn authenticate_account_cumulative_use(
+        &self,
+        actor: &Did,
+        account: [u8; 20],
+        window: CumulativeUseWindow,
+        entries: &[RawActivityReceiptEvidence],
+    ) -> Result<AuthenticatedCumulativeUse, CumulativeUseError> {
+        self.authenticate_cumulative_use_bound(actor, Some(account), window, entries)
+    }
+
+    fn authenticate_cumulative_use_bound(
+        &self,
+        actor: &Did,
+        account: Option<[u8; 20]>,
+        window: CumulativeUseWindow,
+        entries: &[RawActivityReceiptEvidence],
+    ) -> Result<AuthenticatedCumulativeUse, CumulativeUseError> {
         let receipts = self.verify_cumulative_window(window, entries)?;
         let mut amount = 0_u128;
         let mut count = 0_u64;
@@ -862,25 +937,21 @@ impl EvidenceAuthority {
                         .map_err(|_| CumulativeUseError::Activity)?,
                 )
             };
-            let kind = peek_signed_activity_type(entry.canonical_activity())
-                .map_err(|_| CumulativeUseError::Activity)?;
-            if receipt_module.is_some_and(|module| kind.module() != module) {
+            let activity = decode_use_activity(entry.canonical_activity(), receipt_module)
+                .map_err(|error| match error {
+                    UseActivityError::Activity => CumulativeUseError::Activity,
+                    UseActivityError::Identity => CumulativeUseError::ActivityReceiptMismatch,
+                })?;
+            if activity.id != receipt.activity_id() {
                 return Err(CumulativeUseError::ActivityReceiptMismatch);
             }
-            let module = receipt_module.unwrap_or(kind.module());
-            let registration = ModuleRegistration::new(module, &[kind])
-                .map_err(|_| CumulativeUseError::Activity)?;
-            let registry =
-                ModuleRegistry::new(&[registration]).map_err(|_| CumulativeUseError::Activity)?;
-            let activity = decode_signed(&entry.canonical_activity, &registry)
-                .map_err(|_| CumulativeUseError::Activity)?;
-            if activity_id(&activity).map_err(|_| CumulativeUseError::Activity)?
-                != receipt.activity_id()
-                || activity.activity_type() != kind
-            {
-                return Err(CumulativeUseError::ActivityReceiptMismatch);
-            }
-            if receipt.result_code() == 0 && activity.actor_did() == actor.as_bytes() {
+            let matches_actor = match activity.actor {
+                ActivityActorBinding::Did(did) => did == actor.as_bytes(),
+                ActivityActorBinding::Account(sender) => {
+                    sender == account.ok_or(CumulativeUseError::AccountBinding)?
+                }
+            };
+            if receipt.result_code() == 0 && matches_actor {
                 amount = amount
                     .checked_add(receipt.amount())
                     .ok_or(CumulativeUseError::AmountOverflow)?;
@@ -1031,6 +1102,7 @@ pub enum TimeWindowUseError {
     Inclusion(InclusionError),
     Policy(VerifierPolicyError),
     Activity,
+    AccountBinding,
     Identity,
     Duplicate,
     Overflow,
@@ -1095,6 +1167,38 @@ impl EvidenceAuthority {
     pub fn authenticate_cumulative_time_use(
         &self,
         actor: &Did,
+        window_seconds: u64,
+        observed: &AuthenticatedCoreTime,
+        batches: &[RawTimeWindowBatch],
+    ) -> Result<AuthenticatedTimeWindowUse, TimeWindowUseError> {
+        self.authenticate_cumulative_time_use_bound(actor, None, window_seconds, observed, batches)
+    }
+
+    /// Authenticates time-window use bound to the actor DID or supplied EVM account.
+    ///
+    /// # Errors
+    /// Refuses invalid observations, incomplete coverage and mismatched activity evidence.
+    pub fn authenticate_account_cumulative_time_use(
+        &self,
+        actor: &Did,
+        account: [u8; 20],
+        window_seconds: u64,
+        observed: &AuthenticatedCoreTime,
+        batches: &[RawTimeWindowBatch],
+    ) -> Result<AuthenticatedTimeWindowUse, TimeWindowUseError> {
+        self.authenticate_cumulative_time_use_bound(
+            actor,
+            Some(account),
+            window_seconds,
+            observed,
+            batches,
+        )
+    }
+
+    fn authenticate_cumulative_time_use_bound(
+        &self,
+        actor: &Did,
+        account: Option<[u8; 20]>,
         window_seconds: u64,
         observed: &AuthenticatedCoreTime,
         batches: &[RawTimeWindowBatch],
@@ -1220,6 +1324,13 @@ impl EvidenceAuthority {
                     count_a,
                 )
                 .map_err(|_| TimeWindowUseError::Identity)?;
+                let batch_id = if receipt.module_id() > KERNEL_MODULE_COUNT {
+                    let mut height = [0; 32];
+                    height[24..].copy_from_slice(&header.batch_number().to_be_bytes());
+                    height
+                } else {
+                    batch_id
+                };
                 if protocol.batch_id() != batch_id
                     || protocol.timestamp() != header.timestamp_ms()
                     || header
@@ -1240,29 +1351,25 @@ impl EvidenceAuthority {
                             .map_err(|_| TimeWindowUseError::Activity)?,
                     )
                 };
-                let kind = peek_signed_activity_type(entry.canonical_activity())
-                    .map_err(|_| TimeWindowUseError::Activity)?;
-                if receipt_module.is_some_and(|module| kind.module() != module) {
-                    return Err(TimeWindowUseError::Identity);
-                }
-                let module = receipt_module.unwrap_or(kind.module());
-                let registration = ModuleRegistration::new(module, &[kind])
-                    .map_err(|_| TimeWindowUseError::Activity)?;
-                let registry = ModuleRegistry::new(&[registration])
-                    .map_err(|_| TimeWindowUseError::Activity)?;
-                let activity = decode_signed(entry.canonical_activity(), &registry)
-                    .map_err(|_| TimeWindowUseError::Activity)?;
-                if activity_id(&activity).map_err(|_| TimeWindowUseError::Activity)?
-                    != receipt.activity_id()
-                    || activity.activity_type() != kind
-                    || activity.protocol_version() != header.protocol_version()
-                    || activity.network_id() != header.network_id()
+                let activity = decode_use_activity(entry.canonical_activity(), receipt_module)
+                    .map_err(|error| match error {
+                        UseActivityError::Activity => TimeWindowUseError::Activity,
+                        UseActivityError::Identity => TimeWindowUseError::Identity,
+                    })?;
+                if activity.id != receipt.activity_id()
+                    || activity.envelope_context.is_some_and(|context| {
+                        context != (header.protocol_version(), header.network_id())
+                    })
                 {
                     return Err(TimeWindowUseError::Identity);
                 }
-                if activity.actor_did() == actor.as_bytes()
-                    && lower.is_none_or(|bound| header.timestamp_ms() > bound)
-                {
+                let matches_actor = match activity.actor {
+                    ActivityActorBinding::Did(did) => did == actor.as_bytes(),
+                    ActivityActorBinding::Account(sender) => {
+                        sender == account.ok_or(TimeWindowUseError::AccountBinding)?
+                    }
+                };
+                if matches_actor && lower.is_none_or(|bound| header.timestamp_ms() > bound) {
                     activity_ids.push(receipt.activity_id());
                     count = count.checked_add(1).ok_or(TimeWindowUseError::Overflow)?;
                     if receipt.result_code() == 0 {
@@ -1627,6 +1734,7 @@ pub enum CumulativeUseError {
     Duplicate,
     Sequence,
     Activity,
+    AccountBinding,
     ActivityReceiptMismatch,
     BatchChain,
     AmountOverflow,

@@ -11,7 +11,7 @@ use crate::store::{ObjectKind, Store, StoreError, TenantId};
 use super::{Outbox, OutboxError, SubmissionState};
 
 /// Approval release journal entries share the outbox object kind but are not submissions.
-const APPROVAL_RELEASE_PREFIX: &[u8] = b"approval-released-v1:";
+const APPROVAL_RELEASE_PREFIX: &[u8] = crate::policy::approval::RELEASED_KEY_PREFIX;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct UnknownCeilingReservation {
@@ -199,6 +199,18 @@ fn restore_submissions(
     let identifiers = store.list_object_ids(tenant, ObjectKind::Outbox);
     for identifier in identifiers {
         if identifier.starts_with(APPROVAL_RELEASE_PREFIX) {
+            let released = crate::policy::approval::released_tracking(store, tenant, &identifier)
+                .map_err(|_| RecoveryError::Corrupt)?;
+            if let Some(link) = released.submission {
+                let mut linked = Outbox::default();
+                linked.restore(store, tenant.clone(), link.submission_id)?;
+                let signed = linked.exact_signed_bytes(link.submission_id)?;
+                let (call, _) = layerx_crypto::evm_transaction::decode_signed(signed)
+                    .map_err(|_| RecoveryError::Corrupt)?;
+                if call.encode_unsigned() != released.unsigned_bytes {
+                    return Err(RecoveryError::Corrupt);
+                }
+            }
             continue;
         }
         let submission_id: [u8; 32] = identifier
