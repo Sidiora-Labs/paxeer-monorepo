@@ -119,8 +119,8 @@ Anyone can rebuild a tag and compare the merged package. For a historical tag, i
 script and asset list first; its package may include retired components.
 
 ```sh
-git clone https://github.com/Sidiora-Labs/Paxeer-X-Network.git
-cd Paxeer-X-Network
+git clone https://github.com/Sidiora-Labs/paxeer-monorepo.git
+cd paxeer-monorepo
 git checkout paxeer-network/vX.Y.Z
 tools/release/build-paxd.sh
 gh release download paxeer-network/vX.Y.Z --pattern SHA256SUMS --dir published
