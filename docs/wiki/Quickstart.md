@@ -31,10 +31,10 @@ does not establish that a transaction failed.
 The pre-merge router and public `/rpc`, `/rpc/ws` and `/rpc/schema` paths are retired.
 `node.hyperpaxeer.com` is the hpx library mirror used by build scripts, not an RPC endpoint.
 
-The node namespace inventory is `debug`, `echo`, `eth`, `net`, `pax`, `test`
-and `txpool`; availability depends on node configuration. The hosted
-`px_*` workflow contract belongs to the operator-deployed gateway in
-`services/platform/hosted/gateway/openrpc.json`. Obtain the service endpoint
+The node namespace inventory is `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
+and `txpool`; availability depends on node configuration. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. Obtain the service endpoint
 from its operator when using that contract. A gateway method is not a promise
 that every public node serves it.
 

@@ -2,7 +2,7 @@
 
 The developer binary is **`layerx`**, declared by [tools/platform/cli](../tools/platform/cli/Cargo.toml). Its name and historical receipt types remain in the tree while LayerX functionality is merged into one Paxeer BFT network. Mainnet-beta has EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks, and a receipt becomes final when its block is committed. Sub-chains are tenant domains in the database, not independently deployed chains.
 
-Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and `txpool`. Hosted `px_` methods have their own [OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
 
 See [explorer HTTP](explorer-http-api.md), [socket updates](explorer-ws.md), [metrics](explorer-metrics.md), and [historical header verification](kernel.md#format-batch-header). These describe different application transports on the same network.
 

@@ -20,11 +20,11 @@ Public JSON-RPC uses HTTPS at the root path of
 `api14.mainnet-beta.paxeer.network`, and
 [`api-mainnet-beta.paxeer.network`](https://api-mainnet-beta.paxeer.network/).
 The EVM chain ID is **125** (`0x7d`). Node
-namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The agent service reads precompile views through `eth_call` at a specified height.
-The hosted gateway's `px_` contract is defined in
-[`openrpc.json`](../platform/hosted/gateway/openrpc.json); those methods are
-not implied by a node's standard Ethereum RPC support.
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../platform/hosted/gateway/openrpc.json).
 
 `node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 

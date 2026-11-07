@@ -6,7 +6,7 @@ This page documents the launchpad web and mobile clients and their SDK boundarie
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). Its kernel runs inside `paxd` and participates in block proposal. A transaction receipt is final when its block is committed. Submission and a signed pre-commit receipt must not be displayed as committed execution. Sub-chains are tenant domains in the database, not separately deployed chains.
 
-Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. For example, use `https://api5.mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`. Hosted `px_` methods have a different contract in [the platform gateway OpenRPC document](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint.
+Public node JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. For example, use `https://api5.mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint.
 
 ## Launchpad web app
 
