@@ -206232,7 +206232,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.601]
 title = "Remove hard-coded host addresses, the stray comment and the invalid licence references"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329398,7 +329398,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.610]
 title = "Replace private infrastructure host names in the hosted documentation with operator placeholders"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329428,7 +329428,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.608]
 title = "Create the beta ledger, correct the generated system pages and align the SDK compatibility template"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329521,7 +329521,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.604]
 title = "Repair the remaining dead links and stale package fields in the public documentation"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329552,7 +329552,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.600]
 title = "Untrack personal settings and installed package trees from the public repository"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329643,7 +329643,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.593]
 title = "Bring the node, release and interop documentation to the 7.0.0 facts"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
