@@ -107,6 +107,90 @@ fn generated_contract_is_pinned_to_the_schema() {
 }
 
 #[test]
+fn native_send_v2_records_declare_the_canonical_consent_contract() {
+    use layerx_agent_api::identity::NativeSendPurposeV2;
+
+    for source in [AGENT_API_V1_SOURCE, BASELINE] {
+        let schema = declarations(source);
+        for record in ["NativeSendPurposeV2", "SignedNativeSendPurposeV2"] {
+            assert_eq!(
+                schema[&format!("record.{record}.rust")],
+                format!("\"layerx_agent_api::identity::{record}\"")
+            );
+            assert_eq!(
+                schema[&format!("record.{record}.wire_type")],
+                format!("\"{record}Wire\"")
+            );
+        }
+        let fields: Vec<_> = schema["record.NativeSendPurposeV2.fields"]
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .split(',')
+            .map(|field| field.trim().trim_matches('"'))
+            .collect();
+        assert_eq!(
+            fields,
+            [
+                "tenant:utf8",
+                "agent_did:utf8",
+                "owner_did:utf8",
+                "consent_public_key:hex32",
+                "evm_sender:hex20",
+                "session_id:hex32",
+                "generation:decimal_string",
+                "expires_at_ms:decimal_string",
+                "capability_id:hex32",
+                "transaction_type:decimal_string",
+                "chain_id:decimal_string",
+                "activity:NativeActivityV1",
+                "preparation_id:hex32",
+                "canonical_digest:hex32",
+                "economic_action:hex32",
+                "idempotency_key:hex32",
+                "commitment:hex32",
+            ]
+        );
+        assert_eq!(
+            schema["record.NativeSendPurposeV2.domain"],
+            "\"LayerX/native/send-purpose/v2\""
+        );
+        let domain = std::str::from_utf8(NativeSendPurposeV2::DOMAIN).unwrap();
+        assert_eq!(
+            schema["record.NativeSendPurposeV2.domain"],
+            format!("\"{}\"", domain.trim_end_matches('\0'))
+        );
+        for (key, value, actual) in [
+            ("version", "2", NativeSendPurposeV2::VERSION.to_string()),
+            (
+                "transaction_type",
+                "2",
+                NativeSendPurposeV2::TRANSACTION_TYPE.to_string(),
+            ),
+            ("chain_id", "125", NativeSendPurposeV2::CHAIN_ID.to_string()),
+        ] {
+            assert_eq!(schema[&format!("record.NativeSendPurposeV2.{key}")], value);
+            assert_eq!(actual, value);
+        }
+        assert_eq!(
+            schema["record.SignedNativeSendPurposeV2.fields"],
+            "[\"purpose:NativeSendPurposeV2\", \"signature:hex64\"]"
+        );
+        assert_eq!(
+            schema["record.SignedNativeSendPurposeV2.signature_digest"],
+            "\"SHA256 of the exact NativeSendPurposeV2 canonical bytes, signed with Ed25519 by the current consent key and verified against purpose.consent_public_key.\""
+        );
+        assert!(
+            schema["record.SignedNativeSendPurposeV2.validation"].contains(
+                "sender recovered from the type-2 transaction must equal purpose.evm_sender"
+            )
+        );
+        for required in ["check_current_owner", "check_prepared_transaction"] {
+            assert!(schema["record.NativeSendPurposeV2.authority"].contains(required));
+        }
+    }
+}
+
+#[test]
 fn major_two_refuses_major_one() {
     let contract = agent_api_schema_v1();
     assert_eq!(contract.version, ContractVersion { major: 2, minor: 0 });

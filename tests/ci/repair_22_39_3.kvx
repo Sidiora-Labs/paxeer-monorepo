@@ -1,0 +1,18 @@
+[repair.22.39.3]
+requirement = "22998.1"
+gotcha = "3405"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+build_cmd = "python3 -m py_compile tests/ci/test_ci_c17_sanitizer_runner.py && make -n test-arena"
+verify_cmd = "python3 -m pytest -q tests/ci/test_ci_c17_sanitizer_runner.py"
+evidence = "The runner's private /out/run/gates.jsonl ledger and /out/logs gate logs name the verified candidate revision, exact command and exit code; the final response copies the last gate record."
+qualification_scope = "Python syntax, test-arena command generation, workflow YAML and every ASAN_OPTIONS recipe; native sanitizer execution and hosted GitHub jobs are outside the declared gates."
+
+[case.c17_hosted_ubuntu]
+test = "tests/ci/test_ci_c17_sanitizer_runner.py::test_c17_job_runs_on_hosted_ubuntu"
+criterion = "Parse the real workflow YAML and require the c17 runs-on value to be the literal ubuntu-24.04 for every event and compiler."
+repair = "Use the hosted Ubuntu runner unconditionally so the c17 sanitizer processes avoid the variable-selected host's preload and tracing environment."
+
+[case.asan_unsets_ld_preload]
+test = "tests/ci/test_ci_c17_sanitizer_runner.py::test_asan_rules_unset_ld_preload"
+criterion = "Inspect every non-comment Makefile line assigning ASAN_OPTIONS, retain at least the five existing invocations, and require env -u LD_PRELOAD before the assignment."
+repair = "Prefix test-arena, qualify-fuzz, fuzz-codec-smoke, test-crypto-sanitizers and test-arith-property invocations with env -u LD_PRELOAD while preserving their commands and sanitizer options."

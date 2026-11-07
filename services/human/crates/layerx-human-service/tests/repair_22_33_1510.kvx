@@ -1,0 +1,221 @@
+[repair.22.33.1510]
+record = "22.30.90"
+acceptance = "22998.1"
+findings = ["human-approval-fixture", "human-decision-fixture"]
+producer = "layerx_agentd::prepare::evm::prepare_activity; UnifiedAgentOwner; durable ApprovalRegistry and BudgetLimiter"
+transport = "SO_PEERCRED-authenticated Unix sockets, serve_one/AcceptedTransport, AgentRuntime; recorded authority input over loopback TLS and recorded node RPC; daemon-written snapshots through managed_agent::record_budget_snapshot and the Human production recovery decoder"
+baseline = "Not run: the ordered task instructions prohibit tests before full implementation and allow verification only through hf-done; repair_22_33_1510.rs did not exist on the unchanged tree. No baseline failures are claimed."
+qualification = "hf-build then hf-done; verified revision and private evidence are recorded by the gate ledger."
+
+[finding.human-approval-fixture]
+test = "approvals::real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle"
+proof = "Real pending-state type-2 preparation, durable hold/reservations reopened before authenticated list/get/decide, exact disclosure and evidence digest, tenant/digest/head refusals, producer events, notifications, rejection/expiry and exposure."
+
+[finding.human-decision-fixture]
+test = "decide::digest_bound_decisions_converge_and_export_the_agent_outcome"
+proof = "Passkey step-up bound to the real held digest; relay discards the successful daemon approval response; both owners close/reopen; same decision key and opposite device requests converge on one exact durable release; actual owner budget evidence, reservation exposure and Human audit survive another reopen."
+
+[wiring.release-tracking]
+status = "closed"
+resolved_by = "22.31.571; services/agent/crates/layerx-agentd/src/human_runtime.rs (Agent domain 9) resolves tenant-owned approval release references through the authenticated TRACK transport."
+proof = "approvals::real_agent_holds_drive_live_inbox_counts_notifications_and_honest_lifecycle asserts Queued tracking with the release reference as submission id and the identical tracking in InboxState::Approved; decide::digest_bound_decisions_converge_and_export_the_agent_outcome asserts that tracking after lost-reply recovery and again after both owners reopen."
+
+[wiring.budget-rank]
+request = "services/agent/crates/layerx-agentd/src/human_runtime.rs (Agent domain 9) and services/human/crates/layerx-human-service/src/server/agent_runtime.rs (Human domain 10): agree the APPROVAL_BUDGET_AFTER_V2 byte encoding; RemoteHumanAuthority now requires COMMITTED verification rank 6, but approval_budget_after still accepts only ranks 4 and 5 and writes a level byte; verified_budget_after requires a shared rung byte (0, 1 or 2). Preserve the committed-evidence requirement and exact evidence digest."
+
+[qualification.attempt-1]
+revision = "19f265f0defadd40e63e42d9ecbdbf65da566704"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; verify ran 8 tests, 6 passed and both integration cases failed with ApprovalBoundaryError::Corrupt at the real budget decoder, before later lifecycle/lost-reply assertions could execute."
+assumption = "The pre-existing rank mismatch requires the out-of-scope producer/consumer wiring above; do not rerun this recorded failure or weaken assertions. Findings remain unqualified."
+
+[qualification.attempt-2]
+base = "314092d1504c557f6237a6ddb36f9e4ce97896f0"
+dependency = "22.31.462 is merged; the requested continuation requalifies the existing integration cases against that shared budget-state contract."
+observed = "The separate approval_budget_after response still writes state.verification while verified_budget_after decodes a rung; retain the budget-rank wiring request until this real producer/transport/consumer path qualifies."
+evidence = "The hf-build/hf-done private gate ledger records this attempt's exact candidate revision, command, exit code and log; the attempt-1 failure above is historical evidence."
+
+[qualification.attempt-2-build]
+revision = "5ff94713ac1636bb1b75b0421587d399c8024e1f"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The imported production authority budget producer fails compilation with seven missing-interface errors: crate::committed, crate::loopback_http, super::Human, super::Policy and Config.human; verification did not run."
+assumption = "Record the inherited external producer interface change without stubbing its committed proof verifier, weakening assertions or changing out-of-scope manifests; findings remain unqualified."
+
+[qualification.attempt-3]
+base = "f0556d2875cb5d8b58501be6bcd853e60d86930e"
+producer = "Removed the path-included authority module and its wiring request; RemoteHumanAuthority consumes the committed authority recording, and UnifiedAgentOwner writes the durable snapshot through the shared CoreBudgetState contract."
+test = "daemon_budget_snapshot_survives_reopen_through_human_decoder"
+proof = "The authenticated agent_budget_state exchange persists the actual daemon snapshot; both its bytes and the reopened store are decoded by layerx_human_service::agents::decode_budget_snapshot and compared exactly, including committed rung and every budget/evidence field."
+observed = "The shared durable snapshot contract is present on this base; the separate approval_budget_after implementation still requires ranks 4 or 5 and calls out.u8(state.verification), while RemoteHumanAuthority requires current committed rank 6 and verified_budget_after decodes a rung. Keep the existing exact approval/decision assertions and budget-rank wiring request."
+evidence = "The hf-build/hf-done ledger records the unchanged final candidate revision, exact commands, exit codes and private log paths; no gate result is claimed here."
+
+[qualification.attempt-3-repair]
+revision = "58395feb373e0f3fad0f789d9d1a528bdc0b97f3"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; all three cases stopped in fixture setup because its authority input retained retired verification rank 4 while RemoteHumanAuthority requires COMMITTED rank 6."
+repair = "Use the current committed observation label 6 in the authority peer input; leave all recorded budget bytes, hashes, signatures, production checks and expected consumer assertions unchanged."
+
+[qualification.attempt-4]
+base = "b9203b5370cb316572c07d2768efbf24c64c28e6"
+observed = "The loopback node explicitly rejected px_getCommit, which startup recovery needs, and the budget recording declared 23 consumed without any durable spend receipts."
+repair = "Produce signed committed checkpoints with daemon library types and serve both commit and validator material; use an unspent 77-unit budget with canonical storage bytes distinct from getBudget ABI bytes. Preserve every exact approval, reservation and budget assertion."
+proof = "daemon_budget_snapshot_survives_reopen_through_human_decoder additionally drives CommittedReads and RawStateEvidence through recover_tenant_budget against the reopened durable store, asserting admitted writes and zero reconciled protocol/receipt spending."
+evidence = "hf-build and hf-done record the final candidate revision, exact commands, exit codes and private evidence paths in the gate ledger."
+
+[wiring.decision-time-consumers]
+request = "services/human/crates/layerx-human-service/tests/decide_nonces.rs and services/human/crates/layerx-human-service/tests/repair_22_31_159.rs (Human domain 10): supply TimestampSeconds to ApprovalService::get and current_time to DecisionRequest after the shared daemon signature change; 22.31.515 is pending on this base, and these tests are outside this task's scope."
+
+[qualification.attempt-4-build]
+revision = "2c428406af47f4f4303a583b6d8c5cb81dc35845"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Eight pre-existing compile errors outside scope: decide_nonces.rs lines 375, 406, 599 and 627 and repair_22_31_159.rs lines 103 and 278 omit get's TimestampSeconds; decide_nonces.rs lines 455 and 483 omit DecisionRequest.current_time."
+assumption = "Record without repairing or rerunning the unrelated failure; hf-done requires a passing hf-build, so verification did not run and neither finding is qualified."
+
+[qualification.attempt-5]
+base = "e09ab6e9fff3ffb43467c1f1191ec21b9ffa40b0"
+dependency = "22.31.515 and 22.31.521 are present on this base; resolve the seed conflicts by replacing the direct ApprovalService adapters with the real owner transport while retaining full-detail notification binding assertions and the Granted lifecycle."
+repair = "The lost-reply relay forwards the production hold and verified-budget requests before dropping only the successful approval response; it inspects trace envelopes without modifying the frames."
+remaining_refusal = "Source inspection: RemoteHumanAuthority::budget_state requires COMMITTED verification rank 6; UnifiedAgentOwner::approval_budget_after still requires ranks 4 or 5 and emits that verification byte where AgentRuntime::verified_budget_after decodes a rung. The existing budget-rank wiring request remains outside scope; no assertion or daemon check is weakened."
+evidence = "The hf-build and hf-done private ledger records the final candidate revision, exact commands, exits and logs. The task remains unqualified unless hf-done passes; no baseline run is claimed."
+
+[qualification.attempt-5-build-repair]
+revision = "1241e064287ec8d945060bdf24c49fe3b5f4c839"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The retained snapshot recovery call passed a MutexGuard through generic must where recover_tenant_budget expects a mutable Store reference (E0308)."
+repair = "Explicitly dereference the acquired guard; preserve the real shared store, recovery inputs and all assertions."
+
+[qualification.attempt-5-build]
+revision = "8b0f8364842f0b21c0de910bb82f024840fd4489"
+command = "cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 0
+log = "/out/logs/build-2.log"
+observed = "All declared test targets built; hf-done's automatic dependent check also exited zero at this candidate (/out/logs/dependents-1.log)."
+
+[qualification.attempt-5-verify]
+revision = "8b0f8364842f0b21c0de910bb82f024840fd4489"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The snapshot/reopen case passed with reconciled zero spend and admitted writes; both approval/decision cases failed at verified_budget_after with ApprovalBoundaryError::NotFound (the production client maps Refused to NotFound), before the lost-reply assertions."
+assumption = "Implemented, not qualified: the existing out-of-scope budget-rank contradiction remains (RemoteHumanAuthority requires 6; approval_budget_after accepts 4 or 5 and emits a level byte instead of a rung); no production checks or test assertions may be weakened, and the recorded failure is not rerun."
+
+[qualification.attempt-6]
+revision = "3d5e5aed3d559b32586e24b07401a52621f64cfb"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "On base b6aa2ed90e44c46c340b2de2934658affb5ee6b5 with 22.31.534 present, unchanged attempt-5 code built successfully (/out/logs/build-1.log) and dependent checks passed; snapshot recovery passed, but both approval/decision cases failed at verified_budget_after with Corrupt: services/agent/crates/layerx-agentd/src/human_runtime.rs approval_budget_after still emits state.verification (6), while services/human/crates/layerx-human-service/src/server/agent_runtime.rs verified_budget_after decodes a rung (0 to 2). The existing budget-rank wiring request requires the owning domains; preserve the tests, do not rerun this recorded out-of-scope failure, and leave the findings unqualified."
+
+[qualification.attempt-8]
+base = "980a3a8ebaf8730ea991d581307a07dd552cee80"
+repair = "Canonicalize temp_dir before constructing the fixture root; create the runtime and event-stream store directories with mode 0700. Every fixture store open prints the supplied path, canonical path, owner uid, effective uid and mode before failing. Production files and all assertions remain unchanged."
+evidence = "The final hf-build and hf-done entries in /out/run/gates.jsonl give the exact candidate revision, command, exit and private log path; build logs are /out/logs/build-N.log and verification logs are /out/logs/verify-N.log. Both gates must name the same final candidate."
+refusal_evidence = "If approval_get refuses, the verification log retains the preceding layerx-agentd recovery diagnostic; findings remain unqualified unless hf-done passes."
+
+[qualification.attempt-8-first-gates]
+revision = "5e562edfd637334eee32adca5a0abbed87774674"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed (/out/logs/build-1.log), dependent checks passed (/out/logs/dependents-1.log), and snapshot recovery passed; approvals failed with Agent(Refused), while the decision case failed with Refused after the post-lost-reply reopen. The exact preceding agent-side line was: layerx-agentd: recovery tenant=approval-actor-tenant writes admitted. Its preceding accounting line reports protocol_consumed=Some(0) receipt_consumed=0 held_unresolved=0 unresolved_count=0 reconciled=true ceiling_reconciled=true admitted=true; no store-root refusal remains."
+
+[qualification.attempt-8-repair]
+repair = "Advance the recorded authority head to the actual Granted event sequence and each subsequent emitted event sequence, so the real verified-budget request uses the same head as the producer. Preserve every assertion and add caller-preserving failure diagnostics to both cases."
+evidence = "Final same-candidate build and verification: /out/run/gates.jsonl, /out/logs/build-2.log and /out/logs/verify-2.log. These references supply the final revision, command and exit without modifying the candidate after qualification."
+
+[wiring.terminal-approval-recovery]
+request = "services/agent/crates/layerx-agentd/src/policy/approval.rs (Agent domain 9): restore released terminal holds into the queryable ApprovalRegistry after restart; replay_released currently restores reservations and returns queue entries, while replay restores only PreparedActivity holds and program terminals. Preserve the exact Human approval_get, release-identity, budget, refusal and audit assertions."
+
+[gotcha.attempt-8]
+observed = "Approval and Human inbox modules live in src/approval/mod.rs and src/approvals/mod.rs; there are no corresponding flat approval.rs or approvals.rs files."
+
+[qualification.attempt-9]
+base = "84eaad149c3895f912c13d569a50fd3eead6c503"
+dependency = "The runner merged 22.31.570 (abd274bc69eaeaec77bfbddb94d8edfd49aab932) before applying the attempt-8 tree; released terminal replay and originating approval-refusal diagnostics are present."
+implementation = "Retain the canonical private fixture root, event-aligned authority head, authenticated real owner transport, exact disclosure/reservation/budget assertions and lost-reply reopen cases without production changes."
+evidence = "The final matching build and verify entries in /out/run/gates.jsonl name the verified candidate revision, exact command, exit and private log path; /out/logs/verify-N.log retains each failing call and its preceding daemon approval refusal diagnostic. No result is claimed before hf-done passes."
+
+[gotcha.attempt-9]
+observed = "Daemon Human transport is exposed through the human module declaration, not a src/human directory; inspect its declared module path when locating transport diagnostics."
+
+[qualification.attempt-9-first-gates]
+revision = "f09a31884f566a054e1892b97c59dcfca2167026"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; snapshot recovery passed; approvals.rs:190 failed in Inbox::consume(Granted) with Agent(Refused), and decide.rs:419 failed because track_released returned Err(Refused) against the preserved Err(NotFound) assertion after successful recovered approval_get and replayed decision."
+assumption = "The existing release-tracking wiring request remains necessary: Inbox::state invokes track_released on the preparation release reference, but ProductionHumanOperations::track_evm refuses references absent from its submitted-transaction map. No production change or assertion weakening is allowed."
+
+[qualification.attempt-9-diagnostics]
+repair = "Print the actual authenticated track_released result beside Granted hydration and the decision's exact refusal assertion; retain every existing lifecycle, release, reservation, budget and refusal assertion. The bounded rerun records the final diagnostic candidate without fabricating tracking."
+daemon = "Before the approval failure, the final daemon diagnostic is layerx-agentd: approval_budget_after lookup refused: Registry(InvalidWindow), from the intentional stale-head refusal; before the decision failure it is layerx-agentd: approval_decide lookup refused: NotFound, from the intentional foreign-scope refusal. Neither is the failing TRACK call: track_evm returns HumanOperationError::Refused without an approval_refused diagnostic."
+resolved = "22.31.570 restores the decided approval after lost-reply reopen: approval_decide replay, approval_get, exact disclosure/state, budget evidence, release identity and one-release reservation checks now pass before tracking."
+evidence = "Final candidate evidence is referenced by /out/run/gates.jsonl: build-2 and verify-2 must name the same revision; exact commands, exit codes and private logs are the corresponding row fields. The final verification log prints both failing tracking calls and their refusal results; no pass or finding closure is claimed unless hf-done passes."
+
+[qualification.attempt-10]
+base = "68afb44d49cc4a91857656bdf467ef00cc8bb01d"
+dependency = "22.31.571 is merged at dca8d666c57b63c80c43e281055cb3e9bd825a25; the runner merged it before applying the attempt-9 tree."
+implementation = "Replace the retired NotFound expectation with exact Queued state and release submission identity; assert Granted inbox hydration carries the same tracking, and that tracking survives the final owner reopen. Preserve real producer, authenticated transport, exact disclosure/budget/reservation evidence and foreign-scope refusals."
+evidence = "The final build and verify rows in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log path; build and verify must name the same revision. The verification row runs cg spec done 22.33.1510 and its declared repair_22_33_1510 integration target. No result is claimed before hf-done passes; this reference avoids changing the candidate after qualification."
+
+[wiring.track-response-codec]
+request = "services/agent/crates/layerx-agentd/src/human_runtime.rs:21783 write_submission (Agent domain 9) writes the submission id as fixed 32 bytes (and an executed receipt reference likewise), while services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4408 decode_tracked (Human domain 10) reads length-prefixed UTF-8 text; align the production wire contract without translating fixture responses or weakening the exact Queued/submission-id and inbox hydration assertions. 22.31.571 resolves release lookup, but both real Human consumers still return Corrupt."
+
+[qualification.attempt-10-result]
+revision = "2cfef4a36de979c1d373e21cf576b8a1c1b048c1"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The same-revision build passed (/out/logs/build-1.log), dependent check passed (/out/logs/dependents-1.log), and snapshot recovery passed; approvals.rs:197 and decide.rs:423 failed with Corrupt from track_released. The release reference begins 1fba092f, which the Human text decoder treats as length 532285743, exceeding MAX_BYTES, instead of reading the daemon's fixed submission id."
+assumption = "Implemented, not qualified: the missing production TRACK codec agreement is outside scope and recorded in wiring.track-response-codec; retain all assertions, do not rerun the recorded external failure, and do not mark either finding closed. This evidence names the tested revision; the subsequent record-only update is not claimed as verified."
+
+[qualification.attempt-12]
+base = "a90c826f9f14e2fd9069f63228062556399a648c"
+writer = "services/agent/crates/layerx-agentd/src/policy/approval.rs register_hold writes PreparedActivity/approval-hold-v1:<id> through ApprovalRegistry::with_store; release_durable calls PreparedDecision::remove_hold in approval/expiry.rs, atomically removing that full hold while writing Idempotency/approval-v1:<id> with the rejection outcome. Both use the fixture's shared root/store, also passed to ApprovalExpiry::from_shared_store."
+reader = "Fixture::reopen opens the identical root/store and constructs UnifiedAgentOwner::new; ApprovalRegistry::replay_tenant reads PreparedActivity holds, program terminals and released Outbox holds, but no rejected non-program terminal. The Idempotency decision retains only expiry, key, outcome and optional release reference; it cannot reconstruct the removed disclosure/context."
+proof = "decide::digest_bound_decisions_converge_and_export_the_agent_outcome now asserts live Rejected state and exact daemon-written Idempotency bytes across reopen; assert_rejected_decision checks the actual store root and production ApprovalExpiry::recover outcome and prints registry/hold presence beside the unchanged final approval_get assertion."
+inbox = "The previous loop placed approval 3's Created event at sequence+4, exactly its existing expires_at_sequence; validate_for_read and ApprovalExpiry::observe therefore serve Expired for that Created event, triggering LifecycleMismatch. Emit Created(3) at sequence+3 before Rejected(2) at sequence+4; keep every deadline, refusal and lifecycle assertion, with exact awaiting counts 1,2,1,0 and explicit served-state assertions for each event. Rejected(2) must serve Rejected."
+evidence = "Final candidate evidence is the matching build, dependent and verify entries of /out/run/gates.jsonl and their private /out/logs/build-N.log, /out/logs/dependents-N.log and /out/logs/verify-N.log references. The hf-done row supplies the exact revision, command, exit and log; no finding is claimed closed unless hf-done passes."
+
+[wiring.rejected-approval-recovery]
+status = "closed"
+resolved_by = "Attempt 13 expands scope to services/agent/crates/layerx-agentd/src/policy/approval.rs (Agent domain 9): release_durable atomically replaces the PreparedActivity hold with a PreparedActivity/approval-terminal-v1:<id> record through PreparedDecision::replace_hold while retaining the exact Idempotency decision. replay_tenant validates the tenant, full hold, local storage class and request-id key suffix before restoring the stored terminal state and audit without reservations."
+proof = "policy::approval::released_replay_tests::rejected_approval_survives_reopen_without_restoring_reservations holds and rejects through ApprovalService's real claim path, reopens the same Store, replays, checks ticket/get/disclosure/digest, zero reservations/exposure/consumption and repeated reject/approve outcomes with no submission. decide::digest_bound_decisions_converge_and_export_the_agent_outcome retains its exact final authenticated Rejected state, budget 52, rejection bytes, one-release and tracking assertions."
+
+[gotcha.attempt-12]
+observed = "One checked(inbox.consume) line serves every lifecycle event; the former line-240 failure does not identify Rejected(2). Created(3) was emitted at its expiry sequence. Store is a directory module (src/store/mod.rs), whose public root() identifies the actual backing path."
+
+[qualification.attempt-12-first-gates]
+revision = "c22d16823bbccc1b1b8ae99e67e2137de2ba7993"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed. All four inbox events hydrated with the exact expected states, including Rejected(2); its final reservation assertion found 2 holds instead of 1 because reservation 3 retained sequence+20 while approval 3 expired at sequence+4. The restart case confirmed byte-identical Rejected Idempotency evidence in the identical root/store, with registry_ticket=Some(Rejected) before close and None after reopen, followed by approval_get lookup refused: Registry(NotFound). Snapshot recovery passed."
+repair = "Use one approval_expiry_sequence for both reserve_until_core_time and hold_reserved_at; reservation 3 now expires at the existing approval deadline, preserving all exact exposure, consumption, release-count and budget assertions. Rebuild and verify the final candidate through the bounded gates; the unchanged production rejection-replay failure is the out-of-scope wiring request above."
+
+[qualification.attempt-13]
+base = "894a350a2a6cd97f782d61f5b1d3c2343e875ac2"
+baseline = "The runner reports attempt 12's final verify failed with 2 passed and 1 failed: decide::digest_bound_decisions_converge_and_export_the_agent_outcome at decide.rs:511 after reopening, Registry(NotFound) for rejected approval 2; approvals and snapshot recovery passed. The carried tree is retained, and no prohibited preliminary gate is rerun."
+implementation = "Persist and decode a bounded terminal record containing the complete held approval and explicit terminal state, atomically with its durable decision; replay validates the hold before setting the terminal state/audit and excludes terminal_replayed records from startup reservation requirements. replay_released and the expiry paths remain unchanged."
+evidence = "The final matching build, dependents and verify rows in /out/run/gates.jsonl name the exact candidate revision, commands, exits and private /out/logs/build-N.log, /out/logs/dependents-N.log and /out/logs/verify-N.log evidence. The last hf-done JSON row is the verified revision reference for acceptance 22998.1 and both findings; no pass is claimed unless that row exits zero, and this record is not edited after qualification."
+
+[gotcha.attempt-13]
+observed = "UnifiedAgentOwner startup requires a reservation for every restored_reservation_ids entry; newly replayed terminal records must join closed program terminals in that method's exclusion or a correctly released rejection makes startup refuse."
+
+[qualification.attempt-13-first-gates]
+revision = "eeb7161d3f0397facd41f9ce155f5eb28eb36021"
+command = "cg spec done 22.33.1510 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent checks passed; approvals and snapshot recovery passed. Decide failed at approval_owner.rs:633 while reopening ProductionHumanOperations: its constructor reserves Outbox for 32-byte submission ids and approval-released-v1 links, so the new terminal prefix in Outbox is refused before registry replay."
+repair = "Store terminal records in PreparedActivity beside program terminals, and replay that kind under the distinct approval-terminal-v1 prefix; retain the exact codec, atomic decision/hold replacement, query assertions and zero-reservation behavior. The unit test also asserts rejection creates no Outbox submission. Final same-candidate build, dependent and verify evidence remains referenced by /out/run/gates.jsonl."

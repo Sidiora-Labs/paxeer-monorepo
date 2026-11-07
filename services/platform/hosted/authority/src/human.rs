@@ -1,6 +1,7 @@
 use super::trust::CommittedCheckpoint;
 use super::{by_activity, hex, json, protected, refusal, Config, Request, Response};
 use layerx_platform_authority::{authorized_batch_by_activity, receipt_locator, AuthorityFacts};
+use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::{decode, decode_batch_header};
 use serde::{Deserialize, Serialize};
 use serde_json::{json as value, Value};
@@ -8,15 +9,92 @@ use sha2::{Digest, Sha256};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs::{self, File, OpenOptions};
 use std::io::Write;
-use std::os::unix::fs::{MetadataExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Mutex;
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 const MAX_FILE: u64 = 16 * 1024 * 1024;
+const QUARANTINE: &str = ".receipt-quarantine";
+static STAGING_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
-mod budget_state;
+fn staging_name() -> Result<String, ()> {
+    let sequence = STAGING_SEQUENCE
+        .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| {
+            value.checked_add(1)
+        })
+        .map_err(|_| ())?;
+    Ok(format!(
+        ".receipt.{}.{sequence}.pending",
+        std::process::id()
+    ))
+}
+
+fn is_staging(name: &str) -> bool {
+    if name == ".receipt.pending" {
+        return true;
+    }
+    name.strip_prefix(".receipt.")
+        .and_then(|name| name.strip_suffix(".pending"))
+        .and_then(|name| name.split_once('.'))
+        .is_some_and(|(pid, sequence)| {
+            pid.parse::<u32>().is_ok() && sequence.parse::<u64>().is_ok()
+        })
+}
+
+fn recover_staging(root: &Path, directory: &File) -> Result<(), ()> {
+    let quarantine = root.join(QUARANTINE);
+    let mut quarantine_directory = match fs::symlink_metadata(&quarantine) {
+        Ok(_) => {
+            root_valid(&quarantine)?;
+            Some(File::open(&quarantine).map_err(|_| ())?)
+        }
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Err(()),
+    };
+    for entry in fs::read_dir(root).map_err(|_| ())? {
+        let entry = entry.map_err(|_| ())?;
+        if !entry.file_name().to_str().is_some_and(is_staging) {
+            continue;
+        }
+        let metadata = fs::symlink_metadata(entry.path()).map_err(|_| ())?;
+        if !metadata.is_file()
+            || metadata.mode() & 0o077 != 0
+            || metadata.uid() != directory.metadata().map_err(|_| ())?.uid()
+        {
+            return Err(());
+        }
+        if quarantine_directory.is_none() {
+            fs::DirBuilder::new()
+                .mode(0o700)
+                .create(&quarantine)
+                .map_err(|_| ())?;
+            root_valid(&quarantine)?;
+            quarantine_directory = Some(File::open(&quarantine).map_err(|_| ())?);
+        }
+        loop {
+            let destination = quarantine.join(staging_name()?);
+            match fs::symlink_metadata(&destination) {
+                Ok(_) => continue,
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+                Err(_) => return Err(()),
+            }
+            fs::rename(entry.path(), destination).map_err(|_| ())?;
+            break;
+        }
+    }
+    if let Some(quarantine_directory) = quarantine_directory {
+        quarantine_directory.sync_all().map_err(|_| ())?;
+    }
+    directory.sync_all().map_err(|_| ())
+}
+
+use layerx_platform_authority::human_policy::{
+    Authority, EvidenceReference, Identity, KeyPolicy, PrincipalPolicy, ScopeBinding,
+};
+use layerx_platform_authority::{budget_state, digest};
 mod dynamic;
 mod session_membership;
 
@@ -24,72 +102,6 @@ mod session_membership;
 #[serde(deny_unknown_fields)]
 struct Policy {
     principals: Vec<PrincipalPolicy>,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-struct PrincipalPolicy {
-    tenant: String,
-    principal: String,
-    account_id: String,
-    asset_id: String,
-    activities: Vec<String>,
-    budgets: Vec<String>,
-    maximum_age_seconds: u64,
-    maximum_age_sequences: u64,
-    identities: Vec<Identity>,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct EvidenceReference {
-    activity_id: String,
-    receipt_digest: String,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Identity {
-    did: String,
-    authorities: Vec<Authority>,
-    revocation_sequence: u64,
-    frozen: bool,
-    evidence: EvidenceReference,
-    capabilities: Vec<ScopeBinding>,
-    rotation: KeyPolicy,
-    recovery: KeyPolicy,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct Authority {
-    kind: String,
-    id: String,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct ScopeBinding {
-    authority: String,
-    action_key: String,
-    capability_id: String,
-    activity_types: Vec<u16>,
-    counterparties: Vec<String>,
-    assets: Vec<String>,
-    amount_ceiling: String,
-    expiry_sequence: u64,
-    enforceable_dimensions: Vec<String>,
-    evidence: EvidenceReference,
-}
-
-#[derive(Clone, Deserialize, Serialize)]
-#[serde(deny_unknown_fields)]
-struct KeyPolicy {
-    policy_revision: u64,
-    required_delay_seconds: u64,
-    maximum_delay_seconds: u64,
-    effective_sequence: u64,
-    evidence: EvidenceReference,
 }
 
 #[derive(Deserialize)]
@@ -151,10 +163,6 @@ pub(super) struct Human {
 
 fn required(name: &str) -> Result<String, String> {
     std::env::var(name).map_err(|_| format!("{name} is required"))
-}
-
-fn digest(bytes: &[u8]) -> [u8; 32] {
-    Sha256::digest(bytes).into()
 }
 
 fn valid_digest(value: &str) -> bool {
@@ -358,6 +366,9 @@ impl Human {
     ) -> Result<(), ()> {
         let _guard = self.records.lock().map_err(|_| ())?;
         root_valid(&self.state_root)?;
+        let directory = File::open(&self.state_root).map_err(|_| ())?;
+        directory.lock().map_err(|_| ())?;
+        recover_staging(&self.state_root, &directory)?;
         let record = Record {
             receipt_hex: hex::encode(receipt),
             replica_document: serde_json::from_slice(document).map_err(|_| ())?,
@@ -373,20 +384,34 @@ impl Human {
             }
             return Ok(());
         }
-        let temporary = self.state_root.join(".receipt.pending");
-        let mut file = OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .mode(0o600)
-            .open(&temporary)
-            .map_err(|_| ())?;
-        file.write_all(&bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|_| ())?;
+        let (temporary, mut file) = loop {
+            let temporary = self.state_root.join(staging_name()?);
+            match OpenOptions::new()
+                .write(true)
+                .create_new(true)
+                .mode(0o600)
+                .open(&temporary)
+            {
+                Ok(file) => break (temporary, file),
+                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
+                Err(_) => return Err(()),
+            }
+        };
+        #[cfg(test)]
+        publication_interruption::partial_write(&mut file, &bytes)?;
+        file.write_all(&bytes).map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Sync)?;
+        file.sync_all().map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Rename)?;
         fs::rename(&temporary, &path).map_err(|_| ())?;
-        File::open(&self.state_root)
-            .and_then(|dir| dir.sync_all())
-            .map_err(|_| ())
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::DirectorySync)?;
+        directory.sync_all().map_err(|_| ())?;
+        #[cfg(test)]
+        publication_interruption::at(publication_interruption::Boundary::Durable)?;
+        Ok(())
     }
 
     fn evidence(&self, config: &Config) -> Result<Vec<Verified>, Response> {
@@ -395,9 +420,19 @@ impl Human {
             .lock()
             .map_err(|_| unavailable("state_unavailable"))?;
         root_valid(&self.state_root).map_err(|()| unavailable("state_unavailable"))?;
+        let directory =
+            File::open(&self.state_root).map_err(|_| unavailable("state_unavailable"))?;
+        directory
+            .lock()
+            .map_err(|_| unavailable("state_unavailable"))?;
+        recover_staging(&self.state_root, &directory)
+            .map_err(|()| unavailable("state_unavailable"))?;
         let mut verified = Vec::new();
         for entry in fs::read_dir(&self.state_root).map_err(|_| unavailable("state_unavailable"))? {
             let path = entry.map_err(|_| unavailable("state_unavailable"))?.path();
+            if path.file_name().and_then(|name| name.to_str()) == Some(QUARANTINE) {
+                continue;
+            }
             let bytes =
                 protected::read(&path, MAX_FILE).map_err(|()| unavailable("state_unavailable"))?;
             let record =
@@ -582,12 +617,12 @@ fn dispatch(config: &Config, request: &Request) -> Result<Response, Response> {
 }
 
 fn bind_committed(config: &Config, evidence: &mut [Verified]) -> Result<(), Response> {
-    let head = crate::committed::CommittedHeader::open(config)
+    let head = crate::committed::CommittedHeader::open(&config.chain_rpc_url)
         .map_err(|()| unavailable("committed_header_unavailable"))?;
     for item in evidence {
         let bytes = hex::decode(&item.record.receipt_hex)
             .map_err(|_| unavailable("committed_receipt_evidence_unavailable"))?;
-        head.bind_receipt(config, &bytes)
+        head.bind_receipt(&config.chain_rpc_url, &config.chain_receipts, &bytes)
             .map_err(|()| unavailable("committed_receipt_evidence_unavailable"))?;
         item.checkpoint = Some(
             CommittedCheckpoint::new(&item.header, head.clone())
@@ -926,7 +961,7 @@ fn policy_route(
                 "authorities": authorities,
                 "canonical_core_bytes": hex::encode(&state),
                 "head_sequence": head, "revocation_sequence": revision,
-                "frozen": false, "verification_level": "checkpoint_finalised",
+                "frozen": false, "verification_level": VerificationLevel::COMMITTED.wire_label(),
                 "finality": native_checkpoint(item)?.finality.document()
             }),
         ));
@@ -1030,7 +1065,7 @@ fn native_capability_scope(
             "counterparties": [], "assets": [], "amount_ceiling": "0",
             "expiry_sequence": scope.expiry_sequence, "action_key": scope.action_key,
             "capability_id": scope.capability_id, "authority": scope.authority,
-            "enforceable_dimensions": [], "observed_sequence": head, "verification": 4,
+            "enforceable_dimensions": [], "observed_sequence": head, "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "canonical_core_bytes": hex::encode(summary),
             "checkpoint_digest": hex::encode(&checkpoint.checkpoint_id),
@@ -1115,7 +1150,7 @@ fn native_key_policy(
             "maximum_delay_seconds": maximum,
             "effective_sequence": policy.effective_sequence,
             "observed_head_sequence": head,
-            "verification": 4,
+            "verification": layerx_types::verify::VerificationLevel::COMMITTED.wire_rank(),
             "evidence_digest": hex::encode(&item.receipt_digest),
             "checkpoint_digest": hex::encode(&checkpoint
                 .map(|c| c.checkpoint_id)
@@ -1236,3 +1271,108 @@ fn native_complete_suffix(start: &Verified, evidence: &[Verified]) -> Result<(),
 #[cfg(test)]
 #[path = "../tests/support/human_unit.rs"]
 mod tests;
+
+#[cfg(test)]
+pub(super) mod publication_interruption {
+    use super::*;
+    use std::cell::Cell;
+
+    #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+    pub(crate) enum Boundary {
+        Write,
+        Sync,
+        Rename,
+        DirectorySync,
+        Durable,
+    }
+
+    thread_local! {
+        static BOUNDARY: Cell<Option<Boundary>> = const { Cell::new(None) };
+    }
+
+    pub(crate) struct Reset;
+
+    impl Drop for Reset {
+        fn drop(&mut self) {
+            BOUNDARY.set(None);
+        }
+    }
+
+    pub(crate) fn arm(boundary: Boundary) -> Reset {
+        BOUNDARY.set(Some(boundary));
+        Reset
+    }
+
+    pub(super) fn at(boundary: Boundary) -> Result<(), ()> {
+        if BOUNDARY.get() == Some(boundary) {
+            Err(())
+        } else {
+            Ok(())
+        }
+    }
+
+    pub(super) fn partial_write(file: &mut File, bytes: &[u8]) -> Result<(), ()> {
+        if BOUNDARY.get() == Some(Boundary::Write) {
+            file.write_all(&bytes[..bytes.len() / 2]).map_err(|_| ())?;
+            return Err(());
+        }
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_receipt_evidence(&self) -> Result<Vec<AuthorityFacts>, Response> {
+        self.human
+            .as_ref()
+            .ok_or_else(|| unavailable("human_authority_unconfigured"))?
+            .evidence(self)
+            .map(|records| records.into_iter().map(|record| record.facts).collect())
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_budget_export(
+        &self,
+        policy: &Value,
+        id: &str,
+        now_ms: u128,
+    ) -> Result<Response, Response> {
+        let policy: PrincipalPolicy = serde_json::from_value(policy.clone())
+            .map_err(|_| refusal(400, "invalid_fixture_policy", None))?;
+        budget_state::export_at(self, &policy, id, now_ms)
+    }
+}
+
+#[cfg(test)]
+impl Config {
+    pub(crate) fn fixture_subject_binding(&mut self, binding: layerx_identity_binding::Client) {
+        self.human
+            .as_mut()
+            .expect("fixture human authority")
+            .binding = Some(binding);
+    }
+
+    pub(crate) fn fixture_human_policy(&mut self, policy: &Value, root: &std::path::Path) {
+        let principal: PrincipalPolicy =
+            serde_json::from_value(policy.clone()).expect("fixture principal");
+        self.human = Some(Human {
+            token: zeroize::Zeroizing::new(b"repair-human-token-208".to_vec()),
+            tenant: principal.tenant.clone(),
+            principal: principal.principal.clone(),
+            policy_path: root.join("policy.json"),
+            policy_digest: Some(digest(
+                &std::fs::read(root.join("policy.json")).expect("fixture policy bytes"),
+            )),
+            policy: Some(Policy {
+                principals: vec![principal],
+            }),
+            registry_path: root.join("registry.json"),
+            state_root: root.join("state"),
+            horizon: 1,
+            records: std::sync::Mutex::new(()),
+            binding: None,
+        });
+    }
+}

@@ -60,7 +60,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-rocksdb-unit-tests.yml'
@@ -128,7 +127,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-rocksdb-unit-tests.yml'
@@ -141,8 +139,6 @@ concurrency:
   cancel-in-progress: true
   group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
 
-# TODO: we should combine these tests into go-test at some point. For now this is complicated enough to approach separately.
-
 permissions:
   contents: read
 
@@ -154,8 +150,8 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
-      - uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25.8'
           cache-dependency-path: go.sum

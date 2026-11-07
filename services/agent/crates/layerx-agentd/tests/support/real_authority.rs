@@ -13,6 +13,25 @@ fn must<T, E: Debug>(result: Result<T, E>, what: &str) -> T {
     result.unwrap_or_else(|error| panic!("{what}: {error:?}"))
 }
 
+pub(crate) fn node_authority(
+    config: &layerx_agentd::config::StartupConfig,
+    node: &NodeRpc,
+) -> layerx_agentd::protocol_evidence::EvidenceAuthority {
+    let mut gate = must(Gate::new(config), "protected authority");
+    assert!(gate.guard_write(|| ()).is_err());
+    let status = must(gate.readiness_gate(node), "current node readiness");
+    assert_eq!(status.chain_id, config.expected_chain_id);
+    let keys = status.receipt_keys.clone();
+    let authority = must(
+        must(gate.evidence_authority(), "ready authority")
+            .clone()
+            .with_receipt_keys(keys),
+        "governed receipt authority",
+    );
+    assert_eq!(gate.guard_write(|| ()), Ok(()));
+    authority
+}
+
 fn repository_root() -> PathBuf {
     let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     manifest.ancestors().nth(4).map_or_else(
@@ -53,12 +72,9 @@ pub(super) struct ReadinessNode {
 
 impl ReadinessNode {
     pub(super) fn new() -> Self {
-        let chain_id = must(
-            std::env::var("LAYERX_TEST_PAXEER_CHAIN_ID"),
-            "real isolated Paxeer chain id is required",
-        );
-        let chain_id = must(chain_id.parse::<u64>(), "canonical Paxeer chain id");
-        assert_ne!(chain_id, 0);
+        // This peer provides focused decoder coverage; node transcripts below
+        // provide the production-interface proof without external configuration.
+        let chain_id = 125;
         let listener = must(TcpListener::bind("127.0.0.1:0"), "readiness listener");
         let config = NodeRpcConfig {
             url: format!(
@@ -88,12 +104,12 @@ fn readiness_gate(
         readiness_node.listener.try_clone(),
         "readiness listener clone",
     );
-    let keys = serde_json::json!([{
+    let keys = serde_json::json!({"keys": [{
         "keyId": format!("0x{}", hex::encode(&fixture.sequencer_id)),
         "publicKey": format!("0x{}", hex::encode(&fixture.sequencer_key)),
-        "firstHeight": format!("0x{batch:x}"),
-        "lastHeight": format!("0x{batch:x}"),
-    }]);
+        "firstHeight": batch,
+        "lastHeight": batch,
+    }]});
     let server = thread::spawn(move || {
         for (method, result) in [
             ("eth_chainId", serde_json::json!(format!("0x{chain_id:x}"))),

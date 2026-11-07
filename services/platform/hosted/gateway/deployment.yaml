@@ -1,7 +1,6 @@
-# Kubernetes namespace layerx-testnet is a retained deployment namespace, not a chain ID.
 apiVersion: v1
 kind: ConfigMap
-metadata: {name: layerx-gateway-redis-config, namespace: layerx-testnet}
+metadata: {name: layerx-gateway-redis-config, namespace: layerx-mainnet-beta}
 data:
   redis.conf: |
     bind 0.0.0.0
@@ -19,7 +18,7 @@ data:
 ---
 apiVersion: apps/v1
 kind: StatefulSet
-metadata: {name: layerx-gateway-redis, namespace: layerx-testnet}
+metadata: {name: layerx-gateway-redis, namespace: layerx-mainnet-beta}
 spec:
   serviceName: layerx-gateway-redis
   replicas: 1
@@ -51,12 +50,12 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: layerx-gateway-redis, namespace: layerx-testnet}
+metadata: {name: layerx-gateway-redis, namespace: layerx-mainnet-beta}
 spec: {clusterIP: None, selector: {app: layerx-gateway-redis}, ports: [{name: rediss, port: 6379, targetPort: rediss}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: {name: layerx-gateway, namespace: layerx-testnet}
+metadata: {name: layerx-gateway, namespace: layerx-mainnet-beta}
 spec:
   replicas: 3
   selector: {matchLabels: {app: layerx-gateway}}
@@ -86,11 +85,31 @@ spec:
             - {name: LAYERX_GATEWAY_OUTBOUND_CA_DER, value: /run/layerx/trust/ca.crt.der}
             - {name: LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PKCS12, value: /run/layerx/client/client.p12}
             - {name: LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_PASSWORD_FILE, value: /run/layerx/client/password}
-            - {name: LAYERX_GATEWAY_FAUCET_URL, value: "https://layerx-faucet-public.layerx-testnet.svc.cluster.local:443"}
+            # Operator supplies faucet-url and redis-url in ConfigMap layerx-gateway-upstreams.
+            - name: LAYERX_GATEWAY_FAUCET_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: layerx-gateway-upstreams
+                  key: faucet-url
+                  optional: false
             - {name: LAYERX_GATEWAY_FAUCET_SERVICE_TOKEN_FILE, value: /run/layerx/faucet/token}
             - {name: LAYERX_GATEWAY_FAUCET_CLAIM_AMOUNT, value: "1000000"}
-            - {name: LAYERX_GATEWAY_PAXEER_RPC_URLS, value: '["https://paxeer-boundary.layerx-testnet.svc.cluster.local:9443"]'}
-            - {name: LAYERX_GATEWAY_REDIS_URL, value: "rediss://layerx-gateway-redis.layerx-testnet.svc.cluster.local:6379"}
+            - name: LAYERX_GATEWAY_PAXEER_RPC_URLS
+              value: >-
+                ["https://api1.mainnet-beta.paxeer.network/",
+                 "https://api2.mainnet-beta.paxeer.network/",
+                 "https://api3.mainnet-beta.paxeer.network/",
+                 "https://api4.mainnet-beta.paxeer.network/",
+                 "https://api5.mainnet-beta.paxeer.network/",
+                 "https://api6.mainnet-beta.paxeer.network/",
+                 "https://api7.mainnet-beta.paxeer.network/",
+                 "https://api8.mainnet-beta.paxeer.network/"]
+            - name: LAYERX_GATEWAY_REDIS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: layerx-gateway-upstreams
+                  key: redis-url
+                  optional: false
             - {name: LAYERX_GATEWAY_REDIS_USERNAME_FILE, value: /run/layerx/redis/username}
             - {name: LAYERX_GATEWAY_REDIS_PASSWORD_FILE, value: /run/layerx/redis/password}
             - {name: LAYERX_GATEWAY_RECEIPT_KEYS_FILE, value: /run/layerx/receipt-keys/receipt-keys.json}
@@ -114,24 +133,24 @@ spec:
         - {name: events, secret: {secretName: layerx-gateway-event-producer, defaultMode: 0440}}
         - {name: server, secret: {secretName: layerx-gateway-server-tls}}
         - {name: trust, secret: {secretName: layerx-internal-ca}}
-        - {name: receipt-keys, secret: {secretName: layerx-gateway-receipt-keys, defaultMode: 0440, items: [{key: receipt-keys.json, path: receipt-keys.json}]}}
+        - {name: receipt-keys, secret: {secretName: layerx-gateway-receipt-keys, optional: false, defaultMode: 0440, items: [{key: receipt-keys.json, path: receipt-keys.json}]}}
         - {name: client, secret: {secretName: layerx-gateway-client-identity}}
         - {name: faucet, secret: {secretName: layerx-gateway-faucet-client}}
         - {name: redis, secret: {secretName: layerx-gateway-redis-client}}
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: layerx-gateway, namespace: layerx-testnet}
+metadata: {name: layerx-gateway, namespace: layerx-mainnet-beta}
 spec: {selector: {app: layerx-gateway}, ports: [{name: https, port: 443, targetPort: https}]}
 ---
 apiVersion: policy/v1
 kind: PodDisruptionBudget
-metadata: {name: layerx-gateway, namespace: layerx-testnet}
+metadata: {name: layerx-gateway, namespace: layerx-mainnet-beta}
 spec: {minAvailable: 2, selector: {matchLabels: {app: layerx-gateway}}}
 ---
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
-metadata: {name: layerx-gateway, namespace: layerx-testnet}
+metadata: {name: layerx-gateway, namespace: layerx-mainnet-beta}
 spec:
   scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: layerx-gateway}
   minReplicas: 3
@@ -143,7 +162,7 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: layerx-gateway-redis, namespace: layerx-testnet}
+metadata: {name: layerx-gateway-redis, namespace: layerx-mainnet-beta}
 spec:
   podSelector: {matchLabels: {app: layerx-gateway-redis}}
   policyTypes: [Ingress, Egress]
@@ -158,12 +177,12 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: layerx-gateway, namespace: layerx-testnet}
+metadata: {name: layerx-gateway, namespace: layerx-mainnet-beta}
 spec:
   podSelector: {matchLabels: {app: layerx-gateway}}
   policyTypes: [Ingress, Egress]
   ingress:
-    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}}, {podSelector: {matchLabels: {app: layerx-testnet-control}}}]
+    - from: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: ingress-nginx}}}, {podSelector: {matchLabels: {app: layerx-mainnet-beta-control}}}]
       ports: [{protocol: TCP, port: 9443}]
     - from:
         - namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-internal}}
@@ -174,8 +193,9 @@ spec:
   egress:
     - to: [{podSelector: {matchLabels: {app: layerx-gateway-redis}}}]
       ports: [{protocol: TCP, port: 6379}]
-    - to: [{podSelector: {matchLabels: {app: paxeer}}}]
-      ports: [{protocol: TCP, port: 9443}]
+    # Public node roots use HTTPS outside the cluster.
+    - to: [{ipBlock: {cidr: 0.0.0.0/0}}]
+      ports: [{protocol: TCP, port: 443}]
     - to: [{podSelector: {matchLabels: {app: layerx-program-registry}}}]
       ports: [{protocol: TCP, port: 9420}]
     - to: [{podSelector: {matchLabels: {layerx-plane: trusted-boundary}}}]
@@ -189,7 +209,7 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: layerx-gateway
-  namespace: layerx-testnet
+  namespace: layerx-mainnet-beta
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
     nginx.ingress.kubernetes.io/proxy-body-size: 512k
@@ -208,7 +228,7 @@ spec:
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
-metadata: {name: layerx-gateway-event-producer, namespace: layerx-testnet}
+metadata: {name: layerx-gateway-event-producer, namespace: layerx-mainnet-beta}
 spec:
   podSelector: {matchLabels: {app: layerx-gateway}}
   policyTypes: [Egress]

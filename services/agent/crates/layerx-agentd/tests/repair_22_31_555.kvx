@@ -1,0 +1,62 @@
+[meta]
+task = "22.31.555"
+requirement = "22998.1"
+base_revision = "570f88b4176569730db8475223ce1cd118decec5"
+
+[diagnosis.recovery_store]
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+symbol = "budget_recovery_fixture"
+cases = ["tenant_budget_recovery_reconciles_over_committed_budget_state", "tenant_budget_recovery_refuses_committed_evidence_whose_state_changed"]
+cause = "The nonce made the directory unique, but create_dir used the default mode and ProtectedRoot correctly refused a non-private root."
+repair = "Canonicalize the temporary parent and create the unique root with DirBuilder mode 0o700; retain the existing drops before each recovery-store reopen and all reconciliation and refusal assertions."
+
+[diagnosis.session_store]
+file = "services/agent/crates/layerx-agentd/src/session_control.rs"
+symbol = "control"
+cause = "The fixture reused a process-and-label path, while the durable-write cases reopened the writable root with SessionControl still owning its exclusive writer."
+repair = "Create a nonce-qualified canonical root with mode 0o700. In settle_with_a_durable_write_publishes_the_release_once drop control before reading persisted consumption. In admit_write_with_a_durable_write_holds_once and submit_rewrite_with_a_durable_write_holds_each_missing_limit_once finish the duplicate-admission and exact hold assertions, then drop control and reopen to assert the original durable state."
+
+[diagnosis.renewal_store]
+file = "services/agent/crates/layerx-agentd/src/budget/reserve.rs"
+symbol = "renewal_with_a_failed_durable_write_publishes_nothing_and_a_written_one_publishes_once"
+cause = "The renewal fixture recreated its deliberately deleted directory with default permissions and retained a writer anchored to the deleted inode, then tried to open another writer for the persistence assertion."
+repair = "Create a nonce-qualified canonical root with mode 0o700, retain the real deleted-directory write failure, drop the original writer before recreating the private root and opening its replacement, and drop the replacement before the final reopen. Retain every callback-count, retirement, consumption, exposure, failed-retry and persisted-value assertion."
+
+[diagnosis.inventory]
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+symbol = "program_sources_select_the_chain_bound_principal_inventory"
+side = "Stale fixture response sequence; inventory_records correctly binds the owner and verifies funded budget values."
+cause = "The fixture provided getBudget and budgetRemaining followed immediately by getGrant. The reader now independently calls balanceOf for the budget account before reading grants, so it interpreted the grant ABI as a balance and returned Selector. The DID, budget and grant selectors remain accepted."
+repair = "Add the missing stable balance response of 75 before the grant response; preserve all original authority, principal-account, sequence, height and committed-level assertions and assert exact allowance, funded balance and remaining amount of 75."
+
+[diagnosis.middleware]
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+symbol = "middleware_observation_transcripts_are_produced_by_dispatch"
+side = "Stale transcript and truncated receipt fixture; decode_observation and the production ReceiptLookupFrame encoder are correct."
+cause = "The committed fixture wrote canonical receipt bytes, five batch fields and a rung only. The current decoder consumes the complete ReceiptLookupFrame, including verification level, transaction and receipt hashes, block height, signed receipt, receipt key and its height interval. The expected JSON omitted the same fields."
+repair = "Retain the recorded signed protocol receipt and key, authenticate them with VerifiedReceipt, and encode the complete typed ReceiptLookupAnswer::Found through the production encoder. Extend the literal expected receipt JSON with the exact hash, height, key and evidence fields. Preserve both pending and committed equality, full-consumption and corrupted-activity rejection assertions."
+
+[diagnosis.middleware_asset]
+file = "services/agent/crates/layerx-agentd/src/agent_rpc_dispatch.rs"
+symbol = "MIDDLEWARE_SUBMISSION_TRANSCRIPT"
+cause = "The first focused verification reached the full transcript equality assertion and exposed a second stale fixture field: authorised_batch.asset was 1111111111111111111111111111111111111111111111111111111111111111, whereas the authenticated protocol receipt and the production encoder use 0e237584332fc3e1f1672d80a167a8d027597a64b34f4be18951e60babdd4f73."
+repair = "Correct that single literal expected asset to the signed receipt's asset. Keep the authenticated receipt, production frame encoder, full transcript equality, complete wire consumption and corrupted-activity rejection unchanged."
+evidence = "Private ledger /out/run/gates.jsonl: revision e9c2d12948ae148e652158e7a8811fb92c69bec8, build exit 0 at /out/logs/build-1.log, dependent checks exit 0 at /out/logs/dependents-1.log, hf-done exit 1 at /out/logs/verify-1.log with seven cases passing and the middleware asset equality failing; final qualification remains the last matching build and verify entries referenced below."
+
+[gotcha.deleted_store_root]
+observed = "Recreating a deleted directory with the same path does not retarget a Store whose ProtectedRoot holds the old directory inode."
+repair = "Drop that Store and open the newly created private root before retrying persistence."
+
+[continuation]
+base_revision = "f90a43293b4a301188919ac9ff10dc4471e31d0f"
+prior_candidate = "318a3d72a8e6"
+dependency = "Task 22.31.620 is done and its merge 47f65bf5c0 is already an ancestor of this base; the gateway mirror repair is present without changes under services/platform."
+review = "Retain the prior store fixture, inventory response and middleware transcript repairs. Qualify the final candidate with hf-build followed by hf-done and resolve both exact results by reference to the private ledger below."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The identical revision of the final passing build and verify entries in the private gate ledger is the verified revision of this repair."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests"
+verify_command = "cg spec done 22.31.555 -f layerx-merge --root /work/paxeer-monorepo"
+test_command = "sh tools/runtime/run-with-clock.sh cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- read::committed::tests::tenant_budget_recovery read::committed::tests::program_sources_select_the_chain_bound_principal_inventory session_control::tests::admit_write_with_a_durable_write_holds_once session_control::tests::settle_with_a_durable_write_publishes_the_release_once session_control::tests::submit_rewrite_with_a_durable_write_holds_each_missing_limit_once budget::reservations::renewal_publication_tests middleware_observation_transcripts"
+results = "Read exact revision, command, exit and private log from the final build and verify ledger entries; this pre-gate record does not predict a gate result. hf-done checks the declared paths and task graph. No task file is amended after the final gates."

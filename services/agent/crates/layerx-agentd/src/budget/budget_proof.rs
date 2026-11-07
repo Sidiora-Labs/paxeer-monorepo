@@ -8,6 +8,8 @@ use serde_json::Value;
 use sha2::{Digest, Sha256};
 
 pub const MAX_BUDGET_PROOF_BYTES: usize = 1_048_576;
+/// Canonical export contract. Retired v1 exports are refused, never upgraded implicitly.
+pub const BUDGET_PROOF_SCHEMA: &str = "layerx.human.budget-proof.v2";
 const PAY: [u8; 20] = [
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1b,
 ];
@@ -19,7 +21,7 @@ pub enum BudgetProofError {
 
 fn budget_verification_level(rank: u8) -> Result<VerificationLevel, BudgetProofError> {
     let level = VerificationLevel::from_wire_rank(rank).map_err(|_| BudgetProofError::Refused)?;
-    require(level == VerificationLevel::CHECKPOINT_FINALISED)?;
+    require(level == VerificationLevel::COMMITTED)?;
     Ok(level)
 }
 
@@ -222,6 +224,46 @@ fn replay_call(
     Ok(result)
 }
 
+fn authenticated_owner_address(
+    owner_did: &str,
+    owner_account: [u8; 32],
+    identity_key: [u8; 32],
+    trust: &BudgetProofTrust<'_>,
+) -> Result<[u8; 20], BudgetProofError> {
+    let public = id(owner_did
+        .strip_prefix("did:layerx:")
+        .ok_or(BudgetProofError::Refused)?)?;
+    let reads = crate::read::CommittedReads::at_checkpoint(trust.endpoint, trust.checkpoint)
+        .map_err(|_| BudgetProofError::Refused)?;
+    let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
+    let bound = reads
+        .capabilities(addr, &calldata(b"getEvmAddrByLayerX(bytes32)", public))
+        .map_err(|_| BudgetProofError::Refused)?;
+    let bound = bound.canonical_bytes();
+    require(bound.len() == 32 && bound[..12] == [0; 12] && bound[12..] != [0; 20])?;
+    let address: [u8; 20] = bound[12..]
+        .try_into()
+        .map_err(|_| BudgetProofError::Refused)?;
+    let address_word: [u8; 32] = bound.try_into().map_err(|_| BudgetProofError::Refused)?;
+    let unified = reads
+        .capabilities(addr, &calldata(b"getUnifiedAccount(address)", address_word))
+        .map_err(|_| BudgetProofError::Refused)?;
+    let unified = unified.canonical_bytes();
+    require(
+        unified.len() >= 128
+            && unified.len() % 32 == 0
+            && unified[..32] == address_word
+            && unified[64..96] == public,
+    )?;
+    let mut ledger = addr;
+    ledger[19] = 0x1a;
+    let owner = reads
+        .capabilities(ledger, &calldata(b"accountOwner(bytes32)", owner_account))
+        .map_err(|_| BudgetProofError::Refused)?;
+    require(owner.canonical_bytes() == identity_key)?;
+    Ok(address)
+}
+
 pub fn budget_proof_committed_head(export: &[u8]) -> Result<(u64, [u8; 32]), BudgetProofError> {
     require(!export.is_empty() && export.len() <= MAX_BUDGET_PROOF_BYTES)?;
     let value: Export = serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
@@ -238,7 +280,7 @@ fn verify_native_budget_proof(
     let value: Export = serde_json::from_slice(export).map_err(|_| BudgetProofError::Refused)?;
     let checkpoint = trust.checkpoint;
     require(
-        value.schema == "layerx.human.budget-proof.v2"
+        value.schema == BUDGET_PROOF_SCHEMA
             && value.tenant == trust.tenant
             && value.principal == trust.principal
             && value.protocol_version == trust.protocol_version
@@ -326,9 +368,11 @@ fn verify_native_budget_proof(
             .to_be_bytes(),
     );
     identity.extend_from_slice(owner_did.as_bytes());
-    require(id(&value.identity_key)? == <[u8; 32]>::from(Sha256::digest(identity)))?;
+    let identity_key: [u8; 32] = Sha256::digest(identity).into();
+    require(id(&value.identity_key)? == identity_key)?;
     let join = &value.proofs.account_join;
     require(join["account"]["layerx_did"].as_str() == Some(owner_did))?;
+    let owner_address = authenticated_owner_address(owner_did, record.owner, identity_key, trust)?;
     let rows = join["layerx"]["accounts"]
         .as_array()
         .ok_or(BudgetProofError::Refused)?;
@@ -336,6 +380,7 @@ fn verify_native_budget_proof(
         .iter()
         .filter(|row| {
             row["bound"] == true
+                && row["layerx_did"].as_str() == Some(owner_did)
                 && row["layerx_account"]
                     .as_str()
                     .and_then(|text| id(text.strip_prefix("0x").unwrap_or(text)).ok())
@@ -344,7 +389,7 @@ fn verify_native_budget_proof(
                     .as_str()
                     .and_then(|text| text.strip_prefix("0x"))
                     .and_then(|text| hex::decode(text).ok())
-                    .is_some_and(|bytes| bytes.len() == 20 && bytes != [0; 20])
+                    .is_some_and(|bytes| bytes == owner_address)
         })
         .count();
     require(matches == 1)?;
@@ -381,7 +426,6 @@ fn verify_native_budget_proof(
             && id(&state.asset)? == record.asset_id
             && state.revocation_sequence == record.revocation_sequence
             && state.revocation_sequence > 0
-            && state.revocation_sequence <= checkpoint.height
             && state.observed_head_sequence == checkpoint.height
             && id(&state.evidence_digest)? == evidence_digest
             && id(&state.receipt_digest)? == receipt_digest
@@ -452,6 +496,21 @@ mod tests {
         atomic::{AtomicBool, Ordering},
         Arc,
     };
+
+    #[test]
+    fn repair_22_31_535_budget_verification_requires_committed() {
+        assert_eq!(
+            budget_verification_level(VerificationLevel::COMMITTED.wire_rank()),
+            Ok(VerificationLevel::COMMITTED)
+        );
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            assert_eq!(
+                budget_verification_level(rank),
+                Err(BudgetProofError::Refused),
+                "rank {rank}"
+            );
+        }
+    }
 
     const OWNER: &str =
         "did:layerx:0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a0a";
@@ -647,7 +706,39 @@ mod tests {
         worker: Option<std::thread::JoinHandle<usize>>,
     }
     impl Replay {
-        fn new(answers: Value) -> Self {
+        fn new(mut answers: Value) -> Self {
+            // Extend the historical transcript with the addr/ledger ownership reads.
+            let public = [0x0a; 32];
+            let address = [[0; 12].as_slice(), &[0x11; 20]].concat();
+            let owner = Did::new(OWNER.as_bytes()).expect("owner");
+            let identity = layerx_wire::hash::did_id_for_protocol(&owner, 3).expect("identity");
+            let addr = layerx_client::sequencer::ADDR_PRECOMPILE;
+            let mut ledger = addr;
+            ledger[19] = 0x1a;
+            for (target, data, result) in [
+                (
+                    addr,
+                    calldata(b"getEvmAddrByLayerX(bytes32)", public),
+                    address.clone(),
+                ),
+                (
+                    addr,
+                    calldata(
+                        b"getUnifiedAccount(address)",
+                        address.as_slice().try_into().expect("address word"),
+                    ),
+                    [address, vec![0; 32], public.to_vec(), vec![2; 32]].concat(),
+                ),
+                (
+                    ledger,
+                    calldata(b"accountOwner(bytes32)", [2; 32]),
+                    identity.to_vec(),
+                ),
+            ] {
+                answers.as_array_mut().expect("answers").push(json!({"method":"eth_call", "params":[{
+                    "to":format!("0x{}",hex::encode(&target)),"data":format!("0x{}",hex::encode(&data))},"0x8"],
+                    "result":format!("0x{}",hex::encode(&result))}));
+            }
             let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind RPC");
             listener
                 .set_nonblocking(true)
@@ -731,13 +822,90 @@ mod tests {
         }
     }
     #[test]
+    fn repair_22_31_538_program_presentation_binds_committed_proof_and_sequence() {
+        use crate::budget::program_sources::{
+            bind_program_presentation_budget_proof, presentation_budget_reservation,
+        };
+        use crate::budget::ProgramSourceError;
+
+        let answers: Value =
+            serde_json::from_slice(&std::fs::read(fixture_path()).expect("recorded node answers"))
+                .expect("node answers JSON");
+        let export =
+            std::fs::read(fixture_path().with_file_name("export.json")).expect("authority export");
+        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).expect("committed export");
+        let replay = Replay::new(answers);
+        let block_hash = id(document["head"]["block_hash"].as_str().expect("block hash"))
+            .expect("decode block hash");
+        let checkpoint = ServedCheckpoint::acquire_at_committed_block(
+            &replay.endpoint,
+            HEIGHT,
+            Some(block_hash),
+            "125",
+        )
+        .expect("signed checkpoint");
+        let owner = Did::new(OWNER.as_bytes()).expect("owner DID");
+        let trust = BudgetProofTrust {
+            tenant: "tenant",
+            principal: "operator",
+            owner: &owner,
+            protocol_version: 3,
+            network_id: 125,
+            checkpoint: &checkpoint,
+            endpoint: &replay.endpoint,
+            current_height: HEIGHT,
+            now_ms: 1_700_000_000_000,
+            maximum_age_seconds: 60,
+        };
+        let proof = verify_budget_proof(&export, budget_id(), &trust)
+            .expect("verify committed budget proof");
+        assert_eq!(proof.verification(), VerificationLevel::COMMITTED);
+        let sequence = proof.observed_head_sequence();
+        let reservation = presentation_budget_reservation(&proof, sequence);
+        assert_eq!(reservation.allocation_sequence(), Some(sequence));
+        assert!(reservation
+            .allocations()
+            .expect("allocations")
+            .iter()
+            .any(|row| { row.asset == proof.asset() && row.source == proof.source_account() }));
+        assert_eq!(
+            bind_program_presentation_budget_proof(
+                &reservation,
+                owner.as_bytes(),
+                &proof,
+                sequence
+            ),
+            Ok(())
+        );
+        let future_sequence = sequence.checked_add(1).expect("future sequence");
+        let future_reservation = presentation_budget_reservation(&proof, future_sequence);
+        assert_eq!(
+            future_reservation.allocation_sequence(),
+            Some(future_sequence)
+        );
+        assert_eq!(
+            bind_program_presentation_budget_proof(
+                &future_reservation,
+                owner.as_bytes(),
+                &proof,
+                sequence,
+            ),
+            Err(ProgramSourceError::Snapshot)
+        );
+    }
+
+    #[test]
     fn budget_proof_v2_verifies_the_fixture_export_and_refuses_tampering() {
         let answers: Value =
             serde_json::from_slice(&std::fs::read(fixture_path()).expect("answers"))
                 .expect("fixture JSON");
         let export = std::fs::read(fixture_path().with_file_name("export.json"))
             .expect("authority's committed export from task 8.98.18");
-        let document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        let mut document: Value = serde_json::from_slice(&export).expect("authority export JSON");
+        document["budget_state"]["verification"] = json!(VerificationLevel::COMMITTED.wire_rank());
+        let export = serde_json::to_vec(&document).expect("current committed export label");
         let replay = Replay::new(answers);
         let hash = id(document["head"]["block_hash"].as_str().expect("hash")).expect("block hash");
         assert_eq!(
@@ -778,10 +946,15 @@ mod tests {
         assert_eq!(verified.committed_height(), HEIGHT);
         assert_eq!(verified.checkpoint_digest(), checkpoint.block_hash);
         assert_eq!(verified.source_account(), [2; 32]);
-        assert_eq!(
-            verified.verification(),
-            VerificationLevel::CHECKPOINT_FINALISED
-        );
+        assert_eq!(verified.verification(), VerificationLevel::COMMITTED);
+        for rank in [0, 1, 2, 3, 4, 5, 7, u8::MAX] {
+            let mut retired = document.clone();
+            retired["budget_state"]["verification"] = json!(rank);
+            assert!(
+                matches!(verify(&retired, &trust), Err(BudgetProofError::Refused)),
+                "rank {rank}"
+            );
+        }
         let wrong_owner = Did::new(
             b"did:layerx:0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b0b",
         )
@@ -833,8 +1006,8 @@ mod tests {
         assert!(verify(&document, &trust).is_err(), "stale time");
         assert_eq!(
             replay.finish(),
-            9,
-            "valid proof, owner refusal and altered results must execute eth_call"
+            21,
+            "valid proof and maximum age authenticate ownership; owner refusal and altered results retain their calls"
         );
     }
 }

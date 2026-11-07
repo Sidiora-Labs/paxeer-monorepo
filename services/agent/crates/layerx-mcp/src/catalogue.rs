@@ -809,8 +809,15 @@ pub fn approval_get_tool(
         .ok_or_else(malformed)?
         .parse()
         .map_err(|_| malformed())?;
+    let current_time = layerx_agent_api::TimestampSeconds(
+        arguments["current_time"]
+            .as_str()
+            .ok_or_else(malformed)?
+            .parse()
+            .map_err(|_| malformed())?,
+    );
     let record = service
-        .get(tenant, approval_id, sequence)
+        .get(tenant, approval_id, sequence, current_time)
         .map_err(|error| BoundaryRefusal::Unavailable(format!("approval lookup: {error:?}")))?;
     let disclosure = &record.held_activity;
     if arguments
@@ -935,8 +942,8 @@ fn session_input_schema(name: &str, native: bool) -> Option<Value> {
             &["current_sequence", "limit"],
         ),
         "approval.get" => session_object(
-            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX)}),
-            &["approval_id", "current_sequence"],
+            json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "current_sequence": session_decimal(u64::MAX), "current_time": session_decimal(u64::MAX)}),
+            &["approval_id", "current_sequence", "current_time"],
         ),
         "approval.approve" | "approval.reject" => session_object(
             json!({"tenant": session_text(), "agent": session_text(), "approval_id": session_digest(), "held_digest": session_digest(), "current_sequence": session_decimal(u64::MAX)}),
@@ -1083,7 +1090,7 @@ fn native_activity_schema() -> Value {
 
 fn native_purpose_schema(send: bool) -> Value {
     let version = if send {
-        layerx_agent_api::identity::NativeSendPurposeV1::VERSION
+        layerx_agent_api::identity::NativeSendPurposeV2::VERSION
     } else {
         layerx_agent_api::identity::NativePreparationPurposeV1::VERSION
     };
@@ -1111,9 +1118,16 @@ fn native_purpose_schema(send: bool) -> Value {
     if send {
         let extra = [
             ("owner_did", native_wire_text()),
-            ("owner_public_key", native_wire_hex(32)),
-            ("protocol_version", session_decimal(u64::from(u16::MAX))),
-            ("network_id", session_decimal(u64::from(u32::MAX))),
+            ("consent_public_key", native_wire_hex(32)),
+            ("evm_sender", native_wire_hex(20)),
+            (
+                "transaction_type",
+                json!({"type":"string", "enum":[layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE.to_string()]}),
+            ),
+            (
+                "chain_id",
+                json!({"type":"string", "enum":[layerx_agent_api::identity::NativeSendPurposeV2::CHAIN_ID.to_string()]}),
+            ),
             ("activity", native_activity_schema()),
             ("economic_action", native_wire_hex(32)),
             ("idempotency_key", native_wire_hex(32)),
@@ -1124,10 +1138,17 @@ fn native_purpose_schema(send: bool) -> Value {
         }
     }
     let purpose = session_object(Value::Object(properties), &required);
-    session_object(
-        json!({"purpose": purpose, "owner_public_key": native_wire_hex(32), "signature": native_wire_hex(64)}),
-        &["purpose", "owner_public_key", "signature"],
-    )
+    if send {
+        session_object(
+            json!({"purpose": purpose, "signature": native_wire_hex(64)}),
+            &["purpose", "signature"],
+        )
+    } else {
+        session_object(
+            json!({"purpose": purpose, "owner_public_key": native_wire_hex(32), "signature": native_wire_hex(64)}),
+            &["purpose", "owner_public_key", "signature"],
+        )
+    }
 }
 
 fn native_local_grant_schema() -> Value {

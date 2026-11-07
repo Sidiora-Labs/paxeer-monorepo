@@ -12,7 +12,7 @@ type Props = {
 
 const MeritsIcon = ({ className }: Props) => {
   return (
-    <Icon className={ className } filter={{ _light: 'drop-shadow(0px 4px 2px rgba(141, 179, 204, 0.25))', _dark: 'none' }}>
+    <Icon className={ className } filter={ 'drop-shadow(0px 4px 2px var(--chakra-colors-rewards-icon-shadow))' }>
       <MeritsIconColored/>
     </Icon>
   );

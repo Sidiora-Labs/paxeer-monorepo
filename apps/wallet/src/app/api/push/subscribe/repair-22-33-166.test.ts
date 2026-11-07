@@ -1,3 +1,4 @@
+import { createECDH, randomBytes } from 'node:crypto';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -6,6 +7,13 @@ import { NextRequest } from 'next/server';
 import { afterAll, beforeAll, expect, test } from 'vitest';
 import { pushOwnershipMessage } from '@/server/push-ownership';
 import { pushUnsubscribeMessage } from './unsubscribe-intent';
+
+const pushKey = createECDH('prime256v1');
+pushKey.generateKeys();
+const keys = {
+  p256dh: pushKey.getPublicKey().toString('base64url'),
+  auth: randomBytes(16).toString('base64url'),
+};
 
 const owner = new Wallet(`0x${'11'.repeat(32)}`);
 const other = new Wallet(`0x${'22'.repeat(32)}`);
@@ -40,7 +48,7 @@ async function subscribe(endpoint: string, wallet = owner): Promise<void> {
   const response = await routes.POST(
     request('POST', {
       endpoint,
-      keys: { p256dh: 'a'.repeat(87), auth: 'b'.repeat(22) },
+      keys,
       walletAddress: wallet.address,
       issuedAt,
       signature: await wallet.signMessage(pushOwnershipMessage(endpoint, wallet.address, issuedAt)),
@@ -74,14 +82,14 @@ async function refusesWithoutMutation(body: Record<string, unknown>): Promise<vo
 }
 
 async function push_delete_ownership_requires_proof() {
-  const endpoint = 'https://push.example.test/subscriptions/unsigned';
+  const endpoint = 'https://fcm.googleapis.com/subscriptions/unsigned';
   await subscribe(endpoint);
   await refusesWithoutMutation({ endpoint });
   expect(await store.getSubscription(endpoint)).not.toBeNull();
 }
 
 async function push_delete_ownership_refuses_different_wallet() {
-  const endpoint = 'https://push.example.test/subscriptions/foreign';
+  const endpoint = 'https://fcm.googleapis.com/subscriptions/foreign';
   await subscribe(endpoint);
   await refusesWithoutMutation(await proof(endpoint, other));
   const forgedOwner = await proof(endpoint);
@@ -93,7 +101,7 @@ async function push_delete_ownership_refuses_different_wallet() {
 }
 
 async function push_delete_ownership_binds_operation_endpoint_owner_and_time() {
-  const endpoint = 'https://push.example.test/subscriptions/binding';
+  const endpoint = 'https://fcm.googleapis.com/subscriptions/binding';
   const secondEndpoint = `${endpoint}/second`;
   await subscribe(endpoint);
   await subscribe(secondEndpoint);
@@ -123,9 +131,31 @@ async function push_delete_ownership_binds_operation_endpoint_owner_and_time() {
 }
 
 async function push_delete_ownership_accepts_only_current_stored_owner() {
-  const endpoint = 'https://push.example.test/subscriptions/transferred';
+  const endpoint = 'https://fcm.googleapis.com/subscriptions/transferred';
   await subscribe(endpoint);
   const previousOwnerProof = await proof(endpoint);
+  const issuedAt = Math.floor(Date.now() / 1_000);
+  const before = await readFile(path.join(directory, 'subscriptions.json'), 'utf8');
+  const takeover = await routes.POST(
+    request('POST', {
+      endpoint,
+      keys,
+      walletAddress: other.address,
+      issuedAt,
+      signature: await other.signMessage(pushOwnershipMessage(endpoint, other.address, issuedAt)),
+    })
+  );
+  expect(takeover.status).toBe(500);
+  expect(takeover.headers.get('cache-control')).toBe('no-store');
+  expect(await takeover.json()).toEqual({
+    error: { code: 'INTERNAL_ERROR', message: 'The request could not be completed' },
+  });
+  expect(await readFile(path.join(directory, 'subscriptions.json'), 'utf8')).toBe(before);
+  expect((await store.getSubscription(endpoint))?.walletAddress).toBe(owner.address.toLowerCase());
+  const relinquished = await routes.DELETE(request('DELETE', previousOwnerProof));
+  expect(relinquished.status).toBe(200);
+  expect(await relinquished.json()).toEqual({ ok: true, removed: true });
+  expect(await store.getSubscription(endpoint)).toBeNull();
   await subscribe(endpoint, other);
   await refusesWithoutMutation(previousOwnerProof);
   const response = await routes.DELETE(request('DELETE', await proof(endpoint, other)));
@@ -135,10 +165,10 @@ async function push_delete_ownership_accepts_only_current_stored_owner() {
 }
 
 async function push_delete_ownership_accepts_fresh_unsubscribe_intent() {
-  const untouchedEndpoint = 'https://push.example.test/subscriptions/untouched';
+  const untouchedEndpoint = 'https://fcm.googleapis.com/subscriptions/untouched';
   await subscribe(untouchedEndpoint, other);
   for (const [index, offset] of [0, -240, 30].entries()) {
-    const endpoint = `https://push.example.test/subscriptions/valid/${index}`;
+    const endpoint = `https://fcm.googleapis.com/subscriptions/valid/${index}`;
     await subscribe(endpoint);
     const signed = await proof(endpoint, owner, Math.floor(Date.now() / 1_000) + offset);
     const response = await routes.DELETE(request('DELETE', signed));

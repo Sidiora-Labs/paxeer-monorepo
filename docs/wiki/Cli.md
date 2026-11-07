@@ -113,8 +113,8 @@ credentials still causes a refusal.
 | `key list`, `key show <name>` | Read public metadata without exposing private keys. |
 | `key default <name>`, `key delete <name>` | Select the default signing key or permanently delete a stored key. |
 | `auth set`, `auth status`, `auth delete` | Store a token from stdin, report whether one is held, or delete it. Optional `--environment`, otherwise the active profile. |
-| `register` | Sign a tenant binding with `--key` or the default key and call gateway `px_register`. The current handler fixes the tenant to `beta` and checks the returned tenant, subject, and signer. This creates an identity principal, not a funded main account. |
-| `faucet` | Call gateway `px_requestFunds` using a stored bearer identity session and `--key` or the default key. Accept only a confirmed funded claim carrying funding ID, transaction ID, positive amount, and network. |
+| `register` | Sign a tenant binding with `--key` or the default key and call hosted `px_register` at the required `--gateway-endpoint` URL. The current handler fixes the tenant to `beta` and checks the returned tenant, subject, and signer. This creates an identity principal, not a funded main account. |
+| `faucet` | Call hosted `px_requestFunds` at the required `--service-endpoint` URL using a stored bearer identity session and `--key` or the default key. Accept only a confirmed funded claim carrying funding ID, transaction ID, positive amount, and network. |
 | `account create` | Emulator: use a local key and optional `--initial-amount` (default `0`). Hosted: require `--email`, `--display-name`, `--idempotency-key`; initial amount must be `0`. |
 | `account get` | Read the hosted profile, or an emulator account selected by required `--did`. |
 | `payment test` | Quote then commit a payment with `--from`, `--to`, `--currency` (alias `--asset`), positive `--amount`, and `--idempotency-key`. This is the REST payment journey. |
@@ -287,23 +287,19 @@ curl -sS https://api1.mainnet-beta.paxeer.network \
 ```
 
 Node root-path handling is in [rpcstack.go](../../rpc/rpcstack.go).
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`,
-and `txpool`. Hosted `px_` operations such as registration and funding are
-described by the gateway's
-[OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json);
-a node URL does not by itself supply those hosted identity services.
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`,
+and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../../services/platform/hosted/gateway/openrpc.json).
 The retired router and `/rpc`, `/rpc/ws`, and `/rpc/schema` paths are not public node endpoints.
 
-**Current CLI limitation:** the code has not fully adopted that root-path
-contract. [rpc.rs](../../tools/platform/cli/src/rpc.rs) still enforces the retired `/rpc` suffix.
-The program and chain helpers, registration, faucet, and A2A submission also still post to the retired `/rpc` path.
-[The subscription transport](../../tools/platform/cli/src/rpc_subscription.rs) still constructs the retired `/rpc/ws` path.
-These are pre-merge client assumptions, not instructions to append a path to
-public node URLs. A root URL will be rejected or misrouted by the affected
-handlers; their presence in the command catalogue does not prove public-node
-compatibility. Use a root-capable JSON-RPC client for node operations until
-the relevant CLI transport is corrected. Do not treat changing a profile URL
-as a repair for a hardcoded request path.
+[rpc.rs](../../tools/platform/cli/src/rpc.rs) requires a node URL at the root
+path and refuses any other path. The program and chain helpers and A2A
+submission post to `/`, and
+[the subscription transport](../../tools/platform/cli/src/rpc_subscription.rs)
+upgrades the configured URL itself. Registration and faucet take an explicit
+hosted service URL (`--gateway-endpoint`, `--service-endpoint`) and post to
+exactly that URL; a public node URL does not supply those hosted services.
 
 The active environment remains a REST base URL for `account` and
 `payment test`. Emulator account creation uses

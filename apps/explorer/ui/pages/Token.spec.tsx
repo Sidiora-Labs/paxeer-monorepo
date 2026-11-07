@@ -62,34 +62,35 @@ describe('TokenPageContent', () => {
     });
   });
 
-  it('heads the page with the word Token', () => {
+  it('heads the page with its name and the TOKEN kind', async() => {
     const { container } = render(<TokenPageContent/>);
 
-    expect(container.querySelector('h1')?.textContent).toContain('Token');
+    await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(`${ tokenInfo.name } (${ tokenInfo.symbol })`));
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
   });
 
-  it('puts the detail cards above the tab strip', () => {
+  it('puts the Markets tiles below the tab strip', () => {
     const { container } = render(<TokenPageContent/>);
 
-    const details = container.querySelector('[data-token-details]') as HTMLElement;
+    const details = container.querySelector('[data-token-markets]') as HTMLElement;
     const tabList = container.querySelector('[role="tablist"]') as HTMLElement;
 
     expect(details).not.toBeNull();
     expect(tabList).not.toBeNull();
-    expect(details.querySelectorAll('[data-token-card]').length).toBeGreaterThanOrEqual(2);
-    expect(details.compareDocumentPosition(tabList) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(details.querySelectorAll('[data-stat-tile]')).toHaveLength(4);
+    expect(tabList.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('opens the tab strip on the transfers and the holders', () => {
+  it('opens on Markets and retains History, Holders and Metadata', () => {
     const { container } = render(<TokenPageContent/>);
 
     const titles = tabTitles(container);
 
-    expect(titles[0]).toBe('Token transfers');
-    expect(titles[1]).toBe('Holders');
+    expect(titles).toEqual([ 'Markets', 'History', 'Holders', 'Metadata' ]);
   });
 
   it('adds the contract tab once the address answered as a contract', async() => {
+    routerState.query = { hash: HASH, tab: 'metadata' };
     const { container } = render(<TokenPageContent/>);
 
     await waitFor(() => {
@@ -114,11 +115,11 @@ describe('TokenPageContent', () => {
     expect(paths).toContain(`/api/v2/addresses/${ HASH }`);
   });
 
-  it('keeps the chip row of the title above the cards', () => {
+  it('keeps the chip row of the title above the Markets tiles', () => {
     const { container } = render(<TokenPageContent/>);
 
     const chipRow = container.querySelector('[data-token-chip-row]') as HTMLElement;
-    const details = container.querySelector('[data-token-details]') as HTMLElement;
+    const details = container.querySelector('[data-token-markets]') as HTMLElement;
 
     expect(chipRow).not.toBeNull();
     expect(chipRow.compareDocumentPosition(details) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

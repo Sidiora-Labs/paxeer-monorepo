@@ -87,11 +87,13 @@ override, and its `commit` must equal the checkout's full `git rev-parse HEAD`.
 The `server_name` must be `paxd`.
 
 Supply a reviewed build provenance JSON file through `HPX_BUILD_PROVENANCE`
-(default `${SRC_BIN}.provenance.json`). It must contain these three fields:
+(default `${SRC_BIN}.provenance.json`).
+The `version` value is read from `tools/release/version.json`.
+It must contain these three fields:
 
 ```json
 {
-  "version": "v6.12.0",
+  "version": "v7.0.0",
   "source_revision": "<full 40-character build revision>",
   "paxd_sha256": "<64-character SHA-256 of the build artifact>"
 }
@@ -208,6 +210,12 @@ Directory indexes and undeclared artifact paths return 404. Nginx serves the
 landing page at `/` and its declared logo and font assets.
 
 ## Fleet collection and funding recovery
+
+The [fleet key collector](fleet-keygen.sh) installs the local HPX CLI on selected
+hosts before collecting their public operator identities; set `HPX_PUSH=0` when
+the intended CLI is already installed. The [staking tool](stake-fleet.sh) funds
+operator wallets and prints or runs validator staking commands. Set `HPX_RPC`
+and `HPX_EVM_RPC` to the intended network before using the staking tool.
 
 Run `tools/hpx/fleet-keygen.sh` or `tools/hpx/stake-fleet.sh keygen` from the
 repository root. Both use the same durable state under `tools/hpx/.fleet`

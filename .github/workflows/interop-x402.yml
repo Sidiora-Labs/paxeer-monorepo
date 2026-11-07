@@ -1,36 +1,36 @@
-name: Interop x402 transport matrix
+name: Interop workspace and x402 transport matrix
 
 on:
   push:
     branches: [main]
     paths:
-      - "services/interop/crates/layerx-x402/**"
-      - "services/interop/crates/layerx-interop-gateway/**"
-      - "services/interop/Cargo.toml"
-      - "services/interop/Cargo.lock"
+      - "services/interop/**"
       - "services/agent/crates/layerx-proof/**"
       - "services/agent/crates/layerx-crypto/**"
       - "services/agent/crates/layerx-types/**"
       - "Makefile"
       - ".github/workflows/interop-x402.yml"
+      - "tests/ci/test_interop_workspace_tests_wired.py"
+      - "tests/ci/interop_workspace_test.py"
+      - "tests/ci/data/interop_test_baseline.json"
   pull_request:
     paths:
-      - "services/interop/crates/layerx-x402/**"
-      - "services/interop/crates/layerx-interop-gateway/**"
-      - "services/interop/Cargo.toml"
-      - "services/interop/Cargo.lock"
+      - "services/interop/**"
       - "services/agent/crates/layerx-proof/**"
       - "services/agent/crates/layerx-crypto/**"
       - "services/agent/crates/layerx-types/**"
       - "Makefile"
       - ".github/workflows/interop-x402.yml"
+      - "tests/ci/test_interop_workspace_tests_wired.py"
+      - "tests/ci/interop_workspace_test.py"
+      - "tests/ci/data/interop_test_baseline.json"
   workflow_dispatch:
 
 permissions:
   contents: read
 
 concurrency:
-  group: interop-x402-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 env:
@@ -51,3 +51,21 @@ jobs:
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Run the x402 transport matrix and conformance vectors
         run: make interop-test-x402 INTEROP_CARGO="cargo +1.91.1"
+
+  workspace-tests:
+    name: Every interop workspace member
+    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install native build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+      - name: Install pinned Rust toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
+      - name: Run every interop workspace test
+        run: make interop-test INTEROP_CARGO="cargo +1.91.1"

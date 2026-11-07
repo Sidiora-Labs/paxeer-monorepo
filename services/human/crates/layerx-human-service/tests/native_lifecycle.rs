@@ -124,9 +124,7 @@ fn native_lifecycle_binds_distinct_action_and_activity_without_inventing_finalit
     ));
     assert!(matches!(
         ProductionAgentCreation::finalization_evidence(&evidence, ModuleId::Governance, 1, 1000),
-        Err(AgentFailure::Refused(
-            "lifecycle receipt is not checkpoint-finalized"
-        ))
+        Err(AgentFailure::Refused("lifecycle receipt is not committed"))
     ));
     let mutations: &[fn(&mut ProtocolEvidence)] = &[
         |value| value.activity_id = value.action_key,

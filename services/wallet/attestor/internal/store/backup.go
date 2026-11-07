@@ -312,6 +312,7 @@ func (s *Store) validateSnapshotState(tx *bbolt.Tx) error {
 			return invalid("staged share does not follow its committed key")
 		}
 	}
+	replacements := make(map[string][]ShareReplacement)
 	imports := make(map[string]ImportReceipt)
 	refreshes := make(map[string]CeremonyRefresh)
 	// Verification belongs to the server; only its durable ceremony binding is
@@ -335,6 +336,12 @@ func (s *Store) validateSnapshotState(tx *bbolt.Tx) error {
 		}
 		defer zero(plain)
 		switch kind {
+		case RecordReplacement:
+			var history []ShareReplacement
+			if json.Unmarshal(plain, &history) != nil || len(history) == 0 {
+				return invalid("undecodable or empty replacement history")
+			}
+			replacements[id] = history
 		case RecordCeremony:
 			var receipt ImportReceipt
 			if json.Unmarshal(plain, &receipt) != nil {
@@ -358,9 +365,24 @@ func (s *Store) validateSnapshotState(tx *bbolt.Tx) error {
 	}); err != nil {
 		return err
 	}
+	origins := make(map[string]ShareRecord)
+	for key, history := range replacements {
+		held, ok := shares[key]
+		if !ok {
+			return invalid("replacement history has no committed key")
+		}
+		origin, err := s.replacementOrigin(key, held, history)
+		if err != nil {
+			return err
+		}
+		origins[key] = origin
+	}
 	for key, receipt := range imports {
 		identity := receipt.Identity
 		held, ok := shares[key]
+		if origin, replaced := origins[key]; replaced {
+			held = origin
+		}
 		if !ok || identity.KeyID != key || identity.CeremonyID == "" || identity.SessionID == "" || identity.Epoch != 0 || identity.Threshold != 3 || len(identity.Participants) != 5 || identity.Curve != held.Curve || !bytes.Equal(identity.PublicKey, held.PublicKey) || !equalStrings(identity.Participants, held.Participants) {
 			return invalid("import receipt differs from its committed key")
 		}
@@ -378,6 +400,13 @@ func (s *Store) validateSnapshotState(tx *bbolt.Tx) error {
 	}
 	for key, state := range refreshes {
 		held, ok := shares[key]
+		if !equalStrings(state.Participants, held.Participants) {
+			for _, change := range replacements[key] {
+				if equalStrings(state.Participants, change.Previous.Participants) {
+					held = change.Previous
+				}
+			}
+		}
 		if !ok || state.KeyID != key || state.CeremonyID == "" || state.SessionID == "" || state.BaseEpoch == ^uint64(0) || len(state.Participants) != 5 || state.Curve != held.Curve || !bytes.Equal(state.PublicKey, held.PublicKey) || !equalStrings(state.Participants, held.Participants) {
 			return invalid("refresh identity differs from its committed key")
 		}

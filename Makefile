@@ -249,7 +249,7 @@ $(BUILD_DIR)/tests/lxp_test_arena_asan: tests/protocol/lxp_test_arena.c \
 test-arena: $(BUILD_DIR)/tests/lxp_test_arena \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 	$(BUILD_DIR)/tests/lxp_test_arena
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:poison_heap=1 \
 		$(BUILD_DIR)/tests/lxp_test_arena_asan
 
 $(BUILD_DIR)/tests/lxp_test_harness: tests/lxp_test_harness.c \
@@ -266,6 +266,12 @@ test-tests-python:
 	python3 -m pytest tests/ci/test_real_node_build_ownership.py \
 		tests/ci/test_runner_routing_container_runtime.py \
 		tests/test_lxgb_producers.py tests/test_beta_withdrawal_genesis.py tests/ci
+
+.PHONY: test-python-suites
+test-python-suites: layerx-genesis-build layerx-module-registry $(BUILD_DIR)/tests/explorer_fixture
+	PYTHONPATH=$(CURDIR)/services/agent/sdk/python \
+		LAYERX_TEST_BUILD_DIR="$(abspath $(BUILD_DIR))" \
+		python3 tests/ci/run_python_suites.py
 
 list-tests: $(BUILD_DIR)/tests/lxp_test_harness
 	$(BUILD_DIR)/tests/lxp_test_harness --list
@@ -1129,7 +1135,8 @@ test-contract-state-surface:
 	scripts/ci/solidity-state-surface.sh
 
 test-contracts: test-contract-state-surface
-	FOUNDRY_TEST=tests/solidity forge test --offline --root . --no-dynamic-test-linking
+	FOUNDRY_PROFILE=names forge test --offline --root . --no-dynamic-test-linking -vvv
+	FOUNDRY_PROFILE=governance forge test --offline --root . --no-dynamic-test-linking -vvv
 
 qualify-replay:
 	tools/lxp_qual_replay_matrix.sh
@@ -1198,7 +1205,7 @@ qualify-fuzz-run: $(BUILD_DIR)/tests/test_fuzz_smoke
 		"$(FUZZ_QUAL_ITERATIONS)"
 
 qualify-fuzz: qualify-fuzz-run
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1:strict_string_checks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/qualification/fuzz-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" FUZZ_QUAL_ITERATIONS=25000 \
@@ -1232,34 +1239,83 @@ test-wave-8: test-service-offer test-service-commit test-service-attest \
 
 
 $(BUILD_DIR)/tests/lxp_test_codec_primitives: \
-		tests/codec/lxp_test_codec_primitives.c $(LIBRARY)
+		tests/codec/lxp_test_codec_primitives.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
-test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives
+# Task 22.33.1034 audit 22.30.4 proof record:
+# 001: binding_authority_substitutes_receiver_signature,
+#      native_receive_verifies_receiver_signature, receive_environment_copies_binding,
+#      binding_receive_retired_ordinals_refused.
+# 017: bridge_credit_symbols_absent; 004: budget_pull_type_refused,
+#      budget_delegate_spend_unchanged; 016: codec_malformed_envelope_admission.
+# 005: lxp_codec_vector_run; 006: builder_header_without_custody.
+# 007: fee_schedule_golden_bytes, fee_per_activity_golden_table.
+# 008: execute_refuses_host_fee_meter, prepare_refuses_host_fee_meter.
+# Prior attempt revision 3b9662dce1cc1e6a55ccc10007979f1f37511383:
+# make -s test-codec test-codec-limits test-codec-vectors test-codec-version
+# exited 2 at prepare_refuses_host_fee_meter's decoded receipt verification.
+# Wiring request: modules/layerxpay (pay domain) owns native payment producer
+# coverage; the C binding tests exercise the retained SEND consumer contract.
+CODEC_AUDIT_TESTS := $(addprefix $(BUILD_DIR)/tests/, \
+	lxp_test_binding_authority_receive lxp_test_bridge_credit_absent \
+	lxp_test_budget_pull_retired lxp_test_custody_builder_header \
+	lxp_test_fee_golden lxp_test_fee_meter_refused)
+
+$(CODEC_AUDIT_TESTS): $(BUILD_DIR)/tests/%: tests/codec/%.c \
+		tests/codec/lxp_kernel_case.h $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
+	@mkdir -p $(@D)
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
+
+test-codec: $(BUILD_DIR)/tests/lxp_test_codec_primitives $(CODEC_AUDIT_TESTS)
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_primitives
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_binding_authority_receive \
+		binding_authority_substitutes_receiver_signature \
+		native_receive_verifies_receiver_signature receive_environment_copies_binding \
+		binding_receive_retired_ordinals_refused
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_bridge_credit_absent \
+		"$(abspath $(LIBRARY))" bridge_credit_symbols_absent deposit_nullifier_kept
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_budget_pull_retired \
+		budget_pull_type_refused budget_delegate_spend_unchanged
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_custody_builder_header \
+		builder_header_without_custody
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_golden \
+		fee_schedule_golden_bytes fee_per_activity_golden_table
+	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_fee_meter_refused \
+		execute_refuses_host_fee_meter prepare_refuses_host_fee_meter
 
 $(BUILD_DIR)/tests/lxp_test_codec_composite: \
-		tests/codec/lxp_test_codec_composite.c $(LIBRARY)
+		tests/codec/lxp_test_codec_composite.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-limits: $(BUILD_DIR)/tests/lxp_test_codec_composite
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_composite
 
 $(BUILD_DIR)/tests/lxp_test_codec_strict: \
-		tests/codec/lxp_test_codec_strict.c $(LIBRARY)
+		tests/codec/lxp_test_codec_strict.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-version: $(BUILD_DIR)/tests/lxp_test_codec_strict
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_strict
 
 $(BUILD_DIR)/tests/lxp_test_codec_vectors: \
 		tests/codec/lxp_test_codec_vectors.c $(LIBRARY) \
-		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv
+		tests/vectors/codec/valid.lxv tests/vectors/codec/adversarial.lxv \
+		$(PROGRAMS_RUNTIME_LIB) | programs-build
 	@mkdir -p $(@D)
-	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(EXTRA_LDFLAGS) -o $@
+	$(CC) $(CPPFLAGS) $(CFLAGS) $< $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) \
+		$(LIBRARY) $(EXTRA_LDFLAGS) \
+		$(PROGRAMS_NATIVE_LDLIBS) -lcrypto -pthread -ldl -lm -o $@
 
 test-codec-vectors: $(BUILD_DIR)/tests/lxp_test_codec_vectors
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_codec_vectors
@@ -1273,7 +1329,7 @@ $(BUILD_DIR)/tests/lxp_fuzz_codec: tests/fuzz/lxp_fuzz_codec.c \
 		-fsanitize=address,undefined $^ -fsanitize=address,undefined -o $@
 
 fuzz-codec-smoke: $(BUILD_DIR)/tests/lxp_fuzz_codec
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_fuzz_codec
 
 $(BUILD_DIR)/tests/lxp_test_hash: tests/crypto/lxp_test_hash.c $(LIBRARY)
@@ -1331,7 +1387,7 @@ test-crypto-suite: test-crypto-hash test-crypto-ed25519 \
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_ct
 
 test-crypto-sanitizers:
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	$(MAKE) --no-print-directory BUILD_DIR=build/crypto-asan \
 		EXTRA_CFLAGS="$(SANITIZER_CFLAGS) -fsanitize=address" \
 		EXTRA_LDFLAGS="-fsanitize=address" test-crypto-suite
@@ -1405,7 +1461,7 @@ $(BUILD_DIR)/tests/lxp_test_arith_property_san: $(ARITH_PROPERTY_SOURCES) \
 test-arith-property: $(BUILD_DIR)/tests/lxp_test_arith_property \
 		$(BUILD_DIR)/tests/lxp_test_arith_property_san
 	$(RUN_PREFIX) $(BUILD_DIR)/tests/lxp_test_arith_property
-	ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
+	env -u LD_PRELOAD ASAN_OPTIONS=abort_on_error=1:detect_leaks=1 \
 	UBSAN_OPTIONS=halt_on_error=1 $(BUILD_DIR)/tests/lxp_test_arith_property_san
 
 $(BUILD_DIR)/tests/lxp_test_nofloat: tests/arith/lxp_test_nofloat.c $(LIBRARY)
@@ -2450,7 +2506,7 @@ paxd-native-libs: $(LIBRARY) programs-release-build
 
 paxd-build: paxd-native-libs
 	version=$$(jq -er .version tools/release/version.json) && \
-		GOPROXY=off $(PAXEER_MAKE) build LDFLAGS="-X github.com/Sidiora-Labs/Paxeer-X-Network/sdk/version.Version=$$version"
+		GOPROXY=off $(PAXEER_MAKE) build VERSION="$$version"
 
 test-lxphost: paxd-native-libs
 	CGO_ENABLED=1 go test ./modules/lxphost/...
@@ -2671,24 +2727,19 @@ interop-build-ramps:
 interop-test-ramps-sandbox:
 	sh services/platform/ramps/sandbox-journey.sh
 
-INTEROP_CARGO ?= cargo
-INTEROP_MANIFEST := services/interop/Cargo.toml
-
 .PHONY: interop-build interop-test interop-lint interop-test-x402 interop-test-mandates interop-test-migration interop-test-migration-testnets interop-test-ucp interop-test-portable interop-test-visa-tap interop-test-mirrors
 
 interop-build:
 	$(INTEROP_CARGO) build --manifest-path $(INTEROP_MANIFEST) --locked --workspace
 
 interop-test:
-	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked --workspace
+	python3 tests/ci/interop_workspace_test.py --cargo "$(INTEROP_CARGO)" --manifest-path "$(INTEROP_MANIFEST)"
 
 interop-test-mirrors:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-mirror
 	cargo test --manifest-path services/interop/contracts/solana-mirror/Cargo.toml --locked
-	forge test --root . --contracts services/interop/contracts/ethereum-mirror \
-		--match-path services/interop/contracts/ethereum-mirror/test/LayerXMirrorArchive.t.sol \
-		--use 0.8.30 --evm-version paris --optimize --optimizer-runs 100000 \
-		--via-ir --no-metadata
+	forge test --root services/interop/contracts/ethereum-mirror \
+		--evm-version paris --no-dynamic-test-linking -vvv
 
 interop-test-x402:
 	$(INTEROP_CARGO) test --manifest-path $(INTEROP_MANIFEST) --locked -p layerx-x402
@@ -2872,13 +2923,6 @@ programs-executed-v4-fixture: programs-build
 programs-check-executed-v4-fixture: programs-build
 	$(MAKE) $(BUILD_DIR)/tests/programs_call_activity
 	python3 sdk/platform/conformance/fixtures/generate_executed_program_v4_fixture.py --encoder $(BUILD_DIR)/tests/programs_call_activity --check
-
-.PHONY: programs-executed-fixture programs-check-executed-fixture
-programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $<
-
-programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity
-	python3 sdk/platform/conformance/fixtures/generate_executed_program_fixture.py --encoder $< --check
 
 $(BUILD_DIR)/tests/programs_metering_schedule: tests/programs/test_metering_schedule.c \
 		$(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build

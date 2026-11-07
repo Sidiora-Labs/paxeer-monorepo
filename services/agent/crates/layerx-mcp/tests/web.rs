@@ -1,3 +1,6 @@
+#[path = "support/clock.rs"]
+mod test_clock;
+
 #[allow(dead_code)]
 #[path = "../../../../interop/crates/x-websearch/src/config.rs"]
 mod config;
@@ -6,6 +9,8 @@ mod node_recording;
 #[allow(dead_code)]
 #[path = "../../../../interop/crates/x-websearch/src/server.rs"]
 mod seller_server;
+#[path = "support/web_hold.rs"]
+mod web_hold;
 use std::collections::BTreeSet;
 use std::fmt::Write as _;
 use std::io::{BufRead as _, BufReader, Read as _, Write as _};
@@ -20,6 +25,9 @@ use std::time::Duration;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_agentd::approval::{
+    ApprovalOutcome, ApprovalService, ApprovalSubmissionQueue, DecisionKey, DecisionRequest,
+};
 use layerx_agentd::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
 use layerx_agentd::capability::{Capability, CapabilityDimensions, CapabilityId, RateCeiling};
 use layerx_agentd::identity::{
@@ -34,7 +42,7 @@ use layerx_agentd::session::{open, OpenRequest, SessionCredential, SessionId, Se
 use layerx_agentd::session_control::SessionControl;
 use layerx_agentd::store::{Store, TenantId};
 use layerx_crypto::payments::{Grant, Payment};
-use layerx_mcp::approval::{approve, reject, ApprovalPolicy};
+use layerx_mcp::approval::{reject, ApprovalPolicy};
 use layerx_mcp::binding::{Binding, WebAuthority};
 use layerx_mcp::boundary::{AgentSurface, ProgramReads, ToolBoundary};
 use layerx_mcp::catalogue::{self, ArgumentError, WEB_TOOLS};
@@ -42,8 +50,9 @@ use layerx_mcp::server::{Server, WebBoundary, WebRoute};
 use layerx_mcp::stdio::{Bound, Session};
 use layerx_mcp::tools::web::{
     canonical_bytes, content_digest, web_tool, Currency, ExactPayment, ExactTerms, GrantTerms,
-    Scheme, WebApproval, WebCall, WebConfig, WebContent, WebFetch, WebOperation, WebOutcome,
-    WebPayer, WebPayerError, WebResult, WebSearch, WebSettlement, WebToolError,
+    Scheme, WebApproval, WebApprovalResources, WebCall, WebConfig, WebContent, WebFetch,
+    WebOperation, WebOutcome, WebPayer, WebPayerError, WebResult, WebSearch, WebSettlement,
+    WebToolError,
 };
 use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_types::ids::Did;
@@ -61,7 +70,7 @@ const SEARCH_RECEIPT_DIGEST: &str =
     "bf3bed8ebfcf831428adfef58df46aa663eae776ad520e8c53fd5cbed2dba939";
 const SEARCH_PAYER: &str = "6de51539c0ccfbd7243bf453fbb86ede2418eedf2610aaa63c4ff14805423505";
 const FETCH_RECEIPT_DIGEST: &str =
-    "f5eec8bb9029099664f41af54ef0662f184916fdfbf59dd11e2ca3f700a82301";
+    "b27f1014cf967addb57bd2fce7ccb96e41ec8113e2da96c93314ccaa4699c398";
 const TAMPERED_PAYER: &str = "4aa4897f08c81fcd9b003dfb8f4a369a9ed828f91ab228e04b14e02f03727aaf";
 const ROUTED_FETCH_URL: &str = "https://paxeer.app/index.html";
 const OTHER_PURPOSE: &str = "0d8e6c4a2b9f7e5d3c1a0f6e4b8d9c2a5f1e7b3d0a6c5e4b2d9f8a1c3e7b6d5f";
@@ -489,11 +498,15 @@ struct RecordedPayer {
     payments: Vec<ExactTerms>,
     submitted: Vec<PrecompileCall>,
     reads: Vec<PrecompileCall>,
+    approval_resources: WebApprovalResources,
+    _approval_directory: web_hold::Directory,
 }
 
 impl RecordedPayer {
     fn new() -> Self {
         let buyer = fixture("gateway/buyer.json");
+        let approval_directory = web_hold::Directory::new();
+        let approval_resources = web_hold::resources(&approval_directory.0);
         Self {
             node: node_recording::NodeRecording::start(None),
             signer: SigningKey::from_bytes(&[0x33; 32]),
@@ -504,6 +517,8 @@ impl RecordedPayer {
             payments: Vec::new(),
             submitted: Vec::new(),
             reads: Vec::new(),
+            approval_resources,
+            _approval_directory: approval_directory,
         }
     }
 
@@ -553,6 +568,10 @@ impl RecordedPayer {
 }
 
 impl WebPayer for RecordedPayer {
+    fn approval_resources(&self) -> Option<WebApprovalResources> {
+        Some(self.approval_resources.clone())
+    }
+
     fn sign_grant(&mut self, terms: &GrantTerms) -> Result<Grant, WebPayerError> {
         if let Some(grant) = &self.grant_to_issue {
             self.grants.push(terms.clone());
@@ -864,6 +883,8 @@ fn context() -> ApprovalContext {
     }
 }
 
+static WEB_CLOCK: test_clock::TestClock = test_clock::TestClock::new(10);
+
 fn approval(registry: &ApprovalRegistry, threshold: u128) -> WebApproval<'_> {
     WebApproval {
         registry,
@@ -872,6 +893,7 @@ fn approval(registry: &ApprovalRegistry, threshold: u128) -> WebApproval<'_> {
         },
         context: context(),
         current_sequence: 10,
+        clock: &WEB_CLOCK,
     }
 }
 
@@ -1335,7 +1357,7 @@ fn an_unapproved_spend_is_held_and_never_paid() {
     assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
     assert_eq!(ticket.disclosure.amounts.values()[0].amount.0, 3114);
     assert_eq!(replay.signatures(), 0);
-    assert!(payer.grants.is_empty());
+    assert_eq!(payer.grants.len(), 1);
 
     let pending = web_tool(&config, &search_call(), &held, &mut payer);
     assert!(
@@ -1343,11 +1365,9 @@ fn an_unapproved_spend_is_held_and_never_paid() {
         "{pending:?}"
     );
     assert_eq!(replay.signatures(), 0);
-    assert!(payer.grants.is_empty());
+    assert_eq!(payer.grants.len(), 1);
 
-    let approver = ApproverId::new("operator").unwrap_or_else(|error| panic!("{error:?}"));
-    approve(&registry, ticket.hold_id, approver, &ticket.disclosure, 11)
-        .unwrap_or_else(|error| panic!("approve: {error:?}"));
+    approve_held(&registry, &payer.approval_resources, ticket.hold_id, 11);
     let outcome = web_tool(&config, &search_call(), &held, &mut payer)
         .unwrap_or_else(|error| panic!("approved search: {error:?}"));
     assert_eq!(settled(&outcome).amount, 3114);
@@ -1368,8 +1388,15 @@ fn a_rejected_spend_is_refused_without_payment() {
         panic!("expected an approval hold");
     };
     let approver = ApproverId::new("operator").unwrap_or_else(|error| panic!("{error:?}"));
-    reject(&registry, ticket.hold_id, approver, &ticket.disclosure, 11)
-        .unwrap_or_else(|error| panic!("reject: {error:?}"));
+    reject(
+        &registry,
+        ticket.hold_id,
+        approver,
+        &ticket.disclosure,
+        11,
+        &test_clock::TestClock::new(11),
+    )
+    .unwrap_or_else(|error| panic!("reject: {error:?}"));
     let refused = web_tool(&config, &search_call(), &held, &mut payer);
     assert!(
         matches!(
@@ -1379,7 +1406,7 @@ fn a_rejected_spend_is_refused_without_payment() {
         "{refused:?}"
     );
     assert_eq!(replay.signatures(), 0);
-    assert!(payer.grants.is_empty());
+    assert_eq!(payer.grants.len(), 1);
 }
 
 #[test]
@@ -1894,7 +1921,7 @@ fn web_session(
     approvals: &Arc<ApprovalRegistry>,
     threshold: u128,
     root: &Path,
-) -> Session<WebBoundary<ProgramReads>> {
+) -> (Session<WebBoundary<ProgramReads>>, WebApprovalResources) {
     let server = bound_server(root);
     let surface = AgentSurface::new(
         &agent_daemon(),
@@ -1903,18 +1930,24 @@ fn web_session(
         Duration::from_secs(5),
     )
     .unwrap_or_else(|error| panic!("agent surface: {error:?}"));
+    let payer = RecordedPayer::new();
+    let resources = payer.approval_resources.clone();
     let route = WebRoute::new(
         config(replay, sequencer_key()),
         Arc::clone(approvals),
         ApprovalPolicy {
             amount_threshold: threshold,
         },
-        Box::new(RecordedPayer::new()),
+        Box::new(payer),
+        Arc::new(test_clock::TestClock::new(10)),
     );
     let boundary = server
         .route_web(ProgramReads::new(surface), route)
         .unwrap_or_else(|error| panic!("route: {error:?}"));
-    Session::new(Bound::Full(Box::new(server)), boundary)
+    (
+        Session::new(Bound::Full(Box::new(server)), boundary),
+        resources,
+    )
 }
 
 /// Opens the web-scoped session through the operator binding, with the web
@@ -1924,7 +1957,10 @@ fn opened_session(
     approvals: &Arc<ApprovalRegistry>,
     threshold: u128,
     root: &Path,
-) -> Session<layerx_mcp::binding::DaemonBoundary> {
+) -> (
+    Session<layerx_mcp::binding::DaemonBoundary>,
+    WebApprovalResources,
+) {
     let (sequencer_id, first_batch_number, last_batch_number) = sequencer_authorization();
     let (store, _, credential, _) = enrol(root);
     drop(store);
@@ -1973,13 +2009,17 @@ fn opened_session(
     });
     let mut binding = Binding::parse(&document.to_string())
         .unwrap_or_else(|error| panic!("binding: {}", error.detail()));
+    let payer = RecordedPayer::new();
+    let resources = payer.approval_resources.clone();
     binding.attach_web(WebAuthority::new(
+        Arc::new(test_clock::TestClock::new(10)),
         Arc::clone(approvals),
-        Box::new(RecordedPayer::new()),
+        Box::new(payer),
     ));
-    binding
+    let session = binding
         .open_session()
-        .unwrap_or_else(|error| panic!("open session: {}", error.detail()))
+        .unwrap_or_else(|error| panic!("open session: {}", error.detail()));
+    (session, resources)
 }
 
 fn rpc<B: ToolBoundary>(session: &mut Session<B>, request: &Value) -> Value {
@@ -2192,7 +2232,7 @@ fn a_bound_server_lists_and_pays_the_web_tools_through_tools_call() {
     let replay = routed_replay();
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = directory("routed");
-    let mut session = web_session(&replay, &approvals, u128::MAX, &root);
+    let (mut session, _) = web_session(&replay, &approvals, u128::MAX, &root);
     assert_routed_tools(&mut session, &replay, &approvals);
     let _ = std::fs::remove_dir_all(root);
 }
@@ -2202,9 +2242,42 @@ fn a_session_opened_from_its_binding_serves_the_web_tools_with_only_the_web_scop
     let replay = routed_replay();
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = protected_directory("opened");
-    let mut session = opened_session(&replay, &approvals, u128::MAX, &root);
+    let (mut session, _) = opened_session(&replay, &approvals, u128::MAX, &root);
     assert_routed_tools(&mut session, &replay, &approvals);
     let _ = std::fs::remove_dir_all(root);
+}
+
+fn approve_held(
+    registry: &ApprovalRegistry,
+    resources: &WebApprovalResources,
+    hold_id: [u8; 32],
+    current_sequence: u64,
+) {
+    let tenant = context().tenant;
+    let prepared = resources
+        .preparation(&tenant, hold_id)
+        .expect("retained preparation")
+        .expect("held spend");
+    let queue = ApprovalSubmissionQueue::default();
+    let decision = ApprovalService::new(registry, &resources.limiter, &resources.expiry)
+        .approve(
+            DecisionRequest {
+                tenant: &tenant,
+                approval_id: hold_id,
+                idempotency_key: &DecisionKey::new("approve-web").expect("decision key"),
+                approver: ApproverId::new("operator").expect("approver"),
+                current_sequence,
+                current_time: layerx_agent_api::TimestampSeconds(11),
+            },
+            &prepared,
+            &queue,
+        )
+        .expect("durable approval service");
+    assert_eq!(decision.outcome, ApprovalOutcome::Granted);
+    assert_eq!(
+        queue.prepared(decision.submission_ref.expect("released reference")),
+        Some(prepared)
+    );
 }
 
 /// Holds a search above the threshold, reports the hold in its own words,
@@ -2213,6 +2286,7 @@ fn assert_held_until_approved<B: ToolBoundary>(
     session: &mut Session<B>,
     replay: &Replay,
     approvals: &ApprovalRegistry,
+    resources: &WebApprovalResources,
 ) {
     let held = call(session, "web.search", &search_arguments());
     let detail = refusal(&held);
@@ -2234,7 +2308,7 @@ fn assert_held_until_approved<B: ToolBoundary>(
         .unwrap_or_else(|| panic!("the spend was not held"));
     assert_eq!(ticket.state, ApprovalState::AwaitingApproval);
     assert_eq!(ticket.disclosure.amounts.values()[0].amount.0, 3114);
-    assert_eq!(ticket.disclosure.actor.as_str(), payer_did());
+    assert_eq!(ticket.disclosure.actor.as_str(), hex(&[0xab; 20]));
 
     let pending = call(session, "web.search", &search_arguments());
     let waiting = refusal(&pending);
@@ -2249,15 +2323,7 @@ fn assert_held_until_approved<B: ToolBoundary>(
     assert_eq!(pending["structuredContent"]["state"], "refused");
     assert_eq!(replay.signatures(), 0);
 
-    let approver = ApproverId::new("operator").unwrap_or_else(|error| panic!("{error:?}"));
-    approve(
-        approvals,
-        ticket.hold_id,
-        approver,
-        &ticket.disclosure,
-        OBSERVED_SEQUENCE + 1,
-    )
-    .unwrap_or_else(|error| panic!("approve: {error:?}"));
+    approve_held(approvals, resources, ticket.hold_id, OBSERVED_SEQUENCE + 1);
     let released = paid(
         &call(session, "web.search", &search_arguments()),
         "web.search",
@@ -2271,8 +2337,8 @@ fn a_held_web_spend_through_tools_call_is_never_paid_until_approved() {
     let replay = Replay::start(Script::default());
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = directory("held");
-    let mut session = web_session(&replay, &approvals, 0, &root);
-    assert_held_until_approved(&mut session, &replay, &approvals);
+    let (mut session, resources) = web_session(&replay, &approvals, 0, &root);
+    assert_held_until_approved(&mut session, &replay, &approvals, &resources);
     let _ = std::fs::remove_dir_all(root);
 }
 
@@ -2281,7 +2347,7 @@ fn a_held_spend_in_a_session_opened_from_its_binding_is_reported_as_held() {
     let replay = Replay::start(Script::default());
     let approvals = Arc::new(ApprovalRegistry::default());
     let root = protected_directory("opened-held");
-    let mut session = opened_session(&replay, &approvals, 0, &root);
-    assert_held_until_approved(&mut session, &replay, &approvals);
+    let (mut session, resources) = opened_session(&replay, &approvals, 0, &root);
+    assert_held_until_approved(&mut session, &replay, &approvals, &resources);
     let _ = std::fs::remove_dir_all(root);
 }

@@ -54,10 +54,7 @@ const AccountPageDescription = ({ children, allowCut = true }: { children: React
           left={ 0 }
           width="100%"
           height="63px"
-          bgGradient={{
-            _light: 'linear-gradient(360deg, rgba(255, 255, 255, 0.8) 38.1%, rgba(255, 255, 255, 0) 166.67%)',
-            _dark: 'linear-gradient(360deg, rgba(16, 17, 18, 0.8) 38.1%, rgba(16, 17, 18, 0) 166.67%)',
-          }}
+          background="linear-gradient(360deg, var(--chakra-colors-description-fade) 38.1%, transparent 166.67%)"
           onClick={ expand }
         >
         </Box>

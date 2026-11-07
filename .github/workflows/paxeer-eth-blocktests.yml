@@ -64,7 +64,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-eth-blocktests.yml'
@@ -131,7 +130,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-eth-blocktests.yml'
@@ -141,7 +139,7 @@ on:
       - release/**
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -182,10 +180,10 @@ jobs:
         # generate runner index array from 0 to total-runners
         runner-index: ${{fromJson(needs.runner-indexes.outputs.json)}}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Go
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
           go-version: '1.25.8'
           cache-dependency-path: go.sum
@@ -212,10 +210,6 @@ jobs:
         id: pax-home
         run: |
           runner_temp=$(realpath -e "${RUNNER_TEMP:?RUNNER_TEMP is required}")
-          case "$runner_temp" in
-            "$HOME"/*) ;;
-            *) echo "RUNNER_TEMP must resolve below HOME" >&2; exit 1 ;;
-          esac
           pax_home=$(mktemp -d "$runner_temp/pax-blocktests-${{ matrix.runner-index }}-XXXXXX")
           pax_home=$(realpath -e "$pax_home")
           case "$pax_home" in
@@ -237,10 +231,6 @@ jobs:
           PAX_HOME: ${{ steps.pax-home.outputs.path }}
         run: |
           runner_temp=$(realpath -e "${RUNNER_TEMP:?RUNNER_TEMP is required}")
-          case "$runner_temp" in
-            "$HOME"/*) ;;
-            *) echo "RUNNER_TEMP must resolve below HOME" >&2; exit 1 ;;
-          esac
           pax_home=$(realpath -m "$PAX_HOME")
           case "$pax_home" in
             "$runner_temp"/pax-blocktests-${{ matrix.runner-index }}-*) rm -rf -- "$pax_home" ;;

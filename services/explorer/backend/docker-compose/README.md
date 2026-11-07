@@ -12,6 +12,8 @@ This is upstream Blockscout's compose setup, kept with the imported backend. The
 
 ## Building Docker containers from source
 
+Start each fenced command block below in `services/explorer/backend`. After entering `docker-compose`, run the client configuration commands there.
+
 **Note**: in all below examples, you can use `docker compose` instead of `docker-compose`, if compose v2 plugin is installed in Docker.
 
 ```bash

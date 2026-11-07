@@ -21,6 +21,9 @@ const second: PaxeerXArchiveReceiptsItem = {
   ...PAXEER_X_RECEIPTS_ITEM,
   id: '0x11223344556677889900aabbccddeeff0f1e2d3c4b5a69788796a5b4c3d2e1f0',
   block_number: PAXEER_X_RECEIPTS_ITEM.block_number - 1,
+  provenance: {
+    evm: { ...PAXEER_X_RECEIPTS_ITEM.provenance.evm, block_number: PAXEER_X_RECEIPTS_ITEM.block_number - 1 },
+  },
 };
 
 const items = [ PAXEER_X_RECEIPTS_ITEM, second ];
@@ -61,7 +64,7 @@ describe('PaxeerXReceipts', () => {
     mockItems(items);
   });
 
-  it(receipts_page_shows_archive_rows_without_rung.name, receipts_page_shows_archive_rows_without_rung);
+  it('receipts_page_shows_archive_rows_without_rung', receipts_page_shows_archive_rows_without_rung);
 
   it('heads the page with the kernel receipts title', async() => {
     render(<PaxeerXReceipts/>);

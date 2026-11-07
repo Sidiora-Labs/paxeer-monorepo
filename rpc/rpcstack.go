@@ -403,7 +403,7 @@ func (h *HTTPServer) EnableRPC(apis []rpc.API, config HTTPConfig) error {
 	}
 	h.HTTPConfig = config
 	h.apis = registeredAPIs(apis, config.Modules)
-	base := NewHTTPHandlerStack(srv, config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
+	base := NewHTTPHandlerStack(wrapPxParamsHTTP(srv, newPxParamsGuard(h.apis, config.DenyList, ConnectionTypeHTTP)), config.CorsAllowedOrigins, config.Vhosts, config.JwtSecret)
 	limiter := newIPRateLimiter(config.ipRateLimitRPS, config.ipRateLimitBurst)
 	h.httpHandler.Store(&rpcHandler{
 		Handler: limiter.wrap(wrapPaxLegacyHTTP(base, config.PaxLegacyAllowlist)),
@@ -467,7 +467,8 @@ func (h *HTTPServer) EnableWS(apis []rpc.API, config WsConfig) error {
 }
 
 func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis []rpc.API) http.Handler {
-	rootHandler := newDenyListWSHandler(srv, config)
+	guard := newPxParamsGuard(apis, config.DenyList, ConnectionTypeWS)
+	rootHandler := newDenyListWSHandler(srv, config, guard)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		scope, ok := DomainScopeFrom(r.Context())
 		if !ok {
@@ -518,7 +519,7 @@ func (h *HTTPServer) newDomainWSHandler(srv *rpc.Server, config WsConfig, apis [
 			delete(h.domainWSServers, scopedServer)
 			h.mu.Unlock()
 		}()
-		newDenyListWSHandler(scopedServer, config).ServeHTTP(w, r)
+		newDenyListWSHandler(scopedServer, config, guard).ServeHTTP(w, r)
 	})
 }
 
@@ -527,6 +528,8 @@ type denyListWSConn struct {
 	mu            sync.Mutex
 	deniedMethods map[string]string
 	deniedErrors  map[string]string
+	pxParams      *pxParamsGuard
+	ctx           context.Context
 }
 
 func (c *denyListWSConn) SetWriteDeadline(deadline time.Time) error {
@@ -558,7 +561,11 @@ func (c *denyListWSConn) readJSON(value interface{}) error {
 	if err := c.Conn.ReadJSON(&raw); err != nil {
 		return err
 	}
-	raw, err := rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
+	raw, err := c.pxParams.request(c.ctx, raw)
+	if err != nil {
+		return err
+	}
+	raw, err = rewriteWSMessages(raw, func(raw json.RawMessage) (json.RawMessage, error) {
 		var message jsonrpcMessage
 		if err := json.Unmarshal(raw, &message); err != nil || message.Method == "" {
 			return raw, nil
@@ -590,6 +597,10 @@ func (c *denyListWSConn) readJSON(value interface{}) error {
 
 func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
 	raw, err := json.Marshal(value)
+	if err != nil {
+		return err
+	}
+	raw, err = c.pxParams.response(raw)
 	if err != nil {
 		return err
 	}
@@ -630,7 +641,7 @@ func (c *denyListWSConn) writeJSON(value interface{}, _ bool) error {
 	return c.Conn.WriteJSON(json.RawMessage(raw))
 }
 
-func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
+func newDenyListWSHandler(srv *rpc.Server, config WsConfig, guard *pxParamsGuard) http.Handler {
 	deniedMethods := make(map[string]string, len(config.DenyList))
 	deniedErrors := make(map[string]string, len(config.DenyList))
 	prefix := "denied:" + string(rpc.NewID()) + ":"
@@ -655,7 +666,7 @@ func newDenyListWSHandler(srv *rpc.Server, config WsConfig) http.Handler {
 		// Authentication and origin checks have passed and the upgrade succeeded.
 		recordWebsocketConnect(r.Context())
 		conn.SetReadLimit(config.readLimit)
-		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors}
+		c := &denyListWSConn{Conn: conn, deniedMethods: deniedMethods, deniedErrors: deniedErrors, pxParams: guard, ctx: r.Context()}
 		stopped := make(chan struct{})
 		defer close(stopped)
 		conn.SetPongHandler(func(string) error { return conn.SetReadDeadline(time.Time{}) })

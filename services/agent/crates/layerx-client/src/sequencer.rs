@@ -258,6 +258,24 @@ impl SequencerEndpoint {
         Self::new_with_plaintext_policy(url, trust_anchors, false)
     }
 
+    /// Opens the node JSON-RPC at its root, without a hosted route suffix.
+    pub fn new_node(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SequencerError> {
+        let uri: ureq::http::Uri = url.parse().map_err(|_| SequencerError::Endpoint)?;
+        if uri.path() != "/"
+            || uri.query().is_some()
+            || uri
+                .authority()
+                .is_none_or(|authority| authority.as_str().contains('@'))
+            || url.contains('#')
+            || url
+                .bytes()
+                .any(|byte| byte.is_ascii_whitespace() || byte.is_ascii_control())
+        {
+            return Err(SequencerError::Endpoint);
+        }
+        Self::new(url, trust_anchors)
+    }
+
     pub fn new_with_railway_private_network(
         url: &str,
         trust_anchors: &[&[u8]],
@@ -940,14 +958,14 @@ fn validate_history_readiness(value: &Value) -> Option<()> {
 }
 
 /// Decodes the gateway's receipt-key result, including numeric height ranges.
+/// An empty keys array decodes to an empty list for the readiness gate to refuse.
 ///
 /// # Errors
-/// Refuses unknown fields, empty lists, duplicate ids, invalid keys or ranges.
+/// Refuses unknown fields, duplicate ids, invalid keys or ranges.
 pub fn decode_receipt_keys(value: &Value) -> Result<Vec<ReceiptKeyEntry>, SequencerError> {
     let fields = Fields::exact(value, &["keys"]).ok_or(SequencerError::Malformed)?;
     let entries = fields.0["keys"]
         .as_array()
-        .filter(|entries| !entries.is_empty())
         .ok_or(SequencerError::Malformed)?
         .iter()
         .map(decode_receipt_key)
@@ -1487,4 +1505,14 @@ fn quantity_bytes(value: &Value) -> Option<Vec<u8>> {
 fn quantity_u256(value: &Value) -> Option<[u8; 32]> {
     let digits = quantity_digits(value, 64)?;
     bytes(&format!("0x{digits:0>64}"))?.try_into().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn receipt_keys_accept_empty_list() {
+        assert_eq!(decode_receipt_keys(&json!({"keys": []})), Ok(vec![]));
+    }
 }

@@ -1,0 +1,56 @@
+[task]
+id = "22.33.7"
+finding = "22.30.1.15"
+status = "implemented_pending_qualification"
+repair = "The reference world has accounts and an asset but no gateway invoice registry or settlement context. A separately signed native activity carries the canonical Send payload through activity encoding, decoding, signature verification and lxp_kernel_execute_activity, the same production kernel entry used by modules/lxphost/host.go. The registered production asset module and canonical ledger produce the reference transfer and receipt."
+proving_tests = ["test_gateway_native_send_parity", "test_returned_committed_receipt"]
+test_path = "tests/test_gateway_send.c"
+proof = "The C case compares the actual native applied leg, full-width account balances, payer/payee nonces, receipt before/after balances, transfer roots, authorization/context hashes, effects, fee, sequence and timestamp. Native state sequence, identity sequence, closed journal, previous/current/recomputed committed roots, supply binding and native replay refusal are asserted. Both signed returned receipts decode, verify and re-encode identically. Gateway rollback at every injected boundary, ownership/lifecycle refusals, concurrent replay, invoice replay, duplicate-invoice refusal and expiry refusal remain asserted."
+receipt_domains = "Native state-commitment receipts bind the entire kernel state and native activity envelope; gateway ledger receipts bind the asset/account ledger and Send payload. Each receipt is checked against its own producer and committed state; their economic projections are compared instead of asserting equality of different envelopes or state-root domains."
+effect_domains = "The gateway production build_signed_receipt calls lxp_ledger_receipt_build, which records the transfer in ledger fields and leaves the effect buffer empty. Assert exactly zero gateway effects. The native asset module calls lxp_ctx_emit_monetary_transfer_set, so assert exactly one monetary transfer effect and bind its root to the gateway ledger transfer root."
+fixtures = "In-memory production account, asset, identity and state stores; deterministic Ed25519 keys; native context and invoice purpose bind the same transfer. No stub, mock, fake, environment variable, live endpoint or generated fixture is introduced."
+baseline = "The supplied attempt-1 evidence records make -s test-tests-python failing before collection because its interpreter lacked pytest (qualification.1). This continuation retains the existing implementation; the explicit gate order prohibits a separate unchanged-tree verify or manual verify_cmd run, so no additional baseline test result is claimed."
+qualification = "The continuation gate explicitly runs make -s test-gateway-send followed by make -s test-tests-python. The C target compiles this test with the production native kernel and executes both proving cases, including the retained rollback, ownership and replay assertions. hf-build installs pytest for the Python target. Only the bounded hf-done result establishes runtime qualification."
+wiring_requests = []
+evidence = "The private /out/run/gates.jsonl ledger names the verified candidate revision, exact command, exit code and private log for hf-build and hf-done. The final response copies the last gate evidence; the record does not claim a gate result before that evidence exists. The runner publishes the qualified candidate."
+
+[gotcha.1]
+symptom = "The audit steps request a baseline verify while the explicit order forbids pre-implementation tests and manual verify runs."
+resolution = "Use only hf-build followed by hf-done and disclose the absent baseline. Scope forbids edits to GOTCHA.kvx and spec task records, so the in-scope repair record carries the task mapping and gotchas."
+
+[gotcha.2]
+symptom = "Attempt 1 used a Python-only verify command that did not execute the required C proof, and its Python interpreter lacked pytest."
+resolution = "The continuation authorizes the existing native test-gateway-send target directly in hf-done and installs pytest through hf-build. No pytest subprocess wrapper or out-of-scope Makefile edit is needed."
+
+[qualification.1]
+revision = "9eb1e78067b74ae54d552872d9803aaa6d565382"
+command = "cg spec done 22.33.7 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The gate interpreter has no pytest module, so make -s test-tests-python exits 2 before collection; hf-done exits 1 and does not mark the task done. This environment failure is unrelated to the C test repair and is recorded without installing unrelated dependencies or rerunning the unchanged gate."
+
+[gotcha.3]
+symptom = "The native replay assertion expected LXP_ERR_SEQUENCE_MISMATCH after a successful commit."
+resolution = "Production lxp_admit_activity rejects an already-consumed account nonce with LXP_ERR_SEQUENCE_REUSED; assert that exact result while retaining every replay state-invariance assertion."
+
+[qualification.2]
+revision = "9c4f6ac6187f4098decc21c9fb5485313d83433d"
+command = "cg spec done 22.33.7 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The native commit succeeded, then tests/test_gateway_send.c:325 failed because its replay assertion named the wrong admission error; the task-scoped repair asserts LXP_ERR_SEQUENCE_REUSED, matching the production admission contract."
+
+[gotcha.4]
+symptom = "The supplied attempt-2 gate stopped at tests/test_gateway_send.c:404 because it expected one gateway receipt effect."
+resolution = "Match each real producer: zero effects for the gateway ledger receipt, one monetary transfer effect for the native kernel receipt. Compare the native effect root with the gateway ledger transfer root and retain the economic, nonce, committed receipt, rollback, ownership and replay assertions."
+
+[qualification.3]
+revision = "68a2207cfafd94c412014c713c6edff54c135399"
+command = "cg spec done 22.33.7 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The economic and effect parity assertions passed, then returned receipt verification failed at tests/test_gateway_send.c:432; the test retained a full-capacity canonical encoding in the same arena needed for the digest encoding."
+
+[gotcha.5]
+symptom = "lxp_receipt_encode reserves LXP_MAX_ACTIVITY_BYTES even for a short receipt, so retaining an encoding leaves the existing producer arena without room for another receipt encoding during verification."
+resolution = "Give the receipt consumer its own LXP_MAX_ACTIVITY_BYTES arena for signature verification and re-encoding while retaining the producer's canonical bytes; preserve every signature and byte-for-byte transport assertion."

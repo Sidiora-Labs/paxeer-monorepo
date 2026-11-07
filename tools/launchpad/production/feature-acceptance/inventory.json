@@ -1,16 +1,33 @@
 {
-  "version": 1,
   "features": [
     {
+      "id": "OC01",
       "inherited_dependency_ids": [],
+      "owner_lanes": [
+        "L04",
+        "L05",
+        "L06"
+      ],
+      "prerequisites": [
+        {
+          "id": "OC01:integrated_services",
+          "kind": "service",
+          "owner": "L04",
+          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "OC01:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+        }
+      ],
       "requirement_owner_lanes": [
         "L04",
         "L05",
         "L06",
         "L50"
       ],
-      "id": "OC01",
-      "title": "Canonical chain ingestion",
       "requirements": [
         "D02_001",
         "D02_002",
@@ -41,35 +58,36 @@
         "D02_027",
         "D16_061"
       ],
+      "scenarios": {
+        "authorization_denial": "OC01: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC01: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC01: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Ingestcanonicalblockstwice andrestart withoutduplicateeffects"
+      },
+      "state": "unqualified",
+      "title": "Canonical chain ingestion"
+    },
+    {
+      "id": "OC02",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L04",
-        "L05",
-        "L06"
+        "L02",
+        "L05"
       ],
       "prerequisites": [
         {
-          "id": "OC01:integrated_services",
+          "id": "OC02:integrated_services",
           "kind": "service",
-          "owner": "L04",
+          "owner": "L02",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC01:accepted_registry",
+          "id": "OC02:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Ingestcanonicalblockstwice andrestart withoutduplicateeffects",
-        "authorization_denial": "OC01: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC01: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC01: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L01",
         "L02",
@@ -79,8 +97,6 @@
         "L06",
         "L50"
       ],
-      "id": "OC02",
-      "title": "Per-family event authority and provenance",
       "requirements": [
         "D01_001",
         "D01_002",
@@ -142,34 +158,37 @@
         "D02_027",
         "D16_062"
       ],
+      "scenarios": {
+        "authorization_denial": "OC02: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC02: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC02: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Decode everyenabledcontractfamily atcorrectABIactivationheight"
+      },
+      "state": "unqualified",
+      "title": "Per-family event authority and provenance"
+    },
+    {
+      "id": "OC03",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L02",
-        "L05"
+        "L01",
+        "L04",
+        "L06"
       ],
       "prerequisites": [
         {
-          "id": "OC02:integrated_services",
+          "id": "OC03:integrated_services",
           "kind": "service",
-          "owner": "L02",
+          "owner": "L01",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC02:accepted_registry",
+          "id": "OC03:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Decode everyenabledcontractfamily atcorrectABIactivationheight",
-        "authorization_denial": "OC02: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC02: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC02: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L04",
         "L05",
@@ -179,8 +198,6 @@
         "L44",
         "L50"
       ],
-      "id": "OC03",
-      "title": "Deterministic finality, chain integrity and application replay",
       "requirements": [
         "D02_001",
         "D02_002",
@@ -251,43 +268,42 @@
         "D14_040",
         "D16_063"
       ],
+      "scenarios": {
+        "authorization_denial": "OC03: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC03: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC03: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Quarantinesourcedisagreement andreplay committedhistory withoutordinaryreorgrollback"
+      },
+      "state": "unqualified",
+      "title": "Deterministic finality, chain integrity and application replay"
+    },
+    {
+      "id": "OC04",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L01",
-        "L04",
-        "L06"
+        "L02",
+        "L03"
       ],
       "prerequisites": [
         {
-          "id": "OC03:integrated_services",
+          "id": "OC04:integrated_services",
           "kind": "service",
-          "owner": "L01",
+          "owner": "L02",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC03:accepted_registry",
+          "id": "OC04:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Quarantinesourcedisagreement andreplay committedhistory withoutordinaryreorgrollback",
-        "authorization_denial": "OC03: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC03: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC03: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L01",
         "L02",
         "L03",
         "L50"
       ],
-      "id": "OC04",
-      "title": "Versioned ABI and deployment registry",
       "requirements": [
         "D01_001",
         "D01_002",
@@ -322,34 +338,38 @@
         "D01_031",
         "D16_064"
       ],
+      "scenarios": {
+        "authorization_denial": "OC04: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC04: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC04: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Reconcile signedaddress/ABI/codehashregistry beforeenablement"
+      },
+      "state": "unqualified",
+      "title": "Versioned ABI and deployment registry"
+    },
+    {
+      "id": "OC05",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L02",
-        "L03"
+        "L10",
+        "L13",
+        "L14",
+        "L18"
       ],
       "prerequisites": [
         {
-          "id": "OC04:integrated_services",
+          "id": "OC05:integrated_services",
           "kind": "service",
-          "owner": "L02",
+          "owner": "L10",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC04:accepted_registry",
+          "id": "OC05:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Reconcile signedaddress/ABI/codehashregistry beforeenablement",
-        "authorization_denial": "OC04: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC04: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC04: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L13",
         "L14",
@@ -359,8 +379,6 @@
         "L18",
         "L50"
       ],
-      "id": "OC05",
-      "title": "Exact prices volume and fee accounting",
       "requirements": [
         "D05_001",
         "D05_002",
@@ -427,44 +445,43 @@
         "D06_032",
         "D16_065"
       ],
+      "scenarios": {
+        "authorization_denial": "OC05: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC05: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC05: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Recomputeinteger price/volume/fees/decimals androunding"
+      },
+      "state": "unqualified",
+      "title": "Exact prices volume and fee accounting"
+    },
+    {
+      "id": "OC06",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
         "L10",
-        "L13",
-        "L14",
-        "L18"
+        "L11",
+        "L12"
       ],
       "prerequisites": [
         {
-          "id": "OC05:integrated_services",
+          "id": "OC06:integrated_services",
           "kind": "service",
           "owner": "L10",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC05:accepted_registry",
+          "id": "OC06:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Recomputeinteger price/volume/fees/decimals androunding",
-        "authorization_denial": "OC05: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC05: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC05: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L10",
         "L11",
         "L12",
         "L50"
       ],
-      "id": "OC06",
-      "title": "Historical candles and correction revisions",
       "requirements": [
         "D04_001",
         "D04_002",
@@ -498,43 +515,38 @@
         "D04_030",
         "D16_066"
       ],
+      "scenarios": {
+        "authorization_denial": "OC06: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC06: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC06: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Replayhistoricalcorrection andassertcandle revisionconvergence"
+      },
+      "state": "unqualified",
+      "title": "Historical candles and correction revisions"
+    },
+    {
+      "id": "OC07",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L10",
-        "L11",
-        "L12"
+        "L08",
+        "L12",
+        "L23",
+        "L24"
       ],
       "prerequisites": [
         {
-          "id": "OC06:integrated_services",
+          "id": "OC07:integrated_services",
           "kind": "service",
-          "owner": "L10",
+          "owner": "L08",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "OC06:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Replayhistoricalcorrection andassertcandle revisionconvergence",
-        "authorization_denial": "OC06: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC06: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC06: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L22",
         "L23",
         "L24",
         "L50"
       ],
-      "id": "OC07",
-      "title": "Snapshot replay and socket backpressure",
       "requirements": [
         "D08_001",
         "D08_002",
@@ -568,38 +580,37 @@
         "D08_030",
         "D16_067"
       ],
+      "scenarios": {
+        "authorization_denial": "OC07: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC07: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC07: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Disconnectsocket/replaycursor withsnapshot gapdetection"
+      },
+      "state": "unqualified",
+      "title": "Snapshot replay and socket backpressure"
+    },
+    {
+      "id": "OC08",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L08",
-        "L12",
+        "L22",
         "L23",
         "L24"
       ],
       "prerequisites": [
         {
-          "id": "OC07:integrated_services",
+          "id": "OC08:integrated_services",
           "kind": "service",
-          "owner": "L08",
+          "owner": "L22",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Disconnectsocket/replaycursor withsnapshot gapdetection",
-        "authorization_denial": "OC07: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC07: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC07: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L22",
         "L23",
         "L24",
         "L50"
       ],
-      "id": "OC08",
-      "title": "Versioned API SDK and capabilities",
       "requirements": [
         "D08_001",
         "D08_002",
@@ -633,29 +644,36 @@
         "D08_030",
         "D16_068"
       ],
+      "scenarios": {
+        "authorization_denial": "OC08: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC08: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC08: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "GenerateSDK andvalidatefrozenOpenAPI/AsyncAPItypedcontracts"
+      },
+      "state": "unqualified",
+      "title": "Versioned API SDK and capabilities"
+    },
+    {
+      "id": "OC09",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L22",
-        "L23",
-        "L24"
+        "L25",
+        "L26"
       ],
       "prerequisites": [
         {
-          "id": "OC08:integrated_services",
+          "id": "OC09:integrated_services",
           "kind": "service",
-          "owner": "L22",
+          "owner": "L25",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "OC09:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "GenerateSDK andvalidatefrozenOpenAPI/AsyncAPItypedcontracts",
-        "authorization_denial": "OC08: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC08: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC08: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L25",
         "L26",
@@ -663,8 +681,6 @@
         "L28",
         "L50"
       ],
-      "id": "OC09",
-      "title": "Simulation approval and transaction recovery",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -700,42 +716,37 @@
         "D09_032",
         "D16_069"
       ],
+      "scenarios": {
+        "authorization_denial": "OC09: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC09: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC09: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Reject/revert/replace trade andshowactualreceiptstate withouttimersuccess"
+      },
+      "state": "unqualified",
+      "title": "Simulation approval and transaction recovery"
+    },
+    {
+      "id": "OC10",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L25",
-        "L26"
+        "L33",
+        "L34",
+        "L35"
       ],
       "prerequisites": [
         {
-          "id": "OC09:integrated_services",
+          "id": "OC10:integrated_services",
           "kind": "service",
-          "owner": "L25",
+          "owner": "L33",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "OC09:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Reject/revert/replace trade andshowactualreceiptstate withouttimersuccess",
-        "authorization_denial": "OC09: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC09: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC09: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L33",
         "L34",
         "L35",
         "L50"
       ],
-      "id": "OC10",
-      "title": "Profile sessions wallet linkage and privacy",
       "requirements": [
         "D11_001",
         "D11_002",
@@ -769,37 +780,36 @@
         "D11_030",
         "D16_070"
       ],
+      "scenarios": {
+        "authorization_denial": "OC10: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC10: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC10: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Link/unlinkwallet revoke sessions anddeny replayedsignatures"
+      },
+      "state": "unqualified",
+      "title": "Profile sessions wallet linkage and privacy"
+    },
+    {
+      "id": "OC11",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L33",
-        "L34",
-        "L35"
+        "L39",
+        "L41"
       ],
       "prerequisites": [
         {
-          "id": "OC10:integrated_services",
+          "id": "OC11:integrated_services",
           "kind": "service",
-          "owner": "L33",
+          "owner": "L39",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Link/unlinkwallet revoke sessions anddeny replayedsignatures",
-        "authorization_denial": "OC10: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC10: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC10: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L39",
         "L40",
         "L41",
         "L50"
       ],
-      "id": "OC11",
-      "title": "Token metadata and safe media processing",
       "requirements": [
         "D13_001",
         "D13_002",
@@ -833,36 +843,37 @@
         "D13_030",
         "D16_071"
       ],
+      "scenarios": {
+        "authorization_denial": "OC11: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC11: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC11: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Uploadmalware/MIMEmismatch/oversize andfailclosedscanner"
+      },
+      "state": "unqualified",
+      "title": "Token metadata and safe media processing"
+    },
+    {
+      "id": "OC12",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L39",
-        "L41"
+        "L15",
+        "L19",
+        "L20"
       ],
       "prerequisites": [
         {
-          "id": "OC11:integrated_services",
+          "id": "OC12:integrated_services",
           "kind": "service",
-          "owner": "L39",
+          "owner": "L15",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Uploadmalware/MIMEmismatch/oversize andfailclosedscanner",
-        "authorization_denial": "OC11: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC11: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC11: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
         "L21",
         "L50"
       ],
-      "id": "OC12",
-      "title": "Search rankings and manipulation disclosures",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -898,29 +909,37 @@
         "D07_032",
         "D16_072"
       ],
+      "scenarios": {
+        "authorization_denial": "OC12: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC12: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC12: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Createwashvolume/concentrationfixtures andinspectrankingdisclosure"
+      },
+      "state": "unqualified",
+      "title": "Search rankings and manipulation disclosures"
+    },
+    {
+      "id": "OC13",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L15",
-        "L19",
-        "L20"
+        "L14",
+        "L16",
+        "L17"
       ],
       "prerequisites": [
         {
-          "id": "OC12:integrated_services",
+          "id": "OC13:integrated_services",
           "kind": "service",
-          "owner": "L15",
+          "owner": "L14",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "OC13:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Createwashvolume/concentrationfixtures andinspectrankingdisclosure",
-        "authorization_denial": "OC12: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC12: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC12: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L13",
         "L14",
@@ -930,8 +949,6 @@
         "L18",
         "L50"
       ],
-      "id": "OC13",
-      "title": "Holdings cost basis and recipient attribution",
       "requirements": [
         "D05_001",
         "D05_002",
@@ -998,43 +1015,42 @@
         "D06_032",
         "D16_073"
       ],
+      "scenarios": {
+        "authorization_denial": "OC13: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC13: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC13: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Use senderdifferentrecipient andtransferunknownbasis correctly"
+      },
+      "state": "unqualified",
+      "title": "Holdings cost basis and recipient attribution"
+    },
+    {
+      "id": "OC14",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L14",
-        "L16",
-        "L17"
+        "L18",
+        "L03"
       ],
       "prerequisites": [
         {
-          "id": "OC13:integrated_services",
+          "id": "OC14:integrated_services",
           "kind": "service",
-          "owner": "L14",
+          "owner": "L18",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC13:accepted_registry",
+          "id": "OC14:reward_escrow",
           "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+          "owner": "L18",
+          "remediation": "Reconcile real authorized liabilities and funded receipts"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Use senderdifferentrecipient andtransferunknownbasis correctly",
-        "authorization_denial": "OC13: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC13: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC13: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L16",
         "L17",
         "L18",
         "L50"
       ],
-      "id": "OC14",
-      "title": "Reward liabilities and reconciliation",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -1070,34 +1086,30 @@
         "D06_032",
         "D16_074"
       ],
+      "scenarios": {
+        "authorization_denial": "OC14: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC14: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC14: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Reconcile rewardliabilities againstauthorizedescrow/treasury"
+      },
+      "state": "unqualified",
+      "title": "Reward liabilities and reconciliation"
+    },
+    {
+      "id": "OC15",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L18",
-        "L03"
+        "L38",
+        "L47"
       ],
       "prerequisites": [
         {
-          "id": "OC14:integrated_services",
+          "id": "OC15:integrated_services",
           "kind": "service",
-          "owner": "L18",
+          "owner": "L38",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "OC14:reward_escrow",
-          "kind": "contract",
-          "owner": "L18",
-          "remediation": "Reconcile real authorized liabilities and funded receipts"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Reconcile rewardliabilities againstauthorizedescrow/treasury",
-        "authorization_denial": "OC14: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC14: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC14: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L36",
         "L37",
@@ -1107,8 +1119,6 @@
         "L47",
         "L50"
       ],
-      "id": "OC15",
-      "title": "Moderation support and auditable administration",
       "requirements": [
         "D12_001",
         "D12_002",
@@ -1174,36 +1184,36 @@
         "D15_030",
         "D16_075"
       ],
+      "scenarios": {
+        "authorization_denial": "OC15: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC15: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC15: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Ban/report/appeal viaauditedpermissionedadministration"
+      },
+      "state": "unqualified",
+      "title": "Moderation support and auditable administration"
+    },
+    {
+      "id": "OC16",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L38",
-        "L47"
+        "L06",
+        "L08"
       ],
       "prerequisites": [
         {
-          "id": "OC15:integrated_services",
+          "id": "OC16:integrated_services",
           "kind": "service",
-          "owner": "L38",
+          "owner": "L06",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Ban/report/appeal viaauditedpermissionedadministration",
-        "authorization_denial": "OC15: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC15: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC15: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L07",
         "L08",
         "L09",
         "L50"
       ],
-      "id": "OC16",
-      "title": "Reliable jobs outbox and idempotent effects",
       "requirements": [
         "D03_001",
         "D03_002",
@@ -1237,36 +1247,37 @@
         "D03_030",
         "D16_076"
       ],
+      "scenarios": {
+        "authorization_denial": "OC16: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC16: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC16: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Crash afteroutboxcommit beforedelivery andassertoneinboxeffect"
+      },
+      "state": "unqualified",
+      "title": "Reliable jobs outbox and idempotent effects"
+    },
+    {
+      "id": "OC17",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L06",
-        "L08"
+        "L07",
+        "L09",
+        "L42"
       ],
       "prerequisites": [
         {
-          "id": "OC16:integrated_services",
+          "id": "OC17:integrated_services",
           "kind": "service",
-          "owner": "L06",
+          "owner": "L07",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Crash afteroutboxcommit beforedelivery andassertoneinboxeffect",
-        "authorization_denial": "OC16: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC16: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC16: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L42",
         "L43",
         "L44",
         "L50"
       ],
-      "id": "OC17",
-      "title": "Infrastructure isolation and connection budget",
       "requirements": [
         "D14_001",
         "D14_002",
@@ -1310,37 +1321,36 @@
         "D14_040",
         "D16_077"
       ],
+      "scenarios": {
+        "authorization_denial": "OC17: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC17: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC17: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "ExhaustDBconnections withRedisoutage andverifyboundedresources"
+      },
+      "state": "unqualified",
+      "title": "Infrastructure isolation and connection budget"
+    },
+    {
+      "id": "OC18",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L07",
-        "L09",
-        "L42"
+        "L43",
+        "L48"
       ],
       "prerequisites": [
         {
-          "id": "OC17:integrated_services",
+          "id": "OC18:integrated_services",
           "kind": "service",
-          "owner": "L07",
+          "owner": "L43",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "ExhaustDBconnections withRedisoutage andverifyboundedresources",
-        "authorization_denial": "OC17: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC17: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC17: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L42",
         "L43",
         "L44",
         "L50"
       ],
-      "id": "OC18",
-      "title": "SLO observability and incident response",
       "requirements": [
         "D14_001",
         "D14_002",
@@ -1384,36 +1394,42 @@
         "D14_040",
         "D16_078"
       ],
+      "scenarios": {
+        "authorization_denial": "OC18: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC18: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC18: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "TriggerSLOalert andtraceincident/recoverytimeline"
+      },
+      "state": "unqualified",
+      "title": "SLO observability and incident response"
+    },
+    {
+      "id": "OC19",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L43",
-        "L48"
+        "L44",
+        "L49"
       ],
       "prerequisites": [
         {
-          "id": "OC18:integrated_services",
+          "id": "OC19:integrated_services",
           "kind": "service",
-          "owner": "L43",
+          "owner": "L44",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "OC19:alternate_region",
+          "kind": "service",
+          "owner": "L44",
+          "remediation": "Provision alternate topology and prove timed real restore"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "TriggerSLOalert andtraceincident/recoverytimeline",
-        "authorization_denial": "OC18: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC18: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC18: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L42",
         "L43",
         "L44",
         "L50"
       ],
-      "id": "OC19",
-      "title": "Backup recovery and restore qualification",
       "requirements": [
         "D14_001",
         "D14_002",
@@ -1457,42 +1473,42 @@
         "D14_040",
         "D16_079"
       ],
+      "scenarios": {
+        "authorization_denial": "OC19: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC19: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC19: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "RestorePITRalternate region withRPO5min/RTO30min"
+      },
+      "state": "unqualified",
+      "title": "Backup recovery and restore qualification"
+    },
+    {
+      "id": "OC20",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L44",
-        "L49"
+        "L01",
+        "L04"
       ],
       "prerequisites": [
         {
-          "id": "OC19:integrated_services",
+          "id": "OC20:integrated_services",
           "kind": "service",
-          "owner": "L44",
+          "owner": "L01",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC19:alternate_region",
-          "kind": "service",
-          "owner": "L44",
-          "remediation": "Provision alternate topology and prove timed real restore"
+          "id": "OC20:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "RestorePITRalternate region withRPO5min/RTO30min",
-        "authorization_denial": "OC19: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC19: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC19: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L04",
         "L05",
         "L06",
         "L50"
       ],
-      "id": "OC20",
-      "title": "RPC archive and explorer independence",
       "requirements": [
         "D02_001",
         "D02_002",
@@ -1523,42 +1539,37 @@
         "D02_027",
         "D16_080"
       ],
+      "scenarios": {
+        "authorization_denial": "OC20: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC20: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC20: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Disableexplorer rotateRPC andquarantine conflictingblockhashes"
+      },
+      "state": "unqualified",
+      "title": "RPC archive and explorer independence"
+    },
+    {
+      "id": "OC21",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L01",
-        "L04"
+        "L34",
+        "L45",
+        "L46"
       ],
       "prerequisites": [
         {
-          "id": "OC20:integrated_services",
+          "id": "OC21:integrated_services",
           "kind": "service",
-          "owner": "L01",
+          "owner": "L34",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "OC20:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Disableexplorer rotateRPC andquarantine conflictingblockhashes",
-        "authorization_denial": "OC20: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC20: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC20: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L45",
         "L46",
         "L47",
         "L50"
       ],
-      "id": "OC21",
-      "title": "Security release and secret isolation",
       "requirements": [
         "D15_001",
         "D15_002",
@@ -1592,29 +1603,38 @@
         "D15_030",
         "D16_081"
       ],
+      "scenarios": {
+        "authorization_denial": "OC21: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC21: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC21: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Rotatesecrets/scancandidate withoutcredentialleaks"
+      },
+      "state": "unqualified",
+      "title": "Security release and secret isolation"
+    },
+    {
+      "id": "OC22",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L34",
-        "L45",
-        "L46"
+        "L40",
+        "L41",
+        "L42",
+        "L48"
       ],
       "prerequisites": [
         {
-          "id": "OC21:integrated_services",
+          "id": "OC22:integrated_services",
           "kind": "service",
-          "owner": "L34",
+          "owner": "L40",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "OC22:independent_load_fleet",
+          "kind": "service",
+          "owner": "L48",
+          "remediation": "Calibrate four external generators and perform full soak/surge with cost evidence"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Rotatesecrets/scancandidate withoutcredentialleaks",
-        "authorization_denial": "OC21: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC21: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC21: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L42",
         "L43",
@@ -1623,8 +1643,6 @@
         "L49",
         "L50"
       ],
-      "id": "OC22",
-      "title": "Capacity fanout and media cost qualification",
       "requirements": [
         "D14_001",
         "D14_002",
@@ -1754,36 +1772,39 @@
         "D16_086",
         "D16_087"
       ],
+      "scenarios": {
+        "authorization_denial": "OC22: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC22: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC22: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Measure24h100ksockets250kframes/s and200k/1mframeburstplusCDNcost"
+      },
+      "state": "unqualified",
+      "title": "Capacity fanout and media cost qualification"
+    },
+    {
+      "id": "OC23",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L40",
-        "L41",
-        "L42",
-        "L48"
+        "L29",
+        "L30",
+        "L31",
+        "L32",
+        "L49"
       ],
       "prerequisites": [
         {
-          "id": "OC22:integrated_services",
+          "id": "OC23:integrated_services",
           "kind": "service",
-          "owner": "L40",
+          "owner": "L29",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC22:independent_load_fleet",
-          "kind": "service",
-          "owner": "L48",
-          "remediation": "Calibrate four external generators and perform full soak/surge with cost evidence"
+          "id": "OC23:native_devices",
+          "kind": "device",
+          "owner": "L32",
+          "remediation": "Physical signed iOS/Android accessibility and wallet journeys"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Measure24h100ksockets250kframes/s and200k/1mframeburstplusCDNcost",
-        "authorization_denial": "OC22: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC22: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC22: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L29",
         "L30",
@@ -1793,8 +1814,6 @@
         "L49",
         "L50"
       ],
-      "id": "OC23",
-      "title": "Accessible web and native release testing",
       "requirements": [
         "D10_001",
         "D10_002",
@@ -1920,37 +1939,40 @@
         "D16_086",
         "D16_087"
       ],
+      "scenarios": {
+        "authorization_denial": "OC23: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC23: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC23: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Runaccessibility/responsiveweb andrealnative devicejourneys"
+      },
+      "state": "unqualified",
+      "title": "Accessible web and native release testing"
+    },
+    {
+      "id": "OC24",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L29",
-        "L30",
-        "L31",
+        "L03",
+        "L25",
         "L32",
-        "L49"
+        "L38",
+        "L40",
+        "L47"
       ],
       "prerequisites": [
         {
-          "id": "OC23:integrated_services",
+          "id": "OC24:integrated_services",
           "kind": "service",
-          "owner": "L29",
+          "owner": "L03",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "OC23:native_devices",
-          "kind": "device",
-          "owner": "L32",
-          "remediation": "Physical signed iOS/Android accessibility and wallet journeys"
+          "id": "OC24:vendor_licensing",
+          "kind": "vendor",
+          "owner": "L47",
+          "remediation": "Accept signed chain125 support and licensing evidence for every enabled vendor"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Runaccessibility/responsiveweb andrealnative devicejourneys",
-        "authorization_denial": "OC23: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC23: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC23: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L25",
         "L26",
@@ -1963,8 +1985,6 @@
         "L49",
         "L50"
       ],
-      "id": "OC24",
-      "title": "Vendor chain support and licensing gates",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -2116,45 +2136,35 @@
         "D16_086",
         "D16_087"
       ],
+      "scenarios": {
+        "authorization_denial": "OC24: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC24: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC24: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Verifyvendorchain125support/licensing beforecapabilityenablement"
+      },
+      "state": "unqualified",
+      "title": "Vendor chain support and licensing gates"
+    },
+    {
+      "id": "OC25",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L03",
-        "L25",
-        "L32",
-        "L38",
-        "L40",
-        "L47"
+        "L49",
+        "L50"
       ],
       "prerequisites": [
         {
-          "id": "OC24:integrated_services",
+          "id": "OC25:integrated_services",
           "kind": "service",
-          "owner": "L03",
+          "owner": "L49",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "OC24:vendor_licensing",
-          "kind": "vendor",
-          "owner": "L47",
-          "remediation": "Accept signed chain125 support and licensing evidence for every enabled vendor"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Verifyvendorchain125support/licensing beforecapabilityenablement",
-        "authorization_denial": "OC24: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC24: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC24: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L48",
         "L49",
         "L50"
       ],
-      "id": "OC25",
-      "title": "Full feature coverage and independent qualification",
       "requirements": [
         "D16_001",
         "D16_002",
@@ -2244,28 +2254,37 @@
         "D16_086",
         "D16_087"
       ],
+      "scenarios": {
+        "authorization_denial": "OC25: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "OC25: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "OC25: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Joinall55featureevidence andindependentreview withunresolvedblockers"
+      },
+      "state": "unqualified",
+      "title": "Full feature coverage and independent qualification"
+    },
+    {
+      "id": "PF01",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L49",
-        "L50"
+        "L27",
+        "L39",
+        "L41"
       ],
       "prerequisites": [
         {
-          "id": "OC25:integrated_services",
+          "id": "PF01:integrated_services",
           "kind": "service",
-          "owner": "L49",
+          "owner": "L27",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF01:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Joinall55featureevidence andindependentreview withunresolvedblockers",
-        "authorization_denial": "OC25: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "OC25: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "OC25: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L25",
         "L26",
@@ -2276,8 +2295,6 @@
         "L41",
         "L50"
       ],
-      "id": "PF01",
-      "title": "Launch composition",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -2343,43 +2360,42 @@
         "D13_030",
         "D16_031"
       ],
+      "scenarios": {
+        "authorization_denial": "PF01: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF01: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF01: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Create metadata withimage/video/banner/socialfields andactivatepool usingoneUSDLfee"
+      },
+      "state": "unqualified",
+      "title": "Launch composition"
+    },
+    {
+      "id": "PF02",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
         "L27",
-        "L39",
-        "L41"
+        "L20"
       ],
       "prerequisites": [
         {
-          "id": "PF01:integrated_services",
+          "id": "PF02:integrated_services",
           "kind": "service",
           "owner": "L27",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF01:accepted_registry",
+          "id": "PF02:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Create metadata withimage/video/banner/socialfields andactivatepool usingoneUSDLfee",
-        "authorization_denial": "PF01: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF01: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF01: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
         "L21",
         "L50"
       ],
-      "id": "PF02",
-      "title": "Lifecycle and search visibility",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -2415,42 +2431,37 @@
         "D07_032",
         "D16_032"
       ],
+      "scenarios": {
+        "authorization_denial": "PF02: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF02: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF02: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Launchpool andconfirmsearchvisibility withoutgraduation/fundraisingtargetmigration"
+      },
+      "state": "unqualified",
+      "title": "Lifecycle and search visibility"
+    },
+    {
+      "id": "PF03",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L27",
-        "L20"
+        "L19",
+        "L20",
+        "L30"
       ],
       "prerequisites": [
         {
-          "id": "PF02:integrated_services",
+          "id": "PF03:integrated_services",
           "kind": "service",
-          "owner": "L27",
+          "owner": "L19",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF02:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Launchpool andconfirmsearchvisibility withoutgraduation/fundraisingtargetmigration",
-        "authorization_denial": "PF02: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF02: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF02: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
         "L21",
         "L50"
       ],
-      "id": "PF03",
-      "title": "Discovery and rankings",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -2486,37 +2497,37 @@
         "D07_032",
         "D16_033"
       ],
+      "scenarios": {
+        "authorization_denial": "PF03: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF03: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF03: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Createknownvolume/agepools andassertdiscoverypagination/order"
+      },
+      "state": "unqualified",
+      "title": "Discovery and rankings"
+    },
+    {
+      "id": "PF04",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L19",
-        "L20",
-        "L30"
+        "L21",
+        "L37",
+        "L38"
       ],
       "prerequisites": [
         {
-          "id": "PF03:integrated_services",
+          "id": "PF04:integrated_services",
           "kind": "service",
-          "owner": "L19",
+          "owner": "L21",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Createknownvolume/agepools andassertdiscoverypagination/order",
-        "authorization_denial": "PF03: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF03: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF03: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
         "L21",
         "L50"
       ],
-      "id": "PF04",
-      "title": "Narrative feed",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -2552,30 +2563,43 @@
         "D07_032",
         "D16_034"
       ],
+      "scenarios": {
+        "authorization_denial": "PF04: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF04: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF04: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Publish/edit/moderatenarrative andassertreaderrevisionconvergence"
+      },
+      "state": "unqualified",
+      "title": "Narrative feed"
+    },
+    {
+      "id": "PF05",
+      "inherited_dependency_ids": [
+        "C07"
+      ],
       "owner_lanes": [
-        "L21",
-        "L37",
-        "L38"
+        "L26",
+        "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF04:integrated_services",
+          "id": "PF05:integrated_services",
           "kind": "service",
-          "owner": "L21",
+          "owner": "L26",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF05:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+        },
+        {
+          "id": "PF05:C07",
+          "kind": "contract",
+          "owner": "L26",
+          "remediation": "Verify codehash-specific optical hook quote adapters and wallet-context simulation; unknown optical quotes stay unavailable"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Publish/edit/moderatenarrative andassertreaderrevisionconvergence",
-        "authorization_denial": "PF04: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF04: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF04: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C07"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -2584,8 +2608,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF05",
-      "title": "Basic trading",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -2621,40 +2643,39 @@
         "D09_032",
         "D16_035"
       ],
+      "scenarios": {
+        "authorization_denial": "PF05: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF05: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF05: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Approveexactallowance thenbuy/sell andcomparecontractreceiptamounts"
+      },
+      "state": "unqualified",
+      "title": "Basic trading"
+    },
+    {
+      "id": "PF06",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L26",
-        "L03"
+        "L10",
+        "L11",
+        "L12",
+        "L13",
+        "L30"
       ],
       "prerequisites": [
         {
-          "id": "PF05:integrated_services",
+          "id": "PF06:integrated_services",
           "kind": "service",
-          "owner": "L26",
+          "owner": "L10",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF05:accepted_registry",
+          "id": "PF06:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
-        },
-        {
-          "id": "PF05:C07",
-          "kind": "contract",
-          "owner": "L26",
-          "remediation": "Verify codehash-specific optical hook quote adapters and wallet-context simulation; unknown optical quotes stay unavailable"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Approveexactallowance thenbuy/sell andcomparecontractreceiptamounts",
-        "authorization_denial": "PF05: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF05: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF05: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L10",
         "L11",
@@ -2664,8 +2685,6 @@
         "L15",
         "L50"
       ],
-      "id": "PF06",
-      "title": "Charts and market facts",
       "requirements": [
         "D04_001",
         "D04_002",
@@ -2730,38 +2749,45 @@
         "D05_031",
         "D16_036"
       ],
+      "scenarios": {
+        "authorization_denial": "PF06: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF06: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF06: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Replayboundaryfills andassert7intervalOHLCV andmarketfacts"
+      },
+      "state": "unqualified",
+      "title": "Charts and market facts"
+    },
+    {
+      "id": "PF07",
+      "inherited_dependency_ids": [
+        "C07"
+      ],
       "owner_lanes": [
-        "L10",
-        "L11",
-        "L12",
-        "L13",
+        "L26",
+        "L28",
+        "L29",
         "L30"
       ],
       "prerequisites": [
         {
-          "id": "PF06:integrated_services",
+          "id": "PF07:integrated_services",
           "kind": "service",
-          "owner": "L10",
+          "owner": "L26",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF06:accepted_registry",
+          "id": "PF07:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+        },
+        {
+          "id": "PF07:C07",
+          "kind": "contract",
+          "owner": "L26",
+          "remediation": "Verify codehash-specific optical hook quote adapters and wallet-context simulation; unknown optical quotes stay unavailable"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Replayboundaryfills andassert7intervalOHLCV andmarketfacts",
-        "authorization_denial": "PF06: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF06: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF06: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C07"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -2774,8 +2800,6 @@
         "L32",
         "L50"
       ],
-      "id": "PF07",
-      "title": "Advanced terminal",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -2847,43 +2871,43 @@
         "D10_036",
         "D16_037"
       ],
+      "scenarios": {
+        "authorization_denial": "PF07: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF07: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF07: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Operateadvancedterminal keyboard/mobile andpreservepoolduringrecovery"
+      },
+      "state": "unqualified",
+      "title": "Advanced terminal"
+    },
+    {
+      "id": "PF08",
+      "inherited_dependency_ids": [
+        "C03"
+      ],
       "owner_lanes": [
-        "L26",
         "L28",
-        "L29",
-        "L30"
+        "L47"
       ],
       "prerequisites": [
         {
-          "id": "PF07:integrated_services",
+          "id": "PF08:integrated_services",
           "kind": "service",
-          "owner": "L26",
+          "owner": "L28",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF07:accepted_registry",
+          "id": "PF08:C03",
           "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+          "owner": "L28",
+          "remediation": "Accept current PECOR executor and conditional order authority"
         },
         {
-          "id": "PF07:C07",
+          "id": "PF08:pecor_executor",
           "kind": "contract",
-          "owner": "L26",
-          "remediation": "Verify codehash-specific optical hook quote adapters and wallet-context simulation; unknown optical quotes stay unavailable"
+          "owner": "L28",
+          "remediation": "Accept executor deployment and exact supported order semantics"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Operateadvancedterminal keyboard/mobile andpreservepoolduringrecovery",
-        "authorization_denial": "PF07: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF07: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF07: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C03"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -2892,8 +2916,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF08",
-      "title": "Conditional orders",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -2929,48 +2951,36 @@
         "D09_032",
         "D16_038"
       ],
+      "scenarios": {
+        "authorization_denial": "PF08: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF08: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF08: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Create/cancel/triggerconditionalorder withsupportedexecutor only"
+      },
+      "state": "unqualified",
+      "title": "Conditional orders"
+    },
+    {
+      "id": "PF09",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L28",
-        "L47"
+        "L35",
+        "L31"
       ],
       "prerequisites": [
         {
-          "id": "PF08:integrated_services",
+          "id": "PF09:integrated_services",
           "kind": "service",
-          "owner": "L28",
+          "owner": "L35",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF08:C03",
-          "kind": "contract",
-          "owner": "L28",
-          "remediation": "Accept current PECOR executor and conditional order authority"
-        },
-        {
-          "id": "PF08:pecor_executor",
-          "kind": "contract",
-          "owner": "L28",
-          "remediation": "Accept executor deployment and exact supported order semantics"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Create/cancel/triggerconditionalorder withsupportedexecutor only",
-        "authorization_denial": "PF08: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF08: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF08: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L33",
         "L34",
         "L35",
         "L50"
       ],
-      "id": "PF09",
-      "title": "Watchlists",
       "requirements": [
         "D11_001",
         "D11_002",
@@ -3004,28 +3014,43 @@
         "D11_030",
         "D16_039"
       ],
+      "scenarios": {
+        "authorization_denial": "PF09: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF09: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF09: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Add/remove/reorderwatchlist across2devices andreconnect"
+      },
+      "state": "unqualified",
+      "title": "Watchlists"
+    },
+    {
+      "id": "PF10",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L35",
-        "L31"
+        "L21",
+        "L32",
+        "L35"
       ],
       "prerequisites": [
         {
-          "id": "PF09:integrated_services",
+          "id": "PF10:integrated_services",
           "kind": "service",
-          "owner": "L35",
+          "owner": "L21",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF10:push_email",
+          "kind": "vendor",
+          "owner": "L21",
+          "remediation": "Verify actual provider delivery/revocation and platform credentials"
+        },
+        {
+          "id": "PF10:native_devices",
+          "kind": "device",
+          "owner": "L32",
+          "remediation": "Run signed iOS and Android device journeys"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Add/remove/reorderwatchlist across2devices andreconnect",
-        "authorization_denial": "PF09: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF09: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF09: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
@@ -3035,8 +3060,6 @@
         "L35",
         "L50"
       ],
-      "id": "PF10",
-      "title": "Alerts and notification preferences",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -3102,41 +3125,38 @@
         "D11_030",
         "D16_040"
       ],
+      "scenarios": {
+        "authorization_denial": "PF10: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF10: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF10: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Triggerpricealert once andverifyrealpush/emailpreferences andrevocation"
+      },
+      "state": "unqualified",
+      "title": "Alerts and notification preferences"
+    },
+    {
+      "id": "PF11",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L21",
-        "L32",
-        "L35"
+        "L14",
+        "L16",
+        "L17",
+        "L31"
       ],
       "prerequisites": [
         {
-          "id": "PF10:integrated_services",
+          "id": "PF11:integrated_services",
           "kind": "service",
-          "owner": "L21",
+          "owner": "L14",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF10:push_email",
-          "kind": "vendor",
-          "owner": "L21",
-          "remediation": "Verify actual provider delivery/revocation and platform credentials"
-        },
-        {
-          "id": "PF10:native_devices",
-          "kind": "device",
-          "owner": "L32",
-          "remediation": "Run signed iOS and Android device journeys"
+          "id": "PF11:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Triggerpricealert once andverifyrealpush/emailpreferences andrevocation",
-        "authorization_denial": "PF10: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF10: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF10: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L16",
         "L17",
@@ -3147,8 +3167,6 @@
         "L32",
         "L50"
       ],
-      "id": "PF11",
-      "title": "Portfolio and PnL",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -3220,44 +3238,36 @@
         "D10_036",
         "D16_041"
       ],
+      "scenarios": {
+        "authorization_denial": "PF11: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF11: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF11: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Buy/sell/transfer/rebuy andassertindependentcostbasisledger"
+      },
+      "state": "unqualified",
+      "title": "Portfolio and PnL"
+    },
+    {
+      "id": "PF12",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L14",
-        "L16",
-        "L17",
-        "L31"
+        "L19",
+        "L21"
       ],
       "prerequisites": [
         {
-          "id": "PF11:integrated_services",
+          "id": "PF12:integrated_services",
           "kind": "service",
-          "owner": "L14",
+          "owner": "L19",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF11:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Buy/sell/transfer/rebuy andassertindependentcostbasisledger",
-        "authorization_denial": "PF11: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF11: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF11: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L19",
         "L20",
         "L21",
         "L50"
       ],
-      "id": "PF12",
-      "title": "Leaderboards and squads",
       "requirements": [
         "D07_001",
         "D07_002",
@@ -3293,28 +3303,31 @@
         "D07_032",
         "D16_042"
       ],
+      "scenarios": {
+        "authorization_denial": "PF12: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF12: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF12: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Create squad andleaderboardties/periods withmanipulationdisclosure"
+      },
+      "state": "unqualified",
+      "title": "Leaderboards and squads"
+    },
+    {
+      "id": "PF13",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L19",
-        "L21"
+        "L33",
+        "L35",
+        "L37"
       ],
       "prerequisites": [
         {
-          "id": "PF12:integrated_services",
+          "id": "PF13:integrated_services",
           "kind": "service",
-          "owner": "L19",
+          "owner": "L33",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Create squad andleaderboardties/periods withmanipulationdisclosure",
-        "authorization_denial": "PF12: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF12: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF12: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L33",
         "L34",
@@ -3324,8 +3337,6 @@
         "L38",
         "L50"
       ],
-      "id": "PF13",
-      "title": "Profiles, follows and callouts",
       "requirements": [
         "D11_001",
         "D11_002",
@@ -3391,30 +3402,43 @@
         "D12_032",
         "D16_043"
       ],
+      "scenarios": {
+        "authorization_denial": "PF13: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF13: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF13: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Editprofile follow/unfollow/callout withidentitypermissions"
+      },
+      "state": "unqualified",
+      "title": "Profiles, follows and callouts"
+    },
+    {
+      "id": "PF14",
+      "inherited_dependency_ids": [
+        "C04"
+      ],
       "owner_lanes": [
-        "L33",
-        "L35",
-        "L37"
+        "L18",
+        "L31"
       ],
       "prerequisites": [
         {
-          "id": "PF13:integrated_services",
+          "id": "PF14:integrated_services",
           "kind": "service",
-          "owner": "L33",
+          "owner": "L18",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF14:C04",
+          "kind": "contract",
+          "owner": "L18",
+          "remediation": "Verify authorized funded cashback/reward settlement"
+        },
+        {
+          "id": "PF14:referral_settlement",
+          "kind": "contract",
+          "owner": "L18",
+          "remediation": "Prove authorized funded settlement and reconcile actual receipts"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Editprofile follow/unfollow/callout withidentitypermissions",
-        "authorization_denial": "PF13: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF13: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF13: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C04"
       ],
       "requirement_owner_lanes": [
         "L16",
@@ -3422,8 +3446,6 @@
         "L18",
         "L50"
       ],
-      "id": "PF14",
-      "title": "Referrals and terminal cashback",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -3459,48 +3481,49 @@
         "D06_032",
         "D16_044"
       ],
+      "scenarios": {
+        "authorization_denial": "PF14: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF14: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF14: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Attribute referral/cashback and reconcile supportedsettlementreceipts"
+      },
+      "state": "unqualified",
+      "title": "Referrals and terminal cashback"
+    },
+    {
+      "id": "PF15",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
         "L18",
-        "L31"
+        "L27",
+        "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF14:integrated_services",
+          "id": "PF15:integrated_services",
           "kind": "service",
           "owner": "L18",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF14:C04",
+          "id": "PF15:accepted_registry",
           "kind": "contract",
-          "owner": "L18",
-          "remediation": "Verify authorized funded cashback/reward settlement"
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         },
         {
-          "id": "PF14:referral_settlement",
+          "id": "PF15:creator_authority",
           "kind": "contract",
           "owner": "L18",
-          "remediation": "Prove authorized funded settlement and reconcile actual receipts"
+          "remediation": "Verify current ownership and allowed fee-sharing/CTO transitions"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Attribute referral/cashback and reconcile supportedsettlementreceipts",
-        "authorization_denial": "PF14: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF14: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF14: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L16",
         "L17",
         "L18",
         "L50"
       ],
-      "id": "PF15",
-      "title": "Creator fees, sharing and CTO",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -3536,42 +3559,43 @@
         "D06_032",
         "D16_045"
       ],
+      "scenarios": {
+        "authorization_denial": "PF15: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF15: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF15: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Changecreatorfee/sharing/CTO onlywithsupportedcontractauthority"
+      },
+      "state": "unqualified",
+      "title": "Creator fees, sharing and CTO"
+    },
+    {
+      "id": "PF16",
+      "inherited_dependency_ids": [
+        "C04"
+      ],
       "owner_lanes": [
         "L18",
-        "L27",
         "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF15:integrated_services",
+          "id": "PF16:integrated_services",
           "kind": "service",
           "owner": "L18",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF15:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
-        },
-        {
-          "id": "PF15:creator_authority",
+          "id": "PF16:C04",
           "kind": "contract",
           "owner": "L18",
-          "remediation": "Verify current ownership and allowed fee-sharing/CTO transitions"
+          "remediation": "Verify authorized funded cashback/reward settlement"
+        },
+        {
+          "id": "PF16:legacy_cashback",
+          "kind": "contract",
+          "owner": "L18",
+          "remediation": "Provide explicitly supported funded legacy cashback authority"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Changecreatorfee/sharing/CTO onlywithsupportedcontractauthority",
-        "authorization_denial": "PF15: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF15: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF15: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C04"
       ],
       "requirement_owner_lanes": [
         "L16",
@@ -3579,8 +3603,6 @@
         "L18",
         "L50"
       ],
-      "id": "PF16",
-      "title": "Legacy cashback coins",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -3616,41 +3638,44 @@
         "D06_032",
         "D16_046"
       ],
+      "scenarios": {
+        "authorization_denial": "PF16: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF16: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF16: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Enablelegacycashback onlyifexplicitly supportedsettlementexists"
+      },
+      "state": "unqualified",
+      "title": "Legacy cashback coins"
+    },
+    {
+      "id": "PF17",
+      "inherited_dependency_ids": [
+        "C04"
+      ],
       "owner_lanes": [
         "L18",
+        "L31",
         "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF16:integrated_services",
+          "id": "PF17:integrated_services",
           "kind": "service",
           "owner": "L18",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF16:C04",
+          "id": "PF17:C04",
           "kind": "contract",
           "owner": "L18",
           "remediation": "Verify authorized funded cashback/reward settlement"
         },
         {
-          "id": "PF16:legacy_cashback",
+          "id": "PF17:reward_escrow",
           "kind": "contract",
           "owner": "L18",
-          "remediation": "Provide explicitly supported funded legacy cashback authority"
+          "remediation": "Prove authorized funding/liability and payment reconciliation"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Enablelegacycashback onlyifexplicitly supportedsettlementexists",
-        "authorization_denial": "PF16: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF16: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF16: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C04"
       ],
       "requirement_owner_lanes": [
         "L16",
@@ -3658,8 +3683,6 @@
         "L18",
         "L50"
       ],
-      "id": "PF17",
-      "title": "Holder rewards",
       "requirements": [
         "D06_001",
         "D06_002",
@@ -3695,41 +3718,36 @@
         "D06_032",
         "D16_047"
       ],
+      "scenarios": {
+        "authorization_denial": "PF17: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF17: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF17: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Accrueholderrewards and reconcile authorizedliability/payments"
+      },
+      "state": "unqualified",
+      "title": "Holder rewards"
+    },
+    {
+      "id": "PF18",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L18",
-        "L31",
+        "L26",
         "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF17:integrated_services",
+          "id": "PF18:integrated_services",
           "kind": "service",
-          "owner": "L18",
+          "owner": "L26",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF17:C04",
+          "id": "PF18:accepted_registry",
           "kind": "contract",
-          "owner": "L18",
-          "remediation": "Verify authorized funded cashback/reward settlement"
-        },
-        {
-          "id": "PF17:reward_escrow",
-          "kind": "contract",
-          "owner": "L18",
-          "remediation": "Prove authorized funding/liability and payment reconciliation"
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Accrueholderrewards and reconcile authorizedliability/payments",
-        "authorization_denial": "PF17: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF17: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF17: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L01",
         "L02",
@@ -3740,8 +3758,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF18",
-      "title": "Quotes and fees",
       "requirements": [
         "D01_001",
         "D01_002",
@@ -3808,35 +3824,43 @@
         "D09_032",
         "D16_048"
       ],
+      "scenarios": {
+        "authorization_denial": "PF18: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF18: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF18: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Comparequote/slippage/expiry andPAXgas separatelyfromUSDLfees"
+      },
+      "state": "unqualified",
+      "title": "Quotes and fees"
+    },
+    {
+      "id": "PF19",
+      "inherited_dependency_ids": [
+        "C02"
+      ],
       "owner_lanes": [
-        "L26",
+        "L28",
         "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF18:integrated_services",
+          "id": "PF19:integrated_services",
           "kind": "service",
-          "owner": "L26",
+          "owner": "L28",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF18:accepted_registry",
+          "id": "PF19:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+        },
+        {
+          "id": "PF19:C02",
+          "kind": "contract",
+          "owner": "L28",
+          "remediation": "Accept custom pair/route contract support"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Comparequote/slippage/expiry andPAXgas separatelyfromUSDLfees",
-        "authorization_denial": "PF18: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF18: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF18: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C02"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -3845,8 +3869,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF19",
-      "title": "Custom pairs and routes",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -3882,41 +3904,45 @@
         "D09_032",
         "D16_049"
       ],
+      "scenarios": {
+        "authorization_denial": "PF19: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF19: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF19: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Quote custompairs/routes withprovenance andunsupportedtokenrejection"
+      },
+      "state": "unqualified",
+      "title": "Custom pairs and routes"
+    },
+    {
+      "id": "PF20",
+      "inherited_dependency_ids": [
+        "D03"
+      ],
       "owner_lanes": [
-        "L28",
-        "L03"
+        "L25",
+        "L33",
+        "L34",
+        "L32"
       ],
       "prerequisites": [
         {
-          "id": "PF19:integrated_services",
+          "id": "PF20:integrated_services",
           "kind": "service",
-          "owner": "L28",
+          "owner": "L25",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF19:accepted_registry",
+          "id": "PF20:accepted_registry",
           "kind": "contract",
           "owner": "L03",
           "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         },
         {
-          "id": "PF19:C02",
-          "kind": "contract",
-          "owner": "L28",
-          "remediation": "Accept custom pair/route contract support"
+          "id": "PF20:D03",
+          "kind": "service",
+          "owner": "L25",
+          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Quote custompairs/routes withprovenance andunsupportedtokenrejection",
-        "authorization_denial": "PF19: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF19: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF19: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "D03"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -3928,8 +3954,6 @@
         "L35",
         "L50"
       ],
-      "id": "PF20",
-      "title": "Web/mobile authentication with regular Web3 wallets",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -3995,43 +4019,43 @@
         "D11_030",
         "D16_050"
       ],
+      "scenarios": {
+        "authorization_denial": "PF20: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF20: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF20: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Authenticate web/mobile usingdomainboundsingleusechallenge"
+      },
+      "state": "unqualified",
+      "title": "Web/mobile authentication with regular Web3 wallets"
+    },
+    {
+      "id": "PF21",
+      "inherited_dependency_ids": [
+        "D04"
+      ],
       "owner_lanes": [
         "L25",
-        "L33",
-        "L34",
         "L32"
       ],
       "prerequisites": [
         {
-          "id": "PF20:integrated_services",
+          "id": "PF21:integrated_services",
           "kind": "service",
           "owner": "L25",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF20:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
+          "id": "PF21:D04",
+          "kind": "vendor",
+          "owner": "L25",
+          "remediation": "Verify real chain125 funding/withdrawal provider support"
         },
         {
-          "id": "PF20:D03",
-          "kind": "service",
+          "id": "PF21:funding_chain125",
+          "kind": "vendor",
           "owner": "L25",
-          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
+          "remediation": "Establish provider chain125 support and real funding/withdrawal receipts"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Authenticate web/mobile usingdomainboundsingleusechallenge",
-        "authorization_denial": "PF20: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF20: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF20: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "D04"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -4040,8 +4064,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF21",
-      "title": "Funding and withdrawal",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -4077,41 +4099,43 @@
         "D09_032",
         "D16_051"
       ],
+      "scenarios": {
+        "authorization_denial": "PF21: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF21: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF21: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Fund/withdraw onchain125 throughreal supportedvendorflow"
+      },
+      "state": "unqualified",
+      "title": "Funding and withdrawal"
+    },
+    {
+      "id": "PF22",
+      "inherited_dependency_ids": [
+        "D03"
+      ],
       "owner_lanes": [
         "L25",
-        "L32"
+        "L35"
       ],
       "prerequisites": [
         {
-          "id": "PF21:integrated_services",
+          "id": "PF22:integrated_services",
           "kind": "service",
           "owner": "L25",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF21:D04",
-          "kind": "vendor",
-          "owner": "L25",
-          "remediation": "Verify real chain125 funding/withdrawal provider support"
+          "id": "PF22:accepted_registry",
+          "kind": "contract",
+          "owner": "L03",
+          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
         },
         {
-          "id": "PF21:funding_chain125",
-          "kind": "vendor",
+          "id": "PF22:D03",
+          "kind": "service",
           "owner": "L25",
-          "remediation": "Establish provider chain125 support and real funding/withdrawal receipts"
+          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Fund/withdraw onchain125 throughreal supportedvendorflow",
-        "authorization_denial": "PF21: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF21: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF21: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "D03"
       ],
       "requirement_owner_lanes": [
         "L25",
@@ -4120,8 +4144,6 @@
         "L28",
         "L50"
       ],
-      "id": "PF22",
-      "title": "Wallet portability/settings",
       "requirements": [
         "D09_001",
         "D09_002",
@@ -4157,48 +4179,37 @@
         "D09_032",
         "D16_052"
       ],
+      "scenarios": {
+        "authorization_denial": "PF22: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF22: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF22: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Export/importwalletportability andsettings withoutserversecretlogs"
+      },
+      "state": "unqualified",
+      "title": "Wallet portability/settings"
+    },
+    {
+      "id": "PF23",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L25",
-        "L35"
+        "L33",
+        "L35",
+        "L39"
       ],
       "prerequisites": [
         {
-          "id": "PF22:integrated_services",
+          "id": "PF23:integrated_services",
           "kind": "service",
-          "owner": "L25",
+          "owner": "L33",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF22:accepted_registry",
-          "kind": "contract",
-          "owner": "L03",
-          "remediation": "Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate"
-        },
-        {
-          "id": "PF22:D03",
-          "kind": "service",
-          "owner": "L25",
-          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Export/importwalletportability andsettings withoutserversecretlogs",
-        "authorization_denial": "PF22: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF22: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF22: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L33",
         "L34",
         "L35",
         "L50"
       ],
-      "id": "PF23",
-      "title": "Account deletion",
       "requirements": [
         "D11_001",
         "D11_002",
@@ -4232,31 +4243,50 @@
         "D11_030",
         "D16_053"
       ],
-      "owner_lanes": [
-        "L33",
-        "L35",
-        "L39"
-      ],
-      "prerequisites": [
-        {
-          "id": "PF23:integrated_services",
-          "kind": "service",
-          "owner": "L33",
-          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        }
-      ],
-      "state": "unqualified",
       "scenarios": {
-        "success": "Deleteaccount revokesessions andverify personaldatapolicy",
         "authorization_denial": "PF23: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
         "dependency_outage": "PF23: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF23: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
+        "reconnect_retry": "PF23: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Deleteaccount revokesessions andverify personaldatapolicy"
+      },
+      "state": "unqualified",
+      "title": "Account deletion"
     },
     {
+      "id": "PF24",
       "inherited_dependency_ids": [
         "D03",
         "D05"
+      ],
+      "owner_lanes": [
+        "L32",
+        "L25"
+      ],
+      "prerequisites": [
+        {
+          "id": "PF24:integrated_services",
+          "kind": "service",
+          "owner": "L32",
+          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF24:D03",
+          "kind": "service",
+          "owner": "L25",
+          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
+        },
+        {
+          "id": "PF24:D05",
+          "kind": "vendor",
+          "owner": "L40",
+          "remediation": "Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38"
+        },
+        {
+          "id": "PF24:native_devices",
+          "kind": "device",
+          "owner": "L32",
+          "remediation": "Install signed candidates on physical iOS and Android and verify push/deep links"
+        }
       ],
       "requirement_owner_lanes": [
         "L29",
@@ -4265,8 +4295,6 @@
         "L32",
         "L50"
       ],
-      "id": "PF24",
-      "title": "Native mobile",
       "requirements": [
         "D10_001",
         "D10_002",
@@ -4306,54 +4334,36 @@
         "D10_036",
         "D16_054"
       ],
+      "scenarios": {
+        "authorization_denial": "PF24: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF24: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF24: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Installnativecandidate andtestpush/deeplinks/auth/trade onrealdevices"
+      },
+      "state": "unqualified",
+      "title": "Native mobile"
+    },
+    {
+      "id": "PF25",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
-        "L32",
-        "L25"
+        "L40",
+        "L30"
       ],
       "prerequisites": [
         {
-          "id": "PF24:integrated_services",
+          "id": "PF25:integrated_services",
           "kind": "service",
-          "owner": "L32",
-          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF24:D03",
-          "kind": "service",
-          "owner": "L25",
-          "remediation": "Verify regular external Web3 wallet signing/linking without hosted custody; legacy embedded provider is superseded"
-        },
-        {
-          "id": "PF24:D05",
-          "kind": "vendor",
           "owner": "L40",
-          "remediation": "Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38"
-        },
-        {
-          "id": "PF24:native_devices",
-          "kind": "device",
-          "owner": "L32",
-          "remediation": "Install signed candidates on physical iOS and Android and verify push/deep links"
+          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Installnativecandidate andtestpush/deeplinks/auth/trade onrealdevices",
-        "authorization_denial": "PF24: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF24: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF24: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L39",
         "L40",
         "L41",
         "L50"
       ],
-      "id": "PF25",
-      "title": "Live stream discovery",
       "requirements": [
         "D13_001",
         "D13_002",
@@ -4387,29 +4397,43 @@
         "D13_030",
         "D16_055"
       ],
+      "scenarios": {
+        "authorization_denial": "PF25: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF25: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF25: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Discoverlive/offlinestreams andmoderationstatus withoutstreamkeyleak"
+      },
+      "state": "unqualified",
+      "title": "Live stream discovery"
+    },
+    {
+      "id": "PF26",
+      "inherited_dependency_ids": [
+        "D05"
+      ],
       "owner_lanes": [
         "L40",
-        "L30"
+        "L41"
       ],
       "prerequisites": [
         {
-          "id": "PF25:integrated_services",
+          "id": "PF26:integrated_services",
           "kind": "service",
           "owner": "L40",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
+        },
+        {
+          "id": "PF26:D05",
+          "kind": "vendor",
+          "owner": "L40",
+          "remediation": "Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38"
+        },
+        {
+          "id": "PF26:broadcast_provider",
+          "kind": "vendor",
+          "owner": "L40",
+          "remediation": "Prove real ingest/CDN playback, licensing, credentials and reconnect"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Discoverlive/offlinestreams andmoderationstatus withoutstreamkeyleak",
-        "authorization_denial": "PF25: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF25: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF25: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "D05"
       ],
       "requirement_owner_lanes": [
         "L39",
@@ -4417,8 +4441,6 @@
         "L41",
         "L50"
       ],
-      "id": "PF26",
-      "title": "Broadcast ingest and playback",
       "requirements": [
         "D13_001",
         "D13_002",
@@ -4452,41 +4474,43 @@
         "D13_030",
         "D16_056"
       ],
+      "scenarios": {
+        "authorization_denial": "PF26: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF26: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF26: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Broadcastrealprovideringest andmanagedCDNplayback withreconnect"
+      },
+      "state": "unqualified",
+      "title": "Broadcast ingest and playback"
+    },
+    {
+      "id": "PF27",
+      "inherited_dependency_ids": [
+        "D05"
+      ],
       "owner_lanes": [
-        "L40",
-        "L41"
+        "L36",
+        "L38"
       ],
       "prerequisites": [
         {
-          "id": "PF26:integrated_services",
+          "id": "PF27:integrated_services",
           "kind": "service",
-          "owner": "L40",
+          "owner": "L36",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF26:D05",
+          "id": "PF27:D05",
           "kind": "vendor",
           "owner": "L40",
           "remediation": "Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38"
         },
         {
-          "id": "PF26:broadcast_provider",
+          "id": "PF27:voice_provider",
           "kind": "vendor",
-          "owner": "L40",
-          "remediation": "Prove real ingest/CDN playback, licensing, credentials and reconnect"
+          "owner": "L38",
+          "remediation": "Verify managed voice membership, moderation and revocation"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Broadcastrealprovideringest andmanagedCDNplayback withreconnect",
-        "authorization_denial": "PF26: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF26: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF26: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "D05"
       ],
       "requirement_owner_lanes": [
         "L36",
@@ -4494,8 +4518,6 @@
         "L38",
         "L50"
       ],
-      "id": "PF27",
-      "title": "Community moderation and voice",
       "requirements": [
         "D12_001",
         "D12_002",
@@ -4531,41 +4553,43 @@
         "D12_032",
         "D16_057"
       ],
+      "scenarios": {
+        "authorization_denial": "PF27: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF27: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF27: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Report/moderatecontent andjoinvoice withrealprovidersupport"
+      },
+      "state": "unqualified",
+      "title": "Community moderation and voice"
+    },
+    {
+      "id": "PF28",
+      "inherited_dependency_ids": [
+        "C05"
+      ],
       "owner_lanes": [
-        "L36",
-        "L38"
+        "L47",
+        "L03"
       ],
       "prerequisites": [
         {
-          "id": "PF27:integrated_services",
+          "id": "PF28:integrated_services",
           "kind": "service",
-          "owner": "L36",
+          "owner": "L47",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF27:D05",
-          "kind": "vendor",
-          "owner": "L40",
-          "remediation": "Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38"
+          "id": "PF28:C05",
+          "kind": "contract",
+          "owner": "L47",
+          "remediation": "Accept funded bounty escrow and dispute settlement"
         },
         {
-          "id": "PF27:voice_provider",
-          "kind": "vendor",
-          "owner": "L38",
-          "remediation": "Verify managed voice membership, moderation and revocation"
+          "id": "PF28:bounty_escrow",
+          "kind": "contract",
+          "owner": "L47",
+          "remediation": "Deploy/accept authorized funded escrow and dispute/settlement semantics"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Report/moderatecontent andjoinvoice withrealprovidersupport",
-        "authorization_denial": "PF27: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF27: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF27: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C05"
       ],
       "requirement_owner_lanes": [
         "L45",
@@ -4573,8 +4597,6 @@
         "L47",
         "L50"
       ],
-      "id": "PF28",
-      "title": "Bounties and submissions",
       "requirements": [
         "D15_001",
         "D15_002",
@@ -4608,41 +4630,43 @@
         "D15_030",
         "D16_058"
       ],
+      "scenarios": {
+        "authorization_denial": "PF28: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF28: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF28: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Createfundedbounty submit/dispute/settle onlywithsupportedescrow"
+      },
+      "state": "unqualified",
+      "title": "Bounties and submissions"
+    },
+    {
+      "id": "PF29",
+      "inherited_dependency_ids": [
+        "C06"
+      ],
       "owner_lanes": [
         "L47",
-        "L03"
+        "L34"
       ],
       "prerequisites": [
         {
-          "id": "PF28:integrated_services",
+          "id": "PF29:integrated_services",
           "kind": "service",
           "owner": "L47",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
         },
         {
-          "id": "PF28:C05",
+          "id": "PF29:C06",
           "kind": "contract",
           "owner": "L47",
-          "remediation": "Accept funded bounty escrow and dispute settlement"
+          "remediation": "Accept bounded automation executor authority"
         },
         {
-          "id": "PF28:bounty_escrow",
+          "id": "PF29:automation_executor",
           "kind": "contract",
           "owner": "L47",
-          "remediation": "Deploy/accept authorized funded escrow and dispute/settlement semantics"
+          "remediation": "Verify executor permissions, disclosed bounds and kill switch"
         }
-      ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Createfundedbounty submit/dispute/settle onlywithsupportedescrow",
-        "authorization_denial": "PF28: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF28: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF28: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [
-        "C06"
       ],
       "requirement_owner_lanes": [
         "L45",
@@ -4650,8 +4674,6 @@
         "L47",
         "L50"
       ],
-      "id": "PF29",
-      "title": "Mayhem agent mode",
       "requirements": [
         "D15_001",
         "D15_002",
@@ -4685,40 +4707,31 @@
         "D15_030",
         "D16_059"
       ],
+      "scenarios": {
+        "authorization_denial": "PF29: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
+        "dependency_outage": "PF29: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
+        "reconnect_retry": "PF29: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Enable disclosedautomationlimits/killswitch andaudit realexecutions"
+      },
+      "state": "unqualified",
+      "title": "Mayhem agent mode"
+    },
+    {
+      "id": "PF30",
+      "inherited_dependency_ids": [],
       "owner_lanes": [
+        "L38",
         "L47",
-        "L34"
+        "L43"
       ],
       "prerequisites": [
         {
-          "id": "PF29:integrated_services",
+          "id": "PF30:integrated_services",
           "kind": "service",
-          "owner": "L47",
+          "owner": "L38",
           "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        },
-        {
-          "id": "PF29:C06",
-          "kind": "contract",
-          "owner": "L47",
-          "remediation": "Accept bounded automation executor authority"
-        },
-        {
-          "id": "PF29:automation_executor",
-          "kind": "contract",
-          "owner": "L47",
-          "remediation": "Verify executor permissions, disclosed bounds and kill switch"
         }
       ],
-      "state": "unqualified",
-      "scenarios": {
-        "success": "Enable disclosedautomationlimits/killswitch andaudit realexecutions",
-        "authorization_denial": "PF29: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
-        "dependency_outage": "PF29: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF29: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
-    },
-    {
-      "inherited_dependency_ids": [],
       "requirement_owner_lanes": [
         "L45",
         "L46",
@@ -4727,8 +4740,6 @@
         "L49",
         "L50"
       ],
-      "id": "PF30",
-      "title": "Support, restrictions and public transparency",
       "requirements": [
         "D15_001",
         "D15_002",
@@ -4848,26 +4859,15 @@
         "D16_086",
         "D16_087"
       ],
-      "owner_lanes": [
-        "L38",
-        "L47",
-        "L43"
-      ],
-      "prerequisites": [
-        {
-          "id": "PF30:integrated_services",
-          "kind": "service",
-          "owner": "L38",
-          "remediation": "Wire actual owned services and execute this feature end to end against the current candidate"
-        }
-      ],
-      "state": "unqualified",
       "scenarios": {
-        "success": "Open supportcase/applyrestriction/appeal withauditablepublicstatus",
         "authorization_denial": "PF30: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect",
         "dependency_outage": "PF30: remove each mandatory dependency; assert explicit unavailable state, no fabricated data/settlement and bounded recovery",
-        "reconnect_retry": "PF30: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance"
-      }
+        "reconnect_retry": "PF30: interrupt and retry the real user journey; reconcile persisted state and authority without duplicate effects or stale revision acceptance",
+        "success": "Open supportcase/applyrestriction/appeal withauditablepublicstatus"
+      },
+      "state": "unqualified",
+      "title": "Support, restrictions and public transparency"
     }
-  ]
+  ],
+  "version": 1
 }

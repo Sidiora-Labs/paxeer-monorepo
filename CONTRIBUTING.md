@@ -36,6 +36,17 @@ A change to planned behavior changes the specification in the same pull request.
 
 Files generated from KVX are not edited by hand: `AGENTS.md`, `CLAUDE.md` and the other IDE rule files are rendered from `spec/workflow.kvx` by `tools/specgen`. `make specgen-lint` checks that they are current.
 
+## Product documentation
+
+Explain behavior, configuration and limits directly. Link tests with labels that
+say what they check. Keep numbered task, decision, gotcha, audit and repair
+history in contributor records rather than product guides. Test filenames may
+remain in code spans and commands so readers can locate and run them.
+
+Specification references belong here and in the
+[reference index](docs/site/docs/reference/index.md). Product guides should link
+the relevant implementation, API contract or user-facing guide instead.
+
 ## Commits
 
 - Sign off every commit (`git commit -s`).
@@ -70,7 +81,7 @@ make specgen-lint      # generated rule files match spec/workflow.kvx
 
 `scripts/ci/layout-check.sh` fails while any file or configuration names a path that has moved. The pre-commit hooks in `.pre-commit-config.yaml` check whitespace, Markdown, YAML, `cargo fmt` and `forge fmt`. Moved trees keep their own targets, such as `make agent-build`, `make human-build` and `make bridge-test-evm`.
 
-`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at the wave or release boundary rather than per task. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
+`make ci`, `make paxeer-ci` and `make monorepo-ci` are aggregate gates; they run at release boundaries rather than on every change. `make ci` includes sanitizer and reproducibility runs. Merged-network acceptance coverage, domain ownership and release qualification are described in the [test plan](spec/layerx-merge/docs/plans/test-plan.md); use the owning specification's declared gates for execution, ledger, replay, recovery and cross-architecture changes.
 
 ## Pull requests
 

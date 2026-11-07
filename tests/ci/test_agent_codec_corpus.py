@@ -72,7 +72,7 @@ def test_retained_eip1559_producer_consumer_conformance():
 
         def do_POST(self):
             try:
-                assert self.path == "/rpc"
+                assert self.path == "/"
                 assert self.headers["Content-Type"] == "application/json"
                 request = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
                 assert set(request) == {"jsonrpc", "id", "method", "params"}
@@ -104,7 +104,7 @@ def test_retained_eip1559_producer_consumer_conformance():
         worker = Thread(target=server.serve_forever, daemon=True)
         worker.start()
         try:
-            client = PaymentRpc(f"http://127.0.0.1:{server.server_port}/rpc")
+            client = PaymentRpc(f"http://127.0.0.1:{server.server_port}/")
             result = client.send("0x" + raw.hex())
             assert result == "0x" + keccak256(raw).hex()
             assert not failures, failures
@@ -194,8 +194,10 @@ def test_agent_vectors_prepare_codec_corpus_from_clean_checkout(tmp_path):
     header.write_text(declarations)
     refused = run("make", "agent-test-vectors")
     assert refused.returncode != 0, refused.stdout
-    assert "unexpected undeclared replay activities: [196616, 196619]" in (
-        refused.stdout
-    ), refused.stdout
+    diagnostic = re.search(
+        r"unexpected undeclared replay activities: \[(\d+)\]", refused.stdout
+    )
+    assert diagnostic is not None, refused.stdout
+    assert int(diagnostic.group(1)) == 0x00030008, refused.stdout
     assert "tools/runtime/run-with-clock.sh" not in refused.stdout, refused.stdout
     assert corpus.read_bytes() == expected

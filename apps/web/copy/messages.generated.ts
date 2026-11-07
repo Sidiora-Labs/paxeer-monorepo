@@ -686,7 +686,7 @@ export const runtimeMessages: readonly (readonly [string, string])[] = [
   ["approval.detail.budget","Budget remaining after"],
   ["verification.unverified","Not verified yet"],
   ["verification.receipt_verified","Verified against its receipt"],
-  ["verification.checkpoint_finalised","Finalised on LayerX"],
+  ["verification.checkpoint_finalised","Finalised in a committed Paxeer block"],
   ["approval.approve.action","Approve"],
   ["approval.reject.action","Reject"],
   ["approval.approve.confirm_title","Approve this request?"],

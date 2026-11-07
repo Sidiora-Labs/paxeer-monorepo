@@ -1,0 +1,11 @@
+[repair.22.35.5]
+decision = 2587
+requirement = "22998.1"
+test_file = "apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+implementation = "Canvas list frames, uppercase 36px headers, compact 44px rows, mono numeric cells, middle-truncated entity hashes with hover and keyboard-focus copy, and semantic mobile lists. Seven token market columns and category chips use the existing token filters and bridged resource."
+api_contract = "Price uses exchange_rate; market cap uses circulating_market_cap; volume uses volume_24h only when present; holders uses holders_count. The current token API has no change field, so changes remain an em dash. Only price, market cap and holders have supported API sorts. No price or market cap is derived for display."
+qualification = "The runner's private /out/run/gates.jsonl gate ledger and /out/logs/build-*.log and /out/logs/verify-*.log record the exact candidate revision, command, exit code and gate result; this record is written before those gates to preserve one candidate for build and verification."
+build_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_cmd = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/tokens/repair-22-35-5.spec.tsx"
+gotchas = "The accounts UI previously lived under ui/addresses; ui/accounts/AccountsList composes those real components. The Bridged chip is disabled unless the existing bridged-tokens feature is enabled. Root GOTCHA.kvx and spec files are outside the user's permitted scope."
+formatting = "Scoped eslint --fix applied repository formatting. /out/logs/format.log also reports pre-existing expect-expect diagnostics in BlocksContent and repair-22-33-532 and a pre-existing skipped Playwright story; the task-mandated declared-function Vitest registration triggers valid-title/expect-expect diagnostics. No lint rule or test is disabled or weakened; lint is not a declared qualification gate."

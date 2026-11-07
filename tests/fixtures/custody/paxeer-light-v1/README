@@ -46,4 +46,6 @@ daemon_terminal_fixture_carries_the_credit_and_maintenance_the_platform_writes
 reads custody.credit and custody.profile and compares them with the corresponding
 tests/fixtures/custody/daemon-light-credit-receipt fixtures.
 
-The Go light-client verifier and its tests were retired by task 1.37.1.
+The Go light-client verifier and its tests are retired. The live reader named
+above checks that the retained credit and profile match the daemon's fixtures;
+it does not reinstate the retired Go verifier.

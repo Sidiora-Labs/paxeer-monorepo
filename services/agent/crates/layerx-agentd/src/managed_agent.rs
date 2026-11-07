@@ -7,9 +7,611 @@ use layerx_types::verify::VerificationLevel;
 use layerx_wire::receipt::decode as decode_receipt;
 use sha2::{Digest, Sha256};
 
-use crate::human::{HumanAgentLifecycleSeed, HumanOperationError, HumanResponse};
+use crate::human::{HumanAgentLifecycleSeed, HumanOperationError, HumanRefusal, HumanResponse};
 use crate::session::{InvalidationReason, RevocationEvent, SessionId, SessionRegistry};
 use crate::store::{key, ObjectKind, StorageClass, Store, TenantId};
+
+/// The managed-agent guard that refused an operation on the Human plane.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum ManagedAgentCheck {
+    CreationRecordShape,
+    StoredBudgetIdentity,
+    StoredRecordShape,
+    CreationRecordConflict,
+    CompanionCreationRecordConflict,
+    TenantRecordKey,
+    TenantRecordStorage,
+    TenantRecordIdentity,
+    BudgetOwnerKey,
+    BudgetOwnerStorage,
+    BudgetOwnerIdentity,
+    BudgetCandidateDigest,
+    BudgetCandidateKey,
+    BudgetCandidateStorage,
+    BudgetCandidateIdentity,
+    BudgetCandidateLookup,
+    AssignedBudgetIdentity,
+    ArchivedState,
+    SessionRecordKey,
+    SessionRecordStorage,
+    SessionLookup,
+    SessionCoordinates,
+    AgentLookup,
+    AgentRecordStorage,
+    NativeOwnerKey,
+    NativeOwnerStorage,
+    NativeOwnerIdentity,
+    NativeOwnerBinding,
+    NativeOwnerCreationEvidence,
+    NativeOwnerEvidenceMembership,
+    ReceiptCodec,
+    ReceiptProtocol,
+    NativeOwnerReceipt,
+    NativeOwnerTransactionKey,
+    NativeOwnerTransactionStorage,
+    OwnerAuthorityCodec,
+    OwnerAuthorityPadding,
+    OwnerAddressCodec,
+    NativeOwnerTransactionBinding,
+    OwnerOutboxRestore,
+    OwnerSignedBytes,
+    OwnerTransactionCodec,
+    OwnerSignature,
+    OwnerTransactionBinding,
+    EvidenceDigest,
+    AgentIdentity,
+    EvidenceMembership,
+    EvidenceInventory,
+    EvidenceLookup,
+    ReceiptEncoding,
+    EvidenceReceiptBinding,
+    ObservationShape,
+    ObservationKey,
+    ObservationConflict,
+    KeyPolicyVerification,
+    BudgetObservationDigest,
+    BudgetObservationKey,
+    BudgetSnapshotCodec,
+    BudgetObservationBinding,
+    BudgetObservationFreshness,
+    KeyPolicyObservationKey,
+    KeyPolicyObservationIdentity,
+    RevocationWindowOverflow,
+    KeyPolicyObservationBinding,
+    SessionObservationKey,
+    SessionObservationBinding,
+    SessionObservationCoordinates,
+    SessionRestore,
+    SessionRestoredCoordinates,
+    ResumeState,
+    SuspendState,
+    LimitRequestShape,
+    LimitState,
+    LifecycleKind,
+    ReclaimObservations,
+    RevocationObservations,
+    RevocationKind,
+    AgentDidCodec,
+    ArchiveObservations,
+    ProtocolGrantIdentity,
+    SessionAction,
+    SessionObservationConflict,
+    SessionObservationLookup,
+    SessionObservationExists,
+    SessionReplacementShape,
+    SessionRestrictionExists,
+    SessionRestrictionResponseLength,
+    SessionRestrictionStorage,
+    SessionRestrictionBinding,
+    SessionRestrictionResponseCodec,
+    SessionRestrictionShape,
+    SessionRestrictionKey,
+    SessionRestrictionRequestShape,
+    SessionRestrictionAgentLength,
+    SessionRestrictionScopeCount,
+    SessionRestrictionScopeLength,
+    SessionRestrictionActivityCount,
+    SessionBindingShape,
+    FinalizationShape,
+    FinalizationReplayBinding,
+    FinalizationReplayCodec,
+    FinalizationTransactionReplay,
+    FinalizationEvidenceLookup,
+    FinalizationReceiptBinding,
+    FinalizationTime,
+    FinalizedEvidenceKey,
+    FinalizedTransactionKey,
+    FinalizedEvidenceLookup,
+    FinalizedEvidenceCodec,
+    FinalizedEvidenceBinding,
+    FinalizedReceiptBinding,
+    AbiWord,
+    AbiIntegerWidth,
+    AbiDynamicOffset,
+    AbiDynamicLength,
+    AbiDynamicBounds,
+    AbiDynamicPadding,
+    ReceiptLogSummary,
+    ReceiptLogCount,
+    ReceiptLogBinding,
+    ProjectedOwnerBinding,
+    LimitAmountBytes,
+    LimitBudgetBytes,
+    ModuleRegistry,
+    BudgetCreateIdentity,
+    BudgetAccountCodec,
+    BudgetAccountHash,
+    BudgetPeriodOverflow,
+    LimitEffectBinding,
+    ResumeCall,
+    SessionGrantCodec,
+    SessionGrantBinding,
+    SessionGrantEncoding,
+    RevokeCall,
+    RevokeSequence,
+    RevokeEncoding,
+    ReclaimAmountBytes,
+    ReclaimCall,
+    ReclaimAmount,
+    RevocationCall,
+    AgentDidHash,
+    RevocationBodyLength,
+    RevocationDelayBytes,
+    RevocationReadyBytes,
+    RevocationEffectBinding,
+    FinalizationActionKey,
+    FinalizationAgentLength,
+    FinalizationOperationLength,
+    AgentPageLimit,
+    AgentPageCursor,
+    AgentPageLength,
+    AgentIdShape,
+    AgentRecordKey,
+    RecordEvidenceCount,
+    RecordVersion,
+    RecordTrailingBytes,
+    WireTextBounds,
+    WireTextLength,
+    ResponseCodec,
+    InputOffsetOverflow,
+    InputBounds,
+    InputFixedWidth,
+    InputTextBounds,
+    InputTextOffsetOverflow,
+    InputTextBytes,
+    InputTextUtf8,
+    InputBytesOffsetOverflow,
+    InputBytesBounds,
+    RecordDigestPrefix,
+    RecordDigestLength,
+    RecordDigestHex,
+    RecordDigestNonzero,
+    CreationContextShape,
+    FixedListLength,
+    IntegerListLength,
+    TextListLength,
+    FixedListCount,
+    IntegerListCount,
+    TextListCount,
+    SessionObservationShape,
+    SessionObservationOpen,
+    SessionObservationDigest,
+    BudgetSnapshotResponse,
+    SessionGenerationOverflow,
+    RevocationDelay,
+    RevocationWindow,
+    ReclaimRequestShape,
+    RevocationRequestShape,
+    ReclaimCurrency,
+    ArchiveConfirmation,
+    KeyPolicySnapshotCodec,
+    KeyPolicySnapshotResponse,
+}
+
+impl ManagedAgentCheck {
+    pub const ALL: &'static [Self] = &[
+        Self::CreationRecordShape,
+        Self::StoredBudgetIdentity,
+        Self::StoredRecordShape,
+        Self::CreationRecordConflict,
+        Self::CompanionCreationRecordConflict,
+        Self::TenantRecordKey,
+        Self::TenantRecordStorage,
+        Self::TenantRecordIdentity,
+        Self::BudgetOwnerKey,
+        Self::BudgetOwnerStorage,
+        Self::BudgetOwnerIdentity,
+        Self::BudgetCandidateDigest,
+        Self::BudgetCandidateKey,
+        Self::BudgetCandidateStorage,
+        Self::BudgetCandidateIdentity,
+        Self::BudgetCandidateLookup,
+        Self::AssignedBudgetIdentity,
+        Self::ArchivedState,
+        Self::SessionRecordKey,
+        Self::SessionRecordStorage,
+        Self::SessionLookup,
+        Self::SessionCoordinates,
+        Self::AgentLookup,
+        Self::AgentRecordStorage,
+        Self::NativeOwnerKey,
+        Self::NativeOwnerStorage,
+        Self::NativeOwnerIdentity,
+        Self::NativeOwnerBinding,
+        Self::NativeOwnerCreationEvidence,
+        Self::NativeOwnerEvidenceMembership,
+        Self::ReceiptCodec,
+        Self::ReceiptProtocol,
+        Self::NativeOwnerReceipt,
+        Self::NativeOwnerTransactionKey,
+        Self::NativeOwnerTransactionStorage,
+        Self::OwnerAuthorityCodec,
+        Self::OwnerAuthorityPadding,
+        Self::OwnerAddressCodec,
+        Self::NativeOwnerTransactionBinding,
+        Self::OwnerOutboxRestore,
+        Self::OwnerSignedBytes,
+        Self::OwnerTransactionCodec,
+        Self::OwnerSignature,
+        Self::OwnerTransactionBinding,
+        Self::EvidenceDigest,
+        Self::AgentIdentity,
+        Self::EvidenceMembership,
+        Self::EvidenceInventory,
+        Self::EvidenceLookup,
+        Self::ReceiptEncoding,
+        Self::EvidenceReceiptBinding,
+        Self::ObservationShape,
+        Self::ObservationKey,
+        Self::ObservationConflict,
+        Self::KeyPolicyVerification,
+        Self::BudgetObservationDigest,
+        Self::BudgetObservationKey,
+        Self::BudgetSnapshotCodec,
+        Self::BudgetObservationBinding,
+        Self::BudgetObservationFreshness,
+        Self::KeyPolicyObservationKey,
+        Self::KeyPolicyObservationIdentity,
+        Self::RevocationWindowOverflow,
+        Self::KeyPolicyObservationBinding,
+        Self::SessionObservationKey,
+        Self::SessionObservationBinding,
+        Self::SessionObservationCoordinates,
+        Self::SessionRestore,
+        Self::SessionRestoredCoordinates,
+        Self::ResumeState,
+        Self::SuspendState,
+        Self::LimitRequestShape,
+        Self::LimitState,
+        Self::LifecycleKind,
+        Self::ReclaimObservations,
+        Self::RevocationObservations,
+        Self::RevocationKind,
+        Self::AgentDidCodec,
+        Self::ArchiveObservations,
+        Self::ProtocolGrantIdentity,
+        Self::SessionAction,
+        Self::SessionObservationConflict,
+        Self::SessionObservationLookup,
+        Self::SessionObservationExists,
+        Self::SessionReplacementShape,
+        Self::SessionRestrictionExists,
+        Self::SessionRestrictionResponseLength,
+        Self::SessionRestrictionStorage,
+        Self::SessionRestrictionBinding,
+        Self::SessionRestrictionResponseCodec,
+        Self::SessionRestrictionShape,
+        Self::SessionRestrictionKey,
+        Self::SessionRestrictionRequestShape,
+        Self::SessionRestrictionAgentLength,
+        Self::SessionRestrictionScopeCount,
+        Self::SessionRestrictionScopeLength,
+        Self::SessionRestrictionActivityCount,
+        Self::SessionBindingShape,
+        Self::FinalizationShape,
+        Self::FinalizationReplayBinding,
+        Self::FinalizationReplayCodec,
+        Self::FinalizationTransactionReplay,
+        Self::FinalizationEvidenceLookup,
+        Self::FinalizationReceiptBinding,
+        Self::FinalizationTime,
+        Self::FinalizedEvidenceKey,
+        Self::FinalizedTransactionKey,
+        Self::FinalizedEvidenceLookup,
+        Self::FinalizedEvidenceCodec,
+        Self::FinalizedEvidenceBinding,
+        Self::FinalizedReceiptBinding,
+        Self::AbiWord,
+        Self::AbiIntegerWidth,
+        Self::AbiDynamicOffset,
+        Self::AbiDynamicLength,
+        Self::AbiDynamicBounds,
+        Self::AbiDynamicPadding,
+        Self::ReceiptLogSummary,
+        Self::ReceiptLogCount,
+        Self::ReceiptLogBinding,
+        Self::ProjectedOwnerBinding,
+        Self::LimitAmountBytes,
+        Self::LimitBudgetBytes,
+        Self::ModuleRegistry,
+        Self::BudgetCreateIdentity,
+        Self::BudgetAccountCodec,
+        Self::BudgetAccountHash,
+        Self::BudgetPeriodOverflow,
+        Self::LimitEffectBinding,
+        Self::ResumeCall,
+        Self::SessionGrantCodec,
+        Self::SessionGrantBinding,
+        Self::SessionGrantEncoding,
+        Self::RevokeCall,
+        Self::RevokeSequence,
+        Self::RevokeEncoding,
+        Self::ReclaimAmountBytes,
+        Self::ReclaimCall,
+        Self::ReclaimAmount,
+        Self::RevocationCall,
+        Self::AgentDidHash,
+        Self::RevocationBodyLength,
+        Self::RevocationDelayBytes,
+        Self::RevocationReadyBytes,
+        Self::RevocationEffectBinding,
+        Self::FinalizationActionKey,
+        Self::FinalizationAgentLength,
+        Self::FinalizationOperationLength,
+        Self::AgentPageLimit,
+        Self::AgentPageCursor,
+        Self::AgentPageLength,
+        Self::AgentIdShape,
+        Self::AgentRecordKey,
+        Self::RecordEvidenceCount,
+        Self::RecordVersion,
+        Self::RecordTrailingBytes,
+        Self::WireTextBounds,
+        Self::WireTextLength,
+        Self::ResponseCodec,
+        Self::InputOffsetOverflow,
+        Self::InputBounds,
+        Self::InputFixedWidth,
+        Self::InputTextBounds,
+        Self::InputTextOffsetOverflow,
+        Self::InputTextBytes,
+        Self::InputTextUtf8,
+        Self::InputBytesOffsetOverflow,
+        Self::InputBytesBounds,
+        Self::RecordDigestPrefix,
+        Self::RecordDigestLength,
+        Self::RecordDigestHex,
+        Self::RecordDigestNonzero,
+        Self::CreationContextShape,
+        Self::FixedListLength,
+        Self::IntegerListLength,
+        Self::TextListLength,
+        Self::FixedListCount,
+        Self::IntegerListCount,
+        Self::TextListCount,
+        Self::SessionObservationShape,
+        Self::SessionObservationOpen,
+        Self::SessionObservationDigest,
+        Self::BudgetSnapshotResponse,
+        Self::SessionGenerationOverflow,
+        Self::RevocationDelay,
+        Self::RevocationWindow,
+        Self::ReclaimRequestShape,
+        Self::RevocationRequestShape,
+        Self::ReclaimCurrency,
+        Self::ArchiveConfirmation,
+        Self::KeyPolicySnapshotCodec,
+        Self::KeyPolicySnapshotResponse,
+    ];
+
+    #[must_use]
+    pub const fn reason(self) -> &'static str {
+        match self {
+            Self::CreationRecordShape => "managed_agent.creation_record_shape",
+            Self::StoredBudgetIdentity => "managed_agent.stored_budget_identity",
+            Self::StoredRecordShape => "managed_agent.stored_record_shape",
+            Self::CreationRecordConflict => "managed_agent.creation_record_conflict",
+            Self::CompanionCreationRecordConflict => {
+                "managed_agent.companion_creation_record_conflict"
+            }
+            Self::TenantRecordKey => "managed_agent.tenant_record_key",
+            Self::TenantRecordStorage => "managed_agent.tenant_record_storage",
+            Self::TenantRecordIdentity => "managed_agent.tenant_record_identity",
+            Self::BudgetOwnerKey => "managed_agent.budget_owner_key",
+            Self::BudgetOwnerStorage => "managed_agent.budget_owner_storage",
+            Self::BudgetOwnerIdentity => "managed_agent.budget_owner_identity",
+            Self::BudgetCandidateDigest => "managed_agent.budget_candidate_digest",
+            Self::BudgetCandidateKey => "managed_agent.budget_candidate_key",
+            Self::BudgetCandidateStorage => "managed_agent.budget_candidate_storage",
+            Self::BudgetCandidateIdentity => "managed_agent.budget_candidate_identity",
+            Self::BudgetCandidateLookup => "managed_agent.budget_candidate_lookup",
+            Self::AssignedBudgetIdentity => "managed_agent.assigned_budget_identity",
+            Self::ArchivedState => "managed_agent.archived_state",
+            Self::SessionRecordKey => "managed_agent.session_record_key",
+            Self::SessionRecordStorage => "managed_agent.session_record_storage",
+            Self::SessionLookup => "managed_agent.session_lookup",
+            Self::SessionCoordinates => "managed_agent.session_coordinates",
+            Self::AgentLookup => "managed_agent.agent_lookup",
+            Self::AgentRecordStorage => "managed_agent.agent_record_storage",
+            Self::NativeOwnerKey => "managed_agent.native_owner_key",
+            Self::NativeOwnerStorage => "managed_agent.native_owner_storage",
+            Self::NativeOwnerIdentity => "managed_agent.native_owner_identity",
+            Self::NativeOwnerBinding => "managed_agent.native_owner_binding",
+            Self::NativeOwnerCreationEvidence => "managed_agent.native_owner_creation_evidence",
+            Self::NativeOwnerEvidenceMembership => "managed_agent.native_owner_evidence_membership",
+            Self::ReceiptCodec => "managed_agent.receipt_codec",
+            Self::ReceiptProtocol => "managed_agent.receipt_protocol",
+            Self::NativeOwnerReceipt => "managed_agent.native_owner_receipt",
+            Self::NativeOwnerTransactionKey => "managed_agent.native_owner_transaction_key",
+            Self::NativeOwnerTransactionStorage => "managed_agent.native_owner_transaction_storage",
+            Self::OwnerAuthorityCodec => "managed_agent.owner_authority_codec",
+            Self::OwnerAuthorityPadding => "managed_agent.owner_authority_padding",
+            Self::OwnerAddressCodec => "managed_agent.owner_address_codec",
+            Self::NativeOwnerTransactionBinding => "managed_agent.native_owner_transaction_binding",
+            Self::OwnerOutboxRestore => "managed_agent.owner_outbox_restore",
+            Self::OwnerSignedBytes => "managed_agent.owner_signed_bytes",
+            Self::OwnerTransactionCodec => "managed_agent.owner_transaction_codec",
+            Self::OwnerSignature => "managed_agent.owner_signature",
+            Self::OwnerTransactionBinding => "managed_agent.owner_transaction_binding",
+            Self::EvidenceDigest => "managed_agent.evidence_digest",
+            Self::AgentIdentity => "managed_agent.agent_identity",
+            Self::EvidenceMembership => "managed_agent.evidence_membership",
+            Self::EvidenceInventory => "managed_agent.evidence_inventory",
+            Self::EvidenceLookup => "managed_agent.evidence_lookup",
+            Self::ReceiptEncoding => "managed_agent.receipt_encoding",
+            Self::EvidenceReceiptBinding => "managed_agent.evidence_receipt_binding",
+            Self::ObservationShape => "managed_agent.observation_shape",
+            Self::ObservationKey => "managed_agent.observation_key",
+            Self::ObservationConflict => "managed_agent.observation_conflict",
+            Self::KeyPolicyVerification => "managed_agent.key_policy_verification",
+            Self::BudgetObservationDigest => "managed_agent.budget_observation_digest",
+            Self::BudgetObservationKey => "managed_agent.budget_observation_key",
+            Self::BudgetSnapshotCodec => "managed_agent.budget_snapshot_codec",
+            Self::BudgetObservationBinding => "managed_agent.budget_observation_binding",
+            Self::BudgetObservationFreshness => "managed_agent.budget_observation_freshness",
+            Self::KeyPolicyObservationKey => "managed_agent.key_policy_observation_key",
+            Self::KeyPolicyObservationIdentity => "managed_agent.key_policy_observation_identity",
+            Self::RevocationWindowOverflow => "managed_agent.revocation_window_overflow",
+            Self::KeyPolicyObservationBinding => "managed_agent.key_policy_observation_binding",
+            Self::SessionObservationKey => "managed_agent.session_observation_key",
+            Self::SessionObservationBinding => "managed_agent.session_observation_binding",
+            Self::SessionObservationCoordinates => "managed_agent.session_observation_coordinates",
+            Self::SessionRestore => "managed_agent.session_restore",
+            Self::SessionRestoredCoordinates => "managed_agent.session_restored_coordinates",
+            Self::ResumeState => "managed_agent.resume_state",
+            Self::SuspendState => "managed_agent.suspend_state",
+            Self::LimitRequestShape => "managed_agent.limit_request_shape",
+            Self::LimitState => "managed_agent.limit_state",
+            Self::LifecycleKind => "managed_agent.lifecycle_kind",
+            Self::ReclaimObservations => "managed_agent.reclaim_observations",
+            Self::RevocationObservations => "managed_agent.revocation_observations",
+            Self::RevocationKind => "managed_agent.revocation_kind",
+            Self::AgentDidCodec => "managed_agent.agent_did_codec",
+            Self::ArchiveObservations => "managed_agent.archive_observations",
+            Self::ProtocolGrantIdentity => "managed_agent.protocol_grant_identity",
+            Self::SessionAction => "managed_agent.session_action",
+            Self::SessionObservationConflict => "managed_agent.session_observation_conflict",
+            Self::SessionObservationLookup => "managed_agent.session_observation_lookup",
+            Self::SessionObservationExists => "managed_agent.session_observation_exists",
+            Self::SessionReplacementShape => "managed_agent.session_replacement_shape",
+            Self::SessionRestrictionExists => "managed_agent.session_restriction_exists",
+            Self::SessionRestrictionResponseLength => {
+                "managed_agent.session_restriction_response_length"
+            }
+            Self::SessionRestrictionStorage => "managed_agent.session_restriction_storage",
+            Self::SessionRestrictionBinding => "managed_agent.session_restriction_binding",
+            Self::SessionRestrictionResponseCodec => {
+                "managed_agent.session_restriction_response_codec"
+            }
+            Self::SessionRestrictionShape => "managed_agent.session_restriction_shape",
+            Self::SessionRestrictionKey => "managed_agent.session_restriction_key",
+            Self::SessionRestrictionRequestShape => {
+                "managed_agent.session_restriction_request_shape"
+            }
+            Self::SessionRestrictionAgentLength => "managed_agent.session_restriction_agent_length",
+            Self::SessionRestrictionScopeCount => "managed_agent.session_restriction_scope_count",
+            Self::SessionRestrictionScopeLength => "managed_agent.session_restriction_scope_length",
+            Self::SessionRestrictionActivityCount => {
+                "managed_agent.session_restriction_activity_count"
+            }
+            Self::SessionBindingShape => "managed_agent.session_binding_shape",
+            Self::FinalizationShape => "managed_agent.finalization_shape",
+            Self::FinalizationReplayBinding => "managed_agent.finalization_replay_binding",
+            Self::FinalizationReplayCodec => "managed_agent.finalization_replay_codec",
+            Self::FinalizationTransactionReplay => "managed_agent.finalization_transaction_replay",
+            Self::FinalizationEvidenceLookup => "managed_agent.finalization_evidence_lookup",
+            Self::FinalizationReceiptBinding => "managed_agent.finalization_receipt_binding",
+            Self::FinalizationTime => "managed_agent.finalization_time",
+            Self::FinalizedEvidenceKey => "managed_agent.finalized_evidence_key",
+            Self::FinalizedTransactionKey => "managed_agent.finalized_transaction_key",
+            Self::FinalizedEvidenceLookup => "managed_agent.finalized_evidence_lookup",
+            Self::FinalizedEvidenceCodec => "managed_agent.finalized_evidence_codec",
+            Self::FinalizedEvidenceBinding => "managed_agent.finalized_evidence_binding",
+            Self::FinalizedReceiptBinding => "managed_agent.finalized_receipt_binding",
+            Self::AbiWord => "managed_agent.abi_word",
+            Self::AbiIntegerWidth => "managed_agent.abi_integer_width",
+            Self::AbiDynamicOffset => "managed_agent.abi_dynamic_offset",
+            Self::AbiDynamicLength => "managed_agent.abi_dynamic_length",
+            Self::AbiDynamicBounds => "managed_agent.abi_dynamic_bounds",
+            Self::AbiDynamicPadding => "managed_agent.abi_dynamic_padding",
+            Self::ReceiptLogSummary => "managed_agent.receipt_log_summary",
+            Self::ReceiptLogCount => "managed_agent.receipt_log_count",
+            Self::ReceiptLogBinding => "managed_agent.receipt_log_binding",
+            Self::ProjectedOwnerBinding => "managed_agent.projected_owner_binding",
+            Self::LimitAmountBytes => "managed_agent.limit_amount_bytes",
+            Self::LimitBudgetBytes => "managed_agent.limit_budget_bytes",
+            Self::ModuleRegistry => "managed_agent.module_registry",
+            Self::BudgetCreateIdentity => "managed_agent.budget_create_identity",
+            Self::BudgetAccountCodec => "managed_agent.budget_account_codec",
+            Self::BudgetAccountHash => "managed_agent.budget_account_hash",
+            Self::BudgetPeriodOverflow => "managed_agent.budget_period_overflow",
+            Self::LimitEffectBinding => "managed_agent.limit_effect_binding",
+            Self::ResumeCall => "managed_agent.resume_call",
+            Self::SessionGrantCodec => "managed_agent.session_grant_codec",
+            Self::SessionGrantBinding => "managed_agent.session_grant_binding",
+            Self::SessionGrantEncoding => "managed_agent.session_grant_encoding",
+            Self::RevokeCall => "managed_agent.revoke_call",
+            Self::RevokeSequence => "managed_agent.revoke_sequence",
+            Self::RevokeEncoding => "managed_agent.revoke_encoding",
+            Self::ReclaimAmountBytes => "managed_agent.reclaim_amount_bytes",
+            Self::ReclaimCall => "managed_agent.reclaim_call",
+            Self::ReclaimAmount => "managed_agent.reclaim_amount",
+            Self::RevocationCall => "managed_agent.revocation_call",
+            Self::AgentDidHash => "managed_agent.agent_did_hash",
+            Self::RevocationBodyLength => "managed_agent.revocation_body_length",
+            Self::RevocationDelayBytes => "managed_agent.revocation_delay_bytes",
+            Self::RevocationReadyBytes => "managed_agent.revocation_ready_bytes",
+            Self::RevocationEffectBinding => "managed_agent.revocation_effect_binding",
+            Self::FinalizationActionKey => "managed_agent.finalization_action_key",
+            Self::FinalizationAgentLength => "managed_agent.finalization_agent_length",
+            Self::FinalizationOperationLength => "managed_agent.finalization_operation_length",
+            Self::AgentPageLimit => "managed_agent.agent_page_limit",
+            Self::AgentPageCursor => "managed_agent.agent_page_cursor",
+            Self::AgentPageLength => "managed_agent.agent_page_length",
+            Self::AgentIdShape => "managed_agent.agent_id_shape",
+            Self::AgentRecordKey => "managed_agent.agent_record_key",
+            Self::RecordEvidenceCount => "managed_agent.record_evidence_count",
+            Self::RecordVersion => "managed_agent.record_version",
+            Self::RecordTrailingBytes => "managed_agent.record_trailing_bytes",
+            Self::WireTextBounds => "managed_agent.wire_text_bounds",
+            Self::WireTextLength => "managed_agent.wire_text_length",
+            Self::ResponseCodec => "managed_agent.response_codec",
+            Self::InputOffsetOverflow => "managed_agent.input_offset_overflow",
+            Self::InputBounds => "managed_agent.input_bounds",
+            Self::InputFixedWidth => "managed_agent.input_fixed_width",
+            Self::InputTextBounds => "managed_agent.input_text_bounds",
+            Self::InputTextOffsetOverflow => "managed_agent.input_text_offset_overflow",
+            Self::InputTextBytes => "managed_agent.input_text_bytes",
+            Self::InputTextUtf8 => "managed_agent.input_text_utf8",
+            Self::InputBytesOffsetOverflow => "managed_agent.input_bytes_offset_overflow",
+            Self::InputBytesBounds => "managed_agent.input_bytes_bounds",
+            Self::RecordDigestPrefix => "managed_agent.record_digest_prefix",
+            Self::RecordDigestLength => "managed_agent.record_digest_length",
+            Self::RecordDigestHex => "managed_agent.record_digest_hex",
+            Self::RecordDigestNonzero => "managed_agent.record_digest_nonzero",
+            Self::CreationContextShape => "managed_agent.creation_context_shape",
+            Self::FixedListLength => "managed_agent.fixed_list_length",
+            Self::IntegerListLength => "managed_agent.integer_list_length",
+            Self::TextListLength => "managed_agent.text_list_length",
+            Self::FixedListCount => "managed_agent.fixed_list_count",
+            Self::IntegerListCount => "managed_agent.integer_list_count",
+            Self::TextListCount => "managed_agent.text_list_count",
+            Self::SessionObservationShape => "managed_agent.session_observation_shape",
+            Self::SessionObservationOpen => "managed_agent.session_observation_open",
+            Self::SessionObservationDigest => "managed_agent.session_observation_digest",
+            Self::BudgetSnapshotResponse => "managed_agent.budget_snapshot_response",
+            Self::SessionGenerationOverflow => "managed_agent.session_generation_overflow",
+            Self::RevocationDelay => "managed_agent.revocation_delay",
+            Self::RevocationWindow => "managed_agent.revocation_window",
+            Self::ReclaimRequestShape => "managed_agent.reclaim_request_shape",
+            Self::RevocationRequestShape => "managed_agent.revocation_request_shape",
+            Self::ReclaimCurrency => "managed_agent.reclaim_currency",
+            Self::ArchiveConfirmation => "managed_agent.archive_confirmation",
+            Self::KeyPolicySnapshotCodec => "managed_agent.key_policy_snapshot_codec",
+            Self::KeyPolicySnapshotResponse => "managed_agent.key_policy_snapshot_response",
+        }
+    }
+}
 
 pub type SessionRestrictionRequest<'a> = (
     [u8; 32],
@@ -42,7 +644,7 @@ const LEGACY_VERSION: u8 = 3;
 const MAX_AGENTS_PER_PAGE: u8 = 100;
 const MAX_EVIDENCE: usize = 64;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct FinalizationEvidence {
     pub action_key: [u8; 32],
     pub activity_id: [u8; 32],
@@ -146,7 +748,9 @@ impl ManagedAgent {
             || seed.verified_evidence.len() > MAX_EVIDENCE
             || seed.verified_evidence.contains(&[0; 32])
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::CreationRecordShape,
+            )));
         }
         validate_context(seed)?;
         let active_budget_id = parse_agent_digest(&seed.agent_id)?;
@@ -175,7 +779,9 @@ impl ManagedAgent {
 
     fn validate(&self) -> Result<(), HumanOperationError> {
         if self.active_budget_id == [0; 32] {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::StoredBudgetIdentity,
+            )));
         }
         if self.agent_id.is_empty()
             || self.agent_did.is_empty()
@@ -195,7 +801,9 @@ impl ManagedAgent {
             || self.verified_evidence.contains(&[0; 32])
             || self.context.agent_id != self.agent_id
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::StoredRecordShape,
+            )));
         }
         validate_context(&self.context)?;
         Ok(())
@@ -213,7 +821,9 @@ pub fn publish_creation(
     let object_key = agent_key(tenant, &agent.agent_id)?;
     if let Some(existing) = store.get(&object_key) {
         if existing.class() != StorageClass::LocalOnly || decode(existing.bytes())? != *agent {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::CreationRecordConflict,
+            )));
         }
         return Ok(());
     }
@@ -234,7 +844,9 @@ pub fn publish_creation_with_companion(
     let object_key = agent_key(tenant, &agent.agent_id)?;
     if let Some(existing) = store.get(&object_key) {
         if existing.class() != StorageClass::LocalOnly || decode(existing.bytes())? != *agent {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::CompanionCreationRecordConflict,
+            )));
         }
         store
             .put_local(companion, bytes)
@@ -254,17 +866,25 @@ pub fn validate_tenant(store: &Store, tenant: &TenantId) -> Result<(), HumanOper
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::TenantRecordKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::TenantRecordStorage,
+            )));
         }
         let agent = decode(value.bytes())?;
         if agent_key(tenant, &agent.agent_id)? != object_key {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::TenantRecordIdentity,
+            )));
         }
     }
     Ok(())
@@ -291,17 +911,25 @@ pub fn budget_owners(
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::BudgetOwnerKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::BudgetOwnerStorage,
+            )));
         }
         let agent = decode(value.bytes())?;
         if agent_key(tenant, &agent.agent_id)? != object_key {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::BudgetOwnerIdentity,
+            )));
         }
         if agent.active_budget_id == [0; 32] {
             continue;
@@ -328,29 +956,41 @@ pub fn budget_candidate(
     agent_digest: [u8; 32],
 ) -> Result<ManagedAgent, HumanOperationError> {
     if agent_digest == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetCandidateDigest,
+        )));
     }
     for object_id in store.list_object_ids(tenant, ObjectKind::Configuration) {
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::BudgetCandidateKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::BudgetCandidateStorage,
+            )));
         }
         let agent = decode(value.bytes())?;
         if agent_key(tenant, &agent.agent_id)? != object_key {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::BudgetCandidateIdentity,
+            )));
         }
         if parse_agent_digest(&agent.agent_id)? == agent_digest {
             return Ok(agent);
         }
     }
-    Err(HumanOperationError::Refused)
+    Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+        ManagedAgentCheck::BudgetCandidateLookup,
+    )))
 }
 
 /// Durably records `budget_id` as the active protocol budget of one managed agent
@@ -364,11 +1004,15 @@ pub fn assign_budget(
     budget_id: [u8; 32],
 ) -> Result<(), HumanOperationError> {
     if budget_id == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AssignedBudgetIdentity,
+        )));
     }
     let mut agent = load_agent(store, tenant, agent_id)?;
     if agent.state == 4 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ArchivedState,
+        )));
     }
     agent.active_budget_id = budget_id;
     agent.validate()?;
@@ -391,23 +1035,34 @@ pub fn validate_session_coordinates(
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionRecordKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionRecordStorage,
+            )));
         }
         let agent = decode(value.bytes())?;
-        let session = sessions
-            .get(tenant, SessionId(agent.session_id))
-            .ok_or(HumanOperationError::Refused)?;
+        let session =
+            sessions
+                .get(tenant, SessionId(agent.session_id))
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionLookup,
+                )))?;
         if session.request.token_id != agent.session_token_id
             || session.generation != agent.session_generation
             || session.request.agent.as_bytes() != agent.agent_did.as_bytes()
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionCoordinates,
+            )));
         }
     }
     Ok(())
@@ -421,9 +1076,16 @@ pub fn get(
     agent_id: &str,
 ) -> Result<HumanResponse, HumanOperationError> {
     let object_key = agent_key(tenant, agent_id)?;
-    let value = store.get(&object_key).ok_or(HumanOperationError::Refused)?;
+    let value =
+        store
+            .get(&object_key)
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::AgentLookup,
+            )))?;
     if value.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordStorage,
+        )));
     }
     response_agent(&decode(value.bytes())?)
 }
@@ -440,66 +1102,103 @@ pub(crate) fn authenticates_native_owner(
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::NativeOwnerKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerStorage,
+            )));
         }
         let agent = decode(value.bytes())?;
         if agent_key(tenant, &agent.agent_id)? != object_key {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerIdentity,
+            )));
         }
         if agent.agent_did.as_bytes() != actor {
             continue;
         }
         if found || agent.context.actor != owner || agent.context.owner_account != owner_account {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerBinding,
+            )));
         }
-        let digest = *agent
-            .context
-            .creation_receipt_roots
-            .first()
-            .ok_or(HumanOperationError::Refused)?;
+        let digest =
+            *agent
+                .context
+                .creation_receipt_roots
+                .first()
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::NativeOwnerCreationEvidence,
+                )))?;
         if !agent.context.verified_evidence.contains(&digest) {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerEvidenceMembership,
+            )));
         }
         let served = evidence_export(store, tenant, &agent.agent_id, digest)?;
-        let receipt =
-            decode_receipt(&served.canonical_bytes).map_err(|_| HumanOperationError::Refused)?;
-        let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
+        let receipt = decode_receipt(&served.canonical_bytes).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::ReceiptCodec))
+        })?;
+        let protocol =
+            receipt
+                .protocol()
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ReceiptProtocol,
+                )))?;
         if protocol.module_id() != ModuleId::Governance as u16
             || protocol.operation() != 0
             || protocol.result_code() != 0
             || served.metadata.result.code.raw() != 0
             || served.metadata.verification_level < VerificationLevel::SEQUENCER_SIGNED
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerReceipt,
+            )));
         }
         let action_key = served.metadata.idempotency_key;
         for object_kind in [ObjectKind::Outbox, ObjectKind::PreparedActivity] {
-            let stored_key = key(tenant.clone(), object_kind, action_key.to_vec())
-                .map_err(|_| HumanOperationError::Refused)?;
+            let stored_key =
+                key(tenant.clone(), object_kind, action_key.to_vec()).map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::NativeOwnerTransactionKey,
+                    ))
+                })?;
             let stored = store
                 .get(&stored_key)
                 .ok_or(HumanOperationError::Unavailable)?;
             if stored.class() != StorageClass::LocalOnly {
-                return Err(HumanOperationError::Refused);
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::NativeOwnerTransactionStorage,
+                )));
             }
         }
         let authority = layerx_agent_api::identity::strict_hex32(
             &agent.context.primary_authority,
             "primary_authority",
         )
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerAuthorityCodec,
+            ))
+        })?;
         if authority[..12] != [0; 12] {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerAuthorityPadding,
+            )));
         }
-        let sender = authority[12..]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
+        let sender = authority[12..].try_into().map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerAddressCodec,
+            ))
+        })?;
         let transaction =
             restore_owner_transaction(store, tenant, &served, sender, agent.context.network_id)?;
         let mut word = [0; 32];
@@ -512,7 +1211,9 @@ pub(crate) fn authenticates_native_owner(
             || transaction.data[68..100] != word
             || format!("did:layerx:{}", hex(&agent.context.custody_public_key)).as_bytes() != actor
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::NativeOwnerTransactionBinding,
+            )));
         }
         found = true;
     }
@@ -537,14 +1238,26 @@ pub fn restore_owner_transaction(
     let mut outbox = crate::outbox::Outbox::default();
     outbox
         .restore(store, tenant.clone(), action_key)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let exact = outbox
-        .exact_signed_bytes(action_key)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let (transaction, signature) =
-        decode_signed(exact).map_err(|_| HumanOperationError::Refused)?;
-    let sender =
-        recover_sender(&transaction, &signature).map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerOutboxRestore,
+            ))
+        })?;
+    let exact = outbox.exact_signed_bytes(action_key).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerSignedBytes,
+        ))
+    })?;
+    let (transaction, signature) = decode_signed(exact).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerTransactionCodec,
+        ))
+    })?;
+    let sender = recover_sender(&transaction, &signature).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerSignature,
+        ))
+    })?;
     let hash = transaction_hash(exact);
     if sender != owner
         || network_id == 0
@@ -552,7 +1265,9 @@ pub fn restore_owner_transaction(
         || hash != action_key
         || hash != served.metadata.activity_id
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerTransactionBinding,
+        )));
     }
     Ok(transaction)
 }
@@ -564,23 +1279,77 @@ pub fn evidence_export(
     digest: [u8; 32],
 ) -> Result<crate::receipt::ServedReceipt, HumanOperationError> {
     if digest == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::EvidenceDigest,
+        )));
     }
     let object_key = agent_key(tenant, agent_id)?;
-    let value = store.get(&object_key).ok_or(HumanOperationError::Refused)?;
+    let value =
+        store
+            .get(&object_key)
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::AgentLookup,
+            )))?;
     if value.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordStorage,
+        )));
     }
     let agent = decode(value.bytes())?;
-    if agent.agent_id != agent_id || !agent.verified_evidence.contains(&digest) {
-        return Err(HumanOperationError::Refused);
+    if agent.agent_id != agent_id {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentIdentity,
+        )));
     }
-    let inventory = crate::receipt::evidence_inventory(store, tenant)
-        .map_err(|_| HumanOperationError::Refused)?;
+    if store
+        .get(&finalized_evidence_key(tenant, agent_id, digest)?)
+        .is_some()
+    {
+        let evidence = finalized_evidence(store, tenant, agent_id, digest)?;
+        let decoded = decode_receipt(&evidence.canonical_receipt).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::ReceiptCodec))
+        })?;
+        let protocol =
+            decoded
+                .protocol()
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ReceiptProtocol,
+                )))?;
+        return Ok(crate::receipt::ServedReceipt {
+            canonical_bytes: evidence.canonical_receipt.clone(),
+            metadata: crate::receipt::ReceiptMetadata {
+                activity_id: evidence.metadata.transaction_hash,
+                idempotency_key: evidence.metadata.transaction_hash,
+                global_sequence: protocol.global_sequence(),
+                verification_level: VerificationLevel::COMMITTED,
+                result: crate::receipt::classify(layerx_types::result::ResultCode::from_raw(
+                    protocol.result_code(),
+                )),
+            },
+        });
+    }
+    if !agent.context.verified_evidence.contains(&digest)
+        && !agent.verified_evidence.contains(&digest)
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::EvidenceMembership,
+        )));
+    }
+    let inventory = crate::receipt::evidence_inventory(store, tenant).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::EvidenceInventory,
+        ))
+    })?;
     let idempotency_keys = inventory
         .with_evidence
         .iter()
         .map(|record| record.idempotency_key)
+        .chain(
+            inventory
+                .with_current_evidence
+                .iter()
+                .map(|record| record.idempotency_key),
+        )
         .chain(
             inventory
                 .without_evidence
@@ -593,16 +1362,29 @@ pub fn evidence_export(
             tenant.clone(),
             crate::receipt::ReceiptLookupKey::Idempotency(idempotency_key),
         )
-        .map_err(|_| HumanOperationError::Refused)?;
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::EvidenceLookup,
+            ))
+        })?;
         let receipt_digest: [u8; 32] = Sha256::digest(&served.canonical_bytes).into();
         if receipt_digest != digest {
             continue;
         }
-        let receipt =
-            decode_receipt(&served.canonical_bytes).map_err(|_| HumanOperationError::Refused)?;
-        let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
-        if layerx_wire::receipt::encode(&receipt).map_err(|_| HumanOperationError::Refused)?
-            != served.canonical_bytes
+        let receipt = decode_receipt(&served.canonical_bytes).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::ReceiptCodec))
+        })?;
+        let protocol =
+            receipt
+                .protocol()
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ReceiptProtocol,
+                )))?;
+        if layerx_wire::receipt::encode(&receipt).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::ReceiptEncoding,
+            ))
+        })? != served.canonical_bytes
             || served.metadata.idempotency_key != idempotency_key
             || served.metadata.activity_id != protocol.activity_id()
             || served.metadata.global_sequence != protocol.global_sequence()
@@ -611,7 +1393,9 @@ pub fn evidence_export(
                     protocol.result_code(),
                 ))
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::EvidenceReceiptBinding,
+            )));
         }
         return Ok(served);
     }
@@ -626,9 +1410,13 @@ pub fn context(
 ) -> Result<HumanResponse, HumanOperationError> {
     let object = store
         .get(&agent_key(tenant, agent_id)?)
-        .ok_or(HumanOperationError::Refused)?;
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentLookup,
+        )))?;
     if object.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordStorage,
+        )));
     }
     let agent = decode(object.bytes())?;
     let mut out = Wire::new();
@@ -656,16 +1444,23 @@ pub fn record_observation(
     bytes: Vec<u8>,
 ) -> Result<(), HumanOperationError> {
     if digest == [0; 32] || bytes.is_empty() {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ObservationShape,
+        )));
     }
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(class);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ObservationKey,
+        ))
+    })?;
     if let Some(existing) = store.get(&record) {
         if existing.class() != StorageClass::LocalOnly || existing.bytes() != bytes {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::ObservationConflict,
+            )));
         }
         return Ok(());
     }
@@ -673,6 +1468,18 @@ pub fn record_observation(
         .put_local(record, bytes)
         .map_err(|_| HumanOperationError::Unavailable)
 }
+// Persisted key-policy observations predate the current committed wire rank.
+fn decode_key_policy_verification(rank: u8) -> Result<VerificationLevel, HumanOperationError> {
+    match rank {
+        4 | 5 => Ok(VerificationLevel::COMMITTED),
+        rank => VerificationLevel::from_wire_rank(rank).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::KeyPolicyVerification,
+            ))
+        }),
+    }
+}
+
 fn budget_observation(
     store: &Store,
     tenant: &TenantId,
@@ -682,54 +1489,47 @@ fn budget_observation(
     require_zero: bool,
 ) -> Result<(), HumanOperationError> {
     if digest == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetObservationDigest,
+        )));
     }
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(1);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetObservationKey,
+        ))
+    })?;
     let bytes = store
         .get(&record)
         .ok_or(HumanOperationError::Unavailable)?
         .bytes();
-    if bytes.len() != 209
-        || bytes[..32] != budget
-        || bytes[49..81] != digest
-        || bytes[48] < 4
-        || bytes[48] > 5
-        || bytes[81..113] == [0; 32]
-        || bytes[113..145] == [0; 32]
-        || bytes[177..209] == [0; 32]
+    let (stored_budget, state) = crate::human_runtime::CoreBudgetState::decode_snapshot(bytes)
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::BudgetSnapshotCodec,
+            ))
+        })?;
+    if stored_budget != budget
+        || state.evidence_digest != digest
+        || state.verification != VerificationLevel::COMMITTED.wire_rank()
+        || state.receipt_digest == [0; 32]
+        || state.checkpoint_digest == [0; 32]
+        || state.asset == [0; 32]
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetObservationBinding,
+        )));
     }
-    let observed = u64::from_be_bytes(
-        bytes[40..48]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let age = u64::from_be_bytes(
-        bytes[145..153]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let maximum = u64::from_be_bytes(
-        bytes[153..161]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    let remaining = u128::from_be_bytes(
-        bytes[161..177]
-            .try_into()
-            .map_err(|_| HumanOperationError::Refused)?,
-    );
-    if observed < minimum_sequence
-        || maximum == 0
-        || age > maximum
-        || (require_zero && remaining != 0)
+    if state.observed_head_sequence < minimum_sequence
+        || state.maximum_age_sequences == 0
+        || state.age_sequences > state.maximum_age_sequences
+        || (require_zero && state.remaining != 0)
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetObservationFreshness,
+        )));
     }
     Ok(())
 }
@@ -745,15 +1545,20 @@ fn key_policy_observation(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(2);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::KeyPolicyObservationKey,
+        ))
+    })?;
     let bytes = store
         .get(&record)
         .ok_or(HumanOperationError::Unavailable)?
         .bytes();
     let mut input = Input { bytes, offset: 0 };
     if input.text()? != did || input.u8()? != u8::from(recovery) {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::KeyPolicyObservationIdentity,
+        )));
     }
     let revision = input.u64()?;
     let required = input.u64()?;
@@ -772,16 +1577,20 @@ fn key_policy_observation(
         || ready_at
             != finalized_at
                 .checked_add(delay)
-                .ok_or(HumanOperationError::Refused)?
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevocationWindowOverflow,
+                )))?
         || effective == 0
         || observed < effective
-        || verification < 4
+        || decode_key_policy_verification(verification)? != VerificationLevel::COMMITTED
         || observed_digest != digest
         || checkpoint == [0; 32]
         || maximum_age == 0
         || age > maximum_age
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::KeyPolicyObservationBinding,
+        )));
     }
     Ok(())
 }
@@ -796,8 +1605,11 @@ fn require_session_observation(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(3);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     let bytes = store
         .get(&record)
         .ok_or(HumanOperationError::Unavailable)?
@@ -808,7 +1620,9 @@ fn require_session_observation(
         || observation.open != resume
         || observation.action == [0; 32]
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationBinding,
+        )));
     }
     let agent = load_agent(store, tenant, agent_id)?;
     if agent.agent_did != observation.did
@@ -816,21 +1630,30 @@ fn require_session_observation(
         || agent.session_token_id != observation.token
         || agent.session_generation != observation.generation
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationCoordinates,
+        )));
     }
     let mut sessions = SessionRegistry::default();
-    sessions
-        .restore_tenant(store, tenant)
-        .map_err(|_| HumanOperationError::Refused)?;
-    let restored = sessions
-        .get(tenant, SessionId(observation.session))
-        .ok_or(HumanOperationError::Refused)?;
+    sessions.restore_tenant(store, tenant).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestore,
+        ))
+    })?;
+    let restored =
+        sessions
+            .get(tenant, SessionId(observation.session))
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionLookup,
+            )))?;
     if restored.request.token_id != observation.token
         || restored.generation != observation.generation
         || restored.request.agent.as_bytes() != observation.did.as_bytes()
         || restored.open != observation.open
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestoredCoordinates,
+        )));
     }
     Ok(())
 }
@@ -856,12 +1679,16 @@ pub fn finalize_control(
         |agent| {
             if resume {
                 if agent.state != 2 {
-                    return Err(HumanOperationError::Refused);
+                    return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::ResumeState,
+                    )));
                 }
                 agent.state = 1;
             } else {
                 if agent.state != 1 {
-                    return Err(HumanOperationError::Refused);
+                    return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::SuspendState,
+                    )));
                 }
                 agent.state = 2;
             }
@@ -883,7 +1710,9 @@ pub fn finalize_limit(
     evidence: FinalizationEvidence,
 ) -> Result<HumanResponse, HumanOperationError> {
     if monthly_limit == 0 || currency.is_empty() || replacement_budget_id == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::LimitRequestShape,
+        )));
     }
     let mut body = Vec::new();
     body.push(27);
@@ -897,8 +1726,15 @@ pub fn finalize_limit(
         evidence,
         (ModuleId::Budget, 1, &body),
         |agent| {
-            if agent.state == 4 || agent.currency != currency || agent.spent > monthly_limit {
-                return Err(HumanOperationError::Refused);
+            if agent.state == 4 {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ArchivedState,
+                )));
+            }
+            if agent.currency != currency || agent.spent > monthly_limit {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::LimitState,
+                )));
             }
             agent.monthly_limit = monthly_limit;
             agent.active_budget_id = replacement_budget_id;
@@ -919,18 +1755,37 @@ pub fn finalize_journey(
     post_observation: [u8; 32],
     evidence: FinalizationEvidence,
 ) -> Result<HumanResponse, HumanOperationError> {
-    if kind > 2
-        || (kind == 0 && (amount == 0 || currency.is_empty() || delay != 0 || ready_at != 0))
-        || (kind != 0
-            && (amount != 0
-                || !currency.is_empty()
-                || delay == 0
-                || ready_at <= evidence.finalized_at))
-    {
-        return Err(HumanOperationError::Refused);
+    if kind > 2 {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::LifecycleKind,
+        )));
+    }
+    if kind == 0 && (amount == 0 || currency.is_empty() || delay != 0 || ready_at != 0) {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ReclaimRequestShape,
+        )));
+    }
+    if kind != 0 {
+        if amount != 0 || !currency.is_empty() {
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::RevocationRequestShape,
+            )));
+        }
+        if delay == 0 {
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::RevocationDelay,
+            )));
+        }
+        if ready_at <= evidence.finalized_at {
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::RevocationWindow,
+            )));
+        }
     }
     if kind == 0 && pre_observation == post_observation {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ReclaimObservations,
+        )));
     }
     if kind == 0 {
         let agent = load_agent(store, tenant, agent_id)?;
@@ -952,7 +1807,9 @@ pub fn finalize_journey(
         )?;
     } else {
         if pre_observation == [0; 32] || post_observation != [0; 32] {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::RevocationObservations,
+            )));
         }
         let agent = load_agent(store, tenant, agent_id)?;
         key_policy_observation(
@@ -982,18 +1839,33 @@ pub fn finalize_journey(
             match kind {
                 0 => ModuleId::Budget,
                 1 | 2 => ModuleId::Governance,
-                _ => return Err(HumanOperationError::Refused),
+                _ => {
+                    return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::LifecycleKind,
+                    )))
+                }
             },
             match kind {
-                0 => 7,
+                0 => 8,
                 1 | 2 => 2,
-                _ => return Err(HumanOperationError::Refused),
+                _ => {
+                    return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::LifecycleKind,
+                    )))
+                }
             },
             &body,
         ),
         |agent| {
-            if agent.state == 4 || (kind == 0 && agent.currency != currency) {
-                return Err(HumanOperationError::Refused);
+            if agent.state == 4 {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ArchivedState,
+                )));
+            }
+            if kind == 0 && agent.currency != currency {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ReclaimCurrency,
+                )));
             }
             Ok(())
         },
@@ -1020,17 +1892,31 @@ pub fn validate_authority_revocation(
     post_observation: [u8; 32],
     evidence: FinalizationEvidence,
 ) -> Result<ValidatedAuthorityRevocation, HumanOperationError> {
-    if !matches!(kind, 1 | 2)
-        || delay == 0
-        || ready_at <= evidence.finalized_at
-        || pre_observation == [0; 32]
-        || post_observation != [0; 32]
-    {
-        return Err(HumanOperationError::Refused);
+    if !matches!(kind, 1 | 2) {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RevocationKind,
+        )));
+    }
+    if delay == 0 {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RevocationDelay,
+        )));
+    }
+    if ready_at <= evidence.finalized_at {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RevocationWindow,
+        )));
+    }
+    if pre_observation == [0; 32] || post_observation != [0; 32] {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RevocationObservations,
+        )));
     }
     let current = load_agent(store, tenant, agent_id)?;
     if current.state == 4 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ArchivedState,
+        )));
     }
     key_policy_observation(
         store,
@@ -1061,11 +1947,19 @@ pub fn validate_authority_revocation(
         FinalizationSource::Completed(_) => current.clone(),
         FinalizationSource::Pending { agent, .. } => *agent,
     };
-    if agent.state == 4 || agent.agent_did != current.agent_did {
-        return Err(HumanOperationError::Refused);
+    if agent.state == 4 {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ArchivedState,
+        )));
     }
-    let did = layerx_types::ids::Did::new(agent.agent_did.as_bytes())
-        .map_err(|_| HumanOperationError::Refused)?;
+    if agent.agent_did != current.agent_did {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentIdentity,
+        )));
+    }
+    let did = layerx_types::ids::Did::new(agent.agent_did.as_bytes()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::AgentDidCodec))
+    })?;
     Ok(ValidatedAuthorityRevocation {
         event: RevocationEvent {
             did,
@@ -1091,7 +1985,9 @@ pub fn finalize_archive(
     evidence: FinalizationEvidence,
 ) -> Result<HumanResponse, HumanOperationError> {
     if pre_observation == post_observation {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ArchiveObservations,
+        )));
     }
     let current = load_agent(store, tenant, agent_id)?;
     budget_observation(
@@ -1124,8 +2020,15 @@ pub fn finalize_archive(
         evidence,
         (ModuleId::Governance, 6, &body),
         |agent| {
-            if agent.state == 4 || agent.name != confirm_name {
-                return Err(HumanOperationError::Refused);
+            if agent.state == 4 {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ArchivedState,
+                )));
+            }
+            if agent.name != confirm_name {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ArchiveConfirmation,
+                )));
             }
             agent.state = 4;
             Ok(())
@@ -1140,9 +2043,13 @@ fn load_agent(
 ) -> Result<ManagedAgent, HumanOperationError> {
     let value = store
         .get(&agent_key(tenant, agent_id)?)
-        .ok_or(HumanOperationError::Refused)?;
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentLookup,
+        )))?;
     if value.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordStorage,
+        )));
     }
     decode(value.bytes())
 }
@@ -1171,7 +2078,9 @@ pub fn protocol_grant(
 ) -> Result<[u8; 32], HumanOperationError> {
     let agent = load_agent(store, tenant, agent_id)?;
     if agent.protocol_grant_id == [0; 32] {
-        Err(HumanOperationError::Refused)
+        Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ProtocolGrantIdentity,
+        )))
     } else {
         Ok(agent.protocol_grant_id)
     }
@@ -1182,7 +2091,9 @@ fn session_bytes(
     open: bool,
 ) -> Result<(HumanResponse, [u8; 32]), HumanOperationError> {
     if action == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionAction,
+        )));
     }
     let observation = SessionObservationV1 {
         agent_id: agent.agent_id.clone(),
@@ -1211,16 +2122,23 @@ pub fn record_session_observation(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(3);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     if let Some(existing) = store.get(&record) {
         if existing.class() != StorageClass::LocalOnly || existing.bytes() != response.bytes() {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionObservationConflict,
+            )));
         }
         return Ok(response);
     }
     if !create {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationLookup,
+        )));
     }
     store
         .put_local(record, response.bytes().to_vec())
@@ -1241,10 +2159,15 @@ pub fn prepare_session_observation(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(3);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     if store.get(&record).is_some() {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationExists,
+        )));
     }
     let bytes = response.bytes().to_vec();
     Ok((response, record, bytes))
@@ -1269,14 +2192,18 @@ pub fn prepare_session_token_restriction(
     ): SessionRestrictionRequest<'_>,
 ) -> Result<SessionRestrictionUpdate, HumanOperationError> {
     if replacement_token == [0; 32] || replacement_token == previous_token || generation == 0 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionReplacementShape,
+        )));
     }
     let mut agent = load_agent(store, tenant, agent_id)?;
     if agent.session_id != session
         || agent.session_token_id != previous_token
         || agent.session_generation != previous_generation
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionCoordinates,
+        )));
     }
     agent.session_token_id = replacement_token;
     agent.session_generation = generation;
@@ -1284,10 +2211,15 @@ pub fn prepare_session_token_restriction(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(3);
     id.extend_from_slice(&digest);
-    let companion = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let companion = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     if store.get(&companion).is_some() {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationExists,
+        )));
     }
     let request_digest = session_restriction_digest(
         agent_id,
@@ -1298,7 +2230,9 @@ pub fn prepare_session_token_restriction(
     )?;
     let ledger_key = session_restriction_key(tenant, action)?;
     if store.get(&ledger_key).is_some() {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionExists,
+        )));
     }
     let mut ledger = Wire::new();
     ledger.fixed(b"LXRT01");
@@ -1306,7 +2240,11 @@ pub fn prepare_session_token_restriction(
     ledger.fixed(&session);
     ledger.fixed(&replacement_token);
     ledger.u64(generation);
-    ledger.u32(u32::try_from(response.bytes().len()).map_err(|_| HumanOperationError::Refused)?);
+    ledger.u32(u32::try_from(response.bytes().len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionResponseLength,
+        ))
+    })?);
     ledger.fixed(response.bytes());
     Ok((
         response.clone(),
@@ -1335,7 +2273,9 @@ pub fn replay_session_token_restriction(
         return Ok(None);
     };
     if stored.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionStorage,
+        )));
     }
     let expected = session_restriction_digest(
         agent_id,
@@ -1349,21 +2289,31 @@ pub fn replay_session_token_restriction(
         offset: 0,
     };
     if input.take::<6>()? != *b"LXRT01" || input.fixed()? != expected {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionBinding,
+        )));
     }
     let session_id = input.fixed()?;
     let replacement_token = input.fixed()?;
     let generation = input.u64()?;
-    let response_length =
-        usize::try_from(input.u32()?).map_err(|_| HumanOperationError::Refused)?;
-    let response = HumanResponse::new(input.bytes(response_length)?.to_vec())
-        .map_err(|_| HumanOperationError::Refused)?;
+    let response_length = usize::try_from(input.u32()?).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionResponseLength,
+        ))
+    })?;
+    let response = HumanResponse::new(input.bytes(response_length)?.to_vec()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionResponseCodec,
+        ))
+    })?;
     if input.offset != input.bytes.len()
         || session_id == [0; 32]
         || replacement_token == [0; 32]
         || generation == 0
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionShape,
+        )));
     }
     Ok(Some(SessionRestrictionReplay {
         session_id,
@@ -1378,11 +2328,17 @@ fn session_restriction_key(
     action: [u8; 32],
 ) -> Result<crate::store::TenantKey, HumanOperationError> {
     if action == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionAction,
+        )));
     }
     let mut id = b"managed-agent-session-restrict-v1:".to_vec();
     id.extend_from_slice(&action);
-    key(tenant.clone(), ObjectKind::Idempotency, id).map_err(|_| HumanOperationError::Refused)
+    key(tenant.clone(), ObjectKind::Idempotency, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionKey,
+        ))
+    })
 }
 
 fn session_restriction_digest(
@@ -1400,13 +2356,19 @@ fn session_restriction_digest(
         || permitted_activity_types.is_empty()
         || permitted_activity_types.len() > 256
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionRestrictionRequestShape,
+        )));
     }
     let mut digest = Sha256::new();
     digest.update(b"layerx-agentd/session-restrict/v1\0");
     digest.update(
         u32::try_from(agent_id.len())
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionRestrictionAgentLength,
+                ))
+            })?
             .to_be_bytes(),
     );
     digest.update(agent_id.as_bytes());
@@ -1414,20 +2376,32 @@ fn session_restriction_digest(
     digest.update(current_sequence.to_be_bytes());
     digest.update(
         u16::try_from(scopes.len())
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionRestrictionScopeCount,
+                ))
+            })?
             .to_be_bytes(),
     );
     for scope in scopes {
         digest.update(
             u32::try_from(scope.len())
-                .map_err(|_| HumanOperationError::Refused)?
+                .map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::SessionRestrictionScopeLength,
+                    ))
+                })?
                 .to_be_bytes(),
         );
         digest.update(scope.as_bytes());
     }
     digest.update(
         u16::try_from(permitted_activity_types.len())
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionRestrictionActivityCount,
+                ))
+            })?
             .to_be_bytes(),
     );
     for activity in permitted_activity_types {
@@ -1445,7 +2419,9 @@ pub fn bind_session(
     action: [u8; 32],
 ) -> Result<HumanResponse, HumanOperationError> {
     if session == [0; 32] || token == [0; 32] || generation == 0 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionBindingShape,
+        )));
     }
     let mut agent = load_agent(store, tenant, agent_id)?;
     agent.session_id = session;
@@ -1457,18 +2433,25 @@ pub fn bind_session(
     let mut id = b"managed-agent-observation-v1:".to_vec();
     id.push(3);
     id.extend_from_slice(&digest);
-    let record = key(tenant.clone(), ObjectKind::Configuration, id)
-        .map_err(|_| HumanOperationError::Refused)?;
+    let record = key(tenant.clone(), ObjectKind::Configuration, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     if let Some(existing) = store.get(&record) {
         if existing.class() != StorageClass::LocalOnly || existing.bytes() != response.bytes() {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionObservationConflict,
+            )));
         }
         let current = load_agent(store, tenant, agent_id)?;
         if current.session_id != session
             || current.session_token_id != token
             || current.session_generation != generation
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionCoordinates,
+            )));
         }
         return Ok(response);
     }
@@ -1516,14 +2499,34 @@ where
     };
     mutate(&mut agent)?;
     agent.updated_at = evidence.finalized_at;
+    if agent.verified_evidence.len() == MAX_EVIDENCE {
+        agent.verified_evidence.remove(0);
+    }
     agent.verified_evidence.push(evidence.receipt_digest);
     agent.validate()?;
     let response = response(&agent)?;
     let mut action = Vec::with_capacity(32 + response.bytes().len());
     action.extend_from_slice(&request_digest);
     action.extend_from_slice(response.bytes());
+    let index = FinalizedAction {
+        agent_id: agent_id.to_owned(),
+        evidence,
+        request_digest,
+    };
+    let index_bytes = serde_json::to_vec(&index).map_err(|_| HumanOperationError::Unavailable)?;
     store
-        .update_local_with_companion(aggregate_key, encode(&agent)?, action_key, action)
+        .commit_local_records(vec![
+            (aggregate_key, encode(&agent)?),
+            (action_key, action),
+            (
+                finalized_evidence_key(tenant, agent_id, evidence.receipt_digest)?,
+                index_bytes.clone(),
+            ),
+            (
+                finalized_transaction_key(tenant, evidence.activity_id)?,
+                index_bytes,
+            ),
+        ])
         .map_err(|_| HumanOperationError::Unavailable)?;
     Ok(response)
 }
@@ -1548,7 +2551,9 @@ fn validate_finalization_source(
     operation: &[u8],
 ) -> Result<FinalizationSource, HumanOperationError> {
     if !valid_finalization_shape(evidence) {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizationShape,
+        )));
     }
     let aggregate_key = agent_key(tenant, agent_id)?;
     let action_key = action_record_key(tenant, evidence.action_key)?;
@@ -1558,50 +2563,647 @@ fn validate_finalization_source(
             || saved.bytes().len() < 32
             || saved.bytes()[..32] != request_digest
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::FinalizationReplayBinding,
+            )));
         }
         return Ok(FinalizationSource::Completed(
-            HumanResponse::new(saved.bytes()[32..].to_vec())
-                .map_err(|_| HumanOperationError::Refused)?,
+            HumanResponse::new(saved.bytes()[32..].to_vec()).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::FinalizationReplayCodec,
+                ))
+            })?,
         ));
+    }
+    if store
+        .get(&finalized_transaction_key(tenant, evidence.activity_id)?)
+        .is_some()
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizationTransactionReplay,
+        )));
     }
     let served =
         crate::receipt::serve_committed_evidence(store, tenant.clone(), evidence.activity_id)
-            .map_err(|_| HumanOperationError::Refused)?;
-    let receipt =
-        decode_receipt(&served.canonical_receipt).map_err(|_| HumanOperationError::Refused)?;
-    let protocol = receipt.protocol().ok_or(HumanOperationError::Refused)?;
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::FinalizationEvidenceLookup,
+                ))
+            })?;
+    let receipt = decode_receipt(&served.canonical_receipt).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::ReceiptCodec))
+    })?;
+    let protocol =
+        receipt
+            .protocol()
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::ReceiptProtocol,
+            )))?;
     let digest: [u8; 32] = Sha256::digest(&served.canonical_receipt).into();
-    if !matches_finalized_operation(
+    if !(matches_finalized_operation(
         protocol.module_id(),
         protocol.operation(),
         expected_module,
         expected_operation,
-    ) || served.metadata.transaction_hash != evidence.activity_id
+    ) || (protocol.module_id() == 12 && protocol.operation() == 2))
+        || served.metadata.transaction_hash != evidence.activity_id
         || served.metadata.block_height != evidence.observed_sequence
         || !served.metadata.status
         || served.metadata.rung != layerx_types::rung::Rung::Committed
         || served.metadata.rung.wire_rank() != evidence.verification
         || digest != evidence.receipt_digest
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizationReceiptBinding,
+        )));
     }
-    let value = store
-        .get(&aggregate_key)
-        .ok_or(HumanOperationError::Refused)?;
+    let value =
+        store
+            .get(&aggregate_key)
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::AgentLookup,
+            )))?;
     if value.class() != StorageClass::LocalOnly {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordStorage,
+        )));
     }
     let agent = decode(value.bytes())?;
     if evidence.finalized_at < agent.updated_at {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizationTime,
+        )));
     }
+    validate_projected_effect(store, tenant, &agent, operation, evidence, &receipt)?;
     Ok(FinalizationSource::Pending {
         aggregate_key,
         action_key,
         request_digest,
         agent: Box::new(agent),
     })
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+struct FinalizedAction {
+    agent_id: String,
+    evidence: FinalizationEvidence,
+    request_digest: [u8; 32],
+}
+
+fn finalized_evidence_key(
+    tenant: &TenantId,
+    agent: &str,
+    digest: [u8; 32],
+) -> Result<crate::store::TenantKey, HumanOperationError> {
+    key(
+        tenant.clone(),
+        ObjectKind::Audit,
+        [
+            b"managed-agent-evidence-v1:".as_slice(),
+            &cursor_for(agent),
+            &digest,
+        ]
+        .concat(),
+    )
+    .map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedEvidenceKey,
+        ))
+    })
+}
+fn finalized_transaction_key(
+    tenant: &TenantId,
+    transaction: [u8; 32],
+) -> Result<crate::store::TenantKey, HumanOperationError> {
+    key(
+        tenant.clone(),
+        ObjectKind::Audit,
+        [b"managed-agent-effect-v1:".as_slice(), &transaction].concat(),
+    )
+    .map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedTransactionKey,
+        ))
+    })
+}
+
+/// Serves complete committed evidence even after it leaves the bounded agent view.
+pub fn finalized_evidence(
+    store: &Store,
+    tenant: &TenantId,
+    agent: &str,
+    digest: [u8; 32],
+) -> Result<crate::receipt::TransactionReceiptEvidence, HumanOperationError> {
+    load_agent(store, tenant, agent)?;
+    let record = store
+        .get(&finalized_evidence_key(tenant, agent, digest)?)
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedEvidenceLookup,
+        )))?;
+    let index: FinalizedAction = serde_json::from_slice(record.bytes()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedEvidenceCodec,
+        ))
+    })?;
+    if record.class() != StorageClass::LocalOnly
+        || index.agent_id != agent
+        || index.evidence.receipt_digest != digest
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedEvidenceBinding,
+        )));
+    }
+    let served =
+        crate::receipt::serve_committed_evidence(store, tenant.clone(), index.evidence.activity_id)
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::FinalizationEvidenceLookup,
+                ))
+            })?;
+    if Sha256::digest(&served.canonical_receipt).as_slice() != digest
+        || served.metadata.block_height != index.evidence.observed_sequence
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizedReceiptBinding,
+        )));
+    }
+    Ok(served)
+}
+
+fn abi_word(data: &[u8], index: usize) -> Result<[u8; 32], HumanOperationError> {
+    data.get(4 + index * 32..4 + (index + 1) * 32)
+        .and_then(|bytes| bytes.try_into().ok())
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiWord,
+        )))
+}
+fn abi_integer(data: &[u8], index: usize, width: usize) -> Result<u128, HumanOperationError> {
+    let word = abi_word(data, index)?;
+    if word[..32 - width].iter().any(|byte| *byte != 0) {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiIntegerWidth,
+        )));
+    }
+    let mut value = [0; 16];
+    value[16 - width..].copy_from_slice(&word[32 - width..]);
+    Ok(u128::from_be_bytes(value))
+}
+fn abi_dynamic(data: &[u8], words: usize, index: usize) -> Result<Vec<u8>, HumanOperationError> {
+    let offset = abi_integer(data, index, 8)? as usize;
+    if offset != words * 32 {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiDynamicOffset,
+        )));
+    }
+    let length = abi_integer(data, words, 8)? as usize;
+    if length > 4096 {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiDynamicLength,
+        )));
+    }
+    let end = 4 + offset + 32 + length;
+    let padded = (end - 4 + 31) & !31;
+    let bytes = data
+        .get(4 + offset + 32..end)
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiDynamicBounds,
+        )))?;
+    if data.len() != 4 + padded || data[end..].iter().any(|byte| *byte != 0) {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AbiDynamicPadding,
+        )));
+    }
+    Ok(bytes.to_vec())
+}
+
+fn require_committed_log(
+    receipt: &layerx_wire::receipt::Receipt,
+    address: [u8; 20],
+    event: &str,
+    id: [u8; 32],
+    data: &[u8],
+) -> Result<(), HumanOperationError> {
+    use layerx_crypto::evm_transaction::transaction_hash;
+    let protocol =
+        receipt
+            .protocol()
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::ReceiptProtocol,
+            )))?;
+    let summary = layerx_proof::sequencer_logs::decode_summary(receipt).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ReceiptLogSummary,
+        ))
+    })?;
+    if summary.log_count() as usize + 1 != protocol.effects().len() {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ReceiptLogCount,
+        )));
+    }
+    let mut expected = address.to_vec();
+    expected.push(2);
+    expected.extend_from_slice(&transaction_hash(event.as_bytes()));
+    expected.extend_from_slice(&id);
+    expected.extend_from_slice(&Sha256::digest(data));
+    if !protocol
+        .effects()
+        .iter()
+        .enumerate()
+        .skip(1)
+        .any(|(index, effect)| {
+            effect.module_id() == protocol.module_id()
+                && effect.ordinal() as usize == index
+                && effect.event_type() == 0
+                && effect.kind() == 3
+                && !effect.monetary()
+                && effect.transfer_set_root() == [0; 32]
+                && effect.body() == expected
+        })
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ReceiptLogBinding,
+        )));
+    }
+    Ok(())
+}
+
+fn validate_projected_effect(
+    store: &Store,
+    tenant: &TenantId,
+    agent: &ManagedAgent,
+    operation: &[u8],
+    evidence: FinalizationEvidence,
+    receipt: &layerx_wire::receipt::Receipt,
+) -> Result<(), HumanOperationError> {
+    use crate::prepare::evm::{AbiArgument, PrecompileCall, PrecompileTarget};
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let mut outbox = crate::outbox::Outbox::default();
+    outbox
+        .restore(store, tenant.clone(), evidence.activity_id)
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerOutboxRestore,
+            ))
+        })?;
+    let raw = outbox
+        .exact_signed_bytes(evidence.activity_id)
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::OwnerSignedBytes,
+            ))
+        })?;
+    let (call, signature) = decode_signed(raw).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerTransactionCodec,
+        ))
+    })?;
+    let sender = recover_sender(&call, &signature).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerSignature,
+        ))
+    })?;
+    let authority = layerx_agent_api::identity::strict_hex32(
+        &agent.context.primary_authority,
+        "primary_authority",
+    )
+    .map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::OwnerAuthorityCodec,
+        ))
+    })?;
+    let protocol =
+        receipt
+            .protocol()
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::ReceiptProtocol,
+            )))?;
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&sender);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&call.to);
+    if authority != from
+        || call.chain_id != u64::from(agent.context.network_id)
+        || protocol.from() != from
+        || protocol.to() != to
+        || agent.context.actor != format!("did:layerx:{}", hex(&agent.context.custody_public_key))
+    {
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::ProjectedOwnerBinding,
+        )));
+    }
+    match operation.first().copied() {
+        Some(27) => {
+            let amount = u128::from_be_bytes(
+                operation
+                    .get(1..17)
+                    .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::LimitAmountBytes,
+                    )))?
+                    .try_into()
+                    .map_err(|_| {
+                        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::LimitAmountBytes,
+                        ))
+                    })?,
+            );
+            let budget: [u8; 32] = operation
+                .get(
+                    operation
+                        .len()
+                        .checked_sub(32)
+                        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::LimitBudgetBytes,
+                        )))?..,
+                )
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::LimitBudgetBytes,
+                )))?
+                .try_into()
+                .map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::LimitBudgetBytes,
+                    ))
+                })?;
+            let registry = layerx_types::payload::ModuleRegistry::new(&[]).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ModuleRegistry,
+                ))
+            })?;
+            let identity = crate::budget::budget_create_identity(raw, &registry).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::BudgetCreateIdentity,
+                ))
+            })?;
+            let account = layerx_types::account::AccountId::parse(&agent.context.budget_account)
+                .map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::BudgetAccountCodec,
+                    ))
+                })?;
+            let budget_account =
+                layerx_wire::hash::account_id_for_protocol(&account, 3).map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::BudgetAccountHash,
+                    ))
+                })?;
+            let expected_budget: [u8; 32] = Sha256::new()
+                .chain_update(b"layerx-human/agent-limit-budget/v1")
+                .chain_update(agent.active_budget_id)
+                .chain_update(evidence.action_key)
+                .finalize()
+                .into();
+            if identity.budget_id != budget
+                || budget != expected_budget
+                || identity.budget_account != budget_account
+                || identity.asset != agent.context.budget_asset
+                || identity.purpose != agent.context.purpose_hash
+                || identity.per_period_limit != amount
+                || identity.carry_cap != 0
+                || identity.rollover != 1
+                || identity.period_length_ms
+                    != agent
+                        .context
+                        .budget_period_seconds
+                        .checked_mul(1000)
+                        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::BudgetPeriodOverflow,
+                        )))?
+                || operation.get(17..operation.len() - 32) != Some(agent.currency.as_bytes())
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::LimitEffectBinding,
+                )));
+            }
+            let mut data = identity.asset.to_vec();
+            data.extend_from_slice(&[0; 16]);
+            data.extend_from_slice(&identity.initial_amount.to_be_bytes());
+            require_committed_log(
+                receipt,
+                call.to,
+                "BudgetCreated(bytes32,bytes32,uint128)",
+                budget,
+                &data,
+            )
+        }
+        Some(26) if operation.get(1) == Some(&1) => {
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.get(..4)
+                    != Some(
+                        layerx_crypto::disclosure::call::ledger_selector(
+                            "grantSession(bytes,uint64,bytes32)",
+                        )
+                        .as_slice(),
+                    )
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ResumeCall,
+                )));
+            }
+            let grant_bytes = abi_dynamic(&call.data, 3, 0)?;
+            let grant = layerx_crypto::session::decode_session_key(&grant_bytes).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionGrantCodec,
+                ))
+            })?;
+            if grant.grant_id != agent.protocol_grant_id
+                || abi_word(&call.data, 2)? != evidence.action_key
+                || grant.grantor != parse_agent_digest(&agent.agent_id)?
+                || abi_integer(&call.data, 1, 8)? == 0
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionGrantBinding,
+                )));
+            }
+            let body = PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: [0; 4],
+                arguments: vec![AbiArgument::Bytes(grant_bytes)],
+            }
+            .encode()
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::SessionGrantEncoding,
+                ))
+            })?;
+            require_committed_log(
+                receipt,
+                call.to,
+                "SessionGranted(bytes32,bytes)",
+                grant.grant_id,
+                &body[4..],
+            )
+        }
+        Some(26) | Some(29) => {
+            let reason = if operation[0] == 29 { 2 } else { 1 };
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.len() != 100
+                || call.data[..4]
+                    != layerx_crypto::disclosure::call::ledger_selector(
+                        "revokeGrant(bytes32,uint8,uint64)",
+                    )
+                || abi_word(&call.data, 0)? != agent.protocol_grant_id
+                || abi_integer(&call.data, 1, 1)? != reason
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevokeCall,
+                )));
+            }
+            let sequence = abi_integer(&call.data, 2, 8)? as u64;
+            if sequence == 0 || sequence > evidence.observed_sequence {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevokeSequence,
+                )));
+            }
+            let mut revoked = agent.protocol_grant_id.to_vec();
+            revoked.push(reason as u8);
+            revoked.extend_from_slice(&sequence.to_be_bytes());
+            let body = PrecompileCall {
+                target: PrecompileTarget::Auth,
+                selector: [0; 4],
+                arguments: vec![AbiArgument::Bytes(revoked)],
+            }
+            .encode()
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevokeEncoding,
+                ))
+            })?;
+            require_committed_log(
+                receipt,
+                call.to,
+                "GrantRevoked(bytes32,bytes)",
+                agent.protocol_grant_id,
+                &body[4..],
+            )
+        }
+        Some(28) if operation.get(1) == Some(&0) => {
+            let amount = u128::from_be_bytes(
+                operation
+                    .get(2..18)
+                    .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::ReclaimAmountBytes,
+                    )))?
+                    .try_into()
+                    .map_err(|_| {
+                        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::ReclaimAmountBytes,
+                        ))
+                    })?,
+            );
+            if call.to != PrecompileTarget::Pay.address()
+                || call.data.len() != 68
+                || call.data[..4]
+                    != layerx_crypto::disclosure::call::ledger_selector(
+                        "budgetDefund(bytes32,uint128)",
+                    )
+                || abi_word(&call.data, 0)? != agent.active_budget_id
+                || abi_integer(&call.data, 1, 16)? != amount
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::ReclaimCall,
+                )));
+            }
+            let remaining_limit =
+                agent
+                    .monthly_limit
+                    .checked_sub(amount)
+                    .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::ReclaimAmount,
+                    )))?;
+            let data = [
+                vec![0; 16],
+                amount.to_be_bytes().to_vec(),
+                vec![0; 16],
+                remaining_limit.to_be_bytes().to_vec(),
+            ]
+            .concat();
+            require_committed_log(
+                receipt,
+                call.to,
+                "BudgetDefunded(bytes32,uint128,uint128)",
+                agent.active_budget_id,
+                &data,
+            )
+        }
+        Some(28) => {
+            // Bind the exact canonical delayed-key payload, including its challenge window.
+            if call.to != PrecompileTarget::Auth.address()
+                || call.data.get(..4)
+                    != Some(
+                        layerx_crypto::disclosure::call::ledger_selector(
+                            "recordLifecycle(bytes,bytes32)",
+                        )
+                        .as_slice(),
+                    )
+                || abi_word(&call.data, 1)? != evidence.action_key
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevocationCall,
+                )));
+            }
+            let payload = abi_dynamic(&call.data, 2, 0)?;
+            let did =
+                layerx_types::ids::Did::new(agent.context.actor.as_bytes()).map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::AgentDidCodec,
+                    ))
+                })?;
+            let owner = layerx_wire::hash::did_id_for_protocol(&did, 3).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::AgentDidHash,
+                ))
+            })?;
+            let tail = operation
+                .len()
+                .checked_sub(80)
+                .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevocationBodyLength,
+                )))?;
+            let delay = u64::from_be_bytes(
+                operation
+                    .get(tail..tail + 8)
+                    .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::RevocationDelayBytes,
+                    )))?
+                    .try_into()
+                    .map_err(|_| {
+                        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::RevocationDelayBytes,
+                        ))
+                    })?,
+            );
+            let ready = u64::from_be_bytes(
+                operation
+                    .get(tail + 8..tail + 16)
+                    .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::RevocationReadyBytes,
+                    )))?
+                    .try_into()
+                    .map_err(|_| {
+                        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                            ManagedAgentCheck::RevocationReadyBytes,
+                        ))
+                    })?,
+            );
+            if payload.len() != 92
+                || payload[..4] != [0x71, 2, 0, 4]
+                || payload[4..36] != owner
+                || payload[36..68] == [0; 32]
+                || payload[68..76] != evidence.finalized_at.to_be_bytes()
+                || payload[76..84] != ready.to_be_bytes()
+                || ready.checked_sub(evidence.finalized_at) != Some(delay)
+                || payload[84..92] != evidence.observed_sequence.to_be_bytes()
+            {
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RevocationEffectBinding,
+                )));
+            }
+            Ok(())
+        }
+        _ => Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::LifecycleKind,
+        ))),
+    }
 }
 
 fn valid_finalization_shape(evidence: FinalizationEvidence) -> bool {
@@ -1628,7 +3230,11 @@ fn action_record_key(
 ) -> Result<crate::store::TenantKey, HumanOperationError> {
     let mut id = b"managed-agent-action-v1:".to_vec();
     id.extend_from_slice(&action);
-    key(tenant.clone(), ObjectKind::Idempotency, id).map_err(|_| HumanOperationError::Refused)
+    key(tenant.clone(), ObjectKind::Idempotency, id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FinalizationActionKey,
+        ))
+    })
 }
 fn finalization_digest(
     agent: &str,
@@ -1639,13 +3245,21 @@ fn finalization_digest(
     h.update(b"layerx-agentd/managed-agent-finalize/v1\0");
     h.update(
         u32::try_from(agent.len())
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::FinalizationAgentLength,
+                ))
+            })?
             .to_be_bytes(),
     );
     h.update(agent.as_bytes());
     h.update(
         u32::try_from(operation.len())
-            .map_err(|_| HumanOperationError::Refused)?
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::FinalizationOperationLength,
+                ))
+            })?
             .to_be_bytes(),
     );
     h.update(operation);
@@ -1667,7 +3281,11 @@ fn journey_response(
         1 => "rotate",
         2 => "recover",
         3 => "archive",
-        _ => return Err(HumanOperationError::Refused),
+        _ => {
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::LifecycleKind,
+            )))
+        }
     };
     let mut out = Wire::new();
     out.text(&format!("jrn_{}", hex(&evidence.action_key)))?;
@@ -1717,20 +3335,28 @@ pub fn list(
     limit: u8,
 ) -> Result<HumanResponse, HumanOperationError> {
     if limit == 0 || limit > MAX_AGENTS_PER_PAGE {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentPageLimit,
+        )));
     }
     let mut agents = Vec::new();
     for object_id in store.list_object_ids(tenant, ObjectKind::Configuration) {
         if !object_id.starts_with(PREFIX) {
             continue;
         }
-        let object_key = key(tenant.clone(), ObjectKind::Configuration, object_id)
-            .map_err(|_| HumanOperationError::Refused)?;
+        let object_key =
+            key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::TenantRecordKey,
+                ))
+            })?;
         let value = store
             .get(&object_key)
             .ok_or(HumanOperationError::Unavailable)?;
         if value.class() != StorageClass::LocalOnly {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::AgentRecordStorage,
+            )));
         }
         agents.push(decode(value.bytes())?);
     }
@@ -1740,12 +3366,18 @@ pub fn list(
             .iter()
             .position(|agent| cursor_for(&agent.agent_id) == cursor)
             .map(|index| index + 1)
-            .ok_or(HumanOperationError::Refused)?,
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::AgentPageCursor,
+            )))?,
     };
     let end = start.saturating_add(usize::from(limit)).min(agents.len());
     let page = &agents[start..end];
     let mut out = Wire::new();
-    out.u8(u8::try_from(page.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u8(u8::try_from(page.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentPageLength,
+        ))
+    })?);
     for agent in page {
         encode_response_agent(&mut out, agent)?;
     }
@@ -1763,13 +3395,18 @@ fn agent_key(
     agent_id: &str,
 ) -> Result<crate::store::TenantKey, HumanOperationError> {
     if agent_id.is_empty() || agent_id.len() > 512 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentIdShape,
+        )));
     }
     let mut object_id = Vec::with_capacity(PREFIX.len() + agent_id.len());
     object_id.extend_from_slice(PREFIX);
     object_id.extend_from_slice(agent_id.as_bytes());
-    key(tenant.clone(), ObjectKind::Configuration, object_id)
-        .map_err(|_| HumanOperationError::Refused)
+    key(tenant.clone(), ObjectKind::Configuration, object_id).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::AgentRecordKey,
+        ))
+    })
 }
 
 fn cursor_for(agent_id: &str) -> [u8; 32] {
@@ -1804,7 +3441,11 @@ fn encode_response_agent(out: &mut Wire, agent: &ManagedAgent) -> Result<(), Hum
     out.u8(3);
     out.text(&agent.created_at.to_string())?;
     out.text(&agent.updated_at.to_string())?;
-    out.u8(u8::try_from(agent.verified_evidence.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u8(u8::try_from(agent.verified_evidence.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordEvidenceCount,
+        ))
+    })?);
     for evidence in &agent.verified_evidence {
         out.text(&hex(evidence))?;
         out.text("agent-creation")?;
@@ -1827,7 +3468,11 @@ fn encode(agent: &ManagedAgent) -> Result<Vec<u8>, HumanOperationError> {
     out.u128(agent.spent);
     out.u64(agent.created_at);
     out.u64(agent.updated_at);
-    out.u8(u8::try_from(agent.verified_evidence.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u8(u8::try_from(agent.verified_evidence.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordEvidenceCount,
+        ))
+    })?);
     for value in &agent.verified_evidence {
         out.fixed(value);
     }
@@ -1844,7 +3489,9 @@ fn decode(bytes: &[u8]) -> Result<ManagedAgent, HumanOperationError> {
     let mut input = Input { bytes, offset: 0 };
     let version = input.u8()?;
     if version != VERSION && version != LEGACY_VERSION {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordVersion,
+        )));
     }
     let agent = ManagedAgent {
         agent_id: input.text()?,
@@ -1861,7 +3508,9 @@ fn decode(bytes: &[u8]) -> Result<ManagedAgent, HumanOperationError> {
         verified_evidence: {
             let count = usize::from(input.u8()?);
             if count == 0 || count > MAX_EVIDENCE {
-                return Err(HumanOperationError::Refused);
+                return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::RecordEvidenceCount,
+                )));
             }
             let mut values = Vec::with_capacity(count);
             for _ in 0..count {
@@ -1878,7 +3527,9 @@ fn decode(bytes: &[u8]) -> Result<ManagedAgent, HumanOperationError> {
         active_budget_id: input.fixed()?,
     };
     if input.offset != bytes.len() {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordTrailingBytes,
+        )));
     }
     agent.validate()?;
     Ok(agent)
@@ -1909,18 +3560,26 @@ impl Wire {
     }
     fn text(&mut self, value: &str) -> Result<(), HumanOperationError> {
         if value.is_empty() || value.len() > 4096 {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::WireTextBounds,
+            )));
         }
         self.0.extend_from_slice(
             &u32::try_from(value.len())
-                .map_err(|_| HumanOperationError::Refused)?
+                .map_err(|_| {
+                    HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::WireTextLength,
+                    ))
+                })?
                 .to_be_bytes(),
         );
         self.fixed(value.as_bytes());
         Ok(())
     }
     fn finish(self) -> Result<HumanResponse, HumanOperationError> {
-        HumanResponse::new(self.0).map_err(|_| HumanOperationError::Refused)
+        HumanResponse::new(self.0).map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::ResponseCodec))
+        })
     }
 }
 struct Input<'a> {
@@ -1932,13 +3591,21 @@ impl Input<'_> {
         let end = self
             .offset
             .checked_add(N)
-            .ok_or(HumanOperationError::Refused)?;
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputOffsetOverflow,
+            )))?;
         let value = self
             .bytes
             .get(self.offset..end)
-            .ok_or(HumanOperationError::Refused)?
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputBounds,
+            )))?
             .try_into()
-            .map_err(|_| HumanOperationError::Refused)?;
+            .map_err(|_| {
+                HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                    ManagedAgentCheck::InputFixedWidth,
+                ))
+            })?;
         self.offset = end;
         Ok(value)
     }
@@ -1963,18 +3630,24 @@ impl Input<'_> {
     fn text(&mut self) -> Result<String, HumanOperationError> {
         let length = u32::from_be_bytes(self.take()?) as usize;
         if length == 0 || length > 4096 {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputTextBounds,
+            )));
         }
         let end = self
             .offset
             .checked_add(length)
-            .ok_or(HumanOperationError::Refused)?;
-        let value = std::str::from_utf8(
-            self.bytes
-                .get(self.offset..end)
-                .ok_or(HumanOperationError::Refused)?,
-        )
-        .map_err(|_| HumanOperationError::Refused)?
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputTextOffsetOverflow,
+            )))?;
+        let value = std::str::from_utf8(self.bytes.get(self.offset..end).ok_or(
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputTextBytes,
+            )),
+        )?)
+        .map_err(|_| {
+            HumanOperationError::Typed(HumanRefusal::ManagedAgent(ManagedAgentCheck::InputTextUtf8))
+        })?
         .to_owned();
         self.offset = end;
         Ok(value)
@@ -1983,11 +3656,15 @@ impl Input<'_> {
         let end = self
             .offset
             .checked_add(length)
-            .ok_or(HumanOperationError::Refused)?;
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputBytesOffsetOverflow,
+            )))?;
         let value = self
             .bytes
             .get(self.offset..end)
-            .ok_or(HumanOperationError::Refused)?;
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::InputBytesBounds,
+            )))?;
         self.offset = end;
         Ok(value)
     }
@@ -2004,9 +3681,13 @@ fn hex(value: &[u8]) -> String {
 fn parse_agent_digest(value: &str) -> Result<[u8; 32], HumanOperationError> {
     let encoded = value
         .strip_prefix("agt_")
-        .ok_or(HumanOperationError::Refused)?;
+        .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordDigestPrefix,
+        )))?;
     if encoded.len() != 64 {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordDigestLength,
+        )));
     }
     let mut out = [0u8; 32];
     for (index, pair) in encoded.as_bytes().chunks_exact(2).enumerate() {
@@ -2015,11 +3696,17 @@ fn parse_agent_digest(value: &str) -> Result<[u8; 32], HumanOperationError> {
             b'a'..=b'f' => Some(b - b'a' + 10),
             _ => None,
         };
-        out[index] = (digit(pair[0]).ok_or(HumanOperationError::Refused)? << 4)
-            | digit(pair[1]).ok_or(HumanOperationError::Refused)?;
+        out[index] = (digit(pair[0]).ok_or(HumanOperationError::Typed(
+            HumanRefusal::ManagedAgent(ManagedAgentCheck::RecordDigestHex),
+        ))? << 4)
+            | digit(pair[1]).ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::RecordDigestHex,
+            )))?;
     }
     if out == [0; 32] {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::RecordDigestNonzero,
+        )));
     }
     Ok(out)
 }
@@ -2051,7 +3738,9 @@ fn validate_context(c: &HumanAgentLifecycleSeed) -> Result<(), HumanOperationErr
         || c.network_id == 0
         || c.creation_receipt_roots.is_empty()
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::CreationContextShape,
+        )));
     }
     Ok(())
 }
@@ -2148,21 +3837,33 @@ fn decode_context(i: &mut Input) -> Result<HumanAgentLifecycleSeed, HumanOperati
     })
 }
 fn fixeds(out: &mut Wire, v: &[[u8; 32]]) -> Result<(), HumanOperationError> {
-    out.u16(u16::try_from(v.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u16(u16::try_from(v.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FixedListLength,
+        ))
+    })?);
     for x in v {
         out.fixed(x);
     }
     Ok(())
 }
 fn u32s(out: &mut Wire, v: &[u32]) -> Result<(), HumanOperationError> {
-    out.u16(u16::try_from(v.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u16(u16::try_from(v.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::IntegerListLength,
+        ))
+    })?);
     for x in v {
         out.u32(*x);
     }
     Ok(())
 }
 fn texts(out: &mut Wire, v: &[String]) -> Result<(), HumanOperationError> {
-    out.u16(u16::try_from(v.len()).map_err(|_| HumanOperationError::Refused)?);
+    out.u16(u16::try_from(v.len()).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::TextListLength,
+        ))
+    })?);
     for x in v {
         out.text(x)?;
     }
@@ -2171,7 +3872,9 @@ fn texts(out: &mut Wire, v: &[String]) -> Result<(), HumanOperationError> {
 fn read_fixeds(i: &mut Input, max: usize) -> Result<Vec<[u8; 32]>, HumanOperationError> {
     let n = usize::from(i.u16()?);
     if n == 0 || n > max {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::FixedListCount,
+        )));
     }
     let mut v = Vec::with_capacity(n);
     for _ in 0..n {
@@ -2182,7 +3885,9 @@ fn read_fixeds(i: &mut Input, max: usize) -> Result<Vec<[u8; 32]>, HumanOperatio
 fn read_u32s(i: &mut Input, max: usize) -> Result<Vec<u32>, HumanOperationError> {
     let n = usize::from(i.u16()?);
     if n == 0 || n > max {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::IntegerListCount,
+        )));
     }
     let mut v = Vec::with_capacity(n);
     for _ in 0..n {
@@ -2193,7 +3898,9 @@ fn read_u32s(i: &mut Input, max: usize) -> Result<Vec<u32>, HumanOperationError>
 fn read_texts(i: &mut Input, max: usize) -> Result<Vec<String>, HumanOperationError> {
     let n = usize::from(i.u16()?);
     if n == 0 || n > max {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::TextListCount,
+        )));
     }
     let mut v = Vec::with_capacity(n);
     for _ in 0..n {
@@ -2276,7 +3983,9 @@ impl SessionObservationV1 {
             || self.generation == 0
             || self.action == [0; 32]
         {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionObservationShape,
+            )));
         }
         let mut out = Wire::new();
         out.text(&self.agent_id)?;
@@ -2308,14 +4017,20 @@ impl SessionObservationV1 {
             open: match input.u8()? {
                 0 => false,
                 1 => true,
-                _ => return Err(HumanOperationError::Refused),
+                _ => {
+                    return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                        ManagedAgentCheck::SessionObservationOpen,
+                    )))
+                }
             },
             action: input.fixed()?,
             digest: input.fixed()?,
         };
         let (encoded, digest) = value.encode()?;
         if input.offset != bytes.len() || value.digest != digest || encoded.bytes() != bytes {
-            return Err(HumanOperationError::Refused);
+            return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionObservationDigest,
+            )));
         }
         Ok(value)
     }
@@ -2412,19 +4127,16 @@ pub fn record_budget_snapshot(
     budget: [u8; 32],
     state: &crate::human_runtime::CoreBudgetState,
 ) -> Result<HumanResponse, HumanOperationError> {
-    let mut out = Wire::new();
-    out.fixed(&budget);
-    out.u64(state.revocation_sequence);
-    out.u64(state.observed_head_sequence);
-    out.u8(state.verification);
-    out.fixed(&state.evidence_digest);
-    out.fixed(&state.receipt_digest);
-    out.fixed(&state.checkpoint_digest);
-    out.u64(state.age_sequences);
-    out.u64(state.maximum_age_sequences);
-    out.u128(state.remaining);
-    out.fixed(&state.asset);
-    let response = out.finish()?;
+    let bytes = state.encode_snapshot(budget).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetSnapshotCodec,
+        ))
+    })?;
+    let response = HumanResponse::new(bytes).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::BudgetSnapshotResponse,
+        ))
+    })?;
     record_observation(
         store,
         tenant,
@@ -2442,7 +4154,11 @@ pub fn record_key_policy_snapshot(
     state: &crate::human_runtime::CoreKeyPolicy,
 ) -> Result<HumanResponse, HumanOperationError> {
     let mut out = Wire::new();
-    out.text(did)?;
+    out.text(did).map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::KeyPolicySnapshotCodec,
+        ))
+    })?;
     out.u8(u8::from(recovery));
     out.u64(state.policy_revision);
     out.u64(state.required_delay_seconds);
@@ -2454,7 +4170,11 @@ pub fn record_key_policy_snapshot(
     out.fixed(&state.checkpoint_digest);
     out.u64(state.age_sequences);
     out.u64(state.maximum_age_sequences);
-    let response = out.finish()?;
+    let response = out.finish().map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::KeyPolicySnapshotResponse,
+        ))
+    })?;
     record_observation(
         store,
         tenant,
@@ -2474,29 +4194,41 @@ pub fn suspend_session(
     action: [u8; 32],
 ) -> Result<HumanResponse, HumanOperationError> {
     let mut agent = load_agent(store, tenant, agent_id)?;
-    let current = sessions
-        .get(tenant, SessionId(agent.session_id))
-        .ok_or(HumanOperationError::Refused)?;
+    let current =
+        sessions
+            .get(tenant, SessionId(agent.session_id))
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionLookup,
+            )))?;
     if current.generation != agent.session_generation
         || current.request.token_id != agent.session_token_id
         || current.request.agent.as_bytes() != agent.agent_did.as_bytes()
     {
-        return Err(HumanOperationError::Refused);
+        return Err(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionCoordinates,
+        )));
     }
     if !current.open {
         return record_session_observation(store, tenant, agent_id, action, false, false);
     }
-    agent.session_generation = agent
-        .session_generation
-        .checked_add(1)
-        .ok_or(HumanOperationError::Refused)?;
+    agent.session_generation =
+        agent
+            .session_generation
+            .checked_add(1)
+            .ok_or(HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+                ManagedAgentCheck::SessionGenerationOverflow,
+            )))?;
     let (response, digest) = session_bytes(&agent, action, false)?;
     let record = key(
         tenant.clone(),
         ObjectKind::Configuration,
         [b"managed-agent-observation-v1:".as_slice(), &[3], &digest].concat(),
     )
-    .map_err(|_| HumanOperationError::Refused)?;
+    .map_err(|_| {
+        HumanOperationError::Typed(HumanRefusal::ManagedAgent(
+            ManagedAgentCheck::SessionObservationKey,
+        ))
+    })?;
     crate::session::close_with_companions(
         store,
         sessions,

@@ -607,6 +607,11 @@ fn facilitator_reports_committed_only_with_a_proof() {
         .iter()
         .find(|case| case["id"] == "committed-payExact")
         .unwrap_or_else(|| panic!("recorded committed payment"));
+    let recording: Value = serde_json::from_str(include_str!(
+        "../../../../../daemon/committed-fixture/vectors/vector-v4-committed.json"
+    ))
+    .unwrap();
+    assert_eq!(case["signedReceipt"], recording["positive"]["receipt"]);
     let mut proof = committed_proof(case);
     let validators: Vec<_> = committed_array(case, "validators")
         .iter()

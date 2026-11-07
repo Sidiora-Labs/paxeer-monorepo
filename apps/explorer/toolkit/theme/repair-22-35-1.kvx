@@ -1,0 +1,65 @@
+[repair.22.35.1]
+decision = "2587"
+brief = "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md sections 2-5"
+base_revision = "9e68791413a54856839db57deec771b566b31552"
+implementation = "Dark and light explorer palette, configured body and matching headings, mono numerals, flat hairline surfaces and composed core recipes."
+tokens_added = ["canvas", "surface", "raised", "hairline", "border.strong", "text.primary", "text.secondary", "text.muted", "accent", "accent.soft", "onAccent", "positive", "positiveSoft", "negative", "negativeSoft", "warning", "warningSoft", "headerBar", "focusRing", "sparkline.up", "sparkline.down", "chart.grid", "chart.area.start", "chart.area.stop"]
+keys_repointed = ["graphStart", "graphStop", "success", "successSoft", "destructive", "destructiveSoft", "warning", "warningSoft", "tonal", "outline", "dataTableBorder", "selectedOption", "bg.*", "text.*", "border.*", "icon.*", "heading", "accent.*", "feedback.*", "button.solid.*", "header.sticky.bg", "card.border", "table.row.hover", "stat.indicator.*"]
+text_styles = ["display 40/44/600", "h1 28/32/600", "h2 20/24/600", "body 14/20/400", "small 13/18/400", "label 11/16/600", "number 13/18/500", "statValue 24/28/600"]
+warning_soft = "The brief does not give a warning tint; use its warning RGB with the same 0.10 light / 0.14 dark alpha as the other feedback tints."
+compatibility = "Keep variant names, legacy declarations and pill sizing contracts; compound variants apply the explorer visual system after legacy variant and size styles. The repair test checks resolved Chakra styles and existing recipe specs remain unchanged."
+decision_2598 = "Amend the stat recipe scan assertion to retain its label check, require text.primary with no competing textStyle, and require statValue with fontWeight 600 in the scan compound variant because the brief retires heading.sm for stat values (gotcha 3139)."
+component_path = "Existing isNumeric props emit a data marker consumed by the table number recipe; existing tab counters use the semantic muted tone. Call sites keep their current props."
+proof = "repair-22-35-1.spec.ts walks every semantic colour, requires both modes, resolves all references without cycles, asserts exact role values and type metrics, composes real Chakra recipes and renders numeric cells and counts in process."
+gotcha_2962 = "No external service, credential, RPC, device, subprocess or environment dependency in the repair proof."
+
+[gotcha]
+vitest_registration = "Vitest 4 accepts a function as the test name but requires a separate handler; register each declared function as both name and handler so all six proofs execute."
+
+formatter = "The existing ESLint formatter was applied to touched TypeScript. Its older Vitest plugin rejects valid assertion messages and declared-function registrations; those assertions and handlers remain intact for the declared Vitest gate."
+
+[continuation.2]
+decision = "2594"
+gotcha = "3135"
+base_revision = "4b97c6fd5543645e494ac32a1c0b162e0654901e"
+repair = "Remove the competing heading.sm text style from scan valueText, retaining its colour and layout; explicitly state fontWeight 600 beside statValue in the scan compound variant."
+proof = "Keep repair-22-35-1.spec.ts unchanged; its resolved recipe assertions verify statValue size, line height, weight and mono family for all three sizes."
+legacy_test_conflict = "stat.recipe.spec.ts still asserts heading.sm directly on scan valueText; decision 2594 requires removing that declaration. Preserve the assertion pending clarification and record the declared gate result without suppressing the case."
+evidence = "This attempt uses the authoritative revision, command, exit and private log fields from /out/run/gates.jsonl; the runner publishes the final verified candidate."
+formatter_availability = "The existing ESLint formatter is not installed before the declared build installs app dependencies; the two-line recipe correction follows the existing formatting. No check or assertion is disabled."
+
+[qualification]
+policy = "Only hf-build followed by hf-done; the runner records authoritative gate results outside the source tree. This record points at that evidence so recording a result cannot change the candidate it verifies."
+verified_revision = "revision field of the final verify row in /out/run/gates.jsonl, also printed verbatim in the final response"
+gate_results = "exit fields of the build and verify rows in /out/run/gates.jsonl; no pass is claimed by this source record"
+ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
+verify_command = "cg spec done 22.35.1 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/toolkit/theme/repair-22-35-1.spec.ts apps/explorer/toolkit/theme/recipes"
+verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
+
+[repair_cycle.1]
+revision = "4e26d1c782a844daf6d3ef08eb20da19ae3e567a"
+command = "cg spec done 22.35.1 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both TypeScript checks passed; Vitest collected no files because the declared repository-relative filters were matched against its app-relative discovery directory."
+repair = "Discover from the repository with explorer-prefixed include globs; keep the Vite project root, setup files and exclusions unchanged so the exact declared command collects the intended files."
+proof_review = "Distinguish provider palette declarations from emitted component rules in the SSR proof; retain every component assertion and additionally assert the legacy palette declarations remain present."
+
+[qualification.continuation.2]
+revision = "45fa2ccb74540aa47d1db6ad607bf9963afd8a9f"
+command = "cg spec done 22.35.1 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared build and verification TypeScript check passed at this revision; all six repair proofs including recipesResolveToTheVisualSystem passed, but stat.recipe.spec.ts:22 still requires textStyle heading.sm on scan valueText, so verification reports 92 passed and 1 failed."
+assumption = "Decision 2594 and do_5 explicitly remove that declaration; preserve the existing contradictory assertion under the no-weakening rule and record this finding without rerunning it or claiming completion."
+
+[gotcha.continuation.2]
+dependency_snapshot = "The gate wrapper traverses ignored installed package directories while preparing its candidate; store installed packages in private storage with directory symlinks in the app to avoid that traversal, preserving package versions and the node_modules path convention."
+relocation_race = "Moving dependencies during an active snapshot interrupted one candidate preparation with a missing-file error before verification or a ledger row existed; stabilize package links before invoking the wrapper again."
+formatter = "After the declared build installed ESLint, formatting the touched stat recipe left its content hash unchanged, so the build and verification ran on the same source revision."
+
+[gotcha.continuation.3]
+dependency_storage = "Verification of 9f38fbf189957bbf9b7205da852907860524c85a failed before Vitest (wrapper exit 1, TypeScript exit 2, /out/logs/verify-1.log) after dependencies were relocated to a directory without the node_modules basename; retain that basename in private storage so Node and TypeScript resolve sibling packages, then rerun the declared build and verification."

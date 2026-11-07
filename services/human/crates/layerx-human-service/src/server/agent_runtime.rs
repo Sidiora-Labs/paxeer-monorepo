@@ -1382,7 +1382,7 @@ impl AgentRuntime {
         if value.active_budget_id != active_budget_id
             || value.revocation_sequence == 0
             || value.observed_head_sequence < value.revocation_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.receipt_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
@@ -1485,7 +1485,7 @@ impl AgentRuntime {
             || value.required_delay_seconds > value.maximum_delay_seconds
             || value.effective_sequence == 0
             || value.observed_head_sequence < value.effective_sequence
-            || !(4..=5).contains(&value.verification)
+            || crate::agents::rung_from_rank(value.verification).is_err()
             || value.evidence_digest == [0; 32]
             || value.checkpoint_digest == [0; 32]
             || value.maximum_age_sequences == 0
@@ -4135,7 +4135,7 @@ impl AgentBoundary for AgentRuntime {
     fn native_journey_prepare(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
-        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV1,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
     ) -> Result<crate::journeys::NativeJourneyAdmission, AgentBoundaryError> {
         self.native_journey_admit(call, purpose, None)
     }
@@ -4143,7 +4143,7 @@ impl AgentBoundary for AgentRuntime {
     fn native_journey_resume(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
-        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV1,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
         approval_id: [u8; 32],
         held_digest: [u8; 32],
     ) -> Result<crate::journeys::NativeJourneyAdmission, AgentBoundaryError> {
@@ -4386,7 +4386,7 @@ impl crate::approvals::AgentDecisionBoundary for AgentRuntime {
 fn map_approval_error(error: AgentBoundaryError) -> crate::approvals::ApprovalBoundaryError {
     match error {
         AgentBoundaryError::Unavailable => crate::approvals::ApprovalBoundaryError::Unavailable,
-        AgentBoundaryError::Refused => crate::approvals::ApprovalBoundaryError::NotFound,
+        AgentBoundaryError::Refused => crate::approvals::ApprovalBoundaryError::Refused,
         AgentBoundaryError::CorruptResponse => crate::approvals::ApprovalBoundaryError::Corrupt,
     }
 }
@@ -4404,16 +4404,20 @@ fn hex(bytes: &[u8]) -> String {
 }
 
 fn decode_tracked(reader: &mut Reader) -> Result<TrackedSubmission, AgentBoundaryError> {
-    let submission_ref =
-        SubmissionRef::new(reader.text()?).map_err(|_| AgentBoundaryError::CorruptResponse)?;
+    let submission_ref = SubmissionRef::new(hex(&reader.fixed::<32>()?))
+        .map_err(|_| AgentBoundaryError::CorruptResponse)?;
     let state = match reader.u8()? {
         0 => SubmissionState::Prepared,
         1 => SubmissionState::Signed,
         2 => SubmissionState::Queued,
-        3 | 4 => SubmissionState::Submitted,
+        3 => SubmissionState::Submitted,
         5 => SubmissionState::Unknown,
         6 => SubmissionState::Executed {
-            receipt_ref: ReceiptRef::new(reader.text()?)
+            receipt_ref: ReceiptRef::new(hex(&reader.fixed::<32>()?))
+                .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+        },
+        9 => SubmissionState::Committed {
+            receipt_ref: ReceiptRef::new(hex(&reader.fixed::<32>()?))
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?,
         },
         7 => SubmissionState::Failed {
@@ -5105,7 +5109,7 @@ impl AgentRuntime {
     fn native_journey_admit(
         &mut self,
         call: &Call<IdempotentMutation<PrepareRequest>>,
-        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV1,
+        purpose: &layerx_agent_api::identity::SignedNativeSendPurposeV2,
         expected: Option<([u8; 32], [u8; 32])>,
     ) -> Result<crate::journeys::NativeJourneyAdmission, AgentBoundaryError> {
         use crate::journeys::{AgentBoundary as _, NativeJourneyApprovalState as State};
@@ -5130,8 +5134,7 @@ impl AgentRuntime {
                 || statement.agent_did.as_str() != context.session.owner
                 || statement.owner_did.as_str() != context.session.owner
                 || statement.agent_did != request.actor
-                || statement.owner_public_key != context.session.owner_public_key
-                || purpose.owner_public_key != context.session.owner_public_key
+                || statement.consent_public_key != context.session.owner_public_key
                 || statement
                     .session_id
                     .to_bytes()
@@ -5155,6 +5158,14 @@ impl AgentRuntime {
             {
                 return Err(AgentBoundaryError::Refused);
             }
+            statement
+                .check_current_owner(
+                    &layerx_agent_api::identity::AgentDid::new(&context.session.owner)
+                        .map_err(|_| AgentBoundaryError::Refused)?,
+                    &context.session.owner_public_key,
+                    &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+                )
+                .map_err(|_| AgentBoundaryError::Refused)?;
             let purpose_digest: [u8; 32] = sha2::Sha256::digest(
                 statement
                     .canonical_bytes()
@@ -5162,7 +5173,7 @@ impl AgentRuntime {
             )
             .into();
             layerx_crypto::ed25519::verify_digest(
-                &purpose.owner_public_key,
+                &purpose.purpose.consent_public_key,
                 &purpose.signature,
                 &purpose_digest,
             )
@@ -5189,7 +5200,15 @@ impl AgentRuntime {
                     return Err(AgentBoundaryError::CorruptResponse);
                 }
                 let transaction = decode_unsigned(&material.canonical_unsigned_bytes)?;
-                if u32::try_from(transaction.chain_id).ok() != Some(statement.network_id)
+                statement
+                    .check_prepared_transaction(
+                        2,
+                        transaction.chain_id,
+                        &self.transaction_sender.ok_or(AgentBoundaryError::Refused)?,
+                        &sha2::Sha256::digest(&material.canonical_unsigned_bytes).into(),
+                    )
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+                if transaction.chain_id != statement.chain_id
                     || statement.activity.module != 1
                     || statement.activity.ordinal != 5
                     || statement.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
@@ -5224,37 +5243,36 @@ impl AgentRuntime {
             .as_ref()
             .ok_or(AgentBoundaryError::Refused)?;
         if preview.purpose != purpose.purpose
-            || purpose.owner_public_key != preview.owner_public_key
-            || purpose.signature.len() != 65
-            || purpose.signature.as_slice() == [0; 65]
+            || purpose.purpose.consent_public_key != preview.owner_public_key
+            || purpose.signature == [0; 64]
         {
             return Err(AgentBoundaryError::Refused);
         }
+        layerx_crypto::ed25519::verify_digest(
+            &purpose.purpose.consent_public_key,
+            &purpose.signature,
+            &sha2::Sha256::digest(
+                purpose
+                    .purpose
+                    .canonical_bytes()
+                    .map_err(|_| AgentBoundaryError::Refused)?,
+            )
+            .into(),
+        )
+        .map_err(|_| AgentBoundaryError::Refused)?;
         let request = &call.request().operation;
         let id = purpose.purpose.preparation_id;
         if expected.is_none() {
-            let typed = layerx_agent_api::identity::NativeSendPrepareRequestV1 {
-                activity: layerx_agent_api::identity::NativeActivity::new(1, 5)
-                    .map_err(|_| AgentBoundaryError::Refused)?,
-                actor: request.actor.clone(),
-                authority: request.authority.as_str().to_owned(),
-                account_sequence: request.account_sequence.0,
-                not_before: request.timestamp_bound.not_before.0,
-                not_after: request.timestamp_bound.not_after.0,
-                idempotency_key: preview.preparation.idempotency_key,
-                fee_limit: request.fee_limit.0,
-                payload: request.payload.as_bytes().to_vec(),
-                payload_hash: request.payload_hash,
-                capability_id: purpose.purpose.capability_id.clone(),
-                purpose: purpose.clone(),
-                local_grant: Some(
-                    context
+            let body = super::native_send::encode_native_send_prepare_v2(
+                request,
+                purpose,
+                Some(
+                    &context
                         .signed_grant()
                         .map_err(|_| AgentBoundaryError::Refused)?,
                 ),
-            };
-            let body = layerx_sdk::native_effect::encode_native_send_prepare(&typed)
-                .map_err(|_| AgentBoundaryError::Refused)?;
+            )
+            .map_err(|_| AgentBoundaryError::Refused)?;
             let credential = layerx_sdk::agent_envelope::EnvelopeCredential::new(
                 &context.session.tenant,
                 context.session.session_id,
@@ -5408,7 +5426,7 @@ impl AgentRuntime {
         let canonical_bytes = reader.bytes()?;
         let signing_preimage = reader.bytes()?;
         let purpose =
-            layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(&reader.bytes()?)
+            layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(&reader.bytes()?)
                 .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         let value = super::native_send::NativeSendPreviewV2 {
             canonical_bytes,
@@ -5422,15 +5440,27 @@ impl AgentRuntime {
         reader.finish()?;
         let canonical_digest: [u8; 32] = sha2::Sha256::digest(&value.canonical_bytes).into();
         let transaction = decode_unsigned(&value.canonical_bytes)?;
+        let sender = self.transaction_sender.ok_or(AgentBoundaryError::Refused)?;
+        value
+            .purpose
+            .check_current_owner(
+                &layerx_agent_api::identity::AgentDid::new(&session.owner)
+                    .map_err(|_| AgentBoundaryError::CorruptResponse)?,
+                &session.owner_public_key,
+                &sender,
+            )
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
+        value
+            .purpose
+            .check_prepared_transaction(2, transaction.chain_id, &sender, &canonical_digest)
+            .map_err(|_| AgentBoundaryError::CorruptResponse)?;
         if value.purpose.owner_did.as_str() != session.owner
-            || value.purpose.owner_public_key != session.owner_public_key
+            || value.purpose.consent_public_key != session.owner_public_key
             || value.purpose.economic_action != session.session_id
             || value.purpose.idempotency_key != decode_hex32(request.idempotency_key.as_str())?
             || value.purpose.activity.module != 1
             || value.purpose.activity.ordinal != 5
-            || value.purpose.network_id
-                != u32::try_from(transaction.chain_id)
-                    .map_err(|_| AgentBoundaryError::CorruptResponse)?
+            || value.purpose.chain_id != transaction.chain_id
             || value.signing_preimage != transaction.signing_hash()
             || value.purpose.tenant.as_str() != session.tenant
             || value.purpose.agent_did.as_str() != session.owner

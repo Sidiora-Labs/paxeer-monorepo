@@ -14,7 +14,7 @@ Use root-path node JSON-RPC at
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before
 signing, keep multiple nodes configured and compare their block heights.
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; see [Public RPC endpoints](../reference/public-rpc.md).
 
 The former unified router, `/rpc` and `/rpc/ws` public endpoints are retired.
@@ -74,10 +74,10 @@ for verification and recovery.
 
 ## Developer benchmark
 
-The platform specification in `spec/layerx-platform/spec.kvx` sets a target
-of integrating payments in fewer than ten lines and completing a verified
-test payment within five minutes from a clean environment. Those are
-qualification targets; this page does not record a passing measurement.
+`tools/qualification/beta_driver.py` measures payment integration with
+the ten-line middleware benchmark and a verified first payment within
+five minutes from a clean environment. Those are qualification targets;
+this page does not record a passing measurement.
 Use the current node and hosted contracts above when evaluating an
 integration, with independently configured verification trust.
 

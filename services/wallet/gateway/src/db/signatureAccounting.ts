@@ -41,6 +41,8 @@ export const SIGNATURE_ACCOUNTING_MIGRATION = {
 export interface SignatureAccountingContext {
   requestHash: string;
   subject: string;
+  /** A session client, with no caller-owned transaction open. */
+  connection?: PoolClient;
 }
 
 interface ReservationRow {
@@ -81,6 +83,7 @@ const RESERVATION_PROJECTION = `r.signature_id::text, r.operation_hash, r.signed
 async function reserveSignature(
   input: SignatureLogInput,
   operationHash: string,
+  connection?: PoolClient
 ): Promise<ReservationRow> {
   return withTransaction(async (client) => {
     await lockAccounting(client, input.user_id);
@@ -90,7 +93,7 @@ async function reserveSignature(
       where r.wallet_id = $1 and r.kind = $2
         and (r.request_hash = $3 or ($2 = 'transaction' and r.operation_hash = $4))
       for update of r`,
-      [input.wallet_id, input.kind, input.request_hash, operationHash],
+      [input.wallet_id, input.kind, input.request_hash, operationHash]
     );
     if (existing.rows.length > 1)
       throw new Error('signature accounting request conflicts with another transaction');
@@ -120,14 +123,14 @@ async function reserveSignature(
         input.chain_id ?? null,
         input.request_hash,
         input.principal_did ?? null,
-      ],
+      ]
     );
     const id = inserted.rows[0]?.id;
     if (!id) throw new Error('signature accounting reservation returned no row');
     await client.query(
       `insert into wallet_signature_reservations
       (wallet_id, kind, request_hash, operation_hash, signature_id) values ($1, $2, $3, $4, $5)`,
-      [input.wallet_id, input.kind, input.request_hash, operationHash, id],
+      [input.wallet_id, input.kind, input.request_hash, operationHash, id]
     );
     return {
       signature_id: id,
@@ -142,17 +145,18 @@ async function reserveSignature(
       principal_did: input.principal_did ?? null,
       expired: false,
     };
-  });
+  }, connection);
 }
 
 async function accountedSignature(
   input: SignatureLogInput,
   operationHash: string,
   sign: () => Promise<Hex>,
+  connection?: PoolClient
 ): Promise<Hex> {
   // This transaction commits before invoking either custody backend. A failure
   // after this point leaves a counted reservation, including across a restart.
-  const reservation = await reserveSignature(input, operationHash);
+  const reservation = await reserveSignature(input, operationHash, connection);
   if (reservation.signed_evidence !== null) return reservation.signed_evidence;
   const evidence = await sign();
   const txHash = input.kind === 'transaction' ? keccak256(evidence) : null;
@@ -161,7 +165,7 @@ async function accountedSignature(
       `update wallet_signature_reservations
       set signed_evidence = $2, tx_hash = $3 where signature_id = $1
       and (signed_evidence is null or signed_evidence = $2) returning signature_id`,
-      [reservation.signature_id, evidence, txHash],
+      [reservation.signature_id, evidence, txHash]
     );
     if (result.rowCount !== 1)
       throw new Error('signature accounting completion differs from retained evidence');
@@ -169,23 +173,24 @@ async function accountedSignature(
       reservation.signature_id,
       txHash,
     ]);
-  });
+  }, connection);
   return evidence;
 }
 
 export function withSignatureAccounting(
   wallet: WalletRow,
   account: SigningAccount,
-  context?: SignatureAccountingContext,
+  context?: SignatureAccountingContext
 ): SigningAccount {
   const input = async (kind: SignatureLogInput['kind']): Promise<SignatureLogInput> => {
     if (!context?.requestHash || !context.subject)
       throw new Error('durable signature accounting requires request context');
     let principalDid: string | null = null;
     if (wallet.kind === 'agent') {
-      const { rows } = await query<{ did: string; owner_user_id: string | null }>(
+      const read = context.connection ? context.connection.query.bind(context.connection) : query;
+      const { rows } = await read<{ did: string; owner_user_id: string | null }>(
         'select did, owner_user_id from agent_principals where wallet_id = $1',
-        [wallet.id],
+        [wallet.id]
       );
       const principal = rows[0];
       if (
@@ -221,14 +226,21 @@ export function withSignatureAccounting(
         },
         keccak256(serializeTransaction(transaction)),
         () => account.signTransaction(transaction),
+        context?.connection
       )) as SigningAccount['signTransaction'],
     signMessage: async (args) =>
-      accountedSignature(await input('message'), hashMessage(args.message), () =>
-        account.signMessage(args),
+      accountedSignature(
+        await input('message'),
+        hashMessage(args.message),
+        () => account.signMessage(args),
+        context?.connection
       ),
     signTypedData: (async (typedData: TypedDataDefinition) =>
-      accountedSignature(await input('typed_data'), hashTypedData(typedData), () =>
-        account.signTypedData(typedData),
+      accountedSignature(
+        await input('typed_data'),
+        hashTypedData(typedData),
+        () => account.signTypedData(typedData),
+        context?.connection
       )) as SigningAccount['signTypedData'],
   };
 }
@@ -241,7 +253,7 @@ export async function reconcileSignature(input: SignatureLogInput): Promise<void
       from wallet_signature_reservations r join wallet_signatures s on s.id = r.signature_id
       where r.wallet_id = $1 and r.kind = $2
         and (r.request_hash = $3 or ($4::text is not null and r.tx_hash = $4)) for update of r`,
-      [input.wallet_id, input.kind, input.request_hash, input.tx_hash?.toLowerCase() ?? null],
+      [input.wallet_id, input.kind, input.request_hash, input.tx_hash?.toLowerCase() ?? null]
     );
     const row = result.rows[0];
     if (

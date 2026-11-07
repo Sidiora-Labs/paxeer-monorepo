@@ -38,6 +38,9 @@ defmodule BlockScoutWeb.Specs.Private do
       ],
       info: %Info{
         title: "Blockscout Private API",
+        description:
+          "Account v2 authentication and user preferences. Retain the sign-in session cookie and obtain " <>
+            "x-bs-account-csrf from GET /account/v2/get_csrf; send it as x-csrf-token on session-protected writes.",
         version: to_string(Application.spec(:block_scout_web, :vsn)),
         contact: %Contact{
           email: "info@blockscout.com"

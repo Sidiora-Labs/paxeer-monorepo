@@ -70,7 +70,7 @@ to the bounded communication and clock assumptions used in the liveness proof.
 
 The upstream discussion of verification metadata and fork detection in
 [Pull Request 479](https://github.com/informalsystems/tendermint-rs/pull/479) and
-[Issue 499](https://github.com/informalsystems/tendermint-rs/issues/499) records
+[Issue 499](https://github.com/cometbft/tendermint-rs/issues/499) records
 historical design context. It is not the current fork's issue status. The
 preliminary IBC questions in Part V remain part of that research discussion;
 consult the Go sources above for implemented behavior.
@@ -1221,9 +1221,9 @@ read with the mode restrictions above.
 
 [[lightclient]] The light client ADR [77d2651 on Dec 27, 2019].
 
-[RPC]: https://docs.tendermint.com/master/rpc/
+[RPC]: https://docs.cometbft.com/v0.38/rpc/
 
-[block]: https://github.com/tendermint/spec/blob/d46cd7f573a2c6a2399fcab2cde981330aa63f37/spec/core/data_structures.md
+[block]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md
 
 [TMBC-HEADER-link]: #tmbc-header1
 [TMBC-SEQ-link]: #tmbc-seq1
@@ -1236,16 +1236,16 @@ read with the mode restrictions above.
 [TMBC-SOUND-DISTR-POSS-COMMIT-link]: #tmbc-sound-distr-poss-commit1
 
 [lightclient]: https://github.com/interchainio/tendermint-rs/blob/e2cb9aca0b95430fca2eac154edddc9588038982/docs/architecture/adr-002-lite-client.md
-[fork-detector]: https://github.com/informalsystems/tendermint-rs/blob/master/docs/spec/lightclient/detection.md
-[fullnode]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md
+[fork-detector]: ../detection/README.md
+[fullnode]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
 [ibc-rs]:https://github.com/informalsystems/ibc-rs
 
-[FN-LuckyCase-link]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#fn-luckycase
+[FN-LuckyCase-link]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
-[blockchain-validator-set]: https://github.com/tendermint/spec/blob/master/spec/blockchain/blockchain.md#data-structures
-[fullnode-data-structures]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#data-structures
+[blockchain-validator-set]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md#validatorset
+[fullnode-data-structures]: https://github.com/cometbft/cometbft/blob/main/spec/core/data_structures.md#lightblock
 
-[FN-ManifestFaulty-link]: https://github.com/tendermint/spec/blob/master/spec/blockchain/fullnode.md#fn-manifestfaulty
+[FN-ManifestFaulty-link]: https://github.com/cometbft/cometbft/blob/main/spec/light-client/verification/verification_001_published.md#used-remote-functions
 
 [arXiv]: https://arxiv.org/abs/1807.04938

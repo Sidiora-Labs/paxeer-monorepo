@@ -4,6 +4,11 @@ umask 077
 export LC_ALL=C
 
 root=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
+source "$root/tools/release/stage.sh"
+release_load_identity "$root/tools/release" || {
+  printf 'swap: invalid release identity\n' >&2
+  exit 1
+}
 role=
 manager=systemd
 verify=false
@@ -11,6 +16,7 @@ receipt=
 env_file=
 halt_override=
 release_doc=upgrade-info.json
+plan_info=
 
 fail() {
   printf 'swap: %s\n' "$*" >&2
@@ -19,7 +25,7 @@ fail() {
 
 while (($#)); do
   case "$1" in
-    --role|--service-manager|--receipt|--env-file|--halt-height|--release-doc)
+    --role|--service-manager|--receipt|--env-file|--halt-height|--release-doc|--plan-info)
       (($# >= 2)) && [[ -n "$2" ]] || fail "missing value for $1"
       case "$1" in
         --role) role=$2 ;;
@@ -28,6 +34,7 @@ while (($#)); do
         --env-file) env_file=$2 ;;
         --halt-height) halt_override=$2 ;;
         --release-doc) release_doc=$2 ;;
+        --plan-info) plan_info=$2 ;;
       esac
       shift 2
       ;;
@@ -82,8 +89,7 @@ if len(set(homes)) != len(homes):
     sys.exit("swap: duplicate node home")
 PY
 
-exec 9>"$BIN_DIR/.paxd-swap.lock"
-flock -n 9 || fail "another swap is in progress"
+release_operation_lock "$BIN_DIR" || fail "another release operation is in progress"
 new_owned=false
 cleanup() {
   if [[ "$new_owned" == true ]]; then
@@ -105,81 +111,17 @@ check_binary() {
 }
 
 node_process() {
-  python3 - "$@" <<'PY'
-import hashlib
-import os
-from pathlib import Path
-import select
-import signal
-import subprocess
-import sys
-
-mode, home = sys.argv[1:3]
-home = os.path.realpath(home)
-result = subprocess.run(["pgrep", "-a", "-x", "paxd"], capture_output=True, text=True)
-if result.returncode not in (0, 1):
-    sys.exit("swap: process inspection failed")
-matched = []
-for line in result.stdout.splitlines():
-    pid = int(line.split(maxsplit=1)[0])
-    try:
-        raw_args = Path(f"/proc/{pid}/cmdline").read_bytes()
-        args = raw_args.split(b"\0")
-        args = [os.fsdecode(arg) for arg in args if arg]
-        values = []
-        for index, arg in enumerate(args):
-            if arg == "--home" and index + 1 < len(args):
-                values.append(args[index + 1])
-            elif arg.startswith("--home="):
-                values.append(arg.partition("=")[2])
-        for value in values:
-            candidate = Path(value)
-            if not candidate.is_absolute():
-                candidate = Path(f"/proc/{pid}/cwd").resolve() / candidate
-            if os.path.realpath(candidate) == home:
-                matched.append((pid, raw_args))
-                break
-    except FileNotFoundError:
-        continue
-if mode == "list":
-    for pid, raw_args in matched:
-        print(pid)
-elif mode == "stop":
-    for pid, raw_args in matched:
-        try:
-            fd = os.pidfd_open(pid)
-        except ProcessLookupError:
-            continue
-        try:
-            current = Path(f"/proc/{pid}/cmdline").read_bytes()
-            if current != raw_args:
-                sys.exit("swap: process changed during stop")
-            signal.pidfd_send_signal(fd, signal.SIGTERM)
-            poller = select.poll()
-            poller.register(fd, select.POLLIN)
-            if not poller.poll(60000):
-                sys.exit("swap: node did not stop cleanly")
-        finally:
-            os.close(fd)
-elif mode == "verify":
-    if len(matched) != 1:
-        sys.exit("swap: expected exactly one running paxd for home")
-    with open(f"/proc/{matched[0][0]}/exe", "rb") as stream:
-        digest = hashlib.file_digest(stream, "sha256").hexdigest()
-    if digest != sys.argv[3]:
-        sys.exit("swap: running paxd sha256 mismatch")
-else:
-    sys.exit("swap: invalid process operation")
-PY
+  release_node_process "$@"
 }
 
 check_home() {
-  python3 - "$1" "$halt" "$2" <<'PY'
+  python3 - "$1" "$halt" "$2" "$release_upgrade" "$root/tools/release/upgrade_info.py" <<'PY'
 import json
 import os
 from pathlib import Path
 import re
 import stat
+import subprocess
 import sys
 import tempfile
 import tomllib
@@ -211,8 +153,25 @@ if mode == "reset":
 elif mode == "verify":
     info_path = home / "data/upgrade-info.json"
     info = json.loads(info_path.read_text())
-    if info != {"name": "v6.12.0", "height": halt + 1} or type(info["height"]) is not int:
+    if (
+        info.get("name") != sys.argv[4] or info.get("height") != halt + 1
+        or type(info.get("height")) is not int
+    ):
         sys.exit("swap: node upgrade file differs")
+    if "info" in info:
+        if not isinstance(info["info"], str):
+            sys.exit("swap: node upgrade info must be a JSON string")
+        json.loads(info["info"])
+    elif sys.argv[4] == "v7.0":
+        sys.exit("swap: merge plan info is missing")
+    if "info" in info:
+        subprocess.run(
+            [
+                "python3", sys.argv[5], "plan-info", "--check", str(info_path),
+                "--plan-height", str(halt),
+            ],
+            check=True,
+        )
     if stat.S_IMODE(info_path.stat().st_mode) != 0o600:
         sys.exit("swap: node upgrade file mode must be 600")
     if config["halt-height"] != 0:
@@ -310,23 +269,27 @@ for home in "${validators[@]}"; do
   running=$(node_process list "$home") || fail "process inspection failed"
   [[ -z "$running" ]] || fail "validator home $home still running"
 done
-check_binary "$BIN_DIR/paxd.v6.12.0"
-python3 - "$release_doc" "$RELEASE_SHA256" <<'PY' || exit 1
-import json
+check_binary "$BIN_DIR/paxd.$release_version"
+python3 - "$release_doc" "$RELEASE_SHA256" "$release_version" "$release_upgrade" \
+  "$plan_info" "$halt" "$root/tools/release/upgrade_info.py" <<'PY' || exit 1
+import importlib.util
 from pathlib import Path
 import sys
-from urllib.parse import parse_qs, urlsplit
 
+spec = importlib.util.spec_from_file_location("upgrade_info", sys.argv[7])
+tool = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(tool)
 try:
-    document = json.loads(Path(sys.argv[1]).read_text())
-    if document["name"] != "v6.12.0":
-        sys.exit("swap: release document name differs")
-    asset = json.loads(document["info"])["binaries"]["linux/amd64"]
-    checksum = parse_qs(urlsplit(asset).query).get("checksum")
-    if checksum != ["sha256:" + sys.argv[2]]:
-        sys.exit("swap: release document checksum differs")
-except (OSError, ValueError, KeyError, TypeError):
-    sys.exit("swap: invalid release document")
+    identity = {"version": sys.argv[3], "upgrade": sys.argv[4]}
+    document = Path(sys.argv[1])
+    name = tool.release_document_name(document, sys.argv[2], identity)
+    info = tool.node_plan_info(
+        document, Path(sys.argv[5]) if sys.argv[5] else None, int(sys.argv[6]), name,
+    )
+    if info is not None:
+        tool.validate_plan_info(info, int(sys.argv[6]))
+except (OSError, ValueError, KeyError, TypeError) as error:
+    sys.exit("swap: " + str(error))
 PY
 [[ -f "$root/tools/release/upgrade_info.py" ]] || fail "required interface tools/release/upgrade_info.py is missing"
 for home in "${homes[@]}"; do
@@ -345,16 +308,21 @@ for home in "${homes[@]}" "${validators[@]}"; do
   running=$(node_process list "$home") || fail "process inspection failed"
   [[ -z "$running" ]] || fail "home $home still running"
 done
+plan_arguments=()
+if [[ -n "$plan_info" ]]; then
+  plan_arguments=(--plan-info "$plan_info")
+fi
 for home in "${homes[@]}"; do
   python3 "$root/tools/release/upgrade_info.py" node --home "$home" \
-    --halt-height "$halt" --release-doc "$release_doc" --sha256 "$RELEASE_SHA256"
+    --halt-height "$halt" --release-doc "$release_doc" --sha256 "$RELEASE_SHA256" \
+    "${plan_arguments[@]}"
   check_home "$home" reset
   check_home "$home" verify
 done
 [[ ! -d "$BIN_DIR/paxd" ]] || fail "installed paxd is a directory"
 (set -o noclobber; : > "$BIN_DIR/paxd.new") || fail "paxd.new already exists"
 new_owned=true
-cp -p -- "$BIN_DIR/paxd.v6.12.0" "$BIN_DIR/paxd.new"
+cp -p -- "$BIN_DIR/paxd.$release_version" "$BIN_DIR/paxd.new"
 check_binary "$BIN_DIR/paxd.new"
 mv -f -- "$BIN_DIR/paxd.new" "$BIN_DIR/paxd"
 new_owned=false

@@ -24,6 +24,7 @@ import pytest
 
 HELPER = Path(__file__).resolve().parents[1] / 'reset_state.py'
 SPEC = importlib.util.spec_from_file_location('reset_state', HELPER)
+assert SPEC is not None and SPEC.loader is not None
 reset_state = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(reset_state)
 

@@ -13,18 +13,20 @@ in the database, rather than separately deployed networks.
 
 Start integrations with the public node JSON-RPC at the root of
 `https://api-mainnet-beta.paxeer.network` or the numbered nodes `api1` through
-`api14.mainnet-beta.paxeer.network`. The hosted gateway's `px_` methods are
-defined in its OpenRPC contract; that contract does not imply those methods
-are available on every public node.
+`api14.mainnet-beta.paxeer.network`. The node serves the `px` namespace at
+the same root; `px_register` and `px_requestFunds` are hosted identity and
+faucet operations defined in the gateway OpenRPC contract.
 The former router and separate LayerX interface are retired.
 
-The historical references below retain useful background, but their pre-merge
-execution/settlement split and LNI write transport are retired. Use the public
-node reference and checked-in gateway contract for current integrations.
+The index below includes current documentation and historical references. Rows
+marked historical retain useful background, but their pre-merge execution/settlement
+split and LNI write transport are retired. Use the public node reference and
+checked-in gateway contract for current integrations.
 
 | Path | Contents |
 | --- | --- |
 | [site/](site/) | MkDocs Material site (Overview, Concepts, Protocol, Programs, Agents, Human, Platform, Interop, Operators, Reference); preview and build instructions in [site/README.md](site/README.md) |
+| [CI secrets and runners](ci/secrets-and-runners.md) | Workflow secret and variable names, provisioning roles and runner labels |
 | [Public node JSON-RPC](site/docs/reference/public-rpc.md) | Root node endpoints, chain identity, namespaces, and client guidance |
 | [Hosted gateway OpenRPC](../services/platform/hosted/gateway/openrpc.json) | Declared hosted JSON-RPC method, parameter, result, and error contracts; implementation in [gateway source](../services/platform/hosted/gateway/src/) |
 | [site/build_wiki.py](site/build_wiki.py) | Renders `wiki/` to static HTML under `site/out/` and refuses broken relative links |
@@ -44,8 +46,17 @@ node reference and checked-in gateway contract for current integrations.
 | [QUALIFICATION.md](QUALIFICATION.md) | Evidence levels layered by risk |
 | [Perps ABI change history](perps-abi-change-history.md) | Decision commit scope, the separate SDK implementation, and outstanding follow-up tasks |
 | [readme/](readme/) | Translations of the root README |
+| [release/7.0.0-upgrade-plan.md](release/7.0.0-upgrade-plan.md) | 7.0.0 release plan, with the [validator runbook](release/7.0.0-validator-runbook.md), [service operator runbook](release/7.0.0-service-operator-runbook.md) and [readiness checklist](release/7.0.0-readiness-checklist.md) |
 | [runbooks/paxeer-x-fork.md](runbooks/paxeer-x-fork.md) | Validator runbook for the Paxeer X upgrade of the chain |
-| [paxeer-network.md](paxeer-network.md) | Historical chain overview; the separate execution/settlement topology is retired |
+| [paxeer-network.md](paxeer-network.md) | Current merged-network overview for EVM chain ID `125` (`0x7d`) |
 | [paxeer-chain-docs.md](paxeer-chain-docs.md) | Chain documentation index: Swagger/OpenAPI and EVM JSON-RPC notes; pre-merge boundary descriptions are historical |
 | [evm_jsonrpc_unsupported.md](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that are registered but return a documented error |
 | [swagger-ui/](swagger-ui/), [swagger/](swagger/) | Swagger UI assets, and the `statik.go` package that embeds them for `paxd` |
+| [hyperfide/](hyperfide/) | Vendored Hyperfide project documentation: CLI, architecture, workflows and integrations; source paths in it are relative to [`tools/hyperfide/`](../tools/hyperfide/) |
+| [platform/](platform/) | Platform developer documentation, API references, integration guides and documentation site tooling |
+| [wallet/](wallet/) | Wallet [app](wallet/app/) development, architecture and operations, and [service](wallet/service/) security reviews and runbooks |
+| [explorer/](explorer/) | Explorer build configuration, environment variables, contribution guides and upstream notes |
+| [launchpad/](launchpad/) | Launchpad production readiness checklist |
+| [perps/](perps/) | Perpetuals data API reference |
+| [agent/](agent/) | Agent daemon compatibility matrix |
+| [interop/](interop/) | Interoperability portability requirements and guidance |

@@ -1,0 +1,24 @@
+{
+  "leaders": [
+    "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=",
+    "PUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw="
+  ],
+  "receipt_keys": [
+    {
+      "key_id": "REREREREREREREREREREREREREREREREREREREREREQ=",
+      "public_key": "11qYAYKxCrfVS/7TyWQHOg7hcvPapiMlrwIaaPcHURo=",
+      "first_height": 43,
+      "last_height": 18446744073709551615
+    },
+    {
+      "key_id": "RUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUVFRUU=",
+      "public_key": "PUAXw+hDiVqStwqnTRt+vJyYLM8uxJaMwM1V8Sr0Zgw=",
+      "first_height": 43,
+      "last_height": 18446744073709551615
+    }
+  ],
+  "last_seq": 0,
+  "last_seq_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+  "plan_height": 42,
+  "activation_height": 43
+}

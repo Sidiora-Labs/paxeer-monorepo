@@ -28,7 +28,7 @@ curl --fail --silent --show-error --max-time 15 "$RPC_URL" \
 ```
 
 The response's `result` must be `"0x7d"`. Public node namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `test` and `txpool`; an advertised namespace does
+`echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; an advertised namespace does
 not imply every upstream Geth method is available. WebSocket clients use
 root URLs such as `wss://api1.mainnet-beta.paxeer.network`.
 

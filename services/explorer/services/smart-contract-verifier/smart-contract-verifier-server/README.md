@@ -564,22 +564,18 @@ event decodings. [Env-collector](../../libs/env-collector/README.md) explains ho
 to maintain environment tables from a serializable settings type and an example
 configuration; its output covers the example's shape, not every fetcher variant.
 
-## Repair 22.33.598 trace
+## Configuration and API coverage
 
-| Audit finding | Proving integration test in `tests/repair_22_33_598.rs` |
+The [configuration, startup, request and response tests](tests/repair_22_33_598.rs)
+check the behavior described above:
+
+| Behavior | Test |
 | --- | --- |
-| `undocumented-enabled-zksync` | `undocumented_enabled_zksync`, `undocumented_enabled_zksync_startup_and_transport` |
-| `obsolete-request-examples` | `obsolete_request_examples` |
-| `response-family-docs` | `response_family_docs` |
-| `manual-library-response-docs` | `manual_library_response_docs` |
+| ZkSync defaults, fetcher configuration, startup and transport registration | `undocumented_enabled_zksync`, `undocumented_enabled_zksync_startup_and_transport` |
+| Current protobuf request shapes and README examples | `obsolete_request_examples` |
+| Solo, batch and ZkSync response families | `response_family_docs` |
+| Compiler-linked and manually linked library response fields | `manual_library_response_docs` |
 
-Wiring request — domain 14: update `config/base.toml` and `config/base.env`
-with the ZkSync, all three list/S3 fetcher and tracing examples above; these two
-files are outside this task's permitted paths.
-
-Baseline: the base already contains substantial corrected prose, but has no
-`repair_22_33_598` test target. No unchanged-tree verification was run: this task's
-explicit gate order requires implementation before `hf-build` and `hf-done`.
-Qualification revision, command, exit and private log are recorded by those
-gates; this table maps the findings to their regression cases, not a claim that
-a gate has passed.
+The shipped configuration examples remain partial: use the settings and examples
+above when enabling ZkSync, choosing list/S3 fetchers or configuring tracing.
+These checks do not certify a deployed service or a successful compiler run.

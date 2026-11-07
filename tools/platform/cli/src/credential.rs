@@ -1,4 +1,6 @@
+use sha2::{Digest as _, Sha256};
 use std::io::{self, Read};
+use std::path::{Component, Path, PathBuf};
 use std::sync::OnceLock;
 
 use ed25519_dalek::SigningKey;
@@ -83,6 +85,87 @@ impl Entry {
     }
 }
 
+/// Stable identity for a configuration path, including paths that do not yet exist.
+pub fn profile_namespace(path: &Path) -> Result<String, String> {
+    let absolute = if path.is_absolute() {
+        path.to_owned()
+    } else {
+        std::env::current_dir()
+            .map_err(|error| error.to_string())?
+            .join(path)
+    };
+    let file = absolute
+        .file_name()
+        .ok_or("configuration path has no filename")?;
+    let parent = absolute
+        .parent()
+        .ok_or("configuration path has no parent")?;
+    let mut resolved = PathBuf::new();
+    for part in parent.components() {
+        match part {
+            Component::CurDir => (),
+            Component::ParentDir => {
+                resolved.pop();
+            }
+            part => {
+                resolved.push(part.as_os_str());
+                match std::fs::symlink_metadata(&resolved) {
+                    Ok(metadata) if metadata.file_type().is_symlink() => {
+                        resolved = resolved.canonicalize().map_err(|error| error.to_string())?;
+                    }
+                    Ok(_) => (),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => (),
+                    Err(error) => return Err(error.to_string()),
+                }
+            }
+        }
+    }
+    resolved.push(file);
+    Ok(hex_encode(&Sha256::digest(
+        resolved.as_os_str().as_encoded_bytes(),
+    )))
+}
+
+pub fn key_entry_identity(path: &Path, name: &str) -> Result<String, String> {
+    validate_name(name)?;
+    Ok(format!("key:v2:{}:{name}", profile_namespace(path)?))
+}
+
+fn lock_profile() -> Result<std::fs::File, String> {
+    let path = crate::config::path()?;
+    let parent = path.parent().ok_or("configuration path has no parent")?;
+    std::fs::create_dir_all(parent).map_err(|error| error.to_string())?;
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::OpenOptionsExt as _;
+        options.mode(0o600).custom_flags(
+            i32::try_from(rustix::fs::OFlags::NOFOLLOW.bits())
+                .map_err(|error| error.to_string())?,
+        );
+    }
+    let file = options
+        .open(parent.join(format!(".key-{}.lock", profile_namespace(&path)?)))
+        .map_err(|error| format!("could not lock credential profile: {error}"))?;
+    file.lock()
+        .map_err(|error| format!("could not lock credential profile: {error}"))?;
+    Ok(file)
+}
+
+fn refuse_existing(entry: &Entry) -> Result<(), String> {
+    match entry.get_password() {
+        Err(keyring_core::Error::NoEntry) => Ok(()),
+        Ok(value) => {
+            drop(Zeroizing::new(value));
+            Err("key_already_stored: refusing to replace existing signing material".into())
+        }
+        Err(error) => Err(format!(
+            "could not check existing signing material: {error}"
+        )),
+    }
+}
+
 fn entry(kind: &str, name: &str) -> Result<Entry, String> {
     ensure_store()?;
     let identity = format!("{kind}:{name}");
@@ -93,6 +176,11 @@ fn entry(kind: &str, name: &str) -> Result<Entry, String> {
                 format!("file credential storage is unavailable: {error}. {FILE_STORE_HELP}")
             });
     }
+    let identity = if kind == "key" {
+        key_entry_identity(&crate::config::path()?, name)?
+    } else {
+        identity
+    };
     OsEntry::new(SERVICE, &identity)
         .map(Entry::Os)
         .map_err(|error| {
@@ -167,12 +255,14 @@ fn import_seed(
     if did.is_empty() || did.len() > 255 {
         return Err("DID must contain between 1 and 255 bytes".into());
     }
+    let _lock = lock_profile()?;
+    let stored = entry("key", name)?;
+    refuse_existing(&stored)?;
+    let previous = configuration.clone();
     let mut encoded = Zeroizing::new(hex_encode(&seed[..]));
-    entry("key", name)?
-        .set_password(&encoded)
-        .map_err(|error| {
-            format!("could not save key in credential storage: {error}. {FILE_STORE_HELP}")
-        })?;
+    stored.set_password(&encoded).map_err(|error| {
+        format!("could not save key in credential storage: {error}. {FILE_STORE_HELP}")
+    })?;
     encoded.zeroize();
     let metadata = KeyMetadata {
         did,
@@ -183,18 +273,57 @@ fn import_seed(
         configuration.default_key = Some(name.to_owned());
     }
     if let Err(error) = configuration.save() {
-        let _ = entry("key", name).and_then(|value| {
-            value
-                .delete_credential()
-                .map_err(|failure| failure.to_string())
-        });
+        *configuration = previous;
+        // Delete only the value this publication created, under the same profile lock.
+        let matches = stored
+            .get_password()
+            .map(Zeroizing::new)
+            .is_ok_and(|value| value.as_str() == hex_encode(&seed[..]));
+        if !matches {
+            return Err(format!(
+                "{error}; credential rollback refused: stored value changed"
+            ));
+        }
+        stored
+            .delete_credential()
+            .map_err(|failure| format!("{error}; credential rollback failed: {failure}"))?;
         return Err(error);
     }
     drop(seed);
     Ok(metadata)
 }
 
+pub fn migrate_legacy_key(configuration: &Configuration, name: &str) -> Result<(), String> {
+    validate_name(name)?;
+    if std::env::var(STORE_VARIABLE).as_deref() == Ok("file") {
+        return Err(
+            "legacy_key_migration_requires_os: select the operating-system credential store".into(),
+        );
+    }
+    let metadata = configuration
+        .keys
+        .get(name)
+        .ok_or("key metadata does not exist")?;
+    let _lock = lock_profile()?;
+    let target = entry("key", name)?;
+    refuse_existing(&target)?;
+    let legacy =
+        OsEntry::new(SERVICE, &format!("key:{name}")).map_err(|error| error.to_string())?;
+    let encoded = Zeroizing::new(legacy.get_password().map_err(|error| error.to_string())?);
+    let seed = Zeroizing::new(fixed_hex::<32>("legacy private seed", &encoded)?);
+    let public = SigningKey::from_bytes(&seed).verifying_key().to_bytes();
+    if metadata.public_key != hex_encode(&public) {
+        return Err(
+            "legacy_key_mismatch: stored key does not match this configuration's public key".into(),
+        );
+    }
+    target
+        .set_password(&encoded)
+        .map_err(|error| format!("legacy key migration failed: {error}"))
+}
+
 pub fn delete_key(configuration: &mut Configuration, name: &str) -> Result<(), String> {
+    let _lock = lock_profile()?;
     if !configuration.keys.contains_key(name) {
         return Err(format!("key {name} does not exist"));
     }

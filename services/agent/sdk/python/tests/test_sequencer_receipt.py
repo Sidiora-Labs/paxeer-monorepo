@@ -12,12 +12,15 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from layerx_sdk.production import SdkErrorCode
+from layerx_sdk.account_derivation import keccak256
+from layerx_sdk.evm_transaction import decode_signed_transaction
 from layerx_sdk.verifier import (
     ReceiptKey,
     SequencerReceiptVerificationError,
     verify_sequencer_receipt,
 )
 from layerx_sdk.x402_rpc import _transaction_bytes, verify_rpc_payment
+from layerx_sdk.x402 import LAYERX_LEDGER_ADDRESS, PaymentBindingError, verify_payment_receipt
 
 ROOT = Path(__file__).resolve().parents[5]
 VECTORS = json.loads(
@@ -26,21 +29,97 @@ VECTORS = json.loads(
 
 
 def _payment_vector():
-    return next(
-        vector for vector in VECTORS if vector["id"] == "V1-layerxledger-pay-exact"
-    )
+    settlement = json.loads(
+        (ROOT / "daemon/committed-fixture/vectors/vector-v4-committed.json").read_text()
+    )["settlement"]
+    governed = json.loads(
+        (ROOT / "sdk/platform/conformance/fixtures/vector-v4-committed.json").read_text()
+    )["positive"]
+    receipt = settlement["receipt"]
+    assert receipt["txHash"] == governed["receiptJson"]["txHash"]
+    assert receipt["receipt"] == governed["signedReceipt"]
+    assert settlement["raw_transaction"] == governed["rawTransaction"]
+    assert receipt["keyId"] == governed["pinnedKey"]["keyId"]
+    assert receipt["signingKey"] == governed["pinnedKey"]["publicKey"]
+    return {
+        "rawTransaction": settlement["raw_transaction"],
+        "signedReceipt": receipt["receipt"],
+        "receiptJson": receipt,
+        "receiptDigest": governed["receiptDigest"],
+        "pinnedKey": governed["pinnedKey"],
+    }
 
 
 def _payment_terms(vector):
     receipt = vector["receiptJson"]
-    log = receipt["logs"][0]
+    topic = "0x" + keccak256(
+        b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)"
+    ).hex()
+    logs = [log for log in receipt["logs"] if log["topics"][0] == topic]
+    assert len(logs) == 1
+    log = logs[0]
     data = _bytes(log["data"])
     return {
         "amount": str(int.from_bytes(data[32:], "big")),
         "asset": data[:32].hex(),
         "pay_to": _bytes(log["topics"][3]).hex(),
-        "payer": _bytes(receipt["from"]).rjust(32, b"\0").hex(),
+        "payer": _bytes(log["topics"][2]).hex(),
     }
+
+
+def test_payment_recording_binds_the_production_ledger_transaction():
+    vector = _payment_vector()
+    raw = _transaction_bytes(vector["rawTransaction"])
+    transaction, _ = decode_signed_transaction(raw)
+    terms = _payment_terms(vector)
+    assert transaction.chain_id == 125
+    assert transaction.to == LAYERX_LEDGER_ADDRESS
+    assert transaction.value == 0
+    assert transaction.data[4:36].hex() == terms["payer"]
+    assert transaction.data[36:68].hex() == terms["pay_to"]
+    assert transaction.data[68:100].hex() == terms["asset"]
+    assert int.from_bytes(transaction.data[100:132], "big") == int(terms["amount"])
+    assert "0x" + keccak256(raw).hex() == vector["receiptJson"]["txHash"]
+    verified = verify_payment_receipt(
+        _bytes(vector["signedReceipt"]), raw, [_key(vector)], **terms
+    )
+    assert verified.receipt_digest == _bytes(vector["receiptDigest"])
+
+
+def test_committed_recording_keeps_its_governed_pin_and_wrong_chain_refusal():
+    archived = json.loads(
+        (Path(__file__).parent / "fixtures/vector-v4-chain713714.json").read_text()
+    )
+    recording = archived["settlement"]
+    governed = archived["positive"]
+    receipt = recording["receipt"]
+    assert receipt["txHash"] == governed["receiptJson"]["txHash"]
+    assert receipt["receipt"] == governed["signedReceipt"]
+    assert recording["raw_transaction"] == governed["rawTransaction"]
+    raw = _transaction_bytes(recording["raw_transaction"])
+    signed = _transaction_bytes(receipt["receipt"])
+    key = _key(governed)
+    verified = verify_sequencer_receipt(signed, raw, [key])
+    assert verified.height == key.first_height == key.last_height == 10
+    assert verified.receipt_digest == _bytes(governed["receiptDigest"])
+    assert verified.receipt.context_hash == key.key_id
+    assert receipt["signingKey"] == "0x" + key.public_key.hex()
+    transaction, _ = decode_signed_transaction(raw)
+    assert transaction.chain_id == 713714
+    assert verified.receipt.operation == 0
+    assert transaction.to == LAYERX_LEDGER_ADDRESS
+    assert transaction.value == 0
+    payment_log = receipt["logs"][1]
+    data = _bytes(payment_log["data"])
+    terms = dict(
+        amount=str(int.from_bytes(data[32:], "big")),
+        asset=data[:32].hex(),
+        pay_to=_bytes(payment_log["topics"][3]).hex(),
+        payer=_bytes(payment_log["topics"][2]).hex(),
+    )
+    with pytest.raises(PaymentBindingError) as raised:
+        verify_payment_receipt(signed, raw, [key], **terms)
+    assert raised.value.code == SdkErrorCode.VERIFICATION_FAILURE
 
 
 def test_package_root_exports_sequencer_receipt_api():
@@ -179,8 +258,8 @@ def test_verify_rpc_payment_uses_receipt_keys():
     key = ReceiptKey(
         b"k" * 32,
         payment_secret.public_key().public_bytes(Encoding.Raw, PublicFormat.Raw),
-        1000,
-        1999,
+        int(vector["receiptJson"]["height"], 16),
+        int(vector["receiptJson"]["height"], 16),
     )
     canonical = bytearray(_bytes(vector["signedReceipt"]))
     canonical[-109:-77] = key.key_id
@@ -191,6 +270,7 @@ def test_verify_rpc_payment_uses_receipt_keys():
     result = {
         **vector["receiptJson"],
         "receipt": "0x" + signed.hex(),
+        "keyId": "0x" + key.key_id.hex(),
     }
     payment_terms = _payment_terms(vector)
     terms = {
@@ -199,7 +279,7 @@ def test_verify_rpc_payment_uses_receipt_keys():
     }
 
     def verify(
-        row, keys=(key,), payer="0x" + fixture_receipt.from_account.hex(), **changes
+        row, keys=(key,), payer="0x" + payment_terms["payer"], **changes
     ):
         return verify_rpc_payment(
             row,
@@ -212,7 +292,7 @@ def test_verify_rpc_payment_uses_receipt_keys():
     payment = verify(result)
     assert payment == {
         "txHash": vector["receiptJson"]["txHash"],
-        "rung": "receipted",
+        "rung": vector["receiptJson"]["rung"],
         "height": int(vector["receiptJson"]["height"], 16),
         "keyId": "0x" + key.key_id.hex(),
     }
@@ -242,7 +322,7 @@ def test_verify_rpc_payment_uses_receipt_keys():
     with pytest.raises(SequencerReceiptVerificationError) as raised:
         verify(unpinned_result)
     assert raised.value.check == "unpinned_key"
-    other_key = ReceiptKey(b"\x2a" * 32, public_key, 1000, 1999)
+    other_key = ReceiptKey(b"\x2a" * 32, public_key, key.first_height, key.last_height)
     assert verify(unpinned_result, keys=(other_key,)) == {
         **payment, "keyId": "0x" + other_key.key_id.hex()
     }

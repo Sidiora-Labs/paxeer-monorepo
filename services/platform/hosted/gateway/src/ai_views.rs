@@ -16,6 +16,49 @@ use crate::http::{split_target, OutgoingResponse};
 use crate::store::RedisStore;
 use crate::{authenticate_gateway_key, AccessError};
 
+/// Opens the indexer's durable projection with a persistent cursor signing key.
+/// Configuration is all-or-nothing; a restart must never mint a replacement key.
+pub fn configured() -> Result<Option<AiViews>, String> {
+    const DATABASE: &str = "LAYERX_GATEWAY_AI_PROJECTION_DB";
+    const SECRET: &str = "LAYERX_GATEWAY_AI_CURSOR_KEY_FILE";
+    const GENERATION: &str = "LAYERX_GATEWAY_AI_CURSOR_GENERATION";
+    let values = [DATABASE, SECRET, GENERATION].map(std::env::var_os);
+    if values.iter().all(Option::is_none) {
+        return Ok(None);
+    }
+    let path = values[0]
+        .as_ref()
+        .ok_or("AI projection database is required")?;
+    let secret_path = values[1].as_ref().ok_or("AI cursor key file is required")?;
+    let generation = values[2]
+        .as_ref()
+        .and_then(|v| v.to_str())
+        .and_then(|v| v.parse::<u32>().ok())
+        .filter(|v| *v > 0)
+        .ok_or("AI cursor generation must be positive")?;
+    let file = std::fs::File::open(secret_path).map_err(|e| e.to_string())?;
+    let mut encoded = zeroize::Zeroizing::new(Vec::new());
+    std::io::Read::read_to_end(&mut std::io::Read::take(file, 66), &mut encoded)
+        .map_err(|e| e.to_string())?;
+    let text = std::str::from_utf8(&encoded)
+        .map_err(|_| "invalid AI cursor key")?
+        .trim_end_matches('\n');
+    if text.len() != 64 || !text.bytes().all(|b| b.is_ascii_hexdigit()) {
+        return Err("AI cursor key must contain 32 hex bytes".to_owned());
+    }
+    let mut secret = zeroize::Zeroizing::new([0_u8; 32]);
+    for (i, byte) in secret.iter_mut().enumerate() {
+        *byte =
+            u8::from_str_radix(&text[i * 2..i * 2 + 2], 16).map_err(|_| "invalid AI cursor key")?;
+    }
+    if secret.iter().all(|b| *b == 0) {
+        return Err("AI cursor key must be nonzero".to_owned());
+    }
+    AiViews::open(std::path::Path::new(path), generation, *secret)
+        .map(Some)
+        .map_err(|e| format!("AI projection unavailable: {e:?}"))
+}
+
 const PREFIX: &str = "/v1/ai/markets/";
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]

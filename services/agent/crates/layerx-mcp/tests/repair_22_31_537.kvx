@@ -1,0 +1,40 @@
+[repair.22.31.537]
+requirement = "22998.1"
+gotcha = "3140"
+decision = "2599"
+supersedes = "2597"
+field = "Decision 2599 supersedes 2597: StoredSpend has no actor field. StoredSpend::prepared derives the disclosure actor from hex(sender); authorise_held constructs the hold context agent from the same sender hex, preserving the daemon registry convention."
+storage_key = "The web-spend-v1: prefix and strict deny_unknown_fields decoding are unchanged. Sender remains required. A record with a missing sender, an unexpected actor field, or invalid JSON returns ApprovalChanged."
+refusal_cases = "The served retry refuses each undecodable stored record, both with its retained ticket and after interrupted hold publication without the ticket. No replacement hold, additional grant or transaction preparation, transaction submission or payment signature occurs."
+producer_path = "Authenticated Server -> stdio Session tools/call web.search -> WebRoute -> metered grant call -> unsigned EIP-1559 preparation -> durable spend and ApprovalRegistry ticket. Amount 3114 exceeds threshold zero; ticket actor equals the configured payer address hex. ApprovalRegistry::validate_registry accepts the actual held transaction."
+fixture = "The existing web_hold payer supports preparing a new grant with the real GrantTerms codec and Ed25519 signer when no standing grant exists. Its standing-grant branch still panics on any attempted issuance. Exactly one grant and transaction are prepared before the hold; no transaction is signed or submitted and the seller receives zero payment signatures."
+restart = "Drop server, registry and initial approval resources, reopen the durable store and replay its hold and budget. Re-derived preparation and ticket disclosures remain equal; the served retry remains awaiting approval and validate_registry still accepts the hold. A real rejection exposes the persisted hold context through audit_entry, whose agent equals both sender hex and ticket actor."
+regression = "The actor assertions in repair_22_31_531, repair_22_33_1551 and support/web_hold retain hex(&[0xab; 20]) as on main. The production actor-field change from attempt 1 is reverted."
+cases = ["metered_hold_uses_sender_actor_and_restart_remains_pending", "undecodable_stored_spend_is_refused_without_payment"]
+dependencies = "Committed web_hold HTTP and ledger recordings and local cryptography only; no credentials, environment variables or live endpoint are required."
+
+[qualification]
+build_gate = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_gate = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --test repair_22_31_537 --test repair_22_33_1551 --test repair_22_31_531"
+evidence_command = "cg spec done 22.31.537 -f layerx-merge --root /work/paxeer-monorepo"
+gate_results = "Attempt 2 exact revision, command, exit and private evidence location are written by hf-build and hf-done into /out/run/gates.jsonl, in the final build and verify rows. Those rows are the authoritative repair qualification record; the final response copies the last gate result. This pointer is finalized before qualification to keep build and verification on the same candidate. No gate result is claimed before execution."
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+result_policy = "Stop on hf-done passing or the bounded repair/deadline result. No manual spec edits, commits or pushes are performed by the worker. Retain attempt 1 evidence below as superseded history."
+
+[attempt_1.build]
+revision = "877ef5671589bf3f7e06bde7944bff4338990250"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "All layerx-mcp test targets compile; the hf-done dependent layerx-agentd-host compilation also passes at this revision (/out/logs/dependents-1.log)."
+
+[attempt_1.verify]
+revision = "877ef5671589bf3f7e06bde7944bff4338990250"
+command = "cg spec done 22.31.537 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Both repair_22_31_537 tests, all six repair_22_31_531 tests and five repair_22_33_1551 tests pass; restart_hold_approval_and_exact_retry_through_served_route fails at line 109 because services/agent/crates/layerx-agentd/src/policy/approval.rs:1427 validate_held_call still requires the disclosure actor to equal sender address hex, returning CorruptRecord for the required payer DID."
+assumption = "The existing address-only validator conflicts with decision 2597 and is outside this task's scope; no legal task-scoped repair can make its equality hold for a DID while preserving both the required actor and the unchanged validation assertion, so the conflict is recorded without rerunning it and the task remains implemented, not qualified."

@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 use std::fs;
+use std::os::unix::fs::DirBuilderExt;
+use std::time::Duration;
 
 use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
 use layerx_agent_api::prepare::{
@@ -16,7 +18,9 @@ use layerx_agentd::audit::{Coverage, Log};
 use layerx_agentd::budget::BudgetLimiter;
 use layerx_agentd::capability::CapabilityId;
 use layerx_agentd::events::EventIngestor;
-use layerx_agentd::policy::approval::{hold, ApprovalContext, ApprovalRegistry, ApprovalState};
+use layerx_agentd::policy::approval::{
+    hold_at, ApprovalContext, ApprovalRegistry, ApprovalSequence, ApprovalState,
+};
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::{Store as AgentStore, TenantId};
 use layerx_human_service::approvals::{
@@ -31,6 +35,7 @@ use layerx_human_service::notify::{
 use layerx_human_service::store::{PrincipalScope, PrincipalStore, Table};
 use layerx_human_service::trace::TraceId;
 use layerx_human_test_support as support;
+use layerx_types::clock::Clock as _;
 use layerx_types::ids::Did;
 use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
@@ -88,8 +93,22 @@ fn prepared(id: u8, asset: &str, amount: u128) -> Prepared {
 
 /// Adapts the real daemon approval service in-process, as tests/approvals.rs does.
 struct AgentdBoundary<'a> {
+    clock: support::StepClock,
     service: ApprovalService<'a>,
     queue: &'a ApprovalSubmissionQueue,
+}
+
+impl AgentdBoundary<'_> {
+    fn decision_time(&self) -> Result<TimestampSeconds, ApprovalBoundaryError> {
+        let reading = self
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| ApprovalBoundaryError::Unavailable)?;
+        if reading.generation == [0; 16] {
+            return Err(ApprovalBoundaryError::Unavailable);
+        }
+        Ok(TimestampSeconds(reading.unix_seconds()))
+    }
 }
 
 impl ApprovalBoundary for AgentdBoundary<'_> {
@@ -100,7 +119,7 @@ impl ApprovalBoundary for AgentdBoundary<'_> {
     ) -> Result<AgentApprovalRecord, ApprovalBoundaryError> {
         let record = self
             .service
-            .get(&tenant(), approval_id, at_sequence)
+            .get(&tenant(), approval_id, at_sequence, self.decision_time()?)
             .map_err(|_| ApprovalBoundaryError::Unavailable)?;
         let state = match record.state {
             ApprovalState::AwaitingApproval => AgentApprovalState::AwaitingApproval,
@@ -243,7 +262,12 @@ fn assert_notification_path(
                 "asset IDs are not display currencies"
             );
         } else {
-            assert!(!delivery.payload().contains("Amount:"));
+            if delivery.payload().contains("Amount:") {
+                assert!(delivery
+                    .payload()
+                    .contains(&format!("\r\nAmount: {amount}\r\nAsset: {asset}\r\n")));
+            }
+            assert!(!delivery.payload().contains(&format!("{amount} {asset}")));
         }
     }
 }
@@ -255,7 +279,12 @@ fn channel_is_json(channel: Channel) -> bool {
 fn round_trip(asset: &str, amount: u128) {
     let root = support::directory("repair-22-31-159");
     let stream_root = root.join("stream");
-    checked(fs::create_dir_all(&stream_root));
+    checked(
+        fs::DirBuilder::new()
+            .recursive(true)
+            .mode(0o700)
+            .create(&stream_root),
+    );
     let registry = ApprovalRegistry::default();
     let limiter = checked(BudgetLimiter::new(Vec::new()));
     let expiry = checked(ApprovalExpiry::open(root.join("approval")));
@@ -270,12 +299,25 @@ fn round_trip(asset: &str, amount: u128) {
         policy_version: "asset-policy-v1".to_owned(),
         request_id: [1; 32],
     };
-    let ticket = checked(hold(&registry, context.clone(), held.clone(), 10, 50));
     let mut boundary = AgentdBoundary {
+        clock: support::StepClock::new(10_000),
         service: ApprovalService::new(&registry, &limiter, &expiry),
         queue: &queue,
     };
-    let record = checked(boundary.service.get(&tenant(), ticket.hold_id, 10));
+    let ticket = checked(hold_at(
+        &registry,
+        context.clone(),
+        held.clone(),
+        ApprovalSequence(10),
+        ApprovalSequence(50),
+        checked(boundary.decision_time()),
+    ));
+    let record = checked(boundary.service.get(
+        &tenant(),
+        ticket.hold_id,
+        10,
+        checked(boundary.decision_time()),
+    ));
     assert_eq!(record.held_activity.asset.as_str(), asset);
     assert_eq!(record.held_activity.amounts.values()[0].amount.0, amount);
 

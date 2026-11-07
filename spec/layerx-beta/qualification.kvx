@@ -1,0 +1,17 @@
+# Paxeer X Network mainnet-beta evidence ledger.
+# Append-only record shapes:
+# [gate.<task>.<n>]: task, reqs, revision, command, environment, started_at,
+# outcome (pass | fail | blocked), evidence (private location), note.
+# [observation.<task>.<n>]: task, file, symbol, observed, assumption, severity
+# (blocker | suspect | assumption | note).
+# No records exist yet. Only executed gates can raise a surface's rung.
+# Repair 22.31.608 qualification references: /out/run/gates.jsonl contains
+# the hf-build and hf-done command, exit, private log and verified revision;
+# the passing hf-done revision must equal the passing hf-build revision.
+# These references are not beta gate records or a readiness claim.
+
+[meta]
+name = "Paxeer X Network mainnet-beta qualification"
+kind = "beta-qualification-ledger"
+version = "0.1.0"
+record_kinds = ["gate", "observation"]

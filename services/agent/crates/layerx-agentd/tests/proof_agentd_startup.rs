@@ -12,11 +12,10 @@
 //! receipt_key_source. The explorer producer is retired and the mirror consumes
 //! its own paxeer JSON configuration, not agentd's old keys. Both real consumers
 //! must refuse those old inputs. No daemon, RPC transport or receipt is doubled.
-//! Outside scope: services/agent/crates/layerx-agentd/src/main.rs::config
-//! uses LAYERX_AGENT_NODE_ENDPOINT instead of config::load. This proves the
-//! library startup boundary; it does not assert that main calls that loader.
-//! Outside scope: protocol_evidence.rs::ProtocolEvidenceVerifier::load refuses
-//! ReceiptKeySource::NodeRpc; the test asserts that current fail-closed behaviour.
+//! Current readiness is also exercised from a freshly reopened protected config
+//! and loopback node, including a second start and malformed key refusal.
+//! Main's private environment loader still requires the wiring request recorded
+//! in repair_22_33_1537.kvx.
 
 #[path = "config.rs"]
 mod config_consumer;
@@ -332,4 +331,12 @@ fn explorer_consumer_refuses_the_retired_producer_twice() {
         assert!(must(String::from_utf8(output.stderr))
             .contains("daemon-backed receipt evidence production is retired; use chain receipts"));
     }
+}
+
+#[path = "support/mod.rs"]
+mod support;
+
+#[test]
+fn node_readiness_restarts_from_loaded_configuration_and_refuses_malformed_producer() {
+    support::current_node::startup_restart();
 }

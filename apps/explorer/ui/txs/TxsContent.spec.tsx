@@ -59,11 +59,11 @@ describe('TxsContent', () => {
     );
 
     await waitFor(() => {
-      expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+      expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
         .toBe('Latest 3 from a total of 82,258,122 transactions');
     });
 
-    expect(container.querySelector('[data-scan-table-card] [data-note]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-note]')?.textContent)
       .toBe('Showing page 1 of the records the node returns, newest first');
   });
 
@@ -97,7 +97,7 @@ describe('TxsContent', () => {
       />,
     );
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('A total of 3 transactions found');
     expect(container.querySelector('[data-actions] a[href^="/csv-export"]')).toBeTruthy();
   });
@@ -115,7 +115,7 @@ describe('TxsContent', () => {
       />,
     );
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('More than 3 transactions found');
   });
 
@@ -137,7 +137,7 @@ describe('TxsContent', () => {
       .map((row) => row.querySelector('a[href^="/tx/"]')?.getAttribute('href'))
       .filter(Boolean);
 
-    expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+    expect(container.querySelector('[data-list-page]')).toBeNull();
     expect(container.querySelector('[data-csv-export-label]')).toBeNull();
     expect(container.querySelector('[data-pagination]')).toBeNull();
     expect(hashes).toEqual(items.map((item) => `/tx/${ item.hash }`));
@@ -155,7 +155,7 @@ describe('TxsContent', () => {
       />,
     );
 
-    expect(container.querySelector('[data-scan-table-card]')).toBeNull();
+    expect(container.querySelector('[data-list-page]')).toBeNull();
     expect(container.textContent).toContain('There are no transactions.');
   });
 

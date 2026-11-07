@@ -16,6 +16,7 @@ infrastructure. Node access is documented in
 public REST client generation and health checks.
 
 - [Session and request requirements](#session-and-request-requirements)
+- [Authentication and linking routes](#authentication-and-linking-routes)
 - [BlockScoutWeb.Account.API.V2.UserController](#blockscoutwebaccountapiv2usercontroller)
 - [BlockScoutWeb.Account.API.V2.TagsController](#blockscoutwebaccountapiv2tagscontroller)
 - [Errors and limits](#errors-and-limits)
@@ -39,12 +40,61 @@ and applies `Plug.CSRFProtection`. After signing in, call
 `GET /api/account/v2/get_csrf`: it returns HTTP 200, `{"message":"ok"}`, and an
 `x-bs-account-csrf` response header. Send that token in the `x-csrf-token`
 request header, with the same session cookie, for POST, PUT and DELETE.
-Authentication routes with their own pipeline are listed in AccountRouter.
+The authentication routes below identify the exceptions that use the separate
+pipeline without CSRF protection.
 
 The regular pipeline limits parsed bodies to 100,000 bytes and query strings
 to 5,000 bytes. Examples use illustrative hashes and IDs; use records belonging
 to the signed-in identity and real indexed transactions or contracts where
 validation requires them.
+
+## Authentication and linking routes
+
+This inventory follows `AccountRouter.__routes__/0`. Request fields for
+`AuthenticateController` come from its OpenAPI operations and
+[Account schemas](lib/block_scout_web/schemas/api/v2/account.ex); user resource
+responses below follow `UserView` and `TagsView`.
+
+| Method | Path | Input and result |
+| --- | --- | --- |
+| GET | `/api/account/v2/authenticate` | `api_key` query parameter; validates the sensitive-endpoint key and an existing session, then returns the session |
+| POST | `/api/account/v2/authenticate` | `api_key` JSON field; same checks and response as GET |
+| GET | `/api/account/v2/get_csrf` | Verified session; returns `{"message":"ok"}` and `x-bs-account-csrf` |
+| GET | `/api/account/v2/siwe_message` | `address` query parameter; returns `siwe_message` for signing |
+| POST | `/api/account/v2/authenticate_via_wallet` | `message` and `signature` JSON strings; establishes a session and returns the user profile |
+| GET | `/api/account/v2/authenticate_via_dynamic` | `Authorization: Bearer <dynamic-jwt>`; establishes a session and returns the user profile |
+| POST | `/api/account/v2/send_otp` | `email` JSON string; returns `{"message":"Success"}` |
+| POST | `/api/account/v2/confirm_otp` | `email` and `otp` JSON strings; establishes a session and returns the user profile |
+| POST | `/api/account/v2/address/link` | Existing session, signed `message` and `signature`; returns the updated user profile |
+| GET | `/api/account/v2/email/resend` | Signed invalid-session cookie for an unverified account; sends verification email and returns `{"message":"Success"}` |
+| POST | `/api/account/v2/email/link` | Existing session, `email` and `otp`; returns the updated user profile |
+
+The five `siwe_message`, `authenticate_via_wallet`,
+`authenticate_via_dynamic`, `send_otp` and `confirm_otp` routes use the pipeline
+without CSRF protection. The other routes use the regular session/CSRF
+pipeline. `authenticate` checks a deployment's sensitive-endpoint key; it does
+not exchange a user's explorer API key for a login session. Authentication
+providers must be configured for the selected flow. OTP sending can return
+HTTP 429 with `seconds_before_next_resend`.
+
+These request shapes are examples only: supply a fresh OTP or a signature of
+the exact server-issued SIWE message locally. No cookie, CSRF token, signature,
+OTP or JWT from an active session is included here.
+
+<!-- example:send-otp -->
+```json
+{"email": "user@example.com"}
+```
+
+<!-- example:confirm-otp -->
+```json
+{"email": "user@example.com", "otp": "<one-time-password>"}
+```
+
+<!-- example:wallet-auth -->
+```json
+{"message": "<server-issued-siwe-message>", "signature": "<wallet-signature>"}
+```
 
 ## BlockScoutWeb.Account.API.V2.UserController
 
@@ -57,6 +107,7 @@ Delete responses are `{"message":"OK"}`.
 
 `GET /api/account/v2/user/info` returns the signed-in user's profile:
 
+<!-- example:user-info -->
 ```json
 {
   "name": "Example user",
@@ -82,6 +133,7 @@ come from the identity and authentication session.
 
 Create with an address hash and label:
 
+<!-- example:address-tag -->
 ```json
 {
   "address_hash": "0x1111111111111111111111111111111111111111",
@@ -95,6 +147,7 @@ and `address` (the enriched address object from `Helper.address_with_info/4`).
 The list response is `{"items":[...],"next_page_params":...}`, not a bare array.
 An empty final page is:
 
+<!-- example:empty-page -->
 ```json
 {"items": [], "next_page_params": null}
 ```
@@ -114,27 +167,40 @@ list action; the ID is a paging cursor, not a single-tag lookup.
 | `delete_tag_transaction` | DELETE | `/api/account/v2/user/tags/transaction/:id` |
 
 POST requires `transaction_hash` and `name`. The transaction must exist in the
-explorer database. PUT accepts either or both fields, omitting null values.
+explorer database. The hash in these examples is from the committed transaction
+importer recording, not a guarantee that a deployment has indexed it.
+
+<!-- example:transaction-tag -->
+```json
+{
+  "transaction_hash": "0xdc3a0dfd0bbffd5eabbe40fb13afbe35ac5f5c030bff148f3e50afe32974b291",
+  "name": "Payment"
+}
+```
+
+PUT accepts either or both fields, omitting null values.
 A successful create or update returns this shape:
 
+<!-- example:transaction-tag-response -->
 ```json
 {
   "id": 64,
   "name": "Payment",
-  "transaction_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+  "transaction_hash": "0xdc3a0dfd0bbffd5eabbe40fb13afbe35ac5f5c030bff148f3e50afe32974b291"
 }
 ```
 
 Lists return `items` and `next_page_params`, using the same cursor convention
 as address tags. For example, the last page containing that tag is:
 
+<!-- example:transaction-tag-page -->
 ```json
 {
   "items": [
     {
       "id": 64,
       "name": "Payment",
-      "transaction_hash": "0x1111111111111111111111111111111111111111111111111111111111111111"
+      "transaction_hash": "0xdc3a0dfd0bbffd5eabbe40fb13afbe35ac5f5c030bff148f3e50afe32974b291"
     }
   ],
   "next_page_params": null
@@ -143,6 +209,7 @@ as address tags. For example, the last page containing that tag is:
 
 Creating a tag for a transaction that has not been indexed returns HTTP 422:
 
+<!-- example:missing-transaction -->
 ```json
 {"errors": {"transaction_hash": ["Transaction does not exist"]}}
 ```
@@ -159,6 +226,7 @@ Creating a tag for a transaction that has not been indexed returns HTTP 422:
 These operations use the identity's first watchlist. `:id` identifies an
 address entry in that watchlist. POST and PUT both require the full input:
 
+<!-- example:watchlist -->
 ```json
 {
   "address_hash": "0x1111111111111111111111111111111111111111",
@@ -188,6 +256,7 @@ the included balances' fiat values.
 Adding the same address twice, including updating an entry to a duplicate
 address, returns HTTP 422 with a changeset error such as:
 
+<!-- example:duplicate-watchlist -->
 ```json
 {"errors": {"watchlist_id": ["Address already added to the watch list"]}}
 ```
@@ -201,9 +270,17 @@ address, returns HTTP 422 with a changeset error such as:
 | `update_api_key` | PUT | `/api/account/v2/user/api_keys/:api_key` |
 | `delete_api_key` | DELETE | `/api/account/v2/user/api_keys/:api_key` |
 
-POST and PUT take `{"name":"Dashboard"}`. POST generates a UUID; PUT renames
+POST and PUT take this request:
+
+<!-- example:api-key -->
+```json
+{"name": "Dashboard"}
+```
+
+POST generates a UUID; PUT renames
 the key identified by the path. Both return:
 
+<!-- example:api-key-response -->
 ```json
 {"name": "Dashboard", "api_key": "00000000-0000-4000-8000-000000000001"}
 ```
@@ -211,6 +288,7 @@ the key identified by the path. Both return:
 GET returns a bare array of these objects. The account allows three keys;
 exceeding that limit returns HTTP 422:
 
+<!-- example:api-key-limit -->
 ```json
 {"errors": {"name": ["Max 3 keys per account"]}}
 ```
@@ -227,10 +305,11 @@ exceeding that limit returns HTTP 422:
 POST requires `name`, `contract_address_hash` and `abi`. For example, for an
 indexed smart contract:
 
+<!-- example:custom-abi -->
 ```json
 {
   "name": "Storage",
-  "contract_address_hash": "0x1111111111111111111111111111111111111111",
+  "contract_address_hash": "0x353fe3ffbf77edef7f9c352c47965a38c07e837c",
   "abi": [
     {
       "type": "function",
@@ -251,6 +330,7 @@ responses contain `id`, `name`, `contract_address_hash`, `contract_address`
 of those objects. The account allows 15 custom ABIs; exceeding the limit
 returns HTTP 422:
 
+<!-- example:custom-abi-limit -->
 ```json
 {"errors": {"name": ["Max 15 ABIs per account"]}}
 ```
@@ -264,11 +344,17 @@ that accept database IDs. They return HTTP 200 even without a signed-in user;
 personal fields are then empty, while public tags can still be returned.
 Account functionality must still be enabled.
 
+| Action | Method | Path |
+| --- | --- | --- |
+| `tags_address` | GET | `/api/account/v2/tags/address/:address_hash` |
+| `tags_transaction` | GET | `/api/account/v2/tags/transaction/:transaction_hash` |
+
 ### tags_address
 
 `GET /api/account/v2/tags/address/:address_hash` returns `watchlist_names`,
 `personal_tags` and `common_tags`. With no matching tags:
 
+<!-- example:address-tags-response -->
 ```json
 {"watchlist_names": [], "personal_tags": [], "common_tags": []}
 ```
@@ -281,6 +367,7 @@ Private address labels include `label`, `display_name` and `address_hash`.
 transaction's addresses and the user's private transaction tag. The current
 field is `personal_transaction_tag`:
 
+<!-- example:transaction-tags-response -->
 ```json
 {
   "watchlist_names": [],
@@ -292,6 +379,8 @@ field is `personal_transaction_tag`:
 
 `personal_transaction_tag` is null when absent. Unknown or malformed hashes
 produce empty tag data rather than a resource-not-found response.
+Contract-creation transactions have no recipient; their public tags come from
+the sender, with no recipient tags added.
 
 ## Errors and limits
 

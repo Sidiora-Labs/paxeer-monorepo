@@ -40,6 +40,8 @@ pub enum PayloadRedaction {
 #[derive(Clone, Debug, Eq, PartialEq)]
 struct RetainedPreparation {
     authorization: Option<PreparationAuthorization>,
+    call_bound: bool,
+    durable_terminal: bool,
     state: LifecycleState,
     not_after: u64,
     reservation_ids: Vec<[u8; 32]>,
@@ -103,6 +105,7 @@ impl PreparationLifecycle {
         reservation_ids: Vec<[u8; 32]>,
         authorization: Option<PreparationAuthorization>,
     ) -> Result<(), LifecycleError> {
+        let (not_after, payload_hash) = prepared.lifecycle_facts()?;
         let mut records = self
             .records
             .lock()
@@ -114,12 +117,14 @@ impl PreparationLifecycle {
             preparation_id,
             RetainedPreparation {
                 authorization,
+                call_bound: false,
+                durable_terminal: false,
                 state: LifecycleState::Prepared,
-                not_after: prepared.envelope.timestamp_bound().not_after(),
+                not_after,
                 reservation_ids,
                 signed_bytes: None,
                 activity_id: None,
-                payload_hash: prepared.envelope.payload_hash(),
+                payload_hash,
                 terminal_at_sequence: None,
             },
         );
@@ -174,6 +179,12 @@ impl PreparationLifecycle {
             .records
             .lock()
             .map_err(|_| LifecycleError::Unavailable)?;
+        if records
+            .iter()
+            .any(|(id, record)| record.call_bound && selected(id, record))
+        {
+            return Err(LifecycleError::AuthorizationRequired);
+        }
         let mut report = PreparationInvalidationReport::default();
         for (preparation_id, record) in records.iter_mut() {
             if !selected(preparation_id, &*record) {
@@ -539,6 +550,9 @@ impl PreparationLifecycle {
             .records
             .lock()
             .map_err(|_| LifecycleError::Unavailable)?;
+        if durable.iter().any(DurablePreparation::is_call_record) {
+            return Err(LifecycleError::MigrationRequired);
+        }
         let mut restored = BTreeMap::new();
         for record in durable.iter().filter(|record| !record.terminal()) {
             if record.generation == 0 {
@@ -560,6 +574,8 @@ impl PreparationLifecycle {
                         ),
                         generation: record.generation,
                     }),
+                    call_bound: false,
+                    durable_terminal: false,
                     state: record.state,
                     not_after: record.not_after,
                     reservation_ids: vec![record.preparation_id],
@@ -708,6 +724,7 @@ pub struct ExpirationReport {
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct RetentionReport {
+    pub evicted_terminal_preparations: usize,
     pub discarded_terminal_signed_bytes: usize,
     pub preserved_unresolved_signed_bytes: usize,
 }
@@ -728,6 +745,7 @@ pub enum LifecycleError {
     InvalidSignedBytes,
     ActivityIdUnavailable,
     PreparationExpired,
+    PreparationNotYetValid,
     InvalidAuthorization,
     AuthorizationRequired,
     AuthorizationMismatch,
@@ -736,6 +754,8 @@ pub enum LifecycleError {
         to: LifecycleState,
     },
     Reservation(LimitRefusal),
+    CallBinding(crate::prepare::disclose::RestoreCallError),
+    MigrationRequired,
 }
 
 fn require_unexpired(
@@ -752,6 +772,9 @@ fn require_authorization(
     record: &RetainedPreparation,
     presented: Option<&PreparationAuthorization>,
 ) -> Result<(), LifecycleError> {
+    if record.call_bound {
+        return Err(LifecycleError::AuthorizationRequired);
+    }
     match (&record.authorization, presented) {
         (None, None) => Ok(()),
         (Some(expected), Some(presented)) if expected == presented => Ok(()),
@@ -770,6 +793,9 @@ pub(crate) fn expire_elapsed(
         .records
         .lock()
         .map_err(|_| LifecycleError::Unavailable)?;
+    if records.values().any(|record| record.call_bound) {
+        return Err(LifecycleError::AuthorizationRequired);
+    }
     let candidates: Vec<_> = records
         .iter()
         .filter(|(_, record)| {
@@ -816,6 +842,7 @@ pub(crate) fn sweep_retention(
         .lock()
         .map_err(|_| LifecycleError::Unavailable)?;
     let mut report = RetentionReport {
+        evicted_terminal_preparations: 0,
         discarded_terminal_signed_bytes: 0,
         preserved_unresolved_signed_bytes: 0,
     };
@@ -827,13 +854,25 @@ pub(crate) fn sweep_retention(
         if record.state.terminal()
             && record.signed_bytes.is_some()
             && record.terminal_at_sequence.is_some_and(|terminal| {
-                current_sequence >= terminal.saturating_add(retention_sequences)
+                current_sequence >= terminal && current_sequence - terminal >= retention_sequences
             })
         {
             record.signed_bytes = None;
             report.discarded_terminal_signed_bytes += 1;
         }
     }
+    records.retain(|_, record| {
+        let evict = record.durable_terminal
+            && record.state.terminal()
+            && record.terminal_at_sequence.is_some_and(|terminal| {
+                current_sequence.saturating_sub(terminal) >= retention_sequences
+                    && current_sequence >= terminal
+            });
+        if evict {
+            report.evicted_terminal_preparations += 1;
+        }
+        !evict
+    });
     Ok(report)
 }
 
@@ -884,11 +923,19 @@ const PREPARATION_MAGIC: &[u8; 4] = b"LXPR";
 const PREPARATION_VERSION: u8 = 1;
 
 const PREPARATION_VERSION_SIGNED: u8 = 2;
+const PREPARATION_VERSION_CALL: u8 = 3;
+pub const EXTENSION_CALL: u16 = 0xc001;
+pub const EXTENSION_TERMINAL_SEQUENCE: u16 = 0xc002;
+const EXTENSION_CALL_TOMBSTONE: u16 = 0xc003;
 const MAX_SIGNED_BYTES: usize = 1_048_576;
 
 const fn extension_bound(version: u8, tag: u16) -> usize {
-    if version == PREPARATION_VERSION_SIGNED && tag == EXTENSION_SIGNED_BYTES {
+    if (version == PREPARATION_VERSION_SIGNED || version == PREPARATION_VERSION_CALL)
+        && tag == EXTENSION_SIGNED_BYTES
+    {
         MAX_SIGNED_BYTES
+    } else if version == PREPARATION_VERSION_CALL && tag == EXTENSION_CALL {
+        MAX_PREPARATION_BYTES
     } else {
         MAX_EXTENSION_BYTES
     }
@@ -938,6 +985,29 @@ const STATES: [LifecycleState; 9] = [
 ];
 
 impl DurablePreparation {
+    /// Identifier shared by native owner consent, cached signing inputs and durable records.
+    #[must_use]
+    pub fn native_identifier(call: &layerx_crypto::evm_transaction::Eip1559Call) -> [u8; 32] {
+        use sha2::{Digest as _, Sha256};
+        Sha256::digest(call.encode_unsigned()).into()
+    }
+
+    pub(crate) fn authorization_reference_key(
+        tenant: &crate::store::TenantId,
+        envelope_digest: [u8; 32],
+    ) -> Result<crate::store::TenantKey, LifecycleError> {
+        crate::store::TenantKey::new(
+            tenant.clone(),
+            crate::store::ObjectKind::Configuration,
+            [
+                b"prepare/authorization-reference/".as_slice(),
+                &envelope_digest,
+            ]
+            .concat(),
+        )
+        .map_err(|_| LifecycleError::Unavailable)
+    }
+
     /// Whether the record reached a terminal state.
     #[must_use]
     pub const fn terminal(&self) -> bool {
@@ -992,7 +1062,9 @@ impl DurablePreparation {
         if self.holds.len() > MAX_HOLDS || self.extensions.len() > MAX_EXTENSIONS {
             return Err(LifecycleError::InvalidSignedBytes);
         }
-        let version = if self
+        let version = if self.is_call_record() {
+            PREPARATION_VERSION_CALL
+        } else if self
             .extensions
             .get(&EXTENSION_SIGNED_BYTES)
             .is_some_and(|bytes| bytes.len() > MAX_EXTENSION_BYTES)
@@ -1096,7 +1168,13 @@ impl DurablePreparation {
             return Err(LifecycleError::InvalidSignedBytes);
         }
         let version = decoder.u8().map_err(invalid)?;
-        if version != PREPARATION_VERSION && version != PREPARATION_VERSION_SIGNED {
+        if ![
+            PREPARATION_VERSION,
+            PREPARATION_VERSION_SIGNED,
+            PREPARATION_VERSION_CALL,
+        ]
+        .contains(&version)
+        {
             return Err(LifecycleError::InvalidSignedBytes);
         }
         let preparation_id = fixed::<32>(&mut decoder)?;
@@ -1175,6 +1253,11 @@ impl DurablePreparation {
         {
             return Err(LifecycleError::InvalidSignedBytes);
         }
+        let call_record = extensions.contains_key(&EXTENSION_CALL)
+            || extensions.contains_key(&EXTENSION_CALL_TOMBSTONE);
+        if call_record != (version == PREPARATION_VERSION_CALL) {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
         Ok(Self {
             tenant,
             preparation_id,
@@ -1237,4 +1320,614 @@ impl DurablePreparation {
     pub(crate) fn drop_signed_bytes(&mut self) {
         self.extensions.remove(&EXTENSION_SIGNED_BYTES);
     }
+}
+
+impl DurablePreparation {
+    pub fn is_call_record(&self) -> bool {
+        self.extensions.contains_key(&EXTENSION_CALL)
+            || self.extensions.contains_key(&EXTENSION_CALL_TOMBSTONE)
+    }
+
+    pub fn from_call(
+        session: &SessionRef,
+        generation: u64,
+        preparation_id: [u8; 32],
+        prepared: &crate::prepare::EvmPrepared,
+        holds: Vec<(
+            crate::budget::DurableBudgetReservation,
+            Option<crate::budget::CoreTimestampMs>,
+        )>,
+    ) -> Result<Self, LifecycleError> {
+        use sha2::{Digest, Sha256};
+        crate::prepare::verify_call_binding(prepared).map_err(|error| {
+            LifecycleError::CallBinding(crate::prepare::disclose::RestoreCallError::Binding(error))
+        })?;
+        if generation == 0 {
+            return Err(LifecycleError::InvalidAuthorization);
+        }
+        if holds.iter().any(|(hold, _)| {
+            hold.reservation_id != preparation_id || hold.digest != hold.canonical_digest()
+        }) {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        let invalid = |_| LifecycleError::InvalidSignedBytes;
+        let mut out = layerx_wire::encode::Encoder::new(MAX_PREPARATION_BYTES);
+        out.u8(1).map_err(invalid)?;
+        out.bytes(session.tenant.as_str().as_bytes(), 255)
+            .map_err(invalid)?;
+        out.fixed(&session.session_id.0).map_err(invalid)?;
+        out.u64(generation).map_err(invalid)?;
+        out.fixed(&preparation_id).map_err(invalid)?;
+        out.fixed(&prepared.from).map_err(invalid)?;
+        out.u64(prepared.observed_head_height).map_err(invalid)?;
+        out.fixed(&prepared.disclosure_digest).map_err(invalid)?;
+        out.fixed(&prepared.signing_hash).map_err(invalid)?;
+        out.bytes(&prepared.call.encode_unsigned(), MAX_PREPARATION_BYTES)
+            .map_err(invalid)?;
+        let encoded = out.finish();
+        let payload_hash = Sha256::digest(&encoded).into();
+        let not_after = prepared
+            .disclosure
+            .expiry
+            .not_after
+            .min(prepared.disclosure.expiry.payload_expires_at);
+        let record = Self {
+            tenant: session.tenant.clone(),
+            preparation_id,
+            session_id: session.session_id.0,
+            generation,
+            not_after,
+            payload_hash,
+            state: LifecycleState::Prepared,
+            activity_id: None,
+            holds,
+            extensions: BTreeMap::from([
+                (EXTENSION_CALL, encoded),
+                (
+                    EXTENSION_IDEMPOTENCY,
+                    prepared.disclosure.idempotency_key.to_vec(),
+                ),
+            ]),
+        };
+        record.encode()?;
+        Ok(record)
+    }
+
+    pub fn restore_call(
+        &self,
+        session: &SessionRef,
+        generation: u64,
+    ) -> Result<crate::prepare::EvmPrepared, LifecycleError> {
+        use sha2::{Digest, Sha256};
+        self.require_call_owner(session, generation)?;
+        let encoded = self
+            .extensions
+            .get(&EXTENSION_CALL)
+            .ok_or(if self.is_call_record() {
+                LifecycleError::NotFound
+            } else {
+                LifecycleError::MigrationRequired
+            })?;
+        let hash: [u8; 32] = Sha256::digest(encoded).into();
+        if hash != self.payload_hash {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        let invalid = |_| LifecycleError::InvalidSignedBytes;
+        let mut input = layerx_wire::decode::Decoder::new(encoded, 0);
+        fn fixed<const N: usize>(
+            input: &mut layerx_wire::decode::Decoder<'_>,
+        ) -> Result<[u8; N], LifecycleError> {
+            input
+                .fixed(N)
+                .map_err(|_| LifecycleError::InvalidSignedBytes)?
+                .try_into()
+                .map_err(|_| LifecycleError::InvalidSignedBytes)
+        }
+        if input.u8().map_err(invalid)? != 1
+            || input.bytes(255).map_err(invalid)? != session.tenant.as_str().as_bytes()
+            || fixed::<32>(&mut input)? != session.session_id.0
+            || input.u64().map_err(invalid)? != generation
+            || fixed::<32>(&mut input)? != self.preparation_id
+        {
+            return Err(LifecycleError::AuthorizationMismatch);
+        }
+        let from = fixed::<20>(&mut input)?;
+        let head = input.u64().map_err(invalid)?;
+        let digest = fixed::<32>(&mut input)?;
+        let signing_hash = fixed::<32>(&mut input)?;
+        let call = input.bytes(MAX_PREPARATION_BYTES).map_err(invalid)?;
+        input.finish().map_err(invalid)?;
+        let prepared =
+            crate::prepare::disclose::restore_call(call, from, head, digest, signing_hash)
+                .map_err(LifecycleError::CallBinding)?;
+        if self.not_after
+            != prepared
+                .disclosure
+                .expiry
+                .not_after
+                .min(prepared.disclosure.expiry.payload_expires_at)
+        {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        if let Some(raw) = self.signed_bytes()? {
+            self.verify_signed_call(&prepared, &raw)?;
+        }
+        Ok(prepared)
+    }
+
+    fn require_call_owner(
+        &self,
+        session: &SessionRef,
+        generation: u64,
+    ) -> Result<(), LifecycleError> {
+        if generation == 0 || self.generation == 0 {
+            return Err(LifecycleError::InvalidAuthorization);
+        }
+        if self.tenant != session.tenant
+            || self.session_id != session.session_id.0
+            || self.generation != generation
+        {
+            return Err(LifecycleError::AuthorizationMismatch);
+        }
+        Ok(())
+    }
+
+    fn verify_signed_call(
+        &self,
+        prepared: &crate::prepare::EvmPrepared,
+        raw: &[u8],
+    ) -> Result<(), LifecycleError> {
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+        if raw.len() > MAX_SIGNED_BYTES {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        let (call, signature) =
+            decode_signed(raw).map_err(|_| LifecycleError::InvalidSignedBytes)?;
+        if call != prepared.call
+            || recover_sender(&call, &signature).map_err(|_| LifecycleError::InvalidSignedBytes)?
+                != prepared.from
+            || self.activity_id != Some(transaction_hash(raw))
+        {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        Ok(())
+    }
+
+    fn terminal_sequence(&self) -> Result<Option<u64>, LifecycleError> {
+        self.extensions
+            .get(&EXTENSION_TERMINAL_SEQUENCE)
+            .map(|bytes| {
+                let bytes: [u8; 8] = bytes
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| LifecycleError::InvalidSignedBytes)?;
+                Ok(u64::from_be_bytes(bytes))
+            })
+            .transpose()
+    }
+
+    fn call_idempotency_key(
+        &self,
+        prepared: &crate::prepare::EvmPrepared,
+    ) -> Result<crate::store::TenantKey, LifecycleError> {
+        let key = if prepared.disclosure.idempotency_key == [0; 32] {
+            prepared.signing_hash
+        } else {
+            prepared.disclosure.idempotency_key
+        };
+        crate::store::TenantKey::new(
+            self.tenant.clone(),
+            crate::store::ObjectKind::Idempotency,
+            [
+                b"prepare/call/".as_slice(),
+                &prepared.call.chain_id.to_be_bytes(),
+                &prepared.from,
+                &key,
+            ]
+            .concat(),
+        )
+        .map_err(|_| LifecycleError::Unavailable)
+    }
+
+    fn load_call(
+        store: &crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+    ) -> Result<(Self, crate::prepare::EvmPrepared), LifecycleError> {
+        let key = Self::store_key(&session.tenant, id)?;
+        let stored = store.get(&key).ok_or(LifecycleError::NotFound)?;
+        let record = Self::decode(session.tenant.clone(), stored.bytes())?;
+        if record.preparation_id != id {
+            return Err(LifecycleError::InvalidSignedBytes);
+        }
+        let prepared = record.restore_call(session, generation)?;
+        Ok((record, prepared))
+    }
+
+    fn save_call(&self, store: &mut crate::store::Store) -> Result<(), LifecycleError> {
+        let key = Self::store_key(&self.tenant, self.preparation_id)?;
+        store
+            .put_local(key, self.encode()?)
+            .map_err(|_| LifecycleError::Unavailable)
+    }
+
+    fn retained_call(&self) -> Result<RetainedPreparation, LifecycleError> {
+        Ok(RetainedPreparation {
+            authorization: None,
+            call_bound: true,
+            durable_terminal: self.terminal(),
+            state: self.state,
+            not_after: self.not_after,
+            reservation_ids: if self.holds.is_empty() {
+                Vec::new()
+            } else {
+                vec![self.preparation_id]
+            },
+            signed_bytes: self.signed_bytes()?,
+            activity_id: self.activity_id,
+            payload_hash: self.payload_hash,
+            terminal_at_sequence: self.terminal_sequence()?,
+        })
+    }
+}
+
+impl PreparationLifecycle {
+    pub fn retained_count(&self) -> Result<usize, LifecycleError> {
+        self.records
+            .lock()
+            .map(|records| records.len())
+            .map_err(|_| LifecycleError::Unavailable)
+    }
+
+    pub fn register_call(
+        &self,
+        store: &mut crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+        prepared: &crate::prepare::EvmPrepared,
+        holds: Vec<(
+            crate::budget::DurableBudgetReservation,
+            Option<crate::budget::CoreTimestampMs>,
+        )>,
+    ) -> Result<(), LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let record = DurablePreparation::from_call(session, generation, id, prepared, holds)?;
+        let key = DurablePreparation::store_key(&session.tenant, id)?;
+        let idempotency = record.call_idempotency_key(prepared)?;
+        if records.contains_key(&id)
+            || store.get(&key).is_some()
+            || store.get(&idempotency).is_some()
+        {
+            return Err(LifecycleError::Duplicate);
+        }
+        let retained = record.retained_call()?;
+        store
+            .commit_local_records(vec![
+                (key, record.encode()?),
+                (
+                    idempotency,
+                    [id.as_slice(), &prepared.signing_hash].concat(),
+                ),
+            ])
+            .map_err(|_| LifecycleError::Unavailable)?;
+        records.insert(id, retained);
+        Ok(())
+    }
+
+    pub fn restore_calls(
+        &self,
+        store: &crate::store::Store,
+        tenant: &crate::store::TenantId,
+    ) -> Result<usize, LifecycleError> {
+        let durable = DurablePreparation::load_all(store, tenant)?;
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let mut restored = BTreeMap::new();
+        for record in durable {
+            if !record.is_call_record() {
+                return Err(LifecycleError::MigrationRequired);
+            }
+            if record.terminal() {
+                continue;
+            }
+            let session =
+                SessionRef::new(tenant.clone(), crate::session::SessionId(record.session_id));
+            let prepared = record.restore_call(&session, record.generation)?;
+            let identity = record.call_idempotency_key(&prepared)?;
+            let expected = [record.preparation_id.as_slice(), &prepared.signing_hash].concat();
+            if store.get(&identity).map(|value| value.bytes()) != Some(expected.as_slice()) {
+                return Err(LifecycleError::InvalidSignedBytes);
+            }
+            if records.contains_key(&record.preparation_id)
+                || restored.contains_key(&record.preparation_id)
+            {
+                return Err(LifecycleError::Duplicate);
+            }
+            restored.insert(record.preparation_id, record.retained_call()?);
+        }
+        let count = restored.len();
+        records.extend(restored);
+        Ok(count)
+    }
+
+    pub fn prepared_call(
+        &self,
+        store: &crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+    ) -> Result<crate::prepare::EvmPrepared, LifecycleError> {
+        let (_, prepared) = DurablePreparation::load_call(store, session, generation, id)?;
+        Ok(prepared)
+    }
+
+    pub fn transition_call(
+        &self,
+        store: &mut crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+        next: LifecycleState,
+        current_sequence: u64,
+    ) -> Result<(), LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let (mut durable, _) = DurablePreparation::load_call(store, session, generation, id)?;
+        require_cached_call(&records, id, &durable)?;
+        if matches!(next, LifecycleState::Signed | LifecycleState::Submitted)
+            || !valid_transition(durable.state, next)
+        {
+            return Err(LifecycleError::InvalidTransition {
+                from: durable.state,
+                to: next,
+            });
+        }
+        durable.state = next;
+        if next.terminal() {
+            durable.extensions.insert(
+                EXTENSION_TERMINAL_SEQUENCE,
+                current_sequence.to_be_bytes().to_vec(),
+            );
+        }
+        let retained = durable.retained_call()?;
+        durable.save_call(store)?;
+        records.insert(id, retained);
+        Ok(())
+    }
+
+    pub fn retain_signed_call(
+        &self,
+        store: &mut crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+        raw: Vec<u8>,
+    ) -> Result<[u8; 32], LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let (mut durable, prepared) =
+            DurablePreparation::load_call(store, session, generation, id)?;
+        require_cached_call(&records, id, &durable)?;
+        if durable.state != LifecycleState::Signing {
+            return Err(LifecycleError::InvalidTransition {
+                from: durable.state,
+                to: LifecycleState::Signed,
+            });
+        }
+        let hash = layerx_crypto::evm_transaction::transaction_hash(&raw);
+        durable.activity_id = Some(hash);
+        durable.verify_signed_call(&prepared, &raw)?;
+        durable.state = LifecycleState::Signed;
+        durable.extensions.insert(EXTENSION_SIGNED_BYTES, raw);
+        let retained = durable.retained_call()?;
+        durable.save_call(store)?;
+        records.insert(id, retained);
+        Ok(hash)
+    }
+
+    pub fn admit_call_submission(
+        &self,
+        store: &mut crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+        core_time_ms: u64,
+    ) -> Result<Vec<u8>, LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let (mut durable, prepared) =
+            DurablePreparation::load_call(store, session, generation, id)?;
+        require_cached_call(&records, id, &durable)?;
+        let retained = records.get(&id).ok_or(LifecycleError::NotFound)?;
+        require_unexpired(retained, core_time_ms)?;
+        if core_time_ms < prepared.disclosure.expiry.not_before {
+            return Err(LifecycleError::PreparationNotYetValid);
+        }
+        if core_time_ms > durable.not_after || durable.state == LifecycleState::Expired {
+            return Err(LifecycleError::PreparationExpired);
+        }
+        if durable.state != LifecycleState::Signed {
+            return Err(LifecycleError::InvalidTransition {
+                from: durable.state,
+                to: LifecycleState::Submitted,
+            });
+        }
+        let raw = durable
+            .signed_bytes()?
+            .ok_or(LifecycleError::InvalidSignedBytes)?;
+        durable.state = LifecycleState::Submitted;
+        let retained = durable.retained_call()?;
+        durable.save_call(store)?;
+        records.insert(id, retained);
+        Ok(raw)
+    }
+
+    pub fn recovered_signed_call(
+        &self,
+        store: &crate::store::Store,
+        session: &SessionRef,
+        generation: u64,
+        id: [u8; 32],
+    ) -> Result<Vec<u8>, LifecycleError> {
+        let (durable, _) = DurablePreparation::load_call(store, session, generation, id)?;
+        durable
+            .signed_bytes()?
+            .ok_or(LifecycleError::InvalidSignedBytes)
+    }
+
+    pub fn expire_calls(
+        &self,
+        store: &mut crate::store::Store,
+        tenant: &crate::store::TenantId,
+        limiter: &BudgetLimiter,
+        core_time_ms: u64,
+        current_sequence: u64,
+    ) -> Result<ExpirationReport, LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let mut report = ExpirationReport {
+            expired_preparations: Vec::new(),
+            released_reservations: Vec::new(),
+        };
+        for mut durable in DurablePreparation::load_all(store, tenant)? {
+            if !durable.is_call_record() {
+                return Err(LifecycleError::MigrationRequired);
+            }
+            if !matches!(
+                durable.state,
+                LifecycleState::Prepared | LifecycleState::Signing | LifecycleState::Signed
+            ) || core_time_ms <= durable.not_after
+            {
+                continue;
+            }
+            let session = SessionRef::new(
+                tenant.clone(),
+                crate::session::SessionId(durable.session_id),
+            );
+            durable.restore_call(&session, durable.generation)?;
+            if records.contains_key(&durable.preparation_id) {
+                require_cached_call(&records, durable.preparation_id, &durable)?;
+            }
+            // Call expiry is in milliseconds, independently of the reservation's height bound.
+            let staged = crate::budget::stage_release(
+                limiter,
+                durable.preparation_id,
+                ReleaseKind::Failed,
+                current_sequence,
+            )
+            .map_err(LifecycleError::Reservation)?;
+            durable.state = LifecycleState::Expired;
+            durable.extensions.insert(
+                EXTENSION_TERMINAL_SEQUENCE,
+                current_sequence.to_be_bytes().to_vec(),
+            );
+            let retained = durable.retained_call()?;
+            durable.save_call(store)?;
+            if staged.publish() {
+                report.released_reservations.push(durable.preparation_id);
+            }
+            records.insert(durable.preparation_id, retained);
+            report.expired_preparations.push(durable.preparation_id);
+        }
+        Ok(report)
+    }
+
+    pub fn sweep_call_retention(
+        &self,
+        store: &mut crate::store::Store,
+        tenant: &crate::store::TenantId,
+        current_sequence: u64,
+        retention_sequences: u64,
+    ) -> Result<RetentionReport, LifecycleError> {
+        let mut records = self
+            .records
+            .lock()
+            .map_err(|_| LifecycleError::Unavailable)?;
+        let mut report = RetentionReport {
+            evicted_terminal_preparations: 0,
+            discarded_terminal_signed_bytes: 0,
+            preserved_unresolved_signed_bytes: 0,
+        };
+        for mut durable in DurablePreparation::load_all(store, tenant)? {
+            if !durable.is_call_record() {
+                return Err(LifecycleError::MigrationRequired);
+            }
+            if durable.state.unresolved() {
+                if durable.signed_bytes()?.is_some() {
+                    report.preserved_unresolved_signed_bytes += 1;
+                }
+                continue;
+            }
+            let Some(terminal) = durable.terminal_sequence()? else {
+                continue;
+            };
+            if !durable.terminal()
+                || current_sequence < terminal
+                || current_sequence - terminal < retention_sequences
+            {
+                continue;
+            }
+            if durable.extensions.contains_key(&EXTENSION_CALL_TOMBSTONE) {
+                continue;
+            }
+            let session = SessionRef::new(
+                tenant.clone(),
+                crate::session::SessionId(durable.session_id),
+            );
+            let prepared = durable.restore_call(&session, durable.generation)?;
+            let identity = durable.call_idempotency_key(&prepared)?;
+            let expected = [durable.preparation_id.as_slice(), &prepared.signing_hash].concat();
+            if store.get(&identity).map(|value| value.bytes()) != Some(expected.as_slice()) {
+                return Err(LifecycleError::InvalidSignedBytes);
+            }
+            if records.contains_key(&durable.preparation_id) {
+                require_cached_call(&records, durable.preparation_id, &durable)?;
+            }
+            let had_bytes = durable.extensions.contains_key(&EXTENSION_SIGNED_BYTES);
+            durable.drop_signed_bytes();
+            durable.extensions.remove(&EXTENSION_CALL);
+            durable
+                .extensions
+                .insert(EXTENSION_CALL_TOMBSTONE, prepared.signing_hash.to_vec());
+            durable.holds.clear();
+            durable.save_call(store)?;
+            if records.remove(&durable.preparation_id).is_some() {
+                report.evicted_terminal_preparations += 1;
+            }
+            if had_bytes {
+                report.discarded_terminal_signed_bytes += 1;
+            }
+        }
+        Ok(report)
+    }
+}
+
+fn require_cached_call(
+    records: &BTreeMap<[u8; 32], RetainedPreparation>,
+    id: [u8; 32],
+    durable: &DurablePreparation,
+) -> Result<(), LifecycleError> {
+    let cached = records.get(&id).ok_or(LifecycleError::NotFound)?;
+    if !cached.call_bound
+        || cached.payload_hash != durable.payload_hash
+        || cached.state != durable.state
+    {
+        return Err(LifecycleError::AuthorizationMismatch);
+    }
+    Ok(())
 }

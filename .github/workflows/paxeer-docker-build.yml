@@ -64,7 +64,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-docker-build.yml'
@@ -135,13 +134,12 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-docker-build.yml'
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 defaults:
@@ -160,7 +158,7 @@ jobs:
     steps:
       -
         name: Check out the repo
-        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       -
         name: Set up QEMU
         uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3

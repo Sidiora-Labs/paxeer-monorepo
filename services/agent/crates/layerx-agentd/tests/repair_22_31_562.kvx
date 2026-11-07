@@ -1,0 +1,54 @@
+[repair.22.31.562]
+acceptance = "22998.1"
+gotchas = [3226, 3142, 2962]
+decision = 2651
+base = "f0d685372a0262a696e085204fc5e048db4d73c7"
+implementation = "Decode budget observation labels with VerificationLevel::from_wire_rank, then encode receipt_rung_code; its missing-rung case returns HumanOperationError::Refused. Preserve the committed-budget guard and all freshness, ownership, reservation and evidence checks."
+
+[sites.approval_budget_after]
+producer = "src/human_runtime.rs::UnifiedAgentOwner::approval_budget_after"
+consumer = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs::AgentApprovalBoundary::verified_budget_after uses decode_rung and requires Committed."
+change = "COMMITTED label 6 becomes rung rank 2 at response-body offset 82. SEQUENCER_SIGNED label 1 is Refused by the existing committed-state boundary."
+digest = "The approval-budget-after/v2 digest covers approval, held digest, budget, asset, amount, remaining, three evidence digests and sequence; it does not cover a verification byte. Preserve this preimage exactly and assert its full value in the loopback regression."
+
+[sites.native_effect_approval_budget]
+producer = "src/human_runtime.rs::UnifiedAgentOwner::native_effect_approval_budget"
+consumer = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs::AgentClient::native_effect_approval_budget requires row byte 2 for Rung::Committed."
+change = "Encode receipt_rung_code(row.verification()) instead of the VerificationLevel label."
+
+[sites.managed_evidence]
+producer = "src/human_runtime.rs::UnifiedAgentOwner::managed_evidence"
+consumer = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs::AgentClient::managed_evidence reads verification with decode_rung."
+change = "Encode receipt_rung_code(receipt.metadata.verification_level); retired levels without a rung are Refused."
+observation = "An independent existing response-version disagreement remains: this producer writes version 2 while the Human consumer expects version 3; this task changes the requested rung byte only."
+
+[sites.install_capability]
+producer = "src/human_runtime.rs::install_capability"
+consumer = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs::AgentClient::capability_install uses decode_rung."
+change = "Decode observed.verification with VerificationLevel::from_wire_rank then encode receipt_rung_code before persisting the completed response."
+digest = "Validate the authority evidence digest against its original capability-scope observation label, then encode the Human response evidence digest over the rung rank actually written, as AgentEvidence::expected_digest(CapabilityNarrowing) requires."
+
+[sites.checked]
+already_rungs = ["CoreBudgetState::encode_snapshot uses budget_rung_from_rank", "encode_program_approval_budget_v5 writes Rung::Committed.wire_rank", "encode_tracked writes Rung::wire_rank"]
+labels_preserved = ["encode_owner_validated is an internal durable record decoded by rank", "encode_identity is read with the identity-level decoder", "wait_finality writes a verification label consumed by the wait contract", "agent_budget_state delegates to managed_agent::record_budget_snapshot; Human agent_budget_state checks its label through agents::rung_from_rank"]
+no_label_byte = ["account_sequence writes only the pending nonce", "account_state serves the existing ordinary-read JSON response", "agent_budget_proof serves canonical export bytes"]
+
+[proof]
+file = "tests/repair_22_31_562.rs"
+committed = "committed_budget_after_decodes_as_committed_rung drives a real durable EVM approval, reopens the store, sends APPROVAL_BUDGET_AFTER_V2 through a UnixStream loopback and serve_one, asserts byte 2 at the rung position and decodes it to layerx_types::rung::Rung::Committed; checks the full response and digest."
+refused = "budget_state_is_committed serves the same budget-state fixture with SEQUENCER_SIGNED label 1 after constructing and reopening the real approval, sends the same request through serve_one, and asserts the exact operation.refused frame."
+fixtures = "Reuse the recorded authority data in human_approval_budget_actor.rs and support/human_budget_native_store.rs to verify actual native proofs and committed checkpoints, real local TLS authority and node transports, and an in-process runtime clock. No environment configuration, external credentials or live endpoint is required."
+symbols = "approval_budget_after and receipt_rung_code are production functions; budget_state_is_committed is the refusal test; decode_rung is the response decoder with the Human wire mapping."
+
+[qualification]
+build = "hf-build runs cargo build --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --tests"
+verify = "hf-done runs cg spec done 22.31.562 -f layerx-merge --root /work/paxeer-monorepo, including cargo test --locked --manifest-path services/agent/crates/layerx-agentd/Cargo.toml --test repair_22_31_562 and graph checks."
+evidence = "Exact candidate revision, command, exit and private log for both gates and any bounded repairs are recorded by the runner in /out/run/gates.jsonl and printed as final evidence JSON. These references establish no pass before execution."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+record_policy = "This record is finalized before qualification; do not amend any file after the gates to transcribe results, because that would change the candidate (gotcha 3142)."
+
+[regression.managed_agent_checks_613]
+boundary = "The SEQUENCER_SIGNED negative case is refused by human_runtime::approval_budget_after before a managed-agent snapshot is recorded; its exact operation.refused frame remains unchanged."
+execution = "The existing regression target runs alone under task 22.31.613; tests/repair_22_31_613.kvx references its private command, revision, exit and log. All behavioral cases and recording-only ignore attributes are preserved."
+evidence = "The final passing verify row in /out/run/gates.jsonl supplies the verified revision, command, exit and private log and must match the final passing build row; no result is claimed before execution."

@@ -10,12 +10,12 @@ type DistributionItem = {
 };
 
 const DISTRIBUTION_ITEMS: Array<DistributionItem> = [
-  { id: 'critical', name: 'Critical', color: '#891F11' },
-  { id: 'high', name: 'High', color: '#EC672C' },
-  { id: 'medium', name: 'Medium', color: '#FBE74D' },
-  { id: 'low', name: 'Low', color: '#68C88E' },
-  { id: 'informational', name: 'Informational', color: '#A3AEBE' },
-  { id: 'gas', name: 'Gas', color: '#A47585' },
+  { id: 'critical', name: 'Critical', color: 'securitySeverity.critical' },
+  { id: 'high', name: 'High', color: 'securitySeverity.high' },
+  { id: 'medium', name: 'Medium', color: 'securitySeverity.medium' },
+  { id: 'low', name: 'Low', color: 'securitySeverity.low' },
+  { id: 'informational', name: 'Informational', color: 'securitySeverity.informational' },
+  { id: 'gas', name: 'Gas', color: 'securitySeverity.gas' },
 ];
 
 interface Props {

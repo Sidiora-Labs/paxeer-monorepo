@@ -2,9 +2,17 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { webcrypto } from 'node:crypto';
 import { ethers } from 'ethers';
-import { parseTransaction, type Hex } from 'viem';
-import type { SequencerReceiptAnswer } from '@paxeer/wallet';
-import { SurfaceChain, type SentCall } from './chain';
+import { keccak256, parseTransaction, type Hex } from 'viem';
+import { FEE_TOKEN_PRECOMPILE, decodeAbiString, type SequencerReceiptAnswer } from '@paxeer/wallet';
+import { abiSelector } from '@sidiora/layerx-sdk/browser';
+import {
+  CHAIN_KEY,
+  SurfaceChain,
+  nodeReceiptCall,
+  type NodeReceiptVector,
+  type SentCall,
+} from './chain';
+import ledgerProof from './fixtures/ledger-proof-v1.json';
 
 Object.defineProperty(globalThis, 'crypto', { value: webcrypto, configurable: true });
 
@@ -61,7 +69,13 @@ export function recordedReceipt(id: string): RecordedReceipt {
         'utf8'
       )
     ) as { positive: RecordedReceipt };
-    if (source.settlement.receipt.txHash !== conformance.positive.receiptJson.txHash)
+    if (
+      source.settlement.receipt.txHash !== conformance.positive.receiptJson.txHash ||
+      source.settlement.raw_transaction !== conformance.positive.rawTransaction ||
+      keccak256(source.settlement.raw_transaction) !== source.settlement.receipt.txHash ||
+      parseTransaction(source.settlement.raw_transaction).chainId !== 125 ||
+      parseTransaction(source.settlement.raw_transaction).type !== 'eip1559'
+    )
       throw new Error('Committed recording does not match the conformance receipt');
     return {
       id,
@@ -129,5 +143,125 @@ export class RecordedBridgeChain extends SurfaceChain {
       return structuredClone(this.recording.receiptJson);
     }
     return super.request(args);
+  }
+}
+
+const surfaceCorpus: {
+  provenance: { kind: string; receiptModel: string; ledgerModel: string };
+  cases: NodeReceiptVector[];
+} = JSON.parse(readFileSync(path.resolve(__dirname, 'fixtures/surface-receipts-v1.json'), 'utf8'));
+
+export function surfaceReceiptVectors(): NodeReceiptVector[] {
+  return structuredClone(surfaceCorpus.cases);
+}
+
+export function surfaceReceiptProvenance() {
+  return structuredClone(surfaceCorpus.provenance);
+}
+
+export function recordedLedgerProof() {
+  return structuredClone(ledgerProof);
+}
+
+export const EXCHANGE_RECORDING_KEY = ethers.id('paxeer-wallet-sdk-fixture');
+
+/** Replays only complete, signed call recordings; never manufactures a send answer. */
+export class RecordedSurfaceChain extends SurfaceChain {
+  override readonly wallet: ethers.Wallet;
+  override readonly address: string;
+  private readonly recordings: NodeReceiptVector[];
+  private readonly replayed = new Map<string, NodeReceiptVector>();
+
+  constructor(options: { recordingIds?: readonly string[]; privateKey?: string } = {}) {
+    super();
+    this.wallet = new ethers.Wallet(options.privateKey ?? CHAIN_KEY);
+    this.address = this.wallet.address.toLowerCase();
+    this.recordings = surfaceReceiptVectors().filter((entry) =>
+      options.recordingIds
+        ? options.recordingIds.includes(entry.id)
+        : entry.receiptJson.status === '0x1'
+    );
+    if (options.recordingIds && this.recordings.length !== options.recordingIds.length)
+      throw new Error('Missing surface recording');
+  }
+
+  override async request(args: Parameters<SurfaceChain['request']>[0]): Promise<unknown> {
+    const params = Array.isArray(args.params) ? args.params : [];
+    const hash = String(params[0]);
+    if (args.method === 'px_getReceiptKeys') {
+      this.methods.push(args.method);
+      return {
+        keys: structuredClone([
+          ...new Map(
+            this.recordings.map((entry) => [entry.pinnedKey.keyId, entry.pinnedKey])
+          ).values(),
+        ]),
+      };
+    }
+    if (
+      args.method === 'eth_getRawTransactionByHash' ||
+      args.method === 'pax_sequencerReceipt' ||
+      args.method === 'eth_getTransactionReceipt'
+    ) {
+      this.methods.push(args.method);
+      const entry = this.replayed.get(hash);
+      if (!entry) return null;
+      if (args.method === 'eth_getRawTransactionByHash') return entry.rawTransaction;
+      if (args.method === 'eth_getTransactionReceipt')
+        return { transactionHash: hash, ...structuredClone(entry.receiptJson) };
+      return structuredClone(entry.receiptJson);
+    }
+    if (args.method !== 'eth_sendTransaction' && args.method !== 'paxeer_sendTransactionReceipted')
+      return super.request(args);
+
+    this.methods.push(args.method);
+    const requested = params[0] as SentCall;
+    if (requested.from.toLowerCase() !== this.address)
+      throw Object.assign(new Error('unknown account'), { code: 4100 });
+    const call: SentCall = {
+      from: requested.from.toLowerCase(),
+      to: requested.to.toLowerCase(),
+      data: requested.data.toLowerCase(),
+      value: requested.value,
+    };
+    const entry = this.recordings.find((candidate) => {
+      const recorded = nodeReceiptCall(candidate);
+      return (
+        !this.replayed.has(candidate.receiptJson.txHash) &&
+        recorded.from === call.from &&
+        recorded.to === call.to &&
+        recorded.data === call.data &&
+        BigInt(recorded.value) === BigInt(call.value)
+      );
+    });
+    if (!entry)
+      throw Object.assign(new Error('no node receipt vector for this call'), { code: -32000 });
+    const requestedLogs = this.logsFor(call);
+    if (
+      requestedLogs.length &&
+      JSON.stringify(requestedLogs) !==
+        JSON.stringify(
+          entry.receiptJson.logs.map(({ address, topics, data }) => ({ address, topics, data }))
+        )
+    )
+      throw new Error('surface logs differ from the signed node receipt');
+
+    this.sent.push(call);
+    this.replayed.set(entry.receiptJson.txHash, entry);
+    if (entry.receiptJson.status === '0x1') {
+      if (call.data.startsWith(abiSelector('approve(address,uint256)')))
+        this.allowances.set(
+          `${call.to}:${this.address.slice(2).padStart(64, '0')}${call.data.slice(10, 74)}`,
+          BigInt(`0x${call.data.slice(74)}`)
+        );
+      if (call.to === FEE_TOKEN_PRECOMPILE) {
+        if (call.data.startsWith(abiSelector('setFeeDenom(string)')))
+          this.feeDenom = decodeAbiString(`0x${call.data.slice(10)}`);
+        if (call.data === abiSelector('clearFeeDenom()')) this.feeDenom = '';
+      }
+    }
+    return args.method === 'eth_sendTransaction'
+      ? entry.receiptJson.txHash
+      : structuredClone(entry.receiptJson);
   }
 }

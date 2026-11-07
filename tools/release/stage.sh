@@ -1,5 +1,139 @@
 #!/usr/bin/env bash
 
+release_load_identity() {
+	local directory=$1
+	release_version=$(jq -er .version "$directory/version.json") || return 1
+	release_upgrade=$(jq -er .upgrade "$directory/version.json") || return 1
+	[[ $release_version =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || return 1
+	[[ $release_upgrade =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ||
+		$release_upgrade == v7.0 || $release_upgrade == v7.0-anchor-store-delete ]] || return 1
+}
+
+# All binary mutators take this lock before inspecting release material. Keep it
+# open through receipt publication; any home locks must be acquired afterwards.
+release_operation_lock() {
+  local directory=$1
+  exec 9>"$directory/.release-operation.lock" || return 1
+  flock -n 9 || {
+    printf 'release: another release operation is running\n' >&2
+    return 1
+  }
+}
+
+# This resolver is shared by staging's consumers, swap and rollback. A process
+# without a provable home blocks all mutations, including default-home nodes.
+release_node_process() {
+  python3 - "$@" <<'PY_RELEASE_PROCESS'
+import hashlib
+import os
+from pathlib import Path
+import select
+import signal
+import sys
+
+
+def identity(proc):
+    raw = (proc / "cmdline").read_bytes()
+    args = [os.fsdecode(arg) for arg in raw.split(b"\0") if arg]
+    if not args:
+        raise ValueError("running paxd has no readable arguments")
+    values = []
+    for index, arg in enumerate(args):
+        if arg == "--home":
+            if index + 1 >= len(args) or args[index + 1].startswith("--"):
+                raise ValueError("running paxd has an incomplete home flag")
+            values.append(args[index + 1])
+        elif arg.startswith("--home="):
+            values.append(arg.partition("=")[2])
+    if len(values) > 1:
+        raise ValueError("running paxd has ambiguous home flags")
+    environment = (proc / "environ").read_bytes()
+    if values:
+        selected = values[0]
+    else:
+        env = dict(item.split(b"=", 1) for item in environment.split(b"\0") if b"=" in item)
+        selected = os.fsdecode(env.get(b"PAX_HOME", b""))
+    if not selected:
+        raise ValueError("running paxd has no explicit home; default home is ambiguous")
+    candidate = Path(selected)
+    if not candidate.is_absolute():
+        candidate = (proc / "cwd").resolve(strict=True) / candidate
+    home = candidate.resolve(strict=True)
+    return home, raw, environment
+
+
+def scan(target):
+    matched = []
+    for proc in Path("/proc").iterdir():
+        if not proc.name.isdecimal():
+            continue
+        try:
+            name = (proc / "comm").read_text().strip()
+            if name != "paxd" and not name.startswith(("paxd.", "paxd-")):
+                continue
+            # Zombies have no executable or live ownership of node state.
+            state = (proc / "stat").read_text().rsplit(")", 1)[1].split()[0]
+            if state in ("Z", "X"):
+                continue
+            pid = int(proc.name)
+            fd = os.pidfd_open(pid)
+            try:
+                found, raw, environment = identity(proc)
+                if found == target:
+                    matched.append((pid, fd, raw, environment))
+                    fd = None
+            finally:
+                if fd is not None:
+                    os.close(fd)
+        except (FileNotFoundError, ProcessLookupError):
+            if proc.exists():
+                raise ValueError("cannot prove home ownership of a running paxd")
+    return matched
+
+
+matched = []
+try:
+    mode, home = sys.argv[1:3]
+    target = Path(home).resolve()
+    matched = scan(target)
+    if mode == "list":
+        for pid, fd, raw, environment in matched:
+            print(pid)
+    elif mode == "stopped":
+        if matched:
+            raise ValueError("node still running for " + str(target))
+    elif mode == "stop":
+        for pid, fd, raw, environment in matched:
+            poller = select.poll()
+            poller.register(fd, select.POLLIN)
+            if poller.poll(0):
+                continue
+            if identity(Path("/proc") / str(pid)) != (target, raw, environment):
+                raise ValueError("process home changed during stop")
+            signal.pidfd_send_signal(fd, signal.SIGTERM)
+            if not poller.poll(60000):
+                raise ValueError("node did not stop cleanly")
+    elif mode == "verify":
+        if len(matched) != 1:
+            raise ValueError("expected exactly one running paxd for home")
+        pid, fd, raw, environment = matched[0]
+        if identity(Path("/proc") / str(pid)) != (target, raw, environment):
+            raise ValueError("process home changed during verification")
+        with open(f"/proc/{pid}/exe", "rb") as stream:
+            digest = hashlib.file_digest(stream, "sha256").hexdigest()
+        if digest != sys.argv[3]:
+            raise ValueError("running paxd sha256 mismatch")
+    else:
+        raise ValueError("invalid process operation")
+except (OSError, ValueError) as error:
+    sys.exit("release: " + str(error))
+finally:
+    for pid, fd, raw, environment in matched:
+        os.close(fd)
+PY_RELEASE_PROCESS
+}
+
+
 stage_fail() {
 	printf 'stage: %s\n' "$*" >&2
 	return 1
@@ -45,8 +179,8 @@ stage_load_env() {
 		stage_fail 'RELEASE_ID is invalid'
 		return 1
 	}
-	[[ ${stage_env[RELEASE_TAG]} == paxeer-network/v6.12.0 ]] || {
-		stage_fail 'RELEASE_TAG must be paxeer-network/v6.12.0'
+	[[ ${stage_env[RELEASE_TAG]} == "paxeer-network/$release_version" ]] || {
+		stage_fail "RELEASE_TAG must be paxeer-network/$release_version"
 		return 1
 	}
 	for key in RELEASE_SHA256 SIDECAR_SHA256; do
@@ -95,9 +229,10 @@ stage_libraries() {
 
 stage_verify_local() {
 	local bin=${stage_env[BIN_DIR]} previous
+	release_operation_lock "$bin" || return 1
 	previous="$bin/paxd.pre-${stage_env[RELEASE_ID]}"
-	stage_checksum "$bin/paxd.v6.12.0" "${stage_env[RELEASE_SHA256]}" || return 1
-	stage_libraries "$bin/paxd.v6.12.0" || return 1
+	stage_checksum "$bin/paxd.$release_version" "${stage_env[RELEASE_SHA256]}" || return 1
+	stage_libraries "$bin/paxd.$release_version" || return 1
 	stage_checksum "$bin/price-sidecar" "${stage_env[SIDECAR_SHA256]}" || return 1
 	[[ -f $previous && -x $previous && ! -L $previous ]] || {
 		stage_fail 'retained binary is missing or invalid'
@@ -113,9 +248,8 @@ stage_install() {
 		stage_fail 'installed paxd is missing or not executable'
 		return 1
 	}
-	exec {stage_lock}>"$bin/.stage.lock" || return 1
-	flock -x "$stage_lock" || return 1
-	for destination in "$bin/paxd.v6.12.0" "$bin/price-sidecar"; do
+	release_operation_lock "$bin" || return 1
+	for destination in "$bin/paxd.$release_version" "$bin/price-sidecar"; do
 		[[ ! -d $destination ]] || {
 			stage_fail 'binary destination is a directory'
 			return 1
@@ -128,16 +262,16 @@ stage_install() {
 		}
 	fi
 	stage_work=$(mktemp -d "$bin/.stage.XXXXXXXX") || return 1
-	install -m 0755 -- ./paxd-v6.12.0-linux-amd64 "$stage_work/paxd.v6.12.0" || return 1
-	install -m 0755 -- ./price-sidecar-v6.12.0-linux-amd64 "$stage_work/price-sidecar" || return 1
-	stage_checksum "$stage_work/paxd.v6.12.0" "${stage_env[RELEASE_SHA256]}" || return 1
-	stage_libraries "$stage_work/paxd.v6.12.0" || return 1
+	install -m 0755 -- "./paxd-$release_version-linux-amd64" "$stage_work/paxd.$release_version" || return 1
+	install -m 0755 -- "./price-sidecar-$release_version-linux-amd64" "$stage_work/price-sidecar" || return 1
+	stage_checksum "$stage_work/paxd.$release_version" "${stage_env[RELEASE_SHA256]}" || return 1
+	stage_libraries "$stage_work/paxd.$release_version" || return 1
 	stage_checksum "$stage_work/price-sidecar" "${stage_env[SIDECAR_SHA256]}" || return 1
 	if [[ ! -e $previous ]]; then
 		cp -p -- "$bin/paxd" "$stage_work/previous" || return 1
 		ln -- "$stage_work/previous" "$previous" || return 1
 	fi
-	mv -fT -- "$stage_work/paxd.v6.12.0" "$bin/paxd.v6.12.0" || return 1
+	mv -fT -- "$stage_work/paxd.$release_version" "$bin/paxd.$release_version" || return 1
 	mv -fT -- "$stage_work/price-sidecar" "$bin/price-sidecar" || return 1
 	stage_hosts=1
 }
@@ -205,8 +339,9 @@ stage_remote() {
 	}
 	response=$({
 		printf 'set -euo pipefail\nexport LC_ALL=C\n'
-		declare -f stage_fail stage_load_env stage_checksum stage_libraries stage_verify_local stage_unit_report stage_status_local
+		declare -f release_operation_lock stage_fail stage_load_env stage_checksum stage_libraries stage_verify_local stage_unit_report stage_status_local
 		declare -p stage_keys
+		declare -p release_version release_upgrade
 		printf 'stage_hosts=0; stage_units=0; rc=0\n'
 		printf 'stage_load_env %q || exit 1\n' "$file"
 		printf '[[ ${stage_env[RELEASE_SHA256]} == %q && ${stage_env[SIDECAR_SHA256]} == %q && ${stage_env[RELEASE_ID]} == %q ]] || { stage_fail "release identity differs"; exit 1; }\n' \
@@ -294,7 +429,13 @@ stage_main() {
 	set -euo pipefail
 	export LC_ALL=C
 	umask 077
-	local file=.env.rollout-v6120 mode= local_mode=0 root line tool
+	local mode= local_mode=0 root line tool
+	root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
+	release_load_identity "$root" || {
+		stage_fail 'invalid release identity'
+		return 1
+	}
+	local file=".env.rollout-${release_version//./}"
 	stage_work= stage_receipt= stage_mode= stage_hosts=0 stage_units=0
 	while [[ $# -gt 0 ]]; do
 		case $1 in

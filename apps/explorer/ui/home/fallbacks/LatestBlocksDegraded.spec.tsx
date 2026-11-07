@@ -15,6 +15,7 @@ vi.hoisted(() => {
 
 vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
 
+import HomeTableSection from '../HomeTableSection';
 import LatestBlocksDegraded from './LatestBlocksDegraded';
 import { HomeRpcDataContextProvider } from './rpcDataContext';
 
@@ -22,7 +23,9 @@ vi.setConfig({ testTimeout: 60_000 });
 
 const renderList = (maxNum: number) => render(
   <HomeRpcDataContextProvider>
-    <LatestBlocksDegraded maxNum={ maxNum }/>
+    <HomeTableSection title="Latest blocks" href={{ pathname: '/blocks' }}>
+      <LatestBlocksDegraded maxNum={ maxNum }/>
+    </HomeTableSection>
   </HomeRpcDataContextProvider>,
 );
 
@@ -40,11 +43,13 @@ describe('LatestBlocksDegraded', () => {
     expect(container.querySelectorAll('[data-latest-block]')).toHaveLength(3);
   });
 
-  it('closes the list with the link to every block', () => {
+  it('links to every block in the surrounding label row', () => {
     const { container } = renderList(3);
 
     const link = container.querySelector('a[href="/blocks"]') as HTMLAnchorElement;
 
-    expect(link.textContent).toBe('View all blocks');
+    expect(link.textContent).toBe('View all');
+    expect(link.getAttribute('aria-label')).toBe('View all blocks');
+    expect(link.closest('[data-header]')).not.toBeNull();
   });
 });

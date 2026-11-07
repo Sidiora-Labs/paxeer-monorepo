@@ -1,0 +1,261 @@
+[repair.22.31.478]
+acceptance = "22998.1"
+base_revision = "71ea2b5cfcf9fa483db0ed65d0630e08bca86d9f"
+kernel_allowance = 10000000
+cpu_allowance = 1000000
+measurement = "The declared Go gate executes the historical and candidate ABI5 guests under CPU budget 1000000 and kernel allowance 10000000. The attempt-9 before measurement is the recorded stop at 999968, not a completed cost. Exact completed candidate fuel and verified revision are retained in programs/target/repair-478/measurement.kvx. The Rust FUND row independently runs the candidate guest through Executor::declared and DeclaredBudget::protocol_maximum over the exact current state, request and real kernel balance observation transported by Go."
+before = "Attempt 9 stopped at consumed CPU fuel 999968 against its 1000000 CPU cap (gotcha 3246). This is the authorized before measurement; no over-cap call or completed historical measurement is claimed."
+after = "programs/target/repair-478/measurement.kvx records after_cpu_fuel from successful production Fund, its result code and verified revision. The Go gate asserts the fuel is below 1000000 and 999968, exact next state, one deposit and actual balance 100; the Rust FUND row asserts independent executor success, exact result, event, state and transfer and equal CPU fuel."
+cause = "Fund entered the general view, decoding the full policy, joint reputation/admission state and F06 dictionary, epoch rows and refund record before depositing into the ledger head. The retained repairs already removed repeated carry_reputation serialization and reused the SDK rewards-account binding. The dedicated FundingView now decodes the market header, shared framing/control replay table and F06 ledger head; it reads only framing and immutable epoch/roster bindings from carried sections. Fund never constructs a fully validated RewardState from opaque regions and never decodes or validates their dictionary entries, epoch rows or refund cursor. Commit encodes the changed ledger head, market revision and replay table, carrying every other byte and binding hash unchanged. First funding writes the empty reward suffix directly once, avoiding an intermediate initialized layout and its copy. Full decoders remain strict for transitions that own those regions; both production allowances are unchanged."
+changed_files = ["programs/Cargo.lock", "modules/lxphost/host.go", "modules/lxphost/simulate.go", "modules/lxphost/ctx.go", "programs/crates/layerx-programs-ai-market/Cargo.toml", "programs/crates/layerx-programs-ai-market/src/lib.rs", "programs/crates/layerx-programs-ai-market/src/dispatch.rs", "programs/crates/layerx-programs-ai-market/src/rewards.rs", "programs/crates/layerx-programs-ai-market/src/registry.rs", "programs/crates/layerx-programs-ai-market/src/value_adapter.rs", "programs/crates/layerx-programs-ai-market/tests/fuel_budget.rs", "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs", "programs/crates/layerx-programs-ai-market/examples/repair_478_fixture.rs", "rpc/repair_478_test.go", "rpc/repair_478.kvx"]
+proof = "The Go regression deploys real ABI5 guests, registers the derived rewards account, executes CREATE and Fund with the real prior receipt supplying balance sight. It checks exact producer-generated state, one deposit and actual balance. Every Fund logs status, terminal response and the decoded registered application error. The Rust unit decodes the canonical kernel terminal; the FUND fuel-table row independently executes the transported candidate guest and pre-Fund state under the protocol maximum. Existing populated-region, replay, wrong epoch/roster and corruption assertions remain enforced."
+verified_revision = "The declared gate writes the verified candidate revision with the before/after CPU measurements to programs/target/repair-478/measurement.kvx; qualification requires hf-build and hf-done at that same revision. No successful Fund measurement is claimed before that gate passes."
+
+[qualification.blocked]
+revision = "4a77cff7e58baf01e99b8a60a90cf5d18ee85840"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-ai-evaluator -p layerx-indexer -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-done exited 7 before verify_cmd: services/platform/hosted/core/src/public_reads.rs has E0599 at 96 (Uint256.to_be_bytes), E0609 at 137 and 164 (PxAssetEntry.layerx/paxeer), E0308 at 163 (String versus byte slice), E0277 at 172 (byte array versus AsRef<str>), E0308 at 700 (byte array versus String), and E0560 at 701 and 706 (removed struct fields), repeated through test includes."
+assumption = "These errors are unrelated to the task's private padding validator and Go receipt field; the failing source and its interfaces are outside scope, so the finding is recorded without repair or rerun."
+
+[gotcha.fixture-drift]
+observed = "The named TestAiMarketTransferAuthorityReceipt is absent at the supplied base; seqVecProgramsCall deploys ABI1. The repair preserves its committed host funding and production account setup and adds a real ABI5 fixture without changing any existing receipt vector."
+
+[gotcha.rustfmt]
+observed = "rustfmt on lib.rs recursively formats child modules unless skip_children=true; only task-touched files are formatted."
+
+[gotcha.fee-admission]
+observed = "Attempt 4 reached verify_cmd but the first asset registration returned LXP_ERR_FEE_UNPAYABLE because the fixture funded its agent main account only after three fee-bearing executions."
+repair = "Initialize and read back the actor main account before the first Host.Execute, with balance 1000000000 covering the unchanged fee limit 100000000 throughout setup; preserve the CPU comparison, allowances, fixture input and all success assertions."
+
+[qualification.attempt5]
+revision = "8cc1e9b86f8c31729dd4c66cccbf3105e7bce74b"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "E0609 at services/human/crates/layerx-human-service/tests/native_send_producer.rs:659: NativeSendPurposeV2 has no owner_public_key field; hf-done exited 7 before verify_cmd. The failing test is outside scope and unrelated to the actor main-account funding repair, so it was recorded without repair or rerun."
+
+[qualification.attempt7-first]
+revision = "1cd0f503495d6f92254e117773478c00b0d7fad5"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "All 29 dependent crates compile; both named guest subtests refuse DEPLOY (activity 00090001) with LXP_ERR_NON_CANONICAL before a ProgramOutcome exists, rather than refusing CREATE as the earlier handoff inferred from its line number."
+
+[gotcha.isolated-wasm-build]
+observed = "The isolated temporary Cargo manifests do not inherit programs/.cargo/config.toml: their Wasm contains padded table-index relocations, while the metering injector's parity-wasm decoder requires the single zero byte for call_indirect's table reference."
+repair = "Apply the repository's target-feature=-reference-types and link-arg=--compress-relocations flags to both historical and candidate guests, then validate each artifact through real ABI5 deployment admission in the fixture producer before deploying it through Host.Execute. CREATE payloads use the same field layout in the fixed base and current registry_ops::CreateRequest::parse. Neither allowance changes."
+
+[gotcha.abi5-account-profile]
+observed = "Attempt 7 reached registration but lxp_programs_account_guest_validate refused ABI5 with LXP_ERR_VERSION_UNSUPPORTED because the fixture lacked the persisted program-account-profile opt-in required under the state-commitment protocol."
+repair = "Before the first registration, seed module prefix 1,0,9 with program-owner NUL || program = 1 || principal and program-account-profile NUL || program = 2 || principal, matching precompiles/layerxprograms/view_accounts_test.go and the persisted ABI2 profile-2 opt-in; register the rewards account with profile 1 through Host.Execute, then execute CREATE and Fund under both guests."
+
+[qualification.attempt8]
+build_evidence = "/out/logs/build-1.log records the exact candidate revision, build command and result; subsequent repair runs, if needed, are indexed in /out/run/gates.jsonl."
+verify_evidence = "/out/logs/verify-1.log records cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo and its result; /out/run/gates.jsonl binds each gate result and private log to its candidate revision, including any repair runs."
+measurement_evidence = "On successful Fund, programs/target/repair-478/measurement.kvx records the measured before_cpu_fuel, after_cpu_fuel, unchanged kernel_allowance and cpu_allowance, result code and verified revision; the Go gate asserts the comparison and the Rust gate asserts the canonical execution terminal's CPU bound and exact state sizes."
+
+[qualification.attempt8-first]
+revision = "f2e60c72a5a8c2195be6e950fe7cd8bd12711a77"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build and all 29 dependent crates passed; the ABI5 registration and CREATE succeed, but the first candidate Fund exhausts at CPU fuel 999975 with the unchanged limits; Rust tests did not run because the Go gate failed."
+repair_evidence = "The final build and verification results, including revision and exit, are recorded in /out/logs/build-2.log, /out/logs/verify-2.log and /out/run/gates.jsonl; the complete-padding corruption tests retain strict validation across empty-run boundaries and every slot position."
+
+[qualification.attempt9]
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision to hf-build's exact command, exit and /out/logs/build-1.log (or indexed repair log)."
+verify_evidence = "/out/run/gates.jsonl binds that same candidate revision to hf-done's cg spec done command, exit and /out/logs/verify-1.log (or indexed repair log); no success is claimed before the bounded gate passes."
+measurement_evidence = "programs/target/repair-478/measurement.kvx records the verified revision, exact before_cpu_fuel and after_cpu_fuel, kernel_allowance 10000000, cpu_allowance 1000000 and result_code; the Rust unit and fuel-table tests assert the real canonical terminal against the fixture's input, result and state sizes."
+
+
+[qualification.attempt9-first]
+revision = "0b7ec7ba542601d015d0b4749dc93d760a77434b"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates passed; the candidate still exhausted the CPU cap at consumed fuel 999988. The final repair reuses checked invariant-preserving regions and avoids success-path and policy-suffix re-decoding; /out/run/gates.jsonl binds its build-2.log and verify-2.log to the final revision."
+
+[qualification.attempt10]
+attempt9_stopped_cpu_fuel = 999968
+measuring_cpu_allowance = 4000000
+production_cpu_allowance = 1000000
+measurement_evidence = "programs/target/repair-478/measurement.kvx carries revision, attempt9_revision, measured_before_cpu_fuel, measured_after_cpu_fuel, after_cpu_fuel and both unchanged production allowances; attempt9-terminal, measuring-terminal and terminal retain their canonical executions for the Rust assertions. TestRepair478_FundWithinProductionAllowance logs all measurements to the private verify log."
+build_evidence = "/out/run/gates.jsonl binds hf-build's exact revision, command, exit and private /out/logs/build-N.log; the final build and verification must name the same candidate revision."
+verify_evidence = "/out/run/gates.jsonl binds hf-done's exact revision, cg spec done command, exit and private /out/logs/verify-N.log; success is claimed only on a passing bounded gate."
+
+[qualification.attempt10-repair1]
+revision = "d7bcf8aaddc472c6359895a8e06e9723f78dcc2a"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/platform/Cargo.toml --all-targets -p layerx-ai-evaluator -p layerx-indexer -p layerx-paxai-worker -p layerx-platform-agent-boundary -p layerx-platform-authority -p layerx-platform-core -p layerx-platform-dashboard -p layerx-platform-gateway -p layerx-platform-registry -p layerx-platform-webhooks -p layerx-ramp-toolkit -p layerx-reference-ramp -p layerx-runtime-clock"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "The new populated-region regression in rewards.rs was included by the gateway repair_22_33_1439 target, where the crate-local fixture helper is absent; it also lacked the MAX_STATE_BYTES import. The test is moved intact to the AI-market library test module with explicit imports, preserving the direct-include consumer."
+
+[qualification.attempt10-blocked]
+revision = "13b58ae59716c7a06f15979f5a789ece421a59d0"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates pass. The production Fund reaches 896330 CPU fuel, below 1000000, but returns LXP_ERR_PROGRAM_REFUSED, so this is not a successful Fund cost. Both required 4000000-budget measuring calls return LXP_ERR_NON_CANONICAL at CPU fuel 0 before guest execution; Rust tests and the FUND fuel table are not reached."
+
+[gotcha.attempt10-measuring-budget]
+observed = "programs/crates/layerx-programs-runtime/src/budget.rs:196 validates DeclaredBudget::new against ResourceBudget::declared(), whose CPU maximum is 1000000 (meter.rs:11,169); ffi_call.rs:2607 constructs that declaration and maps an over-limit request to NON_CANONICAL before executing the guest. A CPU word of 4000000 cannot produce the requested native-kernel measurement under the current production contract."
+assumption = "The required diagnostic interface is absent from the supplied runtime, which is outside this task's scope; changing its protocol bound or weakening the measuring success assertions is forbidden. This contradiction is recorded without an unchanged rerun or an out-of-scope repair. The earlier attempt-9 stop remains 999968, not a completed cost; no completed before/after measurement or qualification is claimed."
+remaining = "After an authorized diagnostic interface exists, obtain the failed production terminal's refusal detail and repair the guest/host cause, then qualify successful Fund, both complete measurements and the Rust FUND row at one final revision."
+
+[qualification.attempt11]
+before_cpu_fuel = 999968
+production_cpu_allowance = 1000000
+kernel_allowance = 10000000
+measurement_evidence = "programs/target/repair-478/measurement.kvx records revision, before_cpu_fuel (attempt-9 stop), after_cpu_fuel (completed candidate), both unchanged allowances and result code. Rust decodes terminal and independently reproduces Fund with the same guest, request, state and transported real kernel balance observation."
+gate_evidence = "/out/run/gates.jsonl binds hf-build and hf-done command, exit and indexed private log to the final candidate revision; both must qualify that same revision."
+
+[qualification.attempt11-blocked]
+revision = "1ecd5803931eaeb74f97fa4182c8f989e97eb950"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agent-api -p layerx-agentd -p layerx-agentd-host -p layerx-client -p layerx-mcp -p layerx-sdk"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "hf-build passed; hf-done returned 7 before verify_cmd because layerx-agentd/src/compat.rs:8 includes ../../../COMPATIBILITY.md, which no longer exists (gotcha 3263, task 22.31.572). The Go regression, terminal diagnostics and Rust executor FUND row did not execute; no successful Fund cost or completed repair is claimed."
+assumption = "This pre-existing dependent-crate failure is outside scope; it is recorded without repair, re-investigation or rerun. Continue this candidate after 22.31.572 repairs the include, then diagnose any Fund refusal and qualify both gates at the final revision."
+
+[qualification.attempt13]
+repair = "Use SDK Int.BigInt() before encoding the real kernel balance as 16 big-endian bytes; retain the attempt-12 implementation and every proof assertion (gotcha 3276, decision 2686)."
+build_evidence = "/out/run/gates.jsonl records hf-build's candidate revision, exact command, exit and /out/logs/build-N.log."
+dependent_evidence = "/out/logs/dependents-N.log records the dependent-crate check performed by hf-done before the declared verification; /out/run/gates.jsonl binds its result to the final candidate."
+verify_evidence = "/out/run/gates.jsonl records hf-done's candidate revision, exact command, exit and /out/logs/verify-N.log; build and verification must pass at the same candidate revision."
+measurement_evidence = "programs/target/repair-478/measurement.kvx records the completed candidate CPU fuel and revision beside the attempt-9 stop of 999968 and unchanged allowances; the Go proof and Rust FUND executor row must both pass before qualification is claimed."
+
+[qualification.attempt14]
+repair = "Before advancing block 1002, the Go fixture calls Host.FinalizeProgramsOccupancy through the production lxp_programs_finalize_occupancy_batch_selected path, persisting its real ledger/account changes and canonical occupancy receipt without changing the actor nonce. Both Rust consumers unwrap terminal-applied-legs/v1 with layerx_wire::receipt::decode_applied_terminal before the runtime's canonical terminal decoder. Every existing Fund assertion and both production allowances remain unchanged."
+previous_refusal = "Attempt 13 reached 896330 CPU fuel but occupancy settlement refused at callback stage 5 because block 1002 had not been finalized (gotcha 3280); that run is not a successful Fund measurement."
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact build command, exit and indexed /out/logs/build-N.log; no qualification is claimed unless build and verification pass at the same revision."
+dependent_evidence = "/out/logs/dependents-N.log records the dependent-crate checks performed by hf-done for the final candidate."
+verify_evidence = "/out/run/gates.jsonl binds the exact final revision, cg spec done command, exit and indexed /out/logs/verify-N.log; the log retains any callback refusal stage and code."
+measurement_evidence = "programs/target/repair-478/measurement.kvx records the completed candidate fuel and verified revision, attempt-9 stop 999968, kernel allowance 10000000 and CPU allowance 1000000. The Go proof and Rust FUND executor row both assert success with exact state and transfer results."
+
+[qualification.attempt14-repair1]
+revision = "1cee541a92153043f59c0dce644435806af0ef3f"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates pass; finalizing block 1002 returns LXP_ERR_CONTEXT_MISMATCH before Fund because the fixture's genesis fee record still has last_occupancy_batch 0 (fees.c validate_occupancy_receipt requires the next consecutive block)."
+repair = "Run setup at block 1 and finalize every preceding empty block through Host.FinalizeProgramsOccupancy before deploying and calling CREATE at the original block 1002; then finalize 1002 before Fund at 1003. No occupancy cursor is fabricated, no assertion or allowance changes, and the declared fixture inputs and expected Fund state remain identical. Final indexed gate evidence is retained in /out/run/gates.jsonl."
+
+[qualification.attempt14-repair2]
+revision = "05f6522dca4092e22229bb5caffb78c19ab5c57a"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Build and all 29 dependent crates pass; every prior block and block 1002 finalize successfully. The candidate Fund emits the canonical synthetic pre-runtime failure with result/status -3 (LXP_ERR_NON_CANONICAL), recorded CPU fuel 0 and no callback stage. The diagnostic wrongly required an applied-legs wrapper for this distinct tagged terminal and panicked before the independent Rust probe."
+repair = "Select the canonical bare pre-runtime decoder by PRE_RUNTIME_FAILURE and otherwise require the canonical applied-legs wrapper; retain every assertion. The final Go run writes its exact revision, code, kind, recorded CPU fuel and unchanged allowances to programs/target/repair-478/fund-outcome.kvx, retains observed-terminal, and logs the decoded refusal and independent executor result before enforcing Fund success. /out/run/gates.jsonl binds the final build, dependent checks and verification to their private indexed logs at one revision; no success is claimed unless hf-done passes."
+
+
+[qualification.attempt15]
+initial_revision = "e8f658499ae9d8d6f55d0aa77b77be4d5377426d"
+initial_command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+initial_exit = 1
+initial_log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependents passed. The independent executor succeeded with exact Fund state, event and transfer at 896330 CPU fuel, while the kernel synthesized NON_CANONICAL (-3), recorded CPU fuel 0 and no callback stage. A synthetic pre-runtime terminal also covers a native controller returning without an outcome; it does not establish that the guest never ran."
+changed_input = "The Go proof supplied CREATE's receipt digest, resulting state root and global sequence after block finalization had advanced the committed head. The native lxp_programs_balance_read in src/modules/programs/accounts.c requires the immediately preceding sequence and current state root; the independent executor had accepted the transported older observation through its receipt oracle."
+repair = "After finalizing block 1002 through the production host path, idempotently re-register the existing rewards account through Host.Execute and bind Fund's balance sight and transported prior receipt to that fresh canonical receipt. Assert the new sequence is the latest, its root differs from CREATE, market state is identical and the actor nonce is unchanged by finalization; refresh the nonce only after the registration. Advance the block timestamp with the height. Both guests retain identical Fund calldata, state, allowances and all success, exact-transfer and fuel assertions."
+input_parity = "The Rust executor reconstructs CanonicalCall from its actual capability set, absent access declaration, ABI5 entry, response capacity, protocol-maximum budget and absent replay profile, and requires exact equality with the Go-produced CALL bytes. No replay profile was present in either path; no profile or budget bound changes."
+kernel_meter = "The host delegates to the unchanged registered Programs execute callback and captures its actual lxp_module_ctx.gas_used on the executing OS thread, separately from CPU fuel. Receipt.KernelGasUsed exposes the counter; the Go proof requires it to be positive and within 10000000. The private measurement record logs before_kernel_gas and after_kernel_gas alongside CPU measurements and revision."
+build_evidence = "/out/run/gates.jsonl binds hf-build's final candidate revision, exact command, exit and /out/logs/build-N.log."
+dependent_evidence = "/out/logs/dependents-N.log records hf-done's dependent-crate compilation at the final candidate."
+verify_evidence = "/out/run/gates.jsonl binds hf-done's final candidate revision, exact cg spec done command, exit and /out/logs/verify-N.log. Qualification requires passing build and verification at the same revision; no file is amended afterward."
+measurement_evidence = "programs/target/repair-478/measurement.kvx records the verified revision, before_kernel_gas, after_kernel_gas, historical_stop_cpu_fuel, before_cpu_fuel 999968 (attempt-9 stop), after_cpu_fuel, result_code and unchanged kernel_allowance 10000000 and cpu_allowance 1000000. The final private verify log retains both measured kernel gas values and completed CPU fuel, and the Rust FUND row independently checks equal fuel and exact state, event and transfer."
+
+
+[qualification.attempt15-build-repair]
+revision = "db9cd02701acd32d0c359579dcbb392d756bd25e"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./rpc/ ./modules/lxphost/..."
+exit = 1
+log = "/out/logs/build-2.log"
+observed = "The kernel-gas measurement changed lxphost_node in host.go without synchronizing its shared cgo declaration in simulate.go, so cgo reported inconsistent definitions for C.lxphost_node."
+repair = "Synchronize the same two fields in simulate.go; preserve simulation behavior and every check. The runner counts each rerun separately, so the final build repair consumes the remaining budget and the fresh-receipt correction is unqualified unless hf-done can run and pass. Final bounded gate evidence remains in /out/run/gates.jsonl and indexed private logs; no passing Fund cost is claimed without verification."
+
+[qualification.attempt17]
+observed = "The standing Go Fund capability set already includes Transfer402 (wire tag 5, authority-key index 4), maximum 100 to the rewards account. Canonical CALL carries no declared transfer-set field: the real guest stages ProgramFunding, ffi_call.rs submits that actor source with its program-account binding, and call.c builds its owner authority before ledger apply. Callback stage 5 is occupancy publication at ffi_call.rs:3006, after deposit settlement, rather than deposit authorization."
+repair = "Register a distinct occupancy asset through Host.Execute and bind the funded actor main account, fee schedule and fee treasury to it. Previously occupancy used the rewards asset and resolved the actor asset account, which fails lxp_apply.c's occupancy mandate requiring AGENT_MAIN. The reward asset, deposit amount, guest state, Transfer402 grant and every receipt assertion are preserved; add an exact deposit source assertion against the actor's reward-asset payment account. No host transfer declaration is omitted."
+executor_limit = "The independent executor probe proves CPU completion and the exact staged ProgramFunding effect only; it applies no native ledger leg and cannot establish deposit or occupancy settlement. The Go Host.Execute receipt, Transfers[0], exact next state and ReadBalance 100 prove the real ledger path."
+build_evidence = "/out/run/gates.jsonl binds hf-build's final revision, exact build command, exit and private /out/logs/build-N.log."
+verify_evidence = "/out/run/gates.jsonl binds hf-done's final revision, exact cg spec done command, exit and private /out/logs/verify-N.log; build and verify must pass at the same revision."
+measurement_evidence = "programs/target/repair-478/measurement.kvx carries the successful gate's exact revision, before_kernel_gas, after_kernel_gas, historical stop and attempt-9 stop 999968, completed after_cpu_fuel, result_code and unchanged allowances. The private verification log and Rust FUND row check those measurements; no completion is claimed until hf-done passes."
+
+[qualification.attempt17-first]
+revision = "34b086b225f5da638a0cd126b0eb7f83c991200f"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and 29 dependent crates pass; the Go production proof passes with result 0, CPU fuel 896330, kernel gas 635 (historical stopped call also 635), exact next state and one deposit from the actor reward-asset account, amount 100 and ReadBalance 100. Rust library tests then fail compilation because the inherited populated-region test lacks WRONG_EPOCH and WRONG_ROSTER imports."
+repair = "Import those existing error constants without changing assertions. Final build and full verification are bound by /out/run/gates.jsonl to their indexed private logs at the same revision; the final measurement record is regenerated by the Go proof and consumed by the Rust suite."
+
+
+[qualification.attempt18]
+epoch_refusal = "The populated fixture refuses in rewards.rs FundingView::decode, checked_sub(1) on ledger.retained_epochs (line 2456 in the standing tree): reserve_epoch leaves retained_epochs zero and active_reserve true. None of the candidate admission.rs or aggregation.rs sites is reached by Fund. The production library remains unchanged."
+epoch_fixture = "Use the real reserve_epoch and terminalize producers with a positive scored WorkerAggregate, structural EpochAggregation and exact allocation to retain epoch 7 with its dictionary and refund cursor. Decode the encoded joint admission table and assert current_epoch 7; bind the envelope to 7 and its roster and use origin_height + 7*128 + 127 for the height, with an unexpired envelope. Keep exact ledger, opaque-region, revision, replay, wrong-epoch and wrong-roster assertions."
+storage_reads = "The 1114-byte terminal storage_read_bytes recorded at call.c:1456 is 1084 shared-state value bytes + 14 bytes of the paxai/state/v1 key (abi/storage_ops.rs storage_read_selected uses storage::metered_bytes) + 16 bytes of the rewards-account u128 balance observation (host/balance.rs balance_read). The extra 30 bytes are that key and balance read; ledger settlement adds no separate runtime storage-read charge. Assert their exact sum. Storage writes likewise charge the 14-byte key plus the next-state bytes."
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact hf-build command, exit and /out/logs/build-N.log."
+dependent_evidence = "/out/run/gates.jsonl and /out/logs/dependents-N.log bind hf-done's dependent-crate check to the final candidate revision."
+verify_evidence = "/out/run/gates.jsonl binds the final candidate revision, cg spec done command, exit and /out/logs/verify-N.log; the Go proof regenerates target/repair-478 before Rust consumes it. Passing build and verification must name the same revision; no files are amended afterward."
+measurement_evidence = "programs/target/repair-478/measurement.kvx records the gate revision, before/after kernel gas and CPU fuel with the unchanged allowances. The preceding attempt measured kernel gas 635 and completed CPU fuel 896330; this attempt claims those measurements only when its declared gate passes."
+
+
+[qualification.attempt18-import-repair]
+revision = "1270305d1c129c7ae2baa65a0e17bea5366449ca"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates pass; Go production Fund passes at 896330 CPU fuel and 635 kernel gas with exact state, deposit and balance. Rust lib-test compilation reports E0432 for the added PolicySection import from registry."
+repair = "Import the existing type from registry_ops, where it is declared. No assertion, production source path or allowance changes. The final indexed build and verify logs and /out/run/gates.jsonl bind qualification at the repaired revision."
+
+[qualification.attempt19]
+repair = "Bind the populated fixture's WorkerAggregate output array to a local before EpochAggregation::structural so its borrowed outputs remain alive through aggregation.root(); preserve all assertions and production code."
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact build command, exit and /out/logs/build-N.log."
+dependent_evidence = "/out/run/gates.jsonl and /out/logs/dependents-N.log bind hf-done's dependent-crate check to the final candidate revision."
+verify_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact cg spec done command, exit and /out/logs/verify-N.log; passing build and verification must name the same revision."
+measurement_evidence = "The declared Go gate regenerates programs/target/repair-478/measurement.kvx with the candidate revision, before/after kernel gas and CPU fuel under the unchanged allowances, then the Rust suite consumes the committed fixture; no files are amended after passing gates."
+
+[qualification.attempt19-repair1]
+revision = "7648df722a14cc0e8e3adb17859453d58b019835"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates pass; Go production Fund passes with CPU fuel 896330 and kernel gas 635 (historical stopped call also 635). The populated Fund applies and preserves every asserted region, but the missing-roster negative case is refused by codec::encode_envelope with WRONG_ROSTER before apply is reached."
+repair = "Use a canonically encoded different present roster to exercise Fund's WRONG_ROSTER refusal with unchanged error and no-write assertions; additionally assert that the original absent roster is refused by the canonical encoder with WRONG_ROSTER. Production code and both allowances remain unchanged. Final build, dependent check and full verification evidence are bound to one revision in /out/run/gates.jsonl and indexed private logs; measurement.kvx is regenerated by Go before Rust consumes it."
+
+[qualification.attempt20]
+diagnostic_command = "cd programs && cargo test -p layerx-programs-ai-market --test artifact_binding a06_r10_root_bindings_are_scoped_and_immutable"
+diagnostic_exit = 101
+diagnostic_log = "/tmp/repair478-artifact-binding-before.log"
+refusing_site = "admission.rs:660, AdmissionTable::decode schema guard: artifact_binding.rs:273 Parts::load passes the complete RP07 joint section to the F08-only decoder during opened()'s first world.enroll at line 881, before direct RewardState::fund or any Fund routing. The first u16 is 0x5250 (RP), not schema version 1. registry_ops.rs:601 CREATE produced this section through reputation_transition::encode_joint."
+baseline_evidence = "registry_ops.rs, admission.rs and tests/artifact_binding.rs are byte-identical to both supplied base c5d87cb3948566a9cd208bb93ce3d2394370e953 and the ruling's merge base be624853f195bc6710e07911f600277bcd6cfbf1; their Git blob IDs are respectively 5b830c8e0922381d90d7f827cdb8fb2495cb31af, 4a1914c8793533954c414baa50b4dfb5b9018a08 and 19d8cce481676d9a9eb6c0ceb6bea7824e271043. This contradicts the handoff's attribution to the task changes: CREATE and the unchanged test already disagree about joint-section framing before the changed Fund path is reached."
+disposition = "Preserve the inherited Fund implementation, all tests and both production bounds. Record this pre-existing producer/test interface mismatch without changing the immutable artifact_binding source, discarding reputation in AdmissionTable::decode or altering production CREATE to satisfy the old fixture."
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact hf-build command, exit and private /out/logs/build-N.log."
+verify_evidence = "/out/run/gates.jsonl binds the same candidate revision, exact hf-done command, exit and private /out/logs/verify-N.log, with dependent-crate evidence in /out/logs/dependents-N.log; no file is amended after gates."
+measurement_evidence = "The Go gate regenerates programs/target/repair-478/measurement.kvx with exact revision, before/after kernel gas and CPU fuel; Rust consumes that fixture afterward. Overall qualification is not claimed unless hf-done passes."
+
+[qualification.attempt20-repair1]
+revision = "011d371bfd07c532817efcea63139fc6058b889f"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and all 29 dependent crates pass; Go production Fund passes at CPU fuel 896330 and kernel gas 635, and all ten library tests pass. The no-fail-fast crate run reports 18 failing integration targets, including the recorded pre-Fund RP07/F08 fixture mismatch, absent build/paxai-host-boundary/manifest, the unset chain-domain packaging environment and untouched projection/key fixtures. The recovery test additionally exposes one task-caused change: direct rewards::apply now accepts a joint section where its Claim/Refund primitive formerly required the F08-only section (repair_22_33_261.rs:1280)."
+repair = "Restore rewards::view's original AdmissionTable::decode boundary for Claim, Expire, Refund and Prune; production dispatch already strips and carries reputation around those primitives. Fund remains routed directly through its dedicated FundingView/funding_epoch reader, so its gas optimization and joint-section preservation remain unchanged. No test, assertion, runtime bound, CREATE producer or artifact_binding source changes."
+final_evidence = "/out/run/gates.jsonl binds the final candidate to build-2.log and verify-2.log with exact revision, command and exit; the Go proof regenerates target/repair-478/measurement.kvx at that revision. The dependent-crate result is reused only for the identical candidate tree. Remaining pre-existing failures are recorded without chasing or weakening them, and no qualification is claimed unless hf-done passes."
+
+[qualification.attempt20-pre-existing]
+revision = "831f32d7ca14a882709094ed26b497c7c2ea7898"
+command = "cg spec done 22.31.478 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "Attempt 20 private evidence: /out/logs/verify-2.log (by reference, not rerun)"
+observed = "Gotcha 3337 records 17 failing integration binaries after the Go Fund proof (896330 CPU fuel, 635 kernel gas) and all ten library tests passed: twelve BAD_VERSION binaries whose loaders have not been ported to CREATE's RP07 joint section, native harness binaries without their manifest, the unset chain-domain case and the routed fuel-cap case."
+assumption = "Decision 2729 assigns those pre-existing failures and the consumer port to 22.99.77. This task preserves those tests and assertions and qualifies only its declared Go proof, library tests and dedicated Fund fuel case."
+
+[qualification.attempt21]
+repair = "Extract the committed Fund measurement into committed_fund_row and qualify it independently in fund_fits_the_protocol_cpu_fuel_cap: run the transported candidate guest with Executor::declared and DeclaredBudget::protocol_maximum, compare its fuel exactly to the canonical kernel terminal, assert success and DEFAULT_CPU_FUEL, and print the Fund row. Keep FUND in ROUTED and reuse the same row in the aggregate test without changing any coverage, fuel or outcome assertion."
+build_evidence = "/out/run/gates.jsonl binds the final candidate revision, exact hf-build command, exit and private /out/logs/build-N.log."
+dependent_evidence = "/out/run/gates.jsonl and /out/logs/dependents-N.log bind hf-done's dependent-crate check to the final candidate revision; a dependent result is reused only for an identical candidate."
+verify_evidence = "/out/run/gates.jsonl binds that same candidate revision, exact cg spec done command, exit and private /out/logs/verify-N.log. Qualification requires hf-done passing at the build revision; no task file is amended afterward."
+measurement_evidence = "The Go proof regenerates programs/target/repair-478/measurement.kvx with the candidate revision, exact before/after kernel gas and CPU fuel and unchanged allowances before the Rust Fund case consumes its committed fixture. The stopped attempt-9 fuel remains 999968; the previous completed Fund measured 896330 CPU fuel and 635 kernel gas, claimed for this candidate only if its declared gate passes."

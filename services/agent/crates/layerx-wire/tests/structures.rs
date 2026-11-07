@@ -3,12 +3,7 @@ mod replay_corpus;
 
 use std::path::{Path, PathBuf};
 
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
 use layerx_types::result::KnownResult;
-use layerx_types::vectors::Corpus;
-use layerx_wire::activity::{
-    decode_signed, decode_unsigned, encode_signed, encode_unsigned, signing_bytes,
-};
 use layerx_wire::encode::Encoder;
 use layerx_wire::receipt::{
     decode, decode_batch_header, decode_checkpoint, decode_merkle_proof, encode,
@@ -18,49 +13,6 @@ use sha2::{Digest as _, Sha256};
 
 fn repository_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../..")
-}
-
-fn activity_type(module: ModuleId, ordinal: u16) -> ActivityType {
-    let Ok(value) = ActivityType::new(module, ordinal) else {
-        panic!("valid activity type rejected");
-    };
-    value
-}
-
-fn registry(corpus: &Corpus) -> ModuleRegistry {
-    let registrations: Vec<_> = ModuleId::ALL
-        .into_iter()
-        .filter_map(|module| {
-            let mut activity_types: Vec<_> = corpus
-                .replay
-                .activity_types
-                .iter()
-                .copied()
-                .filter(|kind| kind.module() == module)
-                .collect();
-            match module {
-                ModuleId::Governance | ModuleId::Bridge => {
-                    activity_types.push(activity_type(module, 1));
-                }
-                ModuleId::Programs => {
-                    activity_types.extend((1..=7).map(|ordinal| activity_type(module, ordinal)));
-                }
-                _ => {}
-            }
-            activity_types.sort();
-            activity_types.dedup();
-            if activity_types.is_empty() {
-                return None;
-            }
-            Some(
-                ModuleRegistration::new(module, &activity_types).unwrap_or_else(|error| {
-                    panic!("published activity registration rejected: {error:?}")
-                }),
-            )
-        })
-        .collect();
-    ModuleRegistry::new(&registrations)
-        .unwrap_or_else(|error| panic!("published registry rejected: {error:?}"))
 }
 
 fn batch_bytes() -> Vec<u8> {
@@ -183,57 +135,13 @@ fn proof_bytes() -> Vec<u8> {
 
 #[test]
 fn every_published_activity_and_receipt_round_trips_exactly() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpora failed to load");
-    };
-    let registry = registry(&corpus);
-    for (index, bytes) in corpus.replay.canonical_activities.iter().enumerate() {
-        let Ok(activity) = decode_signed(bytes, &registry) else {
-            panic!("activity vector {index} failed decode");
-        };
-        let Ok(reencoded) = encode_signed(&activity) else {
-            panic!("activity vector {index} failed re-encode");
-        };
-        assert_eq!(reencoded, *bytes, "activity vector {index}");
-        let Ok(unsigned) = encode_unsigned(&activity) else {
-            panic!("activity vector {index} failed unsigned encode");
-        };
-        let Ok(decoded_unsigned) = decode_unsigned(&unsigned, &registry) else {
-            panic!("activity vector {index} failed unsigned decode");
-        };
-        assert_eq!(encode_unsigned(&decoded_unsigned), Ok(unsigned.clone()));
-        assert_eq!(
-            signing_bytes(&activity).map(|value| value.as_bytes().to_vec()),
-            Ok(unsigned)
-        );
-    }
-    for (index, bytes) in corpus.replay.expected_receipts.iter().enumerate() {
-        let Ok(receipt) = decode(bytes) else {
-            panic!("receipt vector {index} failed decode");
-        };
-        assert_eq!(
-            encode(&receipt),
-            Ok(bytes.clone()),
-            "receipt vector {index}"
-        );
-    }
-}
-
-#[test]
-fn all_nine_module_payload_tags_are_preserved() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpora failed to load");
-    };
-    let registry = registry(&corpus);
-    let template = &corpus.replay.canonical_activities[0];
-    for module in 1_u32..=9 {
-        let mut bytes = template.clone();
-        bytes[14..18].copy_from_slice(&((module << 16) | 1).to_be_bytes());
-        let Ok(activity) = decode_signed(&bytes, &registry) else {
-            panic!("declared module payload failed decode");
-        };
-        assert_eq!(activity.activity_type().value(), (module << 16) | 1);
-        assert_eq!(encode_signed(&activity), Ok(bytes));
+    native_submission::wire_structure_tests_native_round_trips();
+    for bytes in [
+        include_bytes!("../../../../../tests/fixtures/asset/supply-pause.receipt").as_slice(),
+        include_bytes!("../../../../../tests/fixtures/asset/supply-unpause.receipt").as_slice(),
+    ] {
+        let receipt = decode(bytes).unwrap_or_else(|error| panic!("native receipt: {error:?}"));
+        assert_eq!(encode(&receipt), Ok(bytes.to_vec()));
     }
 }
 
@@ -322,66 +230,6 @@ fn batch_header_refuses_an_envelope_field_version_mismatch() {
 }
 
 #[test]
-fn unknown_version_activity_and_field_are_deterministic_rejections() {
-    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
-        panic!("published corpora failed to load");
-    };
-    let registry = registry(&corpus);
-    let template = &corpus.replay.canonical_activities[0];
-    assert_eq!(&template[..2], &[0, 1]);
-    assert_eq!(&template[6..8], &[0, 1]);
-
-    let mut version = template.clone();
-    version[1] = 4;
-    assert_eq!(
-        decode_signed(&version, &registry).map(|_| ()),
-        Err(layerx_wire::WireError {
-            result: KnownResult::VersionUnsupported.into(),
-            offset: 0,
-        })
-    );
-
-    let mut envelope_only = template.clone();
-    envelope_only[1] = 3;
-    assert_eq!(
-        decode_signed(&envelope_only, &registry).map(|_| ()),
-        Err(layerx_wire::WireError {
-            result: KnownResult::VersionUnsupported.into(),
-            offset: 8,
-        })
-    );
-
-    let mut state_commitment = template.clone();
-    state_commitment[1] = 3;
-    state_commitment[7] = 3;
-    let decoded = decode_signed(&state_commitment, &registry)
-        .unwrap_or_else(|error| panic!("explicit protocol 3 activity rejected: {error:?}"));
-    assert_eq!(
-        decoded.protocol_version(),
-        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-    );
-    assert_eq!(encode_signed(&decoded), Ok(state_commitment));
-
-    let mut activity_type = template.clone();
-    activity_type[14..18].copy_from_slice(&0x000a_0001_u32.to_be_bytes());
-    assert_eq!(
-        decode_signed(&activity_type, &registry)
-            .map_err(|error| error.result)
-            .map(|_| ()),
-        Err(KnownResult::UnknownActivity.into())
-    );
-
-    let mut field = template.clone();
-    field[5] = 13;
-    assert_eq!(
-        decode_signed(&field, &registry)
-            .map_err(|error| error.result)
-            .map(|_| ()),
-        Err(KnownResult::UnknownField.into())
-    );
-}
-
-#[test]
 fn state_commitment_header_round_trips_without_changing_default_version() {
     assert_eq!(layerx_wire::limits::PROTOCOL_VERSION, 2);
     let bytes = batch_bytes_for_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION);
@@ -409,4 +257,184 @@ fn per_asset_account_uses_ledger_account_domain() {
             104, 128, 248, 128, 86, 91, 193, 25, 152, 124, 197, 103
         ]
     );
+}
+
+#[path = "repair_22_33_1523.rs"]
+mod native_submission;
+
+// Kernel submission fixtures are historical compatibility cases, independent
+// of the supported receipt, proof, header and checkpoint tests above.
+mod historical_compatibility {
+    use super::*;
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+    use layerx_types::vectors::Corpus;
+    use layerx_wire::activity::{
+        decode_signed, decode_unsigned, encode_signed, encode_unsigned, signing_bytes,
+    };
+
+    fn activity_type(module: ModuleId, ordinal: u16) -> ActivityType {
+        let Ok(value) = ActivityType::new(module, ordinal) else {
+            panic!("valid activity type rejected");
+        };
+        value
+    }
+
+    fn registry(corpus: &Corpus) -> ModuleRegistry {
+        let registrations: Vec<_> = ModuleId::ALL
+            .into_iter()
+            .filter_map(|module| {
+                let mut activity_types: Vec<_> = corpus
+                    .replay
+                    .activity_types
+                    .iter()
+                    .copied()
+                    .filter(|kind| kind.module() == module)
+                    .collect();
+                match module {
+                    ModuleId::Governance | ModuleId::Bridge => {
+                        activity_types.push(activity_type(module, 1));
+                    }
+                    ModuleId::Programs => {
+                        activity_types
+                            .extend((1..=7).map(|ordinal| activity_type(module, ordinal)));
+                    }
+                    _ => {}
+                }
+                activity_types.sort();
+                activity_types.dedup();
+                if activity_types.is_empty() {
+                    return None;
+                }
+                Some(
+                    ModuleRegistration::new(module, &activity_types).unwrap_or_else(|error| {
+                        panic!("published activity registration rejected: {error:?}")
+                    }),
+                )
+            })
+            .collect();
+        ModuleRegistry::new(&registrations)
+            .unwrap_or_else(|error| panic!("published registry rejected: {error:?}"))
+    }
+
+    #[test]
+    fn historical_activity_vectors_retain_their_unsigned_and_signed_bytes() {
+        let corpus = replay_corpus::load(&repository_root())
+            .unwrap_or_else(|error| panic!("historical corpus: {error:?}"));
+        let registry = registry(&corpus);
+        for (index, bytes) in corpus.replay.canonical_activities.iter().enumerate() {
+            let Ok(activity) = decode_signed(bytes, &registry) else {
+                panic!("activity vector {index} failed decode");
+            };
+            let Ok(reencoded) = encode_signed(&activity) else {
+                panic!("activity vector {index} failed re-encode");
+            };
+            assert_eq!(reencoded, *bytes, "activity vector {index}");
+            let Ok(unsigned) = encode_unsigned(&activity) else {
+                panic!("activity vector {index} failed unsigned encode");
+            };
+            let Ok(decoded_unsigned) = decode_unsigned(&unsigned, &registry) else {
+                panic!("activity vector {index} failed unsigned decode");
+            };
+            assert_eq!(encode_unsigned(&decoded_unsigned), Ok(unsigned.clone()));
+            assert_eq!(
+                signing_bytes(&activity).map(|value| value.as_bytes().to_vec()),
+                Ok(unsigned)
+            );
+        }
+    }
+    #[test]
+    fn all_nine_module_payload_tags_are_preserved() {
+        let Ok(corpus) = replay_corpus::load(&repository_root()) else {
+            panic!("published corpora failed to load");
+        };
+        let registry = registry(&corpus);
+        let template = &corpus.replay.canonical_activities[0];
+        for module in 1_u32..=9 {
+            let mut bytes = template.clone();
+            bytes[14..18].copy_from_slice(&((module << 16) | 1).to_be_bytes());
+            let Ok(activity) = decode_signed(&bytes, &registry) else {
+                panic!("declared module payload failed decode");
+            };
+            assert_eq!(activity.activity_type().value(), (module << 16) | 1);
+            assert_eq!(encode_signed(&activity), Ok(bytes));
+        }
+    }
+
+    #[test]
+    fn unknown_version_activity_and_field_are_deterministic_rejections() {
+        let Ok(corpus) = replay_corpus::load(&repository_root()) else {
+            panic!("published corpora failed to load");
+        };
+        let registry = registry(&corpus);
+        let template = &corpus.replay.canonical_activities[0];
+        assert_eq!(&template[..2], &[0, 1]);
+        assert_eq!(&template[6..8], &[0, 1]);
+
+        let mut version = template.clone();
+        version[1] = 4;
+        assert_eq!(
+            decode_signed(&version, &registry).map(|_| ()),
+            Err(layerx_wire::WireError {
+                result: KnownResult::VersionUnsupported.into(),
+                offset: 0,
+            })
+        );
+
+        let mut envelope_only = template.clone();
+        envelope_only[1] = 3;
+        assert_eq!(
+            decode_signed(&envelope_only, &registry).map(|_| ()),
+            Err(layerx_wire::WireError {
+                result: KnownResult::VersionUnsupported.into(),
+                offset: 8,
+            })
+        );
+
+        let mut state_commitment = template.clone();
+        state_commitment[1] = 3;
+        state_commitment[7] = 3;
+        let decoded = decode_signed(&state_commitment, &registry)
+            .unwrap_or_else(|error| panic!("explicit protocol 3 activity rejected: {error:?}"));
+        assert_eq!(
+            decoded.protocol_version(),
+            layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
+        );
+        assert_eq!(encode_signed(&decoded), Ok(state_commitment));
+
+        let mut activity_type = template.clone();
+        activity_type[14..18].copy_from_slice(&0x000a_0001_u32.to_be_bytes());
+        assert_eq!(
+            decode_signed(&activity_type, &registry)
+                .map_err(|error| error.result)
+                .map(|_| ()),
+            Err(KnownResult::UnknownActivity.into())
+        );
+
+        let mut field = template.clone();
+        field[5] = 13;
+        assert_eq!(
+            decode_signed(&field, &registry)
+                .map_err(|error| error.result)
+                .map(|_| ()),
+            Err(KnownResult::UnknownField.into())
+        );
+    }
+}
+
+// Every pre-existing replay receipt assertion remains an archive conformance case.
+#[test]
+fn historical_replay_receipts_still_round_trip_exactly() {
+    let Ok(corpus) = replay_corpus::load(&repository_root()) else {
+        panic!("published corpora failed to load");
+    };
+    for (index, bytes) in corpus.replay.expected_receipts.iter().enumerate() {
+        let Ok(receipt) = decode(bytes) else {
+            panic!("receipt vector {index} failed decode");
+        };
+        assert_eq!(
+            encode(&receipt),
+            Ok(bytes.clone()),
+            "receipt vector {index}"
+        );
+    }
 }

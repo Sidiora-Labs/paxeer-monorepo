@@ -127,13 +127,7 @@ export class ConformancePaymentRpcSession {
     if (receipt.rawTransaction !== raw) throw new Error("conformance-payment-mismatch");
     const keys = await new FixedReceiptKeys([this.sequencer.receiptKey()]).resolve();
     const verified = await verifyPaymentReceipt(receipt, this.requirements, keys);
-    this.#receipts.set(txHash, {
-      txHash: verified.txHash,
-      rung: verified.rung,
-      height: `0x${verified.height.toString(16)}`,
-      keyId: receipt.receiptKey.keyId,
-      receipt: receipt.signedReceipt,
-    });
+    this.#receipts.set(verified.txHash, structuredClone(receipt.receiptJson));
     return txHash;
   }
 }

@@ -1,0 +1,60 @@
+{
+  "name": "hyperfide-plugin-provider-codex",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Run hyperfide-platform threads with Codex.",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.6.57"
+  },
+  "hyperfide": {
+    "name": "Codex provider",
+    "description": "Run hyperfide-platform threads with Codex.",
+    "branding": {
+      "icon": "./icons/codex.svg"
+    },
+    "server": "./server.ts",
+    "app": "./app.tsx",
+    "host": "./src/host.ts",
+    "experimental_providers": [
+      {
+        "kind": "agent",
+        "id": "codex",
+        "displayName": "Codex"
+      }
+    ]
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "jsdom": "^29.0.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  },
+  "dependencies": {
+    "@hyperfide/shared-ui": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "zod": "^4.3.6"
+  }
+}

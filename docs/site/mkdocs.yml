@@ -1,8 +1,8 @@
 site_name: Paxeer X Network
 site_description: "Documentation for Paxeer X Network — one network: the Paxeer EVM chain and the LayerX agent-native domain behind one interface."
-site_url: https://sidiora-labs.github.io/LayerX-Network/
-repo_url: https://github.com/Sidiora-Labs/Paxeer-X-Network
-repo_name: Sidiora-Labs/Paxeer-X-Network
+site_url: https://sidiora-labs.github.io/paxeer-monorepo/
+repo_url: https://github.com/Sidiora-Labs/paxeer-monorepo
+repo_name: Sidiora-Labs/paxeer-monorepo
 edit_uri: blob/main/docs/site/docs/
 docs_dir: docs
 site_dir: site
@@ -49,7 +49,7 @@ plugins:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/Sidiora-Labs/Paxeer-X-Network
+      link: https://github.com/Sidiora-Labs/paxeer-monorepo
 nav:
   - Overview:
       - Home: index.md
@@ -82,7 +82,6 @@ nav:
       - Modules: protocol/modules.md
       - Data availability: protocol/data-availability.md
       - Commitment levels: protocol/commitment-levels.md
-      - Finality: protocol/finality.md
       - Sidiora: protocol/sidiora.md
       - Web search and xweb: protocol/xweb.md
   - Programs:
@@ -143,7 +142,10 @@ nav:
       - reference/index.md
       - Public RPC endpoints: reference/public-rpc.md
 validation:
-  omitted_files: warn
-  absolute_links: info
-  unrecognized_links: warn
-  anchors: warn
+  nav:
+    omitted_files: warn
+  links:
+    not_found: warn
+    absolute_links: info
+    unrecognized_links: warn
+    anchors: warn

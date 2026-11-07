@@ -1,0 +1,34 @@
+{
+  "source": {
+    "kind": "recorded",
+    "endpoint": "https://api11.mainnet-beta.paxeer.network",
+    "node_revision_observed_after": "2da69275051f6feb074a8b552977d37197735d86",
+    "revision_observed_at": "2026-11-04T05:51:25.754942+00:00",
+    "application_version": {
+      "name": "paxeer",
+      "app_name": "paxd",
+      "version": "v6.12.0",
+      "git_commit": "2da69275051f6feb074a8b552977d37197735d86",
+      "build_tags": "netgo,ledger",
+      "go_version": "go version go1.25.6 linux/amd64",
+      "cosmos_sdk_version": ""
+    },
+    "environment": "public node; disposable-node provenance not available",
+    "provenance": "Progress response received earlier in this session before this node caught up. Revision read afterward; no before/after revision bracket is claimed."
+  },
+  "request": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "method": "eth_syncing",
+    "params": []
+  },
+  "response": {
+    "jsonrpc": "2.0",
+    "id": 0,
+    "result": {
+      "startingBlock": "0x287bd78",
+      "currentBlock": "0x2894419",
+      "highestBlock": "0x289442a"
+    }
+  }
+}

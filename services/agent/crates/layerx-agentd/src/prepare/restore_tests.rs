@@ -1,87 +1,122 @@
-use super::*;
-use layerx_types::payload::{ModuleId, ModuleRegistration};
+//! Library-owned integration fixtures emitted by the production EIP-1559 preparer.
 
-fn checked<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-    result.unwrap_or_else(|error| panic!("canonical recovery: {error:?}"))
-}
+use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 
-fn captured() -> (Vec<u8>, Vec<u8>, ModuleRegistry, u64) {
-    let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../../tests/fixtures/custody/daemon-light-credit-receipt");
-    let kind = checked(ActivityType::new(ModuleId::Bridge, 1));
-    let registration = checked(ModuleRegistration::new(ModuleId::Bridge, &[kind]));
-    let registry = checked(ModuleRegistry::new(&[registration]));
-    let signed = checked(std::fs::read(path.join("activity")));
-    let activity = checked(layerx_wire::activity::decode_signed(&signed, &registry));
-    let canonical = checked(layerx_wire::activity::encode_unsigned(&activity));
-    let header = checked(layerx_wire::receipt::decode_batch_header(
-        &checked(std::fs::read(path.join("header")))));
-    (canonical, signed, registry, header.last_sequence())
-}
+use crate::budget::{BudgetLimiter, LimitConfig, LimitId, LimitScope};
+use crate::prepare::{
+    prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+    EvmPrepared, PrecompileCall, PrecompileTarget,
+};
+use crate::session::{SessionId, SessionRef};
+use crate::store::{Store, TenantId};
+use layerx_crypto::disclosure::call::ledger_selector;
 
-#[test]
-fn recovery_preserves_every_canonical_field_and_the_retained_authority_variant() {
-    let (canonical, _, registry, observed) = captured();
-    let activity = checked(layerx_wire::activity::decode_unsigned(&canonical, &registry));
-    let authorities = [
-        checked(Authority::owner(activity.authority())),
-        checked(Authority::session_key(activity.authority())),
-        checked(Authority::delegated_capability(activity.authority())),
-        checked(Authority::budget_allowance(activity.authority())),
-        checked(Authority::escrow(activity.authority())),
-        checked(Authority::protocol_module(activity.authority())),
-    ];
-    for authority in &authorities {
-        let restored = checked(restore_canonical(&canonical, observed, &registry, Some(authority)));
-        assert_eq!(restored.envelope.authority(), authority);
-        assert_eq!(restored.canonical_bytes, canonical);
-        assert_eq!(restored.observed_head_sequence, observed);
-        assert_eq!(restored.audit.observed_head_sequence, observed);
-        assert_eq!(restored.envelope.protocol_version(), activity.protocol_version());
-        assert_eq!(restored.envelope.network_id(), activity.network_id());
-        assert_eq!(restored.envelope.actor_did().as_bytes(), activity.actor_did());
-        assert_eq!(restored.envelope.activity_type(), activity.activity_type());
-        assert_eq!(restored.envelope.account_sequence(), activity.account_sequence());
-        assert_eq!(restored.envelope.fee_limit().value(), activity.fee_limit());
-        assert_eq!(restored.envelope.payload_hash(), activity.payload_hash());
-        assert_eq!(restored.envelope.idempotency_key().bytes(), activity.idempotency_key());
-        assert_eq!(restored.audit.idempotency_key, activity.idempotency_key());
-        assert_eq!(restored.envelope.timestamp_bound().not_before(), activity.timestamp_bound().not_before);
-        assert_eq!(restored.envelope.timestamp_bound().not_after(), activity.timestamp_bound().not_after);
-        assert_eq!(restored.signing_preimage, *checked(layerx_wire::sign::preimage(&activity)).as_bytes());
-        assert_eq!(restored.disclosure_digest, checked(disclose(&canonical, &registry)).digest);
-        checked(verify_disclosure_binding(&restored));
-        let again = checked(restore_canonical(&restored.canonical_bytes,
-            restored.observed_head_sequence, &registry, Some(restored.envelope.authority())));
-        assert_eq!(again, restored);
+static NEXT: AtomicU64 = AtomicU64::new(0);
+pub const OWNER: [u8; 20] = [
+    0x7e, 0x5f, 0x45, 0x52, 0x09, 0x1a, 0x69, 0x12, 0x5d, 0x5d, 0xfc, 0xb7, 0xb8, 0xc2, 0x65, 0x90,
+    0x29, 0x39, 0x5b, 0xdf,
+];
+pub const GENERATION: u64 = 7;
+pub const EXPIRY: u64 = 1_000;
+
+pub struct Directory(pub PathBuf);
+
+impl Directory {
+    pub fn new() -> Self {
+        Self(std::env::temp_dir().join(format!(
+            "repair-22-33-1543-{}-{}",
+            std::process::id(),
+            NEXT.fetch_add(1, Ordering::Relaxed)
+        )))
+    }
+
+    pub fn open(&self) -> Store {
+        Store::open(&self.0).expect("open real tenant store")
     }
 }
 
-#[test]
-fn recovery_refuses_missing_authority_signed_bytes_malformed_payload_and_wrong_registry() {
-    let (canonical, signed, registry, observed) = captured();
-    let activity = checked(layerx_wire::activity::decode_unsigned(&canonical, &registry));
-    let authority = checked(Authority::owner(activity.authority()));
-    assert_eq!(restore_canonical(&canonical, observed, &registry, None),
-        Err(RestorePreparationError::MissingAuthority));
-    let mut changed_authority = activity.authority().to_vec();
-    changed_authority[0] ^= 1;
-    let changed_authority = checked(Authority::owner(&changed_authority));
-    assert_eq!(restore_canonical(&canonical, observed, &registry, Some(&changed_authority)),
-        Err(RestorePreparationError::AuthorityMismatch));
-    assert!(restore_canonical(&signed, observed, &registry, Some(&authority)).is_err());
-    let mut trailing = canonical.clone();
-    trailing.push(0);
-    assert!(restore_canonical(&trailing, observed, &registry, Some(&authority)).is_err());
-    assert!(restore_canonical(&canonical[..canonical.len() - 1], observed,
-        &registry, Some(&authority)).is_err());
-    let mut payload_changed = canonical.clone();
-    let last = payload_changed.len() - 1;
-    payload_changed[last] ^= 1;
-    assert_eq!(restore_canonical(&payload_changed, observed, &registry, Some(&authority)),
-        Err(RestorePreparationError::PayloadHashMismatch));
-    let kind = checked(ActivityType::new(ModuleId::Asset, 1));
-    let registration = checked(ModuleRegistration::new(ModuleId::Asset, &[kind]));
-    let other_registry = checked(ModuleRegistry::new(&[registration]));
-    assert!(restore_canonical(&canonical, observed, &other_registry, Some(&authority)).is_err());
+impl Drop for Directory {
+    fn drop(&mut self) {
+        if self.0.exists() {
+            std::fs::remove_dir_all(&self.0).expect("remove integration store");
+        }
+    }
+}
+
+pub fn session() -> SessionRef {
+    SessionRef::new(
+        TenantId::new("call-owner").expect("tenant"),
+        SessionId([9; 32]),
+    )
+}
+
+pub fn defaults() -> EvmPreparationDefaults {
+    EvmPreparationDefaults {
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 20,
+        maximum_payload_bytes: 4_096,
+    }
+}
+
+pub fn state() -> EvmPreparationState {
+    EvmPreparationState {
+        chain_id: 125,
+        pending_nonce: 7,
+        base_fee_per_gas: 2,
+        head_height: 80,
+    }
+}
+
+fn word(value: u128) -> [u8; 32] {
+    let mut word = [0; 32];
+    word[16..].copy_from_slice(&value.to_be_bytes());
+    word
+}
+
+pub fn request(identity: u8) -> EvmPrepareRequest {
+    EvmPrepareRequest {
+        from: OWNER,
+        call: PrecompileCall {
+            target: PrecompileTarget::Ledger,
+            selector: ledger_selector("payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)"),
+            arguments: vec![
+                AbiArgument::Word([1; 32]),
+                AbiArgument::Word([2; 32]),
+                AbiArgument::Word([3; 32]),
+                AbiArgument::Word(word(25)),
+                AbiArgument::Word(word(u128::from(EXPIRY))),
+                AbiArgument::Word([identity; 32]),
+            ],
+        },
+        expected_nonce: Some(7),
+        max_priority_fee_per_gas: None,
+        max_fee_per_gas: None,
+        declared_payload_limit: 4_096,
+    }
+}
+
+pub fn prepared(identity: u8) -> EvmPrepared {
+    prepare_bound(state(), defaults(), request(identity), 100_000)
+        .expect("production call preparation")
+}
+
+pub fn signed(prepared: &EvmPrepared) -> Vec<u8> {
+    let mut secret = [0; 32];
+    secret[31] = 1;
+    prepared
+        .call
+        .sign(&secret)
+        .expect("real EIP-1559 signature")
+}
+
+pub fn limiter() -> BudgetLimiter {
+    BudgetLimiter::new(vec![LimitConfig {
+        id: LimitId([1; 16]),
+        name: "tenant-call-budget".into(),
+        scope: LimitScope::Tenant([1; 32]),
+        ceiling: 10_000,
+        consumed: 0,
+    }])
+    .expect("real budget limiter")
 }

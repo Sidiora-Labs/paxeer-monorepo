@@ -17,6 +17,7 @@ use std::os::unix::fs::{
 use std::path::{Component, Path, PathBuf};
 use std::time::Duration;
 
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_programs::hex;
 use serde_json::{json, Value};
 use zeroize::Zeroizing;
@@ -53,6 +54,7 @@ const LISTENER_MODE_MASK: u32 = 0o660;
 const LISTENER_OWNER_ACCESS: u32 = 0o600;
 const MAX_WEB_TIMEOUT_MS: u64 = 60_000;
 const MAX_WEB_PENDING_ATTEMPTS: u8 = 10;
+const MAX_WEB_RECEIPT_KEYS: usize = 64;
 
 /// Deployment mode the binding document declares.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -248,6 +250,11 @@ impl ReadinessDeclaration {
     }
 
     fn transport(&self) -> Result<ReadinessTransport, EnrolmentError> {
+        let _credential = Zeroizing::new(
+            crate::config::read_protected_source(&self.gateway_key_file, 4_096).map_err(|_| {
+                EnrolmentError::InvalidSurface("the readiness gateway credential is not protected")
+            })?,
+        );
         Ok(ReadinessTransport {
             endpoint: self.endpoint.clone(),
             gateway_key_file: path_text(&self.gateway_key_file)?.to_owned(),
@@ -402,13 +409,82 @@ impl ListenerDeclaration {
 pub struct WebDeclaration {
     endpoint: String,
     network: String,
-    payer_address: [u8; 20],
-    receiver_address: [u8; 20],
-    receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
-    selected_key: usize,
+    receipt_public_key: [u8; 32],
+    authority: Option<WebAuthority>,
     timeout_ms: u64,
     pending_attempts: u8,
     approval_threshold: u128,
+}
+
+/// Explicit payment parties and the bounded receipt authority resolved from the node.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WebAuthority {
+    payer_address: [u8; 20],
+    receiver_address: [u8; 20],
+    receipt_key_index: Vec<ReceiptKeyEntry>,
+    sequencer_id: [u8; 32],
+    first_batch_number: u64,
+    last_batch_number: u64,
+}
+
+impl WebAuthority {
+    /// Validates the complete node key index and the selected inclusive receipt range.
+    ///
+    /// # Errors
+    ///
+    /// Refuses zero payment addresses, empty, oversized, repeated or invalid keys,
+    /// and an uncovered or reversed range.
+    pub fn new(
+        payer_address: [u8; 20],
+        receiver_address: [u8; 20],
+        receipt_key_index: Vec<ReceiptKeyEntry>,
+        sequencer_id: [u8; 32],
+        first_batch_number: u64,
+        last_batch_number: u64,
+    ) -> Result<Self, EnrolmentError> {
+        if payer_address == [0; 20] || receiver_address == [0; 20] {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web payment addresses must be nonzero",
+            ));
+        }
+        if receipt_key_index.is_empty() || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index must name 1 to 64 keys",
+            ));
+        }
+        let mut seen = BTreeSet::new();
+        for key in &receipt_key_index {
+            if key.key_id == [0; 32]
+                || key.public_key == [0; 32]
+                || key.first_height > key.last_height
+                || !seen.insert(key.key_id)
+            {
+                return Err(EnrolmentError::InvalidWeb(
+                    "the receipt key index has an invalid or repeated key",
+                ));
+            }
+        }
+        if sequencer_id == [0; 32]
+            || first_batch_number > last_batch_number
+            || !receipt_key_index.iter().any(|key| {
+                key.key_id == sequencer_id
+                    && key.first_height <= first_batch_number
+                    && key.last_height >= last_batch_number
+            })
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the receipt key index does not cover the selected receipt range",
+            ));
+        }
+        Ok(Self {
+            payer_address,
+            receiver_address,
+            receipt_key_index,
+            sequencer_id,
+            first_batch_number,
+            last_batch_number,
+        })
+    }
 }
 
 impl WebDeclaration {
@@ -424,7 +500,7 @@ impl WebDeclaration {
         network: String,
         payer_address: [u8; 20],
         receiver_address: [u8; 20],
-        receipt_key_index: Vec<layerx_client::sequencer::ReceiptKeyEntry>,
+        receipt_key_index: Vec<ReceiptKeyEntry>,
         selected_key: usize,
         timeout_ms: u64,
         pending_attempts: u8,
@@ -436,7 +512,14 @@ impl WebDeclaration {
                 "the web endpoint is not an HTTP sidecar authority",
             ));
         }
-        if network != "eip155:125" {
+        if network != "eip155:125"
+            || !network.strip_prefix("eip155:").is_some_and(|chain_id| {
+                !chain_id.is_empty()
+                    && chain_id.len() <= 64
+                    && !chain_id.starts_with('0')
+                    && chain_id.bytes().all(|byte| byte.is_ascii_digit())
+            })
+        {
             return Err(EnrolmentError::InvalidWeb(
                 "the web network must be eip155:125",
             ));
@@ -447,24 +530,12 @@ impl WebDeclaration {
             ));
         }
         if receipt_key_index.is_empty()
-            || receipt_key_index.len() > 64
+            || receipt_key_index.len() > MAX_WEB_RECEIPT_KEYS
             || selected_key >= receipt_key_index.len()
         {
             return Err(EnrolmentError::InvalidWeb(
                 "the web receipt key index or selection is invalid",
             ));
-        }
-        let mut seen = BTreeSet::new();
-        for key in &receipt_key_index {
-            if key.key_id == [0; 32]
-                || key.public_key == [0; 32]
-                || key.first_height > key.last_height
-                || !seen.insert(key.key_id)
-            {
-                return Err(EnrolmentError::InvalidWeb(
-                    "the web receipt key index has an invalid or repeated key",
-                ));
-            }
         }
         if timeout_ms == 0 || timeout_ms > MAX_WEB_TIMEOUT_MS {
             return Err(EnrolmentError::InvalidWeb(
@@ -476,22 +547,64 @@ impl WebDeclaration {
                 "the web pending attempts must be 1 to 10",
             ));
         }
-        Ok(Self {
-            endpoint,
-            network,
+        let key = &receipt_key_index[selected_key];
+        let receipt_public_key = key.public_key;
+        let (sequencer_id, first, last) = (key.key_id, key.first_height, key.last_height);
+        let authority = WebAuthority::new(
             payer_address,
             receiver_address,
             receipt_key_index,
-            selected_key,
+            sequencer_id,
+            first,
+            last,
+        )?;
+        Ok(Self {
+            endpoint,
+            network,
+            receipt_public_key,
+            authority: Some(authority),
             timeout_ms,
             pending_attempts,
             approval_threshold,
         })
     }
 
-    fn document(&self) -> Value {
-        let key = &self.receipt_key_index[self.selected_key];
-        let keys: Vec<_> = self
+    /// Narrows the selected receipt range while retaining the enrolled payment authority.
+    ///
+    /// # Errors
+    ///
+    /// Refuses changed payment parties, governed keys, selection, or an expanded range.
+    pub fn with_authority(mut self, authority: WebAuthority) -> Result<Self, EnrolmentError> {
+        if !authority.receipt_key_index.iter().any(|key| {
+            key.key_id == authority.sequencer_id && key.public_key == self.receipt_public_key
+        }) {
+            return Err(EnrolmentError::InvalidWeb(
+                "the selected receipt key differs from the resolved key",
+            ));
+        }
+        let current = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        if authority.payer_address != current.payer_address
+            || authority.receiver_address != current.receiver_address
+            || authority.receipt_key_index != current.receipt_key_index
+            || authority.sequencer_id != current.sequencer_id
+            || authority.first_batch_number < current.first_batch_number
+            || authority.last_batch_number > current.last_batch_number
+        {
+            return Err(EnrolmentError::InvalidWeb(
+                "the web authority differs from the enrolled authority",
+            ));
+        }
+        self.authority = Some(authority);
+        Ok(self)
+    }
+
+    fn document(&self) -> Result<Value, EnrolmentError> {
+        let authority = self.authority.as_ref().ok_or(EnrolmentError::InvalidWeb(
+            "the web payer, receiver and governed receipt authority are required",
+        ))?;
+        let receipt_key_index: Vec<Value> = authority
             .receipt_key_index
             .iter()
             .map(|key| {
@@ -503,19 +616,19 @@ impl WebDeclaration {
                 })
             })
             .collect();
-        json!({
+        Ok(json!({
             "endpoint": self.endpoint,
-            "payer_address": format!("0x{}", hex::encode(&self.payer_address)),
-            "receiver_address": format!("0x{}", hex::encode(&self.receiver_address)),
             "network": self.network,
-            "receipt_key_index": keys,
-            "sequencer_id": hex::encode(&key.key_id),
-            "first_batch_number": key.first_height,
-            "last_batch_number": key.last_height,
+            "payer_address": format!("0x{}", hex::encode(&authority.payer_address)),
+            "receiver_address": format!("0x{}", hex::encode(&authority.receiver_address)),
+            "receipt_key_index": receipt_key_index,
+            "sequencer_id": hex::encode(&authority.sequencer_id),
+            "first_batch_number": authority.first_batch_number,
+            "last_batch_number": authority.last_batch_number,
             "timeout_ms": self.timeout_ms,
             "pending_attempts": self.pending_attempts,
             "approval_threshold": self.approval_threshold.to_string(),
-        })
+        }))
     }
 }
 
@@ -679,6 +792,15 @@ pub struct BindingPublisher {
     web: Option<WebDeclaration>,
 }
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum PublicationStage {
+    SessionRecorded,
+    TokenPublished,
+    BearerPublished,
+    BindingPublished,
+    DirectorySynced,
+}
+
 impl BindingPublisher {
     /// Validates the binding directory, the daemon records it names, and the limit it declares.
     ///
@@ -758,6 +880,14 @@ impl BindingPublisher {
     /// that is missing, non-canonical, or not owned by the declared owner and group, a binding directory that is not a canonical directory, a different published
     /// binding, a pre-existing secret file, and any I/O failure while writing.
     pub fn publish(&self, enrolment: &Enrolment) -> Result<PublishedBinding, EnrolmentError> {
+        self.publish_observed(enrolment, &mut |_| {})
+    }
+
+    fn publish_observed(
+        &self,
+        enrolment: &Enrolment,
+        observer: &mut impl FnMut(PublicationStage),
+    ) -> Result<PublishedBinding, EnrolmentError> {
         self.check_listener()?;
         let document = self.document(enrolment)?;
         prepare_root(&self.root)?;
@@ -790,11 +920,16 @@ impl BindingPublisher {
         let result = (|| {
             create_private(&session_token_file, token.as_bytes())?;
             written.push(&session_token_file);
+            observer(PublicationStage::TokenPublished);
             create_private(&daemon_bearer_file, self.surface.bearer.as_bytes())?;
             written.push(&daemon_bearer_file);
+            observer(PublicationStage::BearerPublished);
             create_private(&binding, &encoded)?;
             written.push(&binding);
-            sync_directory(&self.root)
+            observer(PublicationStage::BindingPublished);
+            sync_directory(&self.root)?;
+            observer(PublicationStage::DirectorySynced);
+            Ok(())
         })();
         if let Err(error) = result {
             for path in written.iter().rev() {
@@ -835,6 +970,7 @@ impl BindingPublisher {
         request: &EnrolmentRequest,
     ) -> Result<(), EnrolmentError> {
         self.check_listener()?;
+        prepare_root(&self.root)?;
         let metadata = fs::symlink_metadata(&self.root)?;
         if !metadata.is_dir()
             || metadata.uid() != fs::metadata("/proc/self")?.uid()
@@ -868,11 +1004,59 @@ impl BindingPublisher {
             core_height: request.core_sequence,
             token: Zeroizing::new(record.request.token_id),
         };
+        self.recover_publication(&enrolment)
+    }
+
+    fn recover_publication(&self, enrolment: &Enrolment) -> Result<(), EnrolmentError> {
+        // The durable session is the generation journal. Validate every surviving
+        // file against it before filling any missing member of the publication.
+        let document = self.document(enrolment)?;
         let binding = self.binding_path();
-        if read_document(&binding)?.as_ref() != Some(&self.document(&enrolment)?) {
+        let existing = read_document(&binding)?;
+        if existing.as_ref().is_some_and(|value| value != &document) {
             return Err(EnrolmentError::AlreadyPublished(binding));
         }
-        self.check_secrets(&enrolment)
+        let encoded = serde_json::to_vec_pretty(&document)
+            .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))?;
+        if encoded.len() > MAX_DOCUMENT_BYTES {
+            return Err(EnrolmentError::Encoding(
+                "the binding document exceeds its bound",
+            ));
+        }
+        let token = Zeroizing::new(hex::encode(enrolment.token.as_slice()));
+        let secrets = [
+            (SESSION_TOKEN_FILE, token.as_bytes()),
+            (DAEMON_BEARER_FILE, self.surface.bearer.as_bytes()),
+        ];
+        let mut missing = Vec::new();
+        for (name, expected) in secrets {
+            let path = self.root.join(name);
+            match fs::symlink_metadata(&path) {
+                Ok(_) => {
+                    let bytes =
+                        Zeroizing::new(crate::config::read_protected_source(&path, 4096).map_err(
+                            |_| EnrolmentError::InvalidPath("a binding secret is not protected"),
+                        )?);
+                    if bytes.strip_suffix(b"\n") != Some(expected) {
+                        return Err(EnrolmentError::InvalidPath(
+                            "a binding secret differs from current authority",
+                        ));
+                    }
+                }
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    missing.push((path, expected))
+                }
+                Err(error) => return Err(error.into()),
+            }
+        }
+        for (path, contents) in missing {
+            create_private(&path, contents)?;
+        }
+        if existing.is_none() {
+            create_private(&binding, &encoded)?;
+        }
+        sync_directory(&self.root)?;
+        self.check_secrets(enrolment)
     }
 
     fn check_secrets(&self, enrolment: &Enrolment) -> Result<(), EnrolmentError> {
@@ -941,7 +1125,11 @@ impl BindingPublisher {
                 .as_ref()
                 .map(ListenerDeclaration::document)
                 .transpose()?,
-            web: self.web.as_ref().map(WebDeclaration::document),
+            web: self
+                .web
+                .as_ref()
+                .map(WebDeclaration::document)
+                .transpose()?,
         };
         serde_json::to_value(document)
             .map_err(|_| EnrolmentError::Encoding("the binding cannot be encoded"))
@@ -1053,6 +1241,45 @@ fn open_and_publish(
     publisher: &BindingPublisher,
     expiry_seconds: Option<u64>,
 ) -> Result<PublishedBinding, EnrolmentError> {
+    open_and_publish_observed(
+        store,
+        sessions,
+        identity,
+        request,
+        publisher,
+        expiry_seconds,
+        &mut |_| {},
+    )
+}
+
+pub fn enrol_observed(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    identity: &IdentityRecord,
+    request: EnrolmentRequest,
+    publisher: &BindingPublisher,
+    mut observer: impl FnMut(PublicationStage),
+) -> Result<PublishedBinding, EnrolmentError> {
+    open_and_publish_observed(
+        store,
+        sessions,
+        identity,
+        request,
+        publisher,
+        None,
+        &mut observer,
+    )
+}
+
+fn open_and_publish_observed(
+    store: &mut Store,
+    sessions: &mut SessionRegistry,
+    identity: &IdentityRecord,
+    request: EnrolmentRequest,
+    publisher: &BindingPublisher,
+    expiry_seconds: Option<u64>,
+    observer: &mut impl FnMut(PublicationStage),
+) -> Result<PublishedBinding, EnrolmentError> {
     publisher.check_listener()?;
     let tenant = identity.tenant().clone();
     Capability::restore(store, tenant.clone(), request.capability_id)
@@ -1083,7 +1310,8 @@ fn open_and_publish(
         token: Zeroizing::new(issued.token_id()),
     };
     drop(issued);
-    match publisher.publish(&enrolment) {
+    observer(PublicationStage::SessionRecorded);
+    match publisher.publish_observed(&enrolment, observer) {
         Ok(binding) => Ok(binding),
         Err(error) => match session::close(store, sessions, &tenant, request.session_id) {
             Ok(()) => Err(error),
@@ -1637,7 +1865,6 @@ impl VerifiedProgramBudgetDenominations {
     }
 }
 
-
 #[cfg(test)]
 mod web_payment_binding_tests {
     use super::WebDeclaration;
@@ -1673,7 +1900,7 @@ mod web_payment_binding_tests {
             100,
         )
         .expect("valid governed web declaration");
-        let published = declaration.document();
+        let published = declaration.document().expect("validated web authority");
         assert_eq!(published["network"], "eip155:125");
         assert_eq!(
             published["payer_address"],

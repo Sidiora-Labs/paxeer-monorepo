@@ -14,7 +14,7 @@ use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retri
 use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
-use layerx_agent_api::read::{ReadRequest, VerifiedRead};
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
 use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 
 use layerx_types::result::ResultCode;
@@ -825,7 +825,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -836,7 +836,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
@@ -847,7 +847,7 @@ impl AgentEnvelopeTransport {
         &self,
         request_id: RequestId,
         key: Key,
-        request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
+        request: &crate::native_effect::NativeSendPrepareRequestV2,
         credential: &EnvelopeCredential,
         _registry: &layerx_types::payload::ModuleRegistry,
         mcp: bool,
@@ -859,11 +859,13 @@ impl AgentEnvelopeTransport {
             &purpose
                 .canonical_bytes()
                 .map_err(|_| EnvelopeError::InvalidRequest)?,
-            &request.purpose.owner_public_key,
+            &purpose.consent_public_key,
             &request.purpose.signature,
         )?;
-        let sender =
-            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
+        let sender = self.preparation_sender(&request.authority, purpose.consent_public_key)?;
+        if sender != purpose.evm_sender {
+            return Err(EnvelopeError::InvalidCredential);
+        }
         crate::native_effect::validate_send_request_binding(request, credential, key)?;
         let response = if mcp {
             self.mcp_invoke(request_id, credential, "activity.prepare", &body, key)?
@@ -903,7 +905,9 @@ impl AgentEnvelopeTransport {
                 &value.canonical_bytes,
             )
             || call.signing_hash() != value.signing_preimage
-            || call.chain_id != u64::from(purpose.network_id)
+            || call.chain_id != purpose.chain_id
+            || purpose.transaction_type
+                != layerx_agent_api::identity::NativeSendPurposeV2::TRANSACTION_TYPE
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -1589,8 +1593,10 @@ fn raw_call_matches_request(
         && call.to[18..] == target
         && call.nonce == nonce
         && disclosure.activity_type == kind
-        && disclosure.expiry.not_before == not_before
-        && disclosure.expiry.not_after == not_after
+        // Ledger send carries its expiry in the signed payload, without an activity window.
+        && ((kind.module() == ModuleId::Asset && kind.ordinal() == 5)
+            || (disclosure.expiry.not_before == not_before
+                && disclosure.expiry.not_after == not_after))
         && (if disclosure.idempotency_key == [0; 32] {
             <[u8; 32]>::from(Sha256::digest(raw)) == idempotency_key
         } else {
@@ -1730,18 +1736,26 @@ pub fn decode_proof_bundle_response(
 ) -> Option<VerifiedRead<ProofBundle>> {
     let operation = Operation::ReadProofBundle;
     let read = response.value.as_object()?;
-    if !exact_fields(read, &["value", "achieved_rung", "freshness"]) {
+    if !exact_fields(read, &["value", "achieved_verification_level", "freshness"]) {
         return None;
     }
-    let achieved = Rung::from_name(read.get("achieved_rung")?.as_str()?)?;
+    let achieved = Rung::from_name(read.get("achieved_verification_level")?.as_str()?)?;
     if !matches!(response.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
+    {
+        return None;
+    }
+    let freshness = Freshness::decode_json(&read.get("freshness")?.to_string()).ok()?;
+    let RelativeTo::Block { height, hash } = freshness.relative_to;
+    if freshness.value_height > freshness.chain_head
+        || height != freshness.value_height
+        || hash == [0; 32]
     {
         return None;
     }
     let result = VerifiedRead::new(
         crate::rpc_export::decode_bundle(read.get("value")?, operation).ok()?,
         achieved,
-        crate::rpc_projection::decode_freshness(read.get("freshness")?, operation).ok()?,
+        freshness,
     );
     let target = ProofBundleTarget::decode(request.selector.as_bytes()).ok()?;
     let typed_request = ReadRequest {

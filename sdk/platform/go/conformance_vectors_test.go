@@ -2,6 +2,7 @@ package layerx_test
 
 import (
 	"bytes"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -124,6 +125,9 @@ func assertConformanceBlockTransaction(t *testing.T, c conformanceReceiptCase, i
 	if err != nil {
 		t.Fatal(err)
 	}
+	if digest := sha256.Sum256(data); hex.EncodeToString(digest[:]) != "5013cd232ee94ece8d25fca4c802ca60c892f3a5f637a70962d9909dc71c4e7b" {
+		t.Fatal("committed conformance source recording changed")
+	}
 	var source struct {
 		Settlement struct {
 			RawTransaction   string `json:"raw_transaction"`
@@ -150,8 +154,8 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		Cases []json.RawMessage `json:"cases"`
 	}
 	readConformanceVector(t, "sequencer-receipt-v1", &source)
-	if len(source.Cases) != 12 {
-		t.Fatalf("want 12 source cases, got %d", len(source.Cases))
+	if len(source.Cases) != 13 {
+		t.Fatalf("want 13 source cases, got %d", len(source.Cases))
 	}
 	refusals := map[string]struct {
 		check sdk.ReceiptCheck
@@ -169,7 +173,7 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 		count         int
 	}{
 		{"vector-v1-receipted-positive", "V1", 5},
-		{"vector-v2-receipted-revert", "V2", 1},
+		{"vector-v2-receipted-revert", "V2", 2},
 		{"vector-v3-receipt-refusals", "V3", 6},
 	} {
 		t.Run(group.section, func(t *testing.T) {
@@ -236,6 +240,10 @@ func TestVectorFilesV1ToV3MatchSequencerReceiptFixture(t *testing.T) {
 						if result.Status != 1 || result.Revert != nil {
 							t.Fatal("positive receipt was not successful")
 						}
+					} else if c.ID == "V2-pax-transfer-insufficient-funds" {
+						if result.Status != 0 || result.Receipt.ResultCode != 1 || len(result.ReturnData) != 0 || len(result.Logs) != 0 || c.LXPCode != "" || result.Revert == nil || result.Revert.Code != "" || result.Revert.Reason != "" {
+							t.Fatalf("lost preexecution refusal: %+v", result)
+						}
 					} else if result.Status != 0 || result.Revert == nil || result.Revert.Code != c.LXPCode ||
 						result.Revert.Reason != "LXP_INSUFFICIENT_BALANCE: insufficient balance" || !bytes.Equal(result.Revert.ReturnData, result.ReturnData) {
 						t.Fatalf("revert lost its authenticated reason: %+v", result.Revert)
@@ -253,7 +261,8 @@ func TestVectorV4CommittedVerifiesAndRefuses(t *testing.T) {
 		t.Fatal("missing V4 identity or insufficient-power refusal")
 	}
 	c := vector.Positive
-	trust := sdk.CommittedTrust{ChainID: c.BlockHeader.ChainID, Height: c.BlockHeader.Height, BlockHash: c.BlockHeader.Hash()}
+	trust := sdk.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+	copy(trust.BlockHash[:], conformanceHex(t, "0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108", 32))
 	if c.Expected.Rung != "committed" {
 		t.Fatal("V4 positive must require the committed rung")
 	}
@@ -341,7 +350,8 @@ func TestVectorV5PortableRoundTrips(t *testing.T) {
 				evidence = &sdk.PortableCommittedEvidence{BlockHeader: v4.Positive.BlockHeader, ReceiptInclusion: v4.Positive.ReceiptInclusion, Commit: v4.Positive.Commit, ValidatorSet: v4.Positive.ValidatorSet}
 			}
 			keys := conformanceKeys(t, c)
-			trust := sdk.CommittedTrust{ChainID: v4.Positive.BlockHeader.ChainID, Height: v4.Positive.BlockHeader.Height, BlockHash: v4.Positive.BlockHeader.Hash()}
+			trust := sdk.CommittedTrust{ChainID: "committed-fixture", Height: 10}
+			copy(trust.BlockHash[:], conformanceHex(t, "0xa7c648246a5213d57d6a2f2aa7bdc8e0050249629e5e92a4b89f2bdb918e9108", 32))
 			data := vector.Bundles[i]
 			var bundle sdk.PortableReceipt
 			if err := json.Unmarshal(data, &bundle); err != nil {

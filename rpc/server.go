@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/rpc"
 
 	tmutils "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/utils"
@@ -46,9 +47,35 @@ func newRPCEndpointConfig(config evmrpcconfig.Config) RPCEndpointConfig {
 }
 
 // ServerOption configures NewEVMHTTPServer (a TraceContextProvider, SequencerReceiptOption,
-// SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption) and NewEVMWebSocketServer
-// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption or SequencerForwardOption).
+// SequencerOption, PendingOption, pxIndexerOption, pxInferenceOption or SequencerForwardOption) and NewEVMWebSocketServer
+// (a SequencerReceiptOption, SequencerOption, PendingOption, pxIndexerOption, pxInferenceOption or SequencerForwardOption).
 type ServerOption interface{ serverOption() }
+
+// WithPxInferenceProgram selects the deployed ai-market and a bound EVM identity
+// for read-only native program simulation. Supply the same option to both servers.
+func WithPxInferenceProgram(program [32]byte, reader common.Address) ServerOption {
+	return pxInferenceOption{program: program, reader: reader}
+}
+
+type pxInferenceOption struct {
+	program [32]byte
+	reader  common.Address
+}
+
+func (pxInferenceOption) serverOption() {}
+func pxInferenceForServer(opts []ServerOption) (*pxInferenceOption, error) {
+	var configured *pxInferenceOption
+	for _, opt := range opts {
+		if value, ok := opt.(pxInferenceOption); ok {
+			if configured != nil || value.program == ([32]byte{}) || value.reader == (common.Address{}) {
+				return nil, errors.New("inference option requires one nonzero program and reader")
+			}
+			copy := value
+			configured = &copy
+		}
+	}
+	return configured, nil
+}
 
 func (TraceContextProvider) serverOption()   {}
 func (SequencerReceiptOption) serverOption() {}
@@ -154,6 +181,10 @@ func NewEVMHTTPServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM HTTP server dependencies are not configured")
 	}
+	inference, err := pxInferenceForServer(opts)
+	if err != nil {
+		return nil, err
+	}
 	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
 	if err != nil {
 		return nil, err
@@ -191,6 +222,12 @@ func NewEVMHTTPServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.HTTPPort); err != nil {
@@ -246,7 +283,7 @@ func NewEVMHTTPServer(
 	debugAPI := NewDebugAPI(tmClient, k, beginBlockKeepers, ctxProvider, txConfigProvider, simulateConfig, app, antehandler, ConnectionTypeHTTP, config, globalBlockCache, cacheCreationMutex, watermarks)
 	debugAPI.backend.SetTraceContextProvider(traceCtxProvider)
 	if config.TraceBakeEnabled {
-		StartTraceBakerForDebugAPI(debugAPI, TraceBakerConfig{
+		startServerTraceBaker(httpServer, debugAPI, TraceBakerConfig{
 			Workers:      config.TraceBakeWorkers,
 			QueueSize:    config.TraceBakeQueueSize,
 			Tracers:      config.TraceBakeTracers,
@@ -287,10 +324,12 @@ func NewEVMHTTPServer(
 	}
 	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeHTTP, watermarks, app.CommitMultiStore().(storetypes.Queryable))
 	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeHTTP, globalBlockCache, cacheCreationMutex, watermarks)
-	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
+	pxAPI := &pxAccountAPI{inference: inference, state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.HTTPMethods}
 	apis := []rpc.API{
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -404,6 +443,7 @@ func NewEVMHTTPServer(
 	tracker := stats.InitRPCTracker(ctx.Context(), config.RPCStatsInterval)
 	httpServer.addStopHook(tracker.Stop)
 
+	configured = true
 	return httpServer, nil
 }
 
@@ -424,6 +464,10 @@ func NewEVMWebSocketServer(
 	if tmClient == nil || k == nil || ctxProvider == nil || txConfigProvider == nil || app == nil {
 		return nil, errors.New("EVM WebSocket server dependencies are not configured")
 	}
+	inference, err := pxInferenceForServer(opts)
+	if err != nil {
+		return nil, err
+	}
 	pxIndexer, err := pxIndexerForServer(config.PxIndexerURL, opts)
 	if err != nil {
 		return nil, err
@@ -438,7 +482,7 @@ func NewEVMWebSocketServer(
 	var sequencerReceipts SequencerReceiptOption
 	for _, opt := range opts {
 		switch o := opt.(type) {
-		case domainResolverOption, pxIndexerOption:
+		case domainResolverOption, pxIndexerOption, pxInferenceOption:
 		case SequencerReceiptOption:
 			sequencerReceipts = o
 		case PendingOption:
@@ -476,6 +520,12 @@ func NewEVMWebSocketServer(
 		WriteTimeout:      config.WriteTimeout,
 		IdleTimeout:       config.IdleTimeout,
 	})
+	configured := false
+	defer func() {
+		if !configured {
+			httpServer.Stop()
+		}
+	}()
 	httpServer.domainResolver = domainResolver
 	methodTimeout := tmutils.Some(httpServer.timeouts.WriteTimeout)
 	if err := httpServer.SetListenAddr(config.HTTPAddress, config.WSPort); err != nil {
@@ -530,16 +580,25 @@ func NewEVMWebSocketServer(
 	if err != nil {
 		return nil, err
 	}
+	httpServer.addStopHook(subscriptionAPI.shutdown)
 	if seq != nil {
 		subscriptionAPI.receiptLogs = seq.receiptLogs
+	}
+	sequencerReceiptAPI, err := newSequencerReceiptAPI(tmClient, ctxProvider, sequencerReceipts, ConnectionTypeWS)
+	if err != nil {
+		return nil, err
 	}
 	txAPI := NewTransactionAPI(tmClient, k, ctxProvider, txConfigProvider, homeDir, ConnectionTypeWS, methodTimeout, watermarks, globalBlockCache, cacheCreationMutex, config.EnableUnsafeKeyringRPC)
 	stateAPI := NewStateAPI(tmClient, k, ctxProvider, ConnectionTypeWS, watermarks, app.CommitMultiStore().(storetypes.Queryable))
 	simulationAPI := NewSimulationAPI(ctxProvider, k, beginBlockKeepers, txConfigProvider, tmClient, simulateConfig, app, antehandler, ConnectionTypeWS, globalBlockCache, cacheCreationMutex, watermarks)
-	pxAPI := &pxAccountAPI{state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
+	pxAPI := &pxAccountAPI{inference: inference, state: stateAPI, tx: txAPI, simulation: simulationAPI, indexer: pxIndexer, methods: httpServer.WSMethods}
 	apis := []rpc.API{
+		{Namespace: "pax", Service: sequencerReceiptAPI},
+		{Namespace: "px", Service: &receiptKeysAPI{receipts: sequencerReceiptAPI}},
 		{Namespace: "px", Service: pxAPI},
+		{Namespace: "px", Service: &pxInferenceAPI{account: pxAPI}},
 		{Namespace: "px", Service: &pxHistoryAPI{account: pxAPI}},
+		{Namespace: "px", Service: &pxKernelAPI{tmClient: tmClient, chainID: ctx.ChainID(), connectionType: stateAPI.connectionType}},
 		{
 			Namespace: "echo",
 			Service:   NewEchoAPI(),
@@ -581,6 +640,10 @@ func NewEVMWebSocketServer(
 			Service:   &domainNetAPI{NetAPI: NewNetAPI(tmClient, k, ctxProvider, ConnectionTypeWS)},
 		},
 		{
+			Namespace: "txpool",
+			Service:   NewTxPoolAPI(tmClient, k, ctxProvider, txConfigProvider, &TxPoolConfig{maxNumTxs: int(config.MaxTxPoolTxs)}, ConnectionTypeWS),
+		},
+		{
 			Namespace: "eth",
 			Service:   subscriptionAPI,
 		},
@@ -604,8 +667,37 @@ func NewEVMWebSocketServer(
 		return nil, err
 	}
 
+	installTxPoolWSScopes(httpServer)
+
 	tracker := stats.InitWSTracker(ctx.Context(), config.RPCStatsInterval)
 	httpServer.addStopHook(tracker.Stop)
 
+	configured = true
 	return httpServer, nil
+}
+
+var serverTraceBakers = struct {
+	sync.Mutex
+	owners map[*keeper.TraceDB]*TraceBaker
+}{owners: make(map[*keeper.TraceDB]*TraceBaker)}
+
+func startServerTraceBaker(server *HTTPServer, api *DebugAPI, config TraceBakerConfig) {
+	serverTraceBakers.Lock()
+	baker := StartTraceBakerForDebugAPI(api, config)
+	if baker == nil {
+		serverTraceBakers.Unlock()
+		return
+	}
+	cache := api.keeper.TraceDB()
+	serverTraceBakers.owners[cache] = baker
+	serverTraceBakers.Unlock()
+	server.addStopHook(func() {
+		serverTraceBakers.Lock()
+		if serverTraceBakers.owners[cache] == baker {
+			cache.SetTraceEnqueuer(nil)
+			delete(serverTraceBakers.owners, cache)
+		}
+		serverTraceBakers.Unlock()
+		baker.Stop()
+	})
 }

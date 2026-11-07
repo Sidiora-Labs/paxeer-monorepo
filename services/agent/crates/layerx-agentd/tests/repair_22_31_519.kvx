@@ -1,0 +1,99 @@
+[repair.22.31.519]
+gotcha = 3077
+acceptance = "22998.1"
+path = "services/agent/crates/layerx-agentd/tests/approval_semantics.rs"
+implementation = "Pass TimestampSeconds(11), the fixture request time, at all five service call sites. Preserve every test and assertion, including the replay at sequence 12 with the original request time."
+baseline = "Initial git status and diff contain runner bookkeeping only; no earlier gate ledger or test-file edits exist. No pre-change gate execution is claimed."
+
+[sites]
+concurrent_approve = "concurrent_conflicting_decisions_have_one_durable_winner: approve DecisionRequest, original line 171, current_time = TimestampSeconds(11)."
+concurrent_reject = "concurrent_conflicting_decisions_have_one_durable_winner: reject DecisionRequest, original line 191, current_time = TimestampSeconds(11)."
+first_approve = "decision_record_survives_process_restart_and_replays_original_outcome: first DecisionRequest, original line 245, current_time = TimestampSeconds(11)."
+replayed_approve = "decision_record_survives_process_restart_and_replays_original_outcome: replay DecisionRequest, original line 269, current_time = TimestampSeconds(11) while current_sequence advances to 12."
+pending_get = "downtime_expiry_is_recovered_once_and_releases_the_reservation: get, original line 298, fourth argument = TimestampSeconds(11)."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+revision = "The exact candidate revision is retained in each private gate ledger row; build and verify must name the same revision."
+results = "The private ledger is authoritative for the executed command, exit code and log location; no passing result is claimed by this record without a successful hf-done row."
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_semantics"
+build_log = "/out/logs/build-1.log"
+verify_command = "cg spec done 22.31.519 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_semantics"
+verify_log = "/out/logs/verify-1.log"
+
+[finding.inherited_fixture]
+observed = "The fixture still uses the retired sequence-only policy hold entry, whose implementation returns ApprovalError::ClockRequired, and pre-creates the store root with default directory permissions."
+assumption = "The five missing explicit-time service arguments are this task's repair; unrelated fixture failures or contradictions must be recorded rather than changing assertions or the approval service."
+
+[qualification.build_1]
+revision = "9cd12d8f1437c139fa4981d606b452edb970d03f"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_semantics"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.hf_done_1]
+revision = "9cd12d8f1437c139fa4981d606b452edb970d03f"
+command = "hf-done"
+exit = 7
+log = "/out/logs/dependents-1.log"
+observed = "The automatic dependent check exited 101 on pre-existing missing explicit-time service arguments in MCP and Human tests; hf-done refused before cg spec done or the declared verify_cmd ran."
+assumption = "These files are outside scope, so record the result without chasing or rerunning it; only this evidence record is appended after the tested candidate, with approval_semantics.rs unchanged."
+
+[qualification.dependents_agent]
+revision = "9cd12d8f1437c139fa4981d606b452edb970d03f"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/agent/Cargo.toml --all-targets -p layerx-agentd-host -p layerx-mcp"
+exit = 101
+log = "/out/logs/dependents-1.log"
+errors = ["E0063 services/agent/crates/layerx-mcp/tests/repair_22_33_1551.rs:668: DecisionRequest missing current_time", "E0063 services/agent/crates/layerx-mcp/tests/session_tools_major_two.rs:205: DecisionRequest missing current_time", "E0061 services/agent/crates/layerx-mcp/tests/support/session_transport.rs:735: list missing fifth TimestampSeconds argument", "E0063 services/agent/crates/layerx-mcp/tests/support/session_transport.rs:754: DecisionRequest missing current_time"]
+affected_targets = ["repair_22_33_1551", "session_tools_major_two", "repair_22_33_1553"]
+
+[qualification.dependents_human]
+revision = "9cd12d8f1437c139fa4981d606b452edb970d03f"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-service -p layerx-human-test-support -p layerx-intents"
+exit = 101
+log = "/out/logs/dependents-1.log"
+errors = ["E0061 services/human/crates/layerx-human-service/tests/decide.rs:361: get missing fourth TimestampSeconds argument", "E0061 services/human/crates/layerx-human-service/tests/decide.rs:387: get missing fourth TimestampSeconds argument", "E0063 services/human/crates/layerx-human-service/tests/decide.rs:466: DecisionRequest missing current_time", "E0061 services/human/crates/layerx-human-service/tests/decide.rs:491: get missing fourth TimestampSeconds argument", "E0063 services/human/crates/layerx-human-service/tests/decide.rs:498: DecisionRequest missing current_time", "E0061 services/human/crates/layerx-human-service/tests/approvals.rs:103: get missing fourth TimestampSeconds argument", "E0063 services/human/crates/layerx-human-service/tests/approvals.rs:326: DecisionRequest missing current_time", "E0063 services/human/crates/layerx-human-service/tests/approvals.rs:394: DecisionRequest missing current_time"]
+affected_targets = ["approvals", "decide"]
+
+[qualification.attempt_2]
+base_revision = "e09ab6e9fff3ffb43467c1f1191ec21b9ffa40b0"
+prerequisite = "22.31.515 is merged through 05f501272b; the supplied checkout already contains it, so no rebase is needed."
+baseline = "The five explicit-time edits and this repair record were carried from attempt 1; runner bookkeeping in .cgignore and spec/layerx-merge/spec.kvx is preserved."
+implementation = "Retain the five TimestampSeconds(11) arguments and all existing tests and assertions without further source edits."
+evidence = "Attempt 2 gate rows in /out/run/gates.jsonl record the exact candidate revision, command, exit code and private log; /out/logs/build-1.log and /out/logs/verify-1.log now belong to attempt 2."
+
+[qualification.attempt_2_build]
+revision = "719b13fefff5445a39b3feb2f0ef3aae1edc64af"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test approval_semantics"
+exit = 0
+log = "/out/logs/build-1.log"
+
+[qualification.attempt_2_dependents]
+revision = "719b13fefff5445a39b3feb2f0ef3aae1edc64af"
+command = "hf-done automatic dependent-crate checks"
+exit = 0
+log = "/out/logs/dependents-1.log"
+observed = "All recorded dependent checks passed in the agent, Human and platform workspaces."
+
+[qualification.attempt_2_verify]
+revision = "719b13fefff5445a39b3feb2f0ef3aae1edc64af"
+command = "cg spec done 22.31.519 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The declared cargo test exited 101: all four tests executed and failed, with three ApprovalExpiry::open Store errors and hold_expiry_cannot_outlive_the_prepared_activity receiving ClockRequired instead of InvalidWindow."
+assumption = "These inherited fixture issues were already recorded above; attempt 2 requires no further source edits after 22.31.515, so preserve every assertion, record the result and leave the task implemented-not-qualified."
+
+[qualification.attempt_2_disposition]
+status = "implemented_not_qualified"
+source_changes_after_gates = false
+record_changes_after_gates = "Only this result record was appended after qualification; the recorded revision identifies the tested candidate, not the subsequently appended evidence text."
+completion = "hf-done failed; no passing verify, task completion, manual commit or push is claimed."
+
+[qualification.attempt_3]
+base_revision = "9e68791413a54856839db57deec771b566b31552"
+baseline = "Continue the two carried paths from attempt 2; preserve the five explicit decision times, every test and every assertion. No gate ledger exists yet in this attempt."
+implementation = "Replace all five sequence-only hold invocations, including both restart admissions, with hold_at and typed ApprovalSequence bounds. Successful holds use the fixture time TimestampSeconds(10); the invalid-window case uses TimestampSeconds(30), exactly its preparation expiry, preserving Err(ApprovalError::InvalidWindow)."
+protected_root = "Directory::new removes a stale root and lets ApprovalExpiry::open create the protected directory with its required permissions."
+qualification = "Run only hf-build and hf-done. The private gate ledger records exact candidate revisions, commands, exit codes and logs; no result is claimed before execution."
+ledger = "/out/run/gates.jsonl"

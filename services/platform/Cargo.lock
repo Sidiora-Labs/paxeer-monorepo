@@ -1396,6 +1396,7 @@ dependencies = [
  "layerx-types",
  "layerx-wire",
  "native-tls",
+ "rustix",
  "rustls",
  "serde",
  "serde_json",
@@ -1539,11 +1540,16 @@ version = "0.1.0"
 name = "layerx-platform-paxeer-boundary"
 version = "0.1.0"
 dependencies = [
+ "k256",
  "layerx-proof",
  "layerx-types",
+ "rustix",
  "rustls",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
+ "sha3",
+ "ureq",
  "zeroize",
 ]
 
@@ -1597,8 +1603,8 @@ dependencies = [
  "layerx-indexer",
  "layerx-platform-authority",
  "layerx-platform-gateway",
- "layerx-proof",
  "layerx-programs-ai-market",
+ "layerx-proof",
  "native-tls",
  "rcgen",
  "rustls",
@@ -1724,10 +1730,12 @@ dependencies = [
 name = "layerx-sdk"
 version = "0.1.0"
 dependencies = [
+ "ed25519-dalek",
  "layerx-agent-api",
  "layerx-client",
  "layerx-crypto",
  "layerx-mirror",
+ "layerx-programs-registry",
  "layerx-proof",
  "layerx-types",
  "layerx-wire",

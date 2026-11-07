@@ -98,7 +98,7 @@ Public HTTPS JSON-RPC is at the root of
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Require `eth_chainId` to return
 `"0x7d"`. These nodes serve the merged network. The public node namespace
-inventory is `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`;
+inventory is `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`;
 method availability still depends on the node's configuration.
 
 The old `/rpc`, `/rpc/ws` and `/rpc/schema` public paths are retired.

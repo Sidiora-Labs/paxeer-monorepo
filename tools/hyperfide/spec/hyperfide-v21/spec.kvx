@@ -1,0 +1,1376 @@
+# Hyperfide 2.1 — the end-to-end run: finish what exists, fix what the inventory found, add the Ask primitive, the console and source tracking at scale.
+# Planned 2026-10-22 from the six-agent inventory (scratchpad inventory/INVENTORY.md, published for the team). Decisions D1 to D10 below were taken by the programme owner the same day.
+
+[meta]
+feature = "hyperfide-v21"
+name = "Hyperfide 2.1"
+version = "2.1.0"
+status = "pending"
+review_date = "2026-10-22"
+intro = "Complete end-to-end run over Codify and Hyperfide after the 2026-10-22 inventory: make qualification reproducible and the workflow source truthful; remove the fleet-scale traps; give agents a durable typed Ask with blocked as the waiting state; raise and answer without native prompts; expose Needs, Issues, Sandboxes and Leaders; move source tracking to Hyperfide snapshots with packet-scoped slices, an integrator merge queue and per-wave publication; requalify the hyperfide ledger; close with docs, release, changelog and human acceptance. Hyperfide feature tasks are closed through cg spec done -f hyperfide; this feature holds the work that gets them there."
+
+[decisions]
+d_1 = "D1 Qualification inputs: manifests and registrations are tracked on main; evidence and artifacts live in the S3 artifact store (artifacts/objects.ts, bucket versioning) with the local artifacts directory as a cache."
+d_2 = "D2 Workflow source: CLAUDE.md, AGENTS.md and every other agent file point at spec/workflow.kvx, which is redesigned to be legible, unambiguous and contradiction-free."
+d_3 = "D3 Raising an Ask: an MCP ask tool with an instruction rule is the primary path; a QUESTION classifier signal with forwarded native events is the safety net; prompts stay disabled in sandboxes."
+d_4 = "D4 Waiting state: blocked, in both the service and the C spec engine."
+d_5 = "D5 Spec placement: this feature (hyperfide-v21) holds the run; hyperfide's own tasks close through -f hyperfide."
+d_6 = "D6 Console: the expanded VS Code extension is the console base, decided 2026-10-22 on the task 1.10 evaluation (OpenHands Agent Canvas has one shared API key in open source and duplicates the runner). Both panels and the Leaders webview live in editors/vscode; 6.10 records this and no second console surface is started."
+d_7 = "D7 Storage engine: the best one by measurement; Git's object model as the store is the default, with a bake-off (5.6) before any change."
+d_8 = "D8 Publication: per wave; the last wave of every feature is docs, release and changelog; the spec task file is current before every commit."
+d_9 = "D9 Humans have three jobs: create the idea and the spec with the agent; provide variables and judge output; test the finished running system as the final release gate. Humans do not commit to the monorepo directly."
+d_10 = "D10 Evidence pointers: keep pre-rewrite commits alive under refs/evidence/* now; re-point during requalification."
+
+d_11 = "D11 Ask default policies, confirmed 2026-10-22: secret, variable and permission block; decision and question proceed on the recommended option and flag; deadlines and chains are set by task 3.6."
+d_12 = "D12 Evidence refs: refs/evidence/* are published to origin and fetched by CI; 80_qualification_inputs.sh fails, never skips, when they are absent."
+d_13 = "D13 CI secrets: CI materialises a fixture credential store for HF_CREDENTIAL_CONFIG_FILE (no secret needed) and maps the RAILWAY_TOKEN repository secret only into registrations whose required_env names HF_RAILWAY_TOKEN; the operator supplies that secret and any live-case variables; values are never printed."
+d_14 = "D14 Fleet stop authority, decided 2026-10-22 on the task 2.4 Ask: POOL and ORGANISATION stops need an OPERATOR of that organisation; a DEPLOYMENT stop additionally needs the operator credential on the HYPERFIDE_DEPLOYMENT_OPERATORS allow-list, and an unset list refuses every DEPLOYMENT stop. The stop driver polls every 5000 ms by default; 0 disables it."
+d_15 = "D15 Provider resolutions (task 2.1 Ask, 2026-10-22): RETAIN keeps an orphan counted as occupied but not unknown; DELETE records operator evidence and never calls the provider; RELEASE rejects the intent and hands its reservations to admission as RELEASE_PENDING; RETRY reconciles again with capacity held. Overdue items are durable rows in provider_resolution_asks until 3.1 migrates them. HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS has no code default; the operator sets it, 3600 recommended."
+d_16 = "D16 Railway adoption (task 2.2 Ask): the create-time marker HF_PROVISION_OPERATION_ID read through sandboxExec is adoption evidence for a lost native id; authenticated enrollment still gates readiness."
+d_17 = "D17 Secret references (task 2.8 Ask): the task packet names every variable (env_refs NAME to secret-ref:ID) and the pool profile is only an allowlist; admission writes env_refs in task 2.17."
+d_18 = "D18 Object store and CI live cases (tasks 2.11 and 2.14 Asks): missing_region is STORE while mirrors are stood up; provisioner preflight warns, does not block, without HF_SLICE_SOURCE_CONFIG; the store URL, the per-region mirror URLs and the mirror refresh owner are open operator variables. No live Railway CI case is registered until a throwaway environment exists; the secret gate stays as built."
+d_19 = "D19 Worker runtime, decided 2026-10-22: task workers run as local worktree agents on the supervising host through wave 3; at the wave 4 closure (Asks raised from sandboxes, answers reaching the agent, native events leaving the sandbox) the control service is stood up on Railway against the existing PostgreSQL and wave 5 onward runs in Railway sandboxes, which is also the first end-to-end test of the running system (D9)."
+d_20 = "D20 Throughput, decided 2026-10-22 under the programme owner's instruction to parallelise: a task launches as soon as every task it requires is done on main, regardless of wave; wave closure (push and independent review) stays per wave; verified review findings become fix tasks in the current wave (3.10 to 3.13) instead of notes; the Railway control service and sandbox workers start as soon as 3.10, 4.2 and 4.4 are done rather than at the wave 4 closure (the D19 gate unchanged, the ceremony dropped)."
+d_21 = "D21 Sandbox worker runtime, decided 2026-10-22 by the programme owner: Railway sandbox workers run Codex (approvalPolicy never, the codify MCP server with the ask tools injected, 4.3); Claude Code remains the local worktree and editor connector; the runtime sentence of D19 reads accordingly."
+d_22 = "D22 Railway sandbox fleet now. A hand-built toolkit on the Railway sandbox SDK (4.10) stands the fleet up from the main working tree ahead of 4.2 and 4.4, on the base checkpoint of the earlier Paxeer fleet, running qualification jobs and Codex workers under D21; the 4.3 provider adopts the same checkpoint when it lands. Decided 2026-10-22 by the owner, who ordered one hundred sandboxes and every task in parallel."
+d_23 = "D23 Hyperfide requalification runs in the hyperfide feature's own dependency order, not in the 7.1 to 7.7 grouping, which stays a set of reporting buckets. The fleet takes the 125 tasks layer by layer (29 layers computed from the feature's requires, the widest holds 9), one sandbox per task from the base checkpoint; every job re-pins the task manifest to the built tree, then runs cg spec start and cg spec done for the hyperfide feature with the PostgreSQL environment set; the supervisor folds each layer's status lines, manifests, campaign artifacts, evidence index and refs/evidence into main under the lane lock before the next layer starts. The dependency graph bounds the parallelism, not the sandbox count. Taken by the supervisor under D11 on 2026-10-22 after the 7.1 worker and a sandbox smoke on 11.2 showed the grouping deadlocks against requires and the pinned manifests are stale."
+[req.1]
+title = "Reproducible qualification and one truthful workflow source"
+story = "As an engineer on the team of four, I need a fresh clone, CI and a remote worker to qualify the same way the main host does, and one workflow source that agents can read without contradiction."
+ac_1 = "Every verify_cmd input (manifests, registrations, cases, registry) SHALL be tracked on main; evidence and artifacts SHALL be retrievable from the S3 artifact store by receipt when absent locally, with the local artifacts directory acting only as a cache."
+ac_2 = "Evidence commits referenced by any evidence index SHALL stay reachable under refs/evidence/* until requalification re-points them."
+ac_3 = "spec/workflow.kvx SHALL be the single workflow source: legible, free of contradiction with the Makefile and the programme policy, and declaring the human roles, the blocked status, the Ask kinds and the publication cadence. CLAUDE.md, AGENTS.md and every other generated agent file SHALL contain only a pointer to it and the active feature."
+ac_4 = "The shipped control policy and bootstrap inputs SHALL take a clean host to a running control, dispatch and provisioner stack without test-injected grants or ignored files; preflight SHALL name every missing variable before anything is written."
+ac_5 = "CI SHALL typecheck, build and syntax-check the service and deploy scripts and run the Postgres-backed case suite; a skipped case SHALL print SKIP, never PASS."
+
+[req.2]
+title = "Fleet-scale safety at one hundred sandboxes"
+story = "As the operator of a 100-sandbox Railway fleet, I need capacity, stop and escalation paths that do not wedge silently."
+ac_1 = "An orphan or quarantined provisioning intent SHALL have an operator resolution path that releases capacity; unresolved items SHALL surface as Asks, never as permanently unknown capacity."
+ac_2 = "Railway SHALL have an ownership probe, a 429 backoff before UNKNOWN, and a live quota observer; attestation expiry SHALL warn before it lapses."
+ac_3 = "Stop SHALL drive its own loop, support pool, organisation and deployment scopes, and paginate past 1,000 debts."
+ac_4 = "The local supervisor SHALL exempt attempts with an open Ask from stall and budget kills, escalate to the configured main agent, and have no fixed task cap."
+ac_5 = "Finding events SHALL reach a consumer; every agent launch SHALL carry the secret references its task or profile declares, and a supplied variable SHALL reach a running sandbox by relaunch with references."
+ac_6 = "The supervisory host and the issue watcher SHALL deploy from the shipped units and templates on a clean host."
+
+[req.3]
+title = "The Ask primitive"
+story = "As an agent that needs a variable, a permission, a decision or an answer, I need a durable typed place to park the request so a human sees it in a panel instead of the output stream."
+ac_1 = "An Ask SHALL be a durable row with kind (secret, variable, permission, decision, question), options with a recommended choice, deadline, default policy (block or proceed-and-flag), escalation chain and task, attempt, session and sandbox references; raising and answering SHALL be actions available to every role the policy allows and delivered to operators, not only to the leader."
+ac_2 = "A task whose attempt has an open blocking Ask SHALL be in status blocked: not eligible for dependants, preserved by stop, exempt from stall, and carrying the Ask reference; blocked SHALL be a declared status in the workflow and the C spec engine."
+ac_3 = "The C core SHALL generalise fleet approvals into the same Ask shape with raise, answer and list verbs, MCP tools, events and a snapshot section; the Hyperfide client SHALL expose the Ask routes under the route contract test."
+ac_4 = "A per-kind policy SHALL decide block versus proceed-and-flag and the deadline; a default taken on expiry SHALL be recorded as a decision with the Ask it replaced."
+
+[req.4]
+title = "Raising and answering without prompts"
+story = "As the team, we keep native prompts disabled in sandboxes and still want every question an agent would have asked to reach us."
+ac_1 = "The native-stream classifier SHALL recognise Claude AskUserQuestion and Codex requestUserInput as a QUESTION signal and write an Ask; classified native events SHALL be forwarded out of the sandbox by the launcher and ingested by the runner."
+ac_2 = "An answer SHALL be delivered to a leader through session input and to a worker through instructions, with a re-wake path for a worker that made no edits while blocked."
+ac_3 = "Notifications SHALL have producers for Ask raised, Ask expired and repair escalated, with an operator target; leader queue, external intake and escalated repairs SHALL have readers."
+ac_4 = "Open programme decisions and expiring attestations, permits and drain deadlines SHALL be seeded as Asks."
+
+[req.5]
+title = "Console: Needs, Issues, Sandboxes, Leaders"
+story = "As one of four humans watching hundreds of agents, I need four panels and two numbers, on whichever console base the evaluation chooses."
+ac_1 = "A read model SHALL expose open Asks, pending human intents, admission escalations, leader queue, external intake and escalated repairs (Needs and Issues), a sandbox inventory joined across sandboxes, slots, runners, identity status and attempts (Sandboxes), and leaders from agent sessions (Leaders), each with freshness."
+ac_2 = "The cg client SHALL expose console and needs verbs and list the distributed verbs in help."
+ac_3 = "Metrics SHALL report decisions taken by default per hundred tasks, median Ask-to-answer time and bytes materialised per sandbox."
+ac_4 = "The console base SHALL be chosen by a recorded evaluation of an OpenHands fork against an expanded VS Code extension; the editor SHALL in any case receive pushed cards, a global Ask registry with badge and notification, Needs, Issues, Sandboxes and Leaders views, reconnect snapshots, unique agent names and a current VSIX."
+
+[req.6]
+title = "Source tracking at scale"
+story = "As a team working one multi-million-line monorepo with thousands of agent snapshots a day, we stop using Git as the workflow: Hyperfide snapshots are the unit of record, sandboxes get only what their task needs, and GitHub receives per-wave publications."
+ac_1 = "Workers SHALL materialise packet-scoped slices from an internal object store mirrored near each provider; full-tree materialisation SHALL require a recorded reason; local fleet workers SHALL use sparse worktrees from the same manifest."
+ac_2 = "A worker result SHALL be captured as a tree identity plus checkpoint in hyperfide.source_snapshots with base, slice digest and diff statistics; agents SHALL not run git."
+ac_3 = "The integrator SHALL fold qualified result trees onto an internal trunk in touch-disjoint batches with tree-level three-way merge, batch requalification and bisect on failure; a conflict SHALL become a decision Ask. Watchers and findings SHALL read the internal trunk."
+ac_4 = "Publication SHALL be one squashed commit per task batched per wave behind the release barrier, with snapshot identities in trailers; the final wave of every feature SHALL be docs, release and changelog; the spec task file SHALL be current before every commit."
+ac_5 = "The built-in snapshot store SHALL keep a stat cache, serve local and offline mode only, and be marked non-authoritative in distributed mode; the storage engine choice SHALL be confirmed by a measured bake-off, with Git's object model as the default."
+
+[req.7]
+title = "Requalification and truth"
+story = "As the programme owner, I need the ledger to say what the code does."
+ac_1 = "Every hyperfide task with passing current receipts SHALL be marked done; every stale receipt SHALL be requalified in wave order with its evidence index re-pointed to the rewritten commits."
+ac_2 = "Tasks with partial code or missing evidence (1.4, 2.1, 10.2, 27.1, 27.3, 28.4) SHALL be fixed and qualified or left pending with the reason recorded."
+ac_3 = "The Postgres-backed case suite SHALL run for governance and core tasks with real evidence; dead modules and tables SHALL be removed after confirmation; the remaining full-case registrations SHALL be written."
+
+[req.8]
+title = "Closure: docs, release, changelog and human acceptance"
+story = "As the humans, our three jobs are the spec, the inputs and judgement, and testing the finished system; that final test is the release gate."
+ac_1 = "Documentation SHALL match the evidence: operations status table, README counts and claims, every operator variable, install arguments and policy examples; the docs claims ledger SHALL be usable and docs check SHALL be read-only or documented as not."
+ac_2 = "A release SHALL be built, signed and published through the publication path with a current VSIX and dist; the changelog and codemap SHALL be regenerated by the programme owner."
+ac_3 = "The feature SHALL close only on an answered human acceptance Ask recording a test of the running system, not of the code."
+
+[documentation]
+mode = "manual"
+status = "pending"
+audiences = ["user", "developer", "operator"]
+targets = ["README.md", "docs/**", "editors/vscode/README.md", "spec/hyperfide-v21/**", "spec/workflow.kvx"]
+
+[tasks]
+heading = "Hyperfide 2.1 — eight waves; waves 2 to 5 carry the source-tracking fleet in parallel"
+
+[task.1.1]
+title = "Re-track qualification inputs and keep evidence commits reachable"
+status = "done"
+wave = 1
+requires = []
+touches = [".gitignore", "tests/hyperfide/manifests/tasks", "tests/hyperfide/registrations", "tests/integration/80_qualification_inputs.sh"]
+verify_cmd = "bash tests/integration/80_qualification_inputs.sh"
+do_1 = "Remove tests/hyperfide/manifests/tasks/ and tests/hyperfide/registrations/ from .gitignore and track every file in them; keep artifacts/, spec/hyperfide/evidence/ and deploy/hyperfide/identity/ ignored except as 1.6 says."
+do_2 = "For every commit named by an evidence-index.json under artifacts/hyperfide/tasks, create refs/evidence/<task>/<n> so the loose objects survive gc; record the mapping in tests/hyperfide/evidence-refs.json."
+do_3 = "80_qualification_inputs.sh asserts both directories are tracked with the expected counts, that no verify_cmd in spec/hyperfide/spec.kvx names an untracked file, and that each evidence ref resolves."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1", "1.2"]
+owner = "qualification"
+
+[task.1.2]
+title = "Evidence and artifacts through the S3 artifact store"
+status = "done"
+wave = 1
+requires = ["1.1"]
+touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "services/hyperfide/src/artifacts/objects.ts", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/1_2.py", "tests/hyperfide/evidence_store.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/1_2.py"
+do_1 = "When artifacts/hyperfide/tasks/<id> is absent, qualify.py resolves the task's evidence by receipt from the artifact store (artifact.object.read, artifact.manifest.read) into the local cache before checking; the local directory is a cache, never the authority."
+do_2 = "Publishing an evidence index commits it with artifact.manifest.commit under a retention class the operations manual documents; document bucket versioning and the credential variables the store reads."
+do_3 = "1_2.py exercises absent-local resolution, digest mismatch refusal and a missing receipt against the s3-v1 backend contract with a stub endpoint."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+
+[task.1.3]
+title = "One legible workflow source and pointer-only agent files"
+status = "done"
+wave = 1
+requires = []
+touches = ["spec/workflow.kvx", "src/spec.c", "src/agent.c", "tests/fixtures/specrepo/CLAUDE.md", "tests/fixtures/specrepo/.cursor/rules/spec-workflow.mdc", "tests/integration/81_workflow_pointer.sh"]
+# CLAUDE.md and AGENTS.md are gitignored render outputs: no commit can evidence them, so `spec render --check` in verify_cmd proves them instead. Present outputs must already be current; only a fresh clone, which has neither, renders them first (task 3.13).
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/81_workflow_pointer.sh && { ./cg spec render --check || { test ! -e CLAUDE.md && test ! -e AGENTS.md && ./cg spec render && ./cg spec render --check; }; }"
+do_1 = "Rewrite spec/workflow.kvx so no two statements contradict: the dependency rule names sqlite, libc, curl and crypto for the binary and declared pinned TypeScript dependencies for the services; status_values gain blocked; add [human] (three jobs: spec with the agent, inputs and judgement, final system test as the release gate), [asks] (five kinds, default policies), [publication] (per wave, final wave docs/release/changelog, task file current before every commit)."
+do_2 = "build_brief emits only: the pointer sentence, the active feature path, the loop, and where to find the rules; no principle or rule text is duplicated into generated files. Regenerate CLAUDE.md and AGENTS.md; make cg agentmd's context file point at the kvx the same way."
+do_3 = "81_workflow_pointer.sh asserts the generated files contain the pointer and nothing else, that the kvx parses, and that no statement in [principle] or [hard_rules] names a dependency the Makefile does not link."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.3"]
+owner = "workflow"
+
+[task.1.4]
+title = "Rebuild the service dist and refuse stale builds"
+status = "done"
+wave = 1
+requires = []
+touches = ["scripts/release.sh", "deploy/hyperfide/install-service.mjs", "tests/hyperfide/cases/v21/1_4.py", "services/hyperfide/package.json", "deploy/hyperfide/dist-stamp.mjs"]
+verify_cmd = "npm --prefix services/hyperfide run build && python3 tests/hyperfide/cases/v21/1_4.py"
+do_1 = "Rebuild dist from the current source so recovery/bootstrap_fence.js exists; add a stale-dist check (source digest recorded at build, compared at install and release) that fails install-service and release.sh when dist is older than src."
+do_2 = "1_4.py builds, tampers a source file, and asserts the check refuses."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.4"]
+owner = "deployment"
+
+[task.1.5]
+title = "Ship activation and adoption grants in the control policy"
+status = "done"
+wave = 1
+requires = ["1.1"]
+touches = ["deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/tasks/29_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/29_11.py", "tests/hyperfide/cases/tasks/29_12.py", "tests/hyperfide/support/withpg.py", "tests/hyperfide/proof_relocation.py", "tests/hyperfide/test_inspect_proof.py", "tests/hyperfide/manifests/tasks/29.1.json", "tests/hyperfide/manifests/tasks/29.5.json", "tests/hyperfide/manifests/tasks/29.9.json", "tests/hyperfide/manifests/tasks/29.11.json", "tests/hyperfide/manifests/tasks/29.12.json", "tests/hyperfide/manifests/tasks/27.1.json", "tests/hyperfide/manifests/tasks/28.3.json"]
+verify_cmd = "python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/qualify.py --case V-062 --manifest tests/hyperfide/manifests/tasks/29.5.json && python3 tests/hyperfide/support/withpg.py -- python3 tests/hyperfide/qualify.py --case V-058 --manifest tests/hyperfide/manifests/tasks/29.1.json"
+do_1 = "Add storage.authority.activate and storage.authority.adopt to the shipped control policy; remove the test-side injection in the four 29.x cases so they qualify against the shipped files."
+do_2 = "Re-run V-058 and record the receipt; the 29.5 ledger row changes from done-without-shipped-policy to done."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.4"]
+owner = "deployment"
+
+[task.1.6]
+title = "Bootstrap a clean host without ignored inputs"
+status = "done"
+wave = 1
+requires = []
+touches = [".gitignore", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/identity", "deploy/hyperfide/bootstrap-fence.mjs", "tests/hyperfide/cases/v21/1_6.py"]
+verify_cmd = "node --check deploy/hyperfide/bootstrap-host.mjs && python3 tests/hyperfide/cases/v21/1_6.py"
+do_1 = "Track deploy/hyperfide/identity/*.example.json (keep real identities ignored); bootstrap-host validates every input, including the dispatch worker key, before writing any file; preflight checks the Railway live variables, the identity file and the credential config and lists every missing name at once."
+do_2 = "1_6.py runs bootstrap in a temp root with each input missing in turn and asserts nothing is written and the message names the input."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.4"]
+owner = "deployment"
+
+[task.1.7]
+title = "CI builds and tests Hyperfide"
+status = "done"
+wave = 1
+requires = []
+touches = [".github/workflows/ci.yml", "tests/run.sh", "tests/integration/82_ci_matrix.sh"]
+verify_cmd = "bash tests/integration/82_ci_matrix.sh"
+do_1 = "Add CI jobs: npm ci, tsc --noEmit, build, node --check for every deploy/hyperfide/*.mjs, and a Postgres service job running tests/hyperfide/qualify.py --suite over the registered cases; keep the C jobs."
+do_2 = "tests/run.sh prints SKIP with a reason for a case whose prerequisites are absent and never counts it as PASS; 82_ci_matrix.sh asserts the workflow names each job and that run.sh distinguishes SKIP."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
+[task.1.8]
+title = "Repair the two failing C suites and close the orphaned Codify tasks"
+status = "done"
+wave = 1
+requires = []
+touches = ["tests/integration/62_ast_managed.sh", "tests/integration/78_v16_release.sh", "tests/integration/55_watch_health.sh", "spec/codify-v07.5/spec.kvx", "spec/codify-v11/spec.kvx"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/62_ast_managed.sh && CG=$PWD/cg bash tests/integration/78_v16_release.sh"
+do_1 = "Fix the link flags in 62 and the version gate in 78 so both pass against the current build without weakening what they check."
+do_2 = "Run codify-v07.5 task 3.1's verify once and close it with cg spec done -f codify-v07.5; close codify-v11 task 7.2 as superseded by codify-v16 with the reason in its kvx."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
+[task.1.9]
+title = "Client route contract test"
+status = "done"
+wave = 1
+requires = []
+touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/83_route_contract.sh"
+do_1 = "83_route_contract.sh extracts every route the C client declares and every action the component manifests export and fails on any route without an action or action without a route, naming them."
+do_2 = "Keep the test data-driven so 3.7 extends it with the Ask routes."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "client"
+
+[task.1.10]
+title = "Evaluate OpenHands as the console base"
+status = "done"
+wave = 1
+requires = []
+touches = ["docs/hyperfide/console-evaluation.md"]
+verify_cmd = "test -s docs/hyperfide/console-evaluation.md && grep -q '^## Recommendation' docs/hyperfide/console-evaluation.md"
+do_1 = "Evaluate a fork of OpenHands against enormously expanding the VS Code extension, on: licence, frontend reuse for four panels (Needs, Issues, Sandboxes, Leaders) over the Hyperfide read models, backend overlap with Hyperfide's own runtime and sandboxes, ACP and MCP fit, auth and multi-user, operating cost for a team of four, and time to a first usable panel."
+do_2 = "Write docs/hyperfide/console-evaluation.md with a Recommendation section and raise the choice as a decision Ask (fleet approval until 3.4) with both options and the recommended one; 6.10 consumes the answer."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "console"
+
+[task.1.11]
+title = "Measure one day of source traffic on the monorepo"
+status = "done"
+wave = 1
+requires = []
+touches = ["scripts/hyperfide/measure-source-day.sh", "docs/hyperfide/source-measurement.md", "docs/hyperfide/source-measurement/source-7d.json", "docs/hyperfide/source-measurement/source-day.json"]
+verify_cmd = "bash -n scripts/hyperfide/measure-source-day.sh && test -s docs/hyperfide/source-measurement.md"
+do_1 = "Write a script that samples, for one day on the real monorepo: clone bytes and seconds per sandbox, snapshot-to-integrated wait, rebase conflicts, GitHub push refusals and rate limits, and git maintenance time; it writes a JSON report."
+do_2 = "Running it needs the monorepo and provider access the agent does not have: raise a variable Ask for the report, and write docs/hyperfide/source-measurement.md from the answer, with the method and the numbers; 2.11, 5.4 and 5.6 read it."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.5"]
+owner = "source"
+
+[task.1.12]
+title = "Pushed fleet cards reach the editor"
+status = "done"
+wave = 1
+requires = []
+touches = ["editors/vscode/acp.js", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "Install the fleet-event watcher after the serve client connects, retry on reconnect, and prove an approval.request pushed by cg serve becomes a card in the chat."
+do_2 = "Extend 14_vscode.sh with the headless path: start serve, push the event, assert the card."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.2.1]
+title = "Orphan and quarantine resolution releases capacity"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/providers/pools.ts", "tests/hyperfide/cases/v21/2_1.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_1.py"
+do_1 = "Add operator actions to retain or delete an orphan and to release or retry a quarantined intent; each resolution releases the intent's capacity and records who decided; unresolved items older than the policy window raise a decision Ask (fleet approval until 3.4)."
+do_2 = "2_1.py creates an orphan and a quarantined intent, asserts capacity is unknown, resolves both, asserts capacity returns and the audit rows exist."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.1"]
+owner = "providers"
+
+[task.2.2]
+title = "Railway ownership probe and 429 backoff"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/railway/preparation.ts", "tests/hyperfide/cases/v21/2_2.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_2.py"
+do_1 = "Probe ownership of a lost native id through the Railway API before quarantining; back off with jitter on 429 and 5xx before any UNKNOWN transition, with the attempt count in the observation."
+do_2 = "2_2.py stubs the API for found, not found, 429 then found, and persistent 429."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.2"]
+owner = "providers"
+
+[task.2.3]
+title = "Attestation expiry warnings and live quota observers"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/providers/pools.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/blaxel/processes.ts", "tests/hyperfide/cases/v21/2_3.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_3.py"
+do_1 = "Warn (notification and Ask once 4.5 lands) seven days before a capacity attestation lapses; allow the Railway quota observer in live mode under a policy flag; add a Blaxel observer with the same contract."
+do_2 = "2_3.py asserts the warning window, the live observer path and the Blaxel contract."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.2"]
+owner = "providers"
+
+[task.2.4]
+title = "Fleet-wide stop with its own driver loop"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/recovery/stop.ts", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/tasks/24_3.py", "docs/hyperfide/operations.md", "deploy/hyperfide/env/control.env.example"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_4.py"
+do_1 = "Stop runs a driver loop instead of waiting for reconcile calls; add POOL, ORGANISATION and DEPLOYMENT scopes; paginate the debt inventory past 1,000."
+do_2 = "2_4.py stops 1,500 synthetic debts across two pools and asserts every one reaches a terminal disposition without an external reconcile."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.3"]
+owner = "recovery"
+
+[task.2.5]
+title = "Local supervisor waits for Asks and escalates to the configured main"
+status = "done"
+wave = 2
+requires = []
+touches = ["src/orchestrate.c", "src/fleet.c", "tests/integration/84_supervisor_wait.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/84_supervisor_wait.sh"
+do_1 = "Stall and budget checks skip an attempt whose task has an open fleet approval or Ask; escalation targets the hierarchy main from the workflow, never the literal gideon; remove the 32-escalation cap."
+do_2 = "84_supervisor_wait.sh runs a worker that idles with an open approval past the stall window and asserts it is neither nudged nor killed, then answers the approval and asserts it resumes."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.4"]
+owner = "supervisor"
+
+[task.2.6]
+title = "Finding events reach consumers"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/dispatcher.ts", "tests/hyperfide/cases/v21/2_6.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_6.py"
+do_1 = "Route findings emit() through outbox.enqueue with deliveries for the manager and operator consumers; add the finding.* dispatcher route."
+do_2 = "2_6.py emits a finding and asserts a delivery row and a dispatched event."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "findings"
+
+[task.2.7]
+title = "stdio mode with the identity component loaded"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/components/service.ts", "services/hyperfide/src/components/registry.ts", "tests/hyperfide/cases/v21/2_7.py", "tests/hyperfide/cases/tasks/15_2.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_7.py"
+do_1 = "In stdio mode synthesise a local operator invocation for the loopback principal, or refuse at start with a message that names the configuration; AUTH_REQUIRED on the default path is a bug."
+do_2 = "2_7.py starts the service in stdio mode with identity loaded and asserts a read action succeeds or the start refuses clearly."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "core"
+
+[task.2.8]
+title = "Secret references reach running sandboxes"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/runner/executor.ts", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/2_8.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_8.py"
+do_1 = "Executor passes env_refs from the task packet or environment profile instead of an empty object; add a relaunch-with-references path so a variable supplied after launch reaches the sandbox without losing the attempt."
+do_2 = "2_8.py launches with declared references, adds one, relaunches, and asserts the process sees the new reference while the attempt identity is preserved."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
+
+[task.2.9]
+title = "Deploy the supervisory host and the issue watcher"
+status = "done"
+wave = 2
+requires = []
+touches = ["deploy/hyperfide/supervisory-host.service", "deploy/hyperfide/issue-watcher.service", "deploy/hyperfide/bootstrap-host.mjs", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "deploy/hyperfide/env/supervisory-host.env.example", "deploy/hyperfide/env/issue-watcher.env.example", "deploy/hyperfide/config/supervisory-host.example.json", "deploy/hyperfide/config/main-budget.example.json", "deploy/hyperfide/config/issue-watcher.example.json", "deploy/hyperfide/policies/supervisory-host.example.json", "tests/hyperfide/cases/v21/1_6.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_9.py"
+do_1 = "Add both roles to ROLES with env and policy templates and an Install section; release.sh produces the qualification marker; releases.ts marks the units qualified only from that marker."
+do_2 = "2_9.py bootstraps both roles in a temp root and asserts the unit files, templates and marker; hyperfide 29.10 closes in 7.7 on this evidence."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.6"]
+owner = "deployment"
+
+[task.2.10]
+title = "Persist provisioner errors and harden install and release"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/providers/worker.ts", "deploy/hyperfide/install-service.mjs", "scripts/release.sh", "scripts/release-sign.sh", "tests/hyperfide/cases/v21/2_10.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_10.py"
+do_1 = "Provisioner worker errors are persisted with the intent; install-service reads the database before the pointer swap; release.sh signs release.json and fails without a key."
+do_2 = "2_10.py asserts each of the three behaviours."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.1"]
+owner = "deployment"
+
+[task.2.11]
+title = "Internal object store with per-region mirrors"
+status = "done"
+wave = 2
+requires = []
+touches = ["services/hyperfide/src/providers/railway/preparation.ts", "services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/preparation/object_store.ts", "deploy/hyperfide/bootstrap-host.mjs", "deploy/hyperfide/env/provisioner.env.example", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_11.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_11.py"
+do_1 = "Stand up a bare repository as the internal object store with a mirror per provider region, configured through the environment profile; the provisioner clones and fetches from the nearest mirror and never from GitHub."
+do_2 = "2_11.py asserts the source URL resolution per region, the refusal of a GitHub URL as a materialisation source, and mirror freshness reporting."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.1"]
+owner = "source"
+
+[task.2.12]
+title = "Slices by default for every worker"
+status = "done"
+wave = 2
+requires = ["2.11"]
+touches = ["services/hyperfide/src/preparation/slices.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_12.py", "docs/hyperfide/source-measurement.md"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_12.py"
+do_1 = "Every worker materialises a slice unless the packet records a full-tree reason; run 11.5's derivation against the real monorepo graph (a variable Ask supplies access) and record worktree bytes, derivation misses and widen events; tune the widen rules from the misses."
+do_2 = "2_12.py asserts slice-by-default, the recorded reason on fallback, and the widen path."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.1"]
+owner = "source"
+
+[task.2.13]
+title = "Sparse worktrees for the local fleet"
+status = "done"
+wave = 2
+requires = ["2.12"]
+touches = ["src/fleet.c", "src/hyperfide/client.c", "tests/integration/85_sparse_worktree.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/85_sparse_worktree.sh"
+do_1 = "cg slice <task> fetches the slice manifest from the packet; fleet workers get git worktree add plus sparse-checkout set from it instead of a full copy."
+do_2 = "85_sparse_worktree.sh asserts a worker tree contains only the manifest paths and the build roots."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.1"]
+owner = "source"
+
+[task.2.14]
+title = "CI runs the credential-store registrations and gates live provider cases on secrets"
+status = "done"
+wave = 2
+requires = ["1.7"]
+touches = [".github/workflows/ci.yml", "tests/integration/82_ci_matrix.sh", "tests/hyperfide/ci"]
+verify_cmd = "bash tests/integration/82_ci_matrix.sh"
+do_1 = "The hyperfide-qualify job materialises a fixture credential-store configuration (schema_version 1 with secret_root, attachment_root, sources and targets, as services/hyperfide/src/identity/credentials.ts validates it) under a temp root and exports HF_CREDENTIAL_CONFIG_FILE, so registrations 9.1 to 9.4 run instead of printing SKIP; they need no real secret."
+do_2 = "Live provider cases run only when the RAILWAY_TOKEN repository secret is present, mapped into the job environment; without it they print SKIP with the reason. Secret values are never echoed, and the workflow passes them only to the steps that need them (D13)."
+do_3 = "The native-binary and parity-manifest registrations keep printing SKIP naming the missing variable; 82_ci_matrix.sh asserts the materialisation step, the secret gating, and each SKIP reason."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
+[task.2.15]
+title = "Terminal superseded status in the spec engine, and the load-sensitive suites"
+status = "done"
+wave = 2
+requires = ["1.8"]
+touches = ["src/spec.c", "spec/workflow.kvx", "spec/codify-v11/spec.kvx", "tests/integration/23_dblock.sh", "tests/integration/32_supervisor.sh", "CONTRIBUTING.md", "tests/integration/85_superseded_status.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/85_superseded_status.sh && CG=$PWD/cg bash tests/integration/23_dblock.sh"
+do_1 = "Add a terminal superseded task status: lint accepts it, status and progress count it as closed but not qualified, next and ready skip it, render gives it a glyph; list it in spec/workflow.kvx status_values; then set codify-v11 task 7.2 to superseded (its superseded_by and superseded_reason keys already exist)."
+do_2 = "23_dblock.sh must pass when the caller exported CG_BUSY_TIMEOUT_MS or HYPERFIDE_BUSY_TIMEOUT_MS (clear the alias the test does not set); make the 2 s wall budget in 32_supervisor.sh hold on a loaded host (scale by load or measure against a reference) without weakening what it proves; correct CONTRIBUTING.md line 25, which still says 62 and 78 fail by design."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.5"]
+owner = "ci"
+
+[task.2.16]
+title = "Provider resolutions escalate on the provisioner worker loop"
+status = "done"
+wave = 2
+requires = ["2.1"]
+touches = ["services/hyperfide/src/providers/worker.ts", "services/hyperfide/src/providers/reconcile.ts", "deploy/hyperfide/env/control.env.example", "deploy/hyperfide/env/provisioner.env.example", "tests/hyperfide/cases/v21/2_16.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_16.py"
+do_1 = "Call provider.resolutions.escalate from the provisioner worker loop on a cadence (HYPERFIDE_RESOLUTION_ESCALATE_INTERVAL_MS, 0 disables); document HYPERFIDE_PROVIDER_RESOLUTION_WINDOW_SECONDS in the env examples as a commented operator value (3600 recommended, no default in code, D15)."
+do_2 = "2_16.py asserts that an overdue orphan raises exactly one decision Ask from the loop, that a second pass raises none, that a resolved subject marks it ANSWERED, and that escalate refuses with RESOLUTION_WINDOW_REQUIRED when the window is unset."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.1"]
+owner = "providers"
+
+[task.2.17]
+title = "Admission writes env_refs into the runner packet"
+status = "done"
+wave = 2
+requires = ["2.8"]
+touches = ["services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/executor.ts", "tests/hyperfide/cases/v21/2_17.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/2_17.py"
+do_1 = "Admission in bridge.ts validates the task's secret references with declaredEnvReferences against the pool's environment profile and writes env_refs (NAME to secret-ref:ID) into the admitted RunnerRemotePlan; validatePlan accepts the field (D17)."
+do_2 = "2_17.py asserts that an admitted packet carries the references, that an undeclared reference is refused at admission with RUNNER_SECRET_REFERENCE_UNDECLARED, and that a packet without references is unchanged."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
+
+[task.3.1]
+title = "The asks table"
+status = "done"
+wave = 3
+requires = []
+touches = ["services/hyperfide/migrations", "services/hyperfide/src/contracts/records.ts", "tests/hyperfide/cases/v21/3_1.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_1.py"
+do_1 = "Migration: hyperfide.asks as append-only events plus a mutable head with state_version; columns kind, title, body, options, recommended, deadline, default_policy, chain, task, attempt, session, sandbox, raised_by, answered_by, answer, decided_by_default."
+do_2 = "3_1.py applies the migration, inserts each kind, answers one, expires one, and asserts the head and event rows."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.1"]
+owner = "ask"
+
+[task.3.2]
+title = "Raise and answer Asks for operators"
+status = "done"
+wave = 3
+requires = ["3.1"]
+touches = ["services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/events/outbox.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json", "tests/hyperfide/cases/v21/3_2.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_2.py"
+do_1 = "Actions human.ask.raise, human.ask.answer, human.ask.list and human.ask.expire beside route(); an operator outbox consumer separate from the leader consumer; ask.* actions in every shipped policy, regenerated from their source."
+do_2 = "3_2.py raises from a worker role, lists as operator, answers, and asserts delivery to the operator consumer and the leader's view."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.1"]
+owner = "ask"
+
+[task.3.3]
+title = "Blocked is the waiting state"
+status = "done"
+wave = 3
+requires = ["1.3", "3.1"]
+touches = ["services/hyperfide/src/spec/dependencies.ts", "services/hyperfide/src/spec/obligations.ts", "services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/scheduler/resources.ts", "src/spec.c", "spec/workflow.kvx", "tests/hyperfide/cases/v21/3_3.py", "tests/integration/86_blocked_status.sh"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_3.py && make -j2 cg && CG=$PWD/cg bash tests/integration/86_blocked_status.sh"
+do_1 = "Service: a task with an open blocking Ask enters blocked with the Ask reference; blocked is not eligible for dependants, is preserved by stop, and returns to in_progress on answer. C: blocked is a declared status with its own glyph, lint rule and spec next behaviour, distinct from the docs stage word."
+do_2 = "3_3.py and 86_blocked_status.sh assert the transitions, the dependant ineligibility, and stop preservation."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.2"]
+owner = "ask"
+
+[task.3.4]
+title = "Asks in the C core"
+status = "done"
+wave = 3
+requires = []
+touches = ["src/db.c", "src/fleet.c", "src/serve.c", "src/ask.c", "src/cg.h", "tests/integration/87_ask.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/87_ask.sh"
+do_1 = "Generalise fleet_approvals into an asks table with the same shape as 3.1; cg ask raise, answer, list; ask.raised and ask.answered events; the serve snapshot carries an asks array; fleet approve keeps working as the permission kind."
+do_2 = "87_ask.sh raises each kind, answers, expires with each default policy, and asserts events and snapshot."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.3"]
+owner = "ask"
+
+[task.3.5]
+title = "Ask tools over MCP and the instruction rule"
+status = "done"
+wave = 3
+requires = ["3.4"]
+touches = ["src/mcp.c", "src/ask.c", "src/cg.h", "spec/workflow.kvx", "README.md", "tests/integration/88_mcp_ask.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh"
+do_1 = "MCP tools ask_raise, ask_status, ask_list and approvals_list; the workflow kvx carries the instruction rule for when an agent raises each kind instead of defaulting, rendered into the pointer file's loop."
+do_2 = "88_mcp_ask.sh calls each tool through the MCP transport and asserts the rows."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.3"]
+owner = "ask"
+
+[task.3.6]
+title = "Per-kind Ask policy and decided-by-default records"
+status = "done"
+wave = 3
+requires = ["3.2"]
+touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/decisions/jobs.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0712-ask-default-decisions.sql", "services/hyperfide/components/1.2-asks.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json", "tests/hyperfide/cases/v21/3_2.py", "tests/hyperfide/cases/v21/3_6.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_6.py"
+do_1 = "A policy table per kind: block or proceed-and-flag, deadline, escalation chain; on expiry under proceed-and-flag write a decision record naming the Ask, the default taken and who would have answered."
+do_2 = "3_6.py expires one Ask per kind and asserts the policy outcome and the decision record."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.4"]
+owner = "ask"
+
+[task.3.7]
+title = "Ask routes in the client"
+status = "done"
+wave = 3
+requires = ["3.2", "1.9"]
+touches = ["src/hyperfide/client.c", "services/hyperfide/components", "tests/integration/83_route_contract.sh", "tests/fixtures/route_contract/server_only.txt", "src/help.c", "README.md", "tests/hyperfide/cases/v21/3_7.py"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/83_route_contract.sh"
+do_1 = "Client routes for the four ask actions with components JSON entries; the contract test covers them."
+do_2 = "cg hyperfide ask raise|answer|list work against a running control service."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.3"]
+owner = "client"
+
+[task.3.8]
+title = "Snapshots as the unit of record"
+status = "done"
+wave = 3
+requires = ["2.12"]
+touches = ["services/hyperfide/migrations", "services/hyperfide/src/assurance/submission.ts", "src/hyperfide/checkpoint.c", "tests/hyperfide/cases/v21/3_8.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_8.py"
+do_1 = "hyperfide.source_snapshots: task, attempt, base tree, result tree, slice digest, checkpoint receipt, diff statistics; a capture action writes the worker tree as a tree object plus checkpoint and records the row; worker results (16.1) carry the snapshot id; agents never commit."
+do_2 = "3_8.py captures from a slice workspace and asserts the row, the tree identity and that the workspace has no commits."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.2"]
+owner = "source"
+
+[task.3.9]
+title = "Built-in store: stat cache and non-authoritative mode"
+status = "done"
+wave = 3
+requires = []
+touches = ["src/vcs.c", "src/cg.h", "tests/integration/89_vcs_statcache.sh", "src/hyperfide/client.c", "src/integrate.c", "src/spec.c", "src/help.c"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/89_vcs_statcache.sh"
+do_1 = "A stat cache keyed on path, size and mtime so a snapshot hashes only changed files; a non-authoritative flag in distributed mode (25.3) printed by cg status and state; cg commit is no longer required of agents."
+do_2 = "89_vcs_statcache.sh asserts an unchanged tree re-snapshots without re-reading files and that distributed mode marks the store non-authoritative."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.5"]
+owner = "source"
+
+[task.3.10]
+title = "Secret references reach the launched agent"
+status = "done"
+wave = 3
+requires = ["2.8", "2.17"]
+touches = ["services/hyperfide/src/events/instructions.ts", "services/hyperfide/src/runner/dispatch.ts", "src/hyperfide/launch.c", "src/hyperfide/job.c", "tests/hyperfide/cases/v21/3_10.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_10.py"
+do_1 = "The START instruction schema and runner/dispatch.ts carry the launch's declared env_refs (names and secret references, never values) so launch.c receives them from a coordinator-issued START, and job.c passes the resolved references into the job child's environment after clearenv() instead of stopping at the runner process."
+do_2 = "3_10.py proves a START with env_refs is admitted and reaches the launch, a START without them still works, values are never logged, a job child observes the resolved variable, and an undeclared reference is refused."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
+
+[task.3.11]
+title = "Stops hold their scope and the fleet accepts superseded"
+status = "done"
+wave = 3
+requires = ["2.4", "2.15"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "src/orchestrate.c", "src/fleet.c", "src/docs.c", "src/drift.c", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_11.py", "tests/integration/90_superseded_fleet.sh", "tests/hyperfide/cases/v21/2_4.py", "docs/hyperfide/operations.md"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_11.py && make -j2 cg && CG=$PWD/cg bash tests/integration/90_superseded_fleet.sh"
+do_1 = "A POOL, ORGANISATION or DEPLOYMENT stop keeps holding its scope, so a run or sandbox admitted after the stop settled is refused or stopped by the driver, and a refused DEPLOYMENT stop returns an error rather than ok:true; the fleet, docs and drift paths treat superseded as closed so a feature carrying a superseded task runs under cg fleet up; 2_10.py exits 77 with SKIP when not root instead of recording a passing check."
+do_2 = "3_11.py starts a run after an ORGANISATION stop has reconciled and asserts it does not stay RUNNING; 90_superseded_fleet.sh runs a scratch feature with one superseded task under cg fleet up --foreground and asserts the fleet refuses nothing for it."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.3"]
+owner = "recovery"
+
+[task.3.12]
+title = "Finding consumers are claimable and provider throttling backs off"
+status = "done"
+wave = 3
+requires = ["2.6", "2.2"]
+touches = ["services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/events/outbox.ts", "services/hyperfide/src/events/dispatcher.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/providers/reconcile.ts", "tests/hyperfide/cases/v21/3_12.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_12.py"
+do_1 = "finding:manager and finding:operator receive finding deliveries only, not every enqueue that names no consumers; their consumer ids are stable and named in the shipped dispatch worker config so a deployed stack claims them; Railway writes (sandboxCreate and the rest) back off on 429 and 5xx before any UNKNOWN transition; an ownership probe that exhausts its retries yields UNVERIFIED, not not-ours; a DELETED inventory row is never overwritten to OWNERSHIP_VERIFIED by a later probe."
+do_2 = "3_12.py proves a task.changed event is not delivered to the finding consumers while a finding is, the shipped dispatch config names them, a 429 on sandboxCreate retries before UNKNOWN, an exhausted probe is UNVERIFIED, and a DELETED row survives re-observation."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.2"]
+owner = "findings"
+
+[task.3.13]
+title = "Evidence cache, dist stamp, preflight and the 1.3 check"
+status = "done"
+wave = 3
+requires = ["1.2", "1.3", "1.4", "1.6", "1.12"]
+touches = ["tests/hyperfide/evidence_store.py", "deploy/hyperfide/dist-stamp.mjs", "deploy/hyperfide/bootstrap-host.mjs", "spec/hyperfide-v21/spec.kvx", "tests/integration/14_vscode.sh", "tests/hyperfide/cases/v21/3_13.py", "docs/hyperfide/operations.md"]
+verify_cmd = "python3 tests/hyperfide/cases/v21/3_13.py && make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "evidence_store.resolve() compares a local artifacts cache with the tracked receipt's content digest before treating it as resolved; dist-stamp hashes the emitted dist tree so a missing or hand-edited dist file reads stale; bootstrap-host preflight stats HF_CREDENTIAL_CONFIG_FILE, lists every missing name at once and warns when HF_SLICE_SOURCE_CONFIG is absent; task 1.3's verify_cmd renders before --check so it passes on a fresh clone; 14_vscode.sh's pushed section drives activate() rather than a copy of the wiring and its delayed-old-cg check no longer depends on wall-clock timing."
+do_2 = "3_13.py proves a tampered cache is refused, a removed dist file makes the stamp stale, preflight reports two missing names in one refusal and warns on the absent slice source, and the 1.3 verify_cmd passes in a fresh worktree."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+[task.3.14]
+title = "One MCP ask surface in both modes"
+status = "done"
+wave = 3
+requires = ["3.5", "3.7"]
+touches = ["src/mcp.c", "src/hyperfide/client.c", "src/help.c", "README.md", "tests/integration/88_mcp_ask.sh", "tests/integration/95_mcp_route_names.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/88_mcp_ask.sh && CG=$PWD/cg bash tests/integration/95_mcp_route_names.sh"
+do_1 = "In distributed mode cg mcp exposes exactly one set of ask tools, the native ask_raise, ask_status, ask_list and approvals_list, which call the 3.7 client routes when the transport is distributed and the local store otherwise; tools derived from the route table never reuse a native tool name and skip the 1.2-asks component; the ask entry in src/help.c names the MCP tools; the README sentence saying the local CLI is not a control-service client is replaced by the routed-command truth."
+do_2 = "95_mcp_route_names.sh lists the MCP tools in local and distributed mode and asserts that no name appears twice, that the four ask tools are present in both modes, that no route-derived tool is named ask_*, and that in distributed mode ask_raise reaches the routed client through a stub transport that records the route."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.3"]
+owner = "ask"
+
+[task.3.15]
+title = "Launch references have a producer"
+status = "done"
+wave = 3
+requires = ["3.10", "2.17"]
+touches = ["services/hyperfide/src/agents/dispatch.ts", "services/hyperfide/src/agents/env_refs.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/migrations/0713-launch-plan-env-refs.sql", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/3_15.py", "services/hyperfide/src/policy/human_interface.ts", "spec/hyperfide-v21/spec.kvx"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_15.py"
+do_1 = "An agent launch's declared secret references live on the admission selection: the pool profile's task declaration (taskEnvReferences) is copied into hyperfide.native_launch_plans (new env_refs column, migration 0713) by the admission path that creates the plan, through a helper in agents/env_refs.ts called once from admission.ts, and agents/dispatch.ts launchPlan() returns them, so every coordinator-issued START carries env_refs without a hand-built request; under launch.serve, launch.c resolves references per START from the provider-resolved environment of the exec that started the serve process, re-read at each START, and refuses a START whose references it cannot resolve with a named error instead of launching without them."
+do_2 = "3_15.py proves a plan created from a pool profile with declared references stores them, launchPlan() returns them, the START carries exactly the declared names and never a value, a serve-mode launch resolves them per START, and a START naming an undeclared reference is refused."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "runner"
+
+[task.3.16]
+title = "Fleet stops release and admission honours a held scope"
+status = "done"
+wave = 3
+requires = ["3.11"]
+touches = ["services/hyperfide/src/recovery/stop.ts", "services/hyperfide/src/recovery/scope_hold.ts", "services/hyperfide/src/agents/admission.ts", "services/hyperfide/components/24.3.json", "services/hyperfide/src/identity/enrollment.ts", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/2_4.py", "tests/hyperfide/cases/v21/3_16.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_16.py"
+do_1 = "A held POOL, ORGANISATION or DEPLOYMENT stop can be released: a recovery.stop.release action with operator authority (a leader may release a POOL stop) marks the stop RELEASED, records who released it and why, emits an event, and the driver stops scanning it; admission refuses a run or sandbox whose scope is under a held stop with a named error instead of admitting it for the driver to stop later; the release and the admission check live in recovery/scope_hold.ts with a one-call insertion into admission.ts; 2_4.py prints SKIP and exits 77 when not root."
+do_2 = "3_16.py holds an ORGANISATION stop, proves a run admission in that organisation is refused, releases the stop, proves the same admission is then admitted and a replayed release is idempotent, and proves a non-operator release of a DEPLOYMENT stop is refused and recorded."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.3"]
+owner = "recovery"
+
+[task.3.17]
+title = "Finding readers registered and intake triage attributable"
+status = "done"
+wave = 3
+requires = ["4.6", "3.12"]
+touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/migrations/0714-intake-triage.sql", "deploy/hyperfide/policies/control.example.json", "tests/hyperfide/cases/v21/3_17.py", "services/hyperfide/components/18.2.json", "services/hyperfide/components/18.3.json", "services/hyperfide/components/18.4.json", "deploy/hyperfide/policies/dispatch.example.json", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/4_6.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_17.py"
+do_1 = "The three 4.6 readers (leader queue, external intake, escalated repair) are registered component actions under the four-place rule (manifest, policy example, registry read-only list, docs) with the authority 4.6 names; finding_external_intake records who triaged an issue, why and when (triaged_by, triage_reason, triaged_at in migration 0714) and the dismiss and link paths fill them; policy/human_interface.ts exports deliverAsk and askView and remediation.ts uses them instead of its copy."
+do_2 = "3_17.py proves each reader is reachable as a registered action with the right authority and refused without it, that a dismissal records actor and reason, and that a repair escalation Ask delivered through the shared helper has the same shape as a 3.2 Ask."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.5"]
+owner = "findings"
+
+[task.3.18]
+title = "Load-tolerant suites and honest skips"
+status = "done"
+wave = 3
+requires = ["3.13"]
+touches = ["tests/integration/14_vscode.sh", "tests/integration/42_journal.sh", "tests/integration/48_plugin.sh", "tests/integration/81_workflow_pointer.sh", "tests/hyperfide/cases/v21/2_8.py", "tests/hyperfide/cases/v21/2_12.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/tasks/29_7.py", "tests/hyperfide/cases/tasks/9_4.py", "tests/hyperfide/cases/tasks/8_2.py", "editors/vscode/extension.js", "editors/vscode/serve.js", "tests/hyperfide/support/identity_fixture.py", "tests/hyperfide/cases/v21/3_18.py"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh && CG=$PWD/cg bash tests/integration/42_journal.sh && CG=$PWD/cg bash tests/integration/48_plugin.sh && python3 tests/hyperfide/cases/v21/3_18.py"
+do_1 = "No suite fails on wall-clock time under host load: the event, decoration and 10000-push checks of 14_vscode.sh, its serve section's delayed-old-cg check, and the lock-hold window of 42_journal.sh measure the work done or use a budget derived from a baseline measured in the same run; 48_plugin.sh either performs its validate check or exits 77 with SKIP; 29_7.py, 9_4.py and 8_2.py print SKIP and exit 77 without DATABASE_URL; 81_workflow_pointer.sh is executable; 2_8.py's fixture.root assertion can fail, 2_12.py's gate assertion observes behaviour rather than source text, and 2_1.py shows a RELEASE_PENDING reservation being reused; extension.js's reconnect path re-registers the event watcher observably or drops the dead call."
+do_2 = "3_18.py runs the changed suites while N busy workers load the host and proves they pass, and proves each formerly weak assertion fails against a deliberately broken input."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+
+[task.3.19]
+title = "Evidence receipts publish from the host and the release marker reads from the store"
+status = "done"
+wave = 3
+requires = ["3.13", "1.2"]
+touches = ["tests/hyperfide/evidence_store.py", "tests/hyperfide/publish-evidence.py", "tests/hyperfide/qualify.py", "services/hyperfide/src/artifacts/objects.ts", "scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "tests/integration/80_qualification_inputs.sh", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_19.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_19.py && make -j2 cg && CG=$PWD/cg bash tests/integration/80_qualification_inputs.sh"
+do_1 = "A host command, tests/hyperfide/publish-evidence.py (also reachable as qualify.py --publish), publishes a task's evidence bundle through publishEvidenceBundle and artifact.manifest.commit and writes the tracked receipt tests/hyperfide/evidence-receipts/<task>.json; without the HF_ARTIFACT_S3_* variables it refuses and lists the missing names, never a silent skip; scripts/release.sh and deployment/releases.ts take the 26.4 marker input from the store by receipt when artifacts/ is absent, so a clean host can release; 80_qualification_inputs.sh cross-checks receipts against refs/evidence whenever receipts exist, with a fixture so CI exercises the check."
+do_2 = "3_19.py publishes a bundle into the fixture store, proves the receipt resolves on a clean tree, proves a forged receipt and a missing variable are refused, proves the release marker is read from the store on a tree without artifacts/, and runs the 80 cross-check against the fixture receipt in both the passing and the unmapped-commit case."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+
+[task.3.20]
+title = "Sparse by default and the slice gate on every launch"
+status = "done"
+wave = 3
+requires = ["2.12", "2.13"]
+touches = ["src/orchestrate.c", "src/fleet.c", "spec/workflow.kvx", "services/hyperfide/src/runner/executor.ts", "services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/preparation/slices.ts", "tests/integration/26_fleet.sh", "tests/integration/33_drift.sh", "tests/integration/84_supervisor_wait.sh", "tests/integration/85_sparse_worktree.sh", "docs/hyperfide/source-measurement.md", "tests/hyperfide/cases/v21/3_20.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && CG=$PWD/cg bash tests/integration/85_sparse_worktree.sh && CG=$PWD/cg bash tests/integration/26_fleet.sh && python3 tests/hyperfide/cases/v21/3_20.py"
+do_1 = "Local fleet workers use sparse worktrees by default: the orchestrator begins workers with the slice flag unless [hierarchy] sparse = \"full\" opts out, manager and wave worktrees state their rule, and a worker that needs a file outside its slice widens through a local widen step recorded in the task packet; the service's worker workspace gate runs for every job kind and for agent launches unless the packet records a FULL_TREE reason, bridge.ts admission writes request.workspace from the packet, slices.ts checks occupancy by run, slice metadata roots include ancestor .gitignore files, and the executor launches in the slice workspace path; the 26, 33 and 84 fixtures no longer write outside their touches; a variable Ask for monorepo access is written for the measurement 2.12 could not run."
+do_2 = "3_20.py proves a default fleet worker is sparse, a widen is recorded, a test job and an agent launch without a slice are refused unless FULL_TREE is declared, and a sealed slice with an ancestor .gitignore can run git status and capture a snapshot."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.1"]
+owner = "source"
+
+[task.3.21]
+title = "Supervisor exemptions, superseded handling and source host refusal"
+status = "done"
+wave = 3
+requires = ["3.4", "3.11", "2.15"]
+touches = ["src/orchestrate.c", "src/spec.c", "src/fleet.c", "services/hyperfide/src/preparation/object_store.ts", "tests/integration/93_supervisor_scope.sh", "tests/hyperfide/cases/v21/3_21.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && CG=$PWD/cg bash tests/integration/93_supervisor_scope.sh && python3 tests/hyperfide/cases/v21/3_21.py"
+do_1 = "sup_waiting exempts an attempt from stall and budget only for an open approval or a blocking Ask that belongs to the current run, so a leftover row from an earlier run for the same subject exempts nothing; fleet_approval_decide refuses to decide an approval twice and keeps the linked Ask's answer as the single truth; fleet.c sends approval.request after ask_raise so the payload carries the ask id; cg spec done --force refuses a superseded task, and cg spec next and cg spec ready name a dependant blocked by a superseded requirement; object_store.ts isGitHubHost refuses IP-literal hosts (v4, v6 and mapped) as materialisation sources."
+do_2 = "93_supervisor_scope.sh seeds a stale approval and an open Ask from another run and proves the current attempt is not exempt, then proves the current run's open Ask does exempt it, that a second decide is refused, that the approval payload carries the ask id, that force on a superseded task is refused, and that next and ready name the cause; 3_21.py probes the IP-literal forms."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.4"]
+owner = "supervisor"
+
+[task.3.22]
+title = "Release signatures verified"
+status = "done"
+wave = 3
+requires = ["2.9", "2.10"]
+touches = ["scripts/release-sign.sh", "scripts/release.sh", "deploy/hyperfide/install-service.mjs", "services/hyperfide/src/deployment/releases.ts", "tests/hyperfide/cases/v21/2_9.py", "tests/hyperfide/cases/v21/2_10.py", "tests/hyperfide/cases/v21/3_22.py", "tests/hyperfide/cases/tasks/25_4.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_22.py"
+do_1 = "install-service and the release inspector verify release.json.sig against the configured public key before any file is used and refuse a missing, stale or forged signature with a named error; release-sign.sh's key gate stats the key file before the build starts; 2_9.py and 2_10.py assert marker staging and signing by running the scripts and reading their outputs, not by grepping their text."
+do_2 = "3_22.py signs a release with a scratch key, installs it, then proves a tampered release.json, a missing .sig and a wrong key are each refused, and that a missing key file fails before make runs."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["2.6"]
+owner = "deployment"
+
+[task.3.23]
+title = "Provider resolution Asks live in the asks store"
+status = "done"
+wave = 3
+requires = ["3.1", "3.2", "3.6"]
+touches = ["services/hyperfide/src/providers/reconcile.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/src/spec/import.ts", "services/hyperfide/migrations/0715-provider-asks-merge.sql", "docs/hyperfide/operations.md", "tests/hyperfide/cases/v21/3_23.py", "tests/hyperfide/cases/v21/2_1.py", "tests/hyperfide/cases/v21/2_16.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/3_23.py"
+do_1 = "Provider resolution Asks are raised into hyperfide.asks through the 3.2 raise path (kind decision, operator chain) and answered through human.ask.answer, which applies the resolution to the provider inventory; migration 0715 copies the open 0708 rows across and leaves the old table as read-only history, so human.ask.list shows every open Ask in one place; the operator:asks consumer is registered BUFFERING when a run is imported, guarded on the event_consumers migration being applied, so no deploy step is needed."
+do_2 = "3_23.py raises an ownership resolution, proves it appears in human.ask.list, answers it and proves the inventory row moves accordingly, proves a pre-existing 0708 row is migrated, and proves a freshly imported run has the operator:asks consumer registered."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["3.1"]
+owner = "ask"
+
+[task.3.24]
+title = "Harness and docs hygiene"
+status = "done"
+wave = 3
+requires = ["3.9", "5.2"]
+touches = ["docs/hyperfide/operations.md", "deploy/hyperfide/env/control.env.example", "tests/hyperfide/cases/tasks/24_1.py", "tests/hyperfide/cases/tasks/29_5.py", "tests/hyperfide/cases/tasks/15_1.py", "services/hyperfide/src/runner/bridge.ts", "src/runtime.c", "editors/vscode/serve.js", "tests/hyperfide/cases/v21/3_24.py", "tests/hyperfide/cases/tasks/13_4.py", "src/vcs.c", "src/cg.h"]
+verify_cmd = "npm --prefix services/hyperfide run check && make -j2 cg && python3 tests/hyperfide/cases/v21/3_24.py"
+do_1 = "operations.md and control.env.example document HYPERFIDE_DRAIN_TIMEOUT_MS, HYPERFIDE_DRAIN_FALLBACK_MODE, HYPERFIDE_OFFLINE_POLICY and HYPERFIDE_MAX_OFFLINE_MS; 24_1.py's sql() connects through DATABASE_URL; 29_5.py's postgres_bin picks a version that ships initdb; 15_1.py's cleanup survives an unset DATABASE_URL; runner/bridge.ts imports RUNNER_HEARTBEAT_MAX_AGE_SECONDS instead of repeating 90; src/runtime.c's runtime_workspace_revision uses the vcs stat cache instead of its own; editors/vscode/serve.js's unused tool() and cancel() are removed or wired."
+do_2 = "3_24.py proves the documented names match the names the code reads, that the three cases SKIP or run cleanly under the stated preconditions, and that the bridge bound equals the placement constant."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+
+[task.4.1]
+title = "Classifier writes Asks"
+status = "done"
+wave = 4
+requires = ["3.2"]
+touches = ["services/hyperfide/src/agents/admission.ts", "services/hyperfide/src/agents/native_asks.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/components/13.4.json", "tests/hyperfide/cases/tasks/13_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/v21/4_1.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_1.py"
+do_1 = "Add the QUESTION signal for Claude AskUserQuestion and Codex requestUserInput, keep the text, and on QUESTION or APPROVAL raise an Ask with the options parsed from the event."
+do_2 = "4_1.py feeds both native shapes and asserts the Ask rows and the preserved text."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.1"]
+owner = "ask"
+
+[task.4.2]
+title = "Native events leave the sandbox"
+status = "done"
+wave = 4
+requires = ["4.1"]
+touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/api.ts", "services/hyperfide/components/12.2.json", "src/hyperfide/launch.c", "tests/hyperfide/cases/v21/4_2.py", "tests/integration/101_launch_events.sh", "services/hyperfide/src/runner/dispatch.ts", "services/hyperfide/components/13.4-supervision.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/hyperfide/cases/tasks/12_2.py", "tests/hyperfide/cases/tasks/13_4.py", "tests/hyperfide/cases/tasks/18_4.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_2.py && make -j2 cg && CG=$PWD/cg bash tests/integration/101_launch_events.sh"
+do_1 = "launch.c forwards classified native events through runner.launch.event.record; add the 12.2 handler; supervision inspect and runner ingest call the classifier."
+do_2 = "4_2.py and 101_launch_events.sh assert an AskUserQuestion inside a launched process becomes an Ask row."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.1"]
+owner = "runner"
+
+[task.4.3]
+title = "Launch prompt policy"
+status = "done"
+wave = 4
+requires = ["3.5"]
+touches = ["README.md", "src/hyperfide/connectors.c", "tests/integration/91_connector_flags.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/91_connector_flags.sh"
+do_1 = "Keep prompts disabled (dontAsk, permission-prompts none, approvalPolicy never) and inject the codify MCP server with the ask tools and the instruction rule into every launch; document why a blocked prompt in a sandbox is invisible."
+do_2 = "91_connector_flags.sh asserts the flags and the MCP injection for both connectors."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.1"]
+owner = "runner"
+
+[task.4.4]
+title = "Answers reach the agent"
+status = "done"
+wave = 4
+requires = ["3.4", "4.2"]
+touches = ["services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/events/instructions.ts", "src/drivers.c", "src/orchestrate.c", "tests/hyperfide/cases/v21/4_4.py", "tests/integration/92_answer_rewake.sh"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_4.py && make -j2 cg && CG=$PWD/cg bash tests/integration/92_answer_rewake.sh"
+do_1 = "Deliver an answer to a leader through supervisor.session.input and to a worker through 6.3 instructions; a -p worker that made no edits while blocked is re-woken with the answer in its prompt."
+do_2 = "4_4.py and 92_answer_rewake.sh assert both deliveries and the re-wake."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.2"]
+owner = "ask"
+
+[task.4.5]
+title = "Notification producers and the operator target"
+status = "done"
+wave = 4
+requires = ["3.2"]
+touches = ["services/hyperfide/src/observability/notifications.ts", "services/hyperfide/components/4.5-operator.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_5.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_5.py"
+do_1 = "Produce notifications on Ask raised, Ask expired and repair escalated; add an operator target with a webhook channel configured by variable."
+do_2 = "4_5.py asserts each producer and the target delivery with a stub webhook."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.3"]
+owner = "observability"
+
+[task.4.6]
+title = "Readers for the leader queue, external intake and escalated repairs"
+status = "done"
+wave = 4
+requires = ["2.6"]
+touches = ["services/hyperfide/src/findings/routing.ts", "services/hyperfide/src/findings/github.ts", "services/hyperfide/src/findings/remediation.ts", "tests/hyperfide/cases/v21/4_6.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_6.py"
+do_1 = "Each of the three has a reader that lists, acknowledges and routes; escalated repairs raise a decision Ask."
+do_2 = "4_6.py asserts the readers and the Ask."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.3"]
+owner = "findings"
+
+[task.4.7]
+title = "Seed Asks from open decisions"
+status = "done"
+wave = 4
+requires = ["3.2"]
+touches = ["spec/hyperfide/decisions.md", "tests/hyperfide/cases/v21/4_7.py", "services/hyperfide/src/policy/ask_seed.ts", "services/hyperfide/src/policy/human_interface.ts", "services/hyperfide/components/1.2-asks.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "deploy/hyperfide/policies/provisioner.example.json"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_7.py"
+do_1 = "Raise a decision Ask for each open item O-01 to O-12 and E-01 with the options from decisions.md; raise expiring attestations, fence permit TTLs and drain deadlines as Asks from their observers."
+do_2 = "4_7.py asserts the seeded rows and idempotent re-seeding."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["4.4"]
+owner = "ask"
+
+[task.4.8]
+title = "The integrator merge queue"
+status = "done"
+wave = 4
+requires = ["3.8"]
+touches = ["services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/integration/closure.ts", "services/hyperfide/src/integration/queue.ts", "services/hyperfide/components/19.1-queue.json", "deploy/hyperfide/policies/control.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/4_8.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_8.py"
+do_1 = "Fold qualified result trees onto the internal trunk in touch-disjoint batches using tree-level three-way merge; requalify the batch once; bisect on failure; a merge conflict raises a decision Ask with both sides."
+do_2 = "4_8.py queues eight snapshots with two overlapping, asserts the batches, a bisected failure and the conflict Ask."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.3"]
+owner = "source"
+
+[task.4.9]
+title = "The internal trunk is the only advancing ref"
+status = "done"
+wave = 4
+requires = ["4.8"]
+touches = ["services/hyperfide/src/review/coverage.ts", "services/hyperfide/src/findings/registry.ts", "services/hyperfide/src/integration/publication.ts", "tests/hyperfide/cases/v21/4_9.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/4_9.py"
+do_1 = "Watchers (17.1) and findings read the internal trunk, not GitHub; the protected GitHub ref advances only through publication."
+do_2 = "4_9.py asserts a watcher observes an internal fold before any publication exists."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.3"]
+owner = "source"
+
+[task.4.10]
+title = "Railway sandbox fleet toolkit"
+status = "done"
+wave = 4
+requires = ["1.1", "1.2"]
+touches = ["deploy/hyperfide/sandbox/package.json", "deploy/hyperfide/sandbox/fleet.json", "deploy/hyperfide/sandbox/lib.mjs", "deploy/hyperfide/sandbox/provision.mjs", "deploy/hyperfide/sandbox/run-job.mjs", "deploy/hyperfide/sandbox/dispatch.mjs", "deploy/hyperfide/sandbox/collect.mjs", "deploy/hyperfide/sandbox/collect-all.mjs", "deploy/hyperfide/sandbox/gen-jobs.py", "deploy/hyperfide/sandbox/status.py", "deploy/hyperfide/sandbox/README.md", "deploy/hyperfide/sandbox/.gitignore", "tests/integration/96_sandbox_toolkit.sh", "docs/hyperfide/operations.md"]
+verify_cmd = "CG=$PWD/cg bash tests/integration/96_sandbox_toolkit.sh"
+do_1 = "A toolkit under deploy/hyperfide/sandbox drives Railway Sandboxes through the railway SDK from the main working tree, never GitHub: provision builds the base checkpoint for this repo (cg, the built service, PostgreSQL, Codex) on top of a named checkpoint and a pool of up to one hundred workers; gen-jobs builds qualify jobs (cg spec done -f hyperfide for the 7.x requalification) and Codex jobs (one v21 task each under D21: approval never, codify MCP with the ask tools, gateway key rotated per sandbox); dispatch runs jobs on free workers with a concurrency cap, stagger, one retry and 429 back-off; collect lands each result as a local sandbox/<id> branch plus its evidence archive, READY or NOT-QUALIFIED; status summarises the ledgers. Credentials come only from the HF_RAILWAY_API_TOKEN, HF_RAILWAY_ENV_ID, HF_GATEWAY_URL, HF_GATEWAY_KEYS and HF_GATEWAY_MODEL environment variables and are redacted from every log."
+do_2 = "96_sandbox_toolkit.sh proves provision, gen-jobs, dispatch of one qualify and one Codex job, collect and status against a stub SDK and a stub codex binary, SKIP 77 without node."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1", "2.5"]
+owner = "runner"
+
+[task.5.1]
+title = "Needs, Issues and Leaders read model"
+status = "done"
+wave = 5
+requires = ["3.2", "4.6"]
+touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/observability/views.ts", "tests/hyperfide/cases/v21/5_1.py", "services/hyperfide/components/23.1-console.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json", "tests/fixtures/route_contract/server_only.txt", "tests/hyperfide/cases/v21/5_2.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_1.py"
+do_1 = "One component exposing console.needs (open Asks, pending human intents, admission escalations), console.issues (leader queue, external intake, escalated repairs, drift) and console.leaders (from agent_sessions), each row with freshness and references."
+do_2 = "5_1.py asserts each view against seeded rows."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.1"]
+owner = "console"
+
+[task.5.2]
+title = "Sandbox inventory"
+status = "done"
+wave = 5
+requires = []
+touches = ["services/hyperfide/src/observability/console.ts", "services/hyperfide/src/providers/placement.ts", "tests/hyperfide/cases/v21/5_2.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_2.py"
+do_1 = "console.sandboxes joins sandboxes, worker_slots, runner_registry, identity_runner_status, attempts and provisioning_intents with a heartbeat column and the slice size and snapshot state per worker."
+do_2 = "5_2.py asserts the join for live, lost, orphaned and quarantined sandboxes."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.1"]
+owner = "console"
+
+[task.5.3]
+title = "Console verbs in cg"
+status = "done"
+wave = 5
+requires = ["5.1", "5.2"]
+touches = ["src/hyperfide/client.c", "src/hyperfide/client.h", "src/main.c", "src/help.c", "README.md", "tests/fixtures/route_contract/server_only.txt", "tests/integration/98_console_verbs.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/98_console_verbs.sh"
+do_1 = "cg hyperfide console needs|issues|sandboxes|leaders with --json and --watch; help lists fleet approve and the distributed verbs human, task, hierarchy and supervisor."
+do_2 = "98_console_verbs.sh asserts the verbs and the help entries."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.2"]
+owner = "client"
+
+[task.5.4]
+title = "The three numbers"
+status = "done"
+wave = 5
+requires = ["3.6", "2.12"]
+touches = ["services/hyperfide/src/observability/metrics.ts", "tests/hyperfide/cases/v21/5_4.py", "services/hyperfide/components/23.3.json", "deploy/hyperfide/policies/control.example.json", "deploy/hyperfide/policies/dispatch.example.json"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_4.py"
+do_1 = "Metrics: decisions taken by default per hundred tasks, median Ask-to-answer seconds, bytes materialised per sandbox; exposed through console and cg."
+do_2 = "5_4.py asserts the three against seeded data."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.3"]
+owner = "observability"
+
+[task.5.5]
+title = "Publication per wave"
+status = "done"
+wave = 5
+requires = ["4.8"]
+touches = ["services/hyperfide/src/integration/publication.ts", "services/hyperfide/src/integration/release_barrier.ts", "services/hyperfide/src/artifacts/retention.ts", "tests/hyperfide/cases/v21/5_5.py", "services/hyperfide/src/policy/programme.ts", "deploy/hyperfide/policies/control.example.json"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/5_5.py"
+do_1 = "Squash one commit per task, batch per wave behind the release barrier, trailers with snapshot identities; retention prunes agent snapshots N days after publication while adoptable checkpoints survive."
+do_2 = "5_5.py publishes a wave of four tasks and asserts one commit per task, the barrier order, the trailers and the pruning schedule."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.4"]
+owner = "source"
+
+[task.5.6]
+title = "Storage engine bake-off"
+status = "done"
+wave = 5
+requires = ["1.11", "4.8"]
+touches = ["docs/hyperfide/source-engine-evaluation.md"]
+verify_cmd = "test -s docs/hyperfide/source-engine-evaluation.md && grep -q '^## Recommendation' docs/hyperfide/source-engine-evaluation.md"
+do_1 = "Run the measured workload from 1.11 through plain Git plumbing and a Jujutsu-backed integrator; compare conflict handling, throughput and operating cost; write the recommendation and raise it as a decision Ask."
+do_2 = "Report only; no engine change without the answer."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.5"]
+owner = "source"
+
+[task.5.7]
+title = "The task file is current before every commit"
+status = "done"
+wave = 5
+requires = ["3.9"]
+touches = ["src/vcs.c", "src/spec.c", "src/cg.h", "services/hyperfide/src/integration/candidates.ts", "tests/integration/94_commit_spec_sync.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/94_commit_spec_sync.sh"
+do_1 = "cg commit refreshes the claimed task's status and evidence pointer in its spec.kvx before snapshotting and refuses when the kvx disagrees with the receipt; the integrator refuses a candidate whose spec status does not match its qualification."
+do_2 = "94_commit_spec_sync.sh asserts the refresh, the refusal and the integrator check."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["6.4"]
+owner = "workflow"
+
+[task.6.1]
+title = "Global Ask registry in the editor"
+status = "done"
+wave = 6
+requires = ["1.12", "3.4"]
+touches = ["editors/vscode/agents.js", "editors/vscode/acp.js", "editors/vscode/needs.js", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "A registry across sessions and serve events holding ACP permission asks, fleet approvals and durable Asks; out-of-view notification, view badge and a status-bar count."
+do_2 = "14_vscode.sh asserts the registry merges the three sources and the badge count."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.2]
+title = "Needs view"
+status = "done"
+wave = 6
+requires = ["6.1", "5.3"]
+touches = ["editors/vscode/package.json", "editors/vscode/extension.js", "editors/vscode/serve.js", "editors/vscode/needs.js"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "codifyNeeds tree view: kind, task, deadline, recommended option; answer with QuickPick, password input for secrets, free text for questions; settles through cg ask answer or the Hyperfide route."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.3]
+title = "Issues view"
+status = "done"
+wave = 6
+requires = ["5.1"]
+touches = ["editors/vscode/issues.js", "editors/vscode/fleet.js", "editors/vscode/package.json", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "codifyIssues tree view fed by console.issues plus a DiagnosticCollection for findings with file locations; drift.* routed; blocked cleared on resolution."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.4]
+title = "Sandboxes view"
+status = "done"
+wave = 6
+requires = ["5.2"]
+touches = ["editors/vscode/sandboxes.js", "editors/vscode/package.json", "editors/vscode/extension.js", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "codifySandboxes tree view on console.sandboxes: provider, pool, task, heartbeat, slice size, snapshot state, queue position; attach opens the worker's session."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.5]
+title = "Leaders webview"
+status = "done"
+wave = 6
+requires = ["5.1"]
+touches = ["editors/vscode/acp.js", "editors/vscode/agentpanel.html", "editors/vscode/package.json", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "Leaders webview in attach-only mode reusing the attach and steer code, one tab per leader, with its open Asks inline."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.6]
+title = "Reconnect snapshot, unique agent names, wave transcripts"
+status = "done"
+wave = 6
+requires = []
+touches = ["editors/vscode/serve.js", "editors/vscode/extension.js", "editors/vscode/acp.js", "editors/vscode/agents.js", "editors/vscode/fleet.js", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "Apply the serve snapshot after reconnect; agent names unique per window and machine; per-wave manager transcript found by the manager log name and root orchestrate.c uses."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.7]
+title = "Aliases, README and a current VSIX"
+status = "done"
+wave = 6
+requires = ["6.2", "6.3", "6.4", "6.5"]
+touches = ["editors/vscode/README.md", "editors/vscode/package.json", "editors/vscode/extension.js", "scripts/package-vsix.py", "tests/integration/14_vscode.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "Every command carries the hyperfide alias; README strings match the code; repackage the VSIX at the source version with a check that fails when the packaged version differs from package.json."
+do_2 = "14_vscode.sh asserts alias coverage and the version check."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.8]
+title = "Multi-root serve pool"
+status = "done"
+wave = 6
+requires = ["6.2"]
+touches = ["editors/vscode/extension.js", "editors/vscode/serve.js"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "One serve client per workspace root; Needs and Issues merge across roots with the project named on each row."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.9]
+title = "ACP terminal bridge, authenticate and MCP environment"
+status = "done"
+wave = 6
+requires = []
+touches = ["editors/vscode/acp.js", "editors/vscode/package.json", "tests/integration/14_vscode.sh", "tests/fixtures/acp/bridge-agent.js"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/14_vscode.sh"
+do_1 = "Implement the ACP terminal methods, authenticate, selection context in prompts and environment passthrough for the injected MCP server."
+do_2 = "Headless assertion through 14_vscode.sh."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "editor"
+
+[task.6.10]
+title = "Console base per the evaluation"
+status = "done"
+wave = 6
+requires = ["1.10", "5.3"]
+touches = ["docs/hyperfide/console-evaluation.md"]
+verify_cmd = "test -s docs/hyperfide/console-evaluation.md && grep -q '^## Decision' docs/hyperfide/console-evaluation.md"
+do_1 = "Consume the 1.10 answer: either bring up an OpenHands fork under console/ wired to console.needs, console.issues, console.sandboxes and console.leaders with the first panel usable, or record that the expanded extension is the console; write the Decision section with the answer and who gave it."
+do_2 = "No second console surface is started without the recorded answer."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["5.4"]
+owner = "console"
+
+[task.7.1]
+title = "Close the seventeen current hyperfide tasks"
+status = "implemented"
+wave = 7
+requires = ["1.1", "1.2"]
+touches = ["tests/hyperfide/closure_check.py", "spec/hyperfide/spec.kvx"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 11.2 12.1 4.3 5.1 5.2 5.4 3.4 5.3 12.2 12.3 13.1 12.4 13.3 24.1 24.2 26.4 24.4"
+do_1 = "Write tests/hyperfide/closure_check.py <ids>: for each id assert status done in spec/hyperfide/spec.kvx, a passing receipt whose evidence commit is reachable and whose pinned sources match the tree, and the evidence index re-pointed to the rewritten SHA."
+do_2 = "Run cg spec done -f hyperfide for each of: 11.2, 12.1, 4.3, 5.1, 5.2, 5.4, 3.4, 5.3, 12.2, 12.3, 13.1, 12.4, 13.3, 24.1, 24.2, 26.4, 24.4 (eight need no rebuild; nine need a rebuild first)."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.2]
+title = "Requalify hyperfide waves 3 to 8"
+status = "pending"
+wave = 7
+requires = ["7.1"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 4.1 8.1 11.1 4.2 10.1 4.4 14.1 6.1 14.2 15.2 2.2 3.1 6.2 7.1 14.3 14.4 15.1 20.1 25.1"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 4.1, 8.1, 11.1, 4.2, 10.1, 4.4, 14.1, 6.1, 14.2, 15.2, 2.2, 3.1, 6.2, 7.1, 14.3, 14.4, 15.1, 20.1, 25.1."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.3]
+title = "Requalify hyperfide waves 9 to 15"
+status = "pending"
+wave = 7
+requires = ["7.2"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 1.1 2.4 3.3 7.2 20.2 20.3 7.3 9.1 11.3 20.4 3.2 7.4 6.3 8.2 1.2 6.4 9.2"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 1.1, 2.4, 3.3, 7.2, 20.2, 20.3, 7.3, 9.1, 11.3, 20.4, 3.2, 7.4, 6.3, 8.2, 1.2, 6.4, 9.2."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.4]
+title = "Requalify hyperfide waves 16 to 19"
+status = "pending"
+wave = 7
+requires = ["7.3"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 8.3 9.3 1.3 10.3 11.4 13.2 16.1 8.4 11.5 13.4 15.3 16.2 17.1 9.4 10.4 15.4 16.3"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 8.3, 9.3, 1.3, 10.3, 11.4, 13.2, 16.1, 8.4, 11.5, 13.4, 15.3, 16.2, 17.1, 9.4, 10.4, 15.4, 16.3."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.5]
+title = "Requalify hyperfide waves 20 to 22"
+status = "pending"
+wave = 7
+requires = ["7.4"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 16.4 17.2 2.3 17.3 23.1 25.3 17.4 18.1 21.4 23.2 23.4 24.3 25.4"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 16.4, 17.2, 2.3, 17.3, 23.1, 25.3, 17.4, 18.1, 21.4, 23.2, 23.4, 24.3, 25.4."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.6]
+title = "Requalify hyperfide waves 23 to 29"
+status = "pending"
+wave = 7
+requires = ["7.5"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 18.2 18.3 21.1 21.3 22.1 23.3 26.1 18.4 22.2 26.2 19.1 26.3 19.2 19.3 21.2 25.2 19.4 22.3 22.4 27.2"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 18.2, 18.3, 21.1, 21.3, 22.1, 23.3, 26.1, 18.4, 22.2, 26.2, 19.1, 26.3, 19.2, 19.3, 21.2, 25.2, 19.4, 22.3, 22.4, 27.2."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.7]
+title = "Requalify hyperfide waves 31 to 38"
+status = "pending"
+wave = 7
+requires = ["7.6", "2.9"]
+touches = ["spec/hyperfide/spec.kvx", "tests/hyperfide/closure_check.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 27.4 28.1 28.2 28.3 29.10"
+do_1 = "Requalify in wave order, re-pinning the sources changed since the 2026-10-18 snapshot, re-pointing each evidence index to the rewritten SHA and closing with cg spec done -f hyperfide: 27.4, 28.1, 28.2, 28.3, 29.10."
+do_2 = "Fan out per task inside the batch; a receipt that fails is left pending with the failure recorded, never forced."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.1"]
+owner = "qualification"
+
+[task.7.8]
+title = "Fix the six tasks without a clean receipt"
+status = "implemented"
+wave = 7
+requires = ["7.1"]
+touches = ["tests/hyperfide/cases/tasks/10_2.py", "tests/hyperfide/cases/tasks/28_4.py", "tests/hyperfide/closure_check.py", "spec/hyperfide/spec.kvx", "tests/hyperfide/cases/tasks/12_2.py", "tests/hyperfide/cases/tasks/25_4.py", "tests/hyperfide/cases/tasks/28_3.py", "tests/hyperfide/cases/tasks/2_1.py", "tests/hyperfide/cases/tasks/6_1.py", "tests/hyperfide/selftest_harness.py", "tests/hyperfide/test_inspect_proof.py"]
+verify_cmd = "python3 tests/hyperfide/closure_check.py 1.4 27.1 2.1 10.2 27.3 28.4 --allow-pending-with-reason"
+do_1 = "Re-run 1.4 and 27.1 and attach evidence; fix the code behind 10.2 and 28.4 and requalify; run 2.1's E-01 leg; produce 27.3's evidence or leave it pending with the reason in the kvx."
+do_2 = "closure_check accepts a pending task only when its kvx carries a reason field naming the failing assertion."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.2"]
+owner = "qualification"
+
+[task.7.9]
+title = "Run the Postgres case suite with real evidence"
+status = "implemented"
+wave = 7
+requires = ["1.7", "7.1"]
+touches = ["tests/hyperfide/cases", "tests/hyperfide/registry.json", "tests/hyperfide/qualify.py"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --suite governance --format text && python3 tests/hyperfide/qualify.py --suite core --format text"
+do_1 = "Define the governance and core suites in registry.json over the tasks the inventory listed; run them against a real Postgres and record evidence through 1.2."
+do_2 = "A suite member that cannot run prints SKIP with its prerequisite and fails the suite."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.3"]
+owner = "qualification"
+
+[task.7.10]
+title = "Remove dead modules and tables"
+status = "implemented"
+wave = 7
+requires = ["7.6"]
+touches = ["services/hyperfide/src/preparation/checkpoint.ts", "services/hyperfide/src/transport/writer_observation.ts", "services/hyperfide/migrations", "scripts/index.html", "services/hyperfide/src/agents/qualification.ts", "services/hyperfide/src/agents/sessions.ts", "services/hyperfide/src/agents/supervision.ts", "services/hyperfide/src/artifacts/adoption.ts", "services/hyperfide/src/assurance/preparation.ts", "services/hyperfide/src/events/inbox.ts", "services/hyperfide/src/events/outbox.ts", "services/hyperfide/src/hierarchy/adoption.ts", "services/hyperfide/src/hierarchy/packages.ts", "services/hyperfide/src/identity/recovery.ts", "services/hyperfide/src/integration/candidates.ts", "services/hyperfide/src/policy/frontier.ts", "services/hyperfide/src/policy/placement.ts", "services/hyperfide/src/providers/blaxel/processes.ts", "services/hyperfide/src/providers/placement.ts", "services/hyperfide/src/providers/pools.ts", "services/hyperfide/src/providers/railway/processes.ts", "services/hyperfide/src/providers/railway/reconciliation.ts", "services/hyperfide/src/review/reproductions.ts", "services/hyperfide/src/runner/bridge.ts", "services/hyperfide/src/runner/dispatch.ts", "services/hyperfide/src/runner/reproduction_jobs.ts", "services/hyperfide/src/storage/schema.ts", "tests/hyperfide/cases/support/checkpoint_source.py", "tests/hyperfide/cases/tasks/14_2.py", "tests/hyperfide/cases/tasks/14_writer_observation_transport.py", "tests/hyperfide/cases/tasks/4_1.py", "tests/hyperfide/cases/v21/3_23.py", "tests/hyperfide/cases/v21/7_10.py", "tests/hyperfide/registrations/14.2.json", "tests/hyperfide/registrations/29.3.json", "tests/hyperfide/registrations/29.4.json", "tests/hyperfide/registrations/29.5.json"]
+verify_cmd = "npm --prefix services/hyperfide run check && test ! -e services/hyperfide/src/transport/writer_observation.ts"
+do_1 = "After confirming no reader or writer: remove preparation/checkpoint.ts and transport/writer_observation.ts, drop the six unused tables by migration, delete unused type guards and stray comment digits, untrack scripts/index.html."
+do_2 = "Each removal names the search that proved it unused."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.3"]
+owner = "hygiene"
+
+[task.7.11]
+title = "Full-case registrations for the remaining V-cases"
+status = "implemented"
+wave = 7
+requires = ["7.9"]
+touches = ["tests/hyperfide/registry.json", "tests/hyperfide/registrations", "tests/hyperfide/cases/full"]
+verify_cmd = "python3 tests/hyperfide/qualify.py --list-cases --format text"
+do_1 = "Write full-case registrations for the 67 V-cases that have only component variants, in wave order, each with its prerequisites declared so SKIP is explicit."
+do_2 = "The long pole to programme closure; fan out by owner area."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["7.3"]
+owner = "qualification"
+
+[task.7.12]
+title = "Campaign capture records pinned executables by digest, not by copy"
+status = "done"
+wave = 7
+requires = ["3.19"]
+touches = ["tests/hyperfide/qualify.py", "tests/hyperfide/check-evidence.py", "tests/hyperfide/evidence_store.py", "tests/hyperfide/cases/v21/7_12.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v21/7_12.py && make -j2 cg && CG=$PWD/cg bash tests/integration/80_qualification_inputs.sh"
+do_1 = "snapshot() in qualify.py records a manifest input or source whose original path lies outside the workspace root (the pinned node and python interpreters are the case in point: the requalified 14.1 campaign carries a 119 MB node and a 7.6 MB python3.12 twice, 253 MB of 280 MB) as a reference record with original_path, sha256, size and kind = \"reference\", without copying its bytes under campaigns/<id>/inputs or sources; inputs inside the workspace are copied as before."
+do_2 = "check-evidence.py accepts both record kinds: a copied record is verified from the campaign bytes as today; a reference record is re-digested from original_path when that file exists and refused on a digest or size mismatch, and reported as unverifiable, not failed, when the path is absent on the checking host. Existing campaigns stay valid, evidence_store.bundle and the fold tooling carry references through unchanged, and qualify.py --list-cases output does not change."
+do_3 = "7_12.py qualifies a fixture manifest that pins the running python3 executable and a 2 MB file outside the workspace, proves the campaign holds no copy of either and is under 1 MB, that the receipt and check-evidence PASS, that a tampered reference digest is refused, and that an input inside the workspace is still copied."
+do_4 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["1.1"]
+owner = "qualification"
+
+[task.8.1]
+title = "Documentation matches the evidence"
+status = "pending"
+wave = 8
+requires = ["7.7", "5.5"]
+touches = ["docs/hyperfide/operations.md", "README.md", "deploy/hyperfide/env", "tests/integration/96_docs_truth.sh"]
+verify_cmd = "bash tests/integration/96_docs_truth.sh"
+do_1 = "Refresh the operations status table from the ledger; fix README counts, the client claim and the release message; document every operator variable the code reads and the install-service arguments; fix the policy contradictions and examples."
+do_2 = "96_docs_truth.sh diffs the status table against cg spec status -f hyperfide --json and asserts every variable the service reads appears in the manual."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["8.1"]
+owner = "docs"
+
+[task.8.2]
+title = "A usable docs claims ledger"
+status = "implemented"
+wave = 8
+requires = ["8.1"]
+touches = ["src/docs.c", "tests/integration/97_docs_ledger.sh"]
+verify_cmd = "make -j2 cg && CG=$PWD/cg bash tests/integration/97_docs_ledger.sh"
+do_1 = "Restrict claims to public symbols and routes so the ledger is tractable; make cg docs check read-only, or rename the writing path and document it."
+do_2 = "97_docs_ledger.sh asserts check leaves the ledger untouched and the claim count is bounded."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["8.1"]
+owner = "docs"
+
+[task.8.3]
+title = "Release 2.1"
+status = "pending"
+wave = 8
+requires = ["8.2", "6.7", "1.4"]
+touches = ["scripts/release.sh", "services/hyperfide/src/deployment/releases.ts", "editors/vscode/package.json", "tests/hyperfide/cases/v21/8_3.py"]
+verify_cmd = "npm --prefix services/hyperfide run check && python3 tests/hyperfide/cases/v21/8_3.py"
+do_1 = "Build, sign and publish the release through the publication path with the current dist and VSIX; release readiness lists every unit as qualified or names the owner task."
+do_2 = "8_3.py asserts the signed release.json, the dist digest match and the readiness report."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["8.2"]
+owner = "release"
+
+[task.8.4]
+title = "Changelog and codemap"
+status = "pending"
+wave = 8
+requires = ["8.3"]
+touches = ["CHANGELOG.md", "CODEMAP.md"]
+verify_cmd = "grep -q '2.1' CHANGELOG.md"
+do_1 = "Raise a decision Ask to the programme owner, who regenerates CHANGELOG.md and CODEMAP.md; agents do not edit either file. The task closes when the regenerated files are committed."
+do_2 = "Nothing else."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["8.2"]
+owner = "human"
+
+[task.8.5]
+title = "Human acceptance of the running system"
+status = "pending"
+wave = 8
+requires = ["8.4", "7.11"]
+touches = ["tests/hyperfide/cases/v21/8_5.py"]
+verify_cmd = "python3 tests/hyperfide/cases/v21/8_5.py"
+do_1 = "Raise an Ask of kind decision to the programme owner for a test of the running system (the fleet, the console, a sandbox receiving a variable through an Ask, a wave publishing to GitHub); the feature closes only on an answer of accepted."
+do_2 = "8_5.py asserts an answered acceptance Ask exists for this release and that its answer is accepted."
+do_3 = "Implement only this task in an isolated task worktree. Run real positive and negative checks, keep the task status in spec/hyperfide-v21/spec.kvx current before every commit, tag the commit [spec:hyperfide-v21/<id>], and raise an Ask (fleet approval until 3.4 lands) for any variable, permission or decision you would otherwise default."
+reqs = ["8.3"]
+owner = "human"

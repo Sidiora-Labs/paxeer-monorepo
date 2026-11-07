@@ -68,10 +68,11 @@ describe('TokenInstanceContent', () => {
     });
   });
 
-  it('heads the page the way the token page does', () => {
+  it('heads the page the way the token page does', async() => {
     const { container } = render(<TokenInstanceContent/>);
 
-    expect(container.querySelector('h1')?.textContent).toContain('Token instance');
+    await waitFor(() => expect(container.querySelector('h1')?.textContent).toBe(tokenInstanceMock.base.metadata?.name));
+    expect(container.querySelector('[data-entity-kind-label]')?.textContent).toBe('TOKEN');
   });
 
   it('puts the instance cards above the tab strip once the instance answered', async() => {

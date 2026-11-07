@@ -16,7 +16,11 @@ var goldenDir = filepath.Join("..", "..", "..", "schema", "attestor-api", "golde
 
 func readGolden(t *testing.T, name string) []byte {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(goldenDir, name+".json"))
+	dir := goldenDir
+	if name == "keys.import.request" || name == "sign.request.operator_verification" {
+		dir = filepath.Join("testdata", "golden")
+	}
+	raw, err := os.ReadFile(filepath.Join(dir, name+".json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -126,5 +130,17 @@ func TestGoldenResponsesMatchClientExpectations(t *testing.T) {
 	}
 	if attestor.PathImport != "/v1/keys/import" || attestor.PathRefresh != "/v1/keys/refresh" || attestor.PathSign != "/v1/sign" {
 		t.Fatal("client paths differ from the schema")
+	}
+}
+
+func TestCeremonyGoldensMatchAttestorProducer(t *testing.T) {
+	for _, name := range []string{"keys.import.request", "sign.request.operator_verification"} {
+		producer, err := os.ReadFile(filepath.Join("..", "..", "..", "attestor", "internal", "server", "testdata", "golden", name+".json"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !bytes.Equal(readGolden(t, name), producer) {
+			t.Fatalf("%s: regenerate from the attestor producer", name)
+		}
 	}
 }

@@ -24,7 +24,8 @@
     "format": "cargo fmt --all -- --config imports_granularity=Crate",
     "generate-from-remote": "bash scripts/generate-from-remote.sh",
     "record-stubs": "ts-node ts-src/record-stubs.ts",
-    "test:local": "cargo run --locked --manifest-path crate/Cargo.toml --example local_backend_contract --"
+    "test:local": "cargo run --locked --manifest-path crate/Cargo.toml --example local_backend_contract --",
+    "test:doc-13": "python3 -m pytest -q ../../../../../tools/qualification/audit_repairs/test_repair_22_33_360.py"
   },
   "devDependencies": {
     "@types/node": "^20.14.2",

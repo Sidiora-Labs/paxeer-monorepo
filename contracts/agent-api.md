@@ -9,15 +9,16 @@ in the database, rather than separately provisioned chains.
 Public node JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`,
 and `api-mainnet-beta.paxeer.network`. Its namespaces are `debug`, `echo`, `eth`,
-`net`, `pax`, `test` and `txpool`. Hosted `px_` methods have their own
-[OpenRPC contract](../services/platform/hosted/gateway/openrpc.json); do not
-assume that a public node implements every hosted method. The router and unified
+`net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). The router and unified
 `/rpc`, `/rpc/ws` and `/rpc/schema` network endpoints are retired.
 `node.hyperpaxeer.com` is only the hpx library mirror.
 
 The maintained contract source is the
 [agent schema](../services/agent/schema/agent-api/v1.kvx), currently **2.0**
-despite its historical filename. The HTTP envelope has its own version, **1**.
+despite its historical filename. The HTTP envelope has its own version, **1**. The executable supports contract major 2
+and envelope version 1; compatibility verification explicitly refuses contract major 1.
 See [configuration](agent-config.md), [formats](agent-formats.md), the
 [Human peer](agent-human-peer.md) and [Rust API](agent-rust-api.md).
 
@@ -129,6 +130,8 @@ verified reads or tenant write readiness.
 
 With `LAYERX_AGENT_MODE=human-owner`, the loopback bearer listener serves only
 `GET /healthz`: 200 with `{"ready":true}` or 503 with `{"ready":false}`.
+It authenticates `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`, never the outbound
+`LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`. Startup refuses reuse of that credential.
 It checks the owner loop and node/authority dependencies; other paths are 404.
 
 ### Native reads
@@ -365,3 +368,85 @@ are reexported by their namespace in [lib.rs](../services/agent/crates/layerx-ag
 | <a id="type-programoutcome"></a>`ProgramOutcome` | Canonical core-receipt Programs facts, including runtime/ABI versions, exact result, metering and effect roots. | [receipt.rs](../services/agent/crates/layerx-wire/src/receipt.rs) |
 | <a id="type-programsource"></a>`ProgramSource` | SDK source state: Unpublished, Verified with source/environment digests, or Mismatch with expected/reproduced artifact hashes. | [programs.rs](../services/agent/crates/layerx-sdk/src/programs.rs) |
 | <a id="type-settlementdomain"></a>`SettlementDomain` | Removed from the Agent schema; retained in compatibility proof codecs, with no additional network finality requirement. | [checkpoint.rs](../services/agent/crates/layerx-proof/src/checkpoint.rs) |
+
+## Receipt round-trip
+
+A `program.receipt` query uses this version-1 envelope:
+
+```json
+{
+  "version": 1,
+  "request_id": "1533",
+  "operation": "program.receipt",
+  "idempotency_key": null,
+  "request": {
+    "idempotency_key": "<64 lowercase hex characters>",
+    "expected_activity_id": "<64 lowercase hex characters>",
+    "requested_rung": "committed"
+  },
+  "credential": {
+    "tenant": "tenant-a",
+    "session_id": "<64 lowercase hex characters>",
+    "token_id": "<64 lowercase hex characters>",
+    "generation": "1"
+  }
+}
+```
+
+
+
+The owner restores the exact signed EVM transaction from the durable outbox and
+checks `expected_activity_id` against its transaction hash. It calls the chain's
+`px_getReceiptKeys` and `pax_sequencerReceipt`, verifies the canonical signed
+receipt, JSON coordinates, key identity and height interval, and binds any
+landing evidence to the transaction. It persists the verified receipt and finality
+metadata before producing the [Human receipt frame](agent-human-peer.md).
+`agent_rpc_dispatch::dispatch_program_receipt` consumes that frame and refuses
+malformed bytes or changed bindings. The SDK consumes the resulting JSON.
+
+A found response's `value` contains `found: true` and `receipt` with these fields:
+
+| Field | Encoding / meaning |
+| --- | --- |
+| `canonical_bytes` | Lowercase hex of the canonical verified receipt |
+| `authorised_batch` | Five lowercase hex digests: `batch_id`, `asset`, `previous_state_root`, `resulting_state_root`, `sequencer_public_key` |
+| `verification_level` | Decimal string for the Human verification code |
+| `tx_hash` | Hash of the exact signed EVM transaction |
+| `receipt_hash` | SHA-256 of `canonical_bytes` after hex decoding |
+| `block_height` | Decimal nonzero block height |
+| `rung` | `receipted` or `committed` |
+| `signed_receipt` | The same canonical bytes as `canonical_bytes` |
+| `receipt_key_id` | Pinned receipt signing-key identifier |
+| `public_key` | Signing public key; matches the authorised batch key |
+| `first_height`, `last_height` | Inclusive signing-key validity interval |
+| `inclusion_height` | The receipt's height, equal to `block_height` |
+
+The outer success object also carries `request_id` and `verification_status`.
+`achieved` names the actual rung. A request for `committed` whose receipt only
+achieved `receipted` produces an explicit `unverified` status (the typed Below variant), never an upgrade.
+Only a verified BFT commit establishes `committed`; legacy verification labels
+cannot create checkpoint or settlement authority above it.
+
+Absent lookup produces `value: {"found":false}` and an `absent` status. Submitted
+lookup adds `submitted: {"tx_hash":"...","nonce":"..."}` and a `pending` status
+with achieved `submitted`. The Rust envelope SDK preserves these responses as
+`EnvelopeOutcome::NotReady`, including the request ID, served value and typed
+`NotReadyStatus::Absent` or `Pending`. Its recorded exchange API returns the same
+material as `EnvelopeError::NotReady`; neither status proves execution at the
+requested rung.
+
+## Recovery and authentication
+
+After restart, reopen the durable Store, restore the outbox by its transaction
+hash, and retain exact signed bytes, receipt indexes and finality records. Repeating
+lookup returns the same authenticated receipt. An unresolved submission remains
+unresolved until authenticated evidence arrives; timeouts and process restart do
+not prove failure or authorize a new transaction.
+
+The Human-owner loopback health endpoint uses `LAYERX_AGENT_PROGRAM_BEARER_TOKEN`.
+Outbound authority calls use the distinct `LAYERX_AGENT_HUMAN_AUTHORITY_BEARER`.
+See [configuration](agent-config.md) for startup refusals and dependency checks.
+Health authentication never substitutes for an Agent RPC session credential.
+
+Executable proofs: `tests/repair_22_33_1533.rs` includes the production
+receipt/store/codec/TLS/SDK round-trip and its malformed-frame and restart cases.

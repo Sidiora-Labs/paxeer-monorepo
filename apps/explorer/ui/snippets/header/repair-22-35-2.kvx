@@ -1,0 +1,36 @@
+[repair.22.35.2]
+decision = "2587"
+brief = "spec/layerx-merge/programme/docs/explorer-ui/design-brief.md sections 4-5 and 7"
+base_revision = "d833a6274d362a720d5c0faf8b20f8a0b25e5348"
+implementation = "One sticky 56px desktop header with network identity, three hook-driven navigation groups, two-column described links, real compact search with platform shortcut, theme/account controls and settings-hosted stats; horizontal-only content and mobile accordion sheet; three condensed footer columns retain every configured and built-in link and indexing status."
+compatibility = "The vertical navigation setting resolves to horizontal. Legacy mainNavItems remains available to existing consumers; the shell consumes shellNavItems derived from the same route and feature decisions. Optional links still use the existing feature flags, route activity, external URLs and retired kernel-route exclusions. Mobile retains account, rewards, network and settings access in the sheet."
+proof = "The declared jsdom test uses the shared testWrapper, the real Next Router and captured API fixtures through the real QueryClient to render the shell; compares every dropdown link with useNavItems, exercises both keyboard shortcuts and the accordion, and asserts all custom footer groups including the fourth group and indexing status. Existing shell specs follow the new behavior, and HeaderDesktop, NavigationDesktop and Footer stories include both colour modes."
+
+[qualification]
+policy = "Only hf-build followed by hf-done. Authoritative results live outside the source tree so recording evidence cannot change the candidate under verification. No gate pass is claimed in advance."
+verified_revision = "revision field of the final verify row in /out/run/gates.jsonl, printed verbatim in the final response"
+gate_results = "exit fields of the build and verify rows in /out/run/gates.jsonl"
+ledger = "/out/run/gates.jsonl"
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+verify_command = "cg spec done 22.35.2 -f layerx-merge --root /work/paxeer-monorepo"
+verify_target = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json && yarn vitest run apps/explorer/ui/snippets/header/repair-22-35-2.spec.tsx"
+build_log = "/out/logs/build-1.log (repair reruns increment the suffix)"
+verify_log = "/out/logs/verify-1.log (repair reruns increment the suffix)"
+
+[gotcha]
+footer_links = "The prior footer sliced custom and fixed groups to three, discarding later groups; distribute all groups among the three columns instead."
+registration = "Vitest 4 declared test functions are registered as both name and handler so the functions execute."
+formatter_result = "The existing ESLint layout formatter formatted the touched TypeScript. Its Vitest plugin rejects valid function-name test registrations and misreports their named handlers as having no assertions; retain the registrations and assertions for the required Vitest 4 gate. Import order and callback formatting were corrected without disabling checks."
+formatter = "The repository uses ESLint. Dependencies are absent before qualification; finish implementation before installing the frozen dependencies for formatting and the declared gates."
+
+working_directory = "A dependency symlink command initially used a repository-relative destination while already in the app directory; it failed before writing there, then was corrected to the app-local node_modules path."
+edit_script = "An edit script had invalid assignment syntax and made no changes; correcting the script applied the primary link ordering before qualification."
+
+[repair_cycle.1]
+revision = "0bf0331889b82a339a9e8832a8eb466a127f8565"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The first build rejected ghost button variants, unreachable plain-link branches in group-only navigation and a test matcher receiving the optional network name."
+repair = "Use the existing plain button variant with semantic hover styling, render the strongly typed navigation groups directly, and require a defined configured network name before the unchanged text assertion."
+indexing_scenario = "The shared indexing fixture represents finished internal-transaction indexing. Seed the real QueryClient with the same typed in-progress 10% internal-transaction status already exercised by Footer.pw.tsx so the retained indexing-status assertion actually exercises the visible alert."

@@ -827,6 +827,9 @@ pub(crate) fn cumulative_usage(
     })
 }
 
+/// Publishes the native storage-environment receipt frame: canonical usage bytes
+/// followed by their 32-byte SHA-256 digest. The runtime authenticates and unwraps
+/// this frame before attaching the canonical body to its terminal payload.
 fn publish_settlement(
     token: u64,
     reservation: &mut HostSettlementReservation,
@@ -847,7 +850,10 @@ fn publish_settlement(
         .ledger
         .write_canonical_state(ledger_state)
         .map_err(|_| NON_CANONICAL)?;
-    receipt_bytes.extend_from_slice(&receipt.digest());
+    layerx_programs_runtime::terminal::SandboxSettlement::append_receipt_digest(
+        receipt_bytes,
+        receipt.digest(),
+    );
     stage(token, 0, lease_state)?;
     stage(token, 1, escrow_state)?;
     stage(token, 2, ledger_state)?;

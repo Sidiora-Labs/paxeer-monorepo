@@ -2,6 +2,15 @@
 set -euo pipefail
 umask 077
 
+if ! declare -F release_node_process >/dev/null; then
+  release_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+  source "$release_dir/stage.sh"
+  release_load_identity "$release_dir" || {
+    printf 'rollback: invalid release identity\n' >&2
+    exit 1
+  }
+fi
+
 env_file= mode= receipt= phase= local_only=false
 expected_release= expected_height=
 manager=systemd
@@ -115,7 +124,11 @@ remote_phase() {
     "$command" "${input[RELEASE_ID]}" "${input[HALT_HEIGHT]}"
   if "$forward"; then command+=" --forward"; fi
   if [ -n "$step" ]; then printf -v command '%s --phase %q' "$command" "$step"; fi
-  ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$command" <"${BASH_SOURCE[0]}"
+  {
+    declare -f release_operation_lock release_node_process
+    declare -p release_version release_upgrade
+    cat -- "${BASH_SOURCE[0]}"
+  } | ssh -o BatchMode=yes -o ConnectTimeout=10 -- "$host" "$command"
 }
 
 if ! "$local_only" && [ "${#hosts[@]}" -gt 0 ]; then
@@ -153,8 +166,7 @@ halt_height=${input[HALT_HEIGHT]}
 [[ $bin_dir = /* && $snapshot_dir = /* ]] || fail "directories must be absolute"
 bin_dir=$(realpath -e -- "$bin_dir")
 snapshot_dir=$(realpath -e -- "$snapshot_dir")
-exec 9>"$bin_dir/.rollback.lock"
-flock -n 9 || fail "another rollback is running"
+release_operation_lock "$bin_dir" || fail "another release operation is running"
 previous=$bin_dir/paxd.pre-$release_id
 if "$forward"; then
   require RECOVERY_BIN
@@ -177,7 +189,7 @@ units=("${validator_units[@]}" "${fullnode_units[@]}")
 declare -A seen_homes=() seen_units=() seen_archives=()
 for i in "${!homes[@]}"; do
   home=${homes[$i]}
-  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data.v6.12.0-* ]] || fail "invalid home"
+  [[ $home = /* && $home != / && $home != *'/../'* && $home != */data."$release_version"-* ]] || fail "invalid home"
   [ "$(realpath -e -- "$home")" = "$home" ] || fail "home must be canonical: $home"
   name=${home##*/}
   unit=${units[$i]}
@@ -192,7 +204,7 @@ for i in "${!homes[@]}"; do
 done
 
 sha() { sha256sum -- "$1" | cut -d' ' -f1; }
-archive() { printf '%s/%s-pre-v6.12.0.tar.zst' "$snapshot_dir" "${1##*/}"; }
+archive() { printf '%s/%s-pre-%s.tar.zst' "$snapshot_dir" "${1##*/}" "$release_version"; }
 record_dir() {
   if "$forward"; then
     printf '%s/.forward-recovery-%s' "$1" "$release_id"
@@ -200,7 +212,7 @@ record_dir() {
     printf '%s/.rollback-%s' "$1" "$release_id"
   fi
 }
-set_aside() { printf '%s/data.v6.12.0-%s' "$1" "$release_id"; }
+set_aside() { printf '%s/data.%s-%s' "$1" "$release_version" "$release_id"; }
 
 check_archive() {
   local file=$1 role=$2
@@ -283,32 +295,15 @@ PY
 }
 
 matching_pids() {
-  local home=$1 candidates rc=0
-  candidates=$(pgrep -a -x paxd) || rc=$?
-  [ "$rc" -le 1 ] || fail "process enumeration failed"
-  python3 - "$home" "$candidates" <<'PY'
-import pathlib
-import sys
-
-for line in sys.argv[2].splitlines():
-    pid = line.split()[0]
-    try:
-        args = pathlib.Path("/proc", pid, "cmdline").read_bytes().split(b"\0")
-    except FileNotFoundError:
-        continue
-    home = sys.argv[1].encode()
-    if any(arg == b"--home=" + home or (arg == b"--home" and i + 1 < len(args)
-           and args[i + 1] == home) for i, arg in enumerate(args)):
-        print(pid)
-PY
+  release_node_process list "$1"
 }
 
 check_stopped() {
   local home i state
   for i in "${!homes[@]}"; do
     home=${homes[$i]}
-    [ -z "$(matching_pids "$home")" ] || fail "node still running for $home"
-    [ -z "$(matching_pids "$(set_aside "$home")")" ] || fail "set-aside data is running"
+    release_node_process stopped "$home" || fail "node ownership is not stopped for $home"
+    release_node_process stopped "$(set_aside "$home")" || fail "set-aside data is not stopped"
     if [ "$manager" = systemd ]; then
       state=$(systemctl show --property=ActiveState --value "${units[$i]}")
       case $state in inactive | failed) ;; *) fail "unit is not stopped" ;; esac
@@ -345,6 +340,7 @@ check_binary() {
 
 prepare() {
   local home path
+  check_stopped
   check_material
   check_binary "$previous"
   for home in "${homes[@]}"; do
@@ -396,13 +392,13 @@ stop_nodes() {
   else
     [ -z "${input[SIDECAR_UNITS]:-}" ] || fail "foreground cannot manage sidecar units"
     for home in "${homes[@]}"; do
-      for pid in $(matching_pids "$home"); do kill -TERM "$pid" || rc=1; done
+      release_node_process stop "$home" || rc=1
     done
   fi
   [ "$rc" -eq 0 ] || fail "could not stop every unit"
   for ((attempt = 0; attempt < 120; attempt++)); do
     rc=0
-    for home in "${homes[@]}"; do [ -z "$(matching_pids "$home")" ] || rc=1; done
+    for home in "${homes[@]}"; do release_node_process stopped "$home" || rc=1; done
     if [ "$rc" -eq 0 ]; then
       check_stopped
       return
@@ -505,6 +501,7 @@ PY_REWIND
 
 restore_forward() {
   local home record
+  check_stopped
   check_material
   check_binary "$previous"
   check_stopped
@@ -604,7 +601,7 @@ check_restored() {
     [ "$(cat "$record/material")" = "$want" ] || fail "restored material changed"
     [ ! -e "$home/data/upgrade-info.json" ] && [ ! -L "$home/data/upgrade-info.json" ] || fail "upgrade file remains"
     grep -qx 'halt-height = 0' "$home/config/app.toml" || fail "halt-height is not zero"
-    [ -z "$(matching_pids "$(set_aside "$home")")" ] || fail "set-aside data is running"
+    release_node_process stopped "$(set_aside "$home")" || fail "set-aside data is not stopped"
   done
 }
 
@@ -651,7 +648,7 @@ PY
     )
     before=
     for ((attempt = 0; attempt < 120; attempt++)); do
-      pids=$(matching_pids "$home")
+      pids=$(matching_pids "$home") || fail "process inspection failed"
       if [[ $pids =~ ^[0-9]+$ ]]; then
         pid=$pids
         [ "$(sha "/proc/$pid/exe")" = "$previous_sha" ] || fail "running binary checksum mismatch"

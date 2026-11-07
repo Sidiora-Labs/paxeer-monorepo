@@ -25,7 +25,7 @@ In addition to the regular bug-finding process, check the following aspects in t
 
 When a PR adds, changes, renames, or removes an environment variable, verify that **all** of the following steps have been completed:
 
-- The variable is documented in `docs/ENVS.md` with its name, expected type, compulsoriness, default value, and an example value.
+- The variable is documented in `../../docs/explorer/ENVS.md` with its name, expected type, compulsoriness, default value, and an example value.
 - The variable is added to the app config in the appropriate section of `configs/app/` (`features/`, `ui.ts`, `api.ts`, etc.).
 - A validation schema is added or updated in `deploy/tools/envs-validator/schema.ts`. For complex configs, a **separate sub-schema** should be created (similar to `tacScheme` or `beaconChainSchema`).
 - The variable is added to the test presets in `deploy/tools/envs-validator/test/.env.base`. If the variable supports alternative configurations, examples should also be added to `.env.alt`.

@@ -158,10 +158,7 @@ fn restored_binding_is_revalidated_and_freeze_is_observed() {
         assert_eq!(refreshed.head_sequence(), 11);
         assert_eq!(refreshed.canonical_core_bytes(), b"verified-identity-at-11");
         assert_eq!(refreshed.authorities(), &authorities);
-        assert_eq!(
-            refreshed.verification_level(),
-            VerificationLevel::CHECKPOINT_FINALISED
-        );
+        assert_eq!(refreshed.verification_level(), VerificationLevel::COMMITTED);
         worker.join().expect("refreshed authority");
     }
     for (status, document, expected) in [

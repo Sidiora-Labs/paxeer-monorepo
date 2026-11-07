@@ -1,0 +1,28 @@
+[repair.22.31.498]
+gotcha = "3043"
+decision = "2521"
+corpus_gotcha = "3049"
+corpus_decision = "2546"
+requirement = "22998.1"
+base_revision = "0a76cd72f6c808eb67379b35bfa45c17d608d093"
+verified_revision = "task/22.31.498 candidate recorded by hf-done; the exact revision, command, exit and private log are retained in the runner gate ledger and copied into the final evidence."
+verify_cmd = "python3 -m pytest -q tests/ci/test_agent_codec_corpus.py"
+
+[case.retained_eip1559]
+test = "tests/ci/test_agent_codec_corpus.py::test_retained_eip1559_producer_consumer_conformance"
+repair = "Serve the loopback node at / and construct PaymentRpc with that root endpoint, matching decision 2521 and the SDK endpoint validation."
+preserved = "Retain every calldata, unsigned encoding, signing digest, signer recovery, JSON-RPC envelope, signed-byte transport, consumer decode, canonical re-encoding, transaction hash and server shutdown assertion."
+
+[case.clean_checkout]
+test = "tests/ci/test_agent_codec_corpus.py::test_agent_vectors_prepare_codec_corpus_from_clean_checkout"
+repair = "Remove the committed generated replay_corpus.lxb and ignore it in tests/vectors/codec/.gitignore, matching gotcha 3049 and decision 2546; the make target prepares it from a clean checkout using the generator repaired by 22.31.499."
+preserved = "Retain clean-checkout corpus preparation, all three Rust vector cases, deterministic regeneration, the real EIP-1559 producer-consumer exchange, undeclared-activity rejection before runtime startup and unchanged corpus bytes."
+
+[qualification.inherited_diagnostic_mismatch]
+revision = "698c295c6207ff399d3e8d56520ca16dfa4fa6db"
+command = "cg spec done 22.31.498 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The root-endpoint case passes; clean-checkout generation, three Rust vector cases and deterministic regeneration pass before the preserved undeclared-activity diagnostic assertion expects [196616, 196619] but receives [196616]."
+assumption = "The base producer excludes retired budget pull 196619, as recorded by 22.31.499; changing the preserved assertion or the out-of-scope producer is forbidden, so this inherited contradiction is recorded without rerunning the gate."
+resolution = "Attempt 4 explicitly authorizes parsing the refusal diagnostic and asserting the removed activity number; the test now requires exactly one reported activity and checks its parsed value equals LX_BUDGET_DEFUND (0x00030008), retaining every other assertion."

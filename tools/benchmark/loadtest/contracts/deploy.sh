@@ -10,4 +10,4 @@ printf 'pax-chain directory: ' >&2
 IFS= read -r paxhome
 script_dir=$(CDPATH= cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)
 exec "${PAX_LOADTEST_OPS:-$script_dir/../../../../build/loadtest}" benchmark-ops deploy-wasm \
-  --root "$paxhome/tools/benchmark/loadtest/contracts" --paxd "$paxdbin" --key "$keyname" --chain-id "$chainid"
+  --root "$paxhome" --paxd "$paxdbin" --key "$keyname" --chain-id "$chainid"

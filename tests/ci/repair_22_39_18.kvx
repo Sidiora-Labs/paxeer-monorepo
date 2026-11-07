@@ -1,0 +1,20 @@
+[repair.22.39.18]
+decisions = ["2787", "2788"]
+acceptance = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+repair = "Delete the unreferenced 8347143-byte wallet public image and rename the sample .env to .env.example without changing its bytes."
+sample_env_sha256 = "fbb509d849050d094b81f21b90f2a48b7cb72042c79a6109fefb56b7c96e2107"
+sample_instructions = "The sample has no setup instruction naming .env; its existing .gitignore exception is outside the task scope."
+build_cmd = "python3 -m py_compile tests/ci/test_public_tree_hygiene.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_public_tree_hygiene.py"
+evidence = "The runner's private /out/run/gates.jsonl records the exact verified candidate revision, command, exit code and log path emitted by hf-build and hf-done; the final handoff copies the last gate's evidence."
+
+[repair.22.39.18.case.wallet_public]
+test = "test_wallet_public_has_no_unreferenced_large_image"
+criterion = "Every tracked file over 5000000 bytes under apps/wallet/public is referenced by a tracked wallet source file."
+inventory = "git ls-files -z -- apps/wallet"
+
+[repair.22.39.18.case.sample_env]
+test = "test_samples_track_no_env_files"
+criterion = "The repository-wide git ls-files inventory contains no path whose basename is .env."
+inventory = "git ls-files -z --"

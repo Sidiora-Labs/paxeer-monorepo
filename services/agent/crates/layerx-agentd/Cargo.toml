@@ -30,6 +30,7 @@ getrandom = "=0.3.4"
 
 # The native reads HTTP proof is owned by layerx-mcp; keep the daemon dependency one-way.
 [dev-dependencies]
+layerx-platform-authority = { path = "../../../platform/hosted/authority" }
 hex = "=0.4.3"
 layerx-sdk = { path = "../layerx-sdk" }
 native-tls = "=0.2.18"
@@ -45,6 +46,10 @@ path = "tests/proof_native_reads.rs"
 [[test]]
 name = "limits-exactly-once"
 path = "../../tests/limits/exactly_once.rs"
+
+[[test]]
+name = "repair_22_33_1532"
+path = "tests/repair_22_33_1532.rs"
 
 [lints]
 workspace = true

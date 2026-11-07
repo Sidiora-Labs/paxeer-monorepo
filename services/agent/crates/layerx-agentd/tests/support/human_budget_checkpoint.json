@@ -1,0 +1,77 @@
+[
+  {
+    "method": "px_getCommit",
+    "params": [
+      "64"
+    ],
+    "result": {
+      "height": "64",
+      "signedHeader": {
+        "header": {
+          "version": {
+            "block": "11",
+            "app": "1"
+          },
+          "chain_id": "125",
+          "height": "64",
+          "time": "2026-09-14T05:59:04Z",
+          "last_block_id": {
+            "hash": "6c2f9b8b1b2960a5d9ff66d611bd2107159eb7bc0397c10dc8f43648b87560e2",
+            "parts": {
+              "total": 1,
+              "hash": "0202020202020202020202020202020202020202020202020202020202020202"
+            }
+          },
+          "last_commit_hash": "0303030303030303030303030303030303030303030303030303030303030303",
+          "data_hash": "1111111111111111111111111111111111111111111111111111111111111111",
+          "validators_hash": "a8da5bcd937a7538b5a3e9a67ba734655705ab2a805e3b97255e90644747b497",
+          "next_validators_hash": "a8da5bcd937a7538b5a3e9a67ba734655705ab2a805e3b97255e90644747b497",
+          "consensus_hash": "0505050505050505050505050505050505050505050505050505050505050505",
+          "app_hash": "e3f311d05ffd7304dbe87c57ab0959ed01d5c6fdd0d21fa09fa2f7036da49cfb",
+          "last_results_hash": "1212121212121212121212121212121212121212121212121212121212121212",
+          "evidence_hash": "0808080808080808080808080808080808080808080808080808080808080808",
+          "proposer_address": "34750f98bd59fcfc946da45aaabe933be154a4b5"
+        },
+        "commit": {
+          "height": "64",
+          "round": 1,
+          "block_id": {
+            "hash": "0469995fc5e67bb6fdfe05db8b4ab34509a8aaef7ed2b4127411faef998c8638",
+            "parts": {
+              "total": 1,
+              "hash": "0909090909090909090909090909090909090909090909090909090909090909"
+            }
+          },
+          "signatures": [
+            {
+              "block_id_flag": 2,
+              "validator_address": "34750f98bd59fcfc946da45aaabe933be154a4b5",
+              "timestamp": "2026-09-14T05:59:04Z",
+              "signature": "AVrZaG57aKADeUDkv+BdMCQuNznbD9LzG6yAYH/mjUr9MENa/YOfiZPCa18coaRnYNjNIGjIKmb49S7SUNvECA=="
+            }
+          ]
+        }
+      }
+    }
+  },
+  {
+    "method": "px_getValidators",
+    "params": [
+      "64"
+    ],
+    "result": {
+      "height": "64",
+      "total": "1",
+      "validators": [
+        {
+          "address": "34750f98bd59fcfc946da45aaabe933be154a4b5",
+          "pubKey": {
+            "type": "tendermint/PubKeyEd25519",
+            "value": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w="
+          },
+          "votingPower": "10"
+        }
+      ]
+    }
+  }
+]

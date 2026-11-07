@@ -23,7 +23,8 @@ function header(value) {
 function commit(value) {
   return { height: BigInt(value.Height), round: value.Round, blockId: blockId(value.BlockID),
     signatures: value.Signatures.map((signature) => ({ blockIdFlag: signature.BlockIDFlag,
-      validatorAddress: base64(signature.ValidatorAddress), timestamp: timestamp(signature.Timestamp), signature: base64(signature.Signature) })) };
+      validatorAddress: base64(signature.ValidatorAddress), timestamp: timestamp(signature.Timestamp),
+      signature: signature.Signature == null ? new Uint8Array() : base64(signature.Signature) })) };
 }
 function validators(value) {
   return value.map((validator) => {
