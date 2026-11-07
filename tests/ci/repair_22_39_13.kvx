@@ -1,0 +1,18 @@
+[repair.22.39.13]
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+requirement = "22998.1"
+implementation = "Replace private service DNS names and the wildcard namespace suffix in the four beta and faucet pages with operator-supplied endpoint examples; preserve HTTPS and Redis TLS schemes, URL paths and explicit ports, and name the existing configuration variables."
+wording = "Preserve the beta page's Private-network only sentence and add the same explicit wording to the other three pages for compatibility with gate 108.0.7."
+build_command = "python3 -m py_compile tests/ci/test_docs_private_service_names.py"
+verify_command = "python3 -m pytest -q tests/ci/test_docs_private_service_names.py"
+evidence = "The runner's private /out/run/gates.jsonl records the exact built and verified revision, command, exit code and log path; the final response copies the last hf-done evidence record."
+
+[case.no_private_service_hosts]
+test = "tests/ci/test_docs_private_service_names.py::test_beta_and_faucet_docs_name_no_private_service_hosts"
+pages = ["docs/platform/beta-environment.md", "docs/site/docs/platform/faucet.md", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
+assertion = "Read each real page, reject service DNS suffixes and namespace-qualified hosts including shortened names, and require operator endpoint examples with the original paths, explicit ports and documented configuration variables."
+
+[case.private_network_only_wording]
+test = "tests/ci/test_docs_private_service_names.py::test_beta_and_faucet_docs_keep_private_network_only_wording"
+pages = ["docs/platform/beta-environment.md", "docs/site/docs/platform/faucet.md", "docs/wiki/HostedBetaControl.md", "docs/wiki/HostedFaucet.md"]
+assertion = "Read each real page and require the case-insensitive private-network only or private network only wording matched by tools/paxeer-x/gates/108.0.7.sh."
