@@ -16955,3 +16955,48 @@ fix = "Decision 2798: the gate builds both consumers and exports both executable
 title = "A protocol page of the documentation site links a repository file outside the site directory"
 symptom = "22.39.39 attempt 1 at 76f5c401454d repaired the x402 page link named by the task and wrote the two tests; test_site_relative_links_stay_inside_docs_dir then found docs/site/docs/protocol/finality.md line 9 linking ../../../paxeer-network.md, which resolves to docs/paxeer-network.md outside docs/site/docs. The task text called the x402 link the only such link because the survey counted only links that did not resolve; this one resolves to a tracked file and still leaves the strict build."
 fix = "22.39.39 gains the finality page in its touches and continues: the link points at the site page docs/site/docs/overview/unified-network.md when it covers the execution and finality model, otherwise at the repository URL of docs/paxeer-network.md on the main branch, and the test keeps both assertions."
+
+[gotcha.3427]
+title = "The tools/ci test suite fails twenty assertions at main once it is collected"
+symptom = "22.39.47 attempt 1 at 4fae3a7ef385 made the tools/ci suite collectable (the completion gate moved beside its peers, the Makefile and the publish-images and runner-routing checks corrected) and the suite then failed 20 of 125 tests against the live tree: test_ci_loadtest_job expects a literal runs-on while ci.yml now carries the routing expression; test_foundry_profile and test_solidity_state_surface need forge, absent from the python image; the wave1 and wave2 Makefile tests pin an exclusion set the Makefile has since extended by the oracle adapter, oracle root and the challenge sources; the wave4 and wave6 dry-run tests see make -n exit 2 and miss the genesis build line; test_replay_golden_ci finds fixed runners in ci.yml, explorer-images.yml and launchpad-test.yml; seven test_wallet_check_live cases capture no probe paths from check-live.sh; test_wallet_gate_targets reports a malformed target line from gate-lint.sh; test_wallet_go_test_workflow misses the wire wallet vectors path in the paths filter; test_xweb_workflow_check exits 1 on xweb-workflow-check.sh; and the beta ledger path check counts 6434 violations. The attempt recorded the list in a task-local record and stopped, the verification never narrowed."
+fix = "A repair task of the tools owner takes the recorded twenty as its baseline and settles each against the live rule (test stale, producer defect, or an absent tool recorded as a skip), and 22.39.47 continues after it lands."
+
+[gotcha.3428]
+title = "The real FUSE case cannot run in the qualification environment"
+symptom = "22.37.15 attempt 1 at 705085632471 bound the virtual filesystem writes to the attempt expiry and ran the 3_2 case twice: the first run failed because the host daemon resolved the source-control SDK through its package link and the SDK dist was never built by the build command (ERR_MODULE_NOT_FOUND on dist/host.js); the second run failed before any mounted assertion with the typed error Missing source object backend configuration, because the case defaults to the live object store and the environment carries no object store credentials, no /dev/fuse and no pinned mount helpers."
+fix = "The build command builds the source-control SDK before the typecheck; the case gains a component mode that runs the write-expiry binding and the mounted-path assertions against the in-process object backend and the virtual filesystem; the live run stays recorded UNRUN with its exact command until the owner runs it (decision 2700)."
+
+[gotcha.3429]
+title = "Two site-check verifications point the platform site build at the filesystem root"
+symptom = "22.39.30 attempt 1 at 97f1c0369a16 rewrote the six receipt pages and passed its thirteen tests, then the second half of the verification, the platform site check, failed with FileNotFoundError on /docs/platform/site.kvx: the check takes the repository path and the command passed ../.., which from the repository root is the filesystem root. 22.39.31 carries the same argument."
+fix = "Both verifications pass the repository root as the single dot; a verification path argument is written relative to the repository root (decision 2802)."
+
+[gotcha.3430]
+title = "Three pages outside the inference market guides still cite task and decision records"
+symptom = "22.39.37 attempt 1 at 3deb4f6cdbd5 removed the records from the eight pages in its touches and its repository-wide test then found three more pages: the source-control recovery page of the vendored project docs cites a task and a decision on one line, the perps ABI change history cites decisions on two lines, and the wallet service security review cites a decision reference on one line."
+fix = "The three pages join the touches and the attempt continues; the facts stay, the record numbers go."
+
+[gotcha.3431]
+title = "The image namespace check read the Go module path as a registry namespace"
+symptom = "22.39.48 attempt 1 at 8ff17c5a4935 moved the pax image under the registry namespace of the repository owner and its new test then asserted that no workflow contains the old repository name in any case, which failed on the db-tests workflow where the state database package prefix is the Go module path github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db. The module path is the import path of the root Go module and stays until the module is renamed, which is an owner decision."
+fix = "The check asserts registry image references (ghcr.io namespaces, image and tag fields) and exempts Go import paths; the module rename is flagged to the owner (decision 2801)."
+
+[gotcha.3432]
+title = "The node image context drops an interop test target the manifest declares"
+symptom = "22.39.53 attempt 1 at 47e49dfbb78e collected the websearch context module under pytest and its negative check refused the context: services/interop/tests/repair_22_33_95.rs is declared as a test target of layerx-portable by path, the Docker ignore file of the node image excludes services/interop and re-includes only the crates, the Cargo manifest and the lock file, so the manifest names a file the context does not carry and cargo refuses the manifest inside the image build."
+fix = "The ignore file re-includes the declared test file; the task continues with the ignore file in its touches."
+
+[gotcha.3433]
+title = "The wallet surface suites load again and fail twenty-seven assertions"
+symptom = "22.39.42 attempt 1 at e3a22cbc5a67 repaired the sdk/wallet package manager field and the apps/wallet environment so that every suite in its list collects and runs; the run then failed 27 assertions in seven suites (WebDataView 18, ExchangeView 4, BridgeView, FeeChoice, LaunchpadView, the chain surface test and the repair-22-33-206 test one each), all of the form condition not reached: receipt or a retired grant assertion, while the pwa suite and the three repair suites passed."
+fix = "The loading task verifies collection of every suite and the four green suites; a repair task of the wallet owner takes the 27 as its baseline and settles each against the live receipt model (decision 2800)."
+
+[gotcha.3434]
+title = "Public pages still link the old repository name and carry dead vendored links"
+symptom = "The link sweep at c42baaf772 found 14 English lines linking or cloning github.com/Sidiora-Labs/Paxeer-X-Network (the code of conduct, RELEASE.md, the consensus and bridge READMEs, the beta environment page, the wiki home, the programs README and the explorer backend devcontainer README), 20 badge and source lines in the de, es, pt-BR and zh-CN README translations pointing at the old name while fr, ja and ru are correct, the hpx README provenance example at v6.12.0, seven vendored wasm-tools crate READMEs linking a LICENSE file the vendored copy does not track, five vendored pages linking files the copy dropped, 30 relative links in the explorer backend changelog to upstream pages absent from the tree, placeholder wording in the loadtest README and the bundled libsecp256k1 README, and no repository-wide Markdown link check."
+fix = "Four documentation tasks repair the pages and one adds the repository-wide guard that would have caught them."
+
+[gotcha.3435]
+title = "The qualification suites collect again and fail two hundred and sixty-seven cases"
+symptom = "22.31.621 attempt 1 at baa4f93534f1 (final tree d186f583392a after two repair cycles) made every Python module under tools/qualification collect and the whole run then reported 4172 passed, 267 failed, 1 error and 5 skipped: recorded transaction envelopes compared against the live wire shape in the 22.33.809 repair test, the px_register and px_resolveAccount contract pins reported as changed or abbreviated, and further families the attempt listed in tools/qualification/repair_22_31_621.kvx before the verification could be rerun."
+fix = "The collection task verifies collection, the first known break and the collection test; a repair task of the tools owner takes the 267 as its baseline, groups them by module family and reason, and settles each family against the live rule (decision 2800)."
