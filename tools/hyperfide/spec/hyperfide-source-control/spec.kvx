@@ -801,8 +801,8 @@ title = "Close the native source release with running-system evidence"
 status = "in_progress"
 wave = 7
 requires = ["7.1"]
-touches = ["tests/hyperfide/cases/source_control/7_2.py", "tests/hyperfide/source-control/manifests/release.json", "docs/hyperfide/source-control.md", "docs/hyperfide/operations.md", "spec/hyperfide-source-control/spec.kvx"]
-verify_cmd = "python3 tests/hyperfide/cases/source_control/7_2.py"
+touches = ["tests/hyperfide/cases/source_control/7_2.py", "tests/hyperfide/source-control/manifests/release.json", "tests/hyperfide/source-control/registrations/7.2.json", "tests/hyperfide/support/native_source_full_journey.mjs", "docs/hyperfide/source-control.md", "docs/hyperfide/operations.md", "spec/hyperfide-source-control/spec.kvx"]
+verify_cmd = "python3 tests/hyperfide/cases/source_control/7_2.py --self-test"
 do_1 = "Run the released source-control system with the qualified deployment profile and current source format; demonstrate assignment, sparse/virtual workspace, native durable checkpoint, worker replacement, qualification, acceptance and Git remote publication through Hyperfide."
 do_2 = "Verify all required canonical case assertions and campaign variants against exact release inputs. Retain component evidence separately from live S3, actual fleet, GitHub/GitLab, consolidation, growth and disaster-recovery evidence. Required missing cases must fail closure."
 do_3 = "Exercise a restore or failover and an ambiguous external publication outcome using release artifacts, reconcile source and remote state, and record operator acceptance of the running product journey and supported limitations."
@@ -810,6 +810,16 @@ do_4 = "Create the release driver to validate current evidence/custody/source ap
 reqs = ["1.1", "1.2", "1.3", "1.4", "1.5", "1.6", "1.7", "1.8", "14.1", "14.2", "14.3", "14.4", "14.5"]
 owner = "release"
 cases = ["SCM-023", "SCM-024"]
+
+# The bounded task gate proves the release driver; product closure remains separate.
+source_task = "7.2"
+carried_source = "spec/layerx-merge/source-control/source-spec.kvx"
+repair_task = "layerx-merge/22.37.27"
+evidence_ledger = "/out/run/gates.jsonl"
+build_evidence = "hf-build: final candidate revision, command, exit and private log in evidence_ledger"
+verify_evidence = "hf-done: same final candidate revision, command, exit and private log in evidence_ledger"
+qualification = "bounded release-input and stale-custody/evidence-class probes; running deployment, restore and full-case closure require the pinned private release manifest"
+closure_report = "build/source-control/7.2/closure-report.json"
 
 [case.SCM-001]
 title = "Canonical immutable object and tree identity"
