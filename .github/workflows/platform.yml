@@ -74,6 +74,11 @@ jobs:
         run: make platform-test
       - name: Run Go and JVM conformance and compile Swift and C sharp SDKs
         run: make platform-verify-sdks
+      - name: Install Maven for the Android sample
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes maven
+          mvn -v
       - name: Compile the Android sample against the installed JVM SDK
         run: >-
           mvn -B -f sdk/platform/jvm/pom.xml -DskipTests install &&
@@ -414,14 +419,17 @@ jobs:
           node-version: 22
       - name: Install locked AssemblyScript dependencies
         run: make programs-js-install
-      - name: Run the aggregate Programs acceptance suite and record its gate
-        run: scripts/ci/release-gate.sh --job programs-acceptance --ordinal 1 -- make programs-test
-      - name: Retain the gate record and log
+      - name: Run the aggregate Programs acceptance suite
+        shell: bash
+        run: |
+          set -euo pipefail
+          make programs-test 2>&1 | tee "$RUNNER_TEMP/programs-acceptance.log"
+      - name: Retain the gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-gate-programs-acceptance
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/programs-acceptance.log
           if-no-files-found: error
 
   agent-sanitizers:
@@ -452,25 +460,27 @@ jobs:
           python3 -m venv .lane-venv
           .lane-venv/bin/python -m pip install -r tests/bridge/requirements.txt
           echo "$PWD/.lane-venv/bin" >> "$GITHUB_PATH"
-      - name: Run the sanitizer variants and record their gate
+      - name: Run the sanitizer variants
+        shell: bash
         run: |
+          set -euo pipefail
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
-            sh services/agent/tools/run-real-node-tests.sh prepare
+            sh services/agent/tools/run-real-node-tests.sh prepare 2>&1 | tee "$RUNNER_TEMP/agent-sanitizers.log"
           sudo env "PATH=$PATH" "CARGO_HOME=$HOME/.cargo" "RUSTUP_HOME=$HOME/.rustup" \
             "CARGO_TARGET_DIR=$PWD/.lane-target" \
             "CARGO_PROFILE_DEV_DEBUG=$CARGO_PROFILE_DEV_DEBUG" \
             "CARGO_PROFILE_TEST_DEBUG=$CARGO_PROFILE_TEST_DEBUG" \
             "LAYERX_TEST_NATIVE_BIN_DIR=$PWD/build/bin" \
-            scripts/ci/release-gate.sh --job agent-sanitizers --ordinal 2 -- make agent-test-sanitize
-      - name: Retain the gate record and log
+            make agent-test-sanitize 2>&1 | tee -a "$RUNNER_TEMP/agent-sanitizers.log"
+      - name: Retain the gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-gate-agent-sanitizers
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/agent-sanitizers.log
           if-no-files-found: error
 
   agent-fuzz-corpus:
@@ -488,14 +498,17 @@ jobs:
           rustup default 1.91.1 &&
           rustup toolchain install nightly-2025-11-10 --profile minimal &&
           cargo install cargo-fuzz --locked
-      - name: Run the committed long-fuzz corpus and record its gate
-        run: scripts/ci/release-gate.sh --job agent-fuzz-corpus --ordinal 3 -- make agent-fuzz-long
-      - name: Retain the gate record and log
+      - name: Run the committed long-fuzz corpus
+        shell: bash
+        run: |
+          set -euo pipefail
+          make agent-fuzz-long 2>&1 | tee "$RUNNER_TEMP/agent-fuzz-corpus.log"
+      - name: Retain the gate log
         if: ${{ always() }}
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: release-gate-agent-fuzz-corpus
-          path: spec/layerx-beta/evidence
+          path: ${{ runner.temp }}/agent-fuzz-corpus.log
           if-no-files-found: error
 
   release-pipeline:

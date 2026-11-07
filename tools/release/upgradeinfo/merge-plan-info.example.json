@@ -19,6 +19,6 @@
   ],
   "last_seq": 0,
   "last_seq_hash": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
-  "activation_height": 43,
-  "plan_height": 42
+  "plan_height": 42,
+  "activation_height": 43
 }

@@ -33595,3 +33595,115 @@ symbol = "layout_receipt_gate_test.py"
 observed = "Attempt 4 at 97407a1e9e: build 1 exit 0, verify 1 exit 1: seventeen gate fixtures passed, the aggregation report recorded zero regressions and the five pending driver receipts, and the pending aggregation check refused on the one failed check source.final-revision-clean."
 assumption = "The dirty state comes from the untracked lockfile and prepare outputs the dependency installation generates (gotcha 3397); with the check reading tracked content only the report is clean at the candidate revision."
 severity = "high"
+
+[finding.9.98.4.12]
+task = "9.98.4"
+file = "services/agent/crates/layerx-agentd/src/ops/program.rs"
+symbol = "program.rs"
+observed = "Attempt 10 at aaf20e51047e: build 1 exit 0, verify 1 exit 101 before any test ran: the clock helper refused because services/platform/Cargo.lock needs to be updated under the locked flag."
+assumption = "The refusal is the stale platform lockfile of the main tree (reproduced there), not the attempt tree; after 22.31.614 lands the verification reaches the tests."
+severity = "high"
+
+[finding.22.39.8.1]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 1 at 072c86dbd9c7: build 1 exit 0, verify 1 exit 1: both real-profile tests failed at the consumer requirement (prebuilt real Rust custody consumer is required) after the inventory wiring passed."
+assumption = "With the consumer executable built and exported and the clock socket provided, the two tests reach their assertions; the gate of 18.1110.1 proves the shape."
+severity = "high"
+
+[finding.22.99.77.24]
+task = "22.99.77"
+file = "programs/crates/layerx-programs-ai-market"
+symbol = "layerx-programs-ai-market"
+observed = "Attempt 22 at 7d5daec19bd1: build 3 exit 2 at the bound check of the host boundary target (guest 553180 bytes against 524184); the routing conflict and the availability assertions were repaired before the check; the verification never ran because both repair cycles were spent."
+assumption = "The growth sits on main (four room-market commits since attempt 10) and inside the attempt tree alike; the repair at main plus the same techniques on the attempt code bring the merged guest under the bound."
+severity = "high"
+
+[finding.22.37.2.5]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 5 at 279f4adf5f44: build 1 exit 0, verify 1 exit 1: nineteen receipt-gate cases passed and the pending aggregation check refused the candidate at source.final-revision-clean because two tracked root paths (the spec file and the ignore file) were modified by the task bookkeeping."
+assumption = "The check reads the whole repository; limiting it to the layout root removes the only refusal and keeps the candidate bound to the vendored tree."
+severity = "high"
+
+[finding.22.39.8.2]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 2 at 5f8a72b33391: build 1 exit 101 at the consumer step: the lock file services/human/Cargo.lock needs to be updated but the locked flag was passed; the native library build and the vet passed; neither real-profile test ran."
+assumption = "With the human lockfile refreshed the consumer builds and the two tests run; nothing in the attempt tree caused the refusal."
+severity = "high"
+
+[finding.22.38.4.1]
+task = "22.38.4"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"
+symbol = "f11_lap_settlement.rs"
+observed = "Attempt 1: build 3 exit 0 at f22b7c0c5bc9; verification 1 exit 1 at 9d6804ebcaad with application error 2061 (F08_ADMISSION_WINDOW_FULL) in the fixture of all five tests; the repaired tree was never verified."
+assumption = "The final tree already spreads the admissions over two epochs; the verification at that tree decides whether the fixture repair is complete."
+severity = "high"
+
+[finding.22.31.542.1]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 1: build 1 exit 0 at b08b5e87298d; the dependent-crate check failed with exit 101 compiling the gateway test target repair_22_33_1439 (thirteen unresolved references to the canary and rooms modules); the verification never ran."
+assumption = "The failure sits on main and is repaired by 22.31.620; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.555.1]
+task = "22.31.555"
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+symbol = "committed.rs"
+observed = "Attempt 1: build 1 exit 0 at 318a3d72a8e6; the dependent-crate check failed with exit 101 compiling the gateway test target repair_22_33_1439; the verification never ran."
+assumption = "The failure sits on main and is repaired by 22.31.620; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.37.18.3]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 3: build exit 0 and the five owned suites passed (23 tests) at 80191829197a; the 4.2 case failed with WORKSPACE_EXPIRED at the first checkpoint of the assigned participant; the final tree is c9194f8f7a59."
+assumption = "The missing pin sits in the assignment adapter at main since 22.37.14 landed; 22.37.30 repairs it and the case passes the checkpoint afterwards."
+severity = "high"
+
+[finding.22.31.540.1]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 1: build 3 exit 101 at 95890bc63c80, an unresolved import of BudgetProofError from the budget module; builds 1 and 2 were spent on earlier compile errors; the verification never ran."
+assumption = "The type exists one module deeper than the import names; the fix is the import path alone."
+severity = "high"
+
+[finding.22.39.25.1]
+task = "22.39.25"
+file = "tests/ci/test_tests_ci_modules_collected.py"
+symbol = "test_tests_ci_modules_collected.py"
+observed = "Attempt 1: build 1 exit 0 and verification 1 exit 1 at a91d8fab412e; the collection test failed on tests/ci/websearch-context.py while the script-reference test passed."
+assumption = "The third module is invoked by a gate script, a class the collection test did not admit; the test is widened, no module is retired."
+severity = "high"
+
+[finding.22.31.549.1]
+task = "22.31.549"
+file = "services/platform/hosted/authority/tests/repair_22_31_549.rs"
+symbol = "repair_22_31_549.rs"
+observed = "Attempt 1 at 4ab46ca425a3 (base 3a44daf7bbae): build 1 exit 0; the dependent-crate check failed compiling the gateway mirror test with the fourteen errors of gotcha 3417 (the canary and rooms modules unresolved in the crate root); the verification never ran."
+assumption = "The refusal comes from the mirror at main, not from the attempt tree; 22.31.620 removes it and the attempt tree needs no change."
+severity = "high"
+
+[finding.22.39.26.1]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 1 at 5f695f6fb627 (base 20f1f239c8): build 2 exit 0; verification exit 2, pytest interrupted at collection on tools/qualification/audit_repairs/test_repair_22_33_1395.py line 23 with KeyError value over the gateway container env items; both repair cycles spent."
+assumption = "The collection break is pre-existing since 8efee4ff17 and belongs to the repair task 22.31.621; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.615.1]
+task = "22.31.615"
+file = "tests/ci/test_ai_market_guest_bound.py"
+symbol = "test_ai_market_guest_bound.py"
+observed = "Attempt 1 at 273d1905d0e1 (base 20f1f239c8): builds 1 to 3 exit 0 with the guest at 509009 bytes after the third (target 504184, bound 524184); the dependent-crate check refused the gateway mirror test with the canary and rooms errors of gotcha 3417; the verification never ran; both repair cycles spent."
+assumption = "The remaining 4825 bytes sit in dead helpers and formatted messages the first pass left; the mirror refusal is removed by 22.31.620 and the attempt tree needs no change for it."
+severity = "high"

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Programme checks of the v6.12.0 rehearsal.
+"""Programme checks of the release rehearsal.
 
 Each check_* function runs the programme scenario of one head acceptance against the four
 rehearsal nodes after the first upgraded height: it sends the scenario's calls over EVM JSON-RPC
@@ -21,6 +21,7 @@ import signal
 import sys
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 
@@ -61,7 +62,9 @@ SPOT_UNUSED = (
 )
 USDL = "0x85fcd13735f4309833a503ee804ea32395851479"
 USDL_DENOM = "uusdl"
-UPGRADE = "v6.12.0"
+RELEASE_IDENTITY = json.loads((ROOT / "tools/release/version.json").read_text())
+UPGRADE = RELEASE_IDENTITY["upgrade"]
+RELEASE_VERSION = RELEASE_IDENTITY["version"]
 ZERO_ADDRESS = "0x" + "00" * 20
 
 # Generation 2 role addresses that serve every market after the upgrade (contracts/launchpad.md section 1).
@@ -3047,16 +3050,40 @@ def check_price_submission_bounds(net):
 
 
 def check_plan_and_version(net):
-    """7.2: the plan v6.12.0 is applied at HR+1 and every node reports version v6.12.0."""
+    """The selected plan is applied at HR+1 on every node running the release version."""
+    plan = net.args.plan_name
+    expected_version = net.args.release_version
     for node in net.nodes:
-        height = applied_plan_height(node, UPGRADE)
+        height = applied_plan_height(node, plan)
         require(
             height == net.h1,
-            f"node {node.index} applied {UPGRADE} at {height}, expected {net.h1}",
+            f"node {node.index} applied {plan} at {height}, expected {net.h1}",
         )
         version = node.comet("abci_info")["response"].get("version")
-        require(version == UPGRADE, f"node {node.index} reports version {version}")
-    print(f"plan {UPGRADE} applied at {net.h1} on four nodes reporting {UPGRADE}")
+        require(
+            version == expected_version,
+            f"node {node.index} reports version {version}, expected {expected_version}",
+        )
+        if plan == "v7.0":
+            require(node.eth("eth_chainId") == "0x7d", "merge requires chain id 0x7d")
+            try:
+                node.call("0x0000000000000000000000000000000000001013", selector("depositCount()"))
+            except Revert as err:
+                require(
+                    b"LXP_MODULE_DISABLED" in err.data or "LXP_MODULE_DISABLED" in str(err),
+                    f"depositCount refused for another reason: {err}",
+                )
+            else:
+                raise CheckFailed("retired custody depositCount succeeded after merge")
+            endpoint = urllib.parse.urlsplit(node.evm_url)
+            root_url = urllib.parse.urlunsplit(endpoint._replace(path="/", query="", fragment=""))
+            network = rpc(root_url, "px_getNetwork", [])
+            require(
+                isinstance(network, dict) and bool(network.get("network_id"))
+                and network.get("paxeer", {}).get("chain_id") == "0x7d",
+                f"node {node.index} root px_getNetwork returned {network}",
+            )
+    print(f"plan {plan} applied at {net.h1} on four nodes reporting {expected_version}")
 
 
 # --- merged transaction, program, web, tenant and restart scenarios ---------------------------
@@ -3431,6 +3458,8 @@ def parse_args(argv):
     parser.add_argument("--evm", action="append", default=[])
     parser.add_argument("--comet", action="append", default=[])
     parser.add_argument("--halt-height", type=int, required=True)
+    parser.add_argument("--plan-name", default=UPGRADE)
+    parser.add_argument("--release-version", default=RELEASE_VERSION)
     parser.add_argument("--trader-key")
     parser.add_argument("--maker-key")
     parser.add_argument("--feed-key")

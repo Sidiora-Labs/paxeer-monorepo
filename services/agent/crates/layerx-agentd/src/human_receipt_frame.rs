@@ -1,7 +1,7 @@
 //! Owner receipt lookup wire contract: presence 0 is Absent, 2 is Submitted
 //! (transaction hash and nonce), and 1 is Found followed by ReceiptLookupFrame.
 //! Verification uses the Human codes 1 SEQUENCER_SIGNED, 2 BATCH_INCLUDED,
-//! 3 STATE_PROVEN, 4 CHECKPOINT_FINALISED, 5 SETTLEMENT_ANCHORED.
+//! 3 STATE_PROVEN, 6 COMMITTED; legacy codes 4 and 5 decode as COMMITTED.
 //! The rung is Rung::wire_rank (0 Submitted, 1 Receipted, 2 Committed).
 //! The complete field order and program.receipt JSON projection are maintained in
 //! `contracts/agent-human-peer.md` and `contracts/agent-api.md`. Verification codes
@@ -106,8 +106,7 @@ impl ReceiptLookupFrame {
             1 => VerificationLevel::SEQUENCER_SIGNED,
             2 => VerificationLevel::BATCH_INCLUDED,
             3 => VerificationLevel::STATE_PROVEN,
-            4 => VerificationLevel::CHECKPOINT_FINALISED,
-            5 => VerificationLevel::SETTLEMENT_ANCHORED,
+            4 | 5 | 6 => VerificationLevel::COMMITTED,
             _ => return Err(invalid(decoder.offset())),
         };
         let tx_hash = fixed(decoder)?;
