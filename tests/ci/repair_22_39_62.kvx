@@ -1,0 +1,58 @@
+[repair.22.39.62]
+decision = "2803"
+gotcha = "3437"
+requirement = "22998.1"
+base_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+verified_revision = "The exact candidate revision, command, exit code and private log are recorded by hf-done in /out/run/gates.jsonl and copied into the final handoff; this record is part of that candidate."
+build_cmd = "python3 -m py_compile tests/ci/test_copied_artifacts_in_sync.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_copied_artifacts_in_sync.py"
+publication = "The runner publishes the qualified candidate; the worker does not commit or push."
+
+[case.explorer]
+source = "services/explorer/swagger.yaml"
+consumer = "apps/explorer/public/openapi.yaml"
+decision = "Serve one backend-generated document at the existing /openapi.yaml URL. Store its regular file in apps/explorer/public so the frontend-only Docker COPY includes it; services/explorer/swagger.yaml is a relative symlink to that file. Writing the generator's existing backend output path updates the served document directly. No second stored document or build-script change is needed."
+test = "test_explorer_openapi_matches_backend_swagger"
+criterion = "The backend path is a non-dangling symlink to the regular frontend document, both paths read identical bytes, the API docs consumer still uses /openapi.yaml and the real Dockerfile still copies the frontend tree containing the regular file."
+
+[case.attestor]
+sources = ["precompiles/launchpad/abi.json", "precompiles/perps/abi/abi.json", "precompiles/layerxprograms/abi.json"]
+copies = ["services/wallet/attestor/internal/policy/evm/abi/launchpad.json", "services/wallet/attestor/internal/policy/evm/abi/perps.json", "services/wallet/attestor/internal/policy/evm/abi/layerxprograms.json"]
+decision = "Retain regular embedded files because the attestor is a standalone Go module. Serialize each source and copy with sorted JSON keys and two-space indentation without changing ABI entries."
+test = "test_attestor_abis_match_precompile_abis"
+criterion = "All three parametrized ABI checks execute, require nonempty function-bearing ABI arrays, compare exact bytes and assert the real Go embed/read path."
+
+[case.deployment]
+source = "contracts/launchpad/deployments/paxeer-x-network-addresses.json"
+consumer = "services/launchpad/indexer/internal/receipt/deployment_source.json"
+decision = "Retain the indexer's independently embedded deployment source. Canonicalize source JSON key ordering; compare every parsed field, including deployment metadata, because JSON object key order has no consumer meaning."
+test = "test_deployment_source_matches_launchpad_addresses"
+criterion = "Both complete JSON documents match and the source identifies network 125; no address, deployment state or metadata is excluded from comparison."
+
+[case.retired_inventory]
+historical = "tools/launchpad/production/feature-acceptance/fixtures/retired-inventory.json"
+materialization = "tools/launchpad/production/feature-acceptance/inventory.json"
+decision = "Retain the frozen 55 retired declarations and their reader. The historical representation uses features-first, four-space JSON; the materialization uses sorted-key, two-space JSON. Neither declares that retired features are current or qualified."
+consumer_contract = "build_inventory.build returns the historical declarations after checking their retired references; TestRepairM_1066_InventorySpec explicitly requires semantic equality of published and historical inventories. Preserve that existing assertion and the real producer behavior."
+test = "test_retired_inventory_differs_from_live"
+criterion = "Representations are byte-distinct; every historical coverage/requirement section is absent from the current specification and reconciles through the real reference policy as retired-reference under decision.1803; all owner identities and unqualified states remain intact; the real generator reproduces the live materialization."
+intentional_copy = "The historical/live semantic duplication is intentional under the existing reader contract, not an independent current inventory. It is listed with its retirement and producer sync test."
+
+[case.statik]
+source = "docs/swagger/statik.go"
+consumer = "sdk/client/docs/statik/statik.go"
+decision = "Retain the newer, smaller network Swagger archive in docs/swagger. The SDK initialization file now blank-imports that package; its existing init.go remains valid. The shared archive registers once under both the default and swagger namespaces."
+compatibility = "Retain the newer archive's members and add swagger.yaml as an alias of swagger.yml so both former schema URLs resolve to the same network documentation. Both namespace registrations receive the same archive string."
+test = "test_statik_consumers_share_one_bundle"
+criterion = "There is one embedded archive, the SDK imports it, both registrations exist, the archive passes CRC validation, both schema URLs have equal nonempty bytes, the UI references its real script/schema members and the node/SDK imports still point at the initialized packages."
+
+[case.copy_inventory]
+allowlist = "tests/ci/data/intentional_copies.txt"
+tests = ["test_other_intentional_copies_match_sources", "test_no_unlisted_byte_identical_copies_over_20kb"]
+criterion = "Inventory tracked and nonignored new first-party files. Group regular files strictly over 20000 bytes by size then SHA-256. Every duplicate group must be connected by explicitly listed source/copy relationships; no wildcard, directory-wide or hash-only exemptions are allowed. Every allowlisted relationship executes a full byte or full JSON comparison."
+remaining_purposes = "Independent app assets/fonts/chart declarations/styles, approved visual snapshots, cross-consumer schema and wire vectors, versioned wasm native archives, module/integration wasm programs, shared receipt fixtures, generated query bindings and documentation diagrams remain independently packaged and explicitly locked."
+exclusions = "Pinned upstream implementation trees (including core/deps, tools with VENDOR.kvx and explorer backend/Rust imports), vendor components, engineering records under spec, dependency lock/checksum files and generated dependency/build directories are outside the first-party product-artifact inventory. Application assets, first-party fixtures, first-party generated code and versioned wasm artifacts remain covered."
+
+[implementation_note.zip_metadata]
+observed = "Python ZipFile.writestr mutates the supplied ZipInfo header offset, so sharing that object with a source archive invalidates later source reads."
+resolution = "Copy each ZipInfo before writing and read the schema alias source before writing; retain original member contents and metadata. No qualification gate had run when this implementation error was corrected."
