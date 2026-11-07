@@ -310,14 +310,14 @@ mod portable_fixture {
     use layerx_agent_api::prepare::CanonicalBytes;
     use layerx_agent_api::proof::ProofBundle;
     use layerx_agentd::export::{
-        build, decode_header, decode_validators, encode_commit, encode_header, encode_validators,
-        verify, ExportTrustSource,
+        encode_commit, encode_header, encode_storage_witnesses, encode_validators,
+        ExportTrustSource,
     };
     use layerx_agentd::read::{
         validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CommitTimestamp,
         CommitValidator, CommitVote,
     };
-    use layerx_client::sequencer::ReceiptKeyEntry;
+    use layerx_client::sequencer::{ReceiptKeyEntry, SequencerEndpoint};
     use layerx_crypto::evm_transaction::{transaction_hash, Eip1559Call};
     use layerx_types::rung::Rung;
     use layerx_wire::encode::Encoder;
@@ -518,42 +518,66 @@ mod portable_fixture {
                     }
                 })
                 .collect();
-            let account = [0x12; 20];
+            let vectors: serde_json::Value = must(serde_json::from_str(include_str!(
+                "../../../../../programs/tests/vectors/ics23-evm-storage-app-hash.json"
+            )));
+            let vector = &vectors["entries"][0];
+            let account: [u8; 20] = must(
+                must(hex::decode(
+                    vector["address"].as_str().expect("storage address"),
+                ))
+                .try_into(),
+            );
+            let slot: [u8; 32] =
+                must(must(hex::decode(vector["slot"].as_str().expect("storage slot"))).try_into());
+            let state_root: [u8; 32] = must(
+                must(hex::decode(
+                    vector["app_hash"].as_str().expect("storage app hash"),
+                ))
+                .try_into(),
+            );
             let mut account_id = [0; 32];
             account_id[12..].copy_from_slice(&account);
-            let storage_hash = transaction_hash(&[0x80]);
-            let code_hash = transaction_hash(&[]);
-            let account_value = rlp(
-                &[
-                    rlp(&[1], false),
-                    rlp(&[9], false),
-                    rlp(&storage_hash, false),
-                    rlp(&code_hash, false),
-                ]
-                .concat(),
-                true,
-            );
-            let account_leaf = rlp(
-                &[
-                    rlp(&[&[0x20][..], &transaction_hash(&account)].concat(), false),
-                    rlp(&account_value, false),
-                ]
-                .concat(),
-                true,
-            );
-            let state_root = transaction_hash(&account_leaf);
-            let account_proof = rlp(
-                &[
-                    rlp(&account, false),
-                    rlp(&[9], false),
-                    rlp(&[1], false),
-                    rlp(&storage_hash, false),
-                    rlp(&code_hash, false),
-                    rlp(&rlp(&account_leaf, false), true),
-                ]
-                .concat(),
-                true,
-            );
+            let listener = must(std::net::TcpListener::bind("127.0.0.1:0"));
+            let endpoint = must(SequencerEndpoint::new(
+                &format!("http://{}/rpc", must(listener.local_addr())),
+                &[],
+            ));
+            let response = vector["response"].clone();
+            let worker = std::thread::spawn(move || {
+                use std::io::{BufReader, Write};
+                let (stream, _) = must(listener.accept());
+                must(stream.set_read_timeout(Some(std::time::Duration::from_secs(5))));
+                let mut reader = BufReader::new(stream);
+                let request: serde_json::Value =
+                    must(serde_json::from_slice(&super::read_http(&mut reader)));
+                assert_eq!(request["method"], "eth_getProof");
+                assert_eq!(
+                    request["params"],
+                    serde_json::json!([
+                        format!("0x{}", hex::encode(account)),
+                        [format!("0x{}", hex::encode(slot))],
+                        format!("{height:#x}")
+                    ])
+                );
+                let body = serde_json::json!({
+                    "jsonrpc":"2.0", "id":request["id"], "result":response
+                })
+                .to_string();
+                let mut stream = reader.into_inner();
+                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len()));
+                must(stream.flush());
+            });
+            let witnesses = must(endpoint.storage_witness(&account, &[slot], height));
+            must(worker.join());
+            for witness in &witnesses {
+                must(layerx_client::storage_witness::verify_storage_witness(
+                    witness, state_root,
+                ));
+            }
+            let account_proof = must(encode_storage_witnesses(&witnesses))
+                .as_bytes()
+                .to_vec();
             let header = CheckpointHeader {
                 version_block: 11,
                 version_app: 1,
@@ -662,7 +686,7 @@ impl identity::IdentityResolver for IdentityTranscript {
             canonical_bytes: b"committed-owner-key-3".to_vec(),
             head_sequence: HEIGHT,
             revocation_sequence: 1,
-            verification_level: VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::PrimaryKey([3; 32])],
         }))

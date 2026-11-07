@@ -1,0 +1,14 @@
+[repair.22.39.17]
+decision = "2787"
+requirement = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+verified_revision = "task/22.39.17 candidate recorded by hf-done; the exact revision, command, exit and private log are retained in the runner gate ledger and copied into the final evidence."
+build_cmd = "cargo build --locked --manifest-path services/explorer/services/smart-contract-verifier/Cargo.toml -p smart-contract-verifier"
+verify_cmd = "python3 -m pytest -q tests/ci/test_zksolc_output_no_commented_code.py"
+
+[case.zksolc_output_no_commented_code]
+path = "services/explorer/services/smart-contract-verifier/smart-contract-verifier/src/zksync/zksolc_standard_json/output/mod.rs"
+test = "tests/ci/test_zksolc_output_no_commented_code.py::test_zksolc_output_has_no_long_commented_block"
+repair = "Delete the unused 232-line commented impl Output block and its commented imports."
+criterion = "Fail when the actual output module contains more than 20 consecutive comment-only lines."
+preserved = "Retain every active import, module declaration, Output field, serde attribute and documentation comment; no existing test is removed or weakened."

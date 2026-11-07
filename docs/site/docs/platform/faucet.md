@@ -1,5 +1,7 @@
 # Hosted faucet
 
+Private-network only.
+
 The hosted faucet is for private or disposable networks only. It has no public
 faucet hostname on Paxeer X Network and is not a mainnet-beta allocation service.
 The private claim routes and deployment templates below do not establish a
@@ -286,13 +288,13 @@ Admission bounds of zero cause admission to fail as
 `503 persistence_unavailable`. The Deployment leaves claim amount and quota
 window unset, using their code defaults.
 
-The supplied private-cluster endpoints are:
+Configure operator-supplied private endpoints; replace the placeholders below:
 
-| Dependency | URL |
-| --- | --- |
-| Identity | `https://layerx-identity.layerx-testnet.svc.cluster.local:9443/v1/introspect` |
-| Funding | `https://layerx-testnet-admin.layerx-testnet.svc.cluster.local/admin/v1/testnet/fund` |
-| Redis | `rediss://layerx-faucet-redis.layerx-testnet.svc.cluster.local:6379` |
+| Dependency | Configuration | Example URL |
+| --- | --- | --- |
+| Identity | `LAYERX_IDENTITY_INTROSPECTION_URL` | `https://OPERATOR-IDENTITY-ORIGIN:9443/v1/introspect` |
+| Funding | `LAYERX_TESTNET_FUNDING_URL` | `https://OPERATOR-CONTROL-ADMIN-ORIGIN/admin/v1/testnet/fund` |
+| Redis | `LAYERX_FAUCET_REDIS_URL` | `rediss://OPERATOR-FAUCET-REDIS:6379` |
 
 The Deployment mounts `layerx-faucet-tls` at `/run/layerx/tls`,
 `layerx-testnet-identity-client` at `/run/layerx/identity`,

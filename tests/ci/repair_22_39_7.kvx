@@ -1,0 +1,14 @@
+[repair.22.39.7]
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+gotcha = 3405
+requirement = "22998.1"
+workflow = ".github/workflows/platform.yml"
+job = "build-lint-test"
+observed = "setup-java installs the JDK but does not provide Maven on the selected platform runner."
+repair = "Update the system package index, install Maven with apt-get and print mvn -v before compiling the Android sample; leave the Android artifact job's Gradle steps unchanged."
+test = "tests/ci/test_platform_workflow_maven.py::test_platform_job_installs_maven_before_mvn"
+criterion = "Parse the actual workflow and require unconditional Maven installation before every mvn invocation, with the version printed before the sample build."
+build_cmd = "python3 -m py_compile tests/ci/test_platform_workflow_maven.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_platform_workflow_maven.py"
+evidence = "The private /out/run/gates.jsonl ledger names the exact verified candidate revision, command, exit code and log; the final response copies the last hf-done result."
+limitation = "The bounded Python gates check workflow ordering; they do not execute the hosted platform or Android builds."
