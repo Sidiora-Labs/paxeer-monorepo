@@ -332838,7 +332838,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.90]
 title = "Correct the two documented commands that name a retired make target and an undefined package script"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.39.30"]
@@ -333311,7 +333311,7 @@ do_3 = "Attempt 2 (continue, gotcha 3456, decision 2811): the attempt-1 tree 83e
 
 [task.22.39.65]
 title = "Take the hosting-provider host names, fixed private peer names and real addresses out of first-party source, comments and examples"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.620"]
