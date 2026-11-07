@@ -229,7 +229,7 @@ set authenticated independently of the ingestion request, then write
 parent directory must already exist, and neither the path nor its components
 may be symlinks. The trust file, like other protected inputs, is bounded to
 16 MiB. See
-[trust_store.rs](../../../../../programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs)
+[trust_store.rs](../../../../programs/crates/layerx-programs-registry/src/chain_proof/trust_store.rs)
 from the repository's `programs` workspace.
 
 The provider decodes that file with `TrustRoot::decode` and constructs

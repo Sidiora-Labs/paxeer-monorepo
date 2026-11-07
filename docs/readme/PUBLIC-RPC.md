@@ -59,10 +59,13 @@ WebSocket upgrades were observed at
 `wss://api-mainnet-beta.paxeer.network/ws`.
 There is no WebSocket upgrade at `/rpc/ws`.
 
-## Hosted gateway methods
+## The px namespace
 
-`px_*` and `lx_*` methods belong to the operator-deployed
-[hosted gateway](../site/docs/platform/gateway-rpc.md). At the public node's
-root, `px_getReceiptKeys` and `px_getHistory` return JSON-RPC error `-32601`
-(method not available). Obtain a gateway URL from its operator for those
-methods; the node names do not expose a public gateway endpoint.
+The node serves the `px` namespace at the root path beside `debug`, `echo`,
+`eth`, `net`, `pax`, `test` and `txpool`, answering from node state. The
+retired `lx_*` methods are not served. `px_register` and `px_requestFunds`
+validate their parameters and answer `-32004` with error data code
+`hosted_gateway_service_required`: registration and funding are operations of
+the operator-deployed [hosted gateway](../site/docs/platform/gateway-rpc.md),
+whose contract is
+[`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json).

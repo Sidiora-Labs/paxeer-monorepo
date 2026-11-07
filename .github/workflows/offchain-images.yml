@@ -1,5 +1,6 @@
 name: Publish off-chain images
 
+# SDK and application tests run in launchpad-test.yml on pull requests and main pushes.
 # Every push to main that touches an off-chain service builds each row of tools/deploy/offchain-images.sh,
 # pushes it to GHCR as :<12-hex sha> and :<git describe>, and records every pushed digest in one
 # digests.json artifact for the rollout tool. A row that fails its check is reported with an error annotation,

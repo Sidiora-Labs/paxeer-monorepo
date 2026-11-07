@@ -4,7 +4,7 @@
   "description": "Project for dapp based integration tests",
   "main": "index.js",
   "author": "",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "dependencies": {
     "@nomiclabs/hardhat-ethers": "^2.2.3",
     "@nomiclabs/hardhat-waffle": "^2.0.6",

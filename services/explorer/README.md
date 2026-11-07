@@ -14,8 +14,10 @@ Public node JSON-RPC uses the root URL, for example
 `https://api1.mainnet-beta.paxeer.network/`. The public node names are
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`
 and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`,
-`eth`, `net`, `pax`, `test` and `txpool`. The hosted gateway's `px_` methods
-have their own [OpenRPC contract](../platform/hosted/gateway/openrpc.json).
+`eth`, `net`, `pax`, `px`, `test` and `txpool`. The `px` namespace is served
+at the node root from node state; only `px_register` and `px_requestFunds`
+are hosted operations. The gateway's methods have their own
+[OpenRPC contract](../platform/hosted/gateway/openrpc.json).
 `node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
 
 The explorer's indexed REST API is served by its backend under `/api/v2`;

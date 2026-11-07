@@ -2,7 +2,7 @@
 
 The explorer indexes and presents Paxeer mainnet-beta, one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of the network and proposes blocks; execution is final when its block is committed. Sub-chains are tenant domains in the database. An explorer index, cached response, or pending submission is not an independent source of finality.
 
-Public node JSON-RPC is served at the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and `txpool`. Hosted `px_` methods are declared separately in the [gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
+Public node JSON-RPC is served at the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is only the build library mirror, not an RPC endpoint.
 
 This page describes the explorer's Phoenix HTTP application. Related contracts: [WebSocket topics and recovery](explorer-ws.md), [metrics](explorer-metrics.md), [Rust service configuration](explorer-services-config.md), [kernel archive formats](kernel.md), and [platform CLI](platform-cli.md).
 

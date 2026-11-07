@@ -53,7 +53,7 @@ jq -n --arg hash "${TX_HASH:?}" \
 
 `result: null` 表示该节点暂时无法提供此哈希的回执。取得回执后，核对 `transactionHash`、`blockHash`、`blockNumber` 和 `status`：`0x1` 表示执行成功，`0x0` 表示执行失败。最终性来自 BFT 共识提交区块。若提交请求超时，应先查询原交易哈希，再决定是否重试。
 
-请配置多个节点并比较 `eth_blockNumber`，因为节点高度可能不同。公共命名空间为 `debug`、`echo`、`eth`、`net`、`pax`、`test` 和 `txpool`，具体可用性取决于节点配置。`px_` 方法属于托管网关服务，契约位于 `services/platform/hosted/gateway/openrpc.json`；使用前请阅读[网关 JSON-RPC](../../platform/gateway-rpc.md)。
+请配置多个节点并比较 `eth_blockNumber`，因为节点高度可能不同。公共命名空间为 `debug`、`echo`、`eth`、`net`、`pax`、`px`、`test` 和 `txpool`，具体可用性取决于节点配置。`px` 命名空间由节点根据节点状态应答；`px_register` 和 `px_requestFunds` 属于托管服务，契约位于 `services/platform/hosted/gateway/openrpc.json`；参见[网关 JSON-RPC](../../platform/gateway-rpc.md)。
 
 ## 从源码构建
 

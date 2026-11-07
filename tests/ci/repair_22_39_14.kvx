@@ -1,0 +1,21 @@
+[repair.22.39.14]
+decision = "2787"
+requirement = "22998.1"
+base_revision = "c1c16a3682cc8a2685b1ee7e9c2901866bd40732"
+verified_revision = "The exact candidate revision is recorded by hf-done in the private /out/run/gates.jsonl ledger and copied with command, exit and log into the final evidence. Qualification is claimed only if hf-done passes on the built revision."
+build_cmd = "python3 -m py_compile tests/ci/test_perf_db_links.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_perf_db_links.py"
+
+[case.no_dead_origins]
+test = "tests/ci/test_perf_db_links.py::test_perf_db_names_no_dead_origins"
+repair = "Remove the dead README banner, use the monorepo Git dependency and clone URL, document the services/platform/perf-db path for local dependencies and both source workflows, retain the README root security link, point the security contact template at the root SECURITY.md, and delete nested CODEOWNERS."
+assertions = "Scan README.md, Cargo.toml and the issue-template config for the dead banner host and standalone repository URL; require CODEOWNERS absence including dangling links, both monorepo clone and directory commands, parsed Git and path dependencies, and root security links."
+
+[case.monorepo_repository]
+test = "tests/ci/test_perf_db_links.py::test_perf_db_repository_is_monorepo"
+repair = "Set the Cargo package repository to https://github.com/Sidiora-Labs/paxeer-monorepo."
+assertions = "Parse the real Cargo.toml with tomllib and require package.repository to equal the monorepo URL exactly."
+
+[qualification.policy]
+evidence = "hf-build and hf-done retain exact revision, command, exit and private log paths in /out/run/gates.jsonl; the final response copies the last gate result without editing the qualified candidate afterward."
+preserved = "No existing tests are deleted, skipped, ignored, marked as expected to fail or weakened. No network reachability check or extra gate is introduced."

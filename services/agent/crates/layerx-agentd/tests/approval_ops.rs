@@ -1,9 +1,9 @@
-use layerx_agent_api::identity::{ActivityType, AgentDid, Asset, AuthorityRef, ExplicitSet};
-use layerx_agent_api::prepare::{
-    CanonicalBytes, DisclosedAmount, Disclosure, IdempotencyRef, PreparationRef, Prepared,
-    SigningPreimage,
-};
-use layerx_agent_api::{Amount, TimestampSeconds};
+#[path = "approval.rs"]
+mod approval_fixture;
+use approval_fixture::fixture::hold;
+
+use layerx_agent_api::prepare::Prepared;
+use layerx_agent_api::TimestampSeconds;
 use layerx_agentd::approval::{
     ApprovalEnforcement, ApprovalExpiry, ApprovalOperationError, ApprovalOutcome, ApprovalService,
     ApprovalSubmissionQueue, DecisionKey, DecisionRequest, APPROVAL_ENFORCEMENT_NOTICE,
@@ -19,7 +19,6 @@ use layerx_agentd::policy::approval::{
 use layerx_agentd::session::SessionId;
 use layerx_agentd::store::TenantId;
 use layerx_types::ids::Did;
-use sha2::{Digest as _, Sha256};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -47,60 +46,12 @@ impl Drop for DurableFixture {
     }
 }
 
-fn digest(bytes: &[u8]) -> [u8; 32] {
-    Sha256::digest(bytes).into()
-}
-
 fn tenant(value: &str) -> TenantId {
     TenantId::new(value).unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
 fn prepared(id: u8) -> Prepared {
-    let call = layerx_crypto::evm_transaction::Eip1559Call {
-        chain_id: 125,
-        nonce: u64::from(id),
-        max_priority_fee_per_gas: 1,
-        max_fee_per_gas: 2,
-        gas_limit: 100_000,
-        to: [3; 20],
-        data: [
-            layerx_crypto::disclosure::call::ledger_selector("transfer(address,uint256)").to_vec(),
-            [vec![0; 12], vec![5; 20]].concat(),
-            [vec![0; 31], vec![50]].concat(),
-        ]
-        .concat(),
-    };
-    let canonical = call.encode_unsigned();
-    let actor = AgentDid::new("0404040404040404040404040404040404040404")
-        .unwrap_or_else(|error| panic!("actor: {error:?}"));
-    Prepared {
-        preparation_ref: PreparationRef::new(format!("prepared-{id}"))
-            .unwrap_or_else(|error| panic!("preparation: {error:?}")),
-        unsigned_canonical_bytes: CanonicalBytes::new(canonical.clone())
-            .unwrap_or_else(|error| panic!("canonical: {error:?}")),
-        signing_preimage: SigningPreimage::new(call.signing_hash().to_vec())
-            .unwrap_or_else(|error| panic!("preimage: {error:?}")),
-        disclosure: Disclosure {
-            canonical_digest: digest(&canonical),
-            activity_type: ActivityType(7),
-            actor: actor.clone(),
-            authority: AuthorityRef::new("session-key-1")
-                .unwrap_or_else(|error| panic!("authority: {error:?}")),
-            counterparties: ExplicitSet::allow(vec![AgentDid::new("did:layerx:merchant")
-                .unwrap_or_else(|error| panic!("counterparty: {error:?}"))]),
-            amounts: ExplicitSet::allow(vec![DisclosedAmount {
-                counterparty: AgentDid::new("did:layerx:merchant")
-                    .unwrap_or_else(|error| panic!("counterparty: {error:?}")),
-                amount: Amount(50),
-            }]),
-            asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
-            fee_limit: Amount(2),
-            expiry: TimestampSeconds(500),
-            idempotency_key: IdempotencyRef::new(format!("idempotency-{id}"))
-                .unwrap_or_else(|error| panic!("idempotency: {error:?}")),
-        },
-        expiry: TimestampSeconds(500),
-    }
+    approval_fixture::fixture::ledger_prepared(id, 500)
 }
 
 fn context(tenant_id: &TenantId, id: u8) -> ApprovalContext {
@@ -396,3 +347,46 @@ fn changed_underlying_activity_voids_the_hold_as_defective() {
 use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
+
+#[test]
+fn approval_service_refuses_changed_call_and_changed_disclosure() {
+    for mutation in ["call", "disclosure"] {
+        let fixture = DurableFixture::new(mutation);
+        let registry = ApprovalRegistry::default();
+        let limiter = limiter();
+        let tenant = tenant("tenant-alpha");
+        let held = prepared(22);
+        hold(&registry, context(&tenant, 22), held.clone(), 10, 100).unwrap();
+        let mut changed = held;
+        if mutation == "call" {
+            let mut call = layerx_crypto::evm_transaction::decode_unsigned(
+                changed.unsigned_canonical_bytes.as_bytes(),
+            )
+            .unwrap();
+            call.nonce += 1;
+            changed.unsigned_canonical_bytes =
+                layerx_agent_api::prepare::CanonicalBytes::new(call.encode_unsigned()).unwrap();
+        } else {
+            changed.disclosure.fee_limit =
+                layerx_agent_api::Amount(changed.disclosure.fee_limit.get() + 1);
+        }
+        let queue = ApprovalSubmissionQueue::default();
+        let service = ApprovalService::new(&registry, &limiter, &fixture.expiry);
+        let decision = service
+            .approve(
+                DecisionRequest {
+                    tenant: &tenant,
+                    approval_id: [22; 32],
+                    idempotency_key: &decision_key("changed-22"),
+                    approver: approver(),
+                    current_sequence: 11,
+                    current_time: TimestampSeconds(11),
+                },
+                &changed,
+                &queue,
+            )
+            .unwrap();
+        assert_eq!(decision.outcome, ApprovalOutcome::Defective);
+        assert!(queue.is_empty());
+    }
+}

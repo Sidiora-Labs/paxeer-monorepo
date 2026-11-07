@@ -5,6 +5,7 @@
 pub mod admission;
 pub mod aggregation;
 pub mod aggregation_codec;
+pub mod canary;
 pub mod closure;
 pub mod codec;
 pub mod commit_reveal;
@@ -30,6 +31,7 @@ pub mod reputation_codec;
 pub mod reputation_transition;
 pub mod reward_math;
 pub mod rewards;
+pub mod rooms;
 pub mod roster;
 pub mod state;
 pub mod tasks;
@@ -324,6 +326,21 @@ mod guest {
                 result_len,
                 ..
             }) => {
+                if matches!(
+                    operation,
+                    dispatch::ChallengeLap | dispatch::ResolveChallenge
+                ) {
+                    let Some(n) = current_len else {
+                        return Err(EMPTY_REFUSAL);
+                    };
+                    match crate::canary::stage_value(operation, &current[..n], &next[..state_len]) {
+                        Ok(()) => {}
+                        Err(AdapterError::Application(error)) => {
+                            return Err(failure(error, result))
+                        }
+                        Err(AdapterError::Host(_)) => return Err(EMPTY_REFUSAL),
+                    }
+                }
                 let events = [ApplicationEvent {
                     operation,
                     body: &event[..event_len],
@@ -343,7 +360,12 @@ mod guest {
     }
 }
 
-pub use errors::{ApplicationError, CodecResult};
+pub use errors::{
+    ApplicationError, CodecResult, F11_ASK_UNFUNDED, F11_BATCH_UNSEALED, F11_BID_BELOW_FLOOR,
+    F11_BOND_INSUFFICIENT, F11_BOND_LOCKED, F11_CHALLENGE_WINDOW_CLOSED, F11_ROOM_CLOSED,
+    F11_ROOM_UNKNOWN, F11_ROSTER_DIGEST_MISMATCH, F11_SPLIT_EXCEEDS_SETTLED,
+};
+pub use policy::{MarketPolicy, RoomProfile};
 pub use types::*;
 
 pub const SCHEMA_VERSION: u16 = 1;

@@ -50,7 +50,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-static FIXTURE_LOCK: Mutex<()> = Mutex::new(());
+pub(crate) static FIXTURE_LOCK: Mutex<()> = Mutex::new(());
 const HEAD: u64 = 64;
 
 #[track_caller]
@@ -240,6 +240,22 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
     }
 
     must(binding.verify());
+    let key_id: [u8; 32] = Sha256::digest(binding.public_key()).into();
+    assert_ne!(key_id, [0; 32]);
+    let keys = json!({"keys": [{
+        "keyId": format!("0x{}", hex::encode(key_id)),
+        "publicKey": format!("0x{}", hex::encode(binding.public_key())),
+        "firstHeight": 1,
+        "lastHeight": HEAD + 1000
+    }]});
+    let decoded = must(layerx_client::sequencer::decode_receipt_keys(&keys));
+    assert_eq!(decoded.len(), 1);
+    assert_eq!(decoded[0].key_id, key_id);
+    assert_eq!(decoded[0].public_key, binding.public_key());
+    assert!((decoded[0].first_height..=decoded[0].last_height).contains(&HEAD));
+    let checkpoint_reads: Vec<Value> = must(serde_json::from_str(include_str!(
+        "support/human_budget_checkpoint.json"
+    )));
     let listener = must(TcpListener::bind("127.0.0.1:0"));
     let url = format!("http://{}/", must(listener.local_addr()));
     must(listener.set_nonblocking(true));
@@ -255,6 +271,16 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
             let result = if method == "eth_sendRawTransaction" || method == "eth_sendTransaction" {
                 writes.fetch_add(1, Ordering::SeqCst);
                 panic!("prepare attempted to broadcast: {method}");
+            } else if method == "px_getReceiptKeys" {
+                assert_eq!(request["params"], json!([]));
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":keys})
+            } else if method == "px_getCommit" || method == "px_getValidators" {
+                assert_eq!(request["params"], json!([HEAD.to_string()]));
+                let recorded = checkpoint_reads
+                    .iter()
+                    .find(|read| read["method"] == method && read["params"] == request["params"])
+                    .expect("checkpoint RPC recorded at the fixture head");
+                json!({"jsonrpc":"2.0", "id":request["id"], "result":recorded["result"]})
             } else if method == "eth_call"
                 && request["params"][0]["to"]
                     == format!(
@@ -330,8 +356,18 @@ fn chain_peer(node: &Node, binding: SignedBinding, writes: Arc<AtomicUsize>) -> 
                     panic!("unsupported fee read");
                 };
                 json!({"jsonrpc":"2.0", "id":request["id"], "result":format!("0x{}", hex::encode(answer))})
-            } else {
+            } else if matches!(
+                method,
+                "eth_chainId"
+                    | "eth_blockNumber"
+                    | "eth_getBlockByNumber"
+                    | "eth_getTransactionCount"
+                    | "eth_getBalance"
+                    | "eth_estimateGas"
+            ) {
                 rpc(&upstream, &request)
+            } else {
+                panic!("unexpected chain read: {method}: {request}");
             };
             http_response(&mut stream, &result);
         }
@@ -403,6 +439,14 @@ fn authority_peer(
     identity: CoreIdentity,
     activity: ActivityType,
 ) -> (RemoteHumanAuthority, Peer) {
+    authority_peer_with_identity(peer, Arc::new(Mutex::new(identity)), activity)
+}
+
+fn authority_peer_with_identity(
+    peer: HumanPeer,
+    identity: Arc<Mutex<CoreIdentity>>,
+    activity: ActivityType,
+) -> (RemoteHumanAuthority, Peer) {
     let (ca, ca_key) = certificate(None);
     let (cert, key) = certificate(Some((&ca, &ca_key)));
     let acceptor = must(TlsAcceptor::new(must(Identity::from_pkcs8(
@@ -441,6 +485,7 @@ fn authority_peer(
                 .split('?')
                 .next()
                 .expect("route");
+            let identity = must(identity.lock());
             let value = match path {
                 "/v1/agent/registry" => {
                     json!({"modules":[{"module_id":activity.module() as u16, "activity_types":[activity.value()]}]})
@@ -448,7 +493,7 @@ fn authority_peer(
                 "/v1/agent/subject-context" => {
                     json!({"subject_principal":peer.principal, "tenant":subject.transport_tenant, "agent_tenant":peer.tenant,
                     "owner_did":subject.owner, "account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
-                    "verification_level":"checkpoint_finalised", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
+                    "verification_level":"committed", "observed_head_sequence":identity.head_sequence, "checkpoint_digest":hex::encode(random::<32>())})
                 }
                 "/v1/agent/balance-context" => {
                     json!({"account_id":hex::encode(account_id), "asset_id":hex::encode(subject.asset),
@@ -460,7 +505,7 @@ fn authority_peer(
                 }
                 "/v1/agent/identity" => {
                     json!({"canonical_core_bytes":hex::encode(&identity.canonical_bytes), "head_sequence":identity.head_sequence,
-                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level":"checkpoint_finalised",
+                    "revocation_sequence":identity.revocation_sequence, "frozen":identity.frozen, "verification_level": match identity.verification_level { layerx_types::verify::VerificationLevel::COMMITTED => "committed", layerx_types::verify::VerificationLevel::STATE_PROVEN => "state_proven", _ => panic!("identity floor case") },
                     "authorities":identity.authorities.iter().map(|authority| match authority { ProtocolAuthority::PrimaryKey(id) => json!({"kind":"primary_key","id":hex::encode(id)}), _ => panic!("owner authority") }).collect::<Vec<_>>()})
                 }
                 other => panic!("unexpected authority read: {other}"),
@@ -522,11 +567,12 @@ fn clock_peer_at(root: &Path, unix_milliseconds: u64) -> (Arc<RuntimeClock>, Pee
     (clock, worker)
 }
 
-struct Fixture {
-    owner: SharedAgentOwner<RemoteHumanAuthority>,
-    peer: HumanPeer,
-    credential: session::SessionCredential,
-    account: layerx_crypto::account_derivation::DerivedAccount,
+pub(crate) struct Fixture {
+    pub(crate) identity: Arc<Mutex<CoreIdentity>>,
+    pub(crate) owner: SharedAgentOwner<RemoteHumanAuthority>,
+    pub(crate) peer: HumanPeer,
+    pub(crate) credential: session::SessionCredential,
+    pub(crate) account: layerx_crypto::account_derivation::DerivedAccount,
     endpoint: SequencerEndpoint,
     writes: Arc<AtomicUsize>,
     peers: Vec<Peer>,
@@ -538,7 +584,7 @@ struct Fixture {
 }
 
 impl Fixture {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let root = directory("native-send-preview");
         let account = must(derive_from_seed(&random::<64>(), 0));
         let public_key = account.layerx_public_key();
@@ -569,11 +615,26 @@ impl Fixture {
             canonical_bytes: public_key.to_vec(),
             head_sequence: HEAD,
             revocation_sequence: 1,
-            verification_level: layerx_types::verify::VerificationLevel::CHECKPOINT_FINALISED,
+            verification_level: layerx_types::verify::VerificationLevel::COMMITTED,
             frozen: false,
             authorities: vec![ProtocolAuthority::PrimaryKey(public_key)],
         };
-        let (mut authority, authority_worker) = authority_peer(peer.clone(), identity, activity);
+        let identity_source = Arc::new(Mutex::new(identity));
+        let (mut authority, authority_worker) =
+            authority_peer_with_identity(peer.clone(), Arc::clone(&identity_source), activity);
+        let resolved = must(authority.core_identity(&peer, &did));
+        assert_eq!(resolved.canonical_bytes, public_key);
+        assert_eq!(resolved.head_sequence, HEAD);
+        assert_eq!(resolved.revocation_sequence, 1);
+        assert_eq!(
+            resolved.verification_level,
+            layerx_types::verify::VerificationLevel::COMMITTED
+        );
+        assert!(!resolved.frozen);
+        assert_eq!(
+            resolved.authorities,
+            vec![ProtocolAuthority::PrimaryKey(public_key)]
+        );
         let mut store = must(Store::open(root.join("store")));
         let identity = must(identity::register(
             &mut store,
@@ -629,6 +690,12 @@ impl Fixture {
             deadline: Duration::from_secs(3),
         }));
         let node_head = must(endpoint.block_number());
+        assert_eq!(node_head, HEAD);
+        assert_eq!(
+            must(chain.bound_address(&public_key)),
+            Some(account.evm_address()),
+            "the pending addr-precompile binding must resolve the consent key"
+        );
         let mut operations = must(ProductionHumanOperations::new(
             authority,
             must(SequencerEndpoint::new(&url, &[])),
@@ -659,7 +726,7 @@ impl Fixture {
         ));
         let mut owner = must(UnifiedAgentOwner::new(
             operations,
-            retained,
+            Arc::clone(&retained),
             &peers,
             vec![LimitConfig {
                 id: LimitId(random()),
@@ -687,6 +754,7 @@ impl Fixture {
         std::env::set_var("LAYERX_AGENT_NODE_RPC_URL", &url);
         std::env::set_var("LAYERX_AGENT_NODE_CHAIN_ID", "125");
         Self {
+            identity: identity_source,
             owner,
             peer,
             credential,
@@ -702,11 +770,22 @@ impl Fixture {
         }
     }
 
-    fn request(
+    pub(crate) fn request(
         &self,
     ) -> (
         HumanPrepare,
         layerx_agent_api::identity::NativeLocalGrantConsentV1,
+    ) {
+        let (prepare, consent, _) = self.request_with_payload_expiry();
+        (prepare, consent)
+    }
+
+    fn request_with_payload_expiry(
+        &self,
+    ) -> (
+        HumanPrepare,
+        layerx_agent_api::identity::NativeLocalGrantConsentV1,
+        u64,
     ) {
         use layerx_agentd::capability::binding::SignedNativeLocalGrantV1;
         use layerx_agentd::capability::timed::{
@@ -822,6 +901,7 @@ impl Fixture {
                 capability_id: Some([8; 32]),
             },
             consent,
+            debit.expires_at,
         )
     }
 

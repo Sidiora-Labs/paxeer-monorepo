@@ -350,7 +350,7 @@ fn availability_distinguishes_absent_malformed_and_unsupported_capture_content()
     assert_eq!(captured, empty);
     assert_eq!(
         feature_availability(&captured)?,
-        [Availability::NotYetProduced; 10]
+        [Availability::NotYetProduced; 11]
     );
 
     let shared = state::decode_shared_state(&empty)?;
