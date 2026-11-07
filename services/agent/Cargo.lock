@@ -1091,6 +1091,7 @@ version = "0.1.0"
 name = "layerx-wire"
 version = "0.1.0"
 dependencies = [
+ "layerx-client",
  "layerx-crypto",
  "layerx-types",
  "sha2",
