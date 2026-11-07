@@ -72,7 +72,7 @@ an ambient ledger. The hosted handler currently passes `usage: None`.
 `ap2_adapter_descriptor(conformance)` requires a caller-supplied
 `layerx_interop_gateway::adapter::ConformanceSuite`. Likewise,
 `Ap2ExternalMandateVerifier::new(resolver, conformance)` needs that declaration.
-`interop_ap2()` is the crate's Codify anchor.
+`interop_ap2()` is the crate's descriptor function.
 
 `PortableLayerXEvidence` aliases `layerx_portable::PortableReceiptV2`.
 `Ap2MandatePair::new(checkout_mandate, payment_mandate).to_json()` preserves the

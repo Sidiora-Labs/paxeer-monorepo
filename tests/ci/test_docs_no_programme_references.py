@@ -9,6 +9,12 @@ ROOT = Path(__file__).resolve().parents[2]
 DOCS = ROOT / "docs"
 PROGRAMME_TASK_ID = re.compile(r"\btasks?\s+22\.\d+(?:\.\d+)*\b", re.IGNORECASE)
 DECISION_ID = re.compile(r"\bdecisions?[\s.#-]+\d+\b", re.IGNORECASE)
+README_PROGRAMME_ID = re.compile(
+    r"\b(?:decisions?|gotchas?)[\s.#-]+\d+\b|\btasks?\s+22\.\d+(?:\.\d+)*\b",
+    re.IGNORECASE,
+)
+INTERNAL_CODE_INDEX = re.compile(r"\bcodify\b", re.IGNORECASE)
+VENDORED_PARTS = {"vendor", "vendored", "third_party", "third-party", "node_modules", "deps"}
 INLINE_CODE = re.compile(r"(?<!`)`([^`\n]+)`(?!`)")
 PATH_TOKEN = re.compile(r"[\w.@+/-]+(?::\d+)?")
 
@@ -35,9 +41,30 @@ def _product_pages():
     return pages
 
 
-def _references(pattern):
+def _tracked_readmes():
+    result = subprocess.run(
+        ["git", "ls-files", "-z"],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    pages = []
+    for name in result.stdout.split("\0"):
+        path = Path(name)
+        if (
+            path.name == "README.md"
+            and path.parts[0] != "spec"
+            and not VENDORED_PARTS.intersection(path.parts[:-1])
+        ):
+            pages.append(ROOT / path)
+    assert pages, "No tracked first-party README.md files found"
+    return sorted(pages)
+
+
+def _references(pattern, pages=None):
     references = []
-    for page in _product_pages():
+    for page in _product_pages() if pages is None else pages:
         text = page.read_text(encoding="utf-8")
         for match in pattern.finditer(text):
             line = text.count("\n", 0, match.start()) + 1
@@ -53,6 +80,29 @@ def test_docs_pages_cite_no_programme_task_ids():
 def test_docs_pages_cite_no_decision_ids():
     references = _references(DECISION_ID)
     assert not references, "Decision IDs in product docs:\n" + "\n".join(references)
+
+
+def test_readmes_cite_no_decision_or_gotcha_ids():
+    references = _references(README_PROGRAMME_ID, _tracked_readmes())
+    assert not references, "Programme IDs in READMEs:\n" + "\n".join(references)
+
+
+def test_docs_do_not_name_internal_code_index():
+    # The code-index tool's own documentation describes its public and legacy names.
+    pages = {
+        page
+        for page in _product_pages()
+        if not page.is_relative_to(DOCS / "hyperfide")
+    }
+    pages.update(
+        page
+        for page in _tracked_readmes()
+        if page.relative_to(ROOT).parts[0] in {"sdk", "services"}
+    )
+    references = _references(INTERNAL_CODE_INDEX, sorted(pages))
+    assert not references, "Internal code-index names in product docs:\n" + "\n".join(
+        references
+    )
 
 
 def test_inference_market_guides_name_only_tracked_files():

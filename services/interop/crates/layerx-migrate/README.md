@@ -27,6 +27,6 @@ tree supplies their client contract, not a production authority server; see
 For development from the monorepo root: `make interop-test-migration`. The ignored live-testnet suite is `make interop-test-migration-testnets`; it needs an operator environment and runs in CI only through the manually dispatched `.github/workflows/interop-migration-testnets.yml`.
 
 The connected funded-operator test requires `LAYERX_MIGRATION_FUNDED_OPERATOR_FIXTURE`, an absolute path to a genuine protected funded-operator fixture. The connected migration V2 test requires `LAYERX_MIGRATION_V2_FIXTURE`, an absolute path to a genuine protected migration V2 fixture. These tests cannot establish connected behaviour without those protected
-producer inputs. Decision 2496's inventory repair gate excludes them by name
+producer inputs. The inventory repair gate excludes them by name
 while compiling both test targets; that exclusion is not a connected
 qualification result.
