@@ -150520,7 +150520,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.24]
 title = "Implement the room wire protocol and transport for the peer"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.38.23"]
@@ -180796,7 +180796,7 @@ do_5 = "Attempt 2 (continue, decision 2621, finding 10.4.3.2): the attempt-1 por
 
 [task.22.31.547]
 title = "Port the SDK native effect carrier and the MCP catalogue to NativeSendPurposeV2"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.545", "22.31.550", "22.31.560", "22.31.572"]
