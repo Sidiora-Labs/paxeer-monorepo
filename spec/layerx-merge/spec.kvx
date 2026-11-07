@@ -331723,7 +331723,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.77]
 title = "Run the explorer Rust tests and the frontend suite in the explorer build workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331842,7 +331842,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.69]
 title = "Add a tracked-file size budget with an allowlist of the existing large files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332141,7 +332141,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.57]
 title = "Update the hpx provenance example to the release identity and remove placeholder wording from two READMEs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332172,7 +332172,7 @@ do_4 = "Attempt 2 (continue, gotcha 3442): the attempt-1 tree ecccd4a4c554 stand
 
 [task.22.39.56]
 title = "Point every public page and README translation at the canonical repository name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332267,7 +332267,7 @@ do_3 = "Attempt 2 (continue, gotcha 3432): the attempt-1 tree 47e49dfbb78e stand
 
 [task.22.39.52]
 title = "Remove leftover debug and stale wording from the public check files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.48"]
@@ -332354,7 +332354,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.49]
 title = "Document every secret name, variable and label the public checks use and test that the list stays complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.48"]
