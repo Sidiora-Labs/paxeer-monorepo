@@ -332859,7 +332859,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.104]
 title = "Bring the root npm lockfile in line with its workspace manifests and remove the unused root pnpm files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
