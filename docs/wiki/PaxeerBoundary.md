@@ -70,11 +70,11 @@ To migrate an integration:
 
 ## In-cluster chain
 
-`services/platform/hosted/paxeer/deployment.yaml` still defines a local test harness: StatefulSet `paxeer` in namespace `layerx-testnet`, with one replica, a genesis init container, `paxd`, a TLS `boundary` container, and a 40Gi data volume mounted at `/var/lib/paxeer`. This is a harness configuration, not the public network topology.
+`services/platform/hosted/paxeer/deployment.yaml` still defines a local test harness: StatefulSet `paxeer` in namespace `layerx-testnet`, with one replica, a genesis init container, `paxd`, a TLS `boundary` container, and a 40Gi data volume mounted at `/data`. This is a harness configuration, not the public network topology.
 
-The harness runs `paxd start --home /var/lib/paxeer`. Its `init-chain.sh` pins chain ID `125`, configures EVM HTTP on `127.0.0.1:8545`, disables EVM WebSocket and test APIs, binds CometBFT and gRPC to loopback, and disables the Cosmos API and gRPC-web listeners. The Services expose the TLS adapter at port `9443`. Those loopback and sidecar choices belong to this manifest; public clients use the node names above.
+The `genesis` init container copies the native material mounted at `/run/native-inputs` (schema `layerx.beta.native-material.v1`, chain `hyperpax_125-1`, EVM chain ID `125`) into `/data/layerx/node`. The `paxd` container runs `kernel_runtime.py --home /data/layerx/node` with container ports `26656` (P2P), `8545` (EVM JSON-RPC), `26657` (consensus) and `9460` (health). The boundary container runs a primary adapter on `9443` and an observer on `9444`; the Services expose both at port `9443`. Those loopback and sidecar choices belong to this manifest; public clients use the node names above.
 
-The harness initialiser also contains historical custody-genesis setup. It is not a migration runbook for existing mainnet-beta state. Use the node's merge upgrade path for that state.
+The harness `init-chain.sh` is a compatibility entry point that refuses the retired `LAYERX_PAXEER_*` and custody-genesis inputs and delegates to `services/platform/hosted/node/bootstrap.sh`. It is not a migration runbook for existing mainnet-beta state. Use the node's merge upgrade path for that state.
 
 ## Hosted compatibility transport
 
@@ -150,7 +150,7 @@ The harness overrides some native defaults as described above. Its TLS adapter u
 | `LAYERX_PAXEER_BOUNDARY_TLS_CERT_DER` | Server certificate file |
 | `LAYERX_PAXEER_BOUNDARY_TLS_KEY_DER` | PKCS#8 private-key file |
 
-The adapter accepts any positive configured chain ID; the harness initialiser separately pins `125`. An EVM forwarding request does not repeat the readiness chain-ID comparison, so clients still need their own expected-chain check.
+The adapter accepts any positive configured chain ID; the harness manifest separately sets `125`. An EVM forwarding request does not repeat the readiness chain-ID comparison, so clients still need their own expected-chain check.
 
 ## Egress and admitted edges
 

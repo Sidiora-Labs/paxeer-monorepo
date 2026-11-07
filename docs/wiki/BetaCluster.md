@@ -72,24 +72,18 @@ not introduce another consensus or finality authority.
 
 ## Ordinary-genesis bootstrap
 
-`services/platform/hosted/paxeer/init-chain.sh` is the single-validator
-initializer used by the disposable Paxeer StatefulSet. It fixes
-`LAYERX_PAXEER_CHAIN_ID` to `125`, mapped from the Comet chain ID
-`hyperpax_125-1`, and defaults `LAYERX_PAXEER_HOME` to `/var/lib/paxeer`.
-It initializes the home, funds the validator and deployer, collects gentxs and
-runs `paxd validate-genesis`. The deployer address comes from
-`LAYERX_PAXEER_DEPLOYER_ADDRESS_FILE` or `LAYERX_PAXEER_DEPLOYER_ADDRESS`.
-The home marker is `config/.layerx-beta-initialised`; a partial genesis without
-that marker is refused. An existing marked home is checked against requested
-inputs before reuse.
+`services/platform/hosted/paxeer/init-chain.sh` is a compatibility entry
+point for the disposable Paxeer StatefulSet. It refuses any `LAYERX_PAXEER_*`
+variable and the retired `--custody-genesis`, `--deposit-root` and
+`--sequencer-authorizations` arguments with exit 2, and otherwise runs
+`paxeer-native-tool bootstrap` with
+[`services/platform/hosted/node/bootstrap.sh`](../../services/platform/hosted/node/bootstrap.sh).
+Supply that bootstrap's `--data-dir`, `--native-inputs` and signing-file
+arguments explicitly; native bank and ledger genesis funding belongs to it.
+Preserve the native chain's configured genesis and upgrade state; do not copy
+old separate-node genesis artifacts into a new merged deployment.
 
-This initializer still accepts legacy custody genesis and checkpoint-submitter
-inputs. Those inputs are not a complete specification of merged kernel genesis
-or upgrade activation. Preserve the native chain's configured genesis and
-upgrade state; do not copy the old separate-node genesis artifacts into a new
-merged deployment.
-
-The initializer sets these local listeners in `config.toml` and `app.toml`:
+The harness configuration uses these local listeners in `config.toml` and `app.toml`:
 
 | Listener | Default | Configuration |
 | --- | --- | --- |
@@ -98,7 +92,7 @@ The initializer sets these local listeners in `config.toml` and `app.toml`:
 | gRPC | `127.0.0.1:9090` | `app.toml` `[grpc].address` |
 | EVM HTTP | `127.0.0.1:8545` | `app.toml` `[evm].http_enabled`, `http_address`, `http_port` |
 
-EVM WebSocket is disabled by this disposable initializer. The primary TLS
+The primary TLS
 boundary listens on `0.0.0.0:9443`, proxies root JSON-RPC to
 `http://127.0.0.1:8545`, and uses `LAYERX_PAXEER_COMET_URL` set to
 `http://127.0.0.1:26657` for genesis reads. These are local deployment settings,
