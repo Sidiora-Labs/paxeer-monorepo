@@ -152024,7 +152024,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.123]
 title = "Bring the fourteen failing apps/wallet tests outside the drift set back to green"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.43"]
@@ -181638,7 +181638,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.130]
 title = "Bring the two daemon-bound MCP binding tests of the platform CLI back to the binding contract"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -184067,7 +184067,7 @@ do_8 = "Amendment (gotcha 3167, decision 2620): services/agent/crates/layerx-sdk
 
 [task.22.31.542]
 title = "Remove the remaining by-path includes of library source from the agent daemon integration tests"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.541", "22.31.516", "22.31.539", "22.31.550", "22.31.572", "22.31.620"]
