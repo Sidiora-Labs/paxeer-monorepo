@@ -9945,6 +9945,36 @@ value = "When a continuation note directs the next attempt to edit a file that i
 basis = "Gotcha 3436"
 affects = ["22.39.8"]
 
+[decision.2806]
+title = "The public qualification ledger stays a well-formed document"
+value = "spec/layerx-merge/qualification.kvx parses as a kvx document at every revision: every section header is unique, every quoted string is terminated and every value is literal. A finding recorded again by a later attempt of the same task carries the attempt ordinal in its header (finding.<task>.<n>.a<attempt>) instead of repeating the header; a test under tests/ci parses the ledger and the beta ledger check runs over it in the tools/ci suite."
+basis = "Gotcha 3445"
+affects = ["22.39.87", "22.39.54"]
+
+[decision.2807]
+title = "One pinned release per GitHub action across all public checks"
+value = "Every uses: line of the same action across .github/workflows carries the same 40-character commit SHA, the newest release already in use; the trailing comment names the release tag (v7.0.1) or, for a toolchain action, the toolchain tag (stable, nightly or a 1.NN number). A test under tests/ci asserts both forms and runs in the public checks."
+basis = "Gotcha 3446"
+affects = ["22.39.51"]
+
+[decision.2808]
+title = "Test fixtures resolve executables from the running interpreter"
+value = "A test or fixture that needs an interpreter path resolves it from the interpreter running the suite (sys.executable, process.execPath) or from PATH, never from a fixed absolute path such as /usr/bin/python3; product defaults keep their documented environment override."
+basis = "Gotcha 3447"
+affects = ["22.37.4"]
+
+[decision.2809]
+title = "Documented shell commands resolve against the tree"
+value = "Every fenced shell command in a tracked README or docs page names make targets, package scripts, script paths, cargo packages, go paths, cd targets and clone URLs that exist at the same revision; a repository-wide test under tests/ci extracts the blocks, resolves the working directory from cd, -C, --prefix and a page-root map, and keeps a short allowlist for build outputs and user-created files."
+basis = "Gotcha 3450"
+affects = ["22.39.88", "22.39.89", "22.39.90", "22.39.91", "22.39.92"]
+
+[decision.2810]
+title = "The canonical alias host stays documented beside the fourteen root endpoints"
+value = "api-mainnet-beta.paxeer.network is the documented canonical alias that resolves to the fourteen numbered root endpoints of decision 2521 (same root path, same chain id 125); docs may name either form. No other path than the root is documented for JSON-RPC."
+basis = "Gotcha 3450; the owner pass over the public RPC pages"
+affects = ["22.39.92"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -38835,6 +38865,69 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.93]
+title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
+reqs = ["22998.1"]
+touches = ["services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture", "services/agent/crates/layerx-sdk/src/repair_22_33_1564_fixture", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/Cargo.toml", "services/platform/ramps/reference/src/repair_fixtures", "services/platform/ramps/reference/tests", "services/platform/ramps/reference/Cargo.toml"]
+tests = ["tests/ci/test_key_material_only_in_fixtures.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_key_material_only_in_fixtures.py && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_33_1564 && cargo test --locked --manifest-path services/platform/ramps/reference/Cargo.toml --test repair_22_33_1487"
+do_1 = "do_1 Decision 2803, gotcha 3449. Move ca.pem, server-key.der and server.der from services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture and ca.der from src/repair_22_33_1564_fixture into services/agent/crates/layerx-sdk/tests/fixtures (same directory names), leaving committed.json and the record files in place, and update the include paths in tests/repair_22_33_1564.rs lines 33, 74 and 77 and tests/support/audit_22_30_99.rs lines 169, 172 and 2032; move localhost.der, localhost.p12 and localhost.pem from services/platform/ramps/reference/src/repair_fixtures into services/platform/ramps/reference/tests/fixtures and update tests/repair_22_33_1487.rs lines 37 to 39. Add a one-line README in each fixture directory stating the material is generated test data with no production use, and add the fixture directories to the package include lists of both manifests where the manifests list files."
+symbols = []
+
+[capability.22.39.92]
+title = "Add the repository-wide command accuracy guard over README and docs shell blocks"
+reqs = ["22998.1"]
+touches = ["tests/ci/data"]
+tests = ["tests/ci/test_docs_shell_commands_resolve.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_shell_commands_resolve.py"
+do_1 = "do_1 Decision 2809, gotcha 3450. Write tests/ci/test_docs_shell_commands_resolve.py: extract fenced shell blocks (sh, bash, shell, console, zsh and untagged) from every tracked README.md and docs/**/*.md outside the vendored trees (the vendored project directory under tools/, programs/vendor, tools/uci, core/deps, tools/wasm-tools), node_modules and spec/; join continuation lines; resolve the working directory from cd, -C, --prefix, a Run from sentence and the page-root map in tests/ci/data/docs_command_roots.json (page prefix to project root, including the docs/<project> to tools/<project>, apps/<project> and services/<project> entries)."
+symbols = []
+
+[capability.22.39.91]
+title = "Fix the clone URL and working directories of the explorer backend container README pages"
+reqs = ["22998.1"]
+touches = ["services/explorer/backend/.devcontainer/README.md", "services/explorer/backend/docker-compose/README.md"]
+tests = ["tests/ci/test_docs_explorer_backend_readmes.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_explorer_backend_readmes.py"
+do_1 = "do_1 Decision 2809, gotcha 3450. services/explorer/backend/.devcontainer/README.md line 26 clones a repository named Paxeer-X-Network and line 27 changes into it: clone paxeer-monorepo and change into paxeer-monorepo/services/explorer/backend. services/explorer/backend/docker-compose/README.md line 18 runs cd ./docker-compose and lines 87 and 94 run cd ./docker before make start and make stop (targets at services/explorer/backend/docker/Makefile lines 17 and 40), all written relative to the parent of the page: state that the commands run from services/explorer/backend, or rewrite them as cd ../docker and make -C ../docker start and stop."
+symbols = []
+
+[capability.22.39.90]
+title = "Correct the two documented commands that name a retired make target and an undefined package script"
+reqs = ["22998.1"]
+touches = ["wasm/contrib/devtools/README.md", "docs/platform/content/framework/next.md", "services/platform/examples/samples/paid-route-next/package.json"]
+tests = ["tests/ci/test_docs_make_targets_and_scripts.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_make_targets_and_scripts.py && python3 docs/platform/build/build_site.py --check ."
+do_1 = "do_1 Decision 2809, gotcha 3450. wasm/contrib/devtools/README.md line 32 runs make -C wasm tools, but wasm/Makefile lines 7 to 9 refuse every goal but help and the tools target lives at wasm/contrib/devtools/Makefile line 54: change the line to make -C wasm/contrib/devtools tools with the same TOOLS_DESTDIR argument. docs/platform/content/framework/next.md line 142 runs npm run dev in services/platform/examples/samples/paid-route-next whose package.json defines only prebuild, build and start: add a dev script (next dev) with a matching predev to that package.json and state on the page that the root build:dependencies script runs first for that sample."
+symbols = []
+
+[capability.22.39.89]
+title = "Port the runtime, verification and operations pages of the vendored project docs to the current layout and script names"
+reqs = ["22998.1"]
+touches = ["docs/hyperfide/runtime/debugging-and-qa.md", "docs/hyperfide/runtime/worktrees.md", "docs/hyperfide/runtime/ui-code-splitting.md", "docs/hyperfide/runtime/api_to_audit.md", "docs/hyperfide/runtime/forkable-plugins.md", "docs/hyperfide/runtime/testing.md", "docs/hyperfide/runtime/timeline-pagination.md", "docs/hyperfide/runtime/lifecycle-diagrams.md", "docs/hyperfide/runtime/postgresql-storage.md", "docs/hyperfide/runtime/provider-bridge-protocol.md", "docs/hyperfide/runtime/provider-plugin-api.md", "docs/hyperfide/runtime/ci-performance.md", "docs/hyperfide/runtime/cli-guide-and-skill.md", "docs/hyperfide/hyperfide/source-measurement.md", "docs/hyperfide/hyperfide/operations.md", "docs/hyperfide/verification/manual-runbook.md"]
+tests = ["tests/ci/test_docs_vendored_runtime_paths.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_vendored_runtime_paths.py"
+do_1 = "do_1 Decision 2809, gotcha 3450. In the sixteen pages named in touches, change the three pnpm lines that call the platform script by its old name (debugging-and-qa.md lines 364 and 380, worktrees.md line 42) to the two script names the root package manifest of the vendored tree defines at lines 48 and 49; move the source measurement script path (source-measurement.md lines 8, 19 and 126) to its location under tools/repository of the vendored tree, the provider corpus scripts (debugging-and-qa.md lines 467, 468 and 532) to tools/workspace/provider-corpus, and the bundle budget script (ui-code-splitting.md line 154) from apps/app/scripts to apps/web/scripts."
+symbols = []
+
+[capability.22.39.88]
+title = "Repoint the source map and documentation map of the six translated README pages of the vendored project docs"
+reqs = ["22998.1"]
+touches = ["docs/hyperfide/i18n/README.ar.md", "docs/hyperfide/i18n/README.es.md", "docs/hyperfide/i18n/README.fr.md", "docs/hyperfide/i18n/README.hi.md", "docs/hyperfide/i18n/README.pt-BR.md", "docs/hyperfide/i18n/README.zh-CN.md"]
+tests = ["tests/ci/test_docs_vendored_translation_maps.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_docs_vendored_translation_maps.py"
+do_1 = "do_1 Decision 2809, gotcha 3450. In the six translated README pages under the i18n directory named in touches, the source map lists src/cg.h, src/govern.c and fourteen more files under src/ that now live under core/native/src/ of the vendored tree, and the documentation map lists docs/ARCHITECTURE.md, docs/sync.md and nine more pages that now live beside the i18n directory (27 entries per page, 162 in total; the English README of the vendored tree already reads core/native/src/govern.c at line 836). Replace the src/ prefix with core/native/src/ and each docs/<page>.md with the ../<page>.md form relative to the i18n directory, leaving the translated prose untouched."
+symbols = []
+
+[capability.22.39.87]
+title = "Normalise the public qualification ledger so it parses and guard it with a test"
+reqs = ["22998.1"]
+touches = ["spec/layerx-merge/qualification.kvx", "scripts/ci/beta-ledger-check.sh", "tools/ci/tests/test_beta_ledger_paths.py"]
+tests = ["tests/ci/test_qualification_ledger_parses.py"]
+verification_contract = "python3 -m pytest -q tests/ci/test_qualification_ledger_parses.py && python3 -m pytest -q tools/ci/tests && python3 -m pytest -q tests/ci/test_tools_ci_suite_passes.py"
+do_1 = "do_1 Decision 2806, gotcha 3445. Rewrite spec/layerx-merge/qualification.kvx so scripts/ci/beta-ledger-check.sh reports zero violations: terminate the unterminated string at line 494 and any other quoting fault, and where a section header repeats (finding.11.15.1 at lines 41 and 3681 and every other repeat) rename the later occurrences by appending .a2, .a3 and so on in file order, keeping every record and every key unchanged otherwise. Record the count of renamed headers and repaired strings in tests/ci/repair_22_39_87.kvx."
+symbols = []
 
 [capability.22.39.86]
 title = "Repair the six node sequencer test failures the standby commit hang masked"
@@ -151354,7 +151447,7 @@ symbols = []
 touches = ["apps/launchpad/web/public", "apps/launchpad/web/src", "apps/perps/src/assets", "apps/perps/public/assets", "apps/perps/src/styles/.scss", "apps/explorer/.scss"]
 tests = ["tests/ci/test_frontend_asset_names.py"]
 planned_paths = ["tests/ci/test_frontend_asset_names.py", "apps/launchpad/web/asset-renames.kvx", "apps/perps/asset-renames.kvx"]
-build_cmd = "python3 -m py_compile tests/ci/test_frontend_asset_names.py && cd apps/launchpad/web && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
+build_cmd = "python3 -m py_compile tests/ci/test_frontend_asset_names.py && pnpm --dir apps/launchpad install --frozen-lockfile --ignore-scripts && pnpm --dir apps/launchpad -r --filter '@kindle/sdk...' run build && pnpm --dir apps/launchpad/web exec tsc --noEmit -p tsconfig.json"
 verify_cmd = "python3 -m pytest -q tests/ci/test_frontend_asset_names.py && cd apps/perps && corepack enable && pnpm install --frozen-lockfile && pnpm exec tsc --noEmit -p tsconfig.json"
 gate_kind = "planned"
 sandbox_profile = "node"
@@ -151367,6 +151460,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3451): the attempt-1 tree 7fd627359bac stands (the 78 renames, the two rename records, the consolidated assets, stylesheets and chart declaration, the three tests). The build command now installs at apps/launchpad, builds the two launchpad SDK packages and then type-checks the web app. Make test_no_duplicate_assets_within_an_app exempt apps/perps/public/windows, whose tile names and sizes are prescribed by the platform, and state the exemption in a comment. Merge current main, run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.55]
 title = "Settle the twenty-seven wallet surface assertions against the live receipt model"
@@ -152944,7 +153038,7 @@ do_5 = "do_5 Record in spec/<project>-source-control/traceability.md of the vend
 do_6 = "do_6 Decision 2700: the verify runs the component mode only; where the live mode needs provider, model or object-store credentials the qualification environment does not hold, the task records that run as UNRUN in spec/<project>-source-control/qualification.kvx with the exact command the owner runs once credentials are supplied, and claims no live PASS."
 do_7 = "do_7 Run the build and the verify at the final revision and record them by reference in the task record; the source task is 0.11 of the carried source-control specification (spec/layerx-merge/source-control/source-spec.kvx), and <project> in this record stands for the name of the vendored project directory under tools/."
 symbols = []
-touches = ["tools/hyperfide/sdk/client/src/areas/system.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_11.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/traceability.md"]
+touches = ["tools/hyperfide/sdk/client/src/areas/system.ts", "tools/hyperfide/tests/hyperfide/cases/source_control/0_11.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fixtures/install", "tools/hyperfide/spec/hyperfide-source-control/qualification.kvx", "tools/hyperfide/spec/hyperfide-source-control/traceability.md", "tools/hyperfide/tests/hyperfide/integration/submission_stack.py", "tools/hyperfide/tests/hyperfide/cases/source_control/fleet_install_interrupted.py"]
 tests = ["tools/hyperfide/sdk/client/test/install-status.test.ts"]
 planned_paths = ["tools/hyperfide/sdk/client/test/install-status.test.ts", "tools/hyperfide/tests/hyperfide/support/install_live_collect.py"]
 build_cmd = "cd tools/hyperfide && corepack enable && pnpm install --frozen-lockfile && pnpm --filter @hyperfide/process-utils run generate:profile-worker && npm --prefix core/control-plane ci --ignore-scripts && npm --prefix core/control-plane run build && make hyperfide-native && pnpm --filter @hyperfide/sdk build"
@@ -152961,6 +153055,7 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 source_task = "0.11"
+do_8 = "Attempt 2 (continue, gotcha 3447, decisions 2700 and 2808): the attempt-1 tree 3ff690464a5b stands (the install status method and its vitest file, the live collector, the component cases, the UNRUN record and the traceability lines). The submission stack module under tests of the vendored tree (integration/submission_stack.py) and the interrupted-install case module named in touches are now in the touches. Replace the fixed /usr/bin/python3 at line 91 of the submission stack module with sys.executable so the executable digest is built from the interpreter running the suite, and adjust the interrupted-install case module only if it names the path itself. Keep the live run UNRUN with the exact command in the qualification record. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.37.3]
 title = "Gate the agent group contract driver on the layout receipt and cover the control plane tool contract surface"
@@ -180815,6 +180910,35 @@ stop_condition = "Stop on the bounded gate result; record exact revision, comman
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 
+[task.22.39.93]
+title = "Move the seven remaining key fixtures of the agent SDK and the ramps reference crate into test fixture directories"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.68"]
+reqs = ["22998.1"]
+capabilities = ["22.39.93"]
+interfaces = []
+do_1 = "do_1 Decision 2803, gotcha 3449. Move ca.pem, server-key.der and server.der from services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture and ca.der from src/repair_22_33_1564_fixture into services/agent/crates/layerx-sdk/tests/fixtures (same directory names), leaving committed.json and the record files in place, and update the include paths in tests/repair_22_33_1564.rs lines 33, 74 and 77 and tests/support/audit_22_30_99.rs lines 169, 172 and 2032; move localhost.der, localhost.p12 and localhost.pem from services/platform/ramps/reference/src/repair_fixtures into services/platform/ramps/reference/tests/fixtures and update tests/repair_22_33_1487.rs lines 37 to 39. Add a one-line README in each fixture directory stating the material is generated test data with no production use, and add the fixture directories to the package include lists of both manifests where the manifests list files."
+do_2 = "do_2 Empty tests/ci/data/key_material_baseline.txt so test_key_like_files_live_under_fixtures checks every tracked key-like path without exception, and update the two kvx records in the agent SDK src directory that describe the fixture paths."
+symbols = []
+touches = ["services/agent/crates/layerx-sdk/src/repair_22_31_227_fixture", "services/agent/crates/layerx-sdk/src/repair_22_33_1564_fixture", "services/agent/crates/layerx-sdk/tests", "services/agent/crates/layerx-sdk/Cargo.toml", "services/platform/ramps/reference/src/repair_fixtures", "services/platform/ramps/reference/tests", "services/platform/ramps/reference/Cargo.toml"]
+tests = ["tests/ci/test_key_material_only_in_fixtures.py"]
+planned_paths = ["tests/ci/test_key_material_only_in_fixtures.py", "tests/ci/data/key_material_baseline.txt"]
+build_cmd = "cargo build --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --tests && cargo build --locked --manifest-path services/platform/ramps/reference/Cargo.toml --tests"
+verify_cmd = "python3 -m pytest -q tests/ci/test_key_material_only_in_fixtures.py && cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_33_1564 && cargo test --locked --manifest-path services/platform/ramps/reference/Cargo.toml --test repair_22_33_1487"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.74]
 title = "Run the whole interop test suite in CI"
 status = "pending"
@@ -180856,7 +180980,7 @@ interfaces = []
 do_1 = "do_1 Decision 2803, gotcha 3437. Move the eleven DER, PEM and PKCS12 fixtures under services/platform/hosted/internal/src/repair_22_33_1452_tls and services/platform/ramps/toolkit/src/repair_22_33_1486 to the tests/fixtures directory of each crate, add a one-line README in each fixture directory stating the material is generated test data with no production use, and update every include path and test that reads them."
 do_2 = "do_2 Write tests/ci/test_key_material_only_in_fixtures.py with test_key_like_files_live_under_fixtures (every tracked pem, der, p12, key, jks and pfx path lies under a tests, fixtures or testdata directory outside the vendored trees) and test_fixture_key_dirs_have_test_only_readme."
 symbols = []
-touches = ["services/platform/hosted/internal/src/repair_22_33_1452_tls", "services/platform/ramps/toolkit/src/repair_22_33_1486", "services/platform/hosted/internal/Cargo.toml", "services/platform/ramps/toolkit/Cargo.toml"]
+touches = ["services/platform/hosted/internal/src/repair_22_33_1452_tls", "services/platform/ramps/toolkit/src/repair_22_33_1486", "services/platform/hosted/internal/Cargo.toml", "services/platform/ramps/toolkit/Cargo.toml", "services/platform/hosted/internal/tests", "services/platform/ramps/toolkit/tests", "services/platform/hosted/internal/tests/repair_22_33_1452.rs", "services/platform/ramps/toolkit/tests/proof_ramp_layerx_config.rs", "services/platform/ramps/toolkit/tests/repair_22_33_1486.rs", "services/platform/ramps/toolkit/tests/support/repair_22_33_1490.rs"]
 tests = ["tests/ci/test_key_material_only_in_fixtures.py"]
 planned_paths = ["tests/ci/test_key_material_only_in_fixtures.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_key_material_only_in_fixtures.py && cargo build --locked --manifest-path services/platform/hosted/internal/Cargo.toml --tests && cargo build --locked --manifest-path services/platform/ramps/toolkit/Cargo.toml --tests"
@@ -180872,13 +180996,14 @@ time_limit_minutes = 90
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3449, decision 2800): the attempt-1 tree 5ba896bc2b9b stands (the test module and the two manifest entries). The touches now include services/platform/hosted/internal/tests and services/platform/ramps/toolkit/tests with the four consumer tests. Create the fixtures directory under each of those tests directories, move the eleven DER, PEM and PKCS12 files there with a one-line README each, and update every include path in hosted/internal/tests/repair_22_33_1452.rs, ramps/toolkit/tests/proof_ramp_layerx_config.rs, repair_22_33_1486.rs and support/repair_22_33_1490.rs. Write the seven remaining key-like paths (four under services/agent/crates/layerx-sdk/src, three under services/platform/ramps/reference/src) to tests/ci/data/key_material_baseline.txt, one path per line, and make test_key_like_files_live_under_fixtures accept exactly the listed paths until 22.39.93 empties the file. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.31.622]
 title = "Refresh the conformance copy of the committed receipt vector from its re-recorded source and pin the copy to the source"
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.620"]
 reqs = ["22998.1"]
 capabilities = ["22.31.622"]
 interfaces = []
@@ -180902,6 +181027,7 @@ time_limit_minutes = 240
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3443, decision 2771, after 22.31.620 lands): the attempt-1 tree 812ee7db75e9 stands (the refreshed vector copy, the source checks, the seven consumer updates, the copy test and the record). Merge main, confirm the gateway test target compiles with the mirror lines of 22.31.620, then run the build and the verification at the final revision and record both by reference. If the recorder script produces a different vector than the attempt-1 copy at the merged revision, refresh the copy again and record the second source digest."
 
 [task.22.31.620]
 title = "Bring the gateway mirror of the ai-market modules current and add its currency check"
@@ -331531,6 +331657,182 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.92]
+title = "Add the repository-wide command accuracy guard over README and docs shell blocks"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.88", "22.39.89", "22.39.90", "22.39.91"]
+reqs = ["22998.1"]
+capabilities = ["22.39.92"]
+interfaces = []
+do_1 = "do_1 Decision 2809, gotcha 3450. Write tests/ci/test_docs_shell_commands_resolve.py: extract fenced shell blocks (sh, bash, shell, console, zsh and untagged) from every tracked README.md and docs/**/*.md outside the vendored trees (the vendored project directory under tools/, programs/vendor, tools/uci, core/deps, tools/wasm-tools), node_modules and spec/; join continuation lines; resolve the working directory from cd, -C, --prefix, a Run from sentence and the page-root map in tests/ci/data/docs_command_roots.json (page prefix to project root, including the docs/<project> to tools/<project>, apps/<project> and services/<project> entries)."
+do_2 = "do_2 Assert in test_doc_make_targets_exist (targets exist, following includes, pattern rules and the forwarded target list into chain.mk), test_doc_script_paths_exist, test_doc_package_scripts_exist (with --filter, -C and --prefix resolution), test_doc_cargo_packages_exist (-p and --bin), test_doc_go_paths_exist, test_doc_cd_targets_exist, test_doc_clone_urls_name_this_repository and test_docs_command_roots_map_entries_exist; keep a short allowlist in the data file for build outputs (dist/, target/, node_modules/.bin) and user-created inputs."
+do_3 = "do_3 Decision 2810: the public host check accepts api-mainnet-beta.paxeer.network and api1 to api14 of the mainnet-beta domain at the root path only; a /rpc path on a public host fails the test."
+symbols = []
+touches = ["tests/ci/data"]
+tests = ["tests/ci/test_docs_shell_commands_resolve.py"]
+planned_paths = ["tests/ci/test_docs_shell_commands_resolve.py", "tests/ci/data/docs_command_roots.json"]
+build_cmd = "python3 -m py_compile tests/ci/test_docs_shell_commands_resolve.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_shell_commands_resolve.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.91]
+title = "Fix the clone URL and working directories of the explorer backend container README pages"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.91"]
+interfaces = []
+do_1 = "do_1 Decision 2809, gotcha 3450. services/explorer/backend/.devcontainer/README.md line 26 clones a repository named Paxeer-X-Network and line 27 changes into it: clone paxeer-monorepo and change into paxeer-monorepo/services/explorer/backend. services/explorer/backend/docker-compose/README.md line 18 runs cd ./docker-compose and lines 87 and 94 run cd ./docker before make start and make stop (targets at services/explorer/backend/docker/Makefile lines 17 and 40), all written relative to the parent of the page: state that the commands run from services/explorer/backend, or rewrite them as cd ../docker and make -C ../docker start and stop."
+do_2 = "do_2 Write tests/ci/test_docs_explorer_backend_readmes.py with test_doc_cd_targets_exist (every cd target in the two pages resolves from the directory the page states) and test_doc_clone_urls_name_this_repository (every git clone URL under services/explorer names paxeer-monorepo)."
+symbols = []
+touches = ["services/explorer/backend/.devcontainer/README.md", "services/explorer/backend/docker-compose/README.md"]
+tests = ["tests/ci/test_docs_explorer_backend_readmes.py"]
+planned_paths = ["tests/ci/test_docs_explorer_backend_readmes.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_docs_explorer_backend_readmes.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_explorer_backend_readmes.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-web-explorer-bridge"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.90]
+title = "Correct the two documented commands that name a retired make target and an undefined package script"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.90"]
+interfaces = []
+do_1 = "do_1 Decision 2809, gotcha 3450. wasm/contrib/devtools/README.md line 32 runs make -C wasm tools, but wasm/Makefile lines 7 to 9 refuse every goal but help and the tools target lives at wasm/contrib/devtools/Makefile line 54: change the line to make -C wasm/contrib/devtools tools with the same TOOLS_DESTDIR argument. docs/platform/content/framework/next.md line 142 runs npm run dev in services/platform/examples/samples/paid-route-next whose package.json defines only prebuild, build and start: add a dev script (next dev) with a matching predev to that package.json and state on the page that the root build:dependencies script runs first for that sample."
+do_2 = "do_2 Write tests/ci/test_docs_make_targets_and_scripts.py with test_doc_make_targets_exist (every make -C <dir> <target> in the two pages resolves to a target of that Makefile) and test_doc_package_scripts_exist (every npm run <script> in the next.md page exists in the package.json of the directory the page names)."
+symbols = []
+touches = ["wasm/contrib/devtools/README.md", "docs/platform/content/framework/next.md", "services/platform/examples/samples/paid-route-next/package.json"]
+tests = ["tests/ci/test_docs_make_targets_and_scripts.py"]
+planned_paths = ["tests/ci/test_docs_make_targets_and_scripts.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_docs_make_targets_and_scripts.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_make_targets_and_scripts.py && python3 docs/platform/build/build_site.py --check ."
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.89]
+title = "Port the runtime, verification and operations pages of the vendored project docs to the current layout and script names"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.89"]
+interfaces = []
+do_1 = "do_1 Decision 2809, gotcha 3450. In the sixteen pages named in touches, change the three pnpm lines that call the platform script by its old name (debugging-and-qa.md lines 364 and 380, worktrees.md line 42) to the two script names the root package manifest of the vendored tree defines at lines 48 and 49; move the source measurement script path (source-measurement.md lines 8, 19 and 126) to its location under tools/repository of the vendored tree, the provider corpus scripts (debugging-and-qa.md lines 467, 468 and 532) to tools/workspace/provider-corpus, and the bundle budget script (ui-code-splitting.md line 154) from apps/app/scripts to apps/web/scripts."
+do_2 = "do_2 Move every other old-layout path in those pages to its current location: apps/app/ to apps/web/, apps/server/ to core/server/, packages/<name> to core/<name> or contracts/<name>, scripts/ to tools/workspace/ or tools/repository/ (67 entries, listed in the page set of touches). Where a named file has no counterpart (scripts/forkable-plugins.json, packages/plugin-registry) remove the sentence or name its replacement."
+do_3 = "do_3 Write tests/ci/test_docs_vendored_runtime_paths.py with test_vendored_doc_pnpm_scripts_exist (every pnpm script named in the sixteen pages exists in the root package manifest of the vendored tree), test_vendored_doc_repo_paths_exist (every repository path in a fenced command or inline code span exists) and test_vendored_doc_no_pre_layout_prefixes (no apps/app/, apps/server/, packages/ or scripts/ prefix remains); keep one mapping table in the test."
+symbols = []
+touches = ["docs/hyperfide/runtime/debugging-and-qa.md", "docs/hyperfide/runtime/worktrees.md", "docs/hyperfide/runtime/ui-code-splitting.md", "docs/hyperfide/runtime/api_to_audit.md", "docs/hyperfide/runtime/forkable-plugins.md", "docs/hyperfide/runtime/testing.md", "docs/hyperfide/runtime/timeline-pagination.md", "docs/hyperfide/runtime/lifecycle-diagrams.md", "docs/hyperfide/runtime/postgresql-storage.md", "docs/hyperfide/runtime/provider-bridge-protocol.md", "docs/hyperfide/runtime/provider-plugin-api.md", "docs/hyperfide/runtime/ci-performance.md", "docs/hyperfide/runtime/cli-guide-and-skill.md", "docs/hyperfide/hyperfide/source-measurement.md", "docs/hyperfide/hyperfide/operations.md", "docs/hyperfide/verification/manual-runbook.md"]
+tests = ["tests/ci/test_docs_vendored_runtime_paths.py"]
+planned_paths = ["tests/ci/test_docs_vendored_runtime_paths.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_docs_vendored_runtime_paths.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_vendored_runtime_paths.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 90
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.88]
+title = "Repoint the source map and documentation map of the six translated README pages of the vendored project docs"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.88"]
+interfaces = []
+do_1 = "do_1 Decision 2809, gotcha 3450. In the six translated README pages under the i18n directory named in touches, the source map lists src/cg.h, src/govern.c and fourteen more files under src/ that now live under core/native/src/ of the vendored tree, and the documentation map lists docs/ARCHITECTURE.md, docs/sync.md and nine more pages that now live beside the i18n directory (27 entries per page, 162 in total; the English README of the vendored tree already reads core/native/src/govern.c at line 836). Replace the src/ prefix with core/native/src/ and each docs/<page>.md with the ../<page>.md form relative to the i18n directory, leaving the translated prose untouched."
+do_2 = "do_2 Write tests/ci/test_docs_vendored_translation_maps.py with test_translation_source_map_paths_exist (every source path in each translated page exists), test_translation_doc_map_paths_exist and test_translations_match_english_map_entries (each translated page lists the same source and doc entries as the English README of the vendored tree)."
+symbols = []
+touches = ["docs/hyperfide/i18n/README.ar.md", "docs/hyperfide/i18n/README.es.md", "docs/hyperfide/i18n/README.fr.md", "docs/hyperfide/i18n/README.hi.md", "docs/hyperfide/i18n/README.pt-BR.md", "docs/hyperfide/i18n/README.zh-CN.md"]
+tests = ["tests/ci/test_docs_vendored_translation_maps.py"]
+planned_paths = ["tests/ci/test_docs_vendored_translation_maps.py"]
+build_cmd = "python3 -m py_compile tests/ci/test_docs_vendored_translation_maps.py"
+verify_cmd = "python3 -m pytest -q tests/ci/test_docs_vendored_translation_maps.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-docs"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 45
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.87]
+title = "Normalise the public qualification ledger so it parses and guard it with a test"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.54"]
+reqs = ["22998.1"]
+capabilities = ["22.39.87"]
+interfaces = []
+do_1 = "do_1 Decision 2806, gotcha 3445. Rewrite spec/layerx-merge/qualification.kvx so scripts/ci/beta-ledger-check.sh reports zero violations: terminate the unterminated string at line 494 and any other quoting fault, and where a section header repeats (finding.11.15.1 at lines 41 and 3681 and every other repeat) rename the later occurrences by appending .a2, .a3 and so on in file order, keeping every record and every key unchanged otherwise. Record the count of renamed headers and repaired strings in tests/ci/repair_22_39_87.kvx."
+do_2 = "do_2 Write tests/ci/test_qualification_ledger_parses.py with test_ledger_headers_unique, test_ledger_strings_terminated and test_beta_ledger_check_passes (runs scripts/ci/beta-ledger-check.sh with a temporary evidence root as tools/ci/tests/test_beta_ledger_paths.py does). Empty tests/ci/data/tools_ci_deselect.txt so test_tools_ci_suite_passes runs the whole tools/ci suite again, and run that suite in the verification."
+symbols = []
+touches = ["spec/layerx-merge/qualification.kvx", "scripts/ci/beta-ledger-check.sh", "tools/ci/tests/test_beta_ledger_paths.py"]
+tests = ["tests/ci/test_qualification_ledger_parses.py"]
+planned_paths = ["tests/ci/test_qualification_ledger_parses.py", "tests/ci/repair_22_39_87.kvx", "tests/ci/data/tools_ci_deselect.txt"]
+build_cmd = "python3 -m py_compile tests/ci/test_qualification_ledger_parses.py && bash -n scripts/ci/beta-ledger-check.sh"
+verify_cmd = "python3 -m pytest -q tests/ci/test_qualification_ledger_parses.py && python3 -m pytest -q tools/ci/tests && python3 -m pytest -q tests/ci/test_tools_ci_suite_passes.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.85]
 title = "Wire the JS packages with test scripts that no workflow runs"
 status = "pending"
@@ -331678,7 +331980,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.77]
 title = "Run the explorer Rust tests and the frontend suite in the explorer build workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331797,7 +332099,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.69]
 title = "Add a tracked-file size budget with an allowlist of the existing large files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -331888,7 +332190,7 @@ title = "Take the hosting-provider host names, fixed private peer names and real
 status = "pending"
 mode = "BUILD"
 wave = 1
-requires = []
+requires = ["22.31.620"]
 reqs = ["22998.1"]
 capabilities = ["22.39.65"]
 interfaces = []
@@ -331912,6 +332214,7 @@ time_limit_minutes = 120
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3452, decision 2771, after 22.31.620 lands): the attempt-1 tree 58f6f9d20eb0 stands (the proxy test input, the reworded lines, the templated peer names, the two config comments, the three tests). Merge main, confirm the gateway test targets compile with the mirror lines of 22.31.620, then run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.64]
 title = "Point every first-party manifest and documentation site link at the canonical repository and bring the citation to 7.0.0"
@@ -332096,7 +332399,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.57]
 title = "Update the hpx provenance example to the release identity and remove placeholder wording from two READMEs"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332127,7 +332430,7 @@ do_4 = "Attempt 2 (continue, gotcha 3442): the attempt-1 tree ecccd4a4c554 stand
 
 [task.22.39.56]
 title = "Point every public page and README translation at the canonical repository name"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332176,7 +332479,7 @@ touches = ["tools/ci/tests/test_ci_loadtest_job.py", "tools/ci/tests/test_foundr
 tests = ["tests/ci/test_tools_ci_suite_passes.py"]
 planned_paths = ["tests/ci/test_tools_ci_suite_passes.py", "tools/ci/tests/repair_22_39_54.kvx"]
 build_cmd = "python3 -m py_compile tests/ci/test_tools_ci_suite_passes.py && bash -n scripts/ci/runner-routing-check.sh scripts/wallet/check-live.sh scripts/wallet/gate-lint.sh scripts/ci/xweb-workflow-check.sh scripts/ci/beta-ledger-check.sh && make -n build > /dev/null"
-verify_cmd = "python3 -m pytest -q tools/ci/tests && python3 -m pytest -q tests/ci/test_tools_ci_suite_passes.py"
+verify_cmd = "python3 -m pytest -q tools/ci/tests --deselect tools/ci/tests/test_beta_ledger_paths.py::BetaLedgerPathsTest::test_ledger_check_reads_layerx_merge_ledger && python3 -m pytest -q tests/ci/test_tools_ci_suite_passes.py"
 gate_kind = "planned"
 sandbox_profile = "python"
 owner_role = "fm-tools-ops"
@@ -332188,6 +332491,7 @@ time_limit_minutes = 300
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_7 = "Attempt 2 (continue, gotcha 3445, decision 2800): the attempt-1 tree 799a0dafcb68 stands (the 18 settlements, the script repairs, the record). The ledger test test_ledger_check_reads_layerx_merge_ledger is repaired by 22.39.87 and stays out of this task: the verification now deselects it, and test_tools_ci_suite_passes reads the deselect list from tests/ci/data/tools_ci_deselect.txt (one test id per line, created by this task with that one entry) and passes it to the subprocess run, so 22.39.87 empties the file when the ledger parses. Record the deselection with the recorded 6448-violation output summary in tools/ci/tests/repair_22_39_54.kvx. Run the build and the narrowed verification at the final revision and record both by reference."
 
 [task.22.39.53]
 title = "Collect the websearch context module under pytest or move it beside its gate script"
@@ -332221,7 +332525,7 @@ do_3 = "Attempt 2 (continue, gotcha 3432): the attempt-1 tree 47e49dfbb78e stand
 
 [task.22.39.52]
 title = "Remove leftover debug and stale wording from the public check files"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.48"]
@@ -332260,7 +332564,7 @@ interfaces = []
 do_1 = "do_1 Decision 2787. actions/checkout is pinned at four releases across .github/workflows (v4 with 6 uses, v5 with 26, v6 with 5 and v7.0.1 with 80), actions/setup-node at v4 and v6, actions/setup-go at v6 and v7, actions/upload-artifact at v4 and v5, and the codeql-action init and analyze steps are at v3.38.2 while upload-sarif is at v4.37.9. Move every use of each action to its newest already-pinned SHA, keep the version comment after each pin, and move the codeql-action steps to one major version. Change nothing else in the files."
 do_2 = "do_2 Write tests/ci/test_action_pins_consistent.py with test_each_action_has_one_pinned_sha (every uses: of the same action across .github/workflows carries the same 40-character SHA), test_codeql_action_steps_share_version and test_pins_carry_version_comment."
 symbols = []
-touches = [".github/workflows/node-build.yml", ".github/workflows/codeql.yml", ".github/workflows/wallet-test.yml"]
+touches = [".github/workflows"]
 tests = ["tests/ci/test_action_pins_consistent.py"]
 planned_paths = ["tests/ci/test_action_pins_consistent.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_action_pins_consistent.py"
@@ -332276,6 +332580,7 @@ time_limit_minutes = 60
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3446, decision 2807): the attempt-1 tree b70c71c3cbf2 stands (the test module and the three files). The touches now cover the whole .github/workflows directory. Move every use of each action in every workflow file to the newest SHA already in use for that action (actions/checkout, actions/setup-node, actions/setup-go, actions/upload-artifact, the three codeql-action steps and any other action pinned at two SHAs), keeping each comment as the release tag; make test_pins_carry_version_comment accept the toolchain tag form (stable, nightly or 1.NN) for the toolchain action and the release tag form for every other action. Record the number of lines moved per action in tests/ci/repair_22_39_51.kvx. Run the build and the verification at the final revision and record both by reference."
 
 [task.22.39.50]
 title = "Make the labeler and the label enforcement agree with the labels the repository and release notes use"
@@ -332308,7 +332613,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.49]
 title = "Document every secret name, variable and label the public checks use and test that the list stays complete"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.48"]
@@ -332528,7 +332833,7 @@ do_1 = "do_1 Decision 2787. sdk/platform/conformance/README.md lines 16, 26, 105
 do_2 = "do_2 docs/wiki/Ap2Mandates.md line 75, docs/wiki/VisaTap.md line 35, services/interop/deploy/gateway/README.md line 230 and services/interop/specs/conformance/ucp/README.md line 34 name the internal code-index tool and its anchor. Call the anchor the descriptor function of the crate, or drop the sentence."
 do_3 = "do_3 Add test_readmes_cite_no_decision_or_gotcha_ids (over every tracked README.md outside vendored trees and spec/) and test_docs_do_not_name_internal_code_index to tests/ci/test_docs_no_programme_references.py."
 symbols = []
-touches = ["sdk/platform/conformance/README.md", "sdk/platform/jvm/README.md", "services/interop/crates/layerx-migrate/README.md", "services/interop/deploy/gateway/README.md", "services/interop/specs/conformance/ucp/README.md", "docs/wiki/Ap2Mandates.md", "docs/wiki/VisaTap.md"]
+touches = ["sdk/platform/conformance/README.md", "sdk/platform/jvm/README.md", "services/interop/crates/layerx-migrate/README.md", "services/interop/deploy/gateway/README.md", "services/interop/specs/conformance/ucp/README.md", "docs/wiki/Ap2Mandates.md", "docs/wiki/VisaTap.md", "sdk/contrib/rosetta/node/README.md", "tools/launchpad/production/load/README.md"]
 tests = ["tests/ci/test_docs_no_programme_references.py"]
 planned_paths = ["tests/ci/test_docs_no_programme_references.py"]
 build_cmd = "python3 -m py_compile tests/ci/test_docs_no_programme_references.py"
@@ -332544,6 +332849,7 @@ time_limit_minutes = 45
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_4 = "Attempt 2 (continue, gotcha 3444): the attempt-1 tree 5b1a56176a9c stands (the seven pages, the two tests). sdk/contrib/rosetta/node/README.md and tools/launchpad/production/load/README.md are now in the touches. Rewrite line 29 of the rosetta README to state that the former Dockerfile and Compose entry points are withdrawn and Dockerfile.historical is kept unchanged, without a task number; rewrite line 124 of the load README so the command carries no task number (the plain command the page documents). Run the gate at the final revision and record it by reference."
 
 [task.22.39.37]
 title = "Remove task, decision and documentation revision notes from the inference market guides and the docs pages that cite programme records"
@@ -332787,6 +333093,7 @@ path_policy = "Existing paths are modified in place. Planned paths must be creat
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
 do_4 = "Attempt 2 (continue, gotcha 3429, decision 2802): the attempt-1 tree 97f1c0369a16 stands (the six receipt pages and the thirteen-test module). The verification now passes the repository root as the single dot to the platform site check. Merge current main, run the build and the verification at the final revision and record both by reference; if the site check reports a stale generated page, regenerate it with the build script without the check flag in the same commit."
 do_5 = "Attempt 3 (continue, gotcha 3439): the attempt-2 tree 4622e0d9befc stands (the six pages and the 13 tests). The install page and the capabilities document are now in the touches. Make the install page table row Native payment execution and block finality name a capability that docs/platform/capabilities.kvx declares: either rename the row to the declared label that covers native payment execution and block finality, or add the capability entry with that label, its tier and the one-sentence description the row carries, whichever the other rows of the same table follow. Run the site check over the documentation root at the final revision and record it by reference."
+do_6 = "Attempt 4 (continue, gotcha 3448, decision 2762): the attempt-3 tree fe2b3029520b stands (the six pages, the four declared capabilities, the 13 tests). Add one row to the enforcement table of docs/platform/content/environments/emulator.md: Scheduled beta resets, layer hosted-surface, stating that the emulator keeps its state until restarted while the hosted beta network is reset on its published calendar. Run python3 docs/platform/build/build_site.py --check . and the tests at the final revision and record both by reference."
 
 [task.22.39.29]
 title = "Make docs/README.md describe the current documentation and the 7.0.0 release"
