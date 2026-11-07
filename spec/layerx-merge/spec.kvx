@@ -179824,7 +179824,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.619]
 title = "Refresh the platform sample, probe and tooling lockfiles that no longer resolve with the locked flag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179853,7 +179853,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.618]
 title = "Refresh the interop lockfile so its crates build with the locked flag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -179882,7 +179882,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.617]
 title = "Refresh the eight agent sub-project lockfiles that no longer resolve with the locked flag"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
