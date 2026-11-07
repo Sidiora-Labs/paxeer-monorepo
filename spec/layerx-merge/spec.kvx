@@ -333807,7 +333807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.83]
 title = "Give the Python suites under tests, cmd, scripts and services a make target and a main workflow step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
