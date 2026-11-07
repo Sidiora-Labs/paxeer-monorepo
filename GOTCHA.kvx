@@ -17260,3 +17260,28 @@ fix = "Decision 2828: the gate runs the hosted authority producer target before 
 title = "The subject identity label task refreshed the platform lockfile its record never listed"
 symptom = "22.31.549 attempt 2 at ba94e7d6bd05 built and verified with exit 0 (the authority emits the committed verification label for subject identity and context, the daemon requires it) and the collector held the result because services/platform/Cargo.lock changed outside the touches and planned_paths: the task edits services/platform/hosted/authority/Cargo.toml, a manifest the platform workspace resolves by path, and decision 2259 requires the lockfile refresh in the same change, yet the task record lists only the three crate directories as planned paths, so a correct refresh reads as an out-of-scope change."
 fix = "Decision 2829: the record lists services/platform/Cargo.lock among its planned paths and the held result is published as it stands; no rerun."
+
+[gotcha.3488]
+title = "The committed receipt vector refresh met a facilitator test red since the audit repair"
+symptom = "22.31.622 attempt 2 at 6943962d5cb6 refreshed the conformance copy, passed both copy checks and the four committed-proof targets, then facilitator_reports_committed_only_with_a_proof of layerx-x402 panicked with settlement evidence does not match in its no-proof iteration: the test sets the evidence rung to Committed before the loop and expects a receipted response without a proof, while Seller::settled since f2d44220a6 (the 22.30.111 audit repair) refuses committed-rung evidence that carries no proof. The same test fails in the 22.39.74 attempt-1 run, so it is red on main independent of the recording and is already assigned to 22.39.127 (the x402 baseline retirement)."
+fix = "Decision 2830: the task gate skips exactly that test name and 22.39.127 receives the fixture repair; the attempt-2 tree stands."
+
+[gotcha.3489]
+title = "The plugin router scheduler cases cannot reach the routing module through a manager decision"
+symptom = "22.37.29 attempt 1 at 85ff403ccf24: the five server cases pass and the ten scheduler cases of the routing module test (pause and cap controls, cancelled job, HTTP 429 backoff, membership claims, cap reservations, availability, single retry, backoff ceiling, interrupted ledgers, preparation cleanup) still fail with zero jobs: the routing module starts in manager mode unless its planning option is legacy-nonadaptive or native, writes WAITING_FOR_MANAGER to the planning record of the shared store and returns before scheduling, while manager.ts forwards every manager decision to the external authority client and nothing in the plugin feeds a decision back into the routing module. The do item asked the cases to drive the manager decision path, which does not exist in process."
+fix = "Decision 2831: the scheduler cases set the legacy planning option explicitly; the default-mode case added by the attempt covers the manager default."
+
+[gotcha.3490]
+title = "The CLI bootstrap test reads the install document at its pre-consolidation path"
+symptom = "22.39.118 attempt 3 at 39533d5aec16: the three RPC tests, the wallet test and the eight credential tests pass (the same-alias test now returns through the guard), then make platform-test-tooling fails in bootstrap::clean_bootstrap of tools/platform/cli/tests/emulator.rs because published_bootstrap_sequence joins ../../../services/platform/docs/content/install.md, a path removed when 0295d41349 folded the platform documentation into docs/platform; tools/platform/cli/tests/clean-bootstrap.sh line 56 already reads docs/platform/content/install.md, which carries the one bootstrap marker. The attempt recorded the file as out of scope although touches names the directory tools/platform/cli that contains it."
+fix = "Decision 2832: a directory in touches covers every file beneath it; attempt 4 corrects the path in emulator.rs."
+
+[gotcha.3491]
+title = "The wallet proxy refuses the chain identity the portfolio client sends on every read"
+symptom = "22.39.43 attempt 3 at 5e1842ada7db: eighty wallet tests pass and the two lifecycle tests of lib/portfolio-api/repair-22-31-235.test.ts fail with Portfolio API error 400: portfolio-api/client.ts (bc1c4f4e78, audit record 22.30.114) routes every GET through walletReadUrl, which appends chain_id, and checks the x-wallet-chain-id acknowledgment with assertWalletReadResponse, while forwardPortfolio in app/api/wallet/[...path]/route.ts (64bdee97c4, audit record 22.30.118) admits only the address and limit query keys and answers QUERY_INVALID for chain_id, and copies no acknowledgment header. Two audit repairs of the same day left the producer and its consumer disagreeing; the task touches named only test files, so the attempt could not fix the proxy."
+fix = "Decision 2833: the proxy admits and validates chain_id and acknowledges the served chain; the task touches gain the route and the read-contract module."
+
+[gotcha.3492]
+title = "The visitor asset weight test treats two empty vendored chart style files as budget offenders"
+symptom = "22.39.70 attempt 1 at 1cedcb49d76f: the eight assets shrank by 93 percent at their display sizes and the route catalogue check passes, but test_public_assets_under_weight_cap in tests/ci/test_web_asset_weight.py requires 0 < size <= budget and lists apps/launchpad/web/public/charting_library/bundles/3060.fbb750fd312778403036.css and its rtl twin (0 bytes, emitted empty by the vendored chart bundle and tracked that way on main) as offenders; two repair cycles went to source-mapping fixes and left the condition."
+fix = "Attempt 2 asserts the cap only (size <= budget); an empty vendored style is not weight."
