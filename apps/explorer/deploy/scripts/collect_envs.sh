@@ -7,6 +7,11 @@ if [ "$#" -ne 1 ]; then
 fi
 
 input_file="$1"
+if [ ! -f "$input_file" ]; then
+  echo "Environment documentation not found: $input_file" >&2
+  exit 1
+fi
+
 prefix="NEXT_PUBLIC_"
 
 # Function to make the environment variables registry file based on documentation file ENVS.md

@@ -15,10 +15,11 @@ The EVM chain ID is **125** (`0x7d`). Public JSON-RPC uses the root of
 `https://api14.mainnet-beta.paxeer.network`, or
 `https://api-mainnet-beta.paxeer.network`. Configure the chosen node origin
 explicitly and check `eth_chainId` before signing. The node namespaces are
-`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+`debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 
-Hosted `px_` methods have their own declared
-[gateway contract](../services/platform/hosted/gateway/openrpc.json). Agent and
+The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). Agent and
 human service operations also require their configured service origins and
 credentials; their generated catalogues do not promise that a public node
 implements those operations. The retired router and separate daemon are not

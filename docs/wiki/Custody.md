@@ -17,7 +17,7 @@ submission of custody funding activities, and their standalone qualification
 steps are no longer an operator funding path.
 
 For current ledger payments, use the
-[Human service payment path](../site/docs/human/payments).
+[Human service payment path](PaymentsQuickstart.md).
 
 Natively issued tokens and per-asset accounts are documented separately in
 [Assets](Assets.md).

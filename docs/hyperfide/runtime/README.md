@@ -5,7 +5,7 @@ and command line. The server coordinates state; host daemons provision local
 workspaces and run providers. Plugins add providers, tools, and workspace panels.
 The repository's spec and qualification workflow govern task completion.
 
-![Hyperfide](../../../tools/hyperfide/assets/hyperfide-logo.png)
+![Hyperfide](../../../tools/hyperfide/assets/hyperfide-logo.svg)
 
 ## Run and develop
 

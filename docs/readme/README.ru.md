@@ -50,9 +50,9 @@ curl --fail --silent --show-error https://api1.mainnet-beta.paxeer.network \
   --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
 ```
 
-Ожидаемое значение `result` — `0x7d`. Публичные пространства имён: `debug`, `echo`, `eth`, `net`, `pax`, `test`, `txpool`; доступность методов зависит от узла и его настроек. Сравнивайте `eth_blockNumber` на нескольких узлах, чтобы выбрать актуальный узел.
+Ожидаемое значение `result` — `0x7d`. Публичные пространства имён: `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, `txpool`; доступность методов зависит от узла и его настроек. Сравнивайте `eth_blockNumber` на нескольких узлах, чтобы выбрать актуальный узел.
 
-Контракт методов `px_*` размещённого шлюза находится в [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). Перед использованием размещённой функции сверяйтесь с этим контрактом и `px_getCapabilities`. `node.hyperpaxeer.com` — зеркало библиотек hpx для скриптов сборки (library mirror), а не точка доступа RPC.
+Пространство имён `px` отвечает из состояния узла; `px_register` и `px_requestFunds` — операции размещённых сервисов идентификации и faucet, их контракт находится в [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). Перед использованием функции сверяйтесь с `px_getCapabilities`. `node.hyperpaxeer.com` — зеркало библиотек hpx для скриптов сборки (library mirror), а не точка доступа RPC.
 
 Чтобы подключиться к цепочке Paxeer X (chain ID 125), используйте одно из публичных имён JSON-RPC, перечисленных в [`docs/site/docs/reference/public-rpc.md`](../../docs/site/docs/reference/public-rpc.md). Контрольный список для публичной точки доступа — [`docs/wiki/Getting-Started-Beta.md`](../../docs/wiki/Getting-Started-Beta.md). Путь для кошелька, пополнения и платежей — [`docs/wiki/PaymentsQuickstart.md`](../../docs/wiki/PaymentsQuickstart.md). Активы: [`docs/wiki/Assets.md`](../../docs/wiki/Assets.md). Методы RPC: [`docs/wiki/PublicRpc.md`](../../docs/wiki/PublicRpc.md). Уровни подтверждения: [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md). Публичный платёжный API: [`docs/wiki/PublicAPI.md`](../../docs/wiki/PublicAPI.md).
 

@@ -38,10 +38,10 @@ node names are `api1` through `api14.mainnet-beta.paxeer.network` and
 `node.hyperpaxeer.com` is only the native-library mirror, not an RPC endpoint.
 There is no router or separate LayerX interface in the merged network.
 
-Public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and
-`txpool`. Hosted `px_` reads are described by
-`services/platform/hosted/gateway/openrpc.json`; do not assume every public node
-serves that hosted contract. Source availability also does not certify that a
+Public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and
+`txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. Source availability also does not certify that a
 particular deployment has enabled every precompile or hosted service.
 
 For ordinary transfers, submit a signed chain transaction and follow its
