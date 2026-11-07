@@ -6,11 +6,10 @@ adapter. They live under `services/platform/ramps/`: toolkit crate
 material under `services/platform/ramps/reference/`
 (`services/platform/ramps/README.md`).
 
-`spec/layerx-platform/spec.kvx` task 26.1 is **implemented**. The
-spec `reality` field records that the reference ramp service is
-incomplete. Task 26.2 (labelling) is **implemented** with
-qualification still pending. This page does not claim a finished
-hosted ramp.
+The reference HTTP worker does not expose the toolkit's customer-signed
+off-ramp submission path. A complete off-ramp journey requires an authenticated
+integration with that path (`services/platform/ramps/toolkit/src/engine.rs`,
+`services/platform/ramps/README.md`).
 
 ---
 
@@ -36,7 +35,7 @@ From `services/platform/ramps/toolkit/src/lib.rs`:
 
 ## Qualification gates
 
-Makefile targets named in the spec and `services/platform/ramps/README.md`:
+Makefile targets for the ramp toolkit and reference service:
 
 - `make interop-test-ramps`
 - `make interop-test-ramps-sandbox` (requires `LAYERX_RAMP_URL`)
