@@ -338,7 +338,7 @@ API entries above. Domain 8 owns the outstanding `ui_proxy.rs` page admissions:
 `/explorer/feed`, `/explorer/feed/market/[id]` and `/explorer/feed/update/[hash]`,
 including their constrained Next data routes. Those page entries and a production
 gateway integration gate are required before claiming hosted feed pages render.
-Task 22.31.382's TypeScript gate checks API registrations against the real client
+The TypeScript gate checks API registrations against the real client
 and backend router and exercises the real fetch hook and feed renderers with
 committed response fixtures over loopback HTTP; it does not execute Rust or Elixir.
 The route catalogue at `tools/paxeer-x/route-catalogue.json` also needs regeneration
