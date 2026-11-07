@@ -13,6 +13,7 @@ import {
   sourceScopeValues,
 } from "./metadata.js";
 import type { SourceContext, SourceSQL } from "./metadata.js";
+import { SourceRetentionService } from "./retention.js";
 import { reserveSourceOperation } from "./operations.js";
 import { evidenceIds, verifyCandidateEvidence } from "./evidence.js";
 import type {
@@ -829,12 +830,17 @@ export class SourceCandidateService {
           ...body,
           manifest_digest: sourceDigest(body),
         };
-        await this.metadata.protectRoot(
-          tx,
-          context.scope,
-          revision.root_tree_id,
-          "candidate:" + input.candidate_id,
-        );
+        await SourceRetentionService.acquire(tx, context.scope, {
+          root_id: SourceRetentionService.producerRootId(
+            context.scope,
+            "CANDIDATE",
+            input.candidate_id,
+            revision.root_tree_id,
+          ),
+          owner_kind: "CANDIDATE",
+          owner_id: input.candidate_id,
+          object_id: revision.root_tree_id,
+        });
         await tx.query(
           "INSERT INTO hyperfide.source_native_candidates(organisation_id,repository_id,security_domain_id,candidate_id,domain_id,revision_id,root_tree_id,manifest_digest,manifest) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) ON CONFLICT DO NOTHING",
           [

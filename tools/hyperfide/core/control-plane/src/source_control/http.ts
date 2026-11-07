@@ -17,9 +17,16 @@ import {
   verifySourcePrincipalToken,
   type SourceTokenTrust,
 } from "./authentication.js";
-import type { createSourceApi } from "./api.js";
+import {
+  sourceAdmissionClass,
+  type SourceAdmissionClass,
+  type createSourceApi,
+} from "./api.js";
 import type { SourceTransferService } from "./transfers.js";
-import { handleSourceTransferHttp } from "./transfer_http.js";
+import {
+  handleSourceTransferHttp,
+  isSourceTransferPath,
+} from "./transfer_http.js";
 
 export interface SourceHttpOptions {
   api: ReturnType<typeof createSourceApi>;
@@ -31,6 +38,7 @@ export interface SourceHttpOptions {
   tls?: { cert: string | Buffer; key: string | Buffer };
   allowLoopbackHTTP?: boolean;
   maxConcurrent?: number;
+  admissionBudgets?: Partial<Record<SourceAdmissionClass, number>>;
   deadlineMs?: number;
 }
 export function sourcePublicError(error: SourceControlError): SourceError {
@@ -196,8 +204,39 @@ export async function startSourceHttp(
       "CONFIGURATION_INVALID",
       "Invalid source listener admission policy",
     );
-  let accepting = true,
-    active = 0;
+  const classes: SourceAdmissionClass[] = [
+    "upload",
+    "query",
+    "event",
+    "acceptance",
+    "mutation",
+  ];
+  const budgets = Object.fromEntries(
+    classes.map((kind) => [kind, options.admissionBudgets?.[kind] ?? maximum]),
+  ) as Record<SourceAdmissionClass, number>;
+  if (
+    Object.keys(options.admissionBudgets ?? {}).some(
+      (kind) => !classes.includes(kind as SourceAdmissionClass),
+    ) ||
+    classes.some(
+      (kind) =>
+        !Number.isInteger(budgets[kind]) ||
+        budgets[kind] < 1 ||
+        budgets[kind] > 512,
+    )
+  )
+    throw new SourceControlError(
+      "CONFIGURATION_INVALID",
+      "Each source admission class requires a bounded positive budget",
+    );
+  const active: Record<SourceAdmissionClass, number> = {
+    upload: 0,
+    query: 0,
+    event: 0,
+    acceptance: 0,
+    mutation: 0,
+  };
+  let accepting = true;
   const pending = new Set<Promise<void>>();
   const write = writeSourceHttpResponse;
   async function handle(
@@ -206,6 +245,7 @@ export async function startSourceHttp(
   ): Promise<void> {
     let operation: string = randomUUID(),
       action: SourceAction | undefined,
+      admitted: SourceAdmissionClass | undefined,
       timer: ReturnType<typeof setTimeout> | undefined;
     const sendError = (error: SourceControlError) =>
       write(
@@ -227,17 +267,16 @@ export async function startSourceHttp(
       );
       return;
     }
-    if (active >= maximum) {
-      sendError(
-        new SourceControlError(
+    const admit = (kind: SourceAdmissionClass) => {
+      if (active[kind] >= budgets[kind])
+        throw new SourceControlError(
           "OVERLOADED",
-          "Concurrent source request budget is exhausted",
+          "Source " + kind + " request budget is exhausted",
           "RESUME",
-        ),
-      );
-      return;
-    }
-    active++;
+        );
+      active[kind]++;
+      admitted = kind;
+    };
     const controller = new AbortController(),
       abort = () => controller.abort(),
       disconnected = () => {
@@ -259,6 +298,7 @@ export async function startSourceHttp(
         );
         request.destroy();
       }, deadline);
+      if (isSourceTransferPath(request.url)) admit("upload");
       if (
         await handleSourceTransferHttp(
           options.transfers,
@@ -301,6 +341,7 @@ export async function startSourceHttp(
         options.trust,
         decoded.scope,
       );
+      admit(sourceAdmissionClass(decoded.action));
       const result = await options.api.invoke(action, decoded, {
         ...principal,
         signal: controller.signal,
@@ -335,7 +376,7 @@ export async function startSourceHttp(
       options.signal.removeEventListener("abort", abort);
       request.removeListener("aborted", abort);
       response.removeListener("close", disconnected);
-      active--;
+      if (admitted) active[admitted]--;
     }
   }
   const listener = (request: IncomingMessage, response: ServerResponse) => {
@@ -351,7 +392,8 @@ export async function startSourceHttp(
       )
     : http.createServer({ maxHeaderSize: 16384 }, listener);
   server.maxHeadersCount = 32;
-  server.maxConnections = maximum * 4;
+  server.maxConnections =
+    classes.reduce((sum, kind) => sum + budgets[kind], 0) * 4;
   server.requestTimeout = deadline;
   server.headersTimeout = Math.min(deadline, 10000);
   server.keepAliveTimeout = 3000;
