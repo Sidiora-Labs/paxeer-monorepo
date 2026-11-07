@@ -35225,3 +35225,11 @@ symbol = "evm_submit.rs"
 observed = "Attempt 1 at 2206b5ecde00: build exit 0; verification exit 1 twice: every binary passed except source_settlement, whose genuine source finality case panicked at line 78 for the absent protected contract file; both repair cycles corrected real assertion differences in the proof test."
 assumption = "The remaining red case is gated on protected material, not on the repaired tree; the gate names the exclusion."
 severity = "high"
+
+[finding.22.39.147.2]
+task = "22.39.147"
+file = "tests/ci/test_workflow_live_inputs_guarded.py"
+symbol = "test_workflow_live_inputs_guarded.py"
+observed = "Attempt 2 at 06d1b91e2627: build exit 0; routing check exit 0; verification exit 1: 29 passed, 1 failed, test_root_workflow_runs_loadtest_module at tools/ci/tests/test_ci_loadtest_job.py line 16 comparing the routed loadtest expression with the ubuntu-24.04 pin of c17."
+assumption = "The reference job of the test changed disposition when the sanitizer pin was recorded; the test follows a routed sibling."
+severity = "high"
