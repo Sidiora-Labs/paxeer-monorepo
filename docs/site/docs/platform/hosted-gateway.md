@@ -17,7 +17,7 @@ Public node JSON-RPC is served at the root of
 `https://api-mainnet-beta.paxeer.network` and
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. The node namespaces are `debug`,
-`echo`, `eth`, `net`, `pax`, `test` and `txpool`; method availability depends
+`echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`; method availability depends
 on node configuration. Use [Public RPC endpoints](../reference/public-rpc.md)
 for node HTTP and WebSocket examples.
 

@@ -9,9 +9,9 @@ in the database, rather than separately provisioned chains.
 Public node JSON-RPC uses HTTPS at the root path of
 `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`,
 and `api-mainnet-beta.paxeer.network`. Its namespaces are `debug`, `echo`, `eth`,
-`net`, `pax`, `test` and `txpool`. Hosted `px_` methods have their own
-[OpenRPC contract](../services/platform/hosted/gateway/openrpc.json); do not
-assume that a public node implements every hosted method. The router and unified
+`net`, `pax`, `px`, `test` and `txpool`. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). The router and unified
 `/rpc`, `/rpc/ws` and `/rpc/schema` network endpoints are retired.
 `node.hyperpaxeer.com` is only the hpx library mirror.
 

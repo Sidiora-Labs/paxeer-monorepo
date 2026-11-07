@@ -45,9 +45,9 @@ In this repository the module is wired into the Paxeer X chain application in [`
     - [Historical Info Tracking](04_begin_block.md#historical-info-tracking)
 5. **[End-Block](05_end_block.md)**
     - [Validator Set Changes](05_end_block.md#validator-set-changes)
-    - [Queues](05_end_block.md#queues-)
+    - [Queues](05_end_block.md#queues)
 6. **[Hooks](06_hooks.md)**
 7. **[Events](07_events.md)**
     - [EndBlocker](07_events.md#endblocker)
-    - [Msg's](07_events.md#msg's)
+    - [Msg's](07_events.md#msgs)
 8. **[Parameters](08_params.md)**

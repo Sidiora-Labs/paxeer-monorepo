@@ -10,9 +10,10 @@ Public node JSON-RPC is served at the root of
 `https://api-mainnet-beta.paxeer.network/` and
 `https://api1.mainnet-beta.paxeer.network/` through
 `https://api14.mainnet-beta.paxeer.network/`, with EVM chain ID **125** (`0x7d`).
-Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`
-namespaces. The gateway's `px_*` methods are a hosted contract; configuring a
-public node does not deploy those APIs. Mainnet-beta uses real value; obtain
+Those nodes expose `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`
+namespaces. The `px` namespace answers from node state; `px_register` and
+`px_requestFunds` are operations of the hosted identity and faucet
+services declared in `services/platform/hosted/gateway/openrpc.json`. Mainnet-beta uses real value; obtain
 hosted service coordinates, credentials and any allocation policy from its operator.
 
 ## Build and test

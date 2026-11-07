@@ -25,6 +25,7 @@ See [Paxeer Network](paxeer-network.md) for chain identity, public endpoints and
 | `apps/perps` | The Hyperpax perps frontend |
 | `apps/wallet`, `apps/web` | Wallet app and web app |
 | `apps/explorer` | Block explorer frontend |
+| `apps/inference-peer` | Standalone inference peer package with the pinned MIT Pooled WebGPU engine; see its `README.md`, `NOTICE` and `LICENSE-ENGINE` |
 | `apps/bridge` | Bridge frontend |
 | `apps/launchpad` | Launchpad web and mobile apps and the client workspace files |
 | `services/agent` | Agent daemon, MCP server, shared Rust crates, TypeScript and Python SDKs |
@@ -77,7 +78,7 @@ These are planned directory moves, not additional deployments. In particular, th
 The network's consensus commit is the authority for finality. There is no separate execution-to-settlement hop between the kernel and `paxd`.
 
 - Kernel execution is reached through the node's `modules/lxphost` integration and chain modules. Native balances, asset-ledger state and receipts must be interpreted in that committed chain state.
-- Hosted services, explorers and bridge clients consume node APIs and committed evidence. Their databases, caches and request acknowledgements do not establish network finality. Hosted `px_` methods have their own contract in `services/platform/hosted/gateway/openrpc.json`.
+- Hosted services, explorers and bridge clients consume node APIs and committed evidence. Their databases, caches and request acknowledgements do not establish network finality. The node serves the `px` namespace at its root; the hosted `px_register` and `px_requestFunds` operations are declared in `services/platform/hosted/gateway/openrpc.json`.
 - A sub-chain is a tenant domain in the database, with its own namespace and allowances under the same network security. Creating one needs no new node infrastructure.
 - Retained legacy source or migration code is not a deployment inventory. The standalone `layerxd` daemon and checkpoint/guarantor settlement model are retired.
 - Imported code keeps its license and provenance boundaries. In particular, the explorer backend and frontend run as separate processes; consult `services/explorer/LICENSE`, `apps/explorer/LICENSE` and the imported service licenses before redistribution.

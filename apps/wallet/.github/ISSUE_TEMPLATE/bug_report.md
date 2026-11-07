@@ -13,7 +13,7 @@ discover templates in a package's nested `.github` directory. Open a
 [monorepo issue](https://github.com/Sidiora-Labs/paxeer-monorepo/issues/new), use
 `[BUG] wallet: <summary>` as the title, and copy the sections below into its body.
 
-See the [wallet README](../../README.md) and [changelog](../../CHANGELOG.md).
+See the [wallet README](../../README.md) and [changelog](../../../../docs/wallet/app/CHANGELOG.md).
 For help without a reproducible bug, use the [question prompts](question.md).
 
 ## Describe the bug
@@ -43,7 +43,7 @@ Paxeer mainnet-beta uses EVM chain id `125` (`0x7d`). Its public JSON-RPC uses
 the node's root URL, for example `https://api-mainnet-beta.paxeer.network`.
 The app reads its default from `NEXT_PUBLIC_PAXEER_RPC_URL`; mention a custom
 endpoint or selected tenant domain if relevant. See the
-[changelog's network context](../../CHANGELOG.md#network-context).
+[changelog's network context](../../../../docs/wallet/app/CHANGELOG.md#network-context).
 
 ## Screenshots
 

@@ -150137,7 +150137,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.606]
 title = "Accept any served API version in the wallet health route"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -150519,7 +150519,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.23]
 title = "Vendor the MIT inference engine under apps/inference-peer with its attribution"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329483,7 +329483,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.599]
 title = "Read the explorer environment registry from the consolidated docs location in the image build"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329513,7 +329513,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.594]
 title = "Point the hosted service deployment at the public node roots"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329575,7 +329575,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.31.587]
 title = "Carry the 7.0.0 release identity in the release tooling and the release check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -329636,7 +329636,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.38.35]
 title = "Write the inference market docs: overview, protocol, operator guide, client guide and threat statement"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

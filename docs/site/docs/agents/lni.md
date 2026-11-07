@@ -17,7 +17,7 @@ Public JSON-RPC uses HTTPS at the root of
 `https://api-mainnet-beta.paxeer.network/` or the numbered nodes
 `api1.mainnet-beta.paxeer.network` through
 `api14.mainnet-beta.paxeer.network`. The ordinary node namespaces are
-`debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`.
+`debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`.
 The old router and /rpc, /rpc/ws and /rpc/schema paths are retired.
 `node.hyperpaxeer.com` is only the library mirror, not an RPC endpoint.
 
