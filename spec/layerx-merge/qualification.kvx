@@ -34849,3 +34849,19 @@ symbol = "cli::rpc::tests::positional_requests_match_published_contract"
 observed = "Attempt 6 at 95ae016f9080: verification exit 1: mcp_submit_tool_sends_raw_transaction fails at tools/platform/cli/tests/mcp_evm_submit.rs line 159; the toolset returns the unknown rung where the suite expects an error; everything the task owns passed."
 assumption = "The submit tool contract is the only remaining failure under platform-test-tooling."
 severity = "high"
+
+[finding.22.37.4.6]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 6 at 4531f377a727: verification exit 1 after two repair cycles: the first run failed on the absent /usr/bin/python3 launch (404), the second ran the interrupted install to FAILED with complete cleanup and the replacement to SUCCEEDED, then the new accounting reported no complete receipt.json served because its route keyed on the fixture metadata name while the requests carried the assigned resource identifier."
+assumption = "The accounting route is the only remaining failure; the install flow itself completes on the rebased tree."
+severity = "high"
+
+[finding.22.39.78.1]
+task = "22.39.78"
+file = "tests/ci/test_platform_middleware_suites_wired.py"
+symbol = "test_platform_middleware_suites_wired.py"
+observed = "Attempt 1 at a177aacba81f: verification exit 1 after two repair cycles: 22 pay6 cases fail in four groups owned by x402_http.py, x402.py, x402_agent.py and x402_rpc.py of the Python SDK; everything the task owns passed."
+assumption = "The four Python modules are the only producers of the 22 failures."
+severity = "high"
