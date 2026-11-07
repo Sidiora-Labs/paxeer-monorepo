@@ -329583,7 +329583,7 @@ do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; i
 
 [task.22.31.612]
 title = "Align first-party manifest licence fields with the repository licence and record every vendored tree in NOTICE"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -330702,7 +330702,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.33.1524]
 title = "Repair audit record 22.30.92 medium findings in (part 1 of 1): doc-drift"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = ["22.31.217", "22.31.218", "22.31.470"]
