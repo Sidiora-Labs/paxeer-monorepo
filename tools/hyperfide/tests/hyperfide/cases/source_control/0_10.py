@@ -253,7 +253,7 @@ def require_layout_receipt(root=ROOT):
 
 def main():
     try:
-        require_layout_receipt()
+        layout_receipt = require_layout_receipt()
     except ValueError as error:
         print(str(error), file=sys.stderr)
         return 2
@@ -265,13 +265,37 @@ def main():
         sys.stderr.write(result.stderr)
         return result.returncode
     evidence = json.loads(result.stdout)
+    consumer = ROOT / 'tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs'
+    surface_result = subprocess.run([node, str(consumer)], cwd=ROOT,
+                                    text=True, capture_output=True, timeout=90)
+    if surface_result.returncode:
+        sys.stdout.write(result.stdout)
+        sys.stdout.write(surface_result.stdout)
+        sys.stderr.write(result.stderr)
+        sys.stderr.write(surface_result.stderr)
+        return surface_result.returncode
+    surface = json.loads(surface_result.stdout)
+    if surface['status'] != 'PASS':
+        raise ValueError('Control plane contract surface did not pass')
+    evidence['control_plane_contract_surface'] = surface
+    evidence['results'].append({'id': 'control-plane.contract-surface', 'outcome': 'PASS'})
+    evidence['checks'] = len(evidence['results'])
+    evidence['layout_receipt'] = {'path': 'build/layout/0.9/receipt.json',
+                                  'sha256': hashlib.sha256((ROOT / 'build/layout/0.9/receipt.json').read_bytes()).hexdigest(),
+                                  'status': layout_receipt['status'],
+                                  'mapping_sha256': layout_receipt['bindings']['mapping_sha256'],
+                                  'layout_generation': layout_receipt['bindings']['layout_generation']}
     revision = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{commit}'], cwd=ROOT, text=True).strip()
     tree = subprocess.check_output(['git', 'rev-parse', '--verify', 'HEAD^{tree}'], cwd=ROOT, text=True).strip()
     inputs = ['contracts/fleet/index.mjs', 'contracts/fleet/index.d.mts',
               'spec/hyperfide-source-control/examples/fleet/.neron',
               'spec/hyperfide-source-control/examples/fleet/package.kvx',
               'spec/hyperfide-source-control/examples/fleet/interfaces.kvx',
-              'tests/hyperfide/cases/source_control/0_10.py']
+              'tests/hyperfide/cases/source_control/0_10.py',
+              'tests/hyperfide/cases/source_control/support/contract_surface_consumer.mjs',
+              'core/control-plane/dist/scheduler/fleet.js',
+              'core/control-plane/dist/contracts/fleet/index.mjs',
+              'core/control-plane/dist/contracts/fleet/index.d.mts']
     evidence['source_binding'] = {'baseline_revision': 'git:' + revision, 'baseline_tree': tree,
                                   'working_inputs': {name: 'sha256:' + hashlib.sha256((ROOT / name).read_bytes()).hexdigest() for name in inputs},
                                   'fixture_authority': 'CONTROLLED_PARSER_AND_INDEX_INPUTS'}

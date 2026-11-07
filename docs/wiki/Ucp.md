@@ -3,8 +3,7 @@
 `layerx-ucp` implements UCP revision `2026-04-08`: merchant profile,
 capability negotiation, checkout completion, and order read backed by
 verified LayerX receipts (`services/interop/crates/layerx-ucp/src/lib.rs`).
-The adapter id is `ucp`. `spec/layerx-platform/spec.kvx` task 23.2 is
-**done**.
+The adapter id is `ucp`.
 
 ---
 

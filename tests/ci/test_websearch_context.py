@@ -211,14 +211,19 @@ def negatives(required, available, policy):
           "unrelated Markdown admitted")
 
 
-def main():
-    revision = command(["git", "rev-parse", "HEAD"])
-    tree = command(["git", "rev-parse", "HEAD^{tree}"])
-    require(not command(["git", "status", "--porcelain", "--untracked-files=normal"]),
-            "dirty candidate source")
+def context_inputs():
     tracked = set(command(["git", "ls-files", "-z"]).split("\0")) - {""}
+    for name in (DOCKERFILE, IGNORE):
+        require(name in tracked, "missing tracked Docker input: " + name)
+        path = ROOT / name
+        require(path.is_file(), "missing Docker input: " + name)
+        relative(path)
     policy = rules((ROOT / IGNORE).read_text())
     required, manifests = dependency_inputs(tracked)
+    for name in sorted(required):
+        path = ROOT / name
+        require(path.is_file(), "missing compile input: " + name)
+        relative(path)
     available = {name for name in tracked if admitted(name, policy)}
     validate_context(required, available)
     check(True, "production context closure")
@@ -230,6 +235,30 @@ def main():
           "production Cargo build command missing")
     check("test -x /src/.x-websearch-target/release/x-websearch" in dockerfile,
           "expected executable check missing")
+    return available, manifests
+
+
+def test_websearch_context_inputs_exist():
+    available, manifests = context_inputs()
+    assert "services/interop/Cargo.toml" in available
+    assert "services/interop/crates/x-websearch/Cargo.toml" in manifests
+    assert set(manifests) <= available
+
+
+def test_no_uncollected_modules_in_tests_ci():
+    from test_tests_ci_modules_collected import (
+        test_tests_ci_python_modules_are_collectable_or_helpers as assert_collected,
+    )
+
+    assert_collected()
+
+
+def main():
+    revision = command(["git", "rev-parse", "HEAD"])
+    tree = command(["git", "rev-parse", "HEAD^{tree}"])
+    require(not command(["git", "status", "--porcelain", "--untracked-files=normal"]),
+            "dirty candidate source")
+    available, manifests = context_inputs()
     evidence = Path(os.environ["PAXEER_X_EVIDENCE_DIR"]).resolve()
     require(not evidence.is_relative_to(ROOT), "evidence must be outside source")
     info = evidence.stat()

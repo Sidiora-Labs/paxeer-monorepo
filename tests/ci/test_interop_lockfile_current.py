@@ -1,3 +1,5 @@
+"""Check the interop Cargo lockfile against its real workspace."""
+
 import subprocess
 import tomllib
 from pathlib import Path

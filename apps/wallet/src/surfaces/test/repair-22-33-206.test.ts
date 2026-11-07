@@ -1,6 +1,7 @@
 // @vitest-environment jsdom
 import './chain.test';
 import { expect, test } from 'vitest';
+import { BRIDGE_EVENTS } from '@sidiora/layerx-sdk/browser';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { act, createElement } from 'react';
@@ -99,6 +100,9 @@ async function repair_22_33_206_unsigned_surface_fixture_replays_node_send_and_r
       expect(receipt.receipt).toBe(entry.signedReceipt);
       expect(receipt.authentication.receiptDigest).toBe(entry.receiptDigest);
       const sent = surfaceReceipt(receipt, bridge(provider));
+      expect(sent.events[0]?.precompile).toBe(
+        BRIDGE_EVENTS.find((event) => event.name === 'BridgeOut')!.precompile
+      );
       expect(sent).toEqual({
         hash: entry.receiptJson.txHash,
         rung: 'receipted',
