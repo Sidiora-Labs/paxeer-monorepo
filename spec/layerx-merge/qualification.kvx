@@ -33819,3 +33819,51 @@ symbol = "test_qualification_suites_collect.py"
 observed = "Attempt 1: builds 3, verification 1 exit 1 at the whole-suite run with 4172 passed, 267 failed, 1 error, 5 skipped; the final tree d186f583392a collected in full and the verification could not be rerun because both repair cycles were spent."
 assumption = "Collection is complete and verifiable on its own; the assertion drift is settled by 22.31.623 after the record is complete."
 severity = "high"
+
+[finding.22.39.8.4]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 4 at f0a1d7853316: build exit 0 (both consumers built); verification exit 1: both Go tests passed their own assertions, the custody consumer returned Io WouldBlock after 0.82 seconds and the send consumer returned Mismatch on the native send domain after 1.14 seconds; the attempt recorded that the directed repair file was outside the touches."
+assumption = "The read timeout mapping is the custody fault; the send domain disagreement is a derivation difference between the Go server and the Rust consumer that the native policy document settles."
+severity = "high"
+
+[finding.22.39.30.2]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 2 at 4622e0d9befc: build exit 0, 13 tests passed, the site check failed: the install page labels Native payment execution and block finality, which no capability in docs/platform/capabilities.kvx declares."
+assumption = "The row was written with the documentation fold and the capabilities document was never extended; the check is right and the row or the document is the fix."
+severity = "high"
+
+[finding.22.31.620.2]
+task = "22.31.620"
+file = "tests/ci/test_ai_market_module_mirror.py"
+symbol = "test_ai_market_module_mirror.py"
+observed = "Attempt 2 at ce6e7549ba08: build exit 0; verification exit 101: 39 passed, 2 failed: the fixture test of the included support module could not read programs/target/repair-478/owner (No such file or directory, run the declared Go fixture gate first), and node_root_and_explicit_chain_paths_reject_router_paths saw a Null eth_blockNumber result instead of 0xb."
+assumption = "The fixture test belongs to the crate that owns the fixture, not to a shared support module; the Null result is either an artefact of the attempt-2 test edits or a gateway path fault of the same owner."
+severity = "high"
+
+[finding.22.39.40.1]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 1 at 2ebcae0995a4: builds exit 0 (two), verification exit 1 (two runs): the node package failed on the activation pending-store test (store xweb not found in the memiavl iterator) and the sequencer package on six tests the standby hang had masked; the public check test was not reached."
+assumption = "The activation test is the fault of this task and is repaired here; the six sequencer failures predate the task and are repaired by 22.39.86 against the whole package."
+severity = "high"
+
+[finding.22.39.56.1]
+task = "22.39.56"
+file = "tests/ci/test_docs_canonical_repository_links.py"
+symbol = "test_docs_canonical_repository_links.py"
+observed = "Attempt 1 at 016a2f12a44b: build exit 0; verification exit 1: 2 passed, 2 failed: 372 noncanonical repository URL lines, 339 of them in the vendored project trees pointing at that project upstream, and the root README clone command at line 332 followed by a fence instead of a cd line."
+assumption = "The 13 pages are repaired; the guard reached pages that belong to the vendored copies and to 22.39.64, and the README clone block lacks its cd line."
+severity = "high"
+
+[finding.22.39.57.1]
+task = "22.39.57"
+file = "tests/ci/test_docs_release_version_examples.py"
+symbol = "test_docs_release_version_examples.py"
+observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 passed, 1 failed: five placeholder markers, two in vendored library READMEs and three in the example and plugin READMEs of the vendored project directory."
+assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
+severity = "high"
