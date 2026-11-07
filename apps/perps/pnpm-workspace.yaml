@@ -2,6 +2,7 @@ packages:
   - '.'
   - '../../sdk/wallet'
   - '../../services/wallet/gateway'
+sharedWorkspaceLockfile: true
 confirmModulesPurge: false
 allowBuilds:
   '@sentry/cli': true
