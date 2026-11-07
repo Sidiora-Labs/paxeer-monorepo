@@ -343,11 +343,7 @@ fn reinstall_enrolment(
         successor: None,
     };
     let bytes = record.encode()?;
-    store.put_local(index.clone(), stable_id.to_vec())?;
-    if let Err(error) = store.put_local(key, bytes) {
-        store.remove_local(&index)?;
-        return Err(error.into());
-    }
+    store.commit_local_records(vec![(index, stable_id.to_vec()), (key, bytes)])?;
     Ok(record)
 }
 

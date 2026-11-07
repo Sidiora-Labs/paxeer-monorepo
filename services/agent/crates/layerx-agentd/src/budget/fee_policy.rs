@@ -304,6 +304,27 @@ pub(crate) mod tests {
             let stop = Arc::new(AtomicBool::new(false));
             let stopped = stop.clone();
             let denom = denom.to_owned();
+            let corpus: Value = serde_json::from_slice(include_bytes!(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/tests/fixtures/repair_22_31_217/corpus.json"
+            )))
+            .expect("committed fee-token keeper answers");
+            let mut preferences = vec![([0; 20], denom.clone(), asset.clone())];
+            for (seed, id) in [(0xa5, [4; 32]), (0xa6, [5; 32])] {
+                let key =
+                    k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).expect("payer key");
+                let payer = layerx_crypto::secp256k1::evm_address(
+                    key.verifying_key().to_encoded_point(false).as_bytes(),
+                )
+                .expect("payer address");
+                let view = &corpus["peer_views"]["fee_assets"][hex::encode(id)];
+                preferences.push((
+                    payer,
+                    format!("layerx/{}", hex::encode(id)),
+                    hex::decode(view["metadata"].as_str().expect("keeper metadata"))
+                        .expect("keeper ABI"),
+                ));
+            }
             let worker = std::thread::spawn(move || {
                 let mut blocks = 0;
                 for connection in listener.incoming() {
@@ -373,22 +394,27 @@ pub(crate) mod tests {
                                     .trim_start_matches("0x"),
                             )
                             .expect("call bytes");
-                            let bytes = if data
-                                == [selector(b"getFeeDenom(address)"), vec![0; 32]].concat()
-                            {
+                            let bytes = if data.starts_with(&selector(b"getFeeDenom(address)")) {
                                 assert_eq!(to, format!("0x{}", hex::encode(FEE_TOKEN)));
-                                string_result(denom.as_bytes())
+                                assert_eq!(data.len(), 36);
+                                assert_eq!(&data[4..16], &[0; 12]);
+                                let preference = preferences
+                                    .iter()
+                                    .find(|(payer, _, _)| data[16..] == *payer)
+                                    .expect("recorded payer preference");
+                                string_result(preference.1.as_bytes())
                             } else if data.starts_with(&selector(b"getAsset(bytes32)")) {
                                 assert_eq!(to, format!("0x{}", hex::encode(LEDGER)));
                                 assert_eq!(data.len(), 36);
-                                assert_eq!(
-                                    &data[4..],
-                                    hex::decode(
-                                        denom.strip_prefix("layerx/").expect("registry denom")
-                                    )
-                                    .expect("asset id")
-                                );
-                                asset.clone()
+                                let preference = preferences
+                                    .iter()
+                                    .find(|(_, denom, _)| {
+                                        denom.strip_prefix("layerx/").is_some_and(|id| {
+                                            hex::decode(id).expect("asset id") == data[4..]
+                                        })
+                                    })
+                                    .expect("recorded registry asset");
+                                preference.2.clone()
                             } else if data == denom_call(b"symbol(string)", denom.as_bytes()) {
                                 assert_eq!(to, format!("0x{}", hex::encode(BANK)));
                                 string_result(b"PAX")
@@ -430,6 +456,26 @@ pub(crate) mod tests {
                 .join()
                 .expect("fixture succeeded");
         }
+    }
+
+    #[test]
+    fn native_fee_policy_reads_distinct_payer_preferences_at_the_committed_height() {
+        let fixture = FeeFixture::new("upax", [7; 32], Vec::new());
+        let default = native_fee_policy(&fixture.endpoint, 7).expect("default denomination");
+        let mut assets = Vec::new();
+        for (seed, expected) in [(0xa5, [4; 32]), (0xa6, [5; 32])] {
+            let key = k256::ecdsa::SigningKey::from_bytes((&[seed; 32]).into()).expect("payer");
+            let payer = layerx_crypto::secp256k1::evm_address(
+                key.verifying_key().to_encoded_point(false).as_bytes(),
+            )
+            .expect("address");
+            let fee = native_fee_policy_for(&fixture.endpoint, 7, payer).expect("payer preference");
+            assert_eq!((fee.observed_sequence, fee.state_root), (7, [7; 32]));
+            assert_eq!(fee.value.asset.asset_id, expected);
+            assert_ne!(fee.value.asset.asset_id, default.value.asset.asset_id);
+            assets.push(fee.value.asset.asset_id);
+        }
+        assert_ne!(assets[0], assets[1]);
     }
 
     #[test]

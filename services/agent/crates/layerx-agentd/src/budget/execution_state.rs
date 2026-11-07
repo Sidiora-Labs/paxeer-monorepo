@@ -56,6 +56,24 @@ pub(crate) fn committed_coordinates(
 }
 
 impl CommittedExecutionState {
+    /// Height of the authenticated state immediately before this execution.
+    pub const fn prestate_height(&self) -> u64 {
+        self.prestate_height
+    }
+
+    /// Whether the program already existed before execution (false for deployment).
+    pub fn program_existed(&self) -> bool {
+        self.program_records.program.is_some()
+    }
+
+    /// Authenticated pre-execution balance and frozen status of a program value account.
+    pub fn account_status(&self, account: [u8; 32]) -> Option<(u128, bool)> {
+        self.program_records
+            .accounts
+            .get(&account)
+            .map(|value| (value.balance, value.frozen))
+    }
+
     pub(crate) fn program_records(&self) -> &CommittedProgramRecords {
         &self.program_records
     }
