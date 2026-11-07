@@ -181333,7 +181333,7 @@ do_4 = "Attempt 2 (continue, gotcha 3443, decision 2771, after 22.31.620 lands):
 
 [task.22.31.620]
 title = "Bring the gateway mirror of the ai-market modules current and add its currency check"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -332078,7 +332078,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.111]
 title = "Point the compose files at the ghcr.io/sidiora-labs images with explicit tags"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
