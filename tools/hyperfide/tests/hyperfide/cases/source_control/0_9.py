@@ -13,6 +13,7 @@ import sys
 import tarfile
 import tempfile
 import shutil
+import traceback
 
 ROOT = Path(__file__).resolve().parents[4]
 PACK = ROOT / 'spec/hyperfide-source-control'
@@ -68,6 +69,33 @@ def capture_bindings(root=None):
         'source_snapshot': snapshot,
         'source_snapshot_sha256': canonical_digest(snapshot),
     }
+
+
+def run_driver(task, entrypoint):
+    """Retain a failing receipt if a driver cannot reach its normal writer."""
+    try:
+        return entrypoint()
+    except (OSError, ValueError, KeyError, TypeError, RuntimeError, subprocess.SubprocessError) as error:
+        out = ROOT / 'build/layout' / task
+        out.mkdir(parents=True, exist_ok=True)
+        log = out / 'driver-error.log'
+        log.write_text(traceback.format_exc())
+        missing = isinstance(error, FileNotFoundError)
+        failure = {'kind': 'driver-input' if missing else 'driver-failure', 'detail': str(error),
+                   'log': str(log.relative_to(ROOT)), 'log_sha256': digest(log)}
+        report = {
+            'schema_version': 1, 'task': task, 'status': 'BLOCKED' if missing else 'FAIL',
+            **capture_bindings(), 'commands': [], 'assertions': [], 'artifacts': [],
+            'missing_evidence': [failure] if missing else [],
+            'regressions': [] if missing else [failure],
+        }
+        receipt = out / 'receipt.json'
+        receipt.write_text(json.dumps(report, indent=2) + '\n')
+        print(json.dumps({'task': task, 'status': report['status'],
+                          'receipt': str(receipt.relative_to(ROOT)),
+                          'missing_evidence': report['missing_evidence'],
+                          'regressions': report['regressions']}))
+        return 2 if missing else 1
 
 
 def local(value):
