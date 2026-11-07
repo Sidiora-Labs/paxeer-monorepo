@@ -1266,6 +1266,9 @@ pub fn route(
     current: Option<&[u8]>,
     buffers: Buffers<'_>,
 ) -> CodecResult<Routed> {
+    if matches!(envelope_bytes.get(8..10), Some([0x0b, 0x10..=0x13])) {
+        return route_f11_view(ctx, envelope_bytes, current, buffers);
+    }
     if queries::placement::is_book_view(envelope_bytes) {
         return route_book_view(ctx, envelope_bytes, current, buffers);
     }
@@ -1384,6 +1387,56 @@ fn route_book_view(
         let shared = state::decode_shared_state(current)?;
         bound_section(ctx, &shared)?;
         let len = queries::answer_book_view(current, envelope.payload, buffers.scratch)?;
+        queries::frame_read_result(
+            digest,
+            shared.revision,
+            &buffers.scratch[..len],
+            buffers.result,
+        )
+    })();
+    match answer {
+        Ok(result_len) => Ok(Routed::Unchanged { result_len }),
+        Err(error) => refuse(error, Presence::Present(digest), visible, buffers.result),
+    }
+}
+
+fn route_f11_view(
+    ctx: &CallContext,
+    input: &[u8],
+    current: Option<&[u8]>,
+    buffers: Buffers<'_>,
+) -> CodecResult<Routed> {
+    let visible = current
+        .and_then(|bytes| state::decode_shared_state(bytes).ok())
+        .map_or(0, |state| state.revision);
+    let request = match queries::decode_view_envelope(input) {
+        Ok(request) => request,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let digest = match request.request_digest() {
+        Ok(digest) => digest,
+        Err(error) => return refuse(error, Presence::Absent, visible, buffers.result),
+    };
+    let answer = (|| {
+        let envelope = &request.envelope;
+        codec::compare_native_principal(envelope, ctx.principal)?;
+        envelope.check_domain(
+            ctx.chain,
+            ctx.program,
+            codec::derive_market(ctx.chain, ctx.program)?,
+        )?;
+        envelope.check_expiry(ctx.height)?;
+        let current = present(current)?;
+        let shared = state::decode_shared_state(current)?;
+        bound_section(ctx, &shared)?;
+        let answer = match envelope.operation {
+            RoomView => queries::answer_room_view,
+            DealView => queries::answer_deal_view,
+            PeerView => queries::answer_peer_view,
+            ReceiptBatchView => queries::answer_receipt_batch_view,
+            _ => return Err(UNKNOWN_OPERATION),
+        };
+        let len = answer(current, envelope.payload, buffers.scratch)?;
         queries::frame_read_result(
             digest,
             shared.revision,

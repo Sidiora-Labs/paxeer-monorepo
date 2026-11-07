@@ -22,6 +22,7 @@ def binding_listener():
     path = (Path(__file__).resolve().parents[2]
             / 'tools/qualification/paxeer-x/mcp_binding_listener.py')
     spec = importlib.util.spec_from_file_location('mcp_binding_listener', path)
+    assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

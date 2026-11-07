@@ -10203,6 +10203,18 @@ value = "A contradiction between landed consumer suites is a product defect of t
 basis = "repair_22_33_1493 asserts that toolset::invoke returns the unknown rung on a lost response, mcp_evm_submit asserts that it returns an error; both are done tasks whose gates ran one suite each."
 affects = ["22.39.118"]
 
+[decision.2849]
+title = "The Python payment modules follow the TypeScript seller and buyer middleware as the wire reference, and the cross-language conformance suite gates every change to them"
+value = "The reference for eip155:125 network identifiers, prefixed asset identifiers, receipt-proof-v2 payloads, commitment validation and payer binding is services/platform/middleware/seller/src/index.ts with the conformance service; the Python modules under services/agent/sdk/python/layerx_sdk/x402*.py are ported to it, and a task that changes them runs the pay6 cases of the modules it touches, never only the local suites of the package."
+basis = "Three audit repair tasks changed the four modules with gates that ran the local suites only, and the cross-language suite failed in 22 cases the next time it ran (gotcha 3522)."
+affects = ["22.39.78"]
+
+[decision.2850]
+title = "A fixture accounting check keys on the identifiers the live request path carries, never on a name the fixture chose for itself"
+value = "When a fixture records which files a client read, the match uses the path pattern of the request (the resource identifier segment as a wildcard, then the fixed suffix), so a client that names the resource differently from the fixture metadata still counts; a check that never matched reports the client as silent and hides a passing flow."
+basis = "Attempt 6 of 22.37.4 ran both terminal job states and still failed because its archive accounting matched the fixture metadata name instead of the resource identifier the control plane assigned (gotcha 3521)."
+affects = ["22.37.4"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -39093,6 +39105,24 @@ tests = ["services/agent/crates/layerx-crypto/tests/disclosure_call.rs::auth_lif
 verification_contract = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-crypto --test disclosure_call -- --exact auth_lifecycle_call_discloses_the_governance_payload unknown_target_or_selector_is_refused"
 do_1 = "decode_method (services/agent/crates/layerx-crypto/src/disclosure/call.rs:233) routes on target(&call.to, suffix) for 0x101a (:241), 0x101b (:349) and the bank send; add a 0x101c arm whose only selector is the first four bytes of keccak256('recordLifecycle(bytes,bytes32)') with two arguments (dynamic bytes at argument 0, a 32-byte idempotency key at argument 1): the payload must be at least 4 bytes, payload[0] == 0x71, payload[1] in {1, 3}, and its variant, field count and length must match the shapes the kernel decoder admits for that ordinal (src/modules/governance/lxp_governance.c:158-172); otherwise MalformedPayload. Return ConstructMethod::AuthLifecycle { payload: Vec<u8>, idempotency_key: [u8; 32] } added to the enum at :6-50."
 symbols = ["ConstructMethod", "decode_method"]
+
+[capability.22.39.137]
+title = "Give the Python payment RPC module the hosted gateway client and the submission refusal the conformance cases expect"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
+tests = ["services/platform/middleware/conformance/pay6/test_rpc.py", "services/agent/sdk/python/tests/test_x402_rpc_surface.py"]
+verification_contract = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_rpc.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_rpc_surface.py"
+do_1 = "do_1 Decisions 2800 and 2849, gotcha 3522. services/platform/middleware/conformance/pay6/test_rpc.py imports HostedGatewayRpc from layerx_sdk.x402_rpc (line 100), which does not exist (test_hosted_gateway_has_its_own_origin), and test_endpoints shows PaymentRpc.send accepting a truncated 0x02 raw transaction and attempting a network submission (connection refused) where the TypeScript PaymentRpc refuses it before any request."
+symbols = []
+
+[capability.22.39.136]
+title = "Port the Python payment verifier, HTTP client and agent budget modules to the wire of the TypeScript seller and buyer"
+reqs = ["22998.1"]
+touches = ["services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_http.py", "services/agent/sdk/python/layerx_sdk/x402_agent.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
+tests = ["services/platform/middleware/conformance/pay6/test_http.py", "services/platform/middleware/conformance/pay6/test_commitment.py", "services/platform/middleware/conformance/pay6/test_agent.py"]
+verification_contract = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_http.py services/platform/middleware/conformance/pay6/test_commitment.py services/platform/middleware/conformance/pay6/test_agent.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_http_sequencer.py tests/test_x402_draw_sequencer.py"
+do_1 = "do_1 Decisions 2800 and 2849, gotcha 3522. The pay6 conformance cases that drive the TypeScript seller and buyer against the Python SDK fail in services/agent/sdk/python/layerx_sdk: x402_http.py line 92 accepts only layerx:<name> networks and raises unsupported-network for eip155:125 (test_http: test_real_http_402_retry, test_concurrent_retry_persists_one_resource, test_offer_commitment_uses_rung_ladder, test_offer_mismatch_and_invalid_headers, test_python_buyer_captures_typescript_seller, test_real_receipt_release_retry_and_buyer_capture, test_submitted_offer_never_releases); x402.verify_payment_receipt branches only on the committed flag and its payer binding rejects the peer receipt with payment binding payment mismatch (test_executed_payment_binding and test_no_commitment_downgrade of test_commitment, test_agent and test_rpc, test_receipt_binding_and_pending); x402_agent.py rejects the prefixed asset identifier of the peer and derives a different draw hash (test_agent_draw_preserves_unknown_reservation, test_budget_receipt_commit_and_replay, test_budget_requires_requested_commitment, test_submitted_cannot_reserve_or_commit_a_payment)."
+symbols = []
 
 [capability.22.39.135]
 title = "Give the MCP submit tool the A2A outcome shape: invoke refuses an indeterminate submission, invoke_task keeps it unknown"
@@ -153794,6 +153824,7 @@ do_9 = "Attempt 3 (continue, gotcha 3470): the attempt-2 tree 1fdf0eaffdd6 stand
 do_10 = "Attempt 4 (continue, gotcha 3481, decisions 2700, 2771 and 2827): the attempt-3 tree 3c30292c67f3 stands (declaration repair, install status method and its vitest file, live collector, component cases, object-store and budget settings in the SDK status fixture). In fixtures/install/sdk_status.py add component 3.2 to the explicit grant component tuple, and any other component whose action the claim path of the interrupted-install case invokes, so the manager principal holds hierarchy.packet.create; change nothing else unless the rerun is refused on another action, then add that component. Provider live qualification stays UNRUN with the exact owner command recorded. Run the build and the verification at the final revision and record both by reference."
 do_11 = "Attempt 5 (continue, gotcha 3495, decisions 2700 and 2827): the attempt-4 tree 6db52be61634 stands (the eighteen-component grant tuple, the restart of the fixture with the provisioner role, the record). First make the refusal diagnosable from the interrupted-install case module: on AUTH_SCOPE_DENIED print the principal row of the provisioner (run identity, allowed actions) read from the fixture store and the action and run identity of the invocation. Then repair the fixture side within touches: the provisioner principal the restarted fixture presents carries the run identity of the payload and the grants of the tuple (identity_fixture.py passes them as credential_actions); if the restart creates a new run identity, the case re-enrols or the fixture keeps the run identity across the restart. The live provider run stays UNRUN. Run the build and the verification at the final revision and record both by reference."
 do_12 = "Attempt 6 (continue, gotcha 3512, decisions 2700, 2771 and 2841): the attempt-5 tree d997a969d711 stands (the diagnosable refusal, the capabilities and events declarations, the live collector, the record). The task now requires 22.39.129, so the frozen install passes on a rebased tree; never regenerate the lockfile here. Run the verification once at the final tree before any repair. Then make the interrupted-install case reach the dependency stage: in the fixture provider of the interrupted-install case module serve the complete process output archive for the process the job polls (the archive request in the transport log), so the job leaves UNKNOWN and the status no longer reports RUNNER_EXECUTION_PROVIDER:REMOTE_OUTPUT_INCOMPLETE; on the failure path print the archive response size and the job state. Live provider qualification stays UNRUN (decision 2700)."
+do_13 = "Attempt 7 (continue, gotcha 3521, decisions 2700, 2771 and 2850): the attempt-6 tree 4531f377a727 stands (interpreter binding through the guest path resolver, the archive-serving handler, the diagnostics, the install status method and its test, the component cases, the UNRUN record). In the interrupted-install case module make the archive accounting match the request path by pattern: the collection prefix with any resource identifier followed by /filesystem/ and the output spool path of a process (receipt.json, stdout, stderr), recording status, size and digest of what the base /filesystem/ branch serves, or record directly in that branch; keep the assertion that every process the job polled had its three files served complete. Change nothing in the control plane. Run the build once and the verification once at the final tree and record both by reference; the live provider qualification stays UNRUN with the exact owner command recorded (decision 2700)."
 
 [task.22.37.3]
 title = "Gate the agent group contract driver on the layout receipt and cover the control plane tool contract surface"
@@ -332751,6 +332782,66 @@ do_4 = "Finding 18.0.1.1: attempt 1 (943ca6eff) implemented both files and its t
 do_5 = "Decision 2456 (attempt 2, 26e5df6d3, re-qualify unchanged once eligible): the three programme tests pass and the closure gate exits 1 only because 29 issue tasks are not done; the task now requires every one of them and is re-qualified without change when the last publishes."
 do_6 = "Attempt 3: the closure check is a gate over the whole issue programme; it now requires every open issue task, so it is launched only when all of them are done and its verify can pass. Keep the superseded-task handling and the three regression cases of attempt 2."
 
+[task.22.39.137]
+title = "Give the Python payment RPC module the hosted gateway client and the submission refusal the conformance cases expect"
+status = "pending"
+mode = "BUILD"
+wave = 2
+requires = ["22.39.136"]
+reqs = ["22998.1"]
+capabilities = ["22.39.137"]
+interfaces = []
+do_1 = "do_1 Decisions 2800 and 2849, gotcha 3522. services/platform/middleware/conformance/pay6/test_rpc.py imports HostedGatewayRpc from layerx_sdk.x402_rpc (line 100), which does not exist (test_hosted_gateway_has_its_own_origin), and test_endpoints shows PaymentRpc.send accepting a truncated 0x02 raw transaction and attempting a network submission (connection refused) where the TypeScript PaymentRpc refuses it before any request."
+do_2 = "do_2 In services/agent/sdk/python/layerx_sdk/x402_rpc.py add HostedGatewayRpc with the constructor shape the case uses (gateway URL and a headers mapping) and the same origin separation the TypeScript class in services/platform/middleware/seller exposes, and make PaymentRpc.send decode and validate the raw transaction before any request, refusing a malformed one with the error name the reference uses. Keep every assertion of test_rpc.py; write the local suite services/agent/sdk/python/tests/test_x402_rpc_surface.py asserting the producer names (gotcha 3046), and record the work in services/agent/sdk/python/repair_22_39_137.kvx."
+do_3 = "do_3 Run the build once and the verification once at the final tree; the verification runs test_rpc.py (which also exercises the commitment cases 22.39.136 repairs) and the new local suite."
+symbols = []
+touches = ["services/agent/sdk/python/layerx_sdk/x402_rpc.py"]
+tests = ["services/platform/middleware/conformance/pay6/test_rpc.py", "services/agent/sdk/python/tests/test_x402_rpc_surface.py"]
+planned_paths = ["services/agent/sdk/python/tests/test_x402_rpc_surface.py", "services/agent/sdk/python/repair_22_39_137.kvx"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402_rpc.py"
+verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_rpc.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_rpc_surface.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 120
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[task.22.39.136]
+title = "Port the Python payment verifier, HTTP client and agent budget modules to the wire of the TypeScript seller and buyer"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["22998.1"]
+capabilities = ["22.39.136"]
+interfaces = []
+do_1 = "do_1 Decisions 2800 and 2849, gotcha 3522. The pay6 conformance cases that drive the TypeScript seller and buyer against the Python SDK fail in services/agent/sdk/python/layerx_sdk: x402_http.py line 92 accepts only layerx:<name> networks and raises unsupported-network for eip155:125 (test_http: test_real_http_402_retry, test_concurrent_retry_persists_one_resource, test_offer_commitment_uses_rung_ladder, test_offer_mismatch_and_invalid_headers, test_python_buyer_captures_typescript_seller, test_real_receipt_release_retry_and_buyer_capture, test_submitted_offer_never_releases); x402.verify_payment_receipt branches only on the committed flag and its payer binding rejects the peer receipt with payment binding payment mismatch (test_executed_payment_binding and test_no_commitment_downgrade of test_commitment, test_agent and test_rpc, test_receipt_binding_and_pending); x402_agent.py rejects the prefixed asset identifier of the peer and derives a different draw hash (test_agent_draw_preserves_unknown_reservation, test_budget_receipt_commit_and_replay, test_budget_requires_requested_commitment, test_submitted_cannot_reserve_or_commit_a_payment)."
+do_2 = "do_2 Port the three modules to the wire the TypeScript seller and buyer produce, with services/platform/middleware/seller/src/index.ts and the conformance service as the reference: accept the eip155:125 network identifier and the prefixed asset identifiers, verify the receipt-proof-v2 payload, refuse every commitment value the reference refuses (no downgrade), and bind the payer as the reference binds it. Keep every assertion of the pay6 cases; where a local suite of the package (tests/test_x402_http_sequencer.py, tests/test_x402_draw_sequencer.py) asserts the old wire shape, bring it to the producer names (gotcha 3046) and record each edited assertion with its reason in services/agent/sdk/python/repair_22_39_136.kvx."
+do_3 = "do_3 Run the build once and the verification once at the final tree; the verification runs the three pay6 modules and the two local suites together."
+symbols = []
+touches = ["services/agent/sdk/python/layerx_sdk/x402.py", "services/agent/sdk/python/layerx_sdk/x402_http.py", "services/agent/sdk/python/layerx_sdk/x402_agent.py", "services/agent/sdk/python/tests/test_x402_http_sequencer.py", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py"]
+tests = ["services/platform/middleware/conformance/pay6/test_http.py", "services/platform/middleware/conformance/pay6/test_commitment.py", "services/platform/middleware/conformance/pay6/test_agent.py"]
+planned_paths = ["services/agent/sdk/python/repair_22_39_136.kvx"]
+build_cmd = "python3 -m py_compile services/agent/sdk/python/layerx_sdk/x402.py services/agent/sdk/python/layerx_sdk/x402_http.py services/agent/sdk/python/layerx_sdk/x402_agent.py"
+verify_cmd = "python3 -m pytest -q services/platform/middleware/conformance/pay6/test_http.py services/platform/middleware/conformance/pay6/test_commitment.py services/platform/middleware/conformance/pay6/test_agent.py && cd services/agent/sdk/python && python3 -m pytest -q tests/test_x402_http_sequencer.py tests/test_x402_draw_sequencer.py"
+gate_kind = "planned"
+sandbox_profile = "python"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 150
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
 [task.22.39.134]
 title = "Bring the ramp dependency policy and ramp journey Python suites to green and retire their baseline entries"
 status = "pending"
@@ -333716,7 +333807,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.83]
 title = "Give the Python suites under tests, cmd, scripts and services a make target and a main workflow step"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -333807,7 +333898,7 @@ title = "Run the platform middleware, integration and example suites from the pl
 status = "pending"
 mode = "BUILD"
 wave = 2
-requires = ["22.39.72"]
+requires = ["22.39.72", "22.39.136", "22.39.137"]
 reqs = ["22998.1"]
 capabilities = ["22.39.78"]
 interfaces = []
@@ -333830,6 +333921,7 @@ time_limit_minutes = 150
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3522, decisions 2762, 2771 and 2849): the attempt-1 tree a177aacba81f stands (the extended platform-test-middleware target, the three wiring tests, the fastapi test extras, the per-suite conftest path setup, the peer fixture receipt digest from the producer vector, the record). The task now requires 22.39.136 and 22.39.137, which port the Python payment modules to the wire of the TypeScript peers. Rebase onto the current main after both land and run the verification once at the final tree before any repair; do not edit services/agent/sdk/python in this task. If the suite exposes a further failure outside those modules, stop at the boundary and record it with the owning module (decision 2762)."
 
 [task.22.39.77]
 title = "Run the explorer Rust tests and the frontend suite in the explorer build workflow"
@@ -334167,7 +334259,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.60]
 title = "Remove the stray, empty and unreferenced tracked files and the keep markers beside content"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []

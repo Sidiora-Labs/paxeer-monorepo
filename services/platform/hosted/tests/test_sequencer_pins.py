@@ -11,6 +11,7 @@ import pytest
 DIRECTORY = Path(__file__).resolve().parent
 DOMAIN = b"LayerX/sequencer-trust-history/v1\0"
 SPEC = importlib.util.spec_from_file_location("sequencer_pins", DIRECTORY / "sequencer-pins.py")
+assert SPEC is not None and SPEC.loader is not None
 PINS = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PINS)
 
