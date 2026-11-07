@@ -1,9 +1,9 @@
 # Inference market operator guide
 
-This procedure targets the planned daemon profile. At the
-[documented base revision](README.md#availability) the mode and dependent F11
-surfaces are pending; it cannot yet be run there. Use a qualified release with
-F11 available before following the operational sequence below.
+The inference market is not yet available. This procedure describes the
+[planned daemon profile](README.md#availability) and dependent F11 surfaces.
+Use a qualified release with F11 available before following the operational
+sequence below.
 
 ## Configure and start the host
 
@@ -14,7 +14,7 @@ The node URL names the node root, with an explicitly checked chain ID.
 Keep the host signing key and node credentials in the existing private key
 configuration; room pages and browser configuration must not contain them.
 
-The profile configuration defined by task 22.38.14 is:
+The planned profile configuration is:
 
 | Variable | Meaning |
 | --- | --- |
@@ -34,8 +34,8 @@ LAYERX_AGENT_MODE=inference-market layerx-agentd
 
 Use the release's profile schema for minimum bond, lap size, canary ratio,
 challenge/slash policy, payout shares, settlement account and serving limits.
-There is no supported sample profile schema at the base revision. Missing
-digests must refuse configuration. Boot checks node readiness, program
+There is no supported sample profile schema yet. Missing digests must refuse
+configuration. Boot checks node readiness, program
 authority and F11 availability before starting either listener. A successful
 generic agent compatibility check does not establish F11 support.
 
@@ -47,8 +47,7 @@ enrolment through the ai-market client and waits for acceptance finality.
 LockBond must succeed before PostBid at the configured price quote. A peer's
 bid capability digest must match its enrolled manifest.
 
-The planned native peer command surface under
-`apps/inference-peer/bin/inference-peer.mjs` provides `join <host> <room>`,
+The planned native peer command interface provides `join <host> <room>`,
 `serve` and `status`. The peer signs its own enrolment, even when the host
 relays it through `enrol_peer(manifest, quote)`; it does not give its private
 key to the host. Join may provide an attestation envelope file. Only the

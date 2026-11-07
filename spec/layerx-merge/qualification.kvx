@@ -1,4 +1,5 @@
 # Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Task 22.31.620 retains its declared gates; exact candidate receipts are in /out/run/gates.jsonl and its gateway repair record.
 # Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
 # Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
 #   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
@@ -33635,3 +33636,312 @@ symbol = "native_purpose_test.go"
 observed = "Attempt 2 at 5f8a72b33391: build 1 exit 101 at the consumer step: the lock file services/human/Cargo.lock needs to be updated but the locked flag was passed; the native library build and the vet passed; neither real-profile test ran."
 assumption = "With the human lockfile refreshed the consumer builds and the two tests run; nothing in the attempt tree caused the refusal."
 severity = "high"
+
+[finding.22.38.4.1]
+task = "22.38.4"
+file = "programs/crates/layerx-programs-ai-market/tests/f11_lap_settlement.rs"
+symbol = "f11_lap_settlement.rs"
+observed = "Attempt 1: build 3 exit 0 at f22b7c0c5bc9; verification 1 exit 1 at 9d6804ebcaad with application error 2061 (F08_ADMISSION_WINDOW_FULL) in the fixture of all five tests; the repaired tree was never verified."
+assumption = "The final tree already spreads the admissions over two epochs; the verification at that tree decides whether the fixture repair is complete."
+severity = "high"
+
+[finding.22.31.542.1]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 1: build 1 exit 0 at b08b5e87298d; the dependent-crate check failed with exit 101 compiling the gateway test target repair_22_33_1439 (thirteen unresolved references to the canary and rooms modules); the verification never ran."
+assumption = "The failure sits on main and is repaired by 22.31.620; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.555.1]
+task = "22.31.555"
+file = "services/agent/crates/layerx-agentd/src/read/committed.rs"
+symbol = "committed.rs"
+observed = "Attempt 1: build 1 exit 0 at 318a3d72a8e6; the dependent-crate check failed with exit 101 compiling the gateway test target repair_22_33_1439; the verification never ran."
+assumption = "The failure sits on main and is repaired by 22.31.620; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.37.18.3]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 3: build exit 0 and the five owned suites passed (23 tests) at 80191829197a; the 4.2 case failed with WORKSPACE_EXPIRED at the first checkpoint of the assigned participant; the final tree is c9194f8f7a59."
+assumption = "The missing pin sits in the assignment adapter at main since 22.37.14 landed; 22.37.30 repairs it and the case passes the checkpoint afterwards."
+severity = "high"
+
+[finding.22.31.540.1]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 1: build 3 exit 101 at 95890bc63c80, an unresolved import of BudgetProofError from the budget module; builds 1 and 2 were spent on earlier compile errors; the verification never ran."
+assumption = "The type exists one module deeper than the import names; the fix is the import path alone."
+severity = "high"
+
+[finding.22.39.25.1]
+task = "22.39.25"
+file = "tests/ci/test_tests_ci_modules_collected.py"
+symbol = "test_tests_ci_modules_collected.py"
+observed = "Attempt 1: build 1 exit 0 and verification 1 exit 1 at a91d8fab412e; the collection test failed on tests/ci/websearch-context.py while the script-reference test passed."
+assumption = "The third module is invoked by a gate script, a class the collection test did not admit; the test is widened, no module is retired."
+severity = "high"
+
+[finding.22.31.549.1]
+task = "22.31.549"
+file = "services/platform/hosted/authority/tests/repair_22_31_549.rs"
+symbol = "repair_22_31_549.rs"
+observed = "Attempt 1 at 4ab46ca425a3 (base 3a44daf7bbae): build 1 exit 0; the dependent-crate check failed compiling the gateway mirror test with the fourteen errors of gotcha 3417 (the canary and rooms modules unresolved in the crate root); the verification never ran."
+assumption = "The refusal comes from the mirror at main, not from the attempt tree; 22.31.620 removes it and the attempt tree needs no change."
+severity = "high"
+
+[finding.22.39.26.1]
+task = "22.39.26"
+file = "tests/ci/test_qualification_suites_have_ci_host.py"
+symbol = "test_qualification_suites_have_ci_host.py"
+observed = "Attempt 1 at 5f695f6fb627 (base 20f1f239c8): build 2 exit 0; verification exit 2, pytest interrupted at collection on tools/qualification/audit_repairs/test_repair_22_33_1395.py line 23 with KeyError value over the gateway container env items; both repair cycles spent."
+assumption = "The collection break is pre-existing since 8efee4ff17 and belongs to the repair task 22.31.621; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.31.615.1]
+task = "22.31.615"
+file = "tests/ci/test_ai_market_guest_bound.py"
+symbol = "test_ai_market_guest_bound.py"
+observed = "Attempt 1 at 273d1905d0e1 (base 20f1f239c8): builds 1 to 3 exit 0 with the guest at 509009 bytes after the third (target 504184, bound 524184); the dependent-crate check refused the gateway mirror test with the canary and rooms errors of gotcha 3417; the verification never ran; both repair cycles spent."
+assumption = "The remaining 4825 bytes sit in dead helpers and formatted messages the first pass left; the mirror refusal is removed by 22.31.620 and the attempt tree needs no change for it."
+severity = "high"
+
+[finding.22.37.28.1]
+task = "22.37.28"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_driver_receipts_test.py"
+symbol = "layout_driver_receipts_test.py"
+observed = "Attempt 1 at 79746e9864 (base c71bbe8cb4): build exit 0; verification failed in test_every_required_driver_has_a_tracked_pass_receipt because receipts 0.4 to 0.8 are absent; all five drivers ran and none reached PASS for want of layout build artifacts, pinned Node installations, runtime artifacts, executor evidence and release evidence."
+assumption = "The inputs are environmental and belong to the owner; component mode per decision 2797 qualifies the test module and the drivers while the live receipts stay UNRUN."
+severity = "high"
+
+[finding.22.37.3.1]
+task = "22.37.3"
+file = "tools/hyperfide/sdk/client/test/agent-group-contracts.test.ts"
+symbol = "agent-group-contracts.test.ts"
+observed = "Attempt 1 at 2db44337329e (base c71bbe8cb4): builds 2; verification exit 2: the SDK test passed (2 tests) and 0_10.py refused with LAYOUT_RECEIPT_REQUIRED because build/layout/0.9/receipt.json is absent, so the consumer module never ran."
+assumption = "The refusal is the specified behaviour of the check (do_1) and the receipt is an owner input; the gate asserts the refusal and exercises the consumer directly."
+severity = "high"
+
+[finding.22.39.8.3]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 3 at 36cbc27b99 (base c71bbe8cb4): build exit 0; verification: the inventory refusal token_unavailable asserted, then the Rust consumer failed with Error: Io(Os code 11 WouldBlock) after 0.88 seconds while the Go side logged twenty-four TLS handshake EOF errors in the same second, and TestNativeSendPurposeRealProfiles stopped because PAXEER_X_NATIVE_SEND_RUST_TEST was not set."
+assumption = "Code 11 on a blocking socket is the SO_RCVTIMEO read timeout, so the per-call budget was near zero and the raw transport error escaped the classification; the send executable was never built by the gate."
+severity = "high"
+
+[finding.22.31.540.2]
+task = "22.31.540"
+file = "services/human/crates/layerx-human-service/tests/repair_22_31_540.rs"
+symbol = "repair_22_31_540.rs"
+observed = "Attempt 2 at 3810cd465592 (base 9ef707c66718): builds 2, dependent-crate check exit 0; verification exit 101: five committed-receipt tests of repair_22_31_156 failed at the provenance assertion comparing the signed receipt of the conformance copy with the positive receipt of the source; every other suite of the verification passed."
+assumption = "The mismatch is on main since 74ef78b42b and belongs to the repair task 22.31.622; the attempt tree needs no change."
+severity = "high"
+
+[finding.22.39.39.1]
+task = "22.39.39"
+file = "tests/ci/test_site_links_inside_docs_dir.py"
+symbol = "test_site_links_inside_docs_dir.py"
+observed = "Attempt 1 at 76f5c401454d (base abc81fd2ce): build exit 0; verification exit 1: test_site_relative_links_resolve passed and test_site_relative_links_stay_inside_docs_dir failed on docs/site/docs/protocol/finality.md line 9 linking ../../../paxeer-network.md outside docs/site/docs."
+assumption = "The link resolves to a tracked file and so escaped the survey of the task text; it is the one remaining link outside the site directory and belongs to this task."
+severity = "high"
+
+[finding.22.39.47.1]
+task = "22.39.47"
+file = "tests/ci/test_tools_ci_suites_collected.py"
+symbol = "test_tools_ci_suites_collected.py"
+observed = "Attempt 1 at 4fae3a7ef385: build exit 0; verification exit 1 with 20 failed and 105 passed in tools/ci/tests, every failure recorded in the task-local record; the suite collected in full for the first time."
+assumption = "The twenty are producer and test drift settled by 22.39.54 on main; the merged tree passes the whole suite."
+severity = "high"
+
+[finding.22.37.15.1]
+task = "22.37.15"
+file = "tools/hyperfide/core/control-plane/src/source_control/workspaces.ts"
+symbol = "workspaces.ts"
+observed = "Attempt 1 at 705085632471: build exit 0; verification 1 exit 1 with ERR_MODULE_NOT_FOUND on the source-control SDK dist host.js under the host daemon package link; verification 2 exit 1 with SourceControlError Missing source object backend configuration before any mounted assertion; two repair cycles spent."
+assumption = "The SDK build step and the component mode make the case qualify in the environment; the live run waits on owner credentials as decision 2700 provides."
+severity = "high"
+
+[finding.22.39.30.1]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 1 at 97f1c0369a16: build exit 0; verification exit 1, thirteen tests passed and the platform site check failed with FileNotFoundError on /docs/platform/site.kvx because the command passed ../.. from the repository root."
+assumption = "The pages are correct and the only defect was the path argument of the verification."
+severity = "high"
+
+[finding.22.39.37.1]
+task = "22.39.37"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 3deb4f6cdbd5: build exit 0; verification exit 1 with 2 failed and 1 passed: the repository-wide tests found a task id and four decision ids in three pages outside the touches."
+assumption = "The three pages are documentation only and the same rewrite rule applies to them."
+severity = "high"
+
+[finding.22.39.48.1]
+task = "22.39.48"
+file = "tests/ci/test_image_namespaces.py"
+symbol = "test_image_namespaces.py"
+observed = "Attempt 1 at 8ff17c5a4935: build exit 0; verification exit 1 with 12 passed and 1 failed: the namespace test found the old repository name in the state database package prefix of the db-tests workflow, which is the Go module path."
+assumption = "The module path is a declared module name, not a registry namespace; the narrowed test passes at the attempt tree."
+severity = "high"
+
+[finding.22.39.53.1]
+task = "22.39.53"
+file = "tests/ci/test_websearch_context.py"
+symbol = "test_websearch_context.py"
+observed = "Attempt 1 at 47e49dfbb78e: build exit 0; verification exit 1 with 3 passed and 1 failed: the context check refused the node image context because the declared test target services/interop/tests/repair_22_33_95.rs is excluded."
+assumption = "A one-line negation in the ignore file carries the declared file into the context and the check passes."
+severity = "high"
+
+[finding.22.39.42.1]
+task = "22.39.42"
+file = "tests/ci/test_wallet_test_workflow.py"
+symbol = "test_wallet_test_workflow.py"
+observed = "Attempt 1 at e3a22cbc5a67: build exit 0; verification exit 1: the four CI tests passed, every suite collected, and 27 assertions failed in seven suites (WebDataView 18, ExchangeView 4, BridgeView, FeeChoice, LaunchpadView, chain and repair-22-33-206 one each) of the form condition not reached: receipt or a retired grant assertion."
+assumption = "The loading repair is complete and verifiable on its own; the assertion drift belongs to the live receipt model and is settled by 22.39.55."
+severity = "high"
+
+[finding.22.31.621.1]
+task = "22.31.621"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 1: builds 3, verification 1 exit 1 at the whole-suite run with 4172 passed, 267 failed, 1 error, 5 skipped; the final tree d186f583392a collected in full and the verification could not be rerun because both repair cycles were spent."
+assumption = "Collection is complete and verifiable on its own; the assertion drift is settled by 22.31.623 after the record is complete."
+severity = "high"
+
+[finding.22.39.8.4]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 4 at f0a1d7853316: build exit 0 (both consumers built); verification exit 1: both Go tests passed their own assertions, the custody consumer returned Io WouldBlock after 0.82 seconds and the send consumer returned Mismatch on the native send domain after 1.14 seconds; the attempt recorded that the directed repair file was outside the touches."
+assumption = "The read timeout mapping is the custody fault; the send domain disagreement is a derivation difference between the Go server and the Rust consumer that the native policy document settles."
+severity = "high"
+
+[finding.22.39.30.2]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 2 at 4622e0d9befc: build exit 0, 13 tests passed, the site check failed: the install page labels Native payment execution and block finality, which no capability in docs/platform/capabilities.kvx declares."
+assumption = "The row was written with the documentation fold and the capabilities document was never extended; the check is right and the row or the document is the fix."
+severity = "high"
+
+[finding.22.31.620.2]
+task = "22.31.620"
+file = "tests/ci/test_ai_market_module_mirror.py"
+symbol = "test_ai_market_module_mirror.py"
+observed = "Attempt 2 at ce6e7549ba08: build exit 0; verification exit 101: 39 passed, 2 failed: the fixture test of the included support module could not read programs/target/repair-478/owner (No such file or directory, run the declared Go fixture gate first), and node_root_and_explicit_chain_paths_reject_router_paths saw a Null eth_blockNumber result instead of 0xb."
+assumption = "The fixture test belongs to the crate that owns the fixture, not to a shared support module; the Null result is either an artefact of the attempt-2 test edits or a gateway path fault of the same owner."
+severity = "high"
+
+[finding.22.39.40.1]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 1 at 2ebcae0995a4: builds exit 0 (two), verification exit 1 (two runs): the node package failed on the activation pending-store test (store xweb not found in the memiavl iterator) and the sequencer package on six tests the standby hang had masked; the public check test was not reached."
+assumption = "The activation test is the fault of this task and is repaired here; the six sequencer failures predate the task and are repaired by 22.39.86 against the whole package."
+severity = "high"
+
+[finding.22.39.56.1]
+task = "22.39.56"
+file = "tests/ci/test_docs_canonical_repository_links.py"
+symbol = "test_docs_canonical_repository_links.py"
+observed = "Attempt 1 at 016a2f12a44b: build exit 0; verification exit 1: 2 passed, 2 failed: 372 noncanonical repository URL lines, 339 of them in the vendored project trees pointing at that project upstream, and the root README clone command at line 332 followed by a fence instead of a cd line."
+assumption = "The 13 pages are repaired; the guard reached pages that belong to the vendored copies and to 22.39.64, and the README clone block lacks its cd line."
+severity = "high"
+
+[finding.22.39.57.1]
+task = "22.39.57"
+file = "tests/ci/test_docs_release_version_examples.py"
+symbol = "test_docs_release_version_examples.py"
+observed = "Attempt 1 at ecccd4a4c554: build exit 0; verification exit 1: 1 passed, 1 failed: five placeholder markers, two in vendored library READMEs and three in the example and plugin READMEs of the vendored project directory."
+assumption = "The three pages are repaired; the five markers are upstream text in vendored copies that the allowlist of the task text did not name."
+severity = "high"
+
+[finding.22.31.622.1]
+task = "22.31.622"
+file = "tests/ci/test_committed_vector_copy_current.py"
+symbol = "test_committed_vector_copy_current.py"
+observed = "Attempt 1 at 812ee7db75e9: build exit 0; the dependent-crate check failed to compile the gateway test target (unresolved imports canary and rooms, thirteen errors, gotcha 3417); verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+
+[finding.22.39.38.1]
+task = "22.39.38"
+file = "tests/ci/test_docs_no_programme_references.py"
+symbol = "test_docs_no_programme_references.py"
+observed = "Attempt 1 at 5b1a56176a9c: build exit 0; verification exit 1: 4 passed, 1 failed: two task numbers remain in sdk/contrib/rosetta/node/README.md line 29 and tools/launchpad/production/load/README.md line 124."
+assumption = "The guard is right; the two pages were outside the scope the task text named."
+severity = "high"
+
+[finding.22.39.54.1]
+task = "22.39.54"
+file = "tests/ci/test_tools_ci_suite_passes.py"
+symbol = "test_tools_ci_suite_passes.py"
+observed = "Attempt 1 at 799a0dafcb68: builds exit 0 (two), verification exit 1 (two runs): 112 passed, 277 subtests passed, 1 failed: the beta ledger check over spec/layerx-merge/qualification.kvx reports 6448 violations (unterminated string at line 494, repeated section headers and keys)."
+assumption = "The 18 settlements are complete; the ledger faults belong to the ledger file and are repaired by 22.39.87."
+severity = "high"
+
+[finding.22.39.51.1]
+task = "22.39.51"
+file = "tests/ci/test_action_pins_consistent.py"
+symbol = "test_action_pins_consistent.py"
+observed = "Attempt 1 at b70c71c3cbf2: build exit 0; verification exit 1: 1 passed, 2 failed: conflicting SHAs across 51 workflow files and three toolchain pins whose comment reads stable."
+assumption = "The task text named a repository-wide unification; the touches named three files. Scope is widened to the directory."
+severity = "high"
+
+[finding.22.37.4.1]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 1 at 3ff690464a5b: builds exit 0 (two); verification exit 1 (two runs): install_status_reads_actual_ready_and_preserves_typed_errors failed with FileNotFoundError for /usr/bin/python3 raised by the component fixture; the component cases otherwise passed."
+assumption = "The attempt-1 implementation is complete; the fault is a fixed interpreter path in an inherited fixture outside the original touches."
+severity = "high"
+
+[finding.22.39.30.3]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 3 at fe2b3029520b: build exit 0; verification exit 1: 13 tests passed, then the site check refused: capabilities declared but documented on no page: Scheduled beta resets."
+assumption = "The missing row pre-exists on main (the reference page that carries it is generated and not counted); one row on a page already in the touches closes it."
+severity = "high"
+
+[finding.22.39.68.1]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 1 at 5ba896bc2b9b: no gate ran; the agent stopped on the destination directories and the four consumer tests outside the touches and reported seven more key-like files in two other crates."
+assumption = "The move is right; the touches named the source directories but not the destination directories or the consumers. The seven other files belong to two crates of other owners and get their own task."
+severity = "high"
+
+[finding.22.39.61.1]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 1 at 7fd627359bac: build exit 2: tsc in apps/launchpad/web could not resolve the two launchpad SDK packages because they were linked but not built; verification never ran."
+assumption = "The build command omitted the SDK build step the launchpad web type check depends on; the implementation is complete."
+severity = "high"
+
+[finding.22.39.65.1]
+task = "22.39.65"
+file = "tests/ci/test_no_deployment_hosts_in_source.py"
+symbol = "test_no_deployment_hosts_in_source.py"
+observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
+assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
+severity = "high"
+[finding.22.31.620.2]
+task = "22.31.620"
+file = "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:301"
+observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: fund_entry_gas_for_committed_receipt_fixture_is_bounded failed reading the absent owner file under services/platform/target/repair-478; the Go-produced fixture is required and the Python currency check was not reached."
+assumption = "The fixture must be supplied by its real Go producer, whose gate is outside the allowed gates; retain the declared build and verification commands and every assertion unchanged."
+severity = "blocker"
+
+[finding.22.31.620.3]
+task = "22.31.620"
+file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs:609"
+observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: the unchanged node_root_and_explicit_chain_paths_reject_router_paths test received null instead of 0xb for eth_blockNumber, while the gateway target compiled and 39 tests passed."
+assumption = "The pre-existing node-path assertion is unrelated to module mirroring; retain it unchanged and do not chase or rerun the recorded failure."
+severity = "blocker"

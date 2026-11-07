@@ -62,7 +62,6 @@ on:
       - 'docs/paxeer-network.md'
       - 'docs/paxeer-chain-docs.md'
       - 'scripts/**'
-      - '!scripts/PaxeerBetaDeploy.s.sol'
       - '!scripts/qualify-mirror-live.sh'
       - '!scripts/qualify-mirror-verification-live.sh'
       - '.github/workflows/paxeer-enforce-labels.yml'
@@ -78,5 +77,7 @@ jobs:
     steps:
     - uses: yogevbd/enforce-label-action@8d1e1709b1011e6d90400a0e6cf7c0b77aa5efeb # 2.1.0
       with:
+        # Task 22.39.50: preserve this pair; the repository owner must create
+        # the missing non-app-hash-breaking label (app-hash-breaking exists).
         REQUIRED_LABELS_ANY: "app-hash-breaking,non-app-hash-breaking"
         REQUIRED_LABELS_ANY_DESCRIPTION: "Select at least one label ['app-hash-breaking', 'non-app-hash-breaking']"

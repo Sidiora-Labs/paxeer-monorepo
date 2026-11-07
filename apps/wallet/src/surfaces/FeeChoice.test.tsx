@@ -9,7 +9,7 @@ import {
   abiSelector,
   exchangeCancelOrderCall,
   gasQuoteDigest,
-} from '@sidiora/layerx-sdk';
+} from '@sidiora/layerx-sdk/browser';
 import {
   FEE_TOKEN_PRECOMPILE,
   SIDIORA_FEE_DENOM,

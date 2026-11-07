@@ -10,8 +10,8 @@ delegates. Store capacity is 128 records.
 
 Protocol-3 batch maintenance rolls due periods using the batch timestamp.
 
-Sources: `include/layerx/lx_budget.h`, `src/modules/budget/`,
-`spec/layerx-protocol/spec.kvx` requirement 4.
+Sources: `include/layerx/lx_budget.h`, `src/modules/budget/lx_budget_module.c`,
+`src/modules/budget/lx_budget_codec.c`, `src/modules/budget/lx_budget_period.c`.
 
 ---
 

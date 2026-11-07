@@ -3,7 +3,7 @@
     {
       "asset": "b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898",
       "atomic_units_per_minor_unit": "1000000000000000000",
-      "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "audience": "https://interop-gateway.example.internal:9443",
       "currency": "LXT",
       "minor_unit_exponent": 0,
       "payee_account": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
@@ -38,7 +38,7 @@
   ],
   "visa_agents": [
     {
-      "agent_domain": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "agent_domain": "https://interop-gateway.example.internal:9443",
       "agent_id": "layerx-beta-trusted-agent",
       "algorithm": "ed25519",
       "expires_at": 1893456000,
@@ -50,7 +50,7 @@
   ],
   "visa_targets": [
     {
-      "authority": "layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+      "authority": "interop-gateway.example.internal:9443",
       "path": "/checkout",
       "principal_digest": "3333333333333333333333333333333333333333333333333333333333333333"
     }

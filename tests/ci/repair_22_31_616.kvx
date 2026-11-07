@@ -1,0 +1,48 @@
+[repair.22.31.616]
+base_revision = "20f1f239c8bf8fa18b019bb5bc4b89bb11d76fb0"
+decision = "2790"
+gotcha = "3414"
+summary = "Each lock was refreshed with exactly one cargo metadata resolution without --locked. Both preserve every package version and checksum and gain only the two normal dependency edges of layerx-sdk. No manifest was changed and cargo update was not run."
+verified_revision_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done; the final response copies the last hf-done receipt. The candidate includes this repair record, so its revision is retained externally rather than embedded in the content it hashes."
+build_command = "cargo metadata --locked --format-version 1 --manifest-path services/human/Cargo.toml > /dev/null && cargo metadata --locked --format-version 1 --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml > /dev/null"
+verify_command = "cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run && python3 -m pytest -q tests/ci/test_human_lockfiles_current.py"
+
+[lock.human]
+path = "services/human/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/human/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/tmp/human-lockfile-22-31-616-resolution.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk 0.1.0"]
+
+[lock.human.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek 2.2.0", "layerx-programs-registry 0.1.0"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "This manifest commit promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies. Human path consumers must resolve both; both package entries already existed in the human lock."
+
+[lock.intents-fuzz]
+path = "services/human/crates/layerx-intents/fuzz/Cargo.lock"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/human/crates/layerx-intents/fuzz/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/tmp/intents-fuzz-lockfile-22-31-616-resolution.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+changed_entries = ["layerx-sdk 0.1.0"]
+
+[lock.intents-fuzz.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek 2.2.0", "layerx-programs-registry 0.1.0"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "This manifest commit promotes ed25519-dalek and layerx_programs_registry from dev-dependencies to normal dependencies. The fuzz crate consumes the SDK through layerx-intents and must resolve both; both package entries already existed in the fuzz lock."

@@ -330,6 +330,7 @@ For a specific branch or tag, replace `<ref>` with the desired reference:
 
 ```sh
 git clone --depth 1 --branch <ref> https://github.com/Sidiora-Labs/paxeer-monorepo.git
+cd paxeer-monorepo
 ```
 
 ## License

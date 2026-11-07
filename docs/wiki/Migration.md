@@ -5,10 +5,11 @@ external history through `SourceVerifier` + `MigrationPlane` +
 gateway idempotency (`services/interop/crates/layerx-migrate/src/lib.rs`).
 The adapter id is `migration`.
 
-`spec/layerx-platform/spec.kvx` task 24.1 is **implemented**. The
-spec `reality` field records that production RPC clients are
-missing; the verifiers are heavily tested. This page does not claim
-those clients are finished.
+Authenticated HTTPS source-chain RPC clients are available in
+`services/interop/crates/layerx-migrate/src/rpc.rs`. Durable migration journals
+require an independent rollback authority; this tree supplies its client
+contract, but no production authority server
+(`services/interop/crates/layerx-migrate/README.md`).
 
 [Programs porting](Porting.md) is a different crate and topic.
 

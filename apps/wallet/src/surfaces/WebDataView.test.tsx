@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, test, inject } from 'vitest';
-import { ADDR_PRECOMPILE_ADDRESS, XWEB_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk';
+import { ADDR_PRECOMPILE_ADDRESS, XWEB_PRECOMPILE, abiSelector } from '@sidiora/layerx-sdk/browser';
 import {
   GasStationError,
   LEDGER_PRECOMPILE,

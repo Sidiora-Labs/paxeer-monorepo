@@ -38,6 +38,10 @@ set -e
 if [ "${MIX_IN_BUILDER_BROWSER_DRIVER:-0}" = "1" ] && ! command -v chromedriver >/dev/null 2>&1; then
   apk add --no-cache chromium-chromedriver >&2
 fi
+if [ "${1:-}" = 'test' ]; then
+  mix ecto.create --quiet
+  mix ecto.migrate
+fi
 exec mix "$@"
 CONTAINER_SCRIPT_END
 )

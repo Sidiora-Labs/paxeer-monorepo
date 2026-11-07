@@ -2,6 +2,8 @@
 //! value establishes host authority or finality.
 #![cfg_attr(target_arch = "wasm32", no_std)]
 
+// File modules are mirrored in gateway/tests/repair_22_33_1439.rs and checked by
+// tests/ci/test_ai_market_module_mirror.py, including conditional private modules.
 pub mod admission;
 pub mod aggregation;
 pub mod aggregation_codec;

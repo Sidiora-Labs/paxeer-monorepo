@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: wallet-test-${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event_name == 'push' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -30,7 +30,7 @@ jobs:
       - name: Set up Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
-          node-version: 22
+          node-version: 24.22.0
       - name: Install pnpm
         run: npm install --global pnpm@10.34.9
       - name: Install agent SDK dependencies

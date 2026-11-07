@@ -19,3 +19,6 @@ members = [
     "actix-phoenix-channel",
     "recache",
 ]
+
+[profile.test]
+debug = 0
