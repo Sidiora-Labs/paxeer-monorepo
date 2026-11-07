@@ -1,5 +1,4 @@
 # Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
-# Task 22.31.620 retains its declared gates; exact candidate receipts are in /out/run/gates.jsonl and its gateway repair record.
 # Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
 # Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
 #   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
@@ -3646,6 +3645,70 @@ symbol = "ValidateGenesis"
 observed = "At revision 9372974fd the verifier `cg spec done 5.98.1 -f layerx-merge --root /work/paxeer-monorepo` exited 1 (logs-verify-2.log): paxd validate-genesis on the genesis derived from node/testdata/v6120-halt-export.json failed with `failed to unmarshal pricefeed genesis state: unexpected end of JSON input`, because BasicManager.ValidateGenesis hands every wired module its app_state entry and the export carries none for pricefeed, perps and spot, while spot initGenesis (modules/spot/keeper/genesis.go:97) writes ParamsKey so a default spot entry would make InitV6120 refuse the v6.12.0 plan in the first block; the first cycle (da7d54c0c) failed the same step on timeout.ProposeDelta because the export carries zero consensus timeouts."
 assumption = "do_1 validates a copy of the genesis that carries the three default states and copies the consensus timeouts from the paxd init genesis, while the node starts from the genesis without those entries; do_3 submits prices through paxd tx sign and paxd tx broadcast because the pricefeed module has no tx command."
 severity = "blocker"
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
+
+# Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
+# Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
+# Format source: spec/workflow.kvx [qualification_log] and [loop] step_6. Path of this ledger: spec/layerx-merge/qualification.kvx.
+#   task       = "<N>.<k>.<m>"  the v2 task whose qualification exposed the finding
+#   file       = "<repo-relative path>:<line>"  where the failure or contradiction is observed
+#   symbol     = "<exact identifier: test, function, error code, selector or key>"
+#   observed   = "<one sentence naming revision, exact command, exit code and log path, then what failed>"
+#   assumption = "<one sentence: the assumption the task proceeds on>"
+#   severity   = "blocker" | "suspect" | "assumption" | "note"
+# Append when: You hit an unrelated or pre-existing failure, a contradiction between requirements or tasks, a missing external interface, or a repair that would require weakening a check. Append once; never append the same finding twice.
+# Never: Do not log a task-scoped failure as an excuse to skip repair. Do not write narrative: observed is one sentence, assumption is one sentence, and every entry names revision, exact command, exit code and log path. An entry over six lines is a defect.
+# An entry is exactly the six keys above (six lines); append once and never re-run or re-investigate a recorded finding.
+#
+# The v2 specification starts clean: this ledger holds no findings at revision 2a1033aa2.
+# The 330 findings of the previous ledger were recorded against v1 task ids of the stale specification and are not carried forward.
+# Superseded findings: previous-ledger finding ids whose recorded gap is now a v2 task (previous id -> v2 task, reason).
+#   5.0.8 -> 11.15.1: interop lock check; decision.1101 records the finding as not reproduced at HEAD
+#   5.0.9 -> 16.7.4: build_cmd is bash -n tools/bringup/xweb-config.sh
+#   7.0.7 -> 17.6.1: solidity sandbox profile runs contracts/bridge/evm/bootstrap-libs.sh before forge
+#   12.0.2 -> 16.38.1: OCC harness loads cw20_base.wasm instead of mars.wasm (decision.1628)
+#   10.0.4 -> 6.91.1: arbiter codes -737..-739 registered in the LXP error registry
+#   0.111 -> 7.10.1: newHeads key set aligned with eth_getBlockByNumber
+#   5.1.2 -> 6.65.1: IXWeb.sol names the three origin-2 methods
+#   gateway.lx-reads-wait-on-ingress-off -> 8.3.1: every lx_ name answers -32601
+#   4.3.4 -> 13.22.1: 0x101D executor, merge constructor and dispatch table
+#   8.5.24 -> 8.47.3: streaming conformance resumes logs by (blockHeight, txIndex, logIndex)
+#   13.3.3 -> 1.20.2: linked escrow arbiter rule with LXP_ERR_UNAUTHORIZED_ARBITER
+#   1.2.2 -> 6.3.2: paused-denom bank send reverts with LXP_ASSET_PAUSED
+#   0.1 -> 6.6.9: unread PrecompileLastUpgrade retired
+#   1.1.3 -> 1.39.3: kernel account rows checked against the Go codec account kinds
+#   10.0.2 -> 6.7.3: activation addresses without a custom precompile reported
 
 # Qualification findings for layerx-merge v2: one [finding.<N>.<k>.<m>] per finding, keyed by the v2 task id that met it; a second finding for the same task is [finding.<N>.<k>.<m>.<n>].
 # Keys, in this order (spec/workflow.kvx [qualification_log] entry_keys): task, file, symbol, observed, assumption, severity.
@@ -9191,18 +9254,18 @@ severity = "major"
 
 [finding.18.849.1.3]
 task = "18.849.1"
-file = "docker/layerx/Dockerfile.dockerignore:70"
-symbol = "x-websearch"
-observed = "Attempt 7 (4039a22e0) built the native stage and failed the full image at the x-websearch stage: cargo could not load workspace member services/interop/crates/layerx-committed-proof, which 70d213655 added to services/interop/Cargo.toml after the ignore file's interop re-includes were written; the attempt read do_5 as forbidding that repair."
-assumption = "do_5 now names the re-include; no other interop member is missing from the context."
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 6 (719e97a42) fails in the builder stage: curl to https://node.hyperpaxeer.com/lib/libwasmvm.x86_64.so returns 502 on every retry (issue #1106), while the same three x86_64 libraries sit in the tree with digests equal to wasm-runtime/libwasmvm-linux.sha256."
+assumption = "Task 18.1106.1 copies the libraries from the build context; 18.849.1 and 18.869.1 require it."
 severity = "major"
 
 [finding.18.1129.1.2]
 task = "18.1129.1"
-file = "services/interop/crates/x-websearch/tests/payment.rs:2805"
-symbol = "payer_account"
-observed = "Attempts 1 to 6 could not re-record because the harness offers the EVM payer address (bad892c80) while the recorder still issues grants and receipts from the ed25519 payer DID's account, so every metered step is refused with grant_payer_mismatch; the recorder regenerates all five gateway recordings from in-file keys, so the repair rewrites metered.json and pending.json too."
-assumption = "do_5 to do_8 and the widened touches carry the fix; no external authority is needed."
+file = "services/interop/crates/layerx-x402/src/buyer.rs:403"
+symbol = "unhex"
+observed = "Attempts 1 to 4 fail the same 22 of 35 payment tests at main: unhex requires a 0x prefix while model.rs validates bare 64-hex assets, so every exact capture is refused with EvidenceMismatch, and the seller's evidence (seller.rs:353-357) carries no logs."
+assumption = "Issue #1133 / task 18.1133.1 fixes layerx-x402; 18.1129.1 requires it and re-records afterwards."
 severity = "major"
 
 [finding.18.1129.1.3]
@@ -9215,10 +9278,10 @@ severity = "major"
 
 [finding.18.869.1.3]
 task = "18.869.1"
-file = "go.sum:2128"
-symbol = "module_simulation"
-observed = "Attempt 10 (75673db2b) built the paxd-node image and failed the layerx image's builder stage: go.sum lacks the go.mod hash of golang.org/x/net v0.0.0-20190404232315-eb5bcb51f2a3 that the keyring dependency of modules/epoch requires (issue #1141)."
-assumption = "Task 18.1141.1 adds the hash; 18.869.1 and 18.849.1 require it."
+file = "docker/layerx/Dockerfile:55"
+symbol = "libwasmvm download"
+observed = "Attempt 9 (0dd49d24a) fails the same way as 18.849.1 attempt 6: the library host answers 502 before the paxd-node changes are reached."
+assumption = "Blocked on 18.1106.1; the candidate's Dockerfile.paxd-node changes are kept for the next attempt."
 severity = "major"
 
 [finding.10.2.7.2]
@@ -9239,19 +9302,19 @@ severity = "major"
 
 [finding.18.1131.1.2]
 task = "18.1131.1"
-file = "services/agent/crates/layerx-agentd/tests/delivery.rs:187"
-symbol = "Cursor"
-observed = "Attempt 5 (7e04618b7) built --tests and failed on the pre-existing ApiCursor(Sequence(..)) constructors 051d11e3a (9.11.1) left in four test files (issue #1143)."
-assumption = "Task 18.1143.1 repairs them; 18.1131.1 requires it."
+file = "services/agent/crates/layerx-agentd/tests/handshake_gate.rs:142"
+symbol = "config_with_authority"
+observed = "Attempt 3 (f73cbbc6f) fails the build: the fixture sets expected_protocol_version and sequencer_authority_source, removed from StartupConfig by 5609ec802 (9.12.3), and readiness_node_rpc.rs includes the file by #[path], so every agentd test-target build fails (issue #1138)."
+assumption = "Pre-existing; 18.1138.1 ports the fixture and 18.1131.1 and 9.95.1 require it."
 severity = "major"
 
 [finding.5.55.5.3]
 task = "5.55.5"
-file = "node/sequencer/standby_role.go:135"
-symbol = "standbyRoleReplay"
-observed = "Attempt 10 (3f207b061, base with 07d11e56d) stopped at openAccount with standby execute seq 6: replayed receipt differs; the standby commits by re-execution because 18.1126.1 never installed the sealed-layer source its second step named (issue #1144)."
-assumption = "Task 18.1144.1 installs it with a reproducing node test; 5.55.5 requires it."
-severity = "major"
+file = "node/sequencer/standby.go:325"
+symbol = "Replicator"
+observed = "Attempt 5 on a base containing a0615a88e (18.1074.1) and 0dc2d6d81 (5.55.6) still halts, at openAccount: 'standby refused the group: standby holds seq 5' (ErrStandbyRefused, epoch not above the primary's); the recorder output does not say which Standby.receive branch refused."
+assumption = "Progress from seq 1 to seq 5 shows the adoption fix landed; the remaining refusal is a node defect filed as issue #1109, task 18.1109.1, which 5.55.5 now requires."
+severity = "blocker"
 
 [finding.18.1126.1.1]
 task = "18.1126.1"
@@ -33741,6 +33804,14 @@ observed = "Attempt 2 at 3810cd465592 (base 9ef707c66718): builds 2, dependent-c
 assumption = "The mismatch is on main since 74ef78b42b and belongs to the repair task 22.31.622; the attempt tree needs no change."
 severity = "high"
 
+[finding.22.31.620.1]
+task = "22.31.620"
+file = "tests/ci/test_ai_market_module_mirror.py"
+symbol = "test_ai_market_module_mirror.py"
+observed = "Attempt 1 at 34d49ec60d93 (base 97835484dd): build exit 101 with E0277 at rooms.rs line 572 in the mirrored compilation (no PartialOrd between a byte slice and a 32-byte array); the verification never ran."
+assumption = "A slice-against-slice comparison compiles in both module trees, so the one-line change inside the crate closes the build without a separate task."
+severity = "high"
+
 [finding.22.39.39.1]
 task = "22.39.39"
 file = "tests/ci/test_site_links_inside_docs_dir.py"
@@ -33831,11 +33902,10 @@ severity = "high"
 
 [finding.22.31.620.2]
 task = "22.31.620"
-file = "tests/ci/test_ai_market_module_mirror.py"
-symbol = "test_ai_market_module_mirror.py"
-observed = "Attempt 2 at ce6e7549ba08: build exit 0; verification exit 101: 39 passed, 2 failed: the fixture test of the included support module could not read programs/target/repair-478/owner (No such file or directory, run the declared Go fixture gate first), and node_root_and_explicit_chain_paths_reject_router_paths saw a Null eth_blockNumber result instead of 0xb."
-assumption = "The fixture test belongs to the crate that owns the fixture, not to a shared support module; the Null result is either an artefact of the attempt-2 test edits or a gateway path fault of the same owner."
-severity = "high"
+file = "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:301"
+observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: fund_entry_gas_for_committed_receipt_fixture_is_bounded failed reading the absent owner file under services/platform/target/repair-478; the Go-produced fixture is required and the Python currency check was not reached."
+assumption = "The fixture must be supplied by its real Go producer, whose gate is outside the allowed gates; retain the declared build and verification commands and every assertion unchanged."
+severity = "blocker"
 
 [finding.22.39.40.1]
 task = "22.39.40"
@@ -33932,12 +34002,85 @@ symbol = "test_no_deployment_hosts_in_source.py"
 observed = "Attempt 1 at 58f6f9d20eb0: build exit 101: cargo check over the gateway test targets failed on the unresolved imports of gotcha 3417; verification never ran."
 assumption = "The failure sits on main and belongs to 22.31.620; the attempt-1 work is complete and only needs the gate to run after that repair."
 severity = "high"
-[finding.22.31.620.2]
-task = "22.31.620"
-file = "programs/crates/layerx-programs-ai-market/tests/support/repair_478_fixture.rs:301"
-observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: fund_entry_gas_for_committed_receipt_fixture_is_bounded failed reading the absent owner file under services/platform/target/repair-478; the Go-produced fixture is required and the Python currency check was not reached."
-assumption = "The fixture must be supplied by its real Go producer, whose gate is outside the allowed gates; retain the declared build and verification commands and every assertion unchanged."
-severity = "blocker"
+
+[repair.22.37.30]
+starting_revision = "c6a45ed6d0f1f5ee8cf4a80ea804efdef8e8d9c4"
+final_revision = "private-gate-ledger:22.37.30:verify:revision"
+command = "hf-done (cg spec done 22.37.30 -f layerx-merge --root /work/paxeer-monorepo)"
+evidence = "Exact candidate revision, exit code and log location are retained in the task private gate ledger; this entry makes no gate outcome claim."
+observed = "The assignment path now shares the workspace root-pin helper, and the declared actor exercises one assigned participant upload and checkpoint."
+
+[finding.22.39.43.1]
+task = "22.39.43"
+file = "tests/ci/test_wallet_repair_suites_listed.py"
+symbol = "test_wallet_repair_suites_listed.py"
+observed = "Attempt 1 at cc9ee73d4a2c: build exit 0; verification 1 failed in the scope test on the account suite; verification 2 ran the whole wallet suite: 47 failed, 595 passed in 110 files, most failures in the surfaces suites of 22.39.55."
+assumption = "The whole-suite verification cannot pass while the surfaces baseline is unsettled; the dependency orders the two tasks."
+severity = "high"
+
+[finding.22.39.55.1]
+task = "22.39.55"
+file = "apps/wallet/src/surfaces/test/repair-22-39-55.test.ts"
+symbol = "repair-22-39-55.test.ts"
+observed = "Attempt 1 at c4b593a8cfd7: build 1 failed (TS2305 in two widget tests), build 2 exit 0; verification: 9 failed, 97 passed in 18 files; every failure raises no node receipt vector for this call."
+assumption = "The recorded receipt producer is the missing piece; the consumers already assert the producer names."
+severity = "high"
+
+[finding.22.39.82.1]
+task = "22.39.82"
+file = "tests/ci/test_go_build_tags_wired.py"
+symbol = "test_go_build_tags_wired.py"
+observed = "Attempt 1 at 4c33ac989e9e: build exit 0; verification exit 1: ConsensusPolicy.HandleError declared twice under the combined tags, then TestRepair_79_HeaderBudgetRejectsOversize and a lane range panic under the mock."
+assumption = "The verification command of the task combined alternatives that never build together; the fix is in the command and the matrix, not in the consensus code."
+severity = "high"
+
+[finding.22.39.66.1]
+task = "22.39.66"
+file = "tests/ci/test_docs_free_of_process_numbering.py"
+symbol = "test_docs_free_of_process_numbering.py"
+observed = "Attempt 1 at 83e936a7ccc3: build exit 0; verification exit 1: 713 lines, 697 under spec/ and 18 in twelve product pages outside the touches."
+assumption = "The spec tree is the engineering record and is excluded; the twelve pages are product documentation and are rewritten."
+severity = "high"
+
+[finding.22.39.63.1]
+task = "22.39.63"
+file = "tests/ci/test_manifest_license_fields.py"
+symbol = "test_manifest_license_fields.py"
+observed = "Attempt 1 at bc04f6d249a3: build exit 0; verification exit 1: 187 manifests without a licence (111 vendored, 64 example or test, 3 testdata), 5 authors not naming the organisation."
+assumption = "The vendored tree is third-party and allowlisted; the example and test manifests are first-party and declare the licence."
+severity = "high"
+
+[finding.22.39.61.2]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 2 at 3b4cfe9e8827 (claimed before the replaced build command landed): build exit 2, TS2307 cannot find module @kindle/sdk in 78 files; no verification run."
+assumption = "The attempt ran the former build command; the current main carries the replacement."
+severity = "high"
+
+[finding.22.31.623.1]
+task = "22.31.623"
+file = "tests/ci/test_qualification_suites_collect.py"
+symbol = "test_qualification_suites_collect.py"
+observed = "Attempt 1 at 3d7128cbbf39: build exit 0 twice; verification 2: 166 failed, 1 error, 4273 passed; two repair cycles used; the record states 82 modules outside the three touched files."
+assumption = "The scope was the defect; the settlement needs the whole suite and the producers it names."
+severity = "high"
+
+[finding.22.39.30.4]
+task = "22.39.30"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 4 at d13135ed13b0: build exit 0; verification: 13 passed, then stale documentation output for next.md and reference/enforcement.md."
+assumption = "The two pages carry generated sections; regenerating them completes the attempt."
+severity = "high"
+
+[finding.22.39.90.1]
+task = "22.39.90"
+file = "tests/ci/test_docs_make_targets_and_scripts.py"
+symbol = "test_docs_make_targets_and_scripts.py"
+observed = "Attempt 1 at 02026748ea78: build exit 0; verification: 2 passed, then the site check failed on docs/platform/content/install.md line 202 labelling an undeclared capability (pre-existing on main 5d43caa56d)."
+assumption = "The site check failure belongs to 22.39.30; ordering the tasks removes it."
+severity = "high"
 
 [finding.22.31.620.3]
 task = "22.31.620"
@@ -33945,3 +34088,138 @@ file = "services/platform/hosted/gateway/tests/repair_22_33_1439.rs:609"
 observed = "Revision e3909f381a34b1344c5b48e30dce92143ed4f4de, command cg spec done 22.31.620 -f layerx-merge --root /work/paxeer-monorepo, exit 1 (cargo test exit 101), private log /out/logs/verify-1.log: the unchanged node_root_and_explicit_chain_paths_reject_router_paths test received null instead of 0xb for eth_blockNumber, while the gateway target compiled and 39 tests passed."
 assumption = "The pre-existing node-path assertion is unrelated to module mirroring; retain it unchanged and do not chase or rerun the recorded failure."
 severity = "blocker"
+[finding.22.39.40.2]
+task = "22.39.40"
+file = "tests/ci/test_node_build_workflow_scope.py"
+symbol = "test_node_build_workflow_scope.py"
+observed = "Attempt 2 at d51cd029d92d: build exit 0; verification exit 1 in go test ./node/ with three failures (TestMergePlanReturnsGuarantorBonds, TestHostedKernelProgramsABIFollowsTheMergeUpgrade, TestHostedKernelProgramsABISurvivesRestart) after 176 seconds; the standby and Python checks were not reached."
+assumption = "The three tests belong to earlier merge tasks and fail on the base tree; the activation repair itself is complete."
+severity = "high"
+
+[finding.22.39.59.1]
+task = "22.39.59"
+file = "tests/ci/test_markdown_links_resolve.py"
+symbol = "test_markdown_links_resolve.py"
+observed = "Attempt 1 at 6155dcda174a: build exit 0; verification 1 stopped at the time limit (exit 143); verification 2: 3 passed, 2 failed, about 630 unresolved links and 401 noncanonical URLs, every unresolved link inside spec/, a vendor directory or a vendored tree."
+assumption = "The vendored trees and the engineering record are outside the documentation guards (decision 2811); the first-party URL repairs are small text edits."
+severity = "high"
+
+[finding.22.39.68.2]
+task = "22.39.68"
+file = "tests/ci/test_key_material_only_in_fixtures.py"
+symbol = "test_key_material_only_in_fixtures.py"
+observed = "Attempt 2 at 7a48311586e4: build exit 0; the compile of dependent crates exit 101 on three missing include_bytes files in the indexer test crate; verification not reached."
+assumption = "The indexer test is the only reference outside the touches; a tree-wide search confirms it."
+severity = "high"
+
+[finding.22.39.72.1]
+task = "22.39.72"
+file = "tests/ci/test_make_recipe_paths_exist.py"
+symbol = "test_make_recipe_paths_exist.py"
+observed = "Attempt 1 at e7f17888b9b5: build exit 0; verification 2 exit 2: tests/ci/test_make_recipe_paths_exist.py passed, make platform-test-tooling failed in layerx-platform-cli (21 passed, 3 failed)."
+assumption = "The three CLI failures predate the recipe change; the recipe task proves the recipes resolve and the repair task proves they pass."
+severity = "high"
+
+[finding.22.39.75.1]
+task = "22.39.75"
+file = "tests/ci/test_launchpad_go_tests_wired.py"
+symbol = "test_launchpad_go_tests_wired.py"
+observed = "Attempt 1 at ae29c05be4d5: build exit 0; verification 2 exit 2: wiring tests passed, make -C services/launchpad ci failed with 35 tests in shared/auth, shared/chain, shared/db/production, shared/delivery, shared/delivery/natsdriver and shared/storage."
+assumption = "The six packages fail on the base tree for environmental and untracked-file reasons; wiring the modules with a recorded baseline is the deliverable of this task."
+severity = "high"
+
+[finding.22.39.8.5]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 5 at 5de94a0b37e0: build exit 0; verification: TestNativeCustodyRealProfiles failed (Rust consumer exit 101, Io WouldBlock on the principal store), TestNativeSendPurposeRealProfiles failed with Mismatch(native_send.domain), the Go send purpose signed under the v1 domain."
+assumption = "The store lock is per process and the second open in the fixture is the only cause of WouldBlock; the v2 domain is the published contract."
+severity = "high"
+
+[finding.22.37.4.2]
+task = "22.37.4"
+file = "tools/hyperfide/sdk/client/test/install-status.test.ts"
+symbol = "install-status.test.ts"
+observed = "Attempt 2 at 1fdf0eaffdd6: build exit 0; verification exit 1: the install-status test failed, Actual HTTPS service did not become ready, COMPONENT_LOAD_FAILED, Factory actions differ from declared operations."
+assumption = "The declaration is the only place the operation is missing; the registry comparison is exact set equality."
+severity = "high"
+
+[finding.22.39.73.1]
+task = "22.39.73"
+file = "tests/ci/test_agent_sdk_suites_wired.py"
+symbol = "test_agent_sdk_suites_wired.py"
+observed = "Attempt 1 at 0ea617dfcb24: build exit 0; verification 2 exit 1: wiring tests passed, combined suites 541 passed, 90 failed, 25 errors, all in services/agent/sdk/python/tests; two repair cycles used."
+assumption = "The second tree was never run by a public check before this task; its failures predate the wiring and belong to the two repair tasks."
+severity = "high"
+
+[finding.22.39.108.1]
+task = "22.39.108"
+file = "tests/ci/test_image_copy_sources_in_context.py"
+symbol = "test_image_copy_sources_in_context.py"
+observed = "Attempt 1 at 920e84d2505b: build exit 0; verification exit 1: one passed, two setup errors, both Vendored source checksum mismatch: wasm-instrument/Cargo.toml from verify-vendor.py line 31; two repair cycles used."
+assumption = "The checksum mismatch is on main since b022d25a24 and outside the registry context task."
+severity = "high"
+
+[finding.22.39.61.3]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 3 at 83b3d4a201b6: build exit 0; verification exit 1 at pnpm install --frozen-lockfile in apps/perps: ERR_PNPM_OUTDATED_LOCKFILE against services/wallet/gateway/package.json."
+assumption = "The lockfile defect is the one 22.39.105 repairs; nothing else in the perps verification is known to fail."
+severity = "high"
+
+[finding.22.39.82.2]
+task = "22.39.82"
+file = "tests/ci/test_go_build_tags_wired.py"
+symbol = "test_go_build_tags_wired.py"
+observed = "Attempt 2 at ddb3191922ab: build exit 0; verification exit 1: wiring tests passed, go test -tags=mock_block_validation ./consensus/types/... failed in TestBlockValidateBasic; the chain validation leg and the registry tests were not reached."
+assumption = "The mock policy replaces the default one by design (decision 2817); a default-policy assertion belongs behind the default-policy constraint."
+severity = "high"
+
+[finding.22.37.18.4]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 4 at e5ec1ae9d850: build exit 0; verification exit 1: all 23 plugin tests passed, the component case 4_2 failed on a deep-equal of a readiness receipt the actual value carried and the expected value lacked; the assertion repair in the final tree is unverified because both repair cycles were used."
+assumption = "The receipt is new producer output of the control plane and the case consumer did not follow it; the plugin changes themselves pass."
+severity = "high"
+
+[finding.22.39.107.1]
+task = "22.39.107"
+file = "tests/ci/test_image_compile_inputs_not_ignored.py"
+symbol = "test_image_compile_inputs_not_ignored.py"
+observed = "Attempt 1 at 5302b6de0464 (base deb2deb978c0): build exit 0; dependents check exit 101 in the hosted gateway mirror test: unresolved imports crate::canary and crate::rooms; verification not reached; no repair cycle used."
+assumption = "The mirror currency repair of 22.31.620 landed at 14:56Z after the attempt base; nothing in the attempt touches the mirror."
+severity = "high"
+
+[finding.22.39.31.1]
+task = "22.39.31"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 1 at 8f3bcecaca85: build exit 0; verification exit 1: 13 passed, test_platform_hand_written_pages_do_not_name_layerx_network failed naming concepts/enforcement.md, guide/reference-applications.md and quickstart/rust.md; the site check was not reached; no repair cycle used."
+assumption = "The three pages are hand-written and outside the generated reference directory; the guard is right and the touches list was short."
+severity = "high"
+
+[finding.22.31.542.2]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 2 at 43cb551943d4: build exit 0, 16 dependent checks exit 0; verification exit 101: library suite 309 passed, 24 failed (approval, human_runtime, ops::program, outbound_tls, read::committed, session_control, budget), integration targets not reached; no repair cycle used."
+assumption = "None of the 24 failures is in a module the task changed; nine belong to 22.31.555, two need the boundary producer and thirteen go to repair task 22.39.122."
+severity = "high"
+
+[finding.22.39.118.1]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 1 at 8aaa799401bd: build exit 0; verification exit 2: 24 library tests passed, binary tests 79 passed and 1 failed (wallet::tests::policy_scope_and_sdk_wait_fail_closed, MissingFinalityTrust expected); no repair cycle used."
+assumption = "The SDK producer changed the zero-timeout path to return Pending before any finality check and the CLI consumer test did not follow; the crate directory is already the touches."
+severity = "high"
+
+[finding.22.39.61.4]
+task = "22.39.61"
+file = "tests/ci/test_frontend_asset_names.py"
+symbol = "test_frontend_asset_names.py"
+observed = "Attempt 4 at 4b2b61b87edf: build exit 0; verification exit 2: seven asset tests passed, frozen install of apps/perps passed, tsc failed with TS2307 on @sidiora/layerx-sdk/browser from sdk/wallet/src/receipt.ts and four implicit-any errors; no repair cycle used."
+assumption = "The errors come from an unbuilt linked package, not from the asset changes; the wallet test workflow shows the producer steps."
+severity = "high"

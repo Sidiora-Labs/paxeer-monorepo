@@ -4,6 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "predev": "npm --prefix ../../../../.. run build:dependencies -- @sidiora/layerx-doc-paid-route-next",
+    "dev": "next dev",
     "prebuild": "npm --prefix ../../../../.. run build:dependencies -- @sidiora/layerx-doc-paid-route-next",
     "build": "next build",
     "start": "next start"

@@ -3,6 +3,12 @@ name = "LayerX capability enforcement registry"
 rule = "Every capability this documentation states carries the layer that actually enforces it. A lower layer never implies a higher one, and a restriction enforced above the protocol is never described as a protocol guarantee."
 layers = ["protocol","agent-layer","service","hosted-surface"]
 
+[capability.native-payment-finality]
+title = "Native payment execution and block finality"
+enforcement = "protocol"
+surface = "Native transactions and committed block evidence"
+statement = "Transactions execute in the network; finality follows BFT block commit."
+
 [capability.atomic-settlement]
 title = "Atomic settlement"
 enforcement = "protocol"
@@ -25,7 +31,7 @@ statement = "Each principal's activity sequence is consumed exactly once. Resubm
 title = "Offline receipt verification"
 enforcement = "protocol"
 surface = "layerx receipt verify, and the verify APIs in every SDK"
-statement = "A receipt verifies from its own bytes against an authorised batch header: canonical encoding, protocol invariants, root chain and signature. Verification needs no LayerX node, gateway or hosted service, so a settlement claim can be checked by someone who trusts none of them."
+statement = "The local compatibility verifier checks receipt bytes against independently trusted, caller-supplied batch facts: canonical encoding, protocol invariants, root chain and signature. It needs no node, gateway or hosted service; current network finality requires committed block evidence."
 
 [capability.budget-ceiling]
 title = "Protocol budget ceilings"
@@ -63,6 +69,12 @@ enforcement = "agent-layer"
 surface = "capability.create, capability.attenuate and capability.revoke"
 statement = "layerx-agentd refuses a request that falls outside the presented capability and lets you narrow or revoke one at any time. This binds callers that go through the daemon; a principal reaching the protocol another way is bound by protocol budgets, not by this."
 
+[capability.mcp-binding-access]
+title = "MCP binding and catalogue access"
+enforcement = "agent-layer"
+surface = "MCP installation and the enrolled agent runtime"
+statement = "The enrolled runtime supplies credentials and readiness evidence."
+
 [capability.approval-holds]
 title = "Approval holds"
 enforcement = "agent-layer"
@@ -92,6 +104,12 @@ title = "Quote then commit"
 enforcement = "service"
 surface = "move.quote and move.commit"
 statement = "A quote states the fee estimate with its ceiling, the arrival expectation and any irreversibility before anything moves, and the commit turns exactly that quote into a journey. The human service enforces the ordering; callers of that service are bound by it."
+
+[capability.a2a-validation-and-authentication]
+title = "A2A transaction validation and local bearer checks"
+enforcement = "service"
+surface = "The CLI A2A runtime and its loopback JSON-RPC endpoint"
+statement = "The CLI runtime checks signed inputs and authenticates local requests."
 
 [capability.idempotent-money-moves]
 title = "Idempotent money moves"
@@ -134,6 +152,12 @@ title = "API keys, usage and request logs"
 enforcement = "hosted-surface"
 surface = "The developer dashboard"
 statement = "Key issuance, rotation, usage counters, request logs and webhook delivery logs are controls of the hosted deployment. They bind traffic arriving through the hosted gateway."
+
+[capability.hosted-credentials-and-funding]
+title = "Hosted credentials and funding eligibility"
+enforcement = "hosted-surface"
+surface = "Hosted provisioning and funding allocations"
+statement = "Deployment policy controls access and allocations; emulator balances confer no mainnet funds."
 
 [capability.hosted-rate-limits]
 title = "Hosted rate limits"

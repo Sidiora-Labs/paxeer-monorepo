@@ -210,16 +210,16 @@ mapping is provisioned with the converted base64 array. Gateway-wide service
 mTLS also remains unset there: enabling it requires the Docker entrypoint to
 stage the two `LAYERX_GATEWAY_SERVICE_CLIENT_IDENTITY_*` files before dropping
 privileges. Existing event-producer mTLS uses its separate supported file
-variables. The repair record assigns both Docker changes to their owning task.
+variables. The Docker entrypoint must support staging both the converted
+receipt-key file and service identity files before those options can be enabled.
 
-Qualification for this repair executes the existing production provisioning,
-Secret serialization and manifest renderer, and checks source wiring into the
-Rust loader and key reader. It does not launch the Rust binary or certify a live cluster. The existing Kubernetes RPC list contains one
-controlled boundary URL while the current relay requires two to eight distinct
-URLs; reconciling the boundary topology and its prior one-path qualification is
-an external wiring request recorded in the repair ledger. Fresh and retained
-**material provisioning** are proven here; full deployment readiness also needs
-that RPC reconciliation and the operator's existing TLS/Redis/service secrets.
+The provisioning checks execute the existing production provisioning,
+Secret serialization and manifest renderer, and check source wiring into the
+Rust loader and key reader. They do not launch the Rust binary or certify a live
+cluster. The Kubernetes RPC list supplies eight public node root URLs; the relay
+requires two to eight distinct URLs. Full deployment readiness also requires
+testing the configured upstreams and supplying the operator's TLS, Redis and
+service secrets. Successful material provisioning alone does not establish it.
 
 ## Canonical module registry
 

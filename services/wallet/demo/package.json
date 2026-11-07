@@ -2,6 +2,7 @@
   "name": "@paxeer/demo",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.34.9",
   "description": "Paxeer Embedded Wallet \u2014 reference Next.js demo + drop-in components for partner apps.",
   "type": "module",
   "scripts": {
@@ -9,6 +10,7 @@
     "build": "next build",
     "start": "next start -p 3000",
     "lint": "eslint .",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
