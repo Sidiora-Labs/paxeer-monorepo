@@ -208844,7 +208844,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.82]
 title = "Run the tag-gated Go tests and the hpx registry tests from the Go workflow"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
@@ -334221,7 +334221,7 @@ evidence_policy = "Retain credentials, operational inventories and raw qualifica
 
 [task.22.39.31]
 title = "Stop the platform developer site from calling LayerX a network"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.39.30"]
