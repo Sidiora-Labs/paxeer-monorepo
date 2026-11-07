@@ -1,8 +1,4 @@
 {
-  "version": "v6.12.0",
-  "upgrade": "v6.12.0",
-  "hpx_release_identity": {
-    "schema": 1,
-    "provenance_required": true
-  }
+  "version": "v7.0.0",
+  "upgrade": "v7.0"
 }

@@ -57,7 +57,7 @@ for a chain:
 
 These operations are implemented in [the transfer keeper](../keeper/relay.go).
 See [State Transitions](03_state_transitions.md) and
-[ADR 001: Coin Source Tracing](../../../../docs/architecture/adr-001-coin-source-tracing.md)
+[ADR 001: Coin Source Tracing](https://github.com/cosmos/ibc-go/blob/main/docs/architecture/adr-001-coin-source-tracing.md)
 for the tracing model.
 
 ### UX suggestions for clients

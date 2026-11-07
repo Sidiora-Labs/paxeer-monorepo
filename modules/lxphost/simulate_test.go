@@ -150,6 +150,10 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 			require.NotEmpty(t, executed.Encoded)
 			simulated, err := host.Simulate(ctx, activity, authority)
 			require.NoError(t, err)
+			if !tc.refused {
+				require.NotZero(t, executed.KernelGasUsed)
+				require.NotZero(t, simulated.KernelGasUsed)
+			}
 			require.Equal(t, executed.ResultCode, simulated.ResultCode)
 			require.Equal(t, executed.PreviousStateRoot, simulated.PreviousStateRoot)
 			require.Equal(t, executed.ResultingStateRoot, simulated.ResultingStateRoot)
@@ -163,6 +167,22 @@ func TestSimulateMatchesExecuteReceipt(t *testing.T) {
 			require.NotNil(t, simulated.ProgramOutcome)
 			require.Equal(t, sdk.ZeroInt(), simulated.FeeCharged)
 			require.NotEqual(t, simulated.PreviousStateRoot, simulated.ResultingStateRoot)
+		})
+	}
+	for _, bound := range []bool{false, true} {
+		name := "funded_guest"
+		if bound {
+			name = "bound_unsigned_funded_guest"
+		}
+		t.Run(name, func(t *testing.T) {
+			f := repairM909Funded(t)
+			if bound {
+				f.call.Signature = nil
+				f.authority.Bound = true
+			}
+			receipt := simulateFundedParity(t, f.host, f.chain, f.chain.context(2, resolutionBlockTime, 8), f.call, f.authority)
+			require.NotZero(t, receipt.ProgramOutcome.CPUFuel)
+			require.NotZero(t, receipt.KernelGasUsed)
 		})
 	}
 }

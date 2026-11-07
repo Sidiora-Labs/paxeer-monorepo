@@ -2,7 +2,7 @@
 
 The protobuf sources define typed node messages and services for Paxeer. Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`); the kernel is part of the network and proposes blocks. Receipts become final with block commitment. Module names beginning `layerx` are modules or precompile adapters in this network, not a second chain or public interface. Sub-chains are tenant namespaces in the database.
 
-Public Ethereum JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test` and `txpool`. Protobuf gRPC and its HTTP bindings are separate node server transports configured by the operator; do not append an HTTP query path to an Ethereum endpoint and assume it is mounted there. Hosted `px_` methods follow [the gateway's OpenRPC contract](platform-gateway.md). `node.hyperpaxeer.com` is the library mirror, not RPC.
+Public Ethereum JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, or `api-mainnet-beta.paxeer.network`. The node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test` and `txpool`. Protobuf gRPC and its HTTP bindings are separate node server transports configured by the operator; do not append an HTTP query path to an Ethereum endpoint and assume it is mounted there. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway contract](platform-gateway.md). `node.hyperpaxeer.com` is the library mirror, not RPC.
 
 ## Sources and service registration
 

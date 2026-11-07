@@ -2,7 +2,7 @@
 
 Paxeer mainnet-beta is one BFT network with EVM chain ID **125** (`0x7d`). The kernel is part of that network and proposes blocks. A transaction receipt is final once its block is committed. Sub-chains are tenant domains in the database; they do not require another execution/settlement stack.
 
-Public JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`, and `txpool`. Hosted `px_` methods are specified by the [gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint.
+Public JSON-RPC uses the HTTPS root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`. Node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`, and `txpool`. The `px` namespace answers from node state; `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services declared in [the gateway OpenRPC contract](../services/platform/hosted/gateway/openrpc.json). `node.hyperpaxeer.com` is the build library mirror, not an RPC endpoint.
 
 This page restores the retained batch-header format contract used to inspect historical records. Historical names such as `sequencer_id` and `lxp_sequencer_authorization` identify bytes and types in that codec. They do not describe a separate running service or an additional finality vote. The old archive-codec executable is removed; callers retaining historical formats must use the library declarations that still exist.
 

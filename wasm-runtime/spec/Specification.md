@@ -29,7 +29,7 @@ In spite of possible performance gains or compiler guarantees with C-types, I wo
 
 - [repr( c )](https://doc.rust-lang.org/nomicon/other-reprs.html) is a rust directive to produce cannonical C-style memory layouts. This is typically used in FFI (which wasm calls are).
 - [wasm-ffi](https://github.com/DeMille/wasm-ffi) demos how to pass structs between wasm/rust and javascript painlessly. Not into golang, but it provides a nice explanation and design overview.
-- [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen/) also tries to convert types and you can [read some success and limitations of the approach](https://github.com/rustwasm/wasm-bindgen/issues/111)
+- [wasm-bindgen](https://github.com/rustwasm/wasm-bindgen/) also tries to convert types and you can [read some success and limitations of the approach](https://github.com/wasm-bindgen/wasm-bindgen/issues/111)
 - [cgo](https://golang.org/cmd/cgo/#hdr-Go_references_to_C) has some documentation about accessing C structs from Go (which is what we get with the repr( c ) directive)
 
 In short, go/cgo doesn't handle c-types very transparently, and these also don't support references to heap allocated data (eg. strings). All we get is a small performance gain for a lot of headaches... let's stick with json.

@@ -14,7 +14,7 @@ Use root-path node JSON-RPC at
 `https://api1.mainnet-beta.paxeer.network` through
 `https://api14.mainnet-beta.paxeer.network`. Check `eth_chainId` before
 signing, keep multiple nodes configured and compare their block heights.
-The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `test`
+The public node namespaces are `debug`, `echo`, `eth`, `net`, `pax`, `px`, `test`
 and `txpool`; see [Public RPC endpoints](../reference/public-rpc.md).
 
 The former unified router, `/rpc` and `/rpc/ws` public endpoints are retired.

@@ -3,8 +3,8 @@
 ## Where to ask
 
 - Documentation: <https://docs.paxeer.app>. The in-repository wiki starts at [docs/wiki/Home.md](docs/wiki/Home.md).
-- Questions and design discussion: GitHub Discussions at <https://github.com/Sidiora-Labs/Paxeer-X-Network/discussions>.
-- Reproducible defects, build failures and feature requests: GitHub issues at <https://github.com/Sidiora-Labs/Paxeer-X-Network/issues>, using the bug, feature or question form.
+- Questions and design discussion: GitHub Discussions at <https://github.com/Sidiora-Labs/paxeer-monorepo/discussions>.
+- Reproducible defects, build failures and feature requests: GitHub issues at <https://github.com/Sidiora-Labs/paxeer-monorepo/issues>, using the bug, feature or question form.
 - Build, test and repository layout questions: [docs/QUALIFICATION.md](docs/QUALIFICATION.md) and [docs/MONOREPO.md](docs/MONOREPO.md).
 
 The official site is <https://paxeer.network>. These are the only support channels this repository maintains.

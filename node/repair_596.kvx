@@ -1,0 +1,27 @@
+[task]
+id = "22.31.596"
+acceptance = "22998.1"
+base_revision = "12ca7af6a4ddd5034ba93c76f0486eef7ea7e8df"
+baseline = "The task reports both tests failing on main. No baseline test was run: the authorized gates require implementation first and forbid running verify_cmd by hand. The assertions below are identified by source inspection, not claimed as executed baseline evidence."
+evidence = "The private runner ledger /out/run/gates.jsonl records the final candidate revision, exact commands, exit codes and log paths for hf-build and hf-done; hf-done runs both declared tests and records the task qualification. No qualification is claimed before those gates pass."
+build_cmd = "go build ./node/..."
+verify_cmd = "go test -count=1 -timeout 20m ./node/ -run '^(TestInitBenchmark_PanicsOnLiveChainID|TestProofNodeGenesis)$'"
+
+[benchmark]
+classification = "Stale live-chain expectation after the chain mapping moved."
+assertion = "TestInitBenchmark_PanicsOnLiveChainID expected InitBenchmark to panic for pacific-1 / 1329, which modules/evm/config now explicitly treats as non-live."
+repair = "Use hyperpax_125-1 / 125, independently assert its production mapping and live status, require the exact safety panic and an uninitialized benchmark manager. The all-live-chains test covers the complete current production mapping."
+
+[genesis]
+classification = "Stale proof fixture: committed block identity is required for restart, and the full streaming transport includes terminal metadata produced by the export CLI."
+assertion = "The original context omits its header hash, leaving restart without a recoverable committed identity. The first qualification additionally reached stream re-import and panicked with genesis stream is missing a valid genesis header at the InitChain call, before its NoError and sequencer-state assertions."
+repair = "Produce and validate a real consensus header and hash using the persisted validator public key, and assert identical committed identity after reopening. Persist the actual SC options, close the App, then run the built daemon's export command, which calls ExportAppToFileStateAndValidators and appends the required terminal metadata. The production startup reader verifies that complete stream's time, chain, height and consensus parameters before a fresh App imports it. Retain every existing state and malformed-input assertion."
+gotcha = "ExportAppToFileStateAndValidators emits module chunks only; sdk/server.ExportCmd owns the required terminal genesis metadata. Changing the chunk producer to emit it would duplicate metadata in real daemon exports."
+
+[qualification.first_run]
+revision = "f80d7407cd969b2c8f2c54861b91babe5e7abd08"
+command = "cg spec done 22.31.596 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The benchmark safety assertion and genesis commit/reopen completed; stream re-import panicked because the test bypassed the export CLI's terminal metadata writer."
+repair = "Exercise the real daemon export and production streaming metadata reader; preserve strict stream validation and every existing proof assertion."
