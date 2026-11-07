@@ -103,6 +103,15 @@ image_target() {
         | sed -nE 's/^FROM[[:space:]].*[[:space:]][Aa][Ss][[:space:]]+([^[:space:]]+)[[:space:]]*$/\1/p'
 }
 
+image_table_rows() {
+    local name canonical dockerfile
+    for name in "${IMAGE_NAMES[@]}"; do
+        read -r canonical dockerfile <<<"$(image_source "$name")"
+        printf '%s\t%s\t%s\t%s\n' "$name" "$(image_context "$name")" \
+            "$dockerfile" "$(image_target "$name")"
+    done
+}
+
 paxd_build_plan() {
     local node_ref node_recipe paxd_ref paxd_recipe
     read -r node_ref node_recipe < <(image_source paxd-node)
