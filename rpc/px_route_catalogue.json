@@ -13978,7 +13978,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/assets/",
+      "asset_suffixes": [
+        ".js"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:HEAD:/explorer/assets/envs.js",
@@ -13998,7 +14003,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/assets/",
+      "asset_suffixes": [
+        ".js"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:GET:/explorer/assets/favicon/android-chrome-192x192.png",
@@ -14338,7 +14348,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/",
+      "asset_suffixes": [
+        ".txt"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:HEAD:/explorer/robots.txt",
@@ -14358,7 +14373,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/",
+      "asset_suffixes": [
+        ".txt"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:GET:/explorer/sitemap.xml",
@@ -14378,7 +14398,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/",
+      "asset_suffixes": [
+        ".xml"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:HEAD:/explorer/sitemap.xml",
@@ -14398,7 +14423,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/explorer/",
+      "asset_suffixes": [
+        ".xml"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "explorer:GET:/explorer/static/4x4-easter-game-cut.png",
@@ -17225,46 +17255,6 @@
       "service": "wallet-ui",
       "method": "HEAD",
       "path": "/wallet/Paxeer_Sans_Rounded/PPPangramSansRounded-Thin.otf",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:GET:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "GET",
-      "path": "/wallet/Untitled%20design.svg",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:HEAD:/wallet/Untitled%20design.svg",
-      "service": "wallet-ui",
-      "method": "HEAD",
-      "path": "/wallet/Untitled%20design.svg",
       "transport": "http",
       "authentication": "public-read",
       "timeout_seconds": 8,
@@ -26058,7 +26048,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/wallet/",
+      "asset_suffixes": [
+        ".js"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "wallet-ui:HEAD:/wallet/sw.js",
@@ -26078,7 +26073,12 @@
       "timeout_scope": "per-io",
       "connect_timeout_seconds": 3,
       "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
+      "ui_route_kind": "generated-asset",
+      "asset_prefix": "/wallet/",
+      "asset_suffixes": [
+        ".js"
+      ],
+      "asset_max_path_bytes": 1023
     },
     {
       "id": "wallet-ui:GET:/wallet/ui_icons/ABI.svg",
@@ -34625,46 +34625,6 @@
       "service": "wallet-ui",
       "method": "HEAD",
       "path": "/wallet/wallet.svg",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:GET:/wallet/wormhole.svg",
-      "service": "wallet-ui",
-      "method": "GET",
-      "path": "/wallet/wormhole.svg",
-      "transport": "http",
-      "authentication": "public-read",
-      "timeout_seconds": 8,
-      "retries": 0,
-      "health_predicate": "actual-upstream-operation-and-response-contract",
-      "version": "1",
-      "consumers": [
-        "wallet"
-      ],
-      "proxy": true,
-      "timeout_scope": "per-io",
-      "connect_timeout_seconds": 3,
-      "http_protocol": "next-ui",
-      "ui_route_kind": "asset"
-    },
-    {
-      "id": "wallet-ui:HEAD:/wallet/wormhole.svg",
-      "service": "wallet-ui",
-      "method": "HEAD",
-      "path": "/wallet/wormhole.svg",
       "transport": "http",
       "authentication": "public-read",
       "timeout_seconds": 8,
