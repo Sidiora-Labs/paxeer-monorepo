@@ -111,8 +111,9 @@ goldens under `services/wallet/schema/attestor-api/golden/`.
    scripts/wallet/check-deploy.sh
    ```
 
-   Expected: every rule prints `pass`, except the attestor `health-check` rule
-   recorded as observation 3.5.3 in `spec/paxeer-x-wallet/qualification.kvx`.
+   Expected: every rule prints `pass`, except the attestor `health-check` rule.
+   Record the command, exit code and log path in the operator's change record,
+   including that health-check exception.
 
 5. Generate the replacement node's keys straight into the platform secret
    store. Nothing is written to disk.
@@ -150,7 +151,7 @@ goldens under `services/wallet/schema/attestor-api/golden/`.
    Expected: `Secrets have been staged` on all five applications.
 
 8. Deploy the replacement node from its definition with the running image and
-   no public address (observation 3.5.8).
+   no public address.
 
    ```sh
    (cd services/wallet/deploy && flyctl deploy --config attestor-<N>.toml --image <attestor-image> --app paxeer-attestor-<N> --ha=false --no-public-ips -y)
@@ -263,9 +264,9 @@ Every node passes with `peers=4/4`, the replacement's `shares=` equals its
 peers' count, and the quorum line reads `pass quorum ready=5/5 need=3`. The
 gateway's `/readyz` answers 200 with `components.attestors.healthy` of 5.
 A signature through the gateway with a quorum that includes the replacement,
-checked with `scripts/wallet/check-live.sh gateway` (added by task 4.1), closes
+checked with `scripts/wallet/check-live.sh gateway`, closes
 the replacement. Record revision, command, exit code and log path of the
-attestor check in `spec/paxeer-x-wallet/qualification.kvx`.
+attestor check in the operator's change record.
 
 ## Rollback
 
