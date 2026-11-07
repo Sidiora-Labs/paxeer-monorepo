@@ -85,7 +85,7 @@ The public API reaches the node directly at the root path on EVM chain ID 125: t
 
 ### Quick start: connect to chain 125
 
-Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3` and `pax2`. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
+Public node JSON-RPC uses the root URL: `https://api-mainnet-beta.paxeer.network` or the numbered nodes `https://api1.mainnet-beta.paxeer.network` through `https://api14.mainnet-beta.paxeer.network`. Send HTTPS JSON-RPC requests to the root path of these hosts, without a route suffix. Node API families include `debug`, `echo`, `eth`, `net`, `pax`, `px` and `txpool`; `test` is restricted to non-live chain IDs. The [node registrations](rpc/server.go) also include `web3`, `pax2` and native `px_` account/history and receipt-key methods. Method availability depends on node configuration and the queried domain. Confirm the chain ID before signing or broadcasting:
 
 ```sh
 curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
@@ -96,7 +96,7 @@ curl --max-time 10 -sS https://api1.mainnet-beta.paxeer.network \
 
 Configure more than one node and compare `eth_blockNumber` when selecting one near the head. `node.hyperpaxeer.com` is only the hpx library mirror used by build and installation tooling, never a JSON-RPC endpoint.
 
-The node answers the `px` namespace from node state. `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services: the node validates their parameters and answers `-32004` with data code `hosted_gateway_service_required`. Their contract is [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json); obtain the hosted service URL and credentials from the operator. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
+The node answers the `px` namespace from node state. The hosted gateway's `px_` API is defined by [`services/platform/hosted/gateway/openrpc.json`](services/platform/hosted/gateway/openrpc.json). Obtain its deployment URL and credentials from the operator; the gateway contract does not establish method availability at public node URLs. `px_getReceiptKeys` is registered by the node, and the gateway relays its governed key ranges. `px_register` and `px_requestFunds` are operations of the hosted identity and faucet services: the node validates their parameters and answers `-32004` with data code `hosted_gateway_service_required`. Mainnet-beta uses real value; hosted funding and private test-environment faucets have their own access policies.
 
 ### Submit a transaction and follow its committed receipt
 
