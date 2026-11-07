@@ -91,31 +91,6 @@ func readBridgeSession(t *testing.T, actor, session testActor, action [32]byte,
 	return payload, id, summary
 }
 
-func readBridgePayerGrant(t *testing.T, actor testActor, from, recipient, asset [32]byte,
-	expiration uint64) ([]byte, [32]byte) {
-	t.Helper()
-	body := append([]byte(nil), from[:]...)
-	body = append(body, recipient[:]...)
-	body = append(body, asset[:]...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 40)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 100)
-	body = append(body, 0)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = binary.BigEndian.AppendUint64(body, expiration)
-	body = append(body, bytes.Repeat([]byte{0x22}, 32)...)
-	body = append(body, 0)
-	body = append(body, make([]byte, 32)...)
-	body = binary.BigEndian.AppendUint64(body, 0)
-	body = append(body, actor.public[:]...)
-	message := append([]byte("LXP:GRANT:v1"), body...)
-	id, err := codec.DomainHash(codec.DomainAuthorityHash, message)
-	require.NoError(t, err)
-	grant := append(append([]byte(nil), id[:]...), body...)
-	return append(grant, ed25519.Sign(actor.private, id[:])...), id
-}
-
 func TestReadBridgeValues(t *testing.T) {
 	const blockTime = int64(10000)
 
@@ -164,50 +139,6 @@ func TestReadBridgeValues(t *testing.T) {
 		require.Equal(t, Code(-7), err)
 		require.Nil(t, missing)
 		require.Equal(t, before, chain.dump())
-	})
-
-	t.Run("receipt", func(t *testing.T) {
-		chain := newTestChain(t)
-		host := chain.host(t)
-		actor := newTestActor(t, 34)
-		activity := actor.register(t, host, 0, blockTime)
-		original := execute(t, host, chain.context(1, blockTime, 41), activity, actor.authority())
-		require.Equal(t, Code(0), original.ResultCode)
-		ctx := chain.context(1, blockTime, 41)
-		before := chain.dump()
-		stored, err := host.ReadIdempotentReceipt(ctx, actor.did, activity.IdempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, original.ResultCode, stored.ResultCode)
-		require.Equal(t, original.GlobalSequence, stored.GlobalSequence)
-		require.Equal(t, original.Timestamp, stored.Timestamp)
-		require.Equal(t, original.PreviousStateRoot, stored.PreviousStateRoot)
-		require.Equal(t, original.ResultingStateRoot, stored.ResultingStateRoot)
-		decoded, err := codec.DecodeReceipt(stored.Encoded)
-		require.NoError(t, err)
-		require.Equal(t, original.Encoded, decoded.UnsignedBytes())
-		require.Equal(t, before, chain.dump())
-
-		fresh := chain.host(t)
-		again, err := fresh.ReadIdempotentReceipt(ctx, actor.did, activity.IdempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, stored, again)
-		replayed, err := fresh.Execute(chain.context(1, blockTime, 42), activity, actor.authority())
-		require.Equal(t, Code(-302), err)
-		require.Equal(t, Receipt{}, replayed)
-		require.Equal(t, before, chain.dump())
-		again, err = fresh.ReadIdempotentReceipt(ctx, actor.did, activity.IdempotencyKey)
-		require.NoError(t, err)
-		require.Equal(t, stored, again)
-		other := newTestActor(t, 35)
-		missing, err := host.ReadIdempotentReceipt(ctx, other.did, activity.IdempotencyKey)
-		require.Equal(t, Code(-7), err)
-		require.Equal(t, Receipt{}, missing)
-		missing, err = host.ReadIdempotentReceipt(ctx, actor.did, [32]byte{1})
-		require.Equal(t, Code(-7), err)
-		require.Equal(t, Receipt{}, missing)
-		missing, err = host.ReadIdempotentReceipt(ctx, make([]byte, 513), activity.IdempotencyKey)
-		require.Equal(t, codeNonCanonical, err)
-		require.Equal(t, Receipt{}, missing)
 	})
 
 	t.Run("assets_and_accounts", func(t *testing.T) {
@@ -328,32 +259,6 @@ func TestReadBridgeValues(t *testing.T) {
 		unpaused := actor.activity(t, host, 0x00010003, 4, blockTime, append([]byte{0, 1}, asset[:]...))
 		receipt = execute(t, host, chain.context(1, blockTime, 45), unpaused, actor.authority())
 		require.Equal(t, Code(0), receipt.ResultCode)
-		grant, grantID := readBridgePayerGrant(t, actor, accountID, accountID, asset, uint64(blockTime)+1000)
-		issued := actor.activity(t, host, 0x00010007, 5, blockTime, grant)
-		receipt = execute(t, host, chain.context(1, blockTime, 46), issued, actor.authority())
-		require.Equal(t, Code(0), receipt.ResultCode)
-		grantState, err := host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, PayerGrantState{Grant: grant, DrawnTotal: sdk.ZeroInt(),
-			DrawnThisPeriod: sdk.ZeroInt()}, grantState)
-		revocation := append([]byte{0, 1}, grantID[:]...)
-		revocation = binary.BigEndian.AppendUint64(revocation, 6)
-		revoked := actor.activity(t, host, 0x00010008, 6, blockTime, revocation)
-		receipt = execute(t, host, chain.context(1, blockTime, 47), revoked, actor.authority())
-		require.Equal(t, Code(0), receipt.ResultCode)
-		grantState, err = host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, PayerGrantState{Grant: grant, DrawnTotal: sdk.ZeroInt(),
-			DrawnThisPeriod: sdk.ZeroInt(), Revoked: true, RevokedAt: 47}, grantState)
-		before = chain.dump()
-		freshGrant, err := fresh.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, grantState, freshGrant)
-		freshGrant.Grant[0] ^= 0xff
-		again, err := host.ReadPayerGrant(ctx, grantID)
-		require.NoError(t, err)
-		require.Equal(t, grantState, again)
-		require.Equal(t, before, chain.dump())
 	})
 }
 
@@ -381,9 +286,6 @@ func TestReadBridgeRefusals(t *testing.T) {
 	summary, err := host.ReadSessionKey(ctx, id)
 	require.Equal(t, Code(-7), err)
 	require.Nil(t, summary)
-	grant, err := host.ReadPayerGrant(ctx, id)
-	require.Equal(t, Code(-214), err)
-	require.Equal(t, PayerGrantState{}, grant)
 	host.Close()
 	_, err = host.ReadAsset(ctx, id)
 	require.Equal(t, codeNonCanonical, err)
@@ -397,9 +299,7 @@ func TestReadBridgeRefusals(t *testing.T) {
 	require.Equal(t, codeNonCanonical, err)
 	_, err = host.ReadSessionKey(ctx, id)
 	require.Equal(t, codeNonCanonical, err)
-	_, err = host.ReadPayerGrant(ctx, id)
-	require.Equal(t, codeNonCanonical, err)
-	_, err = host.ReadIdempotentReceipt(ctx, nil, id)
+	_, err = host.ReadIdentityState(ctx, nil)
 	require.Equal(t, codeNonCanonical, err)
 }
 
@@ -411,8 +311,8 @@ func TestReadBridgeInvalidStore(t *testing.T) {
 	}{
 		{"sequence_length", []byte{lastSequenceKey}, []byte{1}, codeFatalInvariant},
 		{"sequence_overflow", []byte{lastSequenceKey}, binary.BigEndian.AppendUint64(nil, math.MaxUint64), Code(-307)},
-		{"module_key", []byte{moduleKVPrefix, 1}, []byte{1}, codeFatalInvariant},
-		{"replay_key", []byte{idempotencyPrefix, 1}, []byte{1}, codeFatalInvariant},
+		{"module_key", moduleKVKey(governanceModule, nil), []byte{1}, codeFatalInvariant},
+		{"replay_key", []byte{idempotencyPrefix, 1}, []byte{1}, Code(-7)},
 		{"account_key", []byte{accountPrefix, 1}, []byte{1}, codeFatalInvariant},
 	} {
 		t.Run(test.name, func(t *testing.T) {

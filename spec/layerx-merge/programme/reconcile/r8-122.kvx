@@ -1,0 +1,243 @@
+[reconcile.r8-122]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-122.1]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentsessionlistasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 520
+symbol = "AgentSessionListAsync"
+evidence = "GeneratedPlatformClientExtensions declares the public static Task<JsonValue> extension with PlatformClient, JsonValue request, optional path parameters and cancellation token; its body calls client.ReadAsync for AgentSessionList. The registered signature is unchanged."
+
+[row.r8-122.2]
+interface = "interface.8.go-sdkcs-generatedplatformclientextensions-agentsessionopenasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Generated/OperationCatalog.cs"
+line = 522
+symbol = "AgentSessionOpenAsync"
+evidence = "GeneratedPlatformClientExtensions declares the public static Task<JsonValue> extension with PlatformClient, JsonValue request, required IdempotencyKey, optional path parameters and cancellation token; its body calls client.MutateAsync for AgentSessionOpen. The registered signature is unchanged."
+
+[row.r8-122.3]
+interface = "interface.8.go-sdkcs-agentenveloperesult"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 293
+symbol = "AgentEnvelopeResult"
+evidence = "The public sealed record declaration retains positional fields string RequestId, JsonValue Value and JsonValue VerificationStatus; the later SendEnvelopeAsync return type and DecodeResponse construction are uses, not this definition."
+
+[row.r8-122.4]
+interface = "interface.8.go-sdkcs-agentenvelopetransport"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 295
+symbol = "AgentEnvelopeTransport"
+evidence = "The public sealed class declaration implements IPlatformTransport and IDisposable. This is the type definition; the public constructor at line 313, private constructor at line 349 and ForDaemon return type are distinct occurrences."
+
+[row.r8-122.5]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-agentenvelopetransport"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 313
+symbol = "AgentEnvelopeTransport"
+evidence = "The public constructor takes Uri baseUri, AgentSessionCredential? credential, optional LayerXKeyCredential? gatewayKey and optional X509Certificate2? trustedRoot. This matches the registered public signature; the private endpoint/handler constructor at line 349 does not."
+
+[row.r8-122.6]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-daemonroutepath"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 299
+symbol = "DaemonRoutePath"
+evidence = "AgentEnvelopeTransport declares public const string DaemonRoutePath = \"/rpc\"; the ForDaemon UriBuilder later uses this constant. The registered constant signature and value are unchanged."
+
+[row.r8-122.7]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-dispose"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 621
+symbol = "Dispose"
+evidence = "AgentEnvelopeTransport declares public void Dispose() => _httpClient.Dispose(); at the end of the class. The other Dispose declarations belong to credentials and dispose their secret storage, rather than this transport HTTP client."
+
+[row.r8-122.8]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-fordaemon"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 357
+symbol = "ForDaemon"
+evidence = "AgentEnvelopeTransport declares public static AgentEnvelopeTransport ForDaemon(Uri baseUri, AgentSessionCredential? credential, HttpClientHandler handler); it validates the daemon HTTPS handler and constructs the transport with DaemonRoutePath. The registered signature is unchanged."
+
+[row.r8-122.9]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-maximumrequestbytes"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 300
+symbol = "MaximumRequestBytes"
+evidence = "AgentEnvelopeTransport declares public const int MaximumRequestBytes = 1_048_576; its later request encoder compares encoded.Length against this declaration. The registered constant signature and limit are unchanged."
+
+[row.r8-122.10]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-routepath"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 298
+symbol = "RoutePath"
+evidence = "AgentEnvelopeTransport declares public const string RoutePath = \"/v1/agent/rpc\"; its public constructor later uses RoutePath in UriBuilder. The declaration is distinct from the adjacent DaemonRoutePath constant."
+
+[row.r8-122.11]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-sendasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 371
+symbol = "SendAsync"
+evidence = "Within AgentEnvelopeTransport, the public async Task<JsonValue> SendAsync(TransportCall call, CancellationToken cancellationToken = default) delegates to SendEnvelopeAsync and returns Value. This matches the registered expression-bodied method, rather than HumanHttpTransport.SendAsync or HttpClient calls."
+
+[row.r8-122.12]
+interface = "interface.8.go-sdkcs-agentenvelopetransport-sendenvelopeasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 374
+symbol = "SendEnvelopeAsync"
+evidence = "AgentEnvelopeTransport declares public async Task<AgentEnvelopeResult> SendEnvelopeAsync with TransportCall, an optional CancellationToken and optional Action<int, byte[]>? observeResponse; it constructs the envelope request and decodes the response. The call at line 372 is not the definition."
+
+[row.r8-122.13]
+interface = "interface.8.go-sdkcs-agentsessioncredential"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 256
+symbol = "AgentSessionCredential"
+evidence = "The public sealed class AgentSessionCredential : IDisposable owns tenant, session ID, generation and secret token storage. This is the type declaration, rather than its constructor or transport parameter types."
+
+[row.r8-122.14]
+interface = "interface.8.go-sdkcs-agentsessioncredential-agentsessioncredential"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 265
+symbol = "AgentSessionCredential"
+evidence = "The public AgentSessionCredential constructor takes string tenant, ReadOnlySpan<byte> sessionId, ReadOnlySpan<byte> tokenId and ulong generation. Its body validates the tenant and 32-byte IDs; the matching class declaration at line 256 is a different registry row."
+
+[row.r8-122.15]
+interface = "interface.8.go-sdkcs-agentsessioncredential-tostring"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 290
+symbol = "ToString"
+evidence = "Inside AgentSessionCredential, public override string ToString() returns \"[REDACTED]\". Other credentials also override ToString, and Write calls Generation.ToString; the enclosing AgentSessionCredential class identifies the registered declaration."
+
+[row.r8-122.16]
+interface = "interface.8.go-sdkcs-humanhttptransport"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 115
+symbol = "HumanHttpTransport"
+evidence = "The public sealed class HumanHttpTransport : IPlatformTransport declaration precedes the human HTTP transport fields and constructor. Constructor and other type-name occurrences do not define the registered class."
+
+[row.r8-122.17]
+interface = "interface.8.go-sdkcs-humanhttptransport-humanhttptransport"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 123
+symbol = "HumanHttpTransport"
+evidence = "The public HumanHttpTransport constructor takes Uri baseUri, optional HttpClient? httpClient = null and optional AccessToken? accessToken = null. The signature matches the registry; its body validates the URI and initializes the HTTP client and access token."
+
+[row.r8-122.18]
+interface = "interface.8.go-sdkcs-humanhttptransport-sendasync"
+verdict = "served"
+path = "sdk/platform/dotnet/Transport.cs"
+line = 133
+symbol = "SendAsync"
+evidence = "Inside HumanHttpTransport, public async Task<JsonValue> SendAsync(TransportCall call, CancellationToken cancellationToken = default) has a block body that validates PlatformPlane.Human and sends HTTP. This is distinct from AgentEnvelopeTransport.SendAsync and _httpClient.SendAsync calls."
+
+[row.r8-122.19]
+interface = "interface.8.rs-sdkgen-capture"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1625
+symbol = "capture"
+evidence = "The public Rust declaration pub fn capture(repo_root: &Path) -> Result<Pipeline, String> hashes schema sources, generators and output trees, then returns Pipeline. Later capture(repo_root) occurrences are calls; the registered signature is unchanged."
+
+[row.r8-122.20]
+interface = "interface.8.rs-sdkgen-check"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1947
+symbol = "check"
+evidence = "The public Rust declaration pub fn check(repo_root: &Path, lock_path: &Path) -> Result<(), String> reads and parses the committed lock, captures live state and runs drift_gate plus SDK checks. Local variables named check and CLI dispatch calls do not define this function."
+
+[row.r8-122.21]
+interface = "interface.8.rs-sdkgen-drift-gate"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1848
+symbol = "drift_gate"
+evidence = "The public Rust declaration pub fn drift_gate(committed: &Pipeline, live: &Pipeline) -> Result<(), String> compares sources, generators and SDK outputs; check later calls it. This definition retains the registered signature."
+
+[row.r8-122.22]
+interface = "interface.8.rs-sdkgen-generate-rust-operation-catalog"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1174
+symbol = "generate_rust_operation_catalog"
+evidence = "The crate-visible Rust definition pub(crate) fn generate_rust_operation_catalog(repo_root: &Path) -> Result<String, String> reads the agent schema and renders the operation catalogue. Later check/write helpers call it; visibility, parameters and return type match the registry."
+
+[row.r8-122.23]
+interface = "interface.8.rs-sdkgen-parse-lock"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1767
+symbol = "parse_lock"
+evidence = "The public Rust definition pub fn parse_lock(source: &str) -> Result<Pipeline, String> parses the pipeline lock and validates its declarations. The later call in check is a use, while this declaration matches the registered signature."
+
+[row.r8-122.24]
+interface = "interface.8.rs-sdkgen-render"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1687
+symbol = "render"
+evidence = "The public Rust definition pub fn render(pipeline: &Pipeline) -> Result<String, String> writes pipeline lock sections. Earlier diagnostic strings mentioning render and the later render(&pipeline) call are not the function definition; the registered signature is unchanged."
+
+[row.r8-122.25]
+interface = "interface.8.rs-sdkgen-write-lock"
+verdict = "served"
+path = "sdk/platform/generators/src/main.rs"
+line = 1971
+symbol = "write_lock"
+evidence = "The public Rust definition pub fn write_lock(repo_root: &Path, lock_path: &Path) -> Result<(), String> generates SDK outputs and replaces the classified lock. The CLI --write arm later calls this function; its declaration retains the registered signature."
+
+[row.r8-122.26]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 748
+symbol = "AgentApprovalDecisionOutcome"
+evidence = "The Go declaration type AgentApprovalDecisionOutcome string defines the outcome type. Constants below use that type and Valid uses it as a receiver; those occurrences do not define it. The registered underlying string type is unchanged."
+
+[row.r8-122.27]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomealreadydecided"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 755
+symbol = "AgentApprovalOutcomeAlreadyDecided"
+evidence = "The Go const block declares AgentApprovalOutcomeAlreadyDecided AgentApprovalDecisionOutcome = \"AlreadyDecided\". Its occurrence in the Valid switch is a use; the declared name, outcome type and literal match the registry."
+
+[row.r8-122.28]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomeconflict"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 756
+symbol = "AgentApprovalOutcomeConflict"
+evidence = "The Go const block declares AgentApprovalOutcomeConflict AgentApprovalDecisionOutcome = \"Conflict\". Its occurrence in the Valid switch is a use; the declared name, outcome type and literal match the registry."
+
+[row.r8-122.29]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomedefective"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 754
+symbol = "AgentApprovalOutcomeDefective"
+evidence = "The Go const block declares AgentApprovalOutcomeDefective AgentApprovalDecisionOutcome = \"Defective\". Its occurrence in the Valid switch is a use; the declared name, outcome type and literal match the registry."
+
+[row.r8-122.30]
+interface = "interface.8.go-sdkgo-agentapprovaldecisionoutcome-agentapprovaloutcomeexpired"
+verdict = "served"
+path = "sdk/platform/go/generated.go"
+line = 753
+symbol = "AgentApprovalOutcomeExpired"
+evidence = "The Go const block declares AgentApprovalOutcomeExpired AgentApprovalDecisionOutcome = \"Expired\". Its occurrence in the Valid switch is a use; the declared name, outcome type and literal match the registry."

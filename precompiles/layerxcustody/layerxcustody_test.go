@@ -279,46 +279,31 @@ func TestTokenDepositThroughThePointerMap(t *testing.T) {
 	h.solvent()
 }
 
-func TestWithdrawalPaysOnceThroughThePrecompile(t *testing.T) {
+func (h *harness) requireProofRetired(name string, args ...interface{}) {
+	h.t.Helper()
+	before := h.keeper.ExportGenesis(h.ctx)
+	events := append(sdk.Events{}, h.ctx.EventManager().Events()...)
+	logs := append([]*ethtypes.Log{}, h.stateDB.GetAllLogs()...)
+	out, err := h.precompile.Run(h.evm, h.caller, h.caller, h.input(name, args...), nil, false, false, nil)
+	require.ErrorIs(h.t, err, vm.ErrExecutionReverted)
+	require.Equal(h.t, pcommon.RevertReason(types.ErrModuleRetired), out)
+	require.Equal(h.t, before, h.keeper.ExportGenesis(h.ctx))
+	require.Equal(h.t, events, h.ctx.EventManager().Events())
+	require.Equal(h.t, logs, h.stateDB.GetAllLogs())
+}
+
+func TestWithdrawalRetirementPreservesFundsThroughThePrecompile(t *testing.T) {
 	h := newHarness(t, 0)
 	_, err := h.run(layerxcustody.DepositMethod, new(big.Int).Mul(big.NewInt(1_000), weiPerBase), false, false, beneficiary)
 	require.NoError(t, err)
-	recipient := common.BytesToAddress(raw(t, h.withdrawal, "recipient"))
-
-	out, err := h.call(layerxcustody.FinaliseWithdrawalMethod, h.withdrawalArgs()...)
-	require.NoError(t, err)
-	claimID := out[0].([32]byte)
-	nullifier := array(t, h.withdrawal, "nullifier")
-	require.Equal(t, types.WithdrawalClaimID(testkeeper.EVMTestApp.EvmKeeper.ChainID(h.ctx), nullifier, recipient), claimID)
-	require.Equal(t, sdk.NewInt(1), h.balance(h.pax(recipient), sdk.MustGetBaseDenom()))
-	require.Equal(t, sdk.NewInt(999), h.balance(h.keeper.ModuleAddress(), sdk.MustGetBaseDenom()))
-
-	queued := h.logs("ClaimQueued(bytes32,bytes32,bytes32,bytes32,address,uint256,uint64)")
-	require.Len(t, queued, 1)
-	require.Equal(t, []common.Hash{queued[0].Topics[0], claimID, nullifier, array(t, h.withdrawal, "anchor")}, queued[0].Topics)
-	finalised := h.logs("ClaimFinalised(bytes32,bytes32)")
-	require.Len(t, finalised, 1)
-	require.Equal(t, []common.Hash{finalised[0].Topics[0], claimID, nullifier}, finalised[0].Topics)
-	released := h.logs("CustodyRelease(bytes32,bytes32,address,uint256,address)")
-	require.Len(t, released, 1)
-	require.Equal(t, common.BytesToHash(recipient.Bytes()), released[0].Topics[3])
-	require.Equal(t, big.NewInt(1), new(big.Int).SetBytes(released[0].Data[:32]))
-	require.Equal(t, custody, common.BytesToAddress(released[0].Data[32:64]))
-	require.Equal(t, 1, h.typedEvents("EventClaimFinalised"))
-	require.Equal(t, 1, h.typedEvents("EventCustodyRelease"))
-
-	claim := *abi.ConvertType(h.view(layerxcustody.GetClaimMethod, claimID)[0], new(layerxcustody.Claim)).(*layerxcustody.Claim)
-	require.Equal(t, uint8(2), claim.Status)
-	require.Equal(t, uint8(1), claim.Kind)
-	require.Equal(t, recipient, claim.Recipient)
-	require.Equal(t, uint8(2), h.view(layerxcustody.NullifierStatusMethod, nullifier)[0])
-
-	_, err = h.call(layerxcustody.FinaliseWithdrawalMethod, h.withdrawalArgs()...)
-	require.Error(t, err, "replay")
-	_, err = h.call(layerxcustody.RequestWithdrawalMethod, h.withdrawalArgs()...)
-	require.Error(t, err, "replay")
-	require.Equal(t, sdk.NewInt(1), h.balance(h.pax(recipient), sdk.MustGetBaseDenom()))
-	require.Len(t, h.logs("CustodyRelease(bytes32,bytes32,address,uint256,address)"), 1)
+	recipient := h.pax(common.BytesToAddress(raw(t, h.withdrawal, "recipient")))
+	before := h.balance(recipient, sdk.MustGetBaseDenom())
+	for _, method := range []string{layerxcustody.FinaliseWithdrawalMethod, layerxcustody.RequestWithdrawalMethod} {
+		h.requireProofRetired(method, h.withdrawalArgs()...)
+		h.requireProofRetired(method, h.withdrawalArgs()...)
+	}
+	require.Equal(t, before, h.balance(recipient, sdk.MustGetBaseDenom()))
+	require.Equal(t, sdk.NewInt(1_000), h.balance(h.keeper.ModuleAddress(), sdk.MustGetBaseDenom()))
 	h.solvent()
 }
 
@@ -326,37 +311,37 @@ func TestWithdrawalDelayAndRefusalsThroughThePrecompile(t *testing.T) {
 	h := newHarness(t, 900)
 	_, err := h.run(layerxcustody.DepositMethod, new(big.Int).Mul(big.NewInt(1_000), weiPerBase), false, false, beneficiary)
 	require.NoError(t, err)
-	recipient := h.pax(common.BytesToAddress(raw(t, h.withdrawal, "recipient")))
-
 	for index, name := range []string{"receipt", "proof", "header", "header signature"} {
-		args := h.withdrawalArgs()
-		mutated := append([]byte(nil), args[index].([]byte)...)
-		mutated[len(mutated)-1] ^= 1
-		args[index] = mutated
-		_, err = h.call(layerxcustody.RequestWithdrawalMethod, args...)
-		require.Error(t, err, name)
-		_, err = h.call(layerxcustody.FinaliseWithdrawalMethod, args...)
-		require.Error(t, err, name)
+		t.Run(name, func(t *testing.T) {
+			args := h.withdrawalArgs()
+			mutated := append([]byte(nil), args[index].([]byte)...)
+			mutated[len(mutated)-1] ^= 1
+			args[index] = mutated
+			h.requireProofRetired(layerxcustody.RequestWithdrawalMethod, args...)
+			h.requireProofRetired(layerxcustody.FinaliseWithdrawalMethod, args...)
+		})
 	}
 	_, err = h.run(layerxcustody.RequestWithdrawalMethod, nil, true, false, h.withdrawalArgs()...)
-	require.Error(t, err, "staticcall")
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	_, err = h.run(layerxcustody.RequestWithdrawalMethod, big.NewInt(1), false, false, h.withdrawalArgs()...)
-	require.Error(t, err, "non-payable")
-
-	out, err := h.call(layerxcustody.RequestWithdrawalMethod, h.withdrawalArgs()...)
-	require.NoError(t, err)
-	require.Equal(t, uint64(genesisTime.Unix()+900), out[1]) //nolint:gosec
-	require.Len(t, h.logs("ClaimQueued(bytes32,bytes32,bytes32,bytes32,address,uint256,uint64)"), 1)
-	require.Equal(t, uint8(1), h.view(layerxcustody.NullifierStatusMethod, array(t, h.withdrawal, "nullifier"))[0])
-	_, err = h.call(layerxcustody.FinaliseWithdrawalMethod, h.withdrawalArgs()...)
-	require.Error(t, err, "delay")
-	require.True(t, h.balance(recipient, sdk.MustGetBaseDenom()).IsZero())
-
+	require.ErrorIs(t, err, vm.ErrExecutionReverted)
+	h.requireProofRetired(layerxcustody.RequestWithdrawalMethod, h.withdrawalArgs()...)
 	h.at(h.ctx.WithBlockTime(genesisTime.Add(900 * time.Second)))
-	_, err = h.call(layerxcustody.FinaliseWithdrawalMethod, h.withdrawalArgs()...)
-	require.NoError(t, err)
-	require.Equal(t, sdk.NewInt(1), h.balance(recipient, sdk.MustGetBaseDenom()))
-	require.Empty(t, h.logs("ClaimQueued(bytes32,bytes32,bytes32,bytes32,address,uint256,uint64)"))
+	h.requireProofRetired(layerxcustody.FinaliseWithdrawalMethod, h.withdrawalArgs()...)
+	testkeeper.EVMTestApp.UpgradeKeeper.SetDone(h.ctx, types.MergePlanUpgrade)
+	before := h.keeper.ExportGenesis(h.ctx)
+	events := append(sdk.Events{}, h.ctx.EventManager().Events()...)
+	for _, method := range []string{layerxcustody.RequestWithdrawalMethod, layerxcustody.FinaliseWithdrawalMethod} {
+		out, err := h.precompile.Run(h.evm, h.caller, h.caller, h.input(method, h.withdrawalArgs()...), nil, false, false, nil)
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		reason, err := abi.UnpackRevert(out)
+		require.NoError(t, err)
+		require.Equal(t, layerxcustody.RetiredRevert, reason)
+		require.Equal(t, pcommon.RetiredRevert("layerxCustody"), out)
+	}
+	require.Equal(t, before, h.keeper.ExportGenesis(h.ctx))
+	require.Equal(t, events, h.ctx.EventManager().Events())
+	require.Empty(t, h.stateDB.GetAllLogs())
 	h.solvent()
 }
 
@@ -365,40 +350,22 @@ func TestForcedExitThroughThePrecompile(t *testing.T) {
 	_, err := h.call(layerxcustody.DepositTokenMethod, tokenPointer, big.NewInt(6_000_000), beneficiary)
 	require.NoError(t, err)
 	batch := number(t, h.withdrawal, "batch_number") + 2
-	stateRoot := array(t, h.exit, "state_root")
-	require.NoError(t, h.keeper.RegisterCheckpoint(h.ctx, batch, stateRoot, [32]byte{7}))
-	recipient := common.BytesToAddress(raw(t, h.exit, "recipient"))
-
-	require.Equal(t, false, h.view(layerxcustody.ExitEligibleMethod)[0])
-	_, err = h.call(layerxcustody.ExecuteForcedExitMethod, h.exitArgs(batch)...)
-	require.Error(t, err, "not eligible")
-	require.NoError(t, h.keeper.SetEmergency(h.ctx, true))
-	h.at(h.ctx)
-	require.Equal(t, true, h.view(layerxcustody.ExitEligibleMethod)[0])
-
-	stolen := h.exitArgs(batch)
-	stolen[4] = h.caller
-	_, err = h.call(layerxcustody.ExecuteForcedExitMethod, stolen...)
-	require.Error(t, err, "a recipient the authority did not sign")
-
-	out, err := h.call(layerxcustody.ExecuteForcedExitMethod, h.exitArgs(batch)...)
-	require.NoError(t, err)
-	claimID := out[0].([32]byte)
-	require.Equal(t, sdk.NewInt(5_000_000), h.balance(h.pax(recipient), tokenDenom))
-	require.Equal(t, sdk.NewInt(1_000_000), h.balance(h.keeper.ModuleAddress(), tokenDenom))
-	executed := h.logs("EmergencyExitExecuted(bytes32,bytes32,bytes32,bytes32,bytes32,address,uint256)")
-	require.Len(t, executed, 1)
-	require.Equal(t, common.Hash(claimID), executed[0].Topics[1])
-	require.Equal(t, common.Hash(stateRoot), executed[0].Topics[3])
-	require.Equal(t, big.NewInt(5_000_000), new(big.Int).SetBytes(executed[0].Data[96:128]))
-	require.Len(t, h.logs("CustodyRelease(bytes32,bytes32,address,uint256,address)"), 1)
-	require.Equal(t, 1, h.typedEvents("EventForcedExitExecuted"))
-
-	_, err = h.call(layerxcustody.ExecuteForcedExitMethod, h.exitArgs(batch)...)
-	require.Error(t, err, "replay")
-	_, err = h.call(layerxcustody.RequestForcedExitMethod, h.exitArgs(batch)...)
-	require.Error(t, err, "replay")
-	require.Equal(t, sdk.NewInt(5_000_000), h.balance(h.pax(recipient), tokenDenom))
+	require.NoError(t, h.keeper.RegisterCheckpoint(h.ctx, batch, array(t, h.exit, "state_root"), [32]byte{7}))
+	recipient := h.pax(common.BytesToAddress(raw(t, h.exit, "recipient")))
+	before := h.balance(recipient, tokenDenom)
+	for _, emergency := range []bool{false, true} {
+		require.NoError(t, h.keeper.SetEmergency(h.ctx, emergency))
+		h.at(h.ctx)
+		require.Equal(t, emergency, h.view(layerxcustody.ExitEligibleMethod)[0])
+		for _, method := range []string{layerxcustody.ExecuteForcedExitMethod, layerxcustody.RequestForcedExitMethod} {
+			h.requireProofRetired(method, h.exitArgs(batch)...)
+			stolen := h.exitArgs(batch)
+			stolen[4] = h.caller
+			h.requireProofRetired(method, stolen...)
+		}
+	}
+	require.Equal(t, before, h.balance(recipient, tokenDenom))
+	require.Equal(t, sdk.NewInt(6_000_000), h.balance(h.keeper.ModuleAddress(), tokenDenom))
 	h.solvent()
 }
 

@@ -29,6 +29,7 @@ import {
   type XWebEnvelopeRandomness,
   type PrecompileCall,
 } from "../src/index.js";
+import { consumeExchangePlaceOrderCall } from "./support/exchange_consumers.js";
 
 type Json = Record<string, unknown>;
 interface EnvelopeVector {
@@ -531,7 +532,7 @@ refuses(
 
 console.log("xweb api helpers: payload, envelope and refusal vectors pinned");
 
-test("calldata_unchanged", () => {
+function calldata_unchanged(): void {
   const word = (value: bigint): string => value.toString(16).padStart(64, "0");
   const address = (value: string): string => `0x${value.repeat(20)}`;
   const addressWord = (value: string): string =>
@@ -616,6 +617,15 @@ test("calldata_unchanged", () => {
   for (const [actual, expected] of calls) {
     assert.deepEqual(actual, expected);
   }
+  const order = {
+    marketId: `0x${"11".repeat(32)}`,
+    accountId: `0x${"22".repeat(32)}`,
+    side: 2,
+    price: 18446744073709551618n,
+    quantity: 5000n,
+    timeInForce: 0,
+  };
+  consumeExchangePlaceOrderCall(exchangePlaceOrderCall(order), order);
   assert.ok(apiVectors.length > 0);
   for (const vector of apiVectors) {
     const payload = vector.payload.slice(2);
@@ -635,4 +645,6 @@ test("calldata_unchanged", () => {
       vector.name,
     );
   }
-});
+}
+
+test(calldata_unchanged);

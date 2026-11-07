@@ -12,22 +12,20 @@ import (
 )
 
 func TestFrozenStreamExactRegistryShapeAndStates(t *testing.T) {
-	raw, e := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v1/openapi.json")
+	raw, e := os.ReadFile("../../../../../sdk/launchpad/packages/production-contracts/src/schemas.gen.json")
 	if e != nil {
 		t.Fatal(e)
 	}
 	var registry struct {
-		Components struct {
-			Schemas map[string]struct {
-				Required   []string                   `json:"required"`
-				Properties map[string]json.RawMessage `json:"properties"`
-			} `json:"schemas"`
-		} `json:"components"`
+		Defs map[string]struct {
+			Required   []string                   `json:"required"`
+			Properties map[string]json.RawMessage `json:"properties"`
+		} `json:"$defs"`
 	}
 	if e = json.Unmarshal(raw, &registry); e != nil {
 		t.Fatal(e)
 	}
-	schema := registry.Components.Schemas["Stream"]
+	schema := registry.Defs["Stream"]
 	if len(schema.Required) != 7 {
 		t.Fatal("frozen Stream contract changed")
 	}

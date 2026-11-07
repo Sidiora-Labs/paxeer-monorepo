@@ -139,7 +139,7 @@ describe('create components render honestly without border utilities', () => {
     const before = html(<FeeSummary read={null} plan={null} firstBuyRaw="0" />);
     expect(before).toContain('1.00 USDL');
     expect(before).toContain('shown before you confirm');
-    const deployment = { revision: 'r1', chainId: 125, usdl: '0x' + '1'.repeat(40), router: '0x' + '2'.repeat(40), factory: '0x' + '3'.repeat(40) };
+    const deployment = { revision: 'r1', chainId: 125, usdl: '0x' + '1'.repeat(40), router: '0x' + '2'.repeat(40), usdlSpender: '0x' + '2'.repeat(40), factory: '0x' + '3'.repeat(40) };
     const cost = verifyCost(deployment, { revision: 'r1', decimals: 6, feeRaw: '1000000', gasRaw: '2500000000000000' }, '5000000');
     const read: FundingRead = { cost, balances: { usdl: '12000000', pax: '1000000000000000000', allowance: '0' }, blockHeight: '1', blockHash: '0x' + 'a'.repeat(64), gasStage: 'approval', observedAt: Date.now() };
     const plan = creationFunding(read);

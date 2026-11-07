@@ -69,7 +69,7 @@ func (a *Authority) Allowed(ctx context.Context, key string) error {
 		}
 	}
 	var allowed bool
-	query := `SELECT EXISTS(SELECT 1 FROM ` + a.metadata("assets") + ` asset JOIN ` + a.metadata("pools") + ` pool ON pool.pool=asset.pool LEFT JOIN ` + a.metadata("documents") + ` doc ON doc.pool=asset.pool LEFT JOIN ` + a.table("restrictions") + ` restriction ON restriction.hash=asset.hash WHERE asset.hash=$1 AND asset.object_key='approved/'||asset.hash AND asset.state='APPROVED' AND asset.scanner_engine<>'' AND asset.scanner_revision<>'' AND NOT COALESCE(doc.blocked,false) AND COALESCE(restriction.state,'approved')='approved' AND EXISTS(SELECT 1 FROM ` + a.table("lineage") + ` l WHERE l.hash=asset.hash AND l.object_key=$2 AND l.kind='variant' AND l.removed_at IS NULL) AND NOT EXISTS(SELECT 1 FROM ` + a.table("tombstones") + ` t WHERE t.hash=asset.hash) AND NOT EXISTS(SELECT 1 FROM ` + a.metadata("assets") + ` denied LEFT JOIN ` + a.metadata("documents") + ` denied_doc ON denied_doc.pool=denied.pool LEFT JOIN ` + a.safety("safety_visibility") + ` denied_v ON (denied_v.target_type='token' AND denied_v.target_id=denied.pool) OR (denied_v.target_type='asset' AND denied_v.target_id=denied.id::text) WHERE denied.hash=asset.hash AND (denied.state='DELETED' OR COALESCE(denied_doc.blocked,false) OR denied_v.status='removed')) AND EXISTS(SELECT 1 FROM ` + a.safety("safety_visibility") + ` v WHERE v.target_type='token' AND v.target_id=pool.pool AND v.status='restored' AND v.revision<=COALESCE(doc.moderation_revision,0)))`
+	query := `SELECT EXISTS(SELECT 1 FROM ` + a.metadata("assets") + ` asset JOIN ` + a.metadata("pools") + ` pool ON pool.pool=asset.pool LEFT JOIN ` + a.metadata("documents") + ` doc ON doc.pool=asset.pool LEFT JOIN ` + a.table("restrictions") + ` restriction ON restriction.hash=asset.hash WHERE asset.hash=$1 AND asset.object_key='approved/'||asset.hash AND asset.state='APPROVED' AND asset.scanner_engine<>'' AND asset.scanner_revision<>'' AND NOT COALESCE(doc.blocked,false) AND COALESCE(restriction.state,'approved')='approved' AND EXISTS(SELECT 1 FROM ` + a.table("lineage") + ` l WHERE l.hash=asset.hash AND l.object_key=$2 AND l.kind='variant' AND l.removed_at IS NULL) AND NOT EXISTS(SELECT 1 FROM ` + a.table("tombstones") + ` t WHERE t.hash=asset.hash) AND NOT EXISTS(SELECT 1 FROM ` + a.metadata("assets") + ` denied LEFT JOIN ` + a.metadata("documents") + ` denied_doc ON denied_doc.pool=denied.pool LEFT JOIN ` + a.safety("safety_visibility") + ` denied_v ON (denied_v.target_type='token' AND denied_v.target_id=denied.pool) OR (denied_v.target_type='asset' AND denied_v.target_id=denied.id::text) WHERE denied.hash=asset.hash AND (denied.state='DELETED' OR COALESCE(denied_doc.blocked,false) OR (denied_v.target_id IS NOT NULL AND (denied_v.status<>'restored' OR denied_v.revision<1)))) AND ((COALESCE(doc.moderation_revision,0)=0 AND NOT EXISTS(SELECT 1 FROM ` + a.safety("safety_visibility") + ` v WHERE v.target_type='token' AND v.target_id=pool.pool)) OR EXISTS(SELECT 1 FROM ` + a.safety("safety_visibility") + ` v WHERE v.target_type='token' AND v.target_id=pool.pool AND v.status='restored' AND v.revision>0 AND v.revision<=COALESCE(doc.moderation_revision,0))))`
 	if e := a.Pool.QueryRow(ctx, query, parts[1], key).Scan(&allowed); e != nil {
 		return ErrUnavailable
 	}
@@ -79,7 +79,7 @@ func (a *Authority) Allowed(ctx context.Context, key string) error {
 	return nil
 }
 func (a *Authority) SchemaDDL() string {
-	return fmt.Sprintf(`CREATE TABLE %s(hash text PRIMARY KEY CHECK(hash~'^[0-9a-f]{64}$'),revision bigint NOT NULL CHECK(revision>0),state text NOT NULL CHECK(state IN ('approved','blocked','deleted')),updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
+	return fmt.Sprintf(`CREATE TABLE %s(hash text PRIMARY KEY CHECK(hash~'^[0-9a-f]{64}$'),revision bigint NOT NULL CHECK(revision>0),state text NOT NULL CHECK(state IN ('approved','blocked','deleted')),initial_visibility boolean NOT NULL DEFAULT false CHECK(NOT initial_visibility OR (revision=1 AND state='approved')),updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
 CREATE TABLE %s(id uuid PRIMARY KEY,hash text NOT NULL REFERENCES %s(hash),revision bigint NOT NULL,kind text NOT NULL CHECK(kind IN ('purge','delete')),state text NOT NULL CHECK(state IN ('requested','accepted','complete','failed')),provider_id text NOT NULL DEFAULT '',proof text NOT NULL DEFAULT '',attempts integer NOT NULL DEFAULT 0,requested_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(hash,revision,kind));
 CREATE TABLE %s(hash text NOT NULL REFERENCES %s(hash),object_key text NOT NULL,kind text NOT NULL CHECK(kind IN ('original','variant','temporary','recording')),legal_hold boolean NOT NULL DEFAULT false,retain_until timestamptz NOT NULL,removed_at timestamptz,PRIMARY KEY(hash,object_key));
 CREATE TABLE %s(hash text PRIMARY KEY,revision bigint NOT NULL CHECK(revision>0),deleted_at timestamptz NOT NULL DEFAULT clock_timestamp());
@@ -99,7 +99,7 @@ func (a *Authority) Restrict(ctx context.Context, hash string, revision int64, s
 	}
 	var previous int64
 	var old string
-	e = tx.QueryRow(ctx, "SELECT revision,state FROM "+a.table("restrictions")+" WHERE hash=$1", hash).Scan(&previous, &old)
+	e = tx.QueryRow(ctx, "SELECT CASE WHEN initial_visibility THEN 0 ELSE revision END,state FROM "+a.table("restrictions")+" WHERE hash=$1", hash).Scan(&previous, &old)
 	if e != nil && !errors.Is(e, pgx.ErrNoRows) {
 		return "", ErrUnavailable
 	}
@@ -114,7 +114,7 @@ func (a *Authority) Restrict(ctx context.Context, hash string, revision int64, s
 	if revision < previous || (revision == previous && old != state) || ((old == "deleted" || deleted) && state != "deleted") {
 		return "", ErrConflict
 	}
-	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) VALUES($1,$2,$3) ON CONFLICT(hash) DO UPDATE SET revision=EXCLUDED.revision,state=EXCLUDED.state,updated_at=clock_timestamp()", hash, revision, state); e != nil {
+	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) VALUES($1,$2,$3) ON CONFLICT(hash) DO UPDATE SET revision=EXCLUDED.revision,state=EXCLUDED.state,initial_visibility=false,updated_at=clock_timestamp()", hash, revision, state); e != nil {
 		return "", ErrUnavailable
 	}
 	var id string
@@ -174,49 +174,7 @@ func (a *Authority) AuthorizeDownload(ctx context.Context, key string, ttl time.
 	return a.Allowed(ctx, key)
 }
 func (a *Authority) ReplayTombstones(ctx context.Context) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	tx, e := a.Pool.Begin(ctx)
-	if e != nil {
-		return ErrUnavailable
-	}
-	defer tx.Rollback(context.WithoutCancel(ctx))
-	if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("restrictions")+"(hash,revision,state) SELECT hash,revision,'deleted' FROM "+a.table("tombstones")+" ON CONFLICT(hash) DO UPDATE SET state='deleted',revision=GREATEST("+a.table("restrictions")+".revision,EXCLUDED.revision)"); e != nil {
-		return ErrUnavailable
-	}
-	rows, e := tx.Query(ctx, "SELECT t.hash,t.revision FROM "+a.table("tombstones")+" t WHERE NOT EXISTS(SELECT 1 FROM "+a.table("operations")+" o WHERE o.hash=t.hash AND o.revision=t.revision AND o.kind='delete') OR NOT EXISTS(SELECT 1 FROM "+a.table("operations")+" o WHERE o.hash=t.hash AND o.revision=t.revision AND o.kind='purge') ORDER BY t.hash LIMIT 256")
-	if e != nil {
-		return ErrUnavailable
-	}
-	type removed struct {
-		hash     string
-		revision int64
-	}
-	var missing []removed
-	for rows.Next() {
-		var item removed
-		if e = rows.Scan(&item.hash, &item.revision); e != nil {
-			rows.Close()
-			return ErrUnavailable
-		}
-		missing = append(missing, item)
-	}
-	e = rows.Err()
-	rows.Close()
-	if e != nil {
-		return ErrUnavailable
-	}
-	for _, item := range missing {
-		for _, kind := range []string{"delete", "purge"} {
-			if _, e = tx.Exec(ctx, "INSERT INTO "+a.table("operations")+"(id,hash,revision,kind,state) VALUES($1,$2,$3,$4,'requested') ON CONFLICT(hash,revision,kind) DO NOTHING", uuid.NewString(), item.hash, item.revision, kind); e != nil {
-				return ErrUnavailable
-			}
-		}
-	}
-	if e = tx.Commit(ctx); e != nil {
-		return ErrUnavailable
-	}
-	return nil
+	return ReplayTombstones(ctx, postgresTombstones{authority: a})
 }
 
 func (a *Authority) ImportApprovedLineage(ctx context.Context, assetID string) error {

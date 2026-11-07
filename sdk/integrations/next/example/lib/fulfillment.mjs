@@ -2,13 +2,48 @@ import { mkdir, chmod, lstat, open } from "node:fs/promises";
 import { resolve, join } from "node:path";
 import { constants } from "node:fs";
 import { DatabaseSync } from "node:sqlite";
-import { MiddlewareError } from "@sidiora/layerx-seller-middleware";
+import {
+  MiddlewareError,
+  decodePaymentCommitmentEvidence,
+  encodePaymentCommitmentEvidence,
+} from "@sidiora/layerx-seller-middleware";
 
 const queues = new Map();
 
 export class FileFulfillmentRepository {
   constructor(directory) {
     this.directory = resolve(directory);
+  }
+
+  async get(idempotencyKey) {
+    if (!/^[0-9a-f]{64}$/u.test(idempotencyKey)) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    const database = await this.openDatabase();
+    try {
+      const stored = database.prepare("SELECT request_digest, receipt, resource, evidence FROM fulfillment WHERE id = ?").get(idempotencyKey);
+      // Digest-only records need a verified proposal before evidence can be backfilled.
+      if (stored === undefined || stored.evidence === null) return undefined;
+      return this.restore(idempotencyKey, stored);
+    } finally {
+      database.close();
+    }
+  }
+
+  restore(idempotencyKey, stored) {
+    const evidence = JSON.parse(stored.evidence);
+    if (evidence.idempotencyKey !== idempotencyKey
+      || evidence.requestDigest !== stored.request_digest
+      || evidence.receiptDigest !== stored.receipt) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    return {
+      ...evidence,
+      ...(evidence.commitmentEvidence === undefined ? {} : {
+        commitmentEvidence: decodePaymentCommitmentEvidence(evidence.commitmentEvidence),
+      }),
+      resource: JSON.parse(stored.resource),
+    };
   }
 
   async fulfill(proposed, release) {
@@ -31,11 +66,7 @@ export class FileFulfillmentRepository {
     }
   }
 
-  async commit(proposed, release, reconciliation) {
-    if (!/^[0-9a-f]{64}$/u.test(proposed.idempotencyKey)
-      || !/^[0-9a-f]{64}$/u.test(proposed.requestDigest)) {
-      throw new MiddlewareError("fulfillment-conflict");
-    }
+  async openDatabase() {
     await mkdir(this.directory, { recursive: true, mode: 0o700 });
     const directory = await lstat(this.directory);
     if (!directory.isDirectory() || directory.isSymbolicLink() || (directory.mode & 0o777) !== 0o700) {
@@ -50,14 +81,38 @@ export class FileFulfillmentRepository {
     }
     await chmod(path, 0o600);
     const database = new DatabaseSync(path);
-    let transaction = false;
     try {
       database.exec("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA busy_timeout=30000;");
-      database.exec("CREATE TABLE IF NOT EXISTS fulfillment (id TEXT PRIMARY KEY, request_digest TEXT NOT NULL, receipt TEXT NOT NULL, resource TEXT NOT NULL)");
+      database.exec("CREATE TABLE IF NOT EXISTS fulfillment (id TEXT PRIMARY KEY, request_digest TEXT NOT NULL, receipt TEXT NOT NULL, resource TEXT NOT NULL, evidence TEXT)");
+      if (!database.prepare("PRAGMA table_info(fulfillment)").all().some(column => column.name === "evidence")) {
+        database.exec("ALTER TABLE fulfillment ADD COLUMN evidence TEXT");
+      }
       database.exec("CREATE TABLE IF NOT EXISTS fulfillment_claim (id TEXT PRIMARY KEY, request_digest TEXT NOT NULL, receipt TEXT NOT NULL)");
+      return database;
+    } catch (error) {
+      database.close();
+      throw error;
+    }
+  }
+
+  async commit(proposed, release, reconciliation) {
+    if (!/^[0-9a-f]{64}$/u.test(proposed.idempotencyKey)
+      || !/^[0-9a-f]{64}$/u.test(proposed.requestDigest)
+      || !/^0x[0-9a-f]{64}$/u.test(proposed.receiptDigest)) {
+      throw new MiddlewareError("fulfillment-conflict");
+    }
+    const evidence = JSON.stringify({
+      ...proposed,
+      ...(proposed.commitmentEvidence === undefined ? {} : {
+        commitmentEvidence: encodePaymentCommitmentEvidence(proposed.commitmentEvidence),
+      }),
+    });
+    const database = await this.openDatabase();
+    let transaction = false;
+    try {
       database.exec("BEGIN IMMEDIATE");
       transaction = true;
-      let stored = database.prepare("SELECT request_digest, receipt, resource FROM fulfillment WHERE id = ?").get(proposed.idempotencyKey);
+      let stored = database.prepare("SELECT request_digest, receipt, resource, evidence FROM fulfillment WHERE id = ?").get(proposed.idempotencyKey);
       if (stored === undefined) {
         const legacyPath = join(this.directory, `${proposed.idempotencyKey}.json`);
         try {
@@ -73,11 +128,11 @@ export class FileFulfillmentRepository {
             await legacyFile.close();
           }
           if (legacy.requestDigest !== proposed.requestDigest
-            || legacy.receipt !== Buffer.from(proposed.canonicalReceipt).toString("base64")
+            || legacy.receipt !== proposed.receiptDigest
             || legacy.resource === undefined) throw new MiddlewareError("fulfillment-conflict");
-          stored = { request_digest: legacy.requestDigest, receipt: legacy.receipt, resource: JSON.stringify(legacy.resource) };
-          database.prepare("INSERT INTO fulfillment VALUES (?, ?, ?, ?)").run(
-            proposed.idempotencyKey, stored.request_digest, stored.receipt, stored.resource,
+          stored = { request_digest: legacy.requestDigest, receipt: legacy.receipt, resource: JSON.stringify(legacy.resource), evidence };
+          database.prepare("INSERT INTO fulfillment (id, request_digest, receipt, resource, evidence) VALUES (?, ?, ?, ?, ?)").run(
+            proposed.idempotencyKey, stored.request_digest, stored.receipt, stored.resource, evidence,
           );
         } catch (error) {
           if (error.code !== "ENOENT") throw error;
@@ -85,14 +140,20 @@ export class FileFulfillmentRepository {
       }
       if (stored !== undefined) {
         if (stored.request_digest !== proposed.requestDigest
-          || stored.receipt !== Buffer.from(proposed.canonicalReceipt).toString("base64")) {
+          || stored.receipt !== proposed.receiptDigest) {
           throw new MiddlewareError("fulfillment-conflict");
         }
+        if (stored.evidence === null) {
+          database.prepare("UPDATE fulfillment SET evidence = ? WHERE id = ?").run(evidence, proposed.idempotencyKey);
+          stored.evidence = evidence;
+        }
+        const restored = this.restore(proposed.idempotencyKey, stored);
+        if (restored.txHash !== proposed.txHash) throw new MiddlewareError("fulfillment-conflict");
         database.exec("COMMIT");
         transaction = false;
-        return { ...proposed, resource: JSON.parse(stored.resource) };
+        return restored;
       }
-      const receipt = Buffer.from(proposed.canonicalReceipt).toString("base64");
+      const receipt = proposed.receiptDigest;
       const claim = database.prepare("SELECT request_digest, receipt FROM fulfillment_claim WHERE id = ?").get(proposed.idempotencyKey);
       if (claim !== undefined) {
         if (claim.request_digest !== proposed.requestDigest || claim.receipt !== receipt) {
@@ -119,8 +180,8 @@ export class FileFulfillmentRepository {
         if (completed.request_digest !== proposed.requestDigest || completed.receipt !== receipt
           || completed.resource !== encoded) throw new MiddlewareError("fulfillment-conflict");
       } else {
-        database.prepare("INSERT INTO fulfillment VALUES (?, ?, ?, ?)").run(
-          proposed.idempotencyKey, proposed.requestDigest, receipt, encoded,
+        database.prepare("INSERT INTO fulfillment (id, request_digest, receipt, resource, evidence) VALUES (?, ?, ?, ?, ?)").run(
+          proposed.idempotencyKey, proposed.requestDigest, receipt, encoded, evidence,
         );
       }
       database.prepare("DELETE FROM fulfillment_claim WHERE id = ?").run(proposed.idempotencyKey);

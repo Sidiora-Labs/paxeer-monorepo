@@ -13,6 +13,7 @@ import warnings
 import email.utils
 from types import TracebackType
 from random import random
+from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from dataclasses import field, dataclass
 from typing import (
     TYPE_CHECKING,
@@ -91,6 +92,51 @@ from ._exceptions import (
 from ._utils._json import openapi_dumps
 
 log: logging.Logger = logging.getLogger(__name__)
+
+_SECRET_LOG_KEYS = frozenset(
+    {
+        "x-api-key",
+        "token",
+        "authorization",
+        "cookie",
+        "set-cookie",
+        "api_key",
+        "rest_api_key",
+        "ws_mint_key",
+        "ws_token",
+        "access_token",
+        "refresh_token",
+    }
+)
+
+
+def _redact_url(url: str | URL) -> str:
+    parts = urlsplit(str(url))
+    query = urlencode(
+        [
+            (key, "<redacted>" if key.lower() in _SECRET_LOG_KEYS else value)
+            for key, value in parse_qsl(parts.query, keep_blank_values=True)
+        ]
+    )
+    return urlunsplit(parts._replace(query=query))
+
+
+def _redact_log_data(value: object) -> object:
+    if isinstance(value, Mapping):
+        return {
+            key: "<redacted>"
+            if str(key).lower() in _SECRET_LOG_KEYS
+            else _redact_url(item)
+            if str(key).lower() == "url" and isinstance(item, (str, URL))
+            else _redact_log_data(item)
+            for key, item in value.items()
+        }
+    if isinstance(value, (list, tuple)):
+        return [_redact_log_data(item) for item in value]
+    if isinstance(value, URL):
+        return _redact_url(value)
+    return value
+
 
 # TODO: make base page type vars covariant
 SyncPageT = TypeVar("SyncPageT", bound="BaseSyncPage[Any]")
@@ -479,6 +525,9 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
     ) -> _exceptions.APIStatusError:
         raise NotImplementedError()
 
+    def _auth_headers(self, security: SecurityOptions) -> dict[str, str]:
+        return self.auth_headers
+
     def _auth_query(
         self,
         security: SecurityOptions,  # noqa: ARG002
@@ -510,10 +559,11 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         retries_taken: int = 0,
     ) -> httpx.Headers:
         custom_headers = options.headers or {}
-        # Auth headers are folded into `default_headers` (matching the reference SDKs), so
-        # merging `default_headers` here already applies the configured credentials.
-        headers_dict = _merge_mappings(self.default_headers, custom_headers)
-        self._validate_headers(headers_dict, custom_headers, params, cookies)
+        headers_dict = _merge_mappings(
+            {**self.default_headers, **self._auth_headers(options.security), **self._custom_headers}, custom_headers
+        )
+        if options.security:
+            self._validate_security(options.security, headers_dict, custom_headers, params, cookies)
 
         # headers are case-insensitive while dictionaries are not.
         headers = httpx.Headers(headers_dict)
@@ -561,15 +611,17 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         if log.isEnabledFor(logging.DEBUG):
             log.debug(
                 "Request options: %s",
-                model_dump(
-                    options,
-                    exclude_unset=True,
-                    # Pydantic v1 can't dump every type we support in content, so we exclude it for now.
-                    exclude={
-                        "content",
-                    }
-                    if PYDANTIC_V1
-                    else {},
+                _redact_log_data(
+                    model_dump(
+                        options,
+                        exclude_unset=True,
+                        # Pydantic v1 can't dump every type we support in content, so we exclude it for now.
+                        exclude={
+                            "content",
+                        }
+                        if PYDANTIC_V1
+                        else {},
+                    )
                 ),
             )
         kwargs: dict[str, Any] = {}
@@ -764,6 +816,16 @@ class BaseClient(Generic[_HttpxClientT, _DefaultStreamT]):
         return {
             **self._custom_query,
         }
+
+    def _validate_security(
+        self,
+        security: SecurityOptions,
+        headers: Headers,
+        custom_headers: Headers,
+        params: Query,
+        cookies: Mapping[str, str],
+    ) -> None:
+        self._validate_headers(headers, custom_headers, params, cookies)
 
     def _validate_headers(
         self,
@@ -1086,7 +1148,7 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
             if options.follow_redirects is not None:
                 kwargs["follow_redirects"] = options.follow_redirects
 
-            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
+            log.debug("Sending HTTP Request: %s %s", request.method, _redact_url(request.url))
 
             response = None
             try:
@@ -1096,7 +1158,7 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
                     **kwargs,
                 )
             except httpx.TimeoutException as err:
-                log.debug("Encountered httpx.TimeoutException", exc_info=True)
+                log.debug("Encountered httpx.TimeoutException (%s)", type(err).__name__)
 
                 if remaining_retries > 0:
                     self._sleep_for_retry(
@@ -1110,7 +1172,7 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
                 log.debug("Raising timeout error")
                 raise APITimeoutError(request=request) from err
             except Exception as err:
-                log.debug("Encountered Exception", exc_info=True)
+                log.debug("Encountered Exception (%s)", type(err).__name__)
 
                 if remaining_retries > 0:
                     self._sleep_for_retry(
@@ -1127,16 +1189,16 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
             log.debug(
                 'HTTP Response: %s %s "%i %s" %s',
                 request.method,
-                request.url,
+                _redact_url(request.url),
                 response.status_code,
                 response.reason_phrase,
-                response.headers,
+                _redact_log_data(response.headers),
             )
 
             try:
                 response.raise_for_status()
             except httpx.HTTPStatusError as err:  # thrown on 4xx and 5xx status code
-                log.debug("Encountered httpx.HTTPStatusError", exc_info=True)
+                log.debug("Encountered httpx.HTTPStatusError (%s)", type(err).__name__)
 
                 if remaining_retries > 0 and self._should_retry(err.response):
                     err.response.close()
@@ -1178,7 +1240,7 @@ class SyncAPIClient(BaseClient[httpx.Client, Stream[Any]]):
             log.debug("%i retries left", remaining_retries)
 
         timeout = self._calculate_retry_timeout(remaining_retries, options, response.headers if response else None)
-        log.info("Retrying request to %s in %f seconds", options.url, timeout)
+        log.info("Retrying request to %s in %f seconds", _redact_url(options.url), timeout)
 
         time.sleep(timeout)
 
@@ -1680,7 +1742,7 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
             if options.follow_redirects is not None:
                 kwargs["follow_redirects"] = options.follow_redirects
 
-            log.debug("Sending HTTP Request: %s %s", request.method, request.url)
+            log.debug("Sending HTTP Request: %s %s", request.method, _redact_url(request.url))
 
             response = None
             try:
@@ -1690,7 +1752,7 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
                     **kwargs,
                 )
             except httpx.TimeoutException as err:
-                log.debug("Encountered httpx.TimeoutException", exc_info=True)
+                log.debug("Encountered httpx.TimeoutException (%s)", type(err).__name__)
 
                 if remaining_retries > 0:
                     await self._sleep_for_retry(
@@ -1704,7 +1766,7 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
                 log.debug("Raising timeout error")
                 raise APITimeoutError(request=request) from err
             except Exception as err:
-                log.debug("Encountered Exception", exc_info=True)
+                log.debug("Encountered Exception (%s)", type(err).__name__)
 
                 if remaining_retries > 0:
                     await self._sleep_for_retry(
@@ -1721,16 +1783,16 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
             log.debug(
                 'HTTP Response: %s %s "%i %s" %s',
                 request.method,
-                request.url,
+                _redact_url(request.url),
                 response.status_code,
                 response.reason_phrase,
-                response.headers,
+                _redact_log_data(response.headers),
             )
 
             try:
                 response.raise_for_status()
             except httpx.HTTPStatusError as err:  # thrown on 4xx and 5xx status code
-                log.debug("Encountered httpx.HTTPStatusError", exc_info=True)
+                log.debug("Encountered httpx.HTTPStatusError (%s)", type(err).__name__)
 
                 if remaining_retries > 0 and self._should_retry(err.response):
                     await err.response.aclose()
@@ -1772,7 +1834,7 @@ class AsyncAPIClient(BaseClient[httpx.AsyncClient, AsyncStream[Any]]):
             log.debug("%i retries left", remaining_retries)
 
         timeout = self._calculate_retry_timeout(remaining_retries, options, response.headers if response else None)
-        log.info("Retrying request to %s in %f seconds", options.url, timeout)
+        log.info("Retrying request to %s in %f seconds", _redact_url(options.url), timeout)
 
         await anyio.sleep(timeout)
 

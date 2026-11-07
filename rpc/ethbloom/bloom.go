@@ -92,6 +92,9 @@ func matchBloomIndexes(bloom ethtypes.Bloom, idx BloomIndexes) bool {
 
 // MatchesCriteria checks if a log matches the filter criteria (exact match).
 func MatchesCriteria(log *ethtypes.Log, crit filters.FilterCriteria) bool {
+	if len(crit.Topics) > len(log.Topics) {
+		return false
+	}
 	if len(crit.Addresses) > 0 {
 		found := false
 		for _, addr := range crit.Addresses {
@@ -107,9 +110,6 @@ func MatchesCriteria(log *ethtypes.Log, crit filters.FilterCriteria) bool {
 	for i, topicList := range crit.Topics {
 		if len(topicList) == 0 {
 			continue
-		}
-		if i >= len(log.Topics) {
-			return false
 		}
 		found := false
 		for _, topic := range topicList {

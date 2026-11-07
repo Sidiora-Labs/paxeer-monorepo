@@ -1,0 +1,411 @@
+from pathlib import Path
+import unittest
+
+
+ROOT = Path(__file__).resolve().parents[3]
+
+RETIRED_MAKE_TARGETS = (
+    (
+        "interface.16.mk-authority-grant-fixtures",
+        "authority-grant-fixtures",
+    ),
+    (
+        "interface.16.mk-authority-grant-fixtures-check",
+        "authority-grant-fixtures-check",
+    ),
+    (
+        "interface.16.mk-builddir-bin-layerx-guarantor",
+        "$(BUILD_DIR)/bin/layerx-guarantor",
+    ),
+    (
+        "interface.16.mk-builddir-bin-layerx-handover",
+        "$(BUILD_DIR)/bin/layerx-handover",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-core",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_core",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-exchange",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_exchange",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-feedback",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_feedback",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-integration",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_integration",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-receipt",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_receipt",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-runtime",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_runtime",
+    ),
+    (
+        "interface.16.mk-builddir-tests-lxp-test-guarantor-terminal-rejection",
+        "$(BUILD_DIR)/tests/lxp_test_guarantor_terminal_rejection",
+    ),
+    (
+        "interface.16.mk-builddir-tests-relay-archive-sign",
+        "$(BUILD_DIR)/tests/relay-archive-sign",
+    ),
+    (
+        "interface.16.mk-layerx-guarantor",
+        "layerx-guarantor",
+    ),
+    (
+        "interface.16.mk-layerx-handover",
+        "layerx-handover",
+    ),
+    (
+        "interface.16.mk-layerx-verify",
+        "layerx-verify",
+    ),
+    (
+        "interface.16.mk-layerxd",
+        "layerxd",
+    ),
+    (
+        "interface.16.mk-paxeer-x-finality-recordings-build",
+        "paxeer-x-finality-recordings-build",
+    ),
+    (
+        "interface.16.mk-platform-hosted-guarantor-topology-check",
+        "platform-hosted-guarantor-topology-check",
+    ),
+    (
+        "interface.16.mk-relay-archive-build",
+        "relay-archive-build",
+    ),
+    (
+        "interface.16.mk-relay-archive-e2e",
+        "relay-archive-e2e",
+    ),
+    (
+        "interface.16.mk-test-bridge-maintenance-publication",
+        "test-bridge-maintenance-publication",
+    ),
+    (
+        "interface.16.mk-test-daemon-allowance",
+        "test-daemon-allowance",
+    ),
+    (
+        "interface.16.mk-test-daemon-grant-issuance",
+        "test-daemon-grant-issuance",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor",
+        "test-daemon-guarantor",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor-feedback",
+        "test-daemon-guarantor-feedback",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor-integration",
+        "test-daemon-guarantor-integration",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor-sanitize",
+        "test-daemon-guarantor-sanitize",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor-settlement",
+        "test-daemon-guarantor-settlement",
+    ),
+    (
+        "interface.16.mk-test-daemon-guarantor-unit",
+        "test-daemon-guarantor-unit",
+    ),
+    (
+        "interface.16.mk-test-daemon-handover",
+        "test-daemon-handover",
+    ),
+    (
+        "interface.16.mk-test-daemon-handover-consumers",
+        "test-daemon-handover-consumers",
+    ),
+    (
+        "interface.16.mk-test-daemon-handover-crash",
+        "test-daemon-handover-crash",
+    ),
+    (
+        "interface.16.mk-test-daemon-handover-peers",
+        "test-daemon-handover-peers",
+    ),
+    (
+        "interface.16.mk-test-daemon-maintenance-crash",
+        "test-daemon-maintenance-crash",
+    ),
+    (
+        "interface.16.mk-test-daemon-maintenance-publication",
+        "test-daemon-maintenance-publication",
+    ),
+    (
+        "interface.16.mk-test-daemon-metered-allowance",
+        "test-daemon-metered-allowance",
+    ),
+    (
+        "interface.16.mk-test-daemon-module-maintenance",
+        "test-daemon-module-maintenance",
+    ),
+    (
+        "interface.16.mk-test-daemon-native-onboarding",
+        "test-daemon-native-onboarding",
+    ),
+    (
+        "interface.16.mk-test-daemon-owner-rotation",
+        "test-daemon-owner-rotation",
+    ),
+    (
+        "interface.16.mk-test-daemon-withdrawal-replica-recovery",
+        "test-daemon-withdrawal-replica-recovery",
+    ),
+    (
+        "interface.16.mk-test-guarantor-receipt",
+        "test-guarantor-receipt",
+    ),
+    (
+        "interface.16.mk-test-guarantor-terminal-rejection",
+        "test-guarantor-terminal-rejection",
+    ),
+    (
+        "interface.16.mk-test-layerxd",
+        "test-layerxd",
+    ),
+    (
+        "interface.16.mk-test-lni-version-parity",
+        "test-lni-version-parity",
+    ),
+    (
+        "interface.16.mk-test-program-admission",
+        "test-program-admission",
+    ),
+    (
+        "interface.16.mk-test-program-simulate",
+        "test-program-simulate",
+    ),
+    (
+        "interface.16.mk-test-tools",
+        "test-tools",
+    ),
+    (
+        "interface.16.mk-test-verify-cli",
+        "test-verify-cli",
+    ),
+)
+
+RETIRED_PATHS = (
+    (
+        "interface.16.c-lxp-real-replay-activity-j59",
+        "tests/support/lxp_real_replay.h",
+    ),
+    (
+        "interface.16.c-lxp-real-replay-build-j59",
+        "tests/support/lxp_real_replay.h",
+    ),
+    (
+        "interface.16.c-lxp-real-replay-init-j59",
+        "tests/support/lxp_real_replay.h",
+    ),
+    (
+        "interface.16.c-lxp-real-replay-prepare-j59",
+        "tests/support/lxp_real_replay.h",
+    ),
+    (
+        "interface.16.c-pay1-guarantor-replay-j59",
+        "tests/support/lxp_pay1_replay.h",
+    ),
+    (
+        "interface.16.c-pay1-replay-activities-j59",
+        "tests/support/lxp_pay1_replay.h",
+    ),
+    (
+        "interface.16.cli-scr-ci-lni-version-parity",
+        "scripts/ci/lni-version-parity.sh",
+    ),
+)
+
+PLANNED_PATHS = (
+    (
+        "16.2.4",
+        "tools/ci/tests/test_makefile_wave6.py",
+    ),
+    (
+        "16.2.4",
+        "tests/ci/test_retired_make_rules.py",
+    ),
+    (
+        "16.3.2",
+        "tools/containers/test_kernel_image.py",
+    ),
+    (
+        "16.3.3",
+        "tools/containers/test_kernel_init.py",
+    ),
+    (
+        "16.3.4",
+        "tools/containers/test_platform_node_retired.py",
+    ),
+    (
+        "16.3.6",
+        "tools/containers/test_human_service_image.py",
+    ),
+    (
+        "16.5.2",
+        "tools/ci/tests/test_xweb_workflow_check.py",
+    ),
+    (
+        "16.5.5",
+        "tools/ci/tests/test_program_http_producer.py",
+    ),
+    (
+        "16.7.2",
+        "tools/bringup/tests/test_kernel_genesis_retired.py",
+    ),
+    (
+        "16.7.3",
+        "tools/bringup/tests/test_bringup_fixtures_retired.py",
+    ),
+    (
+        "16.9.3",
+        "tools/paxeer-x/tests/test_route_catalogue_lx.py",
+    ),
+    (
+        "16.11.11",
+        "tools/qualification/test_retired_callers_11.py",
+    ),
+    (
+        "16.11.15",
+        "tools/qualification/test_retired_callers_15.py",
+    ),
+    (
+        "16.28.1",
+        "tools/repotest/reachability_test.go",
+    ),
+    (
+        "16.28.2",
+        "tools/repotest/selectors_test.go",
+    ),
+    (
+        "16.28.3",
+        "tools/repotest/pytest_reachability_test.go",
+    ),
+    (
+        "16.31.2",
+        "tests/ci/test_retired_sequencer.py",
+    ),
+    (
+        "16.31.3",
+        "tests/ci/test_retired_batch_publication.py",
+    ),
+    (
+        "16.31.4",
+        "tests/ci/test_retired_replay_crossarch.py",
+    ),
+    (
+        "16.31.6",
+        "tests/ci/test_retired_qual_faults.py",
+    ),
+    (
+        "16.32.2",
+        "tests/ci/test_retired_equivocation_bond.py",
+    ),
+    (
+        "16.32.9",
+        "tests/ci/test_retired_batch_wal.py",
+    ),
+    (
+        "16.32.10",
+        "tests/ci/test_retired_batch_identity.py",
+    ),
+    (
+        "16.32.11",
+        "tests/ci/test_retired_finality_evidence.py",
+    ),
+    (
+        "16.33.4",
+        "tests/ci/test_retired_web.py",
+    ),
+    (
+        "16.33.5",
+        "tests/ci/test_retired_programs_batch.py",
+    ),
+    (
+        "16.33.6",
+        "tests/ci/test_retired_replay_support.py",
+    ),
+    (
+        "16.34.1",
+        "tests/ci/test_retired_daemon_lni.py",
+    ),
+    (
+        "16.34.2",
+        "tests/ci/test_retired_layerxd.py",
+    ),
+    (
+        "16.34.3",
+        "tests/ci/test_retired_verify_cli.py",
+    ),
+    (
+        "16.34.4",
+        "tests/ci/test_retired_relay_archive.py",
+    ),
+    (
+        "16.97.2",
+        "tests/ci/test_requested_suites_absent.py",
+    ),
+    (
+        "16.97.3",
+        "tests/ci/test_requested_retirements_absent.py",
+    ),
+    (
+        "16.97.5",
+        "tests/ci/test_programs_suite_references.py",
+    ),
+)
+
+
+class CompletionGateTest(unittest.TestCase):
+    def test_tools_ops_completion_retired_surfaces_absent(self):
+        makefile = (ROOT / "Makefile").read_text(encoding="utf-8")
+        declared_targets = set()
+        for line in makefile.replace("\\\n", " ").splitlines():
+            if line.startswith("\t"):
+                continue
+            targets, separator, prerequisites = line.split("#", 1)[0].partition(":")
+            if separator:
+                declared_targets.update(targets.split())
+                if targets.strip() == ".PHONY":
+                    declared_targets.update(prerequisites.split())
+
+        for interface, target in RETIRED_MAKE_TARGETS:
+            with self.subTest(interface=interface, path="Makefile", target=target):
+                self.assertNotIn(
+                    target,
+                    declared_targets,
+                    f"Retired surface {interface} remains in Makefile: {target}",
+                )
+
+        for interface, relative_path in RETIRED_PATHS:
+            with self.subTest(interface=interface, path=relative_path):
+                path = ROOT / relative_path
+                self.assertFalse(
+                    path.exists() or path.is_symlink(),
+                    f"Retired surface {interface} remains at {relative_path}",
+                )
+
+        for task, relative_path in PLANNED_PATHS:
+            with self.subTest(task=task, path=relative_path):
+                self.assertTrue(
+                    (ROOT / relative_path).is_file(),
+                    f"Task {task} is missing planned file: {relative_path}",
+                )
+
+
+if __name__ == "__main__":
+    unittest.main()

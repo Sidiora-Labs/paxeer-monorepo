@@ -5,14 +5,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"fmt"
 	"testing"
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
@@ -126,25 +124,27 @@ func TestCustodyProposalRefusals(t *testing.T) {
 
 func TestSubmitCustodyProposalFile(t *testing.T) {
 	governance := types.GovernanceAuthority()
-	file := fmt.Sprintf(`{"title":"Custody assets","description":"Map SID","deposit":"1000usei","messages":[
-		{"@type":"/paxprotocol.paxchain.layerxcustody.MsgSetAsset","authority":%q,
-		 "asset":{"asset_id":%q,"denom":"usid","pointer":%q,"enabled":true}}]}`,
-		governance, assetID("SID"), sidPointer)
+	proposal, err := types.NewCustodyProposal("Custody assets", "Map SID",
+		&types.MsgSetAsset{Authority: governance, Asset: types.AssetMapping{
+			AssetId: assetID("SID"), Denom: "usid", Pointer: sidPointer, Enabled: true}})
+	require.NoError(t, err)
 	proposer := sdk.AccAddress(make([]byte, 20))
 	cdc := custodyApp.AppCodec()
 
-	msg, err := cli.NewSubmitCustodyProposalMsg(cdc, []byte(file), proposer)
+	msg, err := govtypes.NewMsgSubmitProposal(proposal, sdk.NewCoins(sdk.NewInt64Coin("usei", 1000)), proposer)
 	require.NoError(t, err)
 	content, ok := msg.GetContent().(*types.CustodyProposal)
 	require.True(t, ok)
 	require.Len(t, content.Messages, 1)
 
+	file, err := cdc.MarshalAsJSON(content)
+	require.NoError(t, err)
 	var unknown map[string]any
 	require.NoError(t, json.Unmarshal([]byte(file), &unknown))
 	unknown["extra"] = true
 	withUnknown, err := json.Marshal(unknown)
 	require.NoError(t, err)
-	_, err = cli.NewSubmitCustodyProposalMsg(cdc, withUnknown, proposer)
+	err = cdc.UnmarshalAsJSON(withUnknown, &types.CustodyProposal{})
 	require.Error(t, err)
 }
 
@@ -257,7 +257,7 @@ func TestCustodyProposalRollsBackStateIndexesAndEvents(t *testing.T) {
 	require.Len(t, ctx.EventManager().Events(), eventsBefore)
 }
 
-func pendingGovernanceClaim(t *testing.T) (sdk.Context, *keeper.Keeper, types.Claim) {
+func custodyGovernanceContext(t *testing.T) (sdk.Context, *keeper.Keeper) {
 	t.Helper()
 	app := custodyApp
 	ctx := newCtx().WithBlockTime(time.Unix(1_800_000_000, 0).UTC())
@@ -267,77 +267,37 @@ func pendingGovernanceClaim(t *testing.T) (sdk.Context, *keeper.Keeper, types.Cl
 	vectors, err := testvectors.Load()
 	require.NoError(t, err)
 	require.NotEmpty(t, vectors["withdrawal"])
-	vector := vectors["withdrawal"][0]
-	batch, err := vector.Uint64("batch_number")
-	require.NoError(t, err)
-	network, err := vector.Uint64("network_id")
-	require.NoError(t, err)
-	require.LessOrEqual(t, network, uint64(1<<32-1))
-	params := k.GetParams(ctx)
-	params.NetworkId = uint32(network)
-	params.WithdrawalDelaySeconds = 600
-	params.SequencerAuthorizations = []types.SequencerAuthorization{{
-		SequencerId: vector.Fields["sequencer_id"], PublicKey: vector.Fields["public_key"],
-		FirstBatchNumber: batch, LastBatchNumber: batch}}
-	require.NoError(t, k.SetParams(ctx, params))
-	require.NoError(t, k.SetAsset(ctx, types.AssetMapping{AssetId: vector.Fields["asset"],
-		Denom: sdk.MustGetBaseDenom(), Enabled: true}))
-	stateRoot, err := vector.Array32("header_state_root")
-	require.NoError(t, err)
-	receiptRoot, err := vector.Array32("header_receipt_root")
-	require.NoError(t, err)
-	require.NoError(t, k.RegisterCheckpoint(ctx, batch, stateRoot, receiptRoot))
-
-	payer := common.HexToAddress("0x4242424242424242424242424242424242424242")
-	payerAcc := sdk.AccAddress(payer.Bytes())
-	app.EvmKeeper.SetAddressMapping(ctx, payerAcc, payer)
-	coins := sdk.NewCoins(sdk.NewInt64Coin(sdk.MustGetBaseDenom(), 1000))
-	require.NoError(t, app.BankKeeper.MintCoins(ctx, "evm", coins))
-	require.NoError(t, app.BankKeeper.SendCoinsFromModuleToAccount(ctx, "evm", payerAcc, coins))
-	withdrawalAsset, err := types.ParseHash32(vector.Fields["asset"])
-	require.NoError(t, err)
-	_, err = k.Deposit(ctx, payer, payerAcc, withdrawalAsset, [32]byte{0xbe, 0xef}, sdk.NewInt(1000))
-	require.NoError(t, err)
+	v := vectors["withdrawal"][0]
 	decode := func(name string) []byte {
-		value, decodeErr := vector.Bytes(name)
-		require.NoError(t, decodeErr)
+		value, err := v.Bytes(name)
+		require.NoError(t, err)
 		return value
 	}
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
 	response, err := keeper.NewMsgServerImpl(k).RequestWithdrawal(sdk.WrapSDKContext(ctx), &types.MsgRequestWithdrawal{
-		Receipt: decode("receipt"), Proof: decode("proof"), Header: decode("header"),
-		HeaderSignature: decode("header_signature")})
-	require.NoError(t, err)
-	claimID, err := types.ParseHash32(response.ClaimId)
-	require.NoError(t, err)
-	claim, found := k.GetClaim(ctx, claimID)
-	require.True(t, found)
-	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
-	require.Equal(t, ctx.BlockTime().Unix()+600, claim.AvailableAt)
-	nullifierID, err := types.ParseHash32(claim.Nullifier)
-	require.NoError(t, err)
-	nullifier, found := k.GetNullifier(ctx, nullifierID)
-	require.True(t, found)
-	require.Equal(t, types.Nullifier{Nullifier: claim.Nullifier, Status: types.NullifierStatus_NULLIFIER_STATUS_RESERVED,
-		ClaimId: claim.ClaimId, WithdrawalId: claim.WithdrawalId}, nullifier)
-	require.Equal(t, claim.Amount, k.GetTotals(ctx, withdrawalAsset).Pending)
-	message, broken := keeper.SolvencyInvariant(k)(ctx)
-	require.False(t, broken, message)
-	return ctx, k, claim
+		Receipt: decode("receipt"), Proof: decode("proof"), Header: decode("header"), HeaderSignature: decode("header_signature")})
+	require.ErrorIs(t, err, types.ErrModuleRetired)
+	require.EqualError(t, err, "custody module retired by the merge plan")
+	require.Nil(t, response)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
+	return ctx, k
 }
 
-func governanceMessages(t *testing.T, ctx sdk.Context, k *keeper.Keeper, claim types.Claim) ([]sdk.Msg, types.Params, *types.MsgRegisterCheckpoint) {
+func governanceMessages(t *testing.T, ctx sdk.Context, k *keeper.Keeper) ([]sdk.Msg, types.Params, *types.MsgRegisterCheckpoint) {
 	t.Helper()
 	governance := types.GovernanceAuthority()
 	params := k.GetParams(ctx)
 	params.DepositRootAuthority = depositRootAuthority()
-	checkpoint := &types.MsgRegisterCheckpoint{Authority: governance, BatchNumber: claim.BatchNumber + 1,
+	checkpoint := &types.MsgRegisterCheckpoint{Authority: governance, BatchNumber: 2,
 		StateRoot: assetID("governed state"), ReceiptRoot: assetID("governed receipt")}
 	return []sdk.Msg{
 		&types.MsgUpdateParams{Authority: governance, Params: params},
 		&types.MsgSetAsset{Authority: governance, Asset: sidAsset()},
 		checkpoint,
 		&types.MsgSetEmergency{Authority: governance, Enabled: true},
-		&types.MsgCancelClaim{Authority: governance, ClaimId: claim.ClaimId},
+		&types.MsgCancelClaim{Authority: governance, ClaimId: assetID("missing claim")},
 	}, params, checkpoint
 }
 
@@ -352,83 +312,40 @@ func custodyStoreSnapshot(t *testing.T, ctx sdk.Context) map[string][]byte {
 	return state
 }
 
-func TestCustodyProposalDispatchesAllGovernanceMessages(t *testing.T) {
-	ctx, k, pending := pendingGovernanceClaim(t)
-	messages, params, checkpoint := governanceMessages(t, ctx, k, pending)
-	proposal, err := types.NewCustodyProposal("All custody operations", "Execute every governed custody message", messages...)
+func TestCustodyProposalRetirementRefusesAllGovernanceMessages(t *testing.T) {
+	ctx, k := custodyGovernanceContext(t)
+	messages, _, _ := governanceMessages(t, ctx, k)
+	custodyApp.UpgradeKeeper.SetDone(ctx, types.MergePlanUpgrade)
+	before := k.ExportGenesis(ctx)
+	state := custodyStoreSnapshot(t, ctx)
+	events := append(sdk.Events{}, ctx.EventManager().Events()...)
+	proposal, err := types.NewCustodyProposal("Retired custody", "Refuse every governed custody message", messages...)
 	require.NoError(t, err)
 	require.NoError(t, proposal.ValidateBasic())
-	eventsBefore := append(sdk.Events(nil), ctx.EventManager().Events()...)
-	withdrawalAsset, err := types.ParseHash32(pending.AssetId)
-	require.NoError(t, err)
-	totalsBefore := k.GetTotals(ctx, withdrawalAsset)
-
-	require.NoError(t, layerxcustody.NewProposalHandler(k)(ctx, proposal))
-
-	require.Equal(t, params, k.GetParams(ctx))
-	id, err := types.ParseHash32(assetID("SID"))
-	require.NoError(t, err)
-	asset, found := k.GetAsset(ctx, id)
-	require.True(t, found)
-	expectedAsset := sidAsset()
-	expectedAsset.Pointer = types.Address(mustAddress(t, sidPointer))
-	require.Equal(t, expectedAsset, asset)
-	byPointer, found := k.GetAssetByPointer(ctx, mustAddress(t, sidPointer))
-	require.True(t, found)
-	require.Equal(t, expectedAsset, byPointer)
-	byDenom, found := k.GetAssetByDenom(ctx, "usid")
-	require.True(t, found)
-	require.Equal(t, expectedAsset, byDenom)
-	registered, found := k.GetCheckpoint(ctx, checkpoint.BatchNumber)
-	require.True(t, found)
-	require.Equal(t, types.Checkpoint{BatchNumber: checkpoint.BatchNumber, StateRoot: checkpoint.StateRoot,
-		ReceiptRoot: checkpoint.ReceiptRoot, FinalizedAt: ctx.BlockTime().Unix()}, registered)
-	latest, finalizedAt, found := k.Anchor().LatestFinalizedBatch(ctx)
-	require.True(t, found)
-	require.Equal(t, checkpoint.BatchNumber, latest)
-	require.Equal(t, ctx.BlockTime().Unix(), finalizedAt)
-	require.True(t, k.GetEmergency(ctx))
-	claimID, err := types.ParseHash32(pending.ClaimId)
-	require.NoError(t, err)
-	cancelled, found := k.GetClaim(ctx, claimID)
-	require.True(t, found)
-	expectedClaim := pending
-	expectedClaim.Status = types.ClaimStatus_CLAIM_STATUS_CANCELLED
-	require.Equal(t, expectedClaim, cancelled)
-	nullifierID, err := types.ParseHash32(pending.Nullifier)
-	require.NoError(t, err)
-	nullifier, found := k.GetNullifier(ctx, nullifierID)
-	require.True(t, found)
-	require.Equal(t, types.Nullifier{Nullifier: pending.Nullifier, Status: types.NullifierStatus_NULLIFIER_STATUS_CANCELLED,
-		ClaimId: pending.ClaimId, WithdrawalId: pending.WithdrawalId}, nullifier)
-	expectedTotals := totalsBefore
-	expectedTotals.Pending = "0"
-	require.Equal(t, expectedTotals, k.GetTotals(ctx, withdrawalAsset))
-	message, broken := keeper.SolvencyInvariant(k)(ctx)
-	require.False(t, broken, message)
-
-	expectedEvents := sdk.NewEventManager()
-	expectedEvents.EmitEvents(eventsBefore)
-	require.NoError(t, expectedEvents.EmitTypedEvents(
-		&types.EventCheckpointRegistered{BatchNumber: checkpoint.BatchNumber, StateRoot: checkpoint.StateRoot, ReceiptRoot: checkpoint.ReceiptRoot},
-		&types.EventEmergencySet{Enabled: true},
-		&types.EventClaimCancelled{ClaimId: pending.ClaimId, Nullifier: pending.Nullifier}))
-	require.Equal(t, expectedEvents.Events(), ctx.EventManager().Events())
+	require.ErrorIs(t, layerxcustody.NewProposalHandler(k)(ctx, proposal), types.ErrModuleRetired)
+	for _, msg := range messages {
+		one, err := types.NewCustodyProposal("Retired custody", "Refuse a governed message", msg)
+		require.NoError(t, err)
+		require.ErrorIs(t, layerxcustody.NewProposalHandler(k)(ctx, one), types.ErrModuleRetired, "%T", msg)
+	}
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Equal(t, state, custodyStoreSnapshot(t, ctx))
+	require.Equal(t, events, ctx.EventManager().Events())
 }
 
 func TestCustodyProposalWithoutUpgradeReaderPreservesStateAndEvents(t *testing.T) {
-	ctx, k, pending := pendingGovernanceClaim(t)
+	ctx, k := custodyGovernanceContext(t)
 	app := custodyApp
 	withoutReader := keeper.NewKeeper(app.AppCodec(), app.GetKey(types.StoreKey),
 		app.AccountKeeper, app.BankKeeper, &app.EvmKeeper, nil)
-	messages, _, _ := governanceMessages(t, ctx, k, pending)
+	messages, _, _ := governanceMessages(t, ctx, k)
 	proposal, err := types.NewCustodyProposal("Missing activation reader", "Every governed message must be refused", messages...)
 	require.NoError(t, err)
 	require.NoError(t, proposal.ValidateBasic())
 	require.NoError(t, k.GovernanceExecutionActive(ctx))
 	before := custodyStoreSnapshot(t, ctx)
 	genesisBefore := k.ExportGenesis(ctx)
-	eventsBefore := append(sdk.Events(nil), ctx.EventManager().Events()...)
+	eventsBefore := append(sdk.Events{}, ctx.EventManager().Events()...)
 
 	require.ErrorIs(t, layerxcustody.NewProposalHandler(withoutReader)(ctx, proposal), types.ErrGovernanceNotActive)
 
@@ -440,16 +357,18 @@ func TestCustodyProposalWithoutUpgradeReaderPreservesStateAndEvents(t *testing.T
 func TestCustodyProposalRollsBackAllGovernanceStateAndEvents(t *testing.T) {
 	for _, failure := range []string{"missing claim", "immutable checkpoint", "unauthorized"} {
 		t.Run(failure, func(t *testing.T) {
-			ctx, k, pending := pendingGovernanceClaim(t)
-			messages, _, checkpoint := governanceMessages(t, ctx, k, pending)
+			ctx, k := custodyGovernanceContext(t)
+			messages, _, checkpoint := governanceMessages(t, ctx, k)
+			messages = messages[:len(messages)-1]
 			var expectedError error
 			switch failure {
 			case "missing claim":
 				messages = append(messages, &types.MsgCancelClaim{Authority: types.GovernanceAuthority(), ClaimId: assetID("missing claim")})
 				expectedError = types.ErrClaimNotPending
 			case "immutable checkpoint":
+				require.NoError(t, k.RegisterCheckpoint(ctx, 1, [32]byte{1}, [32]byte{2}))
 				messages = append(messages, &types.MsgRegisterCheckpoint{Authority: types.GovernanceAuthority(),
-					BatchNumber: pending.BatchNumber, StateRoot: checkpoint.StateRoot, ReceiptRoot: checkpoint.ReceiptRoot})
+					BatchNumber: 1, StateRoot: checkpoint.StateRoot, ReceiptRoot: checkpoint.ReceiptRoot})
 				expectedError = types.ErrInvalidCheckpoint
 			case "unauthorized":
 				messages = append(messages, &types.MsgSetEmergency{Authority: sdk.AccAddress(make([]byte, 20)).String(), Enabled: false})
@@ -459,40 +378,28 @@ func TestCustodyProposalRollsBackAllGovernanceStateAndEvents(t *testing.T) {
 			require.NoError(t, err)
 			before := custodyStoreSnapshot(t, ctx)
 			genesisBefore := k.ExportGenesis(ctx)
-			eventsBefore := append(sdk.Events(nil), ctx.EventManager().Events()...)
-
+			eventsBefore := append(sdk.Events{}, ctx.EventManager().Events()...)
 			require.ErrorIs(t, layerxcustody.NewProposalHandler(k)(ctx, proposal), expectedError)
-
 			require.Equal(t, before, custodyStoreSnapshot(t, ctx))
 			require.Equal(t, genesisBefore, k.ExportGenesis(ctx))
 			require.Equal(t, eventsBefore, ctx.EventManager().Events())
-			require.Equal(t, genesisBefore.Params, k.GetParams(ctx))
-			require.Equal(t, genesisBefore.Emergency, k.GetEmergency(ctx))
 			_, found := k.GetCheckpoint(ctx, checkpoint.BatchNumber)
 			require.False(t, found)
-			for _, previous := range genesisBefore.Checkpoints {
-				got, exists := k.GetCheckpoint(ctx, previous.BatchNumber)
-				require.True(t, exists)
-				require.Equal(t, previous, got)
-			}
-			claimID, err := types.ParseHash32(pending.ClaimId)
-			require.NoError(t, err)
-			claim, found := k.GetClaim(ctx, claimID)
-			require.True(t, found)
-			require.Equal(t, pending, claim)
-			nullifierID, err := types.ParseHash32(pending.Nullifier)
-			require.NoError(t, err)
-			nullifier, found := k.GetNullifier(ctx, nullifierID)
-			require.True(t, found)
-			require.Equal(t, types.Nullifier{Nullifier: pending.Nullifier, Status: types.NullifierStatus_NULLIFIER_STATUS_RESERVED,
-				ClaimId: pending.ClaimId, WithdrawalId: pending.WithdrawalId}, nullifier)
-			withdrawalAsset, err := types.ParseHash32(pending.AssetId)
-			require.NoError(t, err)
-			require.Equal(t, pending.Amount, k.GetTotals(ctx, withdrawalAsset).Pending)
 			_, found = k.GetAssetByPointer(ctx, mustAddress(t, sidPointer))
 			require.False(t, found)
 			_, found = k.GetAssetByDenom(ctx, "usid")
 			require.False(t, found)
 		})
 	}
+}
+
+func TestCustodyProposalRefusesTypedNilWithoutMutation(t *testing.T) {
+	ctx := newCtx()
+	k := custodyApp.LayerXCustodyKeeper
+	before := k.ExportGenesis(ctx)
+	events := len(ctx.EventManager().Events())
+	var proposal *types.CustodyProposal
+	require.ErrorIs(t, layerxcustody.NewProposalHandler(k)(ctx, proposal), govtypes.ErrInvalidProposalContent)
+	require.Equal(t, before, k.ExportGenesis(ctx))
+	require.Len(t, ctx.EventManager().Events(), events)
 }

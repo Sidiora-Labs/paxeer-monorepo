@@ -1,0 +1,125 @@
+[disposition.8.14.5.1]
+finding = "8.14.5.1"
+status = "resolved"
+evidence = "Commit 1866e77a1 ports agent_envelope.rs to requested_rung and the current proof-bundle and freshness decoders, as shown at services/agent/crates/layerx-sdk/src/agent_envelope.rs:1436 and services/agent/crates/layerx-sdk/src/agent_envelope.rs:1452, removing the stale dependency field accesses that blocked the boundary tests."
+
+[disposition.8.16.2.1]
+finding = "8.16.2.1"
+status = "resolved"
+evidence = "services/platform/hosted/indexer/src/config.rs:445 defines environment_builds_evm_and_comet_sources and asserts a Paxeer source with finality depth zero and a Comet endpoint, the existing test selected by task 8.90.1 instead of the invalid config.relay test."
+
+[disposition.8.18.1.1]
+finding = "8.18.1.1"
+status = "resolved"
+evidence = "Commit ab7537de3 deletes the guarantor collision helper and mutation, and spec/layerx-merge/spec.kvx:154062 now requires only validate and test_node_deployment_runs_no_guarantor, removing collide from the graph check."
+
+[disposition.8.19.2.1]
+finding = "8.19.2.1"
+status = "open"
+evidence = "services/platform/hosted/node/tests/sequencer-seed-test.py:79 and services/platform/hosted/node/tests/signer-test.py:642 still read contracts/config/checkpoint-settlement.json through settlement_document, so the reader retirement assigned to pending task 6.59.7 has not landed even though the node-driver scan now excludes that document."
+follow_up = "6.59.7"
+
+[disposition.8.19.5]
+finding = "8.19.5"
+status = "superseded"
+evidence = "Commit 4cfd3a413 deletes services/platform/hosted/gateway/tests/local/build.rs together with lifecycle.rs and its Cargo test target, retiring the fixture adapter that required LAYERX_TEST_CORE_BIN and asserted the obsolete metadata path."
+
+[disposition.8.19.6.1]
+finding = "8.19.6.1"
+status = "resolved"
+evidence = "Commit 48fa30897 installs the scan at services/platform/hosted/tests/test_retired_agent_boundary_node_tests.py:15 over layerx_wire::activity and tests/bridge, permitting the receipt Encoder and receipt_digest imports retained at services/platform/hosted/agent-boundary/tests/chain_receipt.rs:2."
+
+[disposition.8.20.1.1]
+finding = "8.20.1.1"
+status = "resolved"
+evidence = "services/platform/hosted/core/src/public_reads.rs:176 defines its own EIP-1559 validate_fee_payload and estimate_fee calls it at services/platform/hosted/core/src/public_reads.rs:206, eliminating the call to the removed submission validator and its temporary alias."
+
+[disposition.8.20.3.1]
+finding = "8.20.3.1"
+status = "resolved"
+evidence = "Commit 26f486054 adds the current test at services/platform/hosted/tests/test_workspace_manifest.py:19, which checks the indexer manifest and its lock entry while explicitly retaining the shared layerx-paxeer-verifier package instead of rejecting the whole lockfile."
+
+[disposition.8.20.3.2]
+finding = "8.20.3.2"
+status = "resolved"
+evidence = "Commit 72757eb7a ports the authority chain identity, block and account reads to layerx-client and removes its verifier dependency, with the current readiness path using SequencerEndpoint at services/platform/hosted/authority/src/main.rs:912 rather than the removed crate."
+
+[disposition.8.22.1]
+finding = "8.22.1"
+status = "resolved"
+evidence = "Commit 1923cc0b5 adapts verifyRpcPayment, which now constructs PortableReceiptV2 at services/platform/middleware/seller/src/rpc.ts:122 and passes evidence, requirements, receiptKeys and commitments to verifyPaymentReceipt at services/platform/middleware/seller/src/rpc.ts:128."
+
+[disposition.8.22.2]
+finding = "8.22.2"
+status = "resolved"
+evidence = "services/platform/middleware/seller/src/index.ts:461 now calls verifyPaymentCommitment with verified receipt, network, rung and resolver, while services/platform/middleware/seller/src/rpc.ts:122 uses portable receipt evidence and the retired checkpoint.ts and rpcBatchEvidence consumers are absent."
+
+[disposition.8.23.2.1]
+finding = "8.23.2.1"
+status = "resolved"
+evidence = "Commit 94cb28443 types BuyerMiddlewareConfig.receiptKeys as readonly SequencerReceiptKey[] at services/platform/middleware/buyer/src/index.ts:69, matching SellerMiddlewareConfig.receiptKeys at services/platform/middleware/seller/src/index.ts:161 instead of the incompatible PxReceiptKeyEntry list."
+
+[disposition.8.26.4]
+finding = "8.26.4"
+status = "resolved"
+evidence = "Commit 94cb28443 removes the retired seller imports and canonicalReceipt calls from the buyer, whose current imports use PortableReceiptV2 at services/platform/middleware/buyer/src/index.ts:38 and whose verification call passes receipt keys at services/platform/middleware/buyer/src/index.ts:453."
+
+[disposition.8.28.2]
+finding = "8.28.2"
+status = "resolved"
+evidence = "services/platform/ramps/toolkit/src/clients.rs:1046 calls the LedgerCall compilers with their current signatures, services/platform/ramps/toolkit/src/clients.rs:1231 constructs the new ReceiptEvidence fields, and services/platform/ramps/toolkit/src/engine.rs:302 consumes the verified leg through receipt_digest, height and rung."
+
+[disposition.8.28.2.1]
+finding = "8.28.2.1"
+status = "resolved"
+evidence = "Commit 36d3be002 adapts the reference receipt report, which now reads leg.tx_hash, leg.receipt_digest, leg.height and leg.rung at services/platform/ramps/reference/src/main.rs:259 instead of the removed activity_id and batch_id fields."
+
+[disposition.8.28.3]
+finding = "8.28.3"
+status = "resolved"
+evidence = "Commit 4caa8d010 ports configuration and its consuming methods together, with services/platform/ramps/toolkit/src/clients.rs:1035 preparing EIP-1559 payments, services/platform/ramps/toolkit/src/clients.rs:1105 submitting through the sequencer and services/platform/ramps/toolkit/src/clients.rs:1150 resolving sequencer evidence against the current client fields."
+
+[disposition.8.28.3.1]
+finding = "8.28.3.1"
+status = "resolved"
+evidence = "services/platform/ramps/toolkit/src/clients.rs:922 holds sequencer and signer configuration used by the migrated methods, while MaintainedBatchDocument and GatewayReceiptEnvelope are confined to the historical_boundary_tests module beginning at services/platform/ramps/toolkit/src/clients.rs:1582 rather than the production relay client."
+
+[disposition.8.28.3.2]
+finding = "8.28.3.2"
+status = "resolved"
+evidence = "Commit 4caa8d010 preserves prepare_native_receive at services/platform/ramps/toolkit/src/clients.rs:1018, compatibility accessors at services/platform/ramps/toolkit/src/clients.rs:995 and submission fields at services/platform/ramps/toolkit/src/clients.rs:939, while the current engine records tx_hash and raw_transaction at services/platform/ramps/toolkit/src/engine.rs:210."
+
+[disposition.8.28.3.3]
+finding = "8.28.3.3"
+status = "resolved"
+evidence = "Commit 4caa8d010 ports both the ramp-verify-receipt binary and reference ramp away from network_id, protocol_version, fee_limit and LayerxClient.activity, with the current verifier building LayerxConfig directly at services/platform/ramps/toolkit/src/bin/ramp-verify-receipt.rs:96 and the reference report using chain_id at services/platform/ramps/reference/src/main.rs:263."
+
+[disposition.8.29.1]
+finding = "8.29.1"
+status = "resolved"
+evidence = "Commit c596d0245 removes RampEngine::submit_native_receive and its reference-ramp caller together, replacing the work-route branch with submit_layerx and an account sequence so the dependent no longer calls the deleted method."
+
+[disposition.8.29.1.1]
+finding = "8.29.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:155703 now lists TransitionEvidence, Journal, journal_records_transaction_hash_and_rung and journal_replays_version_one_records for task 8.29.1, replacing the qualified RampEngine method names that the graph could not resolve while the methods remain at services/platform/ramps/toolkit/src/engine.rs:179 and services/platform/ramps/toolkit/src/engine.rs:235."
+
+[disposition.8.29.2.1]
+finding = "8.29.2.1"
+status = "resolved"
+evidence = "Commit b4ac633f8 adapts the reference caller, which now supplies layerx to InventoryRebalancer at services/platform/ramps/reference/src/main.rs:1104, passes a transaction hash to poll at services/platform/ramps/reference/src/main.rs:1131 and presents rung and block_height at services/platform/ramps/reference/src/main.rs:1075."
+
+[disposition.8.29.4.1]
+finding = "8.29.4.1"
+status = "resolved"
+evidence = "Commit 932d317f6 adds payer_grant_purpose to the CreateOrder fixture at services/platform/ramps/toolkit/tests/engine_legs.rs:55, supplying the missing field with a nonzero off-ramp purpose and no on-ramp purpose."
+
+[disposition.8.30.1]
+finding = "8.30.1"
+status = "resolved"
+evidence = "Commit eb194b27c removes the retired Paxeer RPC and tracker fields with their remaining consumers, and services/platform/ramps/reference/src/main.rs:1315 now calls verify_recovery_settlement with five arguments while the RampEngine initializer retains registry at services/platform/ramps/reference/src/main.rs:1336."
+
+[disposition.8.30.4.1]
+finding = "8.30.4.1"
+status = "resolved"
+evidence = "Commit 5b511e661 refreshes services/platform/Cargo.lock after eb194b27c, removing layerx-intents and layerx-paxeer-client from the layerx-ramp-toolkit dependency list and layerx-paxeer-client from layerx-reference-ramp, and those obsolete edges remain absent on main."

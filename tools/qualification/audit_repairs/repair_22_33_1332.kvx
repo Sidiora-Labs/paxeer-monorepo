@@ -1,0 +1,32 @@
+[task]
+id = "22.33.1332"
+inspected_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+repair = "Prepare sdk/chainflow/rust/.github/workflows/sdk-ci.yml for monorepo-root execution: filter push and pull_request to SDK changes and the requested root workflow path, and set the verification job's run working-directory to sdk/chainflow/rust. Preserve checkout/toolchain pins, read-only permissions, all-features build/clippy/test commands, all-targets clippy, denied warnings and cargo fmt --check."
+source_proof = "The pytest module parses the production YAML, checks SDK change paths through both event filters into the unconditional verification job, follows checkout and toolchain setup into every exact Cargo command, resolves their inherited working-directory to the real Cargo manifest, and checks the mock target's required features and websocket feature. The record test binds sdk-ci-not-discovered to these proofs and its explicit out-of-scope wiring request."
+review_only = "GitHub discovery and hosted execution, successful Rust compilation/clippy/tests/formatting, actual mock test execution and feature-gated doctest behavior are not certified by this offline source gate. Root workflow placement requires the owning domain's change and subsequent GitHub review/execution. No persistent component or runtime interface is changed, so restart/recovery and interface round-trip proofs do not apply. No shell script or unit file is changed; commands are parsed as shell arguments without invoking an external binary."
+baseline = "Pre-change verify was not executed: the explicit bounded order prohibits testing before implementation and running verify_cmd by hand. No baseline failures are claimed. Inspection found no repair files, no /out/run/gates.jsonl and zero builds/verifies in gate.json. The nested workflow had no SDK path filters or working-directory; root workflows had no Chainflow Rust invocation. Existing .cgignore and spec status changes are runner bookkeeping and were preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1332.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private evidence ledger supply the exact verified candidate revision, command, exit code and log. The runner records a content-derived candidate containing this record; embedding its own candidate hash here would change that revision. Build and verification must qualify the same candidate. The final response copies the gate evidence; the runner publishes without a manual commit or push."
+wiring_requests = [".github/workflows/chainflow-rust-sdk.yml | domain 15 (audit owner / CI workflow owner): publish sdk/chainflow/rust/.github/workflows/sdk-ci.yml at this root path so GitHub discovers it; retain push and pull_request SDK path triggers, sdk/chainflow/rust as working-directory, all-features build/clippy/test, all-targets clippy, denied warnings and fmt --check. Root placement is outside this task's scope and remains required for end-to-end discovery."]
+
+[finding.sdk-ci-not-discovered]
+audit = "22.30.72"
+file = "sdk/chainflow/rust/.github/workflows/sdk-ci.yml"
+class = "wiring-gap"
+severity = "medium"
+disposition = "in-scope-repaired; root-discovery-pending"
+resolution = "The in-scope workflow now carries the requested SDK path filters and Cargo working-directory while preserving every existing verification check. The root discovery step is explicitly handed to domain 15 above as required by the scope exception; this nested file alone is not a GitHub-discovered workflow and full finding closure is not claimed."
+tests = ["test_sdk_push_and_pull_request_paths_reach_verification", "test_checkout_and_toolchain_feed_every_cargo_check_in_sdk_directory", "test_all_features_keeps_required_mock_target_and_gated_sdk_surfaces", "test_sdk_ci_finding_maps_to_proofs_and_explicit_root_wiring_request"]
+
+[format]
+policy = "No Python, YAML or KVX formatter is configured for these paths. After implementation apply repository .editorconfig: UTF-8, LF, final newline, trimmed trailing whitespace and two-space YAML indentation."
+
+[gotcha.1]
+observed = "The proposal needs root .github/workflows, which the explicit scope excludes."
+resolution = "Prepare the scoped workflow and record a one-line root wiring request to the finding's owning domain 15, as task steps 3 and 7 require; do not claim actual discovery or change a root workflow."
+
+[gotcha.2]
+observed = "The older task step asks for baseline verification, but the explicit order forbids it."
+resolution = "Use inspection for baseline facts, report no baseline tests as executed, and run only hf-build then hf-done after full implementation. GOTCHA.kvx and spec files are outside scope, so task-local notes live here."

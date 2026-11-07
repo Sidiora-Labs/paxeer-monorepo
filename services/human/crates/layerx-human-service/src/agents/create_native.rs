@@ -1,6 +1,63 @@
 use super::*;
-use layerx_crypto::onboarding::{OnboardingConsent, SponsoredRegistration};
+use layerx_crypto::payments::OnboardingConsent;
 use layerx_intents::{LxpSend, NativeBudgetCreate};
+
+pub(super) const RECORD_VERSION: u8 = 3;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NativeIdentityCreationRequest {
+    pub did: Did,
+    pub primary_key: [u8; 32],
+    pub custody_key: KeyId,
+    pub action_key: [u8; 32],
+    pub network_id: u32,
+    pub started_at: u64,
+    pub compiled: layerx_intents::CompiledIntent,
+}
+
+impl NativeIdentityCreationRequest {
+    #[must_use]
+    pub fn call(&self) -> layerx_agentd::prepare::PrecompileCall {
+        use layerx_agentd::prepare::{AbiArgument, PrecompileCall, PrecompileTarget};
+        PrecompileCall {
+            target: PrecompileTarget::Auth,
+            selector: layerx_crypto::disclosure::call::ledger_selector(
+                "recordLifecycle(bytes,bytes32)",
+            ),
+            arguments: vec![
+                AbiArgument::Bytes(self.compiled.payload().as_bytes().to_vec()),
+                AbiArgument::Word(self.action_key),
+            ],
+        }
+    }
+
+    /// # Errors
+    /// Refuses a signed call for a different identity, action or network.
+    pub fn verify_signed(&self, signed: &[u8]) -> Result<[u8; 32], AgentFailure> {
+        use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+        use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+        let (call, signature) = decode_signed(signed)
+            .map_err(|_| AgentFailure::Refused("invalid signed identity transaction"))?;
+        let sender = recover_sender(&call, &signature)
+            .map_err(|_| AgentFailure::Refused("invalid identity transaction signature"))?;
+        let disclosure = bind_call(&call, sender)
+            .map_err(|_| AgentFailure::Refused("invalid identity transaction disclosure"))?;
+        let method = disclosure
+            .construct_method()
+            .map_err(|_| AgentFailure::Refused("invalid identity transaction method"))?;
+        if call.chain_id != u64::from(self.network_id)
+            || disclosure.activity_type != self.compiled.activity_type()
+            || disclosure.idempotency_key != self.action_key
+            || !matches!(method, Some(ConstructMethod::AuthLifecycle { payload, .. })
+                if payload == self.compiled.payload().as_bytes())
+        {
+            return Err(AgentFailure::Refused(
+                "identity transaction binding differs",
+            ));
+        }
+        Ok(transaction_hash(signed))
+    }
+}
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub(super) struct NativeCreation {
@@ -50,13 +107,6 @@ pub trait NativeAgentCreationContract: ScopedAgentCreationContract {
         request: &NativeIdentityRevisionRequest,
     ) -> Result<u64, AgentFailure>;
     /// # Errors
-    /// Refuses an invalid target consent, sponsor or durable registration outcome.
-    fn onboard_scoped(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        request: NativeOnboardingRequest,
-    ) -> Result<ProtocolEvidence, AgentFailure>;
-    /// # Errors
     /// Refuses an unproven source account, custody authorization or transfer outcome.
     fn fund_scoped(
         &mut self,
@@ -99,6 +149,125 @@ pub(super) fn stages(
 }
 
 impl CreationJourney {
+    fn native_identity_request(
+        &self,
+        registry: &ModuleRegistry,
+    ) -> Result<NativeIdentityCreationRequest, AgentCreationError> {
+        if self.record.version != RECORD_VERSION || self.record.native.is_none() {
+            return Err(AgentCreationError::InvalidStage);
+        }
+        let did = self.did()?;
+        let primary_key = self
+            .record
+            .public_key
+            .ok_or(AgentCreationError::CustodyRequired)?;
+        let compiled = layerx_intents::NativeOwnerBootstrap::Identity {
+            did: did.clone(),
+            primary_key: PublicKey::new(primary_key),
+        }
+        .compile(registry)?;
+        Ok(NativeIdentityCreationRequest {
+            did,
+            primary_key,
+            custody_key: KeyId::new(format!("agent-{}", short_hex(&self.record.agent_id)))?,
+            action_key: self.stage(CreationStage::DidRegistration).action_key,
+            network_id: self.record.network_id,
+            started_at: self.record.started_at,
+            compiled,
+        })
+    }
+
+    /// Prepares the current chain identity call with durable managed custody.
+    /// # Errors
+    /// Refuses historical journeys, unavailable custody or a changed primary key.
+    pub fn prepare_native_identity(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        keystore: &Keystore,
+        registry: &ModuleRegistry,
+        now: u64,
+    ) -> Result<NativeIdentityCreationRequest, AgentCreationError> {
+        if self.record.version != RECORD_VERSION || self.record.native.is_none() {
+            return Err(AgentCreationError::InvalidStage);
+        }
+        self.ensure_custody(scope, keystore, now)?;
+        let request = self.native_identity_request(registry)?;
+        let descriptor = keystore.describe(scope.principal(), &request.custody_key)?;
+        if descriptor.class != KeyClass::AgentPrimary
+            || descriptor.public_key != request.primary_key
+        {
+            return Err(AgentCreationError::EvidenceConflict);
+        }
+        Ok(request)
+    }
+
+    /// Retains the exact authorized transaction before the adapter submits it.
+    /// # Errors
+    /// Refuses changed retries and transactions not emitted for this identity request.
+    pub fn retain_native_identity_submission(
+        &self,
+        scope: &mut PrincipalScope<'_>,
+        registry: &ModuleRegistry,
+        signed: &[u8],
+        now: u64,
+    ) -> Result<[u8; 32], AgentCreationError> {
+        let request = self.native_identity_request(registry)?;
+        let transaction = request.verify_signed(signed)?;
+        put_exact(
+            scope,
+            self.native_identity_submission_row()?,
+            now,
+            signed.to_vec(),
+        )?;
+        Ok(transaction)
+    }
+
+    /// # Errors
+    /// Refuses a retained transaction that no longer binds to this journey.
+    pub fn native_identity_submission(
+        &self,
+        scope: &PrincipalScope<'_>,
+        registry: &ModuleRegistry,
+    ) -> Result<Option<Vec<u8>>, AgentCreationError> {
+        let request = self.native_identity_request(registry)?;
+        let Some(row) = scope.get(Table::Journeys, &self.native_identity_submission_row()?) else {
+            return Ok(None);
+        };
+        request.verify_signed(row.bytes())?;
+        Ok(Some(row.bytes().to_vec()))
+    }
+
+    fn native_identity_submission_row(&self) -> Result<RowKey, AgentCreationError> {
+        Ok(RowKey::new(format!(
+            "native-create-identity-signed-{}",
+            full_hex(&self.record.agent_id)
+        ))?)
+    }
+
+    /// Accepts only the exact identity call at the committed receipt rung.
+    /// # Errors
+    /// Refuses a changed identity, action, network, receipt or premature completion.
+    pub fn accept_native_identity(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        registry: &ModuleRegistry,
+        evidence: &ProtocolEvidence,
+        now: u64,
+    ) -> Result<(), AgentCreationError> {
+        let request = self.native_identity_request(registry)?;
+        if self.native_identity_submission(scope, registry)?.as_deref()
+            != Some(evidence.signed_activity.as_slice())
+        {
+            return Err(AgentCreationError::EvidenceConflict);
+        }
+        let kind = request.compiled.activity_type();
+        let bound = evidence.bound_activity(kind)?;
+        if bound.payload() != request.compiled.payload().as_bytes() {
+            return Err(AgentCreationError::EvidenceConflict);
+        }
+        self.accept_native(scope, CreationStage::DidRegistration, kind, evidence, now)
+    }
+
     fn native_recovery_sequence(
         &self,
         scope: &PrincipalScope<'_>,
@@ -169,6 +338,8 @@ impl CreationJourney {
 
     /// # Errors
     /// Refuses incomplete custody, unsigned effects, changed retries or insufficient finality.
+    /// Current journeys await `prepare_native_identity`, retained submission and
+    /// `accept_native_identity` before resuming funding and authority provisioning.
     pub fn resume_native<C: NativeAgentCreationContract>(
         &mut self,
         scope: &mut PrincipalScope<'_>,
@@ -177,10 +348,10 @@ impl CreationJourney {
         agent: &mut C,
         now: u64,
     ) -> Result<CreationStatus, AgentCreationError> {
-        if self.record.version == RECORD_VERSION {
+        if self.record.version == super::RECORD_VERSION {
             return self.resume(scope, keystore, registry, agent, now);
         }
-        if self.record.version != 2 || self.record.native.is_none() {
+        if !matches!(self.record.version, 2 | RECORD_VERSION) || self.record.native.is_none() {
             return Err(AgentCreationError::CorruptJourney);
         }
         self.ensure_custody(scope, keystore, now)?;
@@ -195,7 +366,13 @@ impl CreationJourney {
                 continue;
             }
             let result = match stage {
-                CreationStage::DidRegistration => self.native_onboard(scope, registry, agent, now),
+                CreationStage::DidRegistration => {
+                    if self.record.version == 2 {
+                        Err(AgentFailure::Refused("native onboarding operation is retired").into())
+                    } else {
+                        return Ok(self.status());
+                    }
+                }
                 CreationStage::MainFunding | CreationStage::InitialFunding => {
                     self.native_fund(scope, registry, agent, stage, now)
                 }
@@ -250,59 +427,6 @@ impl CreationJourney {
             .and_then(|name| name.strip_suffix(":main"))
             .ok_or(AgentCreationError::InvalidContext)?;
         Did::new(did.as_bytes()).map_err(|_| AgentCreationError::InvalidContext)
-    }
-
-    fn native_onboard<C: NativeAgentCreationContract>(
-        &mut self,
-        scope: &mut PrincipalScope<'_>,
-        registry: &ModuleRegistry,
-        agent: &mut C,
-        now: u64,
-    ) -> Result<(), AgentCreationError> {
-        let stage = CreationStage::DidRegistration;
-        let consent = OnboardingConsent {
-            sponsor: layerx_intents::canonical::did_id_for_protocol(&self.sponsor()?, 3)
-                .map_err(|_| AgentCreationError::InvalidContext)?,
-            target: self.did()?,
-            target_public_key: self
-                .record
-                .public_key
-                .ok_or(AgentCreationError::CustodyRequired)?,
-            native_asset: self.native_mode()?.native_asset,
-            action_key: self.stage(stage).action_key,
-            expires_at: self
-                .record
-                .started_at
-                .checked_add(self.native_mode()?.timestamp_span)
-                .and_then(|value| value.checked_mul(1_000))
-                .ok_or(AgentCreationError::InvalidContext)?,
-        };
-        let evidence = agent.onboard_scoped(
-            scope,
-            NativeOnboardingRequest {
-                consent: consent.clone(),
-                network_id: self.record.network_id,
-                started_at: self.record.started_at,
-                custody_key: KeyId::new(format!("agent-{}", short_hex(&self.record.agent_id)))?,
-            },
-        )?;
-        let kind = ActivityType::new(layerx_types::payload::ModuleId::Governance, 1)
-            .map_err(|_| AgentCreationError::InvalidStage)?;
-        let activity = evidence.bound_activity(kind)?;
-        let registration = SponsoredRegistration::decode(activity.payload())
-            .map_err(|_| AgentCreationError::EvidenceConflict)?;
-        if registration.consent != consent
-            || registration.validate_outer(&activity).is_err()
-            || activity.actor_did() != self.sponsor()?.as_bytes()
-        {
-            return Err(AgentCreationError::EvidenceConflict);
-        }
-        let intent = Intent::v3(IntentKind::NativeOnboarding(registration));
-        let compiled = compile(&intent, registry)?;
-        if activity.payload() != compiled.payload().as_bytes() {
-            return Err(AgentCreationError::EvidenceConflict);
-        }
-        self.accept_native(scope, stage, kind, &evidence, now)
     }
 
     fn native_fund<C: NativeAgentCreationContract>(
@@ -362,12 +486,8 @@ impl CreationJourney {
         }
         let intent = Intent::v1(IntentKind::LxpSend(funded.intent));
         let compiled = compile(&intent, registry)?;
-        if funded
-            .evidence
-            .bound_activity(compiled.activity_type())?
-            .payload()
-            != compiled.payload().as_bytes()
-        {
+        let bound = funded.evidence.bound_activity(compiled.activity_type())?;
+        if bound.payload() != compiled.payload().as_bytes() {
             return Err(AgentCreationError::EvidenceConflict);
         }
         self.accept_native(
@@ -466,8 +586,9 @@ impl CreationJourney {
         let kind = action.compiled.activity_type();
         let payload = action.compiled.payload().as_bytes().to_vec();
         let evidence = agent.submit_protocol_scoped(scope, action)?;
+        let bound = evidence.bound_activity(kind)?;
         if evidence.actor != self.record.did
-            || evidence.bound_activity(kind)?.payload() != payload
+            || bound.payload() != payload
             || Some(evidence.owner_public_key) != self.record.public_key
         {
             return Err(AgentCreationError::EvidenceConflict);
@@ -488,15 +609,14 @@ impl CreationJourney {
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
-        if evidence.verification_level != VerificationLevel::CHECKPOINT_FINALISED {
+        if evidence.rung != Rung::Committed {
             return Err(AgentFailure::Unavailable.into());
         }
         let verified = evidence.verify_outcome(kind)?;
         let protocol = verified
-            .receipt()
             .protocol()
             .ok_or(AgentCreationError::EvidenceConflict)?;
-        if protocol.activity_id() != evidence.activity_id
+        if protocol.activity_id() != evidence.tx_hash
             || protocol.protocol_version() != 3
             || (kind.module() == layerx_types::payload::ModuleId::Asset
                 && (protocol.module_id() != 1 || u16::from(protocol.operation()) != kind.ordinal()))
@@ -505,12 +625,12 @@ impl CreationJourney {
         {
             return Err(AgentCreationError::EvidenceConflict);
         }
-        let receipt_digest = Sha256::digest(verified.canonical_bytes()).into();
+        let receipt_digest = Sha256::digest(evidence.receipt_bytes.as_slice()).into();
         put_exact(
             scope,
             evidence_row(self.record.agent_id, stage)?,
             now,
-            verified.canonical_bytes().to_vec(),
+            evidence.receipt_bytes.as_slice().to_vec(),
         )?;
         put_exact(
             scope,
@@ -535,7 +655,7 @@ impl CreationJourney {
             StageState::Refused
         };
         progress.evidence_digest = Some(receipt_digest);
-        progress.object_id = Some(evidence.activity_id);
+        progress.object_id = Some(evidence.tx_hash);
         if stage == CreationStage::DidRegistration && protocol.result_code() == 0 {
             self.stage_mut(CreationStage::Custody).state = StageState::ReceiptVerified;
             self.stage_mut(CreationStage::Custody).evidence_digest = Some(receipt_digest);
@@ -556,4 +676,65 @@ pub(super) fn full_hex(bytes: &[u8; 32]) -> String {
         text.push(char::from(DIGITS[usize::from(byte & 15)]));
     }
     text
+}
+
+impl ProtocolEvidence {
+    /// # Errors
+    /// Refuses a missing native receipt or a transaction that is still submitted.
+    pub fn with_native_receipt(
+        mut self,
+        receipt: &layerx_client::sequencer::SequencerReceipt,
+    ) -> Result<Self, AgentFailure> {
+        use layerx_client::sequencer::SequencerReceipt;
+        let (executed, rung) = match receipt {
+            SequencerReceipt::Submitted { .. } => return Err(AgentFailure::Unavailable),
+            SequencerReceipt::Receipted(executed) => (executed, Rung::Receipted),
+            SequencerReceipt::Committed {
+                receipt,
+                block_number,
+                block_hash,
+            } => {
+                if receipt.height != *block_number || *block_hash == [0; 32] {
+                    return Err(AgentFailure::Refused("native receipt height differs"));
+                }
+                (receipt, Rung::Committed)
+            }
+        };
+        if executed.tx_hash == [0; 32] || executed.height == 0 || executed.receipt.is_empty() {
+            return Err(AgentFailure::Refused("native receipt is incomplete"));
+        }
+        let receipt_hash: [u8; 32] = Sha256::digest(&executed.receipt).into();
+        if (self.tx_hash != [0; 32] && self.tx_hash != executed.tx_hash)
+            || (self.receipt_hash != [0; 32] && self.receipt_hash != receipt_hash)
+            || (self.block_height != 0 && self.block_height != executed.height)
+            || (!self.receipt_bytes.is_empty() && self.receipt_bytes != executed.receipt)
+        {
+            return Err(AgentFailure::Refused("native receipt transaction differs"));
+        }
+        let decoded = layerx_intents::canonical::decode_receipt(&executed.receipt)
+            .map_err(|_| AgentFailure::Refused("invalid native transaction receipt"))?;
+        let canonical = layerx_intents::canonical::receipt_bytes(&decoded)
+            .map_err(|_| AgentFailure::Refused("invalid canonical native receipt"))?;
+        let protocol = decoded.protocol().ok_or(AgentFailure::Refused(
+            "native transaction receipt is missing",
+        ))?;
+        let height = protocol.batch_id();
+        if canonical != executed.receipt
+            || protocol.activity_id() != executed.tx_hash
+            || protocol.global_sequence() != executed.seq
+            || executed.seq == 0
+            || protocol.sequencer_signature().is_none()
+            || height[..24] != [0; 24]
+            || height[24..] != executed.height.to_be_bytes()
+            || (protocol.result_code() == 0) != executed.success
+        {
+            return Err(AgentFailure::Refused("native receipt binding differs"));
+        }
+        self.tx_hash = executed.tx_hash;
+        self.receipt_hash = receipt_hash;
+        self.block_height = executed.height;
+        self.rung = rung;
+        self.receipt_bytes = executed.receipt.clone();
+        Ok(self)
+    }
 }

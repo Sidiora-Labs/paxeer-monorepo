@@ -1,7 +1,11 @@
 #define _POSIX_C_SOURCE 200809L
 
 #include "layerx/lxp_storage.h"
+#include "layerx/lxp_fault.h"
+#include "layerx/lxp_snapshot.h"
 
+#include <dirent.h>
+#include <fcntl.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -334,6 +338,169 @@ static int recover_from_checkpoint(bool complete_records)
     return 0;
 }
 
+typedef struct snapshot_restart_fixture {
+    const char *directory;
+    const lxp_snapshot_manifest_record *manifest;
+    lxp_byte_span snapshot;
+} snapshot_restart_fixture;
+
+static lxp_result snapshot_restart_workload(void *context)
+{
+    const snapshot_restart_fixture *fixture = context;
+    return lxp_snapshot_store_write(fixture->directory, fixture->manifest,
+                                     fixture->snapshot.bytes,
+                                     fixture->snapshot.length);
+}
+
+static int snapshot_temporary_files(const char *directory, int remove_files)
+{
+    DIR *entries = opendir(directory);
+    struct dirent *entry;
+    int count = 0;
+    if (entries == NULL) return -1;
+    while ((entry = readdir(entries)) != NULL) {
+        char path[256];
+        if (strstr(entry->d_name, ".lxs.tmp.") == NULL) continue;
+        ++count;
+        if (remove_files) {
+            int length = snprintf(path, sizeof(path), "%s/%s", directory,
+                                    entry->d_name);
+            if (length < 0 || (size_t)length >= sizeof(path) ||
+                unlink(path) != 0) {
+                (void)closedir(entries);
+                return -1;
+            }
+        }
+    }
+    return closedir(entries) == 0 ? count : -1;
+}
+
+static int test_snapshot_crash_same_sequence_retry(void)
+{
+    static const lxp_fault_boundary boundaries[] = {
+        LXP_FAULT_CHECKPOINT_HEADER_WRITTEN,
+        LXP_FAULT_CHECKPOINT_BODY_WRITTEN,
+        LXP_FAULT_CHECKPOINT_FILE_SYNCED
+    };
+    uint8_t snapshot_storage[8192];
+    uint8_t read_storage[8192];
+    uint8_t root[32];
+    uint8_t key[32] = { 0x53U };
+    uint8_t recovered_root[32];
+    uint64_t parameters = 1U;
+    lxp_u128 value = { 0U, 0U };
+    lxp_state_store original_state;
+    lxp_state_store recovered_state;
+    lxp_state_journal original_journal;
+    lxp_state_journal recovered_journal;
+    lxp_kernel *original = calloc(1U, sizeof(*original));
+    lxp_kernel *recovered = calloc(1U, sizeof(*recovered));
+    lxp_arena arena;
+    lxp_byte_span snapshot;
+    lxp_snapshot_manifest_record manifest;
+    size_t i;
+    value.lo = 79U;
+    if (original == NULL || recovered == NULL) return 1;
+    original->state = &original_state;
+    original->journal = &original_journal;
+    original->parameter_set = &parameters;
+    recovered->state = &recovered_state;
+    recovered->journal = &recovered_journal;
+    recovered->parameter_set = &parameters;
+    if (lxp_state_store_init(&original_state, 0U) != LXP_OK ||
+        lxp_state_store_init(&recovered_state, 0U) != LXP_OK ||
+        lxp_state_journal_open(&original_state, 0U, &original_journal) != LXP_OK ||
+        lxp_state_journal_set(&original_journal, key, value) != LXP_OK ||
+        lxp_state_journal_commit(&original_journal) != LXP_OK ||
+        lxp_state_root(original, root) != LXP_OK ||
+        lxp_arena_init(&arena, snapshot_storage, sizeof(snapshot_storage)) !=
+            LXP_OK ||
+        lxp_snapshot_write(original, 0U, &arena, &snapshot) != LXP_OK ||
+        lxp_snapshot_manifest(snapshot.bytes, snapshot.length, 0U, root,
+                               root, &manifest) != LXP_OK)
+        return 1;
+    for (i = 0U; i < sizeof(boundaries) / sizeof(boundaries[0]); ++i) {
+        char directory[] = "/tmp/lxp-snapshot-retry-XXXXXX";
+        char path[128];
+        lxp_snapshot_manifest_record stored_manifest;
+        lxp_snapshot_manifest_record conflicting_manifest;
+        lxp_byte_span stored_snapshot;
+        snapshot_restart_fixture fixture = { directory, &manifest, snapshot };
+        lxp_arena read_arena;
+        lxp_u128 recovered_value;
+        uint8_t conflicting_root[32];
+        bool found;
+        int child_status;
+        int descriptor;
+        uint8_t byte;
+        if (mkdtemp(directory) == NULL ||
+            snprintf(path, sizeof(path), "%s/%020u.lxs", directory, 0U) < 0 ||
+            lxp_fault_crash_at_boundary(boundaries[i], 1U,
+                snapshot_restart_workload, &fixture, &child_status) != LXP_OK ||
+            access(path, F_OK) == 0 ||
+            snapshot_temporary_files(directory, 0) != 1 ||
+            lxp_snapshot_store_write(directory, &manifest, snapshot.bytes,
+                                      snapshot.length) != LXP_OK ||
+            snapshot_temporary_files(directory, 0) != 1 ||
+            lxp_arena_init(&read_arena, read_storage, sizeof(read_storage)) !=
+                LXP_OK ||
+            lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
+                                     &stored_snapshot) != LXP_OK ||
+            stored_manifest.global_sequence != 0U ||
+            memcmp(stored_manifest.snapshot_digest, manifest.snapshot_digest,
+                   32U) != 0 || stored_snapshot.length != snapshot.length ||
+            memcmp(stored_snapshot.bytes, snapshot.bytes, snapshot.length) != 0 ||
+            lxp_snapshot_load(stored_snapshot.bytes, stored_snapshot.length,
+                               &stored_manifest, recovered) != LXP_OK ||
+            lxp_snapshot_verify_root(recovered, &stored_manifest) != LXP_OK ||
+            lxp_state_root(recovered, recovered_root) != LXP_OK ||
+            memcmp(root, recovered_root, 32U) != 0 ||
+            recovered_state.next_sequence != 1U || recovered_state.count != 1U ||
+            lxp_state_store_get(&recovered_state, key, &recovered_value,
+                                 &found) != LXP_OK || !found ||
+            recovered_value.lo != value.lo || recovered_value.hi != value.hi ||
+            lxp_snapshot_store_write(directory, &manifest, snapshot.bytes,
+                                      snapshot.length) != LXP_ERR_NON_CANONICAL)
+            return 1;
+        (void)memcpy(conflicting_root, root, sizeof(conflicting_root));
+        conflicting_root[0] ^= 1U;
+        if (lxp_snapshot_manifest_build(snapshot.bytes, snapshot.length, 0U,
+                conflicting_root, root, &conflicting_manifest) != LXP_OK ||
+            lxp_snapshot_store_write(directory, &conflicting_manifest,
+                snapshot.bytes, snapshot.length) != LXP_ERR_NON_CANONICAL)
+            return 1;
+        conflicting_manifest = manifest;
+        conflicting_manifest.snapshot_digest[0] ^= 1U;
+        if (lxp_snapshot_store_write(directory, &conflicting_manifest,
+                snapshot.bytes, snapshot.length) != LXP_ERR_SNAPSHOT_MISMATCH ||
+            lxp_arena_init(&read_arena, read_storage, sizeof(read_storage)) !=
+                LXP_OK ||
+            lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
+                                     &stored_snapshot) != LXP_OK ||
+            memcmp(stored_manifest.canonical_state_root, root, 32U) != 0)
+            return 1;
+        descriptor = open(path, O_RDWR | O_CLOEXEC);
+        if (descriptor < 0 || pread(descriptor, &byte, 1U, 116) != 1)
+            return 1;
+        byte ^= 1U;
+        if (pwrite(descriptor, &byte, 1U, 116) != 1 ||
+            fdatasync(descriptor) != 0 || close(descriptor) != 0 ||
+            lxp_arena_init(&read_arena, read_storage, sizeof(read_storage)) !=
+                LXP_OK ||
+            lxp_snapshot_store_read(path, &read_arena, &stored_manifest,
+                                     &stored_snapshot) != LXP_ERR_SNAPSHOT_MISMATCH ||
+            snapshot_temporary_files(directory, 1) != 1 ||
+            unlink(path) != 0 || rmdir(directory) != 0)
+            return 1;
+    }
+    if (lxp_state_store_destroy(&original_state) != LXP_OK ||
+        lxp_state_store_destroy(&recovered_state) != LXP_OK)
+        return 1;
+    free(original);
+    free(recovered);
+    return 0;
+}
+
 int main(void)
 {
     char directory[] = "/tmp/lxp-recovery-XXXXXX";
@@ -402,7 +569,7 @@ int main(void)
                              7U, 0x41U, false) != 0 ||
         recover_existing_log("lxp-canonical-occ-restart", LXP_LOG_CHECKPOINT,
                              7U, 0x43U, true) != 0 ||
-        recover_existing_log("lxp-batch-restart", LXP_LOG_BATCH_HEADER,
+        recover_existing_log("lxp-activity-restart", LXP_LOG_ACTIVITY,
                              11U, 0x52U, true) != 0) {
         (void)fprintf(stderr, "durable restart recovery failed\n");
         return 1;
@@ -415,8 +582,8 @@ int main(void)
                                       LXP_LOG_CHECKPOINT, false) != 0 ||
         propagate_recovery_io_failure("lxp-canonical-occ-io",
                                       LXP_LOG_CHECKPOINT, true) != 0 ||
-        propagate_recovery_io_failure("lxp-batch-io",
-                                      LXP_LOG_BATCH_HEADER, true) != 0) {
+        propagate_recovery_io_failure("lxp-activity-io",
+                                      LXP_LOG_ACTIVITY, true) != 0) {
         (void)fprintf(stderr, "recovery IO failure was not propagated\n");
         return 1;
     }
@@ -428,7 +595,7 @@ int main(void)
                           false) != 0 ||
         recover_torn_tail("lxp-canonical-occ-torn", LXP_LOG_CHECKPOINT,
                           true) != 0 ||
-        recover_torn_tail("lxp-batch-torn", LXP_LOG_BATCH_HEADER,
+        recover_torn_tail("lxp-activity-torn", LXP_LOG_ACTIVITY,
                           true) != 0) {
         (void)fprintf(stderr, "torn-tail recovery failed\n");
         return 1;
@@ -437,7 +604,7 @@ int main(void)
                              false) != 0 ||
         refuse_corrupt_chain("lxp-canonical-occ-corrupt", LXP_LOG_CHECKPOINT,
                              true) != 0 ||
-        refuse_corrupt_chain("lxp-batch-corrupt", LXP_LOG_BATCH_HEADER,
+        refuse_corrupt_chain("lxp-activity-corrupt", LXP_LOG_ACTIVITY,
                              true) != 0) {
         (void)fprintf(stderr, "corrupt-chain recovery was not refused\n");
         return 1;
@@ -447,5 +614,10 @@ int main(void)
         (void)fprintf(stderr, "checkpoint restart replay failed\n");
         return 1;
     }
+    if (test_snapshot_crash_same_sequence_retry() != 0) {
+        (void)fprintf(stderr, "snapshot crash/same-sequence retry failed\n");
+        return 1;
+    }
+    (void)printf("PASS test_snapshot_crash_same_sequence_retry\n");
     return 0;
 }

@@ -1,0 +1,14 @@
+[repair.22.31.134]
+finding = "ledger-algorithm"
+status = "implemented_pending_qualification"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+continued_revision = "3651b1e82aa254f6afdd3ea5ff96e1ee4909493d"
+qualification_base_revision = "4273de5e86f58f8212e00898cbfeb995efcb85b5"
+tests = ["TestRepair_134_LedgerSupportedAlgorithms", "TestRepair_134_LedgerRejectsSr25519BeforeDevice", "TestRepair_134_LedgerRejectsUnsupportedDespiteAdvertisedListMutation", "TestRepair_134_LedgerRespectsDisabledSecp256k1", "TestRepair_134_LedgerCreateReopenSign"]
+repair = "Advertise only secp256k1 hardware algorithms, intersect custom options with the implemented device algorithm, and reject unsupported algorithms before device discovery or storage."
+proof = "TestRepair_134_LedgerCreateReopenSign creates through SaveLedgerKey using the advertised algorithm and the existing tagged Ledger transport, reopens the file backend, checks the recovered public key, algorithm and HD path, produces canonical transaction sign bytes, signs through SignByAddress, and verifies with the recovered public key while rejecting changed transaction bytes."
+baseline = "Not run: the task Order forbids testing before complete implementation and forbids invoking verify_cmd outside hf-done; no baseline failures are claimed."
+previous_qualification = "The inherited attempt failed TestRepair_134_LedgerCreateReopenSign at SaveLedgerKey because its untagged executable had no Ledger support; this task now mandates ledger,test_ledger_mock for both gates, selecting the existing in-process device transport."
+evidence = "The runner's hf-build and hf-done ledger records the exact candidate revision, command, exit and private log; closure requires passing hf-done at the build revision."
+wiring_request = "None: the declared ledger,test_ledger_mock build tags select sdk/crypto/ledger/ledger_mock.go; no out-of-path source change or connected device is required."
+gotcha = "The Ledger repair tests require both ledger and test_ledger_mock tags; constrain their file to that combination so they never attempt physical device access."

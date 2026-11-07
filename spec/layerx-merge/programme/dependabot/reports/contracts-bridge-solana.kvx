@@ -1,0 +1,89 @@
+[alert.GHSA-g98v-hv3f-hcfr]
+package = "atty"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "no-fix"
+version_before = "0.2.14"
+version_after = "0.2.14"
+pinned_by = "solana-program-test =2.3.13 -> solana-logger ^2.3.1 -> env_logger ^0.9.3 -> atty ^0.2.5; solana-logger 3.0.0 replaces env_logger with ^0.11.0 and removes this path, but is excluded by ^2.3.1"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-x4gp-pqpj-f43q]
+package = "curve25519-dalek"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "3.2.0"
+version_after = "3.2.0"
+pinned_by = "solana-program-test =2.3.13 -> solana-runtime =2.3.13 -> agave-precompiles =2.3.13 -> ed25519-dalek =1.0.1; latest solana-program-test 4.4.0 -> solana-runtime =4.4.0 -> agave-precompiles =4.4.0 still requires ed25519-dalek =1.0.1 -> curve25519-dalek ^3, excluding >=4.1.3; the separate 4.1.3 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-w5vr-6qhr-36cc]
+package = "ed25519-dalek"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "1.0.1"
+version_after = "1.0.1"
+pinned_by = "solana-program-test =2.3.13 -> solana-runtime =2.3.13 -> agave-precompiles =2.3.13 -> ed25519-dalek =1.0.1; latest solana-program-test 4.4.0 -> solana-runtime =4.4.0 -> agave-precompiles =4.4.0 still requires ed25519-dalek =1.0.1, excluding >=2.0.0"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-cq8v-f236-94qc]
+package = "rand"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.7.3"
+version_after = "0.7.3"
+pinned_by = "solana-program-test =2.3.13 -> solana-runtime =2.3.13 -> agave-precompiles =2.3.13 -> ed25519-dalek =1.0.1; latest solana-program-test 4.4.0 -> solana-runtime =4.4.0 -> agave-precompiles =4.4.0 still requires ed25519-dalek =1.0.1 -> rand ^0.7, excluding >=0.8.6; solana-sdk =2.3.1 -> solana-keypair ^2.2.1 also requires rand ^0.7; libsecp256k1 =0.7.2 now resolves rand 0.8.8, while the separate Solana rand 0.7.3 path remains"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-h2v8-394m-p7vv]
+package = "rustls"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.21.12"
+version_after = "0.21.12"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family; ^0.21.6 excludes >=0.23.46; the separate 0.23.46 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-c8m5-c952-6cm4]
+package = "rustls"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.21.12"
+version_after = "0.21.12"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family; ^0.21.6 excludes >=0.23.46; the separate 0.23.46 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-w44r-93j7-qv28]
+package = "rustls"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.21.12"
+version_after = "0.21.12"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family; ^0.21.6 excludes >=0.23.46; the separate 0.23.46 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-965h-392x-2mh5]
+package = "rustls-webpki"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.101.7"
+version_after = "0.101.7"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family -> rustls-webpki ^0.101.7, excluding >=0.103.12 and >=0.103.13; the separate 0.103.16 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-xgp8-3hg3-c2mh]
+package = "rustls-webpki"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.101.7"
+version_after = "0.101.7"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family -> rustls-webpki ^0.101.7, excluding >=0.103.12 and >=0.103.13; the separate 0.103.16 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-82j2-j2ch-gfr8]
+package = "rustls-webpki"
+manifest = "contracts/bridge/solana/Cargo.lock"
+verdict = "pinned"
+version_before = "0.101.7"
+version_after = "0.101.7"
+pinned_by = "solana-program-test =2.3.13 (latest allowed release 2.3.13; latest overall release 4.4.0) -> solana-banks-server =2.3.13 -> solana-client =2.3.13 -> solana-pubsub-client =2.3.13 -> tokio-tungstenite ^0.20.1 -> rustls ^0.21.6; the 4.4.0 release requires the Solana 5 API family -> rustls-webpki ^0.101.7, excluding >=0.103.12 and >=0.103.13; the separate 0.103.16 instance is already patched"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

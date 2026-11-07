@@ -6,6 +6,7 @@ import "gogoproto/gogo.proto";
 import "ibc/core/channel/v1/genesis.proto";
 import "ibc/core/client/v1/genesis.proto";
 import "ibc/core/connection/v1/genesis.proto";
+import "ibc/core/types/v1/params.proto";
 
 option go_package = "github.com/Sidiora-Labs/Paxeer-X-Network/interchain/modules/core/types";
 
@@ -26,4 +27,5 @@ message GenesisState {
     (gogoproto.nullable) = false,
     (gogoproto.moretags) = "yaml:\"channel_genesis\""
   ];
+  Params params = 4 [(gogoproto.moretags) = "yaml:\"params\""];
 }

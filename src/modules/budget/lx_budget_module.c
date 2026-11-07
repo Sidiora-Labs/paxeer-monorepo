@@ -13,14 +13,12 @@ static const uint32_t activity_types[] = {
     LX_BUDGET_CREATE, LX_BUDGET_FUND, LX_BUDGET_AMEND,
     LX_BUDGET_DELEGATE_ADD, LX_BUDGET_DELEGATE_REMOVE,
     LX_BUDGET_SPEND, LX_BUDGET_CLOSE, LX_BUDGET_DEFUND, LX_BUDGET_REVOKE,
-    LX_BUDGET_DELEGATE_SPEND, LX_BUDGET_PULL
+    LX_BUDGET_DELEGATE_SPEND
 };
 
 enum {
     BUDGET_CAPABILITY_KEY_BYTES = 80,
-    BUDGET_CAPABILITY_BYTES = 195,
-    BUDGET_GRANT_DRAW_KEY_BYTES = 45,
-    BUDGET_GRANT_DRAW_BYTES = 42
+    BUDGET_CAPABILITY_BYTES = 195
 };
 
 typedef union budget_typed_payload {
@@ -30,7 +28,6 @@ typedef union budget_typed_payload {
     lx_budget_delegate_payload delegate;
     lx_budget_spend_payload spend;
     lx_budget_delegate_spend_payload delegate_spend;
-    lx_budget_pull_payload pull;
     lx_budget_close_payload close;
     lx_budget_defund_payload defund;
     lx_budget_revoke_payload revoke;
@@ -73,8 +70,8 @@ static lxp_result budget_asset_state(lxp_module_ctx *ctx,
             memcmp(entry->key, "asset:", 6U) != 0 ||
             memcmp(entry->key + 6U, asset_id, 32U) != 0)
             continue;
-        status = lx_asset_record_decode(entry->value, entry->value_length,
-                                        &record);
+        status = lx_asset_record_decode_for_id(entry->value, entry->value_length,
+                                               asset_id, &record);
         return status == LXP_OK ? lx_asset_transfer_state(&record, state) :
                                   status;
     }
@@ -285,7 +282,9 @@ static lxp_result budget_authorized_signer(
     if (status == LXP_OK && memcmp(actor, authority->actor, 32U) != 0)
         status = LXP_ERR_UNAUTHORIZED_DEBIT;
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    const lx_asset_runtime *asset_runtime = ctx->kernel->module_runtime[LXP_MODULE_ASSET];
+    if (status == LXP_OK && (asset_runtime == NULL || !asset_runtime->binding_authority))
+        status = lxp_activity_verify_signature(activity);
     if (status == LXP_OK)
         status = lxp_ctx_account_find(ctx, authority->principal, signer);
     if (status != LXP_OK) return status;
@@ -525,22 +524,6 @@ static lxp_result budget_spend_apply(lxp_module_ctx *ctx,
         status;
 }
 
-static lxp_result budget_execute_spend(lxp_module_ctx *ctx,
-                                       const lxp_activity *activity,
-                                       const lxp_authority_resolved *authority,
-                                       const lx_budget_spend_payload *payload,
-                                       lx_account *signer)
-{
-    lx_budget_record record;
-    lxp_result status = budget_load(ctx, payload->budget_id, &record);
-    if (status != LXP_OK) return status;
-    if (memcmp(record.owner, signer->id, 32U) != 0 &&
-        !lx_budget_delegate_present(&record, authority->actor))
-        return LXP_ERR_UNAUTHORIZED_DELEGATE;
-    return budget_spend_apply(ctx, activity, &record, payload->recipient,
-                              payload->amount, signer);
-}
-
 static void budget_capability_key(const uint8_t budget_id[32],
                                   const uint8_t holder[32],
                                   uint8_t key[BUDGET_CAPABILITY_KEY_BYTES])
@@ -622,192 +605,59 @@ static lxp_result budget_capability_save(
     return lxp_ctx_kv_put(ctx, key, sizeof(key), bytes, sizeof(bytes));
 }
 
-static lxp_result budget_execute_delegate_spend(
+static lxp_result budget_authorized_delegate_spend(
     lxp_module_ctx *ctx, const lxp_activity *activity,
     const lxp_authority_resolved *authority,
-    const lx_budget_delegate_spend_payload *payload, lx_account *signer)
+    const uint8_t budget_id[32], const uint8_t recipient[32],
+    lxp_u128 amount, lx_account *signer)
 {
     lx_budget_record record;
     lx_budget_delegate_capability capability;
     lxp_module_savepoint savepoint = {0};
     lxp_result status = lxp_module_savepoint_begin(ctx, &savepoint);
-    if (status == LXP_OK) status = budget_load(ctx, payload->budget_id, &record);
+    if (status == LXP_OK) status = budget_load(ctx, budget_id, &record);
     if (status == LXP_OK)
         status = budget_capability_load(ctx, record.budget_id,
                                         authority->actor, &capability);
     if (status == LXP_OK)
         status = lx_budget_authorize_delegate(
-            &record, authority->actor, &capability, payload->recipient,
-            payload->amount, lxp_ctx_batch_timestamp_ms(ctx));
+            &record, authority->actor, &capability, recipient,
+            amount, lxp_ctx_batch_timestamp_ms(ctx));
     if (status == LXP_OK)
-        status = budget_spend_apply(ctx, activity, &record, payload->recipient,
-                                    payload->amount, signer);
+        status = budget_spend_apply(ctx, activity, &record, recipient,
+                                    amount, signer);
     if (status == LXP_OK)
         status = budget_capability_save(ctx, record.budget_id, &capability);
     return budget_savepoint_end(ctx, &savepoint, status);
 }
 
-static void budget_grant_draw_key(const uint8_t grant_id[32],
-                                  uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES])
+static lxp_result budget_execute_spend(lxp_module_ctx *ctx,
+                                       const lxp_activity *activity,
+                                       const lxp_authority_resolved *authority,
+                                       const lx_budget_spend_payload *payload,
+                                       lx_account *signer)
 {
-    (void)memcpy(key, "budget-grant:", 13U);
-    (void)memcpy(key + 13U, grant_id, 32U);
+    lx_budget_record record;
+    lxp_result status = budget_load(ctx, payload->budget_id, &record);
+    if (status != LXP_OK) return status;
+    if (memcmp(record.owner, signer->id, 32U) == 0)
+        return budget_spend_apply(ctx, activity, &record, payload->recipient,
+                                  payload->amount, signer);
+    if (!lx_budget_delegate_present(&record, authority->actor))
+        return LXP_ERR_UNAUTHORIZED_DELEGATE;
+    return budget_authorized_delegate_spend(
+        ctx, activity, authority, payload->budget_id, payload->recipient,
+        payload->amount, signer);
 }
 
-static lxp_result budget_grant_draw_load(lxp_module_ctx *ctx,
-                                         lxp_grant_state *draws)
-{
-    uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES];
-    const uint8_t *bytes;
-    size_t length;
-    lxp_result status;
-    draws->drawn_total = (lxp_u128){ 0U, 0U };
-    draws->drawn_this_period = (lxp_u128){ 0U, 0U };
-    draws->window_start = 0U;
-    budget_grant_draw_key(draws->grant.grant_id, key);
-    status = lxp_ctx_kv_get(ctx, key, sizeof(key), &bytes, &length);
-    if (status == LXP_ERR_UNKNOWN_FIELD) return LXP_OK;
-    if (status != LXP_OK) return status;
-    if (length != (size_t)BUDGET_GRANT_DRAW_BYTES || bytes[0] != 0U ||
-        bytes[1] != 1U)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_u128_from_be(bytes + 2U, &draws->drawn_total);
-    if (status == LXP_OK)
-        status = lxp_u128_from_be(bytes + 18U, &draws->drawn_this_period);
-    if (status != LXP_OK) return status;
-    draws->window_start = budget_capability_u64(bytes + 34U);
-    return lxp_u128_cmp(draws->drawn_this_period, draws->drawn_total) > 0 ?
-        LXP_ERR_NON_CANONICAL : LXP_OK;
-}
-
-static lxp_result budget_grant_draw_save(lxp_module_ctx *ctx,
-                                         const lxp_grant_state *draws)
-{
-    uint8_t key[BUDGET_GRANT_DRAW_KEY_BYTES];
-    uint8_t bytes[BUDGET_GRANT_DRAW_BYTES];
-    lxp_result status;
-    budget_grant_draw_key(draws->grant.grant_id, key);
-    bytes[0] = 0U;
-    bytes[1] = 1U;
-    status = lxp_u128_to_be(draws->drawn_total, bytes + 2U);
-    if (status == LXP_OK)
-        status = lxp_u128_to_be(draws->drawn_this_period, bytes + 18U);
-    if (status != LXP_OK) return status;
-    budget_event_u64(bytes + 34U, draws->window_start);
-    return lxp_ctx_kv_put(ctx, key, sizeof(key), bytes, sizeof(bytes));
-}
-
-static lxp_result budget_grant_combine(lxp_grant_state *state,
-                                       const lxp_grant_state *draws)
-{
-    lxp_u128 sum;
-    lxp_result status = lxp_u128_add(state->drawn_total, draws->drawn_total,
-                                     &sum);
-    if (status != LXP_OK) return status;
-    state->drawn_total = sum;
-    if (draws->window_start > state->window_start) {
-        state->drawn_this_period = draws->drawn_this_period;
-        state->window_start = draws->window_start;
-    } else if (draws->window_start == state->window_start) {
-        status = lxp_u128_add(state->drawn_this_period,
-                              draws->drawn_this_period, &sum);
-        if (status != LXP_OK) return status;
-        state->drawn_this_period = sum;
-    }
-    return LXP_OK;
-}
-
-static lxp_result budget_pull_request_bind(
+static lxp_result budget_execute_delegate_spend(
     lxp_module_ctx *ctx, const lxp_activity *activity,
-    const lx_budget_pull_payload *payload, lx_account *signer,
-    lx_budget_pull_request *pull, lx_asset_record *asset,
-    lxp_transfer_asset_state *asset_state, const lx_account **grantor)
+    const lxp_authority_resolved *authority,
+    const lx_budget_delegate_spend_payload *payload, lx_account *signer)
 {
-    const lx_budget_record *record = &pull->spend.store->records[0];
-    lx_account *owner = NULL;
-    uint64_t sequence;
-    lxp_result status;
-    if (signer->next_sequence == UINT64_MAX) return LXP_ERR_OVERFLOW;
-    status = lxp_ctx_account_find(ctx, record->budget_account,
-                                  &pull->spend.budget_account);
-    if (status == LXP_OK)
-        status = lxp_ctx_account_find(ctx, payload->recipient,
-                                      &pull->spend.recipient);
-    if (status == LXP_OK)
-        status = lxp_ctx_account_find(ctx, record->owner, &owner);
-    if (status == LXP_OK)
-        status = budget_asset_state(ctx, record->asset_id, asset_state);
-    if (status == LXP_OK)
-        status = budget_execution_sequence(ctx, activity, signer, &sequence);
-    if (status != LXP_OK) return status;
-    (void)memset(asset, 0, sizeof(*asset));
-    (void)memcpy(asset->asset_id, record->asset_id, 32U);
-    pull->spend.budget_id = record->budget_id;
-    pull->spend.asset = asset;
-    pull->spend.amount = payload->amount;
-    pull->spend.context.assets = asset_state;
-    pull->spend.context.asset_count = 1U;
-    pull->spend.context.sequence_account = signer;
-    pull->spend.context.actor_sequence = sequence;
-    pull->spend.context.batch_timestamp = lxp_ctx_batch_timestamp_ms(ctx);
-    *grantor = owner;
-    return LXP_OK;
-}
-
-static lxp_result budget_execute_pull(lxp_module_ctx *ctx,
-                                      const lxp_activity *activity,
-                                      const lx_budget_pull_payload *payload,
-                                      lx_account *signer)
-{
-    lx_budget_pull_request pull;
-    lx_asset_record asset;
-    lxp_transfer_asset_state asset_state;
-    lxp_grant_state state;
-    lxp_grant_state draws;
-    lxp_receipt receipt;
-    lxp_module_savepoint savepoint = {0};
-    void *memory = NULL;
-    lxp_result status = lxp_module_savepoint_begin(ctx, &savepoint);
-    (void)memset(&pull, 0, sizeof(pull));
-    (void)memset(&receipt, 0, sizeof(receipt));
-    (void)memset(&state, 0, sizeof(state));
-    (void)memset(&draws, 0, sizeof(draws));
-    if (status == LXP_OK)
-        status = lxp_ctx_arena_alloc(ctx, sizeof(lx_budget_store),
-                                     _Alignof(lx_budget_store), &memory);
-    if (status == LXP_OK) {
-        pull.spend.store = (lx_budget_store *)memory;
-        (void)memset(pull.spend.store, 0, sizeof(*pull.spend.store));
-        pull.spend.store->count = 1U;
-        status = budget_load(ctx, payload->budget_id,
-                             &pull.spend.store->records[0]);
-    }
-    if (status == LXP_OK)
-        status = budget_pull_request_bind(ctx, activity, payload, signer,
-                                          &pull, &asset, &asset_state,
-                                          &pull.grantor);
-    if (status == LXP_OK)
-        status = lx_asset_payer_grant_read(ctx->kernel,
-                                           payload->grant.grant_id, &state);
-    if (status == LXP_OK) {
-        draws = state;
-        status = budget_grant_draw_load(ctx, &draws);
-    }
-    if (status == LXP_OK) status = budget_grant_combine(&state, &draws);
-    if (status == LXP_OK) {
-        pull.grant_state = &state;
-        status = lx_budget_pull_execute(ctx, &pull, &receipt);
-    }
-    if (status == LXP_OK)
-        status = lxp_grant_draw_record(&draws, payload->amount,
-                                       lxp_ctx_batch_timestamp_ms(ctx));
-    if (status == LXP_OK) status = budget_grant_draw_save(ctx, &draws);
-    if (status == LXP_OK)
-        status = budget_save(ctx, &pull.spend.store->records[0]);
-    if (status == LXP_OK)
-        status = budget_spent_event(ctx, payload->budget_id,
-                                    payload->recipient, payload->amount);
-    return budget_savepoint_end(ctx, &savepoint, status);
+    return budget_authorized_delegate_spend(
+        ctx, activity, authority, payload->budget_id, payload->recipient,
+        payload->amount, signer);
 }
 
 static lxp_result budget_execute_close(lxp_module_ctx *ctx,
@@ -936,7 +786,10 @@ static lxp_result budget_execute_revoke(lxp_module_ctx *ctx,
     if (status != LXP_OK) return status;
     record.revocation_sequence = payload->revocation_sequence;
     record.revoked = true;
-    record.per_period_limit = record.spent_this_period;
+    /* Revocation, rather than a zero live limit, disables the allowance.
+     * Preserve the canonical historical limit when nothing was spent. */
+    if (!lxp_u128_is_zero(record.spent_this_period))
+        record.per_period_limit = record.spent_this_period;
     status = budget_save(ctx, &record);
     if (status != LXP_OK) return status;
     (void)memcpy(event, record.budget_id, 32U);
@@ -961,7 +814,7 @@ static lxp_result module_decode(lxp_module_ctx *ctx, uint16_t ordinal,
     budget_decoded *value;
     void *memory;
     lxp_result status;
-    if (ctx == NULL || decoded == NULL || ordinal == 0U || ordinal > 11U ||
+    if (ctx == NULL || decoded == NULL || ordinal == 0U || ordinal > 10U ||
         payload == NULL || length == 0U) return LXP_ERR_UNKNOWN_ACTIVITY;
     status = lxp_ctx_arena_alloc(ctx, sizeof(*value), _Alignof(budget_decoded),
                                  &memory);
@@ -1013,9 +866,6 @@ static lxp_result module_decode(lxp_module_ctx *ctx, uint16_t ordinal,
         status = lx_budget_delegate_spend_decode(
             payload, length, &value->typed->delegate_spend);
         break;
-    case 11U:
-        status = lx_budget_pull_decode(payload, length, &value->typed->pull);
-        break;
     default:
         return LXP_ERR_UNKNOWN_ACTIVITY;
     }
@@ -1031,7 +881,7 @@ static lxp_result module_validate(lxp_module_ctx *ctx,
 {
     const budget_decoded *value = (const budget_decoded *)decoded;
     if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
-        value->typed == NULL || value->ordinal == 0U || value->ordinal > 11U)
+        value->typed == NULL || value->ordinal == 0U || value->ordinal > 10U)
         return LXP_ERR_UNKNOWN_ACTIVITY;
     if (activity->activity_type !=
         (((uint32_t)LXP_MODULE_BUDGET << 16U) | value->ordinal))
@@ -1080,8 +930,6 @@ static lxp_result module_execute(lxp_module_ctx *ctx,
     case 10U:
         return budget_execute_delegate_spend(
             ctx, activity, authority, &value->typed->delegate_spend, signer);
-    case 11U:
-        return budget_execute_pull(ctx, activity, &value->typed->pull, signer);
     default:
         break;
     }

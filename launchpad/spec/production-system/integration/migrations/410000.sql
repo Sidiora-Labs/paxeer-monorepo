@@ -1,0 +1,15 @@
+SET LOCAL search_path = "gateway", pg_catalog;
+CREATE TABLE "gateway"."restrictions"(hash text PRIMARY KEY CHECK(hash~'^[0-9a-f]{64}$'),revision bigint NOT NULL CHECK(revision>0),state text NOT NULL CHECK(state IN ('approved','blocked','deleted')),updated_at timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE "gateway"."operations"(id uuid PRIMARY KEY,hash text NOT NULL REFERENCES "gateway"."restrictions"(hash),revision bigint NOT NULL,kind text NOT NULL CHECK(kind IN ('purge','delete')),state text NOT NULL CHECK(state IN ('requested','accepted','complete','failed')),provider_id text NOT NULL DEFAULT '',proof text NOT NULL DEFAULT '',attempts integer NOT NULL DEFAULT 0,requested_at timestamptz NOT NULL DEFAULT clock_timestamp(),updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(hash,revision,kind));
+CREATE TABLE "gateway"."lineage"(hash text NOT NULL REFERENCES "gateway"."restrictions"(hash),object_key text NOT NULL,kind text NOT NULL CHECK(kind IN ('original','variant','temporary','recording')),legal_hold boolean NOT NULL DEFAULT false,retain_until timestamptz NOT NULL,removed_at timestamptz,PRIMARY KEY(hash,object_key));
+CREATE TABLE "gateway"."tombstones"(hash text PRIMARY KEY,revision bigint NOT NULL CHECK(revision>0),deleted_at timestamptz NOT NULL DEFAULT clock_timestamp());
+CREATE TABLE "gateway"."outbox"(id bigserial PRIMARY KEY,kind text NOT NULL,hash text NOT NULL,revision bigint NOT NULL,payload jsonb NOT NULL,created_at timestamptz NOT NULL DEFAULT clock_timestamp(),UNIQUE(kind,hash,revision));
+REVOKE ALL ON "gateway"."restrictions" FROM PUBLIC;
+REVOKE ALL ON "gateway"."operations" FROM PUBLIC;
+REVOKE ALL ON "gateway"."lineage" FROM PUBLIC;
+REVOKE ALL ON "gateway"."tombstones" FROM PUBLIC;
+REVOKE ALL ON "gateway"."outbox" FROM PUBLIC;
+CREATE TABLE "gateway"."restriction_receipts"(event_id text PRIMARY KEY,payload_hash text NOT NULL CHECK(payload_hash~'^[0-9a-f]{64}$'),applied_at timestamptz NOT NULL DEFAULT clock_timestamp());
+REVOKE ALL ON gateway.restriction_receipts FROM PUBLIC;
+CREATE TABLE "gateway"."inventory_reports"(id uuid PRIMARY KEY,bucket text NOT NULL,prefix text NOT NULL,checked integer NOT NULL CHECK(checked>=0),orphans jsonb NOT NULL,truncated boolean NOT NULL,generated_at timestamptz NOT NULL);
+REVOKE ALL ON gateway.inventory_reports FROM PUBLIC;

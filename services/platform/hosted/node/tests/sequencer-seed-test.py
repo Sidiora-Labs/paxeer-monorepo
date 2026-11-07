@@ -1,286 +1,217 @@
 #!/usr/bin/env python3
+import hashlib
 import json
 import os
 from pathlib import Path
-import shutil
-import subprocess
-import sys
 import tempfile
-import time
 import unittest
 
-ROOT = Path(__file__).resolve().parents[5]
-NODE_DIR = ROOT / 'services/platform/hosted/node'
-BIN = Path(os.environ.get('LAYERX_TEST_NATIVE_BIN_DIR', ROOT / 'build/bin'))
-SETTLEMENT = Path(os.environ.get('LAYERX_TEST_SETTLEMENT_ENV',
-                               NODE_DIR / 'tests/fixtures/settlement-configuration.txt'))
-sys.path.insert(0, str(ROOT / 'tests/support'))
-from lxgb_metadata import metadata
-
-ASSET = bytes.fromhex('b5a32b12029f8ddfb905f90f280f664b46390de0fc62770fc197dd87b18cd898')
-PKCS8_PREFIX = bytes.fromhex('302e020100300506032b657004220420')
-SPKI_PREFIX = bytes.fromhex('302a300506032b6570032100')
-SEED_LINE = b'LAYERX_NODE_SEQUENCER_PRIVATE_KEY='
-
-
-def memory_file(value):
-    descriptor = os.memfd_create('sequencer-seed-test', 0)
-    os.write(descriptor, value)
-    return descriptor
-
-
-def public_key_of(seed):
-    descriptor = memory_file(PKCS8_PREFIX + seed)
-    try:
-        encoded = subprocess.run(
-            ['openssl', 'pkey', '-inform', 'DER', '-in', f'/proc/self/fd/{descriptor}',
-             '-pubout', '-outform', 'DER'],
-            stdout=subprocess.PIPE, pass_fds=(descriptor,), check=True).stdout
-    finally:
-        os.close(descriptor)
-    assert encoded.startswith(SPKI_PREFIX) and len(encoded) == 44
-    return encoded[12:]
-
-
-def write_seed(path, seed):
-    descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-    with os.fdopen(descriptor, 'wb') as handle:
-        handle.write(seed)
+from native_key_harness import (
+    NativeKeyHarness, generation, native, public_key_of, reset, transport, write_seed,
+)
+from provider import FileProvider, ProviderError
 
 
 def environment_lines(path):
-    return dict(line.split('=', 1) for line in path.read_text().splitlines())
+    return transport.environment(path.read_bytes())
 
 
 class SequencerSeedTest(unittest.TestCase):
+    recorded_native_peer = False
+
     def setUp(self):
-        self.directory = tempfile.TemporaryDirectory(prefix='lx-sequencer-seed-')
+        self.directory = tempfile.TemporaryDirectory(prefix='native-seed-')
         self.addCleanup(self.directory.cleanup)
         self.work = Path(self.directory.name)
-        os.chmod(self.work, 0o755)
-        self.sequencer_seed = os.urandom(32)
-        self.treasury_seed = os.urandom(32)
-        self.sequencer_path = self.work / 'sequencer.key'
-        self.treasury_path = self.work / 'treasury.key'
-        write_seed(self.sequencer_path, self.sequencer_seed)
-        write_seed(self.treasury_path, self.treasury_seed)
-        (self.work / 'metadata').write_bytes(
-            metadata(ASSET, public_key_of(self.treasury_seed), os.urandom(32)))
-        self.data = self.work / 'data'
-        self.run_dir = self.work / 'run'
-        # Public configuration retained from a real disposable custody run.
-        # These genesis-key tests do not query RPC or assert chain finality.
-        settlement = subprocess.run(
-            ['bash', str(NODE_DIR / 'bootstrap.sh'), '--check-settlement', str(SETTLEMENT)],
-            stdout=subprocess.PIPE, stderr=subprocess.PIPE, check=True).stdout
-        (self.work / 'settlement.env').write_bytes(settlement)
+        self.harness = NativeKeyHarness(self.work, recorded=self.recorded_native_peer)
+        self.addCleanup(self.harness.close)
+        self.sequencer_seed = self.harness.receipt_seed
+        self.sequencer_path = self.harness.receipt_key
+        self.data = self.harness.data
+        self.run_dir = self.harness.run
 
-    def settlement_document(self):
-        path = ROOT / 'contracts/config/checkpoint-settlement.json'
-        threshold = json.loads(path.read_text())['finality_policy']['certificate_threshold']
-        self.assertGreaterEqual(threshold, 1)
-        return path
+    def bootstrap(self, sequencer_key=None):
+        return self.harness.bootstrap(receipt_key=sequencer_key)
 
-    def clean_environment(self):
-        environment = {key: value for key, value in os.environ.items() if not key.startswith('LAYERX_')}
-        environment['PATH'] = str(BIN) + os.pathsep + environment.get('PATH', '')
-        return environment
-
-    def bootstrap_arguments(self, sequencer_key):
-        return [
-            '--network-id', '77',
-            '--sequencer-key', str(sequencer_key),
-            '--treasury-key', str(self.treasury_path),
-            '--genesis-metadata', str(self.work / 'metadata'),
-            '--settlement-document', str(self.settlement_document()),
-            '--settlement-env', str(self.work / 'settlement.env'),
-            '--lni-uid', str(os.getuid() + 1),
-            '--genesis-build', str(BIN / 'layerx-genesis-build'),
-        ]
-
-    def bootstrap(self, sequencer_key=None, extra=()):
-        if sequencer_key is None:
-            sequencer_key = self.sequencer_path
-        command = [
-            'bash', str(NODE_DIR / 'bootstrap.sh'),
-            '--data-dir', str(self.data), '--run-dir', str(self.run_dir),
-            '--layerxd', str(BIN / 'layerxd'),
-        ] + self.bootstrap_arguments(sequencer_key) + list(extra)
-        return subprocess.run(command, cwd=str(ROOT), env=self.clean_environment(),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    def supervisor_command(self):
-        self.assertIsNotNone(shutil.which('socat'), 'socat is required by the supervisor')
-        return [
-            'bash', str(NODE_DIR / 'supervisor.sh'), '--role', 'sequencer',
-            '--data-dir', str(self.data), '--run-dir', str(self.run_dir),
-            '--layerxd', str(BIN / 'layerxd'), '--',
-        ] + self.bootstrap_arguments(self.sequencer_path)
-
-    def supervise(self):
-        return subprocess.run(self.supervisor_command(), cwd=str(ROOT), env=self.clean_environment(),
-                              stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=120)
-
-    def supervise_process(self):
-        return subprocess.Popen(self.supervisor_command(), cwd=str(ROOT), env=self.clean_environment(),
-                                stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+    def reopen_bootstrap(self):
+        target = self.work / 'reopened-data'
+        target.mkdir(mode=0o700)
+        args = native.parser().parse_args(self.harness.arguments())
+        return native.bootstrap(args, data=target, commands=self.harness.peer)
 
     def assert_seed_only_in_its_file(self):
-        seed_hex = self.sequencer_seed.hex().encode()
-        for entry in self.work.rglob('*'):
-            if entry.is_file() and entry != self.sequencer_path:
-                content = entry.read_bytes()
-                self.assertNotIn(self.sequencer_seed, content, str(entry))
-                self.assertNotIn(seed_hex, content, str(entry))
-                self.assertNotIn(seed_hex.upper(), content, str(entry))
+        self.harness.assert_no_copy(self, self.sequencer_seed, self.sequencer_path)
 
     def test_bootstrap_records_the_key_file_and_keeps_no_seed_copy(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        sequencer_env = self.data / 'sequencer.env'
-        exports = environment_lines(sequencer_env)
+        binding = self.bootstrap()
+        exports = environment_lines(self.data / 'node.env')
         self.assertNotIn('LAYERX_NODE_SEQUENCER_PRIVATE_KEY', exports)
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_KEY_FILE'], str(self.sequencer_path))
+        self.assertNotIn('LAYERX_NODE_SEQUENCER_KEY_FILE', exports)
         self.assertEqual(exports['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
                          public_key_of(self.sequencer_seed).hex())
-        self.assertEqual(sequencer_env.stat().st_mode & 0o777, 0o600)
-        self.assertNotIn(SEED_LINE, sequencer_env.read_bytes())
-        self.assertNotIn('LAYERX_NODE_SEQUENCER_KEY_FILE', environment_lines(self.data / 'node.env'))
-        self.assertNotIn('LAYERX_NODE_SEQUENCER_KEY_FILE', environment_lines(self.data / 'replica.env'))
-        self.assertFalse((self.data / 'work').exists())
+        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_ID'],
+                         hashlib.sha256(public_key_of(self.sequencer_seed)).hexdigest())
+        self.assertEqual((self.data / 'node.env').stat().st_mode & 0o777, 0o600)
+        self.assertEqual(json.loads((self.data / '.native-prepared.json').read_bytes()), binding)
+        args = native.parser().parse_args(self.harness.arguments('supervise'))
+        self.assertEqual(args.receipt_key_file, str(self.sequencer_path))
+        for retired in ('sequencer.env', 'replica.env', 'work'):
+            self.assertFalse((self.data / retired).exists())
+        self.harness.assert_public_handoff(self)
         self.assert_seed_only_in_its_file()
 
     def test_bootstrap_resolves_a_relative_key_path_against_the_working_directory(self):
-        relative = Path(os.path.relpath(self.sequencer_path, ROOT))
-        result = self.bootstrap(sequencer_key=relative)
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        exports = environment_lines(self.data / 'sequencer.env')
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_KEY_FILE'], str(ROOT / relative))
-
-    def test_bootstrap_reads_a_raw_seed_through_an_external_symlink(self):
-        link = self.work / 'sequencer-link.key'
-        link.symlink_to(self.sequencer_path)
-        result = self.bootstrap(sequencer_key=link)
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        exports = environment_lines(self.data / 'sequencer.env')
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_KEY_FILE'], str(link))
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
+        relative = Path(os.path.relpath(self.sequencer_path, Path.cwd()))
+        self.bootstrap(sequencer_key=relative)
+        self.assertEqual(environment_lines(self.data / 'node.env')['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
                          public_key_of(self.sequencer_seed).hex())
-        for entry in self.data.rglob('*'):
-            if entry.is_file():
-                self.assertNotIn(self.sequencer_seed, entry.read_bytes(), str(entry))
-                self.assertNotIn(self.sequencer_seed.hex().encode(), entry.read_bytes(), str(entry))
+        self.harness.assert_public_handoff(self)
+        self.assert_seed_only_in_its_file()
 
-    def test_bootstrap_reads_a_hex_seed_through_an_external_symlink(self):
-        self.sequencer_path.unlink()
-        write_seed(self.sequencer_path, self.sequencer_seed.hex().upper().encode() + b'\n')
-        link = self.work / 'sequencer-link.key'
+    def test_bootstrap_refuses_a_raw_seed_through_an_external_symlink(self):
+        self.sequencer_path.write_bytes(self.sequencer_seed)
+        link = self.work / 'receipt-link.key'
         link.symlink_to(self.sequencer_path)
-        result = self.bootstrap(sequencer_key=link)
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        exports = environment_lines(self.data / 'sequencer.env')
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_KEY_FILE'], str(link))
-        self.assertEqual(exports['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
-                         public_key_of(self.sequencer_seed).hex())
+        with self.assertRaises(OSError):
+            self.bootstrap(sequencer_key=link)
+        self.assertEqual(self.sequencer_path.read_bytes(), self.sequencer_seed)
+        self.assertFalse((self.data / '.native-prepared.json').exists())
+        self.assertFalse(list(self.data.iterdir()))
+
+    def test_bootstrap_refuses_a_hex_seed_through_an_external_symlink(self):
+        link = self.work / 'receipt-link.key'
+        link.symlink_to(self.sequencer_path)
+        with self.assertRaises(OSError):
+            self.bootstrap(sequencer_key=link)
+        self.assertEqual(self.sequencer_path.read_bytes(), self.sequencer_seed.hex().encode() + b'\n')
+        self.assertFalse(list(self.data.iterdir()))
 
     def test_bootstrap_refuses_a_key_file_inside_the_data_directory(self):
-        self.data.mkdir(mode=0o700)
-        inside = self.data / 'sequencer.key'
-        write_seed(inside, self.sequencer_seed)
-        result = self.bootstrap(sequencer_key=inside, extra=['--force'])
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(b'the sequencer key file must be outside the data directory', result.stderr)
-        self.assertTrue(inside.exists(), 'the refusal must happen before --force discards the directory')
-        self.assertFalse((self.data / 'sequencer.env').exists())
+        inside = self.data / 'receipt.key'
+        write_seed(inside, self.sequencer_seed.hex().encode())
+        with self.assertRaisesRegex(ValueError, 'requires an empty generation'):
+            self.bootstrap(sequencer_key=inside)
+        self.assertTrue(inside.exists(), 'native bootstrap must refuse before discarding a key')
+        self.assertEqual(inside.read_bytes(), self.sequencer_seed.hex().encode())
+        self.assertFalse((self.data / '.native-prepared.json').exists())
 
     def test_bootstrap_refuses_a_key_file_linked_into_the_data_directory(self):
-        self.data.mkdir(mode=0o700)
-        write_seed(self.data / 'linked.key', self.sequencer_seed)
-        link = self.work / 'sequencer-link.key'
-        link.symlink_to(self.data / 'linked.key')
-        result = self.bootstrap(sequencer_key=link, extra=['--force'])
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(b'the sequencer key file must be outside the data directory', result.stderr)
-        self.assertTrue((self.data / 'linked.key').exists())
+        inside = self.data / 'linked.key'
+        write_seed(inside, self.sequencer_seed.hex().encode())
+        link = self.work / 'receipt-link.key'
+        link.symlink_to(inside)
+        with self.assertRaisesRegex(ValueError, 'requires an empty generation'):
+            self.bootstrap(sequencer_key=link)
+        self.assertEqual(inside.read_bytes(), self.sequencer_seed.hex().encode())
+        self.assertFalse((self.data / '.native-prepared.json').exists())
 
     def test_bootstrap_refuses_an_unreadable_key_file(self):
-        result = self.bootstrap(sequencer_key=self.work / 'absent.key')
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(b'--sequencer-key must name a readable regular file', result.stderr)
-        self.assertFalse(self.data.exists())
+        with self.assertRaises(FileNotFoundError):
+            self.bootstrap(sequencer_key=self.work / 'absent.key')
+        self.assertFalse(list(self.data.iterdir()))
 
     def test_bootstrap_refuses_a_treasury_key_that_is_not_a_regular_file(self):
-        result = self.bootstrap(extra=['--treasury-key', str(self.work)])
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(b'treasury key file must name a readable regular file', result.stderr)
-        self.assertFalse(self.data.exists())
+        with self.assertRaisesRegex(ProviderError, 'regular file'):
+            self.harness.signer(key=self.work)
+        self.assertFalse(list(self.data.iterdir()))
+        self.assertFalse((self.run_dir / 'treasury.sock').exists())
 
-    def test_supervisor_refuses_a_seed_line_in_sequencer_env(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        sequencer_env = self.data / 'sequencer.env'
-        with sequencer_env.open('ab') as handle:
-            handle.write(SEED_LINE + self.sequencer_seed.hex().encode() + b'\n')
-        supervised = self.supervise()
-        self.assertNotEqual(supervised.returncode, 0)
-        self.assertIn(b'must not carry LAYERX_NODE_SEQUENCER_PRIVATE_KEY', supervised.stderr)
-        self.assertFalse((self.run_dir / 'generation').exists())
-        self.assertFalse((self.run_dir / 'supervisor.sock').exists())
+    def test_supervisor_refuses_a_seed_line_in_core_env(self):
+        self.bootstrap()
+        for parent in (self.data, self.data / '.generation-proof'):
+            path = parent / 'core.env'
+            with path.open('ab') as handle:
+                handle.write(b'LAYERX_NODE_SEQUENCER_PRIVATE_KEY=' +
+                             self.sequencer_seed.hex().encode() + b'\n')
+        native.write_file(self.data / '.native-prepared.json',
+                          reset.canonical(native.generation_binding(self.data)))
+        with self.assertRaises(reset.StoreError) as failure:
+            with self.harness.consume():
+                self.fail('the real consumer accepted a seed in its environment')
+        self.assertEqual(failure.exception.code, 'unsafe_environment')
 
     def test_supervisor_refuses_a_key_file_that_does_not_match_the_bound_public_key(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        self.sequencer_path.unlink()
-        write_seed(self.sequencer_path, os.urandom(32))
-        supervised = self.supervise()
-        self.assertNotEqual(supervised.returncode, 0)
-        self.assertIn(b'does not match the bound sequencer public key', supervised.stderr)
-        self.assertFalse((self.run_dir / 'generation').exists())
+        self.bootstrap()
+        self.sequencer_path.write_bytes(os.urandom(32).hex().encode())
+        with self.assertRaisesRegex(ValueError, 'receipt signer is not pinned in genesis'):
+            self.reopen_bootstrap()
+        self.assertFalse((self.work / 'reopened-data/.native-prepared.json').exists())
+        self.assertEqual(environment_lines(self.data / 'node.env')['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
+                         public_key_of(self.sequencer_seed).hex())
 
     def test_supervisor_refuses_a_missing_key_file(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
+        self.bootstrap()
         self.sequencer_path.unlink()
-        supervised = self.supervise()
-        self.assertNotEqual(supervised.returncode, 0)
-        self.assertIn(b'sequencer key file is not a regular file', supervised.stderr)
-        self.assertFalse((self.run_dir / 'generation').exists())
+        with self.assertRaises(FileNotFoundError):
+            self.reopen_bootstrap()
+        self.assertFalse((self.work / 'reopened-data/.native-prepared.json').exists())
+        self.assertTrue((self.data / '.native-prepared.json').is_file())
 
     def test_supervisor_refuses_a_malformed_key_file(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        self.sequencer_path.unlink()
-        write_seed(self.sequencer_path, b'not a seed\n')
-        supervised = self.supervise()
-        self.assertNotEqual(supervised.returncode, 0)
-        self.assertIn(b'must hold 32 raw bytes or 64 hex characters', supervised.stderr)
-        self.assertFalse((self.run_dir / 'generation').exists())
+        self.bootstrap()
+        self.sequencer_path.write_bytes(b'not a seed\n')
+        with self.assertRaisesRegex(ValueError, 'paxd hexadecimal seed file contract'):
+            self.reopen_bootstrap()
+        self.assertFalse((self.work / 'reopened-data/.native-prepared.json').exists())
+        self.assertTrue((self.data / '.native-prepared.json').is_file())
 
     def test_supervisor_binds_the_hex_form_of_the_same_seed_before_publishing(self):
-        result = self.bootstrap()
-        self.assertEqual(result.returncode, 0, result.stderr.decode())
-        self.sequencer_path.unlink()
-        write_seed(self.sequencer_path, self.sequencer_seed.hex().upper().encode() + b'\n')
-        bound = b'sequencer seed bound from ' + str(self.sequencer_path).encode()
-        process = self.supervise_process()
-        seen = []
-        try:
-            for line in process.stderr:
-                seen.append(line)
-                if line.rstrip(b'\n').endswith(bound):
-                    break
-            self.assertTrue(seen and seen[-1].rstrip(b'\n').endswith(bound), b''.join(seen).decode())
-            self.assertNotIn(b'does not match the bound sequencer public key', b''.join(seen))
-            deadline = time.monotonic() + 60
-            while not (self.run_dir / 'generation').exists():
-                self.assertIsNone(process.poll(), 'the supervisor exited after binding the seed')
-                self.assertLess(time.monotonic(), deadline, 'the generation was not published')
-                time.sleep(0.05)
-            self.assertEqual((self.run_dir / 'generation').read_text(), '1')
-        finally:
-            process.terminate()
-            process.wait(timeout=60)
-            process.stderr.close()
+        self.bootstrap()
+        original = native.generation_binding(self.data)
+        from test_repair_22_31_355 import native_supervisor
+
+        pids, observed_commands = [], []
+        for index in range(2):
+            with native_supervisor(self.harness.config, self.data, self.harness.state,
+                                   self.run_dir, self.work / ('supervisor-' + str(index) + '.log')):
+                identity = json.loads((self.run_dir / 'native-process.json').read_bytes())
+                pids.append(identity['pid'])
+                if self.harness.peer is None:
+                    observed_commands.append(Path('/proc', str(identity['pid']), 'cmdline')
+                                             .read_bytes().rstrip(b'\0').decode().split('\0'))
+                result, descriptors = generation.receive(str(self.run_dir / 'generation.sock'),
+                                                         'core', 1, os.geteuid(), os.getegid())
+                try:
+                    adopted = generation.child_environment(result, descriptors, 'core')
+                    self.assertEqual(adopted['LAYERX_NODE_SEQUENCER_PUBLIC_KEY'],
+                                     public_key_of(self.sequencer_seed).hex())
+                    self.assertEqual(adopted['LAYERX_GENERATION_NUMBER'], '1')
+                    self.assertNotIn('LAYERX_NODE_SEQUENCER_PRIVATE_KEY', adopted)
+                finally:
+                    generation.close_descriptors(descriptors)
+                self.assertEqual(native.generation_binding(self.data), original)
+                provider = FileProvider(self.sequencer_path)
+                try:
+                    self.assertEqual(provider.public_key(), public_key_of(self.sequencer_seed))
+                finally:
+                    provider.close()
+            self.assertEqual(native.generation_binding(self.data), original)
+        self.assertNotEqual(*pids)
+        commands = observed_commands if self.harness.peer is None else [
+            json.loads(line)['command'] for line in self.harness.peer.journal.read_text().splitlines()
+            if 'command' in json.loads(line)]
+        starts = [command for command in commands if command[1] == 'start']
+        self.assertEqual(len(starts), 2)
+        for command in starts:
+            self.assertEqual(command[0:2], [self.harness.config['paxd'], 'start'])
+            self.assertEqual(command[command.index('--sequencer.enable') + 1], 'true')
+            self.assertEqual(command[command.index('--sequencer.receipt-key-file') + 1],
+                             str(self.sequencer_path))
+            self.assertNotIn(self.sequencer_seed.hex(), ' '.join(command))
+        self.assert_seed_only_in_its_file()
+
+    def test_bootstrap_refuses_invalid_receipt_encodings_and_unsafe_permissions(self):
+        for index, value in enumerate((self.sequencer_seed, self.sequencer_seed.hex().upper().encode(),
+                                       b'0' * 63, b'g' * 64, b'0' * 4097)):
+            path = self.work / ('invalid-' + str(index) + '.key')
+            write_seed(path, value)
+            with self.subTest(encoding=index), self.assertRaises(ValueError):
+                self.bootstrap(sequencer_key=path)
+            self.assertFalse(list(self.data.iterdir()))
+        self.sequencer_path.chmod(0o644)
+        with self.assertRaises(ProviderError):
+            self.bootstrap()
+        self.assertFalse((self.data / '.native-prepared.json').exists())
 
 
 if __name__ == '__main__':

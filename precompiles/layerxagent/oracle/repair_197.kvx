@@ -1,0 +1,37 @@
+[repair.22.31.197]
+audit = "22.30.8"
+base_revision = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+qualification = "The hf-build and hf-done private gate ledger is the authoritative revision, command, exit and log record; this file does not assert a gate result."
+baseline = "No earlier oracle edits or gate ledger were present. An unchanged-tree verify was not run: the task's explicit Order requires implementation first and permits verification only through hf-done after hf-build; no baseline failures are claimed."
+
+[finding.oracle-read-needs-test-context]
+test = "TestRepair_197_ReadWithoutReplay"
+repair = "Feed-only committed reads bind the node host store at construction and use the native committed-price decoder; ordinary node query EVM calls need no validator, replay activity or injected context. The test closes and reopens the disk store and host, reconstructs the registered precompile, reads the recovered price and commits another signed transaction."
+
+[finding.oracle-write-has-no-producer]
+test = "TestRepair_197_SignedNodeTransaction"
+repair = "SignObservation produces the native observation and activity signatures; PackSubmitPrice carries all signed fields in the versioned LXO1 calldata trailer. The registered precompile derives authority from the EVM caller's bound DID and validates both signatures through the native host. Real signed DeliverTx transactions prove intake, signature/authority refusal, unchanged state on refusal, write guards and subsequent committed reads."
+
+[finding.oracle-writes-use-retired-exchange]
+test = "TestRepair_197_RetiredExchange"
+repair = "The constructor selects the live oracle Keeper over the shared host and exchange audit store. It does not call the retired exchange-intent write API. The test proves the node's legacy keeper remains retired after both upgrades while oracle transactions commit and read successfully."
+
+[finding.weighted-median-rounds-down]
+test = "TestRepair_197_WeightedMedian"
+repair = "Use exact ceiling-half total confidence with arbitrary precision. Direct Aggregate and ABI calls prove odd majorities, exact even ties, unit weights and uint256 weights whose sum exceeds uint256. Correct the existing odd-floor vector from 10 to its required weighted median 30; preserve its assertions and all other cases."
+
+[wiring.domain3]
+request = "modules/layerxexchange/keeper (owning domain 3): expose the live host-backed oracle keeper and feed-keyed native read API independently of retired intents, then consolidate the scoped adapter in precompiles/layerxagent/oracle/keeper.go and committed.go without changing its signed transport or state keys."
+
+[wiring.domain2]
+request = "spec/layerx-merge/interfaces.kvx and spec/layerx-merge/contracts/agent-functions.md (owning domain 2): register the LXO1 submitPrice trailer and SignObservation/PackSubmitPrice producer contract; the task's scope forbids updating those interface records here."
+
+[transport.LXO1]
+selector = "submitPrice(bytes32,int256,uint256), unchanged"
+encoding = "100 ABI bytes followed by exactly 311 bytes: magic 4c584f01; protocol u16; authority key 32; identity sequence u64; not-before u64; not-after u64; idempotency key 32; fee limit 16; native observation transport 137; activity signature 64. Integers are big endian; actor DID and activity type 0x00060003 are derived. The native host verifies network/domain, expiry, identity sequence, permitted oracle key, observation signature, bounds and staleness."
+gas = "The existing 30000 + 30 * full calldata length schedule charges the entire trailer; staticcall, delegatecall, nonpayable and upgrade guards remain active."
+legacy = "WithOracleReplay remains an explicit compatibility entry for existing signed replay callers; committed feed reads never consult it, and node tests never install it. Invalid explicit transport is rejected rather than retried with replay authority."
+
+[gotcha.scope]
+observed = "Spec task records and the root gotcha ledger are outside this task's authorized paths."
+handling = "Keep the repair mapping and wiring requests in this scoped record and leave spec status and publication to the runner."

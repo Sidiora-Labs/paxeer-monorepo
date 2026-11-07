@@ -25,10 +25,26 @@ interface WhatsNewItem {
 
 const WHATS_NEW: WhatsNewItem[] = [
   { icon: Zap, title: 'Instant Swap', description: 'Swap tokens with the updated route engine' },
-  { icon: Search, title: 'Discover Tokens', description: 'Find trending, new, and breakout tokens in one place' },
-  { icon: Globe2, title: 'PNS Names', description: 'Register your .pax name and send to human-readable addresses' },
-  { icon: ChartNoAxesCombined, title: 'Portfolio Charts', description: 'Track price history and holding performance over time' },
-  { icon: ShieldCheck, title: 'Safer Approvals', description: 'Review the account, network, destination, amount, and fee before signing' },
+  {
+    icon: Search,
+    title: 'Discover Tokens',
+    description: 'Find trending, new, and breakout tokens in one place',
+  },
+  {
+    icon: Globe2,
+    title: 'PNS Names',
+    description: 'Register your .pax name and send to human-readable addresses',
+  },
+  {
+    icon: ChartNoAxesCombined,
+    title: 'Portfolio Charts',
+    description: 'Track price history and holding performance over time',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Safer Approvals',
+    description: 'Review the account, network, destination, amount, and fee before signing',
+  },
 ];
 
 export function WhatsNewModal() {
@@ -47,14 +63,14 @@ export function WhatsNewModal() {
   return (
     <AnimatePresence>
       {open && (
-        <div className="fixed inset-0 z-[60] flex items-end justify-center">
+        <div className="fixed inset-0 isolate z-[60] flex items-end justify-center">
           <motion.div
             key="whats-new-backdrop"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="absolute inset-0 bg-black/70 backdrop-blur-sm z-[60]"
+            className="absolute inset-0 z-0 bg-black/70 backdrop-blur-sm"
             onClick={handleDismiss}
           />
           <motion.div
@@ -63,8 +79,13 @@ export function WhatsNewModal() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
             transition={{ type: 'spring', stiffness: 280, damping: 28, mass: 0.9 }}
-            className="relative w-full max-w-md bg-pax-card rounded-t-3xl overflow-hidden"
-            style={{ paddingBottom: 'max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))' }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="What's New"
+            className="relative z-10 w-full max-w-md bg-pax-card rounded-t-3xl overflow-hidden"
+            style={{
+              paddingBottom: 'max(5.5rem, calc(env(safe-area-inset-bottom, 0px) + 5.5rem))',
+            }}
           >
             {/* Handle */}
             <div className="w-10 h-1 rounded-full bg-white/10 absolute top-2.5 left-1/2 -translate-x-1/2" />
@@ -82,6 +103,7 @@ export function WhatsNewModal() {
               </div>
               <button
                 onClick={handleDismiss}
+                aria-label="Close What's New"
                 className="p-1.5 rounded-full bg-white/5 press-scale"
               >
                 <X className="w-4 h-4 text-pax-muted" />

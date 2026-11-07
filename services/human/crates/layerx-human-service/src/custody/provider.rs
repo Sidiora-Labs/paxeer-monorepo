@@ -1,16 +1,18 @@
 use std::fmt::{Debug, Formatter};
 use std::future::Future;
-use std::net::SocketAddr;
+use std::io::{Read, Write};
+use std::net::{SocketAddr, TcpStream};
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::Duration;
 
-use layerx_client::lni::transport::{
-    ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError,
-};
-use layerx_crypto::disclosure::{bind, Disclosure};
+use crate::frame::{ConnectionGate, FrameTransport, Limits, MutualTlsConfig, Tls, TransportError};
+use layerx_crypto::disclosure::call::bind_call;
+use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{recover_sender, Eip1559Call};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer as _};
-use layerx_types::payload::ModuleRegistry;
+use layerx_crypto::signer::{sign_disclosed_call, AgentSignature, Signer as _};
+use layerx_types::clock::{Clock, Deadline};
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -19,15 +21,16 @@ use super::{seal_refusal, CustodyError, EnvelopeKms, KeyClass, KeyEntropy, KmsEr
 const PROVIDER_REFERENCE_LIMIT: usize = 4096;
 const PROVIDER_FRAME_LIMIT: usize = 2_097_152;
 const PROVIDER_MAGIC: &[u8; 4] = b"LXKP";
-const SIGNATURE_DOMAIN: &[u8] = b"LXP/v1/signature-preimage\0";
 const PROBE: Contract = Contract::new(1, 0);
 const CREATE: Contract = Contract::new(1, 1);
 const DESCRIBE: Contract = Contract::new(1, 2);
 const ROTATE: Contract = Contract::new(1, 3);
 const ROTATE_IF_CURRENT: Contract = Contract::new(2, 3);
 const DESTROY: Contract = Contract::new(1, 4);
-const SIGN: Contract = Contract::new(1, 5);
-const EXPORT: Contract = Contract::new(5, 14);
+const SIGN: Contract = Contract::new(7, 5);
+const EXPORT: Contract = Contract::new(8, 14);
+const ACKNOWLEDGE_EXPORT: Contract = Contract::new(8, 16);
+const EXPORT_HANDOFF: Contract = Contract::new(9, 14);
 const EXECUTOR_PROBE: Contract = Contract::new(6, 15);
 const STATUS_OK: u8 = 0;
 const STATUS_REFUSED: u8 = 1;
@@ -284,96 +287,98 @@ impl ProviderKeyDescription {
     }
 }
 
-/// Exact request admitted to a provider signer. It always carries both the
-/// canonical bytes and the structured disclosure used to approve them.
+/// Public descriptors keep the native identity and EVM signing identity explicit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct WalletKeyDescriptor {
+    pub native_ed25519: [u8; 32],
+    pub evm_secp256k1: [u8; 20],
+}
+
+/// Exact disclosure-bound EIP-1559 request admitted to a provider signer.
 #[derive(Clone, Copy)]
 pub struct ProviderSignRequest<'a> {
-    canonical_bytes: &'a [u8],
+    call: &'a Eip1559Call,
     disclosure: &'a Disclosure,
-    registry: &'a ModuleRegistry,
+    from: [u8; 20],
     expected_public_key: [u8; 32],
 }
 
 impl<'a> ProviderSignRequest<'a> {
-    pub(super) const fn new(
-        canonical_bytes: &'a [u8],
+    pub const fn new(
+        call: &'a Eip1559Call,
         disclosure: &'a Disclosure,
-        registry: &'a ModuleRegistry,
+        from: [u8; 20],
         expected_public_key: [u8; 32],
     ) -> Self {
         Self {
-            canonical_bytes,
+            call,
             disclosure,
-            registry,
+            from,
             expected_public_key,
         }
     }
 
-    /// Borrows the exact canonical byte string approved by the caller.
     #[must_use]
-    pub const fn canonical_bytes(&self) -> &'a [u8] {
-        self.canonical_bytes
+    pub const fn call(&self) -> &'a Eip1559Call {
+        self.call
     }
 
-    /// Borrows the structured disclosure paired with the bytes.
     #[must_use]
     pub const fn disclosure(&self) -> &'a Disclosure {
         self.disclosure
     }
 
-    /// Borrows the negotiated module registry used for re-validation.
     #[must_use]
-    pub const fn registry(&self) -> &'a ModuleRegistry {
-        self.registry
+    pub const fn from(&self) -> [u8; 20] {
+        self.from
     }
 
-    /// Returns the public key against which every response is verified.
     #[must_use]
     pub const fn expected_public_key(&self) -> [u8; 32] {
         self.expected_public_key
     }
 
     fn validate(self) -> Result<ValidatedSignRequest, CustodyError> {
-        validate_disclosed(self.canonical_bytes, self.disclosure, self.registry)
+        validate_disclosed(self.call, self.disclosure, self.from)
     }
 }
 
-/// Re-binds canonical bytes to their disclosure under `registry` and returns
-/// the signature-preimage digest plus the LXKP disclosure encoding.
 pub(super) fn validate_disclosed(
-    canonical_bytes: &[u8],
+    call: &Eip1559Call,
     disclosure: &Disclosure,
-    registry: &ModuleRegistry,
+    from: [u8; 20],
 ) -> Result<ValidatedSignRequest, CustodyError> {
-    let rebound = bind(canonical_bytes, registry)
+    let rebound = bind_call(call, from)
         .map_err(|error| CustodyError::Sign(layerx_crypto::signer::SignError::from(error)))?;
     if rebound != *disclosure {
         return Err(CustodyError::Sign(
-            layerx_crypto::signer::SignError::DisclosureMismatch("canonical_bytes"),
+            layerx_crypto::signer::SignError::DisclosureMismatch("call"),
         ));
     }
-    let reencoded = disclosure
-        .reencode()
-        .map_err(|error| CustodyError::Sign(layerx_crypto::signer::SignError::from(error)))?;
-    if !layerx_crypto::ct::eq(&reencoded, canonical_bytes) {
-        return Err(CustodyError::Sign(
-            layerx_crypto::signer::SignError::DisclosureMismatch("canonical_bytes"),
-        ));
-    }
-    let mut hasher = Sha256::new();
-    hasher.update(SIGNATURE_DOMAIN);
-    hasher.update(canonical_bytes);
     Ok(ValidatedSignRequest {
-        canonical_digest: hasher.finalize().into(),
+        canonical_digest: call.signing_hash(),
         disclosure: encode_disclosure(disclosure)?,
     })
+}
+
+pub(super) fn verify_call_signature(
+    call: &Eip1559Call,
+    from: [u8; 20],
+    signature: &[u8; 65],
+) -> Result<(), CustodyError> {
+    let invalid = || CustodyError::Sign(layerx_crypto::signer::SignError::ReturnedSignatureInvalid);
+    let signature = AgentSignature::new(*signature).map_err(|_| invalid())?;
+    if recover_sender(call, &signature).map_err(|_| invalid())? != from {
+        return Err(invalid());
+    }
+    Ok(())
 }
 
 impl Debug for ProviderSignRequest<'_> {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         formatter
             .debug_struct("ProviderSignRequest")
-            .field("canonical_bytes", &"[redacted]")
+            .field("call", &"[redacted]")
             .field("disclosure", &"[validated at provider boundary]")
             .field("expected_public_key", &self.expected_public_key)
             .finish()
@@ -389,7 +394,7 @@ pub(super) struct ValidatedSignRequest {
 pub enum NativeConsent<'a> {
     PreparationPurpose(&'a layerx_agent_api::identity::NativePreparationPurposeV1),
     LocalGrant(&'a layerx_agent_api::identity::NativeLocalGrantConsentV1),
-    SendPurpose(&'a layerx_agent_api::identity::NativeSendPurposeV1),
+    SendPurpose(&'a layerx_agent_api::identity::NativeSendPurposeV2),
 }
 
 impl NativeConsent<'_> {
@@ -442,12 +447,12 @@ impl NativeConsent<'_> {
                 let canonical = value
                     .canonical_bytes()
                     .map_err(|_| CustodyError::InvalidEvidence)?;
-                let actual = layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(
+                let actual = layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(
                     &canonical,
                 )
                 .map_err(|_| CustodyError::InvalidEvidence)?;
                 if &actual != value
-                    || value.owner_public_key != expected_public_key
+                    || value.consent_public_key != expected_public_key
                     || now_ms >= value.expires_at_ms
                 {
                     return Err(CustodyError::InvalidEvidence);
@@ -490,12 +495,22 @@ impl<'a> ProviderNativeSignRequest<'a> {
 
 /// Future returned by object-safe KMS provider signing.
 pub type KmsSignFuture<'a> =
-    Pin<Box<dyn Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>>;
+    Pin<Box<dyn Future<Output = Result<[u8; 65], CustodyError>> + Send + 'a>>;
 
 /// Public production custody boundary. Implementations own key creation,
 /// description, rotation, destruction and signing; none can return private key
 /// material through this interface.
 pub trait KmsProvider: Debug + Send + Sync {
+    /// Binds all provider calls to one absolute operation deadline. Providers
+    /// without a cancellable synchronous transport refuse gateway dispatch.
+    fn for_deadline(
+        &self,
+        _deadline: Deadline,
+        _clock: Arc<dyn Clock>,
+    ) -> Result<Box<dyn KmsProvider>, KmsError> {
+        Err(KmsError::InvalidConfiguration)
+    }
+
     /// Returns the bounded, non-secret provider or partition reference.
     #[must_use]
     fn provider_reference(&self) -> &str;
@@ -503,6 +518,12 @@ pub trait KmsProvider: Debug + Send + Sync {
     /// Declares whether this implementation is permitted in production.
     #[must_use]
     fn deployment(&self) -> ProviderDeployment;
+
+    /// Applies additional admission restrictions before Human exposes its operations.
+    /// Providers with a narrower contract must refuse service startup here.
+    fn admit_human_service(&self) -> Result<(), KmsError> {
+        Ok(())
+    }
 
     /// Probes the authenticated provider boundary.
     ///
@@ -598,6 +619,55 @@ pub trait KmsProvider: Debug + Send + Sync {
         Err(KmsError::Refused)
     }
 
+    /// Publishes or recovers the identical recipient-encrypted delivery.
+    fn export_envelope(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Retires delivery only after the recipient proves it decrypted the key.
+    fn acknowledge_export(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Refuses providers without durable, principal-bound export recovery.
+    fn check_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Retries the same durable handoff, retaining encrypted material until acknowledgement.
+    fn recover_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        Err(KmsError::Refused)
+    }
+
+    /// Idempotently erases only the acknowledged handoff, never resuming signing.
+    fn acknowledge_export_handoff(
+        &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<(), KmsError> {
+        Err(KmsError::Refused)
+    }
+
     /// Destroys a provider key. No key bytes are returned.
     ///
     /// # Errors
@@ -614,8 +684,8 @@ pub trait KmsProvider: Debug + Send + Sync {
         _binding: &'a PrincipalKeyBinding,
         _reference: &'a ProviderKeyReference,
         _request: ProviderNativeSignRequest<'a>,
-    ) -> KmsSignFuture<'a> {
-        Box::pin(async { Err(CustodyError::Kms(KmsError::Refused)) })
+    ) -> Pin<Box<dyn Future<Output = Result<[u8; 64], CustodyError>> + Send + 'a>> {
+        Box::pin(async { Err(CustodyError::Kms(KmsError::UnsupportedNativeConsent)) })
     }
 
     /// Signs only a complete disclosure-bound request and returns only the
@@ -693,26 +763,26 @@ impl RemoteCustodySigner {
         Ok(signature)
     }
 
-    /// Sends the exact canonical bytes and matching disclosure to the provider
-    /// and returns only the signature.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a changed disclosure, a provider failure or a signature that
-    /// does not verify against the recorded public key.
-    pub async fn sign_disclosed(
+    /// Sends the exact EIP-1559 call and its disclosure to the provider.
+    pub async fn sign_call(
         &self,
         canonical_bytes: &[u8],
         disclosure: &Disclosure,
-        registry: &ModuleRegistry,
-    ) -> Result<[u8; 64], CustodyError> {
-        self.provider
-            .sign(
-                &self.binding,
-                &self.reference,
-                ProviderSignRequest::new(canonical_bytes, disclosure, registry, self.public_key),
-            )
-            .await
+    ) -> Result<[u8; 65], CustodyError> {
+        let call = crate::server::agent_runtime::decode_unsigned(canonical_bytes)
+            .map_err(|_| CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure))?;
+        let from =
+            disclosure.actor.as_slice().try_into().map_err(|_| {
+                CustodyError::Sign(layerx_crypto::signer::SignError::InvalidDisclosure)
+            })?;
+        let request = ProviderSignRequest::new(&call, disclosure, from, self.public_key);
+        request.validate()?;
+        let signature = self
+            .provider
+            .sign(&self.binding, &self.reference, request)
+            .await?;
+        verify_call_signature(&call, from, &signature)?;
+        Ok(signature)
     }
 }
 
@@ -732,13 +802,17 @@ impl Debug for RemoteCustodySigner {
 /// Production provider speaking the bounded `LayerX` KMS protocol over mutual
 /// TLS to a remote KMS/HSM gateway. Every operation opens a fresh authenticated
 /// connection, so a failed connection cannot silently reuse cached authority.
+#[derive(Clone)]
 pub struct RemoteKmsProvider {
+    clock: Arc<dyn Clock>,
     provider_reference: String,
     endpoint: SocketAddr,
     server_name: String,
     tls: MutualTlsConfig,
     gate: ConnectionGate,
     limits: Limits,
+    deadline_tls: Option<Arc<rustls::ClientConfig>>,
+    operation_deadline: Option<Deadline>,
 }
 
 impl RemoteKmsProvider {
@@ -755,6 +829,7 @@ impl RemoteKmsProvider {
         server_name: impl Into<String>,
         tls: MutualTlsConfig,
         limits: Limits,
+        clock: Arc<dyn Clock>,
     ) -> Result<Self, CustodyError> {
         let provider_reference = provider_reference.into();
         if provider_reference.is_empty()
@@ -773,14 +848,47 @@ impl RemoteKmsProvider {
         if limits.maximum_frame_bytes > PROVIDER_FRAME_LIMIT {
             return Err(CustodyError::Kms(KmsError::InvalidConfiguration));
         }
+        let deadline_tls = Some(tls.deadline_client());
         Ok(Self {
+            clock,
             provider_reference,
             endpoint,
             server_name,
             tls,
             gate: ConnectionGate::new(limits.maximum_connections),
             limits,
+            deadline_tls,
+            operation_deadline: None,
         })
+    }
+
+    /// Supplies the authenticated TLS configuration for the absolute-deadline
+    /// transport used by gateway dispatch.
+    #[must_use]
+    pub fn with_deadline_transport(mut self, config: Arc<rustls::ClientConfig>) -> Self {
+        self.deadline_tls = Some(config);
+        self
+    }
+
+    /// Encodes the same validated signing frame sent by the provider, for
+    /// authenticated relays that already resolved public wallet facts.
+    pub fn encode_signing_request(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        request: ProviderSignRequest<'_>,
+    ) -> Result<Vec<u8>, CustodyError> {
+        let validated = request.validate()?;
+        if request.call.chain_id != u64::from(binding.network_id) {
+            return Err(KmsError::Integrity.into());
+        }
+        Ok(encode_sign_request(
+            &self.provider_reference,
+            binding,
+            reference,
+            request,
+            &validated,
+        )?)
     }
 
     fn call(&self, contract: Contract, request: &[u8]) -> Result<Vec<u8>, KmsError> {
@@ -792,16 +900,64 @@ impl RemoteKmsProvider {
             .clone()
             .try_into()
             .map_err(|_| KmsError::Authentication)?;
-        let mut transport = Tls::connect(
-            self.endpoint,
-            server_name,
-            &self.tls,
-            &self.gate,
-            self.limits,
-        )
-        .map_err(map_transport)?;
-        transport.send(request).map_err(map_transport)?;
-        let response = transport.receive().map_err(map_transport)?;
+        let mut local_deadline = Deadline::start(self.clock.as_ref(), self.limits.deadline)
+            .map_err(|_| KmsError::Unavailable)?;
+        let mut deadline = match self.operation_deadline {
+            Some(mut inherited) => {
+                let inherited_remaining = inherited
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| KmsError::Unavailable)?;
+                let local_remaining = local_deadline
+                    .remaining(self.clock.as_ref())
+                    .map_err(|_| KmsError::Unavailable)?;
+                if inherited_remaining <= local_remaining {
+                    inherited
+                } else {
+                    local_deadline
+                }
+            }
+            None => local_deadline,
+        };
+        let mut limits = self.limits;
+        limits.deadline = deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?;
+        if limits.deadline.is_zero() {
+            return Err(KmsError::Timeout);
+        }
+        let response = if let Some(config) = &self.deadline_tls {
+            let _permit = self.gate.acquire().map_err(map_transport)?;
+            let tcp = TcpStream::connect_timeout(&self.endpoint, limits.deadline)
+                .map_err(|_| KmsError::Timeout)?;
+            let socket = DeadlineSocket {
+                tcp,
+                deadline,
+                clock: Arc::clone(&self.clock),
+            };
+            let connection = rustls::ClientConnection::new(Arc::clone(config), server_name)
+                .map_err(|_| KmsError::Authentication)?;
+            let mut transport = rustls::StreamOwned::new(connection, socket);
+            crate::frame::write_frame(&mut transport, request, limits.maximum_frame_bytes)
+                .map_err(map_transport)?;
+            crate::frame::read_frame(&mut transport, limits.maximum_frame_bytes)
+                .map_err(map_transport)?
+        } else {
+            if self.operation_deadline.is_some() {
+                return Err(KmsError::InvalidConfiguration);
+            }
+            let mut transport =
+                Tls::connect(self.endpoint, server_name, &self.tls, &self.gate, limits)
+                    .map_err(map_transport)?;
+            transport.send(request).map_err(map_transport)?;
+            transport.receive().map_err(map_transport)?
+        };
+        if deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| KmsError::Unavailable)?
+            .is_zero()
+        {
+            return Err(KmsError::Timeout);
+        }
         decode_response(contract, &response)
     }
 
@@ -814,6 +970,147 @@ impl RemoteKmsProvider {
         let request = encode_key_request(contract, &self.provider_reference, binding, reference)?;
         let response = self.call(contract, &request)?;
         decode_description(&response, binding)
+    }
+
+    pub fn wallet_descriptor(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+    ) -> Result<WalletKeyDescriptor, KmsError> {
+        let description = self.describe_key(binding, reference)?;
+        let address = self.evm_operation(6, binding, reference, &[])?;
+        let address = address
+            .as_slice()
+            .try_into()
+            .map_err(|_| KmsError::InvalidResponse)?;
+        if address == [0; 20] {
+            return Err(KmsError::Integrity);
+        }
+        Ok(WalletKeyDescriptor {
+            native_ed25519: description.public_key(),
+            evm_secp256k1: address,
+        })
+    }
+
+    pub async fn sign_wallet_call(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        call: &Eip1559Call,
+        disclosure: &Disclosure,
+    ) -> Result<[u8; 65], CustodyError> {
+        let descriptor = self.wallet_descriptor(binding, reference)?;
+        self.sign(
+            binding,
+            reference,
+            ProviderSignRequest::new(
+                call,
+                disclosure,
+                descriptor.evm_secp256k1,
+                descriptor.native_ed25519,
+            ),
+        )
+        .await
+    }
+
+    /// Publish or recover the envelope for this authenticated recipient ceremony.
+    pub fn export_envelope(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        ceremony.validate().map_err(|_| KmsError::Refused)?;
+        let frame = self.encode_export_request(binding, reference, ceremony)?;
+        let response = self.call(EXPORT, &frame)?;
+        let envelope: layerx_human_kms::export::ExportEnvelope =
+            serde_json::from_slice(&response).map_err(|_| KmsError::InvalidResponse)?;
+        if &envelope.ceremony != ceremony || envelope.ciphertext.len() != 80 {
+            return Err(KmsError::Integrity);
+        }
+        Ok(envelope)
+    }
+
+    pub fn encode_export_request(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<Vec<u8>, KmsError> {
+        ceremony.validate().map_err(|_| KmsError::Refused)?;
+        self.export_frame(
+            EXPORT,
+            binding,
+            reference,
+            &serde_json::to_vec(ceremony).map_err(|_| KmsError::Refused)?,
+        )
+    }
+
+    /// Send only after the recipient has durably retained the decrypted key.
+    /// Repeating a delivered acknowledgement is safe after an uncertain reply.
+    pub fn acknowledge_export(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        let frame = self.encode_export_acknowledgement(binding, reference, acknowledgement)?;
+        if !self.call(ACKNOWLEDGE_EXPORT, &frame)?.is_empty() {
+            return Err(KmsError::InvalidResponse);
+        }
+        Ok(())
+    }
+    pub fn encode_export_acknowledgement(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<Zeroizing<Vec<u8>>, KmsError> {
+        let payload =
+            Zeroizing::new(serde_json::to_vec(acknowledgement).map_err(|_| KmsError::Refused)?);
+        self.export_frame(ACKNOWLEDGE_EXPORT, binding, reference, &payload)
+            .map(Zeroizing::new)
+    }
+    fn export_frame(
+        &self,
+        contract: Contract,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        let frame =
+            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
+        let mut writer = WireWriter::from_bytes(frame);
+        writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
+        Ok(writer.finish())
+    }
+
+    /// Encodes the exact frame sent by `evm_operation`, for durable dispatch.
+    ///
+    /// # Errors
+    /// Refuses an unsupported operation, a payload on the wallet query, an
+    /// empty JSON payload, or a frame beyond the LXKP limit.
+    pub fn encode_evm_request(
+        &self,
+        operation: u8,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        let contract = Contract::evm(operation).ok_or(KmsError::Refused)?;
+        let mut frame =
+            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
+        if contract.carries_payload() {
+            if payload.is_empty() {
+                return Err(KmsError::Refused);
+            }
+            let mut writer = WireWriter::from_bytes(frame);
+            writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
+            frame = writer.finish();
+        } else if !payload.is_empty() {
+            return Err(KmsError::Refused);
+        }
+        Ok(frame)
     }
 
     /// Completes the read-only executor probe under this provider's client
@@ -864,12 +1161,48 @@ impl Debug for RemoteKmsProvider {
 }
 
 impl KmsProvider for RemoteKmsProvider {
+    fn for_deadline(
+        &self,
+        deadline: Deadline,
+        clock: Arc<dyn Clock>,
+    ) -> Result<Box<dyn KmsProvider>, KmsError> {
+        if self.deadline_tls.is_none() {
+            return Err(KmsError::InvalidConfiguration);
+        }
+        let mut provider = self.clone();
+        provider.clock = clock;
+        provider.operation_deadline = Some(deadline);
+        Ok(Box::new(provider))
+    }
+
     fn provider_reference(&self) -> &str {
         &self.provider_reference
     }
 
     fn deployment(&self) -> ProviderDeployment {
         ProviderDeployment::Production
+    }
+
+    fn admit_human_service(&self) -> Result<(), KmsError> {
+        Err(KmsError::UnsupportedNativeConsent)
+    }
+
+    fn export_envelope(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        ceremony: &layerx_human_kms::export::ExportCeremony,
+    ) -> Result<layerx_human_kms::export::ExportEnvelope, KmsError> {
+        RemoteKmsProvider::export_envelope(self, binding, reference, ceremony)
+    }
+
+    fn acknowledge_export(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        acknowledgement: &layerx_human_kms::export::ExportAcknowledgement,
+    ) -> Result<(), KmsError> {
+        RemoteKmsProvider::acknowledge_export(self, binding, reference, acknowledgement)
     }
 
     fn probe(&self) -> Result<(), KmsError> {
@@ -890,15 +1223,7 @@ impl KmsProvider for RemoteKmsProvider {
         payload: &[u8],
     ) -> Result<Vec<u8>, KmsError> {
         let contract = Contract::evm(operation).ok_or(KmsError::Refused)?;
-        let mut frame =
-            encode_key_request(contract, &self.provider_reference, binding, Some(reference))?;
-        if contract.carries_payload() {
-            let mut writer = WireWriter::from_bytes(frame);
-            writer.bytes(payload, PROVIDER_FRAME_LIMIT)?;
-            frame = writer.finish();
-        } else if !payload.is_empty() {
-            return Err(KmsError::Refused);
-        }
+        let frame = self.encode_evm_request(operation, binding, reference, payload)?;
         self.call(contract, &frame)
     }
 
@@ -944,17 +1269,75 @@ impl KmsProvider for RemoteKmsProvider {
 
     fn export_primary_key(
         &self,
+        _binding: &PrincipalKeyBinding,
+        _reference: &ProviderKeyReference,
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        // The legacy API cannot identify a recipient or acknowledge delivery.
+        Err(KmsError::Refused)
+    }
+
+    fn check_export_handoff(
+        &self,
         binding: &PrincipalKeyBinding,
         reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(0);
+        let response = self.call(EXPORT_HANDOFF, &request)?;
+        if response.is_empty() {
+            Ok(())
+        } else {
+            Err(KmsError::InvalidResponse)
+        }
+    }
+
+    fn recover_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        id: [u8; 32],
     ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
-        let request =
-            encode_key_request(EXPORT, &self.provider_reference, binding, Some(reference))?;
-        let response = Zeroizing::new(self.call(EXPORT, &request)?);
-        let seed: [u8; 32] = response
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(1);
+        request.extend_from_slice(&id);
+        let response = Zeroizing::new(self.call(EXPORT_HANDOFF, &request)?);
+        let seed = response
             .as_slice()
             .try_into()
             .map_err(|_| KmsError::InvalidResponse)?;
         Ok(Zeroizing::new(seed))
+    }
+
+    fn acknowledge_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        id: [u8; 32],
+    ) -> Result<(), KmsError> {
+        let mut request = encode_key_request(
+            EXPORT_HANDOFF,
+            &self.provider_reference,
+            binding,
+            Some(reference),
+        )?;
+        request.push(2);
+        request.extend_from_slice(&id);
+        let response = self.call(EXPORT_HANDOFF, &request)?;
+        if response.is_empty() {
+            Ok(())
+        } else {
+            Err(KmsError::InvalidResponse)
+        }
     }
 
     fn destroy_key(
@@ -980,26 +1363,28 @@ impl KmsProvider for RemoteKmsProvider {
     ) -> KmsSignFuture<'a> {
         Box::pin(async move {
             let validated = request.validate()?;
+            if request.call.chain_id != u64::from(binding.network_id) {
+                return Err(CustodyError::Kms(KmsError::Integrity));
+            }
+            let descriptor = self.wallet_descriptor(binding, reference)?;
+            if descriptor.native_ed25519 != request.expected_public_key
+                || descriptor.evm_secp256k1 != request.from
+            {
+                return Err(CustodyError::Kms(KmsError::Integrity));
+            }
             let frame = encode_sign_request(
                 &self.provider_reference,
                 binding,
                 reference,
-                request.canonical_bytes,
+                request,
                 &validated,
             )?;
             let response = self.call(SIGN, &frame)?;
-            let signature: [u8; 64] = response
+            let signature: [u8; 65] = response
                 .as_slice()
                 .try_into()
                 .map_err(|_| CustodyError::Kms(KmsError::InvalidResponse))?;
-            layerx_crypto::ed25519::verify_digest(
-                &request.expected_public_key,
-                &signature,
-                &validated.canonical_digest,
-            )
-            .map_err(|_| {
-                CustodyError::Sign(layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
-            })?;
+            verify_call_signature(request.call, request.from, &signature)?;
             Ok(signature)
         })
     }
@@ -1016,6 +1401,214 @@ impl KmsProvider for EnvelopeKms {
 
     fn probe(&self) -> Result<(), KmsError> {
         self.root_secret().map(|_| ())
+    }
+
+    fn evm_operation(
+        &self,
+        operation: u8,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        payload: &[u8],
+    ) -> Result<Vec<u8>, KmsError> {
+        use std::io::{Read as _, Seek as _, Write as _};
+        use std::os::unix::fs::OpenOptionsExt as _;
+
+        if operation == 11 {
+            if payload.len() > PROVIDER_FRAME_LIMIT {
+                return Err(KmsError::Refused);
+            }
+            let request: super::evm::EvmSendAuthorization =
+                serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
+            let transaction = &request.authorization.transaction;
+            let call = Eip1559Call {
+                chain_id: transaction.chain_id,
+                nonce: transaction.nonce,
+                max_priority_fee_per_gas: transaction.max_priority_fee_per_gas.into(),
+                max_fee_per_gas: transaction.max_fee_per_gas.into(),
+                gas_limit: transaction.gas_limit,
+                to: transaction.to,
+                data: transaction.calldata.clone(),
+            };
+            let disclosure =
+                bind_call(&call, request.authorization.wallet).map_err(|_| KmsError::Refused)?;
+            match disclosure
+                .construct_method()
+                .map_err(|_| KmsError::Refused)?
+            {
+                Some(layerx_crypto::disclosure::call::ConstructMethod::BankSend {
+                    from,
+                    to,
+                    denom,
+                    amount,
+                }) if from == request.authorization.wallet
+                    && to == request.disclosure.recipient
+                    && denom == request.disclosure.denom
+                    && amount == request.disclosure.amount =>
+                {
+                    ()
+                }
+                _ => return Err(KmsError::Refused),
+            }
+            let authorization =
+                serde_json::to_vec(&request.authorization).map_err(|_| KmsError::Refused)?;
+            self.evm_operation(7, binding, reference, &authorization)?;
+            let action = serde_json::to_vec(&request.authorization.action_key)
+                .map_err(|_| KmsError::Refused)?;
+            let signed: super::EvmAction =
+                serde_json::from_slice(&self.evm_operation(8, binding, reference, &action)?)
+                    .map_err(|_| KmsError::Integrity)?;
+            return Ok(signed.raw_transaction);
+        }
+        if !matches!(operation, 6..=8) || payload.len() > PROVIDER_FRAME_LIMIT {
+            return Err(KmsError::Refused);
+        }
+        let seed = self.export_primary_key(binding, reference)?;
+        let key = k256::ecdsa::SigningKey::from_slice(&*seed).map_err(|_| KmsError::Integrity)?;
+        let wallet = layerx_crypto::secp256k1::evm_address(
+            key.verifying_key().to_encoded_point(false).as_bytes(),
+        )
+        .map_err(|_| KmsError::Integrity)?;
+        if operation == 6 {
+            return if payload.is_empty() {
+                Ok(wallet.to_vec())
+            } else {
+                Err(KmsError::Refused)
+            };
+        }
+
+        let mut hasher = Sha256::new();
+        hasher.update(b"layerx-human/envelope-evm-actions/v1\0");
+        hasher.update(binding.digest);
+        hasher.update(reference.as_bytes());
+        let journal_id: String = hasher
+            .finalize()
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect();
+        let path = self
+            .secret_path
+            .with_file_name(format!("{journal_id}.evm-actions"));
+        let mut journal = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .open(path)
+            .map_err(|_| KmsError::Unavailable)?;
+        rustix::fs::flock(&journal, rustix::fs::FlockOperation::LockExclusive)
+            .map_err(|_| KmsError::Unavailable)?;
+        if journal.metadata().map_err(|_| KmsError::Unavailable)?.len() > 16_777_216 {
+            return Err(KmsError::Integrity);
+        }
+        let mut bytes = Vec::new();
+        journal
+            .read_to_end(&mut bytes)
+            .map_err(|_| KmsError::Unavailable)?;
+        let mut actions: Vec<super::EvmAction> = if bytes.is_empty() {
+            Vec::new()
+        } else {
+            serde_json::from_slice(&bytes).map_err(|_| KmsError::Integrity)?
+        };
+        let now = layerx_client::runtime_clock::RuntimeClock::from_environment()
+            .and_then(|clock| clock.sample(Duration::from_secs(1)))
+            .map_err(|_| KmsError::Unavailable)?
+            .unix_seconds();
+        let action_key = if operation == 7 {
+            let authorization: super::EvmPlanAuthorization =
+                serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?;
+            let transaction = &authorization.transaction;
+            if authorization.plan_id == [0; 32]
+                || authorization.action_key == [0; 32]
+                || authorization.binding_digest != binding.digest
+                || authorization.wallet != wallet
+                || binding.identity().split(|byte| *byte == 0).nth(1)
+                    != Some(authorization.principal.as_bytes())
+                || authorization.tenant.is_empty()
+                || authorization.tenant.len() > 128
+                || authorization.not_before > now
+                || authorization.not_after < now
+                || authorization.not_after <= authorization.not_before
+                || transaction.chain_id != u64::from(binding.network_id)
+                || transaction.to == [0; 20]
+                || transaction.value != [0; 32]
+                || transaction.gas_limit < 21_000
+                || transaction.max_fee_per_gas == 0
+                || transaction.max_priority_fee_per_gas > transaction.max_fee_per_gas
+                || transaction.calldata.len() > 524_288
+            {
+                return Err(KmsError::Refused);
+            }
+            let action_key = authorization.action_key;
+            if let Some(previous) = actions
+                .iter()
+                .find(|action| action.authorization.action_key == action_key)
+            {
+                if previous.authorization != authorization {
+                    return Err(KmsError::Conflict);
+                }
+            } else {
+                if actions.len() >= 4096 || transaction.nonce == u64::MAX {
+                    return Err(KmsError::Refused);
+                }
+                if actions.iter().any(|action| {
+                    action.authorization.transaction.chain_id == transaction.chain_id
+                        && action.authorization.transaction.nonce >= transaction.nonce
+                }) {
+                    return Err(KmsError::Conflict);
+                }
+                actions.push(super::EvmAction {
+                    authorization,
+                    raw_transaction: Vec::new(),
+                    transaction_hash: None,
+                    acknowledged: false,
+                });
+            }
+            action_key
+        } else {
+            serde_json::from_slice(payload).map_err(|_| KmsError::Refused)?
+        };
+        let action = actions
+            .iter_mut()
+            .find(|action| action.authorization.action_key == action_key)
+            .ok_or(KmsError::KeyNotFound)?;
+        if operation == 8 {
+            let authorization = &action.authorization;
+            let transaction = &authorization.transaction;
+            if authorization.binding_digest != binding.digest
+                || authorization.wallet != wallet
+                || now < authorization.not_before
+                || now > authorization.not_after
+                || transaction.chain_id != u64::from(binding.network_id)
+                || transaction.value != [0; 32]
+            {
+                return Err(KmsError::Refused);
+            }
+            let call = Eip1559Call {
+                chain_id: transaction.chain_id,
+                nonce: transaction.nonce,
+                max_priority_fee_per_gas: u128::from(transaction.max_priority_fee_per_gas),
+                max_fee_per_gas: u128::from(transaction.max_fee_per_gas),
+                gas_limit: transaction.gas_limit,
+                to: transaction.to,
+                data: transaction.calldata.clone(),
+            };
+            action.raw_transaction = call.sign(&seed).map_err(|_| KmsError::Integrity)?;
+            action.transaction_hash = Some(layerx_crypto::evm_transaction::transaction_hash(
+                &action.raw_transaction,
+            ));
+        }
+        let response = serde_json::to_vec(action).map_err(|_| KmsError::Integrity)?;
+        let bytes = serde_json::to_vec(&actions).map_err(|_| KmsError::Integrity)?;
+        journal.rewind().map_err(|_| KmsError::Unavailable)?;
+        journal
+            .write_all(&bytes)
+            .map_err(|_| KmsError::Unavailable)?;
+        journal
+            .set_len(u64::try_from(bytes.len()).map_err(|_| KmsError::Integrity)?)
+            .map_err(|_| KmsError::Unavailable)?;
+        journal.sync_all().map_err(|_| KmsError::Unavailable)?;
+        Ok(response)
     }
 
     fn create_key(
@@ -1095,6 +1688,33 @@ impl KmsProvider for EnvelopeKms {
             .map_err(seal_refusal)
     }
 
+    fn check_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+    ) -> Result<(), KmsError> {
+        self.describe_key(binding, reference).map(|_| ())
+    }
+
+    fn recover_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<Zeroizing<[u8; 32]>, KmsError> {
+        // The authenticated envelope is the development provider's durable recovery material.
+        self.export_primary_key(binding, reference)
+    }
+
+    fn acknowledge_export_handoff(
+        &self,
+        binding: &PrincipalKeyBinding,
+        reference: &ProviderKeyReference,
+        _id: [u8; 32],
+    ) -> Result<(), KmsError> {
+        self.describe_key(binding, reference).map(|_| ())
+    }
+
     fn destroy_key(
         &self,
         _binding: &PrincipalKeyBinding,
@@ -1114,22 +1734,77 @@ impl KmsProvider for EnvelopeKms {
             let root = self.root_secret()?;
             let envelope = layerx_crypto::keystore::Keystore::from_bytes(reference.as_bytes())
                 .map_err(seal_refusal)?;
-            let seed = envelope
-                .open(&root, binding.identity(), binding.network_id)
-                .map_err(seal_refusal)?;
-            let signer = LocalSigner::from_secret(seed);
-            if signer.public_key() != request.expected_public_key {
+            let signer = envelope
+                .open_with(&root, binding.identity(), binding.network_id, |seed| {
+                    let evm = k256::ecdsa::SigningKey::from_slice(seed).map_err(|_| {
+                        CustodyError::Sign(layerx_crypto::signer::SignError::KeyRejected)
+                    })?;
+                    Ok::<_, CustodyError>(EnvelopeTransactionSigner {
+                        identity: LocalSigner::new(*seed),
+                        evm,
+                    })
+                })
+                .map_err(seal_refusal)??;
+            if signer.public_key() != request.expected_public_key
+                || signer.evm_address() != Some(request.from)
+                || request.call.chain_id != u64::from(binding.network_id)
+            {
                 return Err(CustodyError::Kms(KmsError::Integrity));
             }
-            sign_disclosed(
-                &signer,
-                request.canonical_bytes,
-                request.disclosure,
-                request.registry,
-            )
-            .await
-            .map(|signature| *signature.as_bytes())
-            .map_err(CustodyError::Sign)
+            let signature =
+                sign_disclosed_call(&signer, request.call, request.disclosure, request.from)
+                    .await
+                    .map_err(CustodyError::Sign)?;
+            verify_call_signature(request.call, request.from, signature.as_bytes())?;
+            Ok(*signature.as_bytes())
+        })
+    }
+}
+
+struct EnvelopeTransactionSigner {
+    identity: LocalSigner,
+    evm: k256::ecdsa::SigningKey,
+}
+
+impl Debug for EnvelopeTransactionSigner {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("EnvelopeTransactionSigner([redacted])")
+    }
+}
+
+impl layerx_crypto::signer::Signer for EnvelopeTransactionSigner {
+    fn public_key(&self) -> [u8; 32] {
+        self.identity.public_key()
+    }
+
+    fn sign<'a>(
+        &'a self,
+        request: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        self.identity.sign(request)
+    }
+
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        let point = self.evm.verifying_key().to_encoded_point(false);
+        let mut address = [0; 20];
+        address.copy_from_slice(&sha3::Keccak256::digest(&point.as_bytes()[1..])[12..]);
+        Some(address)
+    }
+
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let (signature, recovery) = self
+                .evm
+                .sign_prehash_recoverable(&call.signing_hash())
+                .map_err(|_| layerx_crypto::signer::SignError::KeyRejected)?;
+            let mut bytes = [0; 65];
+            bytes[..64].copy_from_slice(&signature.to_bytes());
+            bytes[64] = 27 + recovery.to_byte();
+            AgentSignature::new(bytes)
+                .map_err(|_| layerx_crypto::signer::SignError::ReturnedSignatureInvalid)
         })
     }
 }
@@ -1164,7 +1839,7 @@ fn encode_sign_request(
     provider_reference: &str,
     binding: &PrincipalKeyBinding,
     reference: &ProviderKeyReference,
-    canonical: &[u8],
+    request: ProviderSignRequest<'_>,
     validated: &ValidatedSignRequest,
 ) -> Result<Vec<u8>, CustodyError> {
     let mut writer = WireWriter::from_bytes(encode_header(SIGN, provider_reference)?);
@@ -1173,7 +1848,11 @@ fn encode_sign_request(
     writer.u8(binding.class.code())?;
     writer.bytes(reference.as_bytes(), PROVIDER_REFERENCE_LIMIT)?;
     writer.fixed(&validated.canonical_digest)?;
-    writer.bytes(canonical, PROVIDER_FRAME_LIMIT)?;
+    writer.fixed(&request.from)?;
+    writer.bytes(
+        &layerx_human_kms::attestor::unsigned_evm_transaction(request.call),
+        PROVIDER_FRAME_LIMIT,
+    )?;
     writer.bytes(&validated.disclosure, PROVIDER_FRAME_LIMIT)?;
     let frame = writer.finish();
     if frame.len() > PROVIDER_FRAME_LIMIT {
@@ -1459,5 +2138,41 @@ impl<'a> WireReader<'a> {
         } else {
             Err(KmsError::InvalidResponse)
         }
+    }
+}
+
+struct DeadlineSocket {
+    tcp: TcpStream,
+    deadline: Deadline,
+    clock: Arc<dyn Clock>,
+}
+
+impl DeadlineSocket {
+    fn bound(&mut self) -> std::io::Result<()> {
+        let remaining = self
+            .deadline
+            .remaining(self.clock.as_ref())
+            .map_err(|_| std::io::Error::other("provider clock unavailable"))?;
+        if remaining.is_zero() {
+            return Err(std::io::ErrorKind::TimedOut.into());
+        }
+        self.tcp.set_read_timeout(Some(remaining))?;
+        self.tcp.set_write_timeout(Some(remaining))
+    }
+}
+impl Read for DeadlineSocket {
+    fn read(&mut self, bytes: &mut [u8]) -> std::io::Result<usize> {
+        self.bound()?;
+        self.tcp.read(bytes)
+    }
+}
+impl Write for DeadlineSocket {
+    fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+        self.bound()?;
+        self.tcp.write(bytes)
+    }
+    fn flush(&mut self) -> std::io::Result<()> {
+        self.bound()?;
+        self.tcp.flush()
     }
 }

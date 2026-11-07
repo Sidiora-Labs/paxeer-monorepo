@@ -967,6 +967,8 @@ lxp_result lxp_programs_account_register(
         if (lxp_ct_memcmp(binding.asset_id, primary_binding.asset_id, 32U) != 0 ||
             lxp_ct_memcmp(binding.asset_id, reverse_binding.asset_id, 32U) != 0)
             return LXP_ERR_ASSET_MISMATCH;
+        if (!binding_equal(&primary_binding, &reverse_binding))
+            return LXP_ERR_CONTEXT_MISMATCH;
         status = lxp_ctx_account_stage_module_value(
             ctx, binding.account_id, binding.asset_id, account,
             &account_created);

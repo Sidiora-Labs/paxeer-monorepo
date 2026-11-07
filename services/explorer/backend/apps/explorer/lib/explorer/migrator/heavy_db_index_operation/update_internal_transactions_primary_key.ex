@@ -47,7 +47,6 @@ defmodule Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrim
              {:ok, _} <- Repo.query(drop_block_index_not_null_query_string()),
              {:ok, _} <- Repo.query(drop_block_hash_not_null_query_string()),
              {:ok, _} <- MigrationStatus.set_status(migration_name(), "completed") do
-          update_cache()
           :ok
         else
           {:error, error} ->
@@ -57,6 +56,7 @@ defmodule Explorer.Migrator.HeavyDbIndexOperation.UpdateInternalTransactionsPrim
 
     case result do
       {:ok, :ok} ->
+        update_cache()
         :ok
 
       {:error, error} ->

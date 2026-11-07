@@ -13,6 +13,9 @@ var _ authz.MsgServer = Keeper{}
 // GrantAuthorization implements the MsgServer.Grant method to create a new grant.
 func (k Keeper) Grant(goCtx context.Context, msg *authz.MsgGrant) (*authz.MsgGrantResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
+	if !msg.Grant.Expiration.After(ctx.BlockTime()) {
+		return nil, authz.ErrInvalidExpirationTime
+	}
 	grantee, err := sdk.AccAddressFromBech32(msg.Grantee)
 	if err != nil {
 		return nil, err

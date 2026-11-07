@@ -54,16 +54,6 @@ typedef struct programs_fee_pending {
     uint8_t governance_receipt_digest[32];
 } programs_fee_pending;
 
-typedef struct programs_fee_governance_activity {
-    lx_programs_fee_schedule proposed;
-    uint8_t occupancy_asset_id[32];
-    programs_fee_demand_policy demand;
-    uint64_t activation_batch;
-    lxp_receipt governance_receipt;
-    bool migration_profile_present;
-    lxp_migration_profile migration_profile;
-} programs_fee_governance_activity;
-
 static uint32_t read_u32(const uint8_t *bytes)
 {
     return ((uint32_t)bytes[0] << 24U) |
@@ -1036,35 +1026,6 @@ lxp_result lxp_programs_migration_preactivation(
     return LXP_OK;
 }
 
-static lxp_result migration_governance_decode(
-    lxp_module_ctx *ctx, const uint8_t *payload, size_t payload_length, void **decoded)
-{
-    programs_fee_governance_activity *value;
-    lxp_migration_profile profile;
-    uint32_t receipt_length;
-    void *allocation;
-    lxp_result status;
-    if (payload_length < MIGRATION_PROPOSAL_BYTES + 4U) return LXP_ERR_TRUNCATED;
-    receipt_length = read_u32(payload + MIGRATION_PROPOSAL_BYTES);
-    if (receipt_length == 0U || (size_t)receipt_length !=
-        payload_length - MIGRATION_PROPOSAL_BYTES - 4U)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_programs_migration_proposal_decode(payload, MIGRATION_PROPOSAL_BYTES, &profile);
-    if (status != LXP_OK) return status;
-    status = lxp_ctx_arena_alloc(ctx, sizeof(*value),
-        _Alignof(programs_fee_governance_activity), &allocation);
-    if (status != LXP_OK) return status;
-    value = (programs_fee_governance_activity *)allocation;
-    (void)memset(value, 0, sizeof(*value));
-    value->migration_profile_present = true;
-    value->migration_profile = profile;
-    status = lxp_receipt_decode(payload + MIGRATION_PROPOSAL_BYTES + 4U,
-        receipt_length, true, &value->governance_receipt);
-    if (status != LXP_OK) return status;
-    *decoded = value;
-    return LXP_OK;
-}
-
 lxp_result lxp_programs_fee_governance_proposal_validate(
     const uint8_t *payload, size_t payload_length)
 {
@@ -1084,124 +1045,6 @@ lxp_result lxp_programs_fee_governance_proposal_validate(
     if (status != LXP_OK) return status;
     return memcmp(canonical, payload, sizeof(canonical)) == 0 ?
         LXP_OK : LXP_ERR_NON_CANONICAL;
-}
-
-lxp_result lxp_programs_fee_governance_decode(
-    lxp_module_ctx *ctx, const uint8_t *payload, size_t payload_length,
-    void **decoded)
-{
-    programs_fee_governance_activity *value;
-    programs_fee_demand_policy demand;
-    lx_programs_fee_schedule proposed;
-    uint8_t canonical[PROGRAMS_FEE_PROPOSAL_BYTES];
-    uint32_t receipt_length;
-    void *allocation;
-    lxp_result status;
-    if (ctx == NULL || decoded == NULL || payload == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    if (payload_length >= sizeof(migration_magic) &&
-        memcmp(payload, migration_magic, sizeof(migration_magic)) == 0)
-        return migration_governance_decode(ctx, payload, payload_length, decoded);
-    if (payload_length < PROGRAMS_FEE_PROPOSAL_BYTES + 4U)
-        return LXP_ERR_TRUNCATED;
-    receipt_length = read_u32(payload + PROGRAMS_FEE_PROPOSAL_BYTES);
-    if (receipt_length == 0U ||
-        (size_t)receipt_length !=
-            payload_length - PROGRAMS_FEE_PROPOSAL_BYTES - 4U)
-        return LXP_ERR_NON_CANONICAL;
-    if (memcmp(payload, fee_proposal_magic, sizeof(fee_proposal_magic)) != 0)
-        return LXP_ERR_NON_CANONICAL;
-    (void)memset(&proposed, 0, sizeof(proposed));
-    decode_prices(payload + sizeof(fee_proposal_magic), &proposed);
-    decode_policy(payload + sizeof(fee_proposal_magic) + 56U + 32U,
-                  &demand);
-    status = proposal_encode(
-        &proposed, payload + sizeof(fee_proposal_magic) + 56U, &demand,
-        read_u64(payload + sizeof(fee_proposal_magic) + 56U + 32U + 48U),
-        canonical);
-    if (status != LXP_OK) return status;
-    if (memcmp(canonical, payload, sizeof(canonical)) != 0)
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_ctx_arena_alloc(ctx, sizeof(*value),
-                                 _Alignof(programs_fee_governance_activity),
-                                 &allocation);
-    if (status != LXP_OK) return status;
-    value = (programs_fee_governance_activity *)allocation;
-    (void)memset(value, 0, sizeof(*value));
-    value->proposed = proposed;
-    (void)memcpy(value->occupancy_asset_id,
-                 payload + sizeof(fee_proposal_magic) + 56U, 32U);
-    value->demand = demand;
-    value->activation_batch = read_u64(
-        payload + sizeof(fee_proposal_magic) + 56U + 32U + 48U);
-    status = lxp_receipt_decode(
-        payload + PROGRAMS_FEE_PROPOSAL_BYTES + 4U,
-        (size_t)receipt_length, true, &value->governance_receipt);
-    if (status != LXP_OK) return status;
-    *decoded = value;
-    return LXP_OK;
-}
-
-lxp_result lxp_programs_fee_governance_validate(
-    lxp_module_ctx *ctx, const lxp_activity *activity,
-    const lxp_authority_resolved *authority, const void *decoded)
-{
-    const programs_fee_governance_activity *value =
-        (const programs_fee_governance_activity *)decoded;
-    uint8_t proposal[PROGRAMS_FEE_PROPOSAL_BYTES];
-    uint8_t receipt_digest[32];
-    lxp_result status;
-    if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
-        activity->activity_type != LX_PROGRAMS_FEE_GOVERNANCE)
-        return LXP_ERR_NON_CANONICAL;
-    if (lxp_ct_is_zero(authority->principal, sizeof(authority->principal)))
-        return LXP_ERR_AUTH_SCOPE;
-    if (value->migration_profile_present) {
-        uint8_t migration_proposal[MIGRATION_PROPOSAL_BYTES];
-        status = lxp_programs_migration_proposal_encode(&value->migration_profile, migration_proposal);
-        if (status == LXP_OK)
-            status = verified_migration_receipt(ctx, &value->governance_receipt,
-                migration_proposal, receipt_digest);
-        if (status != LXP_OK) return status;
-        return lxp_ctx_charge_gas(ctx, MIGRATION_PROPOSAL_BYTES +
-            (size_t)value->governance_receipt.effects.count);
-    }
-    status = proposal_encode(&value->proposed, value->occupancy_asset_id,
-                             &value->demand, value->activation_batch,
-                             proposal);
-    if (status == LXP_OK)
-        status = verified_governance_receipt(
-            ctx, &value->governance_receipt, proposal, receipt_digest);
-    if (status != LXP_OK) return status;
-    return lxp_ctx_charge_gas(
-        ctx, PROGRAMS_FEE_PROPOSAL_BYTES +
-                 (size_t)value->governance_receipt.effects.count);
-}
-
-lxp_result lxp_programs_fee_governance_execute(
-    lxp_module_ctx *ctx, const lxp_activity *activity,
-    const lxp_authority_resolved *authority, const void *decoded,
-    lxp_effect_buffer *effects)
-{
-    const programs_fee_governance_activity *value =
-        (const programs_fee_governance_activity *)decoded;
-    (void)effects;
-    if (ctx == NULL || activity == NULL || authority == NULL || value == NULL ||
-        activity->activity_type != LX_PROGRAMS_FEE_GOVERNANCE ||
-        lxp_ct_is_zero(authority->principal, sizeof(authority->principal)))
-        return LXP_ERR_NON_CANONICAL;
-    if (value->migration_profile_present)
-        return lxp_programs_migration_profile_stage(
-            ctx, &value->migration_profile, &value->governance_receipt);
-    return lxp_programs_fee_governance_stage(
-        ctx, &value->proposed, value->occupancy_asset_id,
-        value->demand.target_occupancy_byte_batches,
-        value->demand.response_denominator,
-        value->demand.maximum_change_numerator,
-        value->demand.maximum_change_denominator,
-        value->demand.minimum_fee_units_per_occupancy_byte_batch,
-        value->demand.maximum_fee_units_per_occupancy_byte_batch,
-        value->activation_batch, &value->governance_receipt);
 }
 
 static lxp_result maximum_price_change(

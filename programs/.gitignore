@@ -1,4 +1,6 @@
 /target/
 /**/target/
-!/vendor/cc/src/target/
-!/vendor/cc/src/target/generated.rs
+!/vendor/cc-*/src/target/
+!/vendor/cc-*/src/target/generated.rs
+!/vendor/**/*.pem
+!/vendor/**/*.key

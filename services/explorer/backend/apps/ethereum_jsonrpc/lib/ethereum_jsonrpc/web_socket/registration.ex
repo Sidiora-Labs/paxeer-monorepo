@@ -6,7 +6,28 @@ defmodule EthereumJSONRPC.WebSocket.Registration do
   alias EthereumJSONRPC.{Subscription, Transport}
 
   @enforce_keys ~w(from request type)a
-  defstruct ~w(from request type)a
+  defstruct from: nil,
+            request: nil,
+            type: nil,
+            deadline: nil,
+            monitor: nil,
+            timer: nil,
+            subscription_reference: nil
+
+  @type deadline :: integer() | nil
+
+  @doc "The explicit read-only JSON-RPC methods allowed to cross a reconnect."
+  def replayable?(%__MODULE__{type: :subscribe}), do: true
+
+  def replayable?(%__MODULE__{type: :json_rpc, request: %{method: method}}) do
+    method in ~w(eth_blockNumber eth_chainId eth_call eth_estimateGas eth_gasPrice eth_getBalance
+      eth_getBlockByHash eth_getBlockByNumber eth_getBlockTransactionCountByHash
+      eth_getBlockTransactionCountByNumber eth_getCode eth_getLogs eth_getStorageAt
+      eth_getTransactionByHash eth_getTransactionByBlockHashAndIndex eth_getTransactionByBlockNumberAndIndex
+      eth_getTransactionCount eth_getTransactionReceipt eth_syncing net_version net_listening web3_clientVersion)
+  end
+
+  def replayable?(_), do: false
 
   @typedoc """
   What kind of request will be issued by the caller
@@ -57,25 +78,13 @@ defmodule EthereumJSONRPC.WebSocket.Registration do
    * `type` - the `t:type/0` of request
    * `request` - the request sent to the server.  Used to replay the request on disconnect.
   """
-  @type t ::
-          %__MODULE__{
-            from: GenServer.from(),
-            type: :json_rpc,
-            request: %{jsonrpc: String.t(), method: Transport.method(), params: list(), id: non_neg_integer()}
-          }
-          | %__MODULE__{
-              from: GenServer.from(),
-              type: :subscribe,
-              request: %{jsonrpc: String.t(), method: subscribe(), params: subscribe_params(), id: non_neg_integer()}
-            }
-          | %__MODULE__{
-              from: GenServer.from(),
-              type: :unsubscribe,
-              request: %{
-                jsonrpc: String.t(),
-                method: unsubscribe(),
-                params: unsubscribe_params(),
-                id: non_neg_integer()
-              }
-            }
+  @type t :: %__MODULE__{
+          from: GenServer.from(),
+          type: type(),
+          request: Transport.request(),
+          deadline: deadline(),
+          monitor: reference() | nil,
+          timer: reference() | nil,
+          subscription_reference: reference() | nil
+        }
 end

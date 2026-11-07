@@ -1,0 +1,1015 @@
+[audit.22.30.98]
+task = "22.30.98"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 83
+findings = 43
+docs_reviewed = 13
+upgrade_ready = false
+blocking = ["guarantor-evidence-reaches-committed"]
+
+[file.001]
+path = "services/agent/crates/layerx-agentd/tests/idempotency.rs"
+lines = 194
+verdict = "clean"
+note = "Tenant-scoped Store tests cover request-digest conflicts, concurrent duplicates, durable results, pending exact bytes and reopen/retry. The callback models the economic operation; no public transport shape is asserted."
+
+[file.002]
+path = "services/agent/crates/layerx-crypto/Cargo.toml"
+lines = 41
+verdict = "clean"
+note = "Default custody feature and optional encryption/TLS dependencies match the cfg-gated modules. The wire dependency also supports retained kernel payload and receipt formats; its presence alone is not retirement drift."
+
+[file.003]
+path = "services/agent/crates/layerx-crypto/src/account_derivation.rs"
+lines = 805
+verdict = "clean"
+note = "Account derivation validates mnemonic/path material, derives separate DID and EVM keys, binds wallet imports and redacts protected secrets. Deterministic vectors cover the declared account shapes."
+
+[file.004]
+path = "services/agent/crates/layerx-crypto/src/authority_grant.rs"
+lines = 305
+verdict = "clean"
+note = "AuthorityGrant and NativeFeeBudget codecs retain kernel payload versions, enforce bounded scope and canonical fields, and round-trip delegated-capability and budget grants. Retained payloads are distinct from retired activity ingress."
+
+[file.005]
+path = "services/agent/crates/layerx-crypto/src/ct.rs"
+lines = 15
+verdict = "clean"
+note = "Constant-time equality checks lengths and combines all byte differences; no state, transport or secret rendering is introduced."
+
+[file.006]
+path = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+lines = 1584
+verdict = "issues"
+note = "Read all activity, native, payment, call and budget branches and validation/reencoding. Canonical rebinding protects retained fields, but public bind and bind_budget_mutation still accept retired unsigned activity envelopes."
+
+[file.007]
+path = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+lines = 1012
+verdict = "issues"
+note = "Read every supported selector, ABI decoder, method-to-fields mapping and canonical call binding. Sender participates in audit identity and EIP-1559 bytes round-trip. Monetary projections and the registry method inventory need reconciliation."
+
+[file.008]
+path = "services/agent/crates/layerx-crypto/src/disclosure/native.rs"
+lines = 640
+verdict = "clean"
+note = "Native operation decoding checks payload versions, owner identities, account derivation, bounds and budget context. These retained kernel payload helpers are also used by call disclosure; terminology alone does not create a separate network ingress."
+
+[file.009]
+path = "services/agent/crates/layerx-crypto/src/disclosure/program.rs"
+lines = 519
+verdict = "clean"
+note = "Program disclosure validates native deployment/call/lifecycle payloads and typed capabilities, binds PaxAI terms and preserves canonical reencoding. Historical payload support is not treated as proof of committed chain state."
+
+[file.010]
+path = "services/agent/crates/layerx-crypto/src/ed25519.rs"
+lines = 83
+verdict = "clean"
+note = "Ed25519 verification rejects malformed/weak keys and checks strict signatures over the scoped digest. No key material is exposed by these public verification helpers."
+
+[file.011]
+path = "services/agent/crates/layerx-crypto/src/keystore.rs"
+lines = 363
+verdict = "clean"
+note = "Encrypted keystore authenticates versioned associated data, identity and network, bounds decoded sizes and KDF parameters, and retains secrets in zeroizing storage. Reopen reconstructs from persisted ciphertext rather than memory."
+
+[file.012]
+path = "services/agent/crates/layerx-crypto/src/lib.rs"
+lines = 131
+verdict = "issues"
+note = "Public module exports still expose retired onboarding and activity construction/signing surfaces. SignatureMessage itself remains useful for scoped bind signatures. Registry contract links also point to an absent API contract document."
+
+[file.013]
+path = "services/agent/crates/layerx-crypto/src/local.rs"
+lines = 92
+verdict = "clean"
+note = "LocalSigner keeps DID and optional EVM secrets redacted and zeroized, signs validated requests, and refuses transactions without an EVM key. The retired activity request entry point is owned by signer.rs rather than the generic signing primitive."
+
+[file.014]
+path = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+lines = 238
+verdict = "issues"
+note = "OnboardingConsent and SponsoredRegistration still construct and validate nested signed activity consent, including outer activity authority and idempotency linkage; this exposes a retired registration transport."
+
+[file.015]
+path = "services/agent/crates/layerx-crypto/src/purpose.rs"
+lines = 96
+verdict = "clean"
+note = "Purpose commitment uses the declared versioned domain followed by exact UTF-8 bytes, refuses empty text, and does not reinterpret existing 32-byte purpose references."
+
+[file.016]
+path = "services/agent/crates/layerx-crypto/src/redact.rs"
+lines = 40
+verdict = "clean"
+note = "Secret wrapper redacts formatting, restricts exposure to closures and zeroizes on drop; no network or persistence lifecycle exists in this utility."
+
+[file.017]
+path = "services/agent/crates/layerx-crypto/src/remote.rs"
+lines = 255
+verdict = "clean"
+note = "Remote signer verifies mutual TLS, bounds request/response framing, uses finite connect/read/write timeouts and verifies the returned signature. Generic signing can retain bind-message use; old activity success fixtures need migration separately."
+
+[file.018]
+path = "services/agent/crates/layerx-crypto/src/secp256k1.rs"
+lines = 97
+verdict = "clean"
+note = "Secp256k1 helpers parse public keys, enforce recoverable signature layout and verify the exact digest/address relationship; no caller-supplied achieved finality is manufactured."
+
+[file.019]
+path = "services/agent/crates/layerx-crypto/src/send.rs"
+lines = 288
+verdict = "issues"
+note = "CallOptions and ledger_payment_call implement the merged EVM route, but EnvelopeOptions and encode_send_envelope still build the retired unsigned activity transport. The registry also retains an obsolete call argument type."
+
+[file.020]
+path = "services/agent/crates/layerx-crypto/src/session.rs"
+lines = 473
+verdict = "clean"
+note = "Session issuance checks finite expiry, explicit activity scope, revocation, representable module/ordinal ranges and fee budgets before encoding kernel authority grants. These payloads remain used by AuthSession calls."
+
+[file.021]
+path = "services/agent/crates/layerx-crypto/src/settlement_recipient.rs"
+lines = 121
+verdict = "issues"
+note = "RecipientAuthorization bounds canonical encoding and checks scoped fields, but the binding_digest carried in the authorization is not covered by its signature message. No current caller was found to establish an additional trusted binding."
+
+[file.022]
+path = "services/agent/crates/layerx-crypto/src/signer.rs"
+lines = 526
+verdict = "issues"
+note = "Call signing binds the retained sender and rejects mismatched EVM identities. The public sign_disclosed route and KeystoreSigner::sign still permit activity preimages, contrary to req.9341."
+
+[file.023]
+path = "services/agent/crates/layerx-crypto/tests/authority_grant.rs"
+lines = 204
+verdict = "issues"
+note = "Grant payload vectors are useful, but the disclosure integration helper manufactures an old unsigned activity wrapper to test the retired bind path instead of the daemon EVM call."
+
+[file.024]
+path = "services/agent/crates/layerx-crypto/tests/budget_call.rs"
+lines = 337
+verdict = "clean"
+note = "Budget call tests exercise actual ABI constructors, initial/fund/defund/revoke semantics, context mismatch, canonical reencoding and sender binding; retained native payloads are transported through calls."
+
+[file.025]
+path = "services/agent/crates/layerx-crypto/tests/disclosure.rs"
+lines = 336
+verdict = "issues"
+note = "Disclosure tests still decode recorded signed activities and assert successful activity signing, including bridge custody credit and native withdrawal envelopes. Those assertions preserve retired ingress."
+
+[file.026]
+path = "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"
+lines = 981
+verdict = "issues"
+note = "Call tests cover selectors, malformed ABI, width limits, sender substitution and canonical bytes. Bank amounts are tested in ConstructMethod while the shared monetary fields omit them; program execution fee is distinct from the gas cap."
+
+[file.027]
+path = "services/agent/crates/layerx-crypto/tests/evm_transaction.rs"
+lines = 331
+verdict = "clean"
+note = "Type-2 transaction tests cover exact unsigned/signed encodings, sender recovery, wrong-chain/type/signature cases and unavailable EVM keys. Keystore and remote EVM refusal is explicit rather than a silent fallback."
+
+[file.028]
+path = "services/agent/crates/layerx-crypto/tests/generate-native-payments.sh"
+lines = 13
+verdict = "clean"
+note = "Fixture regeneration compiles real native C producers and writes payment payload vectors. It is handwritten tooling, not a generated file; no separate daemon endpoint or activity transport is launched."
+
+[file.029]
+path = "services/agent/crates/layerx-crypto/tests/keystore.rs"
+lines = 246
+verdict = "clean"
+note = "Keystore tests cover ciphertext persistence, context authentication, tampering, redaction and bounded session grant payloads. Tests use retained payload decoding rather than a retired public activity submission."
+
+[file.030]
+path = "services/agent/crates/layerx-crypto/tests/native_fee_grant.rs"
+lines = 184
+verdict = "issues"
+note = "Native grant bytes and identities are checked against real fixtures, but original_native_fee_grants_preserve_owner_signatures_and_native_ids still decodes and signs retired activity envelopes."
+
+[file.031]
+path = "services/agent/crates/layerx-crypto/tests/native_payment_vectors.c"
+lines = 88
+verdict = "clean"
+note = "Handwritten native payment fixture producer emits kernel payloads through the actual C payment APIs. Payload byte compatibility remains useful for the EVM call wrappers; the source is not itself generated."
+
+[file.032]
+path = "services/agent/crates/layerx-crypto/tests/native_receive.c"
+lines = 36
+verdict = "clean"
+note = "Handwritten native receive fixture producer exercises the C payload encoder and writes its bytes. This is retained kernel payload coverage, not a public socket or activity-ingress client."
+
+[file.033]
+path = "services/agent/crates/layerx-crypto/tests/proof_crypto.rs"
+lines = 398
+verdict = "issues"
+note = "Real call signing and sender substitution cases are present. Activity signing and a real SSH-agent reopen test still require successful old activity signing, opposing the intended signer retirement."
+
+[file.034]
+path = "services/agent/crates/layerx-crypto/tests/remote.rs"
+lines = 389
+verdict = "issues"
+note = "Remote transport tests cover mutual authentication, typed refusals, malformed responses and signature validation, but their success helper signs a retired activity fixture rather than a retained bind message."
+
+[file.035]
+path = "services/agent/crates/layerx-crypto/tests/secrets.rs"
+lines = 118
+verdict = "clean"
+note = "Secret tests check redacted formatting and zeroization/exposure behavior; they introduce no independent transport shape or retired network component."
+
+[file.036]
+path = "services/agent/crates/layerx-crypto/tests/send_call.rs"
+lines = 169
+verdict = "clean"
+note = "Payment send tests use real EVM constructors and confirm ABI decoding, EIP-1559 gas cap, identity, amount and idempotency disclosure with malformed-case refusal."
+
+[file.037]
+path = "services/agent/crates/layerx-crypto/tests/signer.rs"
+lines = 225
+verdict = "issues"
+note = "Local and real SSH-agent tests retain successful sign_disclosed activity requests. The external-agent assertion contradicts the required activity-preimage refusal even though the transport is real."
+
+[file.038]
+path = "services/agent/crates/layerx-crypto/tests/signer_call.rs"
+lines = 143
+verdict = "clean"
+note = "Call signer tests bind signer EVM identity to the disclosed sender, preserve the exact transaction signing hash and reject substituted disclosure/call fields. Ed25519-only signers refuse EVM transaction signing."
+
+[file.039]
+path = "services/agent/crates/layerx-crypto/tests/support/mod.rs"
+lines = 293
+verdict = "issues"
+note = "Shared helpers hand-encode obsolete send, bridge credit and withdrawal activities; these fixtures keep consumers testing a shape the merged node does not accept as transaction ingress."
+
+[file.040]
+path = "services/agent/crates/layerx-crypto/tests/verify.rs"
+lines = 224
+verdict = "clean"
+note = "Signature verification tests exercise domain/network separation, malformed keys, signatures and versions. Domain digest tests are cryptographic invariants and do not themselves submit activities."
+
+[file.041]
+path = "services/agent/crates/layerx-proof/Cargo.toml"
+lines = 21
+verdict = "clean"
+note = "Proof manifest dependencies match the bounded Rust codecs and crypto verification helpers; no optional verification bypass or test-only production implementation is configured."
+
+[file.042]
+path = "services/agent/crates/layerx-proof/examples/offline_export.rs"
+lines = 38
+verdict = "clean"
+note = "Offline example uses current verify(export) and verify_complete(artifact, trust, Rung) signatures. It makes no network calls and does not claim that a receipt alone proves committed state."
+
+[file.043]
+path = "services/agent/crates/layerx-proof/examples/offline_verify.rs"
+lines = 77
+verdict = "clean"
+note = "Offline verifier parses fixed-size independent keys and receipt context, checks signed outcome bytes locally, and reports the achieved legacy level without claiming a BFT commit."
+
+[file.044]
+path = "services/agent/crates/layerx-proof/src/availability.rs"
+lines = 651
+verdict = "clean"
+note = "Availability verification enforces class coverage, roots, indices, lengths, chunk uniqueness and canonical proofs. Historical batch DA evidence is not equated to BFT commitment by this module."
+
+[file.045]
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+lines = 598
+verdict = "issues"
+note = "Certificate verification checks signatures, membership, freshness and transported registration, but its public success produces CHECKPOINT_FINALISED evidence that maps to Committed without a BFT commit."
+
+[file.046]
+path = "services/agent/crates/layerx-proof/src/evidence.rs"
+lines = 120
+verdict = "issues"
+note = "Private evidence constructors bind receipt/header/root identifiers. The surviving checkpoint constructor still manufactures a token whose public rung is Committed from guarantor evidence."
+
+[file.047]
+path = "services/agent/crates/layerx-proof/src/export.rs"
+lines = 645
+verdict = "issues"
+note = "Complete export verifies independent key trust, bucket consumption, inclusion and requested rung, and refuses Committed without a certified header. The registry still advertises old settlement and VerificationLevel arguments."
+
+[file.048]
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+lines = 919
+verdict = "issues"
+note = "Complete codec rejects activity/checkpoint facts and nonempty certificates, bounds record sizes and refuses noncanonical layouts. Registry rows still describe deleted CheckpointRecord and availability constants."
+
+[file.049]
+path = "services/agent/crates/layerx-proof/src/inclusion.rs"
+lines = 271
+verdict = "clean"
+note = "Inclusion verification binds header signature, authorized sequencer/range, named root and Merkle path and returns evidence capped below Committed."
+
+[file.050]
+path = "services/agent/crates/layerx-proof/src/level.rs"
+lines = 59
+verdict = "issues"
+note = "Pinned receipts map to Receipted while bare legacy signing maps to Submitted. checkpoint_finalised remains a reachable constructor and maps legacy checkpoint evidence to Committed."
+
+[file.051]
+path = "services/agent/crates/layerx-proof/src/lib.rs"
+lines = 19
+verdict = "issues"
+note = "Public exports still publish checkpoint and settlement despite their explicit retirement; the rest of the module list retains receipt, state, availability and export verification."
+
+[file.052]
+path = "services/agent/crates/layerx-proof/src/merkle.rs"
+lines = 350
+verdict = "clean"
+note = "Merkle proof construction and verification use distinct leaf/node domains, validate counts/index/path length and reject mismatched roots. Tree shape and empty inputs are checked."
+
+[file.053]
+path = "services/agent/crates/layerx-proof/src/receipt.rs"
+lines = 1260
+verdict = "clean"
+note = "Receipt authorization checks pinned key identifiers and inclusive height ranges, rejects duplicate/missing/out-of-range pins and caps bare-key authority. Sequencer shape-2 fee binding is checked against the real Go producer layout."
+
+[file.054]
+path = "services/agent/crates/layerx-proof/src/receipt/native_credit.rs"
+lines = 126
+verdict = "clean"
+note = "Native credit outcome decoding validates the retained receipt effect structure, asset/accounts, positive amounts and encoded payload bounds; it does not authenticate a signed activity envelope."
+
+[file.055]
+path = "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs"
+lines = 170
+verdict = "issues"
+note = "Withdrawal decoding and post-execution verification retain the receipt outcome path. The activity-bound verifier is correctly removed, but its registry row still carries the removed signature and stale caller locations despite its retire disposition."
+
+[file.056]
+path = "services/agent/crates/layerx-proof/src/sequencer_logs.rs"
+lines = 432
+verdict = "clean"
+note = "Log verification binds count, canonical indices, emitter, topics, SHA-256 data digests and execution summary. rpc/sequencer_receipt.go and node/sequencer/receipt.go use the same log effect/summary layout."
+
+[file.057]
+path = "services/agent/crates/layerx-proof/src/settlement.rs"
+lines = 102
+verdict = "issues"
+note = "OnceLock parses an embedded retired checkpoint settlement document and resolves guarantor thresholds and separate contract domains; no merged-network configuration uses this as BFT trust."
+
+[file.058]
+path = "services/agent/crates/layerx-proof/src/signed_authority.rs"
+lines = 278
+verdict = "clean"
+note = "Authority history authenticates each handover with the previous authorized key and validates parent links/ranges. Trust is supplied independently rather than copied from an artifact."
+
+[file.059]
+path = "services/agent/crates/layerx-proof/src/state.rs"
+lines = 759
+verdict = "clean"
+note = "State inclusion verifies canonical account/typed leaves against authenticated roots and checks maintenance links. A historical state witness is kept distinct from BFT finality."
+
+[file.060]
+path = "services/agent/crates/layerx-proof/src/state_range.rs"
+lines = 322
+verdict = "clean"
+note = "Range proof decoding checks ordered nonoverlapping coverage, boundaries and canonical keys and verifies each path against the named root; no unbounded remote fetch or persistence occurs here."
+
+[file.061]
+path = "services/agent/crates/layerx-proof/src/state_witness.rs"
+lines = 241
+verdict = "clean"
+note = "State witness validation checks stable leaf shape and root/path agreement and rejects malformed/trailing input. The witness is not promoted to chain commitment on its own."
+
+[file.062]
+path = "services/agent/crates/layerx-proof/tests/availability.rs"
+lines = 443
+verdict = "clean"
+note = "Availability cases check omitted/duplicate classes, altered chunks, wrong roots and lengths against actual Merkle construction. Historical DA terminology does not imply a separate running service."
+
+[file.063]
+path = "services/agent/crates/layerx-proof/tests/checkpoint.rs"
+lines = 596
+verdict = "issues"
+note = "Checkpoint tests still affirm CHECKPOINT_FINALISED for guarantor-only certificates. The registration test excludes SETTLEMENT_ANCHORED but fails to check that the new rung mapping already calls the result Committed."
+
+[file.064]
+path = "services/agent/crates/layerx-proof/tests/export_complete.rs"
+lines = 1219
+verdict = "issues"
+note = "Positive pinned-receipt export and retired-bucket refusal cases are present. Several adversarial controls already fail before the mutation under test, so generic is_err assertions do not establish the intended refusal."
+
+[file.065]
+path = "services/agent/crates/layerx-proof/tests/inclusion.rs"
+lines = 238
+verdict = "clean"
+note = "Inclusion tests construct signed headers and check root, authorization, range and path tampering. Bare header keys do not claim BFT commitment."
+
+[file.066]
+path = "services/agent/crates/layerx-proof/tests/maintained_outcome.rs"
+lines = 388
+verdict = "clean"
+note = "Maintained outcome tests pin receipt identities, authenticate execution effects and maintenance links, and reject changed/missing linkage without decoding a submitted signed activity."
+
+[file.067]
+path = "services/agent/crates/layerx-proof/tests/merkle.rs"
+lines = 120
+verdict = "clean"
+note = "Merkle tests cover deterministic leaf/node roots, path construction, index/count/length refusal and tampering; no external producer shape is replaced by a third fixture format."
+
+[file.068]
+path = "services/agent/crates/layerx-proof/tests/native_owner_outcome.rs"
+lines = 85
+verdict = "clean"
+note = "Native owner outcome uses receipt::verify_outcome and checks the actual decoded owner effect/result; the retired activity-bound owner verifier is absent."
+
+[file.069]
+path = "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs"
+lines = 520
+verdict = "clean"
+note = "Native terminal outcome checks retained terminal effect schemas, result codes, maintenance roots and mismatched receipt identity. Pinned inputs avoid treating activity transport as evidence."
+
+[file.070]
+path = "services/agent/crates/layerx-proof/tests/negative.rs"
+lines = 64
+verdict = "issues"
+note = "One corpus test checks uniqueness and presence of string labels only. The separate malformed-path test exercises real verification, but label enumeration is not evidence for certificate/availability adversarial cases."
+
+[file.071]
+path = "services/agent/crates/layerx-proof/tests/offline_export.rs"
+lines = 128
+verdict = "clean"
+note = "Offline export verifies real signed historical receipt and inclusion fixtures with no settlement-domain argument, and checks digest, leaf, root and aggregate tampering. Raw activity leaf bytes are historical inclusion data rather than activity decoding."
+
+[file.072]
+path = "services/agent/crates/layerx-proof/tests/pre_runtime_refusal.rs"
+lines = 250
+verdict = "clean"
+note = "Pre-runtime refusal uses pinned identity/receipt fixtures, authenticates the refusal result and rejects changed activity identity; no retired activity decoder is imported."
+
+[file.073]
+path = "services/agent/crates/layerx-proof/tests/receipt.rs"
+lines = 637
+verdict = "clean"
+note = "Receipt tests verify signed bytes against authorized context and reject altered signatures, roots, state, keys and outcomes. Authority defaults remain below committed strength."
+
+[file.074]
+path = "services/agent/crates/layerx-proof/tests/resolution_receipt_key.rs"
+lines = 465
+verdict = "clean"
+note = "Resolution tests distinguish historical kernel keys from governed module-12 key/height pins, cover boundaries, missing/duplicate keys and forged signer values, and assert the correct Submitted/Receipted rungs."
+
+[file.075]
+path = "services/agent/crates/layerx-proof/tests/response_code.rs"
+lines = 91
+verdict = "clean"
+note = "Response-code test binds the signed terminal receipt to fixture-pinned identity and payload hash and refuses altered response bytes without activity decoding."
+
+[file.076]
+path = "services/agent/crates/layerx-proof/tests/sequencer_corpus.rs"
+lines = 527
+verdict = "clean"
+note = "Sequencer corpus verifies Go-produced signed receipts, including malformed fields, old-layout refusal and state/log summary invariants. Corpus source is independent of the Rust parser."
+
+[file.077]
+path = "services/agent/crates/layerx-proof/tests/sequencer_logs.rs"
+lines = 508
+verdict = "clean"
+note = "Log tests use bound receipt effects and exercise data/address/topic/index/count/summary tampering and mismatched key/identity. Verification checks content rather than trusting the JSON view."
+
+[file.078]
+path = "services/agent/crates/layerx-proof/tests/sequencer_receipt_vectors.rs"
+lines = 418
+verdict = "clean"
+note = "Receipt vector tests read the real Go signed corpus and check module-12 shape-2 fields, fee denomination SHA-256 asset binding and first-effect fee semantics under req.22089."
+
+[file.079]
+path = "services/agent/crates/layerx-proof/tests/signed_authority.rs"
+lines = 90
+verdict = "clean"
+note = "Signed authority tests pin handover payloads, verify progression and reject changed/missing parents and unauthorized keys. They no longer decode signed activity transport."
+
+[file.080]
+path = "services/agent/crates/layerx-proof/tests/state.rs"
+lines = 792
+verdict = "clean"
+note = "State tests cover authenticated account/typed leaves, malformed proofs, key/root substitutions and maintenance linkage. Their legacy state-proven level maps to Receipted rather than Committed."
+
+[file.081]
+path = "services/agent/crates/layerx-proof/tests/state_witness.rs"
+lines = 51
+verdict = "clean"
+note = "Witness tests verify the canonical retained state leaf and reject root/path tampering; state-proven evidence is not certified block finality."
+
+[file.082]
+path = "services/agent/crates/layerx-proof/tests/terminal_v4.rs"
+lines = 401
+verdict = "issues"
+note = "Terminal receipt coverage pins identities correctly, but native_call_fixtures still imports layerx_wire::activity and validates signed activity envelopes, directly contradicting req.8319."
+
+[file.083]
+path = "services/agent/crates/layerx-proof/tests/withdrawal.rs"
+lines = 98
+verdict = "clean"
+note = "Withdrawal tests use receipt::verify_outcome and retained withdrawal decoding, preserve result codes and refuse altered effects/maintenance. No activity-bound withdrawal verifier is invoked."
+
+[finding.guarantor-evidence-reaches-committed]
+file = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 462
+class = "interface-mismatch"
+severity = "high"
+observed = "verify_certificate and verify_declared_certificate accept guarantor signatures and supplied registration identifiers, then return Evidence::checkpoint. evidence.rs:66 calls Achieved::checkpoint_finalised; level.rs:38 creates CHECKPOINT_FINALISED, which layerx-types/src/verify.rs:89 maps to Rung::Committed. Neither path verifies a certified BFT header or commit. The public verifier therefore reports committed strength for a certificate that can precede any committed block."
+expected = "Req.9310.1 removes this guarantor verifier and requires no layerx-proof evidence to reach Committed afterward. Brief network fact 1 makes commitment a property of the single BFT chain, not a separate guarantor settlement."
+proposal = "In services/agent/crates/layerx-proof/src/checkpoint.rs retire both public certificate verifiers and their ThresholdReport evidence path, remove callers and registry retire rows, and keep proof output at Receipted until an independently authenticated certified-header verifier exists. Add a real guarantor-only success fixture asserting that it cannot yield Committed."
+owner_domain = 9
+interface = "9.rs-proof-checkpoint-verify-certificate"
+
+[finding.checkpoint-evidence-constructor]
+file = "services/agent/crates/layerx-proof/src/evidence.rs"
+line = 57
+class = "retired-reference"
+severity = "medium"
+observed = "Evidence::checkpoint retains checkpoint_id and optional settlement_reference and constructs CHECKPOINT_FINALISED evidence. Its comment denies settlement anchoring while the public rung() already maps this legacy level to Committed; this is the constructor used by the blocking certificate finding."
+expected = "Req.9310 retires guarantor finality production; proof evidence must not acquire the merged-network Committed rung through historical checkpoint labels."
+proposal = "Remove the checkpoint constructor and retired settlement-reference evidence in services/agent/crates/layerx-proof/src/evidence.rs with the certificate API retirement. Preserve receipt, inclusion and state evidence, and assert their maximum achieved rung."
+owner_domain = 9
+interface = "9.rs-proof-evidence-level-j70"
+
+[finding.legacy-level-mints-commitment]
+file = "services/agent/crates/layerx-proof/src/level.rs"
+line = 38
+class = "retired-reference"
+severity = "medium"
+observed = "Achieved::checkpoint_finalised remains callable from Evidence::checkpoint and achieved_rung delegates to the legacy VerificationLevel mapping. The private-constructor boundary therefore still allows a guarantor proof to mint Committed."
+expected = "Req.9310.1 explicitly requires the proof crate to have no evidence path reaching Committed after removal of guarantor certificate verification."
+proposal = "Remove checkpoint_finalised from services/agent/crates/layerx-proof/src/level.rs with the certificate path, then exhaustively test the remaining evidence constructors against Submitted and Receipted. Introduce any future committed constructor only beside a verified BFT commit."
+owner_domain = 9
+
+[finding.embedded-settlement-retained]
+file = "services/agent/crates/layerx-proof/src/settlement.rs"
+line = 11
+class = "retired-reference"
+severity = "medium"
+observed = "DECLARED_CHECKPOINT_SETTLEMENT embeds contracts/config/checkpoint-settlement.json; declared_domain returns a separate settlement contract, bonded guarantor set and certificate threshold. The OnceLock only caches the retired model and does not authenticate BFT state."
+expected = "Req.9310 deletes the embedded settlement document from proof verification, and brief facts 1 and 2 replace the separate LayerX settlement model with one committed BFT network."
+proposal = "Remove services/agent/crates/layerx-proof/src/settlement.rs and its exports/certificate consumers; obtain any future chain trust from explicit network and certified-header inputs rather than baked guarantor-domain configuration."
+owner_domain = 9
+interface = "9.rs-proof-settlement-declared-checkpoint-settlement-j44"
+
+[finding.retired-proof-modules-exported]
+file = "services/agent/crates/layerx-proof/src/lib.rs"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "layerx-proof publicly exports checkpoint and settlement, keeping retired certificate verification and embedded guarantor-domain configuration available to downstream clients despite the migrated complete-export path refusing these records."
+expected = "Req.9310 retires these modules so consumers cannot accidentally use the obsolete checkpoint model to claim network finality."
+proposal = "Remove checkpoint and settlement exports from services/agent/crates/layerx-proof/src/lib.rs with their implementations, migrate consumers to receipt/inclusion verification, and regenerate the registry so retired entries have no served public declaration."
+owner_domain = 9
+
+[finding.keystore-accepts-activity-preimage]
+file = "services/agent/crates/layerx-crypto/src/signer.rs"
+line = 375
+class = "retired-reference"
+severity = "medium"
+observed = "KeystoreSigner::sign passes every validated SigningRequest digest to sign_with_agent. sign_disclosed at line 303 builds such a request with Domain::SignaturePreimage over a canonical old activity, so a real OS key agent still signs the retired ingress format."
+expected = "Req.9341.1 requires KeystoreSigner to refuse activity-preimage signing requests while still signing the bind message. Successful old activity signing is not an allowed compatibility path."
+proposal = "In services/agent/crates/layerx-crypto/src/signer.rs remove the activity sign_disclosed entry point and distinguish typed bind messages and permitted payer authorizations from retired activity requests at the external key boundary. Preserve valid bind signing and test explicit activity refusal with the real SSH agent, including after reopening."
+owner_domain = 9
+interface = "9.rs-crypto-signer-keystoresigner"
+
+[finding.activity-disclosure-still-public]
+file = "services/agent/crates/layerx-crypto/src/disclosure.rs"
+line = 1357
+class = "retired-reference"
+severity = "medium"
+observed = "bind and bind_budget_mutation decode unsigned kernel activities and retain Source::Activity, including bridge credit and withdrawal semantics. Call disclosure already exists, but consumers can still build and validate the retired transport through these public functions."
+expected = "Req.9341 removes the kernel activity codec from layerx-crypto; the merged network accepts transactions through the root node RPC rather than a separate activity ingress."
+proposal = "Retire bind, bind_budget_mutation and Source::Activity in services/agent/crates/layerx-crypto/src/disclosure.rs. Keep the kernel payload decoders needed by call.rs, and migrate consumers to bind_call with canonical type-2 transaction bytes and an explicit sender."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-bind"
+
+[finding.old-send-envelope-constructor]
+file = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 238
+class = "retired-reference"
+severity = "medium"
+observed = "encode_send_envelope uses EnvelopeBuilder and encode_unsigned_envelope to return old activity transport bytes. The same file already contains CallOptions and ledger_payment_call, so the obsolete constructor remains a public alternative to the merged send path."
+expected = "The registry marks encode-send-envelope, encode-payment-envelope and EnvelopeOptions retired; the public transaction path should construct EIP-1559 calls with bound sender, chain and calldata."
+proposal = "Remove EnvelopeOptions and old activity encoding from services/agent/crates/layerx-crypto/src/send.rs after migrating its callers to ledger_payment_call/CallOptions, retaining canonical payment payload compatibility inside the EVM call."
+owner_domain = 9
+interface = "9.rs-crypto-send-encode-send-envelope"
+
+[finding.nested-activity-onboarding]
+file = "services/agent/crates/layerx-crypto/src/onboarding.rs"
+line = 127
+class = "retired-reference"
+severity = "medium"
+observed = "SponsoredRegistration::from_signed_consent decodes and verifies an inner signed activity; validate_outer expects another activity wrapper. OnboardingConsent still supplies that retired signed-activity registration model."
+expected = "The onboardingconsent and sponsoredregistration registry rows are retired; merged onboarding must bind consent to the supported identity transaction flow rather than nested kernel activity transport."
+proposal = "Retire services/agent/crates/layerx-crypto/src/onboarding.rs and its public export, migrate identity registration callers to the declared EVM authorization flow, and replace nested-activity fixtures with real registration transaction/consent fixtures."
+owner_domain = 9
+interface = "9.rs-crypto-onboarding-sponsoredregistration"
+
+[finding.crypto-retired-exports]
+file = "services/agent/crates/layerx-crypto/src/lib.rs"
+line = 18
+class = "retired-reference"
+severity = "medium"
+observed = "The crypto public module list still exports onboarding and send/disclosure activity helpers behind the default custody feature. External consumers can continue constructing a transport that the merged network has retired."
+expected = "Req.9341 and the registry retire dispositions require the crypto surface to preserve bind and EVM call signing without retaining kernel activity ingress helpers."
+proposal = "Update services/agent/crates/layerx-crypto/src/lib.rs alongside the helper retirement, retaining call signing, bind signatures, key storage and kernel payload support while removing public onboarding/activity construction exports."
+owner_domain = 9
+
+[finding.recipient-binding-not-signed]
+file = "services/agent/crates/layerx-crypto/src/settlement_recipient.rs"
+line = 48
+class = "security"
+severity = "medium"
+observed = "RecipientAuthorization::encode carries binding_digest and message() requires it to be nonzero, but the signed message omits those 32 bytes. Replacing one nonzero binding_digest with another leaves message() identical and verify_signature accepts the same signature. No live caller was found that supplies an independent authenticated digest check."
+expected = "An authorization presented as custody-bound must authenticate the binding it carries, or explicitly require a trusted outer binding that consumers cannot omit. A nonzero check alone does not establish that relationship."
+proposal = "Retire the obsolete settlement-recipient surface if it has no merged-network consumer. If retained, version the message in services/agent/crates/layerx-crypto/src/settlement_recipient.rs and its producer/consumer together to authenticate binding_digest, then assert changed-digest refusal with a real signed authorization."
+owner_domain = 9
+interface = "9.rs-crypto-recipientauthorization-message-j70"
+
+[finding.bank-monetary-projection-empty]
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+line = 820
+class = "runtime-risk"
+severity = "medium"
+observed = "ConstructMethod::BankSend retains denom and the full uint256 amount, but fields() intentionally drops both from the shared asset/amounts projection. A successfully bound bank transfer therefore has counterparties but an empty amounts list; users of the common Disclosure monetary view cannot display or constrain the transfer value."
+expected = "Req.22055.1 requires disclosed amounts to be those of every supported daemon call. Monetary transfer data must remain explicit and lossless even when bank uint256 values do not fit the ledger uint128 representation."
+proposal = "Extend the typed monetary disclosure in services/agent/crates/layerx-crypto/src/disclosure/call.rs and its approval consumers to carry denomination plus lossless uint256 bank amounts. Require generic amount consumers to handle that variant explicitly, and assert the amount reaches the human approval and policy view."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-call-bind-call-j44"
+
+[finding.program-execution-fee-projection]
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+line = 631
+class = "runtime-risk"
+severity = "medium"
+observed = "ConstructMethod::ProgramCall includes an ABI execution fee_limit, but fields() matches call with .. and discards that fee from the shared fields. Disclosure.fee_limit is instead gas_limit multiplied by max_fee_per_gas. A call with u128::MAX execution fee has a shared fee_limit of only 3000000 in the fixture, leaving common fee consumers without the second limit."
+expected = "Program approval must distinguish and display the EVM gas cap and the native execution fee bound; byte rebinding prevents tampering but does not make an omitted monetary limit visible to a consumer."
+proposal = "Add a separately named execution-fee bound to the program monetary disclosure in services/agent/crates/layerx-crypto/src/disclosure/call.rs, thread it through preparation/approval budgeting, and test a real encoded call with deliberately different gas and execution bounds. Keep both units and fee assets explicit."
+owner_domain = 9
+
+[finding.monetary-call-tests-miss-common-view]
+file = "services/agent/crates/layerx-crypto/tests/disclosure_call.rs"
+line = 44
+class = "test-gap"
+severity = "medium"
+observed = "Program-call tests assert a 3000000 shared fee cap while the encoded execution fee is u128::MAX. BankSend tests inspect the full amount through ConstructMethod, leaving the empty common amounts projection unchallenged. These tests prove byte round-trip but not complete monetary presentation."
+expected = "Req.22055.1 calls for amount disclosure on every supported constructor; approval tests must assert what the actual monetary consumer receives, including distinct program execution and EVM gas bounds."
+proposal = "Extend services/agent/crates/layerx-crypto/tests/disclosure_call.rs with real producer calls passed through the approval/policy monetary consumer, asserting the bank denomination/full uint256 amount and both program fee bounds instead of relying only on ConstructMethod equality."
+owner_domain = 9
+
+[finding.authority-fixture-old-wrapper]
+file = "services/agent/crates/layerx-crypto/tests/authority_grant.rs"
+line = 41
+class = "test-gap"
+severity = "medium"
+observed = "The unsigned helper hand-encodes a version-3 activity wrapper and the grant disclosure assertions call retired bind. Real grant payload vectors are present, but the integration portion does not exercise the merged call transport."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Keep native grant byte vectors in services/agent/crates/layerx-crypto/tests/authority_grant.rs and replace the unsigned activity helper with the real authorization-call constructor and bind_call, asserting the same grant scope and authority."
+owner_domain = 9
+
+[finding.native-fee-grant-activity-test]
+file = "services/agent/crates/layerx-crypto/tests/native_fee_grant.rs"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "original_native_fee_grants_preserve_owner_signatures_and_native_ids decodes fixture.activity, reencodes its unsigned activity, and verifies an activity SignaturePreimage before calling bind. This preserves a retired transport as the integration contract."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Retain raw kernel grant/id vectors in services/agent/crates/layerx-crypto/tests/native_fee_grant.rs, but exercise their submission through the actual merged grant-call producer and receipt identity pins; remove activity decoding and signing success expectations."
+owner_domain = 9
+
+[finding.disclosure-activity-success-tests]
+file = "services/agent/crates/layerx-crypto/tests/disclosure.rs"
+line = 93
+class = "test-gap"
+severity = "medium"
+observed = "The disclosure suite expects sign_disclosed to succeed on old canonical activities, and later decodes recorded bridge/native activity fixtures. The call binder is not the producer for these success cases."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Migrate services/agent/crates/layerx-crypto/tests/disclosure.rs to actual supported EVM constructor bytes, bind_call and sender-bound signing; retain malformed payload coverage and explicitly refuse old activity signing rather than accepting it."
+owner_domain = 9
+
+[finding.ssh-agent-test-expects-old-signature]
+file = "services/agent/crates/layerx-crypto/tests/signer.rs"
+line = 211
+class = "test-gap"
+severity = "medium"
+observed = "The operating-system keystore test calls sign_disclosed on a canonical activity and verifies the returned signature as success. This is a genuine SSH-agent transport test asserting the opposite of req.9341.1."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Change services/agent/crates/layerx-crypto/tests/signer.rs to prove activity-preimage refusal before contacting/signing with the real agent, then prove that a correctly scoped bind message still signs and verifies with the same external key."
+owner_domain = 9
+
+[finding.reopened-agent-signs-old-activity]
+file = "services/agent/crates/layerx-crypto/tests/proof_crypto.rs"
+line = 359
+class = "test-gap"
+severity = "medium"
+observed = "The real SSH-agent reopen test signs a retired activity successfully after restarting the agent; other proof_crypto cases also call sign_disclosed. Restart coverage therefore preserves the obsolete signing behavior rather than testing its refusal."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "In services/agent/crates/layerx-crypto/tests/proof_crypto.rs retain real process restart and unknown-key coverage, replace activity success with typed bind-message signing, and assert old activity requests are refused both before and after reopen."
+owner_domain = 9
+
+[finding.remote-success-fixture-is-activity]
+file = "services/agent/crates/layerx-crypto/tests/remote.rs"
+line = 285
+class = "test-gap"
+severity = "medium"
+observed = "The remote test success helper passes support::canonical_send through bind and sign_disclosed. Mutual TLS and refusal tests are real, but the success wire payload remains a retired canonical activity."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Migrate services/agent/crates/layerx-crypto/tests/remote.rs and its server-side test decoder to a genuine retained bind-message request, preserving TLS pinning, timeout, malformed framing and invalid-signature assertions."
+owner_domain = 9
+
+[finding.shared-fixtures-produce-retired-ingress]
+file = "services/agent/crates/layerx-crypto/tests/support/mod.rs"
+line = 105
+class = "test-gap"
+severity = "medium"
+observed = "canonical_send and bridge helpers hand-encode old activity structures, including separate bridge custody credit and withdrawal activity types. Dependent disclosure and signing suites consequently agree with each other on a retired ingress shape."
+expected = "Req.9341 removes kernel activity codec/signing support from crypto while retaining bind signatures; brief check 7 requires fixtures to match the real producer and transport."
+proposal = "Replace activity-envelope helpers in services/agent/crates/layerx-crypto/tests/support/mod.rs with real EVM call constructors and scoped bind-message fixtures. Preserve kernel payload vectors separately and update every dependent test to consume the actual producer shape."
+owner_domain = 9
+
+[finding.checkpoint-test-mislabels-finality]
+file = "services/agent/crates/layerx-proof/tests/checkpoint.rs"
+line = 219
+class = "test-gap"
+severity = "medium"
+observed = "The certificate success fixture asserts CHECKPOINT_FINALISED, and transported registration only asserts it is not SETTLEMENT_ANCHORED. The legacy CHECKPOINT_FINALISED label now maps to Committed, so these assertions do not establish the test title claim that registration never invents Paxeer chain finality."
+expected = "Req.9310.1 requires no guarantor-only evidence to reach Committed; assertions must use the merged rung and the actual evidence path, not an obsolete stronger label comparison."
+proposal = "Replace certificate success expectations in services/agent/crates/layerx-proof/tests/checkpoint.rs with migration/refusal coverage and assert achieved_rung on every remaining proof success. A real BFT commit fixture is required before any future committed result is accepted."
+owner_domain = 9
+
+[finding.export-negative-controls-already-fail]
+file = "services/agent/crates/layerx-proof/tests/export_complete.rs"
+line = 938
+class = "test-gap"
+severity = "medium"
+observed = "rogue_sequencer_key_and_false_key_range_are_refused explicitly accepts a failing control because its receipt is not a real header leaf. state_path_tamper_and_missing_maintenance_link_are_refused also asserts control.is_err at line 1099. swapped_and_orphan_records_are_refused uses the same non-included synthetic receipts and generic is_err assertions. Earlier inclusion failure can satisfy these cases even if the targeted validation is removed."
+expected = "Brief check 7 requires fixtures matching the real producer. Each adversarial export case needs a passing signed receipt/header/inclusion control and an assertion identifying the mutated field or omitted linkage that causes refusal."
+proposal = "In services/agent/crates/layerx-proof/tests/export_complete.rs build each adversarial artifact from the working receipted_export producer or a genuinely signed batch containing its leaves, assert the unmodified control passes, then mutate one field and assert the specific typed error. Keep Committed refusal and retired-bucket rejection coverage."
+owner_domain = 9
+
+[finding.negative-corpus-labels-are-not-cases]
+file = "services/agent/crates/layerx-proof/tests/negative.rs"
+line = 18
+class = "test-gap"
+severity = "low"
+observed = "enumerates_complete_unique_adversarial_corpus asserts only that a string set contains labels such as subthreshold-certificate and withheld-availability-class. It invokes no verifier for those cases; the later Merkle test covers only its own path failures."
+expected = "An advertised adversarial corpus must identify executable verifier cases; label membership is inventory coverage rather than evidence of signature, availability or finality refusal."
+proposal = "Replace the string-only coverage claim in services/agent/crates/layerx-proof/tests/negative.rs with an explicit mapping to executable case functions or move the labels to documentation. Preserve the real Merkle negative test and migrate retired certificate cases to merged-network trust failures."
+owner_domain = 9
+
+[finding.terminal-suite-decodes-activities]
+file = "services/agent/crates/layerx-proof/tests/terminal_v4.rs"
+line = 267
+class = "retired-reference"
+severity = "medium"
+observed = "The native_call_fixtures module imports layerx_wire::activity::{decode_signed, encode_signed, Activity}, decodes native-program-call-v3/v4 signed activity fixtures and asserts successful activity signature bindings. The terminal receipt tests above it have already migrated to pinned identities."
+expected = "Req.8319.1 explicitly requires no file under layerx-proof/tests to name layerx_wire::activity or layerx_wire::sign; req.9305.2 retains terminal verification through pinned payload hashes."
+proposal = "Remove activity codec coverage from services/agent/crates/layerx-proof/tests/terminal_v4.rs and replace it with pinned identity/payload-hash assertions for the actual program-call transaction producer, keeping executed-terminal and mutated-leg refusal coverage."
+owner_domain = 9
+
+[finding.registry-export-signatures-stale]
+file = "services/agent/crates/layerx-proof/src/export.rs"
+line = 94
+class = "doc-drift"
+severity = "medium"
+observed = "Registry row 9.rs-proof-export-verify still declares verify(export, expected_settlement_domain), and export-verify-complete/completeverificationreport-achieved-j70 still use VerificationLevel. Source and the offline example use verify(export) and Rung. IndependentOfflineTrust::from_declared_domain is also listed despite its removal."
+expected = "Reqs.9309.2 and 9304 require the migrated no-settlement-argument and Rung contracts; the interface registry must describe the actual producer and consumer API rather than the removed declaration."
+proposal = "Update spec/layerx-merge/interfaces.kvx rows for the proof export API from services/agent/crates/layerx-proof/src/export.rs, retire removed domain-trust constructors, and trace offline_export plus daemon callers using the current signatures."
+owner_domain = 9
+interface = "9.rs-proof-export-verify"
+
+[finding.registry-removed-codec-symbols]
+file = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 41
+class = "doc-drift"
+severity = "medium"
+observed = "The complete codec correctly removes CheckpointRecord and MAX_AVAILABILITY_CHUNKS, but registry rows 9.rs-proof-checkpointrecord-encode-j70 and 9.rs-proof-export-codec-max-availability-chunks remain stable declarations. The retired CheckpointRecord row also still appears in the package interface inventory."
+expected = "Req.9309.1 requires checkpoint records to be refused, and registry status/declarations must consistently distinguish deleted public symbols from the retained complete artifact codec."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx against services/agent/crates/layerx-proof/src/export_codec.rs: retire absent CheckpointRecord encode and availability-chunk constant entries, retain the explicit certificate-bucket refusal, and regenerate caller references."
+owner_domain = 9
+interface = "9.rs-proof-checkpointrecord-encode-j70"
+
+[finding.registry-withdrawal-verifier-removed]
+file = "services/agent/crates/layerx-proof/src/receipt/withdrawal.rs"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "Registry 9.rs-proof-receipt-withdrawal-verify still describes a public activity-bound withdrawal::verify taking signed_activity and registry arguments. The module now retains outcome decoding while verification is performed through receipt::verify_outcome; the declared function no longer exists."
+expected = "Req.9308.1 intentionally removes withdrawal::verify, so consumers and generated API documentation must not continue to advertise it as a callable verifier."
+proposal = "Retire the removed verifier declaration and stale caller edges in spec/layerx-merge/interfaces.kvx, publish receipt::verify_outcome plus WithdrawalOutcome as the retained path, and use the real withdrawal fixture consumer as evidence."
+owner_domain = 9
+interface = "9.rs-proof-receipt-withdrawal-verify"
+
+[finding.registry-call-constructors-incomplete]
+file = "services/agent/crates/layerx-crypto/src/disclosure/call.rs"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "Registry 9.rs-crypto-disclosure-call-constructmethod-j44 lists only the old five constructor variants while the source exposes ledger, budget, authorization, bank and pointer variants as well. A registry-driven consumer receives an incomplete method inventory for req.22055."
+expected = "Req.22055.1 requires the construct-method list to document every constructor covered by the binder; registry declarations must agree with the actual enum and ABI selector set."
+proposal = "Regenerate the ConstructMethod enum declaration and selector documentation in spec/layerx-merge/interfaces.kvx from services/agent/crates/layerx-crypto/src/disclosure/call.rs and cross-check every actual daemon constructor, including bank and pointer transfers."
+owner_domain = 9
+interface = "9.rs-crypto-disclosure-call-constructmethod-j44"
+
+[finding.registry-call-options-reference]
+file = "services/agent/crates/layerx-crypto/src/send.rs"
+line = 189
+class = "doc-drift"
+severity = "low"
+observed = "Registry 9.rs-crypto-send-ledger-payment-call-j44 advertises call: CallOptions by value, but ledger_payment_call accepts &CallOptions. Current tests use the borrowed argument, so the registry no longer supplies the exact public signature."
+expected = "The declared API signature must preserve the actual Rust ownership and borrowing types so consumers can copy the documented constructor correctly."
+proposal = "Correct the ledger-payment-call row in spec/layerx-merge/interfaces.kvx to the exact signature in services/agent/crates/layerx-crypto/src/send.rs, retaining the current sender binding and canonical call behavior."
+owner_domain = 9
+interface = "9.rs-crypto-send-ledger-payment-call-j44"
+
+[finding.api-contract-document-absent]
+file = "services/agent/crates/layerx-crypto/src/lib.rs"
+line = 1
+class = "doc-drift"
+severity = "medium"
+observed = "The reviewed crypto/proof registry rows link to contracts/agent-rust-api.md#crypto or #proof, but contracts/agent-rust-api.md is absent from the tree. Consumers cannot resolve the named contract for signatures, error semantics or trust lifecycle."
+expected = "Brief checks 1 and 9 require the declared API contract and documentation to describe the real producer, transport and consumer behavior, including current retirement dispositions."
+proposal = "Create an owned current crypto/proof API contract or redirect all affected registry contract links to maintained existing pages. Document bind/EVM signing, receipt key pinning, rungs and committed-proof limits, and remove the retired guarantor/activity APIs."
+owner_domain = 9
+
+[finding.overview-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/pt-br.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/ja.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/de.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.overview-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "The translated overview at lines 14-20 describes signed Activity ingress, a separate LayerX execution network and periodic settlement on Paxeer, including the claim that an ordinary action needs no Paxeer transaction. The repository map at lines 98-104 also presents layerxd and guarantor/custody contracts as active components."
+expected = "Brief facts 1-3 specify one Paxeer BFT network with integrated kernel, chain id 125, root node RPC and finality when the covering block commits; there is no separate running layerxd or checkpoint settlement network."
+proposal = "Rewrite docs/site/docs/overview/i18n/fr.md to match the merged-network architecture and current directory map. Translate the same reviewed product facts across all seven locale overviews, remove the no-Paxeer-transaction claim and retired daemon/guarantor topology, and publish current root RPC endpoints."
+owner_domain = 9
+
+[finding.receipt-guide-old-finality]
+file = "docs/site/docs/concepts/receipts.md"
+line = 23
+class = "doc-drift"
+severity = "medium"
+observed = "The receipt guide describes canonical activities at lines 7-10, guarantor certificates and settlement references at lines 23-26, then executed/batched/finalized and an L0-L4 ladder at lines 29-33. It directs consumers toward checkpoint settlement rather than committed block receipts."
+expected = "The merged product uses submitted, receipted and committed rungs; committed finality comes from the single BFT chain, and pinned receipt keys establish Receipted without inventing a checkpoint settlement anchor."
+proposal = "Rewrite docs/site/docs/concepts/receipts.md around transaction hashes, governed receipt key/height pins and BFT committed blocks. Document proof trust limits, how restart resolution queries the same transaction identity, and how existing receipt bytes remain immutable."
+owner_domain = 9
+
+[finding.lni-guide-retired-transport]
+file = "docs/site/docs/agents/lni.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The LNI guide presents NodeInfo, Submit, GetBatchHeader, GetCheckpoint and FetchAvailability native socket methods as the supported node boundary, including guarantor signatures and settlement references. This is a retired separate LayerX interface."
+expected = "Brief facts 1-3 require the integrated paxd node interface at root JSON-RPC, with supported node namespaces and a separately declared hosted px_ gateway contract rather than a native LayerX ingress."
+proposal = "Replace docs/site/docs/agents/lni.md with the current node boundary: root endpoint discovery, EVM transaction submission, receipt/key queries, explicit tenant domain where applicable, typed errors and reconnection/resolution behavior. Remove native socket and guarantor-checkpoint instructions."
+owner_domain = 9
+
+[finding.running-guide-obsolete-configuration]
+file = "docs/site/docs/agents/running.md"
+line = 528
+class = "doc-drift"
+severity = "medium"
+observed = "The running guide still instructs /rpc endpoint use around line 528, old checkpoint/finality tools and a settlement-anchored verification default around line 710. These instructions configure a topology and evidence level the merged chain does not provide through this proof path."
+expected = "Brief facts 1-3 specify root node RPC on api1-api14.mainnet-beta.paxeer.network or api-mainnet-beta.paxeer.network, chain id 125 and committed-block finality, with no unified /rpc route."
+proposal = "Rewrite docs/site/docs/agents/running.md examples and environment tables against the current daemon startup/read/send paths, root endpoints, chain 125, receipt-key trust and the three rungs. Give restart/unknown-transaction resolution steps using persisted txHash rather than checkpoint settlement tools."
+owner_domain = 9
+
+[finding.agentd-guide-obsolete-trust-model]
+file = "docs/site/docs/agents/agentd.md"
+line = 471
+class = "doc-drift"
+severity = "medium"
+observed = "The daemon guide describes augment_verified raising CHECKPOINT_FINALISED through VerifiedCheckpoint around lines 471-480, and documents sequencer authority files plus legacy per-tenant finality defaults at lines 524-525. The running operator model remains batch/guarantor settlement rather than the merged chain."
+expected = "Brief facts 1 and 2 and req.9310 require a single BFT finality model. Operators must distinguish governed receipt-key trust and receipted evidence from independently verified committed block evidence."
+proposal = "Update docs/site/docs/agents/agentd.md to the current EVM submission and committed read paths, document explicit tenant domains and persistent resolution, remove obsolete checkpoint-authority/default-level instructions, and state exactly which proof path can establish each rung."
+owner_domain = 9
+
+[finding.cli-guide-requires-retired-rpc-path]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide says --rpc must end in /rpc at lines 8-9 and repeats that transport at lines 131, 278 and 298. It mixes current wallet send commands with obsolete unavailable-feature text and checkpoint-era receipt/key workflows, giving operators contradictory guidance."
+expected = "Brief facts 1-3 require root node RPC and distinguish node namespaces from hosted px_ methods; supported wallet transaction and receipt flows must be documented consistently for chain id 125."
+proposal = "Rewrite docs/site/docs/platform/cli.md command tables and examples against the actual CLI parser, root mainnet-beta node endpoints and current receipt key/rung contracts. Remove /rpc validation instructions and contradictory unavailable wallet claims; identify hosted gateway methods explicitly."
+owner_domain = 9
+
+[doc.001]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.002]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.003]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.004]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.005]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.006]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.007]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "misleading"
+notes = "Lines 14-20 describe signed Activity ingress and separate Paxeer checkpoint settlement; lines 98-104 retain layerxd and guarantor/custody topology. Rewrite alongside the other locale overviews for one BFT chain, chain 125 and committed receipts."
+
+[doc.008]
+path = "docs/site/docs/concepts/receipts.md"
+status = "misleading"
+notes = "Lines 7-10 and 23-33 retain activity ingress, guarantor certificates, settlement references and old finality labels. Replace with transaction identity, pinned receipt keys and submitted/receipted/committed."
+
+[doc.009]
+path = "docs/site/docs/agents/lni.md"
+status = "misleading"
+notes = "Lines 18-25 and method table 37-48 describe the retired native LNI/socket boundary and checkpoint retrieval. Replace with current root node RPC and the declared hosted gateway boundary."
+
+[doc.010]
+path = "docs/site/docs/agents/running.md"
+status = "misleading"
+notes = "Endpoint instructions around line 528 and finality defaults around line 710 retain /rpc and settlement-anchored operation. Audit all examples against current startup, send/read paths and durable transaction resolution."
+
+[doc.011]
+path = "docs/site/docs/agents/agentd.md"
+status = "misleading"
+notes = "Lines 13-59, 471-480 and 524-525 describe authority files, checkpoint-derived finality and legacy configuration defaults. Rewrite trust, finality and configuration for the integrated BFT chain."
+
+[doc.012]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Lines 8-9, 131, 278 and 298 require /rpc; wallet availability text is internally inconsistent and receipt tooling retains old trust terminology. Rewrite against current CLI and root node endpoints."
+
+[doc.013]
+path = "contracts/agent-rust-api.md"
+status = "missing"
+notes = "Registry crypto/proof contract links point to this absent page (#crypto and #proof). The lookup found no replacement at that path; publish an owned current contract or redirect the registry links."

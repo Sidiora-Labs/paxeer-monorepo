@@ -1,0 +1,124 @@
+[disposition.6.0.3.1]
+finding = "6.0.3.1"
+status = "resolved"
+evidence = "edd58f9a1 replaced the removed anchor module with custody and the merge plan with AnchorStoreDeleteUpgrade in the two-entry fixture, retained at modules/evm/keeper/keeper_activation_test.go:165 and modules/evm/keeper/keeper_activation_test.go:212."
+
+[disposition.6.0.3.2]
+finding = "6.0.3.2"
+status = "resolved"
+evidence = "dc396ffc7 made GetPrecompileInfoE return recorded entries before attempting keeper-free initialization, retained at precompiles/setup.go:428, so registration tests can read their already-populated registry without constructing layerxpay again."
+
+[disposition.6.0.3.3]
+finding = "6.0.3.3"
+status = "resolved"
+evidence = "dc396ffc7 added the exception restricted to layerxExchange, layerxexchange and perps at 0x1015 in precompiles/setup_test.go:27 and applied it to both uniqueness loops at precompiles/setup_test.go:71 and precompiles/setup_test.go:149."
+
+[disposition.6.1.3]
+finding = "6.1.3"
+status = "resolved"
+evidence = "bfce96243 implemented retirement lookup through the executor EVMKeeper accessor rather than the state DB, retained at precompiles/common/precompiles.go:221, with no failed StateEVMKeeperGetter assertion on that path."
+
+[disposition.6.2.2]
+finding = "6.2.2"
+status = "resolved"
+evidence = "3a1b298ff supplied the missing registry rows, now present for launchpad at spec/layerx-merge/contracts/address-table.md:394, the following perps and pricefeed families, the two pay codes at spec/layerx-merge/contracts/address-table.md:331 and the scheduler calldata code at spec/layerx-merge/contracts/address-table.md:549."
+
+[disposition.6.2.2.1]
+finding = "6.2.2.1"
+status = "resolved"
+evidence = "3a1b298ff rewrote lxpRustResultsForTest to inspect the header-driven build script and generated OUT_DIR include, retained at precompiles/common/lxp_errors_test.go:76, instead of searching result.rs for a generated macro invocation."
+
+[disposition.6.6.1]
+finding = "6.6.1"
+status = "resolved"
+evidence = "The task symbol list at spec/layerx-merge/spec.kvx:141021 contains only MergeUpgrade and TestMergeUpgradeSingleSource, as in 07d03ac68, removing the unresolvable alias-qualified pcommon.MergeUpgrade graph requirement."
+
+[disposition.6.6.3]
+finding = "6.6.3"
+status = "resolved"
+evidence = "890d9200b changed the registry dry run to use testkeeper.EVMTestApp.GetPrecompileKeepers at precompiles/names_markets_test.go:41, supplying the EVM keeper required by the orob constructor while preserving the market name and address assertions."
+
+[disposition.6.6.10.1]
+finding = "6.6.10.1"
+status = "resolved"
+evidence = "dc396ffc7 updated TestXWebRegistration to the declared twelve methods and four events, retained at precompiles/setup_test.go:144 and precompiles/setup_test.go:145."
+
+[disposition.6.10.7.1]
+finding = "6.10.7.1"
+status = "resolved"
+evidence = "eb56a5220 froze setWithdrawAddress gas at the measured 7677 instead of 7674, retained at precompiles/distribution/gas_golden_test.go:71 with the gas equality check at precompiles/distribution/gas_golden_test.go:132."
+
+[disposition.6.12.7]
+finding = "6.12.7"
+status = "resolved"
+evidence = "c515832cc added the node oracle import retained at node/precompiles.go:23, whose initializer registers the 0x0903 constructor at precompiles/layerxagent/oracle/merge.go:19 while precompiles/merge_serve_0x0903_test.go:23 still checks registration."
+
+[disposition.6.12.9]
+finding = "6.12.9"
+status = "resolved"
+evidence = "c515832cc added the node scheduler import retained at node/precompiles.go:26, whose initializer registers the 0x0905 constructor at precompiles/layerxagent/scheduler/merge.go:26 while precompiles/merge_serve_0x0905_test.go:33 still checks registration."
+
+[disposition.6.12.10]
+finding = "6.12.10"
+status = "resolved"
+evidence = "c515832cc added the node streams import retained at node/precompiles.go:27, whose initializer registers the 0x0906 constructor at precompiles/layerxagent/streams/merge.go:15 while precompiles/merge_serve_0x0906_test.go:30 still checks registration."
+
+[disposition.6.22.8]
+finding = "6.22.8"
+status = "resolved"
+evidence = "ebfccf28b encoded the asset identifier as zero-padded 43-character base-62 text at modules/layerxledger/keeper/issuer_binding.go:47 before CreateDenom, replacing the rejected 64-character hexadecimal subdenom with an alphanumeric value within the cap."
+
+[disposition.6.23.1]
+finding = "6.23.1"
+status = "resolved"
+evidence = "ea9995ca1 added Keeper.DenomPaused, retained at modules/tokenfactory/keeper/grpc_query.go:81 alongside the QueryServer implementation assertion at modules/tokenfactory/keeper/grpc_query.go:13, closing the missing-method interface mismatch."
+
+[disposition.6.23.1.1]
+finding = "6.23.1.1"
+status = "resolved"
+evidence = "ea9995ca1 landed the previously omitted Keeper.DenomPaused implementation at modules/tokenfactory/keeper/grpc_query.go:81, so the stale task brief no longer leaves the regenerated QueryServer interface without its keeper method."
+
+[disposition.6.23.2]
+finding = "6.23.2"
+status = "resolved"
+evidence = "6aec577cc added an explicit DenomAuthorityMetadataKey existence check at modules/tokenfactory/keeper/grpc_query.go:91 that returns codes.NotFound before GetAuthorityMetadata can decode absent bytes as an empty message."
+
+[disposition.6.27.2.1]
+finding = "6.27.2.1"
+status = "resolved"
+evidence = "9a1245198 changed the issuer-bound admin rows to assert the exact wrapped error at modules/tokenfactory/keeper/issuer_pause_matrix_test.go:103 while preserving code 28 and the prefix checks for the other refusal rows."
+
+[disposition.6.28.1]
+finding = "6.28.1"
+status = "resolved"
+evidence = "b5316c1cb landed the amino round-trip proof at modules/layerxgov/types/amino_bridge_test.go:16 without adding duplicate bridge registrations to modules/layerxgov/types/proposal.go:60, leaving the six existing registrations in modules/layerxbridge/types/proposal.go:26."
+
+[disposition.6.32.3.1]
+finding = "6.32.3.1"
+status = "resolved"
+evidence = "58f5a55e7 made Run preserve nonempty executor revert data at precompiles/common/precompiles.go:203, and precompiles/layerxanchor/layerxanchor.go:182 returns RetiredRevert after store deletion before write restrictions can replace that payload."
+
+[disposition.6.33.2]
+finding = "6.33.2"
+status = "resolved"
+evidence = "c515832cc added the oracle, scheduler and streams imports retained at node/precompiles.go:23, node/precompiles.go:26 and node/precompiles.go:27, registering the constructors previously missing when modules/layerxanchor/keeper/merge_handler_test.go applies the merge upgrade."
+
+[disposition.6.34.1.1]
+finding = "6.34.1.1"
+status = "resolved"
+evidence = "deeff8f13 removed keepers.AnchorKeeper = nil from precompiles/layerxanchor/retire_read_gate_test.go, and the current test uses wiredAnchorKeepers at precompiles/layerxanchor/retire_read_gate_test.go:130 while the unwired refusal proof remains at precompiles/layerxanchor/unwired_test.go:18."
+
+[disposition.6.47.1]
+finding = "6.47.1"
+status = "resolved"
+evidence = "c515832cc added the oracle, scheduler and streams imports retained at node/precompiles.go:23, node/precompiles.go:26 and node/precompiles.go:27, registering the constructors required by the ApplyUpgrade call at modules/layerxcustody/keeper/merge_release_test.go:89."
+
+[disposition.6.47.2]
+finding = "6.47.2"
+status = "resolved"
+evidence = "6c6889c8e scheduled the plan and called ReleaseRetired before SetDone in the genesis round-trip test, retained in that order at modules/layerxcustody/keeper/genesis_retire_test.go:47, satisfying the release gate before exporting genesis."
+
+[disposition.6.52.4.1]
+finding = "6.52.4.1"
+status = "resolved"
+evidence = "9557ff589 added tools/ci/tests/test_makefile_*.py to RETIREMENT_ASSERTIONS at tests/bridge/retired/kernel_retirement.py:147 and applies that exclusion at tests/bridge/retired/kernel_retirement.py:189, so the makefile absence assertion is no longer treated as a live custody consumer."

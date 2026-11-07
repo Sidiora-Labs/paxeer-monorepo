@@ -4,6 +4,7 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -310,16 +311,26 @@ func MakeConfig(node *e2e.Node) (*config.Config, error) {
 
 // MakeAppConfig generates an ABCI application config for a node.
 func MakeAppConfig(node *e2e.Node) ([]byte, error) {
+	if node.Testnet.ABCIProtocol != e2e.ProtocolBuiltin {
+		return nil, fmt.Errorf("unsupported ABCI protocol %q: application nodes require %q", node.Testnet.ABCIProtocol, e2e.ProtocolBuiltin)
+	}
+
+	leaderPin := make([]string, len(node.Testnet.LeaderPin))
+	for i, leader := range node.Testnet.LeaderPin {
+		leaderPin[i] = hex.EncodeToString(leader.PrivvalKey.Public().Bytes())
+	}
 	cfg := map[string]any{
 		"chain_id":                  node.Testnet.Name,
 		"dir":                       "data/app",
 		"mode":                      node.Mode,
 		"proxy_port":                node.ProxyPort,
-		"protocol":                  "socket",
+		"protocol":                  node.Testnet.ABCIProtocol,
 		"persist_interval":          node.PersistInterval,
 		"snapshot_interval":         node.SnapshotInterval,
 		"retain_blocks":             node.RetainBlocks,
 		"key_type":                  node.PrivvalKey.Type(),
+		"leader_pin":                leaderPin,
+		"leader_pin_height":         node.Testnet.LeaderPinHeight,
 		"prepare_proposal_delay_ms": node.Testnet.PrepareProposalDelayMS,
 		"process_proposal_delay_ms": node.Testnet.ProcessProposalDelayMS,
 		"check_tx_delay_ms":         node.Testnet.CheckTxDelayMS,

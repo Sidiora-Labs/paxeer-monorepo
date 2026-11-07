@@ -26,11 +26,11 @@ jobs:
     timeout-minutes: 35
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24.11.0
           cache: npm
@@ -42,7 +42,7 @@ jobs:
       - name: Install pinned Foundry toolchain
         uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
       - name: Install pinned settlement compiler
-        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16
+        uses: actions/setup-go@924ae3a1cded613372ab5595356fb5720e22ba16 # v6
         with:
           go-version-file: go.mod
           cache: false
@@ -61,8 +61,7 @@ jobs:
           make -j4 CC=gcc LXP_REVISION="$(git rev-parse HEAD)" \
             PROGRAMS_TARGET_DIR="$CARGO_TARGET_DIR" \
             PROGRAMS_RUNTIME_LIB="$CARGO_TARGET_DIR/debug/liblayerx_programs_sandbox.a" \
-            build/bin/layerxd build/bin/layerx-genesis-build build/tests/bridge/sign-credit
-          echo "LAYERX_TEST_SIGN_CREDIT_BIN=$PWD/build/tests/bridge/sign-credit" >> "$GITHUB_ENV"
+            build/bin/layerx-genesis-build
       - name: Install the locked agent SDK workspace dependencies
         run: npm --prefix services/agent/sdk/typescript ci --ignore-scripts --no-audit --no-fund
       - name: Install locked Human web dependencies
@@ -86,11 +85,11 @@ jobs:
       HUMAN_VISUAL_BASELINE_REVIEWED: ${{ vars.HUMAN_VISUAL_BASELINE_REVIEWED }}
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24.11.0
           cache: npm
@@ -115,11 +114,11 @@ jobs:
       LAYERX_BETA_HUMAN_WEB_PORT: ""
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 24.11.0
           cache: npm
@@ -161,7 +160,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned fuzz toolchain and runner

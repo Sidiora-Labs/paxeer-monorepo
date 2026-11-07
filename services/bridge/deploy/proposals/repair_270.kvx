@@ -1,0 +1,18 @@
+[repair.22.31.270]
+finding = "bridge-asset-binding"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+implementation = "Both proposal input schemas reach SetCaps.checkAssetBinding: EVM IDs equal emitted addresses; Solana IDs equal mint handles except the fixed Sidiora mint/ID pair with six decimals."
+proving_tests = ["TestRepair_270_RejectMismatchedBindings", "TestRepair_270_AcceptSolanaBindings", "TestRepair_270_VaultDepositReachesKeeper"]
+proof_path = "Run -> proposal JSON -> DecodeProposal -> real governance handler -> real keeper/tokenfactory/bank; compiled PaxeerXVault -> local geth EVM depositNative -> JSON log transport -> signed BridgeIn -> recipient bank balance and nullifier."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids running verify_cmd by hand. No baseline test failures are claimed."
+qualification = "hf-done records the verified candidate revision, exact command, exit and private log in the runner task ledger; the final evidence line copies that record."
+wiring_requests = []
+test_dependencies = "npm --prefix services/bridge/deploy/proposals/testdata/repair_270 ci --ignore-scripts; Node loads pinned solc 0.8.30 and OpenZeppelin 5.3.0 locally during the Go proof. npm-shrinkwrap.json retains the dependency lock in the runner candidate."
+
+[gotcha.asset-fixture]
+observed = "The legacy Solana success fixture assigned Sidiora's reserved ID to a different mint."
+resolution = "Use chainconfig.SidioraMint in the success fixture; retain the duplicate-ID refusal fixture and its assertions unchanged."
+
+[gotcha.proof-setup]
+observed = "First verification reached all three tests but canonical Solana setup supplied a vault handle from a different program and the solc import callback returned content instead of contents."
+resolution = "Derive the canonical handle from its configured program and return the required contents field; retain all behavioral assertions."

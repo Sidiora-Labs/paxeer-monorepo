@@ -4,6 +4,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/spf13/viper"
+
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
 	"github.com/stretchr/testify/assert"
@@ -72,6 +74,14 @@ func TestNewDefaultConfig(t *testing.T) {
 	assert.Equal(t, scConfig, config.DefaultStateCommitConfig())
 	assert.Equal(t, ssConfig, config.DefaultStateStoreConfig())
 	assert.Equal(t, receiptConfig, config.DefaultReceiptStoreConfig())
+}
+
+func TestParseSCConfigs_SnapshotWriterLimitDefaultWhenUnset(t *testing.T) {
+	appOpts := viper.New()
+	require.Nil(t, appOpts.Get(FlagSCSnapshotWriterLimit))
+
+	scConfig := parseSCConfigs(appOpts)
+	assert.Equal(t, config.DefaultStateCommitConfig().MemIAVLConfig.SnapshotWriterLimit, scConfig.MemIAVLConfig.SnapshotWriterLimit)
 }
 
 type mapAppOpts map[string]interface{}

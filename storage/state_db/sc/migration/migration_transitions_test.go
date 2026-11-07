@@ -364,11 +364,11 @@ func TestMigrateAllButBank(t *testing.T) {
 
 	// Placement check. Build a flatKV-store map containing every module
 	// except bank — i.e. every store whose keys must end up in flatKV.
-	flatKVStores := make(map[string]bool, len(keys.MemIAVLStoreKeys))
-	for _, s := range keys.MemIAVLStoreKeys {
-		if s != keys.BankStoreKey {
-			flatKVStores[s] = true
-		}
+	nonBankModules, err := keys.AllModulesExcept(keys.BankStoreKey)
+	require.NoError(t, err)
+	flatKVStores := make(map[string]bool, len(nonBankModules))
+	for _, s := range nonBankModules {
+		flatKVStores[s] = true
 	}
 	inMemoryRouter.VerifyKeyPlacement(t, memiavlDB, flatKVDB, flatKVStores)
 

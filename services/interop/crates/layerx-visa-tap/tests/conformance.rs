@@ -12,10 +12,12 @@
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine as _;
 use ed25519_dalek::{Signer as _, SigningKey};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::verify_sequencer_signature;
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_visa_tap::{
     bind_verified_agent, prepare_trusted_intent, AgentIntent, AgentPublicKey, CredentialBinding,
     CredentialBindingStore, KeyStatus, MerchantOperationResult, NonceWindow, RegisteredAgentKey,
@@ -46,9 +48,9 @@ const V2_UNSIGNED_RECEIPT: &str = concat!(
     "000100000000000000000000000000000000000000000000000000000000000000000000000000000000e3b0c44298fc",
     "1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b85500000000000000010475706178000c00010000030000",
     "0000200000000000000000000000000000000000000000000000000000000000000000000000b5000000000000000000",
-    "000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b111111111",
-    "111111111111111111111111111111111111111111111111111111112222222222222222222222222222222222222222",
-    "2222222222222222222222226666666666666666666666666666666666666666666666666666666666666666b83bbb56",
+    "000000000000000000101a04c4da5d6f757c251cd70947b752917e5671b677517e3d953f362a1df6648ef5b166666666",
+    "666666666666666666666666666666666666666666666666666666661111111111111111111111111111111111111111",
+    "1111111111111111111111112222222222222222222222222222222222222222222222222222222222222222b83bbb56",
     "a58493750cad329795c11372ac61a56cdfc2f82950a7e21619d733310000000000000000000000000000520800000020",
     "00000000000000000000000000000000000000000000000000000000000003b6000c0000000100000000020000002002",
     "cef2c10e756312b83aa7e7051954161146e03371cb3c4f091303c95e0ee8c90000000000000000000000000000000100",
@@ -60,8 +62,8 @@ const V2_UNSIGNED_RECEIPT: &str = concat!(
     "000000000000000000000200000000000003e800",
 );
 const V2_RECEIPT_DIGEST: [u8; 32] = [
-    0x38, 0xc5, 0x18, 0x89, 0x86, 0xff, 0x90, 0x82, 0xbd, 0xe7, 0x85, 0xce, 0xe4, 0x6a, 0x15, 0x53,
-    0xd4, 0x59, 0x09, 0x6d, 0x63, 0xae, 0x62, 0x31, 0x5e, 0x62, 0xa8, 0xca, 0xc2, 0x33, 0x39, 0xb7,
+    0xb7, 0xa3, 0x3b, 0x53, 0x98, 0x56, 0x0e, 0x33, 0xee, 0xa5, 0xcc, 0xfd, 0x3b, 0x51, 0x58, 0x8f,
+    0x00, 0x43, 0x68, 0x0f, 0x89, 0xf1, 0x7c, 0xfd, 0x66, 0x04, 0xb1, 0x0e, 0x5d, 0xc4, 0xec, 0xf9,
 ];
 
 fn v2_keys(first_height: u64, last_height: u64) -> [SequencerAuthorization; 2] {
@@ -118,14 +120,52 @@ fn payment_result(
     keys: &[SequencerAuthorization],
 ) -> Result<MerchantOperationResult, TapError> {
     MerchantOperationResult::from_receipt(
-        receipt,
+        &payment_evidence(
+            receipt,
+            PAYMENT_REFERENCE,
+            PAYMENT_FROM,
+            PAYMENT_TO,
+            PAYMENT_ASSET,
+            PAYMENT_AMOUNT,
+        ),
         keys,
         PAYMENT_REFERENCE,
-        PAYMENT_FROM,
-        PAYMENT_TO,
-        PAYMENT_ASSET,
-        PAYMENT_AMOUNT,
     )
+}
+
+fn payment_evidence(
+    receipt: &[u8],
+    reference: [u8; 32],
+    from: [u8; 32],
+    to: [u8; 32],
+    asset: [u8; 32],
+    amount: u128,
+) -> SequencerEvidence {
+    let mut data = vec![0; 64];
+    data[..32].copy_from_slice(&asset);
+    data[48..].copy_from_slice(&amount.to_be_bytes());
+    SequencerEvidence {
+        transaction_hash: [3; 32],
+        signed_receipt: receipt.to_vec(),
+        logs: vec![SequencerLog::new(
+            [
+                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a,
+            ],
+            vec![
+                [
+                    0xc4, 0xda, 0x5d, 0x6f, 0x75, 0x7c, 0x25, 0x1c, 0xd7, 0x09, 0x47, 0xb7, 0x52,
+                    0x91, 0x7e, 0x56, 0x71, 0xb6, 0x77, 0x51, 0x7e, 0x3d, 0x95, 0x3f, 0x36, 0x2a,
+                    0x1d, 0xf6, 0x64, 0x8e, 0xf5, 0xb1,
+                ],
+                reference,
+                from,
+                to,
+            ],
+            data,
+            0,
+        )],
+        rung: SettlementRung::Receipted,
+    }
 }
 
 struct Registry {
@@ -468,6 +508,10 @@ fn v2_exact_payment_verifies_against_the_governed_key_list() {
     assert_eq!(protocol.effects().len(), 2);
     let expected = Ok(MerchantOperationResult::ReceiptVerified {
         receipt_digest: V2_RECEIPT_DIGEST,
+        from: PAYMENT_FROM,
+        to: PAYMENT_TO,
+        asset: PAYMENT_ASSET,
+        amount: PAYMENT_AMOUNT,
     });
     assert_eq!(payment_result(&receipt, &keys), expected);
     assert_eq!(
@@ -549,7 +593,9 @@ fn v2_payment_facts_must_match_the_signed_ledger_log() {
     ] {
         assert_eq!(
             MerchantOperationResult::from_receipt(
-                &receipt, &keys, reference, from, to, asset, amount,
+                &payment_evidence(&receipt, reference, from, to, asset, amount),
+                &keys,
+                reference,
             ),
             Err(TapError::ReceiptMismatch),
         );
@@ -606,7 +652,9 @@ fn v2_invalid_payment_terms_are_refused() {
     ] {
         assert_eq!(
             MerchantOperationResult::from_receipt(
-                &receipt, &keys, reference, from, to, asset, amount,
+                &payment_evidence(&receipt, reference, from, to, asset, amount),
+                &keys,
+                reference,
             ),
             Err(TapError::ReceiptMismatch),
         );

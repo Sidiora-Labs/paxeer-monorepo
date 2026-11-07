@@ -1,0 +1,41 @@
+[manifest]
+task = "22.32.83"
+domain = 8
+owner_role = "fm-platform"
+pages = 6
+
+[page.1]
+path = "services/platform/docs/content/install.md"
+status = "stale"
+bytes = 9493
+source_1 = "record 22.30.89 [doc.install] (stale): Read in full. Bootstrap block29-39 matches the real CLI/tests and MCP core_height/readiness guidance87 is current. Line68 links an old path; A2A setup79,95-99 omits the current raw-transaction payment inputs."
+
+[page.2]
+path = "services/platform/examples/README.md"
+status = "stale"
+bytes = 7901
+source_1 = "record 22.30.70 [doc.23] (stale): Read in full. Lines 18, 28-34 and 54 retain batch-authority and old emulator provisioning guidance; align the paid API instructions with its current eip155 offer and receipt-key configuration."
+
+[page.3]
+path = "services/platform/hosted/authority/README.md"
+status = "stale"
+bytes = 11883
+source_1 = "record 22.30.85 [doc.13] (stale): Lines 4-7, 28-32, 58-59 and 156 retain kernel socket, removed test and LNI proof claims."
+
+[page.4]
+path = "services/platform/hosted/gateway/README.md"
+status = "misleading"
+bytes = 5873
+source_1 = "record 22.30.80 [doc.gateway] (misleading): Full 111-line page reviewed; lines 4-8, 23-30, 43-61 and 68-75 retain dual-domain routing, /rpc and custody/anchor joins. The px_listAssets field note at line 77 is consistent with the named schema requirement."
+
+[page.5]
+path = "services/platform/ramps/OPERATIONS.md"
+status = "stale"
+bytes = 5099
+source_1 = "record 22.30.88 [doc.014] (stale): Read in full. Lines 7,9,19,26,34,40 disagree with actual namespace policy, secp256k1 signing, work input and transaction/rung finality; see deployment and runbook findings."
+
+[page.6]
+path = "services/platform/ramps/README.md"
+status = "stale"
+bytes = 5673
+source_1 = "record 22.30.88 [doc.013] (stale): Read in full. Lines 11,13-17,27 describe incomplete request fields and retired envelopes, receipt lookup and signer algorithm; see readme-payment-path and readme-missing-purpose."

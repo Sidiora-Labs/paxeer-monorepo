@@ -5,7 +5,13 @@ import type {
 import { Skeleton as ChakraSkeleton, Circle, Stack } from '@chakra-ui/react';
 import * as React from 'react';
 
-export interface SkeletonCircleProps extends ChakraSkeletonProps {
+import { recipe as skeletonRecipe } from '../theme/recipes/skeleton.recipe';
+import { withRecipe, type WithRecipeProps } from './recipe-props';
+
+type RecipeProps = WithRecipeProps<ChakraSkeletonProps, typeof skeletonRecipe>;
+const RecipeComponent = withRecipe(ChakraSkeleton, skeletonRecipe);
+
+export interface SkeletonCircleProps extends RecipeProps {
   size?: CircleProps['size'];
 }
 
@@ -16,12 +22,12 @@ export const SkeletonCircle = React.forwardRef<
   const { size, ...rest } = props;
   return (
     <Circle size={ size } asChild ref={ ref }>
-      <ChakraSkeleton { ...rest }/>
+      <RecipeComponent { ...rest }/>
     </Circle>
   );
 });
 
-export interface SkeletonTextProps extends ChakraSkeletonProps {
+export interface SkeletonTextProps extends RecipeProps {
   noOfLines?: number;
 }
 
@@ -31,7 +37,7 @@ export const SkeletonText = React.forwardRef<HTMLDivElement, SkeletonTextProps>(
     return (
       <Stack gap={ gap } width="full" ref={ ref }>
         { Array.from({ length: noOfLines }).map((_, index) => (
-          <ChakraSkeleton
+          <RecipeComponent
             height="4"
             key={ index }
             { ...props }
@@ -44,7 +50,7 @@ export const SkeletonText = React.forwardRef<HTMLDivElement, SkeletonTextProps>(
   },
 );
 
-export interface SkeletonProps extends Omit<ChakraSkeletonProps, 'loading'> {
+export interface SkeletonProps extends Omit<RecipeProps, 'loading'> {
   loading: boolean | undefined;
 }
 
@@ -52,9 +58,9 @@ export const Skeleton = React.forwardRef<HTMLDivElement, SkeletonProps>(
   function Skeleton(props, ref) {
     const { loading = false, ...rest } = props;
     return (
-      <ChakraSkeleton
+      <RecipeComponent
         ref={ ref }
-        { ...(loading ? { 'data-loading': true, state: 'loading' } : { variant: 'none' }) }
+        { ...(loading ? { 'data-loading': true, state: 'loading' as const } : { variant: 'none' }) }
         { ...rest }
       />
     );

@@ -4,10 +4,7 @@ import (
 	"context"
 	"time"
 
-	metrics "github.com/armon/go-metrics"
-
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/utils"
@@ -150,6 +147,19 @@ func (k msgServer) EditValidator(goCtx context.Context, msg *types.MsgEditValida
 
 	validator.Description = description
 
+	if msg.MinSelfDelegation != nil {
+		if !msg.MinSelfDelegation.GT(validator.MinSelfDelegation) {
+			return nil, types.ErrMinSelfDelegationDecreased
+		}
+
+		selfDelegation, found := k.GetDelegation(ctx, sdk.AccAddress(valAddr), valAddr)
+		if !found || validator.TokensFromShares(selfDelegation.Shares).TruncateInt().LT(*msg.MinSelfDelegation) {
+			return nil, types.ErrSelfDelegationBelowMinimum
+		}
+
+		validator.MinSelfDelegation = *msg.MinSelfDelegation
+	}
+
 	if msg.CommissionRate != nil {
 		commission, err := k.UpdateValidatorCommission(ctx, validator, *msg.CommissionRate)
 		if err != nil {
@@ -160,18 +170,6 @@ func (k msgServer) EditValidator(goCtx context.Context, msg *types.MsgEditValida
 		k.BeforeValidatorModified(ctx, valAddr)
 
 		validator.Commission = commission
-	}
-
-	if msg.MinSelfDelegation != nil {
-		if !msg.MinSelfDelegation.GT(validator.MinSelfDelegation) {
-			return nil, types.ErrMinSelfDelegationDecreased
-		}
-
-		if msg.MinSelfDelegation.GT(validator.Tokens) {
-			return nil, types.ErrSelfDelegationBelowMinimum
-		}
-
-		validator.MinSelfDelegation = (*msg.MinSelfDelegation)
 	}
 
 	k.SetValidator(ctx, validator)
@@ -223,20 +221,8 @@ func (k msgServer) Delegate(goCtx context.Context, msg *types.MsgDelegate) (*typ
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.delegateTotal.Add(goCtx, 1)
-			// TODO(PLT-353): remove once staking_delegate_total verified
-			telemetry.IncrCounter(1, types.ModuleName, "delegate")
-			stakingMetrics.delegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-			// TODO(PLT-353): remove once staking_delegate_amount verified
-			telemetry.SetGaugeWithLabels(
-				[]string{"tx", "msg", msg.Type()},
-				float32(msg.Amount.Amount.Int64()),
-				[]metrics.Label{telemetry.NewLabel("denom", msg.Amount.Denom)},
-			)
-		}()
-	}
+	stakingMetrics.delegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.delegateAmount, "delegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -292,20 +278,8 @@ func (k msgServer) BeginRedelegate(goCtx context.Context, msg *types.MsgBeginRed
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.redelegateTotal.Add(goCtx, 1)
-			// TODO(PLT-353): remove once staking_redelegate_total verified
-			telemetry.IncrCounter(1, types.ModuleName, "redelegate")
-			stakingMetrics.redelegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-			// TODO(PLT-353): remove once staking_redelegate_amount verified
-			telemetry.SetGaugeWithLabels(
-				[]string{"tx", "msg", msg.Type()},
-				float32(msg.Amount.Amount.Int64()),
-				[]metrics.Label{telemetry.NewLabel("denom", msg.Amount.Denom)},
-			)
-		}()
-	}
+	stakingMetrics.redelegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.redelegateAmount, "redelegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -358,20 +332,8 @@ func (k msgServer) Undelegate(goCtx context.Context, msg *types.MsgUndelegate) (
 		return nil, err
 	}
 
-	if msg.Amount.Amount.IsInt64() {
-		defer func() {
-			stakingMetrics.undelegateTotal.Add(goCtx, 1)
-			// TODO(PLT-353): remove once staking_undelegate_total verified
-			telemetry.IncrCounter(1, types.ModuleName, "undelegate")
-			stakingMetrics.undelegateAmount.Record(goCtx, msg.Amount.Amount.Int64())
-			// TODO(PLT-353): remove once staking_undelegate_amount verified
-			telemetry.SetGaugeWithLabels(
-				[]string{"tx", "msg", msg.Type()},
-				float32(msg.Amount.Amount.Int64()),
-				[]metrics.Label{telemetry.NewLabel("denom", msg.Amount.Denom)},
-			)
-		}()
-	}
+	stakingMetrics.undelegateTotal.Add(goCtx, 1)
+	recordStakingAmount(goCtx, msg.Amount.Amount, stakingMetrics.undelegateAmount, "undelegate")
 
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(

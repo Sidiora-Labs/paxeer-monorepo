@@ -42,7 +42,6 @@ platform-faucet|docker/platform-faucet/Dockerfile|services/platform/hosted/fauce
 platform-gateway|docker/platform-gateway/Dockerfile|services/platform/hosted/gateway/Dockerfile|.
 platform-identity|docker/platform-identity/Dockerfile|services/platform/hosted/identity/Dockerfile|.
 platform-internal|docker/platform-internal/Dockerfile|services/platform/hosted/internal/Dockerfile|.
-platform-node|docker/platform-node/Dockerfile|services/platform/hosted/node/Dockerfile|.
 paxeer|docker/paxeer/Dockerfile|services/platform/hosted/paxeer/Dockerfile|.
 paxeer|docker/paxeer/Dockerfile.paxd|services/platform/hosted/paxeer/Dockerfile.paxd|.
 paxeer|docker/paxeer/Dockerfile.paxd-node|services/platform/hosted/paxeer/Dockerfile.paxd-node|.
@@ -75,7 +74,6 @@ IGNORES='
 layerx|docker/layerx/Dockerfile.dockerignore|Dockerfile.dockerignore
 wallet-pwa|docker/wallet-pwa/Dockerfile.dockerignore|apps/wallet/.dockerignore
 web|docker/web/Dockerfile.dockerignore|apps/web/Dockerfile.dockerignore
-platform-node|docker/platform-node/Dockerfile.dockerignore|services/platform/hosted/node/Dockerfile.dockerignore
 explorer-frontend|docker/explorer-frontend/Dockerfile.dockerignore|apps/explorer/.dockerignore
 explorer-sig-provider|docker/explorer-sig-provider/Dockerfile.dockerignore|services/explorer/services/sig-provider/.dockerignore
 explorer-smart-contract-verifier|docker/explorer-smart-contract-verifier/Dockerfile.dockerignore|services/explorer/services/smart-contract-verifier/.dockerignore
@@ -92,24 +90,48 @@ rpcnode|cd docker && docker build
 
 # tracked Dockerfiles that stay where they are: another lane, vendored upstream trees, fixtures, devcontainers
 OUT_OF_SCOPE='
-.devcontainer/Dockerfile
-consensus/networks/local/localnode/Dockerfile
-consensus/spec/ivy-proofs/Dockerfile
-consensus/test/docker/Dockerfile
-consensus/test/e2e/docker/Dockerfile
-services/explorer/backend/.devcontainer/Dockerfile
-services/platform/hosted/human/Dockerfile
-services/platform/hosted/human/Dockerfile.dockerignore
+# Another lane: perps application and launchpad images
+apps/perps/Dockerfile
+deploy/launchpad/Dockerfile.native
+deploy/launchpad/Dockerfile.svc
+deploy/launchpad/Dockerfile.web
+# Hosted feeder and perps data
+services/platform/hosted/feeder/Dockerfile
+services/platform/perps-data/deploy/Dockerfile
+services/platform/perps-data/deploy/nats/Dockerfile
+# Tool images
+tools/deploy/charting-library.Dockerfile
+tools/loadtest/Dockerfile
+tools/paxctl/Dockerfile
+# Vendored upstream trees
+core/deps/db-backend/tools/Dockerfile
+core/deps/geth/Dockerfile
+core/deps/geth/Dockerfile.alltools
+core/deps/geth/crypto/secp256k1/libsecp256k1/ci/linux-debian.Dockerfile
 sdk/contrib/devtools/dockerfile
 sdk/contrib/images/simd-dlv/Dockerfile
 sdk/contrib/images/simd-env/Dockerfile
 sdk/contrib/rosetta/node/Dockerfile
 sdk/contrib/rosetta/rosetta-cli/Dockerfile
-storage/db_engine/litt/util/testdata/ssh-test.Dockerfile
 wasm-runtime/builders/Dockerfile.alpine
 wasm-runtime/builders/Dockerfile.centos7
 wasm-runtime/builders/Dockerfile.cross
 wasm/contrib/prototools-docker/Dockerfile
+# Vendored wasm-tools CI images
+tools/wasm-tools/ci/docker/aarch64-linux/Dockerfile
+tools/wasm-tools/ci/docker/aarch64-musl/Dockerfile
+tools/wasm-tools/ci/docker/x86_64-linux/Dockerfile
+tools/wasm-tools/ci/docker/x86_64-musl/Dockerfile
+# Fixtures and devcontainers
+.devcontainer/Dockerfile
+consensus/spec/ivy-proofs/Dockerfile
+consensus/test/e2e/docker/Dockerfile
+services/explorer/backend/.devcontainer/Dockerfile
+storage/db_engine/litt/util/testdata/ssh-test.Dockerfile
+# Retired service name: test_platform_node_retired.py requires platform-node to be refused.
+docker/platform-node/Dockerfile
+# Auxiliary Redis cache image: checked by docker/redis/tests/redis-image.test.sh.
+docker/redis/Dockerfile
 '
 
 # files whose mentions of an old path are history or data, not references
@@ -131,12 +153,21 @@ ROOT_TOKEN_EXEMPT=(
     ':(exclude)wasm'
     ':(exclude)wasm-runtime'
     ':(exclude)tools/codebase-map/generate.mjs'
+    ':(exclude)docker/redis/tests/redis-image.test.sh'
+    ':(exclude)tests/ci/test_runner_routing_container_runtime.py'
+    ':(exclude)apps/perps'
+    ':(exclude)core/deps/geth'
+    ':(exclude)services/platform/hosted/feeder'
+    ':(exclude)services/platform/perps-data'
+    ':(exclude)tools/containers/test_requested_image_edits.py'
+    ':(exclude)tools/paxeer-x/gates/24.20.sh'
+    ':(exclude)scripts/ci/xweb-workflow-check.sh'
 )
 
-DOCKERFILE_NAME='(^|/)([Dd]ockerfile(\.[^/]*)?|[^/]+\.Dockerfile)$'
+DOCKERFILE_NAME='(^|/)(Dockerfile[^/]*|dockerfile|[^/]+\.Dockerfile)$'
 LOG_DIR=${CONTAINERS_CHECK_LOG_DIR:-.logs/containers-check}
 
-rows() { printf '%s\n' "$1" | sed '/^$/d'; }
+rows() { printf '%s\n' "$1" | sed '/^[[:space:]]*#/d; /^$/d'; }
 tracked() { git ls-files --error-unmatch -- "$1" >/dev/null 2>&1; }
 in_list() {
     local needle=$1 item
@@ -214,11 +245,10 @@ if [ "$all" = 1 ]; then
     mapfile -t out_of_scope < <(rows "$OUT_OF_SCOPE")
     mapfile -t placed < <(rows "$SERVICES" | cut -d'|' -f2)
     while IFS= read -r path; do
-        case "$path" in
-            *.dockerignore) continue ;;
-            docker/*) in_list "$path" "${placed[@]}" || fail "$path is under docker/ but not a known service Dockerfile" ;;
-            *) in_list "$path" "${out_of_scope[@]}" || fail "$path is a tracked Dockerfile outside docker/ and not on the out-of-scope list" ;;
-        esac
+        case "$path" in *.dockerignore) continue ;; esac
+        in_list "$path" "${placed[@]}" && continue
+        in_list "$path" "${out_of_scope[@]}" && continue
+        fail "$path is a tracked Dockerfile without a service or out-of-scope entry"
     done < <(git ls-files | grep -E "$DOCKERFILE_NAME" || true)
 fi
 
@@ -297,11 +327,25 @@ import sys
 
 recipe, context = map(Path, sys.argv[1:])
 source = re.sub(r"\\\n[ \t]*", " ", recipe.read_text())
+stage = ""
+sha256_args = set()
 for line in source.splitlines():
     parts = line.strip().split(None, 1)
-    if len(parts) != 2 or parts[0].upper() not in ("COPY", "ADD"):
+    if len(parts) != 2:
         continue
-    rest = parts[1]
+    instruction, rest = parts[0].upper(), parts[1]
+    if instruction == "FROM":
+        tokens = shlex.split(rest)
+        stage = tokens[-1] if len(tokens) >= 3 and tokens[-2].upper() == "AS" else ""
+        sha256_args = set()
+        continue
+    if instruction == "ARG":
+        name = rest.split("=", 1)[0].strip()
+        if stage and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*_SHA256", name):
+            sha256_args.add(name)
+        continue
+    if instruction not in ("COPY", "ADD"):
+        continue
     options = []
     while rest.startswith("--"):
         option, rest = rest.split(None, 1)
@@ -315,6 +359,12 @@ for line in source.splitlines():
         path = Path(name)
         if path.is_absolute() or ".." in path.parts or "$" in name or "://" in name:
             raise ValueError("COPY/ADD source cannot be resolved in the declared context")
+        if path.parts and path.parts[0] == "artifacts":
+            if not stage.endswith("-prebuilt") or not sha256_args:
+                raise ValueError(
+                    "COPY/ADD artifact requires a -prebuilt stage and a stage-local _SHA256 ARG: " + name
+                )
+            continue
         matches = glob.glob(str(context / path))
         if not matches or any(not Path(match).exists() for match in matches):
             raise ValueError("missing COPY/ADD input: " + name)

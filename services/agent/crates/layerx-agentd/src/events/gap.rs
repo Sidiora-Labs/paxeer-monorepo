@@ -1,15 +1,16 @@
-//! Explicit global-sequence gaps, core backfill reports and retention loss.
+//! Explicit block-height gaps, history backfill reports and retention loss.
 
 use std::fmt::{Display, Formatter};
 
+use crate::read::{Cursor, HistoryLimits, HistoryReadError};
 use layerx_agent_api::subscription::SubscriptionTarget;
-use layerx_client::head::Head;
-use layerx_client::lni::transport::FrameTransport;
-use layerx_client::stream::{
-    subscribe, Cursor as ClientCursor, StreamConfig, StreamError, StreamItem,
-};
+use layerx_client::sequencer::{RpcRefusal, SequencerEndpoint, SequencerError};
+use layerx_client::subscription::SubscriptionTopic;
+use serde_json::{json, Value};
+use std::io::Read;
+use std::time::Duration;
 
-use super::ingestion::durable_event;
+use super::ingestion::{decode_log, durable_event, durable_sequences};
 use super::subscription::{Continuity, Store as SubscriptionStore, SubscriptionError};
 use crate::session::{SessionRegistry, Token};
 use crate::tenant::{Operation, TenantObservability};
@@ -22,21 +23,33 @@ pub struct Gap {
     pub observed_sequence: u64,
 }
 
+impl Gap {
+    pub fn between_heads(previous: u64, observed: u64) -> Option<Self> {
+        let expected = previous.checked_add(1)?;
+        (observed > expected).then_some(Self {
+            missing_first: expected,
+            missing_last: observed.saturating_sub(1),
+            observed_sequence: observed,
+        })
+    }
+}
+
 /// Exact core bytes recovered for one missing sequence.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RecoveredEvent {
     pub global_sequence: u64,
     pub canonical_bytes: Vec<u8>,
+    pub position: Cursor,
 }
 
 /// Why a real core backfill did not restore the entire interval.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum BackfillFailure {
     RangeExceedsBound {
         required: u64,
         maximum: u32,
     },
-    Stream(StreamError),
+    History(HistoryReadError),
     CoreReportedGap {
         missing_first: u64,
         missing_last: u64,
@@ -63,10 +76,10 @@ impl BackfillReport {
     #[must_use]
     pub fn recovered_through(&self) -> Option<u64> {
         match self {
-            Self::Recovered { events, .. }
-            | Self::Incomplete {
+            Self::Recovered { gap, .. } => Some(gap.missing_last),
+            Self::Incomplete {
                 recovered: events, ..
-            } => events.last().map(|event| event.global_sequence),
+            } => events.last().map(|event| event.position.block_height),
         }
     }
 }
@@ -209,78 +222,194 @@ fn detect_inner(
     Ok(Some(gap))
 }
 
-/// Uses the real `layerx-client` stream contract to request exactly the
-/// missing range from the core boundary under explicit record limits.
+pub struct EthLogSource {
+    agent: ureq::Agent,
+    url: String,
+    address: Option<[u8; 20]>,
+    topics: Vec<[u8; 32]>,
+}
+
+impl EthLogSource {
+    pub fn new(
+        url: &str,
+        trust_anchors: &[&[u8]],
+        topic: SubscriptionTopic,
+    ) -> Result<Self, SequencerError> {
+        let SubscriptionTopic::Logs { address, topics } = topic else {
+            return Err(SequencerError::Endpoint);
+        };
+        if topics.len() > 4 {
+            return Err(SequencerError::Malformed);
+        }
+        SequencerEndpoint::new(url, trust_anchors)?;
+        let roots: Vec<_> = trust_anchors
+            .iter()
+            .map(|anchor| ureq::tls::Certificate::from_der(anchor).to_owned())
+            .collect();
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(30)))
+            .http_status_as_error(false)
+            .max_redirects(0)
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::Rustls)
+                    .root_certs(ureq::tls::RootCerts::new_with_certs(&roots))
+                    .build(),
+            )
+            .build()
+            .into();
+        Ok(Self {
+            agent,
+            url: url.to_owned(),
+            address,
+            topics,
+        })
+    }
+
+    fn read_block(
+        &self,
+        height: u64,
+        limits: HistoryLimits,
+    ) -> Result<Vec<Value>, HistoryReadError> {
+        let hex = |bytes: &[u8]| {
+            format!(
+                "0x{}",
+                bytes
+                    .iter()
+                    .map(|byte| format!("{byte:02x}"))
+                    .collect::<String>()
+            )
+        };
+        let mut filter = json!({"fromBlock":format!("0x{height:x}"),
+            "toBlock":format!("0x{height:x}"),
+            "topics":self.topics.iter().map(|topic| hex(topic)).collect::<Vec<_>>()});
+        if let Some(address) = self.address {
+            filter["address"] = json!(hex(&address));
+        }
+        let request = json!({"jsonrpc":"2.0", "id":1, "method":"eth_getLogs", "params":[filter]});
+        let mut response = self
+            .agent
+            .post(&self.url)
+            .send_json(&request)
+            .map_err(|_| HistoryReadError::Sequencer(SequencerError::Unavailable))?;
+        if response.status().as_u16() != 200 {
+            return Err(HistoryReadError::Sequencer(SequencerError::HttpStatus(
+                response.status().as_u16(),
+            )));
+        }
+        let mut bytes = Vec::new();
+        response
+            .body_mut()
+            .as_reader()
+            .take(
+                u64::try_from(limits.maximum_response_bytes)
+                    .unwrap_or(u64::MAX)
+                    .saturating_add(1),
+            )
+            .read_to_end(&mut bytes)
+            .map_err(|_| HistoryReadError::Sequencer(SequencerError::Unavailable))?;
+        if bytes.len() > limits.maximum_response_bytes {
+            return Err(HistoryReadError::Oversized);
+        }
+        let value: Value =
+            serde_json::from_slice(&bytes).map_err(|_| HistoryReadError::Malformed)?;
+        if value["jsonrpc"] != "2.0" || value["id"] != 1 || value.get("method").is_some() {
+            return Err(HistoryReadError::Malformed);
+        }
+        match (value.get("result"), value.get("error")) {
+            (Some(result), None) => {
+                let logs = result.as_array().ok_or(HistoryReadError::Malformed)?;
+                if logs.len() > usize::from(limits.maximum_items) {
+                    return Err(HistoryReadError::Oversized);
+                }
+                Ok(logs.clone())
+            }
+            (None, Some(error)) => Err(HistoryReadError::Rpc(RpcRefusal {
+                code: error["code"].as_i64().ok_or(HistoryReadError::Malformed)?,
+                message: error["message"]
+                    .as_str()
+                    .ok_or(HistoryReadError::Malformed)?
+                    .to_owned(),
+                data: error.get("data").cloned(),
+            })),
+            _ => Err(HistoryReadError::Malformed),
+        }
+    }
+}
+
 pub fn attempt_backfill(
-    transport: &mut dyn FrameTransport,
+    source: &EthLogSource,
     gap: Gap,
-    head: Head,
-    config: StreamConfig,
+    limits: HistoryLimits,
     maximum_records: u32,
 ) -> BackfillReport {
-    let required = gap
-        .missing_last
-        .saturating_sub(gap.missing_first)
-        .saturating_add(1);
-    if maximum_records == 0 || required > u64::from(maximum_records) {
-        return BackfillReport::Incomplete {
-            gap,
-            recovered: Vec::new(),
-            failure: BackfillFailure::RangeExceedsBound {
-                required,
-                maximum: maximum_records,
-            },
-        };
-    }
-    let cursor = ClientCursor::new(gap.missing_first, head);
-    let mut stream = match subscribe(transport, cursor, config) {
-        Ok(value) => value,
-        Err(error) => {
-            return BackfillReport::Incomplete {
-                gap,
-                recovered: Vec::new(),
-                failure: BackfillFailure::Stream(error),
-            };
-        }
-    };
     let mut recovered = Vec::new();
-    for _ in 0..required {
-        match stream.next_item() {
-            Ok(StreamItem::Event(event)) => recovered.push(RecoveredEvent {
-                global_sequence: event.global_sequence,
-                canonical_bytes: event.canonical_bytes().to_vec(),
-            }),
-            Ok(StreamItem::Gap(missing)) => {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::CoreReportedGap {
-                        missing_first: missing.missing_first,
-                        missing_last: missing.missing_last,
-                    },
+    let result = (|| {
+        if limits.maximum_items == 0 || limits.maximum_response_bytes == 0 {
+            return Err(BackfillFailure::History(HistoryReadError::InvalidLimits));
+        }
+        let blocks = gap
+            .missing_last
+            .checked_sub(gap.missing_first)
+            .and_then(|range| range.checked_add(1))
+            .ok_or(BackfillFailure::History(HistoryReadError::InvalidRange))?;
+        if blocks > u64::from(maximum_records) {
+            return Err(BackfillFailure::RangeExceedsBound {
+                required: blocks,
+                maximum: maximum_records,
+            });
+        }
+        let mut previous = None;
+        for height in gap.missing_first..=gap.missing_last {
+            for log in source
+                .read_block(height, limits)
+                .map_err(BackfillFailure::History)?
+            {
+                let bytes = serde_json::to_vec(&log)
+                    .map_err(|_| BackfillFailure::History(HistoryReadError::Malformed))?;
+                let event = decode_log(&bytes, layerx_types::rung::Rung::Receipted)
+                    .map_err(|_| BackfillFailure::History(HistoryReadError::Malformed))?;
+                let position = Cursor {
+                    block_height: event.block_height,
+                    tx_index: event.tx_index,
+                    log_index: event.log_index,
                 };
-            }
-            Err(error) => {
-                return BackfillReport::Incomplete {
-                    gap,
-                    recovered,
-                    failure: BackfillFailure::Stream(error),
-                };
+                if event.block_hash.is_none()
+                    || event.block_height != height
+                    || previous.is_some_and(|last| position <= last)
+                    || source
+                        .address
+                        .is_some_and(|address| event.address != address)
+                    || !event.topics.starts_with(&source.topics)
+                {
+                    return Err(BackfillFailure::History(HistoryReadError::Cursor));
+                }
+                if recovered.len() >= maximum_records as usize {
+                    return Err(BackfillFailure::RangeExceedsBound {
+                        required: recovered.len() as u64 + 1,
+                        maximum: maximum_records,
+                    });
+                }
+                previous = Some(position);
+                recovered.push(RecoveredEvent {
+                    global_sequence: height,
+                    canonical_bytes: bytes,
+                    position,
+                });
             }
         }
-    }
-    if recovered.first().map(|event| event.global_sequence) != Some(gap.missing_first)
-        || recovered.last().map(|event| event.global_sequence) != Some(gap.missing_last)
-    {
-        return BackfillReport::Incomplete {
+        Ok(())
+    })();
+    match result {
+        Ok(()) => BackfillReport::Recovered {
+            gap,
+            events: recovered,
+        },
+        Err(failure) => BackfillReport::Incomplete {
             gap,
             recovered,
-            failure: BackfillFailure::Incomplete,
-        };
-    }
-    BackfillReport::Recovered {
-        gap,
-        events: recovered,
+            failure,
+        },
     }
 }
 
@@ -358,23 +487,31 @@ fn apply_backfill_inner(
             let tenant = crate::store::TenantId::new(target.scope.tenant.as_str())
                 .map_err(|_| GapError::DurableEvent)?;
             let durable_store = subscriptions.durable()?;
-            for (offset, recovered) in events.iter().enumerate() {
-                let offset = u64::try_from(offset).map_err(|_| GapError::MismatchedReport)?;
-                let expected = gap
-                    .missing_first
-                    .checked_add(offset)
-                    .ok_or(GapError::MismatchedReport)?;
-                if recovered.global_sequence != expected {
+            let sequences =
+                durable_sequences(&durable_store, &tenant).map_err(|_| GapError::DurableEvent)?;
+            let mut previous = None;
+            for recovered in events {
+                if !(gap.missing_first..=gap.missing_last)
+                    .contains(&recovered.position.block_height)
+                    || previous.is_some_and(|position| recovered.position <= position)
+                {
                     return Err(GapError::MismatchedReport);
                 }
-                let durable = durable_event(&durable_store, &tenant, recovered.global_sequence)
-                    .map_err(|_| GapError::DurableEvent)?;
-                if durable.canonical_bytes != recovered.canonical_bytes {
+                previous = Some(recovered.position);
+                let mut found = false;
+                for &sequence in &sequences {
+                    let durable = durable_event(&durable_store, &tenant, sequence)
+                        .map_err(|_| GapError::DurableEvent)?;
+                    if durable.position() == Some(recovered.position)
+                        && durable.canonical_bytes == recovered.canonical_bytes
+                    {
+                        found = true;
+                        break;
+                    }
+                }
+                if !found {
                     return Err(GapError::DurableEvent);
                 }
-            }
-            if events.last().map(|event| event.global_sequence) != Some(gap.missing_last) {
-                return Err(GapError::MismatchedReport);
             }
             drop(durable_store);
             subscriptions.clear_gap_inner(target)?;
@@ -529,7 +666,7 @@ fn enforce_retention_inner(
     if retention.maximum_undelivered_sequences == 0 {
         return Err(GapError::InvalidRetention);
     }
-    let requested_from = subscriptions.resume_cursor_inner(target)?.0;
+    let requested_from = subscriptions.resume_cursor_inner(target)?.block_height;
     let bounded_oldest = head_exclusive.saturating_sub(retention.maximum_undelivered_sequences);
     let oldest_available = core_oldest_available.max(bounded_oldest);
     if requested_from >= oldest_available {

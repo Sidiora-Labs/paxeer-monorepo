@@ -1,0 +1,39 @@
+[repair]
+task = "22.33.700"
+base_revision = "2a8418f3ce46275830d68ea57514c30466a3493f"
+change = "Replace the retired wallet fixture filter with the live generator's crypto/types producer inputs and root Makefile; replace retired kernel-web filters with chain, attestor, shared precompile ABI/helper and manifest inputs in both xweb events. Existing attestor/ceremony coverage already includes the generator, manifest, lock and committed output. All jobs and their commands remain unchanged."
+source_proof = "Parse both production workflow YAML documents and both event filters; assert matching positive filters cover committed generator, fixture, dependency, chain, attestor and shared ABI sources; parse generator/sidecar Cargo manifests, JSON fixtures and ABI, Foundry configuration and the Makefile native-library rule; trace generator identity and pinned output to the Go policy consumer and xweb ABI/vector paths to Rust/Go consumers. Pin every non-path workflow value to the base fingerprint and retain all Go, Rust, Solidity, TypeScript and Python test commands plus request, escrow, fulfil and refund source checks."
+review_only = "Workflow dispatch on GitHub, Rust fixture generation, Go/C/Rust compilation, Solidity execution, cryptographic signing, request/escrow/receipt runtime correctness and native builds are not executed by this offline source gate. Source checks prove input routing and preservation of existing checks, not runtime correctness. Neither finding is a restart-recovery or interface-mismatch finding. No shell script or unit file changes; the pytest gate invokes no external binary, shell, subprocess toolchain, live endpoint, environment variable, credential, artifact or device."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec status bookkeeping, preserved unchanged; scoped repair files were absent. gate.json recorded zero builds and verification runs and no gates.jsonl existed. The explicit implementation-first order and hf-done-only verification take precedence over the older unchanged-tree baseline clause. No baseline failures are claimed."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_700.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger name the exact content-derived verified revision, command, exit code and log path. Build and verify must pass on the same candidate revision. Embedding that revision here would change the candidate; the runner retains that evidence and publishes the task."
+wiring_requests = ["tools/ci/tests/test_wallet_go_test_workflow.py -> domain 16 CI tooling: replace the historical layerx-wire filter assertion with the live generator/dependency filter contract; this out-of-scope test was inspected, not run or weakened.", "services/wallet/attestor/internal/lxwire/lxwire_test.go and services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/Cargo.toml -> wallet domain: retire the residual legacy vectorSourcePath and layerx-wire dependency as part of wallet codec retirement; the workflow no longer names the retired producer.", "Makefile -> domain 16 build tooling with wallet domain: expose the live attestor generator/check target if Makefile-driven fixture generation is required; no wallet-vector generator target exists in the inspected root Makefile or included build fragments, so this task adds the input filter without inventing an external build interface."]
+
+[finding.wallet-retired-vectors]
+audit = "22.30.169"
+file = ".github/workflows/wallet-go-test.yml"
+class = "retired-reference"
+severity = "medium"
+owner_domain = 16
+tests = ["test_wallet_retired_vectors_filters_follow_live_producer", "test_wallet_retains_every_attestor_and_ceremony_test", "test_only_event_path_filters_change_in_workflows"]
+
+[finding.xweb-retired-inputs]
+audit = "22.30.169"
+file = ".github/workflows/xweb-test.yml"
+class = "retired-reference"
+severity = "medium"
+owner_domain = 16
+tests = ["test_xweb_retired_inputs_filters_follow_chain_and_attestor", "test_xweb_shared_abi_producer_and_consumers_remain_connected", "test_xweb_retains_request_escrow_receipt_checks", "test_only_event_path_filters_change_in_workflows"]
+
+[gotcha.baseline_order]
+observed = "The inherited baseline clause conflicts with the explicit implementation-first wrapper-only gate order."
+resolution = "Follow the explicit order and record no invented baseline result; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.context]
+observed = "Codify brief reports unrelated cached tasks/changes; broad source reads overflow output budgets and shell reads of guessed files fail."
+resolution = "Use actual git status/diff, the exact task block, bounded named-source reads and the private gate ledger; no cached result is qualification evidence."
+
+[format]
+policy = "No Python/KVX/YAML formatter is configured for these paths; apply the existing .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files after complete implementation."

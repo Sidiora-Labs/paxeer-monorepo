@@ -1,0 +1,120 @@
+[repair.22.31.154]
+audit = "22.30.104"
+status = "implemented-partially-unqualified"
+baseline = "Not run: the explicit implementation-first gate order forbids running verify before implementation; the required integration target did not exist on entry."
+qualification = "Only hf-build and hf-done may qualify this tree; /out/run/gates.jsonl records exact candidate revision, command, exit and private log. No successful gate is claimed by this record."
+scope = "Server sources and tests/repair_22_31_154.rs only; pre-existing .cgignore and spec task-start changes left untouched."
+
+[finding.refresh_context]
+implementation = "Preserve paired zeroizing refresh credentials through authorization decode and Unix execute serialization, retaining all capability bindings."
+test = "refresh_context_crosses_http_unix_and_production_consumer_after_restart"
+coverage = "Real WebAuthn session, authenticated index, HTTP Router, UnixComponents, HumanComponentServer, production refresh consumer, cookies, replay refusal and full server/index/store reopen."
+
+[finding.balance_material_rank]
+implementation = "LXHB2 explicitly encodes presence and current Rung. LXHB1 is decoded according to its actual producer layout; retired ranks and malformed envelopes are refused."
+test = "balance_material_preserves_optional_rung_through_cache_and_reopen"
+coverage = "Production material producer/decoder and persisted evidence.get consumer plus strict response schema; typed balance codec input, not an independently produced node state proof."
+
+[finding.stepup_timestamp]
+implementation = "Production routing projects checked UTC timestamps and preserves operation digest."
+test = "passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding"
+coverage = "Actual signed WebAuthn ceremony, durable reopen, strict response validator, wrong-operation and expired-evidence refusal; full external production composition is not exercised."
+
+[finding.onboarding_journey_shape]
+implementation = "Project persisted journey identity, canonical states/stages/evidence and checked timestamps; local custody completion remains processing and references resolve to actual stored rows."
+test = "onboarding_projects_persisted_identity_and_local_progress_after_restart"
+coverage = "Real OnboardingJourney, development EnvelopeKms custody backend, strict account.create/status/resume schema, repeated local resume and store reopen. Remote identity provisioning and protocol registration remain external."
+
+[finding.security_timestamps]
+implementation = "Use checked projectors for method metadata, timed secrets, authenticator setup, backup codes and key-export challenge/result."
+test = "security_key_export_projects_real_custody_mutation_and_refuses_retry_after_reopen"
+coverage = "Real custody mutation, signed step-up, strict API schema and post-reopen retry refusal. Remote authenticator provider setup and backup rotation are not proven."
+
+[finding.passkey_timestamps]
+implementation = "Checked challenge, proof and passkey metadata projectors are shared by production bootstrap/security paths."
+test = "passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding"
+coverage = "Actual provider registration/assertion signatures, expiration, single-use completion, persisted ceremony reopen and strict response schema."
+
+[finding.session_timestamps]
+implementation = "Canonical checked session and revocation projections on open/list/refresh/revoke."
+tests = ["refresh_context_crosses_http_unix_and_production_consumer_after_restart", "passkey_and_stepup_timestamps_survive_reopen_and_keep_confirmation_binding"]
+coverage = "Production refresh through actual HTTP/Unix with cookies and restart; real passkey session open/list/revoke plus strict response validation. Full ProductionComponents bootstrap wiring is not exercised."
+
+[finding.creation_recovery_idempotency]
+implementation = "Retained disclosure comparison and receipt lookup use the call-derived key; submit fallback does too. Evidence retains the local journey action key separately."
+test = "UNPROVEN: genuine budgetCreate/budgetFund signing/broadcast crash recovery needs a live merged producer and node."
+
+[finding.creation_export_idempotency]
+implementation = "Creation export compares and queries by the call-derived key, preserving local journey action, owner, chain, stage and transaction binding."
+test = "UNPROVEN: genuine committed budget-stage evidence lookup through HTTP and reopen is unavailable."
+
+[finding.lifecycle_finalization_rank]
+implementation = "Peer encoder requires the shared typed committed Rung decoder; retired 4/5 ranks are refused. Agentd already decodes 0/1/2."
+test = "UNPROVEN: genuine committed lifecycle peer execution/restart is unavailable."
+
+[finding.owner_session_finalization_rank]
+implementation = "Installed owner session accepts the same committed Rung contract while retaining grant, action and receipt checks."
+test = "UNPROVEN: genuine committed grant/install/native-send/reopen path is unavailable."
+
+[finding.evm_receipt_execution_domain]
+implementation = "One shared server verifier separates signed construct intent from node EVM execution module 12, EIP-1559 operation 2, preserving existing signed disclosure/hash/height/fee/expiry/result constraints."
+test = "node_receipt_material_has_exact_schema_and_independently_verifiable_portable_payload"
+coverage = "Authentic node EVM receipt fixture domain and portable signature verification; no fabricated committed rung. Positive committed session-grant and budget finalization remain UNPROVEN."
+
+[finding.rotation_unreachable]
+implementation = "BLOCKED: no merged announce/commit/cancel/recovery producer exists; agentd rotation prepare unconditionally returns Unsupported. Retired algorithm is not restored."
+test = "UNPROVEN: no supported real merged rotation lifecycle can be driven."
+
+[finding.activity_date_filter]
+implementation = "Parse RFC3339 UTC bounds with checked conversion; reject invalid and reversed dates; canonical filter echo omits absent fields."
+test = "activity_dates_pages_and_statement_time_follow_persisted_feed"
+coverage = "Real AuditChain and Feed with entries before/on/inside/on/after bounds, query, statement and local evidence exports; strict response validation and store reopen."
+
+[finding.activity_page_shape]
+implementation = "Checked RFC3339 entry times, omitted optional filter fields and explicit cur_end exhaustion, matching other server page projectors."
+test = "activity_dates_pages_and_statement_time_follow_persisted_feed"
+coverage = "Empty/filtered/multiple real persisted pages, stable continuation after reopen and strict response schema. HTTP UI interpretation of cur_end requires consumer wiring."
+
+[finding.export_creation_time]
+implementation = "Both production exports share checked UTC metadata and SHA256 content identity when caching real artifact bytes."
+test = "activity_dates_pages_and_statement_time_follow_persisted_feed"
+coverage = "Statement/evidence export metadata through strict schema, real statement download after reopen and retained independently verified local evidence bundle; live node key discovery for evidence.get remains external."
+
+[finding.receipt_evidence_shape]
+implementation = "Only declared EvidenceMaterial fields are returned; signed receipt and authority metadata remain inside PortableReceiptV2."
+test = "node_receipt_material_has_exact_schema_and_independently_verifiable_portable_payload"
+coverage = "Five authentic node receipt recordings, independently pinned signatures, production material projector, strict schema and independent PortableReceiptV2 verifier. Managed receipt HTTP discovery still requires live node keys."
+
+[finding.defund_replay_stuck]
+implementation = "Lookup retained exact transaction hash before sending, and continue lookup after the node's precise same-nonce duplicate refusal; every successful path still binds receipt to retained signed bytes."
+test = "UNPROVEN: reclaim/archive crash points need the real node and merged agent lifecycle; no mock node is substituted."
+
+[finding.rotation_challenge_rank]
+implementation = "Version 2 rotation records persist a typed committed rung and project its achieved checkpoint label. Version 1 records explicitly refuse operation-retired instead of interpreting ambiguous legacy rank bytes."
+test = "UNPROVEN: producer announcement/wait/commit unavailable with current merged rotation interface."
+
+[wiring.requests]
+rotation = "services/agent/crates/layerx-agentd/src/managed_agent_rotation.rs — agent domain: implement approved merged rotation/recovery authority producer and resumable announce/commit/cancel interface; current prepare returns Unsupported."
+rotation_intents = "services/human/crates/layerx-intents/src/vocabulary.rs — protocol/intents domain: supply approved merged owner rotation/recovery intents rather than reviving the retired algorithm."
+creation = "services/human/crates/layerx-human-service/src/agents/create.rs — Human agents domain: route ProtocolEvidence::verify_outcome through the shared EVM verifier; the out-of-scope consumer still assumes construct receipt module/protocol."
+activity_cursor = "services/human/schema/human-api/v1.kvx and browser activity consumers — schema/browser domains: declare terminal cur_end consistently and stop requesting continuation at exhaustion."
+proofs = "Node/agent integration environment — node and agent domains: provide genuine committed EVM session/budget/lifecycle receipts and real security provider for the unproven acceptance paths; no invented proof or rank substitutes."
+
+[gotcha.session]
+notes = ["Codify graph initially had no matching hits; repository source used after graph lookup.", "Auth refresh credentials contain dots and cannot use the capability base64url-only decoder.", "PasskeyRecord derives numeric internal serde; production completion/list must use checked API projection.", "The generic old verification-byte projector does not mean current Rung; rotation uses typed Rung directly.", "Source searches for monolithic auth/audit/activity paths failed; actual implementations include module directories.", "One edit script stopped at a pub(super) function spelling; remaining edits were inspected and applied sequentially before qualification.", "GOTCHA.kvx is outside the explicit task scope; session gotchas are recorded here instead."]
+
+[qualification.repair1]
+revision = "6ca7d929a49a577d0f86355af29cb9369657e5d5"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-test-support"
+exit = 101
+log = "/out/logs/dependents-1.log"
+observed = "Seven task-caused E0432/E0433 errors: the provider client includes identity_dispatch.rs as a standalone module, so new super::backend, super::identity and super::projection imports cannot resolve."
+repair = "Move the checked API projectors into server/identity.rs, route production directly there, and keep the shared provider source independent of parent server modules. No dependent file changed."
+
+[qualification.repair2]
+revision = "a52afffd18ffccf49a428874f232cf0c3f5540f5"
+command = "cargo check --locked --manifest-path /work/paxeer-monorepo/services/human/Cargo.toml --all-targets -p layerx-human-identity-provider -p layerx-human-kms -p layerx-human-security-provider -p layerx-human-test-support"
+exit = 101
+log = "/out/logs/dependents-2.log"
+observed = "Three task-caused E0425 errors: the provider client also retains the step_up_challenge, step_up_evidence and onboarding_status exported source symbols."
+repair = "Retain all three names through a shared source-compatible projection module, used by both production IdentityProjector and standalone provider source checks, with the same checked UTC implementation."

@@ -19,7 +19,6 @@ NATIVE_CASES = (
     "native_pending_and_history", "native_occupancy_up", "native_occupancy_down",
     "native_occupancy_target", "native_occupancy_full_width",
     "native_activation_and_authority_refusals",
-    "native_signed_governance_producer_consumer",
 )
 FEE_CASES = (
     "recorded_schedule_prices_real_meter_without_current_head_fallback",

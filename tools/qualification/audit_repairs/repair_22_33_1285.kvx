@@ -1,0 +1,41 @@
+[task.22.33.1285]
+audit = "22.30.65"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+source_revision = "198199982a80f13cfc33bbb3b3b51e6904bf2da0"
+repair = "Decision 2525 assigns the README rewrite to Domain 17 task 22.31.470, already present in this checkout. Add independent source-contract regression checks for readme-separated-network without editing README.md."
+baseline = "Initial Git status/diff showed only pre-existing runner .cgignore and spec bookkeeping; both scoped files were absent. No gate ledger existed and gate.json recorded zero builds and verifies. A pre-change verify was not run: the explicit implementation-first order and exclusive hf-done gate supersede step 5's older baseline instruction. No baseline test failures are claimed."
+source_proof = "Tests read the actual README architecture, onboarding, diagrams and precompile table. They parse its curl command and JSON payload in-process, check chain 125 and root api1..api14 endpoints, trace documented transaction acceptance/forwarding through WAL receipt release and committed receipt coverage in production sources, compare the served address table and inspect retired executor gates. No external commands or endpoints are invoked by the tests."
+review_only = "This doc-drift repair changes no runtime interface or persistent component. Native builds, transaction execution, cryptographic verification, live RPC availability, BFT finality and WAL restart/recovery remain runtime review or separate qualification responsibilities; static source checks do not certify those behaviors. No shell script, unit, manifest or build file is changed by this task."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1285.py"
+verified_revision = "The content-derived candidate revision in the final hf-done JSON and /out/run/gates.jsonl is the verified revision; the same ledger associates its exact command, exit code and private log. This record is finalized before building because embedding its own candidate hash would change that revision."
+evidence_ledger = "/out/run/gates.jsonl"
+qualification = "Only hf-build and hf-done qualify this candidate, in that order on the same revision; no success is claimed until hf-done passes. The runner commits and publishes."
+format = "No Python or KVX formatter is configured for these files; apply .editorconfig UTF-8, LF, final newline and trailing whitespace conventions after implementation."
+
+[finding.readme-separated-network]
+file = "README.md"
+owner_domain = 17
+owner_task = "22.31.470"
+observed = "The audited README described a separate layerxd daemon and checkpoint settlement and listed retired executors as active modules."
+expected = "One integrated paxd BFT network, chain 125, root JSON-RPC on api1..api14, transaction and committed receipt flow, served/retired precompile distinction and no separate daemon or checkpoint deployment."
+resolution = "Task 22.31.470's inherited README contains every expected fact; this task adds seven declared tests that must all pass to prove the documentation contract."
+tests = ["test_readme_separated_network_integrated_paxd", "test_readme_separated_network_root_rpc_and_chain_probe", "test_readme_separated_network_transaction_and_committed_receipt", "test_readme_separated_network_diagrams_preserve_commit_order", "test_readme_separated_network_served_and_retired_precompiles", "test_readme_separated_network_no_standalone_deployment_guidance", "test_readme_separated_network_record_maps_all_proofs"]
+wiring_request = "README.md architecture/onboarding and served/retired executor guidance -> Domain 17, task 22.31.470 (satisfied by the inherited rewrite; no additional change requested)."
+wiring_requests = []
+
+[gotcha.context]
+observed = "Broad combined reads exceeded the output budget, and cg brief/survey report cached unrelated task and tree context."
+resolution = "Use bounded task/finding/source reads, actual git status/diff and the private gate ledger; preserve runner bookkeeping. GOTCHA.kvx and spec files remain outside the task scope."
+
+[gotcha.baseline]
+observed = "The inherited baseline-first instruction conflicts with the explicit implementation-first order and exclusive verification wrapper."
+resolution = "Do not run pytest manually or claim a baseline result; implement both files completely, then use hf-build and hf-done once."
+
+[repair_cycle.1]
+revision = "817db8a157e61ff95f7c644a170c537a937af388"
+command = "cg spec done 22.33.1285 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the Markdown parser truncated a fenced shell example at its comment, and the daemon check confused the standalone layerxd identifier with the getLayerXDid account getter."
+repair = "Track Markdown fences before recognizing section boundaries and tokenize complete identifiers for the daemon check. Preserve all seven tests and every required source-fact assertion; build and verify the repaired candidate together."

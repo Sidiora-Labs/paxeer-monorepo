@@ -210,7 +210,7 @@ static int grant_setup(grant_fixture *f, uint8_t salt_tag)
     GRANT_CHECK(lxp_kernel_set_capabilities(
         &f->kernel, NULL, lxp_kernel_canonical_ledger_apply) == LXP_OK);
     f->runtime = (lx_asset_runtime){&f->accounts, &f->genesis_asset, 1U,
-        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY};
+        &f->genesis_state, 1U, 7U, LXP_PROTOCOL_VERSION_OCCUPANCY, false};
     GRANT_CHECK(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET,
                                                &f->runtime) == LXP_OK);
 
@@ -344,107 +344,61 @@ static int account_open_paused_case(void)
     return 0;
 }
 
-static int grant_issue_case(void)
+static int authority_grant_case(void)
 {
     grant_fixture *f = (grant_fixture *)calloc(1U, sizeof(*f));
     lx_account *opened = NULL;
-    lxp_payer_grant grant;
-    lxp_grant_state stored;
-    const lxp_module_kv_entry *entry;
-    uint8_t message[384];
-    uint8_t digest[32] = {0};
-    uint8_t holder_key[32];
-    uint8_t issued[512];
-    uint8_t reencoded[512];
-    size_t message_length = 0U;
-    size_t issued_length = 0U;
-    size_t reencoded_length = 0U;
-    size_t length;
-    size_t kv_before;
-    lxp_result result = LXP_OK;
+    lxp_authority_grant grant;
+    lxp_authority_grant stored;
+    lxp_byte_span issued;
+    lxp_byte_span reencoded;
+    lxp_arena arena;
+    uint8_t bytes[4096];
+    uint8_t holder_actor[32];
+    const lxp_module_registration *registration;
+    const uint32_t retired[] = {LX_ASSET_RECEIVE, LX_ASSET_GRANT_ISSUE,
+                                LX_ASSET_GRANT_REVOKE};
 
     GRANT_CHECK(f != NULL);
     GRANT_CHECK(grant_setup(f, 33U) == 0);
     GRANT_CHECK(grant_open_account(f, 2U, &opened) == 0);
-
-    (void)memset(&grant, 0, sizeof(grant));
-    (void)memcpy(grant.from, opened->id, 32U);
-    grant.recipient[0] = 0x42U;
-    (void)memcpy(grant.asset, f->asset_id, 32U);
-    grant.per_draw_maximum.lo = 5U;
-    grant.allowance.lo = 50U;
-    grant.expiration = 1000U;
-    grant.purpose_hash[0] = 3U;
-    GRANT_CHECK(grant_sign(holder_seed, digest, 32U, grant.signature,
-                           holder_key) == 0);
-    GRANT_CHECK(memcmp(holder_key, opened->authority_key, 32U) == 0);
-    (void)memcpy(grant.public_key, holder_key, 32U);
-    GRANT_CHECK(lxp_grant_authorization_message(&grant, message,
-                                                sizeof(message),
-                                                &message_length) == LXP_OK);
-    GRANT_CHECK(lxp_hash_authority(message, message_length,
-                                   grant.grant_id) == LXP_OK);
-    GRANT_CHECK(lxp_hash_domain(LXP_DOMAIN_AUTHORITY_HASH, message,
-                                message_length, digest) == LXP_OK);
-    GRANT_CHECK(grant_sign(holder_seed, digest, 32U, grant.signature,
-                           holder_key) == 0);
-    GRANT_CHECK(lxp_verify_payer_grant(&grant, opened) == LXP_OK);
-    GRANT_CHECK(lxp_payer_grant_encode(&grant, issued, sizeof(issued),
-                                       &issued_length) == LXP_OK);
-
-    GRANT_CHECK(grant_dispatch(f, holder_seed, holder_did,
-                               sizeof(holder_did) - 1U, LX_ASSET_GRANT_ISSUE,
-                               issued, issued_length, 3U, &result) == 0);
-    GRANT_CHECK(result == LXP_OK);
-    GRANT_CHECK(grant_event(f, 7U, grant.grant_id) == 0);
-    GRANT_CHECK(grant_finish(f, result) == 0);
-
-    entry = grant_kv(f, "grant:", grant.grant_id);
-    GRANT_CHECK(entry != NULL && entry->value_length == issued_length + 50U);
-    length = entry->value_length - 50U;
-    (void)memset(&stored, 0, sizeof(stored));
-    GRANT_CHECK(lxp_payer_grant_decode(entry->value, length,
-                                       &stored.grant) == LXP_OK);
-    GRANT_CHECK(entry->value[length + 48U] <= 1U &&
-                entry->value[length + 49U] <= 1U);
-    GRANT_CHECK(lxp_u128_from_be(entry->value + length,
-                                 &stored.drawn_total) == LXP_OK);
-    GRANT_CHECK(lxp_u128_from_be(entry->value + length + 16U,
-                                 &stored.drawn_this_period) == LXP_OK);
-    for (size_t i = 0U; i < 8U; ++i) {
-        stored.window_start = (stored.window_start << 8U) |
-                              entry->value[length + 32U + i];
-        stored.revoked_at_sequence = (stored.revoked_at_sequence << 8U) |
-                                     entry->value[length + 40U + i];
-    }
-    stored.revoked = entry->value[length + 48U] != 0U;
-    stored.invoice_settled = entry->value[length + 49U] != 0U;
-    GRANT_CHECK(memcmp(stored.grant.grant_id, grant.grant_id, 32U) == 0);
-    GRANT_CHECK(lxp_payer_grant_encode(&stored.grant, reencoded,
-                                       sizeof(reencoded),
-                                       &reencoded_length) == LXP_OK);
-    GRANT_CHECK(reencoded_length == issued_length &&
-                memcmp(reencoded, issued, issued_length) == 0);
-    GRANT_CHECK(memcmp(stored.grant.from, opened->id, 32U) == 0 &&
-                memcmp(stored.grant.asset, f->asset_id, 32U) == 0 &&
-                stored.grant.per_draw_maximum.lo == 5U &&
-                stored.grant.allowance.lo == 50U &&
-                stored.grant.expiration == 1000U);
-    GRANT_CHECK(lxp_u128_is_zero(stored.drawn_total) &&
-                lxp_u128_is_zero(stored.drawn_this_period));
-    GRANT_CHECK(stored.window_start == 0U &&
-                stored.revoked_at_sequence == 0U);
-    GRANT_CHECK(!stored.revoked && entry->value[length + 48U] == 0U);
-    GRANT_CHECK(!stored.invoice_settled);
-
-    kv_before = f->kernel.module_kv_count;
-    GRANT_CHECK(grant_dispatch(f, holder_seed, holder_did,
-                               sizeof(holder_did) - 1U, LX_ASSET_GRANT_ISSUE,
-                               issued, issued_length, 4U, &result) == 0);
-    GRANT_CHECK(result == LXP_ERR_SEQUENCE_REUSED);
-    GRANT_CHECK(f->effects.count == 0U);
-    GRANT_CHECK(grant_finish(f, result) == 0);
-    GRANT_CHECK(f->kernel.module_kv_count == kv_before);
+    GRANT_CHECK(lxp_did_id_derive(holder_did, sizeof(holder_did) - 1U,
+                                  holder_actor) == LXP_OK);
+    GRANT_CHECK(lxp_session_key_bind(&grant, holder_actor, opened->authority_key,
+        UINT64_C(1) << LXP_MODULE_ASSET, 1U, 11U, 10U, 1000U, 1U) == LXP_OK);
+    grant.kind = LXP_AUTHORITY_DELEGATED_CAPABILITY;
+    (void)memcpy(grant.scope.asset_id, f->asset_id, 32U);
+    grant.scope.maximum_per_activity.lo = 5U;
+    grant.scope.maximum_total.lo = 50U;
+    grant.scope.purpose_hash[0] = 3U;
+    GRANT_CHECK(lxp_grant_id_compute(&grant, grant.grant_id) == LXP_OK);
+    GRANT_CHECK(lxp_arena_init(&arena, bytes, sizeof(bytes)) == LXP_OK);
+    GRANT_CHECK(lxp_grant_encode(&grant, &arena, &issued) == LXP_OK);
+    GRANT_CHECK(lxp_grant_decode(issued.bytes, issued.length, &stored) == LXP_OK);
+    GRANT_CHECK(lxp_grant_id_compute(&stored, stored.grant_id) == LXP_OK);
+    GRANT_CHECK(memcmp(stored.grant_id, grant.grant_id, 32U) == 0 &&
+                memcmp(stored.grantor, holder_actor, 32U) == 0 &&
+                memcmp(stored.key, opened->authority_key, 32U) == 0 &&
+                stored.kind == LXP_AUTHORITY_DELEGATED_CAPABILITY &&
+                memcmp(stored.scope.asset_id, f->asset_id, 32U) == 0 &&
+                stored.scope.maximum_per_activity.lo == 5U &&
+                stored.scope.maximum_total.lo == 50U &&
+                lxp_u128_is_zero(stored.scope.spent_total) &&
+                lxp_u128_is_zero(stored.scope.spent_this_period) &&
+                stored.scope.period_start == 0U && !stored.revoked &&
+                stored.revoked_at_sequence == 0U &&
+                stored.not_after == 1000U);
+    GRANT_CHECK(lxp_grant_encode(&stored, &arena, &reencoded) == LXP_OK);
+    GRANT_CHECK(reencoded.length == issued.length &&
+                memcmp(reencoded.bytes, issued.bytes, issued.length) == 0);
+    GRANT_CHECK(lxp_authority_is_live(&stored, 1U, 10U, 1U) == LXP_OK);
+    GRANT_CHECK(lxp_authority_is_live(&stored, 1U, 1000U, 1U) == LXP_ERR_AUTH_EXPIRED);
+    GRANT_CHECK(lxp_authority_revoke(&stored, 1U, 5U) == LXP_ERR_STALE_REVOCATION);
+    GRANT_CHECK(lxp_authority_revoke(&stored, 2U, 5U) == LXP_OK);
+    GRANT_CHECK(lxp_authority_is_live(&stored, 2U, 10U, 5U) == LXP_ERR_AUTH_REVOKED);
+    for (size_t i = 0U; i < sizeof(retired) / sizeof(retired[0]); ++i)
+        GRANT_CHECK(lxp_kernel_module_for_activity(&f->kernel, retired[i], 0U,
+            &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
     GRANT_CHECK(lxp_state_store_destroy(&f->state) == LXP_OK);
     free(f);
     return 0;
@@ -456,6 +410,6 @@ int main(void)
 {
     if (account_open_case() != 0) return 1;
     if (account_open_paused_case() != 0) return 1;
-    if (grant_issue_case() != 0) return 1;
+    if (authority_grant_case() != 0) return 1;
     return 0;
 }

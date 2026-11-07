@@ -1,0 +1,507 @@
+[reconcile.r12-81]
+revision = "0b17e0748b8a5c1506383faf11209f4f35235885"
+rows = 60
+
+[row.r12-81.1]
+interface = "interface.12.ts-gw-activity-disclosure-wire"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 161
+symbol = "ActivityDisclosureWire"
+evidence = "export interface ActivityDisclosureWire remains an export with account, module, operation, amounts and destinations; the declaration signature is unchanged and now starts at line 161. Amounts and sequence/validity fields still use canonical DecimalWire strings for retained send authorization."
+
+[row.r12-81.2]
+interface = "interface.12.ts-gw-activity-approval-wire"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 172
+symbol = "ActivityApprovalWire"
+evidence = "export interface ActivityApprovalWire remains unchanged in signature and now starts at line 172; version: 1, principal, key_id, network_id, protocol_version, session_id, activity_digest and expires_at: DecimalWire are retained for lx_send_authorization approval."
+
+[row.r12-81.3]
+interface = "interface.12.ts-gw-attestor-client-review-lx-activity"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 608
+symbol = "reviewLxActivity"
+evidence = "AttestorClient async reviewLxActivity(input: { keyId: string; sessionId: string; activity: string; kind: 'lx_send_authorization'; owner: string; token: string }): Promise<LxReviewResult> removes lx_activity from the kind union. The retained method still calls /v1/lx/review and checks original-key quorum agreement."
+
+[row.r12-81.4]
+interface = "interface.12.ts-gw-lx-review-wire"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 1159
+symbol = "LxReviewWire"
+evidence = "export interface LxReviewWire now declares kind: 'lx_send_authorization' only, with node_id, key_id, public_key, activity, signing_preimage, disclosure, validity and audit fields. The native lx_activity alternative is absent from the current wire type."
+
+[row.r12-81.5]
+interface = "interface.12.ts-gw-lx-review-result"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 1165
+symbol = "LxReviewResult"
+evidence = "export interface LxReviewResult extends LxReviewWire { participants: string[]; audit: NodeAudit[]; } is unchanged in its direct declaration and now at line 1165; its inherited kind narrows to lx_send_authorization through LxReviewWire."
+
+[row.r12-81.6]
+interface = "interface.12.ts-gw-lx-signing-preimage"
+verdict = "served"
+path = "services/wallet/gateway/src/attestor/client.ts"
+line = 1215
+symbol = "lxSigningPreimage"
+evidence = "export function lxSigningPreimage(activity:string,kind:'lx_send_authorization'):string removes lx_activity from the kind parameter. The retained implementation validates unsigned protocol 1-3 canonical activity and the owner send authorization layout before hashing."
+
+[row.r12-81.7]
+interface = "interface.12.err-gw-rate-limited"
+verdict = "served"
+path = "services/wallet/gateway/src/audit.ts"
+line = 103
+symbol = "rate_limited"
+evidence = "rateLimitBody still returns error: 'rate_limited' with scope, limit_per_minute, retry_after_seconds and message; the emitted object is at line 103 rather than the return type at registered line 96."
+
+[row.r12-81.8]
+interface = "interface.12.ts-gw-chain-reads-wait-for-receipt-j49"
+verdict = "served"
+path = "services/wallet/gateway/src/chainReads.ts"
+line = 308
+symbol = "waitForReceipt"
+evidence = "export async function waitForReceipt(hash: Hex, opts?: { confirmations?: number; timeoutMs?: number; pollMs?: number }): Promise<ReceiptOutcome> keeps its signature, now split across lines 308-311; it polls rpc.sequencerReceipt and handles submitted, executed and committed receipt states instead of viem receipt polling."
+
+[row.r12-81.9]
+interface = "interface.12.ts-gw-action-kind-j49"
+verdict = "served"
+path = "services/wallet/gateway/src/db/actions.ts"
+line = 19
+symbol = "ActionKind"
+evidence = "export type ActionKind = 'allowance_and_call'; removes 'layerx_deposit' from the registered union. The durable action kind now admits only allowance_and_call."
+
+[row.r12-81.10]
+interface = "interface.12.key-gw-table-migrations"
+verdict = "served"
+path = "services/wallet/gateway/src/db/migrate.ts"
+line = 58
+symbol = "_migrations"
+evidence = "The registered Postgres ledger is still created by create table if not exists _migrations at line 58 with filename primary key and applied_at; runMigrations reads and inserts that same table under its advisory lock."
+
+[row.r12-81.11]
+interface = "interface.12.env-gw-rpc-urls"
+verdict = "served"
+path = "services/wallet/gateway/src/env.ts"
+line = 43
+symbol = "RPC_URLS"
+evidence = "export const RPC_URLS = z now names an exported reusable schema instead of the inline RPC_URLS: z entry. EnvSchema uses RPC_URLS at line 233; it parses a nonempty comma-separated HTTP(S) URL list. RpcPool uses the read pool separately from its sequencer endpoint for writes."
+
+[row.r12-81.12]
+interface = "interface.12.err-gw-internal-error"
+verdict = "served"
+path = "services/wallet/gateway/src/index.ts"
+line = 139
+symbol = "internal_error"
+evidence = "The global Fastify error handler still emits error: 'internal_error', now at line 139; it bounds the HTTP status and exposes the exception message only in development."
+
+[row.r12-81.13]
+interface = "interface.12.cli-gw-backfill-accounts"
+verdict = "served"
+path = "services/wallet/gateway/src/jobs/backfillAccounts.ts"
+line = 44
+symbol = "parseBackfillArgs"
+evidence = "export function parseBackfillArgs(argv: readonly string[]): BackfillCommandOptions implements the existing --batch-size 1..500 and positive --max-batches CLI contract, unchanged in option signature. runBackfill now requires the provision station at line 70; main invokes the parser and retains explicit exit codes."
+
+[row.r12-81.14]
+interface = "interface.12.err-gw-unauthorized"
+verdict = "served"
+path = "services/wallet/gateway/src/middleware/auth.ts"
+line = 49
+symbol = "unauthorized"
+evidence = "requireAuth still emits error: 'unauthorized' with detail when local access-token verification fails, at the registered line 49."
+
+[row.r12-81.15]
+interface = "interface.12.err-gw-unknown-principal"
+verdict = "served"
+path = "services/wallet/gateway/src/middleware/principal.ts"
+line = 63
+symbol = "unknown_principal"
+evidence = "requireAgent still emits HTTP 401 error: 'unknown_principal' and a re-authentication message when findPrincipal returns no row, at line 63."
+
+[row.r12-81.16]
+interface = "interface.12.ts-gw-precompile-addresses"
+verdict = "served"
+path = "services/wallet/gateway/src/precompiles.ts"
+line = 17
+symbol = "PRECOMPILE_ADDRESSES"
+evidence = "export const PRECOMPILE_ADDRESSES = Object.freeze({...} as const satisfies Record<string, `0x${string}`>) is the current declaration. The exported identifier and staking 0x1005, bech32 0x1004 and p256 0x1011 values remain; the table exposes the merge 0x0901-0x0908 addresses."
+
+[row.r12-81.17]
+interface = "interface.12.ts-gw-unserved-precompiles"
+verdict = "served"
+path = "services/wallet/gateway/src/precompiles.ts"
+line = 32
+symbol = "UNSERVED_PRECOMPILES"
+evidence = "export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set(); retains its type but changes the initializer from a populated refusal list to an empty set. Registered merge precompiles are no longer statically refused."
+
+[row.r12-81.18]
+interface = "interface.12.ts-gw-precompile-not-served-error"
+verdict = "served"
+path = "services/wallet/gateway/src/precompiles.ts"
+line = 44
+symbol = "PrecompileNotServedError"
+evidence = "export class PrecompileNotServedError extends Error retains its declaration signature at line 44. It still carries the precompile key; with the static refusal set emptied, ensureServed also raises it for a live node probe returning no data."
+
+[row.r12-81.19]
+interface = "interface.12.ts-gw-served-address"
+verdict = "served"
+path = "services/wallet/gateway/src/precompiles.ts"
+line = 53
+symbol = "servedAddress"
+evidence = "export function servedAddress(key: keyof typeof PRECOMPILE_ADDRESSES): `0x${string}` retains its signature, now at line 53. It checks ownership and the now-empty UNSERVED_PRECOMPILES set before returning the configured address; 0x0901-0x0908 are no longer statically rejected."
+
+[row.r12-81.20]
+interface = "interface.12.ts-gw-read-kernel-availability"
+verdict = "served"
+path = "services/wallet/gateway/src/provision/bind.ts"
+line = 133
+symbol = "readKernelAvailability"
+evidence = "export async function readKernelAvailability(rpc: RpcPool): Promise<KernelAvailability> retains its signature, now at line 133. It probes readBindNonce on ADDR_PRECOMPILE 0x1004 using the zero EVM address instead of reading latestFinalized from retired anchor 0x1014."
+
+[row.r12-81.21]
+interface = "interface.12.ts-gw-read-receipt"
+verdict = "served"
+path = "services/wallet/gateway/src/provision/bind.ts"
+line = 284
+symbol = "readReceipt"
+evidence = "export async function readReceipt(rpc: RpcPool, hash: Hex): Promise<ChainReceipt | null> retains its signature at line 284. It now reads rpc.sequencerReceipt, returns null for submitted receipts and normalizes status, gasUsed and executed height or committed blockNumber."
+
+[row.r12-81.22]
+interface = "interface.12.ts-gw-broadcast-once"
+verdict = "served"
+path = "services/wallet/gateway/src/provision/bind.ts"
+line = 294
+symbol = "broadcastOnce"
+evidence = "export async function broadcastOnce(rpc: RpcPool, raw: Hex): Promise<Hex> retains its hash-returning signature at line 294. Its duplicate check now uses sequencer-backed readReceipt; RpcPool.sendRawTransaction sends once to the sequencer. This function still returns only the hash, not the signed receipt."
+
+[row.r12-81.23]
+interface = "interface.12.ts-gw-wait-for-receipt"
+verdict = "served"
+path = "services/wallet/gateway/src/provision/bind.ts"
+line = 307
+symbol = "waitForReceipt"
+evidence = "export async function waitForReceipt(rpc: RpcPool, hash: Hex, timeoutMs: number, pollMs: number): Promise<ChainReceipt> retains its signature at line 307. Polling calls the sequencer-backed readReceipt and keeps the existing timeout and bounded delay behavior."
+
+[row.r12-81.24]
+interface = "interface.12.http-gw-post-v1-agent-send"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agent.ts"
+line = 286
+symbol = "/v1/agent/send"
+evidence = "app.post('/v1/agent/send', { preHandler: requireSignedAgentRequest }, ...) retains its route signature at line 286. executeAgentTransaction now broadcasts through the sequencer and includes receipt and rung in its response alongside tx_hash."
+
+[row.r12-81.25]
+interface = "interface.12.http-gw-post-v1-agent-transfer"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agent.ts"
+line = 330
+symbol = "/v1/agent/transfer"
+evidence = "app.post('/v1/agent/transfer', { preHandler: requireSignedAgentRequest }, ...) retains its route signature, now at line 330. Native and ERC-20 transfer intents reach executeAgentTransaction, whose sequencer broadcast response now includes receipt and rung."
+
+[row.r12-81.26]
+interface = "interface.12.http-gw-post-v1-agent-approve"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agent.ts"
+line = 370
+symbol = "/v1/agent/approve"
+evidence = "app.post('/v1/agent/approve', { preHandler: requireSignedAgentRequest }, ...) retains its route signature, now at line 370. The ERC-20 approval intent reaches executeAgentTransaction and its sequencer-backed receipt and rung response."
+
+[row.r12-81.27]
+interface = "interface.12.err-gw-layerx-disabled"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/agentActions.ts"
+line = 77
+symbol = "layerx_disabled"
+evidence = "agentActionRoutes now exposes allowance-and-call and action polling; the LayerX deposit refusal branch is absent. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.28]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-scheduler-schedule"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 146
+symbol = "/v1/agent/precompiles/scheduler/schedule"
+evidence = "app.post('/v1/agent/precompiles/scheduler/schedule', { preHandler: [requireSignedAgentRequest, refuseUnserved('scheduler')] }, ...) retains its route signature, now at line 146. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Builds the scheduled call and forwards its target into the transaction policy intent."
+
+[row.r12-81.29]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-scheduler-cancel"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 189
+symbol = "/v1/agent/precompiles/scheduler/cancel"
+evidence = "app.post('/v1/agent/precompiles/scheduler/cancel', { preHandler: [requireSignedAgentRequest, refuseUnserved('scheduler')] }, ...) retains its route signature, now at line 189. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Builds scheduler.cancel and executes a broadcast transaction."
+
+[row.r12-81.30]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-scheduler-reschedule"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 209
+symbol = "/v1/agent/precompiles/scheduler/reschedule"
+evidence = "app.post('/v1/agent/precompiles/scheduler/reschedule', { preHandler: [requireSignedAgentRequest, refuseUnserved('scheduler')] }, ...) retains its route signature, now at line 209. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Builds scheduler.reschedule with job_id and new_block and executes a broadcast transaction."
+
+[row.r12-81.31]
+interface = "interface.12.http-gw-get-v1-agent-precompiles-scheduler-job-id"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 229
+symbol = "/v1/agent/precompiles/scheduler/job/:id"
+evidence = "app.get('/v1/agent/precompiles/scheduler/job/:id', { preHandler: [requireAgent, refuseUnserved('scheduler')] }, ...) retains its route signature, now at line 229. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads scheduler.getJob and returns a job or a missing/read-failure response."
+
+[row.r12-81.32]
+interface = "interface.12.http-gw-get-v1-agent-precompiles-scheduler-pending"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 246
+symbol = "/v1/agent/precompiles/scheduler/pending"
+evidence = "app.get('/v1/agent/precompiles/scheduler/pending', { preHandler: [requireAgent, refuseUnserved('scheduler')] }, ...) retains its route signature, now at line 246. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads scheduler.pending for the agent wallet and returns creator and job_ids."
+
+[row.r12-81.33]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-streams-open"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 259
+symbol = "/v1/agent/precompiles/streams/open"
+evidence = "app.post('/v1/agent/precompiles/streams/open', { preHandler: [requireSignedAgentRequest, refuseUnserved('streams')] }, ...) retains its route signature, now at line 259. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Builds streams.open with payee and cap included in the transaction policy intent."
+
+[row.r12-81.34]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-streams-close"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 301
+symbol = "/v1/agent/precompiles/streams/${path}"
+evidence = "POST /v1/agent/precompiles/streams/close is now registered by app.post(`/v1/agent/precompiles/streams/${path}`, ...) at line 301, expanded from the 'close' tuple at line 298. It retains [requireSignedAgentRequest, refuseUnserved('streams')]; the shared StreamIdBody handler calls streams.close and broadcasts through executeAgentTransaction. The guard now probes node availability."
+
+[row.r12-81.35]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-streams-settle"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 301
+symbol = "/v1/agent/precompiles/streams/${path}"
+evidence = "POST /v1/agent/precompiles/streams/settle is now registered by app.post(`/v1/agent/precompiles/streams/${path}`, ...) at line 301, expanded from the 'settle' tuple at line 297. It retains [requireSignedAgentRequest, refuseUnserved('streams')]; the shared StreamIdBody handler calls streams.settle and broadcasts through executeAgentTransaction. The guard now probes node availability."
+
+[row.r12-81.36]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-streams-update-rate"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 322
+symbol = "/v1/agent/precompiles/streams/update-rate"
+evidence = "app.post('/v1/agent/precompiles/streams/update-rate', { preHandler: [requireSignedAgentRequest, refuseUnserved('streams')] }, ...) retains its route signature, now at line 322. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Builds streams.updateRate and executes a broadcast transaction."
+
+[row.r12-81.37]
+interface = "interface.12.http-gw-get-v1-agent-precompiles-streams-stream-id"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 342
+symbol = "/v1/agent/precompiles/streams/stream/:id"
+evidence = "app.get('/v1/agent/precompiles/streams/stream/:id', { preHandler: [requireAgent, refuseUnserved('streams')] }, ...) retains its route signature, now at line 342. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads streams.getStream and returns the stream or not_found."
+
+[row.r12-81.38]
+interface = "interface.12.http-gw-get-v1-agent-precompiles-streams-accrued-id"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 354
+symbol = "/v1/agent/precompiles/streams/accrued/:id"
+evidence = "app.get('/v1/agent/precompiles/streams/accrued/:id', { preHandler: [requireAgent, refuseUnserved('streams')] }, ...) retains its route signature, now at line 354. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads streams.accrued and returns stream_id and accrued."
+
+[row.r12-81.39]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-eip712-domain-separator"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 368
+symbol = "/v1/agent/precompiles/eip712/domain-separator"
+evidence = "app.post('/v1/agent/precompiles/eip712/domain-separator', { preHandler: [requireAgent, refuseUnserved('eip712')] }, ...) retains its route signature, now at line 368. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Calls eip712.domainSeparator and returns separator."
+
+[row.r12-81.40]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-eip712-hash-typed-data"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 386
+symbol = "/v1/agent/precompiles/eip712/hash-typed-data"
+evidence = "app.post('/v1/agent/precompiles/eip712/hash-typed-data', { preHandler: [requireAgent, refuseUnserved('eip712')] }, ...) retains its route signature, now at line 386. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Calls eip712.hashTypedData and returns digest."
+
+[row.r12-81.41]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-eip712-recover"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 401
+symbol = "/v1/agent/precompiles/eip712/recover"
+evidence = "app.post('/v1/agent/precompiles/eip712/recover', { preHandler: [requireAgent, refuseUnserved('eip712')] }, ...) retains its route signature, now at line 401. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Calls eip712.recoverTypedSigner and returns signer."
+
+[row.r12-81.42]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-tee-verify"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 419
+symbol = "/v1/agent/precompiles/tee/verify"
+evidence = "app.post('/v1/agent/precompiles/tee/verify', { preHandler: [requireAgent, refuseUnserved('teeAttestor')] }, ...) retains its route signature, now at line 419. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Delegates to teeVerificationResponse for decoded attestation or attestation_failed."
+
+[row.r12-81.43]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-tee-root-count"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 428
+symbol = "/v1/agent/precompiles/tee/root-count"
+evidence = "app.post('/v1/agent/precompiles/tee/root-count', { preHandler: [requireAgent, refuseUnserved('teeAttestor')] }, ...) retains its route signature, now at line 428. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads teeAttestor.rootCount and returns family and count."
+
+[row.r12-81.44]
+interface = "interface.12.http-gw-post-v1-agent-precompiles-tee-root-of"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 442
+symbol = "/v1/agent/precompiles/tee/root-of"
+evidence = "app.post('/v1/agent/precompiles/tee/root-of', { preHandler: [requireAgent, refuseUnserved('teeAttestor')] }, ...) retains its route signature, now at line 442. refuseUnserved now probes ensureServed instead of blanket refusal from the former populated UNSERVED_PRECOMPILES set. Reads teeAttestor.rootOf and returns family, index and root."
+
+[row.r12-81.45]
+interface = "interface.12.http-gw-get-v1-agent-precompiles"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/agentPrecompiles.ts"
+line = 457
+symbol = "/v1/agent/precompiles"
+evidence = "app.get('/v1/agent/precompiles', { preHandler: requireAgent }, ...) retains its route signature at line 457. It returns addresses, served route lists and tee_families; served now includes the merge precompiles because UNSERVED_PRECOMPILES is empty, rather than excluding 0x0901-0x0908."
+
+[row.r12-81.46]
+interface = "interface.12.err-gw-custody-account-mismatch"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 196
+symbol = "custody_account_mismatch"
+evidence = "The old custody signing path and this account-mismatch refusal are absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.47]
+interface = "interface.12.err-gw-custody-construction-changed"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 224
+symbol = "custody_construction_changed"
+evidence = "The old custody construction refusal is absent from sign.ts; an E2E assertion still expects this retired error. Repository-wide exact-symbol rg search excluding spec and docs directories found 1 other file(s); remaining lists one location per file."
+remaining_refs = 1
+remaining = ["services/wallet/gateway/test/e2e/wallet-signing-adapters.production.ts:338"]
+
+[row.r12-81.48]
+interface = "interface.12.err-gw-custody-signature-mismatch"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 226
+symbol = "custody_signature_mismatch"
+evidence = "The old custody signing path and its signature-mismatch refusal are absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.49]
+interface = "interface.12.err-gw-custody-identity-conflict"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 237
+symbol = "custody_identity_conflict"
+evidence = "The old custody signing path and its identity-conflict refusal are absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.50]
+interface = "interface.12.err-gw-custody-nonce-changed"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 240
+symbol = "custody_nonce_changed"
+evidence = "The old custody signing path and its nonce-change refusal are absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.51]
+interface = "interface.12.err-gw-invalid-custody-id"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 441
+symbol = "invalid_custody_id"
+evidence = "The former custody-id request validation and its refusal are absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.52]
+interface = "interface.12.err-gw-custody-not-found"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 443
+symbol = "custody_not_found"
+evidence = "The former custody lookup refusal is absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.53]
+interface = "interface.12.err-gw-custody-authorization-unknown"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 453
+symbol = "custody_authorization_unknown"
+evidence = "The former custody authorization refusal is absent from sign.ts; the recovery qualification script still asserts this error at lines 117-118. Repository-wide exact-symbol rg search excluding spec and docs directories found 1 other file(s); remaining lists one location per file."
+remaining_refs = 1
+remaining = ["tools/qualification/paxeer-x/wallet-custody-recovery.py:117"]
+
+[row.r12-81.54]
+interface = "interface.12.err-gw-custody-authorization-not-found"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 461
+symbol = "custody_authorization_not_found"
+evidence = "The former custody authorization lookup refusal is absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.55]
+interface = "interface.12.err-gw-custody-authorization-mismatch"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 463
+symbol = "custody_authorization_mismatch"
+evidence = "The former custody authorization comparison refusal is absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.56]
+interface = "interface.12.err-gw-custody-authorization-state-changed"
+verdict = "retired"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 487
+symbol = "custody_authorization_state_changed"
+evidence = "The former custody authorization state-change refusal is absent from sign.ts. Repository-wide exact-symbol rg search excluding spec and docs directories found 0 other file(s); remaining lists one location per file."
+remaining_refs = 0
+remaining = []
+
+[row.r12-81.57]
+interface = "interface.12.http-gw-post-v1-wallet-send"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 644
+symbol = "/v1/wallet/send"
+evidence = "app.post('/v1/wallet/send', { preHandler: requireAuth }, ...) retains its route signature at line 644. The handler broadcasts through rpc.sendRawTransactionVia, then adds the sequencerReceipt response body and status instead of returning only a transaction hash."
+
+[row.r12-81.58]
+interface = "interface.12.err-gw-lx-producer-unavailable"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1112
+symbol = "lx_producer_unavailable"
+evidence = "The emitted HTTP error shape remains { error: 'lx_producer_unavailable' }, now at line 1112 in lxApprovalRoutes.guarded. It is the 503 response for unexpected retained LX approval work failures; known custody, attestor, rate-limit and route errors have their own responses."
+
+[row.r12-81.59]
+interface = "interface.12.http-gw-post-v1-wallet-lx-review"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1116
+symbol = "/v1/wallet/lx/review"
+evidence = "app.post('/v1/wallet/lx/review', { preHandler: requireAuth, bodyLimit: 2_400_000 }, ...) remains registered at line 1116. Its request kind now accepts only lx_send_authorization, removing lx_activity; it persists original-wallet review evidence rather than replacing this retained lane with EVM review."
+
+[row.r12-81.60]
+interface = "interface.12.err-gw-invalid-lx-review"
+verdict = "served"
+path = "services/wallet/gateway/src/routes/sign.ts"
+line = 1120
+symbol = "invalid_lx_review"
+evidence = "The emitted HTTP error shape remains { error: 'invalid_lx_review' }, now at line 1120. reviewSchema rejects invalid bodies with HTTP 400 and now permits only lx_send_authorization, excluding the former lx_activity kind."

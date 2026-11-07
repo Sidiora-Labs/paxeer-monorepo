@@ -105,6 +105,7 @@ pub enum MetricKind {
     BudgetUtilization,
     SubscriptionLag,
     RateLimitRefusal,
+    DroppedTrace,
 }
 
 /// Closed metric labels. No raw or caller-provided identifier can be represented.
@@ -138,6 +139,46 @@ pub enum MetricLabel {
     RateExceeded,
 }
 
+impl MetricLabel {
+    #[must_use]
+    pub const fn name(self) -> &'static str {
+        match self {
+            Self::Executed => "executed",
+            Self::Failed => "failed",
+            Self::Unknown => "unknown",
+            Self::AgeUnderSecond => "age_under_second",
+            Self::AgeUnderMinute => "age_under_minute",
+            Self::AgeAtLeastMinute => "age_at_least_minute",
+            Self::SequencerSigned => "sequencer_signed",
+            Self::BatchIncluded => "batch_included",
+            Self::StateProven => "state_proven",
+            Self::CheckpointFinalised => "checkpoint_finalised",
+            Self::SettlementAnchored => "settlement_anchored",
+            Self::BoundaryReady => "boundary_ready",
+            Self::BoundaryBackpressured => "boundary_backpressured",
+            Self::BoundaryUnavailable => "boundary_unavailable",
+            Self::AccessDenied => "access_denied",
+            Self::InvalidRequest => "invalid_request",
+            Self::StorageFailure => "storage_failure",
+            Self::BoundaryFailure => "node_failure",
+            Self::InternalFailure => "internal_failure",
+            Self::Allowed => "allowed",
+            Self::Denied => "denied",
+            Self::UtilizationLow => "utilization_low",
+            Self::UtilizationHigh => "utilization_high",
+            Self::LagHealthy => "lag_healthy",
+            Self::Lagging => "lagging",
+            Self::RateExceeded => "rate_exceeded",
+        }
+    }
+}
+
+impl std::fmt::Display for MetricLabel {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(self.name())
+    }
+}
+
 #[derive(Clone, Debug, Eq, Ord, PartialEq, PartialOrd)]
 pub struct BoundedMetricKey {
     pub tenant: TenantId,
@@ -153,6 +194,9 @@ pub struct BoundedMetrics {
 }
 
 impl BoundedMetrics {
+    /// Maximum retained error traces; later traces are counted and discarded.
+    pub const TRACE_CAPACITY: usize = 1024;
+
     pub fn record(&mut self, key: BoundedMetricKey, value: u64) {
         let counter = self.counters.entry(key).or_default();
         *counter = counter.saturating_add(value);
@@ -163,9 +207,61 @@ impl BoundedMetrics {
         &self.counters
     }
 
+    /// Scrapes this tenant's normalized error counters into the shared metric schema.
+    /// Each scrape reads current counters into a fresh registry, without cached totals.
+    ///
+    /// # Errors
+    ///
+    /// Returns `MetricsError::InvalidLabel` if an error counter carries a label that
+    /// the shared error schema cannot decode.
+    pub fn scrape_errors(
+        &self,
+        tenant: &TenantId,
+    ) -> Result<
+        Vec<(
+            crate::obs::metrics::MetricKey,
+            crate::obs::metrics::MetricPoint,
+        )>,
+        crate::obs::metrics::MetricsError,
+    > {
+        use crate::obs::metrics::{MetricKind as SharedKind, Metrics};
+
+        let mut metrics = Metrics::new(1)?;
+        metrics.register_tenant(tenant.clone())?;
+        for (key, count) in &self.counters {
+            if &key.tenant == tenant && key.kind == MetricKind::ErrorClass {
+                metrics.observe_named(tenant, SharedKind::ErrorClass, key.label.name(), *count)?;
+            }
+        }
+        Ok(metrics.snapshot(tenant))
+    }
+
     #[must_use]
     pub fn traces(&self) -> &[SanitizedTrace] {
         &self.traces
+    }
+
+    fn record_trace(&mut self, trace: SanitizedTrace) {
+        if self.traces.len() < Self::TRACE_CAPACITY {
+            self.traces.push(trace);
+        } else {
+            let label = match trace.error_class {
+                ErrorClass::AccessDenied => MetricLabel::AccessDenied,
+                ErrorClass::InvalidRequest => MetricLabel::InvalidRequest,
+                ErrorClass::Storage => MetricLabel::StorageFailure,
+                ErrorClass::Boundary => MetricLabel::BoundaryFailure,
+                ErrorClass::Internal => MetricLabel::InternalFailure,
+            };
+            self.record(
+                BoundedMetricKey {
+                    tenant: trace.tenant,
+                    surface: trace.surface,
+                    kind: MetricKind::DroppedTrace,
+                    label,
+                },
+                1,
+            );
+        }
     }
 }
 
@@ -247,7 +343,7 @@ pub(super) fn normalize(
         1,
     );
     let normalization_tag = fixed_normalization_work(tenant, surface, normalized.class);
-    metrics.traces.push(SanitizedTrace {
+    metrics.record_trace(SanitizedTrace {
         tenant: tenant.clone(),
         surface,
         error_class: normalized.class,

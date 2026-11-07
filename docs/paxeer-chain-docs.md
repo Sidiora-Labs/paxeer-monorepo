@@ -1,94 +1,113 @@
 # Paxeer Network documentation
 
-These files document the **Paxeer Network** subtree of [Sidiora-Labs/Paxeer-X-Network](https://github.com/Sidiora-Labs/Paxeer-X-Network). They are not a standalone repository. The node, modules, RPC, and chain contracts live at the repository root (`node/`, `modules/`, `rpc/`, `contracts/src/`); LayerX Network execution, settlement contracts, and specifications live beside it at the monorepo root.
+These pages document the Paxeer node and chain modules in this monorepo. Node
+integration, chain modules, EVM JSON-RPC, and contracts live at the repository root
+in `node/`, `modules/`, `rpc/`, and `contracts/src/`.
 
-Paxeer is the EVM L1 (chain ID `125`) LayerX uses for custody and checkpoint settlement. Co-location in this monorepo does not merge the two trust boundaries.
+Paxeer mainnet-beta is one BFT network running `paxd`, with EVM chain ID `125`
+(`0x7d`). The merged kernel is part of the network and participates in block
+proposal and execution. A receipt is final when its block is committed. Native
+balances and kernel execution use chain state; separate custody deposits and
+checkpoint settlement are retired. Sub-chains are tenant domains in the database,
+launchable without new infrastructure.
 
 | Document | Contents |
 | --- | --- |
-| [`paxeer-network.md`](paxeer-network.md) | What this subtree is, how it sits next to LayerX, build and test entrypoints |
-| [`evm_jsonrpc_unsupported.md`](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods registered on Pax that return a documented error |
-| This page (below) | Regenerating the node's OpenAPI / Swagger UI |
+| [`paxeer-network.md`](paxeer-network.md) | Node source layout and build entrypoints |
+| [`evm_jsonrpc_unsupported.md`](evm_jsonrpc_unsupported.md) | EVM JSON-RPC methods that return documented errors |
+| [Public RPC endpoints](site/docs/reference/public-rpc.md) | Root-path node endpoints and chain connection details |
+| This page (below) | Regenerating and serving the node's OpenAPI / Swagger UI |
 | [`../docker/README.md`](../docker/README.md) | Local Docker node and cluster |
-| [`../contracts/README.md`](../contracts/README.md) | Foundry / Hardhat for Paxeer-native contracts |
-| [`../modules/README.md`](../modules/README.md) | Chain modules under `modules/` |
+| [`../contracts/README.md`](../contracts/README.md) | Foundry / Hardhat for chain contracts |
+| [`../modules/README.md`](../modules/README.md) | Native chain modules and their integration |
 | [`../tools/hpx/README.md`](../tools/hpx/README.md) | `paxd` distribution and peer registry tooling |
 
-LayerX settlement contracts (custody, checkpoints, bonds, exits) are documented with the protocol at the repository root (`contracts/`, `spec/layerx-protocol/`). They are not this subtree's `contracts/` directory.
+The kernel host is [`modules/lxphost/`](../modules/lxphost/), wired into the node
+by [`node/app.go`](../node/app.go). Native funds use the
+[bank module](../sdk/x/bank/) and [ledger](../modules/layerxledger/).
+Transfers to external chains use [`layerxbridge`](../modules/layerxbridge/).
+These are components of the merged network, rather than a second settlement tree.
+
+Public EVM JSON-RPC uses HTTPS at the root of
+`https://api-mainnet-beta.paxeer.network` or the numbered nodes
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`. The node namespaces are `debug`,
+`echo`, `eth`, `net`, `pax`, `test`, and `txpool`; availability depends on node
+configuration. Hosted gateway `px_` methods are defined separately in
+[`services/platform/hosted/gateway/openrpc.json`](../services/platform/hosted/gateway/openrpc.json).
+`node.hyperpaxeer.com` is only the hpx library mirror, never a JSON-RPC endpoint.
 
 Commands below are run from the repository root unless noted.
 
----
+## OpenAPI/Swagger docs generation
 
-# OpenAPI/Swagger docs generation
+Regenerate the OpenAPI document and embedded UI when the APIs or protobuf
+services change. [OpenAPI](https://github.com/OAI/OpenAPI-Specification/) is the
+specification; Swagger UI renders it. This guide covers the Cosmos API server's
+OpenAPI document, separately from EVM JSON-RPC and the hosted gateway contract.
 
-> **Note:** Anytime we make changes to the APIs/proto files, we also need to update the Swagger/OpenAPI docs.
+The checked-in [generation script](../scripts/update-swagger-ui-statik.sh) invokes
+`ignite generate openapi -y`, embeds `docs/swagger-ui/` with `statik`, and changes
+the generated registration to the `swagger` namespace used by the node.
 
-Both Swagger and OpenAPI terms are used interchangeably in this document.
+### Prerequisites
 
-- [OpenAPI](https://github.com/OAI/OpenAPI-Specification/) = specification
-- Swagger = Tools for implementing the specification.
+The existing generation workflow calls for Ignite CLI **v0.23.0**. Obtain that
+version from its [release page](https://github.com/ignite/cli/releases/tag/v0.23.0)
+and confirm it with `ignite version`. The monorepo does not track a root Ignite
+project configuration; supply the generation configuration expected by that CLI
+before regenerating, rather than treating this script as a complete project
+bootstrap.
 
-The process of Swagger docs generation involves running a script that does the following tasks:
-
-1. Generating the swagger yml file using the `ignite` tool.
-2. Updating the static assets for the Swagger UI.
-
-## Prerequisites
-
-The docs generation script uses the `ignite` tool to generate the OpenAPI docs.
-So, first install the `ignite` tool, if not installed already.
-We need version v0.23.0, which is outdated, but works with the current version of the codebase.
-Pull binaries from the [releases page](https://github.com/ignite/cli/releases/tag/v0.23.0) or install from source code
-following instructions.
-
-Verify the installation by running `ignite version`:
+The script also requires `statik` on `PATH`. The version used in `go.mod` is
+`github.com/rakyll/statik v0.1.7`:
 
 ```bash
-% ignite version
-·
-· 🛸 Ignite CLI v28.2.0 is available!
-·
-· To upgrade your Ignite CLI version, see the upgrade doc: https://docs.ignite.com/guide/install.html#upgrading-your-ignite-cli-installation
-·
-·
-
-Ignite CLI version:     v0.23.0
-....
-
+go install github.com/rakyll/statik@v0.1.7
 ```
 
-## Running the script
+### Running the script
 
-Then run the following command to generate the OpenAPI docs and update static assets for Swagger UI:
+On a system with BSD `sed`, run:
 
 ```bash
 ./scripts/update-swagger-ui-statik.sh
 ```
 
-The script generates a new swagger/openapi yml and saves it as `docs/swagger-ui/swagger.yml` under this subtree.
-It will then embed the yml file and static assets in `docs/swagger-ui/` into the `docs/swagger/statik.go` file.
+The script's final `sed -i ''` command uses BSD syntax. On GNU/Linux, run the
+corresponding steps with GNU `sed` instead, stopping if generation fails:
 
-If swagger endpoint is configured, `paxd` on startup will read `statik.go` and make its content available at the
-`/swagger/` endpoint.
-
-# Serving the OpenAPI docs on the node
-
-To start serving the docs, enable the swagger docs serving.
-To do that, update `api.swagger` value to `true` in the `app.toml` file.
-
-```toml
-###############################################################################
-###                           API Configuration                             ###
-###############################################################################
-
-[api]
-
-# Enable defines if the API server should be enabled.
-enable = true
-
-# Swagger defines if swagger documentation should automatically be registered.
-swagger = true
+```bash
+ignite generate openapi -y &&
+  statik -src=./docs/swagger-ui -dest=./docs -f -p swagger &&
+  sed -i 's/fs.Register(data)/fs.RegisterWithNamespace("swagger", data)/g' docs/swagger/statik.go
 ```
 
-Once the node is restarted, swagger docs will be available at `http://<node-ip>:<port>/swagger/`.
+The OpenAPI document is `docs/swagger-ui/swagger.yml`; the UI initializer loads
+it as `./swagger.yml`. `statik` embeds that document and the other files in
+`docs/swagger-ui/` into `docs/swagger/statik.go`. Review the generated document
+and embedded assets, then rebuild `paxd` using the repository's `make paxd-build`
+target. Changing the YAML or generated Go file alone does not update an already
+built binary.
+
+## Serving the OpenAPI docs on the node
+
+Enable the Cosmos API server and Swagger in the node home's `config/app.toml`:
+
+```toml
+[api]
+enable = true
+swagger = true
+address = "tcp://127.0.0.1:1317"
+```
+
+This example binds the API server locally. With a rebuilt node restarted using
+that configuration, open `http://127.0.0.1:1317/swagger/`. For another binding,
+use the host and port from `[api].address`; retain the trailing slash so the UI
+can resolve its relative asset paths.
+
+[`App.RegisterAPIRoutes`](../node/app.go) registers Swagger only when
+`apiConfig.Swagger` is true. `RegisterSwaggerAPI` loads the embedded `swagger`
+namespace and serves it under `/swagger/`. This is the Cosmos API listener,
+not the public EVM JSON-RPC listener. Enabling Swagger locally does not publish
+it on the public node endpoints.

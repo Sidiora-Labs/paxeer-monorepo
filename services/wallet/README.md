@@ -20,7 +20,7 @@ Other directories are not pnpm packages:
 | `ceremony/` | Go module: the `ceremony` command (`plan`, `deliver`, `archive`, `rehearse`, `move`) for custody key ceremonies |
 | `schema/attestor-api` | Attestor API contract (`v1.kvx`) and golden examples |
 | `deploy/` | Attestor, gateway, endpoint and human service configuration files and the cutover material |
-| `docs/` | Cutover notes, runbooks and the security review |
+| `../../docs/wallet/service/` | [Cutover notes](../../docs/wallet/service/cutover.md), [runbooks](../../docs/wallet/service/runbooks/backup-restore.md) and the [security review](../../docs/wallet/service/security-review.md) |
 
 ## Install and test
 
@@ -52,7 +52,6 @@ Gateway:
 - `POLICY_MAX_TX_VALUE_WEI`, `POLICY_MAX_DAILY_VALUE_WEI`, `POLICY_RATE_LIMIT_PER_MINUTE`
 - `RATE_LIMIT_CLIENT_PER_MINUTE`, `RATE_LIMIT_ACCOUNT_PER_MINUTE`
 - `AGENT_JWT_SECRET`, `AGENT_TOKEN_TTL_SECONDS`, `AGENT_CHALLENGE_TTL_SECONDS`, `AGENT_REQUEST_MAX_TTL_SECONDS`, `AGENT_DEFAULT_FROZEN`, `AGENT_DEFAULT_MODE`, `AGENT_DEFAULT_MAX_TX_VALUE_WEI`, `AGENT_DEFAULT_MAX_DAILY_VALUE_WEI`, `AGENT_DEFAULT_RATE_LIMIT_PER_MINUTE`, `AGENT_DEFAULT_MAX_APPROVE_WEI`
-- `LAYERX_VAULT_ADDRESS`, `LAYERX_USDL_ADDRESS`, `LAYERX_USDL_DECIMALS`, `LAYER_X_DB_URI`, `LAYERX_SYNC_INTERVAL_MS`
 - `ACTION_CONFIRMATIONS`, `ACTION_RECEIPT_TIMEOUT_MS`, `ACTION_WORKER_INTERVAL_MS`, `ACTION_RECONCILE_INTERVAL_MS`, `ACTION_FEE_BUMP_PERCENT`
 - `WALLET_CUSTODY_INVENTORY_FILE`, `WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE`
 - `ATTESTOR_ENDPOINTS`, `ATTESTOR_CLIENT_CERT_FILE`, `ATTESTOR_CLIENT_KEY_FILE`, `ATTESTOR_CA_FILE`, `ATTESTOR_QUORUM`, `ATTESTOR_HEALTH_INTERVAL_MS`, `ATTESTOR_TIMEOUT_MS`

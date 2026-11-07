@@ -1,0 +1,51 @@
+[task.22.33.771]
+audit = "22.30.174"
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+acceptance = "22998.1: repair the three recorded RPC initialization and supervision failures without deleting, skipping or weakening tests; exact qualified revision and command evidence are retained by the bounded gate ledger."
+repair = "Deployment checks required scripts and the built executable, enforces build failure propagation, fails on copy/init errors and execs startup. Startup checks paxd and all three node configuration files, then execs paxd in the foreground with inherited logs and signals. Initialization validates configured providers, operator-pinned checkpoint identity and discovered peers through the production state_sync.py helper before paxd init or any node configuration edit; generated peers are staged and replaced by rename instead of appended. Existing storage/receipt overrides remain unchanged."
+operator_contract = "STATE_SYNC_RPC_SERVERS must name exactly two independently operated HTTP(S) origins with distinct canonical hostnames; credentials, paths, query strings and fragments are refused. STATE_SYNC_TRUST_HEIGHT is a positive int64 and STATE_SYNC_TRUST_HASH is a 32-byte hex hash independently verified by the operator. Both providers must return that exact height, chain identity from the pax genesis and hash. Different hostnames cannot establish administrative or infrastructure independence; the operator must verify it. No endpoint or checkpoint is silently selected."
+http_policy = "Each request requires HTTP 200 and JSON, refuses redirects and ambient proxies, uses a three-second socket timeout and checks a ten-second elapsed deadline on every bounded read. At most one MiB is retained per response, including responses without Content-Length; truncated or oversized bodies fail. DNS resolution, OS scheduling and live TLS/network availability remain platform/operator concerns."
+source_proof = "The pytest module parses the three scripts with bash -n and checks fail-fast guards, ordering, prerequisite checks, build/copy/init propagation, final exec commands and absence of backgrounding/completion markers. It imports the real production discovery helper, serves committed RPC transcript fixtures over loopback HTTP, calls configure through its real HTTP/validation/file writer path, parses its emitted TOML and checks every changed key plus unchanged keys. It verifies both provider requests, rejection of wrong chain/height/hash and malformed inputs, HTTP errors/redirects/content type/byte caps/timeouts/trickle deadlines, malformed peers, missing/duplicate configuration keys, atomic deduplicated peer publication and replacement on repeat initialization."
+review_only = "No paxd binary, native build, Docker container or live endpoint is required or executed. Shell failure and PID/signal propagation are proven by parsed source guards and exec ordering, not an executed node lifecycle. Administrative provider independence, actual checkpoint authenticity/freshness within the configured trust period, production DNS/TLS availability and supervisor readiness probes require operator review. This task has neither a restart-recovery nor an interface-mismatch finding; rerunning the real helper and reopening its files proves repeat-discovery replacement, not node crash recovery. No unit or build manifest is changed."
+baseline = "No pre-change verification was run and no baseline test failures are claimed: the explicit implementation-first order and hf-done-only gate instructions override the contradictory unchanged-tree baseline step. Initial git status/diff showed only runner-prepared .cgignore and spec task status changes, both preserved; the scoped repair artifacts were absent. Initial gate.json recorded zero builds and verifies, two repair cycles available, and gates.jsonl was absent."
+build_cmd = "bash -n docker/rpcnode/scripts/deploy.sh docker/rpcnode/scripts/step1_configure_init.sh docker/rpcnode/scripts/step2_start_pax.sh"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_771.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done JSON and matching private evidence_ledger row name the exact content-derived candidate revision, command, exit code and private log path. This record is finalized before the gates; putting its own content-derived revision into this file would change the revision. Build and verification must pass on the same candidate. The runner publishes the task; no manual commit or push is performed."
+outstanding_wiring_requests = ["docker/rpcnode/Dockerfile and its deployment environment; owning domain 16 (tools/ops): provision independently verified STATE_SYNC_RPC_SERVERS, STATE_SYNC_TRUST_HEIGHT and STATE_SYNC_TRUST_HASH and derive readiness from the running node rather than build/generated/rpc-launch.complete; retain the existing repository mount that supplies docker/rpcnode/config and the new scripts/state_sync.py alongside it."]
+
+[finding.rpc-deploy-failure]
+file = "docker/rpcnode/scripts/deploy.sh"
+class = "runtime-risk"
+severity = "medium"
+repair = "Fail-fast prerequisite/build/copy/init handling and an exec chain from deployment through startup to paxd. The build script is invoked with sh -e so an internal build failure cannot be hidden by its final marker write."
+tests = ["test_scripts_parse_and_fail_fast", "test_rpc_deploy_failure_prerequisites_and_supervision", "test_state_sync_shell_stages_before_any_node_mutation"]
+
+[finding.rpc-state-sync-trust]
+file = "docker/rpcnode/scripts/step1_configure_init.sh"
+class = "config-drift"
+severity = "medium"
+repair = "Require two configured provider hosts and an independently pinned checkpoint; bound and validate both providers' responses and peer addresses; validate local genesis and both checkpoint identities before initialization; stage a section-specific node configuration and atomically replace the deduplicated discovered peer file."
+tests = ["test_state_sync_real_http_to_toml_and_atomic_peer_replacement", "test_state_sync_shell_stages_before_any_node_mutation", "test_operator_inputs_rejected_before_publication", "test_disagreeing_provider_cannot_publish_checkpoint", "test_invalid_discovery_leaves_both_files_unchanged", "test_discovery_requires_bounded_nonempty_peers", "test_http_errors_bounds_and_redirects_are_rejected", "test_http_trickle_cannot_extend_deadline", "test_invalid_config_template_cannot_publish", "test_genesis_chain_must_match_node_before_discovery"]
+
+[finding.rpc-background-start]
+file = "docker/rpcnode/scripts/step2_start_pax.sh"
+class = "runtime-risk"
+severity = "medium"
+repair = "Replace background execution and premature completion marker with foreground exec; node logs, signals and exit status reach the container supervisor directly."
+tests = ["test_scripts_parse_and_fail_fast", "test_rpc_background_start_foreground_node_and_no_completion_marker"]
+
+[format]
+policy = "No Python, shell or KVX formatter is configured in these paths; after implementation apply repository .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to touched files only."
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the gate order and state honestly that no baseline run or baseline failures exist; GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Codify brief/context uses a stale graph and reports unrelated changes; broad ledger and audit reads exceed output limits."
+resolution = "Use actual git status/diff, the assigned task block, named production files and the private bounded gate ledger; preserve runner bookkeeping and record this issue here because GOTCHA.kvx is outside scope."
+
+[gotcha.3]
+observed = "The initial discovery script reads top-level peer/block keys, while the actual RPC producer wraps ResultBlock and ResultNetInfo in the JSON-RPC result envelope and peers include node_id and mconn URLs."
+resolution = "Validate the real response envelope, producer peer identity and URL shape in the production helper and committed loopback fixtures."

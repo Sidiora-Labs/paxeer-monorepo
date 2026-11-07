@@ -1,0 +1,37 @@
+{
+  "manifests": {
+    "apps/launchpad/pnpm-lock.yaml": {
+      "@humanfs/node": "0.16.8",
+      "@sentry/nextjs": "10.75.2",
+      "@vitest/mocker": "4.1.12",
+      "body-parser": "1.20.9",
+      "brace-expansion": "1.1.21",
+      "decode-uri-component": "0.5.1",
+      "esbuild": "0.28.1",
+      "fast-uri": "3.1.9",
+      "fast-xml-parser": "5.7.0",
+      "follow-redirects": "1.16.2",
+      "glob": "14.0.2",
+      "hono": "4.13.11",
+      "joi": "17.13.9",
+      "js-yaml": "4.3.2",
+      "minimatch": "11.0.1",
+      "next": "15.5.28",
+      "qs": "6.16.1",
+      "uuid": "11.1.1",
+      "vite": "7.3.7",
+      "vitest": "4.1.11",
+      "zod": "4.6.6"
+    },
+    "apps/launchpad/web/package.json": {
+      "next": "15.5.28",
+      "vitest": "4.1.11"
+    },
+    "apps/launchpad/mobile/package.json": {
+      "vitest": "4.1.11"
+    },
+    "apps/launchpad/qualification/image-dependencies/fixture/package.json": {
+      "next": "15.5.28"
+    }
+  }
+}

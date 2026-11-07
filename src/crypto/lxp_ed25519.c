@@ -44,6 +44,35 @@ bool lxp_ed25519_pubkey_is_canonical(const uint8_t public_key[32])
     return little_endian_less(y, field_prime, sizeof(y)) != 0;
 }
 
+static bool point_is_strict(const uint8_t encoded[32])
+{
+    /* The other small-order y coordinates from libsodium 1.0.20's
+       ge25519_has_small_order; canonical checks already reject y = 0, 1, p, p+1.
+       Masking x's sign covers both encodings of every torsion point. */
+    static const uint8_t torsion_y[3][32] = {
+        {0x26U,0xe8U,0x95U,0x8fU,0xc2U,0xb2U,0x27U,0xb0U,
+         0x45U,0xc3U,0xf4U,0x89U,0xf2U,0xefU,0x98U,0xf0U,
+         0xd5U,0xdfU,0xacU,0x05U,0xd3U,0xc6U,0x33U,0x39U,
+         0xb1U,0x38U,0x02U,0x88U,0x6dU,0x53U,0xfcU,0x05U},
+        {0xc7U,0x17U,0x6aU,0x70U,0x3dU,0x4dU,0xd8U,0x4fU,
+         0xbaU,0x3cU,0x0bU,0x76U,0x0dU,0x10U,0x67U,0x0fU,
+         0x2aU,0x20U,0x53U,0xfaU,0x2cU,0x39U,0xccU,0xc6U,
+         0x4eU,0xc7U,0xfdU,0x77U,0x92U,0xacU,0x03U,0x7aU},
+        {0xecU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,
+         0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,
+         0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,
+         0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0xffU,0x7fU}
+    };
+    uint8_t y[32];
+    size_t i;
+    if (!lxp_ed25519_pubkey_is_canonical(encoded)) return false;
+    (void)memcpy(y, encoded, sizeof(y));
+    y[31] &= 0x7fU;
+    for (i = 0U; i < sizeof(torsion_y) / sizeof(torsion_y[0]); ++i)
+        if (lxp_ct_memcmp(y, torsion_y[i], sizeof(y)) == 0) return false;
+    return true;
+}
+
 lxp_result lxp_ed25519_verify_raw(const uint8_t public_key[32],
                                   const uint8_t signature[64],
                                   const void *message, size_t message_length)
@@ -53,7 +82,7 @@ lxp_result lxp_ed25519_verify_raw(const uint8_t public_key[32],
     int verified;
     if (public_key == NULL || signature == NULL ||
         (message == NULL && message_length != 0U) ||
-        !lxp_ed25519_pubkey_is_canonical(public_key) ||
+        !point_is_strict(public_key) || !point_is_strict(signature) ||
         !scalar_is_canonical(signature + 32U)) return LXP_ERR_BAD_SIGNATURE;
     key = EVP_PKEY_new_raw_public_key(EVP_PKEY_ED25519, NULL, public_key, 32U);
     if (key == NULL) return LXP_ERR_BAD_SIGNATURE;

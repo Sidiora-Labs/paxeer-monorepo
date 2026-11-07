@@ -110,9 +110,20 @@ func mixedLogTesterTransfer(nonce uint64, recipient common.Address) ethtypes.TxD
 }
 
 func registerCW20Pointer(nonce uint64, cw20Addr string) ethtypes.TxData {
-	pInfo := precompiles.GetPrecompileInfo(pointer.PrecompileName)
-	input, _ := pInfo.ABI.Pack("addCW20Pointer", cw20Addr)
-	pointer := common.HexToAddress(pointer.PointerAddress)
+	return RegisterCW20PointerTx(nonce, cw20Addr)
+}
+
+// RegisterCW20PointerTx builds the transaction used by the RPC scenarios.
+func RegisterCW20PointerTx(nonce uint64, cw20Addr string) ethtypes.TxData {
+	pInfo, err := precompiles.GetPrecompileInfoE(pointer.PrecompileName)
+	if err != nil {
+		panic(err)
+	}
+	input, err := pInfo.ABI.Pack(pointer.AddCW20Pointer, cw20Addr)
+	if err != nil {
+		panic(err)
+	}
+	pointer := pInfo.Address
 	return &ethtypes.DynamicFeeTx{
 		Nonce:     nonce,
 		GasFeeCap: big.NewInt(1000000000),
@@ -176,8 +187,11 @@ func bankSendMsg(mnemonic string) sdk.Msg {
 
 func callWasmIter(nonce uint64, contractAddr string) ethtypes.TxData {
 	pInfo := precompiles.GetPrecompileInfo(wasmd.PrecompileName)
-	input, _ := pInfo.ABI.Pack("execute", contractAddr, []byte("{\"do_something\":{}}"), []byte("[]"))
-	wasmd := common.HexToAddress(wasmd.WasmdAddress)
+	input, err := pInfo.ABI.Pack("execute", contractAddr, []byte("{\"do_something\":{}}"), []byte("[]"))
+	if err != nil {
+		panic(err)
+	}
+	wasmd := pInfo.Address
 	return &ethtypes.DynamicFeeTx{
 		Nonce:     nonce,
 		GasFeeCap: big.NewInt(1000000000),

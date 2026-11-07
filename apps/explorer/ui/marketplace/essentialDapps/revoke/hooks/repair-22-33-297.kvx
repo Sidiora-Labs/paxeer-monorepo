@@ -1,0 +1,62 @@
+[repair.22.33.297]
+mode = "BUILD"
+scope = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks"
+acceptance = "22998.1"
+baseline = "Not run: ordered instructions forbid tests until the entire implementation is complete and require verification only through hf-done after hf-build. No pre-change failures are claimed."
+evidence = "Exact candidate revision, command, exit and private log are recorded by hf-build and hf-done in /out/run/gates.jsonl; final response copies the last gate evidence."
+
+[finding.approvals-false-empty]
+tests = ["approvalsFalseEmptyRetainsQueryAndRetry", "approvalsMissingClientIsError", "erc20ScanErrorsPreserveRowsAndPartialCoverage", "scanCancellationAndNftReadErrorsAreNotEmptySuccess"]
+repair = "React Query receives failures; incomplete scans carry partial allowances, failed permission candidates and retryable issues; retry retains the query's selected chain/account. Abort errors propagate."
+wiring_request = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/Content.tsx and Approvals.tsx — explorer revoke UI domain: render coverage, scanIssues, partialAllowances and retry from useApprovalsQuery, reserving empty state for complete scans."
+wiring_request_logs = "apps/explorer/ui/marketplace/essentialDapps/revoke/lib/getLogs.ts — explorer revoke RPC domain: terminate splitting at a single failing block and propagate its provider error; recursive range exhaustion is outside this hook scope."
+
+[finding.revoke-rewards-lifecycle]
+tests = ["revokeRewardsLifecycleRetainsHashAndRetriesWithoutResubmission", "revokeRewardsRetriesAreBoundedAndReceiptIsAuthoritative", "revokeReceiptCompletesWhileRewardsPending"]
+repair = "The production submission retains its hash, follows receipts independently, reports rewards state/errors separately, bounds rewards to three attempts with a ten-second request deadline, and reuses the submitted transaction for receipt recovery."
+wiring_request = "apps/explorer/ui/marketplace/essentialDapps/revoke/components/ApprovalsListItem.tsx and ApprovalsTableItem.tsx — explorer revoke UI domain: present useRevoke.transaction and retryRewards independently from the authoritative boolean revoke result."
+wiring_request_rewards = "apps/explorer/lib/hooks/useRewardsActivity.tsx — explorer rewards domain: propagate registration failures separately from ineligibility instead of swallowing them; confirmation in useRevoke uses useApiFetch so its failures are observable today."
+
+[finding.erc20-scan-errors]
+tests = ["erc20ScanErrorsPreserveRowsAndPartialCoverage"]
+repair = "Zero reads are excluded; failed reads become explicit retryable permission issues; missing metadata retains address-only positive approvals and records incomplete coverage."
+
+[finding.approval-event-recency]
+tests = ["approvalEventRecencyFollowsGrantChangeRevokeGrant", "nftTokenDeduplicationKeepsEveryTokenAndLatestEvent"]
+repair = "Permission discovery selects the latest block/log position per normalized contract/permission key before reading current state, including grant/change/revoke/grant and unordered input."
+
+[finding.erc20-balance-normalization]
+tests = ["erc20BalanceNormalizationAndZeroDecimalsPreserveRisk"]
+repair = "API balance keys and log contracts both use getAddress before lookup."
+
+[finding.erc20-zero-decimals]
+tests = ["erc20BalanceNormalizationAndZeroDecimalsPreserveRisk", "erc20InvalidDecimalsDoNotInventScale"]
+repair = "Decimals are present integers between zero and 255; zero scales positive balance/allowance exposure correctly, while unavailable or invalid decimals never invent a scale."
+
+[finding.nft-token-deduplication]
+tests = ["nftTokenDeduplicationKeepsEveryTokenAndLatestEvent"]
+repair = "Token permissions use contract plus decoded tokenId; current getApproved is read once per current token, including token zero and multiple tokens sharing a spender."
+
+[finding.nft-current-owner]
+tests = ["nftCurrentOwnerRejectsTransferredAndReapprovedToken"]
+repair = "ownerOf must match the searched owner before getApproved is read or a token permission is displayed."
+
+[proof]
+test_file = "apps/explorer/ui/marketplace/essentialDapps/revoke/hooks/repair-22-33-297.spec.ts"
+path = "Production hook callbacks and QueryClient -> real API fetch and viem HTTP/ABI encoders/decoders -> loopback API/RPC transcript -> production permission rows, coverage errors and submission state."
+constraints = "No mocks, native artifacts, subprocesses, environment overrides, credentials or live endpoints; the test owns and closes its loopback server and React Query clients."
+
+[gotcha.formatter]
+observed = "ESLint applies formatting but its Vitest lint rules reject the explicitly required test(namedFunction) registration as a non-string title and cannot see the function's assertions."
+action = "Preserve the named test functions, assertions and enabled checks; qualify only through the declared hf-build and hf-done gates."
+
+[gotcha.working-directory]
+observed = "A repository-relative Python edit was launched from apps/explorer and failed before writing any file."
+action = "Use absolute paths for edits when running a formatter from the application directory."
+
+[qualification.build-1]
+revision = "88a0a917fe87647f688dd65bc94dd3e21e14d432"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && yarn tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The JSON.parse safety override returns unknown and React's installed useRef type requires an initializer; repair validates the JSON-RPC envelope and initializes the ref explicitly."

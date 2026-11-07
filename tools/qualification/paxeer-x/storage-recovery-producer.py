@@ -11,17 +11,21 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[3]
 SCHEMA = 'paxeer-x.storage-recovery-artifacts.v1'
-TESTS = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_batch_wal_recovery')
-ORDER_CHECK = 'tests/storage/check_daemon_recovery_order.sh'
+TESTS = ('lxp_test_recovery', 'lxp_test_log_durability', 'lxp_test_rebuild')
 SOURCES = tuple('tests/storage/' + name + '.c' for name in TESTS) + (
-    ORDER_CHECK, 'cmd/layerxd/lxp_daemon_process.c',
-    'cmd/layerxd/lxp_daemon_batch_wal.c',
-    'cmd/layerxd/lxp_daemon_batch_wal.h',
-    'cmd/layerxd/lxp_daemon_handover_history.c',
-    'cmd/layerxd/lxp_daemon_receipt_authority.c',
-    'cmd/layerxd/lxp_daemon_evidence.c',
-    'src/modules/programs/feed_store.c',
-    'tools/paxeer-x/gates/104.38.1.sh',
+    'src/storage/lxp_log.c',
+    'src/storage/lxp_log_recover.c',
+    'src/storage/lxp_snapshot_store.c',
+    'src/storage/lxp_projection.c',
+    'include/layerx/lxp_storage.h',
+    'include/layerx/lxp_snapshot.h',
+    'include/layerx/lxp_projection.h',
+    'migrations/0001_projection.sql',
+    'modules/lxphost/host.go',
+    'modules/lxphost/ctx.go',
+    'modules/lxphost/idempotency_restart_test.go',
+    'node/rpc_restart_test.go',
+    'Makefile',
     'tools/qualification/paxeer-x/storage-recovery-producer.py',
     'tools/qualification/paxeer-x/storage-recovery.py')
 TOOLS = ('make', 'cc', 'cargo')
@@ -111,6 +115,24 @@ def toolchain():
     return settings
 
 
+def build_command(settings):
+    return ['make', '-j3', 'PROGRAMS_TARGET_DIR=' + settings['PROGRAMS_TARGET_DIR'],
+            'PROGRAMS_RUNTIME_LIB=' + settings['PROGRAMS_RUNTIME_LIB']] + [
+                'build/tests/' + name for name in TESTS]
+
+
+def build_inputs(source, scoped, settings):
+    return {'schema': SCHEMA, **source, 'command': build_command(settings),
+            'cwd': str(ROOT), 'log': LOG, 'sources': scoped}
+
+
+def publish_manifest(directory, record):
+    record = dict(record, artifacts={name: artifact(directory, 'bin/' + name) for name in TESTS},
+                  log_sha256=digest(directory / LOG))
+    write_private(directory / 'manifest.json', record)
+    return directory / 'manifest.json'
+
+
 def build(output):
     source = identity()
     settings = toolchain()
@@ -119,11 +141,8 @@ def build(output):
             'build output must be absent or a fresh empty directory')
     directory = private_directory(directory, create=True)
     scoped = sources()
-    command = ['make', '-j3', 'PROGRAMS_TARGET_DIR=' + settings['PROGRAMS_TARGET_DIR'],
-               'PROGRAMS_RUNTIME_LIB=' + settings['PROGRAMS_RUNTIME_LIB']]
-    command += ['layerxd'] + ['build/tests/' + name for name in TESTS]
-    record = {'schema': SCHEMA, **source, 'command': command, 'cwd': str(ROOT),
-              'log': LOG, 'sources': scoped}
+    record = build_inputs(source, scoped, settings)
+    command = record['command']
     print('BUILD ' + json.dumps(command), flush=True)
     fd = os.open(directory / LOG, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'wb') as stream:
@@ -147,17 +166,13 @@ def build(output):
     require(identity() == source and sources() == scoped, 'source changed during build')
     binaries = directory / 'bin'
     binaries.mkdir(mode=0o700)
-    artifacts = {}
     for name in TESTS:
         built = ROOT / 'build/tests' / name
         require(built.is_file() and os.access(built, os.X_OK),
                 'make did not produce executable ' + name)
         shutil.copyfile(built, binaries / name)
         (binaries / name).chmod(0o700)
-        artifacts[name] = artifact(directory, 'bin/' + name)
-    record['artifacts'] = artifacts
-    record['log_sha256'] = digest(directory / LOG)
-    write_private(directory / 'manifest.json', record)
+    publish_manifest(directory, record)
     print('STORAGE_RECOVERY_BUILD_MANIFEST ' + str(directory / 'manifest.json'))
 
 

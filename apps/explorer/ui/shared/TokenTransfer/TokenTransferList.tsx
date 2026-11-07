@@ -4,6 +4,7 @@ import React from 'react';
 import type { TokenTransfer } from 'types/api/tokenTransfer';
 
 import { useMultichainContext } from 'lib/contexts/multichain';
+import { getTokenTransferKey } from 'ui/shared/TokenTransfer/helpers';
 import TokenTransferListItem from 'ui/shared/TokenTransfer/TokenTransferListItem';
 
 interface Props {
@@ -14,7 +15,7 @@ interface Props {
   isLoading?: boolean;
 }
 
-const TokenTransferList = ({ data, baseAddress, showTxInfo, enableTimeIncrement, isLoading }: Props) => {
+export const TokenTransferList = ({ data, baseAddress, showTxInfo, enableTimeIncrement, isLoading }: Props) => {
   const multichainContext = useMultichainContext();
   const chainData = multichainContext?.chain;
 
@@ -22,7 +23,7 @@ const TokenTransferList = ({ data, baseAddress, showTxInfo, enableTimeIncrement,
     <Box>
       { data.map((item, index) => (
         <TokenTransferListItem
-          key={ item.transaction_hash + item.block_hash + item.log_index + (isLoading ? index : '') }
+          key={ getTokenTransferKey(item, isLoading ? index : undefined) }
           { ...item }
           baseAddress={ baseAddress }
           showTxInfo={ showTxInfo }

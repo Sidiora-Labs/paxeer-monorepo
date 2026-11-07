@@ -26,3 +26,15 @@ func (k *Keeper) CheckPause(ctx sdk.Context, method string) error {
 	}
 	return types.ErrPaused
 }
+
+func (k *Keeper) SetPaused(ctx sdk.Context, authority string, paused bool) error {
+	if err := k.checkGovernanceAuthority(authority); err != nil {
+		return err
+	}
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return err
+	}
+	params.Paused = paused
+	return k.setParams(ctx, params)
+}

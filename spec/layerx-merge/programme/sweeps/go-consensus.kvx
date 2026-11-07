@@ -1,0 +1,819 @@
+[sweep.go-consensus]
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 162
+targets_passed = 161
+targets_failed = 1
+targets_not_run = 0
+
+[target.go-consensus.1]
+target = "consensus/abci/example"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.2]
+target = "consensus/abci/example/code"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.3]
+target = "consensus/abci/example/kvstore"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.4]
+target = "consensus/abci/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.5]
+target = "consensus/abci/types/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.6]
+target = "consensus/autobahn/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.7]
+target = "consensus/cmd/contract_tests"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.8]
+target = "consensus/cmd/priv_val_server"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.9]
+target = "consensus/cmd/tendermint/commands"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.10]
+target = "consensus/cmd/tendermint/commands/debug"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.11]
+target = "consensus/config"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.12]
+target = "consensus/crypto"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.13]
+target = "consensus/crypto/ed25519"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.14]
+target = "consensus/crypto/merkle"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.15]
+target = "consensus/crypto/tmhash"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.16]
+target = "consensus/export"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.17]
+target = "consensus/internal/autobahn/avail"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.18]
+target = "consensus/internal/autobahn/consensus"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.19]
+target = "consensus/internal/autobahn/consensus/persist"
+result = "failed"
+exit_code = 1
+observed = "TestPersistWriteErrorDoesNotAdvanceSeq fails at consensus/internal/autobahn/consensus/persist/persist_test.go:181 because an error is expected but got nil."
+assumption = "The sandbox runs as root and can bypass chmod 0000 permissions, likely causing both this test and TestLoadPersistedOSErrorPropagates to receive nil instead of the expected filesystem errors."
+
+[target.go-consensus.20]
+target = "consensus/internal/autobahn/data"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.21]
+target = "consensus/internal/autobahn/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.22]
+target = "consensus/internal/autobahn/producer"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.23]
+target = "consensus/internal/blocksync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.24]
+target = "consensus/internal/consensus"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.25]
+target = "consensus/internal/consensus/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.26]
+target = "consensus/internal/eventbus"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.27]
+target = "consensus/internal/eventlog"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.28]
+target = "consensus/internal/eventlog/cursor"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.29]
+target = "consensus/internal/evidence"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.30]
+target = "consensus/internal/evidence/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.31]
+target = "consensus/internal/hashable"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.32]
+target = "consensus/internal/hashable/internal/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.33]
+target = "consensus/internal/hashable/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.34]
+target = "consensus/internal/hashable/plugin"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.35]
+target = "consensus/internal/inspect"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.36]
+target = "consensus/internal/inspect/rpc"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.37]
+target = "consensus/internal/jsontypes"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.38]
+target = "consensus/internal/libs/async"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.39]
+target = "consensus/internal/libs/clist"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.40]
+target = "consensus/internal/libs/flowrate"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.41]
+target = "consensus/internal/libs/progressbar"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.42]
+target = "consensus/internal/libs/protoio"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.43]
+target = "consensus/internal/libs/queue"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.44]
+target = "consensus/internal/libs/reservoir"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.45]
+target = "consensus/internal/libs/sync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.46]
+target = "consensus/internal/libs/tempfile"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.47]
+target = "consensus/internal/libs/test"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.48]
+target = "consensus/internal/libs/timer"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.49]
+target = "consensus/internal/libs/wal"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.50]
+target = "consensus/internal/mempool"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.51]
+target = "consensus/internal/mempool/reactor"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.52]
+target = "consensus/internal/p2p"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.53]
+target = "consensus/internal/p2p/conn"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.54]
+target = "consensus/internal/p2p/giga"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.55]
+target = "consensus/internal/p2p/giga/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.56]
+target = "consensus/internal/p2p/mux"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.57]
+target = "consensus/internal/p2p/mux/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.58]
+target = "consensus/internal/p2p/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.59]
+target = "consensus/internal/p2p/pex"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.60]
+target = "consensus/internal/p2p/rpc"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.61]
+target = "consensus/internal/protoutils"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.62]
+target = "consensus/internal/protoutils/pb"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.63]
+target = "consensus/internal/protoutils/wireguard"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.64]
+target = "consensus/internal/protoutils/wireguard/plugin"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.65]
+target = "consensus/internal/protoutils/wireguard/wgtest"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.66]
+target = "consensus/internal/proxy"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.67]
+target = "consensus/internal/pubsub"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.68]
+target = "consensus/internal/pubsub/query"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.69]
+target = "consensus/internal/pubsub/query/syntax"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.70]
+target = "consensus/internal/rpc/core"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.71]
+target = "consensus/internal/state"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.72]
+target = "consensus/internal/state/indexer"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.73]
+target = "consensus/internal/state/indexer/block/kv"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.74]
+target = "consensus/internal/state/indexer/block/null"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.75]
+target = "consensus/internal/state/indexer/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.76]
+target = "consensus/internal/state/indexer/sink"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.77]
+target = "consensus/internal/state/indexer/sink/kv"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.78]
+target = "consensus/internal/state/indexer/sink/null"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.79]
+target = "consensus/internal/state/indexer/sink/psql"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.80]
+target = "consensus/internal/state/indexer/tx/kv"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.81]
+target = "consensus/internal/state/indexer/tx/null"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.82]
+target = "consensus/internal/state/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.83]
+target = "consensus/internal/state/test/factory"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.84]
+target = "consensus/internal/statesync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.85]
+target = "consensus/internal/statesync/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.86]
+target = "consensus/internal/store"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.87]
+target = "consensus/internal/test/factory"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.88]
+target = "consensus/libs/bits"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.89]
+target = "consensus/libs/bytes"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.90]
+target = "consensus/libs/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.91]
+target = "consensus/libs/json"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.92]
+target = "consensus/libs/math"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.93]
+target = "consensus/libs/net"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.94]
+target = "consensus/libs/os"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.95]
+target = "consensus/libs/rand"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.96]
+target = "consensus/libs/service"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.97]
+target = "consensus/libs/strings"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.98]
+target = "consensus/libs/sync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.99]
+target = "consensus/libs/time"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.100]
+target = "consensus/libs/time/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.101]
+target = "consensus/libs/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.102]
+target = "consensus/libs/utils/im"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.103]
+target = "consensus/libs/utils/require"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.104]
+target = "consensus/libs/utils/scope"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.105]
+target = "consensus/libs/utils/tcp"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.106]
+target = "consensus/light"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.107]
+target = "consensus/light/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.108]
+target = "consensus/light/provider"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.109]
+target = "consensus/light/provider/http"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.110]
+target = "consensus/light/provider/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.111]
+target = "consensus/light/proxy"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.112]
+target = "consensus/light/rpc"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.113]
+target = "consensus/light/rpc/mocks"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.114]
+target = "consensus/light/store"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.115]
+target = "consensus/light/store/db"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.116]
+target = "consensus/node"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.117]
+target = "consensus/privval"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.118]
+target = "consensus/privval/grpc"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.119]
+target = "consensus/proto/tendermint/blocksync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.120]
+target = "consensus/proto/tendermint/consensus"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.121]
+target = "consensus/proto/tendermint/crypto"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.122]
+target = "consensus/proto/tendermint/libs/bits"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.123]
+target = "consensus/proto/tendermint/mempool"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.124]
+target = "consensus/proto/tendermint/p2p"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.125]
+target = "consensus/proto/tendermint/privval"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.126]
+target = "consensus/proto/tendermint/state"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.127]
+target = "consensus/proto/tendermint/statesync"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.128]
+target = "consensus/proto/tendermint/store"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.129]
+target = "consensus/proto/tendermint/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.130]
+target = "consensus/proto/tendermint/version"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.131]
+target = "consensus/proto/wireguard"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.132]
+target = "consensus/rpc/client"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.133]
+target = "consensus/rpc/client/eventstream"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.134]
+target = "consensus/rpc/client/http"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.135]
+target = "consensus/rpc/client/local"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.136]
+target = "consensus/rpc/client/mock"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.137]
+target = "consensus/rpc/coretypes"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.138]
+target = "consensus/rpc/jsonrpc"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.139]
+target = "consensus/rpc/jsonrpc/client"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.140]
+target = "consensus/rpc/jsonrpc/server"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.141]
+target = "consensus/rpc/jsonrpc/test"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.142]
+target = "consensus/rpc/jsonrpc/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.143]
+target = "consensus/rpc/test"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.144]
+target = "consensus/scripts/confix"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.145]
+target = "consensus/scripts/confix/condiff"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.146]
+target = "consensus/scripts/estream"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.147]
+target = "consensus/scripts/keymigrate"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.148]
+target = "consensus/scripts/linkpatch"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.149]
+target = "consensus/scripts/metricsgen"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.150]
+target = "consensus/scripts/metricsgen/metricsdiff"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.151]
+target = "consensus/scripts/scmigrate"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.152]
+target = "consensus/state"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.153]
+target = "consensus/test/e2e/app"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.154]
+target = "consensus/test/e2e/generator"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.155]
+target = "consensus/test/e2e/node"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.156]
+target = "consensus/test/e2e/pkg"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.157]
+target = "consensus/test/e2e/runner"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.158]
+target = "consensus/test/e2e/tests"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.159]
+target = "consensus/test/maketargets"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.160]
+target = "consensus/types"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.161]
+target = "consensus/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-consensus.162]
+target = "consensus/version"
+result = "passed"
+exit_code = 0

@@ -1,0 +1,11 @@
+[repair.22.31.161]
+finding = "solana-caught-cpi"
+proving_test = "solana_caught_cpi_progress_and_restart_recovery"
+producer = "Committed src/solana/fixtures/caught_cpi.json retains deposit instructions, deposit logs and base64 account bytes from tests/fixtures/solana_inbound.json; regression invocation envelopes model caught failure and ancestor rollback"
+transport = "In-process loopback transcript server through the production PaxeerTransport, PaxeerRpc and SolanaRpc; no subprocess, runtime toolchain or external endpoint"
+consumer = "observe_deposits; Journal close/reopen and recovered cursor resume prove later-deposit progress and stable replay"
+coverage = "Caught failed CPI; successful sibling; successful child with failed ancestor; per-invocation log ownership; missing successful receipt/log/outcome/instructions, duplicate logs, wrong depth and truncated evidence fail closed; legacy heights and native prefix preserve attribution"
+baseline = "Inherited attempt failed solana_caught_cpi_progress_and_restart_recovery before runtime readiness after 538 seconds (Solana accounts hash mismatch, cargo test exit 101); no fresh baseline was run because ordered gates require complete implementation before hf-build and hf-done"
+wiring_requests = []
+evidence = "Exact verified candidate revision, command, exit and private log are recorded by hf-build/hf-done; copy the final evidence line into the task result"
+gotcha = "The inherited cpi-proof helper was removed as required by gotcha 2966; the test now owns its loopback server and consumes committed transcript fixtures"

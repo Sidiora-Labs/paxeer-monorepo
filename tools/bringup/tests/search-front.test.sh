@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# Integration target: BRINGUP_HOSTS_FILE must name the disposable serving fleet.
+# The standalone Go task gate uses loopback readiness peers instead.
 # Renders the search front's upstream list and the serving sidecar
 # configuration from a fixture env, and runs nginx -t on
 # services/interop/deploy/search-front/nginx.conf with the rendered list included.
@@ -22,8 +24,13 @@ check() {
 	fi
 }
 
+: "${BRINGUP_HOSTS_FILE:?the serving-discovery integration target requires a disposable host map}"
+listing="$("$front" names)"
+selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$repo_root/docs/site/docs/reference/public-rpc.md" "" "")"
+read -r expected_primary expected_backup <<<"$selection"
+
 fixture_env=(
-	-u BRINGUP_HOSTS_FILE -u SEARCH_FRONT_PRIMARY -u SEARCH_FRONT_BACKUP
+	 -u SEARCH_FRONT_PRIMARY -u SEARCH_FRONT_BACKUP
 	https_proxy=http://127.0.0.1:9 HTTPS_PROXY=http://127.0.0.1:9 no_proxy= NO_PROXY=
 	SEARCH_FRONT_READINESS_TIMEOUT=2
 	X_WEBSEARCH_SEED_URL=https://paxeer.network/
@@ -35,31 +42,58 @@ fixture_env=(
 	X_WEBSEARCH_USDC_PRICE=1000
 	X_WEBSEARCH_USDL_ASSET_ID=0404040404040404040404040404040404040404040404040404040404040404
 	X_WEBSEARCH_USDL_PRICE=1000000000000000
-	X_WEBSEARCH_GATEWAY_ENDPOINT=https://api-mainnet-beta.paxeer.network/rpc
+	X_WEBSEARCH_GATEWAY_ENDPOINT=https://layerx-gateway.layerx-testnet.svc.cluster.local/rpc
+	X_WEBSEARCH_RECEIPT_KEY_ID=abcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcdcd
+	X_WEBSEARCH_RECEIPT_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
 	X_WEBSEARCH_SEQUENCER_ID=0505050505050505050505050505050505050505050505050505050505050505
 	X_WEBSEARCH_SEQUENCER_PUBLIC_KEY=d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a
-	X_WEBSEARCH_EVM_ENDPOINT=https://api15.paxeer.network/
+	X_WEBSEARCH_EVM_ENDPOINT=https://api1.mainnet-beta.paxeer.network/
+	X_WEBSEARCH_PAYER_ADDRESS=0x1111111111111111111111111111111111111111
 )
 
 status=0
 env "${fixture_env[@]}" "$front" render >"$work/upstreams.conf" 2>"$work/render.err" || status=$?
 check render_exit '[ "$status" -eq 0 ]'
-check render_pins_primary_unadmitted 'diff - <(grep -v "^#" "$work/upstreams.conf") <<"WANT"
-split_clients "${xweb_client}" $xweb_node {
-    * api15.paxeer.network;
+check render_pins_primary_unadmitted 'diff - <(grep -v "^#" "$work/upstreams.conf") <<WANT
+split_clients "\${xweb_client}" \$xweb_node {
+    * $expected_primary;
 }
-map $xweb_node $xweb_eligible {
+map \$xweb_node \$xweb_eligible {
     default 0;
-    api15.paxeer.network 0;
+    $expected_primary 0;
 }
 WANT'
-check render_names_both_unready 'grep -Fq "neither api15.paxeer.network nor api1.paxeer.network" "$work/render.err"'
+qualify_status=0
+env "${fixture_env[@]}" "$front" qualify <"$work/upstreams.conf" >"$work/qualify.out" 2>"$work/qualify.err" || qualify_status=$?
+check live_consumer_refuses_unadmitted_render '[ "$qualify_status" -eq 1 ] && [ ! -s "$work/qualify.out" ]'
+check render_names_both_unready 'grep -Fq "neither $expected_primary nor $expected_backup" "$work/render.err"'
+
+deploy_prints_upstreams_and_edge_registration() {
+	local status=0
+	local -a lines
+	env "${fixture_env[@]}" "$front" deploy search-front.example.net >"$work/deploy.out" 2>"$work/deploy.err" || status=$?
+	[ "$status" -eq 0 ] || return 1
+	mapfile -t lines <"$work/deploy.out"
+	[ "${#lines[@]}" -eq 2 ] || return 1
+	[[ "${lines[0]}" == SEARCH_FRONT_UPSTREAMS=* ]] || return 1
+	printf '%s' "${lines[0]#SEARCH_FRONT_UPSTREAMS=}" | base64 --decode >"$work/deploy-upstreams.conf" || return 1
+	cmp "$work/upstreams.conf" "$work/deploy-upstreams.conf" || return 1
+	[ "${lines[1]}" = 'tools/bringup/edge.sh register search.paxeer.network search-front.example.net' ] || return 1
+	status=0
+	env "${fixture_env[@]}" "$front" deploy >"$work/deploy-no-host.out" 2>"$work/deploy-no-host.err" || status=$?
+	[ "$status" -eq 2 ] || return 1
+	[ ! -s "$work/deploy-no-host.out" ] || return 1
+	grep -Fq 'usage: tools/bringup/search-front.sh' "$work/deploy-no-host.err" || return 1
+	grep -Fq 'the rightmost' "$work/deploy-no-host.err" || return 1
+	grep -Fq 'X-Forwarded-For hop outside LAYERX_TRUSTED_PROXIES' "$work/deploy-no-host.err"
+}
+check deploy_prints_upstreams_and_edge_registration deploy_prints_upstreams_and_edge_registration
 
 status=0
-env "${fixture_env[@]}" SEARCH_FRONT_BACKUP=api15.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
+env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY="$expected_primary" SEARCH_FRONT_BACKUP="$expected_primary" "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_repeated_backup '[ "$status" -eq 1 ]'
 status=0
-env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY=api17.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
+env "${fixture_env[@]}" SEARCH_FRONT_PRIMARY=api15.mainnet-beta.paxeer.network "$front" render >/dev/null 2>&1 || status=$?
 check render_refuses_non_api_name '[ "$status" -eq 1 ]'
 
 status=0
@@ -69,9 +103,8 @@ check config_matches_template 'env "${fixture_env[@]}" python3 - "$repo_root/ser
 import json, os, re, sys
 template = json.load(open(sys.argv[1]))
 rendered = json.load(open(sys.argv[2]))
-assert "note" in template and "note" not in rendered
+assert "note" not in rendered
 assert "REPLACE_WITH" not in open(sys.argv[1]).read()
-template.pop("note")
 def walk(want, got):
     if isinstance(want, dict):
         assert isinstance(got, dict) and set(want) == set(got)
@@ -89,6 +122,56 @@ def walk(want, got):
 walk(template, rendered)
 assert rendered["assets"]["PAX"]["price"] == "74405000000000"
 PY'
+
+config_receipt_key_ids_are_hex32() {
+	python3 - "$work/x-websearch.json" <<'PY'
+import json, re, sys
+
+rendered = json.load(open(sys.argv[1]))
+for entry in rendered["gateway"]["receipt_keys"]:
+    key_id = entry["key_id"]
+    assert re.fullmatch(r"[0-9a-f]{64}", key_id), key_id
+    assert len(set(bytes.fromhex(key_id))) > 1, key_id
+PY
+}
+check config_receipt_key_ids_are_hex32 config_receipt_key_ids_are_hex32
+
+config_gateway_uses_hosted_service() {
+	python3 - "$repo_root/services/platform/hosted/gateway/deployment.yaml" "$work/x-websearch.json" <<'PYTEST'
+import json, re, sys
+from urllib.parse import urlsplit
+
+deployment = open(sys.argv[1]).read()
+rendered = json.load(open(sys.argv[2]))
+endpoint = urlsplit(rendered["gateway"]["endpoint"])
+assert re.search(r"kind: Service\s+metadata: \{name: layerx-gateway, namespace: layerx-testnet\}", deployment)
+assert "port: 443, targetPort: https" in deployment
+assert endpoint.scheme == "https"
+assert endpoint.hostname == "layerx-gateway.layerx-testnet.svc.cluster.local"
+assert endpoint.path == "/rpc"
+PYTEST
+}
+check config_gateway_uses_hosted_service config_gateway_uses_hosted_service
+
+config_refuses_unconfigured_gateway() {
+	local status=0
+	env "${fixture_env[@]}" X_WEBSEARCH_GATEWAY_ENDPOINT= "$front" config >"$work/no-gateway.out" 2>"$work/no-gateway.err" || status=$?
+	[ "$status" -eq 1 ] && [ ! -s "$work/no-gateway.out" ] &&
+		grep -Fxq 'search-front: unset X_WEBSEARCH_GATEWAY_ENDPOINT' "$work/no-gateway.err"
+}
+check config_refuses_unconfigured_gateway config_refuses_unconfigured_gateway
+
+xweb_refuses_unconfigured_gateway() {
+	local mode status
+	for mode in prices register; do
+		status=0
+		env -u XWEB_GATEWAY_ENDPOINT "$repo_root/tools/bringup/xweb-config.sh" "$mode" >"$work/xweb-$mode.out" 2>"$work/xweb-$mode.err" || status=$?
+		[ "$status" -eq 2 ] && [ ! -s "$work/xweb-$mode.out" ] &&
+			grep -Fxq 'xweb-config: hosted gateway endpoint is not configured (XWEB_GATEWAY_ENDPOINT)' "$work/xweb-$mode.err" || return 1
+	done
+}
+check xweb_refuses_unconfigured_gateway xweb_refuses_unconfigured_gateway
+
 status=0
 env "${fixture_env[@]}" X_WEBSEARCH_EVM_ENDPOINT= env -u X_WEBSEARCH_PAX_PRICE "$front" config >/dev/null 2>"$work/missing.err" || status=$?
 check config_refuses_unset '[ "$status" -eq 1 ] && grep -Fxq "search-front: unset X_WEBSEARCH_PAX_PRICE X_WEBSEARCH_EVM_ENDPOINT" "$work/missing.err"'

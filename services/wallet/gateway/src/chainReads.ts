@@ -3,12 +3,16 @@ import {
   http,
   encodeFunctionData,
   parseAbiItem,
+  formatTransaction,
+  formatTransactionReceipt,
   type AbiFunction,
   type Hex,
   type PublicClient,
 } from 'viem';
+import { z } from 'zod';
 import { hyperPaxeer } from './chain.js';
 import { env } from './env.js';
+import { RpcUnavailableError, sharedRpcPool } from './rpc/pool.js';
 
 /**
  * Read-only chain access for the agent lane.
@@ -100,10 +104,7 @@ export async function getNativeBalance(address: `0x${string}`): Promise<bigint> 
 }
 
 /** ERC-20 token balance (raw units). */
-export async function getErc20Balance(
-  token: `0x${string}`,
-  owner: `0x${string}`,
-): Promise<bigint> {
+export async function getErc20Balance(token: `0x${string}`, owner: `0x${string}`): Promise<bigint> {
   return publicClient().readContract({
     address: token,
     abi: ERC20_ABI,
@@ -272,18 +273,56 @@ export interface TxReceiptSummary {
   tx_hash: Hex;
 }
 
-/** Fetch a receipt if mined; null if still pending / unknown. */
+const observationQuantity = z.string().regex(/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/);
+const observationHash = z.string().regex(/^0x[0-9a-fA-F]{64}$/);
+const receiptObservation = z.object({
+  status: z.enum(['0x0', '0x1']),
+  blockNumber: observationQuantity,
+  gasUsed: observationQuantity,
+  transactionHash: observationHash,
+});
+const transactionObservation = z.object({
+  hash: observationHash,
+  blockNumber: observationQuantity.nullable(),
+});
+
+export class ChainReadUnavailableError extends RpcUnavailableError {
+  readonly code = 'chain_read_unavailable';
+  override readonly cause: unknown;
+
+  constructor(
+    readonly method: 'eth_getTransactionReceipt' | 'eth_getTransactionByHash',
+    cause: unknown,
+  ) {
+    super(`${method} observation unavailable`);
+    this.name = 'ChainReadUnavailableError';
+    this.cause = cause;
+  }
+}
+
+/** Null means the node explicitly returned no receipt; failed observations throw. */
 export async function getReceipt(hash: Hex): Promise<TxReceiptSummary | null> {
   try {
-    const r = await publicClient().getTransactionReceipt({ hash });
+    // viem's convenience action treats every falsy result as not found. Inspect
+    // the wire result first so a missing/invalid result cannot become absence.
+    const raw = await publicClient().request({
+      method: 'eth_getTransactionReceipt',
+      params: [hash],
+    });
+    if (raw === null) return null;
+    const observation = receiptObservation.parse(raw);
+    if (observation.transactionHash.toLowerCase() !== hash.toLowerCase()) {
+      throw new Error('receipt hash differs from requested transaction');
+    }
+    const r = formatTransactionReceipt(raw);
     return {
       status: r.status,
       block_number: r.blockNumber.toString(),
       gas_used: r.gasUsed.toString(),
       tx_hash: r.transactionHash,
     };
-  } catch {
-    return null;
+  } catch (cause) {
+    throw new ChainReadUnavailableError('eth_getTransactionReceipt', cause);
   }
 }
 
@@ -299,7 +338,7 @@ export type ReceiptOutcome =
   | { state: 'timeout' }; // gave up waiting; caller parks in `reconciling`
 
 /**
- * Poll for a tx receipt until it either reaches `confirmations` blocks of depth,
+ * Poll for a sequencer receipt until it reaches the requested confirmation depth,
  * reverts, or the deadline elapses. Never throws — every terminal-or-not
  * condition is a returned discriminated state so the orchestrator can persist a
  * precise phase/code instead of interpreting a raw RPC error.
@@ -314,50 +353,67 @@ export async function waitForReceipt(
   const confirmations = Math.max(1, opts?.confirmations ?? env.ACTION_CONFIRMATIONS);
   const timeoutMs = opts?.timeoutMs ?? env.ACTION_RECEIPT_TIMEOUT_MS;
   const pollMs = opts?.pollMs ?? 1_500;
-  const pc = publicClient();
+  const rpc = sharedRpcPool();
   const deadline = Date.now() + timeoutMs;
 
   for (;;) {
-    const receipt = await getReceipt(hash);
-    if (receipt) {
-      if (receipt.status === 'reverted') return { state: 'reverted', receipt };
-      // Confirmed: ensure enough depth so a 1-block reorg can't un-mine it.
-      if (confirmations <= 1) return { state: 'confirmed', receipt };
-      const head = await pc.getBlockNumber().catch(() => null);
-      if (head !== null && head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
-        return { state: 'confirmed', receipt };
+    try {
+      const result = await rpc.sequencerReceipt(hash);
+      if (result && result.rung !== 'submitted') {
+        const status = BigInt(result.status);
+        if (status !== 0n && status !== 1n) return { state: 'unknown' };
+        const receipt: TxReceiptSummary = {
+          status: status === 1n ? 'success' : 'reverted',
+          block_number: BigInt(
+            result.rung === 'committed' ? result.blockNumber : result.height,
+          ).toString(),
+          gas_used: BigInt(result.gasUsed).toString(),
+          tx_hash: result.txHash,
+        };
+        if (receipt.status === 'reverted') return { state: 'reverted', receipt };
+        if (confirmations <= 1) return { state: 'confirmed', receipt };
+        if (result.rung === 'committed') {
+          const head = BigInt(await rpc.request<Hex>('eth_blockNumber'));
+          if (head - BigInt(receipt.block_number) + 1n >= BigInt(confirmations)) {
+            return { state: 'confirmed', receipt };
+          }
+        }
       }
+    } catch {
+      return { state: 'unknown' };
     }
     if (Date.now() >= deadline) {
-      // Distinguish "still live in mempool" from "vanished" so a caller can
-      // decide between poll_action and reconcile.
-      if (!receipt) {
-        const live = await isTxKnown(hash);
-        return live ? { state: 'pending' } : { state: 'timeout' };
-      }
       return { state: 'timeout' };
     }
     await sleep(pollMs);
   }
 }
 
-/** True when the node still knows the tx (mined OR in mempool). */
+/** True for a mined or pooled tx; false only after explicit absence from both reads. */
 export async function isTxKnown(hash: Hex): Promise<boolean> {
-  const pc = publicClient();
   try {
-    await pc.getTransaction({ hash });
-    return true;
-  } catch {
-    // getTransaction throws when the node has never seen (or dropped) the tx.
-    const r = await getReceipt(hash);
-    return r !== null;
+    const raw = await publicClient().request({
+      method: 'eth_getTransactionByHash',
+      params: [hash],
+    });
+    if (raw !== null) {
+      const observation = transactionObservation.parse(raw);
+      if (observation.hash.toLowerCase() !== hash.toLowerCase()) {
+        throw new Error('transaction hash differs from requested transaction');
+      }
+      formatTransaction(raw);
+      return true;
+    }
+  } catch (cause) {
+    throw new ChainReadUnavailableError('eth_getTransactionByHash', cause);
   }
+  return (await getReceipt(hash)) !== null;
 }
 
 /**
  * Encode an arbitrary function call from a human method signature + string args.
  * Supports the generic allowance-and-call route: e.g.
- *   encodeCall('depositUSDL(uint256,bytes32)', ['250000000', '0xabc…'])
+ *   encodeCall('transfer(address,uint256)', ['0x0000000000000000000000000000000000000001', '250000000'])
  * Numeric/bytes/address args are coerced to the types viem expects. Throws on a
  * malformed signature or arg (surfaced as invalid_request, never a silent send).
  */

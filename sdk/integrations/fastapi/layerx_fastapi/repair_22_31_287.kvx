@@ -1,0 +1,47 @@
+[repair.22.31.287]
+audit = "22.30.163"
+mode = "BUILD"
+acceptance = "22998.1"
+base_revision = "b034a05fda5d0bb049e3b941849ba8f12d6944e9"
+verified_revision = "The exact candidate revision, command, exit code and private evidence log are recorded by hf-build/hf-done in the runner gate ledger and final evidence JSON."
+baseline = "No baseline gate ran: the explicit implementation-first order and prohibition on running verify_cmd by hand take precedence over the conflicting baseline instruction in step 8."
+previous_attempt = "Candidate fb098d06193537afbe21b891c4cb62f46a9434ca failed test_012_013_014_real_buyer_http_and_replay_after_reopen at the buyer receipt-digest header assertion; eight tests passed. The continuation preserves those assertions and emits the verified portable digest in the HTTP header."
+
+[finding.012]
+test = "test_012_013_014_real_buyer_http_and_replay_after_reopen; test_012_configured_offer_has_native_network_and_bound_purpose; test_015_offer_scheme_chain_asset_amount_payee_and_payer_are_bound"
+repair = "Canonical eip155 chain identifiers are accepted and compared to the real signed EIP-1559 transaction chain id. Configured offers carry a resource-bound payment purpose."
+
+[finding.013]
+test = "test_012_013_014_real_buyer_http_and_replay_after_reopen; test_013_strict_portable_evidence_and_pinned_keys"
+repair = "Portable v2 has one exact field set, lowercase 0x bytes, canonical uint64 hex heights, receipted/committed vocabulary, and a Keccak digest of signed receipt bytes. Receipt key identity, public key and validity range must match local pins."
+
+[finding.014]
+test = "test_012_013_014_real_buyer_http_and_replay_after_reopen; test_014_guard_refuses_mismatched_settlement_and_evidence"
+repair = "The HTTP guard checks the activity hash, verified canonical receipt, portable digest, offered amount/network and payer without comparing native payment terms to the outer precompile call's zero value. A stopped server and reopened example fulfillment repository return the identical resource and settlement."
+
+[finding.015]
+test = "test_015_native_payment_and_wrong_purpose_refusals; test_015_offer_scheme_chain_asset_amount_payee_and_payer_are_bound; test_015_signed_execution_effect_must_agree_with_calldata"
+repair = "The merged SDK payment verifier authenticates the signed summary and unique PaymentExact effect against exact calldata, asset, amount and payee; FastAPI also checks offered scheme, chain, ledger payer, required purpose and receipt commitment. Exact, metered and subscription offers use native payExact receipts."
+
+[proof]
+producer = "The real TypeScript PaymentRpc reads the recorded Go sequencer server response; verifyRpcPayment produces portable evidence; the real BuyerMiddleware and LayerXPaymentHttpTransport read it over the Human HTTP interface and emit an unmodified payment header; FastAPI consumes it over real HTTP, and the real buyer captures the returned settlement."
+fixture = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json#V1-layerxledger-pay-exact; producer rpc/sequencer_receipt_vectors_test.go"
+runtime = "Python integration/SDK imports require their source roots on PYTHONPATH or installed packages. Node executes the real TypeScript sources using native type transformation; its dependencies resolve from the workspace or NODE_PATH."
+
+[wiring.examples]
+request = "sdk/integrations/fastapi/examples and sdk/integrations/fastapi/tests: owning FastAPI integration domain must replace legacy layerx network/base64 receipt examples and fixtures with eip155 native payments and portable v2 evidence. These paths are outside this repair scope."
+
+[wiring.commitment]
+request = "services/agent/sdk/python/layerx_sdk/x402.py: owning Python SDK domain must expose verified committed-payment evidence before FastAPI can accept committed proofs; FastAPI parses the vocabulary but refuses unsupported finality rather than treating a signed receipt as commitment."
+
+[gotcha.receipt_digests]
+observed = "SequencerReceiptVerification.receipt_digest is the SHA-256 signing digest; portable v2 receiptDigest is Keccak of signed canonical bytes. They must not be compared as if they were the same digest."
+
+[gotcha.node_hooks]
+observed = "Node registerHooks also intercepts createRequire.resolve; the source loader must prevent reentry while resolving installed dependencies."
+
+[gotcha.candidate_bytecode]
+observed = "The runner includes small Python bytecode files under directory scope in its candidate; use an external PYTHONPYCACHEPREFIX for both gates so py_compile cannot change the candidate between build and verification."
+
+[gotcha.http_receipt_digest]
+observed = "The HTTP layerx-receipt-digest header must carry the verified portable receiptDigest without its 0x prefix, matching the buyer and settlement extension rather than the SDK's separate signing digest."

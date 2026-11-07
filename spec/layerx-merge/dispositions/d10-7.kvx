@@ -1,0 +1,149 @@
+[disposition.10.98.6.2]
+finding = "10.98.6.2"
+status = "superseded"
+evidence = "1f3778094 deleted the LNI evidence server, encode_node_info import and handshake tests from the test-support crate, leaving the transaction admission journal without that retired transport surface."
+follow_up = "closure"
+
+[disposition.10.98.10.2]
+finding = "10.98.10.2"
+status = "resolved"
+evidence = "6e3b7f041 replaced the layerx_crypto::rotation parser in production_owner.rs and production_rotation.rs with the in-crate owner_identity::OwnerIdentityState decoder."
+follow_up = "closure"
+
+[disposition.10.98.11.2]
+finding = "10.98.11.2"
+status = "superseded"
+evidence = "58b76c623 removed the retired binding imports, BindingJourney fixture and payout-binding signing helpers from services/human/crates/layerx-human-service/tests/intent_submit.rs while retaining its intent submission tests."
+follow_up = "closure"
+
+[disposition.10.6.1.2]
+finding = "10.6.1.2"
+status = "resolved"
+evidence = "48f3f63b5 supplies validated jrn_movebanksend and jrn_movebanksingle identifiers in services/human/crates/layerx-human-service/tests/move_money_bank_send.rs:83 and :127 instead of the rejected move-bank-send fixture identifier."
+follow_up = "closure"
+
+[disposition.10.27.2.1]
+finding = "10.27.2.1"
+status = "resolved"
+evidence = "61c802260 makes retired_explorer_index_config_tests.rs scan for the two deleted configuration test names and binary launch forms, rather than rejecting every occurrence of the explorer package name."
+follow_up = "closure"
+
+[disposition.10.98.10.3]
+finding = "10.98.10.3"
+status = "superseded"
+evidence = "ad92aa7fc deleted services/human/crates/layerx-human-service/tests/deposit.rs with the retired production deposit journey, and the current task 10.98.10 touches list no longer includes that absent file."
+follow_up = "closure"
+
+[disposition.10.24.1.1]
+finding = "10.24.1.1"
+status = "resolved"
+evidence = "1b694a0c3 replaced the stale AssetBalance field reads with an asset-table denomination lookup, whose current implementation at services/human/crates/layerx-human-service/src/server/production_components.rs:8602 resolves the catalog entry and checks balances.asset(denom)."
+follow_up = "closure"
+
+[disposition.10.24.3.1]
+finding = "10.24.3.1"
+status = "resolved"
+evidence = "595efe797 replaced AnchorHead with ConsensusHead in the network gateway, and the current task 10.24.3 symbols list at spec/layerx-merge/spec.kvx:171160 names ConsensusHead and the consensus decoder tests instead of the deleted AnchorHead."
+follow_up = "closure"
+
+[disposition.10.0.3.12]
+finding = "10.0.3.12"
+status = "resolved"
+evidence = "f47608611 regenerated apps/web/src/api/generated/index.ts with the optional IntentLeg EIP-1559 fields, JourneyStage tx_hash and nonce, and TransactionHash scalar, all retained in the current client."
+follow_up = "closure"
+
+[disposition.10.6.1.3]
+finding = "10.6.1.3"
+status = "resolved"
+evidence = "ca15e72f0 changed the resolver's BankTransfer transaction destination to the denomination's native pointer and calldata to transfer(address,uint256), as retained at services/human/crates/layerx-human-service/src/journeys/resolver.rs:863, satisfying the bank precompile's pointer-only caller restriction."
+follow_up = "closure"
+
+[disposition.10.8.1.1]
+finding = "10.8.1.1"
+status = "superseded"
+evidence = "2dc2c17ab deleted services/human/crates/layerx-human-service/tests/journey_family_projections.rs because its deposit, withdrawal and exit journey families had been retired."
+follow_up = "closure"
+
+[disposition.10.25.4.2]
+finding = "10.25.4.2"
+status = "resolved"
+evidence = "2dc2c17ab ported the service evidence-node test to transaction hashes and raw_transaction, with current admission and recovery assertions at services/human/crates/layerx-human-service/tests/evidence_node.rs:416 using tx_hash, raw_transaction and contains(&first_hash)."
+follow_up = "closure"
+
+[disposition.10.6.4.1]
+finding = "10.6.4.1"
+status = "resolved"
+evidence = "ca15e72f0 added the explicit PointerTransfer refusal arm to the lifecycle construct-method match, retained at services/human/crates/layerx-human-service/src/agents/create.rs:679."
+follow_up = "closure"
+
+[disposition.10.6.4.2]
+finding = "10.6.4.2"
+status = "resolved"
+evidence = "2dc2c17ab ported evidence_node.rs to AdmissionRecord.tx_hash and raw_transaction and updated archive.rs, native_onboarding_rungs.rs and native_send_producer.rs to the current producer interfaces."
+follow_up = "closure"
+
+[disposition.10.6.5.1]
+finding = "10.6.5.1"
+status = "resolved"
+evidence = "2dc2c17ab changed raw_receipt_evidence in services/human/crates/layerx-human-service/tests/spend.rs:280 to pass the pinned receipt key and previous and resulting state roots instead of an AuthorizedBatch."
+follow_up = "closure"
+
+[disposition.10.6.5.2]
+finding = "10.6.5.2"
+status = "resolved"
+evidence = "2dc2c17ab supplied &mut agent to both native_journey_approval.rs load_access calls, with the first four-argument call retained at services/human/crates/layerx-human-service/tests/native_journey_approval.rs:630."
+follow_up = "closure"
+
+[disposition.10.6.5.3]
+finding = "10.6.5.3"
+status = "resolved"
+evidence = "2dc2c17ab replaced the three EmergencyExit references in tests/custody.rs with WalletRebinding while preserving the expired, accepted fresh and replayed step-up assertions."
+follow_up = "closure"
+
+[disposition.10.6.5.4]
+finding = "10.6.5.4"
+status = "resolved"
+evidence = "2dc2c17ab deleted retired_crypto_codec_w3.rs and ported wallet_identity_e2e.rs to signed EvmAction values and the six-argument start_kernel_journey returning IntentSubmission, while 0a26ef46a completed the same production entry-point port in intent_submit.rs."
+follow_up = "closure"
+
+[disposition.10.6.5.5]
+finding = "10.6.5.5"
+status = "superseded"
+evidence = "2dc2c17ab removed the retired deposit and withdrawal mechanisms, journey tests and helpers from intent_submit.rs, and 0a26ef46a retained the kernel send and refusal tests through the current six-argument EVM submission interface."
+follow_up = "closure"
+
+[disposition.10.6.5.8]
+finding = "10.6.5.8"
+status = "resolved"
+evidence = "2dc2c17ab replaced the native envelope in native_onboarding_rungs.rs setup_evidence with canonical_owner::sign_transaction and uses its signed EVM bytes, actor, public key and transaction hash in ProtocolEvidence."
+follow_up = "closure"
+
+[disposition.10.6.5.9]
+finding = "10.6.5.9"
+status = "resolved"
+evidence = "2dc2c17ab removed all four obsolete DID and ed25519-key comparison pairs from onboarding/native.rs, retaining committed-rung, bound-transaction, payload and recovery verification checks."
+follow_up = "closure"
+
+[disposition.10.6.1.4]
+finding = "10.6.1.4"
+status = "resolved"
+evidence = "ca15e72f0 landed the pointer-transfer resolver repair and 48f3f63b5 makes move_leg_completes_from_its_receipt register and resolve the native pointer before planning, signing and checking the resulting transfer receipts."
+follow_up = "closure"
+
+[disposition.10.2.4.1]
+finding = "10.2.4.1"
+status = "resolved"
+evidence = "e03138d96 ported the JourneyLeg constructors and integration tests to the added nonce argument, removed retired JourneyKind arms and handled JourneyState::Closed in intent_submit.rs, move_money.rs, notify/links.rs and production_components.rs."
+follow_up = "closure"
+
+[disposition.10.20.5.1]
+finding = "10.20.5.1"
+status = "resolved"
+evidence = "5ff108e0d extracted support/production_fixture.rs for intent_plan_evm.rs and move_commit_bank_send.rs, whose Fixture::open call at services/human/crates/layerx-human-service/tests/move_commit_bank_send.rs:27 replaces the external LAYERX_TEST_MOVE_COMMIT_FIXTURE dependency."
+follow_up = "closure"
+
+[disposition.10.2.4.2]
+finding = "10.2.4.2"
+status = "resolved"
+evidence = "e03138d96 added account_sequence to both ReclaimAgentContext test initializers, using nonce at services/human/crates/layerx-human-service/tests/reclaim_nonces.rs:47 and ACCOUNT_SEQUENCE at services/human/crates/layerx-human-service/tests/reclaim.rs:106."
+follow_up = "closure"

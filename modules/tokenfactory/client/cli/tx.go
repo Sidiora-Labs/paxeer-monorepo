@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -47,6 +49,7 @@ func GetTxCmd() *cobra.Command {
 		NewBurnCmd(),
 		NewChangeAdminCmd(),
 		NewSetDenomMetadataCmd(),
+		NewSetDenomPausedCmd(),
 	)
 
 	return cmd
@@ -74,7 +77,11 @@ func NewCreateDenomCmd() *cobra.Command {
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			msg := types.NewMsgCreateDenom(
 				clientCtx.GetFromAddress().String(),
@@ -122,7 +129,11 @@ func NewUpdateDenomCmd() *cobra.Command {
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			// Fail if allow list is not provided as this is the only feature that can be updated for now
 			if allowListFilePath == "" {
@@ -161,7 +172,11 @@ func NewMintCmd() *cobra.Command {
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			amount, err := sdk.ParseCoinNormalized(args[0])
 			if err != nil {
@@ -193,7 +208,11 @@ func NewBurnCmd() *cobra.Command {
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			amount, err := sdk.ParseCoinNormalized(args[0])
 			if err != nil {
@@ -225,7 +244,11 @@ func NewChangeAdminCmd() *cobra.Command {
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			msg := types.NewMsgChangeAdmin(
 				clientCtx.GetFromAddress().String(),
@@ -278,7 +301,11 @@ Where metadata.json contains:
 				return err
 			}
 
-			txf := tx.NewFactoryCLI(clientCtx, cmd.Flags()).WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
 
 			metadata, err := ParseMetadataJSON(clientCtx.LegacyAmino, args[0])
 			if err != nil {
@@ -289,6 +316,37 @@ Where metadata.json contains:
 				clientCtx.GetFromAddress().String(),
 				metadata,
 			)
+
+			return tx.GenerateOrBroadcastTxWithFactory(cmd.Context(), clientCtx, txf, msg)
+		},
+	}
+
+	flags.AddTxFlagsToCmd(cmd)
+	return cmd
+}
+
+func NewSetDenomPausedCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "set-denom-paused [denom] [true|false]",
+		Short: "Pause or unpause a factory-created denom. Must have admin authority to do so.",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			clientCtx, err := client.GetClientTxContext(cmd)
+			if err != nil {
+				return err
+			}
+
+			paused, err := strconv.ParseBool(args[1])
+			if err != nil {
+				return err
+			}
+
+			txf, err := tx.NewFactoryCLI(clientCtx, cmd.Flags())
+			if err != nil {
+				return err
+			}
+			txf = txf.WithTxConfig(clientCtx.TxConfig).WithAccountRetriever(clientCtx.AccountRetriever)
+			msg := types.NewMsgSetDenomPaused(clientCtx.GetFromAddress().String(), args[0], paused)
 
 			return tx.GenerateOrBroadcastTxWithFactory(cmd.Context(), clientCtx, txf, msg)
 		},
@@ -325,6 +383,16 @@ func ParseAllowListJSON(allowListFile string, queryClient evmtypes.QueryClient) 
 	decoder := json.NewDecoder(file)
 	if err := decoder.Decode(&allowList); err != nil {
 		return allowList, err
+	}
+
+	// A file is one JSON document. Do not silently ignore a second value or
+	// malformed bytes after an otherwise valid allow list.
+	var trailing json.RawMessage
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err != nil {
+			return allowList, fmt.Errorf("invalid trailing allow list data: %w", err)
+		}
+		return allowList, fmt.Errorf("allow list file must contain exactly one JSON document")
 	}
 
 	addressMap := make(map[string]struct{})

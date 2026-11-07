@@ -13,7 +13,7 @@ import (
 
 func main() {
 	if err := app.Run(context.Background()); err != nil {
-		slog.Error("livestream service exited with error", slog.String("reason", "livestream_runtime_failed"))
+		slog.Error("livestream service exited with error", slog.String("reason", "livestream_runtime_failed"), slog.String("error", err.Error()))
 		os.Exit(1)
 	}
 }

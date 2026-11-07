@@ -94,7 +94,7 @@ test.describe('bridged tokens', () => {
     },
   };
 
-  test('base view', async({ render, page, mockApiResponse, mockEnvs }) => {
+  test('base view +@dark-mode', async({ render, page, mockApiResponse, mockEnvs }) => {
     await mockEnvs(ENVS_MAP.bridgedTokens);
     await mockApiResponse('general:tokens_bridged', bridgedTokens);
     const bridgedFilteredTokensApiUrl = await mockApiResponse('general:tokens_bridged', bridgedFilteredTokens, { queryParams: { chain_ids: '99' } });

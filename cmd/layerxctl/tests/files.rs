@@ -1,5 +1,8 @@
 include!("../src/main.rs");
 
+#[path = "support/receipt_cases.rs"]
+mod receipt_cases;
+
 mod files {
     use std::error::Error;
     use std::fs;
@@ -11,8 +14,8 @@ mod files {
     use std::sync::atomic::{AtomicU64, Ordering};
     use std::time::{Duration, Instant};
 
+    use super::MAX_INPUT_BYTES as MAX_MESSAGE_BYTES;
     use layerx_types::result::KnownResult;
-    use layerx_wire::limits::MAX_MESSAGE_BYTES;
 
     static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
     const TARGET: &str = "0x0000000000000000000000000000000000000123";
@@ -372,7 +375,7 @@ mod files {
         ] {
             assert!(text.contains(option));
         }
-        assert!(text.contains("submitted until receipt verification is available"));
+        assert!(text.contains("prints receipted only after the receipt signature verifies under a pinned receipt key and submitted otherwise"));
         assert!(!text.contains("--socket"));
         Ok(())
     }
@@ -453,7 +456,11 @@ mod files {
         Ok(())
     }
 
-    fn answer_send(listener: &TcpListener, answer: &str) -> Result<String, Box<dyn Error>> {
+    fn answer_send(
+        listener: &TcpListener,
+        method: &str,
+        answer: &str,
+    ) -> Result<String, Box<dyn Error>> {
         let (stream, _) = listener.accept()?;
         let mut reader = BufReader::new(stream);
         let mut length = 0_usize;
@@ -470,7 +477,7 @@ mod files {
         let mut body = vec![0_u8; length];
         reader.read_exact(&mut body)?;
         let body = String::from_utf8(body)?;
-        assert!(body.contains("\"method\":\"eth_sendRawTransaction\""));
+        assert!(body.contains(&format!("\"method\":\"{method}\"")));
         let id: u64 = body
             .split_once("\"id\":")
             .ok_or("request has no id")?
@@ -499,7 +506,8 @@ mod files {
         let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
         let url = format!("http://{}/", listener.local_addr()?);
         let server = std::thread::spawn(move || {
-            answer_send(&listener, answer).map_err(|error| error.to_string())
+            answer_send(&listener, "eth_sendRawTransaction", answer)
+                .map_err(|error| error.to_string())
         });
         let output = ctl(&[
             "submit",
@@ -513,8 +521,16 @@ mod files {
         Ok(output)
     }
 
+    fn transaction_hash(raw: &[u8]) -> String {
+        format!(
+            "0x{}",
+            hex(&layerx_crypto::evm_transaction::transaction_hash(raw))
+        )
+    }
+
     #[test]
     fn unusable_send_answer_stays_submitted_unknown() -> TestResult {
+        let local = transaction_hash(&[0x02, 0xf8, 0x6b]);
         for answer in [
             "{}",
             "{\"jsonrpc\":\"2.0\",\"id\":{other},\"result\":\"0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071\"}",
@@ -529,10 +545,27 @@ mod files {
             );
             assert_eq!(
                 String::from_utf8(output.stdout)?,
-                "{\"state\":\"submitted\",\"outcome\":\"unknown\"}\n"
+                format!("{{\"state\":\"submitted\",\"outcome\":\"unknown\",\"transaction_hash\":\"{local}\"}}\n")
             );
             assert!(output.stderr.is_empty());
         }
+        Ok(())
+    }
+
+    #[test]
+    fn submit_refuses_a_node_hash_that_differs_from_the_raw_bytes() -> TestResult {
+        let local = transaction_hash(&[0x02, 0xf8, 0x6b]);
+        let node = "0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071";
+        assert_ne!(local, node);
+        let output = submit_against(
+            "{\"jsonrpc\":\"2.0\",\"id\":{id},\"result\":\"0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071\"}",
+        )?;
+        assert_eq!(output.status.code(), Some(1));
+        assert!(output.stdout.is_empty());
+        assert_eq!(
+            String::from_utf8(output.stderr)?,
+            format!("layerxctl: submission refused: transaction hash mismatch (local transaction hash: {local})\n")
+        );
         Ok(())
     }
 

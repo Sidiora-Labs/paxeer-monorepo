@@ -3,9 +3,8 @@ use std::fmt::Write as _;
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 use x_websearch::config::{
-    AssetSymbol, Config, ConfigError, KernelConfig, PaymentConfig, Refusal,
-    DEFAULT_CRAWL_INTERVAL_SECONDS, DEFAULT_DRAW_FEE_LIMIT, MAX_CONFIG_BYTES,
-    MAX_CRAWL_INTERVAL_SECONDS, MAX_KERNEL_POLL_INTERVAL_MS,
+    AssetSymbol, Config, ConfigError, PaymentConfig, Refusal, DEFAULT_CRAWL_INTERVAL_SECONDS,
+    DEFAULT_DRAW_FEE_LIMIT, MAX_CONFIG_BYTES, MAX_CRAWL_INTERVAL_SECONDS,
 };
 
 fn fixture(name: &str) -> PathBuf {
@@ -82,17 +81,17 @@ fn committed_configuration_is_accepted_with_every_field() -> Result<(), Box<dyn 
     );
     assert_eq!(config.gateway.endpoint, "http://127.0.0.1:8547/rpc");
     assert_eq!(
-        hex(&config.gateway.sequencer.public_key),
+        hex(&config.gateway.receipt_keys[0].public_key()),
         "d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a"
     );
     assert_eq!(
-        hex(&config.gateway.sequencer.sequencer_id),
+        hex(&config.gateway.receipt_keys[0].sequencer_id()),
         "2a7d1c5e9b3f4a6d8c0e2f4a6b8d0c2e4f6a8b0d2c4e6f8a0b2d4c6e8f0a2b4d"
     );
     assert_eq!(config.evm.endpoint, "http://127.0.0.1:8545");
     assert_eq!(config.evm.chain_id, 1337);
     assert_eq!(config.evm.confirmations, 12);
-    assert_eq!(config.kernel_network_id, 1);
+    assert_eq!(config.kernel_network_id, Some(1));
     assert_eq!(
         config.peers,
         ["http://127.0.0.1:8481", "http://127.0.0.1:8482"]
@@ -177,10 +176,13 @@ fn committed_placeholder_example_refuses_every_placeholder_in_turn(
         ("/assets/USDL/asset_id", "assets.USDL.asset_id"),
         ("/assets/USDL/price", "assets.USDL.price"),
         ("/gateway/endpoint", "gateway.endpoint"),
-        ("/gateway/sequencer_id", "gateway.sequencer_id"),
         (
-            "/gateway/sequencer_public_key",
-            "gateway.sequencer_public_key",
+            "/gateway/receipt_keys/0/key_id",
+            "gateway.receipt_keys[0].key_id",
+        ),
+        (
+            "/gateway/receipt_keys/0/public_key",
+            "gateway.receipt_keys[0].public_key",
         ),
         ("/evm/endpoint", "evm.endpoint"),
         ("/evm/chain_id", "evm.chain_id"),
@@ -213,6 +215,16 @@ fn leaf_paths(value: &Value, pointer: &str, field: &str, into: &mut Vec<(String,
             };
             into.push((child_pointer.clone(), child_field.clone()));
             leaf_paths(child, &child_pointer, &child_field, into);
+            if let Value::Array(entries) = child {
+                for (index, entry) in entries.iter().enumerate() {
+                    leaf_paths(
+                        entry,
+                        &format!("{child_pointer}/{index}"),
+                        &format!("{child_field}[{index}]"),
+                        into,
+                    );
+                }
+            }
         }
     }
 }
@@ -222,7 +234,7 @@ fn every_missing_or_null_field_is_named() -> Result<(), Box<dyn std::error::Erro
     let valid = valid_json()?;
     let mut paths = Vec::new();
     leaf_paths(&valid, "", "", &mut paths);
-    assert_eq!(paths.len(), 37);
+    assert_eq!(paths.len(), 40);
     for (pointer, field) in paths {
         let (parent, name) = pointer.rsplit_once('/').ok_or("pointer")?;
         let mut removed = valid.clone();
@@ -236,16 +248,27 @@ fn every_missing_or_null_field_is_named() -> Result<(), Box<dyn std::error::Erro
             .ok_or("object")?
             .remove(name)
             .ok_or("field")?;
-        assert_eq!(
-            Config::parse(&removed.to_string()).err(),
-            Some(refusal(&field, Refusal::Missing)),
-            "removed {pointer}"
-        );
+        if field == "kernel_network_id" {
+            assert_eq!(Config::parse(&removed.to_string())?.kernel_network_id, None);
+        } else {
+            assert_eq!(
+                Config::parse(&removed.to_string()).err(),
+                Some(refusal(&field, Refusal::Missing)),
+                "removed {pointer}"
+            );
+        }
         let mut nulled = valid.clone();
         *nulled.pointer_mut(&pointer).ok_or("field")? = Value::Null;
         assert_eq!(
             Config::parse(&nulled.to_string()).err(),
-            Some(refusal(&field, Refusal::Missing)),
+            Some(refusal(
+                &field,
+                if field == "kernel_network_id" {
+                    Refusal::Invalid
+                } else {
+                    Refusal::Missing
+                },
+            )),
             "null {pointer}"
         );
     }
@@ -348,10 +371,159 @@ fn unreadable_oversized_and_non_json_files_are_refused() -> Result<(), Box<dyn s
 }
 
 #[test]
+fn receipt_keys_are_read_from_the_gateway_object() -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_proof::inclusion::SequencerAuthorization;
+    let mut value = valid_json()?;
+    let first = value["gateway"]["receipt_keys"][0].clone();
+    let key_id = x_websearch::config::parse_hex32(first["key_id"].as_str().ok_or("key id")?)
+        .ok_or("key id bytes")?;
+    let public_key =
+        x_websearch::config::parse_hex32(first["public_key"].as_str().ok_or("public key")?)
+            .ok_or("public key bytes")?;
+    let other_id = ed25519_dalek::SigningKey::from_bytes(&[17; 32])
+        .verifying_key()
+        .to_bytes();
+    let other_key = ed25519_dalek::SigningKey::from_bytes(&[19; 32])
+        .verifying_key()
+        .to_bytes();
+    value["gateway"]["receipt_keys"] = serde_json::json!([
+        {"key_id": hex(&key_id), "public_key": hex(&public_key), "first_height": 0, "last_height": 9},
+        {"key_id": hex(&other_id), "public_key": hex(&other_key), "first_height": 10, "last_height": u64::MAX},
+        {"key_id": hex(&key_id), "public_key": hex(&other_key), "first_height": 10, "last_height": 10}
+    ]);
+    let config = Config::parse(&value.to_string())?;
+    assert_eq!(
+        config.gateway.receipt_keys,
+        vec![
+            SequencerAuthorization::new(key_id, public_key, 0, 9),
+            SequencerAuthorization::new(other_id, other_key, 10, u64::MAX),
+            SequencerAuthorization::new(key_id, other_key, 10, 10),
+        ]
+    );
+    assert!(value["gateway"].get("sequencer_id").is_none());
+    assert!(value["gateway"].get("sequencer_public_key").is_none());
+    Ok(())
+}
+
+#[test]
+fn malformed_receipt_keys_are_refused_naming_the_field() -> Result<(), Box<dyn std::error::Error>> {
+    use serde_json::json;
+    let valid = valid_json()?;
+    let entry = valid["gateway"]["receipt_keys"][0].clone();
+    for malformed in [json!([]), json!({}), json!("keys"), json!([false])] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"] = malformed.clone();
+        let error = Config::parse(&value.to_string())
+            .err()
+            .ok_or("accepted malformed list")?;
+        assert!(
+            error.field.starts_with("gateway.receipt_keys"),
+            "{malformed}: {error}"
+        );
+        assert_eq!(error.refusal, Refusal::Invalid);
+    }
+    for (field, malformed, reason) in [
+        ("key_id", json!("bad"), Refusal::Invalid),
+        ("public_key", json!("bad"), Refusal::Invalid),
+        ("public_key", json!("02".repeat(32)), Refusal::Placeholder),
+        (
+            "public_key",
+            json!(format!("01{}", "00".repeat(31))),
+            Refusal::Invalid,
+        ),
+        ("public_key", json!("0".repeat(64)), Refusal::Placeholder),
+        (
+            "public_key",
+            json!(format!("02{}", "00".repeat(31))),
+            Refusal::Invalid,
+        ),
+        ("first_height", json!(-1), Refusal::Invalid),
+        ("first_height", json!("0"), Refusal::Invalid),
+        ("last_height", json!(1.5), Refusal::Invalid),
+    ] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"][0][field] = malformed.clone();
+        let error = Config::parse(&value.to_string())
+            .err()
+            .ok_or("accepted malformed entry")?;
+        assert_eq!(
+            error,
+            refusal(&format!("gateway.receipt_keys[0].{field}"), reason),
+            "{malformed}"
+        );
+    }
+    for field in ["key_id", "public_key", "first_height", "last_height"] {
+        let mut value = valid.clone();
+        value["gateway"]["receipt_keys"][0]
+            .as_object_mut()
+            .ok_or("key object")?
+            .remove(field);
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal(
+                &format!("gateway.receipt_keys[0].{field}"),
+                Refusal::Missing
+            ))
+        );
+    }
+    let mut reversed = valid.clone();
+    reversed["gateway"]["receipt_keys"][0]["first_height"] = json!(10);
+    reversed["gateway"]["receipt_keys"][0]["last_height"] = json!(9);
+    assert_eq!(
+        Config::parse(&reversed.to_string()).err(),
+        Some(refusal(
+            "gateway.receipt_keys[0].last_height",
+            Refusal::Invalid
+        ))
+    );
+    for (first, last) in [(0, 9), (9, 20), (3, 5), (0, 20)] {
+        let mut value = valid.clone();
+        let mut earlier = entry.clone();
+        earlier["last_height"] = json!(9);
+        let mut overlap = entry.clone();
+        overlap["first_height"] = json!(first);
+        overlap["last_height"] = json!(last);
+        value["gateway"]["receipt_keys"] = json!([earlier, overlap]);
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("gateway.receipt_keys", Refusal::Invalid))
+        );
+    }
+    for legacy in ["sequencer_id", "sequencer_public_key"] {
+        for setting in [entry["public_key"].clone(), json!("old"), Value::Null] {
+            let mut value = valid.clone();
+            value["gateway"][legacy] = setting;
+            assert_eq!(
+                Config::parse(&value.to_string()).err(),
+                Some(refusal(&format!("gateway.{legacy}"), Refusal::Unknown))
+            );
+            value["gateway"]
+                .as_object_mut()
+                .ok_or("gateway object")?
+                .remove("receipt_keys");
+            assert_eq!(
+                Config::parse(&value.to_string()).err(),
+                Some(refusal(&format!("gateway.{legacy}"), Refusal::Unknown))
+            );
+        }
+    }
+    let mut missing = valid;
+    missing["gateway"]
+        .as_object_mut()
+        .ok_or("gateway object")?
+        .remove("receipt_keys");
+    assert_eq!(
+        Config::parse(&missing.to_string()).err(),
+        Some(refusal("gateway.receipt_keys", Refusal::Missing))
+    );
+    Ok(())
+}
+
+#[test]
 fn absent_payment_settings_keep_the_defaults() -> Result<(), Box<dyn std::error::Error>> {
     let config = x_websearch::load(&fixture("valid.json"))?;
     assert_eq!(config.payment, PaymentConfig::default());
-    assert_eq!(config.payment.payer_did, None);
+    assert_eq!(config.payment.payer_address, None);
     assert_eq!(config.payment.draw_fee_limit, DEFAULT_DRAW_FEE_LIMIT);
     assert_eq!(DEFAULT_DRAW_FEE_LIMIT, 1_000_000_000_000);
     assert_eq!(config.payment.conformance_suite, None);
@@ -363,22 +535,25 @@ fn absent_payment_settings_keep_the_defaults() -> Result<(), Box<dyn std::error:
 
 #[test]
 fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std::error::Error>> {
-    let payer = format!("did:layerx:{}", "3c".repeat(32));
+    let payer = format!("0x{}", "3c".repeat(20));
     let mut value = valid_json()?;
     value["payment"] = serde_json::json!({
-        "payer_did": payer,
+        "payer_address": payer,
         "draw_fee_limit": "340282366920938463463374607431768211455",
         "conformance_suite": "/var/lib/x-websearch/conformance",
     });
     let config = Config::parse(&value.to_string())?;
-    assert_eq!(config.payment.payer_did.as_deref(), Some(payer.as_str()));
+    assert_eq!(config.payment.payer_address, Some([0x3c; 20]));
     assert_eq!(config.payment.draw_fee_limit, u128::MAX);
     assert_eq!(
         config.payment.conformance_suite,
         Some(PathBuf::from("/var/lib/x-websearch/conformance"))
     );
     for (name, setting) in [
-        ("payer_did", serde_json::json!("did:web:paxeer.app")),
+        (
+            "payer_address",
+            serde_json::json!(format!("0x{}", "ab".repeat(20))),
+        ),
         ("draw_fee_limit", serde_json::json!("1")),
         ("conformance_suite", serde_json::json!("/srv/suite")),
     ] {
@@ -387,19 +562,19 @@ fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std
         let payment = Config::parse(&value.to_string())?.payment;
         let defaults = PaymentConfig::default();
         match name {
-            "payer_did" => {
-                assert_eq!(payment.payer_did.as_deref(), Some("did:web:paxeer.app"));
+            "payer_address" => {
+                assert_eq!(payment.payer_address, Some([0xab; 20]));
                 assert_eq!(payment.draw_fee_limit, defaults.draw_fee_limit);
                 assert_eq!(payment.conformance_suite, defaults.conformance_suite);
             }
             "draw_fee_limit" => {
                 assert_eq!(payment.draw_fee_limit, 1);
-                assert_eq!(payment.payer_did, defaults.payer_did);
+                assert_eq!(payment.payer_address, defaults.payer_address);
                 assert_eq!(payment.conformance_suite, defaults.conformance_suite);
             }
             _ => {
                 assert_eq!(payment.conformance_suite, Some(PathBuf::from("/srv/suite")));
-                assert_eq!(payment.payer_did, defaults.payer_did);
+                assert_eq!(payment.payer_address, defaults.payer_address);
                 assert_eq!(payment.draw_fee_limit, defaults.draw_fee_limit);
             }
         }
@@ -412,10 +587,47 @@ fn payment_settings_are_read_from_the_payment_object() -> Result<(), Box<dyn std
 fn malformed_payment_settings() -> Vec<(&'static str, Value, Refusal)> {
     let mut cases = Vec::new();
     cases.extend(malformed_object());
-    cases.extend(malformed_payer_did());
+    cases.extend(malformed_payer_address());
     cases.extend(malformed_draw_fee_limit());
     cases.extend(malformed_conformance_suite());
     cases
+}
+
+#[test]
+fn an_absent_kernel_network_id_parses_and_zero_is_refused() -> Result<(), Box<dyn std::error::Error>>
+{
+    let mut value = valid_json()?;
+    value
+        .as_object_mut()
+        .ok_or("config object")?
+        .remove("kernel_network_id");
+    assert_eq!(Config::parse(&value.to_string())?.kernel_network_id, None);
+    for network in [1, u32::MAX] {
+        value["kernel_network_id"] = serde_json::json!(network);
+        assert_eq!(
+            Config::parse(&value.to_string())?.kernel_network_id,
+            Some(network)
+        );
+    }
+    value["kernel_network_id"] = serde_json::json!(0);
+    let error = Config::parse(&value.to_string())
+        .err()
+        .ok_or("zero was accepted")?;
+    assert_eq!(error, refusal("kernel_network_id", Refusal::Placeholder));
+    assert!(error.to_string().contains("kernel_network_id"));
+    for invalid in [
+        Value::Null,
+        serde_json::json!(-1),
+        serde_json::json!("1"),
+        serde_json::json!(u64::from(u32::MAX) + 1),
+    ] {
+        value["kernel_network_id"] = invalid;
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("kernel_network_id", Refusal::Invalid))
+        );
+    }
+    Ok(())
 }
 
 fn malformed_object() -> Vec<(&'static str, Value, Refusal)> {
@@ -426,55 +638,84 @@ fn malformed_object() -> Vec<(&'static str, Value, Refusal)> {
     ]
 }
 
-fn malformed_payer_did() -> Vec<(&'static str, Value, Refusal)> {
-    vec![
+fn malformed_payer_address() -> Vec<(&'static str, Value, Refusal)> {
+    let mut cases = vec![
         (
-            "payment.payer_did",
+            "payment.payer_address",
             serde_json::json!(null),
             Refusal::Invalid,
         ),
-        ("payment.payer_did", serde_json::json!(7), Refusal::Invalid),
         (
-            "payment.payer_did",
-            serde_json::json!("did:Upper"),
+            "payment.payer_address",
+            serde_json::json!(7),
             Refusal::Invalid,
         ),
-        (
-            "payment.payer_did",
-            serde_json::json!("layerx:payer"),
+    ];
+    for address in [
+        "did:layerx:payer".to_owned(),
+        "ab".repeat(20),
+        format!("0X{}", "ab".repeat(20)),
+        format!("0x{}", "ab".repeat(19)),
+        format!("0x{}", "ab".repeat(21)),
+        format!("0x{}", "gg".repeat(20)),
+        format!("0x{}g", "a".repeat(39)),
+        format!(" 0x{}", "ab".repeat(20)),
+        format!("0x{} ", "ab".repeat(20)),
+    ] {
+        cases.push((
+            "payment.payer_address",
+            serde_json::json!(address),
             Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did:layerx:"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did::layerx"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("did:layerx:payer:asset:sid"),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!(format!("did:{}", "a".repeat(252))),
-            Refusal::Invalid,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!("<payer did>"),
-            Refusal::Placeholder,
-        ),
-        (
-            "payment.payer_did",
-            serde_json::json!(""),
-            Refusal::Placeholder,
-        ),
-    ]
+        ));
+    }
+    cases.push((
+        "payment.payer_address",
+        serde_json::json!("<payer address>"),
+        Refusal::Placeholder,
+    ));
+    cases.push((
+        "payment.payer_address",
+        serde_json::json!(""),
+        Refusal::Placeholder,
+    ));
+    cases
+}
+
+#[test]
+fn payer_address_is_read_and_payer_did_is_refused() -> Result<(), Box<dyn std::error::Error>> {
+    let mut value = valid_json()?;
+    assert_eq!(
+        Config::parse(&value.to_string())?.payment.payer_address,
+        None
+    );
+    for address in [
+        format!("0x{}", "ab".repeat(20)),
+        format!("0x{}", "Ab".repeat(20)),
+    ] {
+        value["payment"] = serde_json::json!({"payer_address": address});
+        assert_eq!(
+            Config::parse(&value.to_string())?.payment.payer_address,
+            Some([0xab; 20])
+        );
+    }
+    for (field, setting, expected) in malformed_payer_address() {
+        value["payment"] = serde_json::json!({"payer_address": setting});
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal(field, expected))
+        );
+    }
+    for payment in [
+        serde_json::json!({"payer_did": "did:layerx:payer"}),
+        serde_json::json!({"payer_address": format!("0x{}", "ab".repeat(20)), "payer_did": "did:layerx:payer"}),
+    ] {
+        value["payment"] = payment;
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("payment.payer_did", Refusal::Unknown))
+        );
+    }
+    Ok(())
 }
 
 fn malformed_draw_fee_limit() -> Vec<(&'static str, Value, Refusal)> {
@@ -606,7 +847,7 @@ fn malformed_payment_settings_are_refused_naming_the_field(
         Some(refusal("payment.payer", Refusal::Unknown))
     );
     let mut value = valid_json()?;
-    value["payment"] = serde_json::json!({ "payer_did": "did:layerx:payer", "receiver_key": "k" });
+    value["payment"] = serde_json::json!({ "payer_address": format!("0x{}", "3c".repeat(20)), "receiver_key": "k" });
     assert_eq!(
         Config::parse(&value.to_string()).err(),
         Some(refusal("payment.receiver_key", Refusal::KeyMaterial))
@@ -671,179 +912,50 @@ fn a_crawl_interval_of_zero_above_one_day_or_not_a_whole_number_is_refused_namin
     Ok(())
 }
 
-fn kernel_settings() -> Value {
-    serde_json::json!({
-        "endpoint": "https://paxeer.app/gateway",
-        "poll_interval_ms": 2000,
-        "topics": ["PAXEERX_WEB_REQUEST_V1"],
-        "submitter_did": "did:layerx:web-attestor",
-        "fee_limit": "100",
-    })
-}
-
 #[test]
-fn an_absent_kernel_object_leaves_the_relay_off() -> Result<(), Box<dyn std::error::Error>> {
+fn a_kernel_section_is_refused_as_an_unknown_field() -> Result<(), Box<dyn std::error::Error>> {
     let valid = valid_json()?;
-    assert!(valid.get("kernel").is_none());
-    assert_eq!(Config::parse(&valid.to_string())?.kernel, None);
-    Ok(())
-}
-
-#[test]
-fn kernel_relay_settings_are_read_from_the_kernel_object() -> Result<(), Box<dyn std::error::Error>>
-{
-    let mut value = valid_json()?;
-    value["kernel"] = kernel_settings();
-    let kernel = Config::parse(&value.to_string())?
-        .kernel
-        .ok_or("no kernel settings")?;
-    assert_eq!(
-        kernel,
-        KernelConfig {
-            endpoint: "https://paxeer.app/gateway".to_owned(),
-            poll_interval_ms: 2000,
-            topics: vec!["PAXEERX_WEB_REQUEST_V1".to_owned()],
-            submitter_did: "did:layerx:web-attestor".to_owned(),
-            fee_limit: 100,
-        }
-    );
-    assert_eq!(kernel.poll_interval(), Duration::from_millis(2000));
-    assert_eq!(MAX_KERNEL_POLL_INTERVAL_MS, 60_000);
-    let mut value = valid_json()?;
-    value["kernel"] = kernel_settings();
-    value["kernel"]["endpoint"] = serde_json::json!("http://127.0.0.1:8547/rpc");
-    value["kernel"]["poll_interval_ms"] = serde_json::json!(60_000);
-    value["kernel"]["fee_limit"] = serde_json::json!("340282366920938463463374607431768211455");
-    let kernel = Config::parse(&value.to_string())?
-        .kernel
-        .ok_or("no kernel settings")?;
-    assert_eq!(kernel.endpoint, "http://127.0.0.1:8547/rpc");
-    assert_eq!(kernel.poll_interval_ms, 60_000);
-    assert_eq!(kernel.fee_limit, u128::MAX);
-    Ok(())
-}
-
-/// Each malformed `kernel` setting, the field its refusal names and the
-/// refusal.
-fn malformed_kernel_settings() -> Vec<(&'static str, Value, Refusal)> {
-    use serde_json::json;
-    vec![
-        ("kernel", json!("gateway"), Refusal::Invalid),
-        ("kernel", json!(null), Refusal::Invalid),
-        ("kernel", json!([]), Refusal::Invalid),
-        ("kernel.endpoint", json!(null), Refusal::Missing),
-        (
-            "kernel.endpoint",
-            json!("ftp://paxeer.app/"),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.endpoint",
-            json!("http://paxeer.app/"),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.endpoint",
-            json!("https://paxeer.app/?a=1"),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.endpoint",
-            json!("https://gateway.example.com/"),
-            Refusal::Placeholder,
-        ),
-        ("kernel.poll_interval_ms", json!(0), Refusal::Placeholder),
-        ("kernel.poll_interval_ms", json!(60_001), Refusal::Invalid),
-        ("kernel.poll_interval_ms", json!("2000"), Refusal::Invalid),
-        ("kernel.poll_interval_ms", json!(-1), Refusal::Invalid),
-        ("kernel.topics", json!([]), Refusal::Missing),
-        (
-            "kernel.topics",
-            json!("PAXEERX_WEB_REQUEST_V1"),
-            Refusal::Invalid,
-        ),
-        ("kernel.topics", json!([7]), Refusal::Invalid),
-        (
-            "kernel.topics",
-            json!(["PAXEERX_WEB_ANSWER_V1"]),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.topics",
-            json!(["PAXEERX_WEB_REQUEST_V1", "PAXEERX_WEB_REQUEST_V1"]),
-            Refusal::Invalid,
-        ),
-        ("kernel.topics", json!(["<topic>"]), Refusal::Placeholder),
-        ("kernel.submitter_did", json!(7), Refusal::Invalid),
-        ("kernel.submitter_did", json!("did:Upper"), Refusal::Invalid),
-        (
-            "kernel.submitter_did",
-            json!("layerx:attestor"),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.submitter_did",
-            json!("your_did"),
-            Refusal::Placeholder,
-        ),
-        ("kernel.fee_limit", json!(100), Refusal::Invalid),
-        ("kernel.fee_limit", json!("0"), Refusal::Invalid),
-        ("kernel.fee_limit", json!("0100"), Refusal::Invalid),
-        (
-            "kernel.fee_limit",
-            json!("340282366920938463463374607431768211456"),
-            Refusal::Invalid,
-        ),
-        (
-            "kernel.fee_limit",
-            json!("replace_me"),
-            Refusal::Placeholder,
-        ),
-    ]
-}
-
-#[test]
-fn malformed_kernel_relay_settings_are_refused_naming_the_field(
-) -> Result<(), Box<dyn std::error::Error>> {
-    for (field, setting, expected) in malformed_kernel_settings() {
-        let mut value = valid_json()?;
-        if let Some(name) = field.strip_prefix("kernel.") {
-            value["kernel"] = kernel_settings();
-            value["kernel"][name] = setting.clone();
-        } else {
-            value["kernel"] = setting.clone();
-        }
-        assert_eq!(
-            Config::parse(&value.to_string()).err(),
-            Some(refusal(field, expected)),
-            "{field} = {setting}"
-        );
-    }
-    for name in [
-        "endpoint",
-        "poll_interval_ms",
-        "topics",
-        "submitter_did",
-        "fee_limit",
+    Config::parse(&valid.to_string())?;
+    for section in [
+        serde_json::json!({
+            "endpoint": "https://paxeer.app/gateway",
+            "poll_interval_ms": 2000,
+            "topics": ["PAXEERX_WEB_REQUEST_V1"],
+            "submitter_did": "did:layerx:web-attestor",
+            "fee_limit": "100",
+        }),
+        serde_json::json!({}),
+        serde_json::json!(null),
+        serde_json::json!("gateway"),
+        serde_json::json!([]),
     ] {
-        let mut value = valid_json()?;
-        value["kernel"] = kernel_settings();
-        value["kernel"]
-            .as_object_mut()
-            .ok_or("kernel object")?
-            .remove(name);
+        let mut value = valid.clone();
+        value["kernel"] = section;
         assert_eq!(
             Config::parse(&value.to_string()).err(),
-            Some(refusal(&format!("kernel.{name}"), Refusal::Missing)),
-            "without {name}"
+            Some(refusal("kernel", Refusal::Unknown))
         );
     }
-    let mut value = valid_json()?;
-    value["kernel"] = kernel_settings();
-    value["kernel"]["start"] = serde_json::json!(0);
-    assert_eq!(
-        Config::parse(&value.to_string()).err(),
-        Some(refusal("kernel.start", Refusal::Unknown))
-    );
+    Ok(())
+}
+
+#[test]
+fn a_gateway_authorization_file_is_refused_as_an_unknown_field(
+) -> Result<(), Box<dyn std::error::Error>> {
+    let valid = valid_json()?;
+    Config::parse(&valid.to_string())?;
+    for file in [
+        serde_json::json!("/var/lib/x-websearch/gateway.authorization"),
+        serde_json::json!("gateway.authorization"),
+        serde_json::json!(null),
+        serde_json::json!(false),
+    ] {
+        let mut value = valid.clone();
+        value["gateway"]["authorization_file"] = file;
+        assert_eq!(
+            Config::parse(&value.to_string()).err(),
+            Some(refusal("gateway.authorization_file", Refusal::Unknown))
+        );
+    }
     Ok(())
 }

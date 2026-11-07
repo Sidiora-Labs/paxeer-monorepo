@@ -1,0 +1,56 @@
+[repair.22.33.398]
+audit = "22.30.142"
+status = "implemented; qualification evidence is recorded by hf-done"
+mode = "BUILD"
+scope = "api/v2 controllers and test/repair/repair_22_33_398_test.exs"
+allowed_gates = "hf-build; hf-done"
+stop = "hf-done passes, two repair cycles are spent, or the task deadline expires"
+baseline = "Not run: ordered instructions require full implementation before hf-build and hf-done and prohibit a separate verify_cmd invocation; no baseline failures are claimed."
+evidence = "The gate ledger records the exact candidate revision, command, exit code and private log path."
+
+[finding.14]
+tests = ["finding 14: API-only mode reports the effective disabled supervisor", "finding 14: each effective fetcher flag is combined with its parent"]
+repair = "Read the effective Indexer.Supervisor enabled flag and combine the five actual fetcher supervisor flags."
+
+[finding.15]
+tests = ["finding 15: every shared CSV action denies restrictions before streaming and accepts the key"]
+repair = "Apply RestrictedAccessHelper (the atom-key adapter to AccessHelper) before address lookup, export or send_chunked across all five shared actions."
+
+[finding.16]
+tests = ["finding 16: source lookup for an indexed EOA renders the existing client error"]
+repair = "Emit the existing not_a_smart_contract tag consumed by the real fallback controller."
+
+[finding.17]
+tests = ["finding 17: header-authenticated JSON token metadata persists without logging the key", "finding 17: DELETE uses the same single header and rejects body and duplicate keys"]
+repair = "Use one x-api-key header for both POST body shapes and DELETE, as documented by ImportController; reject body/query credentials."
+wiring = "Domain 14 explorer web: migrate body-key callers in services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/api/v2/import_controller_test.exs and the external token-info service to a single x-api-key header."
+docs_wiring = "Domain 14 explorer API documentation: services/explorer/swagger.yaml must declare the x-api-key header for POST and DELETE /api/v2/import/token-info."
+
+[finding.18]
+tests = ["finding 18: 32-byte filters reach MUD records and malformed filters are client errors", "finding 18: numeric filters respect the FieldSchema width and consume the whole number", "finding 18: signed numeric bounds cannot wrap the key field"]
+repair = "Constrain controller OpenAPI parameters; validate the actual field type, full decimal parse and decoded byte width before padding; propagate a client error from both listing and count."
+
+[finding.19]
+tests = ["finding 19: missing and malformed optional keys return 404 and the recorded key derives a public key"]
+repair = "Validate configured private key type, presence, encoding and 32-byte length before public-key derivation."
+
+[finding.20]
+tests = ["finding 20: malformed complete requests are rejected before any remote key lookup", "findings 20 and 21: canonical relay crosses HTTP, binds fields and persists via the importer", "findings 20 and 21: canonical init validates the date and stores the decoded recorded payload"]
+repair = "Validate exact request fields, integer/database ranges, boolean result, fixed hash/address/signature sizes, payload encoding/ABI length and non-bang timestamp decoding before remote lookup."
+
+[finding.21]
+tests = ["findings 20 and 21: canonical relay crosses HTTP, binds fields and persists via the importer", "findings 20 and 21: canonical init validates the date and stores the decoded recorded payload"]
+repair = "Require protocol_version=1, a domain-separated typed canonical signing preimage, and local destination/source chain binding before import; reject the recorded nonce/source boundary collision and altered fields."
+wiring = "Domain 14 explorer indexer: services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_queue.ex prepare_post_data must set protocol_version=1 and sign OptimismController.interop_signing_data/1's documented bytes (or the identical encoding in an indexer-owned shared module); legacy unversioned signatures are rejected."
+
+[gotcha.scope]
+observed = "MUD records and Optimism tables are optional external/profile stores absent from the default Paxeer test schema."
+resolution = "Use transaction-scoped temporary tables with production field types, real ABI/schema codecs and real import runners; do not replace controllers or database adapters."
+
+[qualification.attempt1]
+revision = "48d05ae586ccd5b4ed1fa1a237d52d9d3acb85d9"
+command = "cg spec done 22.33.398 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "12 of 13 tests passed; the signed init request reached the real importer but its decoded payload binary did not satisfy Explorer.Chain.Data.cast/1."
+repair = "Wrap the decoded payload in the production Data struct before import; preserve all success and persistence assertions."

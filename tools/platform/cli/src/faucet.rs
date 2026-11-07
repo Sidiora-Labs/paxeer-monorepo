@@ -9,13 +9,16 @@ pub struct FaucetArgs {
     /// Local key whose DID and Ed25519 public key receive the beta grant.
     #[arg(long)]
     key: Option<String>,
+    /// Explicit hosted faucet JSON-RPC URL, separate from the node origin.
+    #[arg(long)]
+    service_endpoint: String,
 }
 
 pub fn request(did: &str, public_key: &str) -> Value {
     json!({
         "jsonrpc": "2.0",
         "id": "faucet",
-        "method": "lx_requestFunds",
+        "method": "px_requestFunds",
         "params": [did, public_key],
     })
 }
@@ -83,12 +86,60 @@ pub fn decode(response: &Value) -> Result<Value, String> {
     {
         return Err("the faucet claim names no network".into());
     }
-    Ok(claim.clone())
+    let mut claimed = claim.clone();
+    claimed["txHash"] = claim["transaction_id"].clone();
+    Ok(claimed)
+}
+
+/// Calls only the explicitly selected hosted faucet route with identity authorization.
+pub fn claim(
+    endpoint: &str,
+    session: zeroize::Zeroizing<String>,
+    did: &str,
+    public_key: &str,
+) -> Result<Value, String> {
+    crate::http::validate_resource_id(did, "did")?;
+    if did.len() > 256
+        || did
+            .strip_prefix("did:")
+            .and_then(|rest| rest.split_once(':'))
+            .is_none_or(|(method, id)| method.is_empty() || id.is_empty())
+    {
+        return Err("faucet requires a decentralised identifier".into());
+    }
+    crate::encoding::fixed_hex::<32>("public key", public_key)?;
+    let uri: ureq::http::Uri = endpoint
+        .parse()
+        .map_err(|_| "invalid faucet service endpoint")?;
+    let scheme = uri
+        .scheme_str()
+        .ok_or("faucet service endpoint requires a scheme")?;
+    let authority = uri
+        .authority()
+        .ok_or("faucet service endpoint requires an authority")?;
+    if authority.as_str().contains('@')
+        || uri.query().is_some()
+        || endpoint.contains('#')
+        || session.is_empty()
+    {
+        return Err("invalid faucet service endpoint or identity session".into());
+    }
+    let client = crate::http::Client::new(&format!("{scheme}://{authority}"), Some(session))?;
+    let response = client.post(uri.path(), &request(did, public_key), None)?;
+    if response["id"] != "faucet" {
+        return Err("faucet response id does not match request".into());
+    }
+    decode(&response)?;
+    Ok(response)
 }
 
 pub fn run(arguments: &FaucetArgs) -> Result<CommandOutput, String> {
     let configuration = Configuration::load()?;
-    let (environment, client) = crate::active_client(&configuration)?;
+    let (environment, _profile) = configuration.active_environment()?;
+    let session = crate::credential::token(environment)?.ok_or_else(|| {
+        "identity_session_required: faucet claims require a bearer identity session; configure one with layerx auth set"
+            .to_owned()
+    })?;
     let name = arguments
         .key
         .clone()
@@ -102,7 +153,12 @@ pub fn run(arguments: &FaucetArgs) -> Result<CommandOutput, String> {
         .get(&name)
         .ok_or_else(|| format!("key {name} does not exist"))?;
     let public_key = metadata.public_key.to_ascii_lowercase();
-    let response = client.post("/rpc", &request(&metadata.did, &public_key), None)?;
+    let response = claim(
+        &arguments.service_endpoint,
+        session,
+        &metadata.did,
+        &public_key,
+    )?;
     let claim = decode(&response)?;
     Ok(CommandOutput::new(
         "faucet.claimed",
@@ -140,7 +196,7 @@ mod tests {
         let key = "ab".repeat(32);
         let envelope = request("did:layerx:alice", &key);
         assert_eq!(envelope["jsonrpc"], "2.0");
-        assert_eq!(envelope["method"], "lx_requestFunds");
+        assert_eq!(envelope["method"], "px_requestFunds");
         assert_eq!(envelope["params"][0], "did:layerx:alice");
         assert_eq!(envelope["params"][1], key);
         assert_eq!(envelope["params"].as_array().map(Vec::len), Some(2));
@@ -151,6 +207,7 @@ mod tests {
         let claim = decode(&funded()).unwrap_or_else(|error| panic!("{error}"));
         assert_eq!(claim["funded"], true);
         assert_eq!(claim["amount"], "1000000");
+        assert_eq!(claim["txHash"], "cd".repeat(32));
         assert_eq!(claim["network"], "layerx-testnet");
 
         for (response, fragment) in [

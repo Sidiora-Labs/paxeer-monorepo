@@ -20,6 +20,7 @@ import (
 	feedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -294,6 +295,65 @@ func stopOrdersAdminRefusal(t *testing.T, name string, args ...interface{}) {
 	after, err := f.k.GetParams(f.ctx)
 	require.NoError(t, err)
 	require.Equal(t, before, after)
+}
+
+func TestStopOrdersActiveViewsGasFlat(t *testing.T) {
+	f := newStopOrdersFixture(t)
+	evmKeeper := &testkeeper.EVMTestApp.EvmKeeper
+	versioned, err := spot.GetVersioned(app.LatestUpgrade, spotKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), f.k})
+	require.NoError(t, err)
+	address := common.HexToAddress(types.PECORStopOrdersAddress)
+	contract, ok := versioned[address][app.LatestUpgrade].(vm.DynamicGasPrecompiledContract)
+	require.True(t, ok)
+	const suppliedGas uint64 = 1_000_000
+	baseline := make(map[string]uint64)
+	var firstID *big.Int
+	placed := 0
+	for _, count := range []int{10, 500} {
+		for placed < count {
+			owner := common.BigToAddress(big.NewInt(int64(20_000 + placed/100)))
+			if placed%100 == 0 {
+				require.NoError(t, testkeeper.EVMTestApp.BankKeeper.SendCoins(f.ctx,
+					evmKeeper.GetPaxAddressOrDefault(f.ctx, f.user), evmKeeper.GetPaxAddressOrDefault(f.ctx, owner),
+					sdk.NewCoins(sdk.NewInt64Coin("uhpx", 100_000_000_000))))
+			}
+			out, err := f.invoke(owner, "placeStopLimitSell", f.base, f.stable, big.NewInt(1_000_000_000), stopOrdersTestPrice(45).BigInt(), stopOrdersTestPrice(40).BigInt(), big.NewInt(0))
+			require.NoError(t, err)
+			if placed == 0 {
+				firstID = new(big.Int).Set(out[0].(*big.Int))
+			}
+			placed++
+		}
+		for _, view := range []struct {
+			name string
+			args []interface{}
+			want *big.Int
+		}{
+			{"activeStopLimitOrderIds", []interface{}{big.NewInt(0)}, firstID},
+			{"getActiveStopLimitOrderCount", nil, big.NewInt(int64(count))},
+		} {
+			input, err := f.abi.Pack(view.name, view.args...)
+			require.NoError(t, err)
+			var output []byte
+			var left uint64
+			require.NoError(t, evmKeeper.RunWithOneOffEVMInstance(f.ctx, func(evm *vm.EVM) error {
+				var err error
+				output, left, err = contract.RunAndCalculateGas(evm, f.user, address, input, suppliedGas, new(big.Int), nil, true, false)
+				return err
+			}, func(string, string) {}), "%s at %d orders", view.name, count)
+			out, err := f.abi.Methods[view.name].Outputs.Unpack(output)
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			require.Equal(t, view.want, out[0], "%s at %d orders", view.name, count)
+			require.Greater(t, left, uint64(0))
+			require.Less(t, left, suppliedGas)
+			if count == 10 {
+				baseline[view.name] = left
+			} else {
+				require.Equal(t, baseline[view.name], left, "%s gas must be equal at 10 and 500 active stop-limit orders", view.name)
+			}
+		}
+	}
 }
 
 func TestStopOrdersOwner(t *testing.T) {

@@ -4,6 +4,7 @@ package simulation
 
 import (
 	"math/rand"
+	"strings"
 
 	paxappparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
@@ -23,8 +24,6 @@ const (
 	OpWeightMsgAggregateExchangeRateVote = "op_weight_msg_exchange_rate_aggregate_vote"
 	OpWeightMsgDelegateFeedConsent       = "op_weight_msg_exchange_feed_consent"
 )
-
-var voteHashMap = make(map[string]string)
 
 // WeightedOperations returns all the operations from the module with their respective weights
 func WeightedOperations(
@@ -69,24 +68,40 @@ func SimulateMsgAggregateExchangeRateVote(ak types.AccountKeeper, bk types.BankK
 	return func(
 		r *rand.Rand, app *baseapp.BaseApp, ctx sdk.Context, accs []simtypes.Account, chainID string,
 	) (simtypes.OperationMsg, []simtypes.FutureOperation, error) {
+		if len(accs) == 0 {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "no simulation accounts"), nil, nil
+		}
 		simAccount, _ := simtypes.RandomAcc(r, accs)
 		address := sdk.ValAddress(simAccount.Address)
 
-		// ensure the validator exists
 		val := k.StakingKeeper.Validator(ctx, address)
 		if val == nil || !val.IsBonded() {
 			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "unable to find validator"), nil, nil
 		}
 
-		// ensure vote hash exists
-		exchangeRatesStr, ok := voteHashMap[address.String()]
-		if !ok {
-			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "vote hash not exists"), nil, nil
+		targets := k.GetVoteTargets(ctx)
+		if len(targets) == 0 {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "no vote targets"), nil, nil
 		}
+		rates := make([]string, 0, len(targets))
+		for _, denom := range targets {
+			rates = append(rates, sdk.NewDecWithPrec(1+r.Int63n(1000000), 3).String()+denom)
+		}
+		exchangeRatesStr := strings.Join(rates, ",")
 
 		feederAddr := k.GetFeederDelegation(ctx, address)
-		feederSimAccount, _ := simtypes.FindAccount(accs, feederAddr)
+		feederSimAccount, found := simtypes.FindAccount(accs, feederAddr)
+		if !found || feederSimAccount.PrivKey == nil {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "authorized feeder signing account unavailable"), nil, nil
+		}
+		if err := k.ValidateFeeder(ctx, feederAddr, address); err != nil {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "unauthorized feeder"), nil, err
+		}
 		feederAccount := ak.GetAccount(ctx, feederAddr)
+		if feederAccount == nil {
+			return simtypes.NoOpMsg(types.ModuleName, types.TypeMsgAggregateExchangeRateVote, "authorized feeder account unavailable"), nil, nil
+		}
+
 		spendableCoins := bk.SpendableCoins(ctx, feederAddr)
 
 		fees, err := simtypes.RandomFees(r, ctx, spendableCoins)

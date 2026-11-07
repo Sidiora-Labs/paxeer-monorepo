@@ -31,6 +31,8 @@ pub mod commit;
 #[deny(unsafe_code)]
 pub mod crypto;
 #[deny(unsafe_code)]
+pub mod dispute_artifacts;
+#[deny(unsafe_code)]
 pub mod dynamic_spend;
 #[deny(unsafe_code)]
 pub mod engine;
@@ -49,8 +51,8 @@ mod ffi_call;
 #[cfg(feature = "host-ffi")]
 pub use ffi_call::{
     read_native_receipt_authority, settle_host_sandbox_escrow_charge,
-    settle_reserved_host_sandbox_escrow_charge, RawNativeReceiptAuthorityV1,
-    RAW_NATIVE_RECEIPT_AUTHORITY_V1_BYTES,
+    settle_reserved_host_sandbox_escrow_charge, NativeReceiptAuthority,
+    RawNativeReceiptAuthorityV2, RAW_NATIVE_RECEIPT_AUTHORITY_V2_BYTES,
 };
 #[cfg(feature = "host-ffi")]
 #[allow(unsafe_code)]
@@ -88,6 +90,10 @@ pub mod lifecycle;
 pub mod limits;
 #[deny(unsafe_code)]
 pub mod meter;
+#[allow(unsafe_code)]
+pub mod native_contract;
+#[deny(unsafe_code)]
+pub mod native_result;
 #[deny(unsafe_code)]
 pub mod occupancy;
 #[deny(unsafe_code)]

@@ -6,16 +6,11 @@ import copy
 import hashlib
 import json
 from pathlib import Path
-import runpy
 import sys
 from datetime import datetime, timezone
 
-_CODEC = runpy.run_path(
-    str(
-        Path(__file__).resolve().parents[3] / "services/platform/hosted/paxeer/anchor-genesis.py"
-    )
-)
-BECH32 = _CODEC["bech32"]
+from programme import bech32_encode
+
 PUBKEY_TYPE = "tendermint/PubKeyEd25519"
 SDK_PUBKEY_TYPE = "/cosmos.crypto.ed25519.PubKey"
 
@@ -46,7 +41,7 @@ def public_key(value):
         "public key must encode exactly 32 bytes",
     )
     address = hashlib.sha256(raw).digest()[:20]
-    return address.hex().upper(), BECH32("paxvalcons", address)
+    return address.hex().upper(), bech32_encode("paxvalcons", address)
 
 
 def indexed(entries, field, name):

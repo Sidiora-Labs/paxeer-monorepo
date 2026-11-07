@@ -1,30 +1,33 @@
+#[path = "support/protocol_time.rs"]
+mod protocol_time;
+use protocol_time::ProtocolTime;
+
+use layerx_client::rpc::evidence::checkpoint;
+use layerx_client::runtime_clock::RuntimeClock;
+use layerx_client::sequencer::SequencerEndpoint;
+use layerx_types::clock::{Clock, Deadline};
 use std::fmt::Debug;
 use std::fs;
 use std::future::Future;
-use std::io::{Read, Write};
-use std::net::TcpStream;
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::{TcpListener, TcpStream};
 use std::os::unix::fs::PermissionsExt;
-use std::path::Path;
 use std::pin::pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, Wake, Waker};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::{BodyDigest, IdempotentMutation, Key};
 use layerx_agent_api::identity::{
-    AgentDid, AuthorityRef, NativeSendPurposeV1, SessionId, SignedNativeSendPurposeV1,
+    AgentDid, AuthorityRef, NativeSendPurposeV2, SessionId, SignedNativeSendPurposeV2,
 };
 use layerx_agent_api::prepare::{IdempotencyRef, PayloadBytes, PrepareRequest, TimestampBound};
-use layerx_client::client::{ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::HandshakeConfig;
-use layerx_client::lni::schema::Version;
-use layerx_client::lni::transport::{Limits, MutualTlsConfig};
-use layerx_client::Client;
 use layerx_human_service::audit::{AuditChain, AuditEvent, Decision};
 use layerx_human_service::custody::{
     CustodySigner, KeyId, Keystore, Operation, RemoteKmsProvider, SigningLimits,
 };
+use layerx_human_service::frame::{Limits as FrameLimits, MutualTlsConfig};
 use layerx_human_service::journeys::{
     AgentBoundary, JourneyEngine, JourneyKind, JourneyLeg, JourneyPhase, JourneyPlan, JourneyState,
 };
@@ -89,8 +92,8 @@ fn id(value: &str) -> [u8; 32] {
     assert_ne!(id, [0; 32]);
     id
 }
-fn limits() -> Limits {
-    Limits {
+fn frame_limits() -> FrameLimits {
+    FrameLimits {
         maximum_frame_bytes: 1_212_416,
         maximum_connections: 1,
         maximum_streams: 1,
@@ -98,27 +101,99 @@ fn limits() -> Limits {
         deadline: Duration::from_secs(8),
     }
 }
-fn clock(fixture: &Value) -> (u64, u64) {
-    let mut node = checked(Client::connect(ClientConfig {
-        endpoint: Path::new(text(fixture, "lni_socket")).to_path_buf(),
-        handshake: HandshakeConfig {
-            built_interface_version: Version::V1_8,
-            expected_protocol_version: 3,
-            expected_network_id: checked(number(fixture, "network_id").try_into()),
-        },
-        limits: limits(),
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(1),
-            maximum_delay: Duration::from_millis(1),
-            jitter_percent: 0,
-        },
-    }));
-    let state =
-        checked(node.preparation_state(&checked(Did::new(text(fixture, "owner").as_bytes())), 1));
-    assert_ne!(state.observed_state_root, [0; 32]);
-    (state.protocol_timestamp, state.observed_head_sequence)
+fn clock(fixture: &Value) -> ProtocolTime {
+    let runtime_clock = checked(RuntimeClock::from_environment());
+    let mut agent = runtime_with_clock(
+        fixture,
+        text(fixture, "principal"),
+        text(fixture, "owner"),
+        text(fixture, "account"),
+        runtime_clock.clone(),
+    );
+    let head = checked(agent.head());
+    clock_at(fixture, head.chain_sequence)
 }
+
+fn clock_at(fixture: &Value, height: u64) -> ProtocolTime {
+    let runtime_clock = checked(RuntimeClock::from_environment());
+    let listener = checked(TcpListener::bind("127.0.0.1:0"));
+    let endpoint = checked(SequencerEndpoint::new(
+        &format!("http://{}/", checked(listener.local_addr())),
+        &[],
+    ));
+    checked(listener.set_nonblocking(true));
+    let upstream = text(fixture, "rpc_url").to_owned();
+    let server = std::thread::spawn(move || {
+        let mut deadline = checked(Deadline::start(
+            runtime_clock.as_ref(),
+            Duration::from_secs(8),
+        ));
+        let stream = loop {
+            match listener.accept() {
+                Ok((stream, _)) => break stream,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    assert!(
+                        !checked(deadline.remaining(runtime_clock.as_ref())).is_zero(),
+                        "missing sequencer head read"
+                    );
+                    std::thread::sleep(Duration::from_millis(1));
+                }
+                Err(error) => panic!("sequencer head accept: {error}"),
+            }
+        };
+        checked(stream.set_read_timeout(Some(Duration::from_secs(8))));
+        checked(stream.set_write_timeout(Some(Duration::from_secs(8))));
+        let mut reader = BufReader::new(stream);
+        let mut length = None;
+        loop {
+            let mut line = String::new();
+            assert_ne!(checked(reader.read_line(&mut line)), 0);
+            if line == "\r\n" {
+                break;
+            }
+            if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                length = Some(checked(value.trim().parse::<usize>()));
+            }
+        }
+        let length = length.expect("RPC content length");
+        assert!(length <= 65_536);
+        let mut body = vec![0; length];
+        checked(reader.read_exact(&mut body));
+        let request: Value = checked(serde_json::from_slice(&body));
+        assert_eq!(request["method"], "eth_getBlockByNumber");
+        assert_eq!(
+            request["params"],
+            serde_json::json!([format!("{height:#x}"), true])
+        );
+        let mut response = checked(
+            ureq::Agent::config_builder()
+                .timeout_global(Some(Duration::from_secs(8)))
+                .build()
+                .new_agent()
+                .post(&upstream)
+                .header("Content-Type", "application/json")
+                .send(&body),
+        );
+        let answer: Value = checked(serde_json::from_slice(&checked(
+            response.body_mut().read_to_vec(),
+        )));
+        assert_eq!(answer["id"], request["id"]);
+        let root = text(&answer["result"], "stateRoot")
+            .strip_prefix("0x")
+            .expect("served sequencer state root");
+        assert_ne!(id(root), [0; 32]);
+        let answer = checked(serde_json::to_vec(&answer));
+        let mut stream = reader.into_inner();
+        checked(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n", answer.len()));
+        checked(stream.write_all(&answer));
+        checked(stream.flush());
+    });
+    let observed = checked(checkpoint(&endpoint, height));
+    checked(server.join());
+    assert_eq!(observed.number, height);
+    ProtocolTime::from_block(&observed)
+}
+
 fn store(fixture: &Value) -> PrincipalStore {
     let retention = RetentionPeriod::new(number(fixture, "retention_seconds"));
     checked(PrincipalStore::open(
@@ -134,10 +209,21 @@ fn store(fixture: &Value) -> PrincipalStore {
     ))
 }
 fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> AgentRuntime {
+    let clock = checked(RuntimeClock::from_environment());
+    runtime_with_clock(fixture, principal, owner, account, clock)
+}
+fn runtime_with_clock(
+    fixture: &Value,
+    principal: &str,
+    owner: &str,
+    account: &str,
+    clock: Arc<dyn Clock>,
+) -> AgentRuntime {
     checked(
-        checked(AgentRuntime::connect(
+        checked(AgentRuntime::connect_with_clock(
             text(fixture, "agent_socket"),
-            limits(),
+            frame_limits(),
+            clock,
         ))
         .for_subject(
             &checked(PrincipalId::new(principal)),
@@ -148,6 +234,7 @@ fn runtime(fixture: &Value, principal: &str, owner: &str, account: &str) -> Agen
     )
 }
 fn custody(fixture: &Value, registry: &layerx_types::payload::ModuleRegistry) -> CustodySigner {
+    let clock = checked(RuntimeClock::from_environment());
     let mut roots = RootCertStore::empty();
     checked(roots.add(CertificateDer::from(protected(
         text(fixture, "kms_ca_der"),
@@ -169,7 +256,8 @@ fn custody(fixture: &Value, registry: &layerx_types::payload::ModuleRegistry) ->
         checked(text(fixture, "kms_endpoint").parse()),
         text(fixture, "kms_server_name"),
         tls,
-        limits(),
+        frame_limits(),
+        clock,
     ));
     let keys = checked(Keystore::open_production(
         text(fixture, "custody_store"),
@@ -231,6 +319,7 @@ fn plan(fixture: &Value, case: &Value) -> JourneyPlan {
         id(text(&data, "action_key")),
         checked(AgentDid::new(text(fixture, "owner"))),
         checked(AuthorityRef::new(text(&data, "authority"))),
+        number(&data, "account_sequence"),
         number(&data, "account_sequence"),
         number(&data, "not_before"),
         number(&data, "not_after"),
@@ -316,13 +405,12 @@ fn original_call(
         operation: request,
     })
 }
-fn signed_purpose(journal: &Value) -> SignedNativeSendPurposeV1 {
+fn signed_purpose(journal: &Value) -> SignedNativeSendPurposeV2 {
     let native = &journal["legs"][0]["native"];
-    SignedNativeSendPurposeV1 {
-        purpose: checked(NativeSendPurposeV1::from_canonical_bytes(&bytes(
+    SignedNativeSendPurposeV2 {
+        purpose: checked(NativeSendPurposeV2::from_canonical_bytes(&bytes(
             &native["purpose"],
         ))),
-        owner_public_key: checked(bytes(&native["owner_public_key"]).try_into()),
         signature: checked(bytes(&native["purpose_signature"]).try_into()),
     }
 }
@@ -562,8 +650,9 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         )));
         let context = checked(layerx_human_service::server::native_send::load_access(
             &scope,
+            &mut agent,
             id(text(case, "capability_id")),
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
         checked(
             agent.bind_native_journey_context(
@@ -577,7 +666,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &mut scope,
             &plan,
             &registry,
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
         let signer = custody(&fixture, &registry);
         for _ in 0..3 {
@@ -591,7 +680,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 &signer,
                 &registry,
                 &trace,
-                clock(&fixture).0,
+                clock(&fixture).seconds,
             )));
         }
         assert_eq!(
@@ -616,12 +705,25 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         let durable_key = checked(layerx_agentd::prepare::DurablePreparation::store_key(
             &tenant, approval,
         ));
-        let durable = checked(layerx_agentd::prepare::DurablePreparation::decode(
-            tenant,
+        let retained = daemon
+            .get(&durable_key)
+            .expect("actual durable held approval")
+            .bytes()
+            .to_vec();
+        drop(daemon);
+        let daemon = checked(layerx_agentd::store::Store::open(text(
+            &fixture,
+            "agent_store",
+        )));
+        assert_eq!(
             daemon
                 .get(&durable_key)
-                .expect("actual durable held approval")
+                .expect("held approval after reopening store")
                 .bytes(),
+            retained
+        );
+        let durable = checked(layerx_agentd::prepare::DurablePreparation::decode(
+            tenant, &retained,
         ));
         assert_eq!(
             durable.state,
@@ -642,15 +744,28 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         );
         let call = original_call(&contract, &original);
         let purpose = signed_purpose(&original);
-        assert_eq!(purpose.purpose.protocol_version, 3);
-        assert_eq!(
-            u64::from(purpose.purpose.network_id),
-            number(&fixture, "network_id")
-        );
+        assert_eq!(purpose.purpose.transaction_type, 2);
+        assert_eq!(purpose.purpose.chain_id, number(&fixture, "network_id"));
         assert_eq!(purpose.purpose.activity.module, 1);
         assert_eq!(purpose.purpose.activity.ordinal, 5);
         assert_eq!(purpose.purpose.owner_did.as_str(), text(&fixture, "owner"));
-        assert_eq!(purpose.purpose.owner_public_key, purpose.owner_public_key);
+        let held_key = checked(signer.describe_key(
+            &principal,
+            &checked(KeyId::new(text(&fixture, "custody_key"))),
+        ));
+        assert_eq!(purpose.purpose.consent_public_key, held_key.public_key);
+        assert_eq!(
+            purpose.purpose.evm_sender,
+            checked(signer.evm_wallet(
+                &principal,
+                &checked(KeyId::new(text(&fixture, "custody_key")))
+            ))
+        );
+        checked(layerx_crypto::ed25519::verify_digest(
+            &held_key.public_key,
+            &purpose.signature,
+            &Sha256::digest(checked(purpose.purpose.canonical_bytes())).into(),
+        ));
         let original_action: [u8; 32] =
             checked(bytes(&original["legs"][0]["action_key"]).try_into());
         assert_eq!(
@@ -669,6 +784,16 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         assert!(agent
             .native_journey_resume(&call, &wrong_session, approval, digest)
             .is_err());
+        let mut wrong_consent_key = purpose.clone();
+        wrong_consent_key.purpose.consent_public_key[0] ^= 1;
+        assert!(agent
+            .native_journey_resume(&call, &wrong_consent_key, approval, digest)
+            .is_err());
+        let mut wrong_sender = purpose.clone();
+        wrong_sender.purpose.evm_sender[0] ^= 1;
+        assert!(agent
+            .native_journey_resume(&call, &wrong_sender, approval, digest)
+            .is_err());
         let mut wrong_context = purpose.clone();
         wrong_context.purpose.commitment[0] ^= 1;
         assert!(agent
@@ -682,7 +807,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 wrong_digest,
                 text(case, "decision_key"),
                 true,
-                clock(&fixture).1
+                clock(&fixture).height
             )
             .is_err());
         let mut foreign = runtime(
@@ -707,18 +832,32 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         ))
         .expect("genuine native reopen");
         assert_eq!(journal(&scope, case), original);
+        assert_eq!(
+            checked(engine.native_context_binding()),
+            Some(purpose.purpose.clone())
+        );
         let context = checked(layerx_human_service::server::native_send::load_access(
             &scope,
+            &mut agent,
             id(text(case, "capability_id")),
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         ));
+        checked(
+            context
+                .session
+                .validate(&scope, context.session.expires_at_ms / 1_000 - 1),
+        );
+        assert!(context
+            .session
+            .validate(&scope, context.session.expires_at_ms.div_ceil(1_000))
+            .is_err());
         checked(agent.bind_native_journey_context(context, purpose.purpose.expires_at_ms));
         assert_eq!(
             checked(JourneyEngine::start_native(
                 &mut scope,
                 &plan,
                 &registry,
-                clock(&fixture).0
+                clock(&fixture).seconds
             ))
             .native_approval_binding(),
             Some((approval, digest))
@@ -726,15 +865,14 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         let signer = custody(&fixture, &registry);
         if index == 2 {
             let expires = purpose.purpose.expires_at_ms;
-            let started = Instant::now();
-            while clock(&fixture)
-                .0
-                .checked_mul(1000)
-                .expect("protocol time bound")
-                < expires
-            {
+            let runtime_clock = checked(RuntimeClock::from_environment());
+            let mut deadline = checked(Deadline::start(
+                runtime_clock.as_ref(),
+                Duration::from_secs(45),
+            ));
+            while clock(&fixture).milliseconds < expires {
                 assert!(
-                    started.elapsed() <= Duration::from_secs(45),
+                    !checked(deadline.remaining(runtime_clock.as_ref())).is_zero(),
                     "genuine fixture expiry must be within bounded window"
                 );
                 std::thread::sleep(Duration::from_millis(100));
@@ -745,7 +883,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             digest,
             text(case, "decision_key"),
             index != 1,
-            clock(&fixture).1,
+            clock(&fixture).height,
         ));
         assert_eq!(
             decided.state,
@@ -764,7 +902,7 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
             &signer,
             &registry,
             &trace,
-            clock(&fixture).0,
+            clock(&fixture).seconds,
         )));
         assert_eq!(
             checked(engine.status()).phases(),
@@ -816,12 +954,19 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
                 &signer,
                 &registry,
                 &trace,
-                clock(&fixture).0,
+                clock(&fixture).seconds,
             )));
             assert_eq!(checked(engine.status()).phases(), [JourneyPhase::Signed]);
             let signed = journal(&scope, case);
             assert!(signed["legs"][0]["signed"].is_object());
             assert_eq!(activity_signatures(&scope, &signed), 1);
+            checked(layerx_human_kms::attestor::validate_native_send_release(
+                &checked(purpose.canonical_bytes()),
+                &purpose.purpose.owner_did,
+                &purpose.purpose.consent_public_key,
+                &purpose.purpose.evm_sender,
+                &bytes(&signed["legs"][0]["signed"]["raw_transaction"]),
+            ));
             assert_eq!(
                 bytes(&signed["legs"][0]["signed"]["canonical_digest"]),
                 Sha256::digest(&material.canonical_unsigned_bytes).to_vec()
@@ -869,4 +1014,300 @@ fn genuine_native_journey_holds_reopens_and_resumes_original_authority() {
         assert_eq!(reopened.native_approval_binding(), Some((approval, digest)));
         no_money(&fixture, &before_reopen);
     }
+}
+
+#[test]
+fn native_send_v2_journey_persisted_before_restart_revalidates_its_purpose() {
+    use ed25519_dalek::Signer as _;
+    use layerx_agent_api::identity::{CapabilityId, NativeActivity, TenantId};
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, Eip1559Call};
+    use layerx_crypto::send::{ledger_payment_call, CallOptions, SendDebit};
+    use layerx_human_service::custody::NativeConsent;
+    use layerx_human_test_support::{directory, install_and_open, retention_uniform, tenancy};
+    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+    use std::os::unix::fs::DirBuilderExt as _;
+
+    let root = directory("native-send-v2-journey-restart");
+    checked(fs::DirBuilder::new().mode(0o700).create(&root));
+    assert_eq!(
+        checked(fs::metadata(&root)).permissions().mode() & 0o777,
+        0o700
+    );
+    let principal = checked(PrincipalId::new("native-restart-owner"));
+    let journey_id = checked(JourneyId::new("jrn_nativev2restart"));
+    let request_key = [0x61; 32];
+    let row = checked(RowKey::new(format!(
+        "journey-{}",
+        request_key
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )));
+    let retention = retention_uniform(10_000);
+    let (tenancy_digest, expected, original) = {
+        let (mut retained, tenancy_digest) = install_and_open(
+            &root.join("store"),
+            &tenancy(&[(principal.as_str(), "tenant-a")]),
+            retention,
+        );
+        let key = ed25519_dalek::SigningKey::from_bytes(&[0x31; 32]);
+        let public = key.verifying_key().to_bytes();
+        let owner = checked(AgentDid::new(format!(
+            "did:layerx:{}",
+            public
+                .iter()
+                .map(|byte| format!("{byte:02x}"))
+                .collect::<String>()
+        )));
+        let from = checked(AccountId::parse(&format!("agent:{}:main", owner.as_str())));
+        let to = checked(AccountId::parse(&format!(
+            "agent:did:layerx:{}:main",
+            "42".repeat(32)
+        )));
+        let debit = SendDebit {
+            from: checked(layerx_intents::canonical::account_id_for_protocol(&from, 3)),
+            to: checked(layerx_intents::canonical::account_id_for_protocol(&to, 3)),
+            asset: [0x43; 32],
+            amount: 5,
+            source_sequence: 7,
+            idempotency_key: [0x44; 32],
+            expires_at: 1_010,
+            context_hash: [0x45; 32],
+            conditions: Vec::new(),
+            authorization_kind: SendAuthorizationKind::Owner as u8,
+            network_id: 125,
+            protocol_version: 3,
+        };
+        let local = layerx_crypto::local::LocalSigner::new([0x31; 32]);
+        let authorization_bytes =
+            checked(layerx_intents::canonical::send_authorization_bytes(&debit));
+        let authorization = checked(ready(layerx_crypto::signer::Signer::sign(
+            &local,
+            checked(debit.signing_request(&authorization_bytes)),
+        )));
+        let send = checked(LxpSend::new(
+            from,
+            to,
+            AssetId::new(debit.asset),
+            Amount::from_u128(debit.amount),
+            Sequence::from_u64(debit.source_sequence),
+            IdempotencyKey::new(debit.idempotency_key),
+            TimestampSeconds::from_u64(debit.expires_at),
+            ContextHash::new(debit.context_hash),
+            SendAuthorization::new(
+                SendAuthorizationKind::Owner,
+                PublicKey::new(public),
+                AuthorizationSignature::new(*authorization.as_bytes()),
+            ),
+            checked(NetworkId::new(125)),
+            checked(ProtocolVersion::new(3)),
+        ));
+        let activity = checked(ActivityType::new(ModuleId::Asset, 5));
+        let registry = checked(ModuleRegistry::new(&[checked(ModuleRegistration::new(
+            ModuleId::Asset,
+            &[activity],
+        ))]));
+        let plan = checked(JourneyPlan::new(
+            journey_id.clone(),
+            JourneyKind::Move,
+            request_key,
+            checked(KeyId::new("primary")),
+            Operation::ProtocolMutation,
+            vec![checked(JourneyLeg::new(
+                Intent::v1(IntentKind::LxpSend(send)),
+                debit.idempotency_key,
+                owner.clone(),
+                checked(AuthorityRef::new(
+                    public
+                        .iter()
+                        .map(|byte| format!("{byte:02x}"))
+                        .collect::<String>(),
+                )),
+                7,
+                7,
+                1_000,
+                1_010,
+                700_000,
+            ))],
+        ));
+        let mut scope = checked(retained.principal(&principal));
+        let engine = checked(JourneyEngine::start_native(
+            &mut scope, &plan, &registry, 1_000,
+        ));
+        assert_eq!(checked(engine.status()).phases(), [JourneyPhase::Compiled]);
+        let mut record: Value = checked(serde_json::from_slice(
+            scope
+                .get(Table::Journeys, &row)
+                .expect("production journey record")
+                .bytes(),
+        ));
+        let payload = bytes(&record["legs"][0]["payload"]);
+        assert_eq!(
+            payload,
+            checked(layerx_intents::canonical::signed_send_payload(
+                &debit,
+                public,
+                *authorization.as_bytes()
+            ))
+        );
+        let wallet = [0x35; 32];
+        let probe = Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 7,
+            gas_limit: 100_000,
+            to: [0x33; 20],
+            data: vec![0x44],
+        };
+        let (call, signature) = checked(decode_signed(&checked(probe.sign(&wallet))));
+        let sender = checked(recover_sender(&call, &signature));
+        let prepared = checked(ledger_payment_call(
+            &payload,
+            &CallOptions {
+                from: sender,
+                chain_id: 125,
+                nonce: 7,
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
+                gas_limit: 100_000,
+            },
+        ));
+        let canonical = prepared.call.encode_unsigned();
+        let digest: [u8; 32] = Sha256::digest(&canonical).into();
+        let purpose = NativeSendPurposeV2 {
+            tenant: checked(TenantId::new("tenant-a")),
+            agent_did: owner.clone(),
+            owner_did: owner,
+            consent_public_key: public,
+            evm_sender: sender,
+            session_id: checked(SessionId::new("51".repeat(32))),
+            generation: 2,
+            expires_at_ms: 1_010_000,
+            capability_id: checked(CapabilityId::new("52".repeat(32))),
+            transaction_type: 2,
+            chain_id: 125,
+            activity: checked(NativeActivity::new(1, 5)),
+            preparation_id: digest,
+            canonical_digest: digest,
+            economic_action: [0x53; 32],
+            idempotency_key: debit.idempotency_key,
+            commitment: [0x54; 32],
+        };
+        checked(NativeConsent::SendPurpose(&purpose).validate_at(1_000_000, public));
+        let signed = SignedNativeSendPurposeV2 {
+            purpose: purpose.clone(),
+            signature: key
+                .sign(&checked(NativeConsent::SendPurpose(&purpose).digest()))
+                .to_bytes(),
+        };
+        let native = serde_json::json!({
+            "purpose": checked(purpose.canonical_bytes()),
+            "owner_public_key": public, "purpose_signature": signed.signature.to_vec(),
+            "unsigned_canonical_bytes": canonical, "signing_preimage": prepared.call.signing_hash().to_vec(),
+            "disclosure_digest": checked(prepared.disclosure.audit_digest()), "owner_key": public,
+            "created_head_sequence": 7, "created_protocol_time_ms": 1_000_000,
+            "approval_id": digest, "held_digest": ([0x55_u8; 32]), "release_ref": null,
+            "approval_state": "awaiting"
+        });
+        record["legs"][0]["native"] = native;
+        record["legs"][0]["phase"] = serde_json::json!("awaiting-approval");
+        record["legs"][0]["prepared_ref"] = serde_json::json!("native-v2-restart");
+        record["legs"][0]["prepared_digest"] = checked(serde_json::to_value(digest));
+        record["transitions"]
+            .as_array_mut()
+            .expect("journey transitions")
+            .push(serde_json::json!({
+                "sequence": 2, "leg": 0, "phase": "awaiting-approval", "observed_at": 1_000
+            }));
+        checked(scope.put(
+            Table::Journeys,
+            row.clone(),
+            1_000,
+            checked(serde_json::to_vec(&record)),
+        ));
+        assert_eq!(
+            checked(JourneyEngine::load(&scope, &journey_id))
+                .expect("persisted V2 journey")
+                .native_approval_binding(),
+            Some((digest, [0x55; 32]))
+        );
+        // All store, scope, engine and signing handles are dropped at the restart boundary.
+        (tenancy_digest, signed, record)
+    };
+    let mut reopened = checked(PrincipalStore::open(
+        root.join("store"),
+        retention,
+        tenancy_digest,
+    ));
+    {
+        let mut scope = checked(reopened.principal(&principal));
+        let engine = checked(JourneyEngine::load(&scope, &journey_id))
+            .expect("revalidated V2 journey after restart");
+        assert_eq!(
+            checked(engine.status()).phases(),
+            [JourneyPhase::AwaitingApproval]
+        );
+        assert_eq!(
+            checked(engine.native_context_binding()),
+            Some(expected.purpose.clone())
+        );
+        let persisted: Value = checked(serde_json::from_slice(
+            scope
+                .get(Table::Journeys, &row)
+                .expect("reopened record")
+                .bytes(),
+        ));
+        assert_eq!(persisted, original);
+        assert_eq!(signed_purpose(&persisted), expected);
+        checked(layerx_crypto::ed25519::verify_digest(
+            &expected.purpose.consent_public_key,
+            &expected.signature,
+            &Sha256::digest(checked(expected.purpose.canonical_bytes())).into(),
+        ));
+        for field in ["sender", "consent_key", "canonical_digest", "signature"] {
+            let mut altered = original.clone();
+            let mut purpose = expected.purpose.clone();
+            match field {
+                "sender" => purpose.evm_sender[0] ^= 1,
+                "consent_key" => purpose.consent_public_key[0] ^= 1,
+                "canonical_digest" => purpose.canonical_digest[0] ^= 1,
+                _ => {
+                    let mut signature = expected.signature;
+                    signature[0] ^= 1;
+                    altered["legs"][0]["native"]["purpose_signature"] =
+                        checked(serde_json::to_value(signature.to_vec()));
+                }
+            }
+            altered["legs"][0]["native"]["purpose"] =
+                checked(serde_json::to_value(checked(purpose.canonical_bytes())));
+            checked(scope.put(
+                Table::Journeys,
+                row.clone(),
+                1_000,
+                checked(serde_json::to_vec(&altered)),
+            ));
+            assert!(
+                JourneyEngine::load(&scope, &journey_id).is_err(),
+                "reopen accepted changed {field}"
+            );
+        }
+        checked(scope.put(
+            Table::Journeys,
+            row.clone(),
+            1_000,
+            checked(serde_json::to_vec(&original)),
+        ));
+        assert_eq!(
+            checked(
+                checked(JourneyEngine::load(&scope, &journey_id))
+                    .expect("retained original")
+                    .status()
+            )
+            .phases(),
+            [JourneyPhase::AwaitingApproval]
+        );
+    }
+    drop(reopened);
+    checked(fs::remove_dir_all(root));
 }

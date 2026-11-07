@@ -1,0 +1,95 @@
+{
+  "schema_version": 1,
+  "variant": "task:19.1",
+  "task": "19.1",
+  "scope": "task-component",
+  "cases": [
+    "V-030",
+    "V-034"
+  ],
+  "assertion_ids": [
+    "candidate.registered-wire",
+    "candidate.strict-input",
+    "candidate.scope-denied",
+    "candidate.real-merge",
+    "candidate.deterministic-objects",
+    "candidate.conflict-refused",
+    "candidate.typed-generations",
+    "candidate.immutable-request",
+    "candidate.empty-targets-refused",
+    "candidate.authenticated-run-bound",
+    "candidate.remote-gates-required",
+    "candidate.combined-fail-rejected",
+    "candidate.successor-not-released",
+    "candidate.level-status-explicit",
+    "candidate.input-change-invalidates",
+    "candidate.history-intact",
+    "candidate.cleanup-reconciles",
+    "candidate.cleanup-idempotent"
+  ],
+  "argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/19_1.py"
+  ],
+  "timeout_seconds": 300,
+  "required_env": [
+    "DATABASE_URL",
+    "PGHOST",
+    "PGPORT",
+    "PGUSER"
+  ],
+  "fixtures": [
+    "core/control-plane/dist/control.js",
+    "core/control-plane/dist/integration/candidates.js",
+    "core/control-plane/dist/integration/cleanup.js",
+    "core/control-plane/dist/integration/publication.js",
+    "core/control-plane/dist/integration/github.js",
+    "core/control-plane/dist/integration/closure.js",
+    "core/control-plane/dist/integration/release_barrier.js"
+  ],
+  "resources": [
+    {
+      "id": "integration-19.1-database",
+      "kind": "postgresql-database",
+      "scope": "task19.1-synthetic"
+    },
+    {
+      "id": "integration-19.1-identity-database",
+      "kind": "postgresql-database",
+      "scope": "task19.1-authenticated-fixture"
+    }
+  ],
+  "cleanup_argv": [
+    "python3",
+    "tests/hyperfide/cases/tasks/19_1.py",
+    "--cleanup"
+  ],
+  "cleanup_timeout_seconds": 60,
+  "required_artifacts": [
+    "integration/database-absence.json",
+    "integration/identity-database-absence.json"
+  ],
+  "source_files": [
+    "core/control-plane/package-lock.json",
+    "core/control-plane/package.json",
+    "core/control-plane/tsconfig.json",
+    "tests/hyperfide/cases/tasks/19_1.py",
+    "tests/hyperfide/cases/tasks/4_1.py",
+    "tests/hyperfide/check-evidence.py",
+    "tests/hyperfide/manifest.schema.json",
+    "tests/hyperfide/qualify.py",
+    "tests/hyperfide/support/identity_fixture.py"
+  ],
+  "source_roots": [
+    "core/control-plane/src",
+    "core/control-plane/dist",
+    "core/control-plane/components",
+    "core/control-plane/migrations"
+  ],
+  "actions": [
+    "postgresql.fixture.create",
+    "postgresql.fixture.drop",
+    "git.fixture.create",
+    "git.fixture.delete"
+  ]
+}

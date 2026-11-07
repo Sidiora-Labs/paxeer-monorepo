@@ -1,0 +1,39 @@
+[task.22.33.1166]
+audit = "22.30.53"
+base_revision = "d4778da7d47f2be6284ff02a288e9252843450eb"
+acceptance = "22998.1"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exits and private logs; qualification is established only by hf-done passing at the same candidate revision as hf-build."
+baseline = "No prior gate ledger exists. No baseline verify was run: the explicit ordered gate contract requires complete implementation before qualification and forbids manual verification. No pre-change test failure is claimed."
+inherited_repairs = "The base already has valid benchmark JSON matching basic-config.json, a multi-root restore command with --no-gc and stopped-target guidance, and exact README feature/request bounds; retain those repairs and add regression proofs."
+
+[finding.cli-doc-invalid-json]
+tests = ["TestRepairM_1166_CLIDocInvalidJSON"]
+repair = "Retain the strict valid complete JSON example, explicitly identify it as usable unchanged, and keep its bytes synchronized with benchmark/config/basic-config.json."
+proof = "Extract the documented JSON bytes without repairing or substituting them, compare with the committed fixture, load both files through the production LoadConfig and assert identical effective configuration and declared paths/options."
+
+[finding.cli-doc-restore-mode]
+tests = ["TestRepairM_1166_CLIDocRestoreMode"]
+repair = "Retain --no-gc, every archive source root, every destination root and the stopped-target requirement; clarify retention through transfer and subsequent target garbage collection."
+proof = "Read the command and safety guidance, check its no-gc mapping against the CLI admission/deletion branches, create a stopped three-root ordinary archive with real DB writes and aliases, discover it through the production segment scanner, copy its actual segment bytes locally into both destination roots, rebuild the missing keymap and read all data across two opens, and check retained source hashes."
+transport_limit = "The root-package regression uses the real local file copier as file transport and checks the CLI option wiring in source; it does not run SSH or an rsync subprocess."
+
+[finding.config-signed-bounds]
+tests = ["TestRepairM_1166_ConfigSignedBounds"]
+repair = "Reject nonpositive ControlChannelSize and GCPeriod, nonpositive MetricsUpdateInterval while metrics are enabled, and negative MinimumFlushInterval; preserve ignored metrics intervals when disabled and zero for immediate flushes."
+proof = "Zero, negative and minimum signed values fail both direct NewDB admission and JSON LoadConfig before data/snapshot directories or locks can be created; positive representable boundaries validate, and disabled modes write, flush, close and recover real table data."
+
+[finding.table-api-size-doc]
+tests = ["TestRepairM_1166_TableAPISizeDoc"]
+repair = "Use exact MaxUint16/MaxUint32 byte limits in Table methods, request fields, secondary-key fields and README examples."
+proof = "Check attached API field/method documentation, round-trip MaxUint32 through the real Address codec, and drive Put/PutBatch at 65535-byte primary/secondary key boundaries with Get/flush/reopen on memory and Pebble keymaps; oversized requests fail whole-batch validation without observable writes."
+
+[wiring]
+request = "None: all four findings and their regression proofs are contained in storage/db_engine/litt; spec files are left to the runner."
+
+[gotcha.baseline-order]
+observed = "The task's embedded baseline instruction conflicts with its explicit implementation-first order and prohibition on running verify_cmd by hand."
+resolution = "Follow the explicit ordered gate contract; record no baseline result and qualify only through hf-build followed by hf-done."
+
+[gotcha.atomic-patch]
+observed = "A multi-file patch failed because one documentation context line did not match; no files changed."
+resolution = "Read the exact existing text and apply the corrected complete patch before formatting or qualification."

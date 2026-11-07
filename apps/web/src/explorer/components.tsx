@@ -1,11 +1,15 @@
 import type { ReactNode } from "react";
 
 import { copyEntry } from "../../copy/runtime";
-import { formatCopy } from "../../copy/format";
 import { ExplorerFreshness as ExplorerFreshnessView, ExplorerNavigation } from "../kit/explorer";
+import { verificationWord } from "../kit/model";
 import { ScreenCard } from "../kit/surface";
 import { EXPLORER_NAVIGATION } from "./links";
-import type { ExplorerFreshness, ExplorerVerificationLevel, MirrorVerificationProvenance } from "./model";
+import {
+  validExplorerIdentifier,
+  type ExplorerFreshness,
+  type NativeExplorerFreshness,
+} from "./model";
 
 export { EXPLORER_NAVIGATION };
 
@@ -30,60 +34,46 @@ export function ExplorerFrame({
   );
 }
 
-export function verificationLabel(level: ExplorerVerificationLevel): string {
-  return copyEntry(`explorer.verification.${level.replaceAll("-", "_")}`).message;
+export function verificationLabel(level: string): string {
+  return verificationWord(level);
 }
 
-export function FreshnessDisplay({ freshness }: Readonly<{ freshness?: ExplorerFreshness }>) {
-  if (freshness === undefined) {
+export const NATIVE_FRESHNESS_COPY = Object.freeze({
+  current: "The explorer has indexed the committed head",
+  stale: "The explorer index is behind the committed head",
+  unavailable: "Explorer freshness is unavailable",
+  unavailableBody: "Current committed and indexed block positions are unavailable.",
+  unavailablePosition: "unavailable",
+});
+
+export function FreshnessDisplay({
+  freshness,
+  position,
+}: Readonly<{ freshness?: ExplorerFreshness; position?: NativeExplorerFreshness }>) {
+  // Old page props are historical evidence, never a source for current network freshness.
+  if (freshness !== undefined || position === undefined) {
     return (
       <ExplorerFreshnessView
-        title={copyEntry("explorer.freshness.unavailable").message}
-        description={copyEntry("explorer.freshness.unavailable.body").message}
+        title={NATIVE_FRESHNESS_COPY.unavailable}
+        description={NATIVE_FRESHNESS_COPY.unavailableBody}
+        current={false}
+      />
+    );
+  }
+  if (position.state === "unavailable") {
+    return (
+      <ExplorerFreshnessView
+        title={NATIVE_FRESHNESS_COPY.unavailable}
+        description={`Committed block ${position.committedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition}; indexed block ${position.indexedHeight ?? NATIVE_FRESHNESS_COPY.unavailablePosition}.`}
         current={false}
       />
     );
   }
   return (
     <ExplorerFreshnessView
-      title={copyEntry(freshness.current
-        ? "explorer.freshness.current"
-        : "explorer.freshness.behind").message}
-      description={formatCopy("explorer.freshness.detail", {
-        indexedBatch: freshness.indexedBatch ?? copyEntry("explorer.value.none").message,
-        observedBatch: freshness.observedSealedBatch,
-        batchesBehind: freshness.batchesBehind,
-        checkpoint: freshness.indexedCheckpoint ?? copyEntry("explorer.value.none").message,
-      })}
-      current={freshness.current}
-    />
-  );
-}
-
-export function MirrorFreshnessDisplay({ mirror }: Readonly<{ mirror: MirrorVerificationProvenance }>) {
-  const lag = mirror.batchLag.kind === "known"
-    ? formatCopy("explorer.mirror.lag.known", { batches: mirror.batchLag.batches })
-    : copyEntry("explorer.mirror.lag.unknown").message;
-  const latestBatch = mirror.latestBatch === undefined
-    ? copyEntry("explorer.mirror.latest_batch.unknown").message
-    : formatCopy("explorer.mirror.latest_batch", { batch: mirror.latestBatch });
-  const checkpoint = copyEntry(`explorer.mirror.checkpoint.${mirror.checkpointLevel}`).message;
-  return (
-    <ExplorerFreshnessView
-      title={copyEntry(mirror.degraded ? "explorer.mirror.degraded" : "explorer.mirror.canonical").message}
-      description={[
-        formatCopy("explorer.mirror.detail", {
-          source: mirror.sourceId,
-          target: mirror.target,
-          position: mirror.canonicalPosition,
-          lag,
-          failovers: mirror.failoverCount,
-          agreement: mirror.agreeingSources,
-        }),
-        latestBatch,
-        checkpoint,
-      ].join(" ")}
-      current={!mirror.degraded}
+      title={NATIVE_FRESHNESS_COPY[position.state]}
+      description={`Committed block ${position.committedHeight}; indexed block ${position.indexedHeight}.`}
+      current={position.state === "current"}
     />
   );
 }
@@ -112,5 +102,8 @@ export function ExplorerNotFound({
 }
 
 export function explorerReceiptPath(identifier: string): string {
-  return `/explorer/receipts/${encodeURIComponent(identifier)}`;
+  if (!validExplorerIdentifier(identifier)) {
+    throw new TypeError("Invalid receipt identifier");
+  }
+  return `/explorer/receipts/${identifier.toLowerCase()}`;
 }

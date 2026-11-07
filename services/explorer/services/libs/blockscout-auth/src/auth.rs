@@ -1,8 +1,9 @@
 use crate::{
+    client::{default_client, upstream_error, AccountClient},
     consts,
     jwt_headers::{build_http_headers, extract_csrf_token, extract_jwt},
 };
-use reqwest::{Client, StatusCode};
+use reqwest::StatusCode;
 use serde::Deserialize;
 use thiserror::Error;
 use tonic::metadata::MetadataMap;
@@ -11,13 +12,44 @@ use url::Url;
 #[derive(Debug, Clone, Deserialize)]
 pub struct AuthSuccess {
     pub avatar: Option<String>,
-    pub email: String,
+    #[serde(deserialize_with = "Option::<String>::deserialize")]
+    pub email: Option<String>,
     pub id: i64,
     pub name: Option<String>,
     pub nickname: Option<String>,
     pub uid: String,
-    pub watchlist_id: i64,
+    #[serde(default, deserialize_with = "deserialize_watchlist_id")]
+    pub watchlist_id: Option<i64>,
     pub email_verified: bool,
+}
+
+fn deserialize_watchlist_id<'de, D>(deserializer: D) -> Result<Option<i64>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    i64::deserialize(deserializer).map(Some)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SessionProfile<'a> {
+    Wallet,
+    UnverifiedEmail(&'a str),
+    VerifiedEmail(&'a str),
+}
+
+impl AuthSuccess {
+    pub fn session_profile(&self) -> SessionProfile<'_> {
+        match (self.email.as_deref(), self.email_verified) {
+            (None, _) => SessionProfile::Wallet,
+            (Some(email), false) => SessionProfile::UnverifiedEmail(email),
+            (Some(email), true) => SessionProfile::VerifiedEmail(email),
+        }
+    }
+
+    pub fn require_watchlist(&self) -> Result<i64, Error> {
+        self.watchlist_id
+            .ok_or_else(|| Error::Forbidden("session has no watchlist".into()))
+    }
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -52,19 +84,14 @@ pub async fn auth_from_metadata(
     blockscout_host: &Url,
     blockscout_api_key: Option<&str>,
 ) -> Result<AuthSuccess, Error> {
-    let jwt = extract_jwt(metadata)?;
-    let csrf_opt = if is_safe_http_method {
-        None
-    } else {
-        Some(extract_csrf_token(metadata)?)
-    };
-    auth_from_tokens(
-        &jwt,
-        csrf_opt.as_deref(),
-        blockscout_host,
-        blockscout_api_key,
-    )
-    .await
+    default_client()?
+        .auth_from_metadata(
+            metadata,
+            is_safe_http_method,
+            blockscout_host,
+            blockscout_api_key,
+        )
+        .await
 }
 
 pub async fn auth_from_tokens(
@@ -73,61 +100,94 @@ pub async fn auth_from_tokens(
     blockscout_host: &Url,
     blockscout_api_key: Option<&str>,
 ) -> Result<AuthSuccess, Error> {
-    let mut url = blockscout_host
-        .join("/api/account/v2/authenticate")
-        .expect("invalid base url");
-    url.set_query(
-        blockscout_api_key
-            .map(|api_key| format!("{}={api_key}", consts::API_KEY_NAME))
-            .as_deref(),
-    );
-    let headers = build_http_headers(jwt, csrf_token, blockscout_api_key)?;
-    let client = Client::new();
-    let response = if csrf_token.is_some() {
-        let body = build_request_body(blockscout_api_key);
-        client.post(url).json(&body)
-    } else {
-        client.get(url)
-    }
-    .headers(headers)
-    .send()
-    .await
-    .map_err(|e| Error::BlockscoutApi(e.to_string()))?;
-
-    let status = response.status();
-    let response_raw = response
-        .text()
+    default_client()?
+        .auth_from_tokens(jwt, csrf_token, blockscout_host, blockscout_api_key)
         .await
-        .map_err(|e| Error::BlockscoutApi(e.to_string()))?;
+}
 
-    match status {
-        StatusCode::OK => {
-            let success: AuthSuccess = serde_json::from_str(&response_raw).map_err(|error| {
-                tracing::warn!(
-                    error = ?error,
-                    body = ?response_raw,
-                    "failed to parse blockscout response body"
-                );
-                Error::BlockscoutApi(format!("invalid body: {error}"))
-            })?;
-            Ok(success)
+impl AccountClient {
+    pub async fn auth_from_metadata(
+        &self,
+        metadata: &MetadataMap,
+        is_safe_http_method: bool,
+        blockscout_host: &Url,
+        blockscout_api_key: Option<&str>,
+    ) -> Result<AuthSuccess, Error> {
+        let jwt = extract_jwt(metadata)?;
+        let csrf_opt = if is_safe_http_method {
+            None
+        } else {
+            Some(extract_csrf_token(metadata)?)
+        };
+        self.auth_from_tokens(
+            &jwt,
+            csrf_opt.as_deref(),
+            blockscout_host,
+            blockscout_api_key,
+        )
+        .await
+    }
+
+    pub async fn auth_from_tokens(
+        &self,
+        jwt: &str,
+        csrf_token: Option<&str>,
+        blockscout_host: &Url,
+        blockscout_api_key: Option<&str>,
+    ) -> Result<AuthSuccess, Error> {
+        let mut url = blockscout_host
+            .join("/api/account/v2/authenticate")
+            .expect("invalid base url");
+        url.set_query(
+            blockscout_api_key
+                .map(|api_key| format!("{}={api_key}", consts::API_KEY_NAME))
+                .as_deref(),
+        );
+        let headers = build_http_headers(jwt, csrf_token, blockscout_api_key)?;
+        let response = if csrf_token.is_some() {
+            let body = build_request_body(blockscout_api_key);
+            self.http.post(url).json(&body)
+        } else {
+            self.http.get(url)
         }
-        StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
-            let failed: AuthFailed = serde_json::from_str(&response_raw).map_err(|error| {
-                tracing::warn!(
-                    error = ?error,
-                    body = ?response_raw,
-                    "failed to parse blockscout response body"
-                );
-                Error::BlockscoutApi(format!("invalid body: {error}"))
-            })?;
-            if status == StatusCode::UNAUTHORIZED {
-                Err(Error::Unauthorized(failed.message))
-            } else {
-                Err(Error::Forbidden(failed.message))
+        .headers(headers)
+        .send()
+        .await
+        .map_err(upstream_error)?;
+
+        let status = response.status();
+        let response_raw = response.text().await.map_err(upstream_error)?;
+
+        match status {
+            StatusCode::OK => {
+                let success: AuthSuccess =
+                    serde_json::from_str(&response_raw).map_err(|error| {
+                        tracing::warn!(
+                            error = ?error,
+                            body = ?response_raw,
+                            "failed to parse blockscout response body"
+                        );
+                        Error::BlockscoutApi(format!("invalid body: {error}"))
+                    })?;
+                Ok(success)
             }
+            StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN => {
+                let failed: AuthFailed = serde_json::from_str(&response_raw).map_err(|error| {
+                    tracing::warn!(
+                        error = ?error,
+                        body = ?response_raw,
+                        "failed to parse blockscout response body"
+                    );
+                    Error::BlockscoutApi(format!("invalid body: {error}"))
+                })?;
+                if status == StatusCode::UNAUTHORIZED {
+                    Err(Error::Unauthorized(failed.message))
+                } else {
+                    Err(Error::Forbidden(failed.message))
+                }
+            }
+            _ => Err(Error::BlockscoutApi(format!("unexpected status {status}"))),
         }
-        _ => Err(Error::BlockscoutApi(format!("unexpected status {status}"))),
     }
 }
 

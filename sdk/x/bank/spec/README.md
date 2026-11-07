@@ -9,83 +9,102 @@ parent:
 
 ## Abstract
 
-This document specifies the bank module of the Cosmos SDK.
+This document describes the Cosmos SDK bank fork used by the merged Paxeer
+network. The module is wired into the node application in
+[node/app.go](../../../../node/app.go).
 
-The bank module is responsible for handling multi-asset coin transfers between
-accounts and tracking special-case pseudo-transfers which must work differently
-with particular kinds of accounts (notably delegating/undelegating for vesting
-accounts). It exposes several interfaces with varying capabilities for secure
-interaction with other modules which must alter user balances.
+The bank module handles multi-asset transfers between accounts, tracks total
+supply by denomination, and supports module accounts. Delegation and
+undelegation also track vesting-account balances. Its view, send and full keeper
+interfaces provide different levels of access to other modules.
 
-In addition, the bank module tracks and provides query support for the total
-supply of all assets used in the application.
-
-In this repository the module is wired into the Paxeer X chain application in [`node/app.go`](../../../../node/app.go).
+The fork additionally tracks fractional base-denomination balances in wei.
+One base-denomination unit is `1000000000000` wei, as defined by
+`OneUhpxInWei` in [keeper/send.go](../keeper/send.go). Whole coins and fractional
+balances jointly represent the base-denomination holdings; see [Events](04_events.md)
+for their distinct event units and carry/borrow behavior.
 
 ## Supply
 
-The `supply` functionality:
-
-- passively tracks the total supply of coins within a chain,
-- provides a pattern for modules to hold/interact with `Coins`, and
-- introduces the invariant check to verify a chain's total supply.
+The bank keeper tracks supply per denomination, holds tokens in module
+accounts, and exposes supply queries. It also provides an SDK invariant helper;
+its existence and the node's runtime conservation check have different coverage
+and wiring.
 
 ### Total Supply
 
-The total `Supply` of the network is equal to the sum of all coins from the
-account. The total supply is updated every time a `Coin` is minted (eg: as part
-of the inflation mechanism) or burned (eg: due to slashing or if a governance
-proposal is vetoed).
+Minting increases the stored supply for each affected denomination; burning
+reduces it. Transfers move balances without changing supply. Base-denomination
+accounting includes both whole coin balances and fractional wei balances, with
+10^12 wei converted to one whole unit.
+
+[keeper/invariants.go](../keeper/invariants.go) defines `TotalSupply`, which
+compares stored supply with all account balances, deferred balances, and the
+base-denomination equivalent of aggregated wei balances. It also checks that
+the aggregate wei remainder is zero. However,
+`AppModule.RegisterInvariants` in [module.go](../module.go) is empty: the bank
+module does not register this all-denomination helper as a runtime invariant.
+
+The node instead calls `LightInvarianceChecks` during block finalization.
+[LightInvarianceTotalSupply](../../../../node/invariance.go) compares changes in
+whole base-denomination balances, wei balances and base-denomination supply.
+It requires the total wei change to be a multiple of 10^12 and checks that the
+combined balance change equals the supply change. Negative changed balances
+and conservation mismatches panic. This is an incremental check of the
+configured base denomination, not a full scan of every denomination.
+
+The application option `light_invariance.supply_enabled` defaults to `true`.
+Setting it to `false` disables this supply check. The check is also bypassed
+when `MockBalancesEnabled` is active, and it logs and returns if the bank store
+is not a MemIAVL commitment store. Malformed changed keys or balance values are
+logged and skipped in several read paths, so the light check should not be
+interpreted as comprehensive state validation.
+
+There is currently no registered all-denomination bank invariant. Consequently,
+an imbalance in another denomination can be detected by explicitly invoking
+`keeper.TotalSupply` while remaining outside the node's light check.
+`TestRepairM_669_InvariantWiring` in
+[repair_m669_test.go](../repair_m669_test.go) exercises both checks on a real
+commitment store: a non-native imbalance fails the helper but passes the light
+check, a native imbalance panics when enabled, and the configuration switch
+disables that runtime check. It also verifies the empty module registration.
 
 ## Module Accounts
 
-The supply functionality introduces a new type of `auth.Account` which can be used by
-modules to allocate tokens and in special cases mint or burn tokens. At a base
-level these module accounts are capable of sending/receiving tokens to and from
-`auth.Account`s and other module accounts. This design replaces previous
-alternative designs where, to hold tokens, modules would burn the incoming
-tokens from the sender account, and then track those tokens internally. Later,
-in order to send tokens, the module would need to effectively mint tokens
-within a destination account. The new design removes duplicate logic between
-modules to perform this accounting.
+Module accounts hold coins directly and can transfer them to other module
+accounts or ordinary accounts. They avoid implementing token escrow as a pair
+of burn and mint operations.
 
-The `ModuleAccount` interface is defined as follows:
+The actual interface is `ModuleAccountI` in
+[x/auth/types/account.go](../../auth/types/account.go):
 
 ```go
-type ModuleAccount interface {
-  auth.Account               // same methods as the Account interface
+type ModuleAccountI interface {
+  AccountI
 
-  GetName() string           // name of the module; used to obtain the address
-  GetPermissions() []string  // permissions of module account
+  GetName() string
+  GetPermissions() []string
   HasPermission(string) bool
 }
 ```
 
-> **WARNING!**
-> Any module or message handler that allows either direct or indirect sending of funds must explicitly guarantee those funds cannot be sent to module accounts (unless allowed).
+The auth keeper manages module accounts by name. The bank keeper provides
+account-to-module, module-to-account and module-to-module transfers, plus
+permission-controlled minting, burning, delegation and undelegation.
 
-The supply `Keeper` also introduces new wrapper functions for the auth `Keeper`
-and the bank `Keeper` that are related to `ModuleAccount`s in order to be able
-to:
-
-- Get and set `ModuleAccount`s by providing the `Name`.
-- Send coins from and to other `ModuleAccount`s or standard `Account`s
-  (`BaseAccount` or `VestingAccount`) by passing only the `Name`.
-- `Mint` or `Burn` coins for a `ModuleAccount` (restricted to its permissions).
+Message handlers must enforce recipient restrictions. The bank message server
+checks blocked recipient addresses and denomination allow lists; module callers
+must use the appropriate keeper methods and recipient policy for their flow.
 
 ### Permissions
 
-Each `ModuleAccount` has a different set of permissions that provide different
-object capabilities to perform certain actions. Permissions need to be
-registered upon the creation of the supply `Keeper` so that every time a
-`ModuleAccount` calls the allowed functions, the `Keeper` can lookup the
-permissions to that specific account and perform or not the action.
+The application's `maccPerms` map in [node/app.go](../../../../node/app.go) is
+passed to the auth keeper and defines module account permissions. Bank wrapper
+methods check those permissions for privileged operations:
 
-The available permissions are:
-
-- `Minter`: allows for a module to mint a specific amount of coins.
-- `Burner`: allows for a module to burn a specific amount of coins.
-- `Staking`: allows for a module to delegate and undelegate a specific amount of coins.
+- `Minter` (`"minter"`): mint coins, subject to the keeper's mint restriction.
+- `Burner` (`"burner"`): burn coins.
+- `Staking` (`"staking"`): receive delegated coins and release undelegated coins.
 
 ## Contents
 
@@ -99,4 +118,5 @@ The available permissions are:
    - [MsgSend](03_messages.md#msgsend)
 4. **[Events](04_events.md)**
    - [Handlers](04_events.md#handlers)
+   - [Keeper events](04_events.md#keeper-events)
 5. **[Parameters](05_params.md)**

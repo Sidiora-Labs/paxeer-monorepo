@@ -7,15 +7,20 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/querier"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/replay"
 	paxapp "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	srvconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
 	paxdbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
+	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 )
+
+const defaultNodeWasmQueryGasLimit uint64 = 300000
 
 // WASMConfig defines configuration for the wasm module.
 type WASMConfig struct {
-	QueryGasLimit uint64 `mapstructure:"query_gas_limit"`
-	LruSize       uint64 `mapstructure:"lru_size"`
+	QueryGasLimit      uint64 `mapstructure:"query_gas_limit"`
+	MemoryCacheSize    uint32 `mapstructure:"memory_cache_size"`
+	SimulationGasLimit string `mapstructure:"simulation_gas_limit"`
 }
 
 // CustomAppConfig extends the Cosmos SDK's Config with custom fields
@@ -30,7 +35,7 @@ type CustomAppConfig struct {
 	EVM             evmrpcconfig.Config            `mapstructure:"evm"`
 	GigaExecutor    gigaconfig.Config              `mapstructure:"giga_executor"`
 	ETHReplay       replay.Config                  `mapstructure:"eth_replay"`
-	ETHBlockTest    blocktest.Config               `mapstructure:"eth_block_test"`
+	ETHBlockTest    blocktest.Config               `mapstructure:"eth_blocktest"`
 	EvmQuery        querier.Config                 `mapstructure:"evm_query"`
 	LightInvariance paxapp.LightInvarianceConfig   `mapstructure:"light_invariance"`
 	Admin           admin.Config                   `mapstructure:"admin_server"`
@@ -44,8 +49,8 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		StateStore:   paxdbconfig.DefaultStateStoreConfig(),
 		ReceiptStore: paxdbconfig.DefaultReceiptStoreConfig(),
 		WASM: WASMConfig{
-			QueryGasLimit: 300000,
-			LruSize:       1,
+			QueryGasLimit:   defaultNodeWasmQueryGasLimit,
+			MemoryCacheSize: wasmtypes.DefaultWasmConfig().MemoryCacheSize,
 		},
 		EVM:             evmConfig,
 		GigaExecutor:    gigaconfig.DefaultConfig,
@@ -55,4 +60,10 @@ func NewCustomAppConfig(baseConfig *srvconfig.Config, evmConfig evmrpcconfig.Con
 		LightInvariance: paxapp.DefaultLightInvarianceConfig,
 		Admin:           admin.DefaultConfig,
 	}
+}
+
+// NewAppConfigForMode creates the mode-specific configuration written by init.
+func NewAppConfigForMode(baseConfig *srvconfig.Config, mode params.NodeMode) CustomAppConfig {
+	params.SetAppConfigByMode(baseConfig, mode)
+	return NewCustomAppConfig(baseConfig, params.DefaultEVMConfigByMode(mode))
 }

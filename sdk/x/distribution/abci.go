@@ -4,10 +4,8 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/keeper"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/distribution/types"
 )
 
 // BeginBlocker sets the proposer for determining distribution during endblock
@@ -16,8 +14,6 @@ func BeginBlocker(ctx sdk.Context, votes []abci.VoteInfo, k keeper.Keeper) {
 	beginBlockerStart := time.Now()
 	defer func() {
 		distributionMetrics.beginBlockerDuration.Record(ctx.Context(), time.Since(beginBlockerStart).Seconds())
-		// TODO(PLT-414): remove once distribution_begin_blocker_duration verified
-		telemetry.ModuleMeasureSince(types.ModuleName, beginBlockerStart, telemetry.MetricKeyBeginBlocker)
 	}()
 
 	// determine the total power signing the block

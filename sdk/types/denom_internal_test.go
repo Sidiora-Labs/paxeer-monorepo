@@ -63,10 +63,22 @@ func (s *internalDenomTestSuite) TestConvertCoins() {
 	coins, err := ParseCoinsNormalized("1atom,1matom,1uatom")
 	s.Require().NoError(err)
 	s.Require().Equal(coins, Coins{
-		Coin{natom, NewInt(1000000000)},
-		Coin{natom, NewInt(1000000)},
-		Coin{natom, NewInt(1000)},
+		Coin{natom, NewInt(1001001000)},
 	})
+	s.Require().NoError(coins.Validate())
+	for _, tc := range []struct {
+		input string
+		want  Coins
+	}{
+		{"0.0000000006atom,0.0000006matom,0.0006uatom", NewCoins(NewInt64Coin(natom, 1))},
+		{"0atom,0matom,0uatom", Coins{}},
+		{"0.0000000001atom,0.0000001matom", Coins{}},
+	} {
+		normalized, err := ParseCoinsNormalized(tc.input)
+		s.Require().NoError(err)
+		s.Require().Equal(tc.want, normalized)
+		s.Require().NoError(normalized.Validate())
+	}
 
 	testCases := []struct {
 		input  Coin
@@ -130,10 +142,9 @@ func (s *internalDenomTestSuite) TestConvertDecCoins() {
 	coins, err := ParseCoinsNormalized("0.1atom,0.1matom,0.1uatom")
 	s.Require().NoError(err)
 	s.Require().Equal(coins, Coins{
-		Coin{natom, NewInt(100000000)},
-		Coin{natom, NewInt(100000)},
-		Coin{natom, NewInt(100)},
+		Coin{natom, NewInt(100100100)},
 	})
+	s.Require().NoError(coins.Validate())
 
 	testCases := []struct {
 		input  DecCoin
@@ -190,4 +201,24 @@ func (s *internalDenomTestSuite) TestDecOperationOrder() {
 	// reset registration
 	baseDenom = ""
 	denomUnits = map[string]Dec{}
+}
+
+// Repair293RegisterDenoms isolates the real registry for the external consumer tests.
+func Repair293RegisterDenoms(t *testing.T) {
+	t.Helper()
+	previousUnits, previousBase := denomUnits, baseDenom
+	t.Cleanup(func() {
+		denomUnits, baseDenom = previousUnits, previousBase
+	})
+	denomUnits, baseDenom = map[string]Dec{}, ""
+	for denom, unit := range map[string]Dec{
+		"atom":  OneDec(),
+		"matom": NewDecWithPrec(1, 3),
+		"uatom": NewDecWithPrec(1, 6),
+		"natom": NewDecWithPrec(1, 9),
+	} {
+		if err := RegisterDenom(denom, unit); err != nil {
+			t.Fatal(err)
+		}
+	}
 }

@@ -1,0 +1,243 @@
+[reconcile.r8-134]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-134.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securityrecoveryreveal"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2316
+symbol = "SecurityRecoveryReveal"
+evidence = "GeneratedSchema.HumanModels.SecurityRecoveryReveal is declared at line 2316, moved from registered line 2393; its registered signature is unchanged: public record SecurityRecoveryReveal(String evidence_id, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-securitysessionrevocation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2322
+symbol = "SecuritySessionRevocation"
+evidence = "GeneratedSchema.HumanModels.SecuritySessionRevocation is declared at line 2322, moved from registered line 2399; its registered signature is unchanged: public record SecuritySessionRevocation(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-session"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2327
+symbol = "Session"
+evidence = "GeneratedSchema.HumanModels.Session is declared at line 2327, moved from registered line 2404; its registered signature is unchanged: public record Session(String session_id, HumanModels.Device device, String opened_at, String last_active_at, boolean current) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-sessiondevice"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2335
+symbol = "SessionDevice"
+evidence = "GeneratedSchema.HumanModels.SessionDevice is declared at line 2335, moved from registered line 2412; its registered signature is unchanged: public record SessionDevice(String label, String platform) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-sessionlist"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2341
+symbol = "SessionList"
+evidence = "GeneratedSchema.HumanModels.SessionList is declared at line 2341, moved from registered line 2418; its registered signature is unchanged: public record SessionList(List<HumanModels.Session> sessions) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-sessionopenrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2346
+symbol = "SessionOpenRequest"
+evidence = "GeneratedSchema.HumanModels.SessionOpenRequest is declared at line 2346, moved from registered line 2423; its registered signature is unchanged: public record SessionOpenRequest(String assertion_id, HumanModels.SessionDevice device) implements SchemaTypes.GeneratedResponse. This HumanModels record implements GeneratedResponse; AgentOperations and HumanOperations also declare SessionOpenRequest with GeneratedRequest."
+
+[row.r8-134.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-sessionrevocation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2351
+symbol = "SessionRevocation"
+evidence = "GeneratedSchema.HumanModels.SessionRevocation is declared at line 2351, moved from registered line 2428; its registered signature is unchanged: public record SessionRevocation(List<String> revoked_session_ids, String revoked_at) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-spendlimit"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2357
+symbol = "SpendLimit"
+evidence = "GeneratedSchema.HumanModels.SpendLimit is declared at line 2357, moved from registered line 2444; its registered signature is unchanged: public record SpendLimit(HumanModels.Money monthly, HumanModels.LimitEnforcement enforcement, String enforcement_copy_key) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-stepupchallenge"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2364
+symbol = "StepUpChallenge"
+evidence = "GeneratedSchema.HumanModels.StepUpChallenge is declared at line 2364, moved from registered line 2451; its registered signature is unchanged: public record StepUpChallenge(String challenge_id, String confirms, String ceremony, String expires_at) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-stepupevidence"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2372
+symbol = "StepUpEvidence"
+evidence = "GeneratedSchema.HumanModels.StepUpEvidence is declared at line 2372, moved from registered line 2459; its registered signature is unchanged: public record StepUpEvidence(String challenge_id, String confirms, String passkey_id, String completed_at, String expires_at) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-stepupfinish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2381
+symbol = "StepUpFinish"
+evidence = "GeneratedSchema.HumanModels.StepUpFinish is declared at line 2381, moved from registered line 2468; its registered signature is unchanged: public record StepUpFinish(String credential) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-stepuprequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2387
+symbol = "StepUpRequest"
+evidence = "GeneratedSchema.HumanModels.StepUpRequest is declared at line 2387, moved from registered line 2474; its registered signature is unchanged: public record StepUpRequest(String confirms) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-streamevent"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2392
+symbol = "StreamEvent"
+evidence = "GeneratedSchema.HumanModels.StreamEvent is declared at line 2392, moved from registered line 2479; its registered signature is unchanged: public record StreamEvent(String cursor, HumanModels.StreamEventKind kind, String observed_at, HumanModels.Journey journey, HumanModels.ApprovalSummary approval, HumanModels.NotificationSummary notification, HumanModels.ProgramApprovalSummary program_approval) implements SchemaTypes.GeneratedEvent"
+
+[row.r8-134.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-streameventkind"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2399
+symbol = "StreamEventKind"
+evidence = "GeneratedSchema.HumanModels.StreamEventKind is declared at line 2399, moved from registered line 2486; its registered signature is unchanged: public enum StreamEventKind. The enum declares journey-progress, approval, notification and program-approval wire variants; later occurrences are its constructor and fromWire method."
+
+[row.r8-134.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-streampage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2418
+symbol = "StreamPage"
+evidence = "GeneratedSchema.HumanModels.StreamPage is declared at line 2418, moved from registered line 2505; its registered signature is unchanged: public record StreamPage(List<HumanModels.StreamEvent> events, String next_cursor) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-streamposition"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2424
+symbol = "StreamPosition"
+evidence = "GeneratedSchema.HumanModels.StreamPosition is declared at line 2424, moved from registered line 2511; its registered signature is unchanged: public record StreamPosition(String cursor) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-submitplanrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2429
+symbol = "SubmitPlanRequest"
+evidence = "GeneratedSchema.HumanModels.SubmitPlanRequest is declared at line 2429, moved from registered line 2516; its registered signature is unchanged: public record SubmitPlanRequest(String plan_digest, String signed_digest, List<HumanModels.IntentLegBinding> bindings, String native_access_id) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportconversation"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2447
+symbol = "SupportConversation"
+evidence = "GeneratedSchema.HumanModels.SupportConversation is declared at line 2447, moved from registered line 2534; its registered signature is unchanged: public record SupportConversation(String conversation_id, HumanModels.SupportShell shell, HumanModels.SupportConversationState state, String created_at, String updated_at, List<HumanModels.SupportMessage> messages, List<HumanModels.SupportFeedback> feedback, String trace_id) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportconversationpage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2458
+symbol = "SupportConversationPage"
+evidence = "GeneratedSchema.HumanModels.SupportConversationPage is declared at line 2458, moved from registered line 2545; its registered signature is unchanged: public record SupportConversationPage(List<HumanModels.SupportConversation> conversations) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportconversationstate"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2463
+symbol = "SupportConversationState"
+evidence = "GeneratedSchema.HumanModels.SupportConversationState is declared at line 2463, moved from registered line 2550; its registered signature is unchanged: public enum SupportConversationState. The enum declares WAITING_FOR_SUPPORT, WAITING_FOR_YOU and RESOLVED; later occurrences are its constructor, fromWire method and record component types."
+
+[row.r8-134.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportconversationstate-waiting-for-you"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2465
+symbol = "WAITING_FOR_YOU"
+evidence = "HumanModels.SupportConversationState declares WAITING_FOR_YOU(\"waiting-for-you\"), at line 2465, moved from registered line 2552, with the same waiting-for-you wire value. JourneyState has a separate WAITING_FOR_YOU constant at line 1631; the registered owner is SupportConversationState."
+
+[row.r8-134.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportconversationstatus"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2475
+symbol = "SupportConversationStatus"
+evidence = "GeneratedSchema.HumanModels.SupportConversationStatus is declared at line 2475, moved from registered line 2562; its registered signature is unchanged: public record SupportConversationStatus(String conversation_id, HumanModels.SupportConversationState state, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long unread_count, String updated_at) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportcreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2482
+symbol = "SupportCreateRequest"
+evidence = "GeneratedSchema.HumanModels.SupportCreateRequest is declared at line 2482, moved from registered line 2569; its registered signature is unchanged: public record SupportCreateRequest(String body, HumanModels.SupportShell shell, HumanModels.SupportTopic topic, String trace_id) implements SchemaTypes.GeneratedResponse. This HumanModels record implements GeneratedResponse; HumanOperations has a separate SupportCreateRequest record implementing GeneratedRequest."
+
+[row.r8-134.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportfeedback"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2488
+symbol = "SupportFeedback"
+evidence = "GeneratedSchema.HumanModels.SupportFeedback is declared at line 2488, moved from registered line 2575; its registered signature is unchanged: public record SupportFeedback(String message_id, boolean helpful, String received_at) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportfeedbackrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2494
+symbol = "SupportFeedbackRequest"
+evidence = "GeneratedSchema.HumanModels.SupportFeedbackRequest is declared at line 2494, moved from registered line 2581; its registered signature is unchanged: public record SupportFeedbackRequest(String message_id, boolean helpful) implements SchemaTypes.GeneratedResponse. This HumanModels record implements GeneratedResponse; HumanOperations has a separate SupportFeedbackRequest record implementing GeneratedRequest."
+
+[row.r8-134.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportmessage"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2499
+symbol = "SupportMessage"
+evidence = "GeneratedSchema.HumanModels.SupportMessage is declared at line 2499, moved from registered line 2586; its registered signature is unchanged: public record SupportMessage(String message_id, HumanModels.SupportAuthor author, String body, String sent_at, boolean read, HumanModels.SupportTopic topic) implements SchemaTypes.GeneratedResponse"
+
+[row.r8-134.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportreadrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2507
+symbol = "SupportReadRequest"
+evidence = "GeneratedSchema.HumanModels.SupportReadRequest is declared at line 2507, moved from registered line 2594; its registered signature is unchanged: public record SupportReadRequest(String through_message_id) implements SchemaTypes.GeneratedResponse. This HumanModels record implements GeneratedResponse; HumanOperations has a separate SupportReadRequest record implementing GeneratedRequest."
+
+[row.r8-134.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportreplyrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2512
+symbol = "SupportReplyRequest"
+evidence = "GeneratedSchema.HumanModels.SupportReplyRequest is declared at line 2512, moved from registered line 2599; its registered signature is unchanged: public record SupportReplyRequest(String body) implements SchemaTypes.GeneratedResponse. This HumanModels record implements GeneratedResponse; HumanOperations has a separate SupportReplyRequest record implementing GeneratedRequest."
+
+[row.r8-134.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supportshell"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2517
+symbol = "SupportShell"
+evidence = "GeneratedSchema.HumanModels.SupportShell is declared at line 2517, moved from registered line 2604; its registered signature is unchanged: public enum SupportShell. The enum declares MOBILE(\"mobile\") and DESKTOP(\"desktop\"); later occurrences are its constructor, fromWire method and record component types."
+
+[row.r8-134.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanmodels-supporttopic"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 2528
+symbol = "SupportTopic"
+evidence = "GeneratedSchema.HumanModels.SupportTopic is declared at line 2528, moved from registered line 2615; its registered signature is unchanged: public enum SupportTopic. The enum declares DEPOSIT, WITHDRAWAL, AGENTS, ACCOUNT and REPORT wire variants; later occurrences are its constructor, fromWire method and record component types."

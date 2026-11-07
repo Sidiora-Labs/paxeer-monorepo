@@ -77,3 +77,28 @@ func (k Keeper) DenomAllowList(c context.Context, req *types.QueryDenomAllowList
 		AllowList: allowList,
 	}, nil
 }
+
+func (k Keeper) DenomPaused(c context.Context, req *types.QueryDenomPausedRequest) (*types.QueryDenomPausedResponse, error) {
+	if req == nil {
+		return nil, status.Error(codes.InvalidArgument, "empty request")
+	}
+
+	if req.Denom == "" {
+		return nil, status.Error(codes.InvalidArgument, "invalid denom")
+	}
+
+	ctx := sdk.UnwrapSDKContext(c)
+	if !k.GetDenomPrefixStore(ctx, req.Denom).Has([]byte(types.DenomAuthorityMetadataKey)) {
+		return nil, status.Errorf(codes.NotFound, "authority metadata for denom %s", req.Denom)
+	}
+
+	metadata, err := k.GetAuthorityMetadata(ctx, req.Denom)
+	if err != nil {
+		return nil, status.Errorf(codes.NotFound, "authority metadata for denom %s: %v", req.Denom, err)
+	}
+
+	return &types.QueryDenomPausedResponse{
+		Paused:    k.IsDenomPaused(ctx, req.Denom),
+		IssuerDid: metadata.IssuerDid,
+	}, nil
+}

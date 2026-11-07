@@ -4,17 +4,18 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
 
   An indexed transaction is placed from the block holding it and the committed head. A hash
   the explorer has not indexed is answered from the sequencer: its `pax_sequencerReceipt`
-  answer is verified (R1-R6) against the pinned receipt keys, and only a verified receipt
-  answers `receipted`; every other hash is not found.
+  answer is verified (R1-R6) against the pinned receipt keys and answers `receipted`.
+  Landing evidence that passes R7-R8 promotes it to `committed`; every other hash is not found.
   """
 
   use BlockScoutWeb, :controller
   use OpenApiSpex.ControllerSpecs
 
+  alias BlockScoutWeb.API.V2.PaxeerX.TransactionStatusView
   alias BlockScoutWeb.Schemas.API.V2.ErrorResponses.NotFoundResponse
   alias Explorer.Chain
   alias Explorer.Chain.Hash
-  alias Explorer.Chain.PaxeerX.{Finality, SequencerReceipt, Status}
+  alias Explorer.Chain.PaxeerX.{Finality, ReceiptEvidence, SequencerReceipt, Status}
   alias Explorer.HttpClient
 
   action_fallback(BlockScoutWeb.API.V2.FallbackController)
@@ -49,7 +50,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
          {:ok, %Status{} = status} <- status_of(transaction_hash) do
       conn
       |> put_status(200)
-      |> render(:status, %{status: status})
+      |> json(TransactionStatusView.render("status.json", %{status: status}))
     end
   end
 
@@ -65,6 +66,7 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
       {:error, :not_found} ->
         case sequencer_verification(transaction_hash) do
           {:receipted, _key} = verification -> {:ok, Status.of(nil, Finality.heights(@api_true), verification)}
+          {:committed, _key, _height} = verification -> {:ok, Status.of(nil, Finality.heights(@api_true), verification)}
           _unverified -> {:error, :not_found}
         end
     end
@@ -76,19 +78,27 @@ defmodule BlockScoutWeb.API.V2.PaxeerX.TransactionStatusController do
     with url when is_binary(url) <- router_url,
          {:ok, %{} = answer} <- sequencer_receipt(url, transaction_hash),
          {:ok, receipt_keys} <- SequencerReceipt.receipt_keys(url) do
-      SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+      case ReceiptEvidence.options(url, transaction_hash, answer) do
+        {:ok, opts} -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys, opts)
+        :disabled -> SequencerReceipt.verify(transaction_hash, answer, receipt_keys)
+        {:error, step} -> {:error, step}
+      end
     else
       _unavailable -> nil
     end
   end
 
   defp sequencer_receipt(router_url, %Hash{} = transaction_hash) do
+    router_call(router_url, "pax_sequencerReceipt", [to_string(transaction_hash)])
+  end
+
+  defp router_call(router_url, method, params) do
     body =
       Jason.encode!(%{
         jsonrpc: "2.0",
         id: 1,
-        method: "pax_sequencerReceipt",
-        params: [to_string(transaction_hash)]
+        method: method,
+        params: params
       })
 
     case HttpClient.post(router_url, body, [{"Content-Type", "application/json"}],

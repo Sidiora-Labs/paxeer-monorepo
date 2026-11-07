@@ -30,9 +30,24 @@ public final class LayerXPaymentGateFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         SellerMiddleware.SellerDecision decision;
         try {
+            ResourceRelease release;
+            if (resources instanceof LayerXResourceHandler.Recoverable recoverable) {
+                release = new ResourceRelease.Recoverable() {
+                    @Override
+                    public LayerXResource release(String idempotencyKey) throws IOException {
+                        return recoverable.release(request, idempotencyKey);
+                    }
+
+                    @Override
+                    public ResourceRelease.Recovery recover(String idempotencyKey) throws IOException {
+                        return recoverable.recover(request, idempotencyKey);
+                    }
+                };
+            } else {
+                release = () -> resources.release(request);
+            }
             decision = seller.handle(config.principal(),
-                Http.singleHeader(request, X402.PAYMENT_SIGNATURE_HEADER),
-                () -> resources.release(request));
+                Http.singleHeader(request, X402.PAYMENT_SIGNATURE_HEADER), release);
         } catch (MiddlewareException error) {
             Http.writeError(response, paymentErrorStatus(error.code()), error.code().wire());
             return;
@@ -60,12 +75,14 @@ public final class LayerXPaymentGateFilter extends OncePerRequestFilter {
             return;
         }
         byte[] body = released.resource().body();
-        request.setAttribute("layerx.receiptDigest", X402.hex(released.verification().receiptDigest()));
+        String receiptDigest = X402.hex(NativePaymentVerifier.receiptDigest(
+            released.verification().canonicalBytes()));
+        request.setAttribute("layerx.receiptDigest", receiptDigest);
         request.setAttribute("layerx.transaction", released.settlement().transaction());
         request.setAttribute("layerx.verificationLevel", released.verification().level().wire());
         response.setStatus(released.status());
         response.setHeader(X402.PAYMENT_RESPONSE_HEADER, released.header());
-        response.setHeader("layerx-receipt-digest", X402.hex(released.verification().receiptDigest()));
+        response.setHeader("layerx-receipt-digest", receiptDigest);
         response.setHeader("layerx-transaction", released.settlement().transaction());
         response.setContentType(released.resource().contentType());
         response.setContentLength(body.length);

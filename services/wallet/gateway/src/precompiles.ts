@@ -1,4 +1,4 @@
-import { encodeFunctionData, type Hex } from 'viem';
+import { decodeEventLog, decodeFunctionResult, encodeFunctionData, encodeFunctionResult, type Hex } from 'viem';
 import { publicClient } from './chainReads.js';
 
 /**
@@ -14,7 +14,7 @@ import { publicClient } from './chainReads.js';
  * the typed result.
  */
 
-export const PRECOMPILE_ADDRESSES = {
+export const PRECOMPILE_ADDRESSES = Object.freeze({
   orob: '0x0000000000000000000000000000000000000901',
   clearing: '0x0000000000000000000000000000000000000902',
   oracle: '0x0000000000000000000000000000000000000903',
@@ -26,35 +26,50 @@ export const PRECOMPILE_ADDRESSES = {
   staking: '0x0000000000000000000000000000000000001005',
   bech32: '0x0000000000000000000000000000000000001004',
   p256: '0x0000000000000000000000000000000000001011',
-} as const satisfies Record<string, `0x${string}`>;
+} as const satisfies Record<string, `0x${string}`>);
 
-/**
- * Route keys whose address the node does not serve. No precompile constructor
- * for 0x0901-0x0908 is linked into the node, so these addresses hold no code:
- * a read fails and a payable write would leave its value at a codeless address.
- * Builders and reads for them throw PrecompileNotServedError until the node
- * serves them.
- */
-export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set([
-  'orob',
-  'clearing',
-  'oracle',
-  'pofq',
-  'scheduler',
-  'streams',
-  'teeAttestor',
-  'eip712',
-] as const);
+/** Route keys without a registered merge constructor under precompiles/. */
+export const UNSERVED_PRECOMPILES: ReadonlySet<keyof typeof PRECOMPILE_ADDRESSES> = new Set();
+
+export function unservedPrecompileAt(
+  to: string | undefined,
+): keyof typeof PRECOMPILE_ADDRESSES | null {
+  if (to === undefined) return null;
+  const address = to.toLowerCase();
+  for (const key of UNSERVED_PRECOMPILES) {
+    if (PRECOMPILE_ADDRESSES[key].toLowerCase() === address) return key;
+  }
+  return null;
+}
 
 export class PrecompileNotServedError extends Error {
   constructor(public readonly precompile: keyof typeof PRECOMPILE_ADDRESSES) {
-    super(`precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`);
+    super(
+      `precompile ${precompile} at ${PRECOMPILE_ADDRESSES[precompile]} is not served by the node`,
+    );
   }
 }
 
 export function servedAddress(key: keyof typeof PRECOMPILE_ADDRESSES): `0x${string}` {
+  if (!Object.hasOwn(PRECOMPILE_ADDRESSES, key)) throw new Error(`unknown precompile ${key}`);
   if (UNSERVED_PRECOMPILES.has(key)) throw new PrecompileNotServedError(key);
   return PRECOMPILE_ADDRESSES[key];
+}
+
+const servedPrecompiles = new Set<keyof typeof PRECOMPILE_ADDRESSES>();
+
+export async function ensureServed(key: keyof typeof PRECOMPILE_ADDRESSES): Promise<void> {
+  const address = servedAddress(key);
+  if (servedPrecompiles.has(key)) return;
+  try {
+    const { data } = await publicClient().call({ to: address, data: '0xffffffff' });
+    if (!data || data === '0x') throw new PrecompileNotServedError(key);
+  } catch (error) {
+    if (!(error instanceof Error) || !error.message.includes('LXP_PRECOMPILE_UNKNOWN_METHOD')) {
+      throw error;
+    }
+  }
+  servedPrecompiles.add(key);
 }
 
 /** TEE attestation families — order matches x/attestor/types/keys.go + ITEEAttestor.sol. */
@@ -65,6 +80,14 @@ export const TEE_FAMILIES = {
   intel_sgx: 3,
 } as const;
 export type TeeFamilyName = keyof typeof TEE_FAMILIES;
+
+export function precompileAddressBook() {
+  const keys = Object.keys(PRECOMPILE_ADDRESSES) as (keyof typeof PRECOMPILE_ADDRESSES)[];
+  const served = Object.fromEntries(
+    keys.map((key) => [key, !UNSERVED_PRECOMPILES.has(key)]),
+  ) as Record<keyof typeof PRECOMPILE_ADDRESSES, boolean>;
+  return { addresses: PRECOMPILE_ADDRESSES, served, tee_families: TEE_FAMILIES };
+}
 
 export interface BuiltCall {
   to: `0x${string}`;
@@ -112,20 +135,14 @@ export const SCHEDULER_ABI = [
     stateMutability: 'view',
     inputs: [{ name: 'jobId', type: 'uint256' }],
     outputs: [
-      {
-        name: 'job',
-        type: 'tuple',
-        components: [
-          { name: 'id', type: 'uint256' },
-          { name: 'creator', type: 'address' },
-          { name: 'target', type: 'address' },
-          { name: 'callData', type: 'bytes' },
-          { name: 'executeAtBlock', type: 'uint64' },
-          { name: 'gasLimit', type: 'uint64' },
-          { name: 'deposit', type: 'uint256' },
-          { name: 'active', type: 'bool' },
-        ],
-      },
+      { name: 'id', type: 'uint256' },
+      { name: 'creator', type: 'address' },
+      { name: 'target', type: 'address' },
+      { name: 'callData', type: 'bytes' },
+      { name: 'executeAtBlock', type: 'uint64' },
+      { name: 'gasLimit', type: 'uint64' },
+      { name: 'deposit', type: 'uint256' },
+      { name: 'active', type: 'bool' },
     ],
   },
   {
@@ -207,7 +224,56 @@ export const STREAMS_ABI = [
       },
     ],
   },
+  {
+    type: 'event',
+    name: 'StreamOpened',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'payer', type: 'address', indexed: true },
+      { name: 'payee', type: 'address', indexed: true },
+      { name: 'token', type: 'address', indexed: false },
+      { name: 'ratePerSecond', type: 'uint256', indexed: false },
+      { name: 'cap', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamSettled',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'payee', type: 'address', indexed: true },
+      { name: 'paid', type: 'uint256', indexed: false },
+      { name: 'committed', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamClosed',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'finalPaid', type: 'uint256', indexed: false },
+      { name: 'refund', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'StreamRateUpdated',
+    anonymous: false,
+    inputs: [
+      { name: 'streamId', type: 'uint256', indexed: true },
+      { name: 'oldRate', type: 'uint256', indexed: false },
+      { name: 'newRate', type: 'uint256', indexed: false },
+    ],
+  },
 ] as const;
+
+/** Decode the native streams logs with the same ABI used for wallet calls. */
+export function decodeStreamEvent(log: { data: Hex; topics: [Hex, ...Hex[]] }) {
+  return decodeEventLog({ abi: STREAMS_ABI, data: log.data, topics: log.topics, strict: true });
+}
 
 export const EIP712_ABI = [
   {
@@ -244,6 +310,20 @@ export const EIP712_ABI = [
     outputs: [{ name: 'signer', type: 'address' }],
   },
 ] as const;
+
+/** Frozen event metadata; the native view precompile does not emit this event. */
+export const AttestationVerified = {
+  type: 'event',
+  name: 'AttestationVerified',
+  anonymous: false,
+  inputs: [
+    { name: 'family', type: 'uint8', indexed: true },
+    { name: 'mrtd', type: 'bytes32', indexed: true },
+    { name: 'reportData', type: 'bytes32', indexed: false },
+    { name: 'timestamp', type: 'uint64', indexed: false },
+    { name: 'debug', type: 'bool', indexed: false },
+  ],
+} as const;
 
 export const TEE_ATTESTOR_ABI = [
   {
@@ -308,6 +388,7 @@ export const TEE_ATTESTOR_ABI = [
     inputs: [{ name: 'family', type: 'uint8' }],
     outputs: [{ name: 'count', type: 'uint256' }],
   },
+  AttestationVerified,
 ] as const;
 
 // -----------------------------------------------------------------------------
@@ -359,34 +440,28 @@ export const scheduler = {
     deposit: string;
     active: boolean;
   } | null> {
-    const r = (await publicClient().readContract({
-      address: servedAddress('scheduler'),
-      abi: SCHEDULER_ABI,
-      functionName: 'getJob',
-      args: [jobId],
-    })) as {
-      id: bigint;
-      creator: string;
-      target: string;
-      callData: string;
-      executeAtBlock: bigint;
-      gasLimit: bigint;
-      deposit: bigint;
-      active: boolean;
-    };
-    if (r.id === 0n && !r.active) return null;
+    await ensureServed('scheduler');
+    const [id, creator, target, callData, executeAtBlock, gasLimit, deposit, active] =
+      await publicClient().readContract({
+        address: servedAddress('scheduler'),
+        abi: SCHEDULER_ABI,
+        functionName: 'getJob',
+        args: [jobId],
+      });
+    if (id === 0n && active === false) return null;
     return {
-      id: r.id.toString(),
-      creator: r.creator,
-      target: r.target,
-      callData: r.callData,
-      executeAtBlock: r.executeAtBlock.toString(),
-      gasLimit: r.gasLimit.toString(),
-      deposit: r.deposit.toString(),
-      active: r.active,
+      id: id.toString(),
+      creator,
+      target,
+      callData,
+      executeAtBlock: executeAtBlock.toString(),
+      gasLimit: gasLimit.toString(),
+      deposit: deposit.toString(),
+      active,
     };
   },
   async pending(creator: `0x${string}`): Promise<string[]> {
+    await ensureServed('scheduler');
     const r = (await publicClient().readContract({
       address: servedAddress('scheduler'),
       abi: SCHEDULER_ABI,
@@ -447,6 +522,7 @@ export const streams = {
     };
   },
   async accrued(streamId: bigint): Promise<string> {
+    await ensureServed('streams');
     const r = (await publicClient().readContract({
       address: servedAddress('streams'),
       abi: STREAMS_ABI,
@@ -456,6 +532,7 @@ export const streams = {
     return r.toString();
   },
   async getStream(streamId: bigint): Promise<Record<string, string | boolean> | null> {
+    await ensureServed('streams');
     const r = (await publicClient().readContract({
       address: servedAddress('streams'),
       abi: STREAMS_ABI,
@@ -493,37 +570,68 @@ export const streams = {
 // EIP-712 helper (0x0908) — all pure/view
 // -----------------------------------------------------------------------------
 
-export const eip712 = {
-  async hashTypedData(domainSeparator: Hex, structHash: Hex): Promise<Hex> {
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+type Eip712ReadMethod = 'hashTypedData' | 'domainSeparator' | 'recoverTypedSigner';
+
+/** Reject incomplete, trailing, or noncanonical return words before ABI decoding. */
+export function decodeEip712Result(method: Eip712ReadMethod, data: Hex | undefined): Hex {
+  if (!data || !/^0x[0-9a-fA-F]{64}$/.test(data)) {
+    throw new Error(`Malformed EIP-712 ${method} result: expected one ABI word`);
+  }
+  if (method === 'recoverTypedSigner' && !/^0x0{24}/.test(data)) {
+    throw new Error('Malformed EIP-712 recoverTypedSigner result: nonzero address padding');
+  }
+  return decodeFunctionResult({ abi: EIP712_ABI, functionName: method, data });
+}
+
+async function hashTypedData(domainSeparator: Hex, structHash: Hex): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'hashTypedData',
       args: [domainSeparator, structHash],
-    })) as Hex;
-  },
-  async domainSeparator(args: {
-    name: string;
-    version: string;
-    chainId: bigint;
-    verifyingContract: `0x${string}`;
-  }): Promise<Hex> {
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+    }),
+  });
+  return decodeEip712Result('hashTypedData', data);
+}
+
+async function domainSeparator(args: {
+  name: string;
+  version: string;
+  chainId: bigint;
+  verifyingContract: `0x${string}`;
+}): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'domainSeparator',
       args: [args.name, args.version, args.chainId, args.verifyingContract],
-    })) as Hex;
-  },
-  async recoverTypedSigner(domainSeparator: Hex, structHash: Hex, signature: Hex): Promise<Hex> {
-    return (await publicClient().readContract({
-      address: servedAddress('eip712'),
+    }),
+  });
+  return decodeEip712Result('domainSeparator', data);
+}
+
+async function recoverTypedSigner(
+  domainSeparator: Hex,
+  structHash: Hex,
+  signature: Hex,
+): Promise<Hex> {
+  await ensureServed('eip712');
+  const { data } = await publicClient().call({
+    to: servedAddress('eip712'),
+    data: encodeFunctionData({
       abi: EIP712_ABI,
       functionName: 'recoverTypedSigner',
       args: [domainSeparator, structHash, signature],
-    })) as Hex;
-  },
-};
+    }),
+  });
+  return decodeEip712Result('recoverTypedSigner', data);
+}
+
+export const eip712 = { hashTypedData, domainSeparator, recoverTypedSigner };
 
 // -----------------------------------------------------------------------------
 // TEE Attestor (0x0907) — all view
@@ -560,40 +668,60 @@ function shapeAttestation(r: {
   };
 }
 
-export const teeAttestor = {
-  async verify(family: number, quote: Hex): Promise<Attestation> {
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'verify',
-      args: [family, quote],
-    })) as { family: number; mrtd: Hex; reportData: Hex; timestamp: bigint; debug: boolean };
-    return shapeAttestation(r);
-  },
-  async verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'verifyAndExpect',
-      args: [family, quote, expectedReportData],
-    })) as { family: number; mrtd: Hex; reportData: Hex; timestamp: bigint; debug: boolean };
-    return shapeAttestation(r);
-  },
-  async rootOf(family: number, index: bigint): Promise<Hex> {
-    return (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'rootOf',
-      args: [family, index],
-    })) as Hex;
-  },
-  async rootCount(family: number): Promise<string> {
-    const r = (await publicClient().readContract({
-      address: servedAddress('teeAttestor'),
-      abi: TEE_ATTESTOR_ABI,
-      functionName: 'rootCount',
-      args: [family],
-    })) as bigint;
-    return r.toString();
-  },
-};
+/** Decode only canonical, non-debug results for the requested attestation family. */
+export function decodeTeeAttestationResult(data: Hex, expectedFamily: number): Attestation {
+  const result = decodeFunctionResult({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', data });
+  const canonical = encodeFunctionResult({
+    abi: TEE_ATTESTOR_ABI, functionName: 'verify', result,
+  });
+  if (
+    canonical.toLowerCase() !== data.toLowerCase() ||
+    result.family !== expectedFamily ||
+    familyName(result.family) === 'unknown' ||
+    result.debug
+  ) {
+    throw new Error('invalid attestation result');
+  }
+  return shapeAttestation(result);
+}
+
+export async function verify(family: number, quote: Hex): Promise<Attestation> {
+  await ensureServed('teeAttestor');
+  const { data } = await publicClient().call({
+    to: servedAddress('teeAttestor'),
+    data: encodeFunctionData({ abi: TEE_ATTESTOR_ABI, functionName: 'verify', args: [family, quote] }),
+  });
+  if (!data) throw new Error('missing attestation result');
+  return decodeTeeAttestationResult(data, family);
+}
+
+export async function verifyAndExpect(family: number, quote: Hex, expectedReportData: Hex): Promise<Attestation> {
+  await ensureServed('teeAttestor');
+  const { data } = await publicClient().call({
+    to: servedAddress('teeAttestor'),
+    data: encodeFunctionData({
+      abi: TEE_ATTESTOR_ABI, functionName: 'verifyAndExpect', args: [family, quote, expectedReportData],
+    }),
+  });
+  if (!data) throw new Error('missing attestation result');
+  return decodeTeeAttestationResult(data, family);
+}
+
+export async function rootOf(family: number, index: bigint): Promise<Hex> {
+  await ensureServed('teeAttestor');
+  return publicClient().readContract({
+    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootOf', args: [family, index],
+  });
+}
+
+export async function rootCount(family: number): Promise<string> {
+  await ensureServed('teeAttestor');
+  const count = await publicClient().readContract({
+    address: servedAddress('teeAttestor'), abi: TEE_ATTESTOR_ABI,
+    functionName: 'rootCount', args: [family],
+  });
+  return count.toString();
+}
+
+export const teeAttestor = { verify, verifyAndExpect, rootOf, rootCount };

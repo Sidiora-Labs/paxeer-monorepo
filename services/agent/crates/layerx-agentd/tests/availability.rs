@@ -1,487 +1,297 @@
-use std::fs;
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::PathBuf;
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::io::{BufRead, BufReader, Read, Write};
+use std::net::TcpListener;
 use std::thread::{self, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use layerx_agentd::read::{availability, AvailabilityAudit, AvailabilityRead, AvailabilityRequest};
-use layerx_agentd::store::{ObjectKind, Store, TenantId};
-use layerx_client::availability::{
-    AvailabilitySelector, FetchContext, Provider, ProviderSet, RetrievalLimits,
+use layerx_agentd::read::{
+    availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest,
 };
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Envelope, Version};
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_proof::availability::{AvailabilityCheck, AvailabilityClass, Chunk, RootCommitments};
-use layerx_proof::merkle::{build_leaf_hash_proof, root, Proof};
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::availability_chunk_digest;
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+use serde_json::{json, Value};
 
-static NEXT_SOCKET: AtomicU64 = AtomicU64::new(1);
-
-struct SocketPath(PathBuf);
-
-impl SocketPath {
-    fn new(label: &str) -> Self {
-        let sequence = NEXT_SOCKET.fetch_add(1, Ordering::Relaxed);
-        Self(std::env::temp_dir().join(format!(
-            "layerx-agentd-availability-{label}-{}-{sequence}.sock",
-            std::process::id()
-        )))
-    }
+pub fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+    result.unwrap_or_else(|error| panic!("{error:?}"))
 }
 
-impl Drop for SocketPath {
-    fn drop(&mut self) {
-        let _ = fs::remove_file(&self.0);
-    }
-}
+pub const BLOCK_HEIGHT: u64 = 42;
+pub const PRUNED_HEIGHT: u64 = 41;
+pub const HEAD: u64 = 43;
 
-#[derive(Clone)]
-struct Fixture {
-    chunks: Vec<Chunk>,
-    proofs: Vec<Proof>,
-    availability_root: [u8; 32],
-    record_roots: RootCommitments,
-}
+pub type Exchange = (&'static str, Value, Value);
 
-fn sequence(bytes: &[u8]) -> Vec<u8> {
-    let mut encoder = Encoder::new(1024);
-    assert_eq!(encoder.sequence_length(1, 1), Ok(()));
-    assert_eq!(encoder.bytes(bytes, 1024), Ok(()));
-    encoder.finish()
-}
-
-fn tagged(kind: u8, bytes: &[u8]) -> Vec<u8> {
-    let mut encoder = Encoder::new(1024);
-    assert_eq!(encoder.u8(kind), Ok(()));
-    assert_eq!(encoder.bytes(bytes, 1024), Ok(()));
-    encoder.finish()
-}
-
-fn fixture() -> Fixture {
-    let activities = sequence(b"activity");
-    let mut receipts = tagged(1, b"receipt");
-    receipts.extend_from_slice(&tagged(2, b"event"));
-    let classes = [
-        (AvailabilityClass::Activities, activities),
-        (AvailabilityClass::Receipts, receipts),
-        (AvailabilityClass::Oracle, sequence(b"oracle")),
-        (AvailabilityClass::StateDiff, b"state-diff".to_vec()),
-        (AvailabilityClass::Recovery, b"recovery".to_vec()),
-    ];
-    let mut chunks = Vec::new();
-    for (index, (class, bytes)) in classes.into_iter().enumerate() {
-        let index = u32::try_from(index).unwrap_or(0);
-        let claimed_hash = availability_chunk_digest(7, index, class as u8, 0, &bytes)
-            .unwrap_or_else(|error| panic!("chunk digest: {error:?}"));
-        chunks.push(Chunk {
-            batch_number: 7,
-            index,
-            class,
-            class_offset: 0,
-            bytes,
-            claimed_hash,
-        });
-    }
-    let hashes: Vec<_> = chunks.iter().map(|chunk| chunk.claimed_hash).collect();
-    let mut proofs = Vec::new();
-    let mut availability_root = [0; 32];
-    for index in 0..hashes.len() {
-        let (proof, computed) = build_leaf_hash_proof(&hashes, index)
-            .unwrap_or_else(|error| panic!("availability proof: {error:?}"));
-        proofs.push(proof);
-        availability_root = computed;
-    }
-    Fixture {
-        chunks,
-        proofs,
-        availability_root,
-        record_roots: RootCommitments {
-            activity: root(&[b"activity"])
-                .unwrap_or_else(|error| panic!("activity root: {error:?}")),
-            receipt: root(&[b"receipt"]).unwrap_or_else(|error| panic!("receipt root: {error:?}")),
-            event: root(&[b"event"]).unwrap_or_else(|error| panic!("event root: {error:?}")),
-            oracle: root(&[b"oracle"]).unwrap_or_else(|error| panic!("oracle root: {error:?}")),
-        },
-    }
-}
-
-fn transport_limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: 1024 * 1024,
-        maximum_connections: 1,
-        maximum_streams: 4,
-        maximum_queued_bytes: 2 * 1024 * 1024,
-        deadline: Duration::from_secs(2),
-    }
-}
-
-fn context(fixture: &Fixture, correlation_id: u64) -> FetchContext {
-    FetchContext {
-        interface_version: Version::V1_0,
-        correlation_id,
-        expected_batch_number: 7,
-        data_availability_root: fixture.availability_root,
-        record_roots: fixture.record_roots,
-        limits: RetrievalLimits {
-            maximum_bytes: 1024,
-            maximum_chunks: 8,
-            deadline: Duration::from_secs(2),
-        },
-    }
-}
-
-fn metadata(chunk: &Chunk, proof: &Proof) -> Vec<u8> {
-    let mut bytes = Vec::new();
-    bytes.extend_from_slice(&chunk.batch_number.to_be_bytes());
-    bytes.extend_from_slice(&chunk.index.to_be_bytes());
-    bytes.push(chunk.class as u8);
-    bytes.extend_from_slice(&chunk.class_offset.to_be_bytes());
-    bytes.extend_from_slice(&chunk.claimed_hash);
-    bytes.extend_from_slice(&proof.leaf_index().to_be_bytes());
-    bytes.extend_from_slice(&proof.leaf_count().to_be_bytes());
-    bytes.push(
-        u8::try_from(proof.siblings().len())
-            .unwrap_or_else(|error| panic!("sibling count: {error}")),
-    );
-    for sibling in proof.siblings() {
-        bytes.extend_from_slice(sibling);
-    }
-    bytes
-}
-
-fn request(stream: &mut UnixStream) -> u64 {
-    let frame =
-        read_frame(stream, 1024 * 1024).unwrap_or_else(|error| panic!("request frame: {error:?}"));
-    let envelope =
-        decode_envelope(&frame).unwrap_or_else(|error| panic!("request envelope: {error:?}"));
-    assert_eq!(envelope.message_tag, 18);
-    envelope.correlation_id
-}
-
-fn response(stream: &mut UnixStream, tag: u16, correlation: u64, bytes: &[u8], proof: &[u8]) {
-    let envelope = encode_envelope(Envelope {
-        version: Version::V1_0,
-        message_tag: tag,
-        correlation_id: correlation,
-        canonical_payload: bytes,
-        proof_material: proof,
-    })
-    .unwrap_or_else(|error| panic!("response envelope: {error:?}"));
-    let _ = write_frame(stream, &envelope, 1024 * 1024);
-}
-
-fn provider(
-    socket: &SocketPath,
-    fixture: Fixture,
-    chunks: usize,
-    corrupt: Option<usize>,
-) -> JoinHandle<()> {
-    let listener =
-        UnixListener::bind(&socket.0).unwrap_or_else(|error| panic!("listener: {error}"));
-    thread::spawn(move || {
-        let (mut stream, _) = listener
-            .accept()
-            .unwrap_or_else(|error| panic!("accept: {error}"));
-        let correlation = request(&mut stream);
-        for index in 0..chunks {
-            let mut bytes = fixture.chunks[index].bytes.clone();
-            if corrupt == Some(index) {
-                bytes[0] ^= 1;
-            }
-            response(
-                &mut stream,
-                19,
-                correlation,
-                &bytes,
-                &metadata(&fixture.chunks[index], &fixture.proofs[index]),
-            );
-        }
-        response(&mut stream, 20, correlation, &[], &[]);
-    })
-}
-
-fn tenant() -> TenantId {
-    TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
-}
-
-#[test]
-fn complete_five_class_retrieval_streams_and_emits_offline_replay_frames() {
-    let fixture = fixture();
-    let socket = SocketPath::new("complete");
-    let server = provider(&socket, fixture.clone(), 5, None);
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&socket.0, &gate, transport_limits())
-        .unwrap_or_else(|error| panic!("connect: {error:?}"));
-    let mut providers = ProviderSet::new(vec![Provider {
-        name: "provider-a".to_owned(),
-        transport: &mut transport,
-    }]);
-    let root =
-        std::env::temp_dir().join(format!("layerx-availability-store-{}", std::process::id()));
-    let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let mut audit = AvailabilityAudit::default();
-    let mut streamed = 0;
-    let outcome = availability(
-        &mut store,
-        &tenant(),
-        &mut audit,
-        &mut providers,
-        &AvailabilityRequest {
-            selector: AvailabilitySelector::Batch(7),
-            checkpoint_id: [0x77; 32],
-            context: context(&fixture, 70),
-        },
-        |_| streamed += 1,
-    )
-    .unwrap_or_else(|error| panic!("availability: {error:?}"));
-    let AvailabilityRead::Complete {
-        report,
-        replay_bytes,
-        framing,
-        ..
-    } = outcome
-    else {
-        panic!("complete provider reported partial")
-    };
-    assert_eq!(streamed, 5);
-    assert_eq!(report.classes.obtained.len(), 5);
-    assert!(report.classes.missing.is_empty());
-    assert_eq!(replay_bytes.get(..5), Some(&b"LXRP\x01"[..]));
-    assert_eq!(
-        framing.record_order,
-        "flattened availability chunk index ascending"
-    );
-    assert!(audit.failures().is_empty());
-    assert!(server.join().is_ok(), "provider failed");
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn corruption_withholding_and_repeated_provider_failure_are_durable_evidence() {
-    let fixture = fixture();
-    let root = std::env::temp_dir().join(format!(
-        "layerx-availability-failures-{}",
-        std::process::id()
-    ));
-    let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    let mut audit = AvailabilityAudit::default();
-    let gate = ConnectionGate::new(1);
-
-    for (attempt, (chunk_count, corrupt)) in [(2, Some(1)), (2, None)].into_iter().enumerate() {
-        let socket = SocketPath::new("failure");
-        let server = provider(&socket, fixture.clone(), chunk_count, corrupt);
-        let mut transport = Uds::connect(&socket.0, &gate, transport_limits())
-            .unwrap_or_else(|error| panic!("connect: {error:?}"));
-        let mut providers = ProviderSet::new(vec![Provider {
-            name: "provider-a".to_owned(),
-            transport: &mut transport,
-        }]);
-        let outcome = availability(
-            &mut store,
-            &tenant(),
-            &mut audit,
-            &mut providers,
-            &AvailabilityRequest {
-                selector: AvailabilitySelector::Checkpoint([0x77; 32]),
-                checkpoint_id: [0x77; 32],
-                context: context(&fixture, 80 + u64::try_from(attempt).unwrap_or(0)),
-            },
-            |_| {},
-        )
-        .unwrap_or_else(|error| panic!("availability: {error:?}"));
-        let AvailabilityRead::Partial { failures, .. } = outcome else {
-            panic!("failed provider reported complete")
-        };
-        assert_eq!(failures.len(), 1);
-        assert_eq!(
-            failures[0].provider_failure_count,
-            u64::try_from(attempt + 1).unwrap_or(0)
-        );
-        if attempt == 0 {
-            assert_eq!(failures[0].check, AvailabilityCheck::ChunkHash);
-            assert!(!failures[0].served_bytes.is_empty());
-            assert_eq!(
-                failures[0].mismatching_commitment,
-                fixture.chunks[1].claimed_hash
-            );
-        } else {
-            assert_eq!(failures[0].check, AvailabilityCheck::MissingClass);
-            assert_eq!(failures[0].classes.obtained.len(), 2);
-            assert_eq!(failures[0].classes.missing.len(), 3);
-        }
-        assert!(server.join().is_ok(), "provider failed");
-    }
-    assert_eq!(audit.provider_failure_count("provider-a"), 2);
-    assert_eq!(audit.failures().len(), 2);
-    assert_eq!(store.list_object_ids(&tenant(), ObjectKind::Audit).len(), 2);
-    let _ = fs::remove_dir_all(root);
-}
-
-#[test]
-fn class_presence_precedes_decoding_and_complete_chunks_require_order() {
-    for (case, order, expected) in [
-        ("empty", vec![], Some(AvailabilityCheck::MissingClass)),
-        ("missing", vec![0, 1], Some(AvailabilityCheck::MissingClass)),
-        (
-            "missing-reordered",
-            vec![1, 0],
-            Some(AvailabilityCheck::MissingClass),
-        ),
-        (
-            "complete-reordered",
-            vec![1, 0, 2, 3, 4],
-            Some(AvailabilityCheck::ChunkOrder),
-        ),
-        ("complete", vec![0, 1, 2, 3, 4], None),
-    ] {
-        let mut fixture = fixture();
-        let original = fixture.clone();
-        fixture.chunks = order
-            .iter()
-            .map(|&index| original.chunks[index].clone())
-            .collect();
-        fixture.proofs = order
-            .iter()
-            .map(|&index| original.proofs[index].clone())
-            .collect();
-        let socket = SocketPath::new(case);
-        let server = provider(&socket, fixture.clone(), order.len(), None);
-        let gate = ConnectionGate::new(1);
-        let mut transport = Uds::connect(&socket.0, &gate, transport_limits())
-            .unwrap_or_else(|error| panic!("connect: {error:?}"));
-        let mut providers = ProviderSet::new(vec![Provider {
-            name: "provider-a".to_owned(),
-            transport: &mut transport,
-        }]);
-        let outcome = layerx_client::availability::fetch(
-            &mut providers,
-            AvailabilitySelector::Batch(7),
-            context(&fixture, 90),
-            |_| {},
-        )
-        .unwrap_or_else(|error| panic!("fetch: {error:?}"));
-        match (expected, outcome) {
-            (None, layerx_client::availability::FetchOutcome::Complete(result)) => {
-                assert!(result.report.classes.missing.is_empty());
-                assert_eq!(result.records().activities, vec![b"activity".to_vec()]);
-                assert_eq!(result.records().oracle_inputs, vec![b"oracle".to_vec()]);
-            }
-            (Some(expected), layerx_client::availability::FetchOutcome::Partial(reports)) => {
-                assert_eq!(reports.len(), 1);
-                let layerx_client::availability::ProviderFailure::Reassembly(failure) =
-                    &reports[0].failure
-                else {
-                    panic!("expected reassembly failure: {reports:?}");
-                };
-                assert_eq!(failure.check, expected, "{case}");
-                assert_eq!(failure.classes, reports[0].classes);
-                assert_eq!(
-                    failure.served_bytes,
-                    fixture
-                        .chunks
-                        .iter()
-                        .flat_map(|chunk| chunk.bytes.clone())
-                        .collect::<Vec<_>>()
-                );
-            }
-            (expected, outcome) => panic!("{case}: expected {expected:?}, got {outcome:?}"),
-        }
-        assert!(server.join().is_ok(), "provider failed");
-    }
-}
-
-#[test]
-fn withheld_recovery_tail_retains_evidence_without_emitting_complete_replay() {
-    let mut fixture = fixture();
-    fixture.chunks[4].bytes = vec![b'r'; 65_536];
-    fixture.chunks[4].claimed_hash = availability_chunk_digest(
-        7,
-        4,
-        AvailabilityClass::Recovery as u8,
-        0,
-        &fixture.chunks[4].bytes,
-    )
-    .unwrap_or_else(|error| panic!("recovery digest: {error:?}"));
-    let mut tail = fixture.chunks[4].clone();
-    tail.index = 5;
-    tail.class_offset =
-        u64::try_from(tail.bytes.len()).unwrap_or_else(|error| panic!("offset: {error:?}"));
-    tail.bytes = b"withheld recovery".to_vec();
-    tail.claimed_hash =
-        availability_chunk_digest(7, 5, tail.class as u8, tail.class_offset, &tail.bytes)
-            .unwrap_or_else(|error| panic!("tail digest: {error:?}"));
-    fixture.chunks.push(tail);
-    let hashes: Vec<_> = fixture
-        .chunks
-        .iter()
-        .map(|chunk| chunk.claimed_hash)
+pub fn block(height: u64) -> Value {
+    let hash = format!("0x{}", "ab".repeat(32));
+    let transactions: Vec<Value> = (0..if height == 0 { 0 } else { 2 })
+        .map(|index| {
+            json!({
+                "blockHash": hash,
+                "blockNumber": format!("{height:#x}"),
+                "from": format!("0x{}", "11".repeat(20)),
+                "gas": "0x5208",
+                "gasPrice": "0x1",
+                "hash": format!("0x{index:064x}"),
+                "input": "0x",
+                "nonce": format!("{index:#x}"),
+                "to": format!("0x{}", "22".repeat(20)),
+                "transactionIndex": format!("{index:#x}"),
+                "value": "0x1",
+                "type": "0x0",
+                "v": "0x1b",
+                "r": "0x1",
+                "s": "0x2"
+            })
+        })
         .collect();
-    fixture.proofs.clear();
-    for index in 0..hashes.len() {
-        let (proof, root) = build_leaf_hash_proof(&hashes, index)
-            .unwrap_or_else(|error| panic!("proof: {error:?}"));
-        fixture.proofs.push(proof);
-        fixture.availability_root = root;
-    }
-    let socket = SocketPath::new("recovery-tail");
-    let server = provider(&socket, fixture.clone(), 5, None);
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&socket.0, &gate, transport_limits())
-        .unwrap_or_else(|error| panic!("transport: {error:?}"));
-    let mut providers = ProviderSet::new(vec![Provider {
-        name: "recovery-tail".to_owned(),
-        transport: &mut transport,
-    }]);
-    let root =
-        std::env::temp_dir().join(format!("layerx-availability-tail-{}", std::process::id()));
-    let mut store = Store::open(&root).unwrap_or_else(|error| panic!("store: {error:?}"));
-    let mut audit = AvailabilityAudit::default();
-    let mut request_context = context(&fixture, 100);
-    request_context.limits.maximum_bytes = 131_072;
-    let outcome = availability(
-        &mut store,
-        &tenant(),
-        &mut audit,
-        &mut providers,
-        &AvailabilityRequest {
-            selector: AvailabilitySelector::Batch(7),
-            checkpoint_id: [0x77; 32],
-            context: request_context,
-        },
-        |_| {},
-    )
-    .unwrap_or_else(|error| panic!("availability: {error:?}"));
-    let AvailabilityRead::Partial { failures, .. } = outcome else {
-        panic!("withheld recovery cannot produce complete replay frames");
-    };
-    assert_eq!(failures.len(), 1);
-    assert_eq!(failures[0].check, AvailabilityCheck::BundleCompleteness);
-    assert!(failures[0].classes.missing.is_empty());
-    assert_eq!(
-        failures[0].mismatching_commitment,
-        fixture.availability_root
-    );
-    assert_eq!(
-        failures[0].served_bytes,
-        fixture.chunks[..5]
+    json!({
+        "number": format!("{height:#x}"),
+        "hash": hash,
+        "parentHash": format!("0x{}", "cd".repeat(32)),
+        "timestamp": "0x1234",
+        "transactionsRoot": format!("0x{}", "33".repeat(32)),
+        "receiptsRoot": format!("0x{}", "44".repeat(32)),
+        "transactions": transactions
+    })
+}
+
+pub fn head_exchange() -> Exchange {
+    ("eth_blockNumber", json!([]), json!(format!("{HEAD:#x}")))
+}
+
+pub fn block_exchange(height: u64, full: bool, result: Value) -> Exchange {
+    let result = if full || result.is_null() {
+        result
+    } else {
+        let mut header = result;
+        let hashes = header["transactions"]
+            .as_array()
+            .unwrap_or_else(|| panic!("missing transactions"))
             .iter()
-            .flat_map(|chunk| chunk.bytes.iter().copied())
-            .collect::<Vec<_>>()
-    );
-    assert_eq!(audit.provider_failure_count("recovery-tail"), 1);
-    assert_eq!(store.list_object_ids(&tenant(), ObjectKind::Audit).len(), 1);
-    assert!(server.join().is_ok(), "provider failed");
-    drop(store);
-    let recovered = Store::open(&root).unwrap_or_else(|error| panic!("recovered store: {error:?}"));
-    assert_eq!(
-        recovered
-            .list_object_ids(&tenant(), ObjectKind::Audit)
+            .map(|transaction| transaction["hash"].clone())
+            .collect::<Vec<_>>();
+        header["transactions"] = json!(hashes);
+        header
+    };
+    (
+        "eth_getBlockByNumber",
+        json!([format!("{height:#x}"), full]),
+        result,
+    )
+}
+
+pub fn available_exchanges(height: u64) -> Vec<Exchange> {
+    vec![
+        block_exchange(height, false, block(height)),
+        head_exchange(),
+        block_exchange(height, true, block(height)),
+    ]
+}
+
+pub struct Node {
+    pub endpoint: SequencerEndpoint,
+    url: String,
+    agent: ureq::Agent,
+    server: JoinHandle<()>,
+}
+
+impl Node {
+    pub fn connect(exchanges: Vec<Exchange>) -> Self {
+        let listener = must(TcpListener::bind("127.0.0.1:0"));
+        let url = format!("http://{}/", must(listener.local_addr()));
+        must(listener.set_nonblocking(true));
+        let server = thread::spawn(move || {
+            for (method, params, result) in exchanges {
+                let expires = Instant::now() + Duration::from_secs(5);
+                let stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < expires, "missing {method} request");
+                            thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => panic!("accept: {error}"),
+                    }
+                };
+                must(stream.set_read_timeout(Some(Duration::from_secs(2))));
+                must(stream.set_write_timeout(Some(Duration::from_secs(2))));
+                let mut reader = BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(must(reader.read_line(&mut line)), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+                let length = length.unwrap_or_else(|| panic!("content length required"));
+                assert!(length <= 64 * 1024);
+                let mut body = vec![0; length];
+                must(reader.read_exact(&mut body));
+                let request: Value = must(serde_json::from_slice(&body));
+                assert_eq!(request["jsonrpc"], "2.0");
+                assert_eq!(request["method"], method);
+                assert_eq!(request["params"], params);
+                let answer = json!({
+                    "jsonrpc": "2.0", "id": request["id"], "result": result
+                })
+                .to_string();
+                let mut stream = reader.into_inner();
+                must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+                must(stream.flush());
+            }
+        });
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let agent = ureq::Agent::config_builder()
+            .timeout_global(Some(Duration::from_secs(10)))
+            .max_redirects(0)
+            .build()
+            .into();
+        Self {
+            endpoint,
+            url,
+            agent,
+            server,
+        }
+    }
+
+    pub fn finish(self) {
+        must(self.server.join());
+    }
+
+    pub fn rpc(&self, method: &str, params: Value) -> Value {
+        let mut response = must(self.agent.post(&self.url).send_json(json!({
+            "jsonrpc": "2.0", "id": 1, "method": method, "params": params
+        })));
+        assert_eq!(response.status().as_u16(), 200);
+        let bytes = must(
+            response
+                .body_mut()
+                .with_config()
+                .limit(16 * 1_048_576)
+                .read_to_vec(),
+        );
+        let answer: Value = must(serde_json::from_slice(&bytes));
+        assert_eq!(answer["jsonrpc"], "2.0");
+        assert_eq!(answer["id"], 1);
+        assert!(answer.get("error").is_none(), "RPC refused: {answer}");
+        answer
+            .get("result")
+            .unwrap_or_else(|| panic!("missing result: {answer}"))
+            .clone()
+    }
+
+    pub fn head(&self) -> u64 {
+        let answer = self.rpc("eth_blockNumber", json!([]));
+        let text = answer
+            .as_str()
+            .unwrap_or_else(|| panic!("invalid head: {answer}"));
+        let digits = text
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("invalid head: {text}"));
+        must(u64::from_str_radix(digits, 16))
+    }
+
+    pub fn block(&self, height: u64) -> Value {
+        self.rpc(
+            "eth_getBlockByNumber",
+            json!([format!("{height:#x}"), false]),
+        )
+    }
+}
+
+pub fn assert_available(node: &Node, height: u64) -> u64 {
+    let block = node.block(height);
+    assert!(block.is_object(), "test block must be retained: {height}");
+    assert_eq!(block["number"], format!("{height:#x}"));
+    let count = u64::try_from(
+        block["transactions"]
+            .as_array()
+            .unwrap_or_else(|| panic!("missing transactions"))
             .len(),
-        1
+    )
+    .unwrap_or_else(|error| panic!("transaction count: {error}"));
+    let outcome = must(availability(
+        &node.endpoint,
+        &AvailabilityRequest { height },
+    ));
+    assert_eq!(
+        outcome,
+        AvailabilityRead::Available {
+            height,
+            transactions_root: must(hex::decode(
+                block["transactionsRoot"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("missing transactions root"))
+                    .strip_prefix("0x")
+                    .unwrap_or_else(|| panic!("invalid transactions root"))
+            ))
+            .try_into()
+            .unwrap_or_else(|_| panic!("transactions root length")),
+            receipts_root: must(hex::decode(
+                block["receiptsRoot"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("missing receipts root"))
+                    .strip_prefix("0x")
+                    .unwrap_or_else(|| panic!("invalid receipts root"))
+            ))
+            .try_into()
+            .unwrap_or_else(|_| panic!("receipts root length")),
+            transaction_count: count,
+        }
     );
-    drop(recovered);
-    let _ = fs::remove_dir_all(root);
+    count
+}
+
+#[test]
+fn available_block_matches_node_header() {
+    let height = BLOCK_HEIGHT;
+    let node = Node::connect(available_exchanges(height));
+    assert!(
+        assert_available(&node, height) > 0,
+        "select a block containing transactions"
+    );
+    node.finish();
+}
+
+#[test]
+fn genesis_availability_matches_node_header() {
+    let node = Node::connect(available_exchanges(0));
+    assert_available(&node, 0);
+    node.finish();
+}
+
+#[test]
+fn repeated_availability_reads_preserve_block_metadata() {
+    let mut exchanges = vec![
+        head_exchange(),
+        block_exchange(BLOCK_HEIGHT, true, block(BLOCK_HEIGHT)),
+        head_exchange(),
+        block_exchange(BLOCK_HEIGHT, true, block(BLOCK_HEIGHT)),
+    ];
+    exchanges.extend(available_exchanges(BLOCK_HEIGHT));
+    let node = Node::connect(exchanges);
+    let request = AvailabilityRequest {
+        height: BLOCK_HEIGHT,
+    };
+    let first = must(availability(&node.endpoint, &request));
+    assert!(matches!(first, AvailabilityRead::Available { .. }));
+    assert_eq!(must(availability(&node.endpoint, &request)), first);
+    assert_available(&node, request.height);
+    node.finish();
+}
+
+#[test]
+fn transport_failure_is_not_reported_as_pruned() {
+    let listener = must(TcpListener::bind("127.0.0.1:0"));
+    let url = format!("http://{}/", must(listener.local_addr()));
+    drop(listener);
+    let endpoint = must(SequencerEndpoint::new(&url, &[]));
+    assert_eq!(
+        availability(&endpoint, &AvailabilityRequest { height: 0 }),
+        Err(AvailabilityReadError::Sequencer(
+            SequencerError::Unavailable
+        ))
+    );
 }

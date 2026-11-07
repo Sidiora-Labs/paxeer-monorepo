@@ -1,0 +1,14 @@
+[repair.22.33.1345]
+audit = "22.30.73"
+findings = ["multisig-cardinality", "multisig-test-boundary"]
+multisig_cardinality = ["TestRepairM_1345_CardinalityAndShape", "TestRepairM_1345_NestedValidation", "TestRepairM_1345_MalformedTransactions"]
+multisig_test_boundary = ["TestRepairM_1345_TransactionBoundaries", "TestVerifyMultisignatureTransactions"]
+implementation = "Validate positive bounded thresholds, canonical bit-array structure and padding, exact selected-signature cardinality, unpacked keys and selected nested signature shapes before requesting any sign bytes; expose ValidateMultisignature for gas consumers."
+proof = "Production SDK key/signature assembly and binary/JSON transaction codecs carry full and sparse 7/8/9/16-key sets through auth signature verification, gas traversal and the ante decorator with a real account keeper and in-memory store; missing/extra signatures and invalid decoded thresholds are refused. Malformed binary transactions cover bit-array shapes and nested signatures without panics. Existing signature assertions are retained."
+baseline = "Not run: the explicit gate order requires complete implementation before hf-build and hf-done and forbids a manual verify run. No baseline failures are claimed."
+wiring_requests = ["sdk/x/auth/ante/sigverify.go (domain 15, SDK auth): call LegacyAminoPubKey.ValidateMultisignature before ConsumeMultisignatureVerificationGas traversal, sharing threshold and recursive shape validation with crypto verification."]
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log location. Qualification is claimed only after hf-done succeeds."
+
+[gotcha.scope]
+observed = "Task steps request a baseline verify and spec-record edits, while explicit gate order forbids pre-implementation verification and scope forbids spec edits."
+resolution = "Follow the explicit gate order; keep finding-to-test mappings and the out-of-path wiring request in this scoped repair record."

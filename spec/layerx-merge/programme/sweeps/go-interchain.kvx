@@ -1,0 +1,327 @@
+[sweep.go-interchain]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+enumeration_command = "CGO_ENABLED=1 go list ./interchain/..."
+enumeration_exit_code = 0
+native_libraries_command = "make paxd-native-libs"
+native_libraries_exit_code = 0
+qualification_record = "/out/logs/go-interchain-qualification.json"
+targets_total = 63
+targets_passed = 63
+targets_failed = 0
+targets_not_run = 0
+
+[target.go-interchain.1]
+target = "interchain/modules/apps/27-interchain-accounts"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.2]
+target = "interchain/modules/apps/27-interchain-accounts/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.3]
+target = "interchain/modules/apps/27-interchain-accounts/controller"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.4]
+target = "interchain/modules/apps/27-interchain-accounts/controller/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.5]
+target = "interchain/modules/apps/27-interchain-accounts/controller/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.6]
+target = "interchain/modules/apps/27-interchain-accounts/controller/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.7]
+target = "interchain/modules/apps/27-interchain-accounts/host"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.8]
+target = "interchain/modules/apps/27-interchain-accounts/host/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.9]
+target = "interchain/modules/apps/27-interchain-accounts/host/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.10]
+target = "interchain/modules/apps/27-interchain-accounts/host/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.11]
+target = "interchain/modules/apps/27-interchain-accounts/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.12]
+target = "interchain/modules/apps/transfer"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.13]
+target = "interchain/modules/apps/transfer/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.14]
+target = "interchain/modules/apps/transfer/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.15]
+target = "interchain/modules/apps/transfer/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.16]
+target = "interchain/modules/apps/transfer/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.17]
+target = "interchain/modules/core"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.18]
+target = "interchain/modules/core/02-client"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.19]
+target = "interchain/modules/core/02-client/client"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.20]
+target = "interchain/modules/core/02-client/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.21]
+target = "interchain/modules/core/02-client/client/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.22]
+target = "interchain/modules/core/02-client/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.23]
+target = "interchain/modules/core/02-client/legacy/v100"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.24]
+target = "interchain/modules/core/02-client/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.25]
+target = "interchain/modules/core/02-client/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.26]
+target = "interchain/modules/core/03-connection"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.27]
+target = "interchain/modules/core/03-connection/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.28]
+target = "interchain/modules/core/03-connection/client/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.29]
+target = "interchain/modules/core/03-connection/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.30]
+target = "interchain/modules/core/03-connection/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.31]
+target = "interchain/modules/core/03-connection/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.32]
+target = "interchain/modules/core/04-channel"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.33]
+target = "interchain/modules/core/04-channel/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.34]
+target = "interchain/modules/core/04-channel/client/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.35]
+target = "interchain/modules/core/04-channel/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.36]
+target = "interchain/modules/core/04-channel/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.37]
+target = "interchain/modules/core/04-channel/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.38]
+target = "interchain/modules/core/05-port"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.39]
+target = "interchain/modules/core/05-port/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.40]
+target = "interchain/modules/core/05-port/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.41]
+target = "interchain/modules/core/23-commitment/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.42]
+target = "interchain/modules/core/24-host"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.43]
+target = "interchain/modules/core/ante"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.44]
+target = "interchain/modules/core/client"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.45]
+target = "interchain/modules/core/client/cli"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.46]
+target = "interchain/modules/core/exported"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.47]
+target = "interchain/modules/core/keeper"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.48]
+target = "interchain/modules/core/legacy/v100"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.49]
+target = "interchain/modules/core/simulation"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.50]
+target = "interchain/modules/core/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.51]
+target = "interchain/modules/light-clients/06-solomachine"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.52]
+target = "interchain/modules/light-clients/06-solomachine/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.53]
+target = "interchain/modules/light-clients/07-tendermint"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.54]
+target = "interchain/modules/light-clients/07-tendermint/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.55]
+target = "interchain/modules/light-clients/09-localhost"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.56]
+target = "interchain/modules/light-clients/09-localhost/types"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.57]
+target = "interchain/testing"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.58]
+target = "interchain/testing/mock"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.59]
+target = "interchain/testing/simapp"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.60]
+target = "interchain/testing/simapp/helpers"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.61]
+target = "interchain/testing/simapp/params"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.62]
+target = "interchain/testing/simapp/simd"
+result = "passed"
+exit_code = 0
+
+[target.go-interchain.63]
+target = "interchain/testing/simapp/simd/cmd"
+result = "passed"
+exit_code = 0

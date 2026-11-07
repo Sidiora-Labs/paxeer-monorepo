@@ -21,9 +21,15 @@ import (
 func NewProposalHandler(k *keeper.Keeper) govtypes.Handler {
 	msgServer := keeper.NewMsgServerImpl(k)
 	return func(ctx sdk.Context, content govtypes.Content) error {
+		if k.Retired(ctx) {
+			return types.ErrModuleRetired
+		}
 		proposal, ok := content.(*types.CustodyProposal)
 		if !ok {
 			return sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized %s proposal content type: %T", types.ModuleName, content)
+		}
+		if proposal == nil {
+			return sdkerrors.Wrap(govtypes.ErrInvalidProposalContent, "custody proposal is nil")
 		}
 		if err := proposal.ValidateBasic(); err != nil {
 			return err

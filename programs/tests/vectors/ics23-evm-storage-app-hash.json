@@ -1,0 +1,41 @@
+{
+  "entries": [
+    {
+      "address": "1122334455667788990011223344556677889900",
+      "app_hash": "00af3d2e28a40cfc3d48de020faacc27f0374af25eb0bc9a6d3a96ef0daf61bc",
+      "height": 1200,
+      "key": "0311223344556677889900112233445566778899000000000000000000000000000000000000000000000000000123456789abcdef",
+      "multistore_proof": "0a320a0365766d12206bf38b701fed62edaee1e09266d474264a21d1decb507555f4b6efc3394380661a090801180120012a0100",
+      "proof": "0a350311223344556677889900112233445566778899000000000000000000000000000000000000000000000000000123456789abcdef122000000000000000000000000000000000000000000000000000000000000080ab1a0c0801180120012a040002e012",
+      "response": {
+        "address": "0x1122334455667788990011223344556677889900",
+        "hexValues": [
+          "00000000000000000000000000000000000000000000000000000000000080ab"
+        ],
+        "storageProof": [
+          {
+            "ops": [
+              {
+                "type": "ics23:iavl",
+                "key": "AxEiM0RVZneImQARIjNEVWZ3iJkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAASNFZ4mrze8=",
+                "data": "CmcKNQMRIjNEVWZ3iJkAESIzRFVmd4iZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEjRWeJq83vEiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACAqxoMCAEYASABKgQAAuAS"
+              },
+              {
+                "type": "ics23:simple",
+                "key": "ZXZt",
+                "data": "CjIKA2V2bRIga/OLcB/tYu2u4eCSZtR0Jkoh0d7LUHVV9LbvwzlDgGYaCQgBGAEgASoBAA=="
+              }
+            ]
+          }
+        ]
+      },
+      "slot": "0000000000000000000000000000000000000000000000000123456789abcdef",
+      "store_root": "6bf38b701fed62edaee1e09266d474264a21d1decb507555f4b6efc339438066",
+      "value": "00000000000000000000000000000000000000000000000000000000000080ab"
+    }
+  ],
+  "source": {
+    "generator": "modules/sequencer/keeper/ics23_evm_storage_vector_test.go::TestEvmStorageAppHashVector",
+    "version": 1200
+  }
+}

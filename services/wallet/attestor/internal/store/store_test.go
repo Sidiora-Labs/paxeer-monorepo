@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/ed25519"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -11,8 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"go.etcd.io/bbolt"
 )
@@ -364,6 +367,82 @@ func TestSnapshotRestore(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	now := time.Now()
+	ledger := []byte(`{"spends":[{"request":"snapshot-request","asset":"native","amount":"8","at":` + strconv.FormatInt(now.UnixNano(), 10) + `}],"requests":[{"request":"snapshot-request","at":` + strconv.FormatInt(now.UnixNano(), 10) + `}]}`)
+	if err := src.UpdateRecord(RecordLedger, "snapshot-account", func([]byte) ([]byte, error) {
+		return bytes.Clone(ledger), nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	held, err := src.Get(fx[0].rec.KeyID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	refresh := CeremonyRefresh{ExistingKey: true, CeremonyID: "snapshot-ceremony", SessionID: "snapshot-refresh", KeyID: held.KeyID, BaseEpoch: held.Epoch, Curve: held.Curve, PublicKey: held.PublicKey, Participants: held.Participants, State: "running"}
+	if err := src.SaveCeremonyRefresh(refresh); err != nil {
+		t.Fatal(err)
+	}
+	next := held
+	next.Epoch++
+	nextShare := randomBytes(t, 512)
+	if err := src.PutStaged(next, nextShare); err != nil {
+		t.Fatal(err)
+	}
+	refresh.State = "staged"
+	if err := src.SaveCeremonyRefresh(refresh); err != nil {
+		t.Fatal(err)
+	}
+	if err := src.SetCeremonyRefreshDecision(held.KeyID, refresh.SessionID, next.Epoch, "commit"); err != nil {
+		t.Fatal(err)
+	}
+	token := sha256.Sum256([]byte("snapshot-token"))
+	request := sha256.Sum256([]byte("snapshot-request"))
+	pub := sha256.Sum256([]byte("snapshot-agent"))
+	nonce := [16]byte{1, 2, 3}
+	expires := now.Add(time.Hour)
+	if fresh, err := src.UseTokenRequest(token, request, expires); err != nil || !fresh {
+		t.Fatalf("seed token replay: %v, %v", fresh, err)
+	}
+	if fresh, err := src.UseNonce(pub, nonce, expires); err != nil || !fresh {
+		t.Fatalf("seed nonce replay: %v, %v", fresh, err)
+	}
+	durableState := func(s *Store) map[string]map[string][]byte {
+		t.Helper()
+		out := make(map[string]map[string][]byte)
+		if err := s.db.View(func(tx *bbolt.Tx) error {
+			for _, name := range [][]byte{bucketShares, bucketStaged, bucketRecords, bucketReplay} {
+				entries := make(map[string][]byte)
+				out[string(name)] = entries
+				if err := tx.Bucket(name).ForEach(func(k, v []byte) error {
+					entries[string(k)] = bytes.Clone(v)
+					return nil
+				}); err != nil {
+					return err
+				}
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return out
+	}
+	assertRefusals := func(s *Store) {
+		t.Helper()
+		if fresh, err := s.UseTokenRequest(token, request, expires); err != nil || fresh {
+			t.Fatalf("reused token request accepted: %v, %v", fresh, err)
+		}
+		if fresh, err := s.UseNonce(pub, nonce, expires); err != nil || fresh {
+			t.Fatalf("reused agent nonce accepted: %v, %v", fresh, err)
+		}
+		if err := s.SetCeremonyRefreshDecision(held.KeyID, refresh.SessionID, next.Epoch, "abort"); !errors.Is(err, ErrInvalid) {
+			t.Fatalf("conflicting ceremony decision: %v", err)
+		}
+		if err := s.CommitStaged(held.KeyID, next.Epoch+1); !errors.Is(err, ErrStageEpoch) {
+			t.Fatalf("wrong staged epoch accepted: %v", err)
+		}
+	}
+	assertRefusals(src)
+	wantDurable := durableState(src)
 	var snap bytes.Buffer
 	if err := src.Snapshot(&snap, backupKey, testSnapshotNode); err != nil {
 		t.Fatalf("Snapshot: %v", err)
@@ -388,6 +467,29 @@ func TestSnapshotRestore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if err := src.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if !reflect.DeepEqual(wantDurable, durableState(dst)) {
+		t.Fatal("restored durable buckets differ")
+	}
+	assertRefusals(dst)
+	if err := dst.Close(); err != nil {
+		t.Fatal(err)
+	}
+	dst = openStore(t, dstDir, nodeKey)
+	if !reflect.DeepEqual(wantDurable, durableState(dst)) {
+		t.Fatal("reopened durable buckets differ")
+	}
+	assertRefusals(dst)
+	if err := dst.WithRecord(RecordLedger, "snapshot-account", func(plain []byte) error {
+		if !bytes.Equal(plain, ledger) {
+			t.Fatal("reopened ledger differs")
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
 	got, err := dst.List()
 	if err != nil {
 		t.Fatal(err)
@@ -400,6 +502,12 @@ func TestSnapshotRestore(t *testing.T) {
 		if err != nil || !bytes.Equal(plain, f.share) {
 			t.Fatalf("restored share %s: %v", f.rec.KeyID, err)
 		}
+	}
+	if err := dst.CommitStaged(held.KeyID, next.Epoch); err != nil {
+		t.Fatal(err)
+	}
+	if plain, err := readShare(t, dst, held.KeyID); err != nil || !bytes.Equal(plain, nextShare) {
+		t.Fatalf("recovered staged share: %v", err)
 	}
 
 	if _, err := Restore(bytes.NewReader(blob), backupKey, testSnapshotNode, dstDir, nodeKey); !errors.Is(err, ErrDataDirInUse) {
@@ -457,7 +565,7 @@ func TestSnapshotRestore(t *testing.T) {
 		t.Fatal("failed restore left a store file behind")
 	}
 
-	if err := src.Snapshot(&bytes.Buffer{}, backupKey[:16], testSnapshotNode); err == nil {
+	if err := dst.Snapshot(&bytes.Buffer{}, backupKey[:16], testSnapshotNode); err == nil {
 		t.Fatal("short backup key accepted")
 	} else {
 		leaks.assert(t, err)
@@ -541,7 +649,7 @@ func TestSnapshotVersionBindsNodeID(t *testing.T) {
 		t.Fatal(err)
 	}
 	blob := snap.Bytes()
-	if SnapshotVersion != 2 || blob[0] != SnapshotVersion {
+	if SnapshotVersion != 3 || blob[0] != SnapshotVersion {
 		t.Fatalf("snapshot version %d, blob version %d", SnapshotVersion, blob[0])
 	}
 	owner, err := SnapshotNodeID(blob)
@@ -569,7 +677,7 @@ func TestSnapshotVersionBindsNodeID(t *testing.T) {
 		t.Fatalf("rewritten node id: %v", err)
 	}
 
-	for _, version := range []byte{0, 1, 3, 0xff} {
+	for _, version := range []byte{0, 1, 2, 0xff} {
 		other := append([]byte(nil), blob...)
 		other[0] = version
 		if err := restoreFresh(t, other, backupKey, nodeKey); !errors.Is(err, ErrSnapshotVersion) {

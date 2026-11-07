@@ -67,29 +67,6 @@ func ReceiptSignature(receiptBytes []byte, sequencerPublicKey [32]byte) (*Verifi
 	return &VerifiedReceipt{Receipt: receipt, Digest: digest}, nil
 }
 
-// BatchHeader verifies a canonical batch header under sequencer authority
-// (layerx-proof inclusion::verify_header).
-func BatchHeader(headerBytes []byte, signature [64]byte, authorization SequencerAuthorization) (*VerifiedBatchHeader, error) {
-	header, err := codec.DecodeBatchHeader(headerBytes)
-	if err != nil {
-		return nil, err
-	}
-	if len(headerBytes) != codec.BatchHeaderBytes || !codec.ProtocolVersionUsesOccupancy(header.ProtocolVersion) {
-		return nil, ErrHeaderCanonical
-	}
-	if header.BatchNumber < authorization.FirstBatchNumber || header.BatchNumber > authorization.LastBatchNumber {
-		return nil, ErrHeaderBatchNumber
-	}
-	if header.SequencerID != authorization.SequencerID {
-		return nil, ErrSequencerIdentity
-	}
-	digest := codec.BatchHeaderDigest(headerBytes)
-	if err := Ed25519Digest(authorization.PublicKey, signature, digest); err != nil {
-		return nil, ErrHeaderSignature
-	}
-	return &VerifiedBatchHeader{Header: header, Digest: digest}, nil
-}
-
 // ReceiptAtRoot proves canonical receipt bytes included under a trusted
 // receipt Merkle root and authenticates the receipt under the sequencer key.
 func ReceiptAtRoot(receiptBytes []byte, proof *codec.MerkleProof, receiptRoot [32]byte, sequencerPublicKey [32]byte) (*VerifiedReceipt, error) {
@@ -101,27 +78,4 @@ func ReceiptAtRoot(receiptBytes []byte, proof *codec.MerkleProof, receiptRoot [3
 		return nil, err
 	}
 	return verified, nil
-}
-
-// ReceiptInclusion proves a receipt included in a sequencer-signed batch
-// header: header authority and signature, the Merkle path to the header's
-// receipt root, the receipt's own sequencer signature, and the receipt's
-// protocol version and global sequence inside the header's committed range
-// (the binding lxp_receipt_verify_checkpointed applies).
-func ReceiptInclusion(receiptBytes []byte, proof *codec.MerkleProof, headerBytes []byte, headerSignature [64]byte,
-	authorization SequencerAuthorization) (*VerifiedReceipt, *VerifiedBatchHeader, error) {
-	header, err := BatchHeader(headerBytes, headerSignature, authorization)
-	if err != nil {
-		return nil, nil, err
-	}
-	receipt, err := ReceiptAtRoot(receiptBytes, proof, header.Header.ReceiptMerkleRoot, authorization.PublicKey)
-	if err != nil {
-		return nil, nil, err
-	}
-	if receipt.Receipt.ProtocolVersion != header.Header.ProtocolVersion ||
-		receipt.Receipt.GlobalSequence < header.Header.FirstSequence ||
-		receipt.Receipt.GlobalSequence > header.Header.LastSequence {
-		return nil, nil, ErrReceiptBatchBinding
-	}
-	return receipt, header, nil
 }

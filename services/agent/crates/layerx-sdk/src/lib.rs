@@ -14,25 +14,30 @@ use layerx_agent_api::identity::{
 };
 use layerx_agent_api::prepare::PrepareWithCapability;
 use layerx_agent_api::prepare::{PrepareRequest, Prepared};
-use layerx_agent_api::read::FeeProjectionRequest;
-use layerx_agent_api::read::{
-    BalanceSelector, BatchRef, CheckpointRef, CoreProduced, HistorySelector, ModuleStateSelector,
-    ReadRequest, VerifiedRead,
+pub use layerx_agent_api::proof::ProofBundleTarget;
+pub use layerx_agent_api::read::FeeProjectionRequest;
+pub use layerx_agent_api::read::{
+    BalanceSelector, BatchRef, CheckpointRef, CoreProduced, Freshness, HistoryCursor,
+    ModuleStateSelector, RelativeTo,
 };
+pub type ProtocolBudgetView = layerx_agent_api::budget::ProtocolBudgetView;
+pub type BudgetRecord = layerx_agent_api::budget::BudgetRecord;
+pub type ReadRequest<S> = layerx_agent_api::read::ReadRequest<S>;
+pub type VerifiedRead<T> = layerx_agent_api::read::VerifiedRead<T>;
+pub type ReceiptReference = layerx_agent_api::subscription::ReceiptReference;
+pub type OfflineExport = layerx_agent_api::export::OfflineExport;
+pub type HistorySelector = layerx_agent_api::read::HistorySelector;
+pub type FeeProjection = layerx_agent_api::read::FeeProjection;
 use layerx_agent_api::submit::{SignRequest, SubmitRequest};
 use layerx_agent_api::subscription::{
     CursorAcknowledgement, SubscriptionCreate, SubscriptionList, SubscriptionTarget,
 };
 use layerx_agent_api::track::{TrackRequest, TrackedSubmission, WaitRequest};
-use layerx_agent_api::verify::Level;
+
 use layerx_agent_api::{agent_api_schema_v1, ContractVersion, SubmissionState};
-use layerx_client::client::{Client as NodeClient, ClientConfig, ConnectionError};
-pub use layerx_proof::checkpoint::SettlementDomain;
-use layerx_proof::export::{
-    verify as verify_offline_export, ExportVerificationError, OfflineExport, VerificationReport,
-};
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
 use layerx_types::result::ResultCode;
-use layerx_types::rung::Rung;
+pub use layerx_types::rung::Rung;
 
 pub mod agent_envelope;
 pub mod approval;
@@ -61,9 +66,7 @@ mod tls;
 pub mod wallet;
 
 pub use layerx_agent_api::Operation;
-pub use receipt_generated::{
-    ReceiptFailureCode, PROGRAMS_MODULE_ID, PROGRAM_OUTCOME_TAGS, REQUIRED_NONZERO_CHECKS,
-};
+pub use receipt_generated::ReceiptFailureCode;
 
 macro_rules! mutation_methods {
     ($( $method:ident: $request:ty => $operation:ident ),+ $(,)?) => {
@@ -195,8 +198,7 @@ impl PolicyDryRun {
 }
 
 struct DirectBackend {
-    configuration: ClientConfig,
-    client: Option<NodeClient>,
+    endpoint: SequencerEndpoint,
 }
 
 enum Backend {
@@ -213,13 +215,11 @@ pub struct Client {
 pub enum SdkError {
     EmptyEndpoint,
     ContractMajor { supported: u16, requested: u16 },
-    NodeInterfaceMajor { supported: u16, configured: u16 },
-    InvalidDirectLimits,
     NotDirectNode,
-    DirectConnection(ConnectionError),
+    DirectEndpoint,
     UnverifiedRead,
     InvalidProofBundle,
-    VerificationBelowRequested { requested: Level, achieved: Level },
+    VerificationBelowRequested { requested: Rung, achieved: Rung },
     ExecutedWithoutEvidence,
 }
 
@@ -244,46 +244,18 @@ impl Client {
         })
     }
 
-    /// Configures a direct `layerx-client` connection with no daemon dependency.
+    /// Configures a direct sequencer endpoint with caller-pinned trust anchors.
     ///
     /// # Errors
     ///
-    /// Refuses incompatible node-interface configuration or disabled transport limits.
-    pub fn direct_node(configuration: ClientConfig) -> Result<Self, SdkError> {
-        let schema = agent_api_schema_v1();
-        if configuration.handshake.built_interface_version.major != schema.node_interface_major {
-            return Err(SdkError::NodeInterfaceMajor {
-                supported: schema.node_interface_major,
-                configured: configuration.handshake.built_interface_version.major,
-            });
-        }
-        configuration
-            .limits
-            .validate()
-            .map_err(|_| SdkError::InvalidDirectLimits)?;
+    /// Refuses unusable endpoint URLs or trust anchors.
+    pub fn direct_node(url: &str, trust_anchors: &[&[u8]]) -> Result<Self, SdkError> {
+        let endpoint = SequencerEndpoint::new(url, trust_anchors)
+            .map_err(|_: SequencerError| SdkError::DirectEndpoint)?;
         Ok(Self {
-            backend: Backend::DirectNode(Box::new(DirectBackend {
-                configuration,
-                client: None,
-            })),
-            contract: schema.version,
+            backend: Backend::DirectNode(Box::new(DirectBackend { endpoint })),
+            contract: agent_api_schema_v1().version,
         })
-    }
-
-    /// Establishes the configured direct-node boundary using `layerx-client`.
-    ///
-    /// # Errors
-    ///
-    /// Refuses daemon-mode clients and returns the exact `layerx-client` connection error.
-    pub fn connect_direct_node(&mut self) -> Result<(), SdkError> {
-        let Backend::DirectNode(direct) = &mut self.backend else {
-            return Err(SdkError::NotDirectNode);
-        };
-        direct.client = Some(
-            NodeClient::connect(direct.configuration.clone())
-                .map_err(SdkError::DirectConnection)?,
-        );
-        Ok(())
     }
 
     #[must_use]
@@ -315,10 +287,10 @@ impl Client {
     }
 
     #[must_use]
-    pub fn direct_node_client(&mut self) -> Option<&mut NodeClient> {
-        match &mut self.backend {
+    pub fn direct_node_client(&self) -> Option<&SequencerEndpoint> {
+        match &self.backend {
             Backend::Daemon { .. } => None,
-            Backend::DirectNode(direct) => direct.client.as_mut(),
+            Backend::DirectNode(direct) => Some(&direct.endpoint),
         }
     }
 
@@ -356,16 +328,16 @@ impl Client {
     ///
     /// Refuses unverified and below-requested values instead of presenting them as results.
     pub fn accept_verified_read<T: CoreProduced>(
-        requested: Level,
+        requested: Rung,
         read: VerifiedRead<T>,
     ) -> Result<VerifiedRead<T>, SdkError> {
-        if read.achieved_verification_level == Level::Unverified {
+        if read.achieved_rung == Rung::Submitted {
             return Err(SdkError::UnverifiedRead);
         }
-        if read.achieved_verification_level < requested {
+        if read.achieved_rung < requested {
             return Err(SdkError::VerificationBelowRequested {
                 requested,
-                achieved: read.achieved_verification_level,
+                achieved: read.achieved_rung,
             });
         }
         Ok(read)
@@ -375,8 +347,15 @@ impl Client {
         request: &ReadRequest<layerx_agent_api::prepare::CanonicalBytes>,
         read: VerifiedRead<layerx_agent_api::proof::ProofBundle>,
     ) -> Result<VerifiedRead<layerx_agent_api::proof::ProofBundle>, SdkError> {
-        layerx_agent_api::proof::ProofBundle::check_response(request, &read)
-            .map_err(|_| SdkError::InvalidProofBundle)?;
+        layerx_agent_api::proof::ProofBundle::check_response(
+            &ReadRequest {
+                selector: ProofBundleTarget::decode(request.selector.as_bytes())
+                    .map_err(|_| SdkError::InvalidProofBundle)?,
+                requested_rung: request.requested_rung,
+            },
+            &read,
+        )
+        .map_err(|_| SdkError::InvalidProofBundle)?;
         Ok(read)
     }
 
@@ -403,18 +382,6 @@ impl Client {
             SubmissionState::Expired => Ok(SubmissionOutcome::Expired(submission)),
             _ => Ok(SubmissionOutcome::Pending(submission)),
         }
-    }
-
-    /// Verifies an offline export with `layerx-proof` and no daemon or network.
-    ///
-    /// # Errors
-    ///
-    /// Returns the exact proof verification failure.
-    pub fn verify_offline(
-        export: &OfflineExport,
-        expected_settlement_domain: SettlementDomain,
-    ) -> Result<VerificationReport, ExportVerificationError> {
-        verify_offline_export(export, expected_settlement_domain)
     }
 
     mutation_methods! {

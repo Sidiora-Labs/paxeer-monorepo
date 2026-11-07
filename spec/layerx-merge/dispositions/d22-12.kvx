@@ -1,0 +1,53 @@
+[disposition.22.13.9.2]
+finding = "22.13.9.2"
+status = "resolved"
+evidence = "Commit 0803d0202 removed the invalid crate-root pub(super) qualifiers from response, Parsed and parse_request, and commit 8926f90cf made them pub(crate), as retained at services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332, :353 and :383."
+follow_up = "closure"
+
+[disposition.22.9.13.1]
+finding = "22.9.13.1"
+status = "resolved"
+evidence = "Commit 0803d0202 removed the three crate-root pub(super) qualifiers that caused E0433, and services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332, :353 and :383 retain the valid pub(crate) visibility introduced by 8926f90cf."
+follow_up = "closure"
+
+[disposition.22.9.13.2]
+finding = "22.9.13.2"
+status = "resolved"
+evidence = "Commit 52b475e6b repaired all three fixtures by serving eth_blockNumber and the current history-page schema, asserting ItemUnproven, and constructing the subject queue submission through Eip1559Call and verify_before_submit, retained at services/agent/crates/layerx-agentd/src/human_runtime.rs:22448 and :22608 and services/agent/crates/layerx-agentd/src/human_runtime/subject/tests.rs:131."
+follow_up = "closure"
+
+[disposition.22.13.6.8]
+finding = "22.13.6.8"
+status = "resolved"
+evidence = "Commit fb067a262 replaced the eleven-type routing expectation with the eight registered asset types and explicit retired-type refusals, retained at tests/test_genesis_manifest.c:197, :207 and :226 and matching src/modules/asset/lx_asset_registry.c:11."
+follow_up = "closure"
+
+[disposition.22.9.17.2]
+finding = "22.9.17.2"
+status = "resolved"
+evidence = "Commit 0803d0202 repaired the dependent-crate E0433 failures by removing crate-root pub(super), and services/agent/crates/layerx-agentd/tests/proof_serve_errors.rs:332, :353 and :383 now use the valid pub(crate) qualifiers from 8926f90cf."
+follow_up = "closure"
+
+[disposition.22.6.4.5]
+finding = "22.6.4.5"
+status = "resolved"
+evidence = "Commit 054988c9f corrected TestSidioraFeePaid to expect zero at the transaction coinbase and the converted fee in the routing accounts at tests/chain/sidiora_fee_test.go:195 and :199, matching the end-of-block fee-token sweep at modules/evm/keeper/abci.go:193 and the combined collector-and-holding assertion at tests/testutil/processblock/verify/feetoken.go:95."
+follow_up = "closure"
+
+[disposition.22.1.9.1]
+finding = "22.1.9.1"
+status = "resolved"
+evidence = "Commit b069914d5 removed the stale comparison against the human client vectors deleted by 65b673e71, and Makefile:3119 retains test-state-proof with only the live contracts/config/native-state-proofs.json comparison at Makefile:3122."
+follow_up = "closure"
+
+[disposition.22.13.9.3]
+finding = "22.13.9.3"
+status = "resolved"
+evidence = "Commit adaf86579 landed the integer-profile refusal assertions, terminal and fuel conformance repairs and canonical lease evidence retained at programs/crates/layerx-programs-runtime/tests/step_conformance.rs:110 and programs/crates/layerx-programs-sandbox/tests/lease.rs:157, and f3baf8cd5 repaired the remaining stack-overflow terminal record at programs/vendor/wasmi-0.31.2/src/engine/executor.rs:227."
+follow_up = "closure"
+
+[disposition.22.9.29.1]
+finding = "22.9.29.1"
+status = "open"
+evidence = "Although 3cb44ec2b ported the event ingestor and gap backfill, services/agent/crates/layerx-agentd/tests/support/real_authority.rs:7 still imports the retired LNI handshake, refusal, schema and transport modules on lines 7 through 10, so the test-support port assigned to task 22.9.31 has not landed."
+follow_up = "22.9.31"

@@ -189,14 +189,6 @@ def negative_tests(docs, config):
     def mount_the_owner_run_directory(bundle, values):
         boundary(bundle)["volumeMounts"].append({"name": "run", "mountPath": "/run/layerx", "readOnly": True})
 
-    def collide(bundle, values):
-        values["PROGRAM_LISTEN"] = "127.0.0.1:9451"
-        for entry in boundary(bundle)["env"]:
-            if entry["name"] == "LAYERX_AGENTD_HEALTH_PORT":
-                entry["value"] = "9451"
-        probe = owner(bundle)["readinessProbe"]["exec"]["command"]
-        probe[:] = [step.replace("127.0.0.1:9453", "127.0.0.1:9451") for step in probe]
-
     def unprotected_probe(bundle, values):
         probe = owner(bundle)["readinessProbe"]["exec"]["command"]
         probe[:] = [step.replace("--config /run/human-private/agent/probe.conf ", "") for step in probe]
@@ -222,7 +214,6 @@ def negative_tests(docs, config):
         bundle.remove(policy)
 
     mutations = [
-        ("health-port-collides-with-the-guarantor-exchange", collide),
         ("boundary-forwards-beyond-loopback", lambda bundle, values: relay(bundle, "TCP:127.0.0.1:", "TCP:0.0.0.0:")),
         ("boundary-accepts-unverified-clients", lambda bundle, values: relay(bundle, ",verify=1", "")),
         ("boundary-trusts-a-foreign-authority", lambda bundle, values: relay(bundle, f"cafile={TRUST_MOUNT}/ca.crt", "cafile=/tmp/ca.crt")),

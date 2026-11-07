@@ -27,7 +27,7 @@ import {
 
 export type ExchangeOrder = PerpsOpenPosition;
 
-/** The perps venue the 0x1015 precompile serves: USDL collateral, uint256 market, order and position ids. */
+/** The perps venue the 0x1015 precompile serves, backed by deposited USDL cross margin. */
 export interface ExchangeModule {
   readonly address: string;
   readonly events: readonly PrecompileEventSpec[];
@@ -36,13 +36,16 @@ export interface ExchangeModule {
   openPosition(order: ExchangeOrder): ModuleTransaction;
   cancelOrder(orderId: bigint): ModuleTransaction;
   closePosition(positionId: bigint): ModuleTransaction;
-  /** The exact approve of `amount` of `token` to the venue a deposit or openPosition pulls, or undefined when the allowance covers it. */
+  /** The exact approve of `amount` of `token` to the venue a deposit pulls, or undefined when the allowance covers it. */
   approval(owner: string, token: string, amount: bigint): Promise<ModuleTransaction | undefined>;
   send(from: string, tx: ModuleTransaction): Promise<string>;
   decodeEvent(log: ModuleLog): ModuleEvent;
 }
 
-export function exchange(provider: ModuleProvider, address: string = PERPS_PRECOMPILE): ExchangeModule {
+export function exchange(
+  provider: ModuleProvider,
+  address: string = PERPS_PRECOMPILE
+): ExchangeModule {
   const target = moduleAddress(address);
   const events = retargetEvents(PERPS_EVENTS, target);
   return {
@@ -58,11 +61,15 @@ export function exchange(provider: ModuleProvider, address: string = PERPS_PRECO
       const answer = await ethCall(
         provider,
         asset,
-        encodeAbiCall('allowance', ['address', 'address'], [moduleAddress(owner, 'owner'), target]),
+        encodeAbiCall('allowance', ['address', 'address'], [moduleAddress(owner, 'owner'), target])
       );
       if (answer.length < 66) throw new ModuleError('invalid_answer', 'allowance');
       if (BigInt(answer.slice(0, 66)) >= amount) return undefined;
-      return { to: asset, data: encodeAbiCall('approve', ['address', 'uint256'], [target, amount]), value: 0n };
+      return {
+        to: asset,
+        data: encodeAbiCall('approve', ['address', 'uint256'], [target, amount]),
+        value: 0n,
+      };
     },
     send: (from, tx) => sendModuleTransaction(provider, from, tx),
     decodeEvent: (log) => decodeEventFrom(events, log),

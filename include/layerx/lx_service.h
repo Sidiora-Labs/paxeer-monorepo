@@ -286,10 +286,30 @@ typedef struct lx_service_outcome_request {
     bool attempts_balance_mutation;
 } lx_service_outcome_request;
 
+typedef struct lx_service_escrow_link {
+    uint8_t holder[32];
+    uint8_t beneficiary[32];
+    uint8_t asset_id[32];
+    uint8_t arbiter[32];
+    uint8_t state;
+} lx_service_escrow_link;
+
+typedef struct lx_service_runtime {
+    lxp_result (*read_escrow_link)(void *user, const uint8_t escrow_id[32],
+                                  lx_service_escrow_link *link);
+    void *user;
+} lx_service_runtime;
+
+/* Runtime reader for an in-process kernel. user is an lxp_kernel pointer;
+ * the escrow module must be registered. Reads persisted escrow state only. */
+lxp_result lx_service_kernel_escrow_link_read(
+    void *user, const uint8_t escrow_id[32], lx_service_escrow_link *link);
+
 typedef struct lx_service_dispute_request {
     lx_service_dispute dispute;
     const lxp_authority_resolved *authority;
     bool attempts_balance_mutation;
+    lx_service_escrow_link escrow_link;
 } lx_service_dispute_request;
 
 const lxp_module_iface *lx_service_module_iface(void);

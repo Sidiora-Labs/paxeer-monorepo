@@ -1,13 +1,11 @@
 #include "layerx/lxp_kernel.h"
 
 #include "layerx/lxp_admission.h"
-#include "layerx/lxp_bridge_credit.h"
 #include "layerx/lx_asset.h"
 #include "layerx/lx_budget.h"
 #include "layerx/lx_escrow.h"
 #include "layerx/lx_stream.h"
 #include "layerx/lx_service.h"
-#include "layerx/lx_web.h"
 #include "layerx/lxp_maintenance.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_hash.h"
@@ -17,8 +15,18 @@
 #include "../modules/programs/event.h"
 
 #include <limits.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+static bool fee_meter_is_zero(const lxp_fee_meter *meter)
+{
+    return meter->canonical_encoded_bytes == 0U &&
+           meter->execution_units == 0U && meter->storage_units == 0U &&
+           !meter->exact_program_fee_present &&
+           meter->program_fee_schedule_version == 0U &&
+           lxp_u128_is_zero(meter->exact_program_fee_units);
+}
 
 struct lxp_kernel_batch_snapshot {
     lxp_state_snapshot *state;
@@ -199,6 +207,7 @@ static lxp_result kernel_program_signer_binding(
         lxp_activity_module_id(activity->activity_type) != LXP_MODULE_PROGRAMS)
         return LXP_OK;
     if (authority == NULL || identity == NULL || activity->authority.length != 32U ||
+        activity->authority.bytes == NULL ||
         memcmp(authority->actor, identity->did_id, 32U) != 0 ||
         memcmp(authority->principal, identity->did_id, 32U) != 0 ||
         memcmp(authority->verified_key, activity->authority.bytes, 32U) != 0)
@@ -207,6 +216,9 @@ static lxp_result kernel_program_signer_binding(
         !lxp_identity_key_valid(identity, authority->verified_key,
             execution->batch_timestamp_ms, execution->global_sequence))
         return LXP_ERR_AUTH_SCOPE;
+    if (activity->signature.length == 0U && execution->binding_authority &&
+        execution->signature_valid)
+        return LXP_OK;
     return lxp_activity_verify_signature(activity);
 }
 
@@ -291,28 +303,18 @@ static lxp_result migration_replay_prestate(
     lxp_migration_admission_facts *facts)
 {
     const lxp_receipt *expected = execution->replay_receipt;
-    lxp_sequencer_authorization authorization;
     lxp_byte_span encoded;
     uint8_t activity_id[32], state_root[32], receipt_digest[32];
-    uint64_t epoch;
     size_t mark;
     lxp_result status, reset;
     if (expected == NULL && execution->replay_public_key == NULL)
         return LXP_OK;
     if (expected == NULL || execution->replay_public_key == NULL ||
-        execution->sequencer_private_key != NULL || !kernel->handover.enabled)
+        execution->sequencer_private_key != NULL)
         return LXP_ERR_AUTH_SCOPE;
     mark = lxp_arena_mark(execution->arena);
-    status = lxp_handover_history_resolve(kernel, execution->batch_number,
-        &authorization, &epoch, execution->arena);
-    if (status == LXP_OK &&
-        (epoch != execution->epoch ||
-         lxp_ct_memcmp(authorization.public_key,
-                       execution->replay_public_key, 32U) != 0))
-        status = LXP_ERR_AUTH_SCOPE;
-    if (status == LXP_OK)
-        status = lxp_receipt_verify(expected, authorization.public_key,
-                                    execution->arena);
+    status = lxp_receipt_verify(expected, execution->replay_public_key,
+                                execution->arena);
     if (status == LXP_OK)
         status = lxp_activity_encode(activity, execution->arena, &encoded);
     if (status == LXP_OK)
@@ -349,6 +351,7 @@ lxp_result lxp_kernel_bind_migration_admission(
     const lxp_kernel_execution *execution)
 {
     lxp_migration_admission_facts facts;
+    lxp_identity *identity;
     const lxp_module_registration *registration;
     lx_programs_fee_schedule fee_schedule;
     lx_programs_metering_schedule metering;
@@ -373,7 +376,16 @@ lxp_result lxp_kernel_bind_migration_admission(
     (void)memset(&facts, 0, sizeof(facts));
     status = lxp_activity_check_envelope(activity, execution->network_id);
     if (status == LXP_OK) status = lxp_activity_verify_payload_hash(activity);
-    if (status == LXP_OK) status = lxp_activity_verify_signature(activity);
+    if (status == LXP_OK &&
+        activity->protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
+        if (execution->identities == NULL) return LXP_ERR_AUTH_SCOPE;
+        status = lxp_identity_resolve(execution->identities,
+            activity->actor_did.bytes, activity->actor_did.length, &identity);
+        if (status == LXP_OK)
+            status = kernel_program_signer_binding(activity, execution, identity);
+    } else if (status == LXP_OK) {
+        status = lxp_activity_verify_signature(activity);
+    }
     if (status != LXP_OK) return status;
     mark = lxp_arena_mark(execution->arena);
     status = lxp_activity_encode(activity, execution->arena, &canonical);
@@ -483,7 +495,9 @@ lxp_result lxp_kernel_bind_ledger_admission(
         registration->abi_version != LX_PROGRAMS_GUEST_ABI_V5_VERSION)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
-    if (activity_type != LX_PROGRAMS_CALL && activity_type != LX_PROGRAMS_WIND_DOWN)
+    if (activity_type != LX_PROGRAMS_CALL &&
+        activity_type != LX_PROGRAMS_WIND_DOWN &&
+        activity_type != LX_PROGRAMS_SANDBOX)
         return LXP_OK;
     ctx->ledger_admission.activity_type = activity_type;
     (void)memcpy(ctx->ledger_admission.actor, authority->actor, 32U);
@@ -529,9 +543,6 @@ lxp_result lxp_kernel_withdraw_execution_sequence(
         lxp_ct_memcmp(facts->actor, authority->actor, 32U) != 0 ||
         lxp_ct_memcmp(facts->verified_key, authority->verified_key, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
-    if (lxp_ct_is_zero(facts->account_id, 32U) &&
-        lxp_ct_is_zero(authority->principal, 32U) && !facts->account_present)
-        return LXP_OK;
     if (lxp_ct_memcmp(facts->account_id, account_id, 32U) != 0 ||
         lxp_ct_memcmp(facts->account_id, authority->principal, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
@@ -681,7 +692,6 @@ static lxp_result kernel_snapshot_finish(
     snapshot->kernel.observe_commit = NULL;
     snapshot->kernel.observe_maintenance = NULL;
     snapshot->kernel.commit_observer_context = NULL;
-    snapshot->kernel.capacity = NULL;
     snapshot->kernel.publication_poisoned = false;
     snapshot->kernel.poisoned_sequence = 0U;
     (void)memset(snapshot->kernel.poisoned_activity_id, 0, 32U);
@@ -753,7 +763,6 @@ static lxp_result kernel_snapshot_finish(
     snapshot->programs_runtime.accounts =
         lxp_state_snapshot_accounts_for_prepare(snapshot->state);
     snapshot->programs_runtime.assets = snapshot->assets;
-    snapshot->programs_runtime.state_feed = NULL;
     (void)memcpy(snapshot->programs_runtime.occupancy_asset_id,
                  snapshot->occupancy_asset_id, 32U);
     snapshot->programs_runtime.resolve_metering_schedule =
@@ -785,7 +794,7 @@ lxp_result lxp_kernel_batch_snapshot_create(
         batch_execution->batch_number == 0U ||
         identities->count > LXP_IDENTITY_STORE_CAPACITY ||
         (verified_receipts != NULL &&
-         verified_receipts->count > LXP_VERIFIED_RECEIPT_INDEX_MAX) ||
+         lxp_verified_receipt_index_validate(verified_receipts) != LXP_OK) ||
         kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->publication_poisoned)
@@ -856,7 +865,7 @@ lxp_result lxp_kernel_batch_snapshot_clone(
     if (source == NULL || source->state == NULL || snapshot_out == NULL)
         return LXP_ERR_NON_CANONICAL;
     if (source->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        source->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX ||
+        lxp_verified_receipt_index_validate(&source->verified_receipts) != LXP_OK ||
         source->kernel.module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         source->kernel.blob_count > LXP_KERNEL_MAX_BLOBS ||
         source->programs_runtime.asset_count == 0U ||
@@ -1103,6 +1112,7 @@ static lxp_result kernel_execution_binding(
     BIND_U64(execution->recorded_fee_schedule_version);
     BIND_U64(execution->parameter_version);
     BIND_U64(execution->signature_valid ? 1U : 0U);
+    BIND_U64(execution->binding_authority ? 1U : 0U);
     BIND_U64(execution->fee_meter.canonical_encoded_bytes);
     BIND_U64(execution->fee_meter.execution_units);
     BIND_U64(execution->fee_meter.storage_units);
@@ -1396,17 +1406,6 @@ static const char *const module_names[LXP_MODULE_RESERVED_COUNT] = {
     "governance", "bridge", "programs", "spot", "web"
 };
 
-/* The module whose context an activity of a registration executes in. Web
- * activities read the paid program requests and commit the answers web_read
- * serves, both of which live in Programs module storage, so they run in the
- * Programs module context. */
-static uint16_t registration_context_module(
-    const lxp_module_registration *registration)
-{
-    return registration->module_id == LXP_MODULE_WEB ?
-           (uint16_t)LXP_MODULE_PROGRAMS : registration->module_id;
-}
-
 static bool registration_active(const lxp_module_registration *registration,
                                 uint64_t epoch)
 {
@@ -1653,7 +1652,9 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         return LXP_ERR_NON_CANONICAL;
     if (module_id == LXP_MODULE_ASSET) {
         lx_asset_runtime *asset_runtime = (lx_asset_runtime *)runtime;
-        if (asset_runtime->accounts == NULL || asset_runtime->assets == NULL ||
+        if (asset_runtime->accounts == NULL ||
+            asset_runtime->accounts->count > LX_ACCOUNT_REGISTRY_CAPACITY ||
+            asset_runtime->assets == NULL ||
             asset_runtime->asset_count == 0U ||
             asset_runtime->asset_count > LX_ASSET_REGISTRY_CAPACITY ||
             asset_runtime->transfer_assets == NULL ||
@@ -1675,17 +1676,6 @@ lxp_result lxp_kernel_bind_module_runtime(lxp_kernel *kernel,
         status = lxp_state_store_bind_accounts(
             kernel->state, programs_runtime->accounts);
         if (status != LXP_OK) return status;
-        if (programs_runtime->state_feed != NULL) {
-            status = lxp_programs_bind_state_feed(
-                kernel, programs_runtime->state_feed);
-            if (status != LXP_OK) return status;
-        }
-    } else if (module_id == LXP_MODULE_WEB) {
-        const lx_web_store *store = (const lx_web_store *)runtime;
-        if (store->network_id == 0U ||
-            store->pending_count > LX_WEB_PENDING_CAPACITY ||
-            store->committed_count > LX_WEB_STORE_CAPACITY)
-            return LXP_ERR_NON_CANONICAL;
     }
     kernel->module_runtime[module_id] = runtime;
     if (module_id == LXP_MODULE_PROGRAMS &&
@@ -2208,9 +2198,8 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
             !registration_active(current, kernel->epoch)) continue;
         if (iface->abi_version <= current->abi_version)
             return LXP_ERR_VERSION_UNSUPPORTED;
-        current->disabled_epoch = kernel->epoch;
     }
-    if (kernel->module_count == LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
+    if (kernel->module_count >= LXP_KERNEL_MAX_MODULE_REGISTRATIONS)
         return LXP_ERR_ARENA_EXHAUSTED;
     registration = &kernel->modules[kernel->module_count];
     (void)memset(registration, 0, sizeof(*registration));
@@ -2224,6 +2213,12 @@ lxp_result lxp_kernel_register_module(lxp_kernel *kernel,
     registration->enabled_epoch = kernel->epoch;
     registration->disabled_epoch = UINT64_MAX;
     registration->enabled = true;
+    for (i = 0U; i < kernel->module_count; ++i) {
+        lxp_module_registration *current = &kernel->modules[i];
+        if (current->module_id == iface->module_id &&
+            registration_active(current, kernel->epoch))
+            current->disabled_epoch = kernel->epoch;
+    }
     ++kernel->module_count;
     return LXP_OK;
 }
@@ -2308,9 +2303,10 @@ lxp_result lxp_kernel_dispatch(const lxp_module_registration *registration,
     if (registration == NULL || ctx == NULL || activity == NULL ||
         authority == NULL || effects == NULL || module_result == NULL)
         return LXP_ERR_NON_CANONICAL;
-    if (registration->module_id == LXP_MODULE_WEB &&
-        ctx->module_id != registration_context_module(registration))
-        return LXP_ERR_CONTEXT_MISMATCH;
+    if (registration->iface == NULL || registration->iface->decode == NULL ||
+        registration->iface->validate == NULL ||
+        registration->iface->execute == NULL)
+        return LXP_FATAL_INVARIANT;
     if (ctx->module_id == LXP_MODULE_ASSET) {
         if (lxp_activity_module_id(activity->activity_type) != LXP_MODULE_ASSET)
             return LXP_ERR_UNKNOWN_ACTIVITY;
@@ -2393,133 +2389,6 @@ static lxp_result receipt_state_root(const lxp_kernel *kernel,
     return lxp_hash_domain(LXP_DOMAIN_RECEIPT, input, offset, root);
 }
 
-lxp_result lxp_bridge_credit_bind_receipt(
-    lxp_receipt *receipt, const lxp_module_ctx *ctx)
-{
-    lxp_u128 before;
-    lxp_u128 after;
-    lxp_u128 expected;
-    lxp_u128 amount;
-    lxp_u128 reserve_before;
-    lxp_u128 reserve_after;
-    lxp_u128 recipient_before;
-    lxp_u128 recipient_after;
-    const lxp_effect *event;
-    const lxp_effect *balances;
-    const lx_account *reserve = NULL;
-    const lx_account *recipient = NULL;
-    bool recipient_bound = false;
-    bool supply_bound = false;
-    const uint8_t *stored = NULL;
-    size_t stored_length = 0U;
-    uint8_t supply_key[47] = "custody-issued:";
-    uint8_t previous_supply[16] = {0};
-    if (receipt == NULL || ctx == NULL || receipt->protocol_version != 3U ||
-        receipt->module_id != LXP_MODULE_BRIDGE || ctx->module_id != LXP_MODULE_BRIDGE ||
-        receipt->module_version != 1U || ctx->kernel == NULL || ctx->ledger_receipt_present ||
-        receipt->operation != 0U || !lxp_u128_is_zero(receipt->amount) ||
-        !lxp_ct_is_zero(receipt->asset, 32U) || !lxp_ct_is_zero(receipt->from, 32U) ||
-        !lxp_ct_is_zero(receipt->to, 32U) || receipt->from_sequence != 0U ||
-        !lxp_u128_is_zero(receipt->from_balance_before) ||
-        !lxp_u128_is_zero(receipt->from_balance_after) ||
-        !lxp_u128_is_zero(receipt->to_balance_before) ||
-        !lxp_u128_is_zero(receipt->to_balance_after) ||
-        !lxp_ct_is_zero(receipt->authorization_hash, 32U) ||
-        !lxp_ct_is_zero(receipt->context_hash, 32U) ||
-        !lxp_ct_is_zero(receipt->transfer_set_root, 32U))
-        return LXP_FATAL_INVARIANT;
-    if (receipt->result_code != LXP_OK)
-        return !ctx->ledger_receipt_present && receipt->effects.count == 0U ?
-            LXP_OK : LXP_FATAL_INVARIANT;
-    if (ctx->effects == NULL || ctx->effects->count != 3U || receipt->effects.count != 3U ||
-        !ctx->transfer_applied || ctx->transfer_snapshot_count == 0U ||
-        ctx->effects->effects[0].kind != LXP_EFFECT_TRANSFER ||
-        !ctx->effects->effects[0].monetary ||
-        ctx->effects->effects[0].module_id != LXP_MODULE_BRIDGE ||
-        lxp_ct_is_zero(ctx->effects->effects[0].transfer_set_root, 32U) ||
-        ctx->global_sequence != receipt->global_sequence ||
-        lxp_ct_memcmp(ctx->activity_id, receipt->activity_id, 32U) != 0)
-        return LXP_FATAL_INVARIANT;
-    for (size_t index = 0U; index < 3U; ++index)
-        if (memcmp(&receipt->effects.effects[index], &ctx->effects->effects[index],
-                   sizeof(lxp_effect)) != 0) return LXP_FATAL_INVARIANT;
-    event = &ctx->effects->effects[1];
-    balances = &ctx->effects->effects[2];
-    if (event->module_id != LXP_MODULE_BRIDGE || event->kind != LXP_EFFECT_EVENT ||
-        event->event_type != 1U || event->body_length != 208U ||
-        balances->module_id != LXP_MODULE_BRIDGE || balances->kind != LXP_EFFECT_EVENT ||
-        balances->event_type != 2U || balances->body_length != 112U ||
-        lxp_u128_from_be(event->body + 96U, &amount) != LXP_OK || lxp_u128_is_zero(amount) ||
-        lxp_u128_from_be(event->body + 176U, &before) != LXP_OK ||
-        lxp_u128_from_be(event->body + 192U, &after) != LXP_OK ||
-        lxp_u128_add(before, amount, &expected) != LXP_OK ||
-        lxp_u128_cmp(expected, after) != 0 ||
-        lxp_u128_from_be(balances->body + 32U, &reserve_before) != LXP_OK ||
-        lxp_u128_from_be(balances->body + 48U, &reserve_after) != LXP_OK ||
-        lxp_u128_cmp(reserve_before, reserve_after) != 0 ||
-        lxp_u128_from_be(balances->body + 64U, &recipient_before) != LXP_OK ||
-        lxp_u128_from_be(balances->body + 80U, &recipient_after) != LXP_OK ||
-        lxp_u128_add(recipient_before, amount, &expected) != LXP_OK ||
-        lxp_u128_cmp(expected, recipient_after) != 0)
-        return LXP_FATAL_SUPPLY_MISMATCH;
-    for (size_t index = 0U; index < ctx->transfer_snapshot_count; ++index) {
-        const lxp_module_account_snapshot *snapshot = &ctx->transfer_snapshots[index];
-        if (memcmp(snapshot->account->id, balances->body, 32U) == 0) {
-            reserve = snapshot->account;
-            if (lxp_u128_cmp(snapshot->balance, reserve_before) != 0 ||
-                snapshot->next_sequence == UINT64_MAX ||
-                reserve->next_sequence != snapshot->next_sequence + 1U)
-                return LXP_FATAL_INVARIANT;
-            for (size_t byte = 0U; byte < 8U; ++byte)
-                if (balances->body[96U + byte] != (uint8_t)(snapshot->next_sequence >> (56U - byte * 8U)) ||
-                    balances->body[104U + byte] != (uint8_t)(reserve->next_sequence >> (56U - byte * 8U)))
-                    return LXP_FATAL_INVARIANT;
-        }
-        if (memcmp(snapshot->account->id, event->body + 64U, 32U) == 0) {
-            recipient = snapshot->account;
-            recipient_bound = lxp_u128_cmp(snapshot->balance, recipient_before) == 0;
-        }
-    }
-    if (recipient == NULL) {
-        for (size_t index = 0U; index < ctx->staged_account_count; ++index) {
-            const lx_account *account = &ctx->staged_accounts[index].account;
-            if (memcmp(account->id, event->body + 64U, 32U) == 0) {
-                recipient = account;
-                recipient_bound = lxp_u128_is_zero(recipient_before) &&
-                    account->created_at_sequence == ctx->global_sequence;
-            }
-        }
-    }
-    if (reserve == NULL || recipient == NULL || !recipient_bound ||
-        lxp_u128_cmp(reserve->balance, reserve_after) != 0 ||
-        lxp_u128_cmp(recipient->balance, recipient_after) != 0 ||
-        memcmp(reserve->asset_id, event->body + 32U, 32U) != 0 ||
-        memcmp(recipient->asset_id, event->body + 32U, 32U) != 0)
-        return LXP_FATAL_INVARIANT;
-    (void)memcpy(supply_key + 15U, event->body + 32U, 32U);
-    for (size_t index = 0U; index < ctx->kernel->module_kv_count; ++index) {
-        const lxp_module_kv_entry *entry = &ctx->kernel->module_kv[index];
-        if (entry->module_id == LXP_MODULE_BRIDGE && entry->key_length == sizeof(supply_key) &&
-            memcmp(entry->key, supply_key, sizeof(supply_key)) == 0) {
-            if (entry->value_length != 16U) return LXP_FATAL_INVARIANT;
-            (void)memcpy(previous_supply, entry->value, 16U);
-            supply_bound = true;
-        }
-    }
-    for (size_t index = 0U; index < ctx->staged_count; ++index) {
-        const lxp_module_kv_change *change = &ctx->staged[index];
-        if (!change->deleted && change->key_length == sizeof(supply_key) &&
-            memcmp(change->key, supply_key, sizeof(supply_key)) == 0) {
-            stored = change->value;
-            stored_length = change->value_length;
-        }
-    }
-    if (!supply_bound || memcmp(previous_supply, event->body + 176U, 16U) != 0 || stored == NULL ||
-        stored_length != 16U || memcmp(stored, event->body + 192U, 16U) != 0)
-        return LXP_FATAL_SUPPLY_MISMATCH;
-    return LXP_OK;
-}
-
 static lxp_result receipt_bind_ledger_projection(
     lxp_receipt *receipt, const lxp_module_ctx *module_ctx)
 {
@@ -2538,11 +2407,33 @@ static lxp_result receipt_bind_ledger_projection(
     if (!module_ctx->ledger_receipt_present) {
         size_t index;
         if (module_ctx->effects == NULL) return LXP_FATAL_INVARIANT;
-        for (index = 0U; index < module_ctx->effects->count; ++index)
-            if (module_ctx->effects->effects[index].monetary &&
-                module_ctx->effects->effects[index].kind ==
-                    LXP_EFFECT_TRANSFER)
+        for (index = 0U; index < module_ctx->effects->count; ++index) {
+            const lxp_effect *effect = &module_ctx->effects->effects[index];
+            if (effect->monetary && effect->kind == LXP_EFFECT_TRANSFER) {
+                size_t byte;
+                if (module_ctx->module_id == LXP_MODULE_PROGRAMS &&
+                    module_ctx->program_outcome.present &&
+                    lxp_ct_memcmp(effect->transfer_set_root,
+                        module_ctx->program_outcome.occupancy_transfer_root,
+                        32U) == 0) {
+                    (void)memcpy(receipt->transfer_set_root,
+                                 effect->transfer_set_root, 32U);
+                    continue;
+                }
+                (void)fprintf(stderr,
+                    "receipt_bind_ledger_projection: unreceipted monetary "
+                    "transfer effect=%zu effect_root=", index);
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x",
+                                  (unsigned int)effect->transfer_set_root[byte]);
+                (void)fprintf(stderr, " outcome_root=");
+                for (byte = 0U; byte < 32U; ++byte)
+                    (void)fprintf(stderr, "%02x", (unsigned int)
+                        module_ctx->program_outcome.occupancy_transfer_root[byte]);
+                (void)fprintf(stderr, "\n");
                 return LXP_FATAL_INVARIANT;
+            }
+        }
         return LXP_OK;
     }
     if (receipt->result_code != LXP_OK ||
@@ -2644,651 +2535,17 @@ static lxp_result receipt_bind_send_refusal(
     return LXP_OK;
 }
 
-typedef struct legacy_program_outcome_v2 {
-    bool present;
-    uint8_t encoding_version;
-    uint8_t terminal_kind;
-    lxp_result result_code;
-    uint16_t runtime_version;
-    uint16_t abi_version;
-    uint32_t fee_schedule_version;
-    uint64_t cpu_fuel;
-    uint64_t memory_bytes;
-    uint64_t storage_read_bytes;
-    uint64_t storage_write_bytes;
-    uint32_t output_values;
-    uint64_t output_bytes;
-    lxp_u128 occupancy_byte_batches;
-    lxp_u128 occupancy_fee_units;
-    uint64_t fee_schedule_prices[7];
-    uint8_t occupancy_asset_id[32];
-    uint8_t occupancy_evidence_digest[32];
-    uint8_t occupancy_transfer_root[32];
-    lxp_u128 fee_units;
-    uint8_t call_graph_root[32];
-    uint8_t terminal_payload_root[32];
-    uint8_t transfer_root[32];
-} legacy_program_outcome_v2;
-
-typedef struct compact_receipt {
-    uint16_t protocol_version;
-    uint8_t activity_id[32];
-    uint64_t global_sequence;
-    uint8_t previous_state_root[32];
-    uint8_t resulting_state_root[32];
-    uint8_t activity_root[32];
-    lxp_result result_code;
-    lxp_u128 fee_charged;
-    uint8_t batch_id[32];
-    uint16_t module_id;
-    uint32_t module_version;
-    uint32_t parameter_version;
-    legacy_program_outcome_v2 program_outcome;
-} compact_receipt;
-
-typedef struct legacy_program_outcome_v1 {
-    bool present;
-    uint8_t terminal_kind;
-    lxp_result result_code;
-    uint16_t runtime_version;
-    uint16_t abi_version;
-    uint32_t fee_schedule_version;
-    uint64_t cpu_fuel;
-    uint64_t memory_bytes;
-    uint64_t storage_read_bytes;
-    uint64_t storage_write_bytes;
-    uint32_t output_values;
-    uint64_t output_bytes;
-    lxp_u128 fee_units;
-    uint8_t call_graph_root[32];
-    uint8_t terminal_payload_root[32];
-    uint8_t transfer_root[32];
-} legacy_program_outcome_v1;
-
-typedef struct legacy_program_compact_receipt_v1 {
-    uint16_t protocol_version;
-    uint8_t activity_id[32];
-    uint64_t global_sequence;
-    uint8_t previous_state_root[32];
-    uint8_t resulting_state_root[32];
-    uint8_t activity_root[32];
-    lxp_result result_code;
-    lxp_u128 fee_charged;
-    uint8_t batch_id[32];
-    uint16_t module_id;
-    uint32_t module_version;
-    uint32_t parameter_version;
-    legacy_program_outcome_v1 program_outcome;
-} legacy_program_compact_receipt_v1;
-
-typedef struct legacy_compact_receipt {
-    uint16_t protocol_version;
-    uint8_t activity_id[32];
-    uint64_t global_sequence;
-    uint8_t previous_state_root[32];
-    uint8_t resulting_state_root[32];
-    lxp_result result_code;
-    lxp_u128 fee_charged;
-    uint8_t batch_id[32];
-    uint16_t module_id;
-    uint32_t module_version;
-    uint32_t parameter_version;
-} legacy_compact_receipt;
-
-enum {
-    COMPACT_RECEIPT_V2_BYTES = 560,
-    COMPACT_RECEIPT_V3_BYTES = 564,
-    COMPACT_RECEIPT_V4_BYTES = 596
-};
-static const uint8_t compact_receipt_v2_magic[5] = {
-    'L', 'X', 'R', 'C', '2'
-};
-static const uint8_t compact_receipt_v3_magic[5] = {
-    'L', 'X', 'R', 'C', '3'
-};
-
-static const uint8_t compact_receipt_v4_magic[5] = {'L', 'X', 'R', 'C', '4'};
-
-static void compact_write_u16(uint8_t *bytes, uint16_t value)
-{
-    bytes[0] = (uint8_t)(value >> 8U);
-    bytes[1] = (uint8_t)value;
-}
-
-static void compact_write_u32(uint8_t *bytes, uint32_t value)
-{
-    bytes[0] = (uint8_t)(value >> 24U);
-    bytes[1] = (uint8_t)(value >> 16U);
-    bytes[2] = (uint8_t)(value >> 8U);
-    bytes[3] = (uint8_t)value;
-}
-
-static void compact_write_u64(uint8_t *bytes, uint64_t value)
-{
-    size_t index;
-    for (index = 0U; index < 8U; ++index)
-        bytes[index] = (uint8_t)(value >> (56U - 8U * index));
-}
-
-static uint16_t compact_read_u16(const uint8_t *bytes)
-{
-    return (uint16_t)(((uint16_t)bytes[0] << 8U) | bytes[1]);
-}
-
-static uint32_t compact_read_u32(const uint8_t *bytes)
-{
-    return ((uint32_t)bytes[0] << 24U) | ((uint32_t)bytes[1] << 16U) |
-           ((uint32_t)bytes[2] << 8U) | bytes[3];
-}
-
-static uint64_t compact_read_u64(const uint8_t *bytes)
-{
-    uint64_t value = 0U;
-    size_t index;
-    for (index = 0U; index < 8U; ++index)
-        value = (value << 8U) | bytes[index];
-    return value;
-}
-
-static lxp_result compact_receipt_encode(
-    const lxp_receipt *receipt, bool metered, uint8_t *bytes)
-{
-    const lxp_program_outcome *outcome;
-    bool applied = receipt != NULL && receipt->program_outcome.encoding_version == 4U;
-    size_t offset = 0U;
-    size_t index;
-    if (receipt == NULL || bytes == NULL ||
-        !lxp_protocol_version_supported(receipt->protocol_version) ||
-        (metered && (!receipt->program_outcome.present ||
-                     receipt->program_outcome.encoding_version != (applied ? 4U : 3U))) ||
-        (!metered && receipt->program_outcome.present))
-        return LXP_ERR_NON_CANONICAL;
-    outcome = &receipt->program_outcome;
-#define COMPACT_COPY(value, length) do { \
-    (void)memcpy(bytes + offset, (value), (length)); \
-    offset += (length); \
-} while (0)
-#define COMPACT_U16(value) do { \
-    compact_write_u16(bytes + offset, (value)); offset += 2U; \
-} while (0)
-#define COMPACT_U32(value) do { \
-    compact_write_u32(bytes + offset, (value)); offset += 4U; \
-} while (0)
-#define COMPACT_U64(value) do { \
-    compact_write_u64(bytes + offset, (value)); offset += 8U; \
-} while (0)
-#define COMPACT_U128(value) do { \
-    lxp_result compact_status = lxp_u128_to_be((value), bytes + offset); \
-    if (compact_status != LXP_OK) return compact_status; \
-    offset += 16U; \
-} while (0)
-    COMPACT_COPY(applied ? compact_receipt_v4_magic : metered ? compact_receipt_v3_magic :
-                           compact_receipt_v2_magic,
-                 sizeof(compact_receipt_v2_magic));
-    COMPACT_U16(receipt->protocol_version);
-    COMPACT_COPY(receipt->activity_id, 32U);
-    COMPACT_U64(receipt->global_sequence);
-    COMPACT_COPY(receipt->previous_state_root, 32U);
-    COMPACT_COPY(receipt->resulting_state_root, 32U);
-    COMPACT_COPY(receipt->activity_root, 32U);
-    COMPACT_U32((uint32_t)receipt->result_code);
-    COMPACT_U128(receipt->fee_charged);
-    COMPACT_COPY(receipt->batch_id, 32U);
-    COMPACT_U16(receipt->module_id);
-    COMPACT_U32(receipt->module_version);
-    COMPACT_U32(receipt->parameter_version);
-    bytes[offset++] = outcome->present ? 1U : 0U;
-    bytes[offset++] = outcome->encoding_version;
-    bytes[offset++] = outcome->terminal_kind;
-    COMPACT_U32((uint32_t)outcome->result_code);
-    COMPACT_U16(outcome->runtime_version);
-    COMPACT_U16(outcome->abi_version);
-    COMPACT_U32(outcome->fee_schedule_version);
-    if (metered) COMPACT_U32(outcome->metering_schedule_version);
-    COMPACT_U64(outcome->cpu_fuel);
-    COMPACT_U64(outcome->memory_bytes);
-    COMPACT_U64(outcome->storage_read_bytes);
-    COMPACT_U64(outcome->storage_write_bytes);
-    COMPACT_U32(outcome->output_values);
-    COMPACT_U64(outcome->output_bytes);
-    COMPACT_U128(outcome->occupancy_byte_batches);
-    COMPACT_U128(outcome->occupancy_fee_units);
-    for (index = 0U; index < 7U; ++index)
-        COMPACT_U64(outcome->fee_schedule_prices[index]);
-    COMPACT_COPY(outcome->occupancy_asset_id, 32U);
-    COMPACT_COPY(outcome->occupancy_evidence_digest, 32U);
-    COMPACT_COPY(outcome->occupancy_transfer_root, 32U);
-    COMPACT_U128(outcome->fee_units);
-    COMPACT_COPY(outcome->call_graph_root, 32U);
-    COMPACT_COPY(outcome->terminal_payload_root, 32U);
-    COMPACT_COPY(outcome->transfer_root, 32U);
-    if (applied) COMPACT_COPY(outcome->applied_legs_digest, 32U);
-#undef COMPACT_U128
-#undef COMPACT_U64
-#undef COMPACT_U32
-#undef COMPACT_U16
-#undef COMPACT_COPY
-    return offset == (applied ? COMPACT_RECEIPT_V4_BYTES : metered ? COMPACT_RECEIPT_V3_BYTES :
-                                COMPACT_RECEIPT_V2_BYTES) ?
-        LXP_OK : LXP_FATAL_INVARIANT;
-}
-
-static lxp_result compact_receipt_decode(
-    const uint8_t *bytes, size_t length, bool metered,
-    lxp_receipt *receipt)
-{
-    lxp_program_outcome *outcome;
-    bool applied = bytes != NULL && length == COMPACT_RECEIPT_V4_BYTES &&
-        memcmp(bytes, compact_receipt_v4_magic, sizeof(compact_receipt_v4_magic)) == 0;
-    size_t offset = 0U;
-    size_t index;
-    if (bytes == NULL || receipt == NULL ||
-        length != (applied ? COMPACT_RECEIPT_V4_BYTES : metered ? COMPACT_RECEIPT_V3_BYTES :
-                             COMPACT_RECEIPT_V2_BYTES) ||
-        memcmp(bytes, applied ? compact_receipt_v4_magic : metered ? compact_receipt_v3_magic :
-                                compact_receipt_v2_magic,
-               sizeof(compact_receipt_v2_magic)) != 0)
-        return LXP_FATAL_REPLAY_DIVERGENCE;
-    (void)memset(receipt, 0, sizeof(*receipt));
-#define COMPACT_READ_COPY(value, length) do { \
-    (void)memcpy((value), bytes + offset, (length)); \
-    offset += (length); \
-} while (0)
-#define COMPACT_READ_U16(value) do { \
-    (value) = compact_read_u16(bytes + offset); offset += 2U; \
-} while (0)
-#define COMPACT_READ_U32(value) do { \
-    (value) = compact_read_u32(bytes + offset); offset += 4U; \
-} while (0)
-#define COMPACT_READ_U64(value) do { \
-    (value) = compact_read_u64(bytes + offset); offset += 8U; \
-} while (0)
-#define COMPACT_READ_U128(value) do { \
-    if (lxp_u128_from_be(bytes + offset, &(value)) != LXP_OK) \
-        return LXP_FATAL_REPLAY_DIVERGENCE; \
-    offset += 16U; \
-} while (0)
-    offset += sizeof(compact_receipt_v2_magic);
-    COMPACT_READ_U16(receipt->protocol_version);
-    COMPACT_READ_COPY(receipt->activity_id, 32U);
-    COMPACT_READ_U64(receipt->global_sequence);
-    COMPACT_READ_COPY(receipt->previous_state_root, 32U);
-    COMPACT_READ_COPY(receipt->resulting_state_root, 32U);
-    COMPACT_READ_COPY(receipt->activity_root, 32U);
-    receipt->result_code =
-        (lxp_result)(int32_t)compact_read_u32(bytes + offset);
-    offset += 4U;
-    COMPACT_READ_U128(receipt->fee_charged);
-    COMPACT_READ_COPY(receipt->batch_id, 32U);
-    COMPACT_READ_U16(receipt->module_id);
-    COMPACT_READ_U32(receipt->module_version);
-    COMPACT_READ_U32(receipt->parameter_version);
-    outcome = &receipt->program_outcome;
-    if (bytes[offset] > 1U) return LXP_FATAL_REPLAY_DIVERGENCE;
-    outcome->present = bytes[offset++] != 0U;
-    outcome->encoding_version = bytes[offset++];
-    outcome->terminal_kind = bytes[offset++];
-    outcome->result_code =
-        (lxp_result)(int32_t)compact_read_u32(bytes + offset);
-    offset += 4U;
-    COMPACT_READ_U16(outcome->runtime_version);
-    COMPACT_READ_U16(outcome->abi_version);
-    COMPACT_READ_U32(outcome->fee_schedule_version);
-    outcome->metering_schedule_version =
-        LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
-    if (metered)
-        COMPACT_READ_U32(outcome->metering_schedule_version);
-    COMPACT_READ_U64(outcome->cpu_fuel);
-    COMPACT_READ_U64(outcome->memory_bytes);
-    COMPACT_READ_U64(outcome->storage_read_bytes);
-    COMPACT_READ_U64(outcome->storage_write_bytes);
-    COMPACT_READ_U32(outcome->output_values);
-    COMPACT_READ_U64(outcome->output_bytes);
-    COMPACT_READ_U128(outcome->occupancy_byte_batches);
-    COMPACT_READ_U128(outcome->occupancy_fee_units);
-    for (index = 0U; index < 7U; ++index)
-        COMPACT_READ_U64(outcome->fee_schedule_prices[index]);
-    COMPACT_READ_COPY(outcome->occupancy_asset_id, 32U);
-    COMPACT_READ_COPY(outcome->occupancy_evidence_digest, 32U);
-    COMPACT_READ_COPY(outcome->occupancy_transfer_root, 32U);
-    COMPACT_READ_U128(outcome->fee_units);
-    COMPACT_READ_COPY(outcome->call_graph_root, 32U);
-    COMPACT_READ_COPY(outcome->terminal_payload_root, 32U);
-    COMPACT_READ_COPY(outcome->transfer_root, 32U);
-    if (applied) COMPACT_READ_COPY(outcome->applied_legs_digest, 32U);
-#undef COMPACT_READ_U128
-#undef COMPACT_READ_U64
-#undef COMPACT_READ_U32
-#undef COMPACT_READ_U16
-#undef COMPACT_READ_COPY
-    if (offset != length ||
-        (applied && (!metered || !outcome->present || outcome->encoding_version != 4U ||
-                     receipt->protocol_version != LXP_PROTOCOL_VERSION_STATE_COMMITMENT)) ||
-        !lxp_protocol_version_supported(receipt->protocol_version) ||
-        (outcome->present && outcome->encoding_version != 1U &&
-         outcome->encoding_version != 2U &&
-         outcome->encoding_version != 3U && outcome->encoding_version != 4U) ||
-        (outcome->present && receipt->module_id != LXP_MODULE_PROGRAMS) ||
-        (lxp_protocol_version_uses_occupancy(receipt->protocol_version) &&
-         outcome->present && outcome->encoding_version != 2U &&
-         outcome->encoding_version != 3U && outcome->encoding_version != 4U) ||
-        (receipt->protocol_version == LXP_PROTOCOL_VERSION_LEGACY &&
-         outcome->present && outcome->encoding_version != 1U &&
-         outcome->encoding_version != 3U && outcome->encoding_version != 4U) ||
-        (metered && outcome->present && outcome->encoding_version != (applied ? 4U : 3U)) ||
-        (!metered && outcome->encoding_version >= 3U) ||
-        (outcome->present && outcome->metering_schedule_version == 0U))
-        return LXP_FATAL_REPLAY_DIVERGENCE;
-    if (outcome->present &&
-        lxp_program_outcome_validate_for_protocol(
-            outcome, receipt->protocol_version) != LXP_OK)
-        return LXP_FATAL_REPLAY_DIVERGENCE;
-    return LXP_OK;
-}
-
-static lxp_result receipt_restore_compact(const uint8_t *bytes, size_t length,
-                                          lxp_receipt *receipt)
-{
-    const compact_receipt *compact;
-    if (bytes == NULL || receipt == NULL)
-        return LXP_FATAL_REPLAY_DIVERGENCE;
-    if (length == COMPACT_RECEIPT_V4_BYTES &&
-        memcmp(bytes, compact_receipt_v4_magic, sizeof(compact_receipt_v4_magic)) == 0)
-        return compact_receipt_decode(bytes, length, true, receipt);
-    if (length == COMPACT_RECEIPT_V3_BYTES &&
-        memcmp(bytes, compact_receipt_v3_magic,
-               sizeof(compact_receipt_v3_magic)) == 0)
-        return compact_receipt_decode(bytes, length, true, receipt);
-    if (length == COMPACT_RECEIPT_V2_BYTES &&
-        memcmp(bytes, compact_receipt_v2_magic,
-               sizeof(compact_receipt_v2_magic)) == 0)
-        return compact_receipt_decode(bytes, length, false, receipt);
-    if (length == sizeof(legacy_compact_receipt)) {
-        const legacy_compact_receipt *legacy =
-            (const legacy_compact_receipt *)bytes;
-        (void)memset(receipt, 0, sizeof(*receipt));
-        receipt->protocol_version = legacy->protocol_version;
-        (void)memcpy(receipt->activity_id, legacy->activity_id, 32U);
-        receipt->global_sequence = legacy->global_sequence;
-        (void)memcpy(receipt->previous_state_root,
-                     legacy->previous_state_root, 32U);
-        (void)memcpy(receipt->resulting_state_root,
-                     legacy->resulting_state_root, 32U);
-        receipt->result_code = legacy->result_code;
-        receipt->fee_charged = legacy->fee_charged;
-        (void)memcpy(receipt->batch_id, legacy->batch_id, 32U);
-        receipt->module_id = legacy->module_id;
-        receipt->module_version = legacy->module_version;
-        receipt->parameter_version = legacy->parameter_version;
-        return LXP_OK;
-    }
-    if (length == sizeof(legacy_program_compact_receipt_v1)) {
-        const legacy_program_compact_receipt_v1 *legacy =
-            (const legacy_program_compact_receipt_v1 *)bytes;
-        (void)memset(receipt, 0, sizeof(*receipt));
-        receipt->protocol_version = legacy->protocol_version;
-        (void)memcpy(receipt->activity_id, legacy->activity_id, 32U);
-        receipt->global_sequence = legacy->global_sequence;
-        (void)memcpy(receipt->previous_state_root,
-                     legacy->previous_state_root, 32U);
-        (void)memcpy(receipt->resulting_state_root,
-                     legacy->resulting_state_root, 32U);
-        (void)memcpy(receipt->activity_root, legacy->activity_root, 32U);
-        receipt->result_code = legacy->result_code;
-        receipt->fee_charged = legacy->fee_charged;
-        (void)memcpy(receipt->batch_id, legacy->batch_id, 32U);
-        receipt->module_id = legacy->module_id;
-        receipt->module_version = legacy->module_version;
-        receipt->parameter_version = legacy->parameter_version;
-        receipt->program_outcome.present = legacy->program_outcome.present;
-        receipt->program_outcome.encoding_version = 1U;
-        receipt->program_outcome.terminal_kind =
-            legacy->program_outcome.terminal_kind;
-        receipt->program_outcome.result_code =
-            legacy->program_outcome.result_code;
-        receipt->program_outcome.runtime_version =
-            legacy->program_outcome.runtime_version;
-        receipt->program_outcome.abi_version =
-            legacy->program_outcome.abi_version;
-        receipt->program_outcome.fee_schedule_version =
-            legacy->program_outcome.fee_schedule_version;
-        receipt->program_outcome.metering_schedule_version =
-            LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
-        receipt->program_outcome.cpu_fuel = legacy->program_outcome.cpu_fuel;
-        receipt->program_outcome.memory_bytes =
-            legacy->program_outcome.memory_bytes;
-        receipt->program_outcome.storage_read_bytes =
-            legacy->program_outcome.storage_read_bytes;
-        receipt->program_outcome.storage_write_bytes =
-            legacy->program_outcome.storage_write_bytes;
-        receipt->program_outcome.output_values =
-            legacy->program_outcome.output_values;
-        receipt->program_outcome.output_bytes =
-            legacy->program_outcome.output_bytes;
-        receipt->program_outcome.fee_units = legacy->program_outcome.fee_units;
-        (void)memcpy(receipt->program_outcome.call_graph_root,
-                     legacy->program_outcome.call_graph_root, 32U);
-        (void)memcpy(receipt->program_outcome.terminal_payload_root,
-                     legacy->program_outcome.terminal_payload_root, 32U);
-        (void)memcpy(receipt->program_outcome.transfer_root,
-                     legacy->program_outcome.transfer_root, 32U);
-        return !receipt->program_outcome.present ||
-            lxp_program_outcome_validate_for_protocol(
-                &receipt->program_outcome,
-                receipt->protocol_version) == LXP_OK ?
-                LXP_OK : LXP_FATAL_REPLAY_DIVERGENCE;
-    }
-    if (length != sizeof(*compact)) return LXP_FATAL_REPLAY_DIVERGENCE;
-    compact = (const compact_receipt *)bytes;
-    (void)memset(receipt, 0, sizeof(*receipt));
-    receipt->protocol_version = compact->protocol_version;
-    (void)memcpy(receipt->activity_id, compact->activity_id, 32U);
-    receipt->global_sequence = compact->global_sequence;
-    (void)memcpy(receipt->previous_state_root, compact->previous_state_root,
-                 32U);
-    (void)memcpy(receipt->resulting_state_root, compact->resulting_state_root,
-                 32U);
-    (void)memcpy(receipt->activity_root, compact->activity_root, 32U);
-    receipt->result_code = compact->result_code;
-    receipt->fee_charged = compact->fee_charged;
-    (void)memcpy(receipt->batch_id, compact->batch_id, 32U);
-    receipt->module_id = compact->module_id;
-    receipt->module_version = compact->module_version;
-    receipt->parameter_version = compact->parameter_version;
-    receipt->program_outcome.present = compact->program_outcome.present;
-    receipt->program_outcome.encoding_version =
-        compact->program_outcome.encoding_version;
-    receipt->program_outcome.terminal_kind =
-        compact->program_outcome.terminal_kind;
-    receipt->program_outcome.result_code = compact->program_outcome.result_code;
-    receipt->program_outcome.runtime_version =
-        compact->program_outcome.runtime_version;
-    receipt->program_outcome.abi_version = compact->program_outcome.abi_version;
-    receipt->program_outcome.fee_schedule_version =
-        compact->program_outcome.fee_schedule_version;
-    receipt->program_outcome.metering_schedule_version =
-        LXP_PROGRAM_METERING_SCHEDULE_VERSION_V1;
-    receipt->program_outcome.cpu_fuel = compact->program_outcome.cpu_fuel;
-    receipt->program_outcome.memory_bytes = compact->program_outcome.memory_bytes;
-    receipt->program_outcome.storage_read_bytes =
-        compact->program_outcome.storage_read_bytes;
-    receipt->program_outcome.storage_write_bytes =
-        compact->program_outcome.storage_write_bytes;
-    receipt->program_outcome.output_values =
-        compact->program_outcome.output_values;
-    receipt->program_outcome.output_bytes = compact->program_outcome.output_bytes;
-    receipt->program_outcome.occupancy_byte_batches =
-        compact->program_outcome.occupancy_byte_batches;
-    receipt->program_outcome.occupancy_fee_units =
-        compact->program_outcome.occupancy_fee_units;
-    (void)memcpy(receipt->program_outcome.fee_schedule_prices,
-                 compact->program_outcome.fee_schedule_prices,
-                 sizeof(receipt->program_outcome.fee_schedule_prices));
-    (void)memcpy(receipt->program_outcome.occupancy_asset_id,
-                 compact->program_outcome.occupancy_asset_id, 32U);
-    (void)memcpy(receipt->program_outcome.occupancy_evidence_digest,
-                 compact->program_outcome.occupancy_evidence_digest, 32U);
-    (void)memcpy(receipt->program_outcome.occupancy_transfer_root,
-                 compact->program_outcome.occupancy_transfer_root, 32U);
-    receipt->program_outcome.fee_units = compact->program_outcome.fee_units;
-    (void)memcpy(receipt->program_outcome.call_graph_root,
-                 compact->program_outcome.call_graph_root, 32U);
-    (void)memcpy(receipt->program_outcome.terminal_payload_root,
-                 compact->program_outcome.terminal_payload_root, 32U);
-    (void)memcpy(receipt->program_outcome.transfer_root,
-                 compact->program_outcome.transfer_root, 32U);
-    return !receipt->program_outcome.present ||
-        lxp_program_outcome_validate_for_protocol(
-            &receipt->program_outcome,
-            receipt->protocol_version) == LXP_OK ?
-            LXP_OK : LXP_FATAL_REPLAY_DIVERGENCE;
-}
-
-static lxp_result receipt_compact_projection(const lxp_receipt *receipt,
-    uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES], size_t *length)
-{
-    lxp_result status;
-    if (!lxp_protocol_version_supported(receipt->protocol_version) ||
-        (receipt->program_outcome.present &&
-         receipt->program_outcome.encoding_version != 3U &&
-         receipt->program_outcome.encoding_version != 4U))
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    if (receipt->protocol_version == LXP_PROTOCOL_VERSION_LEGACY &&
-        !receipt->program_outcome.present) {
-        legacy_program_compact_receipt_v1 legacy;
-        (void)memset(&legacy, 0, sizeof(legacy));
-        legacy.protocol_version = receipt->protocol_version;
-        (void)memcpy(legacy.activity_id, receipt->activity_id, 32U);
-        legacy.global_sequence = receipt->global_sequence;
-        (void)memcpy(legacy.previous_state_root,
-                     receipt->previous_state_root, 32U);
-        (void)memcpy(legacy.resulting_state_root,
-                     receipt->resulting_state_root, 32U);
-        (void)memcpy(legacy.activity_root, receipt->activity_root, 32U);
-        legacy.result_code = receipt->result_code;
-        legacy.fee_charged = receipt->fee_charged;
-        (void)memcpy(legacy.batch_id, receipt->batch_id, 32U);
-        legacy.module_id = receipt->module_id;
-        legacy.module_version = receipt->module_version;
-        legacy.parameter_version = receipt->parameter_version;
-        *length = sizeof(legacy);
-        (void)memcpy(compact, &legacy, sizeof(legacy));
-        return LXP_OK;
-    }
-    status = compact_receipt_encode(
-        receipt, receipt->program_outcome.present, compact);
-    if (status != LXP_OK) return status;
-    *length = receipt->program_outcome.encoding_version == 4U ?
-        COMPACT_RECEIPT_V4_BYTES : receipt->program_outcome.present ?
-        COMPACT_RECEIPT_V3_BYTES : COMPACT_RECEIPT_V2_BYTES;
-    return LXP_OK;
-}
-
-lxp_result lxp_kernel_idempotency_receipt_validate(
-    const lxp_idempotency_key_state *entry)
-{
-    lxp_receipt *receipt;
-    uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES];
-    size_t length = 0U;
-    lxp_result status;
-    if (entry == NULL || entry->canonical_length == 0U ||
-        entry->canonical_length > LXP_STATE_MAX_RECEIPT_BYTES ||
-        entry->receipt_length > LXP_STATE_MAX_RECEIPT_BYTES)
-        return LXP_ERR_NON_CANONICAL;
-    receipt = malloc(sizeof(*receipt));
-    if (receipt == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_receipt_decode(entry->canonical_receipt, entry->canonical_length,
-                                true, receipt);
-    if (status == LXP_OK) status = receipt_compact_projection(receipt, compact, &length);
-    if (status == LXP_OK && (length != entry->receipt_length ||
-        memcmp(compact, entry->receipt, length) != 0))
-        status = LXP_ERR_SNAPSHOT_MISMATCH;
-    free(receipt);
-    return status;
-}
-
-static lxp_result receipt_store(lxp_state_journal *journal,
-                                const lxp_activity *activity,
-                                const lxp_receipt *receipt)
-{
-    uint8_t compact[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint8_t *storage;
-    lxp_arena arena;
-    lxp_byte_span encoded;
-    size_t length = 0U;
-    lxp_result status = receipt_compact_projection(receipt, compact, &length);
-    if (status != LXP_OK) return status;
-    storage = malloc(LXP_MAX_ACTIVITY_BYTES);
-    if (storage == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = lxp_arena_init(&arena, storage, LXP_MAX_ACTIVITY_BYTES);
-    if (status == LXP_OK) status = lxp_receipt_encode(receipt, true, &arena, &encoded);
-    if (status == LXP_OK && encoded.length > LXP_STATE_MAX_RECEIPT_BYTES)
-        status = LXP_ERR_LENGTH_LIMIT;
-    if (status == LXP_OK)
-        status = lxp_idempotency_record(journal, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key, compact, length);
-    if (status == LXP_OK) {
-        journal->staged_idempotency.canonical_length = (uint32_t)encoded.length;
-        (void)memcpy(journal->staged_idempotency.canonical_receipt,
-                     encoded.bytes, encoded.length);
-    }
-    free(storage);
-    return status;
-}
-
-lxp_result lxp_kernel_idempotency_state_value(
-    const uint8_t *bytes, size_t length, uint8_t *output, size_t capacity)
-{
-    lxp_receipt *receipt;
-    bool metered, applied;
-    lxp_result status;
-    if (bytes == NULL || output == NULL || length > capacity)
-        return LXP_ERR_NON_CANONICAL;
-    if (length < sizeof(compact_receipt_v2_magic) + 2U ||
-        (memcmp(bytes, compact_receipt_v2_magic, sizeof(compact_receipt_v2_magic)) != 0 &&
-         memcmp(bytes, compact_receipt_v3_magic, sizeof(compact_receipt_v3_magic)) != 0 &&
-         memcmp(bytes, compact_receipt_v4_magic, sizeof(compact_receipt_v4_magic)) != 0) ||
-        compact_read_u16(bytes + sizeof(compact_receipt_v2_magic)) !=
-            LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
-        (void)memcpy(output, bytes, length);
-        return LXP_OK;
-    }
-    applied = memcmp(bytes, compact_receipt_v4_magic, sizeof(compact_receipt_v4_magic)) == 0;
-    metered = applied || memcmp(bytes, compact_receipt_v3_magic,
-                     sizeof(compact_receipt_v3_magic)) == 0;
-    if (length != (applied ? COMPACT_RECEIPT_V4_BYTES : metered ? COMPACT_RECEIPT_V3_BYTES : COMPACT_RECEIPT_V2_BYTES))
-        return LXP_ERR_NON_CANONICAL;
-    receipt = (lxp_receipt *)malloc(sizeof(*receipt));
-    if (receipt == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = compact_receipt_decode(bytes, length, metered, receipt);
-    if (status == LXP_OK) status = compact_receipt_encode(receipt, metered, output);
-    if (status == LXP_OK && memcmp(output, bytes, length) != 0)
-        status = LXP_ERR_NON_CANONICAL;
-    if (status == LXP_OK) {
-        (void)memset(receipt->resulting_state_root, 0, 32U);
-        status = compact_receipt_encode(receipt, metered, output);
-    }
-    free(receipt);
-    return status;
-}
-
 static lxp_result receipt_composite_state_root(
     const lxp_kernel *kernel, const lxp_module_ctx *module_ctx,
     const lxp_activity *activity, const lxp_receipt *receipt,
     lxp_arena *arena, uint8_t root[32])
 {
-    lxp_state_journal *preview_journal;
     lxp_module_ctx *empty_ctx = NULL;
     bool empty_initialized = false;
-    lxp_result status;
+    lxp_result status = LXP_OK;
     if (kernel == NULL || kernel->journal == NULL || activity == NULL ||
-        receipt == NULL || root == NULL || !kernel->journal->open ||
-        kernel->journal->has_idempotency)
+        receipt == NULL || root == NULL || !kernel->journal->open)
         return LXP_FATAL_INVARIANT;
-    preview_journal = (lxp_state_journal *)malloc(sizeof(*preview_journal));
-    if (preview_journal == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    *preview_journal = *kernel->journal;
-    status = receipt_store(preview_journal, activity, receipt);
     if (status == LXP_OK && module_ctx == NULL) {
         empty_ctx = (lxp_module_ctx *)malloc(sizeof(*empty_ctx));
         if (empty_ctx == NULL) status = LXP_ERR_ARENA_EXHAUSTED;
@@ -3306,10 +2563,9 @@ static lxp_result receipt_composite_state_root(
         }
     }
     if (status == LXP_OK)
-        status = lxp_module_ctx_preview_state_root(module_ctx, preview_journal, root);
+        status = lxp_module_ctx_preview_state_root(module_ctx, kernel->journal, root);
     if (empty_initialized) lxp_module_ctx_rollback(empty_ctx);
     free(empty_ctx);
-    free(preview_journal);
     return status;
 }
 
@@ -3450,8 +2706,6 @@ lxp_result lxp_kernel_prepare_activity(
     lxp_kernel_execution private_execution;
     kernel_private_allowance private_allowance;
     lxp_identity *identity;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
     lxp_fee_policy_decision admission_policy;
@@ -3481,6 +2735,8 @@ lxp_result lxp_kernel_prepare_activity(
           activity->payload.length < 2U || activity->payload.bytes[1] != 1U)))
         return LXP_ERR_NON_CANONICAL;
     *prepared_out = NULL;
+    if (!fee_meter_is_zero(&execution->fee_meter))
+        return LXP_ERR_CONTEXT_MISMATCH;
     sandbox_call = lxp_activity_type_ordinal(activity->activity_type) == 9U;
     status = lxp_kernel_batch_snapshot_clone(snapshot, &work);
     if (status != LXP_OK) return status;
@@ -3513,11 +2769,6 @@ lxp_result lxp_kernel_prepare_activity(
                                       activity->actor_did.length, &identity);
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
-    if (status == LXP_OK)
-        status = lxp_idempotency_lookup(
-            work->kernel.state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior_receipt, &prior_receipt_length);
     if (status != LXP_OK) goto done;
     status = kernel_fee_admission(&work->kernel, activity, execution);
     if (status != LXP_OK) goto done;
@@ -3883,19 +3134,13 @@ static lxp_result prestate_module(prestate_snapshot *snapshot,
     if (kernel->module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         kernel->blob_count > LXP_KERNEL_MAX_BLOBS ||
         kernel->module_count > LXP_KERNEL_MAX_MODULE_REGISTRATIONS ||
-        kernel->state->count > LXP_STATE_MAX_CELLS ||
-        kernel->state->idempotency_count > LXP_STATE_MAX_IDEMPOTENCY)
+        kernel->state->count > LXP_STATE_MAX_CELLS)
         status = LXP_ERR_LENGTH_LIMIT;
     if (status == LXP_OK && module == 0U) {
         for (index = 0U; index < kernel->state->count; ++index) {
             keys[count].length = 33U;
             keys[count].bytes[0] = 1U;
             memcpy(keys[count++].bytes + 1U, kernel->state->cells[index].key, 32U);
-        }
-        for (index = 0U; index < kernel->state->idempotency_count; ++index) {
-            keys[count].length = 33U;
-            keys[count].bytes[0] = 2U;
-            memcpy(keys[count++].bytes + 1U, kernel->state->idempotency[index].key_hash, 32U);
         }
         for (index = 0U; index < kernel->module_count; ++index) {
             keys[count].length = 7U;
@@ -4240,11 +3485,9 @@ lxp_result lxp_kernel_encode_arbiter_prestate(
     }
     if (status == LXP_OK) status = prestate_integer(&output, 2U, 2U);
     if (status == LXP_OK) status = prestate_blob(&output, legacy.bytes, legacy.length);
-    if (status == LXP_OK) status = prestate_integer(&output, 2U, 2U);
+    if (status == LXP_OK) status = prestate_integer(&output, 1U, 2U);
     if (status == LXP_OK) status = prestate_module(&output, &snapshot->kernel,
         LXP_MODULE_PERPS, witness, wire);
-    if (status == LXP_OK) status = prestate_module(&output, &snapshot->kernel,
-        LXP_MODULE_WEB, witness, wire);
     free((void *)legacy.bytes);
     free(wire);
     free(witness);
@@ -4607,9 +3850,7 @@ static lxp_result kernel_snapshot_apply_prepared_with_capture(
             receipt->module_version, receipt->parameter_version);
     if (status == LXP_OK) receipt->timestamp = execution->batch_timestamp_ms;
     if (status == LXP_OK && module_ctx_initialized)
-        status = receipt->module_id == LXP_MODULE_BRIDGE ?
-            lxp_bridge_credit_bind_receipt(receipt, &module_ctx) :
-            receipt_bind_ledger_projection(receipt, &module_ctx);
+        status = receipt_bind_ledger_projection(receipt, &module_ctx);
     if (status == LXP_OK)
         status = receipt_bind_program_operation(activity, receipt);
     if (status == LXP_OK && module_ctx_initialized) {
@@ -4650,8 +3891,6 @@ static lxp_result kernel_snapshot_apply_prepared_with_capture(
         status = LXP_ERR_IO;
 
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(candidate->kernel.journal, activity, receipt);
     if (status == LXP_OK && canonical_events != NULL)
         status = lxp_programs_project_receipt_events(
             receipt, execution->arena, &projected);
@@ -4722,7 +3961,10 @@ static bool kernel_snapshot_matches_live(
     size_t index;
     if (base == NULL || live == NULL || identities == NULL ||
         live->epoch != base->kernel.epoch ||
-        memcmp(&live->handover, &base->kernel.handover, sizeof(live->handover)) != 0 ||
+        live->governance_authority.enabled != base->kernel.governance_authority.enabled ||
+        live->governance_authority.network_id != base->kernel.governance_authority.network_id ||
+        memcmp(live->governance_authority.governance_public_key,
+               base->kernel.governance_authority.governance_public_key, 32U) != 0 ||
         live->module_kv_count != base->kernel.module_kv_count ||
         live->blob_count != base->kernel.blob_count ||
         live->blob_total_bytes != base->kernel.blob_total_bytes ||
@@ -4750,18 +3992,18 @@ static bool kernel_snapshot_matches_live(
 }
 
 static lxp_result kernel_settled_snapshot_validate(
-    const lxp_kernel_batch_snapshot *settled, lxp_byte_span encoded_maintenance)
+    const lxp_kernel_batch_snapshot *base,
+    const lxp_kernel_batch_snapshot *settled, lxp_byte_span encoded_maintenance,
+    const lxp_receipt *chain_tail)
 {
     const lxp_state_store *store;
-    lxp_receipt latest;
-    bool have_latest = false;
     size_t index;
     size_t other;
     uint8_t canonical_root[32];
     lxp_result status;
     if (settled == NULL ||
         settled->identities.count > LXP_IDENTITY_STORE_CAPACITY ||
-        settled->verified_receipts.count > LXP_VERIFIED_RECEIPT_INDEX_MAX)
+        lxp_verified_receipt_index_validate(&settled->verified_receipts) != LXP_OK)
         return LXP_FATAL_INVARIANT;
     for (index = 0U; index < settled->identities.count; ++index) {
         const lxp_identity *identity = &settled->identities.identities[index];
@@ -4811,36 +4053,32 @@ static lxp_result kernel_settled_snapshot_validate(
     store = lxp_state_snapshot_store(settled->state);
     if (store == NULL || store->next_sequence == 0U)
         return LXP_FATAL_INVARIANT;
-    for (index = 0U; index < store->idempotency_count; ++index) {
-        lxp_receipt candidate;
-        status = receipt_restore_compact(
-            store->idempotency[index].receipt,
-            store->idempotency[index].receipt_length, &candidate);
-        if (status != LXP_OK) return status;
-        if (!have_latest || candidate.global_sequence > latest.global_sequence) {
-            latest = candidate;
-            have_latest = true;
-        }
-    }
     if (encoded_maintenance.length != 0U) {
         lxp_programs_occupancy_receipt maintenance;
+        uint64_t expected_sequence;
+        const uint8_t *expected_previous;
+        if (chain_tail != NULL && chain_tail->global_sequence == UINT64_MAX)
+            return LXP_FATAL_INVARIANT;
+        expected_sequence = chain_tail != NULL ?
+            chain_tail->global_sequence + 1U :
+            lxp_state_snapshot_store(base->state)->next_sequence;
+        expected_previous = chain_tail != NULL ?
+            chain_tail->resulting_state_root : base->kernel.current_state_root;
         status = lxp_batch_maintenance_occupancy_decode(encoded_maintenance.bytes,
             encoded_maintenance.length, &maintenance);
         if (status != LXP_OK) return status;
-        if (!have_latest || latest.global_sequence == UINT64_MAX ||
-            latest.global_sequence + 1U != maintenance.global_sequence ||
+        if (maintenance.global_sequence != expected_sequence ||
             maintenance.global_sequence == UINT64_MAX ||
             maintenance.global_sequence + 1U != store->next_sequence ||
-            lxp_ct_memcmp(latest.resulting_state_root, maintenance.previous_state_root, 32U) != 0 ||
+            lxp_ct_memcmp(maintenance.previous_state_root, expected_previous, 32U) != 0 ||
             lxp_ct_memcmp(maintenance.resulting_state_root, settled->kernel.current_state_root, 32U) != 0 ||
             lxp_ct_memcmp(maintenance.resulting_state_root, canonical_root, 32U) != 0)
             return LXP_FATAL_INVARIANT;
-    } else {
-        if (have_latest &&
-            (latest.global_sequence == UINT64_MAX ||
-             latest.global_sequence + 1U != store->next_sequence ||
-             lxp_ct_memcmp(latest.resulting_state_root,
-                           settled->kernel.current_state_root, 32U) != 0))
+    } else if (chain_tail != NULL) {
+        if (chain_tail->global_sequence == UINT64_MAX ||
+            chain_tail->global_sequence + 1U != store->next_sequence ||
+            lxp_ct_memcmp(chain_tail->resulting_state_root,
+                          settled->kernel.current_state_root, 32U) != 0)
             return LXP_FATAL_INVARIANT;
     }
     return LXP_OK;
@@ -4849,7 +4087,8 @@ static lxp_result kernel_settled_snapshot_validate(
 static lxp_result kernel_batch_snapshot_commit(
     lxp_kernel *kernel, lxp_identity_store *identities,
     const lxp_kernel_batch_snapshot *base,
-    const lxp_kernel_batch_snapshot *settled, lxp_byte_span maintenance)
+    const lxp_kernel_batch_snapshot *settled, lxp_byte_span maintenance,
+    const lxp_receipt *chain_tail)
 {
     uint8_t *blob_bytes[LXP_KERNEL_MAX_BLOBS] = {NULL};
     lxp_state_publication_guard *guard = NULL;
@@ -4858,14 +4097,14 @@ static lxp_result kernel_batch_snapshot_commit(
     lxp_result status;
     if (kernel == NULL || identities == NULL || base == NULL ||
         settled == NULL || base == settled || kernel->publication_poisoned ||
-        settled->kernel.handover.pending ||
         settled->kernel.module_kv_count > LXP_KERNEL_MAX_MODULE_KV ||
         settled->kernel.blob_count > LXP_KERNEL_MAX_BLOBS ||
         settled->identities.count > LXP_IDENTITY_STORE_CAPACITY)
         return LXP_ERR_NON_CANONICAL;
     if (!kernel_snapshot_matches_live(base, kernel, identities))
         return LXP_ERR_CONTEXT_MISMATCH;
-    status = kernel_settled_snapshot_validate(settled, maintenance);
+    status = kernel_settled_snapshot_validate(base, settled, maintenance,
+                                              chain_tail);
     if (status != LXP_OK) return status;
     for (index = 0U; index < settled->kernel.blob_count; ++index) {
         if (settled->kernel.blobs[index].length == 0U ||
@@ -4931,7 +4170,7 @@ static lxp_result kernel_batch_snapshot_commit(
         blob_bytes[index] = NULL;
     }
     kernel->epoch = settled->kernel.epoch;
-    kernel->handover = settled->kernel.handover;
+    kernel->governance_authority = settled->kernel.governance_authority;
     (void)memcpy(kernel->current_state_root,
                  settled->kernel.current_state_root, 32U);
     lxp_state_snapshot_publish_guarded(guard);
@@ -4944,7 +4183,7 @@ lxp_result lxp_kernel_batch_snapshot_commit(
     const lxp_kernel_batch_snapshot *settled)
 {
     return kernel_batch_snapshot_commit(kernel, identities, base, settled,
-        (lxp_byte_span){NULL, 0U});
+        (lxp_byte_span){NULL, 0U}, NULL);
 }
 
 typedef struct lxp_kernel_prepare_worker {
@@ -5180,7 +4419,7 @@ static lxp_result kernel_prepare_serial_activity_batch(
     runtime = kernel->module_runtime[LXP_MODULE_PROGRAMS];
     if ((activity->activity_type == LX_PROGRAMS_ACCOUNT ||
          activity->activity_type == LX_PROGRAMS_WIND_DOWN) &&
-        (runtime == NULL || runtime->state_feed == NULL || kernel->observe_commit == NULL))
+        runtime == NULL)
         return LXP_ERR_MODULE_DISABLED;
     batch = calloc(1U, sizeof(*batch));
     storage = malloc(LXP_KERNEL_PREPARE_ARENA_BYTES);
@@ -5221,14 +4460,7 @@ static lxp_result kernel_prepare_serial_activity_batch(
     private_execution.recorded_fee_schedule_version = batch->settled->fee_schedule.version;
     private_execution.recorded_metering_schedule_version = batch->settled->metering_schedule.version;
     private_execution.canonical_events_out = NULL;
-    if (activity->activity_type == LXP_GOVERNANCE_HANDOVER) {
-        status = lxp_handover_prepare(&batch->settled->kernel, activity,
-                                      execution->batch_number, &arena);
-        if (status != LXP_OK) goto done;
-        private_execution.epoch = batch->settled->kernel.epoch;
-    }
     record = (kernel_staged_commit){execution->arena, {0}, execution->global_sequence, false};
-    batch->settled->programs_runtime.state_feed = runtime->state_feed;
     batch->settled->kernel.observe_commit = kernel_stage_commit;
     batch->settled->kernel.commit_observer_context = &record;
     if (kernel->replay_catalogue_capture_enabled &&
@@ -5278,9 +4510,6 @@ static lxp_result kernel_prepare_serial_activity_batch(
     }
     status = lxp_kernel_execute_activity(&batch->settled->kernel, activity,
                                          &private_execution, &batch->receipts[0]);
-    if (status == LXP_OK && activity->activity_type == LXP_GOVERNANCE_HANDOVER &&
-        batch->receipts[0].result_code != LXP_OK)
-        status = (lxp_result)batch->receipts[0].result_code;
     if (status == LXP_OK && batch->replay_catalogues != NULL &&
         !kernel_replay_catalogue_matches(batch->replay_catalogues[0], &batch->receipts[0]))
         status = LXP_ERR_IO;
@@ -5298,7 +4527,6 @@ static lxp_result kernel_prepare_serial_activity_batch(
         status = LXP_ERR_IO;
     batch->settled->kernel.observe_commit = NULL;
     batch->settled->kernel.commit_observer_context = NULL;
-    batch->settled->programs_runtime.state_feed = NULL;
     mark = lxp_arena_mark(execution->arena);
     if (status == LXP_OK)
         status = lxp_receipt_digest(&batch->receipts[0], execution->arena, receipt_digest);
@@ -5473,69 +4701,6 @@ bool lxp_kernel_uses_batch_maintenance(const lxp_kernel *kernel, uint16_t protoc
     return kernel != NULL && protocol_version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT;
 }
 
-static lxp_result maintenance_epoch_hooks(kernel_maintenance_run *run)
-{
-    lxp_kernel *kernel = &run->snapshot->kernel;
-    const lxp_handover_certificate *certificate = &kernel->handover.pending_certificate;
-    lxp_module_ctx *ctx;
-    lxp_effect_buffer *effects;
-    lxp_byte_span encoded;
-    uint8_t digest[32];
-    lxp_result status;
-    if (!kernel->handover.pending) return LXP_OK;
-    if (!kernel->handover.enabled || certificate->new_epoch != kernel->epoch ||
-        certificate->activation_batch != run->execution->batch_number ||
-        kernel->journal == NULL || !kernel->journal->open)
-        return LXP_ERR_CONTEXT_MISMATCH;
-    status = lxp_handover_history_latest(kernel, &encoded);
-    if (status == LXP_OK)
-        status = lxp_hash_sha256(encoded.bytes, encoded.length, digest);
-    if (status == LXP_OK && memcmp(digest, kernel->handover.pending_evidence_digest, 32U) != 0)
-        status = LXP_ERR_CONTEXT_MISMATCH;
-    if (status != LXP_OK) return status;
-    ctx = calloc(1U, sizeof(*ctx));
-    effects = calloc(1U, sizeof(*effects));
-    if (ctx == NULL || effects == NULL) { free(ctx); free(effects); return LXP_ERR_ARENA_EXHAUSTED; }
-    for (unsigned phase = 0U; status == LXP_OK && phase < 2U; ++phase) {
-        uint64_t epoch = phase == 0U ? certificate->old_epoch : certificate->new_epoch;
-        for (uint16_t module = 1U; status == LXP_OK && module <= LXP_MODULE_RESERVED_COUNT; ++module) {
-            const lxp_module_registration *registration;
-            lxp_module_epoch_fn hook;
-            size_t mark = lxp_arena_mark(run->arena);
-            bool initialized = false;
-            status = lxp_kernel_module_by_id(kernel, module, epoch, &registration);
-            if (status == LXP_ERR_MODULE_DISABLED) { status = LXP_OK; continue; }
-            if (status != LXP_OK) break;
-            hook = phase == 0U ? registration->iface->epoch_end : registration->iface->epoch_begin;
-            if (hook == NULL) { status = LXP_FATAL_INVARIANT; break; }
-            status = lxp_module_ctx_init(ctx, kernel, module, run->execution->batch_timestamp_ms,
-                epoch, kernel->state->next_sequence, UINT64_MAX, run->arena, true);
-            if (status == LXP_OK) {
-                initialized = true;
-                ctx->protocol_version = run->protocol_version;
-                ctx->batch_number = run->execution->batch_number;
-                status = lxp_effect_buffer_init(effects);
-            }
-            if (status == LXP_OK) status = lxp_module_ctx_bind_effects(ctx, effects);
-            if (status == LXP_OK) status = hook(ctx, epoch, run->execution->batch_timestamp_ms);
-            if (status == LXP_OK) status = lxp_module_ctx_prepare_commit(ctx);
-            if (status == LXP_OK && (ctx->staged_count != 0U || effects->count != 0U))
-                status = maintenance_frame(run, ctx, effects, registration->abi_version);
-            if (status == LXP_OK) status = lxp_module_ctx_commit(ctx);
-            if (initialized && status != LXP_OK) lxp_module_ctx_rollback(ctx);
-            if (lxp_arena_reset(run->arena, mark) != LXP_OK) status = LXP_FATAL_INVARIANT;
-        }
-    }
-    free(effects);
-    free(ctx);
-    if (status == LXP_OK) {
-        kernel->handover.pending = false;
-        (void)memset(&kernel->handover.pending_certificate, 0, sizeof(kernel->handover.pending_certificate));
-        (void)memset(kernel->handover.pending_evidence_digest, 0, sizeof(kernel->handover.pending_evidence_digest));
-    }
-    return status;
-}
-
 static lxp_result kernel_run_batch_maintenance(void *opaque)
 {
     static const uint8_t domain[] = "LXP/batch-maintenance-effects/v1";
@@ -5554,7 +4719,6 @@ static lxp_result kernel_run_batch_maintenance(void *opaque)
     lxp_result status = ctx != NULL && effects != NULL ? LXP_OK : LXP_ERR_ARENA_EXHAUSTED;
     if (status == LXP_OK) status = maintenance_append(run, domain, sizeof(domain));
     if (status == LXP_OK) status = maintenance_integer(run, 0U, 2U);
-    if (status == LXP_OK) status = maintenance_epoch_hooks(run);
     for (size_t i = 0U; status == LXP_OK && i < sizeof(hooks) / sizeof(hooks[0]); ++i) {
         const lxp_module_registration *registration;
         bool complete = false;
@@ -5692,49 +4856,6 @@ lxp_byte_span lxp_kernel_prepared_batch_maintenance(
     const lxp_kernel_prepared_batch *batch)
 {
     return batch == NULL ? (lxp_byte_span){NULL, 0U} : batch->maintenance;
-}
-
-lxp_result lxp_kernel_finalize_batch_maintenance(lxp_kernel *kernel,
-    uint16_t protocol_version, const lxp_kernel_execution *execution,
-    lxp_byte_span expected, lxp_replay_activity_output *output)
-{
-    lxp_kernel_batch_snapshot *base = NULL;
-    lxp_kernel_batch_snapshot *candidate = NULL;
-    lxp_programs_occupancy_receipt record;
-    lxp_byte_span encoded = {NULL, 0U};
-    lxp_byte_span events = {NULL, 0U};
-    lxp_result status;
-    if (kernel == NULL || execution == NULL || output == NULL ||
-        kernel->state == NULL || execution->epoch != kernel->epoch ||
-        execution->identities == NULL || execution->arena == NULL ||
-        execution->global_sequence != kernel->state->next_sequence ||
-        !lxp_protocol_version_uses_occupancy(protocol_version))
-        return LXP_ERR_NON_CANONICAL;
-    status = lxp_kernel_batch_snapshot_create(kernel, execution->identities,
-        execution->verified_receipts, execution, &base);
-    if (status == LXP_OK) status = lxp_kernel_batch_snapshot_clone(base, &candidate);
-    if (status == LXP_OK) status = lxp_kernel_batch_snapshot_begin_level(candidate);
-    if (status == LXP_OK) status = kernel_snapshot_finalize_maintenance(candidate,
-        protocol_version, execution, execution->arena, &record, &encoded);
-    if (status == LXP_OK && (expected.bytes == NULL || encoded.length != expected.length ||
-        lxp_ct_memcmp(encoded.bytes, expected.bytes, encoded.length) != 0))
-        status = LXP_FATAL_REPLAY_DIVERGENCE;
-    if (status == LXP_OK) status = lxp_batch_maintenance_events(encoded, NULL, &events);
-    if (status == LXP_OK) status = lxp_state_snapshot_seal_level(candidate->state);
-    if (status == LXP_OK) status = kernel_batch_snapshot_commit(kernel,
-        execution->identities, base, candidate, encoded);
-    if (status == LXP_OK) {
-        (void)memset(output, 0, sizeof(*output));
-        output->result_code = LXP_OK;
-        output->fee_charged = record.paid_fee_units;
-        output->effects = events.length != 0U ? events : record.settlement_evidence;
-        output->canonical_receipt = encoded;
-        output->canonical_events = events;
-        (void)memcpy(output->resulting_state_root, record.resulting_state_root, 32U);
-    }
-    lxp_kernel_batch_snapshot_destroy(candidate);
-    lxp_kernel_batch_snapshot_destroy(base);
-    return status;
 }
 
 static bool program_planning_refusal(lxp_result status)
@@ -6381,14 +5502,15 @@ lxp_result lxp_kernel_commit_prepared_batch(
     lxp_result status;
     if (kernel == NULL || identities == NULL || batch == NULL ||
         batch->base == NULL || batch->settled == NULL || batch->committed ||
-        batch->simulation ||
+        batch->simulation || batch->count == 0U ||
         fsynced_publication_digest == NULL ||
         lxp_ct_is_zero(fsynced_publication_digest, 32U) ||
         lxp_ct_memcmp(fsynced_publication_digest,
                       batch->publication_digest, 32U) != 0)
         return LXP_ERR_CONTEXT_MISMATCH;
     status = kernel_batch_snapshot_commit(
-        kernel, identities, batch->base, batch->settled, batch->maintenance);
+        kernel, identities, batch->base, batch->settled, batch->maintenance,
+        &batch->receipts[batch->count - 1U]);
     if (status == LXP_OK) {
         batch->committed = true;
         kernel->publication_poisoned = true;
@@ -6860,20 +5982,6 @@ static lxp_result kernel_execute_prepared_call(
             lxp_arena_reset(execution->arena, arena_mark);
         if (status == LXP_OK) status = reset_status;
     }
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        const uint8_t *prior;
-        size_t prior_length;
-        lxp_result lookup = lxp_idempotency_canonical_lookup(
-            kernel->state, activity->actor_did.bytes,
-            activity->actor_did.length, activity->idempotency_key,
-            &prior, &prior_length);
-        if (lookup == LXP_ERR_IDEMPOTENT_REPLAY) {
-            lookup = lxp_receipt_decode(prior, prior_length, true, receipt);
-            status = lookup == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : lookup;
-        } else {
-            status = lookup;
-        }
-    }
     if (status == LXP_OK && execution->replay_witness_out != NULL &&
         prepared->replay_capture != NULL) {
         lxp_byte_span captured = {NULL, 0U};
@@ -6953,8 +6061,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                        lxp_receipt *receipt)
 {
     const lxp_module_registration *registration;
-    const uint8_t *prior_receipt;
-    size_t prior_receipt_length;
     lxp_identity *identity;
     lxp_admission_context admission_context;
     lxp_admission_result admission;
@@ -6996,6 +6102,8 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
         execution->authority == NULL || execution->fee_parameters == NULL ||
         execution->arena == NULL || execution->batch_number == 0U)
         return LXP_ERR_NON_CANONICAL;
+    if (!fee_meter_is_zero(&execution->fee_meter))
+        return LXP_ERR_CONTEXT_MISMATCH;
     bool enforced = false;
     lxp_kernel_execution policy_execution;
     status = lxp_authority_allowance_policy(kernel, &enforced);
@@ -7039,10 +6147,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
         (activity->payload.bytes[34U] & 1U) != 0U;
     if (programs_state_activity &&
         (!lxp_protocol_version_uses_occupancy(activity->protocol_version) ||
-         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL ||
-         ((const lx_programs_transfer_runtime *)
-              kernel->module_runtime[LXP_MODULE_PROGRAMS])->state_feed == NULL ||
-         kernel->observe_commit == NULL))
+         kernel->module_runtime[LXP_MODULE_PROGRAMS] == NULL))
         return LXP_ERR_MODULE_DISABLED;
     if (programs_call) {
         programs_runtime = (const lx_programs_transfer_runtime *)
@@ -7088,18 +6193,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
                                   activity->actor_did.length, &identity);
     if (status == LXP_OK)
         status = kernel_program_signer_binding(activity, execution, identity);
-    if (status != LXP_OK) return status;
-    status = lxp_idempotency_canonical_lookup(kernel->state,
-                                    activity->actor_did.bytes,
-                                    activity->actor_did.length,
-                                    activity->idempotency_key,
-                                    &prior_receipt,
-                                    &prior_receipt_length);
-    if (status == LXP_ERR_IDEMPOTENT_REPLAY) {
-        status = lxp_receipt_decode(prior_receipt,
-                                    prior_receipt_length, true, receipt);
-        return status == LXP_OK ? LXP_ERR_IDEMPOTENT_REPLAY : status;
-    }
     if (status != LXP_OK) return status;
     status = kernel_fee_admission(kernel, activity, execution);
     if (status != LXP_OK) return status;
@@ -7156,7 +6249,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     module_result = fee_policy.result_code;
     if (status == LXP_OK && fee_policy.apply_module_effects) {
         status = lxp_module_ctx_init(
-            &module_ctx, kernel, registration_context_module(registration),
+            &module_ctx, kernel, registration->module_id,
             execution->batch_timestamp_ms, execution->epoch,
             execution->global_sequence, execution->gas_limit,
             execution->arena, false);
@@ -7374,9 +6467,7 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
     if (status == LXP_OK)
         receipt->timestamp = execution->batch_timestamp_ms;
     if (status == LXP_OK && module_ctx_initialized)
-        status = receipt->module_id == LXP_MODULE_BRIDGE ?
-            lxp_bridge_credit_bind_receipt(receipt, &module_ctx) :
-            receipt_bind_ledger_projection(receipt, &module_ctx);
+        status = receipt_bind_ledger_projection(receipt, &module_ctx);
     if (status == LXP_OK)
         status = receipt_bind_program_operation(activity, receipt);
     if (status == LXP_OK && programs_call &&
@@ -7393,8 +6484,6 @@ lxp_result lxp_kernel_execute_activity(lxp_kernel *kernel,
             kernel, fee_policy.apply_module_effects ? &module_ctx : NULL,
             activity, receipt, execution->arena, receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK) status = receipt_store(kernel->journal, activity,
-                                                 receipt);
     if (status == LXP_OK && programs_call && fee_policy.apply_module_effects &&
         program_outcome != NULL &&
         program_outcome->terminal_kind == LXP_PROGRAM_TERMINAL_SUCCESS &&
@@ -7569,8 +6658,6 @@ lxp_result lxp_kernel_terminal_rejection(lxp_kernel *kernel,
                                     execution->arena,
                                     receipt->resulting_state_root);
     if (status == LXP_OK) status = receipt_execution_signature(receipt, execution);
-    if (status == LXP_OK)
-        status = receipt_store(kernel->journal, activity, receipt);
     if (status != LXP_OK) {
         (void)lxp_state_journal_rollback(kernel->journal);
         return status;
@@ -7669,7 +6756,6 @@ static lxp_result kernel_prepare_terminal_rejection(
     private_execution.canonical_events_out = NULL;
     record = (kernel_staged_commit){execution->arena, {0},
                                     execution->global_sequence, false};
-    batch->settled->programs_runtime.state_feed = runtime->state_feed;
     batch->settled->kernel.observe_commit = kernel_stage_commit;
     batch->settled->kernel.commit_observer_context = &record;
     if (kernel->replay_catalogue_capture_enabled &&
@@ -7737,7 +6823,6 @@ static lxp_result kernel_prepare_terminal_rejection(
         status = LXP_ERR_IO;
     batch->settled->kernel.observe_commit = NULL;
     batch->settled->kernel.commit_observer_context = NULL;
-    batch->settled->programs_runtime.state_feed = NULL;
     mark = lxp_arena_mark(execution->arena);
     if (status == LXP_OK)
         status = lxp_receipt_digest(&batch->receipts[0], execution->arena,
@@ -7917,805 +7002,3 @@ lxp_byte_span lxp_kernel_prepared_batch_admission_prestate(
     return batch->admission_prestates[receipt_index];
 }
 
-static const uint8_t capacity_request_domain[] =
-    "LayerX/storage-capacity-request/v1";
-static const uint8_t capacity_ledger_magic[8] =
-    {'L', 'X', 'C', 'A', 'P', 'L', 'G', '1'};
-
-static void capacity_put_u16(uint8_t *bytes, uint16_t value)
-{
-    bytes[0] = (uint8_t)(value >> 8U);
-    bytes[1] = (uint8_t)value;
-}
-
-static void capacity_put_u32(uint8_t *bytes, uint32_t value)
-{
-    capacity_put_u16(bytes, (uint16_t)(value >> 16U));
-    capacity_put_u16(bytes + 2U, (uint16_t)value);
-}
-
-static void capacity_put_u64(uint8_t *bytes, uint64_t value)
-{
-    capacity_put_u32(bytes, (uint32_t)(value >> 32U));
-    capacity_put_u32(bytes + 4U, (uint32_t)value);
-}
-
-static uint16_t capacity_get_u16(const uint8_t *bytes)
-{
-    return (uint16_t)(((uint16_t)bytes[0] << 8U) | bytes[1]);
-}
-
-static uint32_t capacity_get_u32(const uint8_t *bytes)
-{
-    return ((uint32_t)capacity_get_u16(bytes) << 16U) |
-        capacity_get_u16(bytes + 2U);
-}
-
-static uint64_t capacity_get_u64(const uint8_t *bytes)
-{
-    return ((uint64_t)capacity_get_u32(bytes) << 32U) |
-        capacity_get_u32(bytes + 4U);
-}
-
-static void capacity_limit(lxp_capacity_demand *limit)
-{
-    limit->blobs = LXP_KERNEL_MAX_BLOBS;
-    limit->bytes = LXP_KERNEL_MAX_BLOB_TOTAL_BYTES;
-    limit->kv = LXP_KERNEL_MAX_MODULE_KV;
-}
-
-static bool capacity_demand_within(const lxp_capacity_demand *demand,
-                                   const lxp_capacity_demand *limit)
-{
-    return demand->blobs <= limit->blobs && demand->bytes <= limit->bytes &&
-        demand->kv <= limit->kv;
-}
-
-static bool capacity_demand_zero(const lxp_capacity_demand *demand)
-{
-    return demand->blobs == 0U && demand->bytes == 0U && demand->kv == 0U;
-}
-
-static bool capacity_demand_equal(const lxp_capacity_demand *left,
-                                  const lxp_capacity_demand *right)
-{
-    return left->blobs == right->blobs && left->bytes == right->bytes &&
-        left->kv == right->kv;
-}
-
-static size_t capacity_demand_encode(const lxp_capacity_demand *demand,
-                                     uint8_t *bytes)
-{
-    capacity_put_u32(bytes, demand->blobs);
-    capacity_put_u64(bytes + 4U, demand->bytes);
-    capacity_put_u32(bytes + 12U, demand->kv);
-    return LXP_CAPACITY_DEMAND_BYTES;
-}
-
-static size_t capacity_demand_decode(const uint8_t *bytes,
-                                     lxp_capacity_demand *demand)
-{
-    demand->blobs = capacity_get_u32(bytes);
-    demand->bytes = capacity_get_u64(bytes + 4U);
-    demand->kv = capacity_get_u32(bytes + 12U);
-    return LXP_CAPACITY_DEMAND_BYTES;
-}
-
-lxp_result lxp_capacity_profile_validate(const lxp_capacity_profile *profile)
-{
-    lxp_capacity_demand limit;
-    capacity_limit(&limit);
-    if (profile == NULL) return LXP_ERR_NON_CANONICAL;
-    if (profile->version == 0U || lxp_ct_is_zero(profile->digest, 32U) ||
-        profile->maximum_work_lifetime == 0U ||
-        profile->floor.blobs == 0U || profile->floor.bytes == 0U ||
-        profile->floor.kv == 0U)
-        return LXP_ERR_NON_CANONICAL;
-    return capacity_demand_within(&profile->floor, &limit) ?
-        LXP_OK : LXP_ERR_PARAMETER_BOUNDS;
-}
-
-lxp_result lxp_capacity_ledger_install(lxp_capacity_ledger *ledger,
-                                       const lxp_capacity_profile *profile)
-{
-    lxp_result status;
-    if (ledger == NULL) return LXP_ERR_NON_CANONICAL;
-    status = lxp_capacity_profile_validate(profile);
-    if (status != LXP_OK) return status;
-    if (ledger->profile.version == 0U) {
-        (void)memset(ledger, 0, sizeof(*ledger));
-        ledger->profile = *profile;
-        ledger->next_request_id = 1U;
-        return LXP_OK;
-    }
-    if (profile->version == ledger->profile.version)
-        return lxp_ct_memcmp(profile->digest, ledger->profile.digest, 32U) == 0 &&
-            capacity_demand_equal(&profile->floor, &ledger->profile.floor) &&
-            profile->maximum_work_lifetime ==
-                ledger->profile.maximum_work_lifetime ?
-            LXP_OK : LXP_ERR_CONTEXT_MISMATCH;
-    if (profile->version < ledger->profile.version)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    ledger->profile = *profile;
-    return LXP_OK;
-}
-
-static bool capacity_entry_active(const lxp_capacity_reservation *entry,
-                                  uint64_t next_sequence)
-{
-    return entry->state == LXP_CAPACITY_RESERVED &&
-        (entry->kind == LXP_CAPACITY_OBLIGATION ||
-         entry->expires_sequence > next_sequence);
-}
-
-static uint64_t capacity_saturating_sub(uint64_t left, uint64_t right)
-{
-    return left > right ? left - right : 0U;
-}
-
-static uint64_t capacity_max(uint64_t left, uint64_t right)
-{
-    return left > right ? left : right;
-}
-
-typedef struct capacity_tally {
-    uint64_t limit[3];
-    uint64_t committed[3];
-    uint64_t floor[3];
-    uint64_t obligations[3];
-    uint64_t work[3];
-    uint32_t active;
-} capacity_tally;
-
-static void capacity_demand_vector(const lxp_capacity_demand *demand,
-                                   uint64_t vector[3])
-{
-    vector[0] = demand->blobs;
-    vector[1] = demand->bytes;
-    vector[2] = demand->kv;
-}
-
-static lxp_result capacity_head(const lxp_kernel *kernel,
-                                const lxp_capacity_ledger *ledger)
-{
-    if (kernel == NULL || ledger == NULL || kernel->state == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    if (ledger->profile.version == 0U) return LXP_ERR_MODULE_DISABLED;
-    if ((kernel->journal != NULL && kernel->journal->open) ||
-        kernel->publication_poisoned || kernel->batch_publication_pending)
-        return LXP_ERR_PROJECTION_STALE;
-    return LXP_OK;
-}
-
-static void capacity_tally_take(const lxp_kernel *kernel,
-                                const lxp_capacity_ledger *ledger,
-                                uint64_t excluded_request_id,
-                                capacity_tally *tally)
-{
-    lxp_capacity_demand limit;
-    uint64_t next_sequence = kernel->state->next_sequence;
-    size_t index;
-    size_t axis;
-    (void)memset(tally, 0, sizeof(*tally));
-    capacity_limit(&limit);
-    capacity_demand_vector(&limit, tally->limit);
-    tally->committed[0] = kernel->blob_count;
-    tally->committed[1] = kernel->blob_total_bytes;
-    tally->committed[2] = kernel->module_kv_count;
-    capacity_demand_vector(&ledger->profile.floor, tally->floor);
-    for (index = 0U; index < ledger->count; ++index) {
-        const lxp_capacity_reservation *entry = &ledger->entries[index];
-        uint64_t demand[3];
-        uint64_t *sum;
-        if (!capacity_entry_active(entry, next_sequence) ||
-            entry->request_id == excluded_request_id)
-            continue;
-        capacity_demand_vector(&entry->demand, demand);
-        sum = entry->kind == LXP_CAPACITY_OBLIGATION ?
-            tally->obligations : tally->work;
-        for (axis = 0U; axis < 3U; ++axis) sum[axis] += demand[axis];
-        ++tally->active;
-    }
-}
-
-static uint64_t capacity_available_axis(const capacity_tally *tally,
-                                        size_t axis)
-{
-    uint64_t reserve = capacity_max(tally->floor[axis],
-                                    tally->obligations[axis]);
-    uint64_t used = tally->committed[axis] + reserve + tally->work[axis];
-    return capacity_saturating_sub(tally->limit[axis], used);
-}
-
-lxp_result lxp_kernel_capacity_observe(const lxp_kernel *kernel,
-                                       const lxp_capacity_ledger *ledger,
-                                       lxp_capacity_observation *observation)
-{
-    capacity_tally tally;
-    lxp_result status;
-    if (observation == NULL) return LXP_ERR_NON_CANONICAL;
-    status = capacity_head(kernel, ledger);
-    if (status != LXP_OK) return status;
-    capacity_tally_take(kernel, ledger, 0U, &tally);
-    (void)memset(observation, 0, sizeof(*observation));
-    observation->profile_version = ledger->profile.version;
-    (void)memcpy(observation->profile_digest, ledger->profile.digest, 32U);
-    observation->next_sequence = kernel->state->next_sequence;
-    (void)memcpy(observation->state_root, kernel->current_state_root, 32U);
-    capacity_limit(&observation->limit);
-    observation->committed = (lxp_capacity_demand){
-        (uint32_t)tally.committed[0], tally.committed[1],
-        (uint32_t)tally.committed[2]};
-    observation->floor = ledger->profile.floor;
-    observation->obligations = (lxp_capacity_demand){
-        (uint32_t)tally.obligations[0], tally.obligations[1],
-        (uint32_t)tally.obligations[2]};
-    observation->work = (lxp_capacity_demand){
-        (uint32_t)tally.work[0], tally.work[1], (uint32_t)tally.work[2]};
-    observation->available = (lxp_capacity_demand){
-        (uint32_t)capacity_available_axis(&tally, 0U),
-        capacity_available_axis(&tally, 1U),
-        (uint32_t)capacity_available_axis(&tally, 2U)};
-    observation->active_reservations = tally.active;
-    observation->next_request_id = ledger->next_request_id;
-    return LXP_OK;
-}
-
-static size_t capacity_find(const lxp_capacity_ledger *ledger,
-                            uint64_t request_id)
-{
-    size_t index;
-    for (index = 0U; index < ledger->count; ++index)
-        if (ledger->entries[index].request_id == request_id) return index;
-    return ledger->count;
-}
-
-static lxp_result capacity_receipt(const lxp_kernel *kernel,
-                                   const lxp_capacity_reservation *entry,
-                                   bool *present, lxp_receipt *receipt,
-                                   uint8_t digest[32])
-{
-    const uint8_t *bytes = NULL;
-    size_t length = 0U;
-    lxp_result status = lxp_idempotency_canonical_lookup(
-        kernel->state, entry->actor_did, entry->actor_did_length,
-        entry->idempotency_key, &bytes, &length);
-    *present = false;
-    if (status == LXP_OK) return LXP_OK;
-    if (status != LXP_ERR_IDEMPOTENT_REPLAY) return status;
-    if (receipt == NULL) {
-        *present = true;
-        return LXP_OK;
-    }
-    status = lxp_receipt_decode(bytes, length, true, receipt);
-    if (status == LXP_OK &&
-        lxp_ct_memcmp(receipt->activity_id, entry->activity_id, 32U) != 0)
-        status = LXP_ERR_LOG_CORRUPT;
-    if (status == LXP_OK) status = lxp_hash_sha256(bytes, length, digest);
-    if (status == LXP_OK) *present = true;
-    return status;
-}
-
-static lxp_result capacity_request_validate(
-    const lxp_capacity_profile *profile, const lxp_capacity_request *request)
-{
-    lxp_capacity_demand limit;
-    size_t index;
-    capacity_limit(&limit);
-    if ((request->kind != LXP_CAPACITY_WORK &&
-         request->kind != LXP_CAPACITY_OBLIGATION) ||
-        lxp_ct_is_zero(request->request_digest, 32U) ||
-        lxp_ct_is_zero(request->activity_id, 32U) ||
-        request->actor_did_length == 0U ||
-        request->actor_did_length > sizeof(request->actor_did) ||
-        capacity_demand_zero(&request->demand) ||
-        lxp_ct_is_zero(request->expected_root, 32U) ||
-        request->expected_sequence == 0U)
-        return LXP_ERR_NON_CANONICAL;
-    for (index = request->actor_did_length;
-         index < sizeof(request->actor_did); ++index)
-        if (request->actor_did[index] != 0U) return LXP_ERR_NON_CANONICAL;
-    if (request->kind == LXP_CAPACITY_WORK &&
-        (request->supersedes != 0U || request->lifetime == 0U))
-        return LXP_ERR_NON_CANONICAL;
-    if (request->kind == LXP_CAPACITY_OBLIGATION && request->lifetime != 0U)
-        return LXP_ERR_NON_CANONICAL;
-    if (request->kind == LXP_CAPACITY_WORK &&
-        request->lifetime > profile->maximum_work_lifetime)
-        return LXP_ERR_PARAMETER_BOUNDS;
-    return capacity_demand_within(&request->demand, &limit) ?
-        LXP_OK : LXP_ERR_ARENA_EXHAUSTED;
-}
-
-static void capacity_expire(lxp_capacity_ledger *ledger,
-                            uint64_t next_sequence)
-{
-    size_t index;
-    for (index = 0U; index < ledger->count; ++index) {
-        lxp_capacity_reservation *entry = &ledger->entries[index];
-        if (entry->state == LXP_CAPACITY_RESERVED &&
-            entry->kind == LXP_CAPACITY_WORK &&
-            entry->expires_sequence <= next_sequence)
-            entry->state = LXP_CAPACITY_EXPIRED;
-    }
-}
-
-static bool capacity_admits(const capacity_tally *tally,
-                            const lxp_capacity_request *request)
-{
-    uint64_t demand[3];
-    size_t axis;
-    capacity_demand_vector(&request->demand, demand);
-    for (axis = 0U; axis < 3U; ++axis) {
-        uint64_t used;
-        if (demand[axis] == 0U) continue;
-        if (request->kind == LXP_CAPACITY_WORK)
-            used = tally->committed[axis] +
-                capacity_max(tally->floor[axis], tally->obligations[axis]) +
-                tally->work[axis] + demand[axis];
-        else
-            used = tally->committed[axis] +
-                capacity_max(tally->floor[axis],
-                             tally->obligations[axis] + demand[axis]) +
-                tally->work[axis];
-        if (used > tally->limit[axis]) return false;
-    }
-    return true;
-}
-
-static lxp_result capacity_slot(lxp_capacity_ledger *ledger,
-                                uint64_t next_sequence)
-{
-    size_t index;
-    if (ledger->count < LXP_CAPACITY_MAX_RESERVATIONS) return LXP_OK;
-    for (index = 0U; index < ledger->count; ++index) {
-        const lxp_capacity_reservation *entry = &ledger->entries[index];
-        if (entry->state != LXP_CAPACITY_RESERVED &&
-            entry->bound_sequence < next_sequence) {
-            size_t tail = ledger->count - index - 1U;
-            if (tail != 0U)
-                (void)memmove(&ledger->entries[index],
-                              &ledger->entries[index + 1U],
-                              tail * sizeof(ledger->entries[0]));
-            --ledger->count;
-            (void)memset(&ledger->entries[ledger->count], 0,
-                         sizeof(ledger->entries[0]));
-            return LXP_OK;
-        }
-    }
-    return LXP_ERR_LENGTH_LIMIT;
-}
-
-lxp_result lxp_kernel_capacity_reserve(const lxp_kernel *kernel,
-                                       lxp_capacity_ledger *ledger,
-                                       const lxp_capacity_request *request,
-                                       lxp_capacity_reservation *reservation,
-                                       bool *replayed)
-{
-    capacity_tally tally;
-    lxp_capacity_reservation *entry;
-    size_t predecessor = 0U;
-    size_t index;
-    uint64_t next_sequence;
-    bool committed = false;
-    lxp_result status;
-    if (request == NULL || reservation == NULL || replayed == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    *replayed = false;
-    if (kernel == NULL || ledger == NULL || kernel->state == NULL)
-        return LXP_ERR_NON_CANONICAL;
-    if (ledger->profile.version == 0U) return LXP_ERR_MODULE_DISABLED;
-    status = capacity_request_validate(&ledger->profile, request);
-    if (status != LXP_OK) return status;
-    for (index = 0U; index < ledger->count; ++index)
-        if (lxp_ct_memcmp(ledger->entries[index].request_digest,
-                          request->request_digest, 32U) == 0) {
-            *reservation = ledger->entries[index];
-            *replayed = true;
-            return LXP_OK;
-        }
-    status = capacity_head(kernel, ledger);
-    if (status != LXP_OK) return status;
-    next_sequence = kernel->state->next_sequence;
-    if (request->expected_sequence != next_sequence ||
-        lxp_ct_memcmp(request->expected_root, kernel->current_state_root,
-                      32U) != 0)
-        return LXP_ERR_PROJECTION_STALE;
-    if (request->kind == LXP_CAPACITY_WORK &&
-        request->lifetime > UINT64_MAX - next_sequence)
-        return LXP_ERR_OVERFLOW;
-    if (ledger->next_request_id == 0U ||
-        ledger->next_request_id == UINT64_MAX)
-        return LXP_ERR_SEQUENCE_EXHAUSTED;
-    capacity_expire(ledger, next_sequence);
-    for (index = 0U; index < ledger->count; ++index) {
-        const lxp_capacity_reservation *other = &ledger->entries[index];
-        if (other->state != LXP_CAPACITY_RESERVED) continue;
-        if (lxp_ct_memcmp(other->activity_id, request->activity_id, 32U) == 0 ||
-            (other->actor_did_length == request->actor_did_length &&
-             memcmp(other->actor_did, request->actor_did,
-                    request->actor_did_length) == 0 &&
-             lxp_ct_memcmp(other->idempotency_key, request->idempotency_key,
-                           32U) == 0))
-            return LXP_ERR_DUPLICATE_ENTRY;
-    }
-    {
-        lxp_capacity_reservation probe;
-        (void)memset(&probe, 0, sizeof(probe));
-        probe.actor_did_length = request->actor_did_length;
-        (void)memcpy(probe.actor_did, request->actor_did,
-                     sizeof(probe.actor_did));
-        (void)memcpy(probe.idempotency_key, request->idempotency_key, 32U);
-        (void)memcpy(probe.activity_id, request->activity_id, 32U);
-        status = capacity_receipt(kernel, &probe, &committed, NULL, NULL);
-    }
-    if (status != LXP_OK) return status;
-    if (committed) return LXP_ERR_IDEMPOTENT_REPLAY;
-    if (request->supersedes != 0U) {
-        const lxp_capacity_reservation *prior;
-        predecessor = capacity_find(ledger, request->supersedes);
-        if (predecessor == ledger->count) return LXP_ERR_UNKNOWN_FIELD;
-        prior = &ledger->entries[predecessor];
-        if (prior->kind != LXP_CAPACITY_OBLIGATION ||
-            prior->state != LXP_CAPACITY_RESERVED ||
-            prior->outcome_sequence == 0U || prior->outcome_result == LXP_OK ||
-            !capacity_demand_equal(&prior->demand, &request->demand))
-            return LXP_ERR_CONDITION_UNMET;
-    }
-    capacity_tally_take(kernel, ledger, request->supersedes, &tally);
-    if (!capacity_admits(&tally, request)) return LXP_ERR_ARENA_EXHAUSTED;
-    status = capacity_slot(ledger, next_sequence);
-    if (status != LXP_OK) return status;
-    if (request->supersedes != 0U) {
-        predecessor = capacity_find(ledger, request->supersedes);
-        if (predecessor == ledger->count) return LXP_FATAL_INVARIANT;
-        ledger->entries[predecessor].state = LXP_CAPACITY_SUPERSEDED;
-    }
-    entry = &ledger->entries[ledger->count++];
-    (void)memset(entry, 0, sizeof(*entry));
-    entry->request_id = ledger->next_request_id++;
-    entry->kind = request->kind;
-    entry->state = LXP_CAPACITY_RESERVED;
-    (void)memcpy(entry->request_digest, request->request_digest, 32U);
-    (void)memcpy(entry->activity_id, request->activity_id, 32U);
-    (void)memcpy(entry->idempotency_key, request->idempotency_key, 32U);
-    entry->actor_did_length = request->actor_did_length;
-    (void)memcpy(entry->actor_did, request->actor_did,
-                 sizeof(entry->actor_did));
-    entry->demand = request->demand;
-    entry->bound_sequence = next_sequence;
-    (void)memcpy(entry->bound_root, kernel->current_state_root, 32U);
-    entry->expires_sequence = request->kind == LXP_CAPACITY_WORK ?
-        next_sequence + request->lifetime : 0U;
-    entry->supersedes = request->supersedes;
-    *reservation = *entry;
-    return LXP_OK;
-}
-
-lxp_result lxp_kernel_capacity_reconcile(const lxp_kernel *kernel,
-                                         lxp_capacity_ledger *ledger,
-                                         uint64_t request_id,
-                                         lxp_capacity_reservation *reservation)
-{
-    lxp_capacity_reservation *entry;
-    lxp_receipt *receipt;
-    uint8_t digest[32];
-    bool present = false;
-    size_t index;
-    lxp_result status;
-    if (reservation == NULL || request_id == 0U) return LXP_ERR_NON_CANONICAL;
-    status = capacity_head(kernel, ledger);
-    if (status != LXP_OK) return status;
-    index = capacity_find(ledger, request_id);
-    if (index == ledger->count) return LXP_ERR_UNKNOWN_FIELD;
-    entry = &ledger->entries[index];
-    if (entry->state != LXP_CAPACITY_RESERVED) {
-        *reservation = *entry;
-        return LXP_OK;
-    }
-    receipt = (lxp_receipt *)malloc(sizeof(*receipt));
-    if (receipt == NULL) return LXP_ERR_ARENA_EXHAUSTED;
-    status = capacity_receipt(kernel, entry, &present, receipt, digest);
-    if (status == LXP_OK && present) {
-        entry->outcome_sequence = receipt->global_sequence;
-        entry->outcome_result = receipt->result_code;
-        (void)memcpy(entry->outcome_receipt_digest, digest, 32U);
-        if (entry->kind == LXP_CAPACITY_WORK ||
-            receipt->result_code == LXP_OK)
-            entry->state = LXP_CAPACITY_RECONCILED;
-    } else if (status == LXP_OK && entry->kind == LXP_CAPACITY_WORK &&
-               entry->expires_sequence <= kernel->state->next_sequence) {
-        entry->state = LXP_CAPACITY_EXPIRED;
-    }
-    free(receipt);
-    if (status == LXP_OK) *reservation = *entry;
-    return status;
-}
-
-lxp_result lxp_kernel_capacity_cancel(const lxp_kernel *kernel,
-                                      lxp_capacity_ledger *ledger,
-                                      uint64_t request_id,
-                                      lxp_capacity_reservation *reservation)
-{
-    lxp_capacity_reservation *entry;
-    bool committed = false;
-    size_t index;
-    lxp_result status;
-    if (reservation == NULL || request_id == 0U) return LXP_ERR_NON_CANONICAL;
-    status = capacity_head(kernel, ledger);
-    if (status != LXP_OK) return status;
-    index = capacity_find(ledger, request_id);
-    if (index == ledger->count) return LXP_ERR_UNKNOWN_FIELD;
-    entry = &ledger->entries[index];
-    if (entry->state == LXP_CAPACITY_CANCELLED) {
-        *reservation = *entry;
-        return LXP_OK;
-    }
-    if (entry->state != LXP_CAPACITY_RESERVED) return LXP_ERR_CONDITION_UNMET;
-    if (entry->kind != LXP_CAPACITY_WORK) return LXP_ERR_AUTH_SCOPE;
-    status = capacity_receipt(kernel, entry, &committed, NULL, NULL);
-    if (status != LXP_OK) return status;
-    if (committed) return LXP_ERR_IDEMPOTENT_REPLAY;
-    entry->state = LXP_CAPACITY_CANCELLED;
-    *reservation = *entry;
-    return LXP_OK;
-}
-
-void lxp_capacity_profile_encode(const lxp_capacity_profile *profile,
-                                 uint8_t bytes[LXP_CAPACITY_PROFILE_BYTES])
-{
-    size_t cursor = 0U;
-    capacity_put_u16(bytes + cursor, LXP_CAPACITY_FORMAT_VERSION); cursor += 2U;
-    capacity_put_u16(bytes + cursor, profile->version); cursor += 2U;
-    (void)memcpy(bytes + cursor, profile->digest, 32U); cursor += 32U;
-    cursor += capacity_demand_encode(&profile->floor, bytes + cursor);
-    capacity_put_u64(bytes + cursor, profile->maximum_work_lifetime);
-}
-
-lxp_result lxp_capacity_profile_decode(
-    const uint8_t bytes[LXP_CAPACITY_PROFILE_BYTES],
-    lxp_capacity_profile *profile)
-{
-    size_t cursor = 0U;
-    if (bytes == NULL || profile == NULL) return LXP_ERR_NON_CANONICAL;
-    if (capacity_get_u16(bytes) != LXP_CAPACITY_FORMAT_VERSION)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 2U;
-    (void)memset(profile, 0, sizeof(*profile));
-    profile->version = capacity_get_u16(bytes + cursor); cursor += 2U;
-    (void)memcpy(profile->digest, bytes + cursor, 32U); cursor += 32U;
-    cursor += capacity_demand_decode(bytes + cursor, &profile->floor);
-    profile->maximum_work_lifetime = capacity_get_u64(bytes + cursor);
-    return lxp_capacity_profile_validate(profile);
-}
-
-lxp_result lxp_capacity_request_decode(
-    const uint8_t bytes[LXP_CAPACITY_REQUEST_BYTES],
-    lxp_capacity_request *request)
-{
-    lxp_hash_context hash;
-    size_t cursor = 0U;
-    lxp_result status;
-    if (bytes == NULL || request == NULL) return LXP_ERR_NON_CANONICAL;
-    if (capacity_get_u16(bytes) != LXP_CAPACITY_FORMAT_VERSION)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 2U;
-    (void)memset(request, 0, sizeof(*request));
-    request->kind = bytes[cursor++];
-    (void)memcpy(request->activity_id, bytes + cursor, 32U); cursor += 32U;
-    (void)memcpy(request->idempotency_key, bytes + cursor, 32U); cursor += 32U;
-    request->actor_did_length = capacity_get_u16(bytes + cursor); cursor += 2U;
-    (void)memcpy(request->actor_did, bytes + cursor, sizeof(request->actor_did));
-    cursor += sizeof(request->actor_did);
-    cursor += capacity_demand_decode(bytes + cursor, &request->demand);
-    request->expected_sequence = capacity_get_u64(bytes + cursor); cursor += 8U;
-    (void)memcpy(request->expected_root, bytes + cursor, 32U); cursor += 32U;
-    request->lifetime = capacity_get_u64(bytes + cursor); cursor += 8U;
-    request->supersedes = capacity_get_u64(bytes + cursor); cursor += 8U;
-    if (cursor != LXP_CAPACITY_REQUEST_BYTES) return LXP_FATAL_INVARIANT;
-    lxp_hash_init(&hash);
-    status = lxp_hash_update(&hash, capacity_request_domain,
-                             sizeof(capacity_request_domain) - 1U);
-    if (status == LXP_OK)
-        status = lxp_hash_update(&hash, bytes, LXP_CAPACITY_REQUEST_BYTES);
-    if (status == LXP_OK) status = lxp_hash_final(&hash, request->request_digest);
-    return status;
-}
-
-void lxp_capacity_reservation_encode(
-    const lxp_capacity_reservation *reservation,
-    uint8_t bytes[LXP_CAPACITY_RECORD_BYTES])
-{
-    size_t cursor = 0U;
-    capacity_put_u64(bytes + cursor, reservation->request_id); cursor += 8U;
-    bytes[cursor++] = reservation->kind;
-    bytes[cursor++] = reservation->state;
-    (void)memcpy(bytes + cursor, reservation->request_digest, 32U); cursor += 32U;
-    (void)memcpy(bytes + cursor, reservation->activity_id, 32U); cursor += 32U;
-    (void)memcpy(bytes + cursor, reservation->idempotency_key, 32U); cursor += 32U;
-    capacity_put_u16(bytes + cursor, reservation->actor_did_length); cursor += 2U;
-    (void)memcpy(bytes + cursor, reservation->actor_did,
-                 sizeof(reservation->actor_did));
-    cursor += sizeof(reservation->actor_did);
-    cursor += capacity_demand_encode(&reservation->demand, bytes + cursor);
-    capacity_put_u64(bytes + cursor, reservation->bound_sequence); cursor += 8U;
-    (void)memcpy(bytes + cursor, reservation->bound_root, 32U); cursor += 32U;
-    capacity_put_u64(bytes + cursor, reservation->expires_sequence); cursor += 8U;
-    capacity_put_u64(bytes + cursor, reservation->supersedes); cursor += 8U;
-    capacity_put_u64(bytes + cursor, reservation->outcome_sequence); cursor += 8U;
-    capacity_put_u32(bytes + cursor, (uint32_t)reservation->outcome_result);
-    cursor += 4U;
-    (void)memcpy(bytes + cursor, reservation->outcome_receipt_digest, 32U);
-}
-
-static lxp_result capacity_reservation_decode(
-    const uint8_t *bytes, uint64_t next_request_id,
-    lxp_capacity_reservation *reservation)
-{
-    size_t cursor = 0U;
-    size_t index;
-    (void)memset(reservation, 0, sizeof(*reservation));
-    reservation->request_id = capacity_get_u64(bytes + cursor); cursor += 8U;
-    reservation->kind = bytes[cursor++];
-    reservation->state = bytes[cursor++];
-    (void)memcpy(reservation->request_digest, bytes + cursor, 32U); cursor += 32U;
-    (void)memcpy(reservation->activity_id, bytes + cursor, 32U); cursor += 32U;
-    (void)memcpy(reservation->idempotency_key, bytes + cursor, 32U); cursor += 32U;
-    reservation->actor_did_length = capacity_get_u16(bytes + cursor); cursor += 2U;
-    (void)memcpy(reservation->actor_did, bytes + cursor,
-                 sizeof(reservation->actor_did));
-    cursor += sizeof(reservation->actor_did);
-    cursor += capacity_demand_decode(bytes + cursor, &reservation->demand);
-    reservation->bound_sequence = capacity_get_u64(bytes + cursor); cursor += 8U;
-    (void)memcpy(reservation->bound_root, bytes + cursor, 32U); cursor += 32U;
-    reservation->expires_sequence = capacity_get_u64(bytes + cursor); cursor += 8U;
-    reservation->supersedes = capacity_get_u64(bytes + cursor); cursor += 8U;
-    reservation->outcome_sequence = capacity_get_u64(bytes + cursor); cursor += 8U;
-    reservation->outcome_result = (lxp_result)capacity_get_u32(bytes + cursor);
-    cursor += 4U;
-    (void)memcpy(reservation->outcome_receipt_digest, bytes + cursor, 32U);
-    if (reservation->request_id == 0U ||
-        reservation->request_id >= next_request_id ||
-        (reservation->kind != LXP_CAPACITY_WORK &&
-         reservation->kind != LXP_CAPACITY_OBLIGATION) ||
-        reservation->state < LXP_CAPACITY_RESERVED ||
-        reservation->state > LXP_CAPACITY_SUPERSEDED ||
-        lxp_ct_is_zero(reservation->request_digest, 32U) ||
-        lxp_ct_is_zero(reservation->activity_id, 32U) ||
-        reservation->actor_did_length == 0U ||
-        reservation->actor_did_length > sizeof(reservation->actor_did) ||
-        capacity_demand_zero(&reservation->demand) ||
-        reservation->bound_sequence == 0U ||
-        (reservation->kind == LXP_CAPACITY_WORK) !=
-            (reservation->expires_sequence > reservation->bound_sequence) ||
-        (reservation->kind == LXP_CAPACITY_WORK &&
-         reservation->supersedes != 0U) ||
-        reservation->supersedes >= reservation->request_id ||
-        (reservation->state == LXP_CAPACITY_SUPERSEDED &&
-         reservation->kind != LXP_CAPACITY_OBLIGATION) ||
-        (reservation->outcome_sequence == 0U) !=
-            lxp_ct_is_zero(reservation->outcome_receipt_digest, 32U) ||
-        (reservation->outcome_sequence == 0U &&
-         reservation->outcome_result != LXP_OK) ||
-        (reservation->state == LXP_CAPACITY_RECONCILED &&
-         reservation->outcome_sequence == 0U))
-        return LXP_ERR_LOG_CORRUPT;
-    for (index = reservation->actor_did_length;
-         index < sizeof(reservation->actor_did); ++index)
-        if (reservation->actor_did[index] != 0U) return LXP_ERR_LOG_CORRUPT;
-    return LXP_OK;
-}
-
-void lxp_capacity_observation_encode(
-    const lxp_capacity_observation *observation,
-    uint8_t bytes[LXP_CAPACITY_OBSERVATION_BYTES])
-{
-    size_t cursor = 0U;
-    capacity_put_u16(bytes + cursor, LXP_CAPACITY_FORMAT_VERSION); cursor += 2U;
-    capacity_put_u16(bytes + cursor, observation->profile_version); cursor += 2U;
-    (void)memcpy(bytes + cursor, observation->profile_digest, 32U); cursor += 32U;
-    capacity_put_u64(bytes + cursor, observation->next_sequence); cursor += 8U;
-    (void)memcpy(bytes + cursor, observation->state_root, 32U); cursor += 32U;
-    cursor += capacity_demand_encode(&observation->limit, bytes + cursor);
-    cursor += capacity_demand_encode(&observation->committed, bytes + cursor);
-    cursor += capacity_demand_encode(&observation->floor, bytes + cursor);
-    cursor += capacity_demand_encode(&observation->obligations, bytes + cursor);
-    cursor += capacity_demand_encode(&observation->work, bytes + cursor);
-    cursor += capacity_demand_encode(&observation->available, bytes + cursor);
-    capacity_put_u32(bytes + cursor, observation->active_reservations);
-    cursor += 4U;
-    capacity_put_u64(bytes + cursor, observation->next_request_id);
-}
-
-lxp_result lxp_capacity_ledger_encode(const lxp_capacity_ledger *ledger,
-                                      uint8_t *bytes, size_t capacity,
-                                      size_t *length)
-{
-    size_t cursor = 0U;
-    size_t index;
-    size_t total;
-    if (ledger == NULL || bytes == NULL || length == NULL ||
-        ledger->profile.version == 0U ||
-        ledger->count > LXP_CAPACITY_MAX_RESERVATIONS)
-        return LXP_ERR_NON_CANONICAL;
-    total = 8U + 2U + LXP_CAPACITY_PROFILE_BYTES + 8U + 2U +
-        ledger->count * LXP_CAPACITY_RECORD_BYTES + 32U;
-    if (capacity < total) return LXP_ERR_LENGTH_LIMIT;
-    (void)memcpy(bytes, capacity_ledger_magic, 8U); cursor += 8U;
-    capacity_put_u16(bytes + cursor, LXP_CAPACITY_FORMAT_VERSION); cursor += 2U;
-    lxp_capacity_profile_encode(&ledger->profile, bytes + cursor);
-    cursor += LXP_CAPACITY_PROFILE_BYTES;
-    capacity_put_u64(bytes + cursor, ledger->next_request_id); cursor += 8U;
-    capacity_put_u16(bytes + cursor, (uint16_t)ledger->count); cursor += 2U;
-    for (index = 0U; index < ledger->count; ++index) {
-        lxp_capacity_reservation_encode(&ledger->entries[index], bytes + cursor);
-        cursor += LXP_CAPACITY_RECORD_BYTES;
-    }
-    if (lxp_hash_sha256(bytes, cursor, bytes + cursor) != LXP_OK)
-        return LXP_FATAL_INVARIANT;
-    *length = cursor + 32U;
-    return LXP_OK;
-}
-
-lxp_result lxp_capacity_ledger_decode(const uint8_t *bytes, size_t length,
-                                      lxp_capacity_ledger *ledger)
-{
-    uint8_t digest[32];
-    size_t cursor = 0U;
-    size_t count;
-    size_t index;
-    size_t other;
-    lxp_result status;
-    if (bytes == NULL || ledger == NULL) return LXP_ERR_NON_CANONICAL;
-    (void)memset(ledger, 0, sizeof(*ledger));
-    if (length < 8U + 2U + LXP_CAPACITY_PROFILE_BYTES + 8U + 2U + 32U)
-        return LXP_ERR_LOG_TRUNCATED;
-    if (memcmp(bytes, capacity_ledger_magic, 8U) != 0)
-        return LXP_ERR_LOG_CORRUPT;
-    cursor += 8U;
-    if (capacity_get_u16(bytes + cursor) != LXP_CAPACITY_FORMAT_VERSION)
-        return LXP_ERR_VERSION_UNSUPPORTED;
-    cursor += 2U;
-    count = capacity_get_u16(bytes + cursor + LXP_CAPACITY_PROFILE_BYTES + 8U);
-    if (count > LXP_CAPACITY_MAX_RESERVATIONS ||
-        length != 8U + 2U + LXP_CAPACITY_PROFILE_BYTES + 8U + 2U +
-            count * LXP_CAPACITY_RECORD_BYTES + 32U)
-        return LXP_ERR_LOG_CORRUPT;
-    if (lxp_hash_sha256(bytes, length - 32U, digest) != LXP_OK)
-        return LXP_FATAL_INVARIANT;
-    if (lxp_ct_memcmp(digest, bytes + length - 32U, 32U) != 0)
-        return LXP_ERR_LOG_CORRUPT;
-    status = lxp_capacity_profile_decode(bytes + cursor, &ledger->profile);
-    if (status != LXP_OK) {
-        (void)memset(ledger, 0, sizeof(*ledger));
-        return LXP_ERR_LOG_CORRUPT;
-    }
-    cursor += LXP_CAPACITY_PROFILE_BYTES;
-    ledger->next_request_id = capacity_get_u64(bytes + cursor); cursor += 10U;
-    status = ledger->next_request_id == 0U ? LXP_ERR_LOG_CORRUPT : LXP_OK;
-    for (index = 0U; status == LXP_OK && index < count; ++index) {
-        lxp_capacity_reservation *entry = &ledger->entries[index];
-        status = capacity_reservation_decode(bytes + cursor,
-                                             ledger->next_request_id, entry);
-        cursor += LXP_CAPACITY_RECORD_BYTES;
-        if (status == LXP_OK && index != 0U &&
-            entry->request_id <= ledger->entries[index - 1U].request_id)
-            status = LXP_ERR_LOG_CORRUPT;
-        for (other = 0U; status == LXP_OK && other < index; ++other) {
-            const lxp_capacity_reservation *prior = &ledger->entries[other];
-            if (lxp_ct_memcmp(prior->request_digest, entry->request_digest,
-                              32U) == 0 ||
-                (prior->state == LXP_CAPACITY_RESERVED &&
-                 entry->state == LXP_CAPACITY_RESERVED &&
-                 lxp_ct_memcmp(prior->activity_id, entry->activity_id,
-                               32U) == 0))
-                status = LXP_ERR_LOG_CORRUPT;
-        }
-    }
-    if (status != LXP_OK) {
-        (void)memset(ledger, 0, sizeof(*ledger));
-        return status;
-    }
-    ledger->count = count;
-    return LXP_OK;
-}

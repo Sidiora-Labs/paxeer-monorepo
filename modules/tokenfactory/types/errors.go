@@ -5,8 +5,12 @@ package types
 import (
 	fmt "fmt"
 
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 )
+
+// DenomPausedReason preserves the shared pause code and tokenfactory detail.
+const DenomPausedReason = ledgertypes.AssetPausedCode + ": denom is paused"
 
 // modules/tokenfactory module sentinel errors
 var (
@@ -31,6 +35,14 @@ var (
 	ErrUnknownPaxTokenFactoryQuery    = sdkerrors.Register(ModuleName, 23, "Error unknown pax token factory query")
 	ErrAllowListTooLarge              = sdkerrors.Register(ModuleName, 24, "allowlist too large")
 	ErrAllowListUndefined             = sdkerrors.Register(ModuleName, 25, "allowlist undefined")
-	ErrDenomPaused                    = sdkerrors.Register(ModuleName, 26, "LXP_ASSET_PAUSED: denom is paused")
+	ErrDenomPaused                    = sdkerrors.Register(ModuleName, 26, DenomPausedReason)
 	ErrPauseUnchanged                 = sdkerrors.Register(ModuleName, 27, "LXP_PAUSED_SCOPE: denom pause state unchanged")
 )
+
+var ErrIssuerMismatch = sdkerrors.Register(ModuleName, 28, "LXP_UNAUTHORIZED_DEBIT: caller is not the denom issuer")
+
+// ErrEncodeTokenFactorySetDenomPaused also covers missing or null required
+// fields, so malformed wasm output cannot implicitly request an unpause.
+var ErrEncodeTokenFactorySetDenomPaused = sdkerrors.Register(ModuleName, 29, "Error while encoding tokenfactory set denom paused msg in wasmd")
+
+var ErrEncodingDenomPaused = sdkerrors.Register(ModuleName, 30, "Error encoding denom paused as JSON")

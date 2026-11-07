@@ -1,0 +1,31 @@
+[repair.22.33.596]
+audit = "22.30.161"
+base_revision = "b62af42e449558c1a2b459f07ffcc15659aecb61"
+baseline = "No earlier hf-build/hf-done ledger exists; the repair target did not exist on the unchanged tree. The explicit implementation-first order and prohibition on manual verify override do_7's baseline-run instruction; no pre-change failures are claimed."
+verify_command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test repair_22_33_596"
+evidence = "The runner's hf-build/hf-done ledger supplies the exact candidate revision, exit and private log; this record does not claim an unrun service compilation."
+
+[finding.sourcify-route-tests-commented]
+proving_tests = ["sourcify_route_tests_commented::should_return_200", "sourcify_route_tests_commented::invalid_contracts", "sourcify_route_tests_commented::invalid_input", "sourcify_route_tests_commented::upstream_failure"]
+path = "Generated Actix route -> production SourcifyVerifierService -> production SourcifyApiClient -> loopback HTTP transcript -> production metadata conversion -> public VerifyResponse."
+fixtures = "Historical compiled Storage source and compiler metadata from contracts/storage, with explicit chain 125 fixture selectors. Every old response assertion remains executable against the current response schema; compiler settings exclude compilationTarget as the production conversion requires."
+
+[finding.etherscan-import-success-untested]
+proving_tests = ["etherscan_import_success_untested::should_return_200", "etherscan_import_success_untested::contract_not_verified_fail", "etherscan_import_success_untested::chain_not_supported_fail", "etherscan_import_success_untested::invalid_address_never_reaches_upstream", "etherscan_import_success_untested::upstream_import_failure"]
+path = "Generated Actix route -> production service -> chains preflight -> pinned Sourcify library import POST -> source-file GET -> production metadata and source decoder -> public VerifyResponse."
+fixtures = "C1 source, ABI, compiler version and settings retained verbatim from the original disabled success assertion; metadata envelope reconstructed from those values. Loopback peers replay the pinned v1 Sourcify protocol; they do not implement or claim a real Sourcify deployment or explorer. Both FULL and PARTIAL source responses and all original negative assertions execute."
+
+[finding.nightly-regression-ignored]
+proving_tests = ["nightly_catalogue_reaches_service_and_rejects_wrong_date", "solidity_multiple::regression_tests::issue_5430_5434"]
+catalogue_revision = "870b7973631c592bf161cd1bfc1941c37e65f37f"
+catalogue_origin = "https://raw.githubusercontent.com/blockscout/solc-bin/870b7973631c592bf161cd1bfc1941c37e65f37f/list.json"
+artifact_sha256 = "db60947a952c9e7db5cea948189e17fd524a4c25ea7c2b252b92a2e396c3142c"
+artifact_bytes = 16044640
+artifact_check = "Read the actual release artifact and independently SHA-256 verified all bytes during implementation; no compiler was executed. The committed one-entry catalogue preserves its real URL and checksum."
+implementation = "Removed the ignore attribute and retained every test_success verification assertion. The historical regression now constructs the production service with the committed nightly catalogue rather than the default stable-only list."
+service_target_command = "cargo test --locked --manifest-path services/explorer/services/smart-contract-verifier/smart-contract-verifier-server/Cargo.toml --test solidity_multiple regression_tests::issue_5430_5434 -- --exact"
+service_target_evidence = "Not run: this command is outside the allowed gates and the existing production compiler requires a native solc subprocess. The declared gate proves real catalogue loading, version validation and route rejection of unknown nightly identities, not successful compilation."
+wiring_request = "Owning domain 14: smart-contract-verifier/src/verify/solc_compiler.rs needs an in-process compiler/transcript integration interface to prove the historical compilation inside the declared no-native/no-subprocess gate; preserve all verification assertions."
+
+[limitations]
+wiring_request = "Owning domain 14: a controlled real Sourcify/import deployment and explorer are external to the permitted paths; this task uses the committed protocol peers explicitly allowed by do_8, without claiming it tested upstream compilation/deployment."

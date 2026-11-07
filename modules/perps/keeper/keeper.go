@@ -3,7 +3,6 @@ package keeper
 import (
 	"encoding/json"
 	"errors"
-	"fmt"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -65,18 +64,21 @@ func (k *Keeper) GetParams(ctx sdk.Context) (types.Params, error) {
 	}
 	var params types.Params
 	if err := json.Unmarshal(bz, &params); err != nil {
-		return types.Params{}, fmt.Errorf("%w: corrupt params: %v", types.ErrInvalidParams, err)
+		return types.Params{}, types.ErrInvalidParams.Wrapf("corrupt params: %v", err)
+	}
+	if err := params.Validate(); err != nil {
+		return types.Params{}, types.ErrInvalidParams.Wrapf("corrupt params: %v", err)
 	}
 	return params, nil
 }
 
 func (k *Keeper) setParams(ctx sdk.Context, params types.Params) error {
 	if err := params.Validate(); err != nil {
-		return err
+		return types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	bz, err := json.Marshal(params)
 	if err != nil {
-		return fmt.Errorf("%w: %v", types.ErrInvalidParams, err)
+		return types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	k.store(ctx).Set(types.ParamsKey, bz)
 	return nil
@@ -86,7 +88,7 @@ func (k *Keeper) setParams(ctx sdk.Context, params types.Params) error {
 // account.
 func (k *Keeper) UpdateParams(ctx sdk.Context, authority string, params types.Params) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrapf("%s", authority)
 	}
 	return k.setParams(ctx, params)
 }
@@ -95,7 +97,7 @@ func (k *Keeper) UpdateParams(ctx sdk.Context, authority string, params types.Pa
 func (k *Keeper) GetMarket(ctx sdk.Context, marketID uint64) (types.Market, error) {
 	bz := k.store(ctx).Get(types.MarketKey(marketID))
 	if bz == nil {
-		return types.Market{}, fmt.Errorf("%w: %d", types.ErrUnknownMarket, marketID)
+		return types.Market{}, types.ErrUnknownMarket.Wrapf("%d", marketID)
 	}
 	return decodeMarket(marketID, bz)
 }
@@ -103,7 +105,7 @@ func (k *Keeper) GetMarket(ctx sdk.Context, marketID uint64) (types.Market, erro
 func decodeMarket(marketID uint64, bz []byte) (types.Market, error) {
 	var market types.Market
 	if err := json.Unmarshal(bz, &market); err != nil {
-		return types.Market{}, fmt.Errorf("%w: corrupt market %d: %v", types.ErrInvalidParams, marketID, err)
+		return types.Market{}, types.ErrInvalidParams.Wrapf("corrupt market %d: %v", marketID, err)
 	}
 	return market, nil
 }
@@ -113,10 +115,10 @@ func decodeMarket(marketID uint64, bz []byte) (types.Market, error) {
 // is listed at the block time; otherwise the stored listing time is kept.
 func (k *Keeper) SetMarket(ctx sdk.Context, authority string, market types.Market) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrapf("%s", authority)
 	}
 	if err := market.Validate(); err != nil {
-		return err
+		return types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	stored, err := k.GetMarket(ctx, market.ID)
 	switch {
@@ -137,7 +139,7 @@ func (k *Keeper) SetMarket(ctx sdk.Context, authority string, market types.Marke
 	}
 	bz, err := json.Marshal(market)
 	if err != nil {
-		return fmt.Errorf("%w: %v", types.ErrInvalidParams, err)
+		return types.ErrInvalidParams.Wrapf("%v", err)
 	}
 	k.store(ctx).Set(types.MarketKey(market.ID), bz)
 	return nil
@@ -146,7 +148,7 @@ func (k *Keeper) SetMarket(ctx sdk.Context, authority string, market types.Marke
 func blockTimeSeconds(ctx sdk.Context) (uint64, error) {
 	seconds := ctx.BlockTime().Unix()
 	if seconds < 0 {
-		return 0, fmt.Errorf("%w: block time %d before the epoch", types.ErrInvalidParams, seconds)
+		return 0, types.ErrInvalidParams.Wrapf("block time %d before the epoch", seconds)
 	}
 	return uint64(seconds), nil
 }
@@ -159,7 +161,7 @@ func (k *Keeper) IterateMarkets(ctx sdk.Context, visit func(types.Market) (stop 
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(types.MarketPrefix)+8 {
-			return fmt.Errorf("%w: market key %x", types.ErrInvalidParams, key)
+			return types.ErrInvalidParams.Wrapf("market key %x", key)
 		}
 		market, err := decodeMarket(sdk.BigEndianToUint64(key[len(types.MarketPrefix):]), iterator.Value())
 		if err != nil {
@@ -188,13 +190,13 @@ func (k *Keeper) nextID(ctx sdk.Context, name byte) (uint256.Int, error) {
 	id := *uint256.NewInt(1)
 	if bz := k.store(ctx).Get(key); bz != nil {
 		if len(bz) != 32 {
-			return uint256.Int{}, fmt.Errorf("%w: sequence %d holds %d bytes", types.ErrInvalidParams, name, len(bz))
+			return uint256.Int{}, types.ErrInvalidParams.Wrapf("sequence %d holds %d bytes", name, len(bz))
 		}
 		id.SetBytes32(bz)
 	}
 	var next uint256.Int
 	if _, overflow := next.AddOverflow(&id, uint256.NewInt(1)); overflow {
-		return uint256.Int{}, fmt.Errorf("%w: sequence %d exhausted", types.ErrOverflow, name)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("sequence %d exhausted", name)
 	}
 	word := next.Bytes32()
 	k.store(ctx).Set(key, word[:])

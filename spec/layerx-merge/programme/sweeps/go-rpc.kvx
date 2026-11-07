@@ -1,0 +1,39 @@
+[sweep.go-rpc]
+revision = "0cb4475f11d9c687ae15037e53e623b7344959f1"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 6
+targets_passed = 5
+targets_failed = 0
+targets_not_run = 1
+
+[target.go-rpc.1]
+target = "rpc"
+result = "not_run"
+exit_code = 124
+timeout_seconds = 660
+reason = "The 660-second per-target inventory budget expired after vet passed and while uncached tests were still running, preserving time for the remaining targets and qualification within the 30-minute task limit."
+
+[target.go-rpc.2]
+target = "rpc/config"
+result = "passed"
+exit_code = 0
+
+[target.go-rpc.3]
+target = "rpc/ethbloom"
+result = "passed"
+exit_code = 0
+
+[target.go-rpc.4]
+target = "rpc/rpcutils"
+result = "passed"
+exit_code = 0
+
+[target.go-rpc.5]
+target = "rpc/stats"
+result = "passed"
+exit_code = 0
+
+[target.go-rpc.6]
+target = "rpc/tests"
+result = "passed"
+exit_code = 0

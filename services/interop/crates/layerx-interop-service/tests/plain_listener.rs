@@ -1,5 +1,11 @@
+#[path = "support/active_inputs.rs"]
+mod active_inputs;
+
+use layerx_platform_gateway::http;
+use serde_json::{json, Value};
 use std::fs;
 use std::net::TcpListener;
+use std::os::unix::fs::PermissionsExt as _;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Output, Stdio};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -11,6 +17,7 @@ static FIXTURES: AtomicUsize = AtomicUsize::new(0);
 struct Fixture {
     dir: PathBuf,
     port: u16,
+    sequencer: std::net::SocketAddr,
 }
 
 impl Drop for Fixture {
@@ -120,17 +127,6 @@ fn fixture() -> Fixture {
         ("identity-password", "interop-client-identity\n"),
         ("redis-username", "interop\n"),
         ("redis-password", "interop-redis-password\n"),
-        ("authority-token", "interop-authority-token\n"),
-        (
-            "sequencer-public-key",
-            "5866666666666666666666666666666666666666666666666666666666666666\n",
-        ),
-        (
-            "sequencer-id",
-            "1111111111111111111111111111111111111111111111111111111111111111\n",
-        ),
-        ("sequencer-first-batch", "1\n"),
-        ("sequencer-last-batch", "100\n"),
         (
             "registry.json",
             "{\"modules\":[{\"module\":1,\"ordinals\":[1]}]}",
@@ -138,12 +134,103 @@ fn fixture() -> Fixture {
     ] {
         fs::write(dir.join(name), contents).expect("fixture file");
     }
+    let public_key: String = ed25519_dalek::SigningKey::from_bytes(&[7; 32])
+        .verifying_key()
+        .to_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    let receipt_keys = json!([{
+        "keyId": format!("0x{}", "11".repeat(32)), "publicKey": format!("0x{public_key}"),
+        "firstHeight": 1, "lastHeight": 100,
+    }]);
+    fs::write(
+        dir.join("receipt-keys.json"),
+        serde_json::to_vec(&receipt_keys).unwrap(),
+    )
+    .unwrap();
+    let mut manifest: Value = serde_json::from_slice(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../deploy/gateway/config.example.json"
+    )))
+    .unwrap();
+    manifest["x402_supported"] = json!({
+        "kinds": [{"x402Version": 2, "scheme": "exact", "network": "eip155:125"}],
+        "extensions": [], "signers": {"eip155:125": [format!("did:layerx:{public_key}")]}
+    });
+    let ap2_key = p256::ecdsa::SigningKey::from_bytes((&[9; 32]).into()).unwrap();
+    let ap2_public_key: String = ap2_key
+        .verifying_key()
+        .to_encoded_point(false)
+        .as_bytes()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect();
+    for pin in manifest["ap2_keys"].as_array_mut().unwrap() {
+        pin["public_key_sec1"] = json!(ap2_public_key);
+    }
+    manifest["visa_agents"][0]["public_key"] = json!(public_key);
+    manifest["fiat_providers"][0]["public_key_ed25519"] = json!(public_key);
+    fs::write(
+        dir.join("config.json"),
+        serde_json::to_vec(&manifest).unwrap(),
+    )
+    .unwrap();
+    for entry in fs::read_dir(&dir).unwrap() {
+        fs::set_permissions(entry.unwrap().path(), fs::Permissions::from_mode(0o600)).unwrap();
+    }
+    fs::set_permissions(&dir, fs::Permissions::from_mode(0o700)).unwrap();
+    let sequencer = TcpListener::bind("127.0.0.1:0").unwrap();
+    sequencer.set_nonblocking(true).unwrap();
+    let sequencer_address = sequencer.local_addr().unwrap();
+    let lifetime = dir.clone();
+    thread::spawn(move || {
+        while lifetime.exists() {
+            let (mut stream, _) = match sequencer.accept() {
+                Ok(connection) => connection,
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    thread::sleep(Duration::from_millis(10));
+                    continue;
+                }
+                Err(error) => panic!("sequencer listener: {error}"),
+            };
+            stream
+                .set_read_timeout(Some(Duration::from_secs(5)))
+                .unwrap();
+            let request = http::read_request(&mut stream, 64 * 1024).unwrap();
+            let rpc: Value = serde_json::from_slice(&request.body).unwrap();
+            assert_eq!(request.method, "POST");
+            assert_eq!(rpc["method"], "px_getReceiptKeys");
+            assert_eq!(rpc["params"], json!([]));
+            let keys = json!({"keys": receipt_keys});
+            layerx_client::sequencer::decode_receipt_keys(&keys)
+                .expect("sequencer publishes the canonical receipt-key response");
+            http::write_response(
+                &mut stream,
+                &http::OutgoingResponse {
+                    status: 200,
+                    content_type: "application/json".to_owned(),
+                    headers: Vec::new(),
+                    body: serde_json::to_vec(
+                        &json!({"jsonrpc": "2.0", "id": rpc["id"], "result": keys}),
+                    )
+                    .unwrap(),
+                    retry_after: None,
+                },
+            )
+            .unwrap();
+        }
+    });
     let port = TcpListener::bind("127.0.0.1:0")
         .expect("free port")
         .local_addr()
         .expect("local address")
         .port();
-    Fixture { dir, port }
+    Fixture {
+        dir,
+        port,
+        sequencer: sequencer_address,
+    }
 }
 
 fn gateway(fixture: &Fixture, extra: &[(&str, String)]) -> Command {
@@ -151,13 +238,7 @@ fn gateway(fixture: &Fixture, extra: &[(&str, String)]) -> Command {
     let mut command = Command::new(env!("CARGO_BIN_EXE_layerx-interop-gateway"));
     command
         .env_clear()
-        .env(
-            "LAYERX_INTEROP_CONFIG",
-            concat!(
-                env!("CARGO_MANIFEST_DIR"),
-                "/../../deploy/gateway/config.example.json"
-            ),
-        )
+        .env("LAYERX_INTEROP_CONFIG", path(dir, "config.json"))
         .env(
             "LAYERX_INTEROP_LISTEN",
             format!("127.0.0.1:{}", fixture.port),
@@ -181,41 +262,27 @@ fn gateway(fixture: &Fixture, extra: &[(&str, String)]) -> Command {
             path(dir, "redis-password"),
         )
         .env(
-            "LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE",
-            path(dir, "sequencer-public-key"),
+            "LAYERX_INTEROP_SEQUENCER_URL",
+            format!("http://{}", fixture.sequencer),
         )
         .env(
-            "LAYERX_INTEROP_SEQUENCER_ID_FILE",
-            path(dir, "sequencer-id"),
+            "LAYERX_INTEROP_RECEIPT_KEYS_FILE",
+            path(dir, "receipt-keys.json"),
         )
-        .env(
-            "LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE",
-            path(dir, "sequencer-first-batch"),
-        )
-        .env(
-            "LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE",
-            path(dir, "sequencer-last-batch"),
-        )
-        .env("LAYERX_INTEROP_NETWORK_ID", "layerx-testnet")
+        .env("LAYERX_INTEROP_CHAIN_ID", "125")
+        .env("LAYERX_INTEROP_READINESS_MAX_AGE_MS", "30000")
+        .env("LAYERX_INTEROP_NETWORK_ID", "eip155-125")
         .env("LAYERX_INTEROP_WIRE_VERSION", "3")
         .env("LAYERX_INTEROP_PROTOCOL_NETWORK_ID", "402")
         .env(
             "LAYERX_INTEROP_MODULE_REGISTRY_FILE",
             path(dir, "registry.json"),
         )
-        .env("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS", "60")
-        .env("LAYERX_INTEROP_HOSTED_GATEWAY_URL", "https://localhost:2")
-        .env(
-            "LAYERX_INTEROP_RECEIPT_AUTHORITY_URL",
-            "https://localhost:3",
-        )
-        .env(
-            "LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE",
-            path(dir, "authority-token"),
-        );
+        .env("LAYERX_INTEROP_TAP_CLOCK_SKEW_SECONDS", "60");
     for (name, value) in extra {
         command.env(name, value);
     }
+    active_inputs::assert_command(&command, dir);
     command
 }
 
@@ -252,8 +319,25 @@ fn livez(gateway: &mut Gateway, curl: &[String]) -> String {
     panic!("interop gateway never answered /livez");
 }
 
+fn listener_tools_available() -> bool {
+    for tool in ["openssl", "curl"] {
+        match Command::new(tool).arg("--version").output() {
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                eprintln!("SKIP listener test: missing prerequisite {tool}");
+                return false;
+            }
+            Err(error) => panic!("{tool} prerequisite check failed: {error}"),
+            Ok(_) => {}
+        }
+    }
+    true
+}
+
 #[test]
 fn plain_listener_answers_livez_over_http() {
+    if !listener_tools_available() {
+        return;
+    }
     let fixture = fixture();
     let mut gateway = start(&fixture, &[("LAYERX_INTEROP_LISTENER", "plain".to_owned())]);
     let body = livez(
@@ -273,6 +357,9 @@ fn plain_listener_answers_livez_over_http() {
 
 #[test]
 fn default_listener_answers_livez_over_tls() {
+    if !listener_tools_available() {
+        return;
+    }
     let fixture = fixture();
     let dir = &fixture.dir;
     let mut gateway = start(
@@ -322,6 +409,9 @@ fn refused(fixture: &Fixture, extra: &[(&str, String)]) -> String {
 
 #[test]
 fn plain_listener_refuses_tls_material_and_unknown_modes() {
+    if !listener_tools_available() {
+        return;
+    }
     let fixture = fixture();
     let dir = &fixture.dir;
     let plain = || ("LAYERX_INTEROP_LISTENER", "plain".to_owned());

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import * as Sentry from '@sentry/nextjs';
+import Sentry from '@sentry/nextjs';
 
 /**
  * Client error sink.
@@ -41,10 +41,26 @@ function isErrorBeacon(value: unknown): value is ErrorBeacon {
 
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
-    const raw = await request.text();
-    if (raw.length > MAX_BODY_BYTES) {
-      return new NextResponse(null, { status: 413 });
+    const bytes = new Uint8Array(MAX_BODY_BYTES);
+    let byteLength = 0;
+    const reader = request.body?.getReader();
+    if (reader) {
+      try {
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          if (value.byteLength > MAX_BODY_BYTES - byteLength) {
+            await reader.cancel();
+            return new NextResponse(null, { status: 413 });
+          }
+          bytes.set(value, byteLength);
+          byteLength += value.byteLength;
+        }
+      } finally {
+        reader.releaseLock();
+      }
     }
+    const raw = new TextDecoder().decode(bytes.subarray(0, byteLength));
 
     let parsed: unknown;
     try {

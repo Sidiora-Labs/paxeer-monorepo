@@ -1,0 +1,22 @@
+[repair.22.33.1217]
+audit = "22.30.58"
+base = "72c91077cb966f1c4c640ded61b4b259f41cad90"
+baseline = "Not run: the explicit implementation-first order and bounded hf-build/hf-done gates prohibit the contradictory do_8 baseline verification; no baseline failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log location."
+wiring = "No production changes outside the allowed directory are required; tests invoke existing keeper, store, codec and governance interfaces."
+
+[finding.connection-sequence-zero]
+tests = ["TestRepairM_1217_ConnectionSequenceZero", "TestRepairM_1217_GenesisImportRestartOpen"]
+proof = "Reject a nonempty zero-counter genesis; encode keeper-exported state, import, commit, close and reopen the store, then open connection-1 while retaining connection-0 byte-for-byte."
+
+[finding.connection-genesis-test-collision]
+tests = ["TestRepairM_1217_ConnectionSequenceZero", "TestRepairM_1217_GenesisImportRestartOpen"]
+proof = "Correct the existing valid fixture to next sequence one, add zero-collision rejection, and assert imported connection and client paths survive reopening and subsequent allocation."
+
+[finding.connection-parameter-destination]
+tests = ["TestRepairM_1217_ParameterDestination"]
+proof = "Real subspace SetParamSet/GetParamSet round-trip into fresh Params and GetParamSetIfExists for both existing and absent values, including the keeper consumer."
+
+[finding.zero-block-delay-parameter]
+tests = ["TestRepairM_1217_ZeroBlockDelayGovernance"]
+proof = "Reject zero through Params, registered validator, SetParamSet, Subspace.Update and governance; preserve storage and delay enforcement, then accept a valid governance timing change and verify a keeper-produced packet commitment proof at exact time and block boundaries."

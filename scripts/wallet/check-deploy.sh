@@ -70,10 +70,13 @@ import tomllib
 deploy_dir, repo_root = sys.argv[1], sys.argv[2]
 failures = 0
 
+# Provider locations: https://fly.io/docs/reference/regions/ (gru: Sao Paulo, jnb: Johannesburg).
 CONTINENTS = {
-    "north-america": {"iad", "ord", "sjc", "sea", "yyz", "gru"},
+    "north-america": {"iad", "ord", "sjc", "sea", "yyz"},
     "europe": {"ams", "fra", "lhr", "cdg", "arn", "mad"},
-    "asia-pacific": {"sin", "nrt", "hkg", "syd", "bom", "jnb"},
+    "asia-pacific": {"sin", "nrt", "hkg", "syd", "bom"},
+    "south-america": {"gru"},
+    "africa": {"jnb"},
 }
 
 SECRET_SHAPES = [

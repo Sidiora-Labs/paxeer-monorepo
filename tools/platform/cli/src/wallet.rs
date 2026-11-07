@@ -30,6 +30,15 @@ pub enum WalletCommand {
     List,
     /// Read all accounts of the selected DID.
     Balance {
+        /// Explicit hosted service URL for px_ account queries.
+        #[arg(long)]
+        gateway_rpc: Option<String>,
+        /// Canonical account snapshot exported by the proof producer.
+        #[arg(long, requires = "proof_policy")]
+        proof_snapshot: Option<std::path::PathBuf>,
+        /// Independently pinned committed root, chain scope and receipt signer.
+        #[arg(long, requires = "proof_snapshot")]
+        proof_policy: Option<std::path::PathBuf>,
         #[arg(long)]
         did: Option<String>,
         #[arg(long)]
@@ -52,12 +61,16 @@ pub enum WalletCommand {
         #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u64).range(1..=300))]
         timeout_seconds: u64,
     },
-    /// Estimate fees from canonical activity bytes using the native fee schedule.
-    EstimateFee { canonical_hex: String },
-    /// Verify receipt evidence at the requested commitment.
+    /// Estimate fees from unsigned EIP-1559 transaction bytes at pending.
+    EstimateFee {
+        transaction_hex: String,
+        #[arg(long)]
+        from: String,
+    },
+    /// Verify submitted, receipted or final committed evidence under pinned receipt keys and trusted node TLS.
     Receipt {
-        activity_id: String,
-        #[arg(long, value_enum, default_value = "executed")]
+        tx_hash: String,
+        #[arg(long, value_enum, default_value = "receipted")]
         wait: Commitment,
         #[arg(long)]
         receipt_policy: Option<std::path::PathBuf>,
@@ -82,9 +95,14 @@ pub enum SubscriptionTopic {
 
 #[derive(Clone, Copy, ValueEnum)]
 pub enum Commitment {
-    Executed,
-    Batched,
-    Finalised,
+    /// Accepted transaction hash; execution is not yet verified.
+    Submitted,
+    /// Sequencer-signed execution receipt under the pinned receipt policy.
+    #[value(alias = "executed")]
+    Receipted,
+    /// Final committed block under the pinned receipt and trusted node policy.
+    #[value(alias = "batched", alias = "finalised")]
+    Committed,
 }
 
 #[derive(Args)]
@@ -103,11 +121,17 @@ pub struct TransferArgs {
 
 #[derive(Args)]
 pub struct TransferWriteOptions {
+    /// Explicit hosted service URL for px_ source-account queries.
+    #[arg(long)]
+    gateway_rpc: Option<String>,
+    /// Owner-only private-key export produced by wallet derive.
+    #[arg(long)]
+    evm_key_file: Option<std::path::PathBuf>,
     #[arg(long)]
     receipt_policy: Option<std::path::PathBuf>,
     #[arg(long)]
     fee_limit: Option<String>,
-    #[arg(long, value_enum, default_value = "executed")]
+    #[arg(long, value_enum, default_value = "receipted")]
     wait: Commitment,
     #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u64).range(1..=300))]
     timeout_seconds: u64,
@@ -115,11 +139,17 @@ pub struct TransferWriteOptions {
 
 #[derive(Args)]
 pub struct WriteOptions {
+    /// Explicit hosted service URL for px_ source-account queries.
+    #[arg(long)]
+    gateway_rpc: Option<String>,
+    /// Owner-only private-key export produced by wallet derive.
+    #[arg(long)]
+    evm_key_file: std::path::PathBuf,
     #[arg(long)]
     receipt_policy: std::path::PathBuf,
     #[arg(long)]
     fee_limit: String,
-    #[arg(long, value_enum, default_value = "executed")]
+    #[arg(long, value_enum, default_value = "receipted")]
     wait: Commitment,
     #[arg(long, default_value_t = 60, value_parser = clap::value_parser!(u64).range(1..=300))]
     timeout_seconds: u64,
@@ -174,18 +204,170 @@ pub enum TokenCommand {
     Info { asset: String },
     /// List one page of registered tokens in ascending asset order.
     List {
-        /// Asset identifier to resume after, as published by a page's next cursor.
+        /// Registration cursor published by the previous page.
         #[arg(long)]
         cursor: Option<String>,
-        /// Page size; the gateway applies 64 when it is absent.
-        #[arg(long, value_parser = clap::value_parser!(u16).range(1..=256))]
+        /// Page size; the hosted gateway applies 16 when it is absent.
+        #[arg(long, value_parser = clap::value_parser!(u16).range(1..=16))]
         limit: Option<u16>,
     },
 }
 
+pub(crate) struct WalletRpc {
+    client: Client,
+    path: String,
+    endpoint: String,
+    credential: Option<zeroize::Zeroizing<String>>,
+}
+
+impl WalletRpc {
+    pub(crate) fn new(
+        endpoint: &str,
+        credential: Option<zeroize::Zeroizing<String>>,
+    ) -> Result<Self, String> {
+        // Apply the shared URL/TLS boundary before splitting the exact service path.
+        layerx_sdk::rpc::RpcClient::connect_node(endpoint, None).map_err(rpc_error)?;
+        let uri: ureq::http::Uri = endpoint.parse().map_err(|_| "invalid RPC endpoint")?;
+        let authority = uri
+            .authority()
+            .ok_or("RPC endpoint requires an authority")?;
+        let scheme = uri.scheme_str().ok_or("RPC endpoint requires a scheme")?;
+        let base = format!("{scheme}://{authority}");
+        let path = uri
+            .path_and_query()
+            .map_or("/", |path| path.as_str())
+            .to_owned();
+        let client = match credential.clone() {
+            Some(value) => Client::new_gateway(&base, value)?,
+            None => Client::new(&base, None)?,
+        };
+        Ok(Self {
+            client,
+            path,
+            endpoint: endpoint.to_owned(),
+            credential,
+        })
+    }
+
+    pub(crate) fn call(&self, method: &str, params: &Value) -> Result<Value, String> {
+        let request = layerx_platform_cli::rpc::request(method, params)?;
+        layerx_platform_cli::rpc::decode_response(
+            method,
+            &self.client.post(&self.path, &request, None)?,
+        )
+    }
+
+    fn subscribe(&self, params: &Value, timeout: std::time::Duration) -> Result<Value, String> {
+        RpcClient::new(&self.endpoint, self.credential.clone())?.subscribe(params, timeout)
+    }
+}
+
+#[derive(serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct SubmissionRecord {
+    pub tx_hash: String,
+    pub nonce: u64,
+    pub state: String,
+}
+
+fn submission_path(hash: [u8; 32]) -> Result<std::path::PathBuf, String> {
+    let config = crate::config::path()?;
+    let directory = config.with_extension("wallet-submissions");
+    Ok(directory.join(format!("{}.json", hex_encode(&hash))))
+}
+
+fn save_submission(path: &std::path::Path, record: &SubmissionRecord) -> Result<(), String> {
+    use std::io::Write as _;
+    use std::os::unix::fs::DirBuilderExt as _;
+    let parent = path
+        .parent()
+        .ok_or("submission journal requires a parent directory")?;
+    std::fs::DirBuilder::new()
+        .recursive(true)
+        .mode(0o700)
+        .create(parent)
+        .map_err(|e| format!("submission_journal_unavailable: {e}"))?;
+    let mut file = tempfile::NamedTempFile::new_in(parent)
+        .map_err(|e| format!("submission_journal_unavailable: {e}"))?;
+    serde_json::to_writer(file.as_file_mut(), record).map_err(|e| e.to_string())?;
+    file.flush()
+        .and_then(|()| file.as_file().sync_all())
+        .map_err(|e| e.to_string())?;
+    file.persist(path)
+        .map_err(|e| format!("submission_journal_unavailable: {}", e.error))?;
+    std::fs::File::open(parent)
+        .and_then(|file| file.sync_all())
+        .map_err(|e| e.to_string())
+}
+
+pub(crate) fn submit_transaction(
+    client: &layerx_sdk::rpc::RpcClient,
+    raw: &[u8],
+    expected_hash: [u8; 32],
+    journal: &std::path::Path,
+) -> Result<[u8; 32], String> {
+    use layerx_sdk::rpc::RpcError;
+    if layerx_crypto::evm_transaction::transaction_hash(raw) != expected_hash {
+        return Err("transaction_unsent: local transaction hash mismatch".into());
+    }
+    let (call, _) = layerx_crypto::evm_transaction::decode_signed(raw)
+        .map_err(|_| "transaction_unsent: invalid signed transaction")?;
+    let mut record = SubmissionRecord {
+        tx_hash: format!("0x{}", hex_encode(&expected_hash)),
+        nonce: call.nonce,
+        state: "unknown".into(),
+    };
+    save_submission(journal, &record)?;
+    match client.send_raw_transaction(raw) {
+        Ok(hash) if hash == expected_hash => {
+            record.state = "submitted".into();
+            save_submission(journal, &record)?;
+            Ok(hash)
+        }
+        Err(error @ (RpcError::Remote { .. } | RpcError::Reverted { .. } | RpcError::InvalidRequest)) => {
+            record.state = "rejected".into();
+            save_submission(journal, &record)?;
+            Err(format!("transaction_rejected: {}; {}", record.tx_hash, rpc_error(error)))
+        }
+        _ => Err(format!("transaction_indeterminate: txHash {}; state unknown; retained at {}; reconcile with wallet receipt {}; do not create another payment",
+            record.tx_hash, journal.display(), record.tx_hash)),
+    }
+}
+
+pub(crate) fn reconcile_submission(
+    client: layerx_sdk::rpc::RpcClient,
+    journal: &std::path::Path,
+    policy: &layerx_proof::inclusion::SequencerAuthorization,
+    wait: Commitment,
+    timeout: std::time::Duration,
+) -> Result<CommandOutput, String> {
+    use std::io::Read as _;
+    let mut bytes = Vec::new();
+    std::fs::File::open(journal)
+        .map_err(|e| e.to_string())?
+        .take(4097)
+        .read_to_end(&mut bytes)
+        .map_err(|e| e.to_string())?;
+    if bytes.len() > 4096 {
+        return Err("submission journal exceeds its byte bound".into());
+    }
+    let mut record: SubmissionRecord = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
+    let hash = crate::programs::transaction_hash(&record.tx_hash)?;
+    let output = wait_transaction(client, hash, record.nonce, policy, wait, timeout)?;
+    if !matches!(wait, Commitment::Submitted) {
+        record.state = match wait {
+            Commitment::Committed => "committed",
+            _ => "receipted",
+        }
+        .into();
+        save_submission(journal, &record)?;
+    }
+    Ok(output)
+}
+
 pub struct Transport {
     rest: Client,
-    rpc: Option<RpcClient>,
+    rpc: Option<WalletRpc>,
     emulator: bool,
 }
 
@@ -207,7 +389,7 @@ impl Transport {
         } else {
             Client::new(&environment.endpoint, crate::credential::token(name)?)?
         };
-        let rpc = rpc.map(|url| RpcClient::new(url, stored)).transpose()?;
+        let rpc = rpc.map(|url| WalletRpc::new(url, stored)).transpose()?;
         let emulator = name == "emulator" && rpc.is_none();
         Ok(Self {
             rest,
@@ -216,71 +398,34 @@ impl Transport {
         })
     }
 
-    fn read(&self, method: &str, params: &Value, path: &str) -> Result<Value, String> {
-        match &self.rpc {
-            Some(rpc) => rpc.call(method, params),
-            None => self
-                .rest
-                .get(path)?
-                .get("result")
-                .cloned()
-                .ok_or_else(|| format!("{path} omitted result")),
-        }
-    }
-
     fn balances(&self, did: &str) -> Result<Value, String> {
         crate::http::validate_resource_id(did, "DID")?;
-        if self.emulator {
-            let state = self.rest.get("/v1/state")?;
-            let accounts = state
-                .pointer("/result/accounts")
-                .and_then(Value::as_array)
-                .ok_or("emulator state omitted accounts")?;
-            let prefix = format!("agent:{did}:");
-            let accounts: Vec<_> = accounts
-                .iter()
-                .filter(|a| {
-                    a["name"]
-                        .as_str()
-                        .and_then(|n| n.strip_prefix(&prefix))
-                        .is_some_and(|tail| {
-                            tail == "main"
-                                || ["asset:", "budget:", "escrow:", "margin:"].iter().any(
-                                    |marker| {
-                                        tail.strip_prefix(marker).is_some_and(|component| {
-                                            !component.is_empty() && !component.contains(':')
-                                        })
-                                    },
-                                )
-                        })
-                })
-                .cloned()
-                .collect();
-            return Ok(json!({"did":did,"accounts":accounts}));
-        }
-        self.read(
-            "lx_getBalances",
-            &json!([did]),
-            &format!("/v1/dids/{did}/accounts"),
-        )
-    }
-
-    fn source_sequence(&self, account: &str) -> Result<u64, String> {
-        if self.emulator {
-            let state = self.rest.get("/v1/state")?;
-            let value = state
-                .pointer("/result/accounts")
-                .and_then(Value::as_array)
-                .and_then(|accounts| accounts.iter().find(|a| a["id"] == account))
-                .ok_or("source account not found")?;
-            return sequence(&value["next_sequence"]);
-        }
-        let value = self.read(
-            "lx_getSequence",
-            &json!([account]),
-            &format!("/v1/accounts/{account}/balance"),
-        )?;
-        sequence(&value["next_sequence"])
+        let state = self.rest.get("/v1/state")?;
+        let accounts = state
+            .pointer("/result/accounts")
+            .and_then(Value::as_array)
+            .ok_or("emulator state omitted accounts")?;
+        let prefix = format!("agent:{did}:");
+        let accounts: Vec<_> = accounts
+            .iter()
+            .filter(|a| {
+                a["name"]
+                    .as_str()
+                    .and_then(|n| n.strip_prefix(&prefix))
+                    .is_some_and(|tail| {
+                        tail == "main"
+                            || ["asset:", "budget:", "escrow:", "margin:"]
+                                .iter()
+                                .any(|marker| {
+                                    tail.strip_prefix(marker).is_some_and(|component| {
+                                        !component.is_empty() && !component.contains(':')
+                                    })
+                                })
+                    })
+            })
+            .cloned()
+            .collect();
+        Ok(json!({"did":did,"accounts":accounts}))
     }
 }
 
@@ -324,18 +469,151 @@ fn estimate_fee(
     config: &Configuration,
     rpc: Option<&str>,
     gateway: Option<&str>,
-    canonical: &str,
+    transaction_hex: &str,
+    from: &str,
 ) -> Result<CommandOutput, String> {
-    let canonical = hex_decode("canonical activity", canonical)?;
-    let result = sdk_rpc(config, rpc, gateway)?
-        .estimate_fee(&canonical)
-        .map_err(rpc_error)?
-        .into_value();
+    let transaction = unsigned_transaction(transaction_hex, from)
+        .map_err(|error| format!("invalid_transaction: {error}"))?;
+    let endpoint = rpc.unwrap_or(&config.active_environment()?.1.endpoint);
+    let credential = gateway
+        .map(|alias| {
+            crate::credential::gateway(alias)?
+                .ok_or_else(|| format!("gateway credential {alias} does not exist"))
+        })
+        .transpose()?;
+    let client = WalletRpc::new(endpoint, credential)?;
+    let gas = client.call("eth_estimateGas", &json!([transaction, "pending"]))?;
+    let gas_price = client.call("eth_gasPrice", &json!([]))?;
+    let quantity = |value: &Value| {
+        value
+            .as_str()
+            .and_then(|text| text.strip_prefix("0x"))
+            .and_then(|text| u128::from_str_radix(text, 16).ok())
+            .ok_or("fee_quote_overflow: quantity exceeds u128")
+    };
+    let gas = quantity(&gas)?;
+    let gas_price = quantity(&gas_price)?;
+    let fee = gas
+        .checked_mul(gas_price)
+        .ok_or("fee_quote_overflow: fee exceeds u128")?;
     Ok(CommandOutput::new(
         "wallet.fee",
-        "Read native fee estimate",
-        result,
+        "Estimated transaction fee at pending",
+        json!({"gas":gas.to_string(),"gas_price":gas_price.to_string(),"fee":fee.to_string()}),
     ))
+}
+
+fn rlp_item<'a>(input: &mut &'a [u8], list: bool) -> Result<&'a [u8], String> {
+    let invalid = || "invalid unsigned EIP-1559 transaction RLP".to_owned();
+    let (&prefix, rest) = input.split_first().ok_or_else(invalid)?;
+    if prefix < 0x80 {
+        if list {
+            return Err(invalid());
+        }
+        let (value, rest) = input.split_at(1);
+        *input = rest;
+        return Ok(value);
+    }
+    let is_list = prefix >= 0xc0;
+    if is_list != list {
+        return Err(invalid());
+    }
+    let short = if is_list {
+        prefix - 0xc0
+    } else {
+        prefix - 0x80
+    };
+    let (length, rest) = if short < 56 {
+        (usize::from(short), rest)
+    } else {
+        let width = usize::from(short - 55);
+        let (bytes, rest) = rest.split_at_checked(width).ok_or_else(invalid)?;
+        if width > size_of::<usize>() || bytes.first() == Some(&0) {
+            return Err(invalid());
+        }
+        let length = bytes
+            .iter()
+            .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+        if length < 56 {
+            return Err(invalid());
+        }
+        (length, rest)
+    };
+    let (value, rest) = rest.split_at_checked(length).ok_or_else(invalid)?;
+    if !list && value.len() == 1 && value[0] < 0x80 {
+        return Err(invalid());
+    }
+    *input = rest;
+    Ok(value)
+}
+
+fn unsigned_transaction(encoded: &str, from: &str) -> Result<Value, String> {
+    if !from.strip_prefix("0x").is_some_and(|digits| {
+        digits.len() == 40 && digits.bytes().all(|byte| byte.is_ascii_hexdigit())
+    }) {
+        return Err("sender must be 0x followed by exactly 40 hexadecimal digits".into());
+    }
+    let encoded = encoded.strip_prefix("0x").unwrap_or(encoded);
+    if encoded.len() > 1_048_576 {
+        return Err("transaction exceeds the byte limit".into());
+    }
+    let raw = hex_decode("transaction", encoded)?;
+    let Some((&2, mut envelope)) = raw.split_first() else {
+        return Err("expected an unsigned EIP-1559 transaction".into());
+    };
+    let mut fields = rlp_item(&mut envelope, true)?;
+    if !envelope.is_empty() {
+        return Err("transaction has trailing bytes".into());
+    }
+    let mut tx = json!({"type":"0x2"});
+    for field in [
+        "chainId",
+        "nonce",
+        "maxPriorityFeePerGas",
+        "maxFeePerGas",
+        "gas",
+    ] {
+        tx[field] = json!(rlp_quantity(&mut fields)?);
+    }
+    let to = rlp_item(&mut fields, false)?;
+    if !to.is_empty() {
+        tx["to"] = json!(format!("0x{}", hex_encode(to)));
+    }
+    tx["value"] = json!(rlp_quantity(&mut fields)?);
+    tx["data"] = json!(format!("0x{}", hex_encode(rlp_item(&mut fields, false)?)));
+    let mut access = rlp_item(&mut fields, true)?;
+    let mut entries = Vec::new();
+    while !access.is_empty() {
+        let mut entry = rlp_item(&mut access, true)?;
+        let address = format!("0x{}", hex_encode(rlp_item(&mut entry, false)?));
+        let mut keys = rlp_item(&mut entry, true)?;
+        let mut storage_keys = Vec::new();
+        while !keys.is_empty() {
+            storage_keys.push(format!("0x{}", hex_encode(rlp_item(&mut keys, false)?)));
+        }
+        if !entry.is_empty() {
+            return Err("access list entry has extra fields".into());
+        }
+        entries.push(json!({"address":address,"storageKeys":storage_keys}));
+    }
+    if !fields.is_empty() {
+        return Err("expected nine unsigned transaction fields".into());
+    }
+    tx["accessList"] = json!(entries);
+    tx["from"] = json!(from.to_ascii_lowercase());
+    layerx_platform_cli::rpc::request("eth_estimateGas", &json!([tx, "pending"]))?;
+    Ok(tx)
+}
+
+fn rlp_quantity(fields: &mut &[u8]) -> Result<String, String> {
+    let bytes = rlp_item(fields, false)?;
+    if bytes.len() > 32 || bytes.first() == Some(&0) {
+        return Err("noncanonical transaction integer".into());
+    }
+    if bytes.is_empty() {
+        return Ok("0x0".into());
+    }
+    Ok(format!("0x{}", hex_encode(bytes).trim_start_matches('0')))
 }
 
 fn watch(
@@ -374,9 +652,10 @@ pub fn run_wallet(
 ) -> Result<CommandOutput, String> {
     let mut config = Configuration::load()?;
     match command {
-        WalletCommand::EstimateFee { canonical_hex } => {
-            estimate_fee(&config, rpc, gateway, &canonical_hex)
-        }
+        WalletCommand::EstimateFee {
+            transaction_hex,
+            from,
+        } => estimate_fee(&config, rpc, gateway, &transaction_hex, &from),
         WalletCommand::Watch {
             topic,
             account_id,
@@ -395,46 +674,59 @@ pub fn run_wallet(
         WalletCommand::Create { name, did } => {
             create_wallet(&mut config, &name, did.as_deref(), rpc, gateway)
         }
-        WalletCommand::Balance { did, asset } => {
+        WalletCommand::Balance {
+            did,
+            asset,
+            gateway_rpc,
+            proof_snapshot,
+            proof_policy,
+        } => {
             let did = selected_did(&config, did.as_deref())?;
-            let transport = Transport::new(&config, rpc, gateway)?;
-            let result = if rpc.is_some() {
-                let environment = config.active_environment()?.1;
-                let policy = layerx_sdk::rpc_verification::AccountPolicy {
-                    protocol_version: 3,
-                    network_id: environment.network_id,
-                    sequencer_key: fixed_hex(
-                        "sequencer public key",
-                        environment.sequencer_trust_anchor.as_deref().ok_or(
-                            "configure a sequencer trust anchor before verifying account balances",
-                        )?,
-                    )?,
+            // Validate selectors before opening credentials or contacting a gateway.
+            crate::http::validate_resource_id(&did, "DID")?;
+            let asset = asset
+                .as_deref()
+                .map(|value| fixed_hex::<32>("asset", value))
+                .transpose()?;
+            if let (Some(snapshot), Some(policy)) = (proof_snapshot, proof_policy) {
+                let result = verify_snapshot_files(&snapshot, &policy, &did)?;
+                let result = if let Some(asset) = asset {
+                    filter_rpc_balances(result, &did, asset)?
+                } else {
+                    result
                 };
-                let balances =
-                    verified_account_snapshot(&sdk_rpc(&config, rpc, gateway)?, &did, &policy)?;
-                if let Some(asset) = asset {
-                    filter_rpc_balances(balances, &did, fixed_hex::<32>("asset", &asset)?)?
-                } else {
-                    validated_account_records(&balances, &did)?;
-                    balances
-                }
-            } else if let Some(asset) = asset {
-                let asset = fixed_hex::<32>("asset", &asset)?;
-                let account = account(&did, &asset)?;
-                if transport.emulator {
-                    let mut balances = transport.balances(&did)?;
-                    let accounts = balances["accounts"]
-                        .as_array_mut()
-                        .ok_or("accounts missing")?;
-                    accounts.retain(|a| a["id"] == account);
-                    balances
-                } else {
-                    transport.read(
-                        "lx_getBalance",
-                        &json!([account]),
-                        &format!("/v1/accounts/{account}/balance"),
+                return Ok(CommandOutput::new(
+                    "wallet.balance",
+                    "Verified account state under pinned committed root",
+                    result,
+                ));
+            }
+            let transport = Transport::new(&config, rpc, gateway)?;
+            let result = if !transport.emulator {
+                let mut observed = layerx_platform_cli::wallet_reads::balances(
+                    sdk_rpc(
+                        &config,
+                        Some(gateway_rpc.as_deref().ok_or(
+                            "gateway_rpc_required: provide --gateway-rpc for hosted px_ balances",
+                        )?),
+                        gateway,
                     )?
-                }
+                    .get_balances(&did)
+                    .map_err(rpc_error)?
+                    .into_value(),
+                    &did,
+                    asset,
+                )?;
+                observed["verification"] = json!("unverified_node_observation");
+                observed
+            } else if let Some(asset) = asset {
+                let account = account(&did, &asset)?;
+                let mut balances = transport.balances(&did)?;
+                let accounts = balances["accounts"]
+                    .as_array_mut()
+                    .ok_or("accounts missing")?;
+                accounts.retain(|a| a["id"] == account);
+                balances
             } else {
                 transport.balances(&did)?
             };
@@ -445,14 +737,14 @@ pub fn run_wallet(
             ))
         }
         WalletCommand::Receipt {
-            activity_id,
+            tx_hash,
             wait,
             receipt_policy,
         } => wallet_receipt(
             &config,
             rpc,
             gateway,
-            &activity_id,
+            &tx_hash,
             wait,
             receipt_policy.as_deref(),
         ),
@@ -474,62 +766,43 @@ pub fn run_wallet(
     }
 }
 
-fn wallet_receipt(
+pub(crate) fn wallet_receipt(
     config: &Configuration,
     rpc: Option<&str>,
     gateway: Option<&str>,
-    activity_id: &str,
+    tx_hash: &str,
     wait: Commitment,
     receipt_policy: Option<&std::path::Path>,
 ) -> Result<CommandOutput, String> {
-    if rpc.is_some() {
-        let client = sdk_rpc(config, rpc, gateway)?;
-        let policy = read_policy(receipt_policy, config)?;
-        return verified_output(
-            &client
-                .wait_for(
-                    fixed_hex("activity id", activity_id)?,
-                    sdk_commitment(wait),
-                    &policy,
-                    std::time::Duration::from_secs(60),
-                )
-                .map_err(rpc_error)?,
+    let hash = crate::programs::transaction_hash(tx_hash)?;
+    let policy = read_transaction_policy(receipt_policy.ok_or(
+        "provide --receipt-policy with independently pinned receipt keys and height bounds",
+    )?)?;
+    let client = sdk_rpc(config, rpc, gateway)?;
+    let journal = submission_path(hash)?;
+    if journal.try_exists().map_err(|e| e.to_string())? {
+        return reconcile_submission(
+            client,
+            &journal,
+            &policy,
+            wait,
+            std::time::Duration::from_secs(60),
         );
     }
-    if !matches!(wait, Commitment::Executed) {
-        return Err("verified commitment waits require --rpc and --receipt-policy".into());
+    let status = client.sequencer_receipt(hash).map_err(rpc_error)?;
+    if status["txHash"] != format!("0x{}", hex_encode(&hash)) {
+        return Err("receipt_verification_failed: transaction hash mismatch".into());
     }
-    let activity = fixed_hex::<32>("activity id", activity_id)?;
-    let transport = Transport::new(config, rpc, gateway)?;
-    let response = transport.read(
-        "lx_getReceipt",
-        &json!([hex_encode(&activity)]),
-        &format!("/v1/receipts/{}", hex_encode(&activity)),
-    )?;
-    let key = config
-        .active_environment()?
-        .1
-        .sequencer_trust_anchor
-        .as_deref()
-        .ok_or("configure a sequencer trust anchor before verifying receipts")?;
-    let receipt = verify_receipt(&response, activity, fixed_hex("sequencer public key", key)?)?;
-    let code = receipt["result_code"]
-        .as_i64()
-        .ok_or("receipt result missing")?;
-    if code != 0 {
-        return Err(format!(
-            "activity {}: receipt result {code}; commitment reached executed",
-            hex_encode(&activity)
-        ));
-    }
-    Ok(CommandOutput::new(
-        "wallet.receipt",
-        format!(
-            "Activity {}: receipt result {code}; commitment reached executed",
-            hex_encode(&activity)
-        ),
-        receipt,
-    ))
+    let nonce = u64::try_from(ethereum_amount(&status["nonce"])?)
+        .map_err(|_| "receipt_verification_failed: nonce overflow")?;
+    wait_transaction(
+        client,
+        hash,
+        nonce,
+        &policy,
+        wait,
+        std::time::Duration::from_secs(60),
+    )
 }
 
 pub fn run_token(
@@ -541,19 +814,14 @@ pub fn run_token(
     match command {
         TokenCommand::Info { asset } => {
             let asset = fixed_hex::<32>("asset", &asset)?;
-            layerx_platform_cli::rpc::request("lx_getAsset", &json!([hex_encode(&asset)]))?;
-            unavailable_asset_read(&config, rpc, gateway, &AssetRead::Metadata(asset))
+            read_asset(&config, rpc, gateway, &AssetRead::Metadata(asset))
         }
         TokenCommand::List { cursor, limit } => {
             let cursor = cursor
                 .as_deref()
-                .map(|value| fixed_hex::<32>("cursor", value))
+                .map(|value| layerx_sdk::rpc::registration_cursor(value).map_err(asset_read_error))
                 .transpose()?;
-            layerx_platform_cli::rpc::request(
-                "lx_listAssets",
-                &layerx_sdk::rpc::list_assets_params(cursor, limit),
-            )?;
-            unavailable_asset_read(&config, rpc, gateway, &AssetRead::Page { cursor, limit })
+            read_asset(&config, rpc, gateway, &AssetRead::Page { cursor, limit })
         }
         TokenCommand::Transfer(args) => transfer(&config, rpc, gateway, &args),
         TokenCommand::Create {
@@ -626,12 +894,12 @@ pub fn run_token(
 enum AssetRead {
     Metadata([u8; 32]),
     Page {
-        cursor: Option<[u8; 32]>,
+        cursor: Option<u64>,
         limit: Option<u16>,
     },
 }
 
-fn unavailable_asset_read(
+fn read_asset(
     config: &Configuration,
     rpc: Option<&str>,
     gateway: Option<&str>,
@@ -641,20 +909,17 @@ fn unavailable_asset_read(
     let (summary, value) = match read {
         AssetRead::Metadata(asset) => (
             "Read token data".to_owned(),
-            client
-                .get_asset(*asset)
-                .map_err(asset_read_error)?
-                .into_value(),
+            client.get_custody_asset(*asset).map_err(asset_read_error)?,
         ),
         AssetRead::Page { cursor, limit } => {
             let page = client
-                .list_assets_page(*cursor, *limit)
+                .list_custody_assets_page(*cursor, *limit)
                 .map_err(asset_read_error)?;
             let summary = match page.next_cursor {
                 Some(cursor) => format!(
-                    "Listed {} tokens; resume after asset {}",
+                    "Listed {} tokens; resume at cursor {}",
                     page.assets.len(),
-                    hex_encode(&cursor)
+                    cursor
                 ),
                 None => format!("Listed {} tokens; final page", page.assets.len()),
             };
@@ -715,98 +980,455 @@ fn execute_write(
     write: &WriteOptions,
     request: WriteRequest<'_>,
 ) -> Result<CommandOutput, String> {
+    use layerx_crypto::payments::CallOptions;
     use layerx_crypto::signer::{LocalSigner, Signer as _};
-    use layerx_platform_cli::wallet_signing::{PreparedPayment, SigningFacts};
+    use layerx_platform_cli::wallet_signing::{EvmSigningKey, PreparedTransaction, SigningFacts};
     let owner = metadata(config, key)?;
-    let policy = read_policy(Some(&write.receipt_policy), config)?;
-    let account_policy = layerx_sdk::rpc_verification::AccountPolicy {
-        protocol_version: policy.protocol_version,
-        network_id: policy.network_id,
-        sequencer_key: policy.sequencer.public_key(),
-    };
-    if matches!(write.wait, Commitment::Finalised)
-        && policy.trusted_checkpoint_context_digest.is_none()
-    {
-        return Err(rpc_error(layerx_sdk::rpc::RpcError::MissingFinalityTrust));
-    }
+    let policy = read_transaction_policy(&write.receipt_policy)?;
+    let public_key = fixed_hex::<32>("wallet public key", &owner.public_key)?;
+    let evm_key = EvmSigningKey::read(&write.evm_key_file, &owner.did, public_key)?;
+    let from = evm_key.address();
+    let from_address = format!("0x{}", hex_encode(&from));
     let client = sdk_rpc(config, rpc, gateway)?;
-    let transport = Transport::new(config, rpc, gateway)?;
-    let identity = transport
-        .rpc
-        .as_ref()
-        .ok_or("rpc_transport_required: writes require --rpc")?
-        .call("lx_getSequence", &json!([owner.did, "identity"]))?;
-    let identity_sequence = identity_sequence(&identity, &owner.did)?;
-    let seed = crate::credential::key_seed(
-        key.or(config.default_key.as_deref())
-            .ok_or("select a wallet key")?,
-    )?;
-    let signer = LocalSigner::new(*seed);
-    drop(seed);
-    if signer.public_key() != fixed_hex::<32>("wallet public key", &owner.public_key)? {
-        return Err("wallet signer does not match the selected public key".into());
+    let nonce = client
+        .get_identity_sequence(&from_address)
+        .map_err(rpc_error)?;
+    let endpoint = rpc.unwrap_or(&config.active_environment()?.1.endpoint);
+    let credential = gateway
+        .map(|alias| {
+            crate::credential::gateway(alias)?
+                .ok_or_else(|| format!("gateway credential {alias} does not exist"))
+        })
+        .transpose()?;
+    let quote_rpc = WalletRpc::new(endpoint, credential)?;
+    let gas_price = ethereum_amount(&quote_rpc.call("eth_gasPrice", &json!([]))?)?;
+    if gas_price == 0 {
+        return Err("invalid_fee_quote: gas price must be positive".into());
     }
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map_err(|e| e.to_string())?;
-    let not_before = u64::try_from(now.as_millis()).map_err(|e| e.to_string())?;
-    let mut idempotency_key = [0; 32];
-    getrandom::fill(&mut idempotency_key).map_err(|_| "wallet randomness unavailable")?;
-    let facts = SigningFacts {
-        actor: &owner.did,
-        public_key: signer.public_key(),
-        network_id: policy.network_id,
-        identity_next_sequence: identity_sequence,
-        not_before_ms: not_before,
-        expires_at_ms: not_before
-            .checked_add(300_000)
-            .ok_or("wallet validity overflow")?,
-        fee_limit: units(&write.fee_limit, false)?,
-        idempotency_key,
+    let fee_limit = units(&write.fee_limit, false)?;
+    let gas_limit = u64::try_from(fee_limit / gas_price)
+        .map_err(|_| "fee limit exceeds the gas limit range")?;
+    if gas_limit == 0 {
+        return Err("fee_limit_exceeded: fee limit cannot cover gas".into());
+    }
+    let options = CallOptions {
+        from,
+        chain_id: 125,
+        nonce,
+        max_priority_fee_per_gas: 0,
+        max_fee_per_gas: gas_price,
+        gas_limit,
     };
-    let prepared = match request {
-        WriteRequest::Payment(payment) => PreparedPayment::new(payment, &facts)?,
+    let hosted = || {
+        sdk_rpc(
+            config,
+            Some(write.gateway_rpc.as_deref().ok_or(
+                "gateway_rpc_required: provide --gateway-rpc for hosted px_ account queries",
+            )?),
+            gateway,
+        )
+    };
+    let payment_call = |payment: &Payment| {
+        layerx_platform_cli::wallet_encoding::payment_call(payment, &owner.did, &options)
+    };
+    let mut call = match request {
+        WriteRequest::Payment(payment) => payment_call(payment)?,
         WriteRequest::Send { asset, to, amount } => {
-            let to = destination(&client, &to, asset, &account_policy)?;
-            prepare_send(&client, &signer, &facts, asset, to, amount, &account_policy)?
+            let seed = crate::credential::key_seed(
+                key.or(config.default_key.as_deref())
+                    .ok_or("select a wallet key")?,
+            )?;
+            let signer = LocalSigner::new(*seed);
+            drop(seed);
+            if signer.public_key() != public_key {
+                return Err("wallet signer does not match the selected public key".into());
+            }
+            let now = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map_err(|e| e.to_string())?;
+            let not_before = u64::try_from(now.as_millis()).map_err(|e| e.to_string())?;
+            let mut idempotency_key = [0; 32];
+            getrandom::fill(&mut idempotency_key).map_err(|_| "wallet randomness unavailable")?;
+            let facts = SigningFacts {
+                actor: &owner.did,
+                public_key,
+                network_id: config.active_environment()?.1.network_id,
+                identity_next_sequence: nonce,
+                not_before_ms: not_before,
+                expires_at_ms: not_before
+                    .checked_add(300_000)
+                    .ok_or("wallet validity overflow")?,
+                fee_limit,
+                idempotency_key,
+            };
+            let hosted = hosted()?;
+            let to = destination(&hosted, &to, asset)?;
+            let payload = prepare_send(&hosted, &signer, &facts, asset, to, amount)?;
+            layerx_platform_cli::wallet_send::payment_call(&payload, &options)?
         }
         WriteRequest::Mint { asset, to, amount } => {
-            let to = destination(&client, &to, asset, &account_policy)?;
-            PreparedPayment::new(&Payment::Mint { asset, to, amount }, &facts)?
+            let to = if to.starts_with("did:") {
+                destination(&hosted()?, &to, asset)?
+            } else {
+                fixed_hex("destination account", &to)?
+            };
+            payment_call(&Payment::Mint { asset, to, amount })?
         }
         WriteRequest::Burn { asset, amount } => {
-            let from = account_for_asset(&client, facts.actor, asset, &account_policy)?;
-            PreparedPayment::new(
-                &Payment::Burn {
-                    asset,
-                    from,
-                    amount,
-                },
-                &facts,
-            )?
+            let from = account_for_asset(&hosted()?, &owner.did, asset)?;
+            payment_call(&Payment::Burn {
+                asset,
+                from,
+                amount,
+            })?
         }
     };
-    print_disclosure(&prepared.confirmation())?;
-    let (canonical, activity) = prepared.sign_with_id(&signer)?;
-    print_disclosure(
-        &json!({"activity_id":hex_encode(&activity),"receipt_result":null,"commitment_reached":null}),
-    )?;
-    match client.send_activity(&canonical, sdk_commitment(write.wait)) {
-        Ok(_)
-        | Err(layerx_sdk::rpc::RpcError::Transport | layerx_sdk::rpc::RpcError::InvalidResponse) => {
-        }
-        Err(error) => return Err(rpc_error(error)),
+    if call.data.len() > layerx_sdk::rpc::MAX_TRANSACTION_CALLDATA_BYTES {
+        return Err("invalid_transaction: calldata exceeds 524288 bytes".into());
     }
-    verified_output(
-        &client
-            .wait_for(
-                activity,
-                sdk_commitment(write.wait),
-                &policy,
-                std::time::Duration::from_secs(write.timeout_seconds),
-            )
-            .map_err(rpc_error)?,
+    let transaction = json!({
+        "from":from_address, "type":"0x2",
+        "chainId":format!("0x{:x}", call.chain_id),
+        "nonce":format!("0x{:x}", call.nonce),
+        "maxPriorityFeePerGas":format!("0x{:x}", call.max_priority_fee_per_gas),
+        "maxFeePerGas":format!("0x{:x}", call.max_fee_per_gas),
+        "gas":format!("0x{:x}", call.gas_limit),
+        "to":format!("0x{}", hex_encode(&call.to)), "value":"0x0",
+        "data":format!("0x{}", hex_encode(&call.data)), "accessList":[],
+    });
+    let estimate = quote_rpc.call("eth_estimateGas", &json!([transaction, "pending"]))?;
+    let gas = u64::try_from(ethereum_amount(&estimate)?)
+        .map_err(|_| "invalid_fee_quote: gas estimate exceeds u64")?;
+    let fee = u128::from(gas)
+        .checked_mul(gas_price)
+        .ok_or("fee_quote_overflow: fee exceeds u128")?;
+    if gas == 0 || gas > gas_limit || fee > fee_limit {
+        return Err("fee_limit_exceeded: estimated transaction fee exceeds the limit".into());
+    }
+    call.gas_limit = gas;
+    let prepared = PreparedTransaction::new(call, from)?;
+    print_disclosure(&prepared.confirmation())?;
+    let (raw, expected_hash) = prepared.sign(&evm_key)?;
+    let hash = submit_transaction(
+        &client,
+        &raw,
+        expected_hash,
+        &submission_path(expected_hash)?,
+    )?;
+    print_disclosure(&json!({"txHash":format!("0x{}", hex_encode(&hash)), "rung":"submitted"}))?;
+    reconcile_submission(
+        client,
+        &submission_path(hash)?,
+        &policy,
+        write.wait,
+        std::time::Duration::from_secs(write.timeout_seconds),
     )
+}
+
+fn ethereum_amount(value: &Value) -> Result<u128, String> {
+    let digits = value
+        .as_str()
+        .and_then(|text| text.strip_prefix("0x"))
+        .filter(|digits| {
+            !digits.is_empty()
+                && (*digits == "0" || !digits.starts_with('0'))
+                && digits
+                    .bytes()
+                    .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte))
+        })
+        .ok_or("invalid Ethereum quantity")?;
+    u128::from_str_radix(digits, 16).map_err(|_| "Ethereum quantity exceeds u128".into())
+}
+
+fn read_transaction_policy(
+    path: &std::path::Path,
+) -> Result<layerx_proof::inclusion::SequencerAuthorization, String> {
+    let bytes = std::fs::read(path).map_err(|e| format!("could not read receipt policy: {e}"))?;
+    let policy: WalletPolicy =
+        serde_json::from_slice(&bytes).map_err(|e| format!("invalid receipt policy: {e}"))?;
+    if policy.protocol_version != 2
+        || policy.network_id != 125
+        || policy.first_batch == 0
+        || policy.last_batch < policy.first_batch
+        || policy.checkpoint_context_digest.is_some()
+    {
+        return Err(
+            "EVM receipt policy requires protocol 2, network 125 and a bounded height range".into(),
+        );
+    }
+    Ok(layerx_proof::inclusion::SequencerAuthorization::new(
+        fixed_hex("sequencer id", &policy.sequencer_id)?,
+        fixed_hex("sequencer key", &policy.sequencer_key)?,
+        policy.first_batch,
+        policy.last_batch,
+    ))
+}
+
+fn receipt_bytes(value: &Value) -> Result<Vec<u8>, String> {
+    let text = value
+        .as_str()
+        .and_then(|s| s.strip_prefix("0x"))
+        .filter(|text| text.len() <= 1_048_576)
+        .ok_or("receipt_verification_failed: missing or oversized hexadecimal field")?;
+    hex_decode("receipt field", text)
+}
+
+fn receipt_fixed<const N: usize>(value: &Value) -> Result<[u8; N], String> {
+    receipt_bytes(value)?
+        .try_into()
+        .map_err(|_| "receipt_verification_failed: wrong field width".into())
+}
+
+pub(crate) fn verified_receipted_status(
+    status: &Value,
+    hash: [u8; 32],
+    nonce: u64,
+    policy: &layerx_proof::inclusion::SequencerAuthorization,
+) -> Result<(Value, layerx_proof::sequencer_logs::ReceiptSummary), String> {
+    use layerx_proof::sequencer_logs::{verify_logs, SequencerLog};
+    use layerx_types::rung::Rung;
+    use sha2::{Digest as _, Sha256};
+    let hash_text = format!("0x{}", hex_encode(&hash));
+    let served_nonce = u64::try_from(ethereum_amount(&status["nonce"])?)
+        .map_err(|_| "receipt_verification_failed: nonce overflow")?;
+    if status["txHash"] != hash_text || nonce != served_nonce {
+        return Err("receipt_verification_failed: transaction hash or nonce mismatch".into());
+    }
+    let nonce = served_nonce;
+    let rung = status["rung"]
+        .as_str()
+        .and_then(Rung::from_name)
+        .filter(|rung| *rung != Rung::Submitted)
+        .ok_or("receipt_verification_failed: receipt rung missing")?;
+    let canonical = receipt_bytes(&status["receipt"])?;
+    let keys = [*policy];
+    let receipt = layerx_proof::receipt::verify_sequencer_signature(&canonical, &keys)
+        .map_err(|e| format!("receipt_verification_failed: {:?}", e.check))?;
+    let protocol = receipt
+        .protocol()
+        .ok_or("receipt_verification_failed: missing protocol")?;
+    let logs = status["logs"]
+        .as_array()
+        .filter(|logs| logs.len() <= 4096)
+        .ok_or("receipt_verification_failed: missing bounded logs")?
+        .iter()
+        .map(|log| {
+            let topics = log["topics"]
+                .as_array()
+                .filter(|topics| topics.len() <= 4)
+                .ok_or("receipt_verification_failed: invalid topics")?
+                .iter()
+                .map(receipt_fixed::<32>)
+                .collect::<Result<Vec<_>, _>>()?;
+            let index = u64::try_from(ethereum_amount(&log["logIndex"])?)
+                .map_err(|_| "receipt_verification_failed: log index overflow")?;
+            Ok(SequencerLog::new(
+                receipt_fixed(&log["address"])?,
+                topics,
+                receipt_bytes(&log["data"])?,
+                index,
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let verified =
+        verify_logs(&receipt, logs).map_err(|e| format!("receipt_verification_failed: {e:?}"))?;
+    let summary = verified.summary();
+    let height = u64::try_from(ethereum_amount(&status["height"])?)
+        .map_err(|_| "receipt_verification_failed: height overflow")?;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
+    let return_data = receipt_bytes(&status["returnData"])?;
+    let vm_error = status["vmError"]
+        .as_str()
+        .ok_or("receipt_verification_failed: missing vmError")?;
+    let fee_denom = status["feeDenom"]
+        .as_str()
+        .ok_or("receipt_verification_failed: missing feeDenom")?;
+    let digest = |bytes: &[u8]| -> [u8; 32] { Sha256::digest(bytes).into() };
+    let mut from = [0; 32];
+    from[12..].copy_from_slice(&receipt_fixed::<20>(&status["from"])?);
+    let mut to = [0; 32];
+    to[12..].copy_from_slice(&receipt_fixed::<20>(&status["to"])?);
+    let success = match protocol.result_code() {
+        0 => true,
+        1 => false,
+        _ => return Err("receipt_verification_failed: invalid execution result".into()),
+    };
+    if protocol.protocol_version() != 2
+        || protocol.activity_id() != hash
+        || protocol.debit_sequence() != nonce
+        || protocol.batch_id() != batch_id
+        || protocol.parameter_version() != 0
+        || protocol.global_sequence() as u128 != ethereum_amount(&status["seq"])?
+        || protocol.timestamp() as u128 != ethereum_amount(&status["timestamp"])?
+        || protocol.context_hash() != receipt_fixed(&status["keyId"])?
+        || policy.public_key() != receipt_fixed(&status["signingKey"])?
+        || protocol.from() != from
+        || protocol.to() != to
+        || ethereum_amount(&status["status"])? != u128::from(success)
+        || summary.gas_used() as u128 != ethereum_amount(&status["gasUsed"])?
+        || summary.cumulative_gas_used() as u128 != ethereum_amount(&status["cumulativeGasUsed"])?
+        || summary.effective_gas_price() as u128 != ethereum_amount(&status["effectiveGasPrice"])?
+        || summary.tx_index() as u128 != ethereum_amount(&status["index"])?
+        || summary.contract_address() != receipt_fixed(&status["contractAddress"])?
+        || summary.sponsor() != receipt_fixed(&status["sponsor"])?
+        || summary.fee_denom() != fee_denom
+        || protocol.asset() != digest(fee_denom.as_bytes())
+        || protocol.fee_charged() != ethereum_amount(&status["feeAmount"])?
+        || usize::try_from(summary.return_data_len()).ok() != Some(return_data.len())
+        || protocol.activity_root() != digest(&return_data)
+        || summary.vm_error_hash() != digest(vm_error.as_bytes())
+    {
+        return Err(
+            "receipt_verification_failed: served execution differs from the signed receipt".into(),
+        );
+    }
+    if rung == Rung::Receipted
+        && (status.get("blockNumber").is_some() || status.get("blockHash").is_some())
+    {
+        return Err("receipt_verification_failed: receipted response carries a block".into());
+    }
+    if !success {
+        let reason =
+            layerx_platform_cli::wallet_encoding::revert_reason(&return_data).unwrap_or(vm_error);
+        return Err(format!(
+            "transaction_reverted: {hash_text}; rung {}; {reason}",
+            Rung::Receipted.name()
+        ));
+    }
+    Ok((
+        json!({"txHash":hash_text,"rung":"receipted","result_code":0,"receipt":format!("0x{}", hex_encode(&canonical))}),
+        summary.clone(),
+    ))
+}
+
+pub(crate) fn receipted_output(hash: [u8; 32], data: Value) -> CommandOutput {
+    CommandOutput::new(
+        "wallet.receipt",
+        format!("Transaction 0x{}: rung receipted", hex_encode(&hash)),
+        data,
+    )
+}
+
+pub(crate) fn wait_transaction(
+    client: layerx_sdk::rpc::RpcClient,
+    hash: [u8; 32],
+    nonce: u64,
+    policy: &layerx_proof::inclusion::SequencerAuthorization,
+    commitment: Commitment,
+    timeout: std::time::Duration,
+) -> Result<CommandOutput, String> {
+    use layerx_types::rung::Rung;
+    let requested = match commitment {
+        Commitment::Receipted => Rung::Receipted,
+        Commitment::Committed => Rung::Committed,
+        Commitment::Submitted => Rung::Submitted,
+    };
+    if requested == Rung::Submitted {
+        return Ok(CommandOutput::new(
+            "wallet.submitted",
+            "Transaction submitted; execution unverified",
+            json!({"txHash":format!("0x{}",hex_encode(&hash)),"rung":"submitted","final":false}),
+        ));
+    }
+    let deadline = std::time::Instant::now() + timeout;
+    let client = std::sync::Arc::new(client);
+    let hash_text = format!("0x{}", hex_encode(&hash));
+    let pending = || {
+        format!(
+            "transaction_pending: {hash_text}; requested rung {} not reached",
+            requested.name()
+        )
+    };
+    loop {
+        let remaining = deadline.saturating_duration_since(std::time::Instant::now());
+        if remaining.is_zero() {
+            return Err(pending());
+        }
+        let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+        let rpc = std::sync::Arc::clone(&client);
+        std::thread::Builder::new()
+            .name("wallet-receipt-read".into())
+            .spawn(move || {
+                let _ = sender.send(rpc.sequencer_receipt(hash));
+            })
+            .map_err(|e| e.to_string())?;
+        let status = receiver
+            .recv_timeout(remaining)
+            .map_err(|_| pending())?
+            .map_err(rpc_error)?;
+        if std::time::Instant::now() >= deadline {
+            return Err(pending());
+        }
+        if status["txHash"] != hash_text || ethereum_amount(&status["nonce"])? != u128::from(nonce)
+        {
+            return Err("receipt_verification_failed: transaction hash or nonce mismatch".into());
+        }
+        let rung = status["rung"]
+            .as_str()
+            .and_then(Rung::from_name)
+            .ok_or("receipt_verification_failed: unknown rung")?;
+        if rung == Rung::Submitted {
+            if status.get("receipt").is_some()
+                || status.get("blockHash").is_some()
+                || status.get("blockNumber").is_some()
+            {
+                return Err(
+                    "receipt_verification_failed: submitted response carries receipt evidence"
+                        .into(),
+                );
+            }
+        } else {
+            let (data, summary) = verified_receipted_status(&status, hash, nonce, policy)?;
+            let height = u64::try_from(ethereum_amount(&status["height"])?)
+                .map_err(|_| "receipt_verification_failed: height overflow")?;
+            if requested == Rung::Receipted && rung == Rung::Receipted {
+                return Ok(receipted_output(hash, data));
+            }
+            if rung == Rung::Committed {
+                let block_number = ethereum_amount(&status["blockNumber"])?;
+                let block_hash = receipt_fixed::<32>(&status["blockHash"])?;
+                if block_number < u128::from(height) || block_hash == [0; 32] {
+                    return Err("receipt_verification_failed: invalid committed block".into());
+                }
+                let rpc = std::sync::Arc::clone(&client);
+                let lookup_hash = hash_text.clone();
+                let (sender, receiver) = std::sync::mpsc::sync_channel(1);
+                std::thread::Builder::new()
+                    .name("wallet-committed-receipt-read".into())
+                    .spawn(move || {
+                        let _ = sender.send(rpc.get_receipt(&lookup_hash));
+                    })
+                    .map_err(|e| e.to_string())?;
+                let landing = receiver
+                    .recv_timeout(deadline.saturating_duration_since(std::time::Instant::now()))
+                    .map_err(|_| pending())?
+                    .map_err(rpc_error)?;
+                if !landing.is_null() {
+                    if landing["transactionHash"] != hash_text
+                        || ethereum_amount(&landing["blockNumber"])? != block_number
+                        || receipt_fixed::<32>(&landing["blockHash"])? != block_hash
+                        || ethereum_amount(&landing["status"])? != 1
+                        || ethereum_amount(&landing["transactionIndex"])?
+                            != u128::from(summary.tx_index())
+                    {
+                        return Err(
+                            "receipt_verification_failed: committed chain receipt mismatch".into(),
+                        );
+                    }
+                    return Ok(CommandOutput::new(
+                        "wallet.receipt",
+                        format!("Transaction {hash_text}: rung committed"),
+                        json!({"txHash":hash_text,"rung":"committed","final":true,"trust":"pinned_receipt_key_and_authenticated_node","result_code":0,"receipt":data["receipt"],"blockNumber":status["blockNumber"],"blockHash":status["blockHash"]}),
+                    ));
+                }
+            }
+        }
+        std::thread::sleep(
+            std::time::Duration::from_millis(50)
+                .min(deadline.saturating_duration_since(std::time::Instant::now())),
+        );
+    }
 }
 
 fn prepare_send(
@@ -816,51 +1438,13 @@ fn prepare_send(
     asset: [u8; 32],
     to: [u8; 32],
     amount: u128,
-    policy: &layerx_sdk::rpc_verification::AccountPolicy,
-) -> Result<layerx_platform_cli::wallet_signing::PreparedPayment, String> {
-    let from = account_for_asset(client, facts.actor, asset, policy)?;
-    if from == to {
-        return Err("source and destination accounts must differ".into());
-    }
-    let snapshot = client.get_account(&hex_encode(&from)).map_err(rpc_error)?;
-    layerx_sdk::rpc_verification::VerifiedRpcAccount::from_rpc_result(&snapshot, from, policy)
-        .map_err(rpc_error)?;
-    if snapshot["account_id"] != hex_encode(&from) {
-        return Err("source account snapshot mismatch".into());
-    }
-    if snapshot["asset_id"] != hex_encode(&asset) {
-        return Err("source account asset mismatch".into());
-    }
-    if !snapshot["next_sequence"].is_string() {
-        return Err("source snapshot omitted canonical sequence".into());
-    }
-    let source_sequence = sequence(&snapshot["next_sequence"])?;
-    let debit = layerx_crypto::send::SendDebit {
-        from,
-        to,
-        asset,
-        amount,
-        source_sequence,
-        idempotency_key: facts.idempotency_key,
-        expires_at: facts.expires_at_ms,
-        context_hash: layerx_crypto::send::send_context_hash(
-            &from,
-            &to,
-            &asset,
-            amount,
-            &facts.idempotency_key,
-        ),
-        conditions: Vec::new(),
-        authorization_kind: 1,
-        network_id: facts.network_id,
-        protocol_version: 3,
-    };
+) -> Result<Vec<u8>, String> {
+    let debit =
+        layerx_platform_cli::wallet_send::native_send_debit(client, facts, asset, to, amount)?;
     print_disclosure(
         &json!({"native_debit":format!("{debit:?}"),"actor":facts.actor,"public_key":hex_encode(&facts.public_key),"identity_sequence":facts.identity_next_sequence}),
     )?;
-    let payload =
-        complete(debit.sign(signer)).map_err(|e| format!("send_signing_failed: {e:?}"))?;
-    layerx_platform_cli::wallet_signing::PreparedPayment::from_send(&payload, facts)
+    complete(debit.sign(signer)).map_err(|e| format!("send_signing_failed: {e:?}"))
 }
 
 fn identity_sequence(snapshot: &Value, did: &str) -> Result<u64, String> {
@@ -909,16 +1493,15 @@ fn transfer(
     gateway: Option<&str>,
     args: &TransferArgs,
 ) -> Result<CommandOutput, String> {
-    let owner = metadata(config, args.key.as_deref())?;
     let asset = fixed_hex("asset", &args.asset)?;
     let amount = units(&args.amount, true)?;
-    let transport = Transport::new(config, rpc, gateway)?;
-    if transport.emulator {
-        let source = account(&owner.did, &asset)?;
-        let source_sequence = transport.source_sequence(&source)?;
-        return Err(format!("identity_sequence_unavailable: emulator source next_sequence={source_sequence}; hosted identity preparation requires --rpc; no activity signed or submitted"));
-    }
     let write = WriteOptions {
+        gateway_rpc: args.write.gateway_rpc.clone(),
+        evm_key_file: args
+            .write
+            .evm_key_file
+            .clone()
+            .ok_or("provide --evm-key-file from wallet derive --export-private-keys")?,
         receipt_policy: args
             .write
             .receipt_policy
@@ -940,14 +1523,6 @@ fn transfer(
             amount,
         },
     )
-}
-
-fn sdk_commitment(value: Commitment) -> layerx_sdk::rpc::Commitment {
-    match value {
-        Commitment::Executed => layerx_sdk::rpc::Commitment::Executed,
-        Commitment::Batched => layerx_sdk::rpc::Commitment::Batched,
-        Commitment::Finalised => layerx_sdk::rpc::Commitment::Finalised,
-    }
 }
 
 fn rpc_error(error: layerx_sdk::rpc::RpcError) -> String {
@@ -1166,21 +1741,184 @@ fn account_for_asset(
     client: &layerx_sdk::rpc::RpcClient,
     did: &str,
     asset: [u8; 32],
-    policy: &layerx_sdk::rpc_verification::AccountPolicy,
 ) -> Result<[u8; 32], String> {
-    let snapshot = verified_account_snapshot(client, did, policy)?;
-    account_for_asset_in_snapshot(&snapshot, did, asset)
+    client
+        .get_ledger_account(did, asset)
+        .map(|snapshot| snapshot.account_id)
+        .map_err(rpc_error)
 }
 
-fn verified_account_snapshot(
-    client: &layerx_sdk::rpc::RpcClient,
+#[derive(serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+struct AccountProofPolicy {
+    protocol_version: u16,
+    network_id: u32,
+    batch_number: u64,
+    state_root: String,
+    sequencer_id: String,
+    sequencer_key: String,
+    first_batch: u64,
+    last_batch: u64,
+}
+
+pub(crate) fn verify_snapshot_files(
+    snapshot: &std::path::Path,
+    policy: &std::path::Path,
     did: &str,
-    policy: &layerx_sdk::rpc_verification::AccountPolicy,
 ) -> Result<Value, String> {
-    let snapshot = client.get_balances(did).map_err(rpc_error)?.into_value();
-    layerx_sdk::rpc_verification::VerifiedRpcBalances::from_rpc_result(&snapshot, did, policy)
-        .map_err(rpc_error)?;
-    validated_account_records(&snapshot, did)?;
+    use std::io::Read as _;
+    fn read(path: &std::path::Path, limit: u64) -> Result<Vec<u8>, String> {
+        let mut bytes = Vec::new();
+        std::fs::File::open(path)
+            .map_err(|e| e.to_string())?
+            .take(limit + 1)
+            .read_to_end(&mut bytes)
+            .map_err(|e| e.to_string())?;
+        if bytes.len() as u64 > limit {
+            return Err("account proof input exceeds its byte bound".into());
+        }
+        Ok(bytes)
+    }
+    let policy: AccountProofPolicy =
+        serde_json::from_slice(&read(policy, 4096)?).map_err(|e| e.to_string())?;
+    if policy.protocol_version != 3
+        || policy.network_id == 0
+        || policy.batch_number == 0
+        || policy.first_batch == 0
+        || policy.last_batch < policy.first_batch
+        || policy.batch_number < policy.first_batch
+        || policy.batch_number > policy.last_batch
+    {
+        return Err("account proof policy scope is invalid".into());
+    }
+    let trust = AccountSnapshotTrust {
+        protocol_version: policy.protocol_version,
+        network_id: policy.network_id,
+        batch_number: policy.batch_number,
+        state_root: fixed_hex("pinned state root", &policy.state_root)?,
+        sequencer: layerx_proof::inclusion::SequencerAuthorization::new(
+            fixed_hex("sequencer id", &policy.sequencer_id)?,
+            fixed_hex("sequencer key", &policy.sequencer_key)?,
+            policy.first_batch,
+            policy.last_batch,
+        ),
+    };
+    verified_account_snapshot(
+        serde_json::from_slice(&read(snapshot, 16 * 1024 * 1024)?).map_err(|e| e.to_string())?,
+        did,
+        &trust,
+    )
+}
+
+pub(crate) struct AccountSnapshotTrust {
+    pub protocol_version: u16,
+    pub network_id: u32,
+    pub batch_number: u64,
+    pub state_root: [u8; 32],
+    pub sequencer: layerx_proof::inclusion::SequencerAuthorization,
+}
+
+pub(crate) fn verified_account_snapshot(
+    snapshot: Value,
+    did: &str,
+    trust: &AccountSnapshotTrust,
+) -> Result<Value, String> {
+    use layerx_proof::export_codec::{AccountStateRecord, AccountStateVariant, HeaderRecord};
+    use layerx_proof::state::{verify_nested_account, NestedAccountProof};
+    let fail =
+        |error: &dyn std::fmt::Debug| format!("account_proof_verification_failed: {error:?}");
+    for record in validated_account_records(&snapshot, did)? {
+        let id = fixed_hex::<32>(
+            "account id",
+            record["account_id"].as_str().ok_or("account id missing")?,
+        )?;
+        let canonical = hex_decode(
+            "canonical account",
+            record["canonical_value"]
+                .as_str()
+                .ok_or("canonical account missing")?,
+        )?;
+        let material = hex_decode(
+            "account proof",
+            record["proof_material"]
+                .as_str()
+                .ok_or("account proof missing")?,
+        )?;
+        let state = AccountStateRecord::decode(&material).map_err(|e| fail(&e))?;
+        let header = HeaderRecord::decode(&hex_decode(
+            "account header",
+            record["header_material"]
+                .as_str()
+                .ok_or("account header missing")?,
+        )?)
+        .map_err(|e| fail(&e))?;
+        if state.variant != AccountStateVariant::Activity
+            || state.account_value != canonical
+            || state.account_id != id
+            || state.header_digest != header.digest().map_err(|e| fail(&e))?
+            || state.resulting_state_root != trust.state_root
+            || trust.state_root == [0; 32]
+        {
+            return Err(
+                "account_proof_verification_failed: canonical state or pinned root mismatch".into(),
+            );
+        }
+        let activity = match state.reference {
+            layerx_proof::export_codec::FactSelector::State {
+                activity_id,
+                account_id,
+            } if account_id == id => activity_id,
+            _ => {
+                return Err(
+                    "account_proof_verification_failed: account proof reference mismatch".into(),
+                )
+            }
+        };
+        let proof = NestedAccountProof {
+            account_id: state.account_id,
+            account_root: state.account_root,
+            universal_root: state.universal_root,
+            resulting_state_root: state.resulting_state_root,
+            account_proof: state.account_proof,
+            account_tree_proof: state.account_tree_proof,
+            universal_root_proof: state.universal_root_proof,
+            receipt_bytes: state.receipt_bytes,
+            receipt_proof: state.receipt_proof,
+            header_bytes: header.canonical_header,
+            header_signature: header.signature,
+        };
+        let asset = fixed_hex(
+            "asset id",
+            record["asset_id"].as_str().ok_or("asset id missing")?,
+        )?;
+        let verified = verify_nested_account(&canonical, id, Some(asset), &proof, &trust.sequencer)
+            .map_err(|e| fail(&e))?;
+        let account = verified.account();
+        let batch = verified.header().header();
+        if verified.receipt_activity_id() != activity
+            || header.sequencer_id != trust.sequencer.sequencer_id()
+            || header.public_key != trust.sequencer.public_key()
+            || header.first_batch > trust.batch_number
+            || header.last_batch < trust.batch_number
+            || account.name
+                != record["name"]
+                    .as_str()
+                    .ok_or("account name missing")?
+                    .as_bytes()
+            || record["balance"] != account.balance().to_string()
+            || record["next_sequence"] != account.next_sequence.to_string()
+            || record["observed_head_sequence"] != verified.observed_sequence().to_string()
+            || record["batch_number"] != trust.batch_number.to_string()
+            || batch.batch_number() != trust.batch_number
+            || batch.protocol_version() != trust.protocol_version
+            || batch.network_id() != trust.network_id
+        {
+            return Err(
+                "account_proof_verification_failed: displayed account differs from pinned evidence"
+                    .into(),
+            );
+        }
+    }
     Ok(snapshot)
 }
 
@@ -1255,10 +1993,9 @@ fn destination(
     client: &layerx_sdk::rpc::RpcClient,
     to: &str,
     asset: [u8; 32],
-    policy: &layerx_sdk::rpc_verification::AccountPolicy,
 ) -> Result<[u8; 32], String> {
     if to.starts_with("did:") {
-        account_for_asset(client, to, asset, policy)
+        account_for_asset(client, to, asset)
     } else {
         fixed_hex("destination account", to)
     }
@@ -1439,6 +2176,10 @@ mod tests {
         let token_account = account_record(did, &token_name, token, 9);
         let snapshot = account_snapshot(did, vec![main.clone(), token_account.clone()]);
 
+        assert_eq!(
+            validated_account_records(&snapshot, did)?,
+            &[main.clone(), token_account.clone()]
+        );
         assert_eq!(
             hex_encode(&account_for_asset_in_snapshot(&snapshot, did, native)?),
             main["account_id"]

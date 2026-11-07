@@ -2,7 +2,7 @@
 
 use std::collections::BTreeMap;
 
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 
 use crate::cache::{CacheValue, EvidenceKind};
 use crate::obs::health::{evaluate, BoundaryConnectivity, DegradedMode, Health, HealthInput};
@@ -29,20 +29,20 @@ pub struct Reference {
 pub enum Observation {
     Ready {
         reference: Reference,
-        maximum_verification: VerificationLevel,
+        maximum_rung: Rung,
     },
     Unreachable,
     Halted {
         reference: Reference,
-        maximum_verification: VerificationLevel,
+        maximum_rung: Rung,
     },
     Emergency {
         reference: Reference,
-        maximum_verification: VerificationLevel,
+        maximum_rung: Rung,
     },
     DataUnavailable {
         reference: Reference,
-        maximum_verification: VerificationLevel,
+        maximum_rung: Rung,
     },
 }
 
@@ -60,7 +60,7 @@ pub struct Readiness {
 pub struct Status {
     pub mode: Mode,
     pub reference: Option<Reference>,
-    pub maximum_verification: VerificationLevel,
+    pub maximum_rung: Rung,
     pub readiness: Readiness,
     pub transitions: BTreeMap<Mode, u64>,
 }
@@ -79,22 +79,17 @@ pub struct DegradedRead {
     pub canonical_core_bytes: Vec<u8>,
     pub evidence_kind: EvidenceKind,
     pub evidence_id: [u8; 32],
-    pub held_level: VerificationLevel,
-    pub reported_level: VerificationLevel,
+    pub held_rung: Rung,
+    pub reported_rung: Rung,
     pub staleness: Staleness,
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum ReadError {
     NoVerifiedReference,
-    InsufficientEvidence {
-        requested: VerificationLevel,
-        held: VerificationLevel,
-    },
-    FinalityUnavailable {
-        requested: VerificationLevel,
-        supported: VerificationLevel,
-    },
+    UnsupportedEvidence,
+    InsufficientEvidence { requested: Rung, held: Rung },
+    FinalityUnavailable { requested: Rung, supported: Rung },
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -108,7 +103,9 @@ pub enum OperationError {
 pub struct Controller {
     mode: Mode,
     reference: Option<Reference>,
-    maximum_verification: VerificationLevel,
+    trusted_reference: Option<Reference>,
+    trusted_maximum_rung: Rung,
+    maximum_rung: Rung,
     transitions: BTreeMap<Mode, u64>,
 }
 
@@ -117,7 +114,9 @@ impl Default for Controller {
         Self {
             mode: Mode::Unreachable,
             reference: None,
-            maximum_verification: VerificationLevel::UNVERIFIED,
+            trusted_reference: None,
+            trusted_maximum_rung: Rung::Submitted,
+            maximum_rung: Rung::Submitted,
             transitions: BTreeMap::new(),
         }
     }
@@ -130,7 +129,7 @@ impl Controller {
         Status {
             mode: self.mode,
             reference: self.reference,
-            maximum_verification: self.maximum_verification,
+            maximum_rung: self.maximum_rung,
             readiness: Readiness {
                 preparation: live,
                 submission_acknowledgement: live,
@@ -168,41 +167,42 @@ impl Controller {
         metrics: &mut Metrics,
         tenant: &TenantId,
     ) -> Result<(), MetricsError> {
-        metrics.observe(
+        metrics.observe_named(
             tenant,
             MetricKind::DegradedState,
-            metric_label(self.mode),
+            metric_label(self.mode).name(),
             1,
         )
     }
 
-    /// Serves only already verified core bytes, with an explicit level cap and staleness.
+    /// Serves only already verified core bytes, with an explicit rung cap and staleness.
     ///
     /// # Errors
     ///
-    /// Refuses a cache value below the requested level, a level the current core state no
+    /// Refuses a cache value below the requested rung, a rung the current core state no
     /// longer supports, or a read before any core reference has ever been accepted.
     pub fn serve_cached(
         &self,
         value: &CacheValue,
-        requested: VerificationLevel,
+        requested: Rung,
     ) -> Result<DegradedRead, ReadError> {
         if self.reference.is_none() {
             return Err(ReadError::NoVerifiedReference);
         }
-        if value.level() < requested {
+        let held_rung = value.level().rung().ok_or(ReadError::UnsupportedEvidence)?;
+        if held_rung < requested {
             return Err(ReadError::InsufficientEvidence {
                 requested,
-                held: value.level(),
+                held: held_rung,
             });
         }
-        if self.maximum_verification < requested {
+        if self.maximum_rung < requested {
             return Err(ReadError::FinalityUnavailable {
                 requested,
-                supported: self.maximum_verification,
+                supported: self.maximum_rung,
             });
         }
-        let reported_level = value.level().min(self.maximum_verification);
+        let reported_rung = held_rung.min(self.maximum_rung);
         let observed_reference = self.reference;
         let stale = self.mode != Mode::Healthy
             || observed_reference.is_some_and(|reference| {
@@ -213,8 +213,8 @@ impl Controller {
             canonical_core_bytes: value.core_bytes().to_vec(),
             evidence_kind: value.evidence_kind(),
             evidence_id: value.evidence_id(),
-            held_level: value.level(),
-            reported_level,
+            held_rung,
+            reported_rung,
             staleness: Staleness {
                 mode: self.mode,
                 stale,
@@ -237,6 +237,17 @@ impl Controller {
         } else {
             Err(OperationError::LiveCoreRequired(self.mode))
         }
+    }
+
+    pub fn guard_new_inference_deal<T>(
+        &self,
+        operation: impl FnOnce() -> T,
+    ) -> Result<T, OperationError> {
+        self.guard_preparation(operation)
+    }
+
+    pub fn serve_open_inference_deal<T>(&self, operation: impl FnOnce() -> T) -> T {
+        operation()
     }
 
     /// Acknowledges a submission only while the core is live.
@@ -290,41 +301,56 @@ impl Controller {
 
 /// Applies one core observation and records the resulting externally visible mode.
 pub fn enter(controller: &mut Controller, observation: Observation) -> Status {
-    let (mut mode, reference, maximum_verification) = match observation {
+    let (mut mode, reference, maximum_rung) = match observation {
         Observation::Ready {
             reference,
-            maximum_verification,
-        } => (Mode::Healthy, Some(reference), maximum_verification),
+            maximum_rung,
+        } => (Mode::Healthy, Some(reference), maximum_rung),
         Observation::Unreachable => (
             Mode::Unreachable,
             controller.reference,
-            controller.maximum_verification,
+            controller.maximum_rung,
         ),
         Observation::Halted {
             reference,
-            maximum_verification,
-        } => (Mode::Halted, Some(reference), maximum_verification),
+            maximum_rung,
+        } => (Mode::Halted, Some(reference), maximum_rung),
         Observation::Emergency {
             reference,
-            maximum_verification,
-        } => (Mode::Emergency, Some(reference), maximum_verification),
+            maximum_rung,
+        } => (Mode::Emergency, Some(reference), maximum_rung),
         Observation::DataUnavailable {
             reference,
-            maximum_verification,
-        } => (Mode::DataUnavailable, Some(reference), maximum_verification),
+            maximum_rung,
+        } => (Mode::DataUnavailable, Some(reference), maximum_rung),
     };
     if mode == Mode::Healthy
         && (controller
-            .reference
+            .trusted_reference
             .zip(reference)
-            .is_some_and(|(previous, current)| current.head_sequence < previous.head_sequence)
-            || maximum_verification < controller.maximum_verification)
+            .is_some_and(|(previous, current)| {
+                current.head_sequence < previous.head_sequence
+                    || (current.head_sequence == previous.head_sequence
+                        && current.checkpoint != previous.checkpoint)
+            })
+            || maximum_rung < controller.trusted_maximum_rung)
     {
         mode = Mode::Behind;
     }
+    // Keep independent high-water marks: a regressed observation never lowers
+    // either requirement, even across unreachable or explicitly degraded modes.
+    if let Some(current) = reference {
+        if controller
+            .trusted_reference
+            .is_none_or(|previous| current.head_sequence > previous.head_sequence)
+        {
+            controller.trusted_reference = Some(current);
+        }
+    }
+    controller.trusted_maximum_rung = controller.trusted_maximum_rung.max(maximum_rung);
     controller.mode = mode;
     controller.reference = reference;
-    controller.maximum_verification = maximum_verification;
+    controller.maximum_rung = maximum_rung;
     let count = controller.transitions.entry(mode).or_default();
     *count = count.saturating_add(1);
     controller.status()
@@ -344,7 +370,7 @@ fn health_mode(mode: Mode) -> Option<DegradedMode> {
 const fn metric_label(mode: Mode) -> MetricLabel {
     match mode {
         Mode::Healthy => MetricLabel::BoundaryReady,
-        Mode::Unreachable => MetricLabel::BoundaryUnavailable,
+        Mode::Unreachable => MetricLabel::NodeUnavailable,
         Mode::Behind => MetricLabel::BoundaryBehind,
         Mode::Halted => MetricLabel::CoreHalted,
         Mode::Emergency => MetricLabel::CoreEmergency,

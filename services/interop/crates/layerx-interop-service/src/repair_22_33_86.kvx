@@ -1,0 +1,63 @@
+[repair.22.33.86]
+audit = "22.30.110"
+mode = "BUILD"
+obsolete_service_config = "obsolete_service_config_and_readiness_component_type: production config::load with only documented active node/receipt-pin, TLS/store, manifest/protocol and AP2 signer inputs; mounted ready and unavailable HTTP responses consumed by the production operational parser. Retired deployment inputs are outside scope and have owning-domain requests below."
+readiness_cli_declaration = "readiness_cli_declaration_and_concrete_proof_workflow: main uses the tested no-argument startup validator; the historical receipt flag is refused. Original ledger-produced receipt/transaction bytes pass the real AP2 PortableReceiptV2 exporter, transport JSON and operational offline verifier with independent pins; absent pins and a forged committed level are refused."
+payer_chain_id = "payer_chain_id_through_actual_verify_handler: actual cryptographic payer producer signs chain-1 and chain-125 payExact transactions with the same key; the assertions require chain 1 to return transaction_chain_id_refused, chain 125 to verify, and neither to submit. The shared config constant is the only chain startup permits."
+relay_retention = "relay_retention_reopens_and_late_replay_never_submits_again: real relay and TLS journal preserve unknown/uncommitted claims beyond retention and reopen; production maintenance discovers later node finality, persists a permanent hash tombstone and expires raw/progress records after the gateway replay window; reopen and missing late receipt cannot trigger another submission. The binary polls persisted SCAN pages every minute, including legacy raw journal keys."
+committed_claim_without_proof = "committed_claim_without_proof_stays_receipted and committed_claim_without_proof_hosted_ap2_response: real relay and hosted AP2 responses remain receipted for absent, unrelated and matching committed node block evidence; signed AP2 JWTs and the actual portable verifier confirm the exported level. Complete validator/batch inclusion is not consumed by this service, so even a valid node block observation cannot become a portable committed claim."
+payment_expiry_units = "payment_expiry_units_through_mounted_real_clock_route: assertions require mounted authenticated verification to accept future payer-signed calldata and refuse transactions at/past their deadline and the unchanged expired ledger capture; the production expiry predicate also asserts the exact before/equality/after boundary. Mandate, credential, gateway and audit clocks remain seconds."
+hosted_ap2_signed_export = "hosted_ap2_signed_export_and_restarted_replay: production mandate authorization, payer signer, relay, receipt/log verifier, AP2 ReceiptSigner/SignedAp2Evidence and PortableLayerXEvidence bridge export both ES256 JWTs and transaction-bound PortableReceiptV2; independent JWT and AP2/portable consumers check references, signatures and receipt identity; gateway response is persisted and byte-identical after dropping/reopening configuration and the disk-backed TLS peer, with one submission."
+readiness_component_type = "obsolete_service_config_and_readiness_component_type: real mounted ready/unavailable responses serialize the shared ComponentStatus string enum and feed ReadinessDocument::from_json/is_ready; boolean substitution is refused."
+baseline = "No baseline gate was run: the controlling task order explicitly forbids tests until implementation is complete and permits hf-build then hf-done only. This overrides do_12's contradictory unchanged-tree verify request; no pre-change test failure is claimed. The initial ledger had no build or verify rows."
+fixture = "No external prerequisite: tests create private local TLS identities and loopback HTTP/RESP peers in Rust. Retention and offline proof cases retain the unchanged ledger/sequencer transcript. AP2 peers emit fresh protocol-codec receipts from the real mandate-derived payer transaction, recomputing the transaction hash, sequence chain, log commitments and signature rather than rewriting a recorded signed receipt. The component under repair is always the actual service, store client, relay, signing/export bridge or codec."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private evidence path in the runner ledger; the final response copies its last evidence line. No gate, commit or publication is claimed without that record."
+
+[wiring.22.33.86.registry]
+request = "spec/layerx-merge/interfaces.kvx — interop domain 11: retire hosted-gateway/receipt-authority/individual-sequencer-key environment rows; reconcile 11.cli-svc-layerx-interop-gateway to no arguments and the concrete PortableReceiptV2 procedure; change 11.fmt-svc-readyz-sequencer-component-j47 to the ready/unavailable string enum; register AP2 receipt signer configuration, then regenerate the service contract rows."
+
+[wiring.22.33.86.deployment]
+request = "services/interop/deploy/gateway — interop domain 11: remove retired hosted-gateway/receipt-authority/individual-sequencer-key inputs; provision private AP2 receipt signer configuration and independently publish its verification keys to AP2 consumers."
+
+[wiring.22.33.86.fixtures]
+request = "services/interop/crates/layerx-interop-service/tests/sequencer_start.rs and private_network.rs — interop domain 11: remove obsolete fixture environment inputs and adopt the minimal active startup/readiness and concrete proof workflow demonstrated by repair_22_33_86.rs."
+
+[wiring.22.33.86.ap2]
+request = "services/interop/crates/layerx-ap2/src/adapter.rs and lib.rs — interop domain 11: expose the private signing finalizer for already verified EVM settlement evidence so the hosted bridge can share its JWT payload assembly; the current public LayerXIntentPlane requires an unexported direct dependency type and the legacy CompiledIntent path, while this service relays real payer-signed EVM transactions."
+
+[continuation.22.33.86]
+inherited_result = "Attempt 1 reported four passing tests and four failures: committed_claim_without_proof_hosted_ap2_response, hosted_ap2_signed_export_and_restarted_replay, payer_chain_id_through_actual_verify_handler, payment_expiry_units_through_mounted_real_clock_route. Its AP2 HTTPS audience correction was already present in the carried-forward tree. No unchanged-tree gate is rerun."
+repair = "The EVM offer uses the production LAYERX_NETWORK constant and the required account/currency profile, checks the actual payee with account_identifiers and the public PaymentRequirements validator, and includes the signed transaction hash required by the facilitator alongside exact payer bytes. The AP2 persistence assertion decodes the production http-v1 metadata/body envelope and checks its status, content type and unchanged response bytes before restarted replay."
+observed = "The current model defines LAYERX_NETWORK as eip155:125; the initial continuation misread the constant and incorrectly removed the required profile. There is no upstream validator contradiction and no x402 owning-domain repair is requested."
+
+[gotcha.22.33.86]
+observed = "Portable committed verification requires validator/batch inclusion; a matching node block hash is only a finality observation. Permanent replay tombstones make raw-byte compaction safe without promoting its portable trust level."
+observed_2 = "The AP2 library exposes signer/evidence types but keeps its signing finalizer private; keep real EVM settlement and the public AP2 authorization/signing/export boundary, and request a shared finalizer from the owning crate instead of editing an out-of-scope manifest."
+observed_3 = "The canonical receipt digest helper accepts signed receipts only; a new peer transcript signs the domain-separated unsigned codec bytes, then verifies the resulting signed encoding and digest."
+observed_4 = "Inspect the current LAYERX_NETWORK constant rather than inferring its value from historical audit text: eip155:125 now requires extra.layerx and a matching account-derived payee. A facilitator also requires payload.transaction to name the actual signed transaction hash."
+observed_5 = "A durable operation response is an http-v1 metadata/body envelope, not a bare hexadecimal body; assert metadata and exact decoded body before exercising production restarted replay."
+
+[qualification.22.33.86.continuation_verify_1]
+revision = "758d494705e24699061b027d7eb103aa6532dd8b"
+command = "cg spec done 22.33.86 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; two fixture validations returned ProfileMissing after the mistaken profile removal, and AP2 persistence treated the HTTP response envelope as bare hex. One task-scoped repair restores and validates the profile and decodes the stored envelope without weakening any behavioral assertion."
+
+[qualification.22.33.86.build_1]
+revision = "eaeee8d102cf11cfe5d902711356a96b2d14d302"
+command = "cargo build --locked --manifest-path services/interop/crates/layerx-interop-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Receipt fixture codec calls return WireError without the standard Error trait; qualification repair one explicitly preserves their errors at the test boundary."
+
+[qualification.22.33.86.verify_1]
+revision = "5274cc06eff85b76ca4bd1de901f957fa950476f"
+command = "cg spec done 22.33.86 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Four tests passed; fixture requests lacked the required x402 account/currency profile and used a non-HTTPS AP2 audience; qualification repair two supplies the production-required declarations without changing assertions."
+
+[qualification.22.33.86.runner_budget]
+observed = "The helper counts each extra build and verification separately; build three consumes its second allowance and leaves no allowance for the verification required by the controlling second repair cycle."
+assumption = "Runner correction is external and outside task scope; no helper, ledger or budget configuration is edited by this task."

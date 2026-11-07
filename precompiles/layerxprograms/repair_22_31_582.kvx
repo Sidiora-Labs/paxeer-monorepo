@@ -1,0 +1,27 @@
+[repair]
+task = "22.31.582"
+decision = "2739"
+gotcha = "3352"
+base_revision = "83567d12ce9f7928d9ac5583278f86e840106e2c"
+continuation_decision = "2742"
+prerequisite = "22.31.584 is included in base_revision through merge 4ab0fb12197926767b68b9935ba0c8a546fdcf5d; its shared lease request helper and committed vector are unchanged by this task."
+method = "callWithReceipts(bytes32,uint16,string,bytes,bytes,bytes,uint32,uint64[7],uint128,(bytes,uint64)[])"
+selector = "0xabc313ef"
+tables_changed = ["abi.json functions", "LayerXPrograms.sol ILayerXPrograms", "gas.go gasTable", "gas_test.go d2Table", "abi_test.go method counts and tuple types", "gas_charge_test.go gasWriteFixture and write count", "xweb.go webHandlers"]
+implementation = "call and callWithReceipts share callWithAuthorities; the receipt tuple decoder forwards canonical receipts and heights to submit in both ordinary and web-request handlers."
+test = "TestProgramsCallWithReceiptsCarriesAuthorities packs real earlier registryRead receipts through the EVM precompile and checks successful outcomes, exact gas, authenticated index fields and empty indexes for uncited calls in both handler tables."
+unchanged_test = "TestProgramsSubmitCarriesReceiptAuthorities"
+
+[qualification]
+gate_ledger = "/out/run/gates.jsonl"
+verified_revision = "The revision field of the final successful verify row in gate_ledger; qualification requires the same revision in the successful build row."
+verified_tests = ["TestProgramsCallWithReceiptsCarriesAuthorities", "TestProgramsABIKeepsThirtySixMethods", "TestProgramsWriteMethodsChargeGasTable", "TestProgramsSubmitCarriesReceiptAuthorities"]
+test_evidence = "The final successful kind=verify row in gate_ledger references the private log for the verify_cmd executing all four verified_tests, including the repaired lease execution gas row."
+build = "hf-build: make -s paxd-native-libs && CGO_ENABLED=1 go build ./precompiles/layerxprograms/..."
+verify = "hf-done: cg spec done 22.31.582 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "make -s paxd-native-libs && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxprograms/ -run '^(TestProgramsCallWithReceiptsCarriesAuthorities|TestProgramsABIKeepsThirtySixMethods|TestProgramsWriteMethodsChargeGasTable|TestProgramsSubmitCarriesReceiptAuthorities)$'"
+evidence = "Exact commands, revisions, exits and private log locations are recorded by the gate ledger; this record is written before qualification and is not amended after passing gates."
+
+[gotcha.abi-receipt-tuples]
+observed = "The ABI unpacks receipt tuples into an anonymous struct slice with JSON field tags, distinct from the host ReceiptAuthority slice."
+action = "Decode the ABI tuple slice explicitly into ReceiptAuthority values before submission, as transfer tuple decoding does."

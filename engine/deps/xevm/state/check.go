@@ -31,5 +31,5 @@ func (s *DBImpl) Exist(addr common.Address) bool {
 // Empty returns whether the given account is empty. Empty
 // is defined according to EIP161 (balance = nonce = code = 0).
 func (s *DBImpl) Empty(addr common.Address) bool {
-	return s.GetBalance(addr).CmpBig(utils.Big0) == 0 && s.GetNonce(addr) == 0 && s.GetCodeHash(addr).Cmp(common.Hash{}) == 0
+	return s.GetBalance(addr).CmpBig(utils.Big0) == 0 && s.GetNonce(addr) == 0 && s.GetCodeSize(addr) == 0
 }

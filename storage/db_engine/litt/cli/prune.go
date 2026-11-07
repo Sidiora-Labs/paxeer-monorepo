@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"os"
 	"path"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/disktable"
@@ -101,50 +103,23 @@ func pruneTable(
 			tableName, sources, err)
 	}
 
-	lowestSegmentIndex, highestSegmentIndex, segments, err := segment.GatherSegmentFiles(
-		logger,
-		errorMonitor,
-		segmentPaths,
-		false,
-		time.Now(),
-		true,
-		fsync)
+	lowestSegmentIndex, highestSegmentIndex, segments, isSnapshot, err := gatherPruneSegments(
+		logger, errorMonitor, segmentPaths, sources, tableName, fsync)
 	if err != nil {
-		return 0, fmt.Errorf("failed to gather segment files for table %s at paths %v: %w",
-			tableName, sources, err)
+		return 0, err
 	}
-
 	if len(segments) == 0 {
+		if isSnapshot {
+			return 0, nil
+		}
 		return 0, fmt.Errorf("no segments found for table %s at paths %v", tableName, sources)
-	}
-
-	// Determine if we are working on the snapshot directory (i.e. the directory with symlinks to the segments).
-	isSnapshot, err := segments[lowestSegmentIndex].IsSnapshot()
-	if err != nil {
-		return 0, fmt.Errorf("failed to check if segment %d is a snapshot: %w", lowestSegmentIndex, err)
-	}
-
-	if isSnapshot {
-		// If we are dealing with a snapshot, respect the snapshot upper bound specified by LittDB.
-		if len(sources) > 1 {
-			return 0, fmt.Errorf("this is a symlinked snapshot directory, " +
-				"snapshot directory cannot be spread across multiple sources")
-		}
-		upperBoundFile, err := disktable.LoadBoundaryFile(disktable.UpperBound, path.Join(sources[0], tableName))
-		if err != nil {
-			return 0, fmt.Errorf("failed to load boundary file for table %s at path %s: %w",
-				tableName, sources[0], err)
-		}
-		if upperBoundFile.IsDefined() {
-			highestSegmentIndex = upperBoundFile.BoundaryIndex()
-		}
 	}
 
 	// Delete old segments.
 	bytesDeleted := uint64(0)
 	deletedSegments := make([]*segment.Segment, 0)
-	for segmentIndex := lowestSegmentIndex; segmentIndex <= highestSegmentIndex; segmentIndex++ {
-		seg := segments[segmentIndex]
+	for index := uint64(lowestSegmentIndex); index <= uint64(highestSegmentIndex); index++ {
+		seg := segments[uint32(index)]
 		segmentAge := time.Since(seg.GetSealTime())
 
 		if segmentAge < time.Duration(maxAgeSeconds)*time.Second { //nolint:gosec // CLI flag bounded
@@ -188,6 +163,91 @@ func pruneTable(
 	}
 
 	return bytesDeleted, nil
+}
+
+// Snapshot discovery must not load or clean files still owned by the publisher.
+func gatherPruneSegments(
+	logger *slog.Logger,
+	monitor *util.ErrorMonitor,
+	paths []*segment.SegmentPath,
+	sources []string,
+	tableName string,
+	fsync bool,
+) (uint32, uint32, map[uint32]*segment.Segment, bool, error) {
+	isSnapshot := false
+	var names []string
+	for _, segmentPath := range paths {
+		entries, err := os.ReadDir(segmentPath.SegmentDirectory())
+		if err != nil {
+			return 0, 0, nil, false, fmt.Errorf("failed to discover segment files: %w", err)
+		}
+		for _, entry := range entries {
+			extension := path.Ext(entry.Name())
+			if extension != segment.MetadataFileExtension && extension != segment.KeyFileExtension &&
+				extension != segment.ValuesFileExtension {
+				continue
+			}
+			names = append(names, entry.Name())
+			isSnapshot = isSnapshot || entry.Type()&os.ModeSymlink != 0
+		}
+		for _, boundaryName := range []string{disktable.UpperBoundFileName, disktable.LowerBoundFileName} {
+			_, err := os.Lstat(path.Join(path.Dir(segmentPath.SegmentDirectory()), boundaryName))
+			if err == nil {
+				isSnapshot = true
+			} else if !os.IsNotExist(err) {
+				return 0, 0, nil, false, err
+			}
+		}
+	}
+	if !isSnapshot {
+		low, high, segments, err := segment.GatherSegmentFiles(
+			logger, monitor, paths, false, time.Now(), true, fsync)
+		return low, high, segments, false, err
+	}
+	if len(sources) != 1 {
+		return 0, 0, nil, true, fmt.Errorf("snapshot directory cannot be spread across multiple sources")
+	}
+	parent := path.Join(sources[0], tableName)
+	upper, err := disktable.LoadBoundaryFile(disktable.UpperBound, parent)
+	if err != nil {
+		return 0, 0, nil, true, err
+	}
+	segments := make(map[uint32]*segment.Segment)
+	if !upper.IsDefined() {
+		return 0, 0, segments, true, nil
+	}
+	lower, err := disktable.LoadBoundaryFile(disktable.LowerBound, parent)
+	if err != nil {
+		return 0, 0, nil, true, err
+	}
+	high := upper.BoundaryIndex()
+	first := uint64(high) + 1
+	for _, name := range names {
+		prefix := strings.SplitN(strings.TrimSuffix(name, path.Ext(name)), "-", 2)[0]
+		index, err := strconv.ParseUint(prefix, 10, 32)
+		if err != nil {
+			return 0, 0, nil, true, fmt.Errorf("invalid segment file %s: %w", name, err)
+		}
+		if index <= uint64(high) && (!lower.IsDefined() || index > uint64(lower.BoundaryIndex())) && index < first {
+			first = index
+		}
+	}
+	// A defined lower bound makes a missing published prefix an error, rather
+	// than silently accepting a gap and advancing reclamation past it.
+	if lower.IsDefined() {
+		first = uint64(lower.BoundaryIndex()) + 1
+	}
+	if first > uint64(high) {
+		return 0, 0, segments, true, nil
+	}
+	for index := first; index <= uint64(high); index++ {
+		seg, err := segment.LoadSegment(logger, monitor, uint32(index), paths, false, time.Now(), fsync)
+		if err != nil {
+			return 0, 0, nil, true, fmt.Errorf("failed to load published segment %d: %w", index, err)
+		}
+		segments[uint32(index)] = seg
+	}
+	return uint32(first), high, segments, true, nil
 }
 
 // Updates the lower bound file after segments have been deleted.

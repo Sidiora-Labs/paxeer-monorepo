@@ -3,7 +3,7 @@ use std::num::NonZeroUsize;
 
 use crate::approvals::{InboxSnapshot, InboxState};
 use crate::journeys::JourneyState;
-use crate::store::{PrincipalScope, RowKey, Table};
+use crate::store::{PrincipalScope, RowKey};
 
 use super::{
     ActivityEntryId, ApprovalId, Channel, Delivery, Dispatcher, JourneyId, NotificationClass,
@@ -343,10 +343,11 @@ impl DeepLinks {
             })
             .ok_or(NotifyError::NotificationNotFound)?;
         let key = read_key(id)?;
-        if let Some(row) = scope.get(Table::Notifications, &key) {
+        Dispatcher::migrate_retained_state(scope)?;
+        if let Some(row) = super::retained_state(scope, &key) {
             validate_read_marker(row.bytes())?;
         } else {
-            scope.put(Table::Notifications, key, now, READ_MARKER.to_vec())?;
+            super::put_retained_state(scope, key, now, READ_MARKER.to_vec())?;
         }
         Ok(NotificationSummary {
             delivery,
@@ -396,7 +397,7 @@ fn resolve_journey(
     };
     require_path(delivery, &link_path)?;
     let (surface, path, landing_state) = match state {
-        JourneyState::Done => (
+        JourneyState::Done | JourneyState::Closed => (
             Surface::Journey,
             journey_path,
             LandingState::Resolved(Resolution::Done),
@@ -491,11 +492,28 @@ fn read_key(id: &NotificationId) -> Result<RowKey, NotifyError> {
 }
 
 fn read_state(scope: &PrincipalScope<'_>, id: &NotificationId) -> Result<bool, NotifyError> {
-    let Some(row) = scope.get(Table::Notifications, &read_key(id)?) else {
+    let Some(row) = super::retained_state(scope, &read_key(id)?) else {
         return Ok(false);
     };
     validate_read_marker(row.bytes())?;
     Ok(true)
+}
+
+pub(super) fn migrate_read_states(scope: &mut PrincipalScope<'_>) -> Result<(), NotifyError> {
+    for delivery in Dispatcher::deliveries(scope)? {
+        if delivery.channel() != Channel::InApp {
+            continue;
+        }
+        let key = read_key(delivery.notification_id())?;
+        if let Some(row) = super::retained_state(scope, &key) {
+            validate_read_marker(row.bytes())?;
+            if scope.get(super::STATE_TABLE, &key).is_none() {
+                let (written_at, bytes) = (row.written_at(), row.bytes().to_vec());
+                scope.put(super::STATE_TABLE, key, written_at, bytes)?;
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_read_marker(bytes: &[u8]) -> Result<(), NotifyError> {

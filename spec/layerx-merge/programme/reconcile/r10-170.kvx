@@ -1,0 +1,107 @@
+[reconcile.r10-170]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 13
+
+[row.r10-170.1]
+interface = "interface.10.rs-intents-disclosure-fn-l609-j46"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/disclosure.rs"
+line = 458
+symbol = "payload_hash"
+evidence = "DisclosureCheck declares pub const fn payload_hash(&self) -> [u8; 32] at line 458 and returns self.payload_hash; the field and hash calculation are other occurrences, not the method declaration."
+
+[row.r10-170.2]
+interface = "interface.10.rs-intents-vocabulary-budget-create"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 572
+symbol = "BudgetCreate"
+evidence = "Line 572 declares pub struct BudgetCreate with budget_id, owner, budget_account and budget constraints; the later impl BudgetCreate block is not the struct declaration."
+
+[row.r10-170.3]
+interface = "interface.10.rs-intents-vocabulary-budget-defund"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 729
+symbol = "BudgetDefund"
+evidence = "Line 729 declares pub struct BudgetDefund with budget_id, budget_account, owner, asset, amount, revocation_sequence and idempotency_key; its impl begins separately at line 739."
+
+[row.r10-170.4]
+interface = "interface.10.rs-intents-vocabulary-budget-defund-new"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 769
+symbol = "new"
+evidence = "The pub fn new declaration at line 769 belongs to impl BudgetDefund. Its seven arguments are budget_id: BudgetId, budget_account: AccountId, owner: AccountId, asset: AssetId, amount: Amount, revocation_sequence: Sequence and idempotency_key: IdempotencyKey, returning Result<Self, IntentError> as registered."
+
+[row.r10-170.5]
+interface = "interface.10.rs-intents-vocabulary-budget-defund-to-wire-parts"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 742
+symbol = "to_wire_parts"
+evidence = "The pub fn to_wire_parts declaration at line 742 is inside impl BudgetDefund and takes &self. Its tuple is (BudgetId, &AccountId, &AccountId, AssetId, Amount, Sequence, IdempotencyKey), with budget_account before owner, matching the registered signature."
+
+[row.r10-170.6]
+interface = "interface.10.rs-intents-vocabulary-budget-fund"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 672
+symbol = "BudgetFund"
+evidence = "Line 672 declares pub struct BudgetFund with budget_id, owner, budget_account, asset, amount and idempotency_key; the separate impl BudgetFund starts at line 681."
+
+[row.r10-170.7]
+interface = "interface.10.rs-intents-vocabulary-intent-error"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 838
+symbol = "IntentError"
+evidence = "Line 838 declares pub struct IntentError with public field: IntentField and reason: IntentErrorReason members; constructor return types elsewhere only reference this type."
+
+[row.r10-170.8]
+interface = "interface.10.rs-intents-vocabulary-intent-error-reason"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 826
+symbol = "IntentErrorReason"
+evidence = "Line 826 declares pub enum IntentErrorReason, including Empty, Zero, InvalidRange, InvalidCanonicalEncoding, SameSourceAndDestination, WrongAccountNamespace and EventMismatch; subsequent references use this enum."
+
+[row.r10-170.9]
+interface = "interface.10.rs-intents-vocabulary-intent-field"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 793
+symbol = "IntentField"
+evidence = "Line 793 declares pub enum IntentField, the field identifiers used by construction failures; calls to IntentError helpers and the IntentError.field member reference this declaration."
+
+[row.r10-170.10]
+interface = "interface.10.rs-intents-vocabulary-lxp-receive"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 438
+symbol = "LxpReceive"
+evidence = "Line 438 declares pub struct LxpReceive with from, to, asset, amount, payer_grant, receiver_sequence, idempotency_key and context_hash; its implementation starts separately at line 449."
+
+[row.r10-170.11]
+interface = "interface.10.rs-intents-vocabulary-lxp-receive-to-wire-parts"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 452
+symbol = "to_wire_parts"
+evidence = "The pub fn to_wire_parts declaration at line 452 belongs to impl LxpReceive and takes &self, returning (&AccountId, &AccountId, AssetId, Amount, PayerGrantId, Sequence, IdempotencyKey, ContextHash), exactly the registered tuple."
+
+[row.r10-170.12]
+interface = "interface.10.rs-intents-vocabulary-lxp-send"
+verdict = "kept"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 351
+symbol = "LxpSend"
+evidence = "Line 351 declares pub struct LxpSend, retaining account_sequence: Sequence at line 356. Registry override.J46.1 cites decision.1024, which keeps this name and type unchanged while carrying the pending-tag nonce; the impl at line 365 is not the struct declaration."
+
+[row.r10-170.13]
+interface = "interface.10.rs-intents-vocabulary-payer-grant-registration"
+verdict = "served"
+path = "services/human/crates/layerx-intents/src/vocabulary.rs"
+line = 509
+symbol = "PayerGrantRegistration"
+evidence = "Line 509 declares pub struct PayerGrantRegistration with grant_id, from, recipient, asset, per_draw_maximum, allowance, schedule, expiration, purpose and public_key; its impl starts separately at line 522."

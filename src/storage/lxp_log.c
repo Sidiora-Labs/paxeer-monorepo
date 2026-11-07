@@ -31,6 +31,13 @@ static int valid_kind(uint8_t kind)
            kind <= (uint8_t)LXP_LOG_BATCH_BODY;
 }
 
+static int valid_append_kind(lxp_log_record_kind kind)
+{
+    return kind == LXP_LOG_ACTIVITY || kind == LXP_LOG_RECEIPT ||
+           kind == LXP_LOG_CHECKPOINT || kind == LXP_LOG_STATE_DIFF ||
+           kind == LXP_LOG_GENESIS;
+}
+
 static void store_u32(uint8_t *out, uint32_t value)
 {
     out[0] = (uint8_t)(value >> 24U);
@@ -244,6 +251,7 @@ lxp_result lxp_log_segment_create(lxp_log *log, const char *directory,
 {
     char path[4096];
     int descriptor;
+    int directory_descriptor;
     int length;
     int allocation;
     if (log == NULL || directory == NULL ||
@@ -278,6 +286,21 @@ lxp_result lxp_log_segment_create(lxp_log *log, const char *directory,
     log->has_fallback_durable_marker = false;
     log->allow_fallback_durable_marker = false;
     if (durable_marker_store(log, 0U) != LXP_OK) {
+        (void)close(descriptor);
+        (void)unlink(path);
+        log->descriptor = -1;
+        return LXP_ERR_IO;
+    }
+    directory_descriptor = open(directory, O_RDONLY | O_DIRECTORY | O_CLOEXEC);
+    if (directory_descriptor >= 0) {
+        do {
+            allocation = fsync(directory_descriptor);
+        } while (allocation != 0 && errno == EINTR);
+        if (close(directory_descriptor) != 0) allocation = -1;
+    } else {
+        allocation = -1;
+    }
+    if (allocation != 0) {
         (void)close(descriptor);
         (void)unlink(path);
         log->descriptor = -1;
@@ -410,7 +433,7 @@ lxp_result lxp_log_append(lxp_log *log, lxp_log_record_kind kind,
     uint8_t encoded[LXP_LOG_HEADER_BYTES];
     uint64_t end;
     lxp_result status;
-    if (log == NULL || log->descriptor < 0 || !valid_kind((uint8_t)kind) ||
+    if (log == NULL || log->descriptor < 0 || !valid_append_kind(kind) ||
         (body == NULL && body_length != 0U)) return LXP_ERR_NON_CANONICAL;
     if (global_sequence == UINT64_MAX) return LXP_ERR_SEQUENCE_EXHAUSTED;
     end = log->write_offset + LXP_LOG_HEADER_BYTES + body_length;

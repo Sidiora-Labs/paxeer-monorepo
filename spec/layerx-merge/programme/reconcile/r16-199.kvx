@@ -1,0 +1,243 @@
+[reconcile.r16-199]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-199.1]
+interface = "interface.16.mk-agent-build"
+verdict = "served"
+path = "Makefile"
+line = 1618
+symbol = "agent-build"
+evidence = "The declaration agent-build: matches the registered signature and builds the locked agent workspace through AGENT_CARGO. The .PHONY list and workspace-build prerequisite are references, not this rule's declaration."
+
+[row.r16-199.2]
+interface = "interface.16.mk-agent-check"
+verdict = "served"
+path = "Makefile"
+line = 1964
+symbol = "agent-check"
+evidence = "The declaration agent-check: agent-check-boundary agent-check-secrets agent-test-boundary retains all three registered prerequisites and runs the locked workspace check with --all-targets. The earlier .PHONY list only mentions the target."
+
+[row.r16-199.3]
+interface = "interface.16.mk-agent-check-boundary"
+verdict = "served"
+path = "Makefile"
+line = 2360
+symbol = "agent-check-boundary"
+evidence = "The declaration agent-check-boundary: matches the registered signature; its recipe tests the boundary-check tool through run-with-clock.sh and runs that tool against services/agent. Its appearance among agent-check prerequisites is a use."
+
+[row.r16-199.4]
+interface = "interface.16.mk-agent-check-secrets"
+verdict = "served"
+path = "Makefile"
+line = 2364
+symbol = "agent-check-secrets"
+evidence = "The declaration agent-check-secrets: matches the registered signature and owns the secret-check test and scan recipes plus the layerx-crypto secrets test. The agent-check prerequisite occurrence does not declare this rule."
+
+[row.r16-199.5]
+interface = "interface.16.mk-agent-fuzz"
+verdict = "served"
+path = "Makefile"
+line = 1913
+symbol = "agent-fuzz"
+evidence = "The declaration agent-fuzz: agent-fuzz-all retains the exact registered dependency-only signature. The earlier .PHONY occurrence is a mention; the following agent-fuzz-wire and agent-fuzz-interface rules declare different targets."
+
+[row.r16-199.6]
+interface = "interface.16.mk-agent-lint"
+verdict = "served"
+path = "Makefile"
+line = 1897
+symbol = "agent-lint"
+evidence = "The declaration agent-lint: matches the registered signature and runs workspace clippy with --all-targets and -D warnings followed by dependency-policy.sh. Its .PHONY and workspace-lint occurrences refer to this declaration."
+
+[row.r16-199.7]
+interface = "interface.16.mk-agent-qualify-fuzz"
+verdict = "served"
+path = "Makefile"
+line = 2051
+symbol = "agent-qualify-fuzz"
+evidence = "The declaration agent-qualify-fuzz: matches the registered signature and runs services/agent/tests/qualify/Cargo.toml with fuzz, CURDIR and AGENT_FUZZ_MINIMIZED_ROOT. The later quoted make command is a caller mention."
+
+[row.r16-199.8]
+interface = "interface.16.mk-agent-test-agentd-delivery"
+verdict = "served"
+path = "Makefile"
+line = 2227
+symbol = "agent-test-agentd-delivery"
+evidence = "The declaration agent-test-agentd-delivery: matches the registered signature and runs the locked layerx-agentd delivery integration test through run-with-clock.sh. The later quoted make command merely invokes the target."
+
+[row.r16-199.9]
+interface = "interface.16.mk-agent-test-agentd-gaps"
+verdict = "served"
+path = "Makefile"
+line = 2230
+symbol = "agent-test-agentd-gaps"
+evidence = "The declaration agent-test-agentd-gaps: matches the registered signature and runs the locked layerx-agentd gaps integration test through run-with-clock.sh. The later make command lists this rule as a target to invoke."
+
+[row.r16-199.10]
+interface = "interface.16.mk-agent-test-agentd-handshake-gate"
+verdict = "served"
+path = "Makefile"
+line = 2286
+symbol = "agent-test-agentd-handshake-gate"
+evidence = "The declaration agent-test-agentd-handshake-gate: matches the registered signature and runs the locked layerx-agentd handshake_gate test through run-with-clock.sh. Its occurrence in a later quoted make command is a use."
+
+[row.r16-199.11]
+interface = "interface.16.mk-agent-test-agentd-policy"
+verdict = "served"
+path = "Makefile"
+line = 2148
+symbol = "agent-test-agentd-policy"
+evidence = "The declaration agent-test-agentd-policy: matches the registered signature and runs layerx-agentd --test policy through run-with-clock.sh. The nearby policy-version and policy-dryrun rules declare distinct targets with longer names."
+
+[row.r16-199.12]
+interface = "interface.16.mk-agent-test-agentd-prepare"
+verdict = "served"
+path = "Makefile"
+line = 2169
+symbol = "agent-test-agentd-prepare"
+evidence = "The declaration agent-test-agentd-prepare: matches the registered signature and runs layerx-agentd --test prepare through run-with-clock.sh. Other occurrences in prepare-expiry refer to a separately named target."
+
+[row.r16-199.13]
+interface = "interface.16.mk-agent-test-agentd-revocation"
+verdict = "served"
+path = "Makefile"
+line = 2115
+symbol = "agent-test-agentd-revocation"
+evidence = "The declaration agent-test-agentd-revocation: matches the registered signature and runs the locked layerx-agentd revocation test through run-with-clock.sh. The later quoted make command is a call to this rule."
+
+[row.r16-199.14]
+interface = "interface.16.mk-agent-test-agentd-session"
+verdict = "served"
+path = "Makefile"
+line = 2109
+symbol = "agent-test-agentd-session"
+evidence = "The declaration agent-test-agentd-session: matches the registered signature and runs the locked layerx-agentd session test through run-with-clock.sh. The later make command mentions it as a target to run."
+
+[row.r16-199.15]
+interface = "interface.16.mk-agent-test-agentd-subscription"
+verdict = "served"
+path = "Makefile"
+line = 2224
+symbol = "agent-test-agentd-subscription"
+evidence = "The declaration agent-test-agentd-subscription: matches the registered signature and runs the locked layerx-agentd subscription test through run-with-clock.sh. Its later occurrence inside a quoted make command is a use."
+
+[row.r16-199.16]
+interface = "interface.16.mk-agent-test-agentd-tenant-resolve"
+verdict = "served"
+path = "Makefile"
+line = 2255
+symbol = "agent-test-agentd-tenant-resolve"
+evidence = "The declaration agent-test-agentd-tenant-resolve: matches the registered signature and runs the locked layerx-agentd tenant_resolve test through run-with-clock.sh. The later make command invokes this declaration."
+
+[row.r16-199.17]
+interface = "interface.16.mk-agent-test-agentd-webhook"
+verdict = "served"
+path = "Makefile"
+line = 2233
+symbol = "agent-test-agentd-webhook"
+evidence = "The declaration agent-test-agentd-webhook: matches the registered signature and runs the locked layerx-agentd webhook test through run-with-clock.sh. The later quoted make command is a caller of this rule."
+
+[row.r16-199.18]
+interface = "interface.16.mk-agent-test-client-submit"
+verdict = "served"
+path = "Makefile"
+line = 2062
+symbol = "agent-test-client-submit"
+evidence = "The declaration agent-test-client-submit: matches the registered signature and runs the layerx-client submit test followed by the boundary-check scan. The following agent-test-client-submit-focused declaration is a distinct rule with only the test recipe."
+
+[row.r16-199.19]
+interface = "interface.16.mk-agent-test-client-submit-focused"
+verdict = "served"
+path = "Makefile"
+line = 2066
+symbol = "agent-test-client-submit-focused"
+evidence = "The declaration agent-test-client-submit-focused: matches the registered signature and runs only layerx-client --test submit through run-with-clock.sh. The later quoted make command invokes it; the preceding client-submit rule also performs a boundary scan."
+
+[row.r16-199.20]
+interface = "interface.16.mk-agent-test-contract-schema"
+verdict = "served"
+path = "Makefile"
+line = 2085
+symbol = "agent-test-contract-schema"
+evidence = "The declaration agent-test-contract-schema: matches the registered signature and runs layerx-agent-api --test schema through run-with-clock.sh. Later recursive make and quoted make commands call this rule."
+
+[row.r16-199.21]
+interface = "interface.16.mk-agent-test-errors"
+verdict = "served"
+path = "Makefile"
+line = 1967
+symbol = "agent-test-errors"
+evidence = "The declaration agent-test-errors: matches the registered signature and runs the locked layerx-types errors test through run-with-clock.sh. The earlier .PHONY list marks the target but does not define its recipe."
+
+[row.r16-199.22]
+interface = "interface.16.mk-agent-test-mcp-read"
+verdict = "served"
+path = "Makefile"
+line = 2303
+symbol = "agent-test-mcp-read"
+evidence = "The declaration agent-test-mcp-read: matches the registered signature and runs layerx-mcp --test read through run-with-clock.sh. The nearby agent-test-mcp-readonly rule has a longer target name and runs the separate readonly test."
+
+[row.r16-199.23]
+interface = "interface.16.mk-agent-test-mcp-readonly"
+verdict = "served"
+path = "Makefile"
+line = 2316
+symbol = "agent-test-mcp-readonly"
+evidence = "The declaration agent-test-mcp-readonly: matches the registered signature and runs the locked layerx-mcp readonly test through run-with-clock.sh. The later quoted make command calls it; agent-test-mcp-read declares another target."
+
+[row.r16-199.24]
+interface = "interface.16.mk-agent-test-mcp-scope"
+verdict = "served"
+path = "Makefile"
+line = 2300
+symbol = "agent-test-mcp-scope"
+evidence = "The declaration agent-test-mcp-scope: matches the registered signature and runs the locked layerx-mcp scope test through run-with-clock.sh. The later quoted make command mentions this target as a caller."
+
+[row.r16-199.25]
+interface = "interface.16.mk-agent-test-mcp-untrusted-input"
+verdict = "served"
+path = "Makefile"
+line = 2350
+symbol = "agent-test-mcp-untrusted-input"
+evidence = "The declaration agent-test-mcp-untrusted-input: matches the registered signature and runs the isolation manifest with the mcp_untrusted filter through run-with-clock.sh. Its occurrence in agent-test-isolation prerequisites is a dependency use."
+
+[row.r16-199.26]
+interface = "interface.16.mk-agent-test-mcp-write"
+verdict = "served"
+path = "Makefile"
+line = 2306
+symbol = "agent-test-mcp-write"
+evidence = "The declaration agent-test-mcp-write: matches the registered signature and runs the locked layerx-mcp write test through run-with-clock.sh. The later quoted make command invokes this target."
+
+[row.r16-199.27]
+interface = "interface.16.mk-agent-test-native-prerequisites"
+verdict = "served"
+path = "Makefile"
+line = 1890
+symbol = "agent-test-native-prerequisites"
+evidence = "The declaration agent-test-native-prerequisites: matches the registered signature; its recipe checks run-real-node-tests.sh syntax and invokes its prepare command with native build and Cargo target directories. The preceding .PHONY and shared prerequisite lines are references."
+
+[row.r16-199.28]
+interface = "interface.16.mk-agent-test-policy-adversarial"
+verdict = "served"
+path = "Makefile"
+line = 2165
+symbol = "agent-test-policy-adversarial"
+evidence = "The declaration agent-test-policy-adversarial: matches the registered signature and tests then runs services/agent/tools/policy-harness/Cargo.toml. Its later occurrence in agent-test-isolation prerequisites is a dependency reference."
+
+[row.r16-199.29]
+interface = "interface.16.mk-agent-test-proof-checkpoint"
+verdict = "served"
+path = "Makefile"
+line = 2014
+symbol = "agent-test-proof-checkpoint"
+evidence = "The declaration agent-test-proof-checkpoint: matches the registered signature and runs the locked layerx-proof checkpoint test through run-with-clock.sh. The later quoted make command invokes this rule."
+
+[row.r16-199.30]
+interface = "interface.16.mk-agent-test-sdk-generate"
+verdict = "served"
+path = "Makefile"
+line = 2325
+symbol = "agent-test-sdk-generate"
+evidence = "The declaration agent-test-sdk-generate: matches the registered signature and tests the sdk-gen manifest before running it with --check. Later recursive make commands invoke this rule; agent-sdk-generate above instead runs the generator with --write."

@@ -1,6 +1,16 @@
 #!/bin/sh
 set -eu
 umask 077
+kms_environment() {
+    export LAYERX_HUMAN_KMS_REGISTRY_FILE="$1/registry.json"
+    export LAYERX_HUMAN_KMS_CLIENT_CA_DER="$1/ca.der"
+    export LAYERX_HUMAN_KMS_TLS_CERT_DER="$1/kms-server.der"
+    export LAYERX_HUMAN_KMS_TLS_KEY_DER="$1/kms-server-key.der"
+    export LAYERX_HUMAN_KMS_CLIENT_CERT_DER="$1/kms-client.der"
+    export LAYERX_HUMAN_KMS_EVM_CLIENT_CERT_DER="$1/kms-executor.der"
+    export LAYERX_HUMAN_KMS_SEAL_SECRET_FILE="$1/kms-seal"
+}
+
 role=${1:?Human role is required}
 shift
 case "$role" in
@@ -12,7 +22,7 @@ case "$role" in
         esac
         ;;
     onboarding-bootstrap) private=/run/human-private/components ;;
-    components|identity|security|movement|agent|kms|onboarding-signer) private=/run/human-private/$role ;;
+    components|identity|security|agent|kms|onboarding-signer) private=/run/human-private/$role ;;
     *) printf 'unknown Human role\n' >&2; exit 64 ;;
 esac
 python3 - "$private" <<'PY_PRIVATE'
@@ -117,26 +127,13 @@ case "$role" in
         for name in kms-server.der kms-server-key.der kms-client.der kms-executor.der ca.der kms-seal registry.json; do
             copy_material "$name"
         done
+        kms_environment "$private"
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-kms "$@"
         ;;
     agent)
         copy_material ca.der
-        if [ -n "${LAYERX_AGENT_GENESIS_TRUST:-}${LAYERX_AGENT_HANDOVER_FINALITY:-}" ]; then
-            [ "$LAYERX_AGENT_GENESIS_TRUST" = "$private/genesis-handover-trust.lxt" ]
-            [ "$LAYERX_AGENT_HANDOVER_FINALITY" = "$private/handover-finality.conf" ]
-            copy_material genesis-handover-trust.lxt
-            copy_material handover-finality.conf
-        fi
         copy_material session-operator
-        copy_material trust-history
-        test -d /run/human-material/journal
-        mkdir -p "$private/journal"
-        chmod 0700 "$private/journal"
-        for record in /run/human-material/journal/*; do
-            [ -e "$record" ] || continue
-            test -s "$record"
-            install -m 0600 "$record" "$private/journal/${record##*/}"
-        done
+        python3 /usr/local/lib/layerx-human/journal_bootstrap.py /run/human-material/journal "$private"
         export LAYERX_AGENT_HUMAN_AUTHORITY_BEARER="$(cat /run/human-material/authority-token)"
         export LAYERX_AGENT_PROGRAM_BEARER_TOKEN="$(cat /run/human-material/program-token)"
         printf 'header = "Authorization: Bearer %s"\n' "$LAYERX_AGENT_PROGRAM_BEARER_TOKEN" > "$private/probe.conf"
@@ -198,17 +195,13 @@ PY_BINDING
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-identity-provider "$@"
         ;;
     security)
-        while [ ! -e /run/human-material/trust-history ] && [ ! -L /run/human-material/trust-history ]; do
-            printf 'security waiting /run/human-material/trust-history\n' >&2
-            sleep 5
-        done
         python3 - "$private" <<'PY_SECURITY_MATERIAL'
 import os
 import stat
 import sys
 
 try:
-    path = '/run/human-material/trust-history'
+    path = '/run/human-material/consensus-authority'
     fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
     with os.fdopen(fd, 'rb') as source:
         info = os.fstat(source.fileno())
@@ -217,9 +210,9 @@ try:
                 or info.st_nlink != 1 or not 0 < info.st_size <= 1048576):
             raise ValueError('ownership, type or bounds')
 except (OSError, ValueError):
-    raise SystemExit('security trust-history protected material refused')
+    raise SystemExit('security consensus-authority protected material refused')
 try:
-    destination = sys.argv[1] + '/trust-history'
+    destination = sys.argv[1] + '/consensus-authority'
     try:
         info = os.lstat(destination)
     except FileNotFoundError:
@@ -230,16 +223,11 @@ try:
             (os.geteuid(), os.getegid(), 0o600)):
         raise ValueError('ownership, type or mode')
 except (OSError, ValueError):
-    raise SystemExit('security trust-history private copy refused')
+    raise SystemExit('security consensus-authority private copy refused')
 PY_SECURITY_MATERIAL
-        copy_material trust-history
+        copy_material consensus-authority
+        export LAYERX_HUMAN_SECURITY_PROVIDER_TRUST_HISTORY="$private/consensus-authority"
         exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-security-provider "$@"
-        ;;
-    movement)
-        for name in ca.der kms-executor.der kms-executor-key.der custody.profile; do
-            copy_material "$name"
-        done
-        exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-movement-provider "$@"
         ;;
     service) exec /usr/local/bin/layerx-runtime-clock --runtime-dir "$private" -- /usr/local/bin/layerx-human-service "$@" ;;
     *) printf 'unknown Human role\n' >&2; exit 64 ;;

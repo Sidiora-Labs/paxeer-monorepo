@@ -1,0 +1,306 @@
+[repair.22.33.1569]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Preserve build_inputs.rs packaging assertions; check the explicit pay2e target and link and execute its shared funded scenario through the production SDK, real dual-key signer, HTTP transport, runtime-clock protocol, wire receipt codecs and current EVM receipt verifier with test-owned loopback peers whose response schema matches the committed Go producer vectors and whose complete signed receipt is independently verified before serving it. Preserve every original funded assertion."
+baseline = "No unchanged-tree verify ran: the explicit ordered instructions prohibit tests before complete implementation and reserve verification to hf-done after hf-build; no earlier gate ledger exists."
+evidence = "The runner-owned /out/run/gates.jsonl and private /out/logs gate logs record the exact candidate revision, command and exit; the final JSON copies the last gate result."
+closure = "Not claimed until the full declared funded integration test passes."
+wiring_request = "The earlier canonical_activity wiring request was repaired by 22.31.494; see wiring.committed_wallet_transport for the current commitment transport requirement."
+
+[gotcha.funded_receipt_contract]
+observed = "The unchanged PAY2 scenario requires v3 plus canonical_activity and batch_evidence; verify_node_receipt explicitly requires protocol version 2. Continuation evidence confirms the served v2 receipt independently verifies under v2, then fails under PAY2 policy v3; the SDK now has bind_canonical_activity, so the earlier blanket absence claim is superseded."
+action = "Superseded by decision 2435 and gotcha 3013: EVM receipts use protocol 2 independently of state-commitment protocol 3; the scoped qualification inputs now select protocol 2 for the receipt policy and the matching signed Send and Receive authorizations. Keep the funded workflow and every assertion."
+
+[qualification.first_pass]
+revision = "c255995f2a5ba4b76a57a746eea2149c01887098"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The registration test passed and the real funded Send failed; the peer still served the retired three-field receipt envelope."
+repair = "Serve the current EVM execution-summary schema, compare its keys with committed Go producer vectors, and independently verify its signature and complete metadata with verify_node_receipt before the scenario consumes it."
+
+[continuation.2]
+implementation = "Resolve the wrapper conflict while retaining the landed restart regression; propagate the real Send RpcError to the task test and record only its type and variant before failing, preserving every funded assertion."
+baseline = "Attempt 1 already ran the declared verify: target registration passed, funded workflow failed at Send with contents redacted; do not repeat that unchanged gate."
+
+[qualification.continuation_build_1]
+revision = "4c856b856904a084b6acf3ac11a05cdab428adce"
+command = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+repair = "Re-export the shared funding module at the pay2e root, preserving the landed registered scenario's import contract."
+
+[diagnostic.send]
+kind = "receipt-policy-version-mismatch"
+error_type = "layerx_sdk::rpc::RpcError"
+variant = "Verification"
+producer_version = 2
+policy_version = 3
+contents = "omitted"
+
+[qualification.continuation_verify_1]
+revision = "749f452a77984af67cd6747f8e4205827b6ce9f5"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this same revision; registration passed; funded Send failed with RpcError::Verification, kind receipt-policy-version-mismatch, independently verified producer v2 versus PAY2 policy v3."
+assumption = "Stop under the continuation's receipt-version mismatch ruling: reconciliation requires the out-of-path node RPC and SDK owners; no verified revision or closure is claimed."
+
+[continuation.3]
+implementation = "Reuse the provisioned input types and helpers through tests/support/funded_inputs.rs while selecting the EVM receipt protocol version 2; retain all funded scenarios and packaging assertions, add registered-target packaging evidence, and assert protocol 2 in the real integration test."
+baseline = "Attempt 2 already verified the unchanged workflow: registration passed and funded Send failed with RpcError::Verification because producer version 2 differed from policy version 3; no duplicate baseline gate is run."
+evidence = "hf-build and hf-done record the same unchanged candidate revision and their exact commands, exits and private log paths in /out/run/gates.jsonl; the final evidence line identifies the bounded result."
+gotcha = "Receipt protocol 2 is distinct from state-commitment protocol 3; Wallet::send_debit also requires its signed authorization version to equal its receipt policy version, so both must use the scoped EVM protocol input."
+
+[qualification.continuation3_verify1]
+revision = "27c39d90d44f2721e2d0afe167a6046c598cb71b"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at the same revision; target registration passed and the v2 receipt independently verified, then the real funded Send failed its unchanged canonical_activity assertion: PAY2 signed Send transaction."
+assumption = "The SDK returns canonical_activity=None and its binder has no caller; resolving the recorded agent-domain wiring request requires out-of-scope SDK changes, so no repair rerun or closure is claimed."
+
+[continuation.5]
+implementation = "Retain the attempt-4 tree and all canonical_activity and batch_evidence assertions; the scoped Required helper now appends the failing error variant and reason to its named step."
+baseline = "Attempt 4 passed registration and failed the Batched Send wait after 60 seconds with the error redacted; its result is supplied by the continuation ruling, so no unchanged baseline gate is repeated."
+evidence = "The initial diagnostic hf-build and hf-done record the current candidate and exact private evidence; repair follows the named SDK error within the bounded remaining cycles."
+
+[qualification.continuation5_verify1]
+revision = "68c351cefa32f7e71156217d890466bba547bbd8"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision; target registration passed; the named PAY2 batched Send step failed with RpcError::Pending after 60 seconds because the loopback peer never advanced beyond receipted."
+repair = "Retain the execution receipt and submitted transaction assertions, correct the signed sequence-state root, then serve its signed receipt inclusion and Comet covering commitment; authenticate the peer's material with the production receipt, header, quorum and sequence-batch coverage verifiers before serving it."
+
+[wiring.committed_wallet_transport]
+request = "Agent/node RPC domain 9: services/agent/crates/layerx-client/src/sequencer.rs must expose raw MsgSequenceBatch inclusion and ordered activity identities (the existing wiring.receipt-transport request in src/rpc/repair_22_31_222.kvx), and services/agent/crates/layerx-sdk/src/rpc_verification.rs plus wallet.rs must acquire and verify that dynamic coverage using independently pinned NodeCommitAuthority; all non-Executed waits currently require caller-supplied fixed NodeCommitCoverage."
+observed = "Static prerequisite, not a claimed passing gate: the peer now invokes production authentication of commitment material for the submitted signed transaction; the scenario's existing RPC clients have no configured finality authority or coverage, and receipt_at_commitment has a MissingFinalityTrust guard after fetching px_getCommit and eth_getBlockByNumber."
+constraint = "Do not replace the Batched wait with Executed, bypass the production trust guard, assert an unsigned promotion, remove canonical_activity or batch_evidence assertions, or change SDK/client production paths outside this task's scope."
+
+[qualification.continuation5_build2]
+revision = "26c0381175a48d472a6cbb4170336b289ce41e0e"
+command = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-2.log"
+observed = "The new commitment producer used layerx_programs_registry as its import, but the existing layerx-programs-registry package declares its Rust library name as layerx_programs."
+repair = "Use the declared layerx_programs library name without changing the manifest or widening the scope; the remaining bounded build run records whether the corrected repair compiles."
+
+[continuation.6]
+implementation = "After the real signed Send returns its activity identity, provision its typed NodeCommitCoverage and independently pinned identity validator authority on a new payer RpcClient, then retain the original Batched wallet wait, canonical_activity and batch_evidence assertions and additionally require the authenticated committed block. The loopback peer records every polled RPC and served rung, preserves original worker panic payloads, and is explicitly stopped and joined even when the scenario unwinds."
+baseline = "Attempt 5 already ran the declared verify: target registration passed and the named Batched Send step returned Pending after 60 seconds; the continuation supplies that baseline and forbids repeating the unchanged gate."
+peer = "Preserve the original signed Send validation and independently verified receipt, inclusion, quorum and sequence coverage; record each signed transaction exactly once, with distinct identity nonces, account sequences, funded balances and verified grant terms for the subsequent workflow."
+evidence = "hf-build and hf-done snapshot the same scoped candidate; the runner owns commits and publication, so no manual commit is made under the explicit task instructions. The final JSON identifies the last bounded gate."
+gotcha = "The SDK accepts one immutable NodeCommitCoverage per RpcClient, keyed to an exact signed activity; coverage cannot be installed before a randomly identified Send exists. Configure the Batched lookup after Executed returns its identity, using the same pinned validator authority as identity verification."
+wiring_request = "Agent qualification provisioner (domain 9), services/agent/qualification/pay2/funded_inputs.rs: publish per-activity commit-coverage-<activity hex>.json in the provisioned private root with covering_height, canonical batch_transaction hex, transaction_proof (total/index/aunts) and ordered activity_ids; the scoped workflow reads the record and the production SDK authenticates every field against the live Comet commit."
+
+[qualification.continuation6_build1]
+revision = "722b8169d9e1ef821e22dde7ff933971816bdc09"
+command = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The coverage reader's local bytes buffer shadows its nested bytes decoder, causing E0434 and E0618."
+repair = "Rename only the local buffer to document; preserve the typed decoder and every check."
+
+[continuation.7]
+implementation = "Retain the verified Send path; submit SDK and MCP grant issue and draw to Executed to learn each signed activity identity, then require Batched on a fresh payer or recipient RpcClient with that activity's typed NodeCommitCoverage and pinned validator authority. Every wait retains canonical receipt equality and requires batch inclusion and an authenticated committed block. Recipient clients use recipient credentials in the provisioned workflow."
+baseline = "Attempt 6 already passed registration and Batched Send, then failed the first SDK grant issue with MissingFinalityTrust; the supplied continuation is the unchanged-tree baseline and is not rerun."
+proving_test = "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow asserts all five final Batched commitments, five distinct activity identities and each activity's separate coverage document, while executing the shared production SDK and MCP paths."
+gotcha = "NodeCommitCoverage is fixed per RpcClient and tied to an exact activity; reuse of the Send's coverage cannot authorize a grant issue or draw. Each operation learns its identity at Executed before constructing its dedicated trusted Batched client, with the covering height inside that client's pinned authority window."
+wiring_request = "Agent/node RPC domain 9: services/agent/crates/layerx-sdk/src/rpc_verification.rs and wallet.rs must acquire authenticated dynamic per-activity coverage from services/agent/crates/layerx-client/src/sequencer.rs; services/agent/qualification/pay2/funded_inputs.rs provisioner must supply coverage records for Send, both SDK operations and both MCP operations until that interface exists."
+evidence = "hf-build and hf-done create deterministic candidate commit objects and log the candidate revision, exact command, exit and private log path in /out/run/gates.jsonl; no manual commit is made because the runner owns commits under the explicit task instructions. The final JSON copies the bounded gate result."
+
+[qualification.continuation7_verify1]
+revision = "efd73bff2623311be8a35c11165cb55312461e28"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at the same candidate; registration passed and Send, SDK grant issue and SDK grant draw each verified Batched with activity-specific coverage, then the inherited funded_scenario.rs assertion required protocol.operation() == 6 but received 2."
+assumption = "Superseded by decision 2639 and gotcha 3203: the peer's fixed EVM receipt for every ledger constructor is an in-scope fixture gap, not evidence of a production receipt mismatch; continuation 8 repairs the fixture while preserving every scenario assertion."
+
+[continuation.8]
+implementation = "Pass the bound disclosure's construct method into execution_receipt; LedgerIssueGrant encodes ledger module 1 and operation 7 with the grant asset and disclosure payer/recipient, and LedgerDraw encodes ledger module 1, operation 6, the drawn amount, the verified issued grant's asset and payer, and the disclosure recipient. Draw disclosures carry only the recipient, so their payer is resolved from the previously authenticated grant. Retain the existing LedgerSend shape and the no-ledger EVM shape; refuse unrecorded constructors. Authenticate and assert the encoded protocol fields with the production signature verifier before the existing SDK node-receipt check."
+baseline = "Attempt 7 already passed target registration and failed the unchanged SDK draw assertion (operation 2 versus 6); that supplied baseline is retained without repeating an unchanged gate."
+proving_test = "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow retains the production SDK, HTTP, MCP and pinned commitment paths, including operation 6/amount 2 draw assertions and operation 7 MCP issue assertion."
+qualification_finding = "The base already corrects spec/layerx-merge/qualification.kvx finding.22.33.1569.7 to describe the fixed-shape fixture gap and state that no production change is indicated; no out-of-scope amendment is made."
+evidence = "hf-build and hf-done own the exact candidate revision and private evidence in /out/run/gates.jsonl; the runner owns commits. No closure is claimed unless hf-done passes, and the final JSON copies its bounded result."
+
+[diagnostic.peer_receipt]
+kind = "rpc-error"
+error_type = "layerx_sdk::rpc::RpcError"
+variant = "Verification"
+producer_version = 2
+policy_version = 2
+contents = "omitted"
+
+[qualification.continuation8_verify1]
+revision = "6796af4861be20f27dd89c5bdd6897243e730bbc"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this candidate; registration passed and Batched Send verified, then the peer authenticated the native module-1 operation-7 receipt with the grant asset and disclosure accounts before the unchanged production verify_node_receipt refused it with RpcError::Verification (producer and policy both version 2), causing the joined peer to fail the funded workflow."
+assumption = "Superseded by decision 2645 and gotcha 3211: continuation 9 corrects the fixture header before drawing a conclusion from the production verifier; this historical gate did not qualify the task."
+
+[continuation.9]
+implementation = "Retain constructor-specific ledger module 1, issue operation 7 and draw operation 6/amount 2; encode the payment digest of uhpx, padded recovered EVM sender and padded call target in every receipt header, with zero-value EVM balances accounting for the fee. Preserve the native grant/disclosure checks, all funded SDK/MCP assertions and activity-specific committed coverage."
+baseline = "Attempt 8 passed registration and failed SDK grant issue receipt authentication; qualification.continuation8_verify1 names its unchanged-tree evidence, so no duplicate baseline run is made."
+producer_sites = ["rpc/sequencer_receipt.go::decodeSequencerReceipt", "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json", "include/layerx/lxp_receipt.h::LXP_LEDGER_RECEIPT_MODULE_ID"]
+consumer_sites = ["services/agent/crates/layerx-sdk/src/rpc_verification.rs::verify_node_receipt", "services/agent/crates/layerx-proof/src/sequencer_logs.rs::sequencer_layout", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::qualify_prior_grant", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::execute_mcp_issue", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::execute_mcp_draw"]
+diagnostics = "Record error kind, variant and receipt summary/log refusal in the private hf-done log under finding 22.30.99/pay2-input-test-gap; tests never amend the candidate task record during qualification. Historical diagnostic sections above retain the previously observed kinds and variants."
+evidence = "The runner-owned /out/run/gates.jsonl records the exact candidate revision, build and verify commands, exits and private log paths; the final JSON copies the last bounded result. No source or task-record amendment follows the gates."
+
+
+[continuation.10]
+implementation = "Supersede continuation 9's module/operation/amount mapping: every served receipt uses sequencer module 12, the raw envelope type (2), and its zero transaction value as enforced by decode_signed. Preserve the payment asset digest, padded EVM parties, context binding, independent verify_node_receipt self-check, Batched waits, canonical_activity and batch_evidence assertions. Emit ABI-defined PayerGrantIssued and PaymentDrawn logs with matching signed log effects and summary counts; the shared SDK/MCP scenario authenticates fetched logs against the SDK verified receipt with verify_logs, then decodes and asserts grant id, payer, recipient, asset, amount, idempotency key and context."
+baseline = "Attempt 9 passed registration and Batched Send, then the peer self-check refused module 1 operation 7 with verify_logs ReceiptShape; gotcha 3216 and decision 2648 supply that unchanged-tree baseline, so it is not rerun."
+producer_sites = ["node/sequencer/receipt.go::beforeEVM", "precompiles/layerxledger/abi.json", "precompiles/layerxledger/payments.go::paymentLogs"]
+consumer_sites = ["services/agent/crates/layerx-sdk/src/rpc_verification.rs::verify_node_receipt", "services/agent/crates/layerx-proof/src/sequencer_logs.rs::verify_logs", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::pay2_assert_grant_issued", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::pay2_assert_payment_drawn"]
+evidence = "The runner-owned /out/run/gates.jsonl records hf-build and hf-done at the final candidate revision with exact commands, exit codes and private /out/logs evidence paths; the final JSON copies the bounded result. No source or task-record edit follows passing gates."
+gotcha = "VerifiedRpcReceipt retains authenticated signed effects but no served log payload list; fetch the logs through RpcClient::sequencer_receipt and require canonical receipt equality plus production verify_logs before decoding any event. No SDK API change is made outside scope."
+
+[continuation.11]
+implementation = "Use Wallet::wait_for_submitted on the executed receipt in both wait_batched and qualify_send. Require the promoted receipt's canonical activity to be present and exactly equal to the executed receipt's signed activity, alongside the existing canonical receipt equality, Batched commitment, batch evidence, committed block, node word and verified ledger event assertions."
+baseline = "Attempt 10 passed target registration, Batched Send and verified grant issue/draw events, then failed pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow at PAY2 first draw cumulative ingress with Evidence because the bare wait discarded canonical activity; gotcha 3220 and decision 2650 supply this baseline without another unchanged gate."
+producer_sites = ["services/agent/crates/layerx-sdk/src/wallet.rs::Wallet::wait_for_submitted", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::wait_batched", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::qualify_send"]
+consumer_sites = ["services/agent/crates/layerx-mcp/src/tools/wallet.rs::cumulative_evidence", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::execute_mcp_issue", "services/agent/qualification/pay2/tests/support/funded_scenario.rs::execute_mcp_draw"]
+proving_test = "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow executes all five Batched operations, checks retained canonical activity for every promotion, and consumes authenticated cumulative evidence through the production MCP issue/draw workflow."
+evidence = "The runner-owned /out/run/gates.jsonl records hf-build and hf-done at the same final candidate revision, with exact commands, exits and private /out/logs gate paths; the final JSON copies the last bounded result. No source or task-record amendment follows passing gates."
+
+[qualification.continuation11_verify1]
+revision = "00b97f0f97cca732cb5c3c2470272062f5097004"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this candidate; registration and the SDK Send, grant issue and grant draw passed with retained canonical activity, then PAY2 authenticated issue usage failed Receipt(Policy(Epoch))."
+repair = "Correct commit_receipt batch-header field 3 (epoch) from the activity's global sequence to pinned epoch 1; field 4 remains the covering-height batch number. Preserve signed inclusion, canonical activity, every production policy check and all existing funded assertions."
+
+[wiring.cumulative_evm_ingress]
+request = "Agent daemon domain 9, services/agent/crates/layerx-agentd/src/protocol_evidence.rs::verify_cumulative_window and authenticate_cumulative_use: authenticate the SDK's current singleton EVM receipt batches and canonical type-2 transactions; the current consumer requires an additional maintenance leaf and legacy layerx_wire::activity signed envelopes, while the verified SDK path returns EVM bytes and one receipt leaf."
+observed = "Static consumer contract after the epoch repair: verify_cumulative_window requires last_sequence minus first_sequence greater than zero and leaf_count equal to activity_count plus one; authenticate_cumulative_use subsequently calls peek_signed_activity_type and decode_signed from layerx_wire::activity on the EVM transaction. No production consumer or fixture evidence is weakened or replaced here."
+evidence = "The next bounded hf-build and hf-done at the final candidate are recorded by reference in /out/run/gates.jsonl and private /out/logs gate logs; no closure is claimed without that declared verify passing."
+
+[continuation.13]
+implementation = "Follow 22.31.567: both funded client constructors install NodeCommitAuthority alone, with no coverage override. Serve the already authenticated 241-byte sequence-batch envelope and its Comet transaction proof through px_getSequenceBatch at its decimal covering height, and list its ordered activity identities in eth_getBlockByNumber transactions. The integration test additionally requires SDK batch acquisition for every funded covering height; retain all receipt words, precompile events, canonical activity, inclusion and cumulative-use assertions."
+baseline = "Attempt 12 failed compilation at the two obsolete with_node_commit_authority(authority, coverage) calls; gotcha 3259 and decision 2676 supply the baseline, so no unchanged gate is repeated. No gate ledger exists for the current run before implementation."
+resolved_wiring = "22.31.567 supplies the dynamic coverage interface requested in wiring.committed_wallet_transport; 22.31.568 repairs the historical kernel-key verifier in wiring.cumulative_evm_ingress. Historical sections describe earlier observations, not current production conclusions."
+producer_sites = ["services/agent/qualification/pay2/tests/support/funded_peer.rs::commit_receipt", "services/agent/qualification/pay2/tests/support/funded_peer.rs::Peer::start"]
+consumer_sites = ["services/agent/crates/layerx-sdk/src/rpc_commit.rs::NodeCommitCoverage::from_sequence_batch", "services/agent/crates/layerx-sdk/src/rpc_verification.rs::receipt_at_commitment"]
+proving_test = "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"
+evidence = "The runner-owned /out/run/gates.jsonl and private /out/logs gate logs record build and verify at the final candidate revision with exact commands, exits and log paths; the final JSON copies the bounded result. No source or record edit follows passing gates."
+
+[qualification.continuation13_build1]
+revision = "22aef8af512f814e0f8f33bcb641f09aaf62509f"
+command = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The unrelated production dependency services/agent/crates/layerx-agentd/src/compat.rs:8 cannot include ../../../COMPATIBILITY.md because services/agent/COMPATIBILITY.md is missing; no verify ran and no closure is claimed."
+assumption = "Agent domain 9 owns the out-of-scope wiring request: restore services/agent/COMPATIBILITY.md or correct its include in services/agent/crates/layerx-agentd/src/compat.rs; preserve the scoped implementation and do not chase or rerun this recorded dependency failure."
+
+[continuation.15]
+implementation = "Return the checked ReadinessStatus with the boot gate and install its governed receipt_keys into the cloned evidence authority with with_receipt_keys, treating any refusal as a proof failure. Preserve the pinned authority file, readiness key identity and height-range assertions, and every funded SDK/MCP assertion; no production files change."
+baseline = "Attempt 14 already passed the build and target registration, then PAY2 authenticated issue usage at funded_scenario.rs:892 refused the SDK-verified draw with Receipt(Receipt(VerificationFailure SequencerSignature)); gotcha 3268 and decision 2682 supply that baseline, so no unchanged gate is repeated. The current run has no earlier gate ledger."
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+gotcha = "Gate readiness checks governed node receipt keys against the pinned policy but does not install them into its evidence authority; the proof must call with_receipt_keys like the daemon runtime before authenticate_cumulative_use verifies a module-12 receipt."
+evidence = "The runner-owned /out/run/gates.jsonl records the final candidate revision, exact build and verify commands, exit codes and private /out/logs paths. Both gates must qualify the same candidate; the final JSON copies the bounded result. No source or record edit follows passing gates."
+
+[qualification.continuation15_verify1]
+revision = "dad42133f84d18528ad62ccd03986400ea26a7ee"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this same candidate (/out/logs/build-1.log, /out/run/gates.jsonl); registration passed and SDK Send, grant issue and draw verified; governed receipt keys removed SequencerSignature, then PAY2 authenticated issue usage at tests/support/funded_scenario.rs:900 refused with Sequence at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:794-799 because the authenticated singleton batch has equal first_sequence and last_sequence."
+assumption = "Agent daemon domain 9 owns the existing wiring.cumulative_evm_ingress request: services/agent/crates/layerx-agentd/src/protocol_evidence.rs::verify_cumulative_window must consume the current inclusive singleton sequence range and its receipt leaf count (lines 794-806); preserve the SDK-verified singleton fixture, signed coverage, canonical activity and all assertions. Record this out-of-scope refusal without rerunning the known failure or claiming closure."
+
+[continuation.16]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Preserve the attempt-15 workflow and serve maintained batches: the nth signed activity uses sequence 2n-1, header batch_number n and last_sequence 2n, with the original chained state roots and unchanged activity-only SequenceBatch. Commit a canonical occupancy-maintenance record beside the activity receipt in a two-leaf Merkle tree. Validate its schedule commitment, settlement evidence digest and canonical accounting through decode_maintenance and bind it through MaintenanceReceipt::verify_header before serving any inclusion. Derive the MCP issue window from its following sequence and assert both issue header boundaries; the integration test checks all five activity sequences."
+baseline = "Attempt 15 passed target registration and all SDK operations, then authenticate_cumulative_use refused Sequence at protocol_evidence.rs:794-799; gotcha 3270 and decision 2684 prescribe the maintained fixture shape. That supplied baseline is not repeated; /out/run/gates.jsonl did not exist at this continuation's start."
+gotcha = "Cumulative-use batches reserve their last sequence and final Merkle leaf for maintenance. Their batch number counts batches independently of the covering block height; the activity-only SequenceBatch still has equal from_sequence and to_sequence."
+evidence = "The runner-owned /out/run/gates.jsonl records hf-build and hf-done with exact final candidate revision, commands, exits and private /out/logs evidence locations. Both gates must qualify the same candidate; the final JSON copies the last bounded result. No task-record or source edits follow passing gates."
+
+[qualification.continuation16_build1]
+revision = "eacc7cb54b241cec746a85e2a68a43a37b8d13f1"
+command = "cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The occupancy fixture called the crate-private CanonicalBytes::from_wire constructor and compilation refused E0624 at funded_peer.rs:915."
+repair = "Compute SHA256(Domain::ContextHash.tag() || canonical schedule bytes) with the existing public hash helper, exactly as hash::domain does; decode_maintenance still independently checks the commitment."
+
+[qualification.continuation16_verify1]
+revision = "3936126f3f9a7db5714a0bccdc18eaaac2695dc6"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at the same candidate (/out/logs/build-2.log); target registration passed and SDK Send, grant issue and draw verified with maintained two-leaf receipt inclusions, then PAY2 authenticated issue usage at tests/support/funded_scenario.rs:900 refused Activity at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:865-866 because peek_signed_activity_type expects a legacy structured activity and the SDK canonical_activity is the real signed type-2 EVM transaction."
+assumption = "Agent daemon domain 9 owns the remaining wiring.cumulative_evm_ingress request: services/agent/crates/layerx-agentd/src/protocol_evidence.rs::authenticate_cumulative_use must authenticate the signed EVM transaction, bind its receipt identity and derive its disclosed payer, amount and operation; replacing the SDK transaction with a legacy envelope would invalidate its authenticated identity, so preserve the fixture and every check, record the out-of-scope interface failure, and do not repeat this known failure or claim closure."
+
+[continuation.17]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Use EvidenceAuthority::authenticate_account_cumulative_use for the issue history and both complete and incomplete draw histories, binding the treasury DID and the payer signer's 20-byte EVM account to the unchanged cumulative_evidence entries and maintained sequence windows. Preserve the original SDK-signed EIP-1559 canonical activity, node receipt words, verified ledger events, batched Send and all assertions."
+baseline = "Attempt 16 passed target registration and SDK operations with maintained inclusions, then authenticated issue usage refused Activity; qualification.continuation16_verify1 records that supplied baseline. Task 22.31.575 adds the account-bound EVM consumer. No unchanged gate is repeated and no earlier gate ledger exists in this attempt."
+resolved_wiring = "Agent daemon domain 9 fulfilled wiring.cumulative_evm_ingress through services/agent/crates/layerx-agentd/src/protocol_evidence.rs::authenticate_account_cumulative_use in 22.31.575; the fixture uses the payer account served by funded_peer.rs rather than re-encoding signed EVM bytes as a legacy activity."
+evidence = "The runner-owned /out/run/gates.jsonl records hf-build and hf-done at the final candidate revision with exact commands, exits and private /out/logs evidence paths. The final JSON copies the bounded result; no source or record edit follows passing gates."
+
+[qualification.continuation17_verify1]
+revision = "82ef714574b13c28d27bff5cf9dbfb762b623b33"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at the same candidate (/out/logs/build-1.log); registration and SDK operations passed, account-bound issue usage authenticated, then funded_peer.rs:474 refused the previously unserved eth_call for the DID address binding and MCP identity registration reported BoundaryUnavailable."
+repair = "Complete the scoped peer's real identity read path: serve payer and recipient DID bindings, the latest committed height, the existing signed block with its full submitted EIP-1559 transaction and state root, and its pinned validator set; preserve production checkpoint verification and all scenario assertions. The next build and verify are recorded by reference in /out/run/gates.jsonl."
+
+[qualification.continuation17_verify2]
+revision = "1107ddaea4d6ae810053127875879fd6e1951e2c"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-2.log"
+observed = "Build passed at the same candidate (/out/logs/build-2.log); registration and SDK operations passed and account-bound issue usage authenticated, then PAY2 gateway-backed identity at tests/support/funded_scenario.rs:8 refused BoundaryUnavailable after the scoped peer served eth_call, the full committed block, px_getCommit and px_getValidators at height 6."
+result = "Implemented, not qualified: /out/run/gates.jsonl records two initial gates and the build/verify reruns, exhausting the wrapper's two repair cycles. Stop without further investigation, code repairs, reruns or closure; this record-only outcome is not a newly qualified candidate."
+
+[gotcha.continuation17_gate_budget]
+observed = "The runner counts each gate rerun separately against the shared repair budget: build-2 plus verify-2 consume two cycles."
+action = "Preserve the last bounded result and private evidence; no third build or verify is authorized after those two reruns."
+
+[continuation.18]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Preserve the attempt-17 tree and every funded SDK/MCP assertion. At the four resolve BoundaryUnavailable mappings report the failed bound_address, get_identity_sequence, block_number or CommittedReads::open read and its error in test diagnostics; change no other sequence.rs behavior. Repair only the peer response identified by the first bounded proof."
+baseline = "qualification.continuation17_verify2 and decision 2693 supply the prior BoundaryUnavailable result after height-6 block, commit and validator reads. The current run had no /out/run/gates.jsonl at entry; no unchanged baseline gate is repeated."
+evidence = "The runner-owned /out/run/gates.jsonl records exact candidate revisions, commands, exits and private /out/logs paths for the diagnostic gates and final same-revision build and verify. The final JSON copies the last bounded result; no edit follows passing gates."
+
+[qualification.continuation18_verify1]
+revision = "198ae0dcfb82496286b3bf0bb4b2864a92c7eaa8"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at the same candidate (/out/logs/build-1.log); target registration passed and SDK Send, grant issue and draw verified, then the requested diagnostic identified CommittedReads::open height=6 failing Checkpoint(Commit)."
+repair = "Encode the Comet signed header and commit hash/address fields as plain hex, matching layerx-agentd src/read/checkpoint.rs::json_hex and the already plain-hex validator response. The SDK commit decoder accepts plain hex too; the identical nonzero app root, header hash, validator keys, vote bytes and signatures remain authenticated by the unchanged production consumers. Final gates are referenced in /out/run/gates.jsonl; no record or source amendment follows those gates."
+
+[continuation.19]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Preserve the attempt-18 checkpoint, resolver diagnostics and every funded SDK/MCP assertion; 22.31.576 supplies canonical signed activity bytes on MCP execution receipts, so the existing wait_batched consumes those receipts unchanged."
+baseline = "Attempt 18 ran the declared verify: registration passed and the funded workflow failed on the MCP receipt's absent canonical activity; decision 2695 directs requalification after the production repair. No gate ledger exists at this continuation's entry."
+evidence = "The final same-revision hf-build and hf-done records in /out/run/gates.jsonl name the verified candidate, exact commands, exits and private /out/logs evidence paths. The final JSON copies the last bounded result; no source or record edit follows passing gates."
+
+[qualification.continuation19_verify1]
+revision = "f7edc08ee4b3337768fd445db1a2cc2ab59dd415"
+command = "cg spec done 22.33.1569 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build passed at this revision (/out/logs/build-1.log); registration, SDK Send, SDK grant issue/draw and MCP grant issue including its Batched wait passed, then MCP grant draw execution refused Arguments before submission: wallet.rs::policy_dimensions requires Some(Payment::Receive), but call.rs::fields returns LedgerDraw with payment None."
+assumption = "This is an out-of-scope production interface mismatch, not a committed-wait or peer-response failure; preserve all assertions, record the owner request and do not rerun the unchanged failing behavior or claim closure. This record-only addition has not been qualified."
+
+[wiring.continuation19_native_draw_policy]
+request = "Agent/MCP and crypto disclosure domain 9: align services/agent/crates/layerx-mcp/src/tools/wallet.rs::policy_dimensions (lines 278-300) with services/agent/crates/layerx-crypto/src/disclosure/call.rs::fields LedgerDraw (lines 968-981), authenticating the native draw's payer and asset from its grant while preserving amount, asset, counterparty and ordinal checks; prove the real MCP grant draw before requalifying pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow."
+
+
+[continuation.21]
+finding = "22.30.99/pay2-input-test-gap"
+proving_tests = ["pay2_funded_scenario_has_an_executable_cargo_target", "pay2_input_test_gap_executes_the_funded_sdk_and_mcp_workflow"]
+implementation = "Bind both incomplete and complete MCP draw cumulative-use authentication to the funding recipient DID and recipient wallet EVM account, matching the draw session agent. Preserve both history entries and the entire maintained sequence window, including entries sent by other accounts; leave issue authentication bound to the treasury DID and payer account. The later exported draw and wait paths already use the recipient session and take no cumulative-use argument. Preserve all node receipt, verified log, canonical activity, batch evidence and policy assertions."
+baseline = "Attempt 20 passed target registration and SDK Send, grant issue/draw and MCP grant issue, then refused the MCP draw because its usage actor differed from the recipient session agent (gotcha 3300). This supplied unchanged-tree result is retained without repeating the gate. No gate ledger exists at continuation entry."
+evidence = "The final same-candidate hf-build and hf-done entries in /out/run/gates.jsonl record the verified revision, exact commands, exits and private /out/logs gate evidence; the final JSON copies the bounded gate result. The runner owns commits and publication. No source or record edit follows passing gates."

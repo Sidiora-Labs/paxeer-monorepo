@@ -8,12 +8,9 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 import {
   ADDR_PRECOMPILE_ADDRESS,
   AccountDerivationError,
-  SPOT_PRECOMPILES,
-  TradingWriter,
   bindNonceCall,
   bindTransactionRequest,
   boundDidCall,
-  spotCall,
   deriveFromSeed,
   layerXBindMessage,
   layerXDidCall,
@@ -21,8 +18,15 @@ import {
   readLayerXBindState,
   type BindFees,
   type Eip1193Requester,
-  type PrecompileCall,
-} from "../src/index.js";
+  type WalletRequest,
+} from "../src/account-derivation.js";
+import {
+  decodeRawEip1559,
+  recoverEip1559Sender,
+} from "../src/evm-transaction.js";
+import { precompileWriteCall, type PrecompileCall } from "../src/exchange.js";
+import { TradingPayloadError, TradingWriter } from "../src/perps.js";
+import { SPOT_PRECOMPILES, spotCall } from "../src/spot.js";
 import {
   AiMarketError,
   FUND,
@@ -49,9 +53,13 @@ const id = (byte: number): string =>
  */
 class AddrChain implements Eip1193Requester {
   readonly methods: string[] = [];
+  readonly requests: WalletRequest[] = [];
   readonly bound = new Map<string, string>();
   readonly nonces = new Map<string, bigint>();
-  evmNonce = 0n;
+  latestNonce = 0n;
+  pendingNonce = 0n;
+  readonly queuedTransactions: Uint8Array[] = [];
+  nonceResponse: { readonly value: unknown } | undefined;
 
   bind(address: string, did: string): void {
     this.bound.set(address.toLowerCase(), did);
@@ -65,8 +73,10 @@ class AddrChain implements Eip1193Requester {
     method: string;
     params?: readonly unknown[];
   }>): Promise<unknown> {
+    assert.ok(params !== undefined);
     this.methods.push(method);
-    const first = params?.[0];
+    this.requests.push({ method, params });
+    const first = params[0];
     switch (method) {
       case "eth_call": {
         const call = first as { to: string; data: string };
@@ -92,14 +102,30 @@ class AddrChain implements Eip1193Requester {
           to: string;
           data: string;
           value: string;
+          type: string;
+          chainId: string;
+          nonce: string;
         };
         assert.equal(transaction.to, ADDR_PRECOMPILE_ADDRESS);
         assert.equal(transaction.value, "0x0");
+        assert.equal(transaction.type, "0x2");
+        assert.equal(transaction.chainId, "0x7d");
+        assert.equal(transaction.nonce, `0x${this.pendingNonce.toString(16)}`);
+        assert.equal(params.length, 1);
         const address = transaction.from.toLowerCase();
         assert.equal(this.bound.has(address), false);
         const did = transaction.data.slice(10, 74);
         const signature = Buffer.from(transaction.data.slice(-128), "hex");
         const nonce = this.nonces.get(address) ?? 0n;
+        assert.equal(
+          transaction.data,
+          precompileWriteCall(
+            ADDR_PRECOMPILE_ADDRESS,
+            "bindLayerX(bytes32,bytes)",
+            { types: ["bytes32", "bytes"], payable: false },
+            [`0x${did}`, `0x${hex(signature)}`],
+          ).data,
+        );
         assert.equal(
           ed25519.verify(
             signature,
@@ -110,20 +136,47 @@ class AddrChain implements Eip1193Requester {
         );
         this.bound.set(address, did);
         this.nonces.set(address, nonce + 1n);
+        this.pendingNonce += 1n;
+        this.latestNonce = this.pendingNonce;
         return `0x${hex(keccak_256(Buffer.from(transaction.data.slice(2), "hex")))}`;
       }
       case "eth_getTransactionCount":
-        if (params?.[1] === "pending") {
-          throw Object.assign(new Error("pending block is not available"), {
-            code: -32000,
-          });
-        }
-        assert.equal(params?.[1], "latest");
-        return `0x${this.evmNonce.toString(16)}`;
+        assert.ok(params[1] === "pending" || params[1] === "latest");
+        assert.deepEqual(params, [account.evmAddress, params[1]]);
+        if (this.nonceResponse !== undefined) return this.nonceResponse.value;
+        return `0x${(params[1] === "pending" ? this.pendingNonce : this.latestNonce).toString(16)}`;
       case "eth_sendRawTransaction": {
+        if (typeof first !== "string" || !/^0x(?:[0-9a-fA-F]{2})+$/u.test(first)) {
+          throw new TradingPayloadError("non_canonical", "raw transaction");
+        }
         assert.equal(typeof first, "string");
-        this.evmNonce += 1n;
-        return `0x${hex(keccak_256(Buffer.from((first as string).slice(2), "hex")))}`;
+        assert.equal(params.length, 1);
+        const raw = Buffer.from((first as string).slice(2), "hex");
+        const transaction = decodeRawEip1559(raw);
+        const sender = recoverEip1559Sender(raw);
+        assert.equal(sender, account.evmAddress);
+        assert.equal(
+          this.bound.get(sender.toLowerCase()),
+          account.layerxPublicKey,
+        );
+        assert.equal(transaction.chainId, CHAIN_ID);
+        if (transaction.nonce < this.latestNonce || transaction.nonce !== this.pendingNonce) {
+          throw new TradingPayloadError("non_canonical", "queued nonce");
+        }
+        assert.equal(transaction.nonce, this.pendingNonce);
+        assert.equal(`0x${hex(transaction.to)}`, call.to);
+        assert.equal(`0x${hex(transaction.data)}`, call.data);
+        assert.equal(transaction.value, call.value);
+        assert.equal(
+          transaction.maxPriorityFeePerGas,
+          fees.maxPriorityFeePerGas,
+        );
+        assert.equal(transaction.maxFeePerGas, fees.maxFeePerGas);
+        assert.equal(transaction.gasLimit, fees.gasLimit);
+        assert.deepEqual(transaction.accessList, []);
+        this.queuedTransactions.push(new Uint8Array(raw));
+        this.pendingNonce += 1n;
+        return `0x${hex(keccak_256(raw))}`;
       }
       default:
         throw new Error(`unexpected method ${method}`);
@@ -218,6 +271,14 @@ test("TradingWriter.send signs and sends for the bound pair", async () => {
     `0x${hex(keccak_256(Buffer.from((expected.params[0] as string).slice(2), "hex")))}`,
   );
   assert.equal(call.to, SPOT_PRECOMPILES.pecor);
+  assert.equal(chain.pendingNonce, 1n);
+  assert.deepEqual(chain.requests.slice(-2), [
+    {
+      method: "eth_getTransactionCount",
+      params: [account.evmAddress, "pending"],
+    },
+    expected,
+  ]);
   assert.deepEqual(chain.methods, [
     "eth_call",
     "eth_call",
@@ -229,6 +290,7 @@ test("TradingWriter.send signs and sends for the bound pair", async () => {
 
 test("an unbound account binds through the explicit bind path and then writes through TradingWriter.send", async () => {
   const chain = new AddrChain();
+  chain.pendingNonce = 3n;
   const plan = planLayerXBind(
     account,
     CHAIN_ID,
@@ -237,25 +299,138 @@ test("an unbound account binds through the explicit bind path and then writes th
   assert.equal(plan.action, "bind");
   assert.ok(plan.action === "bind");
   assert.equal(plan.call.nonce, 0n);
-  const bindHash = await chain.request(
-    bindTransactionRequest(account, plan.call),
+  const pendingNonce = await chain.request({
+    method: "eth_getTransactionCount",
+    params: [account.evmAddress, "pending"],
+  });
+  assert.equal(pendingNonce, "0x3");
+  const bindRequest = bindTransactionRequest(
+    account,
+    plan.call,
+    BigInt(pendingNonce as string),
   );
-  assert.match(String(bindHash), /^0x[0-9a-f]{64}$/u);
+  assert.deepEqual(bindRequest, {
+    method: "eth_sendTransaction",
+    params: [
+      {
+        from: account.evmAddress,
+        to: ADDR_PRECOMPILE_ADDRESS,
+        data: plan.call.data,
+        value: "0x0",
+        type: "0x2",
+        chainId: "0x7d",
+        nonce: "0x3",
+      },
+    ],
+  });
+  const bindHash = await chain.request(bindRequest);
+  assert.equal(
+    bindHash,
+    `0x${hex(keccak_256(Buffer.from(plan.call.data.slice(2), "hex")))}`,
+  );
+  assert.deepEqual(chain.methods, [
+    "eth_call",
+    "eth_call",
+    "eth_getTransactionCount",
+    "eth_sendTransaction",
+  ]);
+  assert.deepEqual(chain.requests.slice(-2), [
+    {
+      method: "eth_getTransactionCount",
+      params: [account.evmAddress, "pending"],
+    },
+    bindRequest,
+  ]);
+  assert.equal(chain.pendingNonce, 4n);
   assert.deepEqual(await readLayerXBindState(chain, account.evmAddress), {
     boundDidPublicKey: account.layerxPublicKey,
     nonce: 1n,
   });
   chain.methods.length = 0;
+  chain.requests.length = 0;
+  const writeFees = { ...fees, evmNonce: 4n };
+  const expected = TradingWriter.transactionRequest(
+    account,
+    CHAIN_ID,
+    call,
+    writeFees,
+  );
   const { result, signatures } = await countingSignatures(() =>
-    TradingWriter.send(chain, account, CHAIN_ID, call, fees),
+    TradingWriter.send(chain, account, CHAIN_ID, call, writeFees),
   );
   assert.equal(signatures, 1);
-  assert.match(String(result), /^0x[0-9a-f]{64}$/u);
-  assert.deepEqual(chain.methods.slice(-2), [
+  assert.equal(
+    result,
+    `0x${hex(keccak_256(Buffer.from((expected.params[0] as string).slice(2), "hex")))}`,
+  );
+  assert.equal(chain.pendingNonce, 5n);
+  assert.deepEqual(chain.methods, [
+    "eth_call",
+    "eth_call",
+    "eth_call",
     "eth_getTransactionCount",
     "eth_sendRawTransaction",
   ]);
+  assert.deepEqual(chain.requests.slice(-2), [
+    {
+      method: "eth_getTransactionCount",
+      params: [account.evmAddress, "pending"],
+    },
+    expected,
+  ]);
 });
+
+export async function trading_pending_queue_accepts_a_second_trade(): Promise<void> {
+  const chain = new AddrChain();
+  chain.bind(account.evmAddress, account.layerxPublicKey);
+  for (const evmNonce of [0n, 1n]) {
+    const expected = TradingWriter.transactionRequest(account, CHAIN_ID, call, { ...fees, evmNonce });
+    const hash = await TradingWriter.send(chain, account, CHAIN_ID, call, { ...fees, evmNonce });
+    assert.equal(hash, `0x${hex(keccak_256(Buffer.from((expected.params[0] as string).slice(2), "hex")))}`);
+    assert.deepEqual(chain.requests.slice(-2), [
+      { method: "eth_getTransactionCount", params: [account.evmAddress, "pending"] },
+      expected,
+    ]);
+    assert.equal(chain.latestNonce, 0n, "admission must not commit a queued trade");
+    assert.equal(chain.pendingNonce, evmNonce + 1n);
+  }
+  assert.deepEqual(chain.queuedTransactions.map(raw => decodeRawEip1559(raw).nonce), [0n, 1n]);
+  assert.notDeepEqual(chain.queuedTransactions[0], chain.queuedTransactions[1]);
+  assert.equal(await chain.request({ method: "eth_getTransactionCount", params: [account.evmAddress, "latest"] }), "0x0");
+  assert.equal(await chain.request({ method: "eth_getTransactionCount", params: [account.evmAddress, "pending"] }), "0x2");
+}
+
+export async function trading_pending_queue_refuses_stale_and_malformed_nonces(): Promise<void> {
+  const chain = new AddrChain();
+  chain.bind(account.evmAddress, account.layerxPublicKey);
+  chain.pendingNonce = 1n;
+  await assert.rejects(TradingWriter.send(chain, account, CHAIN_ID, call, fees), TradingPayloadError);
+  assert.equal(chain.queuedTransactions.length, 0);
+  for (const value of ["0x", "0x00", "0x01", "-1", "0x-1", "0xg", "0x10000000000000000", 0, null]) {
+    chain.nonceResponse = { value };
+    await assert.rejects(TradingWriter.send(chain, account, CHAIN_ID, call, { ...fees, evmNonce: 1n }), TradingPayloadError);
+    assert.equal(chain.queuedTransactions.length, 0);
+    assert.equal(chain.methods.includes("eth_sendRawTransaction"), false);
+    assert.deepEqual(chain.requests.at(-1), { method: "eth_getTransactionCount", params: [account.evmAddress, "pending"] });
+  }
+  const confirmed = new AddrChain();
+  confirmed.bind(account.evmAddress, account.layerxPublicKey);
+  confirmed.latestNonce = 1n;
+  confirmed.pendingNonce = 1n;
+  confirmed.nonceResponse = { value: "0x0" };
+  await assert.rejects(TradingWriter.send(confirmed, account, CHAIN_ID, call, fees),
+    (error: unknown) => error instanceof TradingPayloadError && error.message.includes("queued nonce"));
+  assert.equal(confirmed.queuedTransactions.length, 0);
+  assert.equal(confirmed.latestNonce, 1n);
+  assert.equal(confirmed.pendingNonce, 1n);
+  for (const raw of ["0x", "0x-1", "0xg", "0x1", 0, null]) {
+    await assert.rejects(confirmed.request({ method: "eth_sendRawTransaction", params: [raw] }), TradingPayloadError);
+    assert.equal(confirmed.queuedTransactions.length, 0);
+  }
+}
+
+test(trading_pending_queue_accepts_a_second_trade);
+test(trading_pending_queue_refuses_stale_and_malformed_nonces);
 
 // ----- Approval.sign ---------------------------------------------------------------------------
 
@@ -292,7 +467,7 @@ const binding: SnapshotBinding = {
 };
 const terms: NativeTerms = {
   networkId: 125,
-  actorDid: "did:layerx:market",
+  actorDid: `did:layerx:${ownerDid}`,
   ownerPublicKey: ownerKey,
   accountSequence: 4n,
   idempotencyKey: id(0xd0),

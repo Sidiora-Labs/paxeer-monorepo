@@ -17,6 +17,7 @@ import {
   requireLayerXBinding,
 } from "./account-derivation.js";
 import {
+  PrecompileAbiError,
   decodeEventFrom,
   precompileWriteCall,
   type AbiArgument,
@@ -176,11 +177,6 @@ export type PerpsActivity =
       readonly marketId: TradingId;
       readonly positionIds: readonly TradingId[];
     };
-
-export interface EncodedActivity {
-  readonly activityType: number;
-  readonly payload: Uint8Array;
-}
 
 function tradingHex(value: Uint8Array): string {
   return Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join(
@@ -364,6 +360,7 @@ export class TradingWriter {
     };
   }
 
+  /** fees.evmNonce must come from eth_getTransactionCount(address, "pending"). */
   static async send(
     transport: Eip1193Requester,
     derived: DerivedAccount,
@@ -385,16 +382,16 @@ export class TradingWriter {
     if (typeof raw !== "string") {
       throw new TradingPayloadError("non_canonical", "raw transaction");
     }
-    const latestNonce = await transport.request({
+    const pendingNonce = await transport.request({
       method: "eth_getTransactionCount",
-      params: [derived.evmAddress, "latest"],
+      params: [derived.evmAddress, "pending"],
     });
     if (
-      typeof latestNonce !== "string" ||
-      !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/u.test(latestNonce) ||
-      BigInt(latestNonce) !== fees.evmNonce
+      typeof pendingNonce !== "string" ||
+      !/^0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)$/u.test(pendingNonce) ||
+      BigInt(pendingNonce) !== fees.evmNonce
     ) {
-      throw new TradingPayloadError("non_canonical", "latest nonce");
+      throw new TradingPayloadError("non_canonical", "pending nonce");
     }
     const expected = `0x${tradingHex(keccak_256(tradingBytes(raw)))}`;
     const hash = await transport.request(request);
@@ -715,10 +712,14 @@ export type PerpsWrite = keyof typeof PERPS_WRITES;
  * signature and the argument types come from precompiles/perps/abi/abi.json.
  */
 export function perpsCall(method: PerpsWrite, args: readonly AbiArgument[]): PrecompileCall {
-  return precompileWriteCall(PERPS_PRECOMPILE, method, PERPS_WRITES[method], args);
+  const write = PERPS_WRITES[method];
+  if (write === undefined) {
+    throw new PrecompileAbiError("invalid_value", `perps has no ${method}`);
+  }
+  return precompileWriteCall(PERPS_PRECOMPILE, method, write, args);
 }
 
-/** A market order opening a position: USDL collateral pulled by transferFrom, so the caller approves 0x1015 first. */
+/** A market order opening a position through the perps precompile. */
 export interface PerpsOpenPosition {
   readonly marketId: bigint;
   readonly collateralToken: string;

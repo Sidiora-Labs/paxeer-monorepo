@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"math/big"
 
+	ledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
-	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -36,9 +36,9 @@ const (
 	BankAddress = "0x0000000000000000000000000000000000001001"
 )
 
-// v6120Upgrade is the plan from whose height a pointer send over the
+// V6120Upgrade is the plan from whose height a pointer send over the
 // sender's balance returns false instead of reverting.
-const v6120Upgrade = "v6.12.0"
+const V6120Upgrade = "v6.12.0"
 
 // LayerXReceiptEvent is the log the context-hash send overload emits.
 const LayerXReceiptEvent = "LayerXReceipt"
@@ -175,11 +175,7 @@ func (r refusal) Unwrap() error {
 // lxpError returns the error whose revert reason is LXPRevert of the
 // refusal's code and detail.
 func (r refusal) lxpError() error {
-	reason, err := abi.UnpackRevert(pcommon.LXPRevert(r.code, r.detail))
-	if err != nil {
-		return r.err
-	}
-	return errors.New(reason)
+	return pcommon.LXPError(r.code, r.detail)
 }
 
 func argCountRefusal(err error) error {
@@ -195,40 +191,40 @@ func nonCanonicalRefusal(err error) error {
 }
 
 func assetPausedRefusal(err error) error {
-	return refusal{code: "LXP_ASSET_PAUSED", detail: err.Error(), err: err}
+	return refusal{code: ledgertypes.AssetPausedCode, detail: err.Error(), err: err}
 }
 
-func invalidAddrRefusal() error {
-	return refusal{code: "LXP_PRECOMPILE_INVALID_ADDR", err: errors.New("invalid addr")}
+func staticcallRefusal(method string, err error) error {
+	return refusal{code: "LXP_BANK_STATICCALL", detail: method, err: err}
+}
+
+func delegatecallRefusal(method string, err error) error {
+	return refusal{code: "LXP_BANK_DELEGATECALL", detail: method, err: err}
+}
+
+func invalidAddrRefusal(legacyErr ...error) error {
+	err := errors.New("invalid addr")
+	if len(legacyErr) > 0 {
+		err = legacyErr[0]
+	}
+	return refusal{code: "LXP_PRECOMPILE_INVALID_ADDR", err: err}
 }
 
 // mergePlanActive reports whether the merge plan is active at the height of
 // the call's block. It reads the plan without charging the call.
 func (p PrecompileExecutor) mergePlanActive(ctx sdk.Context) bool {
-	getter, ok := p.evmKeeper.(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), pcommon.MergeUpgrade, ctx.BlockHeight())
+	return pcommon.MergePlanActive(ctx, p.evmKeeper)
 }
 
 // v6120Active reports whether the v6.12.0 plan is active at the height of the
 // call's block. It reads the plan without charging the call.
 func (p PrecompileExecutor) v6120Active(ctx sdk.Context) bool {
-	getter, ok := p.evmKeeper.(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), v6120Upgrade, ctx.BlockHeight())
+	return pcommon.PlanActive(ctx, p.evmKeeper, V6120Upgrade)
 }
 
 func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method *abi.Method, args []interface{}, value *big.Int, readOnly bool) ([]byte, uint64, error) {
 	if readOnly {
-		return nil, 0, errors.New("cannot call send from staticcall")
+		return nil, 0, staticcallRefusal("send", errors.New("cannot call send from staticcall"))
 	}
 	if err := pcommon.ValidateNonPayable(value); err != nil {
 		return nil, 0, nonPayableRefusal(err)
@@ -239,6 +235,9 @@ func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method 
 	}
 	if !p.v6120Active(ctx) {
 		if _, err := p.pointerSend(ctx, caller, args); err != nil {
+			if errors.Is(err, banktypes.ErrSendDisabled) {
+				return nil, 0, assetPausedRefusal(err)
+			}
 			return nil, 0, err
 		}
 		bz, err := method.Outputs.Pack(true)
@@ -246,6 +245,9 @@ func (p PrecompileExecutor) send(ctx sdk.Context, caller common.Address, method 
 	}
 	cache, write := ctx.CacheContext()
 	if _, err := p.pointerSend(cache, caller, args); err != nil {
+		if errors.Is(err, banktypes.ErrSendDisabled) {
+			return nil, 0, assetPausedRefusal(err)
+		}
 		if !errors.Is(err, sdkerrors.ErrInsufficientFunds) {
 			return nil, 0, err
 		}
@@ -342,16 +344,16 @@ func (p PrecompileExecutor) pointerSend(ctx sdk.Context, caller common.Address, 
 
 func (p PrecompileExecutor) sendNative(ctx sdk.Context, method *abi.Method, args []interface{}, caller common.Address, callingContract common.Address, value *big.Int, readOnly bool, hooks *tracing.Hooks, evm *vm.EVM) ([]byte, uint64, error) {
 	if readOnly {
-		return nil, 0, errors.New("cannot call sendNative from staticcall")
+		return nil, 0, staticcallRefusal("sendNative", errors.New("cannot call sendNative from staticcall"))
 	}
 	if ctx.EVMPrecompileCalledFromDelegateCall() {
-		return nil, 0, errors.New("cannot delegatecall sendNative")
+		return nil, 0, delegatecallRefusal("sendNative", errors.New("cannot delegatecall sendNative"))
 	}
 	if err := pcommon.ValidateArgsLength(args, 1); err != nil {
 		return nil, 0, argCountRefusal(err)
 	}
 	if value == nil || value.Sign() == 0 {
-		return nil, 0, errors.New("set `value` field to non-zero to send")
+		return nil, 0, refusal{code: "LXP_BANK_ZERO_VALUE", err: errors.New("set `value` field to non-zero to send")}
 	}
 
 	senderPaxAddr, ok := p.evmKeeper.GetPaxAddress(ctx, caller)
@@ -366,7 +368,7 @@ func (p PrecompileExecutor) sendNative(ctx sdk.Context, method *abi.Method, args
 
 	receiverPaxAddr, err := sdk.AccAddressFromBech32(receiverAddr)
 	if err != nil {
-		return nil, 0, err
+		return nil, 0, invalidAddrRefusal(err)
 	}
 
 	uhpx, wei, err := pcommon.HandlePaymentUhpxWei(ctx, p.evmKeeper.GetPaxAddressOrDefault(ctx, p.address), senderPaxAddr, value, p.bankKeeper, p.evmKeeper, hooks, evm.GetDepth())

@@ -1,11 +1,23 @@
 openapi: 3.0.0
 info:
-  title: Tendermint RPC
+  title: Paxeer consensus diagnostic RPC
   contact:
     name: Tendermint RPC
     url: https://github.com/tendermint/tendermint/issues/new/choose
   description: |
-    Tendermint supports the following RPC protocols:
+    This is the internal consensus diagnostic interface, separate from the
+    public Paxeer node JSON-RPC on EVM chain 125 (0x7d). The public HTTPS and
+    WebSocket endpoint is the root of https://api-mainnet-beta.paxeer.network.
+    See the maintained [public root endpoint and namespace contract](../../../docs/site/docs/reference/public-rpc.md#method-contracts).
+    Public node namespaces are debug, echo, eth, net, pax, test and txpool,
+    subject to node configuration; hosted px_ methods belong to the separate
+    [gateway OpenRPC contract](../../../services/platform/hosted/gateway/openrpc.json).
+    This diagnostic schema does not describe eth_ or px_ methods.
+
+    The maintained [consensus contract](../../internal/rpc/core/consensus_contract.md)
+    covers names, encodings, Autobahn refusals and state recovery.
+
+    The diagnostic RPC supports the following protocols:
 
     * URI over HTTP
     * JSON-RPC 2.0 over HTTP
@@ -17,9 +29,9 @@ info:
     `$TMHOME/config/config.toml` file or by using the `--rpc.X` command-line
     flags.
 
-    Default rpc listen address is `tcp://0.0.0.0:26657`.
+    Default rpc listen address is `tcp://127.0.0.1:26657`.
     To set another address, set the `laddr` config parameter to desired value.
-    CORS (Cross-Origin Resource Sharing) can be enabled by setting
+    CORS allowed origins are empty by default. CORS can be enabled by setting
     `cors_allowed_origins`, `cors_allowed_methods`, `cors_allowed_headers`
     config parameters.
 
@@ -58,11 +70,12 @@ info:
   license:
     name: Apache 2.0
     url: https://github.com/tendermint/tendermint/blob/master/LICENSE
+externalDocs:
+  description: Maintained consensus diagnostic contract, refusals and recovery
+  url: ../../internal/rpc/core/consensus_contract.md
 servers:
-  - url: https://rpc.cosmos.network
-    description: Cosmos mainnet node to interact with the Tendermint RPC
-  - url: http://localhost:26657
-    description: Interact with the Tendermint RPC locally on your device
+  - url: http://127.0.0.1:26657
+    description: Internal consensus diagnostics at the default loopback listener
 tags:
   - name: Websocket
     description: Subscribe/unsubscribe are reserved for websocket events.
@@ -79,6 +92,51 @@ tags:
   - name: Unsafe
     description: Unsafe APIs
 paths:
+  /:
+    post:
+      summary: Call registered RPC methods with JSON-RPC envelopes
+      operationId: jsonrpc
+      description: |
+        One request or a batch of up to 10. Notifications are ignored. A response
+        to a single request is an object; a response to a batch is an array,
+        including a one-item batch. Method results use the corresponding URI
+        success schema. Autobahn refusals for commit, consensus_state,
+        dump_consensus_state and broadcast_evidence return HTTP 200 with a
+        JSON-RPC error envelope, no result, and the request id. See each
+        operation for its sentinel and diagnostic data; Go error identity is
+        not serialized.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+              - $ref: '#/components/schemas/JSONRPCRequest'
+              - type: array
+                items:
+                  $ref: '#/components/schemas/JSONRPCRequest'
+                maxItems: 10
+      responses:
+        '200':
+          description: JSON-RPC success or structured refusal. Notifications have an empty body.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/JSONRPCResponse'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/JSONRPCResponse'
+        '417':
+          description: At least one response reports excessive lag.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/JSONRPCFailure'
+                - type: array
+                  items:
+                    $ref: '#/components/schemas/JSONRPCResponse'
   /broadcast_tx_sync:
     get:
       summary: Returns with the response from CheckTx. Does not wait for DeliverTx result.
@@ -108,18 +166,26 @@ paths:
           example: "456"
           description: The transaction
       responses:
-        "200":
-          description: Empty
+        '200':
+          description: Empty; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BroadcastTxResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BroadcastTxResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /broadcast_tx:
     get:
       summary: Returns with the response from CheckTx. Does not wait for DeliverTx result.
@@ -144,18 +210,26 @@ paths:
           example: "456"
           description: The transaction
       responses:
-        "200":
-          description: Empty
+        '200':
+          description: Empty; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BroadcastTxResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BroadcastTxResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /broadcast_tx_async:
     get:
       summary: Returns right away, with no response. Does not wait for CheckTx nor DeliverTx results.
@@ -184,18 +258,26 @@ paths:
             example: "123"
           description: The transaction
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BroadcastTxResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/BroadcastTxResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /broadcast_tx_commit:
     get:
       summary: Returns with the responses from CheckTx and DeliverTx.
@@ -228,18 +310,26 @@ paths:
             example: "785"
           description: The transaction
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BroadcastTxCommitResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/BroadcastTxCommitResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /check_tx:
     get:
       summary: Checks the transaction without executing it.
@@ -261,19 +351,26 @@ paths:
             example: "785"
           description: The transaction
       responses:
-        "200":
-          description: ABCI application's CheckTx response
+        '200':
+          description: ABCI application's CheckTx response; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/CheckTxResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/CheckTxResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /events:
     get:
       summary: Fetch events posted by the consensus node.
@@ -352,19 +449,26 @@ paths:
             type: integer
             example: 5000000000
       responses:
-        "200":
-          description: Reports a batch of matching events
+        '200':
+          description: Reports a batch of matching events; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EventsResponse"
-        "500":
-          description: Reports an error
+                anyOf:
+                - $ref: '#/components/schemas/EventsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /subscribe:
     get:
       summary: Subscribe for events via WebSocket.
@@ -510,18 +614,26 @@ paths:
             operation can be "=", "<", "<=", ">", ">=", "CONTAINS". operand can be a
             string (escaped with single quotes), number, date or time.
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/EmptyResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /unsubscribe:
     get:
       summary: Unsubscribe from event on Websocket
@@ -561,18 +673,26 @@ paths:
             operation can be "=", "<", "<=", ">", ">=", "CONTAINS". operand can be a
             string (escaped with single quotes), number, date or time.
       responses:
-        "200":
-          description: Answer
+        '200':
+          description: Answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/EmptyResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /unsubscribe_all:
     get:
       summary: Unsubscribe from all events via WebSocket
@@ -583,18 +703,26 @@ paths:
       description: |
         Unsubscribe from all events via WebSocket
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/EmptyResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /health:
     get:
       summary: Node heartbeat
@@ -604,18 +732,26 @@ paths:
       description: |
         Get node health. Returns empty result (200 OK) on success, no response - in case of an error.
       responses:
-        "200":
-          description: Gets Node Health
+        '200':
+          description: Gets Node Health; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/EmptyResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /status:
     get:
       summary: Node Status
@@ -625,18 +761,26 @@ paths:
       description: |
         Get Tendermint status including node info, pubkey, latest block hash, app hash, block height, current max peer height, and time.
       responses:
-        "200":
-          description: Status of the node
+        '200':
+          description: Status of the node; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/StatusResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/StatusResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /lag_status:
     get:
       summary: Lag Status
@@ -646,24 +790,32 @@ paths:
       description: |
         Get Tendermint lag status including latest height, current max peer height, and lag height.
       responses:
-        "200":
-          description: Lag Status of the node and is not lagging
+        '200':
+          description: Lag Status of the node and is not lagging; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LagStatusResponse"
-        "299":
-          description: Lag Status of the node and is lagging over the threshold
+                anyOf:
+                - $ref: '#/components/schemas/LagStatusResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '417':
+          description: Lag exceeds the configured threshold; the URI body is the bare lag result.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LagStatusResponse"
-        "500":
-          description: lag is high error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: '#/components/schemas/LagStatusResponse'
   /net_info:
     get:
       summary: Network information
@@ -673,100 +825,26 @@ paths:
       description: |
         Get network info.
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NetInfoResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/NetInfoResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /dial_seeds:
-    get:
-      summary: Dial Seeds (Unsafe)
-      operationId: dial_seeds
-      tags:
-        - Unsafe
-      description: |
-        Dial a peer, this route in under unsafe, and has to manually enabled to use
-
-          **Example:** curl 'localhost:26657/dial_seeds?seeds=\["f9baeaa15fedf5e1ef7448dd60f46c01f1a9e9c4@1.2.3.4:26656","0491d373a8e0fcf1023aaf18c51d6a1d0d4f31bd@5.6.7.8:26656"\]'
-      parameters:
-        - in: query
-          name: peers
-          description: list of seed nodes to dial
-          schema:
-            type: array
-            items:
-              type: string
-              example: "f9baeaa15fedf5e1ef7448dd60f46c01f1a9e9c4@1.2.3.4:26656"
-      responses:
-        "200":
-          description: Dialing seeds in progress. See /net_info for details
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/dialResp"
-        "500":
-          description: empty error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-  /dial_peers:
-    get:
-      summary: Add Peers/Persistent Peers (unsafe)
-      operationId: dial_peers
-      tags:
-        - Unsafe
-      description: |
-        Set a persistent peer, this route in under unsafe, and has to manually enabled to use.
-
-        **Example:** curl 'localhost:26657/dial_peers?peers=\["f9baeaa15fedf5e1ef7448dd60f46c01f1a9e9c4@1.2.3.4:26656","0491d373a8e0fcf1023aaf18c51d6a1d0d4f31bd@5.6.7.8:26656"\]&persistent=false'
-      parameters:
-        - in: query
-          name: persistent
-          description: Have the peers you are dialing be persistent
-          schema:
-            type: boolean
-            example: true
-        - in: query
-          name: unconditional
-          description: Have the peers you are dialing be unconditional
-          schema:
-            type: boolean
-            example: true
-        - in: query
-          name: private
-          description: Have the peers you are dialing be private
-          schema:
-            type: boolean
-            example: true
-        - in: query
-          name: peers
-          description: array of peers to dial
-          schema:
-            type: array
-            items:
-              type: string
-              example: "f9baeaa15fedf5e1ef7448dd60f46c01f1a9e9c4@1.2.3.4:26656"
-      responses:
-        "200":
-          description: Dialing seeds in progress. See /net_info for details
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/dialResp"
-        "500":
-          description: empty error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
   /unsafe_flush_mempool:
     get:
       summary: Flush mempool of all unconfirmed transactions
@@ -780,19 +858,26 @@ paths:
 
         Note, flushing the mempool may leave the mempool in an inconsistent state.
       responses:
-        "200":
-          description: empty answer
+        '200':
+          description: empty answer; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EmptyResponse"
-        "500":
-          description: empty error
+                anyOf:
+                - $ref: '#/components/schemas/EmptyResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /blockchain:
     get:
       summary: "Get block headers (max: 20) for minHeight <= height <= maxHeight."
@@ -822,18 +907,26 @@ paths:
         At most 20 items will be returned. Block headers are returned in
         descending order (highest first).
       responses:
-        "200":
-          description: Block headers, returned in descending order (highest first).
+        '200':
+          description: Block headers, returned in descending order (highest first).; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockchainResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BlockchainResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /header:
     get:
       summary: Get the header at a specified height
@@ -851,18 +944,26 @@ paths:
       description: |
         Retrieve the block header corresponding to a specified height.
       responses:
-        "200":
-          description: Header information.
+        '200':
+          description: Header information.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HeaderResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/HeaderResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /header_by_hash:
     get:
       summary: Get header by hash
@@ -880,18 +981,26 @@ paths:
       description: |
         Retrieve the block header corresponding to a block hash.
       responses:
-        "200":
-          description: Header information.
+        '200':
+          description: Header information.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/HeaderResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/HeaderResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /block:
     get:
       summary: Get block at a specified height
@@ -909,18 +1018,26 @@ paths:
       description: |
         Get Block.
       responses:
-        "200":
-          description: Block information.
+        '200':
+          description: Block information.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BlockResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /block_by_hash:
     get:
       summary: Get block by hash
@@ -938,18 +1055,26 @@ paths:
       description: |
         Get Block By Hash.
       responses:
-        "200":
-          description: Block information.
+        '200':
+          description: Block information.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BlockResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /block_results:
     get:
       summary: Get block results at a specified height
@@ -967,18 +1092,26 @@ paths:
       description: |
         Get block_results.
       responses:
-        "200":
-          description: Block results.
+        '200':
+          description: Block results.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockSearchResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BlockResultsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /commit:
     get:
       summary: Get commit results at a specified height
@@ -994,23 +1127,52 @@ paths:
       tags:
         - Info
       description: |
-        Get Commit.
-      responses:
-        "200":
-          description: |
-            Commit results.
+        Autobahn refuses this route with ErrCommitNotAvailable, even when a
+        height is omitted or invalid. Tendermint precommit proofs are not served.
+        Use /block and /header for retained finalized block metadata and
+        /block_results for persisted execution results; these are not signed
+        Tendermint commitments or independently verifiable light-client proofs.
+        No replacement commitment-proof route is exposed by this schema.
 
-            canonical switches from false to true for block H once block H+1 has been committed. Until then it's subjective and only reflects what this node has seen so far.
+        Only a legacy environment with a populated CometBFT BlockStore can
+        return a signed_header. For the latest height its seen commit has
+        canonical=false; a stored commit from the following block has
+        canonical=true. An unavailable legacy commit may return null.
+
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "commit is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrCommitNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
+      responses:
+        '200':
+          description: Autobahn returns ErrCommitNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: commit is not available under autobahn consensus
               schema:
-                $ref: "#/components/schemas/CommitResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/CommitResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /validators:
     get:
       summary: Get validator set at a specified height
@@ -1044,19 +1206,26 @@ paths:
       description: |
         Get Validators. Validators are sorted first by voting power (descending), then by address (ascending).
       responses:
-        "200":
-          description: Commit results.
+        '200':
+          description: Commit results.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ValidatorsResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/ValidatorsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /genesis:
     get:
       summary: Get Genesis
@@ -1066,19 +1235,26 @@ paths:
       description: |
         Get the genesis document.
       responses:
-        "200":
-          description: Genesis results.
+        '200':
+          description: Genesis results.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GenesisResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/GenesisResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /genesis_chunked:
     get:
       summary: Get Genesis in paginated chunks
@@ -1097,20 +1273,26 @@ paths:
             default: 0
             example: 1
       responses:
-        "200":
-          description: Genesis results.
+        '200':
+          description: Genesis results.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/GenesisChunkedResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/GenesisChunkedResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /dump_consensus_state:
     get:
       summary: Get consensus state
@@ -1118,25 +1300,45 @@ paths:
       tags:
         - Info
       description: |
-        Get consensus state.
+        Autobahn refuses this route with ErrConsensusStateNotAvailable: it has
+        no CometBFT round state. Complete legacy state is available only when
+        both the CometBFT consensus state and reactor are configured.
+        Not safe to call from inside the ABCI application during block execution.
 
-        Not safe to call from inside the ABCI application during a block execution.
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "consensus round state is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrConsensusStateNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
-        "200":
-          description: |
-            Complete consensus state.
-
-            See https://pkg.go.dev/github.com/tendermint/tendermint/types?tab=doc#Vote.String for Vote string description.
+        '200':
+          description: Autobahn returns ErrConsensusStateNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: consensus round state is not available under autobahn consensus
               schema:
-                $ref: "#/components/schemas/DumpConsensusResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/DumpConsensusResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /consensus_state:
     get:
       summary: Get consensus state
@@ -1144,22 +1346,45 @@ paths:
       tags:
         - Info
       description: |
-        Get consensus state.
+        Autobahn refuses this route with ErrConsensusStateNotAvailable: it has
+        no CometBFT round state. A concise legacy round state is available only
+        when the CometBFT consensus state is configured.
+        Not safe to call from inside the ABCI application during block execution.
 
-        Not safe to call from inside the ABCI application during a block execution.
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "consensus round state is not available under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrConsensusStateNotAvailable;
+        remote callers receive RPCError fields rather than Go sentinel identity.
       responses:
-        "200":
-          description: consensus state results.
+        '200':
+          description: Autobahn returns ErrConsensusStateNotAvailable; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
           content:
             application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: consensus round state is not available under autobahn consensus
               schema:
-                $ref: "#/components/schemas/ConsensusStateResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/ConsensusStateResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /consensus_params:
     get:
       summary: Get consensus parameters
@@ -1177,18 +1402,26 @@ paths:
       description: |
         Get consensus parameters.
       responses:
-        "200":
-          description: consensus parameters results.
+        '200':
+          description: consensus parameters results.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ConsensusParamsResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/ConsensusParamsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /unconfirmed_txs:
     get:
       summary: Get the list of unconfirmed transactions
@@ -1215,18 +1448,26 @@ paths:
       description: |
         Get list of unconfirmed transactions
       responses:
-        "200":
-          description: List of unconfirmed transactions
+        '200':
+          description: List of unconfirmed transactions; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UnconfirmedTransactionsResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/UnconfirmedTransactionsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /num_unconfirmed_txs:
     get:
       summary: Get data about unconfirmed transactions
@@ -1236,18 +1477,26 @@ paths:
       description: |
         Get data about unconfirmed transactions
       responses:
-        "200":
-          description: status about unconfirmed transactions
+        '200':
+          description: status about unconfirmed transactions; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/NumUnconfirmedTransactionsResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/NumUnconfirmedTransactionsResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /tx_search:
     get:
       summary: Search for transactions
@@ -1299,18 +1548,26 @@ paths:
       tags:
         - Info
       responses:
-        "200":
-          description: List of transactions
+        '200':
+          description: List of transactions; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxSearchResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/TxSearchResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /block_search:
     get:
       summary: Search for blocks by BeginBlock and EndBlock events
@@ -1354,19 +1611,26 @@ paths:
       tags:
         - Info
       responses:
-        "200":
-          description: List of paginated blocks matching the search criteria.
+        '200':
+          description: List of paginated blocks matching the search criteria.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/BlockResultsResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/BlockSearchResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /tx:
     get:
       summary: Get transactions by hash
@@ -1392,18 +1656,26 @@ paths:
       description: |
         Get a transaction
       responses:
-        "200":
-          description: Get a transaction
+        '200':
+          description: Get a transaction; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/TxResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/TxResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /abci_info:
     get:
       summary: Get some info about the application.
@@ -1413,18 +1685,26 @@ paths:
       description: |
         Get some info about the application.
       responses:
-        "200":
-          description: Get some info about the application.
+        '200':
+          description: Get some info about the application.; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ABCIInfoResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/ABCIInfoResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /abci_query:
     get:
       summary: Query the application for some information.
@@ -1465,18 +1745,26 @@ paths:
       description: |
         Query the application for some information.
       responses:
-        "200":
-          description: Response of the submitted query
+        '200':
+          description: Response of the submitted query; URI returns the bare result or a structured RPCError.
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ABCIQueryResponse"
-        "500":
-          description: Error
+                anyOf:
+                - $ref: '#/components/schemas/ABCIQueryResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
           content:
-            application/json:
+            text/plain:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
   /broadcast_evidence:
     get:
       summary: Broadcast evidence of the misbehavior.
@@ -1492,50 +1780,70 @@ paths:
       tags:
         - Evidence
       description: |
-        Broadcast evidence of the misbehavior.
-      responses:
-        "200":
-          description: Broadcast evidence of the misbehavior.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/BroadcastEvidenceResponse"
-        "500":
-          description: Error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+        Autobahn refuses this route with ErrEvidenceNotAccepted, including
+        otherwise valid CometBFT evidence; it does not forward evidence to
+        Autobahn. Only a legacy environment with an evidence pool accepts
+        validated CometBFT evidence. Parameter decoding precedes mode dispatch.
 
+        After successful parameter decoding, the refusal is HTTP 200. URI GET
+        returns a bare RPCError; root JSON-RPC POST returns an error envelope
+        with the request id and no result. The numeric code is -32603,
+        message is "Internal error", and data is "evidence is not accepted under autobahn consensus".
+        In-process callers can use errors.Is with coretypes.ErrEvidenceNotAccepted;
+        remote callers receive RPCError fields rather than Go sentinel identity.
+      responses:
+        '200':
+          description: Autobahn returns ErrEvidenceNotAccepted; the success schema applies only to the configured legacy mode. URI responses are bare results or RPCError objects.
+          content:
+            application/json:
+              examples:
+                autobahn_refusal:
+                  summary: Autobahn diagnostic refusal (URI GET)
+                  value:
+                    code: -32603
+                    message: Internal error
+                    data: evidence is not accepted under autobahn consensus
+              schema:
+                anyOf:
+                - $ref: '#/components/schemas/BroadcastEvidenceResponse'
+                - $ref: '#/components/schemas/RPCError'
+        '500':
+          description: HTTP transport failed to encode a response or recovered a panic.
+          content:
+            text/plain:
+              schema:
+                type: string
+        '400':
+          description: URI query parsing failed before RPC dispatch.
+          content:
+            text/plain:
+              schema:
+                type: string
 components:
   schemas:
     JSONRPC:
       type: object
       properties:
-        id:
-          type: integer
-          example: 0
         jsonrpc:
           type: string
-          example: "2.0"
+          enum:
+          - '2.0'
+        id:
+          oneOf:
+          - type: integer
+          - type: string
+          description: Echoed request ID; absent for parse errors and notifications.
+      required:
+      - jsonrpc
+
     EmptyResponse:
-      description: Empty Response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              type: object
-              additionalProperties: {}
+      type: object
+      properties: {}
+      additionalProperties: false
+
     ErrorResponse:
-      description: Error Response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            error:
-              type: string
-              example: "Description of failure"
+      $ref: '#/components/schemas/RPCError'
+
     EventItem:
       description: Event item metadata
       type: object
@@ -1560,23 +1868,21 @@ components:
           type: string
           example: "tm.event = 'Tx'"
     EventsResponse:
-      description: Events response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            items:
-              type: array
-              items:
-                $ref: "#/components/schemas/EventItem"
-            more:
-              type: boolean
-            oldest:
-              type: string
-              example: "0005d7c09065e9a7-01cf"
-            newest:
-              type: string
-              example: "0005d7c090660099-0200"
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventItem'
+        more:
+          type: boolean
+        oldest:
+          type: string
+          example: 0005d7c09065e9a7-01cf
+        newest:
+          type: string
+          example: 0005d7c090660099-0200
+
     ProtocolVersion:
       type: object
       properties:
@@ -1712,34 +2018,26 @@ components:
         validator_info:
           $ref: "#/components/schemas/ValidatorInfo"
     StatusResponse:
-      description: Status Response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/Status"
+      $ref: '#/components/schemas/Status'
+
     LagStatus:
-      description: Lag Status Response
       type: object
       properties:
-        latest_height:
-          type: integer
-          example: "1"
+        current_height:
+          $ref: '#/components/schemas/Int64'
         max_peer_height:
-          type: integer
-          example: "1"
+          $ref: '#/components/schemas/Int64'
         lag:
-          type: integer
-          example: "0"
+          $ref: '#/components/schemas/Int64'
+      required:
+      - current_height
+      - max_peer_height
+      - lag
+      additionalProperties: false
+
     LagStatusResponse:
-      description: Lag Status Response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/LagStatus"
+      $ref: '#/components/schemas/LagStatus'
+
     Monitor:
       type: object
       properties:
@@ -1842,13 +2140,7 @@ components:
           items:
             $ref: "#/components/schemas/Peer"
     NetInfoResponse:
-      description: NetInfo Response
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/NetInfo"
+      $ref: '#/components/schemas/NetInfo'
 
     BlockMeta:
       type: object
@@ -1879,13 +2171,7 @@ components:
             $ref: "#/components/schemas/BlockMeta"
 
     BlockchainResponse:
-      description: Blockchain info
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/Blockchain"
+      $ref: '#/components/schemas/Blockchain'
 
     Commit:
       required:
@@ -1926,29 +2212,37 @@ components:
       type: object
       properties:
         header:
-          $ref: "#/components/schemas/BlockHeader"
+          $ref: '#/components/schemas/BlockHeader'
         data:
-          type: array
-          items:
-            type: string
-            example: "yQHwYl3uCkKoo2GaChRnd+THLQ2RM87nEZrE19910Z28ABIUWW/t8AtIMwcyU0sT32RcMDI9GF0aEAoFdWF0b20SBzEwMDAwMDASEwoNCgV1YXRvbRIEMzEwMRCd8gEaagom61rphyEDoJPxlcjRoNDtZ9xMdvs+lRzFaHe2dl2P5R2yVCWrsHISQKkqX5H1zXAIJuC57yw0Yb03Fwy75VRip0ZBtLiYsUqkOsPUoQZAhDNP+6LY+RUwz/nVzedkF0S29NZ32QXdGv0="
+          type: object
+          properties:
+            txs:
+              type: array
+              items:
+                $ref: '#/components/schemas/Base64'
+              nullable: true
+          required:
+          - txs
+          additionalProperties: false
         evidence:
           type: array
           items:
-            $ref: "#/components/schemas/Evidence"
+            $ref: '#/components/schemas/Evidence'
         last_commit:
           type: object
           properties:
             height:
-              type: integer
+              $ref: '#/components/schemas/Int64'
             round:
               type: integer
             block_id:
-              $ref: "#/components/schemas/BlockID"
+              $ref: '#/components/schemas/BlockID'
             signatures:
               type: array
               items:
-                $ref: "#/components/schemas/Commit"
+                $ref: '#/components/schemas/Commit'
+              nullable: true
+          nullable: true
 
     Evidence:
       type: object
@@ -1972,1191 +2266,671 @@ components:
         block:
           $ref: "#/components/schemas/Block"
     BlockResponse:
-      description: Block info
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/BlockComplete"
-    HeaderResponse:
-      description: Block Header info
-      allOf:
-        - $ref: "#/components/schemas/JSONRPC"
-        - type: object
-          properties:
-            result:
-              $ref: "#/components/schemas/BlockHeader"
+      $ref: '#/components/schemas/BlockComplete'
 
-    ################## FROM NOW ON NEEDS REFACTOR ##################
+    HeaderResponse:
+      $ref: '#/components/schemas/ResultHeader'
+
     BlockResultsResponse:
       type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          type: object
-          required:
-            - "height"
-          properties:
-            height:
-              type: string
-              example: "12"
-            txs_results:
-              type: array
-              nullable: true
-              items:
-                type: object
-                properties:
-                  code:
-                    type: string
-                    example: "0"
-                  data:
-                    type: string
-                    example: ""
-                  log:
-                    type: string
-                    example: "not enough gas"
-                  info:
-                    type: string
-                    example: ""
-                  gas_wanted:
-                    type: string
-                    example: "100"
-                  gas_used:
-                    type: string
-                    example: "100"
-                  events:
-                    type: array
-                    nullable: true
-                    items:
-                      type: object
-                      properties:
-                        type:
-                          type: string
-                          example: "app"
-                        attributes:
-                          type: array
-                          nullable: false
-                          items:
-                            $ref: "#/components/schemas/Event"
-                  codespace:
-                    type: string
-                    example: "ibc"
-            total_gas_used:
-              type: string
-              example: "100"
-            begin_block_events:
-              type: array
-              nullable: true
-              items:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    example: "app"
-                  attributes:
-                    type: array
-                    nullable: false
-                    items:
-                      $ref: "#/components/schemas/Event"
-            end_block:
-              type: array
-              nullable: true
-              items:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    example: "app"
-                  attributes:
-                    type: array
-                    nullable: false
-                    items:
-                      $ref: "#/components/schemas/Event"
-            validator_updates:
-              type: array
-              nullable: true
-              items:
-                type: object
-                properties:
-                  pub_key:
-                    type: object
-                    required:
-                      - "type"
-                      - "value"
-                    properties:
-                      type:
-                        type: string
-                        example: "tendermint/PubKeyEd25519"
-                      value:
-                        type: string
-                        example: "9tK9IT+FPdf2qm+5c2qaxi10sWP+3erWTKgftn2PaQM="
-                  power:
-                    type: string
-                    example: "300"
-            consensus_params_updates:
-              $ref: "#/components/schemas/ConsensusParams"
+        height:
+          $ref: '#/components/schemas/Int64'
+        txs_results:
+          type: array
+          items:
+            $ref: '#/components/schemas/ExecTxResult'
+          nullable: true
+        total_gas_used:
+          $ref: '#/components/schemas/Int64'
+        finalize_block_events:
+          type: array
+          items:
+            $ref: '#/components/schemas/ABCIEvent'
+          nullable: true
+        validator_updates:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidatorUpdate'
+          nullable: true
+        consensus_param_updates:
+          oneOf:
+          - $ref: '#/components/schemas/ConsensusParamUpdates'
+          - type: object
+            nullable: true
+            enum:
+            - null
+      required:
+      - height
+      - txs_results
+      - total_gas_used
+      - finalize_block_events
+      - validator_updates
+      - consensus_param_updates
+      additionalProperties: false
 
     CommitResponse:
-      type: object
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
+      - signed_header
+      - canonical
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
+        signed_header:
           required:
-            - "signed_header"
-            - "canonical"
+          - header
+          - commit
           properties:
-            signed_header:
+            header:
+              $ref: '#/components/schemas/BlockHeader'
+            commit:
               required:
-                - "header"
-                - "commit"
-              properties:
-                header:
-                  $ref: "#/components/schemas/BlockHeader"
-                commit:
-                  required:
-                    - "height"
-                    - "round"
-                    - "block_id"
-                    - "signatures"
-                  properties:
-                    height:
-                      type: string
-                      example: "1311801"
-                    round:
-                      type: integer
-                      example: 0
-                    block_id:
-                      $ref: "#/components/schemas/BlockID"
-                    signatures:
-                      type: array
-                      items:
-                        type: object
-                        properties:
-                          block_id_flag:
-                            type: integer
-                            example: 2
-                          validator_address:
-                            type: string
-                            example: "000001E443FD237E4B616E2FA69DF4EE3D49A94F"
-                          timestamp:
-                            type: string
-                            example: "2019-04-22T17:01:58.376629719Z"
-                          signature:
-                            type: string
-                            example: "14jaTQXYRt8kbLKEhdHq7AXycrFImiLuZx50uOjs2+Zv+2i7RTG/jnObD07Jo2ubZ8xd7bNBJMqkgtkd0oQHAw=="
-                  type: object
-              type: object
-            canonical:
-              type: boolean
-              example: true
-          type: object
-    ValidatorsResponse:
-      type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-      properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "block_height"
-            - "validators"
-          properties:
-            block_height:
-              type: string
-              example: "55"
-            validators:
-              type: array
-              items:
-                $ref: "#/components/schemas/ValidatorPriority"
-            count:
-              type: string
-              example: "1"
-            total:
-              type: string
-              example: "25"
-          type: object
-    GenesisResponse:
-      type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-      properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          type: object
-          required:
-            - "genesis"
-          properties:
-            genesis:
-              type: object
-              required:
-                - "genesis_time"
-                - "chain_id"
-                - "initial_height"
-                - "consensus_params"
-                - "validators"
-                - "app_hash"
-              properties:
-                genesis_time:
-                  type: string
-                  example: "2019-04-22T17:00:00Z"
-                chain_id:
-                  type: string
-                  example: "cosmoshub-2"
-                initial_height:
-                  type: string
-                  example: "2"
-                consensus_params:
-                  $ref: "#/components/schemas/ConsensusParams"
-                validators:
-                  type: array
-                  items:
-                    type: object
-                    properties:
-                      address:
-                        type: string
-                        example: "B00A6323737F321EB0B8D59C6FD497A14B60938A"
-                      pub_key:
-                        required:
-                          - "type"
-                          - "value"
-                        properties:
-                          type:
-                            type: string
-                            example: "tendermint/PubKeyEd25519"
-                          value:
-                            type: string
-                            example: "cOQZvh/h9ZioSeUMZB/1Vy1Xo5x2sjrVjlE/qHnYifM="
-                        type: object
-                      power:
-                        type: string
-                        example: "9328525"
-                      name:
-                        type: string
-                        example: "Certus One"
-                app_hash:
-                  type: string
-                  example: ""
-                app_state:
-                  properties: {}
-                  type: object
-
-    GenesisChunkedResponse:
-      type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-      properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "chunk"
-            - "total"
-            - "data"
-          properties:
-            chunk:
-              type: integer
-              example: 0
-            total:
-              type: integer
-              example: 1
-            data:
-              type: string
-              example: "Z2VuZXNpcwo="
-
-    DumpConsensusResponse:
-      type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-      properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "round_state"
-            - "peers"
-          properties:
-            round_state:
-              required:
-                - "height"
-                - "round"
-                - "step"
-                - "start_time"
-                - "commit_time"
-                - "validators"
-                - "proposal"
-                - "proposal_block"
-                - "proposal_block_parts"
-                - "locked_round"
-                - "locked_block"
-                - "locked_block_parts"
-                - "valid_round"
-                - "valid_block"
-                - "valid_block_parts"
-                - "votes"
-                - "commit_round"
-                - "last_commit"
-                - "last_validators"
-                - "triggered_timeout_precommit"
+              - height
+              - round
+              - block_id
+              - signatures
               properties:
                 height:
                   type: string
-                  example: "1311801"
+                  example: '1311801'
                 round:
                   type: integer
                   example: 0
-                step:
-                  type: integer
-                  example: 3
-                start_time:
-                  type: string
-                  example: "2019-08-05T11:28:49.064658805Z"
-                commit_time:
-                  type: string
-                  example: "2019-08-05T11:28:44.064658805Z"
-                validators:
-                  required:
-                    - "validators"
-                    - "proposer"
-                  properties:
-                    validators:
-                      type: array
-                      items:
-                        $ref: "#/components/schemas/ValidatorPriority"
-                    proposer:
-                      $ref: "#/components/schemas/ValidatorPriority"
-                  type: object
-                locked_round:
-                  type: integer
-                  example: -1
-                valid_round:
-                  type: string
-                  example: "-1"
-                votes:
+                block_id:
+                  $ref: '#/components/schemas/BlockID'
+                signatures:
                   type: array
                   items:
                     type: object
                     properties:
-                      round:
+                      block_id_flag:
+                        type: integer
+                        example: 2
+                      validator_address:
                         type: string
-                        example: "0"
-                      prevotes:
-                        type: array
-                        nullable: true
-                        items:
-                          type: string
-                        example:
-                          - "nil-Vote"
-                          - "Vote{19:46A3F8B8393B 1311801/00/1(Prevote) 000000000000 64CE682305CB @ 2019-08-05T11:28:47.374703444Z}"
-                      prevotes_bit_array:
+                        example: 000001E443FD237E4B616E2FA69DF4EE3D49A94F
+                      timestamp:
                         type: string
-                        example: "BA{100:___________________x________________________________________________________________________________} 209706/170220253 = 0.00"
-                      precommits:
-                        type: array
-                        nullable: true
-                        items:
-                          type: string
-                        example:
-                          - "nil-Vote"
-                      precommits_bit_array:
+                        example: '2019-04-22T17:01:58.376629719Z'
+                      signature:
                         type: string
-                        example: "BA{100:____________________________________________________________________________________________________} 0/170220253 = 0.00"
-                commit_round:
-                  type: integer
-                  example: -1
-                last_commit:
-                  nullable: true
-                  required:
-                    - "votes"
-                    - "votes_bit_array"
-                    - "peer_maj_23s"
-                  properties:
-                    votes:
-                      type: array
-                      items:
-                        type: string
-                      example:
-                        - "Vote{0:000001E443FD 1311800/00/2(Precommit) 3071ADB27D1A 77EE1B6B6847 @ 2019-08-05T11:28:43.810128139Z}"
-                    votes_bit_array:
-                      type: string
-                      example: "BA{100:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx} 170220253/170220253 = 1.00"
-                    peer_maj_23s:
-                      properties: {}
-                      type: object
-                  type: object
-                last_validators:
-                  required:
-                    - "validators"
-                    - "proposer"
-                  properties:
-                    validators:
-                      type: array
-                      items:
-                        $ref: "#/components/schemas/ValidatorPriority"
-                    proposer:
-                      $ref: "#/components/schemas/ValidatorPriority"
-                  type: object
-                triggered_timeout_precommit:
-                  type: boolean
-                  example: false
+                        example: 14jaTQXYRt8kbLKEhdHq7AXycrFImiLuZx50uOjs2+Zv+2i7RTG/jnObD07Jo2ubZ8xd7bNBJMqkgtkd0oQHAw==
               type: object
-            peers:
+          type: object
+        canonical:
+          type: boolean
+          example: true
+      type: object
+
+    ValidatorsResponse:
+      required:
+      - block_height
+      - validators
+      properties:
+        block_height:
+          type: string
+          example: '55'
+        validators:
+          type: array
+          items:
+            $ref: '#/components/schemas/ValidatorPriority'
+        count:
+          type: string
+          example: '1'
+        total:
+          type: string
+          example: '25'
+      type: object
+
+    GenesisResponse:
+      type: object
+      required:
+      - genesis
+      properties:
+        genesis:
+          type: object
+          required:
+          - genesis_time
+          - chain_id
+          - initial_height
+          - app_hash
+          properties:
+            genesis_time:
+              type: string
+              example: '2019-04-22T17:00:00Z'
+            chain_id:
+              type: string
+              example: cosmoshub-2
+            initial_height:
+              type: string
+              example: '2'
+            consensus_params:
+              $ref: '#/components/schemas/ConsensusParams'
+            validators:
               type: array
               items:
                 type: object
                 properties:
-                  node_address:
+                  address:
                     type: string
-                    example: "357f6a6c1d27414579a8185060aa8adf9815c43c@68.183.41.207:26656"
-                  peer_state:
+                    example: B00A6323737F321EB0B8D59C6FD497A14B60938A
+                  pub_key:
                     required:
-                      - "round_state"
-                      - "stats"
+                    - type
+                    - value
                     properties:
-                      round_state:
-                        required:
-                          - "height"
-                          - "round"
-                          - "step"
-                          - "start_time"
-                          - "proposal"
-                          - "proposal_block_parts_header"
-                          - "proposal_block_parts"
-                          - "proposal_pol_round"
-                          - "proposal_pol"
-                          - "prevotes"
-                          - "precommits"
-                          - "last_commit_round"
-                          - "last_commit"
-                          - "catchup_commit_round"
-                          - "catchup_commit"
-                        properties:
-                          height:
-                            type: string
-                            example: "1311801"
-                          round:
-                            type: string
-                            example: "0"
-                          step:
-                            type: integer
-                            example: 3
-                          start_time:
-                            type: string
-                            example: "2019-08-05T11:28:49.21730864Z"
-                          proposal:
-                            type: boolean
-                            example: false
-                          proposal_block_parts_header:
-                            required:
-                              - "total"
-                              - "hash"
-                            properties:
-                              total:
-                                type: integer
-                                example: 0
-                              hash:
-                                type: string
-                                example: ""
-                            type: object
-                          proposal_pol_round:
-                            nullable: true
-                            type: integer
-                            example: -1
-                          proposal_pol:
-                            nullable: true
-                            type: string
-                            example: "____________________________________________________________________________________________________"
-                          prevotes:
-                            nullable: true
-                            type: string
-                            example: "___________________x________________________________________________________________________________"
-                          precommits:
-                            nullable: true
-                            type: string
-                            example: "____________________________________________________________________________________________________"
-                          last_commit_round:
-                            nullable: true
-                            type: integer
-                            example: 0
-                          last_commit:
-                            nullable: true
-                            type: string
-                            example: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-                          catchup_commit_round:
-                            type: integer
-                            nullable: true
-                            example: -1
-                          catchup_commit:
-                            nullable: true
-                            type: string
-                            example: "____________________________________________________________________________________________________"
-                        type: object
-                      stats:
-                        required:
-                          - "votes"
-                          - "block_parts"
-                        properties:
-                          votes:
-                            type: string
-                            example: "1159558"
-                          block_parts:
-                            type: string
-                            example: "4786"
-                        type: object
+                      type:
+                        type: string
+                        example: tendermint/PubKeyEd25519
+                      value:
+                        type: string
+                        example: cOQZvh/h9ZioSeUMZB/1Vy1Xo5x2sjrVjlE/qHnYifM=
                     type: object
-          type: object
+                  power:
+                    type: string
+                    example: '9328525'
+                  name:
+                    type: string
+                    example: Certus One
+            app_hash:
+              type: string
+              example: ''
+            app_state:
+              properties: {}
+              type: object
 
-    ConsensusStateResponse:
-      type: object
+    GenesisChunkedResponse:
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
+      - chunk
+      - total
+      - data
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
+        chunk:
           type: integer
           example: 0
-        result:
+        total:
+          type: integer
+          example: 1
+        data:
+          type: string
+          example: Z2VuZXNpcwo=
+
+    DumpConsensusResponse:
+      required:
+      - round_state
+      - peers
+      properties:
+        round_state:
           required:
-            - "round_state"
+          - height
+          - round
+          - step
+          - start_time
+          - commit_time
+          - validators
+          - proposal
+          - proposal_block
+          - proposal_block_parts
+          - locked_round
+          - locked_block
+          - locked_block_parts
+          - valid_round
+          - valid_block
+          - valid_block_parts
+          - votes
+          - commit_round
+          - last_commit
+          - last_validators
+          - triggered_timeout_precommit
           properties:
-            round_state:
+            height:
+              type: string
+              example: '1311801'
+            round:
+              type: integer
+              example: 0
+            step:
+              type: integer
+              example: 3
+            start_time:
+              type: string
+              example: '2019-08-05T11:28:49.064658805Z'
+            commit_time:
+              type: string
+              example: '2019-08-05T11:28:44.064658805Z'
+            validators:
               required:
-                - "height/round/step"
-                - "start_time"
-                - "proposal_block_hash"
-                - "locked_block_hash"
-                - "valid_block_hash"
-                - "height_vote_set"
-                - "proposer"
+              - validators
+              - proposer
               properties:
-                height/round/step:
-                  type: string
-                  example: "1262197/0/8"
-                start_time:
-                  type: string
-                  example: "2019-08-01T11:52:38.962730289Z"
-                proposal_block_hash:
-                  type: string
-                  example: "634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009"
-                locked_block_hash:
-                  type: string
-                  example: "634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009"
-                valid_block_hash:
-                  type: string
-                  example: "634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009"
-                height_vote_set:
+                validators:
                   type: array
                   items:
-                    type: object
+                    $ref: '#/components/schemas/ValidatorPriority'
+                proposer:
+                  $ref: '#/components/schemas/ValidatorPriority'
+              type: object
+            locked_round:
+              type: integer
+              example: -1
+            valid_round:
+              type: string
+              example: '-1'
+            votes:
+              type: array
+              items:
+                type: object
+                properties:
+                  round:
+                    type: string
+                    example: '0'
+                  prevotes:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                    example:
+                    - nil-Vote
+                    - Vote{19:46A3F8B8393B 1311801/00/1(Prevote) 000000000000 64CE682305CB @ 2019-08-05T11:28:47.374703444Z}
+                  prevotes_bit_array:
+                    type: string
+                    example: BA{100:___________________x________________________________________________________________________________} 209706/170220253 = 0.00
+                  precommits:
+                    type: array
+                    nullable: true
+                    items:
+                      type: string
+                    example:
+                    - nil-Vote
+                  precommits_bit_array:
+                    type: string
+                    example: BA{100:____________________________________________________________________________________________________} 0/170220253 = 0.00
+            commit_round:
+              type: integer
+              example: -1
+            last_commit:
+              nullable: true
+              required:
+              - votes
+              - votes_bit_array
+              - peer_maj_23s
+              properties:
+                votes:
+                  type: array
+                  items:
+                    type: string
+                  example:
+                  - Vote{0:000001E443FD 1311800/00/2(Precommit) 3071ADB27D1A 77EE1B6B6847 @ 2019-08-05T11:28:43.810128139Z}
+                votes_bit_array:
+                  type: string
+                  example: BA{100:xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx} 170220253/170220253 = 1.00
+                peer_maj_23s:
+                  properties: {}
+                  type: object
+              type: object
+            last_validators:
+              required:
+              - validators
+              - proposer
+              properties:
+                validators:
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/ValidatorPriority'
+                proposer:
+                  $ref: '#/components/schemas/ValidatorPriority'
+              type: object
+            triggered_timeout_precommit:
+              type: boolean
+              example: false
+          type: object
+        peers:
+          type: array
+          items:
+            type: object
+            properties:
+              node_address:
+                type: string
+                example: 357f6a6c1d27414579a8185060aa8adf9815c43c@68.183.41.207:26656
+              peer_state:
+                required:
+                - round_state
+                - stats
+                properties:
+                  round_state:
+                    required:
+                    - height
+                    - round
+                    - step
+                    - start_time
+                    - proposal
+                    - proposal_block_parts_header
+                    - proposal_block_parts
+                    - proposal_pol_round
+                    - proposal_pol
+                    - prevotes
+                    - precommits
+                    - last_commit_round
+                    - last_commit
+                    - catchup_commit_round
+                    - catchup_commit
                     properties:
+                      height:
+                        type: string
+                        example: '1311801'
                       round:
+                        type: string
+                        example: '0'
+                      step:
+                        type: integer
+                        example: 3
+                      start_time:
+                        type: string
+                        example: '2019-08-05T11:28:49.21730864Z'
+                      proposal:
+                        type: boolean
+                        example: false
+                      proposal_block_parts_header:
+                        required:
+                        - total
+                        - hash
+                        properties:
+                          total:
+                            type: integer
+                            example: 0
+                          hash:
+                            type: string
+                            example: ''
+                        type: object
+                      proposal_pol_round:
+                        nullable: true
+                        type: integer
+                        example: -1
+                      proposal_pol:
+                        nullable: true
+                        type: string
+                        example: ____________________________________________________________________________________________________
+                      prevotes:
+                        nullable: true
+                        type: string
+                        example: ___________________x________________________________________________________________________________
+                      precommits:
+                        nullable: true
+                        type: string
+                        example: ____________________________________________________________________________________________________
+                      last_commit_round:
+                        nullable: true
                         type: integer
                         example: 0
-                      prevotes:
-                        type: array
-                        items:
-                          type: string
-                        example:
-                          - "Vote{0:000001E443FD 1262197/00/1(Prevote) 634ADAF1F402 7BB974E1BA40 @ 2019-08-01T11:52:35.513572509Z}"
-                          - "nil-Vote"
-                      prevotes_bit_array:
+                      last_commit:
+                        nullable: true
                         type: string
-                        example: "BA{100:xxxxxxxxxxxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx} 169753436/170151262 = 1.00"
-                      precommits:
-                        type: array
-                        items:
-                          type: string
-                        example:
-                          - "Vote{5:18C78D135C9D 1262197/00/2(Precommit) 634ADAF1F402 8B5EFFFEABCD @ 2019-08-01T11:52:36.25600005Z}"
-                          - "nil-Vote"
-                      precommits_bit_array:
+                        example: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+                      catchup_commit_round:
+                        type: integer
+                        nullable: true
+                        example: -1
+                      catchup_commit:
+                        nullable: true
                         type: string
-                        example: "BA{100:xxxxxx_xxxxx_xxxx_x_xxx_xx_xx_xx__x_x_x__xxxxxxxxxxxxxx_xxxx_xx_xxxxxx_xxxxxxxx_xxxx_xxx_x_xxxx__xxx} 118726247/170151262 = 0.70"
-                proposer:
-                  type: object
-                  properties:
-                    address:
+                        example: ____________________________________________________________________________________________________
+                    type: object
+                  stats:
+                    required:
+                    - votes
+                    - block_parts
+                    properties:
+                      votes:
+                        type: string
+                        example: '1159558'
+                      block_parts:
+                        type: string
+                        example: '4786'
+                    type: object
+                type: object
+      type: object
+
+    ConsensusStateResponse:
+      required:
+      - round_state
+      properties:
+        round_state:
+          required:
+          - height/round/step
+          - start_time
+          - proposal_block_hash
+          - locked_block_hash
+          - valid_block_hash
+          - height_vote_set
+          - proposer
+          properties:
+            height/round/step:
+              type: string
+              example: 1262197/0/8
+            start_time:
+              type: string
+              example: '2019-08-01T11:52:38.962730289Z'
+            proposal_block_hash:
+              type: string
+              example: 634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009
+            locked_block_hash:
+              type: string
+              example: 634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009
+            valid_block_hash:
+              type: string
+              example: 634ADAF1F402663BEC2ABC340ECE8B4B45AA906FA603272ACC5F5EED3097E009
+            height_vote_set:
+              type: array
+              items:
+                type: object
+                properties:
+                  round:
+                    type: integer
+                    example: 0
+                  prevotes:
+                    type: array
+                    items:
                       type: string
-                      example: "D540AB022088612AC74B287D076DBFBC4A377A2E"
-                    index:
-                      type: integer
-                      example: 0
+                    example:
+                    - Vote{0:000001E443FD 1262197/00/1(Prevote) 634ADAF1F402 7BB974E1BA40 @ 2019-08-01T11:52:35.513572509Z}
+                    - nil-Vote
+                  prevotes_bit_array:
+                    type: string
+                    example: BA{100:xxxxxxxxxxxxxxxxx_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx} 169753436/170151262 = 1.00
+                  precommits:
+                    type: array
+                    items:
+                      type: string
+                    example:
+                    - Vote{5:18C78D135C9D 1262197/00/2(Precommit) 634ADAF1F402 8B5EFFFEABCD @ 2019-08-01T11:52:36.25600005Z}
+                    - nil-Vote
+                  precommits_bit_array:
+                    type: string
+                    example: BA{100:xxxxxx_xxxxx_xxxx_x_xxx_xx_xx_xx__x_x_x__xxxxxxxxxxxxxx_xxxx_xx_xxxxxx_xxxxxxxx_xxxx_xxx_x_xxxx__xxx} 118726247/170151262 = 0.70
+            proposer:
               type: object
+              properties:
+                address:
+                  type: string
+                  example: D540AB022088612AC74B287D076DBFBC4A377A2E
+                index:
+                  type: integer
+                  example: 0
           type: object
+      type: object
 
     ConsensusParamsResponse:
       type: object
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
+      - block_height
+      - consensus_params
       properties:
-        jsonrpc:
+        block_height:
           type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          type: object
-          required:
-            - "block_height"
-            - "consensus_params"
-          properties:
-            block_height:
-              type: string
-              example: "1"
-            consensus_params:
-              $ref: "#/components/schemas/ConsensusParams"
+          example: '1'
+        consensus_params:
+          $ref: '#/components/schemas/ConsensusParams'
 
     NumUnconfirmedTransactionsResponse:
-      type: object
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
+      - n_txs
+      - total
+      - total_bytes
       properties:
-        jsonrpc:
+        n_txs:
           type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "n_txs"
-            - "total"
-            - "total_bytes"
-          properties:
-            n_txs:
-              type: string
-              example: "31"
-            total:
-              type: string
-              example: "82"
-            total_bytes:
-              type: string
-              example: "19974"
-          #          txs:
-          #            type: array
-          #            nullable: true
-          #            items:
-          #              type: string
-          #              nullable: true
-          #            example:
-          #              - "gAPwYl3uCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUA75/FmYq9WymsOBJ0XSJ8yV8zmQKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhQbrvwbvlNiT+Yjr86G+YQNx7kRVgowjE1xDQoUjJyJG+WaWBwSiGannBRFdrbma+8SFK2m+1oxgILuQLO55n8mWfnbIzyPCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUQNGfkmhTNMis4j+dyMDIWXdIPiYKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhS8sL0D0wwgGCItQwVowak5YB38KRIUCg4KBXVhdG9tEgUxMDA1NBDoxRgaagom61rphyECn8x7emhhKdRCB2io7aS/6Cpuq5NbVqbODmqOT3jWw6kSQKUresk+d+Gw0BhjiggTsu8+1voW+VlDCQ1GRYnMaFOHXhyFv7BCLhFWxLxHSAYT8a5XqoMayosZf9mANKdXArA="
-          type: object
+          example: '31'
+        total:
+          type: string
+          example: '82'
+        total_bytes:
+          type: string
+          example: '19974'
+      type: object
 
     UnconfirmedTransactionsResponse:
-      type: object
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
+      - n_txs
+      - total
+      - total_bytes
+      - txs
       properties:
-        jsonrpc:
+        n_txs:
           type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "n_txs"
-            - "total"
-            - "total_bytes"
-            - "txs"
-          properties:
-            n_txs:
-              type: string
-              example: "82"
-            total:
-              type: string
-              example: "82"
-            total_bytes:
-              type: string
-              example: "19974"
-            txs:
-              type: array
-              nullable: true
-              items:
-                type: string
-                nullable: true
-              example:
-                - "gAPwYl3uCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUA75/FmYq9WymsOBJ0XSJ8yV8zmQKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhQbrvwbvlNiT+Yjr86G+YQNx7kRVgowjE1xDQoUjJyJG+WaWBwSiGannBRFdrbma+8SFK2m+1oxgILuQLO55n8mWfnbIzyPCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUQNGfkmhTNMis4j+dyMDIWXdIPiYKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhS8sL0D0wwgGCItQwVowak5YB38KRIUCg4KBXVhdG9tEgUxMDA1NBDoxRgaagom61rphyECn8x7emhhKdRCB2io7aS/6Cpuq5NbVqbODmqOT3jWw6kSQKUresk+d+Gw0BhjiggTsu8+1voW+VlDCQ1GRYnMaFOHXhyFv7BCLhFWxLxHSAYT8a5XqoMayosZf9mANKdXArA="
-          type: object
+          example: '82'
+        total:
+          type: string
+          example: '82'
+        total_bytes:
+          type: string
+          example: '19974'
+        txs:
+          type: array
+          nullable: true
+          items:
+            type: string
+            nullable: true
+          example:
+          - gAPwYl3uCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUA75/FmYq9WymsOBJ0XSJ8yV8zmQKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhQbrvwbvlNiT+Yjr86G+YQNx7kRVgowjE1xDQoUjJyJG+WaWBwSiGannBRFdrbma+8SFK2m+1oxgILuQLO55n8mWfnbIzyPCjCMTXENChSMnIkb5ZpYHBKIZqecFEV2tuZr7xIUQNGfkmhTNMis4j+dyMDIWXdIPiYKMIxNcQ0KFIyciRvlmlgcEohmp5wURXa25mvvEhS8sL0D0wwgGCItQwVowak5YB38KRIUCg4KBXVhdG9tEgUxMDA1NBDoxRgaagom61rphyECn8x7emhhKdRCB2io7aS/6Cpuq5NbVqbODmqOT3jWw6kSQKUresk+d+Gw0BhjiggTsu8+1voW+VlDCQ1GRYnMaFOHXhyFv7BCLhFWxLxHSAYT8a5XqoMayosZf9mANKdXArA=
+      type: object
 
     TxSearchResponse:
       type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "txs"
-            - "total_count"
-          properties:
-            txs:
-              type: array
-              items:
-                type: object
-                properties:
-                  hash:
-                    type: string
-                    example: "D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED"
-                  height:
-                    type: string
-                    example: "1000"
-                  index:
-                    type: integer
-                    example: 0
-                  tx_result:
-                    required:
-                      - "log"
-                      - "gas_wanted"
-                      - "gas_used"
-                      - "tags"
-                    properties:
-                      log:
-                        type: string
-                        example: '[{"msg_index":"0","success":true,"log":""}]'
-                      gas_wanted:
-                        type: string
-                        example: "200000"
-                      gas_used:
-                        type: string
-                        example: "28596"
-                      tags:
-                        $ref: "#/components/schemas/Event"
-                    type: object
-                  tx:
-                    type: string
-                    example: "5wHwYl3uCkaoo2GaChQmSIu8hxpJxLcCuIi8fiHN4TMwrRIU/Af1cEG7Rcs/6LjTl7YjRSymJfYaFAoFdWF0b20SCzE0OTk5OTk1MDAwEhMKDQoFdWF0b20SBDUwMDAQwJoMGmoKJuta6YchAwswBShaB1wkZBctLIhYqBC3JrAI28XGzxP+rVEticGEEkAc+khTkKL9CDE47aDvjEHvUNt+izJfT4KVF2v2JkC+bmlH9K08q3PqHeMI9Z5up+XMusnTqlP985KF+SI5J3ZOIhhNYWRlIGJ5IENpcmNsZSB3aXRoIGxvdmU="
-                  proof:
-                    required:
-                      - "RootHash"
-                      - "Data"
-                      - "Proof"
-                    properties:
-                      RootHash:
-                        type: string
-                        example: "72FE6BF6D4109105357AECE0A82E99D0F6288854D16D8767C5E72C57F876A14D"
-                      Data:
-                        type: string
-                        example: "5wHwYl3uCkaoo2GaChQmSIu8hxpJxLcCuIi8fiHN4TMwrRIU/Af1cEG7Rcs/6LjTl7YjRSymJfYaFAoFdWF0b20SCzE0OTk5OTk1MDAwEhMKDQoFdWF0b20SBDUwMDAQwJoMGmoKJuta6YchAwswBShaB1wkZBctLIhYqBC3JrAI28XGzxP+rVEticGEEkAc+khTkKL9CDE47aDvjEHvUNt+izJfT4KVF2v2JkC+bmlH9K08q3PqHeMI9Z5up+XMusnTqlP985KF+SI5J3ZOIhhNYWRlIGJ5IENpcmNsZSB3aXRoIGxvdmU="
-                      Proof:
-                        required:
-                          - "total"
-                          - "index"
-                          - "leaf_hash"
-                          - "aunts"
-                        properties:
-                          total:
-                            type: string
-                            example: "2"
-                          index:
-                            type: string
-                            example: "0"
-                          leaf_hash:
-                            type: string
-                            example: "eoJxKCzF3m72Xiwb/Q43vJ37/2Sx8sfNS9JKJohlsYI="
-                          aunts:
-                            type: array
-                            items:
-                              type: string
-                            example:
-                              - "eWb+HG/eMmukrQj4vNGyFYb3nKQncAWacq4HF5eFzDY="
-                        type: object
-                    type: object
-            total_count:
-              type: string
-              example: "2"
-          type: object
+        txs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TxResponse'
+          nullable: true
+        total_count:
+          $ref: '#/components/schemas/Int64'
+      required:
+      - txs
+      - total_count
+      additionalProperties: false
 
     TxResponse:
       type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
+        hash:
+          $ref: '#/components/schemas/HexBytes'
+        height:
+          $ref: '#/components/schemas/Int64'
+        index:
           type: integer
-          example: 0
-        result:
-          required:
-            - "hash"
-            - "height"
-            - "index"
-            - "tx_result"
-            - "tx"
-          properties:
-            hash:
-              type: string
-              example: "D70952032620CC4E2737EB8AC379806359D8E0B17B0488F627997A0B043ABDED"
-            height:
-              type: string
-              example: "1000"
-            index:
-              type: integer
-              example: 0
-            tx_result:
-              required:
-                - "log"
-                - "gas_wanted"
-                - "gas_used"
-                - "tags"
-              properties:
-                log:
-                  type: string
-                  example: '[{"msg_index":"0","success":true,"log":""}]'
-                gas_wanted:
-                  type: string
-                  example: "200000"
-                gas_used:
-                  type: string
-                  example: "28596"
-                tags:
-                  type: array
-                  items:
-                    $ref: "#/components/schemas/Event"
-              type: object
-            tx:
-              type: string
-              example: "5wHwYl3uCkaoo2GaChQmSIu8hxpJxLcCuIi8fiHN4TMwrRIU/Af1cEG7Rcs/6LjTl7YjRSymJfYaFAoFdWF0b20SCzE0OTk5OTk1MDAwEhMKDQoFdWF0b20SBDUwMDAQwJoMGmoKJuta6YchAwswBShaB1wkZBctLIhYqBC3JrAI28XGzxP+rVEticGEEkAc+khTkKL9CDE47aDvjEHvUNt+izJfT4KVF2v2JkC+bmlH9K08q3PqHeMI9Z5up+XMusnTqlP985KF+SI5J3ZOIhhNYWRlIGJ5IENpcmNsZSB3aXRoIGxvdmU="
-          type: object
+          minimum: 0
+          maximum: 4294967295
+        tx_result:
+          $ref: '#/components/schemas/ExecTxResult'
+        tx:
+          $ref: '#/components/schemas/Base64'
+        proof:
+          $ref: '#/components/schemas/TxProof'
+      required:
+      - hash
+      - height
+      - index
+      - tx_result
+      - tx
+      additionalProperties: false
 
     ABCIInfoResponse:
-      type: object
       required:
-        - "jsonrpc"
-        - "id"
+      - response
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
+        response:
           required:
-            - "response"
+          - data
+          - app_version
+          - version
           properties:
-            response:
-              required:
-                - "data"
-                - "app_version"
-                - "version"
-              properties:
-                data:
-                  type: string
-                  example: '{"size":0}'
-                version:
-                  type: string
-                  example: "0.16.1"
-                app_version:
-                  type: string
-                  example: "1314126"
-              type: object
+            data:
+              type: string
+              example: '{"size":0}'
+            version:
+              type: string
+              example: 0.16.1
+            app_version:
+              type: string
+              example: '1314126'
           type: object
+      type: object
 
     ABCIQueryResponse:
       type: object
-      required:
-        - "error"
-        - "result"
-        - "id"
-        - "jsonrpc"
       properties:
-        error:
-          type: string
-          example: ""
-        result:
-          required:
-            - "response"
-          properties:
-            response:
-              required:
-                - "log"
-                - "height"
-                - "proof"
-                - "value"
-                - "key"
-                - "index"
-                - "code"
-              properties:
-                log:
-                  type: string
-                  example: "exists"
-                height:
-                  type: string
-                  example: "0"
-                proof:
-                  type: string
-                  example: "010114FED0DAD959F36091AD761C922ABA3CBF1D8349990101020103011406AA2262E2F448242DF2C2607C3CDC705313EE3B0001149D16177BC71E445476174622EA559715C293740C"
-                value:
-                  type: string
-                  example: "61626364"
-                key:
-                  type: string
-                  example: "61626364"
-                index:
-                  type: string
-                  example: "-1"
-                code:
-                  type: string
-                  example: "0"
-              type: object
-          type: object
-        id:
-          type: integer
-          example: 0
-        jsonrpc:
-          type: string
-          example: "2.0"
+        response:
+          $ref: '#/components/schemas/ResponseQuery'
+      required:
+      - response
+      additionalProperties: false
 
     BroadcastEvidenceResponse:
-      type: object
-      required:
-        - "id"
-        - "jsonrpc"
-      properties:
-        error:
-          type: string
-          example: ""
-        result:
-          type: string
-          example: ""
-        id:
-          type: integer
-          example: 0
-        jsonrpc:
-          type: string
-          example: "2.0"
+      type: string
+      example: ''
 
     BroadcastTxCommitResponse:
       type: object
-      required:
-        - "error"
-        - "result"
-        - "id"
-        - "jsonrpc"
       properties:
-        error:
-          type: string
-          example: ""
-        result:
-          required:
-            - "height"
-            - "hash"
-            - "deliver_tx"
-            - "check_tx"
-          properties:
-            height:
-              type: string
-              example: "26682"
-            hash:
-              type: string
-              example: "75CA0F856A4DA078FC4911580360E70CEFB2EBEE"
-            deliver_tx:
-              required:
-                - "log"
-                - "data"
-                - "code"
-              properties:
-                log:
-                  type: string
-                  example: ""
-                data:
-                  type: string
-                  example: ""
-                code:
-                  type: string
-                  example: "0"
-              type: object
-            check_tx:
-              required:
-                - "log"
-                - "data"
-                - "code"
-              properties:
-                log:
-                  type: string
-                  example: ""
-                data:
-                  type: string
-                  example: ""
-                code:
-                  type: string
-                  example: "0"
-              type: object
-          type: object
-        id:
-          type: integer
-          example: 0
-        jsonrpc:
-          type: string
-          example: "2.0"
+        check_tx:
+          $ref: '#/components/schemas/ResponseCheckTx'
+        tx_result:
+          $ref: '#/components/schemas/ExecTxResult'
+        hash:
+          $ref: '#/components/schemas/HexBytes'
+        height:
+          $ref: '#/components/schemas/Int64'
+      required:
+      - check_tx
+      - tx_result
+      - hash
+      - height
+      additionalProperties: false
 
     CheckTxResponse:
-      type: object
-      required:
-        - "error"
-        - "result"
-        - "id"
-        - "jsonrpc"
-      properties:
-        error:
-          type: string
-          example: ""
-        result:
-          required:
-            - "log"
-            - "data"
-            - "code"
-          properties:
-            code:
-              type: string
-              example: "0"
-            data:
-              type: string
-              example: ""
-            log:
-              type: string
-              example: ""
-            info:
-              type: string
-              example: ""
-            gas_wanted:
-              type: string
-              example: "1"
-            gas_used:
-              type: string
-              example: "0"
-            events:
-              type: array
-              nullable: true
-              items:
-                type: object
-                properties:
-                  type:
-                    type: string
-                    example: "app"
-                  attributes:
-                    type: array
-                    nullable: false
-                    items:
-                      $ref: "#/components/schemas/Event"
-            codespace:
-              type: string
-              example: "bank"
-          type: object
-        id:
-          type: integer
-          example: 0
-        jsonrpc:
-          type: string
-          example: "2.0"
+      $ref: '#/components/schemas/ResponseCheckTx'
 
     BroadcastTxResponse:
-      type: object
       required:
-        - "jsonrpc"
-        - "id"
-        - "result"
-        - "error"
+      - code
+      - data
+      - log
+      - hash
       properties:
-        jsonrpc:
+        code:
           type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "code"
-            - "data"
-            - "log"
-            - "hash"
-          properties:
-            code:
-              type: string
-              example: "0"
-            data:
-              type: string
-              example: ""
-            log:
-              type: string
-              example: ""
-            codespace:
-              type: string
-              example: "ibc"
-            hash:
-              type: string
-              example: "0D33F2F03A5234F38706E43004489E061AC40A2E"
-          type: object
-        error:
+          example: '0'
+        data:
           type: string
-          example: ""
+          example: ''
+        log:
+          type: string
+          example: ''
+        codespace:
+          type: string
+          example: ibc
+        hash:
+          type: string
+          example: 0D33F2F03A5234F38706E43004489E061AC40A2E
+      type: object
 
     dialResp:
       type: object
@@ -3167,34 +2941,19 @@ components:
 
     BlockSearchResponse:
       type: object
-      required:
-        - "jsonrpc"
-        - "id"
-        - "result"
       properties:
-        jsonrpc:
-          type: string
-          example: "2.0"
-        id:
-          type: integer
-          example: 0
-        result:
-          required:
-            - "blocks"
-            - "total_count"
-          properties:
-            blocks:
-              type: array
-              items:
-                $ref: "#/components/schemas/BlockComplete"
-            total_count:
-              type: integer
-              example: 2
-          type: object
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/BlockComplete'
+          nullable: true
+        total_count:
+          $ref: '#/components/schemas/Int64'
+      required:
+      - blocks
+      - total_count
+      additionalProperties: false
 
-    ###### Reuseable types ######
-
-    # Validator type with proposer prioirty
     ValidatorPriority:
       type: object
       properties:
@@ -3234,131 +2993,191 @@ components:
     # Consensus Params
     ConsensusParams:
       type: object
-      nullable: true
-      required:
-        - "block"
-        - "evidence"
-        - "validator"
       properties:
         block:
           type: object
-          required:
-            - "max_bytes"
-            - "max_gas_wanted"
-            - "max_gas"
-            - "time_iota_ms"
           properties:
             max_bytes:
-              type: string
-              example: "22020096"
+              $ref: '#/components/schemas/Int64'
             max_gas:
-              type: string
-              example: "1000"
-            time_iota_ms:
-              type: string
-              example: "1000"
+              $ref: '#/components/schemas/Int64'
+            min_txs_in_block:
+              $ref: '#/components/schemas/Int64'
+            max_gas_wanted:
+              $ref: '#/components/schemas/Int64'
+          required:
+          - max_bytes
+          - max_gas
+          - min_txs_in_block
+          - max_gas_wanted
+          additionalProperties: false
         evidence:
           type: object
-          required:
-            - "max_age"
           properties:
-            max_age:
-              type: string
-              example: "100000"
+            max_age_num_blocks:
+              $ref: '#/components/schemas/Int64'
+            max_age_duration:
+              $ref: '#/components/schemas/Int64'
+            max_bytes:
+              $ref: '#/components/schemas/Int64'
+          required:
+          - max_age_num_blocks
+          - max_age_duration
+          - max_bytes
+          additionalProperties: false
         validator:
           type: object
-          required:
-            - "pub_key_types"
           properties:
             pub_key_types:
               type: array
               items:
                 type: string
-              example:
-                - "ed25519"
+          required:
+          - pub_key_types
+          additionalProperties: false
+        version:
+          type: object
+          properties:
+            app_version:
+              $ref: '#/components/schemas/UInt64'
+          required:
+          - app_version
+          additionalProperties: false
+        synchrony:
+          type: object
+          properties:
+            precision:
+              $ref: '#/components/schemas/Int64'
+            message_delay:
+              $ref: '#/components/schemas/Int64'
+          required:
+          - precision
+          - message_delay
+          additionalProperties: false
+        timeout:
+          type: object
+          properties:
+            propose:
+              $ref: '#/components/schemas/Int64'
+            propose_delta:
+              $ref: '#/components/schemas/Int64'
+            vote:
+              $ref: '#/components/schemas/Int64'
+            vote_delta:
+              $ref: '#/components/schemas/Int64'
+            commit:
+              $ref: '#/components/schemas/Int64'
+            bypass_commit_timeout:
+              type: boolean
+          required:
+          - propose
+          - propose_delta
+          - vote
+          - vote_delta
+          - commit
+          - bypass_commit_timeout
+          additionalProperties: false
+        abci:
+          type: object
+          properties:
+            vote_extensions_enable_height:
+              $ref: '#/components/schemas/Int64'
+            recheck_tx:
+              type: boolean
+          required:
+          - vote_extensions_enable_height
+          - recheck_tx
+          additionalProperties: false
+      required:
+      - block
+      - evidence
+      - validator
+      - version
+      - synchrony
+      - timeout
+      - abci
+      additionalProperties: false
+      description: Current consensus parameters. Durations are decimal nanoseconds; heights and limits are decimal integers.
 
-    # Events in tendermint
     Event:
       type: object
       properties:
         key:
-          type: string
-          example: "YWN0aW9u"
+          $ref: '#/components/schemas/Base64'
         value:
-          type: string
-          example: "c2VuZA=="
+          $ref: '#/components/schemas/Base64'
         index:
           type: boolean
-          example: false
+      required:
+      - key
+      - value
+      - index
+      additionalProperties: false
 
-    # Block Header
     BlockHeader:
       required:
-        - "version"
-        - "chain_id"
-        - "height"
-        - "time"
-        - "last_block_id"
-        - "last_commit_hash"
-        - "data_hash"
-        - "validators_hash"
-        - "next_validators_hash"
-        - "consensus_hash"
-        - "app_hash"
-        - "last_results_hash"
-        - "evidence_hash"
-        - "proposer_address"
+      - version
+      - chain_id
+      - height
+      - time
+      - last_block_id
+      - last_commit_hash
+      - data_hash
+      - validators_hash
+      - next_validators_hash
+      - consensus_hash
+      - app_hash
+      - last_results_hash
+      - evidence_hash
+      - proposer_address
       properties:
         version:
-          required:
-            - "block"
-            - "app"
           properties:
             block:
               type: string
-              example: "10"
+              example: '10'
             app:
               type: string
-              example: "0"
+              example: '0'
           type: object
         chain_id:
           type: string
-          example: "cosmoshub-2"
+          example: cosmoshub-2
         height:
           type: string
-          example: "12"
+          example: '12'
         time:
           type: string
-          example: "2019-04-22T17:01:51.701356223Z"
+          example: '2019-04-22T17:01:51.701356223Z'
         last_block_id:
-          $ref: "#/components/schemas/BlockID"
+          $ref: '#/components/schemas/BlockID'
         last_commit_hash:
           type: string
-          example: "21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812"
+          example: 21B9BC845AD2CB2C4193CDD17BFC506F1EBE5A7402E84AD96E64171287A34812
         data_hash:
           type: string
-          example: "970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73"
+          example: 970886F99E77ED0D60DA8FCE0447C2676E59F2F77302B0C4AA10E1D02F18EF73
         validators_hash:
           type: string
-          example: "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0"
+          example: D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0
         next_validators_hash:
           type: string
-          example: "D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0"
+          example: D658BFD100CA8025CFD3BECFE86194322731D387286FBD26E059115FD5F2BCA0
         consensus_hash:
           type: string
-          example: "0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8"
+          example: 0F2908883A105C793B74495EB7D6DF2EEA479ED7FC9349206A65CB0F9987A0B8
         app_hash:
           type: string
-          example: "223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C"
+          example: 223BF64D4A01074DC523A80E76B9BBC786C791FB0A1893AC5B14866356FCFD6C
         last_results_hash:
           type: string
-          example: ""
+          example: ''
         evidence_hash:
           type: string
-          example: ""
+          example: ''
         proposer_address:
           type: string
-          example: "D540AB022088612AC74B287D076DBFBC4A377A2E"
+          example: D540AB022088612AC74B287D076DBFBC4A377A2E
       type: object
 
     BlockID:
@@ -3381,3 +3200,429 @@ components:
               type: string
               example: "38D4B26B5B725C4F13571EFE022C030390E4C33C8CF6F88EDD142EA769642DBD"
           type: object
+
+    Int64:
+      type: string
+      pattern: ^-?[0-9]+$
+      description: Signed 64-bit integer encoded as a decimal string.
+
+    UInt64:
+      type: string
+      pattern: ^[0-9]+$
+      description: Unsigned 64-bit integer encoded as a decimal string.
+
+    Base64:
+      type: string
+      format: byte
+      description: Standard base64-encoded bytes.
+
+    NullableBase64:
+      oneOf:
+      - $ref: '#/components/schemas/Base64'
+      - type: string
+        nullable: true
+        enum:
+        - null
+      description: Base64 bytes, or null when the producer's byte slice is nil.
+
+    HexBytes:
+      type: string
+      pattern: ^[0-9A-Fa-f]*$
+      description: Hexadecimal bytes without a 0x prefix.
+
+    RPCError:
+      type: object
+      properties:
+        code:
+          type: integer
+        message:
+          type: string
+        data:
+          type: string
+          description: Optional diagnostic string.
+      required:
+      - code
+      - message
+      additionalProperties: false
+
+    ResultHeader:
+      type: object
+      properties:
+        header:
+          oneOf:
+          - $ref: '#/components/schemas/BlockHeader'
+          - type: object
+            nullable: true
+            enum:
+            - null
+          description: Null when the requested hash is absent.
+      required:
+      - header
+      additionalProperties: false
+
+    ABCIEvent:
+      type: object
+      properties:
+        type:
+          type: string
+        attributes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+      additionalProperties: false
+
+    ExecTxResult:
+      type: object
+      properties:
+        code:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+        data:
+          $ref: '#/components/schemas/Base64'
+        log:
+          type: string
+        info:
+          type: string
+        gas_wanted:
+          $ref: '#/components/schemas/Int64'
+        gas_used:
+          $ref: '#/components/schemas/Int64'
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/ABCIEvent'
+        codespace:
+          type: string
+        evm_tx_info:
+          $ref: '#/components/schemas/EvmTxInfo'
+      additionalProperties: false
+
+    EvmTxInfo:
+      type: object
+      properties:
+        senderAddress:
+          type: string
+        nonce:
+          $ref: '#/components/schemas/UInt64'
+        txHash:
+          type: string
+        vmError:
+          type: string
+      additionalProperties: false
+
+    ResponseCheckTx:
+      type: object
+      properties:
+        code:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+        data:
+          $ref: '#/components/schemas/NullableBase64'
+        log:
+          type: string
+        gasWanted:
+          $ref: '#/components/schemas/Int64'
+        codespace:
+          type: string
+        priority:
+          $ref: '#/components/schemas/Int64'
+        gasEstimated:
+          $ref: '#/components/schemas/Int64'
+      required:
+      - code
+      - data
+      - log
+      - gasWanted
+      - codespace
+      - priority
+      - gasEstimated
+      additionalProperties: false
+
+    ProofOp:
+      type: object
+      properties:
+        type:
+          type: string
+        key:
+          $ref: '#/components/schemas/Base64'
+        data:
+          $ref: '#/components/schemas/Base64'
+      required:
+      - type
+      - key
+      - data
+      additionalProperties: false
+
+    ProofOps:
+      type: object
+      properties:
+        ops:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProofOp'
+      required:
+      - ops
+      additionalProperties: false
+
+    ResponseQuery:
+      type: object
+      properties:
+        code:
+          type: integer
+          minimum: 0
+          maximum: 4294967295
+        log:
+          type: string
+        info:
+          type: string
+        index:
+          $ref: '#/components/schemas/Int64'
+        key:
+          $ref: '#/components/schemas/NullableBase64'
+        value:
+          $ref: '#/components/schemas/NullableBase64'
+        proofOps:
+          oneOf:
+          - $ref: '#/components/schemas/ProofOps'
+          - type: object
+            nullable: true
+            enum:
+            - null
+          description: The jsonpb wire name of ResponseQuery.proof_ops.
+        height:
+          $ref: '#/components/schemas/Int64'
+        codespace:
+          type: string
+      required:
+      - code
+      - log
+      - info
+      - index
+      - key
+      - value
+      - proofOps
+      - height
+      - codespace
+      additionalProperties: false
+
+    MerkleProof:
+      type: object
+      properties:
+        total:
+          $ref: '#/components/schemas/Int64'
+        index:
+          $ref: '#/components/schemas/Int64'
+        leaf_hash:
+          $ref: '#/components/schemas/Base64'
+        aunts:
+          type: array
+          items:
+            $ref: '#/components/schemas/Base64'
+          nullable: true
+      required:
+      - total
+      - index
+      - leaf_hash
+      - aunts
+      additionalProperties: false
+
+    TxProof:
+      type: object
+      properties:
+        root_hash:
+          $ref: '#/components/schemas/HexBytes'
+        data:
+          $ref: '#/components/schemas/Base64'
+        proof:
+          $ref: '#/components/schemas/MerkleProof'
+      required:
+      - root_hash
+      - data
+      - proof
+      additionalProperties: false
+
+    ValidatorUpdate:
+      type: object
+      properties:
+        pub_key:
+          $ref: '#/components/schemas/PubKey'
+        power:
+          $ref: '#/components/schemas/Int64'
+      required:
+      - power
+      additionalProperties: false
+
+    ConsensusParamUpdates:
+      type: object
+      properties:
+        block:
+          type: object
+          properties:
+            max_bytes:
+              $ref: '#/components/schemas/Int64'
+            max_gas:
+              $ref: '#/components/schemas/Int64'
+            min_txs_in_block:
+              $ref: '#/components/schemas/Int64'
+            max_gas_wanted:
+              $ref: '#/components/schemas/Int64'
+          additionalProperties: false
+        evidence:
+          type: object
+          properties:
+            max_age_num_blocks:
+              $ref: '#/components/schemas/Int64'
+            max_age_duration:
+              $ref: '#/components/schemas/Int64'
+            max_bytes:
+              $ref: '#/components/schemas/Int64'
+          additionalProperties: false
+        validator:
+          type: object
+          properties:
+            pub_key_types:
+              type: array
+              items:
+                type: string
+          additionalProperties: false
+        version:
+          type: object
+          properties:
+            app_version:
+              $ref: '#/components/schemas/UInt64'
+          additionalProperties: false
+        synchrony:
+          type: object
+          properties:
+            precision:
+              $ref: '#/components/schemas/Int64'
+            message_delay:
+              $ref: '#/components/schemas/Int64'
+          additionalProperties: false
+        timeout:
+          type: object
+          properties:
+            propose:
+              $ref: '#/components/schemas/Int64'
+            propose_delta:
+              $ref: '#/components/schemas/Int64'
+            vote:
+              $ref: '#/components/schemas/Int64'
+            vote_delta:
+              $ref: '#/components/schemas/Int64'
+            commit:
+              $ref: '#/components/schemas/Int64'
+            bypass_commit_timeout:
+              type: boolean
+          additionalProperties: false
+        abci:
+          type: object
+          properties:
+            vote_extensions_enable_height:
+              $ref: '#/components/schemas/Int64'
+            recheck_tx:
+              type: boolean
+          additionalProperties: false
+      additionalProperties: false
+      description: Sparse parameter updates from FinalizeBlock; absent sections are unchanged. Durations are decimal nanoseconds.
+
+    JSONRPCSuccess:
+      allOf:
+      - $ref: '#/components/schemas/JSONRPC'
+      - type: object
+        properties:
+          result:
+            anyOf:
+            - $ref: '#/components/schemas/BroadcastTxResponse'
+            - $ref: '#/components/schemas/BroadcastTxCommitResponse'
+            - $ref: '#/components/schemas/CheckTxResponse'
+            - $ref: '#/components/schemas/EventsResponse'
+            - $ref: '#/components/schemas/EmptyResponse'
+            - $ref: '#/components/schemas/StatusResponse'
+            - $ref: '#/components/schemas/LagStatusResponse'
+            - $ref: '#/components/schemas/NetInfoResponse'
+            - $ref: '#/components/schemas/BlockchainResponse'
+            - $ref: '#/components/schemas/HeaderResponse'
+            - $ref: '#/components/schemas/BlockResponse'
+            - $ref: '#/components/schemas/BlockResultsResponse'
+            - $ref: '#/components/schemas/CommitResponse'
+            - $ref: '#/components/schemas/ValidatorsResponse'
+            - $ref: '#/components/schemas/GenesisResponse'
+            - $ref: '#/components/schemas/GenesisChunkedResponse'
+            - $ref: '#/components/schemas/DumpConsensusResponse'
+            - $ref: '#/components/schemas/ConsensusStateResponse'
+            - $ref: '#/components/schemas/ConsensusParamsResponse'
+            - $ref: '#/components/schemas/UnconfirmedTransactionsResponse'
+            - $ref: '#/components/schemas/NumUnconfirmedTransactionsResponse'
+            - $ref: '#/components/schemas/TxSearchResponse'
+            - $ref: '#/components/schemas/BlockSearchResponse'
+            - $ref: '#/components/schemas/TxResponse'
+            - $ref: '#/components/schemas/ABCIInfoResponse'
+            - $ref: '#/components/schemas/ABCIQueryResponse'
+            - $ref: '#/components/schemas/BroadcastEvidenceResponse'
+        required:
+        - result
+      not:
+        required:
+        - error
+
+    JSONRPCFailure:
+      allOf:
+      - $ref: '#/components/schemas/JSONRPC'
+      oneOf:
+      - type: object
+        properties:
+          error:
+            $ref: '#/components/schemas/RPCError'
+        required:
+        - error
+        not:
+          required:
+          - result
+      - type: object
+        properties:
+          error:
+            allOf:
+            - $ref: '#/components/schemas/RPCError'
+            - type: object
+              properties:
+                code:
+                  type: integer
+                  enum:
+                  - -32604
+          result:
+            $ref: '#/components/schemas/LagStatusResponse'
+        required:
+        - error
+        - result
+      description: Refusals omit result except lag errors, which retain the lag result as well as error.
+
+    JSONRPCResponse:
+      oneOf:
+      - $ref: '#/components/schemas/JSONRPCSuccess'
+      - $ref: '#/components/schemas/JSONRPCFailure'
+
+    JSONRPCRequest:
+      type: object
+      properties:
+        jsonrpc:
+          type: string
+          enum:
+          - '2.0'
+        id:
+          oneOf:
+          - type: integer
+          - type: string
+        method:
+          type: string
+        params:
+          oneOf:
+          - type: object
+            additionalProperties: true
+          - type: array
+            items: {}
+      required:
+      - method
+      additionalProperties: false

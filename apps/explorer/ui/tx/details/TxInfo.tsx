@@ -59,6 +59,7 @@ import TxDetailsBurntFees from 'ui/tx/details/TxDetailsBurntFees';
 import TxDetailsFeePerGas from 'ui/tx/details/TxDetailsFeePerGas';
 import TxDetailsGasPrice from 'ui/tx/details/TxDetailsGasPrice';
 import TxDetailsOther from 'ui/tx/details/TxDetailsOther';
+import TxDetailsSequencerSignature from 'ui/tx/details/TxDetailsSequencerSignature';
 import TxDetailsTokenTransfers from 'ui/tx/details/TxDetailsTokenTransfers';
 import TxDetailsWithdrawalStatusOptimistic from 'ui/tx/details/TxDetailsWithdrawalStatusOptimistic';
 import TxRevertReason from 'ui/tx/details/TxRevertReason';
@@ -81,13 +82,15 @@ interface Props {
   data: Transaction | undefined;
   tacOperations?: Array<tac.OperationDetails>;
   isLoading: boolean;
+  transfers?: React.ReactNode;
+  balanceChanges?: React.ReactNode;
   socketStatus?: 'close' | 'error';
 }
 
 const externalTxFeature = config.features.externalTxs;
 const rollupFeature = config.features.rollup;
 
-const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
+const TxInfo = ({ data, tacOperations, isLoading, socketStatus, transfers, balanceChanges }: Props) => {
   const [ isExpanded, setIsExpanded ] = React.useState(false);
 
   const isMobile = useIsMobile();
@@ -162,18 +165,8 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
   const hasInterop = rollupFeature.isEnabled && rollupFeature.interopEnabled && data.op_interop_messages && data.op_interop_messages.length > 0;
 
   return (
-    <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-tx-info>
-      <DetailedInfo.Container
-        templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(215px, auto) minmax(0, 1fr)' }}
-        bg="bg.surface"
-        borderWidth="1px"
-        borderStyle="solid"
-        borderColor="border.divider"
-        borderRadius="md"
-        boxShadow="card"
-        px={{ base: 3, lg: 4 }}
-        py={{ base: 3, lg: 4 }}
-      >
+    <Flex flexDir="column" rowGap={ 8 } data-tx-info>
+      <DetailedInfo.Group label="SUMMARY">
 
         { config.features.metasuites.isEnabled && (
           <>
@@ -249,6 +242,8 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
             </Skeleton>
           ) }
         </ScanKeyValue>
+
+        <TxDetailsSequencerSignature hash={ data.hash }/>
 
         { rollupFeature.isEnabled && rollupFeature.type === 'optimistic' && data.op_withdrawals && data.op_withdrawals.length > 0 &&
       !config.UI.views.tx.hiddenFields?.L1_status && (
@@ -528,8 +523,6 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
           </Flex>
         </ScanKeyValue>
 
-        { data.token_transfers && <TxDetailsTokenTransfers data={ data.token_transfers } txHash={ data.hash } isOverflow={ data.token_transfers_overflow }/> }
-
         { config.features.crossChainTxs.isEnabled && <TxDetailsCrossChainTransfers hash={ data.hash } isLoading={ isLoading }/> }
 
         { hasInterop && data.op_interop_messages?.some(message => message.target_address_hash) && (
@@ -706,293 +699,306 @@ const TxInfo = ({ data, tacOperations, isLoading, socketStatus }: Props) => {
 
         <TxDetailsGasPrice gasPrice={ data.gas_price } gasToken={ data.celo?.gas_token } isLoading={ isLoading }/>
 
-      </DetailedInfo.Container>
+      </DetailedInfo.Group>
+      <DetailedInfo.Section label="TRANSFERS">
+        { transfers ?? (
+          data.token_transfers?.length ? (
+            <DetailedInfo.Container>
+              <TxDetailsTokenTransfers data={ data.token_transfers } txHash={ data.hash } isOverflow={ data.token_transfers_overflow }/>
+            </DetailedInfo.Container>
+          ) : <Text>No token transfers for this transaction.</Text>
+        ) }
+      </DetailedInfo.Section>
+      <DetailedInfo.Section label="BALANCE CHANGES">
+        { balanceChanges }
+      </DetailedInfo.Section>
+      <DetailedInfo.Section label="DETAILS">
+        <ScanExpander
+          key={ String(isExpanded) }
+          defaultOpen={ isExpanded }
+          label="More Details"
+          hint="Gas usage, nonce, raw input and the remaining transaction fields"
+        >
+          <DetailedInfo.Container>
+            <TxDetailsFeePerGas txFee={ data.fee.value } gasUsed={ data.gas_used } isLoading={ isLoading }/>
 
-      <ScanExpander
-        key={ String(isExpanded) }
-        defaultOpen={ isExpanded }
-        label="More Details"
-        hint="Gas usage, nonce, raw input and the remaining transaction fields"
-      >
-        <DetailedInfo.Container templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(215px, auto) minmax(0, 1fr)' }}>
-          <TxDetailsFeePerGas txFee={ data.fee.value } gasUsed={ data.gas_used } isLoading={ isLoading }/>
+            { !config.UI.views.tx.additionalFields?.set_max_gas_limit && <TxDetailsGasUsage isLoading={ isLoading } data={ data }/> }
 
-          { !config.UI.views.tx.additionalFields?.set_max_gas_limit && <TxDetailsGasUsage isLoading={ isLoading } data={ data }/> }
-
-          { rollupFeature.isEnabled && rollupFeature.type === 'arbitrum' && data.arbitrum && data.gas_used && (
-            <>
-              <DetailedInfo.ItemLabel
-                hint={ `${ layerLabels.current } gas set aside for ${ layerLabels.parent } data charges` }
-                isLoading={ isLoading }
-              >
-                Gas used for { layerLabels.parent }
-              </DetailedInfo.ItemLabel>
-              <DetailedInfo.ItemValue>
-                <Skeleton loading={ isLoading }>{ BigNumber(data.arbitrum.gas_used_for_l1 || 0).toFormat() }</Skeleton>
-                <TextSeparator/>
-                <Utilization
-                  ml={ 4 }
-                  value={ BigNumber(data.arbitrum.gas_used_for_l1 || 0).dividedBy(BigNumber(data.gas_used)).toNumber() }
+            { rollupFeature.isEnabled && rollupFeature.type === 'arbitrum' && data.arbitrum && data.gas_used && (
+              <>
+                <DetailedInfo.ItemLabel
+                  hint={ `${ layerLabels.current } gas set aside for ${ layerLabels.parent } data charges` }
                   isLoading={ isLoading }
-                />
-              </DetailedInfo.ItemValue>
+                >
+                  Gas used for { layerLabels.parent }
+                </DetailedInfo.ItemLabel>
+                <DetailedInfo.ItemValue>
+                  <Skeleton loading={ isLoading }>{ BigNumber(data.arbitrum.gas_used_for_l1 || 0).toFormat() }</Skeleton>
+                  <TextSeparator/>
+                  <Utilization
+                    ml={ 4 }
+                    value={ BigNumber(data.arbitrum.gas_used_for_l1 || 0).dividedBy(BigNumber(data.gas_used)).toNumber() }
+                    isLoading={ isLoading }
+                  />
+                </DetailedInfo.ItemValue>
 
-              <DetailedInfo.ItemLabel
-                hint={ `${ layerLabels.current } gas spent on ${ layerLabels.current } resources` }
-                isLoading={ isLoading }
-              >
-                Gas used for { layerLabels.current }
-              </DetailedInfo.ItemLabel>
-              <DetailedInfo.ItemValue>
-                <Skeleton loading={ isLoading }>{ BigNumber(data.arbitrum.gas_used_for_l2 || 0).toFormat() }</Skeleton>
-                <TextSeparator/>
-                <Utilization
-                  ml={ 4 }
-                  value={ BigNumber(data.arbitrum.gas_used_for_l2 || 0).dividedBy(BigNumber(data.gas_used)).toNumber() }
+                <DetailedInfo.ItemLabel
+                  hint={ `${ layerLabels.current } gas spent on ${ layerLabels.current } resources` }
                   isLoading={ isLoading }
-                />
-              </DetailedInfo.ItemValue>
-            </>
-          ) }
+                >
+                  Gas used for { layerLabels.current }
+                </DetailedInfo.ItemLabel>
+                <DetailedInfo.ItemValue>
+                  <Skeleton loading={ isLoading }>{ BigNumber(data.arbitrum.gas_used_for_l2 || 0).toFormat() }</Skeleton>
+                  <TextSeparator/>
+                  <Utilization
+                    ml={ 4 }
+                    value={ BigNumber(data.arbitrum.gas_used_for_l2 || 0).dividedBy(BigNumber(data.gas_used)).toNumber() }
+                    isLoading={ isLoading }
+                  />
+                </DetailedInfo.ItemValue>
+              </>
+            ) }
 
-          { data.scroll?.l1_gas_used !== undefined && (
-            <>
-              <DetailedInfo.ItemLabel
-                hint={ `Total gas used on ${ layerLabels.parent }` }
-                isLoading={ isLoading }
-              >
-                { layerLabels.parent } Gas used
-              </DetailedInfo.ItemLabel>
-              <DetailedInfo.ItemValue>
-                <Skeleton loading={ isLoading }>{ BigNumber(data.scroll?.l1_gas_used || 0).toFormat() }</Skeleton>
-              </DetailedInfo.ItemValue>
-            </>
-          ) }
+            { data.scroll?.l1_gas_used !== undefined && (
+              <>
+                <DetailedInfo.ItemLabel
+                  hint={ `Total gas used on ${ layerLabels.parent }` }
+                  isLoading={ isLoading }
+                >
+                  { layerLabels.parent } Gas used
+                </DetailedInfo.ItemLabel>
+                <DetailedInfo.ItemValue>
+                  <Skeleton loading={ isLoading }>{ BigNumber(data.scroll?.l1_gas_used || 0).toFormat() }</Skeleton>
+                </DetailedInfo.ItemValue>
+              </>
+            ) }
 
-          { !config.UI.views.tx.hiddenFields?.gas_fees &&
+            { !config.UI.views.tx.hiddenFields?.gas_fees &&
             (data.base_fee_per_gas || data.max_fee_per_gas || data.max_priority_fee_per_gas) && (
-            <>
-              <DetailedInfo.ItemLabel
-                hint={ `
+              <>
+                <DetailedInfo.ItemLabel
+                  hint={ `
             Base Fee refers to the network Base Fee at the time of the block, 
             while Max Fee & Max Priority Fee refer to the max amount a user is willing to pay 
             for their tx & to give to the ${ getNetworkValidatorTitle() } respectively
           ` }
-                isLoading={ isLoading }
-              >
-                { `Gas fees (${ currencyUnits.gwei })` }
-              </DetailedInfo.ItemLabel>
-              <DetailedInfo.ItemValue multiRow>
-                { data.base_fee_per_gas && (
-                  <NativeCoinValue
-                    amount={ data.base_fee_per_gas }
-                    units="gwei"
-                    unitsTooltip="wei"
-                    noSymbol
-                    loading={ isLoading }
-                    startElement="Base: "
-                    endElement={ (data.max_fee_per_gas || data.max_priority_fee_per_gas) && <TextSeparator/> }
-                  />
+                  isLoading={ isLoading }
+                >
+                  { `Gas fees (${ currencyUnits.gwei })` }
+                </DetailedInfo.ItemLabel>
+                <DetailedInfo.ItemValue multiRow>
+                  { data.base_fee_per_gas && (
+                    <NativeCoinValue
+                      amount={ data.base_fee_per_gas }
+                      units="gwei"
+                      unitsTooltip="wei"
+                      noSymbol
+                      loading={ isLoading }
+                      startElement="Base: "
+                      endElement={ (data.max_fee_per_gas || data.max_priority_fee_per_gas) && <TextSeparator/> }
+                    />
+                  ) }
+                  { data.max_fee_per_gas && (
+                    <NativeCoinValue
+                      amount={ data.max_fee_per_gas }
+                      units="gwei"
+                      unitsTooltip="wei"
+                      noSymbol
+                      loading={ isLoading }
+                      startElement="Max: "
+                      endElement={ data.max_priority_fee_per_gas && <TextSeparator/> }
+                    />
+                  ) }
+                  { data.max_priority_fee_per_gas && (
+                    <NativeCoinValue
+                      amount={ data.max_priority_fee_per_gas }
+                      units="gwei"
+                      unitsTooltip="wei"
+                      noSymbol
+                      loading={ isLoading }
+                      startElement="Max priority: "
+                    />
+                  ) }
+                </DetailedInfo.ItemValue>
+              </>
+            ) }
+
+            <TxDetailsBurntFees data={ data } isLoading={ isLoading }/>
+
+            { rollupFeature.isEnabled && rollupFeature.type === 'optimistic' && (
+              <>
+                { data.l1_gas_used && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint={ `${ layerLabels.parent } gas used by transaction` }
+                      isLoading={ isLoading }
+                    >
+                      { layerLabels.parent } gas used by txn
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfo.ItemValue>
+                      <Text>{ BigNumber(data.l1_gas_used).toFormat() }</Text>
+                    </DetailedInfo.ItemValue>
+                  </>
                 ) }
-                { data.max_fee_per_gas && (
-                  <NativeCoinValue
-                    amount={ data.max_fee_per_gas }
-                    units="gwei"
-                    unitsTooltip="wei"
-                    noSymbol
-                    loading={ isLoading }
-                    startElement="Max: "
-                    endElement={ data.max_priority_fee_per_gas && <TextSeparator/> }
-                  />
+
+                { data.l1_gas_price && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint={ `${ layerLabels.parent } gas price` }
+                      isLoading={ isLoading }
+                    >
+                      { layerLabels.parent } gas price
+                    </DetailedInfo.ItemLabel>
+                    <GasPriceValue
+                      amount={ data.l1_gas_price }
+                      asset={ rollupFeature.parentChain.currency?.symbol || currencyUnits.ether }
+                      loading={ isLoading }
+                    />
+                  </>
                 ) }
-                { data.max_priority_fee_per_gas && (
-                  <NativeCoinValue
-                    amount={ data.max_priority_fee_per_gas }
-                    units="gwei"
-                    unitsTooltip="wei"
-                    noSymbol
-                    loading={ isLoading }
-                    startElement="Max priority: "
-                  />
-                ) }
-              </DetailedInfo.ItemValue>
-            </>
-          ) }
 
-          <TxDetailsBurntFees data={ data } isLoading={ isLoading }/>
-
-          { rollupFeature.isEnabled && rollupFeature.type === 'optimistic' && (
-            <>
-              { data.l1_gas_used && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint={ `${ layerLabels.parent } gas used by transaction` }
-                    isLoading={ isLoading }
-                  >
-                    { layerLabels.parent } gas used by txn
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfo.ItemValue>
-                    <Text>{ BigNumber(data.l1_gas_used).toFormat() }</Text>
-                  </DetailedInfo.ItemValue>
-                </>
-              ) }
-
-              { data.l1_gas_price && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint={ `${ layerLabels.parent } gas price` }
-                    isLoading={ isLoading }
-                  >
-                    { layerLabels.parent } gas price
-                  </DetailedInfo.ItemLabel>
-                  <GasPriceValue
-                    amount={ data.l1_gas_price }
-                    asset={ rollupFeature.parentChain.currency?.symbol || currencyUnits.ether }
-                    loading={ isLoading }
-                  />
-                </>
-              ) }
-
-              { data.l1_fee && (
-                <>
-                  <DetailedInfo.ItemLabel
+                { data.l1_fee && (
+                  <>
+                    <DetailedInfo.ItemLabel
                     // eslint-disable-next-line max-len
-                    hint={ `${ layerLabels.parent } Data Fee which is used to cover the ${ layerLabels.parent } "security" cost from the batch submission mechanism. In combination with ${ layerLabels.current } execution fee, ${ layerLabels.parent } fee makes the total amount of fees that a transaction pays.` }
-                    isLoading={ isLoading }
-                  >
-                    { layerLabels.parent } fee
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfoNativeCoinValue
-                    amount={ data.l1_fee }
-                    asset={ rollupFeature.parentChain.currency?.symbol || currencyUnits.ether }
-                    decimals={ rollupFeature.parentChain.currency?.decimals ?? config.chain.currency.decimals }
-                    exchangeRate={ data.exchange_rate }
-                    historicalExchangeRate={ data.historic_exchange_rate }
-                    hasExchangeRateToggle
-                    loading={ isLoading }
-                  />
-                </>
-              ) }
+                      hint={ `${ layerLabels.parent } Data Fee which is used to cover the ${ layerLabels.parent } "security" cost from the batch submission mechanism. In combination with ${ layerLabels.current } execution fee, ${ layerLabels.parent } fee makes the total amount of fees that a transaction pays.` }
+                      isLoading={ isLoading }
+                    >
+                      { layerLabels.parent } fee
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfoNativeCoinValue
+                      amount={ data.l1_fee }
+                      asset={ rollupFeature.parentChain.currency?.symbol || currencyUnits.ether }
+                      decimals={ rollupFeature.parentChain.currency?.decimals ?? config.chain.currency.decimals }
+                      exchangeRate={ data.exchange_rate }
+                      historicalExchangeRate={ data.historic_exchange_rate }
+                      hasExchangeRateToggle
+                      loading={ isLoading }
+                    />
+                  </>
+                ) }
 
-              { data.l1_fee_scalar && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint={ `A Dynamic overhead (fee scalar) premium, which serves as a buffer in case ${ layerLabels.parent } prices rapidly increase.` }
-                    isLoading={ isLoading }
-                  >
-                    { layerLabels.parent } fee scalar
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfo.ItemValue>
-                    <Text>{ data.l1_fee_scalar }</Text>
-                  </DetailedInfo.ItemValue>
-                </>
-              ) }
-            </>
-          ) }
-          <TxInfoScrollFees data={ data } isLoading={ isLoading }/>
+                { data.l1_fee_scalar && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint={ `A Dynamic overhead (fee scalar) premium, which serves as a buffer in case ${ layerLabels.parent } prices rapidly increase.` }
+                      isLoading={ isLoading }
+                    >
+                      { layerLabels.parent } fee scalar
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfo.ItemValue>
+                      <Text>{ data.l1_fee_scalar }</Text>
+                    </DetailedInfo.ItemValue>
+                  </>
+                ) }
+              </>
+            ) }
+            <TxInfoScrollFees data={ data } isLoading={ isLoading }/>
 
-          <TxDetailsSetMaxGasLimit data={ data }/>
+            <TxDetailsSetMaxGasLimit data={ data }/>
 
-          <TxDetailsWithdrawalStatusArbitrum data={ data }/>
+            <TxDetailsWithdrawalStatusArbitrum data={ data }/>
 
-          { (data.blob_gas_used || data.max_fee_per_blob_gas || data.blob_gas_price) && (
-            <>
-              { data.blob_gas_used && data.blob_gas_price && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint="Blob fee for this transaction"
-                  >
-                    Blob fee
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfoNativeCoinValue
-                    amount={ BigNumber(data.blob_gas_used).multipliedBy(data.blob_gas_price).toString() }
-                    noSymbol={ config.UI.views.tx.hiddenFields?.fee_currency }
-                    exchangeRate={ data.exchange_rate }
-                    historicalExchangeRate={ data.historic_exchange_rate }
-                    hasExchangeRateToggle
-                    loading={ isLoading }
-                  />
-                </>
-              ) }
+            { (data.blob_gas_used || data.max_fee_per_blob_gas || data.blob_gas_price) && (
+              <>
+                { data.blob_gas_used && data.blob_gas_price && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint="Blob fee for this transaction"
+                    >
+                      Blob fee
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfoNativeCoinValue
+                      amount={ BigNumber(data.blob_gas_used).multipliedBy(data.blob_gas_price).toString() }
+                      noSymbol={ config.UI.views.tx.hiddenFields?.fee_currency }
+                      exchangeRate={ data.exchange_rate }
+                      historicalExchangeRate={ data.historic_exchange_rate }
+                      hasExchangeRateToggle
+                      loading={ isLoading }
+                    />
+                  </>
+                ) }
 
-              { data.blob_gas_used && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint="Amount of gas used by the blobs in this transaction"
-                  >
-                    Blob gas usage
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfo.ItemValue>
-                    { BigNumber(data.blob_gas_used).toFormat() }
-                  </DetailedInfo.ItemValue>
-                </>
-              ) }
+                { data.blob_gas_used && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint="Amount of gas used by the blobs in this transaction"
+                    >
+                      Blob gas usage
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfo.ItemValue>
+                      { BigNumber(data.blob_gas_used).toFormat() }
+                    </DetailedInfo.ItemValue>
+                  </>
+                ) }
 
-              { (data.max_fee_per_blob_gas || data.blob_gas_price) && (
-                <>
-                  <DetailedInfo.ItemLabel
-                    hint={ `Amount of ${ currencyUnits.ether } used for blobs in this transaction` }
-                  >
-                    { `Blob gas fees (${ currencyUnits.gwei })` }
-                  </DetailedInfo.ItemLabel>
-                  <DetailedInfo.ItemValue>
-                    { data.blob_gas_price && (
-                      <NativeCoinValue
-                        amount={ data.blob_gas_price }
-                        units="gwei"
-                        unitsTooltip="wei"
-                        noSymbol
-                        loading={ isLoading }
-                        fontWeight="600"
-                      />
-                    ) }
-                    { (data.max_fee_per_blob_gas && data.blob_gas_price) && <TextSeparator/> }
-                    { data.max_fee_per_blob_gas && (
-                      <NativeCoinValue
-                        amount={ data.max_fee_per_blob_gas }
-                        units="gwei"
-                        unitsTooltip="wei"
-                        noSymbol
-                        loading={ isLoading }
-                        startElement="Max: "
-                        fontWeight="600"
-                      />
-                    ) }
-                  </DetailedInfo.ItemValue>
-                </>
-              ) }
-              <DetailedInfo.ItemDivider/>
-            </>
-          ) }
+                { (data.max_fee_per_blob_gas || data.blob_gas_price) && (
+                  <>
+                    <DetailedInfo.ItemLabel
+                      hint={ `Amount of ${ currencyUnits.ether } used for blobs in this transaction` }
+                    >
+                      { `Blob gas fees (${ currencyUnits.gwei })` }
+                    </DetailedInfo.ItemLabel>
+                    <DetailedInfo.ItemValue>
+                      { data.blob_gas_price && (
+                        <NativeCoinValue
+                          amount={ data.blob_gas_price }
+                          units="gwei"
+                          unitsTooltip="wei"
+                          noSymbol
+                          loading={ isLoading }
+                          fontWeight="600"
+                        />
+                      ) }
+                      { (data.max_fee_per_blob_gas && data.blob_gas_price) && <TextSeparator/> }
+                      { data.max_fee_per_blob_gas && (
+                        <NativeCoinValue
+                          amount={ data.max_fee_per_blob_gas }
+                          units="gwei"
+                          unitsTooltip="wei"
+                          noSymbol
+                          loading={ isLoading }
+                          startElement="Max: "
+                          fontWeight="600"
+                        />
+                      ) }
+                    </DetailedInfo.ItemValue>
+                  </>
+                ) }
+                <DetailedInfo.ItemDivider/>
+              </>
+            ) }
 
-          <TxDetailsOther nonce={ data.nonce } type={ data.type } position={ data.position } queueIndex={ data.scroll?.queue_index }/>
+            <TxDetailsOther nonce={ data.nonce } type={ data.type } position={ data.position } queueIndex={ data.scroll?.queue_index }/>
 
-          <DetailedInfo.ItemLabel
-            hint="Binary data included with the transaction. See logs tab for additional info"
-            mb={{ base: 1, lg: 0 }}
-          >
-            Raw input
-          </DetailedInfo.ItemLabel>
-          <DetailedInfo.ItemValue>
-            <RawInputData hex={ data.raw_input } defaultDataType={ data.zilliqa?.is_scilla ? 'UTF-8' : 'Hex' }/>
-          </DetailedInfo.ItemValue>
+            <DetailedInfo.ItemLabel
+              hint="Binary data included with the transaction. See logs tab for additional info"
+              mb={{ base: 1, lg: 0 }}
+            >
+              Raw input
+            </DetailedInfo.ItemLabel>
+            <DetailedInfo.ItemValue>
+              <RawInputData hex={ data.raw_input } defaultDataType={ data.zilliqa?.is_scilla ? 'UTF-8' : 'Hex' }/>
+            </DetailedInfo.ItemValue>
 
-          { data.decoded_input && (
-            <>
-              <DetailedInfo.ItemLabel
-                hint="Decoded input data"
-              >
-                Decoded input data
-              </DetailedInfo.ItemLabel>
-              <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: '5px', lg: '4px' }}>
-                <LogDecodedInputData data={ data.decoded_input }/>
-              </DetailedInfo.ItemValue>
-            </>
-          ) }
+            { data.decoded_input && (
+              <>
+                <DetailedInfo.ItemLabel
+                  hint="Decoded input data"
+                >
+                  Decoded input data
+                </DetailedInfo.ItemLabel>
+                <DetailedInfo.ItemValue flexWrap="wrap" mt={{ base: '5px', lg: '4px' }}>
+                  <LogDecodedInputData data={ data.decoded_input }/>
+                </DetailedInfo.ItemValue>
+              </>
+            ) }
 
-          { data.zksync && <ZkSyncL2TxnBatchHashesInfo data={ data.zksync } isLoading={ isLoading }/> }
-        </DetailedInfo.Container>
-      </ScanExpander>
+            { data.zksync && <ZkSyncL2TxnBatchHashesInfo data={ data.zksync } isLoading={ isLoading }/> }
+          </DetailedInfo.Container>
+        </ScanExpander>
+      </DetailedInfo.Section>
     </Flex>
   );
 };

@@ -67,6 +67,8 @@ func TestHeaderReceiptsRootIsSameBlockResults(t *testing.T) {
 	sdkCtx := application.GetContextForDeliverTx(nil).
 		WithBlockTime(time.Now()).
 		WithClosestUpgradeName("v6.0.0")
+	sdkCtx = sdkCtx.WithConsensusParams(application.GetConsensusParams(sdkCtx))
+	require.NotNil(t, sdkCtx.ConsensusParams().Block)
 	ctxProvider := func(h int64) sdk.Context {
 		if h == evmrpc.LatestCtxHeight {
 			return sdkCtx
@@ -149,7 +151,7 @@ func TestHeaderReceiptsRootIsSameBlockResults(t *testing.T) {
 		require.Equal(t, height, header.Header.Height)
 		return common.BytesToHash(header.Header.LastResultsHash)
 	}
-	awaitHead := func(heads chan map[string]interface{}, height int64) map[string]interface{} {
+	awaitHead := func(subscription string, heads chan map[string]interface{}, height int64) map[string]interface{} {
 		want := fmt.Sprintf("0x%x", height)
 		for {
 			select {
@@ -158,13 +160,13 @@ func TestHeaderReceiptsRootIsSameBlockResults(t *testing.T) {
 					return head
 				}
 			case <-ctx.Done():
-				require.FailNow(t, "no newHeads payload", "height %d: %v", height, ctx.Err())
+				require.FailNow(t, "no newHeads payload", "%s at height %d: %v", subscription, height, ctx.Err())
 			}
 		}
 	}
 
 	// Commit hands the notifier block H's header and finalize response.
-	publishCommitted := func(height int64) {
+	publishCommitted := func(height int64) common.Hash {
 		h := height
 		block, err := tm.Block(ctx, &h)
 		require.NoError(t, err)
@@ -176,7 +178,11 @@ func TestHeaderReceiptsRootIsSameBlockResults(t *testing.T) {
 		response := resultsOf(height)
 		// The kvstore app hash is shorter than a state root; the head carries it as a 32-byte word.
 		response.AppHash = common.BytesToHash(nextBlock.Block.AppHash).Bytes()
-		notifier.OnBlockCommitted(block.BlockID.Hash, block.Block.Header.ToProto(), response)
+		header := block.Block.Header.ToProto()
+		parentAppHash := append([]byte(nil), header.AppHash...)
+		notifier.OnBlockCommitted(block.BlockID.Hash, header, response)
+		require.Equal(t, parentAppHash, header.AppHash, "notifier must not mutate the consensus header")
+		return common.BytesToHash(response.AppHash)
 	}
 
 	require.NotEqual(t, resultsRoot(first-1), resultsRoot(first))
@@ -188,11 +194,12 @@ func TestHeaderReceiptsRootIsSameBlockResults(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, sameBlockRoot, served["receiptsRoot"], "height %d", height)
 
-		tmHead := awaitHead(tmHeads, height)
+		tmHead := awaitHead("event-bus newHeads", tmHeads, height)
 		require.Equal(t, sameBlockRoot.Hex(), tmHead["receiptsRoot"], "event-bus height %d", height)
-		publishCommitted(height)
-		committedHead := awaitHead(committedHeads, height)
+		committedStateRoot := publishCommitted(height)
+		committedHead := awaitHead("BlockHeaderNotifier.OnBlockCommitted", committedHeads, height)
 		require.Equal(t, sameBlockRoot.Hex(), committedHead["receiptsRoot"], "committed height %d", height)
+		require.Equal(t, committedStateRoot.Hex(), committedHead["stateRoot"], "committed height %d", height)
 
 		header, err := backend.HeaderByNumber(ctx, rpc.BlockNumber(height))
 		require.NoError(t, err)

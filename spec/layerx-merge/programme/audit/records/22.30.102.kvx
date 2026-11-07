@@ -1,0 +1,2711 @@
+[audit.22.30.102]
+task = "22.30.102"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 360
+findings = 44
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["shared-wallet", "export-delivery-loss", "hosted-chain-snapshot", "signer-identity-split"]
+
+[file.001]
+path = "services/human/Cargo.toml"
+lines = 57
+verdict = "clean"
+note = "Read in full: retained workspace members, path dependencies and lint policy agree with retired-crate boundary checks."
+
+[file.002]
+path = "services/human/README.md"
+lines = 43
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in human-layout-doc."
+
+[file.003]
+path = "services/human/clippy.toml"
+lines = 2
+verdict = "clean"
+note = "Read in full: avoid-breaking-exported-api is explicitly false and MSRV is 1.91.1, agreeing with the workspace package Rust version and exported-API lint policy."
+
+[file.004]
+path = "services/human/crates/layerx-human-kms/Cargo.toml"
+lines = 34
+verdict = "clean"
+note = "Read in full: executable/library targets and TLS, crypto, serde and custody dependencies match the implemented KMS paths."
+
+[file.005]
+path = "services/human/crates/layerx-human-kms/README.md"
+lines = 25
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in kms-operator-doc."
+
+[file.006]
+path = "services/human/crates/layerx-human-kms/src/attestor.rs"
+lines = 2116
+verdict = "issues"
+note = "Read in full: pinned-TLS request/response types, quorum, signature recovery, native consent profiles and bounded decoders compared with real cluster transport; replay capacity and concurrent completion findings remain."
+
+[file.007]
+path = "services/human/crates/layerx-human-kms/src/config.rs"
+lines = 161
+verdict = "issues"
+note = "Read in full: chain snapshot, protected files, permissions, pin separation and deadline validation checked; hosted material producer disagrees with accepted snapshot."
+
+[file.008]
+path = "services/human/crates/layerx-human-kms/src/evm.rs"
+lines = 356
+verdict = "clean"
+note = "Read in full: exact authorization, nonce monotonicity, RLP/Keccak, low-s and recovered-wallet checks, acknowledgement and reload validation agree locally; store-level wallet isolation, durability and capacity findings are owned by store.rs."
+
+[file.009]
+path = "services/human/crates/layerx-human-kms/src/evm_types.rs"
+lines = 73
+verdict = "clean"
+note = "Read in full: transaction, authorization, action, external signature and acknowledgement fields/types agree with custody/evm.rs and the strict JSON wire consumers."
+
+[file.010]
+path = "services/human/crates/layerx-human-kms/src/lib.rs"
+lines = 22
+verdict = "clean"
+note = "Read in full: public attestor export and environment startup propagate configuration/runtime-clock errors into the actual server path."
+
+[file.011]
+path = "services/human/crates/layerx-human-kms/src/main.rs"
+lines = 21
+verdict = "clean"
+note = "Read in full: trusted runtime clock startup and fatal-error exit reach run_from_environment without default authority or silent startup success."
+
+[file.012]
+path = "services/human/crates/layerx-human-kms/src/send.rs"
+lines = 83
+verdict = "clean"
+note = "Read in full: bank selector, amount/recipient disclosure, custody binding and chain checks agree with the operation-11 EVM producer; whole-operation persistence is recorded against store.rs."
+
+[file.013]
+path = "services/human/crates/layerx-human-kms/src/server.rs"
+lines = 187
+verdict = "issues"
+note = "Read in full: mutual TLS, role pins, opcode admission, frame/disclosure validation and Store dispatch traced; request deadline and fresh authorization time findings remain."
+
+[file.014]
+path = "services/human/crates/layerx-human-kms/src/store.rs"
+lines = 615
+verdict = "issues"
+note = "Read in full: encrypted snapshot, ownership lock, tombstones, rotation/export, EVM wallet and SEND paths reviewed through restart; principal isolation, export, signer identity and durability findings remain."
+
+[file.015]
+path = "services/human/crates/layerx-human-kms/src/wire.rs"
+lines = 285
+verdict = "issues"
+note = "Read in full: current RemoteKmsProvider and decoder agree on bounds, errors and version-7 Sign, and reject recipient opcode 13; the stable registry still advertises version-1 Sign, recorded in sign-version-registry."
+
+[file.016]
+path = "services/human/crates/layerx-human-kms/tests/attestor.rs"
+lines = 1897
+verdict = "clean"
+note = "Read in full: real attestor TLS cluster setup, EVM disclosure/signature checks, key ownership and typed negative response cases exercise the retained signing path."
+
+[file.017]
+path = "services/human/crates/layerx-human-kms/tests/attestor_evm_signer.rs"
+lines = 158
+verdict = "clean"
+note = "Read in full: real quorum EIP-1559 sender recovery and missing-EVM-key configuration refusal exercise the exported signer contract."
+
+[file.018]
+path = "services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs"
+lines = 658
+verdict = "clean"
+note = "Read in full: genuine native consent/grant profiles, ownership assertions, replay conflicts and refusal cases exercise real attestor transport; long-lived replay-capacity concern is recorded in attestor.rs."
+
+[file.019]
+path = "services/human/crates/layerx-human-kms/tests/chain_config.rs"
+lines = 178
+verdict = "clean"
+note = "Read in full: accepted chain-125 snapshot and refusal of the retired module-registry shape match Config::load; provisioning mismatch is recorded on config.rs."
+
+[file.020]
+path = "services/human/crates/layerx-human-kms/tests/evm_attestor_ops.rs"
+lines = 422
+verdict = "clean"
+note = "Read in full: wallet storage without local EVM seed, real attestor signing, wrong-chain refusal, exact action recovery and acknowledgement cover one wallet; cross-principal isolation finding is recorded on store.rs."
+
+[file.021]
+path = "services/human/crates/layerx-human-kms/tests/no_layerx_intents.rs"
+lines = 120
+verdict = "clean"
+note = "Read in full: source guard rejects prohibited intents-envelope construction in the KMS/service boundary; retired names are assertion targets only."
+
+[file.022]
+path = "services/human/crates/layerx-human-kms/tests/proof_human_kms.rs"
+lines = 674
+verdict = "clean"
+note = "Read in full: chain snapshot and malformed/legacy registry startup cases follow actual configuration errors and do not fabricate a successful producer handshake."
+
+[file.023]
+path = "services/human/crates/layerx-human-kms/tests/proof_human_kms_wire.rs"
+lines = 886
+verdict = "clean"
+note = "Read in full: frame/version/opcode and malformed payload proof cases match wire.rs and preserve explicit negative coverage."
+
+[file.024]
+path = "services/human/crates/layerx-human-kms/tests/provider.rs"
+lines = 1910
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in provider-private-address-fixture, export-loss-test."
+
+[file.025]
+path = "services/human/crates/layerx-human-kms/tests/retired_client_modules_w2.rs"
+lines = 35
+verdict = "clean"
+note = "Read in full: retired client module names are constructed solely as negative source-policy assertions over provider.rs."
+
+[file.026]
+path = "services/human/crates/layerx-human-kms/tests/retired_crypto_codec.rs"
+lines = 91
+verdict = "clean"
+note = "Read in full: retired crypto encoding names appear as negative source-policy checks and retained EVM codec assertions."
+
+[file.027]
+path = "services/human/crates/layerx-human-kms/tests/retired_crypto_codec_w3.rs"
+lines = 172
+verdict = "clean"
+note = "Read in full: grouped Rust-path scan rejects retired crypto entry points; signed EVM attachment checks recover and reject a wrong sender."
+
+[file.028]
+path = "services/human/crates/layerx-human-kms/tests/retired_recipient.rs"
+lines = 350
+verdict = "clean"
+note = "Read in full: retired version-4 recipient opcode is intentionally sent as a negative request and must be refused, never advertised as a running operation."
+
+[file.029]
+path = "services/human/crates/layerx-human-kms/tests/send_authorization_evm.rs"
+lines = 449
+verdict = "clean"
+note = "Read in full: operation-11 output is a real signed bank transfer and changed disclosure is refused; combined reservation persistence gap is recorded on store.rs."
+
+[file.030]
+path = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"
+lines = 666
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in eip1559-private-address-fixture."
+
+[file.031]
+path = "services/human/crates/layerx-human-kms/tests/support/attestor_cluster.rs"
+lines = 982
+verdict = "clean"
+note = "Read in full: genuine Go attestor cluster, certificates/pins, assertions, key generation, RPC chain answers, failure logs and cleanup support the integration transport rather than replacing the signer."
+
+[file.032]
+path = "services/human/crates/layerx-human-service/tests/activity.rs"
+lines = 879
+verdict = "clean"
+note = "Read in full: activity append/reload, ownership, filtering/pagination, statement/evidence export and tamper/refusal cases preserve exact account, receipt and rung semantics."
+
+[file.033]
+path = "services/human/deny.toml"
+lines = 50
+verdict = "clean"
+note = "Read in full: license/source/advisory policy and explicitly scoped bans agree with the retained workspace dependency boundaries."
+
+[file.034]
+path = "services/human/schema/human-api/README.md"
+lines = 14
+verdict = "clean"
+note = "Read in full: schema authority, module inclusion, generation/check commands and additive compatibility rule agree with the tools; drift in individual examples is recorded on those members."
+
+[file.035]
+path = "services/human/schema/human-api/golden/account.balance.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: account.balance failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.036]
+path = "services/human/schema/human-api/golden/account.balance.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: account.balance request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.037]
+path = "services/human/schema/human-api/golden/account.balance.response.json"
+lines = 29
+verdict = "clean"
+note = "Read in full: account.balance response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.038]
+path = "services/human/schema/human-api/golden/account.create.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: account.create failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.039]
+path = "services/human/schema/human-api/golden/account.create.request.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: account.create request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.040]
+path = "services/human/schema/human-api/golden/account.create.response.json"
+lines = 51
+verdict = "clean"
+note = "Read in full: account.create response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.041]
+path = "services/human/schema/human-api/golden/activity.entry.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: activity.entry failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.042]
+path = "services/human/schema/human-api/golden/activity.entry.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: activity.entry request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.043]
+path = "services/human/schema/human-api/golden/activity.entry.response.json"
+lines = 75
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in activity.entry-retired-evidence."
+
+[file.044]
+path = "services/human/schema/human-api/golden/activity.export.evidence.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: activity.export.evidence failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.045]
+path = "services/human/schema/human-api/golden/activity.export.evidence.request.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: activity.export.evidence request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.046]
+path = "services/human/schema/human-api/golden/activity.export.evidence.response.json"
+lines = 31
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in activity.export.evidence-retired-evidence."
+
+[file.047]
+path = "services/human/schema/human-api/golden/activity.export.statement.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: activity.export.statement failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.048]
+path = "services/human/schema/human-api/golden/activity.export.statement.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: activity.export.statement request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.049]
+path = "services/human/schema/human-api/golden/activity.export.statement.response.json"
+lines = 26
+verdict = "clean"
+note = "Read in full: activity.export.statement response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.050]
+path = "services/human/schema/human-api/golden/activity.query.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: activity.query failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.051]
+path = "services/human/schema/human-api/golden/activity.query.request.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: activity.query request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.052]
+path = "services/human/schema/human-api/golden/activity.query.response.json"
+lines = 59
+verdict = "clean"
+note = "Read in full: activity.query response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.053]
+path = "services/human/schema/human-api/golden/agent.archive.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.archive failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.054]
+path = "services/human/schema/human-api/golden/agent.archive.request.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: agent.archive request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.055]
+path = "services/human/schema/human-api/golden/agent.archive.response.json"
+lines = 48
+verdict = "clean"
+note = "Read in full: agent.archive response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.056]
+path = "services/human/schema/human-api/golden/agent.create.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.create failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.057]
+path = "services/human/schema/human-api/golden/agent.create.request.json"
+lines = 22
+verdict = "clean"
+note = "Read in full: agent.create request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.058]
+path = "services/human/schema/human-api/golden/agent.create.response.json"
+lines = 60
+verdict = "clean"
+note = "Read in full: agent.create response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.059]
+path = "services/human/schema/human-api/golden/agent.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.060]
+path = "services/human/schema/human-api/golden/agent.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: agent.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.061]
+path = "services/human/schema/human-api/golden/agent.get.response.json"
+lines = 45
+verdict = "clean"
+note = "Read in full: agent.get response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.062]
+path = "services/human/schema/human-api/golden/agent.limit.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.limit failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.063]
+path = "services/human/schema/human-api/golden/agent.limit.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.limit request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.064]
+path = "services/human/schema/human-api/golden/agent.limit.response.json"
+lines = 44
+verdict = "clean"
+note = "Read in full: agent.limit response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.065]
+path = "services/human/schema/human-api/golden/agent.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.066]
+path = "services/human/schema/human-api/golden/agent.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: agent.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.067]
+path = "services/human/schema/human-api/golden/agent.list.response.json"
+lines = 49
+verdict = "clean"
+note = "Read in full: agent.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.068]
+path = "services/human/schema/human-api/golden/agent.pause.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.pause failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.069]
+path = "services/human/schema/human-api/golden/agent.pause.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: agent.pause request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.070]
+path = "services/human/schema/human-api/golden/agent.pause.response.json"
+lines = 44
+verdict = "clean"
+note = "Read in full: agent.pause response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.071]
+path = "services/human/schema/human-api/golden/agent.reclaim.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.reclaim failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.072]
+path = "services/human/schema/human-api/golden/agent.reclaim.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.reclaim request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.073]
+path = "services/human/schema/human-api/golden/agent.reclaim.response.json"
+lines = 36
+verdict = "clean"
+note = "Read in full: agent.reclaim response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.074]
+path = "services/human/schema/human-api/golden/agent.recover.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.recover failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.075]
+path = "services/human/schema/human-api/golden/agent.recover.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: agent.recover request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.076]
+path = "services/human/schema/human-api/golden/agent.recover.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: agent.recover response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.077]
+path = "services/human/schema/human-api/golden/agent.resume.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: agent.resume failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.078]
+path = "services/human/schema/human-api/golden/agent.resume.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: agent.resume request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.079]
+path = "services/human/schema/human-api/golden/agent.resume.response.json"
+lines = 44
+verdict = "clean"
+note = "Read in full: agent.resume response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.080]
+path = "services/human/schema/human-api/golden/agent.rotate.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.rotate failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.081]
+path = "services/human/schema/human-api/golden/agent.rotate.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: agent.rotate request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.082]
+path = "services/human/schema/human-api/golden/agent.rotate.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: agent.rotate response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.083]
+path = "services/human/schema/human-api/golden/agent.rotation.disclosure.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.rotation.disclosure failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.084]
+path = "services/human/schema/human-api/golden/agent.rotation.disclosure.request.json"
+lines = 9
+verdict = "clean"
+note = "Read in full: agent.rotation.disclosure request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.085]
+path = "services/human/schema/human-api/golden/agent.rotation.disclosure.response.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: agent.rotation.disclosure response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.086]
+path = "services/human/schema/human-api/golden/agent.rotation.start.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: agent.rotation.start failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.087]
+path = "services/human/schema/human-api/golden/agent.rotation.start.request.json"
+lines = 18
+verdict = "clean"
+note = "Read in full: agent.rotation.start request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.088]
+path = "services/human/schema/human-api/golden/agent.rotation.start.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: agent.rotation.start response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.089]
+path = "services/human/schema/human-api/golden/approval.approve.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.approve failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.090]
+path = "services/human/schema/human-api/golden/approval.approve.request.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: approval.approve request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.091]
+path = "services/human/schema/human-api/golden/approval.approve.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: approval.approve response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.092]
+path = "services/human/schema/human-api/golden/approval.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.093]
+path = "services/human/schema/human-api/golden/approval.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.094]
+path = "services/human/schema/human-api/golden/approval.get.response.json"
+lines = 43
+verdict = "clean"
+note = "Read in full: approval.get response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.095]
+path = "services/human/schema/human-api/golden/approval.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.096]
+path = "services/human/schema/human-api/golden/approval.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.097]
+path = "services/human/schema/human-api/golden/approval.list.response.json"
+lines = 32
+verdict = "clean"
+note = "Read in full: approval.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.098]
+path = "services/human/schema/human-api/golden/approval.program.approve.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.approve failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.099]
+path = "services/human/schema/human-api/golden/approval.program.approve.request.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: approval.program.approve request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.100]
+path = "services/human/schema/human-api/golden/approval.program.approve.response.json"
+lines = 33
+verdict = "clean"
+note = "Read in full: approval.program.approve response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.101]
+path = "services/human/schema/human-api/golden/approval.program.budget.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.budget failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.102]
+path = "services/human/schema/human-api/golden/approval.program.budget.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.program.budget request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.103]
+path = "services/human/schema/human-api/golden/approval.program.budget.response.json"
+lines = 31
+verdict = "clean"
+note = "Read in full: approval.program.budget response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.104]
+path = "services/human/schema/human-api/golden/approval.program.disclosure.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.disclosure failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.105]
+path = "services/human/schema/human-api/golden/approval.program.disclosure.request.json"
+lines = 9
+verdict = "clean"
+note = "Read in full: approval.program.disclosure request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.106]
+path = "services/human/schema/human-api/golden/approval.program.disclosure.response.json"
+lines = 30
+verdict = "clean"
+note = "Read in full: approval.program.disclosure response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.107]
+path = "services/human/schema/human-api/golden/approval.program.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.108]
+path = "services/human/schema/human-api/golden/approval.program.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.program.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.109]
+path = "services/human/schema/human-api/golden/approval.program.get.response.json"
+lines = 54
+verdict = "clean"
+note = "Read in full: approval.program.get response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.110]
+path = "services/human/schema/human-api/golden/approval.program.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.111]
+path = "services/human/schema/human-api/golden/approval.program.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.program.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.112]
+path = "services/human/schema/human-api/golden/approval.program.list.response.json"
+lines = 207
+verdict = "clean"
+note = "Read in full: approval.program.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.113]
+path = "services/human/schema/human-api/golden/approval.program.material.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.material failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.114]
+path = "services/human/schema/human-api/golden/approval.program.material.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: approval.program.material request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.115]
+path = "services/human/schema/human-api/golden/approval.program.material.response.json"
+lines = 44
+verdict = "clean"
+note = "Read in full: approval.program.material response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.116]
+path = "services/human/schema/human-api/golden/approval.program.reject.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.program.reject failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.117]
+path = "services/human/schema/human-api/golden/approval.program.reject.request.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: approval.program.reject request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.118]
+path = "services/human/schema/human-api/golden/approval.program.reject.response.json"
+lines = 32
+verdict = "clean"
+note = "Read in full: approval.program.reject response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.119]
+path = "services/human/schema/human-api/golden/approval.reject.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: approval.reject failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.120]
+path = "services/human/schema/human-api/golden/approval.reject.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: approval.reject request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.121]
+path = "services/human/schema/human-api/golden/approval.reject.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: approval.reject response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.122]
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.backup.rotate failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.123]
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: authenticator.backup.rotate request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.124]
+path = "services/human/schema/human-api/golden/authenticator.backup.rotate.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: authenticator.backup.rotate response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.125]
+path = "services/human/schema/human-api/golden/authenticator.disable.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.disable failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.126]
+path = "services/human/schema/human-api/golden/authenticator.disable.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: authenticator.disable request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.127]
+path = "services/human/schema/human-api/golden/authenticator.disable.response.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.disable response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.128]
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.setup.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.129]
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: authenticator.setup.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.130]
+path = "services/human/schema/human-api/golden/authenticator.setup.begin.response.json"
+lines = 21
+verdict = "clean"
+note = "Read in full: authenticator.setup.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.131]
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.setup.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.132]
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: authenticator.setup.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.133]
+path = "services/human/schema/human-api/golden/authenticator.setup.finish.response.json"
+lines = 19
+verdict = "clean"
+note = "Read in full: authenticator.setup.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.134]
+path = "services/human/schema/human-api/golden/authenticator.status.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: authenticator.status failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.135]
+path = "services/human/schema/human-api/golden/authenticator.status.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: authenticator.status request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.136]
+path = "services/human/schema/human-api/golden/authenticator.status.response.json"
+lines = 18
+verdict = "clean"
+note = "Read in full: authenticator.status response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.137]
+path = "services/human/schema/human-api/golden/binding.rebind.action.failure.json"
+lines = 8
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding.rebind.action-error-shape."
+
+[file.138]
+path = "services/human/schema/human-api/golden/binding.rebind.action.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: binding.rebind.action retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.139]
+path = "services/human/schema/human-api/golden/binding.rebind.action.response.json"
+lines = 15
+verdict = "clean"
+note = "Read in full: binding.rebind.action retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.140]
+path = "services/human/schema/human-api/golden/binding.rebind.failure.json"
+lines = 12
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding.rebind-error-shape."
+
+[file.141]
+path = "services/human/schema/human-api/golden/binding.rebind.request.json"
+lines = 19
+verdict = "clean"
+note = "Read in full: binding.rebind retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.142]
+path = "services/human/schema/human-api/golden/binding.rebind.response.json"
+lines = 54
+verdict = "clean"
+note = "Read in full: binding.rebind retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.143]
+path = "services/human/schema/human-api/golden/binding.statement.failure.json"
+lines = 12
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding.statement-error-shape."
+
+[file.144]
+path = "services/human/schema/human-api/golden/binding.statement.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: binding.statement retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.145]
+path = "services/human/schema/human-api/golden/binding.statement.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: binding.statement retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.146]
+path = "services/human/schema/human-api/golden/binding.status.failure.json"
+lines = 12
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding.status-error-shape."
+
+[file.147]
+path = "services/human/schema/human-api/golden/binding.status.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: binding.status retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.148]
+path = "services/human/schema/human-api/golden/binding.status.response.json"
+lines = 17
+verdict = "clean"
+note = "Read in full: binding.status retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.149]
+path = "services/human/schema/human-api/golden/binding.submit.failure.json"
+lines = 13
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding.submit-error-shape."
+
+[file.150]
+path = "services/human/schema/human-api/golden/binding.submit.request.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: binding.submit retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.151]
+path = "services/human/schema/human-api/golden/binding.submit.response.json"
+lines = 42
+verdict = "clean"
+note = "Read in full: binding.submit retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.152]
+path = "services/human/schema/human-api/golden/deposit.confirm.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: deposit.confirm current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.153]
+path = "services/human/schema/human-api/golden/deposit.confirm.request.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: deposit.confirm retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.154]
+path = "services/human/schema/human-api/golden/deposit.confirm.response.json"
+lines = 60
+verdict = "clean"
+note = "Read in full: deposit.confirm retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.155]
+path = "services/human/schema/human-api/golden/deposit.start.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: deposit.start current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.156]
+path = "services/human/schema/human-api/golden/deposit.start.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: deposit.start retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.157]
+path = "services/human/schema/human-api/golden/deposit.start.response.json"
+lines = 42
+verdict = "clean"
+note = "Read in full: deposit.start retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.158]
+path = "services/human/schema/human-api/golden/evidence.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: evidence.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.159]
+path = "services/human/schema/human-api/golden/evidence.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: evidence.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.160]
+path = "services/human/schema/human-api/golden/evidence.get.response.json"
+lines = 14
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in evidence-placeholder."
+
+[file.161]
+path = "services/human/schema/human-api/golden/exit.eligibility.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: exit.eligibility current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.162]
+path = "services/human/schema/human-api/golden/exit.eligibility.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: exit.eligibility retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.163]
+path = "services/human/schema/human-api/golden/exit.eligibility.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: exit.eligibility retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.164]
+path = "services/human/schema/human-api/golden/exit.start.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: exit.start current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.165]
+path = "services/human/schema/human-api/golden/exit.start.request.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: exit.start retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.166]
+path = "services/human/schema/human-api/golden/exit.start.response.json"
+lines = 54
+verdict = "clean"
+note = "Read in full: exit.start retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.167]
+path = "services/human/schema/human-api/golden/home.summary.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: home.summary failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.168]
+path = "services/human/schema/human-api/golden/home.summary.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: home.summary request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.169]
+path = "services/human/schema/human-api/golden/home.summary.response.json"
+lines = 33
+verdict = "clean"
+note = "Read in full: home.summary response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.170]
+path = "services/human/schema/human-api/golden/intent.plan.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: intent.plan failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.171]
+path = "services/human/schema/human-api/golden/intent.plan.request.json"
+lines = 26
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in intent-request-retired-path."
+
+[file.172]
+path = "services/human/schema/human-api/golden/intent.plan.response.json"
+lines = 72
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in intent-response-retired-path."
+
+[file.173]
+path = "services/human/schema/human-api/golden/intent.submit.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: intent.submit failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.174]
+path = "services/human/schema/human-api/golden/intent.submit.request.json"
+lines = 41
+verdict = "clean"
+note = "Read in full: intent.submit request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.175]
+path = "services/human/schema/human-api/golden/intent.submit.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: intent.submit response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.176]
+path = "services/human/schema/human-api/golden/journey.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: journey.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.177]
+path = "services/human/schema/human-api/golden/journey.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: journey.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.178]
+path = "services/human/schema/human-api/golden/journey.get.response.json"
+lines = 60
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in journey.get-retired-evidence."
+
+[file.179]
+path = "services/human/schema/human-api/golden/journey.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: journey.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.180]
+path = "services/human/schema/human-api/golden/journey.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: journey.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.181]
+path = "services/human/schema/human-api/golden/journey.list.response.json"
+lines = 41
+verdict = "clean"
+note = "Read in full: journey.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.182]
+path = "services/human/schema/human-api/golden/journey.page.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: journey.page failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.183]
+path = "services/human/schema/human-api/golden/journey.page.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: journey.page request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.184]
+path = "services/human/schema/human-api/golden/journey.page.response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: journey.page response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.185]
+path = "services/human/schema/human-api/golden/move.commit.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: move.commit failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.186]
+path = "services/human/schema/human-api/golden/move.commit.request.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: move.commit request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.187]
+path = "services/human/schema/human-api/golden/move.commit.response.json"
+lines = 53
+verdict = "clean"
+note = "Read in full: move.commit response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.188]
+path = "services/human/schema/human-api/golden/move.quote.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: move.quote failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.189]
+path = "services/human/schema/human-api/golden/move.quote.request.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: move.quote request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.190]
+path = "services/human/schema/human-api/golden/move.quote.response.json"
+lines = 27
+verdict = "clean"
+note = "Read in full: move.quote response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.191]
+path = "services/human/schema/human-api/golden/native.send.access.begin.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: native.send.access.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.192]
+path = "services/human/schema/human-api/golden/native.send.access.begin.request.json"
+lines = 15
+verdict = "clean"
+note = "Read in full: native.send.access.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.193]
+path = "services/human/schema/human-api/golden/native.send.access.begin.response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: native.send.access.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.194]
+path = "services/human/schema/human-api/golden/native.send.access.confirm.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: native.send.access.confirm failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.195]
+path = "services/human/schema/human-api/golden/native.send.access.confirm.request.json"
+lines = 22
+verdict = "clean"
+note = "Read in full: native.send.access.confirm request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.196]
+path = "services/human/schema/human-api/golden/native.send.access.confirm.response.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: native.send.access.confirm response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.197]
+path = "services/human/schema/human-api/golden/notification.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: notification.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.198]
+path = "services/human/schema/human-api/golden/notification.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: notification.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.199]
+path = "services/human/schema/human-api/golden/notification.list.response.json"
+lines = 53
+verdict = "clean"
+note = "Read in full: notification.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.200]
+path = "services/human/schema/human-api/golden/notification.preferences.get.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: notification.preferences.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.201]
+path = "services/human/schema/human-api/golden/notification.preferences.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: notification.preferences.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.202]
+path = "services/human/schema/human-api/golden/notification.preferences.get.response.json"
+lines = 52
+verdict = "clean"
+note = "Read in full: notification.preferences.get response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.203]
+path = "services/human/schema/human-api/golden/notification.preferences.set.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: notification.preferences.set failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.204]
+path = "services/human/schema/human-api/golden/notification.preferences.set.request.json"
+lines = 49
+verdict = "clean"
+note = "Read in full: notification.preferences.set request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.205]
+path = "services/human/schema/human-api/golden/notification.preferences.set.response.json"
+lines = 52
+verdict = "clean"
+note = "Read in full: notification.preferences.set response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.206]
+path = "services/human/schema/human-api/golden/notification.read.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: notification.read failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.207]
+path = "services/human/schema/human-api/golden/notification.read.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: notification.read request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.208]
+path = "services/human/schema/human-api/golden/notification.read.response.json"
+lines = 23
+verdict = "clean"
+note = "Read in full: notification.read response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.209]
+path = "services/human/schema/human-api/golden/onboarding.resume.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: onboarding.resume failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.210]
+path = "services/human/schema/human-api/golden/onboarding.resume.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: onboarding.resume request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.211]
+path = "services/human/schema/human-api/golden/onboarding.resume.response.json"
+lines = 66
+verdict = "clean"
+note = "Read in full: onboarding.resume response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.212]
+path = "services/human/schema/human-api/golden/onboarding.status.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: onboarding.status failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.213]
+path = "services/human/schema/human-api/golden/onboarding.status.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: onboarding.status request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.214]
+path = "services/human/schema/human-api/golden/onboarding.status.response.json"
+lines = 60
+verdict = "clean"
+note = "Read in full: onboarding.status response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.215]
+path = "services/human/schema/human-api/golden/passkey.assert.begin.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: passkey.assert.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.216]
+path = "services/human/schema/human-api/golden/passkey.assert.begin.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: passkey.assert.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.217]
+path = "services/human/schema/human-api/golden/passkey.assert.begin.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: passkey.assert.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.218]
+path = "services/human/schema/human-api/golden/passkey.assert.finish.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: passkey.assert.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.219]
+path = "services/human/schema/human-api/golden/passkey.assert.finish.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: passkey.assert.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.220]
+path = "services/human/schema/human-api/golden/passkey.assert.finish.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: passkey.assert.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.221]
+path = "services/human/schema/human-api/golden/passkey.register.begin.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: passkey.register.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.222]
+path = "services/human/schema/human-api/golden/passkey.register.begin.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: passkey.register.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.223]
+path = "services/human/schema/human-api/golden/passkey.register.begin.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: passkey.register.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.224]
+path = "services/human/schema/human-api/golden/passkey.register.finish.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: passkey.register.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.225]
+path = "services/human/schema/human-api/golden/passkey.register.finish.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: passkey.register.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.226]
+path = "services/human/schema/human-api/golden/passkey.register.finish.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: passkey.register.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.227]
+path = "services/human/schema/human-api/golden/profile.get.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: profile.get failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.228]
+path = "services/human/schema/human-api/golden/profile.get.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: profile.get request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.229]
+path = "services/human/schema/human-api/golden/profile.get.response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: profile.get response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.230]
+path = "services/human/schema/human-api/golden/profile.update.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: profile.update failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.231]
+path = "services/human/schema/human-api/golden/profile.update.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: profile.update request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.232]
+path = "services/human/schema/human-api/golden/profile.update.response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: profile.update response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.233]
+path = "services/human/schema/human-api/golden/security.action.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.action failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.234]
+path = "services/human/schema/human-api/golden/security.action.request.json"
+lines = 5
+verdict = "clean"
+note = "Read in full: security.action request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.235]
+path = "services/human/schema/human-api/golden/security.action.response.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.action response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.236]
+path = "services/human/schema/human-api/golden/security.key-export.begin.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.key-export.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.237]
+path = "services/human/schema/human-api/golden/security.key-export.begin.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: security.key-export.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.238]
+path = "services/human/schema/human-api/golden/security.key-export.begin.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.key-export.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.239]
+path = "services/human/schema/human-api/golden/security.key-export.finish.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.key-export.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.240]
+path = "services/human/schema/human-api/golden/security.key-export.finish.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: security.key-export.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.241]
+path = "services/human/schema/human-api/golden/security.key-export.finish.response.json"
+lines = 16
+verdict = "clean"
+note = "Read in full: security.key-export.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.242]
+path = "services/human/schema/human-api/golden/security.passkey.list.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.passkey.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.243]
+path = "services/human/schema/human-api/golden/security.passkey.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: security.passkey.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.244]
+path = "services/human/schema/human-api/golden/security.passkey.list.response.json"
+lines = 17
+verdict = "clean"
+note = "Read in full: security.passkey.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.245]
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.passkey.register.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.246]
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: security.passkey.register.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.247]
+path = "services/human/schema/human-api/golden/security.passkey.register.begin.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.passkey.register.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.248]
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.passkey.register.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.249]
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: security.passkey.register.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.250]
+path = "services/human/schema/human-api/golden/security.passkey.register.finish.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.passkey.register.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.251]
+path = "services/human/schema/human-api/golden/security.passkey.revoke.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.passkey.revoke failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.252]
+path = "services/human/schema/human-api/golden/security.passkey.revoke.request.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: security.passkey.revoke request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.253]
+path = "services/human/schema/human-api/golden/security.passkey.revoke.response.json"
+lines = 16
+verdict = "clean"
+note = "Read in full: security.passkey.revoke response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.254]
+path = "services/human/schema/human-api/golden/security.recovery.reveal.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.recovery.reveal failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.255]
+path = "services/human/schema/human-api/golden/security.recovery.reveal.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: security.recovery.reveal request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.256]
+path = "services/human/schema/human-api/golden/security.recovery.reveal.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: security.recovery.reveal response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.257]
+path = "services/human/schema/human-api/golden/security.session.revoke-all.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.session.revoke-all failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.258]
+path = "services/human/schema/human-api/golden/security.session.revoke-all.request.json"
+lines = 16
+verdict = "clean"
+note = "Read in full: security.session.revoke-all request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.259]
+path = "services/human/schema/human-api/golden/security.session.revoke-all.response.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: security.session.revoke-all response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.260]
+path = "services/human/schema/human-api/golden/security.session.revoke.failure.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: security.session.revoke failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.261]
+path = "services/human/schema/human-api/golden/security.session.revoke.request.json"
+lines = 16
+verdict = "clean"
+note = "Read in full: security.session.revoke request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.262]
+path = "services/human/schema/human-api/golden/security.session.revoke.response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: security.session.revoke response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.263]
+path = "services/human/schema/human-api/golden/session.fee-policy.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: session.fee-policy failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.264]
+path = "services/human/schema/human-api/golden/session.fee-policy.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: session.fee-policy request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.265]
+path = "services/human/schema/human-api/golden/session.fee-policy.response.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.fee-policy response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.266]
+path = "services/human/schema/human-api/golden/session.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.267]
+path = "services/human/schema/human-api/golden/session.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: session.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.268]
+path = "services/human/schema/human-api/golden/session.list.response.json"
+lines = 33
+verdict = "clean"
+note = "Read in full: session.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.269]
+path = "services/human/schema/human-api/golden/session.open.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.open failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.270]
+path = "services/human/schema/human-api/golden/session.open.request.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: session.open request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.271]
+path = "services/human/schema/human-api/golden/session.open.response.json"
+lines = 18
+verdict = "clean"
+note = "Read in full: session.open response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.272]
+path = "services/human/schema/human-api/golden/session.refresh.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.refresh failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.273]
+path = "services/human/schema/human-api/golden/session.refresh.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: session.refresh request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.274]
+path = "services/human/schema/human-api/golden/session.refresh.response.json"
+lines = 18
+verdict = "clean"
+note = "Read in full: session.refresh response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.275]
+path = "services/human/schema/human-api/golden/session.revoke-all.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.revoke-all failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.276]
+path = "services/human/schema/human-api/golden/session.revoke-all.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: session.revoke-all request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.277]
+path = "services/human/schema/human-api/golden/session.revoke-all.response.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: session.revoke-all response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.278]
+path = "services/human/schema/human-api/golden/session.revoke.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: session.revoke failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.279]
+path = "services/human/schema/human-api/golden/session.revoke.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: session.revoke request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.280]
+path = "services/human/schema/human-api/golden/session.revoke.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: session.revoke response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.281]
+path = "services/human/schema/human-api/golden/stepup.begin.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: stepup.begin failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.282]
+path = "services/human/schema/human-api/golden/stepup.begin.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: stepup.begin request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.283]
+path = "services/human/schema/human-api/golden/stepup.begin.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: stepup.begin response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.284]
+path = "services/human/schema/human-api/golden/stepup.finish.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: stepup.finish failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.285]
+path = "services/human/schema/human-api/golden/stepup.finish.request.json"
+lines = 7
+verdict = "clean"
+note = "Read in full: stepup.finish request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.286]
+path = "services/human/schema/human-api/golden/stepup.finish.response.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: stepup.finish response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.287]
+path = "services/human/schema/human-api/golden/stream-push-v2/failure.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: failure json vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.288]
+path = "services/human/schema/human-api/golden/stream-push-v2/request.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: request json vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.289]
+path = "services/human/schema/human-api/golden/stream-push-v2/response.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: response json vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.290]
+path = "services/human/schema/human-api/golden/stream.next.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: stream.next failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.291]
+path = "services/human/schema/human-api/golden/stream.next.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: stream.next request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.292]
+path = "services/human/schema/human-api/golden/stream.next.response.json"
+lines = 51
+verdict = "clean"
+note = "Read in full: stream.next response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.293]
+path = "services/human/schema/human-api/golden/stream.open.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: stream.open failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.294]
+path = "services/human/schema/human-api/golden/stream.open.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: stream.open request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.295]
+path = "services/human/schema/human-api/golden/stream.open.response.json"
+lines = 10
+verdict = "clean"
+note = "Read in full: stream.open response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.296]
+path = "services/human/schema/human-api/golden/support.create.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.create failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.297]
+path = "services/human/schema/human-api/golden/support.create.request.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: support.create request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.298]
+path = "services/human/schema/human-api/golden/support.create.response.json"
+lines = 26
+verdict = "clean"
+note = "Read in full: support.create response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.299]
+path = "services/human/schema/human-api/golden/support.feedback.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.feedback failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.300]
+path = "services/human/schema/human-api/golden/support.feedback.request.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: support.feedback request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.301]
+path = "services/human/schema/human-api/golden/support.feedback.response.json"
+lines = 39
+verdict = "clean"
+note = "Read in full: support.feedback response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.302]
+path = "services/human/schema/human-api/golden/support.list.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.list failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.303]
+path = "services/human/schema/human-api/golden/support.list.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: support.list request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.304]
+path = "services/human/schema/human-api/golden/support.list.response.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: support.list response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.305]
+path = "services/human/schema/human-api/golden/support.read.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.read failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.306]
+path = "services/human/schema/human-api/golden/support.read.request.json"
+lines = 5
+verdict = "clean"
+note = "Read in full: support.read request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.307]
+path = "services/human/schema/human-api/golden/support.read.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: support.read response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.308]
+path = "services/human/schema/human-api/golden/support.reply.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.reply failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.309]
+path = "services/human/schema/human-api/golden/support.reply.request.json"
+lines = 6
+verdict = "clean"
+note = "Read in full: support.reply request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.310]
+path = "services/human/schema/human-api/golden/support.reply.response.json"
+lines = 33
+verdict = "clean"
+note = "Read in full: support.reply response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.311]
+path = "services/human/schema/human-api/golden/support.status.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: support.status failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.312]
+path = "services/human/schema/human-api/golden/support.status.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: support.status request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.313]
+path = "services/human/schema/human-api/golden/support.status.response.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: support.status response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.314]
+path = "services/human/schema/human-api/golden/version.failure.json"
+lines = 13
+verdict = "clean"
+note = "Read in full: version failure vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.315]
+path = "services/human/schema/human-api/golden/version.request.json"
+lines = 4
+verdict = "clean"
+note = "Read in full: version request vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.316]
+path = "services/human/schema/human-api/golden/version.response.json"
+lines = 14
+verdict = "clean"
+note = "Read in full: version response vector checked for envelope, field names/types, amount/identifier encodings and declared current schema semantics; no additional producer disagreement identified."
+
+[file.317]
+path = "services/human/schema/human-api/golden/withdraw.claim.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: withdraw.claim current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.318]
+path = "services/human/schema/human-api/golden/withdraw.claim.request.json"
+lines = 8
+verdict = "clean"
+note = "Read in full: withdraw.claim retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.319]
+path = "services/human/schema/human-api/golden/withdraw.claim.response.json"
+lines = 77
+verdict = "clean"
+note = "Read in full: withdraw.claim retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.320]
+path = "services/human/schema/human-api/golden/withdraw.start.failure.json"
+lines = 12
+verdict = "clean"
+note = "Read in full: withdraw.start current refusal example agrees with HTTP 410 operation-retired, final retry and the retirement copy key."
+
+[file.321]
+path = "services/human/schema/human-api/golden/withdraw.start.request.json"
+lines = 15
+verdict = "clean"
+note = "Read in full: withdraw.start retained request vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.322]
+path = "services/human/schema/human-api/golden/withdraw.start.response.json"
+lines = 42
+verdict = "clean"
+note = "Read in full: withdraw.start retained response vector is historical additive-decode compatibility material for an explicitly retired operation; no generated client method or live-success claim is inferred."
+
+[file.323]
+path = "services/human/tools/api-gen/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Read in full: tool target, workspace lint inheritance and dependency declarations agree with the retained workspace and actual implementation imports."
+
+[file.324]
+path = "services/human/tools/api-gen/src/lib.rs"
+lines = 1640
+verdict = "clean"
+note = "Read in full: schema traversal, request/response typing, client envelope, path substitution and retired-operation omission agree with the retained generator tests and additive unions."
+
+[file.325]
+path = "services/human/tools/api-gen/src/main.rs"
+lines = 72
+verdict = "clean"
+note = "Read in full: argument handling, check/write mode, failure reporting and retirement summary use the schema-backed generator and explicit exit status."
+
+[file.326]
+path = "services/human/tools/api-gen/tests/completion_gate.rs"
+lines = 283
+verdict = "clean"
+note = "Read in full: completion_gate fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.327]
+path = "services/human/tools/api-gen/tests/generation.rs"
+lines = 424
+verdict = "clean"
+note = "Read in full: generation fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.328]
+path = "services/human/tools/api-gen/tests/proof_human_tools.rs"
+lines = 243
+verdict = "clean"
+note = "Read in full: proof_human_tools fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.329]
+path = "services/human/tools/api-gen/tests/retired_operations.rs"
+lines = 147
+verdict = "clean"
+note = "Read in full: retired_operations fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.330]
+path = "services/human/tools/boundary-check/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Read in full: tool target, workspace lint inheritance and dependency declarations agree with the retained workspace and actual implementation imports."
+
+[file.331]
+path = "services/human/tools/boundary-check/src/lib.rs"
+lines = 425
+verdict = "clean"
+note = "Read in full: source/token rules, retired surfaces, package/workspace checks and schema route scanning enforce current boundary policy; retired strings are negative rule declarations."
+
+[file.332]
+path = "services/human/tools/boundary-check/src/main.rs"
+lines = 34
+verdict = "clean"
+note = "Read in full: CLI mode/root handling, findings and exit status route into the real boundary scanner without silent success."
+
+[file.333]
+path = "services/human/tools/boundary-check/tests/dependency_policy_script.rs"
+lines = 122
+verdict = "clean"
+note = "Read in full: dependency_policy_script fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.334]
+path = "services/human/tools/boundary-check/tests/fixtures.rs"
+lines = 205
+verdict = "clean"
+note = "Read in full: fixtures fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.335]
+path = "services/human/tools/boundary-check/tests/paxeer_client_removed.rs"
+lines = 40
+verdict = "clean"
+note = "Read in full: paxeer_client_removed fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.336]
+path = "services/human/tools/boundary-check/tests/retired_binding.rs"
+lines = 30
+verdict = "clean"
+note = "Read in full: retired_binding fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.337]
+path = "services/human/tools/boundary-check/tests/retired_deposit_journey.rs"
+lines = 35
+verdict = "clean"
+note = "Read in full: retired_deposit_journey fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.338]
+path = "services/human/tools/boundary-check/tests/retired_exit_journey.rs"
+lines = 28
+verdict = "clean"
+note = "Read in full: retired_exit_journey fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.339]
+path = "services/human/tools/boundary-check/tests/retired_movement_crate.rs"
+lines = 87
+verdict = "clean"
+note = "Read in full: retired_movement_crate fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.340]
+path = "services/human/tools/boundary-check/tests/retired_movement_sources.rs"
+lines = 27
+verdict = "clean"
+note = "Read in full: retired_movement_sources fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.341]
+path = "services/human/tools/boundary-check/tests/retired_surface_rules.rs"
+lines = 163
+verdict = "clean"
+note = "Read in full: retired_surface_rules fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.342]
+path = "services/human/tools/boundary-check/tests/retired_surface_tree.rs"
+lines = 28
+verdict = "clean"
+note = "Read in full: retired_surface_tree fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.343]
+path = "services/human/tools/boundary-check/tests/retired_withdraw_journey.rs"
+lines = 24
+verdict = "clean"
+note = "Read in full: retired_withdraw_journey fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.344]
+path = "services/human/tools/boundary-check/tests/retired_workspace.rs"
+lines = 75
+verdict = "clean"
+note = "Read in full: retired_workspace fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.345]
+path = "services/human/tools/copy-lint/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Read in full: tool target, workspace lint inheritance and dependency declarations agree with the retained workspace and actual implementation imports."
+
+[file.346]
+path = "services/human/tools/copy-lint/src/main.rs"
+lines = 690
+verdict = "clean"
+note = "Read in full: copy vocabulary, human API retired-route matching, built bundle scanning and fixture assertions use declared schema operations and deterministic diagnostics."
+
+[file.347]
+path = "services/human/tools/dependency-policy.sh"
+lines = 82
+verdict = "clean"
+note = "Read in full: forbidden dependency families and retired crates are rejected through actual cargo metadata/trees with explicit failures; retired names are enforcement targets."
+
+[file.348]
+path = "services/human/tools/schema-check/Cargo.toml"
+lines = 18
+verdict = "clean"
+note = "Read in full: tool target, workspace lint inheritance and dependency declarations agree with the retained workspace and actual implementation imports."
+
+[file.349]
+path = "services/human/tools/schema-check/src/lib.rs"
+lines = 2619
+verdict = "clean"
+note = "Read in full: KVX/JSON parsers, include closure, type/envelope validation, operation vectors, version pairing, retirement reporting and frozen baseline comparison retain additive historical decoding and explicit violations."
+
+[file.350]
+path = "services/human/tools/schema-check/src/main.rs"
+lines = 63
+verdict = "clean"
+note = "Read in full: baseline/report CLI and return codes call the real schema parser and conformance implementation with explicit error output."
+
+[file.351]
+path = "services/human/tools/schema-check/tests/compatibility_rows.rs"
+lines = 187
+verdict = "clean"
+note = "Read in full: compatibility_rows fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.352]
+path = "services/human/tools/schema-check/tests/conformance.rs"
+lines = 474
+verdict = "clean"
+note = "Read in full: conformance fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.353]
+path = "services/human/tools/schema-check/tests/journey_vocabulary.rs"
+lines = 247
+verdict = "clean"
+note = "Read in full: journey_vocabulary fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.354]
+path = "services/human/tools/schema-check/tests/merged_schema_retired.rs"
+lines = 179
+verdict = "clean"
+note = "Read in full: merged_schema_retired fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.355]
+path = "services/human/tools/schema-check/tests/merged_schema_shapes.rs"
+lines = 379
+verdict = "clean"
+note = "Read in full: merged_schema_shapes fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.356]
+path = "services/human/tools/schema-check/tests/retired_binding_goldens.rs"
+lines = 107
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in binding-golden-assertions."
+
+[file.357]
+path = "services/human/tools/schema-check/tests/retired_markers.rs"
+lines = 234
+verdict = "issues"
+note = "Read in full; issues and owning repair proposals are recorded in retirement-marker-baseline."
+
+[file.358]
+path = "services/human/tools/schema-check/tests/retired_movement_goldens.rs"
+lines = 58
+verdict = "clean"
+note = "Read in full: retired_movement_goldens fixtures, named assertions and negative cases compared with the actual tool producer and retained/retired boundary policy; no additional disagreement identified."
+
+[file.359]
+path = "services/human/tools/ui-gate/Cargo.toml"
+lines = 20
+verdict = "clean"
+note = "Read in full: tool target, workspace lint inheritance and dependency declarations agree with the retained workspace and actual implementation imports."
+
+[file.360]
+path = "services/human/tools/ui-gate/src/main.rs"
+lines = 623
+verdict = "clean"
+note = "Read in full: UI import, product-copy, route/bundle, package configuration and CSS/component checks enforce the retained human web boundary and report violations."
+
+[finding.shared-wallet]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 449
+class = "interface-mismatch"
+severity = "high"
+observed = "EvmAttestor is loaded once with one evm_key_id, address and owner assertion. Operation 6 copies that same address into every binding record. Each record then has its own Wallet.next_nonce and action map (evm.rs:10-22). Keystore::evm_wallet/public_wallet_identity consume the result as that principal's wallet. Two tenants or principals therefore share spending authority and can independently reserve the same address/chain nonce."
+expected = "The EVM wallet returned for a principal must preserve principal and tenant custody isolation, and nonce reservations must be unique for the actual signing address and chain across all records and restarts."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs resolve and retain an attestor key and owner assertion for each validated tenant/principal binding; coordinate nonce reservations by chain and actual address. Add a two-principal and two-tenant real-attestor round trip that proves distinct control and recovery after restart; coordinate owner mapping with services/wallet/attestor."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-evm-wallet"
+
+[finding.export-delivery-loss]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 367
+class = "restart-recovery"
+severity = "high"
+observed = "export_primary erases seed, wallet and send_actions and fsyncs self_custodied before the server writes the response. A dropped TLS response leaves no managed seed and no replayable export. RemoteKmsProvider::export_primary_key (provider.rs:973-985) receives only a raw 32-byte result and has no acknowledgement or recovery protocol; provider.rs:1351-1379 deliberately demonstrates permanent refusal after a lost reply."
+expected = "A successful custody handover must leave the human with recoverable key material even when delivery or acknowledgement is interrupted. An uncertain network reply must not destroy the only retained copy of the primary key."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs and services/human/crates/layerx-human-service/src/custody/provider.rs introduce a durable export envelope encrypted to the authenticated ceremony recipient, replayable only for that ceremony until recipient acknowledgement; durably disable managed use during handover. Test disconnects before and after durable publication and after restart."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-export-primary"
+
+[finding.hosted-chain-snapshot]
+file = "services/human/crates/layerx-human-kms/src/config.rs"
+line = 90
+class = "interface-mismatch"
+severity = "high"
+observed = "Config::load requires the strict ChainSnapshot { chain_id: u64 } with chain_id 125 and rejects unknown fields. The real hosted material producer services/platform/hosted/human/material.py:960-981, invoked by material.sh:3-5, emits registry.json as network_id, protocol_version and modules. Its unchanged emitted file cannot start this KMS; the stable network_id/protocol_version registry rows also still describe the old shape."
+expected = "The file published as LAYERX_HUMAN_KMS_REGISTRY_FILE by the hosted launcher must be the exact chain-125 snapshot accepted by the KMS. Requirement 10012.1 and the retained-material lifecycle require production provisioning and restart to use that same shape."
+proposal = "Update services/platform/hosted/human/material.py::kms_prerequisite and its material.sh callers to publish {chain_id:125}, migrate retained registry material while preserving seal and custody state, and prove that the emitted file starts the real KMS and survives restart. Reconcile domain 10 registry network_id/protocol_version rows and the operator contract with that producer."
+owner_domain = 8
+interface = "10.env-layerx-human-kms-registry-file"
+
+[finding.signer-identity-split]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 324
+class = "interface-mismatch"
+severity = "high"
+observed = "Create/describe publish a 32-byte Ed25519 public key (public/description at 103-120), whereas Sign interprets its seed as a local secp256k1 scalar and requires that hidden scalar's EVM address. Operation 6 advertises the independently configured attestor address instead. CustodySigner::sign and RemoteCustodySigner::sign_call consume the public wallet/disclosure and cannot derive the local address from the public Ed25519 descriptor. The happy-path tests obtain it by decrypting state.aead with the operator seal."
+expected = "The wallet identity supplied to a human, the key descriptor and the signing operation must identify a coherent supported key and algorithm. A caller using only public provider operations must be able to request and verify a signature from its advertised wallet."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs route EVM Sign to the principal-bound attestor wallet, or define a separate explicit algorithm/address descriptor for a supported local EVM key. Update services/human/crates/layerx-human-service/src/custody/provider.rs to consume that descriptor and prove create/describe/wallet/sign without state-volume access."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-sign"
+
+[finding.assertion-refresh]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 62
+class = "config-drift"
+severity = "medium"
+observed = "LAYERX_HUMAN_KMS_EVM_ASSERTION_FILE is read once during EvmAttestor::load and retained as a Zeroizing<String>. sign_evm_transaction reuses it indefinitely. The real attestor JWT verifier requires exp and iat and enforces DefaultMaxAge=time.Hour (services/wallet/attestor/internal/auth/jwt/jwt.go:39,175-190). Rotating the file does not refresh a running KMS, so new signatures fail once that assertion ages out."
+expected = "A long-running KMS must use a current, owner-bound assertion and continue serving after routine credential rotation without requiring custody service downtime or weakening token expiry."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs retain a protected assertion source per owner and refresh it before signing under a bounded expiry policy; validate subject/key binding and surface typed expiration. Add real-attestor expiry, rotated-file and restart coverage, and document the rotation mechanism in the KMS README."
+owner_domain = 10
+interface = "10.rs-human-kms-attestor-attestor-signer-sign-evm-transaction-j45"
+
+[finding.connection-deadline]
+file = "services/human/crates/layerx-human-kms/src/server.rs"
+line = 60
+class = "runtime-risk"
+severity = "medium"
+observed = "The 16 connection permits cover unauthenticated TLS handshakes as well as requests. config.deadline is applied only as per-socket read/write timeout; complete_io and read_exact can perform multiple successful partial reads without an absolute request deadline. Sixteen peers sending small fragments within each timeout can retain every permit and prevent legitimate KMS requests."
+expected = "A configured KMS deadline must bound the whole handshake and request lifecycle, and unauthenticated peers must not indefinitely exhaust all custody service capacity."
+proposal = "In services/human/crates/layerx-human-kms/src/server.rs carry one absolute RuntimeClock deadline through TLS handshake, framed reads, store admission and response writes, reducing individual I/O budgets to the remaining interval. Add fragmented-handshake and fragmented-frame cases proving permits are released by the overall bound."
+owner_domain = 10
+
+[finding.queued-authorization-expiry]
+file = "services/human/crates/layerx-human-kms/src/server.rs"
+line = 90
+class = "security"
+severity = "medium"
+observed = "connection samples now and validates authorization before acquiring the global Store mutex. dispatch uses that old now after an unbounded lock wait, while another request holds the same mutex throughout remote threshold signing. Wallet::sign and accept_external then check not_after against the pre-queue time, allowing signing or accepting a signature after the authorization has expired."
+expected = "Validity windows must be checked against a fresh trusted clock at the point signing authority is exercised, and queueing or slow attestors must not extend the human-approved authorization window."
+proposal = "In services/human/crates/layerx-human-kms/src/server.rs bound store admission and sample the trusted RuntimeClock after admission; in store.rs/evm.rs recheck expiry immediately before signing and before accepting the result. Add a blocked-attestor case in which a queued plan expires and is refused without consuming fresh authority."
+owner_domain = 10
+
+[finding.snapshot-capacity]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 229
+class = "runtime-risk"
+severity = "medium"
+observed = "Every mutation serializes the complete JSON state and refuses only after it exceeds MAX_STATE=8 MiB, setting healthy=false. Up to 4096 records, 4096 wallet actions per record and retained transaction/calldata byte arrays are admitted independently; acknowledged actions are never pruned. Valid traffic can exhaust the byte bound long before those count limits and take unrelated principals out of service until recovery."
+expected = "Configured count and payload limits must fit the durable storage budget, and reaching a capacity bound must produce an admission refusal without poisoning unrelated custody records or losing action recovery."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs perform byte-budget admission before changing state, and add durable per-wallet journal segmentation or safe archival of acknowledged actions that retains nonce and deduplication facts. Exercise near-capacity sends, typed refusal, unaffected principals and restart recovery."
+owner_domain = 10
+
+[finding.send-reservation-gap]
+file = "services/human/crates/layerx-human-kms/src/store.rs"
+line = 417
+class = "restart-recovery"
+severity = "medium"
+observed = "authorize_send calls Wallet::authorize, mutating next_nonce/actions, and then performs remote Wallet::sign before any persist. A signing timeout or uncertain response returns before persistence; restart discards the reservation even though attestors may already have signed that transaction. The dedicated operation-7 path persists separately, so the combined SEND path has a different recovery boundary."
+expected = "SEND nonce/action reservation must survive a restart before any external signer can act, and an uncertain threshold reply must recover the same authorized action rather than permit a conflicting reuse."
+proposal = "In services/human/crates/layerx-human-kms/src/store.rs durably publish the exact authorization and nonce reservation before contacting attestors, then durably attach signed bytes using the same action identity. Add a real-attestor response-loss and process-restart test for operation 11 that refuses a changed action at the reserved nonce."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-authorize-send"
+
+[finding.native-replay-capacity]
+file = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 1081
+class = "runtime-risk"
+severity = "medium"
+observed = "request_native_signature inserts every successful session into native_replays, refuses any new session at 512 entries, and has no expiry, compaction or durable replay recovery. A long-lived AttestorSigner using the public native consent APIs eventually refuses every new consent; constructing or restarting a signer clears the local replay history instead of defining a recovery lifecycle."
+expected = "The retained native consent APIs must sustain normal long-running use with bounded replay storage and a documented replay horizon; restart must not be the mechanism for bypassing exhausted replay protection."
+proposal = "In services/human/crates/layerx-human-kms/src/attestor.rs define an authorization-bound replay retention horizon and a durable bounded journal or explicit session lifecycle coordinated with the attestor. Test more than 512 sequential valid sessions, replay/conflict handling and restart without weakening request binding."
+owner_domain = 10
+interface = "10.rs-human-kms-attestor-attestor-signer-sign-native-local-grant"
+
+[finding.concurrent-audit-order]
+file = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 730
+class = "runtime-risk"
+severity = "medium"
+observed = "sign_evm_transaction_with_assertion sends requests before acquiring recorded(), then rejects every response whose per-node audit_sequence is at most the most recently completed call. Concurrent calls on the shared public signer can finish out of order: a later sequence is recorded first and an earlier, correctly signed response is rejected as malformed. KMS store serialization avoids this in that daemon but the exported signer permits concurrent callers."
+expected = "Independent authenticated signing sessions must accept valid out-of-order completions while preserving anti-replay and audit integrity; network response scheduling must not turn a valid signature into a malformed response."
+proposal = "In services/human/crates/layerx-human-kms/src/attestor.rs serialize complete signing sessions per key or track request/session-specific audit acceptance with a safe replay window. Add a real-attestor concurrent test that delays one response and checks both exact signatures and audit monotonicity."
+owner_domain = 10
+interface = "10.rs-human-kms-attestor-attestor-signer-sign-evm-transaction-j45"
+
+[finding.provider-private-address-fixture]
+file = "services/human/crates/layerx-human-kms/tests/provider.rs"
+line = 342
+class = "test-gap"
+severity = "medium"
+observed = "Host::sender opens the operator seal, decrypts state/state.aead and derives a secp256k1 address from the stored primary seed. Provider signing tests therefore supply a sender that the public create/describe/wallet path does not emit, hiding the mismatch between the Ed25519 descriptor, local EVM signer and attestor wallet."
+expected = "A production provider integration test must obtain the signing identity through the same public operations available to the human-service consumer, with no privileged key-storage knowledge needed for the happy path."
+proposal = "Rewrite the happy signing cases in services/human/crates/layerx-human-kms/tests/provider.rs to create a principal and resolve its wallet through LXKP, then sign and recover to that returned address. Retain separate at-rest encryption checks and add two-principal isolation and restart cases."
+owner_domain = 10
+
+[finding.eip1559-private-address-fixture]
+file = "services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs"
+line = 298
+class = "test-gap"
+severity = "medium"
+observed = "Host::sender decrypts the sealed provider state with the test's seal to discover the hidden local secp256k1 sender. lxkp_sign_accepts_an_unsigned_type2_transaction thus proves a privileged fixture path instead of a consumer obtaining a wallet identity and signing through declared provider operations."
+expected = "Requirement 10028.1 must prove that the real consumer can sign an EIP-1559 request for the public wallet it receives, without reading provider-private state or reconstructing a secret-derived address."
+proposal = "In services/human/crates/layerx-human-kms/tests/sign_eip1559_requests.rs replace private-state sender discovery with create/describe/operation-6 wallet resolution against real attestors, verify recovered sender equality, and retain all malformed-envelope and disclosure negative assertions."
+owner_domain = 10
+
+[finding.export-loss-test]
+file = "services/human/crates/layerx-human-kms/tests/provider.rs"
+line = 1351
+class = "test-gap"
+severity = "medium"
+observed = "The lost-export-response case drops the TLS connection immediately after writing operation 14, accepts SelfCustodied as success, restarts the provider and asserts that export remains impossible. It never proves that the recipient received usable primary material, so it enshrines the data-loss window in export_primary rather than a recoverable handover."
+expected = "Key-export fault coverage must prove both that managed authority is disabled and that the authenticated ceremony recipient can recover the one exported key after a lost reply and restart."
+proposal = "After implementing durable recipient-bound export delivery, extend services/human/crates/layerx-human-kms/tests/provider.rs to recover the same encrypted envelope after disconnect and restart, verify its key, acknowledge it and prove that another ceremony/principal cannot retrieve it; retain all current authorization and tombstone checks."
+owner_domain = 10
+
+[finding.retirement-marker-baseline]
+file = "services/human/tools/schema-check/tests/retired_markers.rs"
+line = 94
+class = "test-gap"
+severity = "medium"
+observed = "The fixture copies the current real schema but asserts empty retired_operations at line 94 and empty retired_variants at line 136. It then adds another retired marker to deposit.start, already retired in movement.kvx. merged_schema_retired.rs and the schema instead declare eleven retired operations and four retired-variant types, so these test preconditions contradict the same checked-in producer."
+expected = "The marker tests for 10003.1-3 must exercise valid additions, invalid marker forms and baseline removals against the current schema while retaining every existing retirement and compatibility assertion."
+proposal = "In services/human/tools/schema-check/tests/retired_markers.rs build an isolated active-operation fixture or take and assert the current retirement set before applying an explicit delta; avoid duplicate keys and preserve the invalid-form and baseline-removal cases. Qualify the actual three tests against the real schema without suppressing any assertion."
+owner_domain = 10
+
+[finding.binding-golden-assertions]
+file = "services/human/tools/schema-check/tests/retired_binding_goldens.rs"
+line = 69
+class = "test-gap"
+severity = "medium"
+observed = "retired_binding_failure_vectors_answer_operation_retired checks status, ok, absent result and error.code only. The five vectors still carry old copy_key/retry values (and binding.submit a field) even though ApiFailure::operation_retired emits error.operation.retired, final and no field. The sibling retired_movement_goldens test already checks those complete semantics."
+expected = "The retirement contract must prove the full producer error envelope, including retry final, the operation-retired copy key and absence of stale field/retry metadata, for all five retired binding routes."
+proposal = "In services/human/tools/schema-check/tests/retired_binding_goldens.rs compare each complete structured failure with the real ApiFailure::operation_retired serialization, retaining current assertions and adding copy_key, retry, field and retry_after_ms checks. Regenerate the five examples from that real route refusal."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.binding.rebind.action-error-shape]
+file = "services/human/schema/human-api/golden/binding.rebind.action.failure.json"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The binding.rebind.action failure example answers HTTP 410 and operation-retired but retains copy_key=error.wallet.not-bound and retry=structural. The real server/backend.rs:114-122 emits error.operation.retired, retry final and no field; the fixture presents a different integrator-visible refusal."
+expected = "A retired binding example must agree exactly with the live retirement refusal so clients stop retrying and display the retirement message instead of a session, signature or wallet-repair instruction."
+proposal = "In services/human/schema/human-api/golden/binding.rebind.action.failure.json capture the real retired-route error envelope with copy_key error.operation.retired, retry final and no stale field/retry metadata; extend tools/schema-check/tests/retired_binding_goldens.rs to assert producer equivalence."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.binding.rebind-error-shape]
+file = "services/human/schema/human-api/golden/binding.rebind.failure.json"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The binding.rebind failure example answers HTTP 410 and operation-retired but retains copy_key=error.step-up.required and retry=structural. The real server/backend.rs:114-122 emits error.operation.retired, retry final and no field; the fixture presents a different integrator-visible refusal."
+expected = "A retired binding example must agree exactly with the live retirement refusal so clients stop retrying and display the retirement message instead of a session, signature or wallet-repair instruction."
+proposal = "In services/human/schema/human-api/golden/binding.rebind.failure.json capture the real retired-route error envelope with copy_key error.operation.retired, retry final and no stale field/retry metadata; extend tools/schema-check/tests/retired_binding_goldens.rs to assert producer equivalence."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.binding.statement-error-shape]
+file = "services/human/schema/human-api/golden/binding.statement.failure.json"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The binding.statement failure example answers HTTP 410 and operation-retired but retains copy_key=error.wallet.link-in-progress and retry=structural. The real server/backend.rs:114-122 emits error.operation.retired, retry final and no field; the fixture presents a different integrator-visible refusal."
+expected = "A retired binding example must agree exactly with the live retirement refusal so clients stop retrying and display the retirement message instead of a session, signature or wallet-repair instruction."
+proposal = "In services/human/schema/human-api/golden/binding.statement.failure.json capture the real retired-route error envelope with copy_key error.operation.retired, retry final and no stale field/retry metadata; extend tools/schema-check/tests/retired_binding_goldens.rs to assert producer equivalence."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.binding.status-error-shape]
+file = "services/human/schema/human-api/golden/binding.status.failure.json"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The binding.status failure example answers HTTP 410 and operation-retired but retains copy_key=error.session.expired and retry=structural. The real server/backend.rs:114-122 emits error.operation.retired, retry final and no field; the fixture presents a different integrator-visible refusal."
+expected = "A retired binding example must agree exactly with the live retirement refusal so clients stop retrying and display the retirement message instead of a session, signature or wallet-repair instruction."
+proposal = "In services/human/schema/human-api/golden/binding.status.failure.json capture the real retired-route error envelope with copy_key error.operation.retired, retry final and no stale field/retry metadata; extend tools/schema-check/tests/retired_binding_goldens.rs to assert producer equivalence."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.binding.submit-error-shape]
+file = "services/human/schema/human-api/golden/binding.submit.failure.json"
+line = 7
+class = "test-gap"
+severity = "medium"
+observed = "The binding.submit failure example answers HTTP 410 and operation-retired but retains copy_key=error.wallet.signature-mismatch and retry=structural plus field=signature. The real server/backend.rs:114-122 emits error.operation.retired, retry final and no field; the fixture presents a different integrator-visible refusal."
+expected = "A retired binding example must agree exactly with the live retirement refusal so clients stop retrying and display the retirement message instead of a session, signature or wallet-repair instruction."
+proposal = "In services/human/schema/human-api/golden/binding.submit.failure.json capture the real retired-route error envelope with copy_key error.operation.retired, retry final and no stale field/retry metadata; extend tools/schema-check/tests/retired_binding_goldens.rs to assert producer equivalence."
+owner_domain = 10
+interface = "10.err-human-api-operation-retired-j45"
+
+[finding.intent-request-retired-path]
+file = "services/human/schema/human-api/golden/intent.plan.request.json"
+line = 6
+class = "retired-reference"
+severity = "medium"
+observed = "The success-paired plan request chooses source.kind=paxeer-wallet. The live intent_observed_state in server/production_components.rs:3950-3955 explicitly refuses PaxeerWallet as either endpoint with UnsupportedPlan, so this example cannot produce its paired HTTP-200 deposit plan on the merged network."
+expected = "The primary intent.plan request/response example must demonstrate a supported one-chain move from current authoritative balances and pending-tag EVM nonces; retired custody-boundary requests belong in explicit refusal coverage."
+proposal = "Replace services/human/schema/human-api/golden/intent.plan.request.json with a supported human/agent bank-transfer request and capture its paired response from the production planner; retain this PaxeerWallet shape in a negative fixture asserting UnsupportedPlan."
+owner_domain = 10
+interface = "10.http-human-intent-plan"
+
+[finding.intent-response-retired-path]
+file = "services/human/schema/human-api/golden/intent.plan.response.json"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "The intent.plan success vector describes a deposit via paxeer-custody-deposit across paxeer and layerx domains and omits all per-leg EIP-1559 fields. The real intent_plan_json producer (production_components.rs:8218-8270) emits to, value, calldata, nonce, chain_id, gas and fee fields; its JourneyKind matcher cannot emit deposit."
+expected = "Requirement 10040.1 and interface 10.http-human-intent-plan require an executable EIP-1559 plan for the single chain, with the exact call, pending nonce and fee fields the human approves."
+proposal = "Regenerate services/human/schema/human-api/golden/intent.plan.response.json from a supported production plan on chain 125 and round-trip the paired request through the real producer, including each transaction field and signing requirement; retain historical deposit decoding separately."
+owner_domain = 10
+interface = "10.http-human-intent-plan"
+
+[finding.evidence-placeholder]
+file = "services/human/schema/human-api/golden/evidence.get.response.json"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "The example claims class layerx-receipt and verification receipt-verified, but bytes_base64 decodes to the literal text layerx-receipt-canonical-bytes. That is neither a signed receipt nor the portable receipt-proof-v2 JSON emitted by production_reads.rs, and cannot support the independent verification promised by EvidenceMaterial.material."
+expected = "An evidence.get success vector must contain actual portable receipt material that verifies under a pinned key and agrees with its receipt identity, transaction hash, rung and inclusion height; schema shape alone is insufficient."
+proposal = "In services/human/schema/human-api/golden/evidence.get.response.json capture a verified production-path receipt proof and add a real verifier round trip in the human-service evidence tests. Preserve malformed/wrong-key negative coverage and keep any illustrative placeholder explicitly outside a verified success fixture."
+owner_domain = 10
+interface = "10.http-human-evidence-get"
+
+[finding.activity.entry-retired-evidence]
+file = "services/human/schema/human-api/golden/activity.entry.response.json"
+line = 32
+class = "test-gap"
+severity = "medium"
+observed = "The active activity.entry response example still demonstrates paxeer-finality/paxeer-finalised evidence for the old deposit/settlement lifecycle. journeys.kvx explicitly retires those values, and the merged receipt projection maps submitted, receipted and committed rungs without a separate Paxeer-finality step. This success vector does not exercise the current receipt path."
+expected = "Current route examples must use one-chain receipt evidence and rung mappings, while historical decoding support remains separately labelled; no current success fixture should require the retired settlement boundary."
+proposal = "In services/human/schema/human-api/golden/activity.entry.response.json capture a current bank-send receipt projection or portable evidence export and verify it through the route producer. Keep the old payload in a separately identified historical decode fixture and assert that new projections never emit retired finality values."
+owner_domain = 10
+interface = "10.fmt-human-api-type-evidence-ref"
+
+[finding.activity.export.evidence-retired-evidence]
+file = "services/human/schema/human-api/golden/activity.export.evidence.response.json"
+line = 24
+class = "test-gap"
+severity = "medium"
+observed = "The active activity.export.evidence response example still demonstrates paxeer-finality/paxeer-finalised evidence for the old deposit/settlement lifecycle. journeys.kvx explicitly retires those values, and the merged receipt projection maps submitted, receipted and committed rungs without a separate Paxeer-finality step. This success vector does not exercise the current receipt path."
+expected = "Current route examples must use one-chain receipt evidence and rung mappings, while historical decoding support remains separately labelled; no current success fixture should require the retired settlement boundary."
+proposal = "In services/human/schema/human-api/golden/activity.export.evidence.response.json capture a current bank-send receipt projection or portable evidence export and verify it through the route producer. Keep the old payload in a separately identified historical decode fixture and assert that new projections never emit retired finality values."
+owner_domain = 10
+interface = "10.http-human-activity-export-evidence"
+
+[finding.journey.get-retired-evidence]
+file = "services/human/schema/human-api/golden/journey.get.response.json"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "The active journey.get response example still demonstrates paxeer-finality/paxeer-finalised evidence for the old deposit/settlement lifecycle. journeys.kvx explicitly retires those values, and the merged receipt projection maps submitted, receipted and committed rungs without a separate Paxeer-finality step. This success vector does not exercise the current receipt path."
+expected = "Current route examples must use one-chain receipt evidence and rung mappings, while historical decoding support remains separately labelled; no current success fixture should require the retired settlement boundary."
+proposal = "In services/human/schema/human-api/golden/journey.get.response.json capture a current bank-send receipt projection or portable evidence export and verify it through the route producer. Keep the old payload in a separately identified historical decode fixture and assert that new projections never emit retired finality values."
+owner_domain = 10
+interface = "10.http-human-journey-get"
+
+[finding.kms-operator-doc]
+file = "services/human/crates/layerx-human-kms/README.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The operator README requires network_id/protocol_version/modules rather than chain_id (line 5), calls Sign version 1 rather than 7 (line 7), describes native SEND signatures rather than EIP-1559 bytes (line 15), and advertises retired operation 13 (line 19). It omits the attestor configuration and owner-assertion sources actually required for EVM wallet/signing."
+expected = "KMS deployment and protocol documentation must state the accepted chain snapshot, exact version/operation encodings, attestor credential lifecycle, supported errors and recoverable custody behavior of the current executable."
+proposal = "Rewrite services/human/crates/layerx-human-kms/README.md against config.rs, wire.rs and store.rs: document chain_id 125, version-7 EVM Sign, version-3 bank SEND, the refused recipient opcode, required attestor files and assertion refresh, plus the resolved export/recovery contract; qualify examples through the real client."
+owner_domain = 10
+interface = "10.fmt-lxkp-frame"
+
+[finding.human-layout-doc]
+file = "services/human/README.md"
+line = 15
+class = "doc-drift"
+severity = "medium"
+observed = "The workspace guide lists layerx-human-movement-provider, layerx-paxeer-client and layerx-explorer-index as active crates even though the workspace retires them. It also links services/human/wallet and describes a separate kernel/chain boundary and sole intent encoder that do not describe the current EVM signing and bank-send paths."
+expected = "The Human guide must orient developers to the current retained workspace, the chain-125 transaction and receipt path, and existing app/wallet locations without directing them to removed providers or a separate running LayerX service."
+proposal = "Update services/human/README.md from services/human/Cargo.toml and live custody/journey code: remove retired crate links, fix wallet locations and explain the retained intent authority versus EIP-1559 transaction encoding, attestor wallets, gas sponsorship and committed receipt evidence."
+owner_domain = 10
+
+[finding.identity-onboarding-doc]
+file = "docs/site/docs/concepts/identity.md"
+line = 34
+class = "doc-drift"
+severity = "medium"
+observed = "The identity page describes an optional EVM payout binding with no balance authority (34-35) and says Human onboarding is active after only a DID-registration receipt (54-57). It does not describe the merged chain-125 wallet binding, bindLayerX transaction and gas-station sponsorship required by the current onboarding contract."
+expected = "Readers must be able to distinguish retained kernel identity rules from the current Human EVM wallet and sponsored onboarding lifecycle, including which committed evidence activates that identity."
+proposal = "Revise docs/site/docs/concepts/identity.md to scope the native kernel identity history explicitly and describe the current Human bindLayerX/gas-station path and receipt activation rule; link the current operator contract and remove the retired payout-binding instructions from current onboarding guidance."
+owner_domain = 10
+
+[finding.architecture-pt-BR]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.pt-BR.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.fr.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.ja.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.ru.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-zh-CN]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.zh-CN.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.de.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite docs/readme/README.es.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.architecture-root]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+expected = "The finished network embeds the proposing kernel in paxd on chain 125; a receipt is final once its block commits. Brief facts 1-3 retire the separate daemon/sequencer and unified LayerX interface and require the current public node RPC names and paths."
+proposal = "Rewrite README.md introduction, component table, build/run examples and architecture diagram from the merged paxd deployment. Show the embedded kernel, commit finality and current hosted gateway/node boundaries; remove separate layerxd launch and checkpoint-settlement instructions, keeping historical context explicitly labelled."
+owner_domain = 10
+
+[finding.hosted-events-wiki]
+file = "docs/wiki/HostedInternal.md"
+line = 232
+class = "doc-drift"
+severity = "medium"
+observed = "The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+expected = "Operators need the current Human workload/service mapping and the actual observation, retry, enrollment and outbox recovery path, with remaining live gaps distinguished from obsolete implementation status."
+proposal = "Update docs/wiki/HostedInternal.md event-source topology and missing-wiring paragraphs from services/platform/hosted/human/deployment.yaml, services/human/crates/layerx-human-service/src/event_producer.rs and services/platform/hosted/internal/src/producer.rs; describe the current producer credentials, durable delivery and restart behavior."
+owner_domain = 8
+
+[finding.hosted-events-site]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 232
+class = "doc-drift"
+severity = "medium"
+observed = "The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+expected = "Operators need the current Human workload/service mapping and the actual observation, retry, enrollment and outbox recovery path, with remaining live gaps distinguished from obsolete implementation status."
+proposal = "Update docs/site/docs/operators/hosted-internal.md event-source topology and missing-wiring paragraphs from services/platform/hosted/human/deployment.yaml, services/human/crates/layerx-human-service/src/event_producer.rs and services/platform/hosted/internal/src/producer.rs; describe the current producer credentials, durable delivery and restart behavior."
+owner_domain = 8
+
+[finding.human-journey-map]
+file = "docs/wiki/HumanJourneys.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The journey guide calls the schema minor 4 although v1.kvx declares 10. It lists wallet-binding/deposit/withdraw/exit as active journeys and gives active operation instructions for routes now returning 410 operation-retired; its onboarding and verification discussion retains the old custody/settlement model."
+expected = "The published journey map must distinguish retained historical schema variants from executable routes, document the current minor, and guide users through sponsored onboarding, one-chain moves and submitted/receipted/committed evidence."
+proposal = "Rewrite docs/wiki/HumanJourneys.md from schema v1.kvx, retired-operation declarations and production dispatch: mark all eleven retired routes with their final refusal, replace the wallet/deposit/withdraw/exit walkthroughs with chain-125 moves and sponsored bindLayerX onboarding, and update receipt/rung examples."
+owner_domain = 10
+
+[finding.kms-service-contract]
+file = "spec/layerx-merge/contracts/services.md"
+line = 1440
+class = "doc-drift"
+severity = "medium"
+observed = "The human-kms purpose and route table still specify Unix sockets, while its own liveness paragraph acknowledges the real TCP mutual-TLS listener as an open J98 discrepancy. The Human contract and key-variable catalogue also omit the new KMS attestor config/assertion files needed by the EVM store."
+expected = "The service contract used for registry conformance must give one consistent current transport and provisioning lifecycle, including the EVM attestor dependencies and exact chain snapshot required for successful startup."
+proposal = "Reconcile the human-kms section in spec/layerx-merge/contracts/services.md and its owning service/registry declarations to the TCP mutual-TLS implementation, chain-125 snapshot and owner-bound attestor material; close the already documented J98 transport discrepancy with verified operator startup examples."
+owner_domain = 10
+
+[finding.sign-version-registry]
+file = "services/human/crates/layerx-human-kms/src/wire.rs"
+line = 49
+class = "config-drift"
+severity = "medium"
+observed = "The stable registry row 10.fmt-lxkp-op-sign declares LXKP version 1 operation 5. Operation::from_wire accepts only (7,5), and the current RemoteKmsProvider uses that version-7 EVM request. Current transport peers agree with one another, but an integrator implementing the declared stable version-1 layout receives Refused."
+expected = "The registry and operator protocol contract must name the actual supported Sign version, EIP-1559 payload/disclosure layout, 20-byte sender and 65-byte signature, with explicit compatibility and retirement behavior."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 10.fmt-lxkp-op-sign and the KMS wire contract with services/human/crates/layerx-human-kms/src/wire.rs and the service provider encoder. Publish the version-7 migration boundary and preserve tests proving old version-1 activity signing is explicitly refused."
+owner_domain = 10
+interface = "10.fmt-lxkp-op-sign"
+
+[finding.attestor-api-registry]
+file = "services/human/crates/layerx-human-kms/src/attestor.rs"
+line = 817
+class = "config-drift"
+severity = "medium"
+observed = "Stable row 10.rs-human-kms-attestor-attestor-signer-sign-activity declares canonical bytes plus ModuleRegistry and an AttestorSignature result. The exported function now accepts Eip1559Call, Disclosure, from:[u8;20] and Approval and returns AttestorCallSignature with a 65-byte EVM signature. The real Human consumer has moved to the latter signature while the declared stable Rust API still describes the retired activity shape."
+expected = "The declared public Rust API and its service contract must expose the exact types used by the real producer and consumer, and distinguish the migrated EVM call API from retained native consent signatures."
+proposal = "Update the owning interface declaration 10.rs-human-kms-attestor-attestor-signer-sign-activity in spec/layerx-merge/interfaces.kvx and its services.md contract to the current EIP-1559 signature and return type; record compatibility/retirement of the former activity API and prove the exact named call through the real Human signer consumer."
+owner_domain = 10
+interface = "10.rs-human-kms-attestor-attestor-signer-sign-activity"
+
+[doc.01]
+path = "docs/readme/README.pt-BR.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-pt-BR: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.02]
+path = "docs/readme/README.fr.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-fr: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.03]
+path = "docs/readme/README.ja.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-ja: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.04]
+path = "docs/readme/README.ru.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-ru: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.05]
+path = "docs/readme/README.zh-CN.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-zh-CN: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.06]
+path = "docs/readme/README.de.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-de: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.07]
+path = "docs/readme/README.es.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-es: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.08]
+path = "docs/site/docs/concepts/identity.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in identity-onboarding-doc: The identity page describes an optional EVM payout binding with no balance authority (34-35) and says Human onboarding is active after only a DID-registration receipt (54-57). It does not describe the merged chain-125 wallet binding, bindLayerX transaction and gas-station sponsorship required by the current onboarding contract."
+
+[doc.09]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in hosted-events-site: The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+
+[doc.10]
+path = "docs/wiki/HostedInternal.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in hosted-events-wiki: The event-source section says no layerx-human workload is declared and no source under services/human/crates or hosted sources issues POST /internal/v1/observe (232-250). Hosted human/deployment.yaml now declares the Human service and node-pod selector, and human-service/src/event_producer.rs builds the internal producer client and durable observation outbox. The blanket missing-producer statement is stale."
+
+[doc.11]
+path = "docs/wiki/HumanJourneys.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in human-journey-map: The journey guide calls the schema minor 4 although v1.kvx declares 10. It lists wallet-binding/deposit/withdraw/exit as active journeys and gives active operation instructions for routes now returning 410 operation-retired; its onboarding and verification discussion retains the old custody/settlement model."
+
+[doc.12]
+path = "README.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in architecture-root: The introduction and architecture diagram present layerxd as a running, separate kernel/LNI sequencer and route kernel checkpoints through layerxAnchor 0x1014. The diagram also draws the old settlement and provider topology as current operator infrastructure."
+
+[doc.13]
+path = "services/human/README.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in human-layout-doc: The workspace guide lists layerx-human-movement-provider, layerx-paxeer-client and layerx-explorer-index as active crates even though the workspace retires them. It also links services/human/wallet and describes a separate kernel/chain boundary and sole intent encoder that do not describe the current EVM signing and bank-send paths."
+
+[doc.14]
+path = "services/human/crates/layerx-human-kms/README.md"
+status = "stale"
+notes = "Read in full. Rewrite the exact locations in kms-operator-doc: The operator README requires network_id/protocol_version/modules rather than chain_id (line 5), calls Sign version 1 rather than 7 (line 7), describes native SEND signatures rather than EIP-1559 bytes (line 15), and advertises retired operation 13 (line 19). It omits the attestor configuration and owner-assertion sources actually required for EVM wallet/signing."
+
+[doc.15]
+path = "services/human/schema/human-api/README.md"
+status = "accurate"
+notes = "Read in full: schema is the authoritative versioned contract; included modules, additive baseline, golden example layout and generation/check commands agree with the current tools."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Read the catalogue, general service rules and relevant Human/KMS, wire, API, config and tools contract sections. Rewrite the exact locations in kms-service-contract: The human-kms purpose and route table still specify Unix sockets, while its own liveness paragraph acknowledges the real TCP mutual-TLS listener as an open J98 discrepancy. The Human contract and key-variable catalogue also omit the new KMS attestor config/assertion files needed by the EVM store."

@@ -220,12 +220,14 @@ func ExportGenesis(ctx sdk.Context, keeper keeper.Keeper) *types.GenesisState {
 // WriteValidators returns a slice of bonded genesis validators.
 func WriteValidators(ctx sdk.Context, keeper keeper.Keeper) (vals []tmtypes.GenesisValidator, err error) {
 	keeper.IterateLastValidators(ctx, func(_ int64, validator types.ValidatorI) (stop bool) {
-		pk, err := validator.ConsPubKey()
-		if err != nil {
+		pk, conversionErr := validator.ConsPubKey()
+		if conversionErr != nil {
+			err = conversionErr
 			return true
 		}
-		tmPk, err := cryptocodec.ToTmPubKeyInterface(pk)
-		if err != nil {
+		tmPk, conversionErr := cryptocodec.ToTmPubKeyInterface(pk)
+		if conversionErr != nil {
+			err = conversionErr
 			return true
 		}
 
@@ -239,6 +241,9 @@ func WriteValidators(ctx sdk.Context, keeper keeper.Keeper) (vals []tmtypes.Gene
 		return false
 	})
 
+	if err != nil {
+		return nil, err
+	}
 	return
 }
 

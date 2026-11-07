@@ -6,17 +6,19 @@ import json
 import re
 import sqlite3
 from collections.abc import Callable
-from dataclasses import dataclass
 from urllib.parse import urlsplit
 
+from .account_derivation import keccak256
 from .production import PlatformSdkError
 from .x402 import (
+    PaymentEvidence,
+    ledger_payment_payer,
     payment_commitment,
     payment_payer,
     payment_purpose,
     verify_payment_receipt,
 )
-from .x402_rpc import rpc_hex, verify_rpc_payment
+from .x402_rpc import _transaction_bytes, rpc_hex, verify_rpc_payment
 
 
 def _object(value):
@@ -196,13 +198,6 @@ def decode_header(value):
     )
 
 
-@dataclass(frozen=True)
-class PaymentEvidence:
-    canonical_receipt: bytes
-    authorized_batch: object
-    commitment_evidence: object = None
-
-
 class FulfillmentStore:
     def __init__(self, path: str):
         self.path = path
@@ -244,13 +239,13 @@ class SellerMiddleware:
     def __init__(
         self,
         required,
-        signatures,
+        receipt_keys,
         resolve_receipt,
         fulfillments: FulfillmentStore,
         draw=None,
     ):
         self.required = validate_required(json.loads(_canonical(required)))
-        self.signatures = signatures
+        self.receipt_keys = receipt_keys
         self.resolve_receipt = resolve_receipt
         self.fulfillments = fulfillments
         self.draw = draw
@@ -306,10 +301,16 @@ class SellerMiddleware:
             evidence = self.draw(principal, digest, body, offer)
             if evidence is None:
                 return 202, {}, b""
+        if offer["scheme"] != "exact":
+            from .x402_grant import validate_grant_draw
+            import time
+            receive = validate_grant_draw(rpc_hex(body["receive"], 733), offer, body["idempotencyKey"], 125, int(time.time()))
+            if evidence.grant_binding != receive:
+                raise ValueError("draw-evidence-binding")
         verified = verify_payment_receipt(
             evidence.canonical_receipt,
-            evidence.authorized_batch,
-            self.signatures,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
@@ -317,7 +318,9 @@ class SellerMiddleware:
                 offer.get("extra"), required=offer["scheme"] != "exact"
             ),
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
+            finality=evidence.finality,
+            scheme=offer["scheme"],
+            grant_binding=evidence.grant_binding,
         )
         receipt_digest = hashlib.sha256(
             b"LXP/v1/merkle-leaf\0" + evidence.canonical_receipt
@@ -329,7 +332,7 @@ class SellerMiddleware:
             "transaction": "lxp:" + receipt_digest,
             "network": offer["network"],
             "amount": offer["amount"],
-            "payer": verified.receipt.from_account.hex(),
+            "payer": ledger_payment_payer(verified, evidence.raw_transaction, offer["scheme"]),
             "extensions": {
                 "layerx": {
                     "receipt": base64.b64encode(evidence.canonical_receipt).decode(),
@@ -347,11 +350,14 @@ class SellerMiddleware:
 
 
 class BuyerMiddleware:
-    def __init__(self, rpc, signatures, resolve_receipt, supported):
+    def __init__(self, rpc, receipt_keys, resolve_receipt, supported, *, journal_path=":memory:"):
         self.rpc = rpc
-        self.signatures = signatures
+        self.receipt_keys = receipt_keys
         self.resolve_receipt = resolve_receipt
         self.supported = frozenset(supported)
+        self._submissions = sqlite3.connect(journal_path)
+        self._submissions.execute("CREATE TABLE IF NOT EXISTS buyer_submissions (tx_hash TEXT PRIMARY KEY, canonical BLOB NOT NULL, offer TEXT NOT NULL)")
+        self._submissions.commit()
 
     def parse_offer(self, header):
         required = validate_required(decode_header(header))
@@ -364,26 +370,40 @@ class BuyerMiddleware:
         required, offer = self.parse_offer(header)
         if offer["scheme"] != "exact":
             raise ValueError("grant-requires-receive-payload")
-        result = self.rpc.send(canonical_hex, payment_commitment(offer.get("extra")))
-        if result.get("state") == "pending":
-            if result.get("activity_id") != activity_id:
+        raw = _transaction_bytes(canonical_hex)
+        from .payment_transaction import decode_payment_transaction
+        transaction = decode_payment_transaction(raw)
+        if activity_id != "0x" + keccak256(raw).hex() or transaction.chain_id != 125:
+            raise ValueError("activity-mismatch")
+        with self._submissions:
+            prior = self._submissions.execute("SELECT canonical, offer FROM buyer_submissions WHERE tx_hash = ?", (activity_id,)).fetchone()
+            if prior is not None and prior != (raw, _canonical(offer)):
+                raise ValueError("buyer-submission-conflict")
+            claimed = self._submissions.execute("INSERT OR IGNORE INTO buyer_submissions VALUES (?, ?, ?)", (activity_id, raw, _canonical(offer))).rowcount
+        if claimed:
+            sent = self.rpc.send("0x" + raw.hex())
+            if sent != activity_id:
                 raise ValueError("activity-mismatch")
+        result = self.rpc.receipt(activity_id)
+        if result is None or result.get("rung") == "submitted":
             return None
-        receipt = rpc_hex(result.get("receipt"))
+        if payment_commitment(offer.get("extra")) == "committed" and result.get("rung") != "committed":
+            return None
+        receipt = _transaction_bytes(result.get("receipt"))
         evidence = self.resolve_receipt(receipt, offer)
         verified = verify_rpc_payment(
             result,
             activity_id,
             payer,
-            evidence.authorized_batch,
-            self.signatures,
+            receipt_keys=self.receipt_keys,
+            raw_transaction=evidence.raw_transaction,
+            finality=evidence.finality,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
         )
-        if verified is None or evidence.canonical_receipt != receipt:
+        if verified["rung"] == "pending" or evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
         return encode_header(
             {
@@ -484,10 +504,13 @@ class BuyerMiddleware:
     def capture_grant_settlement(self, header, payment_header, expected_activity):
         from .x402_receive import decode_receive
 
-        rpc_hex(expected_activity, 32)
+        expected_hash = _transaction_bytes(expected_activity, 32)
         payment = validate_payload(decode_header(payment_header))
         receive = decode_receive(rpc_hex(payment["payload"]["receive"], 733))
         offer = payment["accepted"]
+        from .x402_grant import validate_grant_draw
+        import time
+        validate_grant_draw(rpc_hex(payment["payload"]["receive"], 733), offer, payment["payload"]["idempotencyKey"], 125, int(time.time()))
         settlement = _object(decode_header(header))
         body = _object(_object(settlement.get("extensions")).get("layerx"))
         if (
@@ -512,17 +535,20 @@ class BuyerMiddleware:
         evidence = self.resolve_receipt(receipt, offer)
         if evidence.canonical_receipt != receipt:
             raise ValueError("receipt-mismatch")
-        return verify_rpc_payment(
-            {"activity_id": expected_activity, "receipt": receipt.hex()},
-            expected_activity,
-            receive["from"],
-            evidence.authorized_batch,
-            self.signatures,
+        if keccak256(evidence.raw_transaction) != expected_hash:
+            raise ValueError("transaction-hash-mismatch")
+        return verify_payment_receipt(
+            receipt,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
+            payer=receive["from"],
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
+            finality=evidence.finality,
+            scheme=offer["scheme"],
+            grant_binding=receive,
         )
 
     def capture_settlement(self, header, payment_header):
@@ -556,28 +582,44 @@ class BuyerMiddleware:
             raise ValueError("receipt-mismatch")
         verified = verify_payment_receipt(
             receipt,
-            evidence.authorized_batch,
-            self.signatures,
+            evidence.raw_transaction,
+            self.receipt_keys,
             amount=offer["amount"],
             asset=offer["asset"],
             pay_to=offer["payTo"],
             payer=payment_payer(offer.get("extra")),
             commitment=payment_commitment(offer.get("extra")),
-            evidence=evidence.commitment_evidence,
+            finality=evidence.finality,
         )
-        if settlement.get("payer") != verified.receipt.from_account.hex():
+        if settlement.get("payer") != ledger_payment_payer(verified, evidence.raw_transaction, offer["scheme"]):
             raise ValueError("settlement-payer-mismatch")
         return verified
 
 
 class ConfiguredReceiptAuthority:
-    def __init__(self, authorized_batch, commitment_evidence=None):
-        self.authorized_batch = authorized_batch
-        self.commitment_evidence = commitment_evidence
+    def __init__(self, raw_transaction: bytes, *, rpc=None, receipt_keys=(),
+                 commit_trust=None, committed_evidence=None):
+        self.raw_transaction = raw_transaction
+        self.rpc = rpc
+        self.receipt_keys = receipt_keys
+        self.commit_trust = commit_trust
+        self.committed_evidence = committed_evidence
 
     def __call__(self, receipt, offer):
         validate_requirements(offer)
-        return PaymentEvidence(receipt, self.authorized_batch, self.commitment_evidence)
+        if self.rpc is None:
+            return PaymentEvidence(receipt, self.raw_transaction)
+        from .x402_rpc import rpc_payment_evidence
+        result = self.rpc.receipt("0x" + keccak256(self.raw_transaction).hex())
+        evidence = rpc_payment_evidence(
+            result, self.raw_transaction, self.receipt_keys,
+            commit_trust=self.commit_trust, committed_evidence=self.committed_evidence,
+        )
+        if evidence is None or evidence.canonical_receipt != receipt:
+            raise ValueError("receipt-mismatch")
+        if payment_commitment(offer.get("extra")) == "committed" and evidence.finality is None:
+            raise ValueError("missing-committed-evidence")
+        return evidence
 
 
 def grant_payment_header(required, accepted, receive_hex):

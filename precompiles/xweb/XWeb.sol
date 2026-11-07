@@ -79,6 +79,16 @@ interface IXWeb {
         uint256 paid,
         uint64 timeoutHeight
     );
+    /// Program schema V1: kind is 1 fetch or 2 search; origin is always program (2).
+    /// sequence is the accepted program call sequence, not a deadline.
+    /// Only admission emits this event; fulfilment retains a replay tombstone.
+    event XWebProgramRequested(
+        bytes32 indexed programId,
+        uint64 indexed requestId,
+        uint8 kind,
+        bytes payload,
+        uint64 sequence
+    );
     event XWebFulfilled(
         uint64 indexed requestId,
         address indexed requester,
@@ -100,6 +110,7 @@ interface IXWeb {
         bytes[] calldata signatures
     ) external returns (uint8 callback, uint64 callbackGasUsed);
 
+    /// Selector 0x2d4bf7ad. Native void calls must not require deployed bytecode.
     function fulfilProgram(bytes calldata observation) external;
 
     function refund(uint64 requestId) external;
@@ -116,11 +127,13 @@ interface IXWeb {
 
     function getParams() external view returns (Params memory);
 
+    /// Selector 0x2b2e13fc; the program-origin answer is read directly from 0x1019.
     function getProgramResult(bytes32 programId, uint64 requestId)
         external
         view
         returns (bytes32 contentDigest, uint32 fullLength, uint32 responseLength, bytes memory response);
 
+    /// Selector 0xfc0d26f4; this is the kernel network id, not the EVM chain id.
     function getKernelNetworkId() external view returns (uint32 kernelNetworkId);
 }
 

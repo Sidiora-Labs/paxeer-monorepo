@@ -1,5 +1,5 @@
 use std::io::{self, Read, Write};
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream, ToSocketAddrs as _};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream};
 use std::time::{Duration, Instant};
 
 use crate::canonical::{self, CanonicalError, ContentKind};
@@ -15,9 +15,7 @@ use crate::server::{QueryError, Request, Response};
 /// The media types a fetch asks for.
 pub const ACCEPT: &str = "text/html, text/plain, application/json";
 
-const MAX_RESPONSE_HEAD: usize = 65_536;
-const MAX_CHUNK_LINE: usize = 1_024;
-const READ_CHUNK: usize = 16_384;
+use crate::http::{TimedRead, Wire};
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum FetchError {
@@ -391,125 +389,9 @@ fn remaining(deadline: Instant) -> Result<Duration, FetchError> {
     }
 }
 
-struct Wire {
-    stream: Stream,
-    buffer: Vec<u8>,
-    start: usize,
-    deadline: Instant,
-}
-
-impl Wire {
-    fn available(&self) -> &[u8] {
-        &self.buffer[self.start..]
-    }
-
-    fn fill(&mut self) -> Result<usize, FetchError> {
-        let mut chunk = [0_u8; READ_CHUNK];
-        loop {
-            let left = remaining(self.deadline)?;
-            self.stream
-                .socket()
-                .set_read_timeout(Some(left))
-                .map_err(|_| FetchError::Transport)?;
-            match self.stream.read(&mut chunk) {
-                Ok(count) => {
-                    self.buffer.extend_from_slice(&chunk[..count]);
-                    return Ok(count);
-                }
-                Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
-                Err(error)
-                    if matches!(
-                        error.kind(),
-                        io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut
-                    ) =>
-                {
-                    return Err(FetchError::Timeout)
-                }
-                Err(_) => return Err(FetchError::Transport),
-            }
-        }
-    }
-
-    fn line(&mut self, maximum: usize) -> Result<String, FetchError> {
-        loop {
-            if let Some(end) = self.available().windows(2).position(|pair| pair == b"\r\n") {
-                let line = std::str::from_utf8(&self.available()[..end])
-                    .map_err(|_| FetchError::MalformedResponse)?
-                    .to_owned();
-                self.start += end + 2;
-                return Ok(line);
-            }
-            if self.available().len() > maximum || self.fill()? == 0 {
-                return Err(FetchError::MalformedResponse);
-            }
-        }
-    }
-
-    fn head(&mut self) -> Result<String, FetchError> {
-        loop {
-            if let Some(end) = self
-                .available()
-                .windows(4)
-                .position(|window| window == b"\r\n\r\n")
-            {
-                let head = std::str::from_utf8(&self.available()[..end])
-                    .map_err(|_| FetchError::MalformedResponse)?
-                    .to_owned();
-                self.start += end + 4;
-                return Ok(head);
-            }
-            if self.available().len() > MAX_RESPONSE_HEAD || self.fill()? == 0 {
-                return Err(FetchError::MalformedResponse);
-            }
-        }
-    }
-
-    fn take(&mut self, count: usize) -> Result<Vec<u8>, FetchError> {
-        while self.available().len() < count {
-            if self.fill()? == 0 {
-                return Err(FetchError::MalformedResponse);
-            }
-        }
-        let bytes = self.available()[..count].to_vec();
-        self.start += count;
-        Ok(bytes)
-    }
-
-    fn until_close(&mut self, limit: usize) -> Result<Vec<u8>, FetchError> {
-        loop {
-            if self.available().len() > limit {
-                return Err(FetchError::BodyTooLarge);
-            }
-            if self.fill()? == 0 {
-                let bytes = self.available().to_vec();
-                self.start = self.buffer.len();
-                return Ok(bytes);
-            }
-        }
-    }
-
-    fn chunked(&mut self, limit: usize) -> Result<Vec<u8>, FetchError> {
-        let mut body = Vec::new();
-        loop {
-            let line = self.line(MAX_CHUNK_LINE)?;
-            let size = line.split(';').next().unwrap_or_default().trim();
-            if size.is_empty() || size.len() > 16 {
-                return Err(FetchError::MalformedResponse);
-            }
-            let size =
-                usize::from_str_radix(size, 16).map_err(|_| FetchError::MalformedResponse)?;
-            if size == 0 {
-                while !self.line(MAX_RESPONSE_HEAD)?.is_empty() {}
-                return Ok(body);
-            }
-            if body.len().saturating_add(size) > limit {
-                return Err(FetchError::BodyTooLarge);
-            }
-            body.extend_from_slice(&self.take(size)?);
-            if self.take(2)? != b"\r\n" {
-                return Err(FetchError::MalformedResponse);
-            }
-        }
+impl TimedRead for Stream {
+    fn set_read_timeout(&self, timeout: Duration) -> io::Result<()> {
+        self.socket().set_read_timeout(Some(timeout))
     }
 }
 
@@ -520,6 +402,8 @@ pub struct HttpResponse {
     pub status: u16,
     pub headers: Vec<(String, String)>,
     pub body: Vec<u8>,
+    /// Peak wire buffer length, excluding the decoded response body.
+    pub wire_buffer_peak: usize,
 }
 
 impl HttpResponse {
@@ -667,12 +551,7 @@ impl HttpClient {
                 io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut => FetchError::Timeout,
                 _ => FetchError::Transport,
             })?;
-        let mut wire = Wire {
-            stream,
-            buffer: Vec::with_capacity(READ_CHUNK),
-            start: 0,
-            deadline,
-        };
+        let mut wire = Wire::new(stream, deadline);
         let (status, headers) = loop {
             let (status, headers) = parse_head(&wire.head()?)?;
             if !(100..200).contains(&status) {
@@ -683,6 +562,7 @@ impl HttpClient {
             status,
             headers,
             body: Vec::new(),
+            wire_buffer_peak: wire.buffer_peak(),
         };
         if !(200..300).contains(&status) {
             return Ok(response);
@@ -710,6 +590,7 @@ impl HttpClient {
         } else {
             wire.until_close(body_limit)?
         };
+        response.wire_buffer_peak = wire.buffer_peak();
         Ok(response)
     }
 }
@@ -736,6 +617,7 @@ pub struct Fetcher {
     limits: FetchLimits,
     client: HttpClient,
     robots: RobotsCache,
+    resolver: crate::resolve::Resolver,
 }
 
 const fn redirect(status: u16) -> bool {
@@ -747,6 +629,13 @@ impl Fetcher {
     /// Refuses limits beyond a 3 second connect limit, a 10 second total
     /// limit, a 2 MiB body and three redirects, and zero limits.
     pub fn new(limits: FetchLimits) -> Result<Self, FetchError> {
+        Self::with_resolver(limits, crate::resolve::Resolver::system()?)
+    }
+
+    pub fn with_resolver(
+        limits: FetchLimits,
+        resolver: crate::resolve::Resolver,
+    ) -> Result<Self, FetchError> {
         let valid = (1..=CONNECT_TIMEOUT_LIMIT_MS).contains(&limits.connect_timeout_ms)
             && (limits.connect_timeout_ms..=TOTAL_TIMEOUT_LIMIT_MS)
                 .contains(&limits.total_timeout_ms)
@@ -759,6 +648,7 @@ impl Fetcher {
             client: HttpClient::new(limits.connect_timeout())?,
             limits,
             robots: RobotsCache::new(),
+            resolver,
         })
     }
 
@@ -777,10 +667,15 @@ impl Fetcher {
     /// # Errors
     /// Refuses an unresolvable host and a forbidden destination.
     pub fn destination(&self, url: &Url) -> Result<SocketAddr, FetchError> {
-        let addresses: Vec<SocketAddr> = (url.bare_host(), url.port)
-            .to_socket_addrs()
-            .map_err(|_| FetchError::Resolve)?
-            .collect();
+        self.destination_before(url, Instant::now() + self.limits.total_timeout())
+    }
+
+    pub fn destination_before(
+        &self,
+        url: &Url,
+        deadline: Instant,
+    ) -> Result<SocketAddr, FetchError> {
+        let addresses = self.resolver.resolve(url.bare_host(), url.port, deadline)?;
         let first = *addresses.first().ok_or(FetchError::Resolve)?;
         if addresses
             .iter()
@@ -835,7 +730,7 @@ impl Fetcher {
                     current = current
                         .join(location)
                         .map_err(|_| FetchError::RobotsUnavailable)?;
-                    address = self.destination(&current)?;
+                    address = self.destination_before(&current, deadline)?;
                 }
                 400..=499 => break Robots::allow_all(),
                 _ => return Err(FetchError::RobotsUnavailable),
@@ -845,63 +740,28 @@ impl Fetcher {
         Ok(robots)
     }
 
-    /// Fetches a URL: destination and robots.txt checks before every
-    /// request, at most the configured redirects each checked again, the
-    /// body limit and the time limits, then extraction and the canonical
-    /// bytes with the requested URL as the payload.
-    ///
-    /// # Errors
-    /// Returns the refusal that stopped the fetch.
-    pub fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
+    fn fetch_response(
+        &self,
+        url: &str,
+        limit: usize,
+        accept: &str,
+    ) -> Result<(Url, HttpResponse), FetchError> {
         let deadline = Instant::now() + self.limits.total_timeout();
         let mut current = Url::parse(url)?;
         let mut redirects = 0_u8;
         loop {
-            let address = self.destination(&current)?;
+            let address = self.destination_before(&current, deadline)?;
             if !self
                 .robots_for(&current, address, deadline)?
                 .allows(&current.target)
             {
                 return Err(FetchError::RobotsDisallowed);
             }
-            let response = self.client.get(
-                &current,
-                address,
-                deadline,
-                self.body_limit(),
-                &[("Accept", ACCEPT)],
-            )?;
+            let response =
+                self.client
+                    .get(&current, address, deadline, limit, &[("Accept", accept)])?;
             match response.status {
-                200..=299 => {
-                    let content_type = response.header("content-type");
-                    let extracted = extract::extract(content_type, &response.body)
-                        .map_err(FetchError::Extract)?;
-                    let charset = content_type
-                        .map(extract::parse_content_type)
-                        .transpose()
-                        .map_err(FetchError::Extract)?
-                        .and_then(|(_, charset)| charset);
-                    let canonical = canonical::canonical_bytes(
-                        ContentKind::Fetch,
-                        url.as_bytes(),
-                        &extracted.media_type,
-                        &extracted.text,
-                    )
-                    .map_err(FetchError::Canonical)?;
-                    if canonical.len() > MAX_CONTENT_BYTES {
-                        return Err(FetchError::ContentTooLarge);
-                    }
-                    return Ok(FetchedPage {
-                        url: url.to_owned(),
-                        final_url: current.to_string(),
-                        media_type: extracted.media_type,
-                        text: extracted.text,
-                        digest: canonical::content_digest(&canonical),
-                        canonical,
-                        body: response.body,
-                        charset,
-                    });
-                }
+                200..=299 => return Ok((current, response)),
                 status if redirect(status) => {
                     if redirects >= self.limits.max_redirects {
                         return Err(FetchError::TooManyRedirects);
@@ -915,6 +775,54 @@ impl Fetcher {
                 status => return Err(FetchError::Status(status)),
             }
         }
+    }
+
+    pub fn fetch_bytes(&self, url: &str, limit: usize) -> Result<Vec<u8>, FetchError> {
+        if limit == 0 {
+            return Err(FetchError::InvalidLimits);
+        }
+        let (_, response) =
+            self.fetch_response(url, limit.min(8 * 1024 * 1024), "application/octet-stream")?;
+        Ok(response.body)
+    }
+
+    /// Fetches a URL: destination and robots.txt checks before every
+    /// request, at most the configured redirects each checked again, the
+    /// body limit and the time limits, then extraction and the canonical
+    /// bytes with the requested URL as the payload.
+    ///
+    /// # Errors
+    /// Returns the refusal that stopped the fetch.
+    pub fn fetch(&self, url: &str) -> Result<FetchedPage, FetchError> {
+        let (current, response) = self.fetch_response(url, self.body_limit(), ACCEPT)?;
+        let content_type = response.header("content-type");
+        let extracted =
+            extract::extract(content_type, &response.body).map_err(FetchError::Extract)?;
+        let charset = content_type
+            .map(extract::parse_content_type)
+            .transpose()
+            .map_err(FetchError::Extract)?
+            .and_then(|(_, charset)| charset);
+        let canonical = canonical::canonical_bytes(
+            ContentKind::Fetch,
+            url.as_bytes(),
+            &extracted.media_type,
+            &extracted.text,
+        )
+        .map_err(FetchError::Canonical)?;
+        if canonical.len() > MAX_CONTENT_BYTES {
+            return Err(FetchError::ContentTooLarge);
+        }
+        Ok(FetchedPage {
+            url: url.to_owned(),
+            final_url: current.to_string(),
+            media_type: extracted.media_type,
+            text: extracted.text,
+            digest: canonical::content_digest(&canonical),
+            canonical,
+            body: response.body,
+            charset,
+        })
     }
 }
 

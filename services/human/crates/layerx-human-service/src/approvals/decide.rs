@@ -68,7 +68,7 @@ pub trait AgentDecisionBoundary: ApprovalBoundary {
         approval_id: [u8; 32],
         held_digest: [u8; 32],
         idempotency_key: &str,
-        current_sequence: u64,
+        pending_nonce: u64,
     ) -> Result<AgentDecision, ApprovalBoundaryError>;
 
     /// Rejects exactly the named hold through the approval module.
@@ -172,13 +172,19 @@ impl Decisions {
         boundary: &mut B,
         approval_id: [u8; 32],
         idempotency_key: &str,
-        current_sequence: u64,
+        pending_nonce: u64,
         now: u64,
         audit: &mut AuditChain,
         trace: &TraceId,
     ) -> Result<DecisionResult, DecisionError> {
         validate_idempotency_key(idempotency_key)?;
-        let hold = load_hold(boundary, approval_id, current_sequence)?;
+        let hold = load_hold(boundary, approval_id, pending_nonce)?;
+        let budget = boundary.verified_budget_after(&hold, pending_nonce)?;
+        if budget.verification() != super::BudgetVerification::Verified
+            || budget.observed_at_sequence > pending_nonce
+        {
+            return Err(DecisionError::UnverifiedBudget);
+        }
         match passkeys.authorize(
             scope,
             access_token,
@@ -200,7 +206,7 @@ impl Decisions {
             approval_id,
             hold.canonical_bytes_digest,
             idempotency_key,
-            current_sequence,
+            pending_nonce,
         )?;
         let tracking = tracking(boundary, decision)?;
         let ceremony_digest = step_up_digest(step_up);
@@ -209,7 +215,7 @@ impl Decisions {
             audit,
             trace,
             now,
-            current_sequence,
+            pending_nonce,
             approval_id,
             hold.canonical_bytes_digest,
             idempotency_key,
@@ -537,6 +543,7 @@ fn hex(bytes: impl AsRef<[u8]>) -> String {
 pub enum DecisionError {
     InvalidIdempotencyKey,
     DefectiveHold,
+    UnverifiedBudget,
     ReauthenticationRequired,
     MissingSubmissionReference,
     Agent(ApprovalBoundaryError),
@@ -551,6 +558,9 @@ impl Display for DecisionError {
         match self {
             Self::InvalidIdempotencyKey => formatter.write_str("invalid approval idempotency key"),
             Self::DefectiveHold => formatter.write_str("agent approval hold is defective"),
+            Self::UnverifiedBudget => {
+                formatter.write_str("approval requires committed budget evidence")
+            }
             Self::ReauthenticationRequired => {
                 formatter.write_str("approval decision requires reauthentication")
             }

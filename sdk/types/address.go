@@ -13,7 +13,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/internal/conv"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/address"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -276,14 +275,15 @@ func (aa AccAddress) String() string {
 		return ""
 	}
 
-	var key = conv.UnsafeBytesToStr(aa)
+	prefix := GetConfig().GetBech32AccountAddrPrefix()
+	key := prefix + "\x00" + string(aa)
 	accAddrMu.Lock()
 	defer accAddrMu.Unlock()
 	addr, ok := accAddrCache.Get(key)
 	if ok {
 		return addr
 	}
-	return cacheBech32Addr(GetConfig().GetBech32AccountAddrPrefix(), aa, accAddrCache, key)
+	return cacheBech32Addr(prefix, aa, accAddrCache, key)
 }
 
 // Format implements the fmt.Formatter interface.
@@ -426,14 +426,15 @@ func (va ValAddress) String() string {
 		return ""
 	}
 
-	var key = conv.UnsafeBytesToStr(va)
+	prefix := GetConfig().GetBech32ValidatorAddrPrefix()
+	key := prefix + "\x00" + string(va)
 	valAddrMu.Lock()
 	defer valAddrMu.Unlock()
 	addr, ok := valAddrCache.Get(key)
 	if ok {
 		return addr
 	}
-	return cacheBech32Addr(GetConfig().GetBech32ValidatorAddrPrefix(), va, valAddrCache, key)
+	return cacheBech32Addr(prefix, va, valAddrCache, key)
 }
 
 // Format implements the fmt.Formatter interface.
@@ -581,14 +582,15 @@ func (ca ConsAddress) String() string {
 		return ""
 	}
 
-	var key = conv.UnsafeBytesToStr(ca)
+	prefix := GetConfig().GetBech32ConsensusAddrPrefix()
+	key := prefix + "\x00" + string(ca)
 	consAddrMu.Lock()
 	defer consAddrMu.Unlock()
 	addr, ok := consAddrCache.Get(key)
 	if ok {
 		return addr
 	}
-	return cacheBech32Addr(GetConfig().GetBech32ConsensusAddrPrefix(), ca, consAddrCache, key)
+	return cacheBech32Addr(prefix, ca, consAddrCache, key)
 }
 
 // Bech32ifyAddressBytes returns a bech32 representation of address bytes.

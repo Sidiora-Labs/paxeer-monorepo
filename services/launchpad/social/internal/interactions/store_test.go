@@ -4,10 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -75,21 +75,13 @@ func TestPostgres(t *testing.T) {
 		t.Fatal(e)
 	}
 	defer db.Close()
-	proposal, e := os.ReadFile(filepath.Join("../../../../..", "launchpad/spec/production-system/handoffs/L37/phase1/schema-proposal.sql"))
-	if e != nil {
-		t.Fatal(e)
+	for _, version := range []int{370000, 380000, 370001} {
+		ddl := internaltest.CoordinatorMigrationSQL(t, schema, version)
+		if _, e = db.Exec(ctx, ddl); e != nil {
+			t.Fatalf("apply coordinator migration %d: %v", version, e)
+		}
 	}
-	ddl := string(proposal)
-	if _, e = db.Exec(ctx, ddl); e != nil {
-		t.Fatal(e)
-	}
-	phase2, e := os.ReadFile(filepath.Join("../../../../..", "launchpad/spec/production-system/handoffs/L37/phase2/schema-proposal.sql"))
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = db.Exec(ctx, string(phase2)); e != nil {
-		t.Fatal(e)
-	}
+
 	s := Store{db, permit{}}
 	actor := "0x0000000000000000000000000000000000000001"
 	pool := "0x0000000000000000000000000000000000000002"

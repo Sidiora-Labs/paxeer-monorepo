@@ -1,0 +1,125 @@
+[disposition.1.14.2.1]
+finding = "1.14.2.1"
+status = "resolved"
+evidence = "fd9474b30 fixes fill_staging with a three-byte key containing both index bytes at tests/codec/lxp_test_sandbox_lifecycle.c:541 and asserts that every put adds a distinct staged write at tests/codec/lxp_test_sandbox_lifecycle.c:546."
+
+[disposition.1.14.3]
+finding = "1.14.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:101814 omits the unindexed LX_PROGRAMS_FEE_GOVERNANCE enumerator from the task symbols while retaining the two fee functions and both tests implemented by 87915db4d."
+
+[disposition.1.14.4]
+finding = "1.14.4"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:101846 requires only the sweep host function and both bound tests, leaving MAX_EXPIRIES_PER_BATCH out of the graph contract while src/modules/programs/sandbox_expiry.c:14 retains the 128-lease bound landed by b11fe1c78."
+
+[disposition.1.15.1]
+finding = "1.15.1"
+status = "resolved"
+evidence = "38c544316 adds -lsqlite3 to the shared kernel test link rule, which still links it at Makefile:1141."
+
+[disposition.1.15.1.1]
+finding = "1.15.1.1"
+status = "resolved"
+evidence = "78f66f8c1 restores the 53 checksum-listed vendor files omitted by the refresh and adds the versioned cc target and vendor fixture exceptions retained at programs/.gitignore:3."
+
+[disposition.1.15.1.2]
+finding = "1.15.1.2"
+status = "resolved"
+evidence = "9a7022b28 replaces the obsolete checkpoint and settlement initializer fields with block commit facts at services/agent/crates/layerx-client/src/ai_market.rs:270, matching FinalityEvidence at programs/crates/layerx-programs-ai-market/src/queries.rs:275."
+
+[disposition.1.15.1.3]
+finding = "1.15.1.3"
+status = "resolved"
+evidence = "38c544316 declares the renamed included main static and unused at tests/codec/lxp_test_state_feed_unbound.c:2 so its obsolete lxp_batch_sign path need not be linked."
+
+[disposition.1.16.1]
+finding = "1.16.1"
+status = "resolved"
+evidence = "415e46402 adds the direct layerx/lxp_replica.h include retained at src/protocol/lxp_kernel.c:14 so lxp_replay_activity_output remains complete after programs.h stops including the replica header."
+
+[disposition.1.16.3]
+finding = "1.16.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102074 requires only module_kv_bound_raised and staged_writes_bound_raised, omitting both unindexed enumerators while include/layerx/lxp_kernel.h:18 retains the bounds raised by abe4b242c."
+
+[disposition.1.17.1]
+finding = "1.17.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102107 retains the lxp_governance_authority struct and both tests but omits the governance_authority field and LXP_GOVERNANCE_HANDOVER enumerator that caused graph refusal of the implementation landed by 109055911."
+
+[disposition.1.17.3]
+finding = "1.17.3"
+status = "resolved"
+evidence = "e713b182a refreshes the offline vendor set with tungstenite 0.29.0, whose package name and version remain at programs/vendor/tungstenite-0.29.0/Cargo.toml:15, and spec/layerx-merge/spec.kvx:102173 omits the deleted handover builder from the graph contract."
+
+[disposition.1.18.1]
+finding = "1.18.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102243 omits the unindexed LXP_MODULE_WEB and LXP_MODULE_BRIDGE enumerators while include/layerx/lxp_module.h:22 retains their reserved IDs after the unregistration landed by ad8a576e8."
+
+[disposition.1.19.1]
+finding = "1.19.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102376 omits lxp_withdrawal_claim and lxp_exit_claim from the graph contract and retains bridge_claim_symbols_absent after 3b005f8bd deletes both claim types from include/layerx/lxp_bridge.h."
+
+[disposition.1.20.2]
+finding = "1.20.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102508 requires the two execute functions and three tests without the unindexed LXP_ERR_UNAUTHORIZED_ARBITER enumerator, whose actual enforcement remains at src/modules/service/lx_service_dispute.c:116 after 5784a3707."
+
+[disposition.1.21.1]
+finding = "1.21.1"
+status = "resolved"
+evidence = "366ca037c restores the machine-readable contract table and separates the generated inventory, so spec/layerx-merge/contracts/address-table.md:328 supplies the five-column LXP_ARBITER_REQUIRED registry row instead of the two-column inventory row."
+
+[disposition.1.21.3]
+finding = "1.21.3"
+status = "resolved"
+evidence = "ad158e83c implements the LXP_ERR_UNKNOWN fallback at modules/lxphost/code.go:9, matching src/protocol/lxp_result.c:38 and the corrected task contract at spec/layerx-merge/spec.kvx:102598."
+
+[disposition.1.22.2]
+finding = "1.22.2"
+status = "resolved"
+evidence = "220850ae7 passes the Programs module slice to h.withRead at modules/lxphost/read_program.go:141, removing the obsolete two-argument call."
+
+[disposition.1.23.3]
+finding = "1.23.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:102814 records task 1.23.3 done after 44edbdfbc lands the repaired fixture, which uses owner-authorized asset setup at modules/lxphost/authority_test.go:158 and a signed funding send with success assertions at modules/lxphost/authority_test.go:199."
+
+[disposition.1.23.5]
+finding = "1.23.5"
+status = "resolved"
+evidence = "38c544316 removes the commit-observer requirement from the Programs state-activity gate now at src/protocol/lxp_kernel.c:6622, and modules/lxphost/host.go:277 binds the required Programs runtime so ACCOUNT and WIND_DOWN no longer depend on the retired feed."
+
+[disposition.1.29.1]
+finding = "1.29.1"
+status = "open"
+evidence = "modules/lxphost/oracle_codec_test.go:13 still requires lx_oracle_adapter.o and fails when it is absent although Makefile:45 excludes that source and 01d41cf0b deletes the adapter, so the completed retirement has not repaired this stale test."
+follow_up = "22.1.3"
+
+[disposition.1.30.1]
+finding = "1.30.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:103481 requires only TestRetiredGatewayGrantSymbolsAbsent, which checks the three retired names at modules/lxphost/retired_gateway_test.go:9 after 5d2309c3b deletes their definitions."
+
+[disposition.1.31.4.1]
+finding = "1.31.4.1"
+status = "superseded"
+evidence = "9e9dbb81d retires src/guarantor/lxp_guarantor.c and lxp_guarantor_process_batch entirely after b91c390c3 had already removed its dangling lxp_guarantor_withhold call."
+
+[disposition.1.40.1.1]
+finding = "1.40.1.1"
+status = "resolved"
+evidence = "f674f74b7 tests truncated host receipts through DecodeReceipt and ErrTruncated at modules/lxphost/codec_conformance_test.go:72 while using IsProtocolReceiptShape only for the intact receipt header."
+
+[disposition.1.93.2]
+finding = "1.93.2"
+status = "resolved"
+evidence = "modules/lxphost/host.go:277 binds both required Programs runtime resolvers and the fixture landed by 3ccf32fe0 constructs an LX_PROGRAMS_CALL activity at modules/lxphost/simulate_test.go:117 for both receipt-parity and unchanged-store tests."
+
+[disposition.1.93.2.2]
+finding = "1.93.2.2"
+status = "resolved"
+evidence = "3ccf32fe0 supplies a nonzero AuthorityHash at modules/lxphost/simulate_test.go:23 and passes the same authority to Execute and Simulate at modules/lxphost/simulate_test.go:143 while preserving the -207 and -7 expectations."

@@ -14,6 +14,12 @@ struct HeaderCode {
     c_name: String,
 }
 
+struct RegistryRow {
+    code: String,
+    message: String,
+    retryable: bool,
+}
+
 fn read_file(path: &Path) -> String {
     fs::read_to_string(path)
         .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()))
@@ -127,7 +133,7 @@ fn mirror_codes(source: &str) -> Result<Vec<Code>, String> {
     Ok(codes)
 }
 
-fn registry_retryable(source: &str) -> Result<Vec<(String, String)>, String> {
+fn registry_retryable(source: &str) -> Result<Vec<RegistryRow>, String> {
     let section = source
         .split_once("\n## (b) ")
         .ok_or_else(|| "section (b) Error code registry is missing".to_owned())?
@@ -141,12 +147,25 @@ fn registry_retryable(source: &str) -> Result<Vec<(String, String)>, String> {
             continue;
         }
         let cells: Vec<&str> = line.split('|').map(str::trim).collect();
-        let ["", code, _message, _construct, _origin, retryable, ""] = cells.as_slice() else {
+        let ["", code, message, _construct, _origin, retryable, ""] = cells.as_slice() else {
             return Err(format!(
                 "registry row does not have the five columns Code, Message, Emitting construct, origin and Retryable: {line}"
             ));
         };
-        rows.push(((*code).to_owned(), (*retryable).to_owned()));
+        let retryable = match *retryable {
+            "yes" => true,
+            "no" => false,
+            other => {
+                return Err(format!(
+                    "{code} has the Retryable cell {other:?}, which is neither yes nor no"
+                ));
+            }
+        };
+        rows.push(RegistryRow {
+            code: (*code).to_owned(),
+            message: (*message).to_owned(),
+            retryable,
+        });
     }
     if rows.is_empty() {
         return Err("section (b) holds no LXP_ registry row".to_owned());
@@ -160,16 +179,13 @@ fn registry_code_name(c_name: &str) -> String {
         .map_or_else(|| c_name.to_owned(), |rest| format!("LXP_{rest}"))
 }
 
-fn retriability(
-    header: &HeaderCode,
-    registry: &[(String, String)],
-) -> Result<&'static str, String> {
+fn retriability(header: &HeaderCode, registry: &[RegistryRow]) -> Result<&'static str, String> {
     if header.c_name == "LXP_OK" {
         return Ok("Terminal");
     }
     let code = registry_code_name(&header.c_name);
-    let mut rows = registry.iter().filter(|(name, _)| *name == code);
-    let Some((_, cell)) = rows.next() else {
+    let mut rows = registry.iter().filter(|row| row.code == code);
+    let Some(row) = rows.next() else {
         return Err(format!(
             "{} has no registry row {code} in section (b)",
             header.c_name
@@ -180,25 +196,17 @@ fn retriability(
             "{code} has more than one registry row in section (b)"
         ));
     }
-    let class = match cell.as_str() {
-        "yes" => "Retriable",
-        "no" => "Terminal",
-        other => {
-            return Err(format!(
-                "{code} has the Retryable cell {other:?}, which is neither yes nor no"
-            ));
-        }
-    };
     if header.code.value <= -1000 {
         return Ok("Terminal");
     }
-    Ok(class)
+    Ok(if row.retryable {
+        "Retriable"
+    } else {
+        "Terminal"
+    })
 }
 
-fn result_codes_body(
-    header: &[HeaderCode],
-    registry: &[(String, String)],
-) -> Result<String, String> {
+fn result_codes_body(header: &[HeaderCode], registry: &[RegistryRow]) -> Result<String, String> {
     let mut entries = String::new();
     for code in header {
         let class = retriability(code, registry)?;
@@ -209,10 +217,23 @@ fn result_codes_body(
         )
         .map_err(|error| format!("failed to format the result-code table: {error}"))?;
     }
+    let mut registry_entries = String::new();
+    for row in registry {
+        writeln!(
+            registry_entries,
+            "        ({:?}, {:?}, {}),",
+            row.code, row.message, row.retryable
+        )
+        .map_err(|error| format!("failed to format the registry retryability table: {error}"))?;
+    }
     Ok(format!(
         "// Generated from include/layerx/lxp_result.h and the Retryable column of\n\
 // spec/layerx-merge/contracts/address-table.md section (b) by build.rs. Do not edit.\n\n\
-protocol_result_codes! {{\n{entries}}}\n"
+protocol_result_codes! {{\n{entries}}}\n\n\
+mod generated_registry {{\n\
+    pub(super) const REGISTRY_RETRYABLE: &[(&str, &str, bool)] = &[\n\
+{registry_entries}    ];\n\
+}}\n"
     ))
 }
 
@@ -363,6 +384,7 @@ struct ProgramsActivityTable {
     upgrade: u16,
     call: u16,
     call_operation: u8,
+    account: u16,
 }
 
 fn programs_activity_ordinal(table: &[(String, u16)], name: &str) -> Result<u16, String> {
@@ -416,6 +438,7 @@ fn programs_activity_table(source: &str) -> Result<ProgramsActivityTable, String
     let deploy = programs_activity_ordinal(&types, "LX_PROGRAMS_DEPLOY")?;
     let upgrade = programs_activity_ordinal(&types, "LX_PROGRAMS_UPGRADE")?;
     let call = programs_activity_ordinal(&types, "LX_PROGRAMS_CALL")?;
+    let account = programs_activity_ordinal(&types, "LX_PROGRAMS_ACCOUNT")?;
     let call_operation = u8::try_from(call).map_err(|error| {
         format!("LX_PROGRAMS_CALL ordinal {call} does not fit the receipt operation tag: {error}")
     })?;
@@ -426,6 +449,7 @@ fn programs_activity_table(source: &str) -> Result<ProgramsActivityTable, String
         upgrade,
         call,
         call_operation,
+        account,
     })
 }
 
@@ -441,6 +465,7 @@ fn programs_activity_body(table: &ProgramsActivityTable) -> String {
     let upgrade = table.upgrade;
     let call = table.call;
     let call_operation = table.call_operation;
+    let account = table.account;
     format!(
         "// Generated from include/layerx/programs.h by build.rs. Do not edit.\n\n\
 /// The protocol module every Programs activity type of the kernel header carries.\n\
@@ -454,7 +479,9 @@ pub const UPGRADE_ORDINAL: u16 = {upgrade};\n\n\
 /// The ordinal the kernel header allocates to `LX_PROGRAMS_CALL`.\n\
 pub const CALL_ORDINAL: u16 = {call};\n\n\
 /// The one-byte ledger operation tag the kernel binds into a call receipt.\n\
-pub const CALL_OPERATION: u8 = {call_operation};\n"
+pub const CALL_OPERATION: u8 = {call_operation};\n\n\
+/// The ordinal the kernel header allocates to `LX_PROGRAMS_ACCOUNT`.\n\
+pub const ACCOUNT_ORDINAL: u16 = {account};\n"
     )
 }
 

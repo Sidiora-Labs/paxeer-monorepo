@@ -1,6 +1,7 @@
-import type { AuthorizedReceiptBatch } from "@sidiora/layerx-sdk";
+import type { SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import type { ReceiptKeyEntry } from "./receipts.js";
+import { MiddlewareError } from "@sidiora/layerx-seller-middleware";
 import type {
-  AuthorizedBatchResolver,
   FulfillmentRepository,
   StoredFulfillment,
   WebhookClaimResult,
@@ -8,25 +9,41 @@ import type {
   WebhookDeliveryStore,
 } from "@sidiora/layerx-seller-middleware";
 
-/** Resolves every receipt to a single fixed authorised batch, as a real relay would after fetching it. */
-export class FixedBatchResolver implements AuthorizedBatchResolver {
-  public constructor(private readonly batch: AuthorizedReceiptBatch) {}
+export class FixedReceiptKeys {
+  readonly #keys: readonly SequencerReceiptKey[];
 
-  public async resolve(): Promise<AuthorizedReceiptBatch> {
-    return this.batch;
+  public constructor(entries: readonly ReceiptKeyEntry[]) {
+    this.#keys = entries.map((entry) => ({
+      keyId: entry.keyId.slice(),
+      publicKey: entry.publicKey.slice(),
+      first_height: entry.firstHeight,
+      last_height: entry.lastHeight,
+    }));
+  }
+
+  public async resolve(): Promise<readonly SequencerReceiptKey[]> {
+    return this.#keys.map((key) => ({ ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice() }));
   }
 }
 
 /**
  * An in-memory, first-writer-wins fulfilment ledger. The release callback runs
- * exactly once per idempotency key; a replay returns the stored resource and a
- * digest mismatch is a conflict. This is the real durability contract the
- * seller middleware relies on, backed by a Map instead of a database.
+ * at most once per idempotency key; matching callers share its result and a
+ * digest mismatch is a conflict. Failed releases retain their claim because
+ * their outcome may be uncertain. Restart checks must use durable storage.
  */
 export class InMemoryFulfillmentRepository<T> implements FulfillmentRepository<T> {
   readonly #records = new Map<string, StoredFulfillment<T>>();
+  readonly #claims = new Map<string, {
+    requestDigest: string;
+    pending: Promise<StoredFulfillment<T>> | undefined;
+  }>();
 
   public releaseCount = 0;
+
+  public async get(idempotencyKey: string): Promise<StoredFulfillment<T> | undefined> {
+    return this.#records.get(idempotencyKey);
+  }
 
   public async fulfill(
     proposed: Omit<StoredFulfillment<T>, "resource">,
@@ -35,15 +52,39 @@ export class InMemoryFulfillmentRepository<T> implements FulfillmentRepository<T
     const existing = this.#records.get(proposed.idempotencyKey);
     if (existing !== undefined) {
       if (existing.requestDigest !== proposed.requestDigest) {
-        throw new Error("fulfillment-conflict");
+        throw new MiddlewareError("fulfillment-conflict");
       }
       return existing;
     }
-    const resource = await release();
-    this.releaseCount += 1;
-    const stored: StoredFulfillment<T> = { ...proposed, resource };
-    this.#records.set(proposed.idempotencyKey, stored);
-    return stored;
+    const existingClaim = this.#claims.get(proposed.idempotencyKey);
+    if (existingClaim !== undefined) {
+      if (existingClaim.requestDigest !== proposed.requestDigest) {
+        throw new MiddlewareError("fulfillment-conflict");
+      }
+      if (existingClaim.pending === undefined) {
+        throw new MiddlewareError("fulfillment-outcome-unknown");
+      }
+      return existingClaim.pending;
+    }
+    const claim = {
+      requestDigest: proposed.requestDigest,
+      pending: undefined as Promise<StoredFulfillment<T>> | undefined,
+    };
+    this.#claims.set(proposed.idempotencyKey, claim);
+    claim.pending = Promise.resolve().then(async () => {
+      try {
+        const resource = await release();
+        this.releaseCount += 1;
+        const stored: StoredFulfillment<T> = { ...proposed, resource };
+        this.#records.set(proposed.idempotencyKey, stored);
+        this.#claims.delete(proposed.idempotencyKey);
+        return stored;
+      } catch (error) {
+        claim.pending = undefined;
+        throw error;
+      }
+    });
+    return claim.pending;
   }
 }
 

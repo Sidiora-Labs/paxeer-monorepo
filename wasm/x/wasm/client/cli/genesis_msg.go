@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/ioutils"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/keeper"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
@@ -282,7 +283,14 @@ func GetAllCodes(state *types.GenesisState) ([]CodeMeta, error) {
 				}
 				accessConfig = state.Params.InstantiateDefaultPermission.With(creator)
 			}
-			hash := sha256.Sum256(msg.WASMByteCode)
+			if types.MaxWasmSize < 0 {
+				return nil, sdkerrors.Wrap(types.ErrCreateFailed, "max wasm size is negative")
+			}
+			wasmCode, err := ioutils.Uncompress(msg.WASMByteCode, uint64(types.MaxWasmSize))
+			if err != nil {
+				return nil, sdkerrors.Wrap(types.ErrCreateFailed, err.Error())
+			}
+			hash := sha256.Sum256(wasmCode)
 			all = append(all, CodeMeta{
 				CodeID: seq,
 				Info: types.CodeInfo{

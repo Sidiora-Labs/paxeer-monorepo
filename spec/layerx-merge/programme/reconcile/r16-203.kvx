@@ -1,0 +1,243 @@
+[reconcile.r16-203]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-203.1]
+interface = "interface.16.mk-builddir-tests-test-escrow-invariants"
+verdict = "served"
+path = "Makefile"
+line = 537
+symbol = "$(BUILD_DIR)/tests/test_escrow_invariants"
+evidence = "Makefile:537 declares the build target previously registered at line 588: $(BUILD_DIR)/tests/test_escrow_invariants: tests/modules/test_escrow_invariants.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.2]
+interface = "interface.16.mk-builddir-tests-test-fee-replay"
+verdict = "served"
+path = "Makefile"
+line = 929
+symbol = "$(BUILD_DIR)/tests/test_fee_replay"
+evidence = "Makefile:929 declares the build target previously registered at line 1246: $(BUILD_DIR)/tests/test_fee_replay: tests/test_fee_replay.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.3]
+interface = "interface.16.mk-builddir-tests-test-fees"
+verdict = "served"
+path = "Makefile"
+line = 893
+symbol = "$(BUILD_DIR)/tests/test_fees"
+evidence = "Makefile:893 declares the build target previously registered at line 1210: $(BUILD_DIR)/tests/test_fees: tests/test_fees.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.4]
+interface = "interface.16.mk-builddir-tests-test-fees-v3"
+verdict = "served"
+path = "Makefile"
+line = 900
+symbol = "$(BUILD_DIR)/tests/test_fees_v3"
+evidence = "Makefile:900 declares the build target previously registered at line 1217: $(BUILD_DIR)/tests/test_fees_v3: tests/test_fees_v3.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.5]
+interface = "interface.16.mk-builddir-tests-test-fees-v4"
+verdict = "served"
+path = "Makefile"
+line = 907
+symbol = "$(BUILD_DIR)/tests/test_fees_v4"
+evidence = "Makefile:907 declares the build target previously registered at line 1224: $(BUILD_DIR)/tests/test_fees_v4: tests/test_fees_v4.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.6]
+interface = "interface.16.mk-builddir-tests-test-fuzz-smoke"
+verdict = "served"
+path = "Makefile"
+line = 1166
+symbol = "$(BUILD_DIR)/tests/test_fuzz_smoke"
+evidence = "Makefile:1166 declares the build target previously registered at line 1668: $(BUILD_DIR)/tests/test_fuzz_smoke: tests/test_fuzz_smoke.c tests/fuzz/fuzz_activity.c tests/fuzz/fuzz_signature.c tests/fuzz/fuzz_transfer_set.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.7]
+interface = "interface.16.mk-builddir-tests-test-gateway-kv"
+verdict = "served"
+path = "Makefile"
+line = 999
+symbol = "$(BUILD_DIR)/tests/test_gateway_kv"
+evidence = "Makefile:999 declares the build target previously registered at line 1375: $(BUILD_DIR)/tests/test_gateway_kv: tests/network/test_gateway_kv.c $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.8]
+interface = "interface.16.mk-builddir-tests-test-gateway-requirement"
+verdict = "served"
+path = "Makefile"
+line = 975
+symbol = "$(BUILD_DIR)/tests/test_gateway_requirement"
+evidence = "Makefile:975 declares the build target previously registered at line 1341: $(BUILD_DIR)/tests/test_gateway_requirement: tests/test_gateway_requirement.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.9]
+interface = "interface.16.mk-builddir-tests-test-gateway-send"
+verdict = "served"
+path = "Makefile"
+line = 989
+symbol = "$(BUILD_DIR)/tests/test_gateway_send"
+evidence = "Makefile:989 declares the build target previously registered at line 1355: $(BUILD_DIR)/tests/test_gateway_send: tests/test_gateway_send.c $(TEST_LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.10]
+interface = "interface.16.mk-builddir-tests-test-genesis-builder-cli"
+verdict = "served"
+path = "Makefile"
+line = 1059
+symbol = "$(BUILD_DIR)/tests/test_genesis_builder_cli"
+evidence = "Makefile:1059 declares the build target previously registered at line 1571: $(BUILD_DIR)/tests/test_genesis_builder_cli: tests/test_genesis_builder_cli.c tests/lxp_test_harness.c cmd/layerx-genesis/lxp_genesis_build_cli.c cmd/layerx-genesis/lxp_genesis_builder.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list now also includes tests/lxp_test_harness.c; the recipe compiles that harness with -Itests."
+
+[row.r16-203.11]
+interface = "interface.16.mk-builddir-tests-test-genesis-import"
+verdict = "served"
+path = "Makefile"
+line = 1088
+symbol = "$(BUILD_DIR)/tests/test_genesis_import"
+evidence = "Makefile:1088 declares the build target previously registered at line 1605: $(BUILD_DIR)/tests/test_genesis_import: tests/test_genesis_import.c cmd/layerx-genesis/lxp_import.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.12]
+interface = "interface.16.mk-builddir-tests-test-genesis-manifest"
+verdict = "served"
+path = "Makefile"
+line = 1033
+symbol = "$(BUILD_DIR)/tests/test_genesis_manifest"
+evidence = "Makefile:1033 declares the build target previously registered at line 1546: $(BUILD_DIR)/tests/test_genesis_manifest: tests/test_genesis_manifest.c cmd/layerx-genesis/lxp_genesis_main.c cmd/layerx-genesis/lxp_genesis_build_cli.c cmd/layerx-genesis/lxp_genesis_builder.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.13]
+interface = "interface.16.mk-builddir-tests-test-genesis-module-table"
+verdict = "served"
+path = "Makefile"
+line = 1046
+symbol = "$(BUILD_DIR)/tests/test_genesis_module_table"
+evidence = "Makefile:1046 declares the build target previously registered at line 1559: $(BUILD_DIR)/tests/test_genesis_module_table: tests/test_genesis_module_table.c tests/lxp_test_harness.c cmd/layerx-genesis/lxp_genesis_build_cli.c cmd/layerx-genesis/lxp_genesis_builder.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list now also includes tests/lxp_test_harness.c; the recipe compiles that harness with -Itests."
+
+[row.r16-203.14]
+interface = "interface.16.mk-builddir-tests-test-genesis-reconcile"
+verdict = "served"
+path = "Makefile"
+line = 1098
+symbol = "$(BUILD_DIR)/tests/test_genesis_reconcile"
+evidence = "Makefile:1098 declares the build target previously registered at line 1615: $(BUILD_DIR)/tests/test_genesis_reconcile: tests/test_genesis_reconcile.c cmd/layerx-genesis/lxp_reconcile.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.15]
+interface = "interface.16.mk-builddir-tests-test-governance-activation"
+verdict = "served"
+path = "Makefile"
+line = 875
+symbol = "$(BUILD_DIR)/tests/test_governance_activation"
+evidence = "Makefile:875 declares the build target previously registered at line 1192: $(BUILD_DIR)/tests/test_governance_activation: tests/test_governance_activation.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.16]
+interface = "interface.16.mk-builddir-tests-test-governance-emergency"
+verdict = "served"
+path = "Makefile"
+line = 884
+symbol = "$(BUILD_DIR)/tests/test_governance_emergency"
+evidence = "Makefile:884 declares the build target previously registered at line 1201: $(BUILD_DIR)/tests/test_governance_emergency: tests/test_governance_emergency.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.17]
+interface = "interface.16.mk-builddir-tests-test-governance-params"
+verdict = "served"
+path = "Makefile"
+line = 866
+symbol = "$(BUILD_DIR)/tests/test_governance_params"
+evidence = "Makefile:866 declares the build target previously registered at line 1183: $(BUILD_DIR)/tests/test_governance_params: tests/test_governance_params.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.18]
+interface = "interface.16.mk-builddir-tests-test-legacy-readonly"
+verdict = "served"
+path = "Makefile"
+line = 1108
+symbol = "$(BUILD_DIR)/tests/test_legacy_readonly"
+evidence = "Makefile:1108 declares the build target previously registered at line 1625: $(BUILD_DIR)/tests/test_legacy_readonly: tests/test_legacy_readonly.c tools/lxp_legacy_reader.c $(LIBRARY). The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.19]
+interface = "interface.16.mk-builddir-tests-test-metering"
+verdict = "served"
+path = "Makefile"
+line = 919
+symbol = "$(BUILD_DIR)/tests/test_metering"
+evidence = "Makefile:919 declares the build target previously registered at line 1236: $(BUILD_DIR)/tests/test_metering: tests/test_metering.c tests/fuzz/fuzz_meter.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.20]
+interface = "interface.16.mk-builddir-tests-test-oracle-checks"
+verdict = "served"
+path = "Makefile"
+line = 741
+symbol = "$(BUILD_DIR)/tests/test_oracle_checks"
+evidence = "Makefile:741 declares the build target previously registered at line 837: $(BUILD_DIR)/tests/test_oracle_checks: tests/modules/test_oracle_checks.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.21]
+interface = "interface.16.mk-builddir-tests-test-oracle-halt"
+verdict = "served"
+path = "Makefile"
+line = 751
+symbol = "$(BUILD_DIR)/tests/test_oracle_halt"
+evidence = "Makefile:751 declares the build target previously registered at line 858: $(BUILD_DIR)/tests/test_oracle_halt: tests/modules/test_oracle_halt.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.22]
+interface = "interface.16.mk-builddir-tests-test-oracle-intake"
+verdict = "served"
+path = "Makefile"
+line = 730
+symbol = "$(BUILD_DIR)/tests/test_oracle_intake"
+evidence = "Makefile:730 declares the build target previously registered at line 825: $(BUILD_DIR)/tests/test_oracle_intake: tests/modules/test_oracle_intake.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.23]
+interface = "interface.16.mk-builddir-tests-test-perps-book"
+verdict = "served"
+path = "Makefile"
+line = 772
+symbol = "$(BUILD_DIR)/tests/test_perps_book"
+evidence = "Makefile:772 declares the build target previously registered at line 914: $(BUILD_DIR)/tests/test_perps_book: tests/modules/test_perps_book.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.24]
+interface = "interface.16.mk-builddir-tests-test-perps-funding"
+verdict = "served"
+path = "Makefile"
+line = 805
+symbol = "$(BUILD_DIR)/tests/test_perps_funding"
+evidence = "Makefile:805 declares the build target previously registered at line 947: $(BUILD_DIR)/tests/test_perps_funding: tests/modules/test_perps_funding.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.25]
+interface = "interface.16.mk-builddir-tests-test-perps-insurance"
+verdict = "served"
+path = "Makefile"
+line = 828
+symbol = "$(BUILD_DIR)/tests/test_perps_insurance"
+evidence = "Makefile:828 declares the build target previously registered at line 970: $(BUILD_DIR)/tests/test_perps_insurance: tests/modules/test_perps_insurance.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.26]
+interface = "interface.16.mk-builddir-tests-test-perps-liquidate"
+verdict = "served"
+path = "Makefile"
+line = 816
+symbol = "$(BUILD_DIR)/tests/test_perps_liquidate"
+evidence = "Makefile:816 declares the build target previously registered at line 958: $(BUILD_DIR)/tests/test_perps_liquidate: tests/modules/test_perps_liquidate.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.27]
+interface = "interface.16.mk-builddir-tests-test-perps-market"
+verdict = "served"
+path = "Makefile"
+line = 761
+symbol = "$(BUILD_DIR)/tests/test_perps_market"
+evidence = "Makefile:761 declares the build target previously registered at line 903: $(BUILD_DIR)/tests/test_perps_market: tests/modules/test_perps_market.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.28]
+interface = "interface.16.mk-builddir-tests-test-perps-position"
+verdict = "served"
+path = "Makefile"
+line = 794
+symbol = "$(BUILD_DIR)/tests/test_perps_position"
+evidence = "Makefile:794 declares the build target previously registered at line 936: $(BUILD_DIR)/tests/test_perps_position: tests/modules/test_perps_position.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.29]
+interface = "interface.16.mk-builddir-tests-test-programs-abi5-admission"
+verdict = "served"
+path = "Makefile"
+line = 2893
+symbol = "$(BUILD_DIR)/tests/test_programs_abi5_admission"
+evidence = "Makefile:2893 declares the build target previously registered at line 3614: $(BUILD_DIR)/tests/test_programs_abi5_admission: tests/programs/test_programs_abi5_admission.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."
+
+[row.r16-203.30]
+interface = "interface.16.mk-builddir-tests-test-programs-oracle-read"
+verdict = "served"
+path = "Makefile"
+line = 2811
+symbol = "$(BUILD_DIR)/tests/test_programs_oracle_read"
+evidence = "Makefile:2811 declares the build target previously registered at line 3512: $(BUILD_DIR)/tests/test_programs_oracle_read: tests/test_programs_oracle_read.c tests/programs/test_call_activity.c $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build. The prerequisite list matches the registered signature after joining continuation lines."

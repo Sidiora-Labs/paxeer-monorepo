@@ -1,17 +1,21 @@
-//! Minimal F10 AI market projection: exact-root snapshot capture, checkpoint promotion,
+//! Minimal F10 AI market projection: exact-root snapshot capture, block-commit promotion,
 //! atomic snapshot/rows/cursor/outbox commits, pinned participant paging and quarantine.
 //!
 //! State bytes come from a whole same-root chunk capture and are decoded only with the
-//! `layerx-programs-ai-market` codecs. Promotion to finalized needs an actual checkpoint
-//! certificate verified by `layerx_proof::checkpoint::verify_certificate` whose header
-//! commits the snapshot's exact batch, sequence and native root. Elapsed time, depth or a
-//! matching height never promotes. Components whose producers are absent keep their
-//! explicit availability status.
+//! `layerx-programs-ai-market` codecs. Promotion to finalized requires a verified block
+//! commit from the configured validator set for the capture's exact height, block hash
+//! and native root. Elapsed time, depth or a matching height never promotes. Components
+//! whose producers are absent keep their explicit availability status.
 
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Mutex;
 
+use layerx_committed_proof::{
+    commit::{self, Commit},
+    header::Header,
+    ProofError,
+};
 use layerx_programs_ai_market::{
     codec,
     errors::{
@@ -26,14 +30,13 @@ use layerx_programs_ai_market::{
     types::{ChainDomain, Digest32, MarketId, PrincipalId, ProgramId, StateDigest},
     MAX_STATE_BYTES,
 };
-use layerx_proof::checkpoint::{verify_certificate, Certificate, GuarantorKey, SettlementDomain};
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::hash::program_execution_batch_id;
-use layerx_wire::receipt::decode_batch_header;
 use rusqlite::{params, Connection, OptionalExtension, Transaction};
 use sha2::{Digest, Sha256};
 
 use crate::codec::hex0x;
+
+#[path = "ai_market_membership.rs"]
+mod membership;
 
 pub use layerx_programs_ai_market::queries::{
     parse_hex32, parse_limit, Availability, KindFilter, ParticipantKind, ParticipantRow,
@@ -41,7 +44,7 @@ pub use layerx_programs_ai_market::queries::{
 };
 pub use layerx_programs_ai_market::types::Presence;
 
-/// Canonical publication minimum checkpoint rank.
+/// Canonical publication minimum finalized rank.
 pub const MINIMUM_PUBLICATION_RANK: u8 = FINALIZED_RANK;
 /// F02 authority freshness limit in execution heights.
 pub const AUTHORITY_FRESHNESS_HEIGHTS: u64 = 8;
@@ -74,6 +77,10 @@ const EVENT_BODY_BYTES: usize = 2 + 2 + 32 * 3 + 8 + 8 + 32;
 const TOKEN_SNAPSHOT_HEX: core::ops::Range<usize> = 2 * (2 + 64)..2 * (2 + 96);
 const TOKEN_GENERATION_HEX: core::ops::Range<usize> = 2 * (2 + 128 + 2 + 8)..2 * (2 + 128 + 14);
 const MINUTE_MS: u64 = 60_000;
+/// Maximum number of principals whose live query quotas can occupy memory.
+pub const QUERY_PRINCIPALS_MAX: usize = 4_096;
+/// Idle buckets live at least this long, and at least until all tokens have refilled.
+pub const QUERY_IDLE_MS: u64 = 300_000;
 
 const SCHEMA: &str = "
 CREATE TABLE IF NOT EXISTS ai_stream (
@@ -110,6 +117,14 @@ CREATE TABLE IF NOT EXISTS ai_snapshot (
     publication_time_ms INTEGER,
     observed_at_ms INTEGER NOT NULL,
     UNIQUE (market, observed_sequence)
+);
+CREATE TABLE IF NOT EXISTS ai_archive (
+    state_digest BLOB PRIMARY KEY,
+    state BLOB NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ai_snapshot_archive (
+    snapshot_id BLOB PRIMARY KEY REFERENCES ai_snapshot(snapshot_id),
+    state_digest BLOB NOT NULL REFERENCES ai_archive(state_digest)
 );
 CREATE TABLE IF NOT EXISTS ai_participant (
     snapshot_id BLOB NOT NULL REFERENCES ai_snapshot(snapshot_id) ON DELETE CASCADE,
@@ -169,6 +184,8 @@ pub enum ViewError {
     AuthorityStale {
         lag: u64,
     },
+    AuthorityRegression,
+
     Store(String),
 }
 
@@ -196,6 +213,7 @@ impl ViewError {
             Self::Quarantined => "quarantined",
             Self::RollbackRefused => "rollback-refused",
             Self::AuthorityStale { .. } => "authority-stale",
+            Self::AuthorityRegression => "authority-regression",
             Self::Store(_) => "projection-store",
         }
     }
@@ -236,16 +254,18 @@ impl From<rusqlite::Error> for ViewError {
 
 pub type ViewResult<T> = Result<T, ViewError>;
 
-/// Projection states. Only verified checkpoint evidence reaches `FinalizedPublishable`.
+/// Projection states. Only verified block commit evidence reaches `FinalizedPublishable`.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 #[repr(u8)]
 pub enum ProjectionState {
     ObservedUnverified = 1,
     EvidenceVerifiedUnfinalized = 2,
     FinalizedPublishable = 3,
-    /// Finalized, content moved out of the recent cache; binding and rows retained.
+    /// Finalized content durably archived by digest; binding and rows retained.
     Archived = 4,
     Quarantined = 5,
+    /// Finalized binding whose content was evicted before durable archives were supported.
+    Pruned = 6,
 }
 
 impl ProjectionState {
@@ -256,12 +276,16 @@ impl ProjectionState {
             3 => Self::FinalizedPublishable,
             4 => Self::Archived,
             5 => Self::Quarantined,
+            6 => Self::Pruned,
             _ => return Err(ViewError::IntegrityFailure),
         })
     }
     #[must_use]
     pub const fn finalized(self) -> bool {
-        matches!(self, Self::FinalizedPublishable | Self::Archived)
+        matches!(
+            self,
+            Self::FinalizedPublishable | Self::Archived | Self::Pruned
+        )
     }
 }
 
@@ -285,20 +309,161 @@ pub struct Observation<'a> {
     pub observed_at_ms: u64,
 }
 
-/// Configured finality authority: network, settlement domain and bonded guarantor set.
+/// Configured chain and consensus validator set.
 #[derive(Clone, Debug)]
 pub struct FinalityAuthority {
-    pub network_id: u32,
-    pub settlement: SettlementDomain,
-    pub guarantors: Vec<GuarantorKey>,
+    pub chain_id: String,
+    pub validators: Vec<layerx_committed_proof::header::Validator>,
 }
 
-/// Checkpoint material with the identifier registered for it on the settlement chain.
+/// Block header, consensus precommits and store proof bytes.
 #[derive(Clone, Copy, Debug)]
-pub struct CheckpointProof<'a> {
-    pub certificate: &'a Certificate,
-    pub registered_checkpoint_id: [u8; 32],
-    pub registered_settlement_reference: Option<&'a [u8]>,
+pub struct BlockCommitProof<'a> {
+    pub header: &'a Header,
+    pub commit: &'a Commit,
+    pub store_proof: &'a [u8],
+}
+
+/// Commitments established by a verified block commit.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct VerifiedCommit {
+    pub chain_id: String,
+    pub height: u64,
+    pub block_hash: [u8; 32],
+    pub app_hash: [u8; 32],
+    pub store_proof_digest: [u8; 32],
+}
+
+impl VerifiedCommit {
+    /// Builds v2 evidence from the committed block for the captured native root.
+    /// The caller must match that root and the capture's height/hash to this commit
+    /// before publishing the binding.
+    ///
+    /// # Errors
+    /// Returns a decode refusal for a zero block hash, app hash or proof digest.
+    pub fn finality_evidence(&self, native_state_root: Digest32) -> ViewResult<FinalityEvidence> {
+        Ok(FinalityEvidence {
+            native_state_root,
+            block_height: self.height,
+            block_hash: Digest32::new(self.block_hash)?,
+            app_hash: Digest32::new(self.app_hash)?,
+            store_proof_digest: Digest32::new(self.store_proof_digest)?,
+            rank: MINIMUM_PUBLICATION_RANK,
+        })
+    }
+}
+
+/// Verifies the header's validator commitment and strictly greater than two thirds
+/// voting power, then hashes the supplied store proof bytes.
+///
+/// # Errors
+/// Refuses malformed headers or empty proofs before hashing, and propagates validator
+/// set, commit metadata, signature and voting power verification errors.
+pub fn verify_block_commit(
+    proof: &BlockCommitProof<'_>,
+    authority: &FinalityAuthority,
+) -> Result<VerifiedCommit, ProofError> {
+    if !(-62_135_596_800..=253_402_300_799).contains(&proof.header.time.seconds)
+        || proof.header.time.nanos >= 1_000_000_000
+        || proof.header.height < 0
+    {
+        return Err(ProofError::InvalidCommit);
+    }
+    let app_hash = proof
+        .header
+        .app_hash
+        .as_slice()
+        .try_into()
+        .map_err(|_| ProofError::InvalidProof)?;
+    if proof.store_proof.is_empty() {
+        return Err(ProofError::InvalidProof);
+    }
+    let height = u64::try_from(proof.header.height).map_err(|_| ProofError::InvalidCommit)?;
+    let block_hash = layerx_committed_proof::verify_header(proof.header, &authority.validators)?;
+    commit::verify_commit(
+        &proof.header.chain_id,
+        &authority.validators,
+        block_hash,
+        height,
+        proof.commit,
+    )?;
+    Ok(VerifiedCommit {
+        chain_id: proof.header.chain_id.clone(),
+        height,
+        block_hash,
+        app_hash,
+        store_proof_digest: Sha256::digest(proof.store_proof).into(),
+    })
+}
+
+/// Program bytes authenticated under a consensus-verified native app hash.
+/// Construction is restricted to the shared membership verifier.
+#[derive(Debug)]
+pub struct VerifiedProgramState<'a> {
+    commit: VerifiedCommit,
+    chain: ChainDomain,
+    program: ProgramId,
+    state_digest: StateDigest,
+    state: &'a [u8],
+}
+
+impl<'a> VerifiedProgramState<'a> {
+    #[must_use]
+    pub const fn commit(&self) -> &VerifiedCommit {
+        &self.commit
+    }
+    #[must_use]
+    pub const fn chain(&self) -> ChainDomain {
+        self.chain
+    }
+    #[must_use]
+    pub const fn program(&self) -> ProgramId {
+        self.program
+    }
+    #[must_use]
+    pub const fn state_digest(&self) -> StateDigest {
+        self.state_digest
+    }
+    #[must_use]
+    pub const fn state(&self) -> &'a [u8] {
+        self.state
+    }
+}
+
+/// Authenticates the namespace head, manifest and exact shared-state bytes.
+///
+/// # Errors
+/// Refuses malformed or unrelated membership proofs, a wrong consensus chain,
+/// a changed state body, or an embedded chain/program different from the read.
+pub fn verify_program_state<'a>(
+    proof: &BlockCommitProof<'_>,
+    authority: &FinalityAuthority,
+    chain: ChainDomain,
+    program: ProgramId,
+    state: &'a [u8],
+) -> Result<VerifiedProgramState<'a>, ProofError> {
+    if state.len() > MAX_STATE_BYTES {
+        return Err(ProofError::InvalidProof);
+    }
+    let commit = verify_block_commit(proof, authority)?;
+    if authority.chain_id.is_empty() || commit.chain_id != authority.chain_id {
+        return Err(ProofError::InvalidCommit);
+    }
+    membership::authenticate(
+        proof.store_proof,
+        commit.app_hash,
+        program.as_bytes(),
+        state,
+    )?;
+    let header =
+        queries::read_header(state, chain, program).map_err(|_| ProofError::InvalidProof)?;
+    Ok(VerifiedProgramState {
+        commit,
+        chain,
+        program,
+        state_digest: header.digest,
+        state,
+    })
 }
 
 /// One stored snapshot, as committed.
@@ -321,7 +486,7 @@ pub struct SnapshotRecord {
     pub availability: [Availability; FEATURES],
     pub source_activity: Digest32,
     pub epoch: Presence<u64>,
-    /// Canonical `SnapshotBindingV1` bytes once finalized.
+    /// Canonical `SnapshotBindingV2` bytes once finalized.
     pub binding: Option<Vec<u8>>,
     pub checkpoint: Option<Digest32>,
     pub rank: u8,
@@ -339,7 +504,7 @@ impl SnapshotRecord {
                 native_state_root: self.native_state_root,
                 observed_sequence: self.observed_sequence,
                 execution_height: self.execution_height,
-                batch_id: self.batch_id,
+                block_hash: self.batch_id,
             },
             revision: self.revision,
             digest: self.state_digest,
@@ -649,6 +814,7 @@ struct Bucket {
 pub struct QueryLimiter {
     config: Option<RateConfig>,
     buckets: Mutex<HashMap<Digest32, Bucket>>,
+    max_principals: usize,
 }
 
 /// Admission for one in-flight query; releases its concurrency slot when dropped.
@@ -671,11 +837,27 @@ impl QueryLimiter {
     /// `None` or a zero rate means the endpoint is disabled.
     #[must_use]
     pub fn new(config: Option<RateConfig>) -> Self {
+        Self::with_capacity(config, QUERY_PRINCIPALS_MAX)
+    }
+
+    /// A smaller operational capacity may be configured; it never exceeds the hard bound.
+    #[must_use]
+    pub fn with_capacity(config: Option<RateConfig>, max_principals: usize) -> Self {
         Self {
             config: config.filter(|c| c.per_minute > 0 && c.burst > 0 && c.concurrent > 0),
             buckets: Mutex::new(HashMap::new()),
+            max_principals: max_principals.min(QUERY_PRINCIPALS_MAX),
         }
     }
+
+    /// Number of retained principal quotas, including outstanding permits.
+    pub fn retained_principals(&self) -> ViewResult<usize> {
+        self.buckets
+            .lock()
+            .map(|b| b.len())
+            .map_err(|_| ViewError::Store("limiter poisoned".to_owned()))
+    }
+
     /// # Errors
     /// `EndpointDisabled` without a rate configuration, `RateLimited` when the principal's
     /// bucket or concurrency bound is exhausted.
@@ -686,6 +868,15 @@ impl QueryLimiter {
             .buckets
             .lock()
             .map_err(|_| ViewError::Store("limiter poisoned".to_owned()))?;
+        // Expiry cannot create tokens: an idle bucket is removed only once a fresh
+        // bucket would have exactly the quota it would have after normal refill.
+        let idle_ms = QUERY_IDLE_MS.max(capacity.div_ceil(u64::from(config.per_minute)));
+        buckets.retain(|_, bucket| {
+            bucket.active != 0 || now_ms.saturating_sub(bucket.last_ms) < idle_ms
+        });
+        if !buckets.contains_key(&viewer.visibility) && buckets.len() >= self.max_principals {
+            return Err(ViewError::CapacityExceeded);
+        }
         let bucket = buckets.entry(viewer.visibility).or_insert(Bucket {
             scaled_tokens: capacity,
             last_ms: now_ms,
@@ -796,23 +987,23 @@ fn blank_row() -> ViewResult<ParticipantRow> {
     })
 }
 
-/// Current F02 worker rows of the exact state. Evaluator rows join only through a frozen
-/// roster whose digest the binding carries; until a producer records it the binding's roster
-/// is absent, so no evaluator row is joined and F03 stays not-yet-produced.
-fn rows_of(state: &[u8]) -> ViewResult<Vec<ParticipantRow>> {
+/// Complete captured producer projection, checked against the saved transport binding.
+fn rows_of(state: &[u8], binding: &SnapshotBinding) -> ViewResult<Vec<ParticipantRow>> {
     let mut rows = vec![blank_row()?; PARTICIPANT_ROWS_MAX];
-    let n = queries::participant_rows(state, None, &mut rows)?;
+    let (_, n) = queries::project_capture(state, binding, &mut rows)?;
     rows.truncate(n);
     Ok(rows)
 }
 
-/// Content identity of a capture. `SnapshotId` excludes checkpoint, settlement, rank and
+/// Content identity of a capture. `SnapshotId` excludes block-commit evidence, rank and
 /// publication time, so it is derived before any finality evidence exists.
 fn content_identity(state: &[u8], facts: &CaptureFacts) -> ViewResult<(Digest32, SnapshotBinding)> {
     let provisional = FinalityEvidence {
         native_state_root: facts.proof.native_state_root,
-        checkpoint: facts.proof.batch_id,
-        settlement: Presence::Absent,
+        block_height: facts.proof.execution_height,
+        block_hash: facts.proof.block_hash,
+        app_hash: facts.proof.native_state_root,
+        store_proof_digest: facts.proof.block_hash,
         rank: 0,
     };
     let binding = queries::bind_snapshot(state, facts, &provisional, 0)?;
@@ -1080,11 +1271,50 @@ fn make_room(
         let Some(victim) = victim else {
             return Err(ViewError::CapacityExceeded);
         };
-        tx.execute(
-            "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
-            params![victim],
-        )?;
+        archive_body(tx, &digest(&victim)?)?;
     }
+}
+
+// The locator and body are acknowledged in the same FULL-synchronous transaction as
+// cache eviction. A digest collision or an incomplete copy refuses the eviction.
+fn archive_body(tx: &Transaction<'_>, snapshot_id: &Digest32) -> ViewResult<()> {
+    let record = load_record(tx, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+    let state = load_state(tx, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+    if codec::state_digest(&state)? != record.state_digest {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO ai_archive(state_digest, state) VALUES (?1, ?2)",
+        params![record.state_digest.as_bytes().as_slice(), &state],
+    )?;
+    let durable: Vec<u8> = tx.query_row(
+        "SELECT state FROM ai_archive WHERE state_digest = ?1",
+        params![record.state_digest.as_bytes().as_slice()],
+        |r| r.get(0),
+    )?;
+    if durable != state {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "INSERT OR IGNORE INTO ai_snapshot_archive(snapshot_id, state_digest) VALUES (?1, ?2)",
+        params![
+            snapshot_id.as_bytes().as_slice(),
+            record.state_digest.as_bytes().as_slice()
+        ],
+    )?;
+    let locator: Vec<u8> = tx.query_row(
+        "SELECT state_digest FROM ai_snapshot_archive WHERE snapshot_id = ?1",
+        params![snapshot_id.as_bytes().as_slice()],
+        |r| r.get(0),
+    )?;
+    if locator != record.state_digest.as_bytes() {
+        return Err(ViewError::IntegrityFailure);
+    }
+    tx.execute(
+        "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
+        params![snapshot_id.as_bytes().as_slice()],
+    )?;
+    Ok(())
 }
 
 fn insert_rows(
@@ -1174,6 +1404,9 @@ impl ProjectionStore {
         connection.pragma_update(None, "synchronous", "FULL")?;
         connection.pragma_update(None, "foreign_keys", "ON")?;
         connection.execute_batch(SCHEMA)?;
+        // Earlier versions labelled discarded bodies archived without an acknowledgement.
+        connection.execute("UPDATE ai_snapshot SET projection = 6 WHERE projection = 4 AND state IS NULL \
+            AND NOT EXISTS (SELECT 1 FROM ai_snapshot_archive a WHERE a.snapshot_id = ai_snapshot.snapshot_id)", [])?;
         Ok(Self {
             connection: Mutex::new(connection),
         })
@@ -1212,7 +1445,7 @@ impl ProjectionStore {
                 return Err(ViewError::WrongDomain);
             }
             let availability = queries::feature_availability(observation.state)?;
-            let rows = rows_of(observation.state)?;
+            let rows = rows_of(observation.state, &binding)?;
             Ok((snapshot_id, binding, availability, rows))
         })();
         let (snapshot_id, binding, availability, rows) = match checked {
@@ -1318,7 +1551,7 @@ impl ProjectionStore {
                 proof.program.as_bytes().as_slice(),
                 signed(proof.observed_sequence)?,
                 signed(proof.execution_height)?,
-                proof.batch_id.as_bytes().as_slice(),
+                proof.block_hash.as_bytes().as_slice(),
                 proof.native_state_root.as_bytes().as_slice(),
                 signed(binding.revision)?,
                 facts.digest.as_bytes().as_slice(),
@@ -1356,17 +1589,17 @@ impl ProjectionStore {
         load_record(tx, &snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)
     }
 
-    /// Promotes a saved capture to finalized-publishable with an actual checkpoint certificate
+    /// Promotes a saved capture to finalized-publishable with a verified block commit
     /// for its exact root. The saved state is re-bound; latest mutable state is never reread.
     ///
     /// # Errors
-    /// `FinalityUnavailable` for a certificate that does not verify at rank 4, `WrongDomain`
-    /// for another network (alerted), `BindingMismatch` for another batch, sequence or root,
+    /// `FinalityUnavailable` for an invalid block commit, `WrongDomain`
+    /// for another chain (alerted), `BindingMismatch` for another height, block hash or root,
     /// `ProjectionUnavailable` for an unknown or archived snapshot.
     pub fn promote(
         &self,
         snapshot_id: &Digest32,
-        proof: &CheckpointProof<'_>,
+        proof: &BlockCommitProof<'_>,
         authority: &FinalityAuthority,
         publication_time_ms: u64,
     ) -> ViewResult<SnapshotRecord> {
@@ -1380,51 +1613,36 @@ impl ProjectionStore {
         if record.read != ReadVerification::SequencerSigned {
             return Err(ViewError::BindingMismatch);
         }
-        let report = verify_certificate(
-            proof.certificate,
-            &authority.guarantors,
-            &proof.registered_checkpoint_id,
-            authority.settlement,
-            proof.registered_settlement_reference,
-        )
-        .map_err(|_| ViewError::FinalityUnavailable)?;
-        if report.level().wire_rank() < VerificationLevel::CHECKPOINT_FINALISED.wire_rank() {
-            return Err(ViewError::FinalityUnavailable);
+        let authenticated =
+            verify_program_state(proof, authority, record.chain, record.program, &state)
+                .map_err(|_| ViewError::FinalityUnavailable)?;
+        let verified = authenticated.commit();
+        if authenticated.state_digest() != record.state_digest {
+            return Err(ViewError::IntegrityFailure);
         }
-        let checkpoint = report
-            .evidence()
-            .checkpoint_id()
-            .ok_or(ViewError::FinalityUnavailable)?;
-        if report.network_id() != authority.network_id {
+        if verified.chain_id != authority.chain_id {
             let error = ViewError::WrongDomain;
-            record_alert(&conn, record.market.as_bytes(), &checkpoint, &error)?;
+            record_alert(
+                &conn,
+                record.market.as_bytes(),
+                &verified.block_hash,
+                &error,
+            )?;
             return Err(error);
         }
-        let header = decode_batch_header(proof.certificate.checkpoint().header_bytes())
-            .map_err(|_| ViewError::FinalityUnavailable)?;
-        let root = record.native_state_root.bytes();
-        let batch = program_execution_batch_id(
-            header.previous_state_root(),
-            header.activity_merkle_root(),
-            header.first_sequence(),
-            header.last_sequence(),
-            header.batch_number(),
-        )
-        .map_err(|_| ViewError::BindingMismatch)?;
-        if header.last_sequence() != record.observed_sequence
-            || header.resulting_state_root() != root
-            || batch != record.batch_id.bytes()
+        if verified.height != record.execution_height
+            || verified.block_hash != record.batch_id.bytes()
+            || verified.app_hash != record.native_state_root.bytes()
         {
             return Err(ViewError::BindingMismatch);
         }
-        let finality = FinalityEvidence {
-            native_state_root: record.native_state_root,
-            checkpoint: Digest32::new(checkpoint)?,
-            settlement: Presence::Absent,
-            rank: MINIMUM_PUBLICATION_RANK,
-        };
-        let binding =
-            queries::bind_snapshot(&state, &record.facts(), &finality, publication_time_ms)?;
+        let finality = verified.finality_evidence(record.native_state_root)?;
+        let binding = queries::bind_snapshot(
+            authenticated.state(),
+            &record.facts(),
+            &finality,
+            publication_time_ms,
+        )?;
         binding.require_finalized()?;
         if binding.snapshot_id()? != *snapshot_id {
             return Err(ViewError::IntegrityFailure);
@@ -1438,7 +1656,7 @@ impl ProjectionStore {
             params![
                 snapshot_id.as_bytes().as_slice(),
                 encoded.get(..n).ok_or(ViewError::CapacityExceeded)?,
-                checkpoint.as_slice(),
+                verified.store_proof_digest.as_slice(),
                 binding.rank,
                 signed(publication_time_ms)?,
                 match binding.epoch {
@@ -1486,7 +1704,7 @@ impl ProjectionStore {
         let m = market.as_bytes().as_slice();
         let removed = tx.execute(
             "DELETE FROM ai_snapshot WHERE market = ?1 AND observed_sequence > ?2 \
-             AND projection NOT IN (3, 4)",
+             AND projection NOT IN (3, 4, 6)",
             params![m, signed(to_sequence)?],
         )?;
         let head: Option<(i64, Vec<u8>)> = tx
@@ -1659,14 +1877,16 @@ impl ProjectionStore {
         Ok(out)
     }
 
-    /// Operator action: moves a finalized, unleased, non-latest snapshot body to the external
-    /// digest-verified archive. Binding, rows and outbox rows remain.
+    /// Moves a finalized, unleased, non-latest body to the durable digest-addressed archive
+    /// in this database. Binding, rows and outbox rows remain.
     ///
     /// # Errors
     /// `ProjectionUnavailable` for an unknown or unfinalized snapshot or the latest pointer,
     /// `CapacityExceeded` while a cursor lease pins it.
     pub fn archive(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
-        let conn = self.lock()?;
+        let mut conn = self.lock()?;
+        let tx = conn.transaction()?;
+        let conn = &tx;
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         let latest = load_stream(&conn, &record.market)?.and_then(|s| s.finalized_snapshot);
         if record.projection != ProjectionState::FinalizedPublishable
@@ -1682,21 +1902,68 @@ impl ProjectionStore {
         if leased != 0 {
             return Err(ViewError::CapacityExceeded);
         }
-        conn.execute(
-            "UPDATE ai_snapshot SET state = NULL, projection = 4 WHERE snapshot_id = ?1",
-            params![snapshot_id.as_bytes().as_slice()],
-        )?;
+        archive_body(&tx, snapshot_id)?;
+        tx.commit()?;
         Ok(())
     }
 
-    /// Restores archived content after verifying it against the retained state digest and
-    /// committed binding. Nothing else is ever substituted for missing content.
-    ///
-    /// # Errors
-    /// `IntegrityFailure` for any digest, binding or row difference (alerted),
-    /// `ProjectionUnavailable` for a snapshot that is not archived.
+    /// Recover a digest-addressed archived body after reopening the database.
+    pub fn recover_archived(&self, snapshot_id: &Digest32, now_ms: u64) -> ViewResult<()> {
+        self.restore_content(snapshot_id, None, now_ms)
+    }
+
+    /// Restores supplied archived content only after checking its retained digest,
+    /// binding and rows. Operational recovery normally uses `recover_archived`.
     pub fn restore_archived(&self, snapshot_id: &Digest32, state: &[u8]) -> ViewResult<()> {
-        let conn = self.lock()?;
+        self.restore_content(snapshot_id, Some(state), 0)
+    }
+
+    fn restore_content(
+        &self,
+        snapshot_id: &Digest32,
+        supplied: Option<&[u8]>,
+        now_ms: u64,
+    ) -> ViewResult<()> {
+        let mut conn = self.lock()?;
+        let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
+        let tx = conn.transaction()?;
+        let archived;
+        let state = match supplied {
+            Some(state) => state,
+            None => {
+                archived = tx.query_row(
+                    "SELECT a.state FROM ai_archive a JOIN ai_snapshot_archive l USING(state_digest) WHERE l.snapshot_id = ?1",
+                    params![snapshot_id.as_bytes().as_slice()], |r| r.get::<_, Vec<u8>>(0)).optional()?
+                    .ok_or(ViewError::ProjectionUnavailable)?;
+                &archived
+            }
+        };
+        match Self::restore_body(&tx, snapshot_id, state, now_ms) {
+            Ok(()) => {
+                tx.commit()?;
+                Ok(())
+            }
+            Err(error) => {
+                drop(tx);
+                if error == ViewError::IntegrityFailure {
+                    record_alert(
+                        &conn,
+                        record.market.as_bytes(),
+                        snapshot_id.as_bytes(),
+                        &error,
+                    )?;
+                }
+                Err(error)
+            }
+        }
+    }
+
+    fn restore_body(
+        conn: &Transaction<'_>,
+        snapshot_id: &Digest32,
+        state: &[u8],
+        now_ms: u64,
+    ) -> ViewResult<()> {
         let record = load_record(&conn, snapshot_id)?.ok_or(ViewError::ProjectionUnavailable)?;
         if record.projection != ProjectionState::Archived {
             return Err(ViewError::ProjectionUnavailable);
@@ -1716,14 +1983,9 @@ impl ProjectionStore {
                 ViewError::Store(_) => error,
                 _ => ViewError::IntegrityFailure,
             };
-            record_alert(
-                &conn,
-                record.market.as_bytes(),
-                snapshot_id.as_bytes(),
-                &error,
-            )?;
             return Err(error);
         }
+        make_room(conn, &record.market, state.len(), now_ms)?;
         conn.execute(
             "UPDATE ai_snapshot SET state = ?2, projection = 3 WHERE snapshot_id = ?1",
             params![snapshot_id.as_bytes().as_slice(), state],
@@ -1783,12 +2045,19 @@ impl ProjectionStore {
     ) -> ViewResult<MarketView> {
         let conn = self.lock()?;
         let (record, _, binding) = Self::resolve(&conn, market, selector)?;
-        let freshness = verified_authority_height.map_or(Freshness::Unknown, |height| match height
-            .saturating_sub(record.execution_height)
-        {
-            lag if lag > AUTHORITY_FRESHNESS_HEIGHTS => Freshness::Stale { lag },
-            _ => Freshness::Current,
-        });
+        let freshness = match verified_authority_height {
+            None => Freshness::Unknown,
+            Some(height) => {
+                let lag = height
+                    .checked_sub(record.execution_height)
+                    .ok_or(ViewError::AuthorityRegression)?;
+                if lag > AUTHORITY_FRESHNESS_HEIGHTS {
+                    Freshness::Stale { lag }
+                } else {
+                    Freshness::Current
+                }
+            }
+        };
         Ok(MarketView {
             snapshot_id: record.snapshot_id,
             binding,
@@ -1817,7 +2086,9 @@ impl ProjectionStore {
             .and_then(|s| s.finalized_snapshot)
             .ok_or(ViewError::FinalityUnavailable)?;
         let record = load_record(&conn, &id)?.ok_or(ViewError::FinalityUnavailable)?;
-        let lag = verified_authority_height.saturating_sub(record.execution_height);
+        let lag = verified_authority_height
+            .checked_sub(record.execution_height)
+            .ok_or(ViewError::AuthorityRegression)?;
         if lag > AUTHORITY_FRESHNESS_HEIGHTS {
             return Err(ViewError::AuthorityStale { lag });
         }
@@ -1872,7 +2143,7 @@ impl ProjectionStore {
         };
         let conn = self.lock()?;
         let (record, state, binding) = Self::resolve(&conn, &request.market, selector.as_ref())?;
-        let rows = rows_of(&state)?;
+        let rows = rows_of(&state, &binding)?;
         let selected = rows
             .iter()
             .filter(|r| {
@@ -2008,24 +2279,21 @@ impl ProjectionStore {
 
 /// Re-binds saved content to its saved finality evidence and checks the committed bytes.
 fn rebind(record: &SnapshotRecord, state: &[u8]) -> ViewResult<SnapshotBinding> {
-    let checkpoint = record.checkpoint.ok_or(ViewError::FinalityUnavailable)?;
-    let finality = FinalityEvidence {
-        native_state_root: record.native_state_root,
-        checkpoint,
-        settlement: Presence::Absent,
-        rank: record.rank,
-    };
-    let binding = queries::bind_snapshot(
-        state,
-        &record.facts(),
-        &finality,
-        record
-            .publication_time_ms
-            .ok_or(ViewError::FinalityUnavailable)?,
-    )?;
-    let mut encoded = [0u8; BINDING_MAX_BYTES];
-    let n = binding.encode(&mut encoded)?;
-    if record.binding.as_deref() != encoded.get(..n) {
+    let bytes = record
+        .binding
+        .as_deref()
+        .ok_or(ViewError::FinalityUnavailable)?;
+    let binding = SnapshotBinding::decode(bytes)?;
+    binding.verify_capture(state, &record.facts())?;
+    binding.finalized_head()?;
+    if queries::feature_availability(state)? != record.availability {
+        return Err(ViewError::IntegrityFailure);
+    }
+    if record.checkpoint != Some(binding.store_proof_digest)
+        || record.rank != binding.rank
+        || record.publication_time_ms != Some(binding.publication_time_ms)
+        || record.snapshot_id != binding.snapshot_id()?
+    {
         return Err(ViewError::IntegrityFailure);
     }
     Ok(binding)

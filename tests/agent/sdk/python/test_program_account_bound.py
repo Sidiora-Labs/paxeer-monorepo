@@ -1,17 +1,19 @@
-import importlib.util
 import json
+import sys
 import unittest
-from copy import deepcopy
 from dataclasses import replace
 from hashlib import sha256
 from pathlib import Path
 
-from layerx_sdk.program_wire import (
-    _ACCOUNT_BOUND_SET, _AUTHORITY, _Reader, _verify_authorization_root,
-    decode_and_verify_program_terminal,
+ROOT = Path(__file__).resolve().parents[4]
+sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+
+from layerx_sdk.program_wire import (  # noqa: E402
+    _ACCOUNT_BOUND_SET, _AUTHORITY, _Reader, _signed_call_envelope, _verify_authorization_root,
+    bind_retained_program_call, decode_signed_program_call,
 )
-from layerx_sdk.programs import ProgramTrustContext, verify_program_receipt
-from layerx_sdk.verifier import AuthorizedReceiptBatch, ReceiptVerificationError, verify_receipt_outcome
+from layerx_sdk.native_program_call import decode_native_program_call  # noqa: E402
+from layerx_sdk.programs import NativeProgramRequest  # noqa: E402
 
 
 class ProgramAccountBoundTest(unittest.TestCase):
@@ -20,28 +22,44 @@ class ProgramAccountBoundTest(unittest.TestCase):
         root = Path(__file__).resolve().parents[4]
         fixture = root / "tests/fixtures/programs/account-bound-call"
         cls.execution = json.loads((fixture / "execution.json").read_text())
-        cls.pin = bytes.fromhex((fixture / "sequencer-key.hex").read_text())
         cls.signed = bytes.fromhex((fixture / "signed-activity.hex").read_text())
-        source = cls.execution["authority"]
-        cls.authority = AuthorizedReceiptBatch(**{
-            field: bytes.fromhex(source[field]) for field in
-            ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key")
-        })
-        spec = importlib.util.spec_from_file_location(
-            "account_bound_signatures", root / "sdk/integrations/fastapi/layerx_fastapi/signatures.py")
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        cls.signatures = module.LayerXSignatureVerifier()
-        cls.trust = ProgramTrustContext(cls.pin, protocol_version=3)
+        envelope = _signed_call_envelope(cls.signed)
+        cls.payload_hash = envelope.payload_hash
+        cls.payload = envelope.payload
+        cls.request = NativeProgramRequest(
+            decode_native_program_call(cls.payload), envelope.fee_limit, cls.signed)
 
     def test_real_native_call_verifies_with_principal_account_binding(self):
-        self.assertEqual(self.authority.sequencer_public_key, self.pin)
+        """Historical Activity codec coverage; chain identity is tested separately."""
         self.assertEqual(sha256(b"LXP/v1/activity-id\0" + self.signed).hexdigest(), self.execution["activity_id"])
-        verified = verify_program_receipt(self.execution, self.authority, self.signatures, self.trust)
-        receipt = verified.verification.receipt
-        self.assertEqual((receipt.protocol_version, receipt.module_id, receipt.operation, receipt.result_code), (3, 9, 3, 0))
-        self.assertEqual(verified.transfer_verification, "reconstructed")
-        self.assertEqual(self.execution["outcome"]["code"], 0)
+        binding = decode_signed_program_call(self.request, self.execution["idempotency_key"])
+        self.assertEqual(binding.activity_id, self.execution["activity_id"])
+        self.assertEqual(binding.canonical_bytes, self.signed)
+        self.assertEqual(bind_retained_program_call(
+            self.signed, binding.activity_id, self.execution["program_id"], 3),
+            (self.payload_hash, self.execution["guest_abi_version"], self.execution["idempotency_key"]))
+        self.assertEqual(self.payload_hash, sha256(b"LXP/v1/payload-hash\0" + self.payload).digest())
+        self.assertEqual(self.request.program_id, self.execution["program_id"])
+
+    def test_current_transaction_binds_hash_sender_and_precompile(self):
+        from program_receipt_evidence import ProgramReceiptEvidence
+        from layerx_sdk.account_derivation import keccak256
+        from layerx_sdk.evm_transaction import activity_id, decode_signed
+
+        evidence = ProgramReceiptEvidence()
+        transaction, signature = decode_signed(evidence.signed)
+        verified = evidence.verify()
+        receipt = verified.receipt
+        self.assertEqual(transaction.to.hex(), "000000000000000000000000000000000000101d")
+        self.assertEqual(activity_id(evidence.signed), keccak256(evidence.signed))
+        self.assertEqual(receipt.activity_id, keccak256(evidence.signed))
+        self.assertEqual(receipt.from_account, bytes(12) + bytes.fromhex(transaction.recover_signer(signature)[2:]))
+        self.assertEqual(receipt.to_account, bytes(12) + transaction.to)
+        self.assertEqual(receipt.from_sequence, transaction.nonce)
+        self.assertEqual(receipt.module_id, 12)
+        self.assertEqual(receipt.operation, 2)
+        self.assertEqual(receipt.result_code, 0)
+        self.assertEqual(evidence.submission(), evidence.vector["receiptJson"])
 
     def test_account_bound_authority_rejects_changed_names_and_shape(self):
         terminal = bytes.fromhex(self.execution["terminal_payload"])
@@ -81,16 +99,23 @@ class ProgramAccountBoundTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             _verify_authorization_root(authorization, bytes(32), require_v2=True)
 
-    def test_response_result_and_signed_commitments_remain_bound(self):
-        receipt = verify_receipt_outcome(bytes.fromhex(self.execution["receipt"]), self.authority,
-                                         self.signatures, protocol_version=3).receipt
-        with self.assertRaisesRegex(ValueError, "candidate response result code"):
-            decode_and_verify_program_terminal(
-                bytes.fromhex(self.execution["terminal_payload"]), bytes.fromhex(self.execution["call_graph"]),
-                self.execution["program_id"], replace(receipt.program_outcome, result_code=1), 3)
-        for field in ("receipt", "terminal_payload", "call_graph"):
-            changed = deepcopy(self.execution)
-            value = bytes.fromhex(changed[field])
-            changed[field] = (value[:-1] + bytes((value[-1] ^ 1,))).hex()
-            with self.subTest(field=field), self.assertRaises(ReceiptVerificationError if field == "receipt" else ValueError):
-                verify_program_receipt(changed, self.authority, self.signatures, self.trust)
+    def test_signed_native_call_commitments_remain_bound(self):
+        for activity, program, protocol in (
+            ("00" * 32, self.execution["program_id"], 3),
+            (self.execution["activity_id"], "00" * 32, 3),
+            (self.execution["activity_id"], self.execution["program_id"], 2),
+        ):
+            with self.subTest(activity=activity, program=program, protocol=protocol), self.assertRaises(ValueError):
+                bind_retained_program_call(self.signed, activity, program, protocol)
+        native = self.request.native_call
+        for changed in (
+            replace(self.request, fee_limit=self.request.fee_limit + 1),
+            replace(self.request, native_call=replace(native, calldata=native.calldata + b"\0")),
+            replace(self.request, native_call=replace(native, guest_abi=5)),
+            replace(self.request, signed_activity=self.signed[:-1]),
+            replace(self.request, signed_activity=self.signed + b"\0"),
+        ):
+            with self.subTest(request=changed), self.assertRaises(ValueError):
+                decode_signed_program_call(changed)
+        with self.assertRaisesRegex(ValueError, "signed activity idempotency"):
+            decode_signed_program_call(self.request, "00" * 32)

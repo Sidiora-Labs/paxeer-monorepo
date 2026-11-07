@@ -7,6 +7,7 @@ import { keccak_256 } from "@noble/hashes/sha3.js";
 
 import {
   AccountDerivationError,
+  LAUNCHPAD_WRITES,
   PERPS_PRECOMPILE,
   PERPS_WRITES,
   PrecompileAbiError,
@@ -22,11 +23,14 @@ import {
   encodePerpsActivity,
   encodeSpotActivity,
   deriveFromSeed,
+  launchpadCall,
   perpsActivityType,
   perpsCall,
   spotActivityType,
   spotCall,
   type BindFees,
+  type LaunchpadWrite,
+  type PerpsWrite,
   type PrecompileCall,
   type SpotContract,
   type SpotWrite,
@@ -196,6 +200,15 @@ test("kernel trading codecs retain every golden and refusal", () => {
     { activity: "adl" }
   >;
   assert.ok(adl.positionIds.length > 1);
+  assert.equal(
+    encodePerpsActivity({
+      ...adl,
+      positionIds: Array.from({ length: 17 }, (_, index) =>
+        (index + 1).toString(16).padStart(64, "0"),
+      ),
+    }).length,
+    577,
+  );
   refuses(
     () =>
       encodePerpsActivity({
@@ -319,6 +332,32 @@ test("perps and spot write tables are exactly the precompile ABIs at the served 
       contract,
     );
   }
+});
+
+test("perpsCall and launchpadCall refuse unknown signatures with PrecompileAbiError", function perpsCallAndLaunchpadCallRefuseUnknownSignaturesWithPrecompileAbiError() {
+  for (const run of [
+    () => perpsCall("notAWrite(uint256)" as PerpsWrite, [1n]),
+    () => launchpadCall("notAWrite(uint256)" as LaunchpadWrite, [1n]),
+  ]) {
+    assert.throws(
+      run,
+      (error: unknown) =>
+        error instanceof PrecompileAbiError && error.code === "invalid_value",
+    );
+  }
+});
+
+test("launchpad writes refuse attached value", function launchpadWritesRefuseAttachedValue() {
+  for (const [signature, write] of Object.entries(LAUNCHPAD_WRITES)) {
+    assert.equal(write.payable, false, signature);
+  }
+  const args = [`0x${"ab".repeat(20)}`, "0x"] as const;
+  assert.equal(launchpadCall("upgradeToAndCall(address,bytes)", args).value, 0n);
+  assert.throws(
+    () => launchpadCall("upgradeToAndCall(address,bytes)", args, 1n),
+    (error: unknown) =>
+      error instanceof PrecompileAbiError && error.code === "invalid_value",
+  );
 });
 
 test("perpsCall encodes perps writes to the perps precompile", () => {

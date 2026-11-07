@@ -15,9 +15,6 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/records"
 )
 
-// The market set and the fixed-point scales shared with the socket topics.
-var marketIDs = records.MarketIDs
-
 const (
 	usdScale        = records.USDScale
 	secondsPerHour  = records.SecondsPerHour
@@ -28,7 +25,8 @@ const (
 	maxLimit     = 1000
 )
 
-// Symbol serves the symbol REST routes from schema perps.
+// Symbol serves the symbol REST routes from schema perps. Every request calls
+// records.Symbol; Cache-Control is a client hint, not a server response cache.
 type Symbol struct {
 	data *records.Symbol
 }
@@ -50,17 +48,7 @@ func (s *Symbol) Register(mux *http.ServeMux) {
 }
 
 func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
-	path := r.PathValue("symbol")
-	symbol := strings.ToUpper(path)
-	_, ok := marketIDs[symbol]
-	if !ok {
-		writeError(w, http.StatusNotFound, "Unknown symbol: "+symbol)
-		return
-	}
-	if path != strings.ToLower(path) {
-		writeError(w, http.StatusNotFound, "Not found")
-		return
-	}
+	symbol := strings.ToUpper(r.PathValue("symbol"))
 	name, arg, hasArg := strings.Cut(r.PathValue("route"), "/")
 	if hasArg && name != "trades" && name != "perp_trades" {
 		writeError(w, http.StatusNotFound, "Not found")
@@ -102,6 +90,10 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "Not found")
 		return
 	}
+	if errors.Is(err, records.ErrUnknownSymbol) {
+		writeError(w, http.StatusNotFound, "Unknown symbol: "+symbol)
+		return
+	}
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal error")
 		return
@@ -116,7 +108,10 @@ func (s *Symbol) serve(w http.ResponseWriter, r *http.Request) {
 // (Hyperpax:data_api.md:154).
 func parseLimit(q map[string][]string) (int, error) {
 	raw, ok := q["limit"]
-	if !ok || len(raw) == 0 || raw[0] == "" {
+	if ok && len(raw) != 1 {
+		return 0, errors.New("rest: limit must occur once")
+	}
+	if !ok || raw[0] == "" {
 		return defaultLimit, nil
 	}
 	n, err := strconv.ParseInt(raw[0], 10, 64)

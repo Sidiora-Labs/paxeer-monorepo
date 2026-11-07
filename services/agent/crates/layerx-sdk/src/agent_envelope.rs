@@ -13,12 +13,10 @@ use std::time::Duration;
 use layerx_agent_api::error::{ApiError, ErrorClass, ReasonCode, RequestId, Retriability};
 use layerx_agent_api::idempotency::{IdempotentMutation, Key};
 use layerx_agent_api::prepare::CanonicalBytes;
-use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget, MAX_PROOF_BUNDLE_BYTES};
-use layerx_agent_api::read::{
-    BatchRef, CheckpointRef, Freshness, ReadRequest, RelativeTo, VerifiedRead,
-};
-use layerx_agent_api::verify::{ApiSuccess, Level, VerificationStatus};
-use layerx_agent_api::Sequence;
+use layerx_agent_api::proof::{ProofBundle, ProofBundleTarget};
+use layerx_agent_api::read::{Freshness, ReadRequest, RelativeTo, VerifiedRead};
+use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
+
 use layerx_types::result::ResultCode;
 use serde_json::{json, Map, Value};
 use url::Url;
@@ -32,8 +30,8 @@ pub const AGENT_RPC_ROUTE: &str = "/v1/agent/rpc";
 pub const ENVELOPE_VERSION: u64 = 1;
 /// Daemon body bound for one envelope.
 pub const MAX_ENVELOPE_BYTES: usize = 1_048_576;
-/// Operations admitted by their existing bootstrap authority with a null credential.
-pub const BOOTSTRAP_OPERATIONS: &[Operation] = &[Operation::AgentRegister, Operation::SessionOpen];
+/// No bootstrap exceptions: every operation carries a session credential.
+pub const BOOTSTRAP_OPERATIONS: &[Operation] = &[];
 const MAX_HTTP_RESPONSE_BYTES: u64 = 9 * 1_048_576;
 const MAX_TENANT_BYTES: usize = 255;
 const MAX_REASON_BYTES: usize = 128;
@@ -54,8 +52,12 @@ pub enum EnvelopeError {
     InvalidTrustAnchors,
     InvalidCredential,
     InvalidRequest,
-    /// A session credential is required for every non-bootstrap operation and forbidden
-    /// for the bootstrap set.
+    NotReady {
+        request_id: RequestId,
+        value: Value,
+        status: NotReadyStatus,
+    },
+    /// A session credential is required for every operation.
     CredentialPresence {
         operation: Operation,
     },
@@ -85,6 +87,76 @@ pub enum EnvelopeError {
     Unknown {
         operation: Operation,
     },
+}
+
+/// A successful receipt lookup that has not reached its requested verification rung.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum NotReadyStatus {
+    Pending { requested: Rung, achieved: Rung },
+    Absent { requested: Rung },
+}
+
+/// All declared success states, including a lookup that has not reached its requested rung.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub enum EnvelopeOutcome {
+    Ready(ApiSuccess<Value>),
+    NotReady {
+        request_id: RequestId,
+        value: Value,
+        status: NotReadyStatus,
+    },
+}
+
+pub fn decode_response_status(
+    status: u16,
+    document: &Value,
+) -> Option<Result<EnvelopeOutcome, ApiError>> {
+    if let Some((request_id, value, status)) = decode_not_ready_response(status, document) {
+        return Some(Ok(EnvelopeOutcome::NotReady {
+            request_id,
+            value,
+            status,
+        }));
+    }
+    decode_response(status, document).map(|response| response.map(EnvelopeOutcome::Ready))
+}
+
+/// Preserves the daemon's exact not-ready success shapes without claiming verification.
+#[must_use]
+pub fn decode_not_ready_response(
+    status: u16,
+    document: &Value,
+) -> Option<(RequestId, Value, NotReadyStatus)> {
+    if status != 200 {
+        return None;
+    }
+    let envelope = document.as_object()?;
+    if !exact_fields(envelope, SUCCESS_FIELDS) {
+        return None;
+    }
+    let fields = envelope.get("verification_status")?.as_object()?;
+    let requested = rung(fields.get("requested")?)?;
+    let status = match fields.get("state")?.as_str()? {
+        "pending" if exact_fields(fields, &["state", "requested", "achieved"]) => {
+            let achieved = rung(fields.get("achieved")?)?;
+            if achieved >= requested {
+                return None;
+            }
+            NotReadyStatus::Pending {
+                requested,
+                achieved,
+            }
+        }
+        "absent" if exact_fields(fields, &["state", "requested"]) => {
+            NotReadyStatus::Absent { requested }
+        }
+        _ => return None,
+    };
+    Some((
+        request_id(envelope.get("request_id")?)?,
+        envelope.get("value")?.clone(),
+        status,
+    ))
 }
 
 /// Whether the caller may re-issue an exchange that ended in an [`EnvelopeError`].
@@ -192,9 +264,8 @@ impl EnvelopeCredential {
 ///
 /// # Errors
 ///
-/// Refuses a non-object request, a credential present for a bootstrap operation or absent
-/// for any other operation, and an idempotency key that does not match the operation's
-/// generated mutating classification.
+/// Refuses a non-object request, a missing session credential for any operation, and an
+/// idempotency key that does not match the operation's generated mutating classification.
 pub fn encode_envelope(
     operation: Operation,
     request_id: RequestId,
@@ -227,6 +298,7 @@ pub struct AgentEnvelopeTransport {
     endpoint: Url,
     gateway_key: Option<LayerXKeyCredential>,
     route: &'static str,
+    native_authority: Option<([u8; 32], [u8; 20])>,
 }
 
 /// Internal route of the agent daemon RPC mTLS listener.
@@ -310,7 +382,7 @@ impl AgentEnvelopeTransport {
             recovery_reason,
         };
         value.validate().map_err(|_| invalid())?;
-        if response.verification_status != VerificationStatus::Achieved(Level::Unverified) {
+        if response.verification_status != VerificationStatus::Achieved(Rung::Submitted) {
             return Err(invalid());
         }
         Ok(native_success(response, value))
@@ -392,7 +464,61 @@ impl AgentEnvelopeTransport {
             endpoint,
             gateway_key,
             route,
+            native_authority: None,
         })
+    }
+
+    /// Pins the owner's independently resolved EVM signer address for unsigned preparation.
+    /// An unsigned transaction cannot authenticate its own sender.
+    pub fn with_native_authority(
+        mut self,
+        owner: [u8; 32],
+        sender: [u8; 20],
+    ) -> Result<Self, EnvelopeError> {
+        if owner == [0; 32] || sender == [0; 20] {
+            return Err(EnvelopeError::InvalidCredential);
+        }
+        self.native_authority = Some((owner, sender));
+        Ok(self)
+    }
+
+    /// Preserves successful pending and absent lookups as typed outcomes.
+    pub fn send_operation_status(
+        &self,
+        operation: Operation,
+        request_id: RequestId,
+        request: &Value,
+        credential: Option<&EnvelopeCredential>,
+        key: Option<Key>,
+    ) -> Result<EnvelopeOutcome, EnvelopeError> {
+        match self.send_operation(operation, request_id, request, credential, key) {
+            Ok(success) => Ok(EnvelopeOutcome::Ready(success)),
+            Err(EnvelopeError::NotReady {
+                request_id,
+                value,
+                status,
+            }) => Ok(EnvelopeOutcome::NotReady {
+                request_id,
+                value,
+                status,
+            }),
+            Err(error) => Err(error),
+        }
+    }
+
+    fn preparation_sender(
+        &self,
+        authority: &str,
+        owner: [u8; 32],
+    ) -> Result<[u8; 20], EnvelopeError> {
+        let (pinned_owner, sender) = self
+            .native_authority
+            .ok_or(EnvelopeError::InvalidCredential)?;
+        let text = authority.strip_prefix("did:layerx:").unwrap_or(authority);
+        if pinned_owner != owner || text != hex(&owner) {
+            return Err(EnvelopeError::InvalidCredential);
+        }
+        Ok(sender)
     }
 
     fn route(&self) -> Url {
@@ -506,11 +632,23 @@ impl AgentEnvelopeTransport {
         key: Key,
         request: &layerx_agent_api::identity::NativePrepareRequestV1,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
+        if key.bytes() != request.idempotency_key {
+            return Err(EnvelopeError::InvalidRequest);
+        }
         let body = encode_native_prepare(request)?;
         let purpose = &request.purpose.purpose;
+        verify_owner_purpose(
+            &purpose
+                .canonical_bytes()
+                .map_err(|_| EnvelopeError::InvalidRequest)?,
+            &request.purpose.owner_public_key,
+            &request.purpose.signature,
+        )?;
+        let sender =
+            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
         if purpose.tenant.as_str() != credential.tenant()
             || purpose.session_id.to_bytes().ok() != Some(credential.session_id())
             || purpose.generation != credential.generation()
@@ -529,28 +667,28 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
+        let call =
+            validate_unsigned_preparation(&value, purpose.preparation_id, purpose.canonical_digest)
+                .map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                request.actor.as_str(),
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -566,25 +704,25 @@ impl AgentEnvelopeTransport {
         key: Key,
         request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
-    ) -> Result<ApiSuccess<layerx_agent_api::identity::NativeDisclosureResultV1>, EnvelopeError> {
-        use sha2::{Digest, Sha256};
+        _registry: &layerx_types::payload::ModuleRegistry,
+    ) -> Result<ApiSuccess<layerx_agent_api::identity::NativeDisclosureResultV1>, EnvelopeError>
+    {
+        let (_, sender) = self
+            .native_authority
+            .ok_or(EnvelopeError::InvalidCredential)?;
         let body = crate::native_effect::encode_native_disclosure(request)?;
-        let response = self.send_operation(Operation::Prepare, request_id, &body, Some(credential), Some(key))?;
-        let unknown = || EnvelopeError::Unknown { operation:Operation::Prepare };
+        let response = self.send_operation(
+            Operation::Prepare,
+            request_id,
+            &body,
+            Some(credential),
+            Some(key),
+        )?;
+        let unknown = || EnvelopeError::Unknown {
+            operation: Operation::Prepare,
+        };
         let value = decode_native_disclosure(&response.value).ok_or_else(unknown)?;
-        let disclosure = layerx_crypto::disclosure::bind(&request.canonical_bytes, registry).map_err(|_| unknown())?;
-        if value.canonical_bytes != request.canonical_bytes
-            || value.preparation_id != <[u8;32]>::from(Sha256::digest(&request.canonical_bytes))
-            || value.disclosure_digest != disclosure.audit_digest().map_err(|_| unknown())?
-            || value.activity_type != disclosure.activity_type.value()
-            || value.actor != disclosure.actor || value.authority != disclosure.authority
-            || value.asset != disclosure.asset || value.fee_limit != disclosure.fee_limit
-            || value.not_before != disclosure.expiry.not_before || value.not_after != disclosure.expiry.not_after
-            || value.payload_expires_at != disclosure.expiry.payload_expires_at
-            || value.idempotency_key != disclosure.idempotency_key {
-            return Err(unknown());
-        }
+        validate_call_disclosure(request, &value, sender).map_err(|_| unknown())?;
         Ok(native_success(response, value))
     }
 
@@ -609,7 +747,14 @@ impl AgentEnvelopeTransport {
         registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         let body = crate::native_effect::encode_native_registration_prepare(request)?;
-        self.prepare_native_effect_body(request_id, key, &request.request, &body, credential, registry)
+        self.prepare_native_effect_body(
+            request_id,
+            key,
+            &request.request,
+            &body,
+            credential,
+            registry,
+        )
     }
 
     fn prepare_native_effect_body(
@@ -619,10 +764,19 @@ impl AgentEnvelopeTransport {
         request: &layerx_agent_api::identity::NativeEffectPrepareRequestV1,
         body: &Value,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
         let purpose = &request.purpose.purpose;
+        verify_owner_purpose(
+            &purpose
+                .canonical_bytes()
+                .map_err(|_| EnvelopeError::InvalidRequest)?,
+            &request.purpose.owner_public_key,
+            &request.purpose.signature,
+        )?;
+        let sender =
+            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
         crate::native_effect::validate_request_binding(request, credential, key)?;
         let response = self.send_operation(
             Operation::Prepare,
@@ -636,28 +790,28 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
+        let call =
+            validate_unsigned_preparation(&value, purpose.preparation_id, purpose.canonical_digest)
+                .map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                request.actor.as_str(),
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -695,12 +849,21 @@ impl AgentEnvelopeTransport {
         key: Key,
         request: &layerx_agent_api::identity::NativeSendPrepareRequestV1,
         credential: &EnvelopeCredential,
-        registry: &layerx_types::payload::ModuleRegistry,
+        _registry: &layerx_types::payload::ModuleRegistry,
         mcp: bool,
     ) -> Result<ApiSuccess<layerx_agent_api::identity::NativePrepareResultV1>, EnvelopeError> {
         use sha2::{Digest, Sha256};
         let body = crate::native_effect::encode_native_send_prepare(request)?;
         let purpose = &request.purpose.purpose;
+        verify_owner_purpose(
+            &purpose
+                .canonical_bytes()
+                .map_err(|_| EnvelopeError::InvalidRequest)?,
+            &request.purpose.owner_public_key,
+            &request.purpose.signature,
+        )?;
+        let sender =
+            self.preparation_sender(&request.authority, request.purpose.owner_public_key)?;
         crate::native_effect::validate_send_request_binding(request, credential, key)?;
         let response = if mcp {
             self.mcp_invoke(request_id, credential, "activity.prepare", &body, key)?
@@ -718,33 +881,29 @@ impl AgentEnvelopeTransport {
         };
         let value = decode_native_preparation(&response.value).ok_or_else(unknown)?;
         let canonical_digest: [u8; 32] = Sha256::digest(&value.canonical_bytes).into();
-        let activity = layerx_wire::activity::decode_unsigned(&value.canonical_bytes, registry)
-            .map_err(|_| unknown())?;
-        let preimage = layerx_wire::sign::preimage(&activity).map_err(|_| unknown())?;
-        let reencoded = layerx_wire::activity::encode_unsigned(&activity).map_err(|_| unknown())?;
+        let call =
+            validate_unsigned_preparation(&value, purpose.preparation_id, purpose.canonical_digest)
+                .map_err(|_| unknown())?;
         if value.preparation_id != purpose.preparation_id
             || canonical_digest != purpose.canonical_digest
             || value.preparation_id != canonical_digest
             || value.activity != request.activity
-            || activity.protocol_version() != purpose.protocol_version
-            || activity.network_id() != purpose.network_id
-            || activity.authority() != request.authority.as_bytes()
-            || reencoded != value.canonical_bytes
-            || activity.activity_type().value()
-                != request
-                    .activity
-                    .activity_type()
-                    .map_err(|_| unknown())?
-                    .value()
-            || activity.actor_did() != request.actor.as_str().as_bytes()
-            || activity.account_sequence() != request.account_sequence
-            || activity.timestamp_bound().not_before != request.not_before
-            || activity.timestamp_bound().not_after != request.not_after
-            || activity.idempotency_key() != request.idempotency_key
-            || activity.fee_limit() != request.fee_limit
-            || activity.payload() != request.payload.as_slice()
-            || activity.payload_hash() != request.payload_hash
-            || preimage.as_bytes() != &value.signing_preimage
+            || !raw_call_matches_request(
+                &call,
+                sender,
+                request.activity,
+                request.actor.as_str(),
+                request.account_sequence,
+                request.not_before,
+                request.not_after,
+                request.idempotency_key,
+                request.fee_limit,
+                &request.payload,
+                request.payload_hash,
+                &value.canonical_bytes,
+            )
+            || call.signing_hash() != value.signing_preimage
+            || call.chain_id != u64::from(purpose.network_id)
             || value
                 .approval_id
                 .is_some_and(|id| id != value.preparation_id)
@@ -935,6 +1094,16 @@ impl AgentEnvelopeTransport {
                 EnvelopeError::Decode { operation }
             }
         };
+        if let Some((received_id, value, status)) = decode_not_ready_response(status, &document) {
+            if received_id != request_id {
+                return Err(schema_violation());
+            }
+            return Err(EnvelopeError::NotReady {
+                request_id: received_id,
+                value,
+                status,
+            });
+        }
         let decoded = decode_response(status, &document).ok_or_else(schema_violation)?;
         let received = match &decoded {
             Ok(success) => success.request_id,
@@ -996,6 +1165,19 @@ pub fn decode_response(
     status: u16,
     document: &Value,
 ) -> Option<Result<ApiSuccess<Value>, ApiError>> {
+    if let Some((request_id, _, status)) = decode_not_ready_response(status, document) {
+        let reason = match status {
+            NotReadyStatus::Pending { .. } => "verification.pending",
+            NotReadyStatus::Absent { .. } => "verification.absent",
+        };
+        return Some(Err(ApiError {
+            class: ErrorClass::UnavailableCapability,
+            protocol_result_code: None,
+            retriability: Retriability::Retriable,
+            request_id,
+            reason: ReasonCode::new(reason).ok()?,
+        }));
+    }
     let envelope = document.as_object()?;
     if status == 200 {
         if !exact_fields(envelope, SUCCESS_FIELDS) {
@@ -1049,16 +1231,16 @@ pub fn decode_response(
 fn verification_status(value: &Value) -> Option<VerificationStatus> {
     let status = value.as_object()?;
     match status.get("state")?.as_str()? {
-        "achieved" if exact_fields(status, &["state", "level"]) => {
-            Some(VerificationStatus::Achieved(level(status.get("level")?)?))
+        "achieved" if exact_fields(status, &["state", "rung"]) => {
+            Some(VerificationStatus::Achieved(rung(status.get("rung")?)?))
         }
         "unverified" if exact_fields(status, &["state", "requested", "achieved", "reason"]) => {
-            let requested = level(status.get("requested")?)?;
-            let achieved = level(status.get("achieved")?)?;
+            let requested = rung(status.get("requested")?)?;
+            let achieved = rung(status.get("achieved")?)?;
             if achieved >= requested {
                 return None;
             }
-            Some(VerificationStatus::Unverified {
+            Some(VerificationStatus::Below {
                 requested,
                 achieved,
                 reason: reason(status.get("reason")?)?,
@@ -1068,16 +1250,8 @@ fn verification_status(value: &Value) -> Option<VerificationStatus> {
     }
 }
 
-fn level(value: &Value) -> Option<Level> {
-    Some(match value.as_str()? {
-        "Unverified" => Level::Unverified,
-        "SequencerSigned" => Level::SequencerSigned,
-        "BatchIncluded" => Level::BatchIncluded,
-        "StateProven" => Level::StateProven,
-        "CheckpointFinalised" => Level::CheckpointFinalised,
-        "SettlementAnchored" => Level::SettlementAnchored,
-        _ => return None,
-    })
+fn rung(value: &Value) -> Option<Rung> {
+    Rung::from_name(value.as_str()?)
 }
 
 fn request_id(value: &Value) -> Option<RequestId> {
@@ -1199,24 +1373,233 @@ fn native_optional_id(value: &Value) -> Option<Option<[u8; 32]>> {
     }
 }
 
-pub fn decode_native_disclosure(value: &Value) -> Option<layerx_agent_api::identity::NativeDisclosureResultV1> {
+pub fn decode_native_disclosure(
+    value: &Value,
+) -> Option<layerx_agent_api::identity::NativeDisclosureResultV1> {
     let value = value.as_object()?;
-    if !exact_fields(value, &["version","preparation_id","canonical_bytes","disclosure_digest","activity_type","actor","authority","asset","fee_limit","not_before","not_after","payload_expires_at","idempotency_key"])
-        || value.get("version")?.as_str()? != "1" { return None; }
-    let number = |field:&str| canonical_u64(value.get(field)?.as_str()?);
+    if !exact_fields(
+        value,
+        &[
+            "version",
+            "preparation_id",
+            "canonical_bytes",
+            "disclosure_digest",
+            "activity_type",
+            "actor",
+            "authority",
+            "asset",
+            "fee_limit",
+            "not_before",
+            "not_after",
+            "payload_expires_at",
+            "idempotency_key",
+        ],
+    ) || value.get("version")?.as_str()? != "1"
+    {
+        return None;
+    }
+    let number = |field: &str| canonical_u64(value.get(field)?.as_str()?);
     let amount = value.get("fee_limit")?.as_str()?;
-    if amount.is_empty() || !amount.bytes().all(|b|b.is_ascii_digit()) || (amount.len()>1 && amount.starts_with('0')) {return None;}
+    if amount.is_empty()
+        || !amount.bytes().all(|b| b.is_ascii_digit())
+        || (amount.len() > 1 && amount.starts_with('0'))
+    {
+        return None;
+    }
     Some(layerx_agent_api::identity::NativeDisclosureResultV1 {
-        preparation_id:native_id(value.get("preparation_id")?)?,
-        canonical_bytes:native_hex(value.get("canonical_bytes")?, layerx_wire::limits::MAX_MESSAGE_BYTES)?,
-        disclosure_digest:native_id(value.get("disclosure_digest")?)?,
-        activity_type:u32::try_from(number("activity_type")?).ok()?,
-        actor:native_hex(value.get("actor")?, layerx_types::limits::MAX_DID_BYTES)?,
-        authority:native_hex(value.get("authority")?, layerx_types::limits::MAX_AUTHORITY_BYTES)?,
-        asset:native_id(value.get("asset")?)?, fee_limit:amount.parse().ok()?,
-        not_before:number("not_before")?, not_after:number("not_after")?, payload_expires_at:number("payload_expires_at")?,
-        idempotency_key:native_id(value.get("idempotency_key")?)?,
+        preparation_id: native_id(value.get("preparation_id")?)?,
+        canonical_bytes: native_hex(
+            value.get("canonical_bytes")?,
+            layerx_wire::limits::MAX_MESSAGE_BYTES,
+        )?,
+        disclosure_digest: native_id(value.get("disclosure_digest")?)?,
+        activity_type: u32::try_from(number("activity_type")?).ok()?,
+        actor: native_hex(value.get("actor")?, layerx_types::limits::MAX_DID_BYTES)?,
+        authority: native_hex(
+            value.get("authority")?,
+            layerx_types::limits::MAX_AUTHORITY_BYTES,
+        )?,
+        asset: native_id(value.get("asset")?)?,
+        fee_limit: amount.parse().ok()?,
+        not_before: number("not_before")?,
+        not_after: number("not_after")?,
+        payload_expires_at: number("payload_expires_at")?,
+        idempotency_key: native_id(value.get("idempotency_key")?)?,
     })
+}
+
+/// Validates the producer's canonical unsigned call, preparation identity and signing hash.
+/// The owner purpose is authenticated separately, and the sender is pinned by the caller.
+pub fn validate_unsigned_preparation(
+    value: &layerx_agent_api::identity::NativePrepareResultV1,
+    preparation_id: [u8; 32],
+    canonical_digest: [u8; 32],
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, EnvelopeError> {
+    use sha2::{Digest, Sha256};
+    let call = layerx_crypto::evm_transaction::decode_unsigned(&value.canonical_bytes)
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
+    if call.encode_unsigned() != value.canonical_bytes
+        || value.signing_preimage != call.signing_hash()
+        || value.preparation_id != preparation_id
+        || preparation_id != canonical_digest
+        || canonical_digest != <[u8; 32]>::from(Sha256::digest(&value.canonical_bytes))
+        || value.approval_id.is_some_and(|id| id != preparation_id)
+    {
+        return Err(EnvelopeError::InvalidRequest);
+    }
+    Ok(call)
+}
+
+fn verify_owner_purpose(
+    canonical: &[u8],
+    key: &[u8; 32],
+    signature: &[u8; 64],
+) -> Result<(), EnvelopeError> {
+    use sha2::{Digest, Sha256};
+    layerx_crypto::ed25519::verify_digest(key, signature, &Sha256::digest(canonical).into())
+        .map_err(|_| EnvelopeError::InvalidCredential)
+}
+
+/// Checks the unsigned call and disclosure against the sender selected by the external signer.
+pub fn validate_call_disclosure(
+    request: &layerx_agent_api::identity::NativeDisclosureRequestV1,
+    value: &layerx_agent_api::identity::NativeDisclosureResultV1,
+    expected_sender: [u8; 20],
+) -> Result<layerx_crypto::disclosure::Disclosure, EnvelopeError> {
+    use sha2::{Digest, Sha256};
+    let call = layerx_crypto::evm_transaction::decode_unsigned(&request.canonical_bytes)
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
+    let disclosure = layerx_crypto::disclosure::call::bind_call(&call, expected_sender)
+        .map_err(|_| EnvelopeError::InvalidRequest)?;
+    if value.canonical_bytes != request.canonical_bytes
+        || value.preparation_id != <[u8; 32]>::from(Sha256::digest(&request.canonical_bytes))
+        || value.disclosure_digest
+            != disclosure
+                .audit_digest()
+                .map_err(|_| EnvelopeError::InvalidRequest)?
+        || value.activity_type != disclosure.activity_type.value()
+        || value.actor != disclosure.actor
+        || value.authority != disclosure.authority
+        || value.asset != disclosure.asset
+        || value.fee_limit != disclosure.fee_limit
+        || value.not_before != disclosure.expiry.not_before
+        || value.not_after != disclosure.expiry.not_after
+        || value.payload_expires_at != disclosure.expiry.payload_expires_at
+        || value.idempotency_key != disclosure.idempotency_key
+    {
+        return Err(EnvelopeError::InvalidRequest);
+    }
+    Ok(disclosure)
+}
+
+fn decode_raw_call(
+    raw: &[u8],
+) -> Result<(layerx_crypto::evm_transaction::Eip1559Call, [u8; 20]), EnvelopeError> {
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let (call, signature) = decode_signed(raw).map_err(|_| EnvelopeError::InvalidRequest)?;
+    let sender = recover_sender(&call, &signature).map_err(|_| EnvelopeError::InvalidRequest)?;
+    Ok((call, sender))
+}
+
+/// Decodes the signed transaction carried by an envelope and binds its sender.
+///
+/// # Errors
+/// Refuses malformed transaction bytes or a signature from another sender.
+pub fn decode_signed_envelope_call(
+    value: &Value,
+    expected_sender: [u8; 20],
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, EnvelopeError> {
+    let raw = native_hex(
+        value
+            .get("canonical_bytes")
+            .ok_or(EnvelopeError::InvalidRequest)?,
+        MAX_ENVELOPE_BYTES,
+    )
+    .ok_or(EnvelopeError::InvalidRequest)?;
+    let (call, sender) = decode_raw_call(&raw)?;
+    if sender != expected_sender {
+        return Err(EnvelopeError::InvalidCredential);
+    }
+    Ok(call)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn raw_call_matches_request(
+    call: &layerx_crypto::evm_transaction::Eip1559Call,
+    sender: [u8; 20],
+    activity: layerx_agent_api::identity::NativeActivity,
+    actor: &str,
+    nonce: u64,
+    not_before: u64,
+    not_after: u64,
+    idempotency_key: [u8; 32],
+    fee_limit: u128,
+    payload: &[u8],
+    payload_hash: [u8; 32],
+    raw: &[u8],
+) -> bool {
+    use layerx_types::payload::ModuleId;
+    use sha2::{Digest, Sha256};
+    let target = match activity.activity_type().map(|kind| kind.module()) {
+        Ok(ModuleId::Programs) => [0x10, 0x1d],
+        Ok(ModuleId::Asset) => [0x10, 0x1a],
+        Ok(ModuleId::Budget | ModuleId::Escrow | ModuleId::Stream) => [0x10, 0x1b],
+        _ => return false,
+    };
+    let expected_hash: [u8; 32] = Sha256::new()
+        .chain_update(layerx_wire::hash::Domain::PayloadHash.tag())
+        .chain_update(payload)
+        .finalize()
+        .into();
+    let Ok(disclosure) = layerx_crypto::disclosure::call::bind_call(call, sender) else {
+        return false;
+    };
+    let Ok(kind) = activity.activity_type() else {
+        return false;
+    };
+    let expected_payload = match kind.module() {
+        ModuleId::Programs => layerx_types::program_call::NativeProgramCall::decode(payload)
+            .map(|native| layerx_crypto::disclosure::call::encode_program_call(&native, fee_limit))
+            .ok(),
+        ModuleId::Asset if kind.ordinal() == 5 => layerx_crypto::send::ledger_payment_call(
+            payload,
+            &layerx_crypto::send::CallOptions {
+                from: sender,
+                chain_id: call.chain_id,
+                nonce: call.nonce,
+                max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+                max_fee_per_gas: call.max_fee_per_gas,
+                gas_limit: call.gas_limit,
+            },
+        )
+        .map(|disclosed| disclosed.call.data)
+        .ok(),
+        _ => layerx_crypto::payments::Payment::decode(
+            kind.module(),
+            kind.ordinal(),
+            payload,
+            actor.as_bytes(),
+        )
+        .and_then(|payment| {
+            layerx_crypto::disclosure::call::encode_payment_call(&payment, actor.as_bytes())
+        })
+        .ok(),
+    };
+    call.to[..18] == [0; 18]
+        && call.to[18..] == target
+        && call.nonce == nonce
+        && disclosure.activity_type == kind
+        && disclosure.expiry.not_before == not_before
+        && disclosure.expiry.not_after == not_after
+        && (if disclosure.idempotency_key == [0; 32] {
+            <[u8; 32]>::from(Sha256::digest(raw)) == idempotency_key
+        } else {
+            disclosure.idempotency_key == idempotency_key
+        })
+        && disclosure.fee_limit == fee_limit
+        && expected_payload.as_deref() == Some(call.data.as_slice())
+        && call.encode_unsigned() == raw
+        && payload_hash == expected_hash
 }
 
 pub fn decode_native_preparation(
@@ -1324,20 +1707,20 @@ pub fn encode_proof_bundle_request(
         .map_err(|_| EnvelopeError::InvalidRequest)?;
     Ok(json!({
         "target": hex(request.selector.as_bytes()),
-        "requested_verification_level": format!("{:?}", request.requested_verification_level),
+        "requested_rung": request.requested_rung.name(),
     }))
 }
 
 pub fn decode_proof_bundle_request(value: &Value) -> Option<ReadRequest<CanonicalBytes>> {
     let request = value.as_object()?;
-    if !exact_fields(request, &["target", "requested_verification_level"]) {
+    if !exact_fields(request, &["target", "requested_rung"]) {
         return None;
     }
     let bytes = native_hex(request.get("target")?, 67)?;
     ProofBundleTarget::decode(&bytes).ok()?;
     Some(ReadRequest {
         selector: CanonicalBytes::new(bytes).ok()?,
-        requested_verification_level: level(request.get("requested_verification_level")?)?,
+        requested_rung: Rung::from_name(request.get("requested_rung")?.as_str()?)?,
     })
 }
 
@@ -1345,72 +1728,58 @@ pub fn decode_proof_bundle_response(
     request: &ReadRequest<CanonicalBytes>,
     response: &ApiSuccess<Value>,
 ) -> Option<VerifiedRead<ProofBundle>> {
+    let operation = Operation::ReadProofBundle;
     let read = response.value.as_object()?;
     if !exact_fields(read, &["value", "achieved_verification_level", "freshness"]) {
         return None;
     }
-    let achieved = level(read.get("achieved_verification_level")?)?;
-    if response.verification_status != VerificationStatus::Achieved(achieved) {
+    let achieved = Rung::from_name(read.get("achieved_verification_level")?.as_str()?)?;
+    if !matches!(response.verification_status, VerificationStatus::Achieved(rung) if rung == achieved)
+    {
         return None;
     }
-    let bundle = read.get("value")?.as_object()?;
-    if !exact_fields(bundle, &["target", "proofs"]) {
-        return None;
-    }
-    let target = CanonicalBytes::new(native_hex(bundle.get("target")?, 67)?).ok()?;
-    let proofs = bundle.get("proofs")?.as_array()?;
-    if proofs.len() != 1 {
-        return None;
-    }
-    let proof = CanonicalBytes::new(native_hex(&proofs[0], MAX_PROOF_BUNDLE_BYTES)?).ok()?;
-    let freshness = read.get("freshness")?.as_object()?;
-    if !exact_fields(
-        freshness,
-        &[
-            "chain_head",
-            "latest_sealed_batch",
-            "latest_finalised_checkpoint",
-            "value_sequence",
-            "relative_to",
-        ],
-    ) {
-        return None;
-    }
-    let chain_head = canonical_u64(freshness.get("chain_head")?.as_str()?)?;
-    let value_sequence = canonical_u64(freshness.get("value_sequence")?.as_str()?)?;
-    let sealed = freshness.get("latest_sealed_batch")?.as_str()?;
-    let sealed_number = canonical_u64(sealed)?;
-    let checkpoint = freshness.get("latest_finalised_checkpoint")?;
-    native_id(checkpoint)?;
-    let relative = freshness.get("relative_to")?.as_object()?;
-    if !exact_fields(relative, &["batch"]) {
-        return None;
-    }
-    let batch = relative.get("batch")?.as_str()?;
-    let batch_number = canonical_u64(batch)?;
-    if chain_head == 0
-        || value_sequence == 0
-        || sealed_number == 0
-        || batch_number == 0
-        || value_sequence > chain_head
-        || batch_number > sealed_number
+    let freshness = Freshness::decode_json(&read.get("freshness")?.to_string()).ok()?;
+    let RelativeTo::Block { height, hash } = freshness.relative_to;
+    if freshness.value_height > freshness.chain_head
+        || height != freshness.value_height
+        || hash == [0; 32]
     {
         return None;
     }
     let result = VerifiedRead::new(
-        ProofBundle {
-            target,
-            proofs: vec![proof],
-        },
+        crate::rpc_export::decode_bundle(read.get("value")?, operation).ok()?,
         achieved,
-        Freshness {
-            chain_head: Sequence(chain_head),
-            latest_sealed_batch: BatchRef::new(sealed).ok()?,
-            latest_finalised_checkpoint: CheckpointRef::new(checkpoint.as_str()?).ok()?,
-            value_sequence: Sequence(value_sequence),
-            relative_to: RelativeTo::Batch(BatchRef::new(batch).ok()?),
-        },
+        freshness,
     );
-    ProofBundle::check_response(request, &result).ok()?;
+    let target = ProofBundleTarget::decode(request.selector.as_bytes()).ok()?;
+    let typed_request = ReadRequest {
+        selector: target,
+        requested_rung: request.requested_rung,
+    };
+    ProofBundle::check_response(&typed_request, &result).ok()?;
+    let receipt = layerx_wire::receipt::decode(result.value.signed_receipt.as_bytes()).ok()?;
+    if receipt.protocol()?.activity_id() != target.activity_id() {
+        return None;
+    }
     Some(result)
+}
+
+#[cfg(test)]
+mod rung_contract_tests {
+    use super::*;
+
+    #[test]
+    fn idempotent_replay_remains_a_terminal_core_rejection() {
+        let expected = ApiError::idempotent_replay(RequestId(9));
+        let wire = json!({"class":"CoreRejection", "protocol_result_code":-302, "retriability":"Terminal", "request_id":"9", "reason":"idempotent_replay"});
+        assert_eq!(decode_response(409, &wire), Some(Err(expected.clone())));
+        assert_eq!(expected.class, ErrorClass::CoreRejection);
+        assert_eq!(
+            expected.protocol_result_code,
+            Some(ResultCode::from_raw(-302))
+        );
+        assert_eq!(expected.retriability, Retriability::Terminal);
+        assert_eq!(expected.reason.as_str(), "idempotent_replay");
+        assert_ne!(expected.class, ErrorClass::IdempotencyConflict);
+    }
 }

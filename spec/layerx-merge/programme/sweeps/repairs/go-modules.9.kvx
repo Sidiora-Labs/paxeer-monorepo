@@ -1,0 +1,9 @@
+[repair.go-modules.9]
+target = "modules/evm/ante"
+command = "CGO_ENABLED=1 go vet ./modules/evm/ante/ && CGO_ENABLED=1 go test -count=1 ./modules/evm/ante/"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+result = "already-passing"
+change = "none"
+producer_input_tests = []
+qualification_build = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/evm/ante/"
+qualification_verify = "test -s spec/layerx-merge/programme/sweeps/repairs/go-modules.9.kvx && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/evm/ante/"

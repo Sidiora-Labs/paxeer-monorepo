@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	_ "embed"
+	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -227,6 +228,31 @@ func (s Store) SetRead(ctx context.Context, account, id string, read bool) error
 	}
 	return e
 }
+
+const v2_id = "v2_id"
+
+func (s Store) SetReadV2(ctx context.Context, account, id string, read bool) error {
+	_, err := s.setReadV2(ctx, account, id, read)
+	return err
+}
+
+// Return the timestamp from the same statement that changes the read state, so
+// the HTTP consumer never has to race a second lookup against deletion.
+func (s Store) setReadV2(ctx context.Context, account, id string, read bool) (sql.NullTime, error) {
+	var readAt sql.NullTime
+	if s.DB == nil || account == "" || len(id) != 36 || id[8] != '-' || id[13] != '-' || id[18] != '-' || id[23] != '-' {
+		return readAt, ErrInvalid
+	}
+	if raw, err := hex.DecodeString(strings.ReplaceAll(id, "-", "")); err != nil || len(raw) != 16 {
+		return readAt, ErrInvalid
+	}
+	err := s.DB.QueryRowContext(ctx, `UPDATE discovery_notifications.inbox
+		SET document=jsonb_set(document,'{Read}',to_jsonb($3::boolean)),
+		read_at=CASE WHEN $3 THEN COALESCE(read_at,clock_timestamp()) ELSE read_at END
+		WHERE account_id=$1 AND `+v2_id+`=$2::uuid RETURNING read_at`, account, id, read).Scan(&readAt)
+	return readAt, err
+}
+
 func erasedAccountKey(account string) string {
 	key := sha256.Sum256([]byte("notification-erased-account-v1\x00" + account))
 	return hex.EncodeToString(key[:])
@@ -286,6 +312,98 @@ func (s Store) List(ctx context.Context, account string, limit int) ([]InboxItem
 		out = append(out, n)
 	}
 	return out, rows.Err()
+}
+
+type InboxPageItem struct {
+	InboxItem
+	V2ID          string
+	ReadAt        *time.Time
+	DeliveryState string
+}
+
+type InboxPage struct {
+	Items      []InboxPageItem
+	NextCursor string
+}
+
+func (s Store) ListPage(ctx context.Context, account string, unreadOnly bool, cursor string, limit int) (InboxPage, error) {
+	if s.DB == nil || account == "" || limit < 1 || limit > 100 || len(cursor) > 256 {
+		return InboxPage{}, ErrInvalid
+	}
+	var after any
+	var afterID string
+	if cursor != "" {
+		raw, err := base64.RawURLEncoding.Strict().DecodeString(cursor)
+		if err != nil || base64.RawURLEncoding.EncodeToString(raw) != cursor {
+			return InboxPage{}, ErrInvalid
+		}
+		stamp, id, ok := strings.Cut(string(raw), "|")
+		createdAt, err := time.Parse(time.RFC3339Nano, stamp)
+		if !ok || err != nil || createdAt.IsZero() || len(id) != 64 {
+			return InboxPage{}, ErrInvalid
+		}
+		if _, err = hex.DecodeString(id); err != nil {
+			return InboxPage{}, ErrInvalid
+		}
+		after, afterID = createdAt, id
+	}
+	rows, err := s.DB.QueryContext(ctx, `SELECT i.document,i.`+v2_id+`::text,i.created_at,i.id,i.read_at,o.deliveries,o.terminal
+		FROM discovery_notifications.inbox i JOIN discovery_notifications.outbox o ON o.id=i.id
+		WHERE i.account_id=$1 AND ($2 = false OR NOT COALESCE((i.document->>'Read')::boolean, false))
+		AND ($3::timestamptz IS NULL OR i.created_at<$3 OR (i.created_at=$3 AND i.id>$4))
+		ORDER BY i.created_at DESC,i.id LIMIT $5`, account, unreadOnly, after, afterID, limit+1)
+	if err != nil {
+		return InboxPage{}, err
+	}
+	defer rows.Close()
+	page := InboxPage{Items: []InboxPageItem{}}
+	var lastCreatedAt time.Time
+	var lastID string
+	for rows.Next() {
+		var item InboxPageItem
+		var document []byte
+		var deliveries []byte
+		var readAt sql.NullTime
+		var terminal bool
+		var createdAt time.Time
+		var id string
+		if err = rows.Scan(&document, &item.V2ID, &createdAt, &id, &readAt, &deliveries, &terminal); err != nil {
+			return InboxPage{}, err
+		}
+		if len(page.Items) == limit {
+			page.NextCursor = base64.RawURLEncoding.EncodeToString([]byte(lastCreatedAt.UTC().Format(time.RFC3339Nano) + "|" + lastID))
+			break
+		}
+		if err = json.Unmarshal(document, &item.InboxItem); err != nil {
+			return InboxPage{}, err
+		}
+		if item.Read && readAt.Valid {
+			item.ReadAt = &readAt.Time
+		}
+		var attempts []DeliveryAttempt
+		if err = json.Unmarshal(deliveries, &attempts); err != nil {
+			return InboxPage{}, err
+		}
+		item.DeliveryState = "pending"
+		if terminal {
+			item.DeliveryState = "failed"
+		}
+		if len(attempts) == 0 {
+			item.DeliveryState = "sent"
+		}
+		for _, attempt := range attempts {
+			if attempt.State == "accepted" {
+				item.DeliveryState = "sent"
+				break
+			}
+		}
+		page.Items = append(page.Items, item)
+		lastCreatedAt, lastID = createdAt, id
+	}
+	if err = rows.Err(); err != nil {
+		return InboxPage{}, err
+	}
+	return page, nil
 }
 
 var _ Repository = Store{}

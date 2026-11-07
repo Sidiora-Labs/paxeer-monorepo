@@ -1,0 +1,114 @@
+[disposition.7.0.2]
+finding = "7.0.2"
+status = "resolved"
+evidence = "Commit b8025fbac converted both exported InfoAPI test methods to package functions, as rpc/export_info_test.go:10 and rpc/export_info_test.go:14 show, so service registration no longer publishes the two extra RPC names."
+
+[disposition.7.0.3]
+finding = "7.0.3"
+status = "resolved"
+evidence = "Commit 95cdc4467 uses transaction index 1 in both the receipt-log expectation at rpc/sequencer_options_integration_test.go:210 and the receipt assertion at rpc/sequencer_options_integration_test.go:252, matching node/sequencer/accept.go:40."
+
+[disposition.7.1.1]
+finding = "7.1.1"
+status = "resolved"
+evidence = "The revised contract at spec/layerx-merge/spec.kvx:148645 requires registration with and without SequencerReceiptOption and the zero-option -32000 refusal, which commit 91540e8a8 implements in rpc/pax_served_set_test.go:93 and rpc/pax_served_set_test.go:105."
+
+[disposition.7.2.1]
+finding = "7.2.1"
+status = "resolved"
+evidence = "Commit 206fe9970 replaced all three stale Cleanup references with ShutdownFilterAPIForTest at rpc/pending_filter_test.go:72, rpc/pending_filter_test.go:444 and rpc/synthetic_receipts_test.go:142, backed by the shutdown wrapper at rpc/export_filter_test.go:7."
+
+[disposition.7.4.1]
+finding = "7.4.1"
+status = "resolved"
+evidence = "The task symbols at spec/layerx-merge/spec.kvx:148836 name Web3API.Sha3 and TestWeb3Sha3HashesInput instead of the imported crypto.Keccak256, and the Sha3 implementation added by commit 1984d8645 remains at rpc/web3.go:24."
+
+[disposition.7.13.2]
+finding = "7.13.2"
+status = "resolved"
+evidence = "Commit 38a35a858 removed CheckTxTimeout and flagCheckTxTimeout from rpc/config/config.go, and spec/layerx-merge/spec.kvx:149587 now requires only TestReadConfigIgnoresChecktxTimeout rather than definitions of the deleted names."
+
+[disposition.7.13.3]
+finding = "7.13.3"
+status = "resolved"
+evidence = "The task symbols at spec/layerx-merge/spec.kvx:149618 require the local limiter declarations and tests instead of the imported rate.Limiter, with the declarations from commit 360367b0d present at rpc/ip_rate_limit.go:22 and rpc/ip_rate_limit.go:32."
+
+[disposition.7.14.6]
+finding = "7.14.6"
+status = "resolved"
+evidence = "Commit c2fcd6e06 added the histogram swap used at rpc/served_labels_test.go:35, valid per-method arguments at rpc/served_labels_test.go:44 and latency recording for both web3 handlers at rpc/web3.go:17 and rpc/web3.go:25."
+
+[disposition.7.14.6.1]
+finding = "7.14.6.1"
+status = "resolved"
+evidence = "Commit c2fcd6e06 added deferred latency recording for all six handlers, retained at rpc/uncle.go:30, rpc/uncle.go:38, rpc/uncle_count.go:16, rpc/uncle_count.go:37, rpc/send_sync.go:29 and rpc/tracers.go:767 with transport-specific API registration in rpc/server.go:313 and rpc/server.go:536."
+
+[disposition.7.15.1]
+finding = "7.15.1"
+status = "resolved"
+evidence = "Commit 961530acf removed ValidateEVMBlockHeight, Pacific1EVMLaunchHeight and their block-lookup calls, while spec/layerx-merge/spec.kvx:149963 now binds the task to the surviving lookup functions and TestBlockLookupHasNoLaunchHeightFloor."
+
+[disposition.7.16.1]
+finding = "7.16.1"
+status = "resolved"
+evidence = "Commit 15525f0dd added lx_unsubscribe and eth_lx_unsubscribe to the HTTP and WebSocket deny lists before dispatch, retained at rpc/server.go:386 and rpc/server.go:574."
+
+[disposition.7.19.3]
+finding = "7.19.3"
+status = "resolved"
+evidence = "Commit a781fe95b asserts cumulative gas 21000 rather than zero for the first transaction receipt, retained at rpc/ethclient_receipts_test.go:33."
+
+[disposition.7.19.3.1]
+finding = "7.19.3.1"
+status = "resolved"
+evidence = "Commit a781fe95b sets the multiTxBlockTx1 fixture status to ReceiptStatusSuccessful at rpc/setup_test.go:1051 while retaining the successful-status assertion at rpc/ethclient_receipts_test.go:54."
+
+[disposition.7.19.4]
+finding = "7.19.4"
+status = "resolved"
+evidence = "The eleven 7.19 task symbol lists from spec/layerx-merge/spec.kvx:150208 through spec/layerx-merge/spec.kvx:150511 now name local test functions rather than ethclient.Client, including the two functions introduced by commit ac0ec17ab in rpc/ethclient_state_test.go."
+
+[disposition.7.19.6]
+finding = "7.19.6"
+status = "resolved"
+evidence = "Commit 8a79a1125 adds defaultPriorityFeePerGas after multiplying the uncongested base fee by 110 over 100 at rpc/info.go:166, so the suggested price includes the tip and rpc/ethclient_fees_test.go:30 retains the price-at-least-tip assertion."
+
+[disposition.7.19.6.2]
+finding = "7.19.6.2"
+status = "resolved"
+evidence = "Commit 8a79a1125 aligns TestGasPriceLogic with the base-fee-plus-tip formula using 2100000000 at rpc/info_test.go:245, matching rpc/info.go:166 and the explicit served-price formula at rpc/ethclient_fees_test.go:39."
+
+[disposition.7.19.9]
+finding = "7.19.9"
+status = "resolved"
+evidence = "Commit d2d638646 drives the committed height-8 block through OnBlockCommitted at rpc/ethclient_newhead_test.go:55, preserves the ethclient header comparison at rpc/ethclient_newhead_test.go:97 and compares the two served consensus-hash fields at rpc/ethclient_newhead_test.go:99."
+
+[disposition.7.26.4]
+finding = "7.26.4"
+status = "resolved"
+evidence = "Commit 08b912e57 renamed the tokenfactory helper to createTokenfactoryDenom at api/tokenfactory_rest_test.go:48 and updated its caller, leaving the distinct bank helper CreateDenom at api/bank_rest_test.go:21."
+
+[disposition.7.26.5.1]
+finding = "7.26.5.1"
+status = "superseded"
+evidence = "Commit 90bda704a retired Keeper.ResultByIdempotency and its precompile view with the removed idempotency read, deleting the undefined ReadIdempotentReceipt call from modules/layerxauth/keeper/views.go, where RevocationSequence now follows CheckActivity at modules/layerxauth/keeper/views.go:168."
+
+[disposition.7.29.2.1]
+finding = "7.29.2.1"
+status = "resolved"
+evidence = "Commit 150362735 regenerated the remaining 102 protobuf files after commits 451c6bee3 and bee874530 repaired the xweb and bank outputs, and api/buf_generate_test.go:194 retains the byte-for-byte comparison against the pinned toolchain output."
+
+[disposition.7.29.2.2]
+finding = "7.29.2.2"
+status = "resolved"
+evidence = "Commit 451c6bee3 moved the thirteen adapters to modules/xweb/types/codec.go:93, added the local Int alias at modules/xweb/types/codec.go:91 and changed both fee customtypes at api/xweb/query.proto:40 and api/xweb/query.proto:58 so modules/xweb/types/query.pb.go:6 imports no unused sdk/types package."
+
+[disposition.7.29.2.3]
+finding = "7.29.2.3"
+status = "resolved"
+evidence = "Commit bee874530 made by_denom the primary SupplyOf binding at sdk/proto/cosmos/bank/v1beta1/query.proto:41 and regenerated the gateway, whose primary and additional patterns at sdk/x/bank/types/query.pb.gw.go:1011 and sdk/x/bank/types/query.pb.gw.go:1013 match api/bank_http_rules_test.go:30."
+
+[disposition.7.29.2.4]
+finding = "7.29.2.4"
+status = "environment"
+evidence = "The failed qualification used a working-tree-only sdk/types import absent from its committed candidate, while the generated import block at modules/xweb/types/query.pb.go:6 contains no such import and commit 451c6bee3 supplies the required alias and adapters in modules/xweb/types/codec.go:91."

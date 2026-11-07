@@ -9,12 +9,20 @@ from hashlib import sha256
 from re import fullmatch
 from typing import Mapping, Sequence
 
-from layerx_sdk import (
-    AuthorizedReceiptBatch,
-    LocalSignatureVerifier,
-    PlatformSdkError,
-    ReceiptVerification,
-    verify_receipt,
+from layerx_sdk import PlatformSdkError
+from layerx_sdk.account_derivation import keccak256
+from layerx_sdk.evm_transaction import EvmTransactionError, decode_signed
+from layerx_sdk.x402 import (
+    payment_commitment,
+    payment_payer,
+    payment_purpose,
+    verify_payment_receipt as sdk_verify_payment_receipt,
+)
+from layerx_sdk.px import PxReceiptKeyEntry
+from layerx_sdk.verifier import (
+    ReceiptKey,
+    SequencerReceiptVerification,
+    verify_sequencer_receipt as sdk_verify_sequencer_receipt,
 )
 
 X402_VERSION = 2
@@ -151,9 +159,12 @@ class PaymentPayload:
 
 @dataclass(frozen=True)
 class LayerXReceiptEvidence:
-    receipt: str
+    raw_transaction: str
+    signed_receipt: str
     receipt_digest: str
-    verification_level: str = "sequencer-signed"
+    receipt_key: PxReceiptKeyEntry
+    verification_level: str = "receipted"
+    format: str = "layerx-receipt-proof-v2"
 
 
 @dataclass(frozen=True)
@@ -411,39 +422,118 @@ def match_requirements(required: PaymentRequired, payload: PaymentPayload) -> Pa
     return candidate
 
 
+def parse_receipt_hex(value: JsonValue, size: int | None = None) -> bytes:
+    code = MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD
+    text = _bounded_string(value, MAX_HEADER_BYTES * 2, code)
+    if fullmatch(r"0x(?:[0-9a-f]{2})+", text) is None or (
+        size is not None and len(text) != 2 + size * 2
+    ):
+        raise MiddlewareError(code)
+    return bytes.fromhex(text[2:])
+
+
+def parse_receipt_height(value: JsonValue) -> int:
+    if not isinstance(value, str) or fullmatch(r"0x(?:0|[1-9a-f][0-9a-f]{0,15})", value) is None:
+        raise MiddlewareError(MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD)
+    return int(value, 16)
+
+
 def parse_layerx_evidence(payload: Mapping[str, JsonValue]) -> LayerXReceiptEvidence:
     code = MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD
     body = _as_object(payload, code)
-    _exact_keys(body, ("receipt", "receiptDigest", "verificationLevel"), ("idempotencyKey",), code)
-    if body.get("verificationLevel") != "sequencer-signed":
-        raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-    receipt_digest = body.get("receiptDigest")
-    if not isinstance(receipt_digest, str):
+    _exact_keys(
+        body,
+        ("format", "rawTransaction", "signedReceipt", "receiptDigest", "receiptKey", "verificationLevel"),
+        (),
+        code,
+    )
+    if body.get("format") != "layerx-receipt-proof-v2" or body.get("verificationLevel") not in (
+        "receipted", "committed"
+    ):
         raise MiddlewareError(code)
-    parse_hex32(receipt_digest)
+    key = _as_object(body.get("receiptKey"), code)
+    _exact_keys(key, ("keyId", "publicKey", "firstHeight", "lastHeight"), (), code)
+    first_height = parse_receipt_height(key.get("firstHeight"))
+    last_height = parse_receipt_height(key.get("lastHeight"))
+    if first_height > last_height:
+        raise MiddlewareError(code)
+    key_id = parse_receipt_hex(key.get("keyId"), 32).hex()
+    public_key = parse_receipt_hex(key.get("publicKey"), 32).hex()
+    parse_receipt_hex(body.get("receiptDigest"), 32)
+    parse_receipt_hex(body.get("rawTransaction"))
+    parse_receipt_hex(body.get("signedReceipt"))
     return LayerXReceiptEvidence(
-        receipt=_bounded_string(body.get("receipt"), MAX_HEADER_BYTES, code),
-        receipt_digest=receipt_digest,
+        raw_transaction=body["rawTransaction"],
+        signed_receipt=body["signedReceipt"],
+        receipt_digest=body["receiptDigest"],
+        receipt_key=PxReceiptKeyEntry(key_id, public_key, first_height, last_height),
+        verification_level=body["verificationLevel"],
     )
 
 
-def verify_payment_receipt(
-    canonical_receipt: bytes,
-    authorized_batch: AuthorizedReceiptBatch,
-    requirements: PaymentRequirements,
-    signatures: LocalSignatureVerifier,
-) -> ReceiptVerification:
+def verify_sequencer_receipt(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[PxReceiptKeyEntry, ...],
+) -> SequencerReceiptVerification:
     try:
-        verified = verify_receipt(canonical_receipt, authorized_batch, signatures)
-    except PlatformSdkError as error:
+        return sdk_verify_sequencer_receipt(
+            signed_receipt,
+            raw_transaction,
+            tuple(
+                ReceiptKey(
+                    key_id=parse_hex32(key.key_id),
+                    public_key=parse_hex32(key.public_key),
+                    first_height=key.first_height,
+                    last_height=key.last_height,
+                )
+                for key in receipt_keys
+            ),
+        )
+    except (PlatformSdkError, MiddlewareError) as error:
         raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE) from error
-    if (
-        verified.receipt.amount != int(requirements.amount)
-        or not constant_time_equal(verified.receipt.asset, parse_hex32(requirements.asset))
-        or not constant_time_equal(verified.receipt.to_account, parse_hex32(requirements.pay_to))
-    ):
-        raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-    return verified
+
+
+def verify_payment_receipt(
+    signed_receipt: bytes,
+    raw_transaction: bytes,
+    receipt_keys: tuple[PxReceiptKeyEntry, ...],
+    requirements: PaymentRequirements,
+) -> SequencerReceiptVerification:
+    try:
+        network = parse_network(requirements.network)
+        transaction, _ = decode_signed(raw_transaction)
+        purpose = payment_purpose(requirements.extra, required=True)
+        payer = payment_payer(requirements.extra)
+        if (
+            requirements.scheme not in ("exact", "metered", "subscription")
+            or transaction.chain_id != int(network.split(":")[1])
+            or payment_commitment(requirements.extra) != "receipted"
+        ):
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        verified = sdk_verify_payment_receipt(
+            signed_receipt,
+            raw_transaction,
+            tuple(
+                ReceiptKey(
+                    parse_hex32(key.key_id), parse_hex32(key.public_key),
+                    key.first_height, key.last_height,
+                )
+                for key in receipt_keys
+            ),
+            amount=parse_amount(requirements.amount),
+            asset=parse_hex32(requirements.asset).hex(),
+            pay_to=parse_hex32(requirements.pay_to).hex(),
+        )
+        if (
+            not constant_time_equal(transaction.data[164:196], parse_hex32(purpose))
+            or payer is not None
+            and not constant_time_equal(transaction.data[4:36], parse_hex32(payer))
+        ):
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        return verified
+    except (PlatformSdkError, MiddlewareError, EvmTransactionError) as error:
+        raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE) from error
 
 
 def parse_amount(value: JsonValue) -> str:
@@ -459,8 +549,8 @@ def parse_amount(value: JsonValue) -> str:
 def parse_network(value: JsonValue) -> str:
     if not isinstance(value, str):
         raise MiddlewareError(MiddlewareErrorCode.INVALID_PAYMENT_REQUIRED)
-    parts = value.split(":")
-    if len(parts) != 2 or parts[0] != "layerx" or not _is_identifier(parts[1], 64):
+    match = fullmatch(r"eip155:([1-9][0-9]{0,9})", value)
+    if match is None or int(match[1]) > 0xFFFF_FFFF:
         raise MiddlewareError(MiddlewareErrorCode.UNSUPPORTED_PAYMENT)
     return value
 

@@ -1,17 +1,16 @@
 import { Box, Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import type { PaxeerXReceipt, PaxeerXVerificationStatus } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceipt, PaxeerXArchiveVerificationStatus } from 'types/api/paxeerXArchive';
 
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import * as DetailedInfo from 'ui/shared/DetailedInfo/DetailedInfo';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
 import { ScanKeyValue } from 'ui/shared/scan';
-import StatusLadderBadge from 'ui/shared/statusLadder/StatusLadderBadge';
 import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 
-export const VERIFICATION_STATUS_LABELS: Record<PaxeerXVerificationStatus, string> = {
+export const VERIFICATION_STATUS_LABELS: Record<PaxeerXArchiveVerificationStatus, string> = {
   unverified: 'Unverified',
   sequencer_signed: 'Sequencer signed',
   batch_included: 'Batch included',
@@ -21,7 +20,7 @@ export const VERIFICATION_STATUS_LABELS: Record<PaxeerXVerificationStatus, strin
 };
 
 interface Props {
-  data: PaxeerXReceipt;
+  data: PaxeerXArchiveReceipt;
   isLoading?: boolean;
   freshness?: {
     state: 'current' | 'refreshing' | 'stale' | 'paused' | 'complete';
@@ -33,7 +32,7 @@ interface Props {
 const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
   return (
     <Flex flexDir="column" rowGap={{ base: 3, lg: 4 }} data-receipt-details
-      data-settlement-status={ data.status } data-verification-status={ data.verification_status }>
+      data-verification-status={ data.verification_status }>
       { freshness ? (
         <Box role="status" aria-live="polite" data-receipt-freshness={ freshness.state } color="text.secondary" textStyle="sm">
           <Text>{ freshness.message ?? {
@@ -41,14 +40,14 @@ const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
             refreshing: 'Checking for newer indexed evidence.',
             stale: 'Evidence may be stale. Retaining the last accepted response.',
             paused: 'Refresh paused while this page is hidden.',
-            complete: 'Final settlement and anchored verification reported. Automatic refresh stopped.',
+            complete: 'Anchored verification reported. Automatic refresh stopped.',
           }[freshness.state] }</Text>
           { freshness.checkedAt !== undefined ? (
             <Text>Last checked: <time dateTime={ new Date(freshness.checkedAt).toISOString() } data-receipt-checked-at>
               { new Date(freshness.checkedAt).toISOString() }
             </time></Text>
           ) : null }
-          <Text>Settlement and verification are separate indexed evidence. Time since the last check does not advance either.</Text>
+          <Text>Verification status is frozen archive evidence. Time since the last check does not advance it.</Text>
         </Box>
       ) : null }
       <Box
@@ -86,14 +85,6 @@ const PaxeerXReceiptDetails = ({ data, isLoading, freshness }: Props) => {
                 <CopyToClipboard text={ data.account } isLoading={ isLoading }/>
               </>
             ) }
-          </ScanKeyValue>
-
-          <ScanKeyValue
-            label="Settlement status"
-            hint="The rung the block holding this receipt has reached on the settlement ladder"
-            isLoading={ isLoading }
-          >
-            <StatusLadderBadge rung={ data.status } isLoading={ isLoading }/>
           </ScanKeyValue>
 
           <ScanKeyValue

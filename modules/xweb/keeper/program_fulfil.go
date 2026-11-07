@@ -15,7 +15,7 @@ import (
 const (
 	// ProgramAnswerHeaderBytes is part 0 of a committed answer: the content
 	// digest, the u32 full length and the u32 response length.
-	ProgramAnswerHeaderBytes = 40
+	ProgramAnswerHeaderBytes = types.ProgramAnswerHeaderBytes
 
 	// ProgramAnswerChunkBytes bounds each response chunk, parts 1 and above.
 	ProgramAnswerChunkBytes = 1024
@@ -34,11 +34,6 @@ var (
 	errProgramUnknownField         = errors.New("LXP_UNKNOWN_FIELD")
 	errProgramContextMismatch      = errors.New("LXP_CONTEXT_MISMATCH")
 	errProgramInsufficientBalance  = errors.New("LXP_INSUFFICIENT_BALANCE")
-
-	// programMappedFeeDenoms are the bank denoms of the four mapped assets a
-	// recorded program fee can be held in.
-	programMappedFeeDenoms = []string{types.ProgramFeeDenomPAX, types.ProgramFeeDenomSID,
-		types.ProgramFeeDenomUSDC, types.ProgramFeeDenomUSDL}
 )
 
 func verifyProgramSignatures(set types.AttestorSet, observation types.Observation) ([]types.Address20, error) {
@@ -101,20 +96,27 @@ func (k Keeper) setProgramCommittedCount(ctx sdk.Context, count uint64) {
 	k.set(ctx, programCommittedCountKey, count)
 }
 
+// The EVM fulfilProgram entry delegates here; replay after a store restart
+// reaches the persisted fulfilled flag before any second fee payout.
+//
 // FulfilProgram admits the attested answer to a program request, the raw
-// canonical observation. It refuses, in the kernel order: a paused module
+// canonical observation. It refuses, in the kernel order: an inactive program
+// origin (LXP_MODULE_DISABLED), a paused module
 // (LXP_XWEB_PAUSED), an observation that does not decode
 // (LXP_NON_CANONICAL), a network id other than Params.KernelNetworkId
 // (LXP_WRONG_NETWORK), a corrupt pending record (LXP_NON_CANONICAL), no
 // pending record (LXP_UNKNOWN_FIELD), a fulfilled one (LXP_SEQUENCE_REUSED),
 // a kind or payload hash other than the recorded ones (LXP_CONTEXT_MISMATCH),
 // an invalid attestor set or signatures that do not reach its threshold over
-// the origin-2 preimage (verifyProgramSignatures) and a full answer store
-// (LXP_ARENA_EXHAUSTED). In one cached context it then writes the answer
+// the origin-2 preimage (verifyProgramSignatures). In one cached context it
+// reclaims a completed hot answer if needed, then writes the answer
 // parts, splits the fee among the signers, marks the record fulfilled and
 // moves it from the pending to the committed count; a failure of any of
 // these writes nothing.
 func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error {
+	if !k.ProgramOriginActive(ctx) {
+		return ErrProgramModuleDisabled
+	}
 	if k.IsPaused(ctx) {
 		return types.ErrPaused
 	}
@@ -143,16 +145,18 @@ func (k Keeper) FulfilProgram(ctx sdk.Context, raw []byte) error {
 	if err != nil {
 		return err
 	}
-	committed := k.ProgramCommittedCount(ctx)
-	if committed >= ProgramCommittedCapacity {
-		return errProgramArenaExhausted
-	}
 	pending := k.ProgramPendingCount(ctx)
 	if pending == 0 {
 		return errProgramFatalInvariant
 	}
 
 	cached, write := ctx.CacheContext()
+	// Legacy accepted requests have no reservation. Recover them by archiving
+	// a completed answer when needed rather than stranding their paid fee.
+	if err := k.reserveProgramAnswer(cached, 1); err != nil {
+		return err
+	}
+	committed := k.ProgramCommittedCount(cached)
 	k.putProgramAnswer(cached, observation)
 	if err := k.splitProgramFee(cached, set, record, signers); err != nil {
 		return err
@@ -198,9 +202,9 @@ func (k Keeper) splitProgramFee(ctx sdk.Context, set types.AttestorSet, record P
 		return nil
 	}
 	source := address.Module(ProgramFeeAccountModule, record.FeeAccount[:])
-	denom, err := k.programFeeDenom(ctx, source, record.Amount)
-	if err != nil {
-		return err
+	denom, found := k.ProgramFeeDenom(ctx, record.FeeAsset)
+	if !found {
+		return errProgramAssetMismatch
 	}
 	share := record.Amount.QuoRaw(int64(len(signers)))
 	remainder := record.Amount.Sub(share.MulRaw(int64(len(signers))))
@@ -225,24 +229,4 @@ func (k Keeper) splitProgramFee(ctx sdk.Context, set types.AttestorSet, record P
 		}
 	}
 	return nil
-}
-
-// programFeeDenom resolves the bank denom the recorded asset is held in: the
-// one mapped program fee denom of which the fee account holds at least the
-// amount. None is LXP_INSUFFICIENT_BALANCE; two are LXP_ASSET_MISMATCH.
-func (k Keeper) programFeeDenom(ctx sdk.Context, account sdk.AccAddress, amount sdk.Int) (string, error) {
-	denom := ""
-	for _, candidate := range programMappedFeeDenoms {
-		if k.bankKeeper.GetBalance(ctx, account, candidate).Amount.LT(amount) {
-			continue
-		}
-		if denom != "" {
-			return "", errProgramAssetMismatch
-		}
-		denom = candidate
-	}
-	if denom == "" {
-		return "", errProgramInsufficientBalance
-	}
-	return denom, nil
 }

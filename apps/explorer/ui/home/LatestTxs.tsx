@@ -1,7 +1,9 @@
-import { Box, Flex } from '@chakra-ui/react';
+import { Box } from '@chakra-ui/react';
 import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
+import type { Transaction } from 'types/api/transaction';
 
 import { route } from 'nextjs-routes';
 
@@ -13,11 +15,11 @@ import useSocketBuffer from 'lib/socket/useSocketBuffer';
 import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import { TX } from 'stubs/tx';
-import { Link } from 'toolkit/chakra/link';
-import IconSvg from 'ui/shared/IconSvg';
+import { TableBody } from 'toolkit/chakra/table';
 import SocketNewItemsNotice from 'ui/shared/SocketNewItemsNotice';
 
 import LatestTxsDegraded from './fallbacks/LatestTxsDegraded';
+import HomeTable from './HomeTable';
 import LatestTxsItem from './LatestTxsItem';
 import LatestTxsItemMobile from './LatestTxsItemMobile';
 
@@ -28,7 +30,7 @@ const LatestTxs = () => {
   const txsCount = isMobile ? 4 : 6;
   const { data, isPlaceholderData, isError } = useApiQuery('general:homepage_txs', {
     queryOptions: {
-      placeholderData: Array(txsCount).fill(TX),
+      placeholderData: Array<Transaction | PriceUpdateItem>(txsCount).fill(TX),
     },
   });
 
@@ -90,28 +92,24 @@ const LatestTxs = () => {
           </Box>
           <AddressHighlightProvider>
             <Box display={{ base: 'none', lg: 'block' }}>
-              { data.slice(0, txsCount).map(((tx, index) => (
-                <LatestTxsItem
-                  key={ tx.hash + (isPlaceholderData ? index : '') }
-                  tx={ tx }
-                  isLoading={ isPlaceholderData }
-                />
-              ))) }
+              <HomeTable
+                label="Latest transactions"
+                columns={ [ { label: 'Transaction', width: '36%' }, { label: 'From / To' }, { label: 'Value / Fee', numeric: true, width: '28%' } ] }
+              >
+                <TableBody>
+                  { data.slice(0, txsCount).map(((tx, index) => (
+                    <LatestTxsItem
+                      key={ tx.hash + (isPlaceholderData ? index : '') }
+                      tx={ tx }
+                      isLoading={ isPlaceholderData }
+                    />
+                  ))) }
+                </TableBody>
+              </HomeTable>
             </Box>
           </AddressHighlightProvider>
         </Box>
-        <Flex data-label="view-all-txs" justifyContent="center" px={ 4 } py={ 3 } borderTopWidth="1px" borderStyle="solid" borderColor="border.divider">
-          <Link
-            textStyle="xs"
-            fontWeight="600"
-            textTransform="uppercase"
-            letterSpacing="wide"
-            loading={ isPlaceholderData }
-            href={ txsUrl }
-          >
-            View all transactions<IconSvg name="arrows/east-mini" boxSize={ 4 } ml={ 1 }/>
-          </Link>
-        </Flex>
+
       </>
     );
   }

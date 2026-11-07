@@ -1,0 +1,8 @@
+[repair.22.31.173]
+finding = "22.30.45/json-named-string-map"
+change = "Convert decoded string keys to the destination map key type before insertion."
+tests = ["TestRepair_173_NamedStringMapRoundTrip", "TestRepair_173_NestedMapsRoundTrip", "TestRepair_173_InvalidValues"]
+proof = "Real Marshal output is consumed by Unmarshal into declared string-keyed maps, including nested maps and rejected incompatible values."
+baseline = "Not run: the explicit task order prohibits testing before implementation and permits verification only through hf-done after hf-build; no baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner records the verified candidate revision, command, exit code and private log through hf-build and hf-done."

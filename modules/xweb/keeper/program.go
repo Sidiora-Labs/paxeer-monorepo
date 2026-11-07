@@ -26,9 +26,9 @@ const (
 	ProgramFeeAccountModule = "layerx"
 
 	// ProgramPendingCapacity bounds the program requests recorded and not yet
-	// fulfilled; ProgramCommittedCapacity bounds the committed answers.
-	ProgramPendingCapacity   = 256
-	ProgramCommittedCapacity = 64
+	// fulfilled; ProgramCommittedCapacity bounds the hot answers.
+	ProgramPendingCapacity   = types.ProgramPendingCapacity
+	ProgramCommittedCapacity = types.ProgramCommittedCapacity
 
 	// ProgramRequestHeaderBytes is the u64 request id, u8 kind and u32 payload
 	// length that precede the payload in the request event data.
@@ -37,7 +37,7 @@ const (
 	// ProgramPendingRecordVersion and ProgramPendingRecordBytes are the
 	// version byte and the exact length of a pending record.
 	ProgramPendingRecordVersion = 1
-	ProgramPendingRecordBytes   = 123
+	ProgramPendingRecordBytes   = types.ProgramPendingRecordBytes
 
 	programPendingPrefix = "web/pending"
 	programAmountBits    = 128
@@ -79,9 +79,8 @@ type ProgramCall struct {
 
 // ProgramPendingRecord is the 123-byte pending record of one program request:
 // kind, keccak256 of the payload, the fee asset, the fee account id, the u128
-// amount paid, the recording sequence and the fulfilled flag. It carries no
-// refund or timeout field: an origin-2 fee is released only by the split at
-// fulfilment.
+// amount paid, the recording sequence and the fulfilled flag. Fulfilled records
+// are permanent replay tombstones, including after their answer is archived.
 type ProgramPendingRecord struct {
 	Kind        uint8
 	PayloadHash types.Hash32
@@ -96,6 +95,9 @@ type ProgramPendingRecord struct {
 // [2..33] payload hash, [34..65] fee asset, [66..97] fee account, [98..113]
 // u128 big-endian amount, [114..121] u64 recording sequence, [122] fulfilled.
 func (r ProgramPendingRecord) Bytes() ([]byte, error) {
+	if !programKind(r.Kind) {
+		return nil, errProgramNonCanonical
+	}
 	if r.Amount.IsNil() || r.Amount.IsNegative() || r.Amount.BigInt().BitLen() > programAmountBits {
 		return nil, errProgramOverflow
 	}
@@ -157,7 +159,7 @@ func ProgramFeeAccount(asset types.Hash32) sdk.AccAddress {
 	return address.Module(ProgramFeeAccountModule, id[:])
 }
 
-func programKind(kind uint8) bool { return kind == types.KindFetch || kind == types.KindSearch }
+func programKind(kind uint8) bool { return types.ProgramKind(kind) }
 
 // decodeProgramRequest reads the request event data: u64 request id, u8 kind
 // fetch or search, u32 payload length above zero and exactly that many
@@ -176,22 +178,26 @@ func decodeProgramRequest(data []byte) (uint64, uint8, []byte, error) {
 // RequestFromProgram is the origin-2 entry the hosted programs module calls
 // for every guest event a program call emits. An event under any topic other
 // than ProgramRequestTopic is not a web request and records nothing. For a
-// request event it refuses, in order: a paused module (LXP_XWEB_PAUSED), a
+// request event it refuses, in order: an inactive merge plan
+// (LXP_MODULE_DISABLED), a paused module (LXP_XWEB_PAUSED), a
 // second request in the same call (LXP_DUPLICATE_ENTRY), event data that does
 // not decode (LXP_NON_CANONICAL), a request id the program already recorded,
-// pending or answered (LXP_SEQUENCE_REUSED), a full pending store
+// pending or answered (LXP_SEQUENCE_REUSED), no available answer reservation
 // (LXP_ARENA_EXHAUSTED), a leg without a destination (LXP_FATAL_INVARIANT), a
 // fee leg not debiting the call principal (LXP_AUTH_SCOPE), fee legs of two
 // assets or an asset outside Params.ProgramFeeDenoms (LXP_ASSET_MISMATCH), a
 // fee total over u128 (LXP_OVERFLOW) and no positive fee total
 // (LXP_FEE_UNPAYABLE). The fee is the sum of the call's legs into the web
-// fee account of one asset, any positive amount; it stays there with no
-// refund and no timeout until the fulfilment splits it. On success it stores
-// the pending record and counts it as pending; the caller discards the call,
+// fee account of one asset, any positive amount, until fulfilment splits it.
+// On success it reserves an answer slot, stores the pending record and counts
+// it as pending; the caller discards the call,
 // its legs and the record together when the call fails.
 func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, data []byte) error {
 	if !bytes.Equal(topic, []byte(ProgramRequestTopic)) {
 		return nil
+	}
+	if !k.ProgramOriginActive(ctx) {
+		return ErrProgramModuleDisabled
 	}
 	if k.IsPaused(ctx) {
 		return types.ErrPaused
@@ -214,9 +220,13 @@ func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, da
 	if pending >= ProgramPendingCapacity {
 		return errProgramArenaExhausted
 	}
-	record, err := programFee(call, k.GetParams(ctx).ProgramFeeDenoms)
+	record, denom, err := programFee(call, k.GetParams(ctx).ProgramFeeDenoms)
 	if err != nil {
 		return err
+	}
+	storedDenom, found := k.ProgramFeeDenom(ctx, record.FeeAsset)
+	if found && storedDenom != denom {
+		return errProgramAssetMismatch
 	}
 	record.Kind = kind
 	record.PayloadHash = types.Keccak(payload)
@@ -225,44 +235,55 @@ func (k Keeper) RequestFromProgram(ctx sdk.Context, call *ProgramCall, topic, da
 	if err != nil {
 		return err
 	}
-	k.setProgramPendingRecord(ctx, key, raw)
-	k.setProgramPendingCount(ctx, pending+1)
+	// Make room for an answer in the same transaction as admission. Pending
+	// requests share a renewable hot slot: each fulfilment can archive a
+	// completed answer before reusing it, independently of the pending bound.
+	cached, write := ctx.CacheContext()
+	if err := k.reserveProgramAnswer(cached, 1); err != nil {
+		return err
+	}
+	if !found {
+		k.setProgramFeeDenom(cached, record.FeeAsset, denom)
+	}
+	k.setProgramPendingRecord(cached, key, raw)
+	k.setProgramPendingCount(cached, pending+1)
+	write()
 	call.requested = true
 	return nil
 }
 
 // programFee sums the call's legs into the web fee account of their asset
 // and returns the record with its fee asset, fee account and amount set.
-func programFee(call *ProgramCall, denoms []string) (ProgramPendingRecord, error) {
+func programFee(call *ProgramCall, denoms []string) (ProgramPendingRecord, string, error) {
 	record := ProgramPendingRecord{Amount: sdk.ZeroInt()}
 	denom, paid := "", false
 	for _, leg := range call.Legs {
 		if leg.To.Empty() || leg.Amount.IsNil() || leg.Amount.IsNegative() {
-			return ProgramPendingRecord{}, errProgramFatalInvariant
+			return ProgramPendingRecord{}, "", errProgramFatalInvariant
 		}
 		if !leg.To.Equals(ProgramFeeAccount(leg.Asset)) {
 			continue
 		}
 		if !leg.From.Equals(call.Principal) {
-			return ProgramPendingRecord{}, errProgramAuthScope
+			return ProgramPendingRecord{}, "", errProgramAuthScope
 		}
 		if paid && (leg.Asset != record.FeeAsset || leg.Denom != denom) {
-			return ProgramPendingRecord{}, errProgramAssetMismatch
+			return ProgramPendingRecord{}, "", errProgramAssetMismatch
 		}
 		if !paid && !slices.Contains(denoms, leg.Denom) {
-			return ProgramPendingRecord{}, errProgramAssetMismatch
+			return ProgramPendingRecord{}, "", errProgramAssetMismatch
 		}
 		if leg.Amount.BigInt().BitLen() > programAmountBits {
-			return ProgramPendingRecord{}, errProgramOverflow
+			return ProgramPendingRecord{}, "", errProgramOverflow
 		}
 		record.Amount = record.Amount.Add(leg.Amount)
 		if record.Amount.BigInt().BitLen() > programAmountBits {
-			return ProgramPendingRecord{}, errProgramOverflow
+			return ProgramPendingRecord{}, "", errProgramOverflow
 		}
 		record.FeeAsset, record.FeeAccount, denom, paid = leg.Asset, ProgramFeeAccountID(leg.Asset), leg.Denom, true
 	}
 	if !paid || record.Amount.IsZero() {
-		return ProgramPendingRecord{}, errProgramFeeUnpayable
+		return ProgramPendingRecord{}, "", errProgramFeeUnpayable
 	}
-	return record, nil
+	return record, denom, nil
 }

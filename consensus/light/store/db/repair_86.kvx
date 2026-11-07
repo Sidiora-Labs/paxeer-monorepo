@@ -1,0 +1,8 @@
+[repair.22.31.86]
+audit = "22.30.46"
+finding = "12"
+tests = ["TestRepair_86_DuplicateSaveReopenAndPrune", "TestRepair_86_MissingDeleteReopen", "TestRepair_86_FailedWriteReopenAndRetry", "TestRepair_86_ReadFailurePreservesSize", "TestRepair_86_CounterOverflow"]
+proof = "Real consensus block and vote-set producers, protobuf transport, trusted-store API, disk LevelDB close/reopen and read-only write failures; capacity reached through actual insertions."
+baseline = "Not run: the task's explicit gate order forbids verification before the complete implementation and hf-build, overriding do_5's unchanged-tree request. No baseline failures claimed."
+wiring = "None; finding 12 is repaired entirely within consensus/light/store/db."
+qualification = "Runner hf-build/hf-done ledger records the exact candidate revision, command, exit and private evidence location."

@@ -1,0 +1,39 @@
+[task.22.33.994]
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+checkout_revision = "0fa2d3ed07458ecaedd1afc51e2b7aa43d91bf70"
+readme_owner = "22.31.470"
+repair = "Consume the root README rewrite supplied by 22.31.470 under decision 2525. Add independent regression checks for audit 22.30.32/readme_network: the integrated chain-125 paxd BFT network, embedded block-proposing kernel, root JSON-RPC hosts, transaction and committed receipt flow, retired custody/checkpoint executors, and merged-node build/start commands. README.md is outside this task's scope and is unchanged."
+source_proof = "The pytest module reads the actual README, checks its prose and diagrams, parses the documented curl arguments and JSON payload without executing them, validates public URL roots and the api1..api14 range, traces source facts through node host/consensus wiring, root HTTP dispatch, transaction acceptance/forwarding, durable receipt release and committed-block coverage, checks production retirement guards, and parses the declared paxd Makefile dependencies and recipe. It rejects the audited separate-daemon/draft instructions and maps readme_network to five executed source-proof tests."
+review_only = "Native Go/C/Rust builds, shell example execution, endpoint reachability, node startup, transaction execution, signatures, BFT consensus and restart/recovery are not executed by this documentation gate. Producer, transport and consumer connections are source assertions, not runtime or deployment certification. No interface or stateful component is changed; no runtime restart or interface behavior is claimed. No shell script, unit file or manifest is changed, so bash -n and deployment-tool gates do not apply. The tests require only Python/pytest and committed source files, with no credential, environment variable, endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "Initial git status/diff showed only runner-prepared .cgignore and spec task status changes, with no scoped implementation present. The gate configuration recorded zero builds and verifies and two repair cycles available; /out/run/gates.jsonl was absent. No pre-change verification was run: the explicit implementation-first order and exclusive hf-done gate supersede step 5's baseline request. No baseline failures are claimed. README already states all requested facts from 22.31.470."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_994.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The last hf-done JSON and private /out/run/gates.jsonl record the exact verified content-derived revision, command, exit code and log path; hf-build and hf-done must pass on the same candidate revision. Finalize this record before qualification: embedding the content-derived revision in its own source would change it. The runner retains qualification evidence and publishes the task."
+wiring_requests = []
+
+[finding.readme_network]
+audit = "22.30.32"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The audit found separate layerxd daemon/checkpoint settlement and make layerxd instructions, with the merge described as draft and the kernel as running separately."
+expected = "One finished merged Paxeer BFT network, integrated kernel, finality at block commit, current root-node JSON-RPC and merged paxd quick start."
+resolution = "All expected documentation facts are present in README.md as 22.31.470 left it; no missing fact requires an out-of-path wiring request. Closure depends on the declared hf-done evidence, not this source declaration."
+tests = ["test_readme_network_embeds_kernel_in_one_paxd_bft_network", "test_readme_network_root_rpc_hosts_and_chain_probe", "test_readme_network_transaction_and_committed_receipt_path", "test_readme_network_custody_and_checkpoint_executors_are_retired", "test_readme_network_quickstart_builds_and_starts_merged_paxd"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. Apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions only after implementation is complete."
+
+[gotcha.1]
+observed = "The audit baseline-run clause conflicts with the explicit implementation-first gate order and ban on manual verify_cmd runs."
+resolution = "Use only hf-build then hf-done after complete implementation, and claim no unexecuted baseline result."
+
+[gotcha.2]
+observed = "Codify's cached brief reports an unrelated task and thousands of changes, unlike the actual working tree; broad combined reads also exceeded output limits."
+resolution = "Use the exact task and finding sections, bounded source reads, git status/diff and private runner ledger. Record notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.3]
+observed = "The README curl fence contains an expected-result shell comment that looks like a Markdown heading."
+resolution = "Track code fences when collecting sections and use shlex comment parsing to inspect the real curl command without executing it."

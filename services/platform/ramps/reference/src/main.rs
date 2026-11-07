@@ -1,34 +1,31 @@
 #![forbid(unsafe_code)]
 
-use std::collections::BTreeMap;
-use std::fs;
-use std::io::{Read, Write};
+use std::collections::{BTreeMap, BTreeSet};
+use std::io::{self, Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::{mpsc, Arc, Mutex};
 use std::thread;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
-use layerx_paxeer_client::{
-    ChainSignal, EndpointConfig, EndpointSignal, EndpointTransport, FinalityTracker, TrackerConfig,
-    TransactionHash,
-};
 use layerx_ramp_toolkit::clients::{
-    ComplianceClient, Endpoint, IdentityClient, LayerxClient, LayerxConfig, MutualTlsClient,
-    MutualTlsFiles, PaxeerCustodyClient, ProviderCallback, ProviderClient, SecretFile, parse_hex32,
+    decode_hex, parse_hex32, ComplianceClient, Endpoint, IdentityClient, LayerxClient,
+    LayerxConfig, MutualTlsClient, MutualTlsFiles, PaxeerCustodyClient, ProviderCallback,
+    ProviderClient, SecretFile,
 };
 use layerx_ramp_toolkit::engine::{InventoryRebalancer, RampEngine};
-use layerx_ramp_toolkit::journal::{Journal, WorkflowStage};
+use layerx_ramp_toolkit::journal::{Journal, OrderSnapshot, WorkflowStage};
 use layerx_ramp_toolkit::migration::{
-    SOURCE_SETTLEMENT_VERSION, SourceSettlementConfig, SourceSettlementRequest,
-    SourceSettlementResult, SourceSettlementService, SourceSettlementState,
+    SourceSettlementConfig, SourceSettlementRequest, SourceSettlementResult,
+    SourceSettlementService, SourceSettlementState, SOURCE_SETTLEMENT_VERSION,
 };
 use layerx_ramp_toolkit::{
-    CreateOrder, EXTERNAL_CUSTODY_LABEL, OperatorIdentity, QuoteTerms, RampDirection, RampError,
-    RampOrder, platform_ramp_toolkit,
+    parse_transaction_hash, platform_ramp_toolkit, CreateOrder, OperatorIdentity, QuoteTerms,
+    RampDirection, RampError, RampOrder, EXTERNAL_CUSTODY_LABEL,
 };
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use native_tls::{Identity, TlsAcceptor, TlsStream};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -37,6 +34,7 @@ use subtle::ConstantTimeEq as _;
 const MAX_REQUEST_BYTES: usize = 1024 * 1024;
 const MAX_HEADERS: usize = 32 * 1024;
 const MAX_CONNECTIONS: usize = 128;
+const CONNECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -119,13 +117,7 @@ struct PaxeerConfig {
     wallet_address: String,
     vault_id: String,
     signer_key_handle: String,
-    rpc_endpoints: Vec<String>,
-    rpc_trust_anchor_der: PathBuf,
-    rpc_chain_id: u64,
-    rpc_minimum_agreement: usize,
-    required_confirmations: u64,
     poll_cadence_seconds: u64,
-    delayed_after_polls: u64,
 }
 
 enum Listener {
@@ -133,19 +125,66 @@ enum Listener {
     Plain,
 }
 
-trait Transport: Read + Write {
-    fn tcp(&self) -> &TcpStream;
+struct DeadlineStream {
+    stream: TcpStream,
+    deadline: Instant,
 }
 
-impl Transport for TlsStream<TcpStream> {
-    fn tcp(&self) -> &TcpStream {
-        self.get_ref()
+impl DeadlineStream {
+    fn new(stream: TcpStream) -> io::Result<Self> {
+        let bounded = Self {
+            stream,
+            deadline: Instant::now() + CONNECTION_TIMEOUT,
+        };
+        bounded.set_timeouts()?;
+        Ok(bounded)
+    }
+
+    fn set_timeouts(&self) -> io::Result<()> {
+        let remaining = self.deadline.saturating_duration_since(Instant::now());
+        if remaining.is_zero() {
+            return Err(io::Error::new(
+                io::ErrorKind::TimedOut,
+                "connection deadline",
+            ));
+        }
+        self.stream.set_read_timeout(Some(remaining))?;
+        self.stream.set_write_timeout(Some(remaining))
     }
 }
 
-impl Transport for TcpStream {
-    fn tcp(&self) -> &TcpStream {
-        self
+impl Read for DeadlineStream {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.set_timeouts()?;
+        self.stream.read(bytes)
+    }
+}
+
+impl Write for DeadlineStream {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.set_timeouts()?;
+        self.stream.write(bytes)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.set_timeouts()?;
+        self.stream.flush()
+    }
+}
+
+trait Transport: Read + Write {
+    fn deadline(&self) -> Instant;
+}
+
+impl Transport for DeadlineStream {
+    fn deadline(&self) -> Instant {
+        self.deadline
+    }
+}
+
+impl Transport for TlsStream<DeadlineStream> {
+    fn deadline(&self) -> Instant {
+        self.get_ref().deadline
     }
 }
 
@@ -158,8 +197,7 @@ struct State {
     provider: ProviderClient,
     layerx: LayerxClient,
     paxeer: PaxeerCustodyClient,
-    paxeer_tracker_config: TrackerConfig,
-    paxeer_trackers: Mutex<BTreeMap<[u8; 32], FinalityTracker>>,
+    pending_rebalances: Mutex<BTreeSet<[u8; 32]>>,
     registry: ModuleRegistry,
     worker_id: String,
     lease_seconds: u64,
@@ -221,10 +259,15 @@ struct ReceiptVerifierConfig {
 }
 
 fn verify_receipt_command() -> Result<(), String> {
+    const USAGE: &str = "usage: --verify-receipt CONFIG.json ORDER.json TRANSACTION_HASH";
     let arguments: Vec<_> = std::env::args_os().skip(2).collect();
     if arguments.len() != 3 {
-        return Err("usage: --verify-receipt CONFIG.json ORDER.json ACTIVITY_HEX".to_owned());
+        return Err(USAGE.to_owned());
     }
+    let transaction = arguments[2]
+        .to_str()
+        .and_then(|value| parse_transaction_hash(value).ok())
+        .ok_or_else(|| format!("{USAGE}; expected a 0x-prefixed 32-byte transaction hash"))?;
     let read = |path: &std::ffi::OsString| {
         SecretFile::new(PathBuf::from(path))
             .and_then(|file| file.read())
@@ -237,8 +280,6 @@ fn verify_receipt_command() -> Result<(), String> {
     order
         .validate_bound()
         .map_err(|_| "invalid order identity".to_owned())?;
-    let activity = arguments[2].to_str().ok_or("invalid activity encoding")?;
-    let activity = parse_hex32(activity).map_err(|_| "invalid activity identity")?;
     if !(1..=120).contains(&config.client_tls.timeout_seconds) {
         return Err("invalid verifier timeout".to_owned());
     }
@@ -253,7 +294,7 @@ fn verify_receipt_command() -> Result<(), String> {
         .map_err(|_| "invalid verifier TLS configuration")?;
     let client = build_layerx(&config.layerx, http)?;
     let layerx_ramp_toolkit::clients::LayerxSubmission::Verified { leg, .. } = client
-        .resolve(&order, activity)
+        .resolve(&order, transaction)
         .map_err(|_| "receipt proof refused")?
     else {
         return Err("receipt not verified".to_owned());
@@ -263,11 +304,11 @@ fn verify_receipt_command() -> Result<(), String> {
         json!({
             "verified": true,
             "order_digest": order.order_digest,
-            "activity_id": leg.activity_id,
-            "receipt_digest": leg.receipt_digest,
-            "batch_id": leg.batch_id,
-            "network_id": config.layerx.network_id,
-            "wire_version": config.layerx.protocol_version,
+            "transaction_hash": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.tx_hash)),
+            "receipt_digest": format!("0x{}", layerx_ramp_toolkit::clients::hex(&leg.receipt_digest)),
+            "height": leg.height,
+            "rung": leg.rung.name(),
+            "chain_id": config.layerx.chain_id,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL
         })
     );
@@ -287,11 +328,16 @@ fn run() -> Result<(), String> {
     validate_config(&config)?;
     let listener_mode = Arc::new(listener_config(&config)?);
     let state = Arc::new(build_state(&config)?);
+    if verified_recovery(&state).is_err() {
+        eprintln!("ramp journal recovery requires verified external settlement");
+    }
     let reconcile_state = Arc::clone(&state);
+    let (reconcile_shutdown, stop_reconcile) = mpsc::channel();
     let cadence = Duration::from_secs(config.reconcile_seconds);
+    let custody_cadence = Duration::from_secs(config.paxeer.poll_cadence_seconds);
     thread::Builder::new()
         .name("ramp-reconciler".to_owned())
-        .spawn(move || reconcile_loop(&reconcile_state, cadence))
+        .spawn(move || reconcile_loop(&reconcile_state, cadence, custody_cadence, &stop_reconcile))
         .map_err(|error| format!("start reconciler: {error}"))?;
     let listener = TcpListener::bind(&config.listen)
         .map_err(|error| format!("bind {}: {error}", config.listen))?;
@@ -323,10 +369,45 @@ fn run() -> Result<(), String> {
             eprintln!("ramp request worker unavailable");
         }
     }
+    drop(reconcile_shutdown);
     Ok(())
 }
 
 fn validate_config(config: &Config) -> Result<(), String> {
+    if config.layerx.chain_id == 0 {
+        return Err("invalid LayerX chain_id: must be nonzero".to_owned());
+    }
+    let operator_address = decode_hex(&config.layerx.operator_address, 20)
+        .map_err(|_| "invalid LayerX operator_address: expected 20-byte hex address".to_owned())?;
+    if operator_address.len() != 20 {
+        return Err("invalid LayerX operator_address: expected 20-byte hex address".to_owned());
+    }
+    if config
+        .operator
+        .account
+        .strip_prefix("agent:")
+        .and_then(|account| account.strip_suffix(":main"))
+        != Some(config.layerx.actor_did.as_str())
+        || config.paxeer.operator_account != config.operator.account
+    {
+        return Err("LayerX operator account binding rejected".to_owned());
+    }
+    if config.layerx.receipt_keys.is_empty() {
+        return Err("invalid LayerX receipt_keys: must not be empty".to_owned());
+    }
+    if config
+        .layerx
+        .receipt_keys
+        .iter()
+        .any(|key| key.first_height > key.last_height)
+    {
+        return Err("invalid LayerX receipt_keys: firstHeight exceeds lastHeight".to_owned());
+    }
+    if config.layerx.max_priority_fee_per_gas > config.layerx.max_fee_per_gas
+        || config.layerx.gas_limit_cap == 0
+    {
+        return Err("invalid LayerX fee or gas bounds".to_owned());
+    }
     if config.worker_id.is_empty()
         || config.worker_id.len() > 128
         || config.lease_seconds == 0
@@ -334,17 +415,8 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || config.client_tls.timeout_seconds == 0
         || config.lease_seconds <= config.client_tls.timeout_seconds.saturating_mul(5)
         || config.quotes.is_empty()
-        || config.paxeer.rpc_endpoints.is_empty()
-        || config.paxeer.rpc_chain_id == 0
-        || config.paxeer.rpc_minimum_agreement < 2
-        || config.paxeer.rpc_minimum_agreement > config.paxeer.rpc_endpoints.len()
-        || config.paxeer.required_confirmations == 0
         || config.paxeer.poll_cadence_seconds == 0
-        || config.paxeer.delayed_after_polls == 0
-        || config.paxeer.operator_account != config.operator.account
-        || config.layerx.protocol_version != layerx_wire::limits::PROTOCOL_VERSION
-        || config.layerx.network_id == 0
-        || config.layerx.fee_limit == 0
+        || config.layerx.max_fee_per_gas == 0
         || config.identity.audience.is_empty()
         || !valid_service_path(&config.provider.settlement_path)
         || !valid_service_path(&config.provider.status_path)
@@ -353,12 +425,6 @@ fn validate_config(config: &Config) -> Result<(), String> {
         || !valid_opaque(&config.paxeer.wallet_address)
         || !valid_opaque(&config.paxeer.vault_id)
         || !valid_opaque(&config.paxeer.signer_key_handle)
-        || config
-            .operator
-            .account
-            .strip_prefix("agent:")
-            .and_then(|account| account.strip_suffix(":main"))
-            != Some(config.layerx.actor_did.as_str())
     {
         return Err("invalid worker, timing or quote configuration".to_owned());
     }
@@ -478,7 +544,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         vault_id: config.paxeer.vault_id.clone(),
         signer_key_handle: config.paxeer.signer_key_handle.clone(),
     };
-    let paxeer_tracker_config = tracker_config(config, timeout)?;
     let registry = asset_registry()?;
     let mut quotes = BTreeMap::new();
     for quote in &config.quotes {
@@ -524,8 +589,7 @@ fn build_state(config: &Config) -> Result<State, String> {
         provider,
         layerx,
         paxeer,
-        paxeer_tracker_config,
-        paxeer_trackers: Mutex::new(BTreeMap::new()),
+        pending_rebalances: Mutex::new(BTreeSet::new()),
         registry,
         worker_id: config.worker_id.clone(),
         lease_seconds: config.lease_seconds,
@@ -536,9 +600,6 @@ fn build_state(config: &Config) -> Result<State, String> {
         operator_control_token,
         source_settlement,
     };
-    if verified_recovery(&state).is_err() {
-        eprintln!("ramp journal recovery requires verified external settlement");
-    }
     Ok(state)
 }
 
@@ -552,34 +613,6 @@ fn asset_registry() -> Result<ModuleRegistry, String> {
     let registry =
         ModuleRegistry::new(&[registration]).map_err(|_| "module registry rejected".to_owned())?;
     Ok(registry)
-}
-
-fn tracker_config(config: &Config, timeout: Duration) -> Result<TrackerConfig, String> {
-    let rpc_trust_anchor_der = fs::read(&config.paxeer.rpc_trust_anchor_der)
-        .map_err(|_| "Paxeer RPC trust anchor is unavailable".to_owned())?;
-    if rpc_trust_anchor_der.is_empty() {
-        return Err("Paxeer RPC trust anchor is empty".to_owned());
-    }
-    let paxeer_tracker_config = TrackerConfig {
-        endpoints: config
-            .paxeer
-            .rpc_endpoints
-            .iter()
-            .map(|url| EndpointConfig {
-                url: url.clone(),
-                request_timeout: timeout,
-                transport: EndpointTransport::PinnedTls {
-                    trust_anchor_der: rpc_trust_anchor_der.clone(),
-                },
-                expected_chain_id: config.paxeer.rpc_chain_id,
-            })
-            .collect(),
-        minimum_endpoint_agreement: config.paxeer.rpc_minimum_agreement,
-        required_confirmations: config.paxeer.required_confirmations,
-        poll_cadence: Duration::from_secs(config.paxeer.poll_cadence_seconds),
-        delayed_after_polls: config.paxeer.delayed_after_polls,
-    };
-    Ok(paxeer_tracker_config)
 }
 
 fn configured_key(value: &str, label: &str) -> Result<[u8; 32], String> {
@@ -612,6 +645,9 @@ fn secret_text(path: &PathBuf) -> Result<String, String> {
 }
 
 fn serve(stream: TcpStream, listener: &Listener, state: &State) {
+    let Ok(stream) = DeadlineStream::new(stream) else {
+        return;
+    };
     match listener {
         Listener::Tls(acceptor) => {
             let Ok(mut tls) = acceptor.accept(stream) else {
@@ -630,8 +666,22 @@ fn exchange<S: Transport>(stream: &mut S, state: &State) {
     let response = read_request(stream)
         .and_then(|request| route(state, &request))
         .unwrap_or_else(|response| response);
-    let _ = stream.write_all(&response.encode());
-    let _ = stream.flush();
+    let _ = write_response(stream, &response);
+}
+
+fn write_response<S: Transport>(stream: &mut S, response: &Response) -> io::Result<()> {
+    let result = stream
+        .write_all(&response.encode())
+        .and_then(|()| stream.flush());
+    result.map_err(|error| {
+        // TLS backends can translate a socket timeout into an EOF error. Keep
+        // the connection's expired deadline explicit while preserving its cause.
+        if Instant::now() >= stream.deadline() {
+            io::Error::new(io::ErrorKind::TimedOut, error)
+        } else {
+            error
+        }
+    })
 }
 
 struct Request {
@@ -660,7 +710,7 @@ impl Response {
             _ => "Service Unavailable",
         };
         let mut output = format!(
-            "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+            "HTTP/1.1 {} {}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nCache-Control: no-store\r\nConnection: close\r\n\r\n",
             self.status,
             reason,
             self.body.len()
@@ -671,11 +721,7 @@ impl Response {
     }
 }
 
-fn read_request<S: Transport>(stream: &mut S) -> Result<Request, Response> {
-    stream
-        .tcp()
-        .set_read_timeout(Some(Duration::from_secs(10)))
-        .map_err(|_| error(503, "request_timeout"))?;
+fn read_request<S: Read>(stream: &mut S) -> Result<Request, Response> {
     let mut bytes = Vec::new();
     let mut chunk = [0_u8; 4096];
     let boundary;
@@ -756,8 +802,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         let body = json!({
             "ready": ready,
             "journal": health,
-            "network_id": state.layerx.activity.network_id,
-            "wire_version": state.layerx.activity.protocol_version,
+            "chain_id": state.layerx.chain_id,
             "external_custody": true,
             "external_custody_label": EXTERNAL_CUSTODY_LABEL,
             "readiness_scope": "local-journal",
@@ -785,6 +830,9 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         require_operator(state, request)?;
         verified_recovery(state).map_err(|error| map_error(&error))?;
         return Ok(ok(json!({ "recovered": true })));
+    }
+    if request.method == "POST" && request.path == "/internal/v1/work" {
+        return perform_work(state, request);
     }
     if request.method == "POST" {
         let journal = state
@@ -833,15 +881,7 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
         if snapshot.order.customer != principal {
             return Err(error(404, "order_not_found"));
         }
-        return Ok(ok(json!({
-            "order_id": snapshot.order.order_id,
-            "order": snapshot.order,
-            "stage": snapshot.stage,
-            "presentation": snapshot.presentation()
-        })));
-    }
-    if request.method == "POST" && request.path == "/internal/v1/work" {
-        return perform_work(state, request);
+        return Ok(ok(order_response(snapshot)));
     }
     if request.method == "POST" && request.path == "/internal/v1/rebalances" {
         return rebalance(state, request);
@@ -865,6 +905,20 @@ fn route(state: &State, request: &Request) -> Result<Response, Response> {
     Err(error(404, "not_found"))
 }
 
+fn order_response(snapshot: &OrderSnapshot) -> serde_json::Value {
+    json!({
+        "order_id": snapshot.order.order_id,
+        "order": snapshot.order,
+        "stage": snapshot.stage,
+        "presentation": snapshot.presentation(),
+        "evidence": {
+            "tx_hash": snapshot.evidence.tx_hash,
+            "receipt_digest": snapshot.evidence.receipt_digest,
+            "rung": snapshot.evidence.rung.map(Rung::name)
+        }
+    })
+}
+
 fn create_order(state: &State, request: &Request) -> Result<Response, Response> {
     let principal = authenticate(state, request)?;
     let create: CreateOrder =
@@ -880,6 +934,7 @@ fn create_order(state: &State, request: &Request) -> Result<Response, Response> 
         if existing.order.customer != principal
             || existing.order.quote.quote_id != create.quote_id
             || existing.order.payer_grant != create.payer_grant
+            || existing.order.payer_grant_purpose != create.payer_grant_purpose
         {
             return Err(error(409, "order_id_conflict"));
         }
@@ -1028,6 +1083,20 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     require_operator(state, request)?;
     let work: Work =
         serde_json::from_slice(&request.body).map_err(|_| error(400, "work_invalid"))?;
+    if work.account_sequence.is_some() && !matches!(work.action, WorkAction::SubmitLayerx) {
+        return Err(error(400, "work_invalid"));
+    }
+    if matches!(work.action, WorkAction::SubmitCustomerPayment) {
+        if !work
+            .raw_transaction
+            .as_ref()
+            .is_some_and(|raw| !raw.is_empty() && raw.len() <= 131_072)
+        {
+            return Err(error(400, "work_invalid"));
+        }
+    } else if work.raw_transaction.is_some() {
+        return Err(error(400, "work_invalid"));
+    }
     let mut journal = state
         .journal
         .lock()
@@ -1035,35 +1104,31 @@ fn perform_work(state: &State, request: &Request) -> Result<Response, Response> 
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
     }
-    if work.canonical_receive_payload.is_some() && !matches!(work.action, WorkAction::SubmitLayerx)
-    {
-        return Err(error(400, "work_invalid"));
-    }
-    if matches!(work.action, WorkAction::SubmitLayerx)
-        && state.layerx.activity.protocol_version
-            == layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION
-        && journal
-            .order(&work.order_digest)
-            .is_some_and(|snapshot| snapshot.order.direction() == RampDirection::OffRamp)
-        && work.canonical_receive_payload.is_none()
-    {
-        return Err(error(400, "native_payer_grant_authorization_required"));
-    }
     let mut engine = engine(state, &mut journal);
     match work.action {
         WorkAction::Compliance => engine.evaluate_compliance(work.order_digest, now()),
         WorkAction::SubmitProvider => engine.submit_provider(work.order_digest, now()),
         WorkAction::ReconcileProvider => engine.reconcile_provider(work.order_digest, now()),
-        WorkAction::SubmitLayerx => match work.account_sequence {
-            Some(sequence) => match work.canonical_receive_payload.as_deref() {
-                Some(payload) => {
-                    engine.submit_native_receive(work.order_digest, payload, sequence, now())
-                }
-                None => engine.submit_layerx(work.order_digest, sequence, now()),
-            },
-            None => Err(RampError::InvalidOrder),
-        },
+        WorkAction::SubmitLayerx => {
+            let order = engine
+                .journal
+                .order(&work.order_digest)
+                .ok_or_else(|| error(404, "order_not_found"))?;
+            let sequence = match (order.order.direction(), work.account_sequence) {
+                (RampDirection::OnRamp, None) => 0,
+                (RampDirection::OffRamp, Some(sequence)) => sequence,
+                _ => return Err(error(400, "work_invalid")),
+            };
+            engine.submit_layerx(work.order_digest, sequence, now())
+        }
         WorkAction::ResolveLayerx => engine.resolve_layerx(work.order_digest, now()),
+        WorkAction::SubmitCustomerPayment => engine.submit_customer_payment(
+            work.order_digest,
+            work.raw_transaction
+                .as_deref()
+                .ok_or_else(|| error(400, "work_invalid"))?,
+            now(),
+        ),
     }
     .map_err(|error| map_error(&error))?;
     let snapshot = journal
@@ -1090,15 +1155,14 @@ fn rebalance_presentation(
         "transaction_hash": snapshot.transaction_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
         "status": snapshot.stage,
         "block_hash": snapshot.block_hash.map(|hash| format!("0x{}", layerx_ramp_toolkit::clients::hex(&hash))),
-        "confirmations": snapshot.confirmations,
-        "required_confirmations": state.paxeer_tracker_config.required_confirmations
+        "rung": snapshot.rung.map(|rung| rung.name()),
+        "block_height": snapshot.block_height
     })
 }
 
 fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
     require_operator(state, request)?;
-    let action: Rebalance =
-        serde_json::from_slice(&request.body).map_err(|_| error(400, "rebalance_invalid"))?;
+    let action = decode_rebalance(&request.body).map_err(|_| error(400, "rebalance_invalid"))?;
     let mut journal = state
         .journal
         .lock()
@@ -1106,9 +1170,24 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
     if !journal.health().ready {
         return Err(error(503, "journal_recovery_required"));
     }
+    let idempotency_key = match &action {
+        Rebalance::Submit {
+            idempotency_key, ..
+        }
+        | Rebalance::Poll {
+            idempotency_key, ..
+        }
+        | Rebalance::Reconcile { idempotency_key } => *idempotency_key,
+    };
+    state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| error(503, "service_unavailable"))?
+        .insert(idempotency_key);
     let mut rebalancer = InventoryRebalancer {
         journal: &mut journal,
         custody: &state.paxeer,
+        layerx: &state.layerx,
     };
     match action {
         Rebalance::Submit {
@@ -1118,7 +1197,7 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
         } => {
             rebalancer
                 .submit(asset, amount, idempotency_key, now())
-                .map_err(|error| map_error(&error))?;
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
@@ -1129,41 +1208,20 @@ fn rebalance(state: &State, request: &Request) -> Result<Response, Response> {
             operation_id,
             transaction_hash,
         } => {
-            let transaction = TransactionHash::from_hex(&transaction_hash)
+            let transaction = parse_transaction_hash(&transaction_hash)
                 .map_err(|_| error(400, "transaction_hash_invalid"))?;
-            let mut trackers = state
-                .paxeer_trackers
-                .lock()
-                .map_err(|_| error(503, "paxeer_tracker_unavailable"))?;
-            if let std::collections::btree_map::Entry::Vacant(entry) =
-                trackers.entry(idempotency_key)
-            {
-                let tracker =
-                    FinalityTracker::new(state.paxeer_tracker_config.clone(), transaction)
-                        .map_err(|_| error(503, "paxeer_tracker_unavailable"))?;
-                entry.insert(tracker);
-            }
-            let tracker = trackers
-                .get_mut(&idempotency_key)
-                .ok_or_else(|| error(503, "paxeer_tracker_unavailable"))?;
-            if tracker.transaction() != transaction {
-                return Err(error(409, "rebalance_transaction_conflict"));
-            }
-            let report = rebalancer
-                .poll(idempotency_key, &operation_id, tracker, now())
-                .map_err(|error| map_error(&error))?;
+            rebalancer
+                .poll(idempotency_key, &operation_id, transaction, now())
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
-            let mut presentation = rebalance_presentation(state, persisted);
-            presentation["chain"] = json!(chain_signal(&report.signal()));
-            presentation["endpoints"] = json!(endpoint_signal(&report.endpoint()));
-            Ok(ok(presentation))
+            Ok(ok(rebalance_presentation(state, persisted)))
         }
         Rebalance::Reconcile { idempotency_key } => {
             rebalancer
                 .reconcile(idempotency_key, now())
-                .map_err(|error| map_error(&error))?;
+                .map_err(|error| map_rebalance_error(&error))?;
             let persisted = journal
                 .paxeer(&idempotency_key)
                 .ok_or_else(|| error(404, "rebalance_not_found"))?;
@@ -1178,7 +1236,7 @@ struct Work {
     order_digest: [u8; 32],
     action: WorkAction,
     account_sequence: Option<u64>,
-    canonical_receive_payload: Option<Vec<u8>>,
+    raw_transaction: Option<Vec<u8>>,
 }
 
 #[derive(Deserialize)]
@@ -1189,10 +1247,9 @@ enum WorkAction {
     ReconcileProvider,
     SubmitLayerx,
     ResolveLayerx,
+    SubmitCustomerPayment,
 }
 
-#[derive(Deserialize)]
-#[serde(tag = "action", rename_all = "snake_case", deny_unknown_fields)]
 enum Rebalance {
     Submit {
         asset: [u8; 32],
@@ -1207,6 +1264,72 @@ enum Rebalance {
         operation_id: String,
         transaction_hash: String,
     },
+}
+
+fn decode_rebalance(bytes: &[u8]) -> Result<Rebalance, serde_json::Error> {
+    // Internally tagged enums buffer fields in Serde Content, which cannot
+    // deserialize u128. Decode each strict request struct from the original
+    // JSON so the full amount range and numeric validation remain intact.
+    #[derive(Deserialize)]
+    #[serde(rename_all = "snake_case")]
+    enum Action {
+        Submit,
+        Reconcile,
+        Poll,
+    }
+    #[derive(Deserialize)]
+    struct Tag {
+        action: Action,
+    }
+    match serde_json::from_slice::<Tag>(bytes)?.action {
+        Action::Submit => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Submit {
+                #[serde(rename = "action")]
+                _action: Action,
+                asset: [u8; 32],
+                amount: u128,
+                idempotency_key: [u8; 32],
+            }
+            let request: Submit = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Submit {
+                asset: request.asset,
+                amount: request.amount,
+                idempotency_key: request.idempotency_key,
+            })
+        }
+        Action::Reconcile => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Reconcile {
+                #[serde(rename = "action")]
+                _action: Action,
+                idempotency_key: [u8; 32],
+            }
+            let request: Reconcile = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Reconcile {
+                idempotency_key: request.idempotency_key,
+            })
+        }
+        Action::Poll => {
+            #[derive(Deserialize)]
+            #[serde(deny_unknown_fields)]
+            struct Poll {
+                #[serde(rename = "action")]
+                _action: Action,
+                idempotency_key: [u8; 32],
+                operation_id: String,
+                transaction_hash: String,
+            }
+            let request: Poll = serde_json::from_slice(bytes)?;
+            Ok(Rebalance::Poll {
+                idempotency_key: request.idempotency_key,
+                operation_id: request.operation_id,
+                transaction_hash: request.transaction_hash,
+            })
+        }
+    }
 }
 
 fn authenticate(
@@ -1244,6 +1367,13 @@ fn require_operator(state: &State, request: &Request) -> Result<(), Response> {
 
 fn verified_recovery(state: &State) -> Result<(), RampError> {
     let mut journal = state.journal.lock().map_err(|_| RampError::Journal)?;
+    // A fresh journal has no retained settlement to verify. In particular, local
+    // readiness must not depend on an unrelated RPC being reachable at first boot.
+    let health = journal.health();
+    if health.ready && health.record_count == 0 {
+        return Ok(());
+    }
+    let mut pending = BTreeSet::new();
     journal.recover_verified(|projection| {
         for record in projection.source_settlements() {
             let snapshot = projection
@@ -1261,15 +1391,25 @@ fn verified_recovery(state: &State) -> Result<(), RampError> {
                 .service
                 .verify_retained(&snapshot.order, record, &trace)?;
         }
+        pending.extend(
+            projection
+                .paxeer_transfers()
+                .filter(|snapshot| snapshot.rung != Some(Rung::Committed))
+                .map(|snapshot| snapshot.idempotency_key),
+        );
         layerx_ramp_toolkit::clients::verify_recovery_settlement(
             projection,
             &state.operator,
             &state.provider,
             &state.layerx,
             &state.paxeer,
-            &state.paxeer_tracker_config,
         )
-    })
+    })?;
+    *state
+        .pending_rebalances
+        .lock()
+        .map_err(|_| RampError::Journal)? = pending;
+    Ok(())
 }
 
 fn engine<'a>(state: &'a State, journal: &'a mut Journal) -> RampEngine<'a> {
@@ -1284,50 +1424,112 @@ fn engine<'a>(state: &'a State, journal: &'a mut Journal) -> RampEngine<'a> {
     }
 }
 
-fn reconcile_loop(state: &State, cadence: Duration) {
+fn reconcile_loop(
+    state: &State,
+    cadence: Duration,
+    custody_cadence: Duration,
+    shutdown: &mpsc::Receiver<()>,
+) {
+    let mut next_orders = Instant::now() + cadence;
+    let mut next_custody = Instant::now() + custody_cadence;
     loop {
-        thread::sleep(cadence);
-        let Ok(mut journal) = state.journal.lock() else {
-            continue;
+        let wait = next_orders
+            .min(next_custody)
+            .saturating_duration_since(Instant::now());
+        match shutdown.recv_timeout(wait) {
+            Err(mpsc::RecvTimeoutError::Timeout) => {}
+            Ok(()) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
+        }
+        if Instant::now() >= next_custody {
+            reconcile_custody(state);
+            next_custody = Instant::now() + custody_cadence;
+        }
+        if Instant::now() >= next_orders {
+            reconcile_orders(state);
+            next_orders = Instant::now() + cadence;
+        }
+    }
+}
+
+fn reconcile_custody(state: &State) {
+    let Ok(mut journal) = state.journal.lock() else {
+        return;
+    };
+    if !journal.health().ready {
+        return;
+    }
+    let Ok(mut pending) = state.pending_rebalances.lock() else {
+        return;
+    };
+    pending.retain(|idempotency_key| {
+        let Some(snapshot) = journal.paxeer(idempotency_key).cloned() else {
+            return false;
         };
-        if !journal.health().ready {
+        if snapshot.rung == Some(Rung::Committed) {
+            return false;
+        }
+        let mut rebalancer = InventoryRebalancer {
+            journal: &mut journal,
+            custody: &state.paxeer,
+            layerx: &state.layerx,
+        };
+        let result = match (snapshot.operation_id.as_deref(), snapshot.transaction_hash) {
+            (Some(operation), Some(transaction)) => rebalancer
+                .poll(*idempotency_key, operation, transaction, now())
+                .map(|_| ()),
+            _ => rebalancer.reconcile(*idempotency_key, now()).map(|_| ()),
+        };
+        if result.is_err() {
+            eprintln!("ramp custody reconciliation retained unresolved state");
+        }
+        journal
+            .paxeer(idempotency_key)
+            .is_some_and(|snapshot| snapshot.rung != Some(Rung::Committed))
+    });
+    drop(pending);
+}
+
+fn reconcile_orders(state: &State) {
+    let Ok(mut journal) = state.journal.lock() else {
+        return;
+    };
+    if !journal.health().ready {
+        return;
+    }
+    let due = journal.orders();
+    for snapshot in due {
+        let digest = snapshot.order.order_digest;
+        let observed_at = now();
+        if matches!(
+            snapshot.stage,
+            WorkflowStage::ProviderSubmissionPlanned
+                | WorkflowStage::ProviderSubmittedUnknown
+                | WorkflowStage::ProviderPending
+                | WorkflowStage::LayerxSubmissionPlanned
+                | WorkflowStage::LayerxSubmittedUnknown
+                | WorkflowStage::LayerxPending
+        ) && snapshot
+            .evidence
+            .retry_at
+            .is_some_and(|retry_at| retry_at > observed_at)
+        {
             continue;
         }
-        let due = journal.orders();
-        for snapshot in due {
-            let digest = snapshot.order.order_digest;
-            let observed_at = now();
-            if matches!(
-                snapshot.stage,
-                WorkflowStage::ProviderSubmissionPlanned
-                    | WorkflowStage::ProviderSubmittedUnknown
-                    | WorkflowStage::ProviderPending
-                    | WorkflowStage::LayerxSubmissionPlanned
-                    | WorkflowStage::LayerxSubmittedUnknown
-                    | WorkflowStage::LayerxPending
-            ) && snapshot
-                .evidence
-                .retry_at
-                .is_some_and(|retry_at| retry_at > observed_at)
-            {
-                continue;
+        let mut worker = engine(state, &mut journal);
+        let result = match snapshot.stage {
+            WorkflowStage::ProviderSubmissionPlanned
+            | WorkflowStage::ProviderSubmittedUnknown
+            | WorkflowStage::ProviderPending => worker.reconcile_provider(digest, observed_at),
+            WorkflowStage::LayerxSubmissionPlanned
+            | WorkflowStage::LayerxSubmittedUnknown
+            | WorkflowStage::LayerxPending => worker.resolve_layerx(digest, observed_at),
+            WorkflowStage::ProviderSettled | WorkflowStage::LayerxVerified => {
+                worker.finish_if_complete(digest, observed_at)
             }
-            let mut worker = engine(state, &mut journal);
-            let result = match snapshot.stage {
-                WorkflowStage::ProviderSubmissionPlanned
-                | WorkflowStage::ProviderSubmittedUnknown
-                | WorkflowStage::ProviderPending => worker.reconcile_provider(digest, observed_at),
-                WorkflowStage::LayerxSubmissionPlanned
-                | WorkflowStage::LayerxSubmittedUnknown
-                | WorkflowStage::LayerxPending => worker.resolve_layerx(digest, observed_at),
-                WorkflowStage::ProviderSettled | WorkflowStage::LayerxVerified => {
-                    worker.finish_if_complete(digest, observed_at)
-                }
-                _ => Ok(()),
-            };
-            if result.is_err() {
-                eprintln!("ramp reconciliation retained unresolved state");
-            }
+            _ => Ok(()),
+        };
+        if result.is_err() {
+            eprintln!("ramp reconciliation retained unresolved state");
         }
     }
 }
@@ -1336,35 +1538,6 @@ fn now() -> u64 {
     SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map_or(0, |duration| duration.as_secs())
-}
-
-fn chain_signal(signal: &ChainSignal) -> serde_json::Value {
-    match signal {
-        ChainSignal::Progressing => json!({ "state": "progressing" }),
-        ChainSignal::Delayed {
-            stalled_polls,
-            threshold,
-            stalled_for,
-            delayed_after,
-        } => json!({
-            "state": "delayed",
-            "stalled_polls": stalled_polls,
-            "threshold": threshold,
-            "stalled_for_seconds": stalled_for.as_secs(),
-            "delayed_after_seconds": delayed_after.as_secs()
-        }),
-        ChainSignal::Unreachable { .. } => json!({ "state": "unreachable" }),
-    }
-}
-
-fn endpoint_signal(signal: &EndpointSignal) -> serde_json::Value {
-    match signal {
-        EndpointSignal::Serving => json!({ "state": "serving" }),
-        EndpointSignal::Degraded { failovers } => {
-            json!({ "state": "degraded", "failover_count": failovers.len() })
-        }
-        EndpointSignal::Unreachable { .. } => json!({ "state": "unreachable" }),
-    }
 }
 
 fn ok(value: impl Serialize) -> Response {
@@ -1390,6 +1563,15 @@ fn json_response(status: u16, value: impl Serialize) -> Response {
             status: 503,
             body: b"{\"error\":\"encoding_failed\"}".to_vec(),
         },
+    }
+}
+
+fn map_rebalance_error(error_value: &RampError) -> Response {
+    // MutualTlsClient uses Provider for transport failures for every external
+    // service. On this route that transport belongs to Paxeer custody.
+    match error_value {
+        RampError::Provider => error(503, "paxeer_unavailable"),
+        _ => map_error(error_value),
     }
 }
 
@@ -1423,10 +1605,107 @@ pub const fn platform_reference_ramp() -> &'static str {
 
 #[cfg(test)]
 mod boundary_tests {
-    use std::sync::Arc;
     use std::sync::atomic::Ordering;
+    use std::sync::Arc;
 
-    use super::ConnectionGate;
+    use layerx_ramp_toolkit::journal::TransitionEvidence;
+    use layerx_ramp_toolkit::AuthenticatedPrincipal;
+
+    use super::{
+        order_response, ConnectionGate, CreateOrder, OperatorIdentity, OrderSnapshot, QuoteTerms,
+        RampDirection, RampOrder, Rung, WorkflowStage,
+    };
+
+    #[test]
+    fn order_response_carries_receipt_evidence() {
+        let order = RampOrder::bind(
+            CreateOrder {
+                order_id: "order-1".into(),
+                quote_id: "quote-1".into(),
+                payer_grant: None,
+                payer_grant_purpose: None,
+            },
+            QuoteTerms {
+                quote_id: "quote-1".into(),
+                direction: RampDirection::OnRamp,
+                layerx_asset: [1; 32],
+                layerx_amount: 1_000,
+                external_currency: "EUR".into(),
+                external_amount_minor: 100,
+                rate_numerator: 10,
+                rate_denominator: 1,
+                fee_minor: 2,
+                maximum_slippage_bps: 25,
+                context: [8; 32],
+                provider_token: "product-eur".into(),
+                payout_token: "beneficiary-123".into(),
+                expires_at: 2_000,
+            },
+            AuthenticatedPrincipal {
+                principal_id: "customer-1".into(),
+                account: "agent:did:layerx:customer-1:main".into(),
+            },
+            OperatorIdentity {
+                principal_id: "operator-1".into(),
+                account: "agent:did:layerx:operator-1:main".into(),
+                signer_key_handle: "kms.operator-1.primary".into(),
+            },
+            1_000,
+        )
+        .expect("bound ramp order");
+        let tx_hash = [0x11; 32];
+        let receipt_digest = [0x22; 32];
+        let mut snapshot = OrderSnapshot {
+            order,
+            stage: WorkflowStage::Done,
+            evidence: TransitionEvidence {
+                tx_hash: Some(tx_hash),
+                receipt_digest: Some(receipt_digest),
+                rung: Some(Rung::Committed),
+                ..TransitionEvidence::empty()
+            },
+            lease: None,
+        };
+
+        let response = order_response(&snapshot);
+        assert_eq!(response["order_id"], snapshot.order.order_id);
+        assert_eq!(response["order"], serde_json::json!(snapshot.order));
+        assert_eq!(response["stage"], "done");
+        assert_eq!(
+            response["presentation"],
+            serde_json::json!(snapshot.presentation())
+        );
+        assert_eq!(response["evidence"]["tx_hash"], serde_json::json!(tx_hash));
+        assert_eq!(
+            response["evidence"]["receipt_digest"],
+            serde_json::json!(receipt_digest)
+        );
+        assert_eq!(response["evidence"]["rung"], "committed");
+        assert_eq!(
+            response["presentation"]["receipt_digest"],
+            response["evidence"]["receipt_digest"]
+        );
+        assert_eq!(
+            response["evidence"]
+                .as_object()
+                .expect("evidence object")
+                .len(),
+            3
+        );
+
+        snapshot.evidence.rung = Some(Rung::Receipted);
+        assert_eq!(order_response(&snapshot)["evidence"]["rung"], "receipted");
+
+        snapshot.evidence = TransitionEvidence::empty();
+        assert_eq!(
+            order_response(&snapshot)["evidence"],
+            serde_json::json!({
+                "tx_hash": null,
+                "receipt_digest": null,
+                "rung": null
+            })
+        );
+    }
 
     #[test]
     fn connection_gate_refuses_work_above_the_bound_and_releases_capacity() {
@@ -1448,3 +1727,32 @@ mod boundary_tests {
         assert_eq!(gate.active.load(Ordering::Acquire), 0);
     }
 }
+
+#[cfg(test)]
+pub(crate) fn rebalance_route_test_response(
+    config: serde_json::Value,
+    seed: impl FnOnce(&mut Journal),
+    path: &str,
+) -> (u16, serde_json::Value) {
+    let config: Config = serde_json::from_value(config).expect("route test configuration");
+    validate_config(&config).expect("valid route test configuration");
+    let state = build_state(&config).expect("real route state");
+    seed(&mut state.journal.lock().expect("journal lock"));
+    let request = Request {
+        method: "GET".to_owned(),
+        path: path.to_owned(),
+        headers: BTreeMap::from([(
+            "authorization".to_owned(),
+            format!("Bearer {}", state.operator_control_token),
+        )]),
+        body: Vec::new(),
+    };
+    let response = route(&state, &request).unwrap_or_else(|response| response);
+    (
+        response.status,
+        serde_json::from_slice(&response.body).expect("route JSON"),
+    )
+}
+
+#[cfg(test)]
+pub(crate) mod repair_support;

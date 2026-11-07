@@ -1,0 +1,648 @@
+[audit.22.30.117]
+task = "22.30.117"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 53
+findings = 25
+docs_reviewed = 12
+upgrade_ready = false
+blocking = ["1", "2", "3", "4"]
+
+[file.1]
+path = "apps/wallet/src/providers/LocaleProvider.tsx"
+lines = 141
+verdict = "issues"
+note = "Read in full: locale persistence, message catalogues, direction and formatter signatures agree; currency event notification is the recorded wiring issue."
+
+[file.2]
+path = "apps/wallet/src/providers/PWAProvider.tsx"
+lines = 314
+verdict = "issues"
+note = "Read in full: service-worker registration, subscription and dismissal shapes agree; install listener and delayed prompt lifecycle need repair."
+
+[file.3]
+path = "apps/wallet/src/providers/QueryProvider.tsx"
+lines = 46
+verdict = "clean"
+note = "Read in full: query client ownership, retry predicate, stale time and cache settings agree with the consumed query API; no retired network endpoint."
+
+[file.4]
+path = "apps/wallet/src/providers/WalletProvider.tsx"
+lines = 8
+verdict = "clean"
+note = "Read in full: compatibility re-exports refer to the live wallet context, state and action declarations without a second runtime provider."
+
+[file.5]
+path = "services/wallet/attestor/internal/policy/evm/abi/addr.json"
+lines = 1
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/addr/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.6]
+path = "services/wallet/attestor/internal/policy/evm/abi/erc20.json"
+lines = 1
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/common/erc20_abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.7]
+path = "services/wallet/attestor/internal/policy/evm/abi/feetoken.json"
+lines = 5
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/feetoken/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.8]
+path = "services/wallet/attestor/internal/policy/evm/abi/launchpad.json"
+lines = 3567
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/launchpad/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.9]
+path = "services/wallet/attestor/internal/policy/evm/abi/layerxauth.json"
+lines = 192
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/layerxauth/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.10]
+path = "services/wallet/attestor/internal/policy/evm/abi/layerxbridge.json"
+lines = 1
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/layerxbridge/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.11]
+path = "services/wallet/attestor/internal/policy/evm/abi/layerxledger.json"
+lines = 29
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/layerxledger/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.12]
+path = "services/wallet/attestor/internal/policy/evm/abi/layerxpay.json"
+lines = 194
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/layerxpay/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.13]
+path = "services/wallet/attestor/internal/policy/evm/abi/layerxprograms.json"
+lines = 1709
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/layerxprograms/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.14]
+path = "services/wallet/attestor/internal/policy/evm/abi/perps.json"
+lines = 1
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/perps/abi/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.15]
+path = "services/wallet/attestor/internal/policy/evm/abi/xweb.json"
+lines = 18
+verdict = "generated"
+note = "Embedded ABI artifact; parsed JSON equals precompiles/xweb/abi.json in this revision. Method names, parameter shapes, widths and outputs are inherited from that canonical ABI; reviewed as a generated copy."
+
+[file.16]
+path = "services/wallet/attestor/internal/policy/evm/decode.go"
+lines = 268
+verdict = "clean"
+note = "Read in full: active address map and exact ABI calldata round-trip checks agree with canonical embedded copies; retired custody and anchor are absent."
+
+[file.17]
+path = "services/wallet/attestor/internal/policy/evm/digest.go"
+lines = 326
+verdict = "clean"
+note = "Read in full: authorization, sponsored batch, typed-data and personal-message digests preserve chain, field widths and domain separation; custody digest is absent."
+
+[file.18]
+path = "services/wallet/attestor/internal/policy/evm/evm_test.go"
+lines = 873
+verdict = "clean"
+note = "Read in full: real Ethereum transaction encodings, malformed signature fields, selectors and digest comparisons match decoder and signer shapes."
+
+[file.19]
+path = "services/wallet/attestor/internal/policy/evm/policy_test.go"
+lines = 201
+verdict = "clean"
+note = "Read in full: shipped perps, launchpad and xweb selector sets are compared with actual ABI signatures; policy-facing token pull, approval and fulfilment-refusal fixtures match the declared shapes."
+
+[file.20]
+path = "services/wallet/attestor/internal/policy/kinds.go"
+lines = 126
+verdict = "clean"
+note = "Read in full: isolated operator verification and distinct send-authorization registration match the advertised sign kinds; retired activity is not registered."
+
+[file.21]
+path = "services/wallet/attestor/internal/policy/kinds_test.go"
+lines = 177
+verdict = "clean"
+note = "Read in full: kernel registration, invalid inspectors and verification isolation exercise actual inspectors; retired lx_activity is used only as a refusal input."
+
+[file.22]
+path = "services/wallet/attestor/internal/policy/ledger.go"
+lines = 351
+verdict = "clean"
+note = "Read in full: encrypted persistence, windows, request exclusion and maximum-merge replication implement the request-idempotence API. The caller must bind IDs to intents; the doSign failure to do so is recorded separately."
+
+[file.23]
+path = "services/wallet/attestor/internal/policy/ledger_test.go"
+lines = 202
+verdict = "clean"
+note = "Read in full: window expiry, encrypted restart restoration, read-only review and duplicate announcement merge assert the implemented ledger contract."
+
+[file.24]
+path = "services/wallet/attestor/internal/policy/lx/chain.go"
+lines = 159
+verdict = "clean"
+note = "Read in full: ATTESTOR_RPC_URL, bounded eth_call, address ABI, uint64 bind nonce and JSON-RPC result/error handling agree with the node consumer."
+
+[file.25]
+path = "services/wallet/attestor/internal/policy/lx/chain_test.go"
+lines = 200
+verdict = "clean"
+note = "Read in full: request body, nonce output widths, RPC errors, oversized responses and cancellation match the chain reader contract."
+
+[file.26]
+path = "services/wallet/attestor/internal/policy/lx/lx.go"
+lines = 1464
+verdict = "issues"
+note = "Read in full: canonical payloads, ownership, disclosures, approval fields and send digest bind correctly; the missing production accepted-debit path blocks upgrade readiness."
+
+[file.27]
+path = "services/wallet/attestor/internal/policy/lx/lx_test.go"
+lines = 1384
+verdict = "clean"
+note = "Read in full: canonical send/grant/bind and budget layouts, retired layout rejection, clock profiles and request idempotence agree with evaluator encodings. Unit ledger insertion does not prove production receipt ingestion."
+
+[file.28]
+path = "services/wallet/attestor/internal/policy/native/native.go"
+lines = 582
+verdict = "clean"
+note = "Read in full: closed JSON, canonical purpose/session/capability records, tenant and owner binding, expiry and rate policy agree with native consent consumers."
+
+[file.29]
+path = "services/wallet/attestor/internal/policy/policy.go"
+lines = 1094
+verdict = "issues"
+note = "Read in full: chain/digest enforcement, monetary limits, selector and counterparty checks, ERC20 permits and sponsored fees were traced; construct effects and collateral configuration carry findings."
+
+[file.30]
+path = "services/wallet/attestor/internal/policy/policy_test.go"
+lines = 2191
+verdict = "issues"
+note = "Read in full: token caps, chain isolation, permits, trusted spenders and merge-kind retirement are covered; construct accounting fixtures and one retired-address lookup carry findings."
+
+[file.31]
+path = "services/wallet/attestor/internal/server/authority.go"
+lines = 420
+verdict = "clean"
+note = "Read in full: signed wallet inventory binds issuer, tenant, membership pins, curve, public key, epoch, owner and allowed operations; replay state persists through the store."
+
+[file.32]
+path = "services/wallet/attestor/internal/server/custody_retired_test.go"
+lines = 57
+verdict = "clean"
+note = "Read in full: historical custody values are negative regression inputs; tests assert unsupported kinds and unknown custody fields before protocol sessions."
+
+[file.33]
+path = "services/wallet/attestor/internal/server/durability_test.go"
+lines = 837
+verdict = "issues"
+note = "Read in full: actual share stores, restart, quorum rotation, snapshots and audit records are exercised; completed-send accounting is injected by the test helper."
+
+[file.34]
+path = "services/wallet/attestor/internal/server/e2e_test.go"
+lines = 1636
+verdict = "clean"
+note = "Read in full: five-daemon TLS, key generation/import/refresh/add-share, signing, authority admission and malformed schemes use live routes. Scheme checks precede ceremony fields, so malformed-bundle refusal inputs are valid."
+
+[file.35]
+path = "services/wallet/attestor/internal/server/errors.go"
+lines = 173
+verdict = "clean"
+note = "Read in full: stable wire error codes, HTTP status/category mapping, optional policy_code and audit flags agree with API error consumers."
+
+[file.36]
+path = "services/wallet/attestor/internal/server/evm_review.go"
+lines = 122
+verdict = "clean"
+note = "Read in full: original-owner authorization, read-only ledger review, exact transaction digest and chain refusal match req.12013 and the sign path."
+
+[file.37]
+path = "services/wallet/attestor/internal/server/evm_review_test.go"
+lines = 233
+verdict = "clean"
+note = "Read in full: the same transaction bytes traverse real daemon review then signing, with chain mismatch and non-mutating review accounting assertions."
+
+[file.38]
+path = "services/wallet/attestor/internal/server/keys.go"
+lines = 1194
+verdict = "clean"
+note = "Read in full: ceremony import identity, current inventory, staged refresh decisions and recovery, participant addition and public key description preserve stored key identity."
+
+[file.39]
+path = "services/wallet/attestor/internal/server/lx_retired_test.go"
+lines = 154
+verdict = "clean"
+note = "Read in full: lx_activity is an explicit rejected value; default review binds the owner send-authorization digest and performs no ledger mutation."
+
+[file.40]
+path = "services/wallet/attestor/internal/server/metrics_peer_test.go"
+lines = 85
+verdict = "clean"
+note = "Read in full: peer TLS and replica metric labels follow the authenticated transport and health producers."
+
+[file.41]
+path = "services/wallet/attestor/internal/server/metrics_test.go"
+lines = 231
+verdict = "clean"
+note = "Read in full: real API operations update registered metric families and enforce operator-only access rather than exposing metrics to gateway credentials."
+
+[file.42]
+path = "services/wallet/attestor/internal/server/native_purpose.go"
+lines = 352
+verdict = "clean"
+note = "Read in full: native-v2 binds canonical records, original owner, inventory and epoch, persists request identity and result, and uses a separate rate ledger namespace."
+
+[file.43]
+path = "services/wallet/attestor/internal/server/native_purpose_test.go"
+lines = 712
+verdict = "clean"
+note = "Read in full: real quorum native purpose signatures, malformed records, owner/tenant/capability mismatches, duplicate consent and restart behavior match the native-v2 producer."
+
+[file.44]
+path = "services/wallet/attestor/internal/server/peer.go"
+lines = 635
+verdict = "clean"
+note = "Read in full: pinned participant announcements bind held key/account and decimal non-negative spend widths; durable maximum merge and refresh recovery match transport/store interfaces. Announcements do not carry intent digests, addressed with the doSign proposal."
+
+[file.45]
+path = "services/wallet/attestor/internal/server/proof_s28_wallet_attestors_tss_test.go"
+lines = 465
+verdict = "clean"
+note = "Read in full: real quorum signatures and exported proof bytes exercise Go, Rust and TypeScript consumers and actual metrics/audit evidence without replacing the signing implementation."
+
+[file.46]
+path = "services/wallet/attestor/internal/server/public_identity.go"
+lines = 155
+verdict = "clean"
+note = "Read in full: operator identity registration and owner-only public reads bind Ed25519 identity to held wallet keys with current inventory and durable metadata."
+
+[file.47]
+path = "services/wallet/attestor/internal/server/send_authorization_test.go"
+lines = 268
+verdict = "issues"
+note = "Read in full: real quorum signs the owner authorization digest and refusal paths audit correctly; claimed accepted-send completion uses a direct ledger helper."
+
+[file.48]
+path = "services/wallet/attestor/internal/server/server.go"
+lines = 454
+verdict = "issues"
+note = "Read in full: client certificate roles, mounted methods, health/metrics authority, body limits and snapshot integration agree; missing body deadline and permanent keyed-lock growth carry findings."
+
+[file.49]
+path = "services/wallet/attestor/internal/server/server_test.go"
+lines = 1035
+verdict = "clean"
+note = "Read in full: schema goldens, TLS role gates, store persistence, public identity, snapshots and described key fields match route and response types."
+
+[file.50]
+path = "services/wallet/attestor/internal/server/session.go"
+lines = 231
+verdict = "clean"
+note = "Read in full: protocol names/kinds, epoch bindings, transport attachment and round/overall deadlines match TSS network adapters. Transport tombstones are temporary, so doSign needs its own durable identity binding."
+
+[file.51]
+path = "services/wallet/attestor/internal/server/sign.go"
+lines = 815
+verdict = "issues"
+note = "Read in full: auth, exact wire decoding, inventory and digest preparation, policy decisions and real threshold signing agree structurally; mutable session accounting is a blocker."
+
+[file.52]
+path = "services/wallet/attestor/internal/server/token_scope_test.go"
+lines = 63
+verdict = "issues"
+note = "Read in full: durable same-token replay is checked, but a reused session with a changed signing intent is outside the covered producer/consumer path."
+
+[file.53]
+path = "services/wallet/attestor/internal/server/verification.go"
+lines = 436
+verdict = "clean"
+note = "Read in full: operator-only ceremony verification binds import receipt, completed refresh, epoch and exact message; durable states preserve the single-use window and pending-audit recovery."
+
+[finding.1]
+file = "services/wallet/attestor/internal/policy/lx/lx.go"
+line = 654
+class = "wiring-gap"
+severity = "high"
+observed = "EvaluateSendAuthorization deliberately returns empty Spends and inspectSendAuthorizationCall discards the cap totals. Server doSign announces that empty list. The production attestor has no committed-send ingestion path that later applies these debits; only acceptKernelSend in durability_test.go applies and announces them."
+expected = "Authorizing a send must leave balances unchanged, but a committed debit must enter the durable rolling ledger exactly once so subsequent authorizations see prior spend across all quorum members and restarts."
+proposal = "Add authenticated committed-receipt ingestion in services/wallet/attestor/internal/server and a durable cursor in internal/store. Bind each debit to its held key, chain, asset, authorization digest and transaction identity, verify committed evidence, deduplicate and replicate it before further cap-sensitive authorizations."
+owner_domain = 12
+interface = "12.go-att-lx-evaluator-evaluate-send-authorization"
+
+[finding.2]
+file = "services/wallet/attestor/internal/server/sign.go"
+line = 440
+class = "restart-recovery"
+severity = "high"
+observed = "doSign identifies accounting solely by key_id/session_id. SpendLedger.ForRequest excludes entries with that ID and RecordSpend merges their maximum. No durable request-body or signing-digest binding exists on this route. A changed nonce or recipient under the same session is a different JWT RequestDigest and can be signed after the transport tombstone expires (default 30 seconds), or after quorum restart, while prior spend is excluded."
+expected = "One accounting identity must refer to one immutable signing intent across token changes, transport expiry and restarts. Distinct signed transactions must consume separate daily and request-rate budgets."
+proposal = "Persist key, session, epoch and canonical signing-intent digest before policy evaluation in services/wallet/attestor/internal/server/sign.go using internal/store. Refuse changed intents and return durable results for exact retries; bind peer announcements to the same identity. Follow the native_purpose.go durable consent binding pattern."
+owner_domain = 12
+interface = "12.go-att-policy-spend-ledger-for-request"
+
+[finding.3]
+file = "services/wallet/attestor/internal/policy/policy.go"
+line = 740
+class = "interface-mismatch"
+severity = "high"
+observed = "inspectCall maps every layerxprograms.transfer leg to AssetNative and ignores its Asset, From and To. sandboxFund also charges amount as native, and budgetFund/budgetFundNative assume native without resolving the budget asset. The canonical ABIs and execution paths retain bytes32 assets: method_transfer.go encodes leg.Asset and layerxpay budget handlers use the stored Budget.AssetID."
+expected = "The policy decision must describe the same asset and amount the precompile debits. An asset without a cap must be refused, and asset units must never be compared with the native wei cap merely because calldata contains an amount."
+proposal = "Implement asset-aware construct inspection in services/wallet/attestor/internal/policy/policy.go. Preserve transfer leg asset IDs and owned source/destination effects, include sandbox funding legs, and resolve budget assets from a pinned verified state read; refuse unresolved effects. Use one canonical asset-key convention with existing send and grant accounting."
+owner_domain = 12
+interface = "12.go-att-policy-inspect-construct-spends-j49"
+
+[finding.4]
+file = "services/wallet/attestor/internal/policy/policy.go"
+line = 694
+class = "wiring-gap"
+severity = "high"
+observed = "The inspectCall switch has no debit case for budgetCreate, budgetCreateNative or escrowOpen. With a listed selector and zero EVM value these produce no spend. The shipped-policy test explicitly accepts budgetCreate and escrowOpen amounts of 100 PAX with an empty spend list. Actual budget creation emits an owner-to-budget transfer in src/modules/budget/lx_budget_create.c, and escrow opening locks owner funds in src/modules/escrow/lx_escrow_open.c."
+expected = "A selector allowlist authorizes a method, while monetary policy must still bound the actual owner debit or reservation. Creating a funded budget or escrow must enforce the asset cap and rolling daily limit."
+proposal = "Extend services/wallet/attestor/internal/policy/policy.go to extract the initial amount, asset and owned source of budgetCreate, budgetCreateNative and escrowOpen. Charge their real debit once and refuse unsupported spend-bearing methods until effects can be established. Prove decisions against executed precompile balance changes."
+owner_domain = 12
+interface = "12.go-att-policy-policy-evaluate"
+
+[finding.5]
+file = "services/wallet/attestor/internal/policy/policy_test.go"
+line = 408
+class = "test-gap"
+severity = "medium"
+observed = "TestLayerxpayBudgetFundCountsNativeSpend gives program transfer legs Asset=[32]byte{3} and sandbox funding Asset=[32]byte{5}, then requires native accounting. TestShippedPolicyAllowsConstructSelectors requires empty spends for funded budgetCreate and escrowOpen calls. These expectations reproduce the inspector rather than the executed asset transfers."
+expected = "Construct policy tests must compare policy decisions with actual precompile effects, including non-native assets and initial funding, rather than enforce a different asset shape or zero debit."
+proposal = "Replace these expectations in services/wallet/attestor/internal/policy/policy_test.go with funded canonical-account fixtures and a real precompile execution path. Assert exact asset IDs, source balances, daily totals and refusal of uncapped assets for all debit-bearing selectors."
+owner_domain = 12
+interface = "12.go-att-policy-inspect-construct-spends-j49"
+
+[finding.6]
+file = "services/wallet/attestor/internal/server/durability_test.go"
+line = 380
+class = "test-gap"
+severity = "medium"
+observed = "acceptKernelSend calls the evaluator, constructs spends itself, invokes server.spends.Apply directly and then Announce. Daily-cap and restart assertions therefore test a debit inserted by test code; no running node submission, committed receipt or production debit-ingestion handler supplies it."
+expected = "The restart and quorum proof must establish that the running product records accepted sends, including receipt verification, duplicate delivery and recovery, without tests writing the ledger themselves."
+proposal = "Change services/wallet/attestor/internal/server/durability_test.go to submit a real signed send and feed its committed evidence through the production ingestion path. Restart a member before delivery, replay the evidence, and assert one debit and consistent refusal across different signing quorums."
+owner_domain = 12
+interface = "12.go-att-policy-spend-ledger-apply"
+
+[finding.7]
+file = "services/wallet/attestor/internal/server/send_authorization_test.go"
+line = 203
+class = "test-gap"
+severity = "medium"
+observed = "TestSendAuthorizationSignedByTheHeldKeyCompletesAnAcceptedSend verifies a real quorum signature but delegates acceptance to acceptKernelSend, which manually applies the spend. Its second-authorization daily-cap refusal does not prove that a real accepted network send reaches accounting."
+expected = "The declared send completion proof must connect quorum authorization, network execution, committed receipt transport and durable attestor accounting using the same bytes and identities."
+proposal = "Extend services/wallet/attestor/internal/server/send_authorization_test.go to submit the completed bytes to the actual node and exercise the production committed-receipt consumer. Assert the next authorization is refused without any direct ledger mutation in the test."
+owner_domain = 12
+interface = "12.go-att-lx-evaluator-evaluate-send-authorization"
+
+[finding.8]
+file = "services/wallet/attestor/internal/server/token_scope_test.go"
+line = 34
+class = "test-gap"
+severity = "medium"
+observed = "TestOneTokenAuthorisesDistinctRequestsAndRefusesARepeat covers only identical request bodies under the same token, including after one node restarts. It does not try a changed transaction under a reused session ID, which changes RequestDigest and evades the accounting identity assumption in doSign."
+expected = "Replay coverage must include the distinction between token replay and signing-intent identity, with the latter preserved across fresh credentials, transport expiry and full quorum restart."
+proposal = "Add a real quorum regression in services/wallet/attestor/internal/server/token_scope_test.go: sign a cap-sized EVM transfer, change nonce and recipient while retaining session_id, and retry after transport expiry and quorum restart with original and fresh tokens. Require refusal and unchanged durable totals."
+owner_domain = 12
+interface = "12.go-att-jwt-request-digest"
+
+[finding.9]
+file = "apps/wallet/src/providers/LocaleProvider.tsx"
+line = 78
+class = "wiring-gap"
+severity = "medium"
+observed = "The currency-rates event increments an unnamed state value, but ctx is memoized only on locale, dir and setLocale, so the provider does not notify context consumers. Fiat widgets such as HeroBalance render formatUsd from mutable rates and preferences without subscribing to this event or context; updating the provider alone cannot refresh their unchanged props."
+expected = "Changing display currency or receiving exchange rates must update visible fiat values promptly through the subscribed render path, including components whose other props and locale remain unchanged."
+proposal = "Expose currencyRevision from apps/wallet/src/providers/LocaleProvider.tsx, include it in context dependencies and subscribe fiat widgets to it, or use an external currency store directly in those widgets. Cover a mounted portfolio amount changing after CURRENCY_RATES_EVENT without a locale or balance change."
+owner_domain = 12
+interface = "12.evt-app-currency-rates-event"
+
+[finding.10]
+file = "apps/wallet/src/providers/PWAProvider.tsx"
+line = 153
+class = "runtime-risk"
+severity = "low"
+observed = "The install effect adds an anonymous appinstalled listener but removes only beforeinstallprompt. Its three-second install prompt timeout is also untracked. Remounts retain listeners, and an install or dismissal during that delay can be followed by an obsolete prompt opening."
+expected = "The provider lifecycle must remove its window listeners and cancel delayed install prompts when installed, dismissed, rerun or unmounted."
+proposal = "Use a named appinstalled handler and a tracked timer in apps/wallet/src/providers/PWAProvider.tsx. Remove both listeners and clear the timer in cleanup and successful-install handling; cancel it when the user dismisses or accepts the install prompt."
+owner_domain = 12
+
+[finding.11]
+file = "services/wallet/attestor/internal/server/server.go"
+line = 418
+class = "runtime-risk"
+severity = "medium"
+observed = "Serve sets only ReadHeaderTimeout. readBody limits bytes but uses io.ReadAll without a body deadline, and ProtocolTimeout is applied only later to TSS sessions. A permitted mTLS client can finish headers and indefinitely drip a request body, retaining a connection and handler."
+expected = "Every exposed request must have a bounded body-read lifetime independently of the byte limit and the later signing protocol timeout."
+proposal = "Set an API read deadline in services/wallet/attestor/internal/server/server.go or use per-request response-controller read deadlines before reading bodies. Preserve the separate longer TSS execution budget and prove a stalled body is closed within the configured bound."
+owner_domain = 12
+interface = "12.go-att-server-apitlsconfig"
+
+[finding.12]
+file = "services/wallet/attestor/internal/server/server.go"
+line = 294
+class = "runtime-risk"
+severity = "medium"
+observed = "lockKey permanently inserts a mutex for every keyID into keyLocks. EVM review, public identity and native signing can acquire a key lock before store lookup or owner authentication, so repeated nonexistent IDs from an admitted client grow this map for the process lifetime."
+expected = "Rejected or unknown key identifiers must not create unbounded permanent process state, and concurrent operations for a valid key must still share one lock."
+proposal = "Replace the permanent map in services/wallet/attestor/internal/server/server.go with reference-counted keyed locks that remove entries only when no holder or waiter remains, or bound locks to the approved inventory. Add coverage for many rejected IDs and simultaneous same-key requests."
+owner_domain = 12
+
+[finding.13]
+file = "services/wallet/attestor/internal/policy/policy_test.go"
+line = 1437
+class = "test-gap"
+severity = "low"
+observed = "TestShippedPolicySponsoredFeeAndPaymasterDelegation calls PrecompileAddress(\"layerxcustody\") and ignores its false result. After retirement the returned address is zero, so the assertion named custody exercises delegation to zero rather than the retired 0x1013 address."
+expected = "A regression concerning a retired address must use that exact address and separately prove it is absent from the active registry; ignoring lookup failure must not silently change the tested input."
+proposal = "Use the explicit historical 0x0000000000000000000000000000000000001013 address in services/wallet/attestor/internal/policy/policy_test.go and assert PrecompileAddress reports it absent. Keep both the retirement and delegate refusal assertions meaningful."
+owner_domain = 12
+interface = "12.go-att-evm-precompile-address"
+
+[finding.14]
+file = "services/wallet/attestor/internal/policy/policy.go"
+line = 761
+class = "config-drift"
+severity = "medium"
+observed = "The perps.addCollateral spend is hardcoded to token 0x85FcD13735F4309833A503EE804ea32395851479. The actual perps executor obtains the collateral asset from governed Params.CollateralToken. A collateral-parameter change leaves attestor caps charging USDL while the executor handles a different asset."
+expected = "The asset identity used for policy and accounting must agree with the active perps collateral configuration at the execution boundary, rather than assume a deployment seed remains permanent."
+proposal = "Resolve and verify active collateral configuration for addCollateral in services/wallet/attestor/internal/policy/policy.go, pin it to the reviewed transaction state, and refuse configuration disagreement. Add a governed collateral-change case proving the charged asset follows execution."
+owner_domain = 12
+interface = "12.go-att-policy-inspect-construct-spends-j49"
+
+[finding.15]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The overview says layerxd is a separate daemon whose checkpoints settle through layerxAnchor. Lines 83, 145 and 181 also present retired custody/anchor/exchange entries, a layerxd build and a still-draft merge as the running system."
+expected = "The finished network is the chain-ID-125 paxd BFT chain with an integrated kernel and committed-block finality. Retired precompiles and the separate daemon must not be presented as active components."
+proposal = "Rewrite README.md architecture, precompile inventory and build/release examples around paxd and the merged activation table. Label archival information explicitly and point integrators to node-root JSON-RPC."
+owner_domain = 1
+
+[finding.16]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the hosted node as an in-cluster sequencer pod building and running layerxd. Bootstrap, StatefulSet, replica, checkpoint/settlement and recovery instructions describe the retired separate network rather than the merged paxd service."
+expected = "Hosted node deployment and recovery documentation must describe the single BFT network, root node RPC and integrated kernel, with tenant domains launched without an independent sequencer pod."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md from the merged paxd deployment and persistence configuration, including committed receipt recovery and tenant-domain provisioning. Remove active layerxd/LNI/checkpoint-settlement instructions and regenerate the mirrored page from the same source."
+owner_domain = 8
+
+[finding.17]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page defines the hosted node as an in-cluster sequencer pod building and running layerxd. Bootstrap, StatefulSet, replica, checkpoint/settlement and recovery instructions describe the retired separate network rather than the merged paxd service."
+expected = "Hosted node deployment and recovery documentation must describe the single BFT network, root node RPC and integrated kernel, with tenant domains launched without an independent sequencer pod."
+proposal = "Rewrite docs/wiki/HostedNode.md from the merged paxd deployment and persistence configuration, including committed receipt recovery and tenant-domain provisioning. Remove active layerxd/LNI/checkpoint-settlement instructions and regenerate the mirrored page from the same source."
+owner_domain = 8
+
+[finding.18]
+file = "docs/system/sdk.md"
+line = 916
+class = "doc-drift"
+severity = "low"
+observed = "The generated Rust API inventory lists an exported item named fn with kind const. The crate instead declares const functions such as programs_escrow_reference and programs_vault_reference; fn is a keyword rather than a public constant."
+expected = "The SDK inventory must name real public exports with their correct declaration kinds so developers can locate and use the declared API."
+proposal = "Fix the Rust declaration extraction in tools/docs and regenerate docs/system/sdk.md so pub const fn declarations retain function names and kind function. Include a generator fixture for const functions."
+owner_domain = 1
+
+[finding.19]
+file = "docs/system/precompiles.md"
+line = 32
+class = "doc-drift"
+severity = "medium"
+observed = "The catalogue lists layerxanchor at 0x1014, layerxcustody at 0x1013 and layerxexchange at 0x1015 alongside active precompiles, and provides their methods as ordinary integration surfaces. It does not distinguish retirement from currently served perps at 0x1015."
+expected = "The precompile reference must distinguish the served merge address table from historical ABI artifacts; custody and anchor are retired and 0x1015 serves perps."
+proposal = "Make tools/docs precompile generation consume the activation and retirement inventory, then regenerate docs/system/precompiles.md with explicit lifecycle and upgrade-version labels. Remove retired methods from the active integration catalogue."
+owner_domain = 6
+
+[finding.20]
+file = "docs/system/routes.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The generated reference is titled Router routes and includes GET /rpc/evm/ws at line 908 as an available WebSocket route. The merged-network brief retires the router and unified /rpc family, so these entries misdirect node clients."
+expected = "Route documentation must separate actual node-root RPC and gateway HTTP contracts, advertise only registered routes and give the correct authentication boundary."
+proposal = "Update the route catalogue inputs and tools/docs generator, then regenerate docs/system/routes.md from mounted handlers and hosted gateway openrpc.json. Replace router-era examples with root RPC URLs and current node namespaces."
+owner_domain = 8
+
+[finding.21]
+file = "contracts/launchpad/README.md"
+line = 244
+class = "doc-drift"
+severity = "medium"
+observed = "Deployment Details declares SID as the governance token and a network-owned multisig transitioning to SID-holder governance. The same page at line 114 explains that default deployment is administrator-controlled without a voting token and falls back to the deployment wallet when GOVERNANCE_ADMIN_ADDRESS is absent."
+expected = "The deployment summary must distinguish default administrator governance from explicitly selected token governance, and accurately identify who holds decision authority after deployment."
+proposal = "Rewrite Deployment Details in contracts/launchpad/README.md to state GOVERNANCE_MODE defaults, GOVERNANCE_ADMIN_ADDRESS fallback and optional token mode. Require readers to inspect the deployment manifest and on-chain roles for their actual administrator."
+owner_domain = 6
+
+[finding.22]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The layout guide identifies the kernel as layerxd with its own subsystem trust boundary, and its trust-boundary section retains custody/checkpoint settlement as the relationship between separate chain and kernel components."
+expected = "The repository guide must describe one paxd network with an integrated kernel and committed-block finality, while retaining accurate source and build-package boundaries."
+proposal = "Update docs/MONOREPO.md component names and trust-boundary explanations to the merged runtime. Describe tenant namespaces and the retained build groups without implying a separately deployed kernel network."
+owner_domain = 1
+
+[finding.23]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "The welcome page says agent activity executes inside LayerX while custody remains on Paxeer, with periodic checkpoints registered to the chain. Its settlement table advertises guarantor attestations, checkpoint reconciliation and emergency exits as the network model."
+expected = "The public landing page must introduce the single BFT chain, integrated kernel and final committed receipts, with chain ID 125 and current public node endpoints."
+proposal = "Rewrite docs/site/docs/index.md architecture, finality and settlement descriptions around the merged network. Replace the separate-network checkpoint narrative and direct new integrators to the current root JSON-RPC contract."
+owner_domain = 1
+
+[finding.24]
+file = "docs/site/docs/overview/quickstart.md"
+line = 167
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs clients to POST /rpc and GET /rpc/ws, including public api-mainnet-beta URLs at lines 214-215. Its funding and finality walkthrough still relies on custody/checkpoint registration and a separately operated kernel boundary."
+expected = "The maintained quickstart must reach api1 through api14 or api-mainnet-beta at the node root on chain ID 125, and establish finality through committed receipts on that one network."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md as a runnable merged-network walkthrough: root RPC, current wallet funding, deployment payload bounds, transaction submission and committed receipt recovery. Remove the retired router and custody/checkpoint provisioning flow."
+owner_domain = 8
+
+[finding.25]
+file = "docs/site/docs/overview/getting-started.md"
+line = 10
+class = "doc-drift"
+severity = "medium"
+observed = "The checklist calls the interface a router, exports RPC_URL=https://api-mainnet-beta.paxeer.network/rpc and teaches the old lx method flow and sequencer receipt/finality contract."
+expected = "New clients must connect to the public node root using the merged node namespaces, chain ID 125 and committed-block receipt finality."
+proposal = "Replace docs/site/docs/overview/getting-started.md endpoint and request/response examples with the actual node-root JSON-RPC and current hosted gateway contract where applicable. Show retries and recovery using transaction hashes and committed receipts."
+owner_domain = 8
+
+[doc.1]
+path = "README.md"
+status = "stale"
+notes = "Lines 47, 83, 145 and 181 retain the separate daemon, retired precompiles and pre-merge release narrative; architecture rewrite proposed."
+
+[doc.2]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "misleading"
+notes = "Read the whole page: retired layerxd sequencer deployment, bootstrap, settlement and recovery model begins at line 3."
+
+[doc.3]
+path = "docs/wiki/HostedNode.md"
+status = "misleading"
+notes = "Read the whole mirrored page and compared it with the site version; its link variants retain the same retired deployment model at line 3."
+
+[doc.4]
+path = "docs/system/sdk.md"
+status = "stale"
+notes = "Full generated export inventory reviewed; Rust item fn is classified as const at line 916 rather than identifying the actual const functions."
+
+[doc.5]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Full ABI and Solidity catalogue reviewed; lines 32, 36-37 and retired sections advertise historical endpoints without served/retired lifecycle distinctions."
+
+[doc.6]
+path = "docs/system/routes.md"
+status = "misleading"
+notes = "Full generated route catalogue reviewed; router terminology and line 908 WebSocket path disagree with the merged-network endpoint contract."
+
+[doc.7]
+path = "contracts/launchpad/README.md"
+status = "stale"
+notes = "Full architecture and operation sections reviewed; the default administrator governance explanation at line 114 contradicts the token-governance deployment summary at lines 244-245."
+
+[doc.8]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "Full page reviewed: bridge lock/release, attestor threshold, chain separation, proofs, replay protection and deployment placeholders are distinguished from wallet TSS and do not assert a retired node router."
+
+[doc.9]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Read in full; line 3 and the trust-boundary section describe a separate layerxd kernel and checkpoint/custody settlement model."
+
+[doc.10]
+path = "docs/site/docs/index.md"
+status = "misleading"
+notes = "Read in full; lines 11-14, 24-25 and the settlement table teach separate execution and periodic checkpoint finality."
+
+[doc.11]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Read the whole walkthrough; lines 20, 167-168, 214-215, 302, 497 and 596 teach /rpc routing and an obsolete custody/checkpoint setup."
+
+[doc.12]
+path = "docs/site/docs/overview/getting-started.md"
+status = "misleading"
+notes = "Read in full; line 10 uses the retired public /rpc endpoint and the checklist retains router-era methods and sequencer finality semantics."

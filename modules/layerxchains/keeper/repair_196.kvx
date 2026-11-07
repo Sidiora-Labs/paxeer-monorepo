@@ -1,0 +1,10 @@
+[task]
+id = "22.31.196"
+finding = "chain-history-omitted-from-genesis"
+proving_test = "TestRepair_196_ChainHistoryRestartRecovery"
+validation_tests = ["TestRepair_196_ValidatesHistoryBeforeImport", "TestRepair_196_RefusesLossyLegacyExport", "TestRepair_196_RefusesCorruptStoredHistory"]
+implementation = "Keeper GenesisState carries validated domain_history alongside the registry and next base fees; ExportGenesisWithHistory and InitGenesisWithHistory preserve both committed history prefixes across JSON transport, fresh import and actual LevelDB close/reopen. Legacy exports refuse to discard nonempty history."
+baseline = "Not run: the task's explicit gate order forbids verification before implementation and requires hf-build before hf-done; no pre-change test failures were measured."
+wiring_request = "modules/layerxchains/module.go (domain 2, fm-ledger-auth-pay): decode/validate keeper.GenesisState and route module import/export through InitGenesisWithHistory/ExportGenesisWithHistory; the existing types.GenesisState decoder drops domain_history and legacy export now refuses histories."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; the final response copies the last gate evidence."
+gotcha = "The public genesis schema and module JSON decoder are outside this task's keeper-only scope; retaining their legacy API requires an explicit module wiring request rather than an out-of-scope edit or silent history loss."

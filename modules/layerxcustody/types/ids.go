@@ -6,7 +6,6 @@ import (
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 )
@@ -20,6 +19,8 @@ const (
 	WithdrawalClaimDomain = "LXP/Paxeer/withdrawal-claim/v1"
 	ExitClaimDomain       = "LXP/Paxeer/emergency-exit/v1"
 	ExitWithdrawalDomain  = "LXP/v1/emergency-withdrawal-id\x00"
+
+	withdrawalNullifierDomain = "LX:WITHDRAWAL:v1"
 )
 
 func mustType(name string) abi.Type {
@@ -86,7 +87,7 @@ func ExitWithdrawalID(networkID uint32, account, assetID, anchor [32]byte) [32]b
 func WithdrawalNullifier(networkID uint32, withdrawalID, account, assetID [32]byte, amount codec.U128, anchor [32]byte) [32]byte {
 	value := amount.Bytes()
 	h := sha256.New()
-	h.Write([]byte(verify.WithdrawalNullifierDomain))
+	h.Write([]byte(withdrawalNullifierDomain))
 	h.Write(binary.BigEndian.AppendUint32(nil, networkID))
 	h.Write(withdrawalID[:])
 	h.Write(account[:])

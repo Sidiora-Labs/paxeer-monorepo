@@ -89,7 +89,7 @@ func parse(args []string, stderr io.Writer) (replay.Request, error) {
 }
 
 func replayRange(ctx context.Context, req replay.Request) (replay.Report, error) {
-	cfg, err := config.Load(config.Replay)
+	cfg, err := config.Replay.Load()
 	if err != nil {
 		return replay.Report{}, err
 	}

@@ -1,13 +1,13 @@
 import React from 'react';
 
-import type { PaxeerXReceiptsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
 
 import { TableBody, TableColumnHeader, TableHeaderSticky, TableRoot, TableRow } from 'toolkit/chakra/table';
 
 import PaxeerXReceiptsTableItem from './PaxeerXReceiptsTableItem';
 
 interface Props {
-  items: Array<PaxeerXReceiptsItem>;
+  items: Array<PaxeerXArchiveReceiptsItem>;
   top?: number;
   isLoading?: boolean;
 }
@@ -17,10 +17,9 @@ const PaxeerXReceiptsTable = ({ items, top = 0, isLoading }: Props) => {
     <TableRoot variant="scan" minW="900px" data-label="paxeer-x-receipts">
       <TableHeaderSticky top={ top }>
         <TableRow>
-          <TableColumnHeader width="35%">Receipt ID</TableColumnHeader>
-          <TableColumnHeader width="35%">Account</TableColumnHeader>
-          <TableColumnHeader width="15%">Block</TableColumnHeader>
-          <TableColumnHeader width="15%">Settlement</TableColumnHeader>
+          <TableColumnHeader width="40%">Receipt ID</TableColumnHeader>
+          <TableColumnHeader width="40%">Account</TableColumnHeader>
+          <TableColumnHeader width="20%">Block</TableColumnHeader>
         </TableRow>
       </TableHeaderSticky>
       <TableBody>

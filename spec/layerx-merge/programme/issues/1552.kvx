@@ -1,0 +1,48 @@
+[issue.1552]
+number = 1552
+title = "[P2] Align cold scheduler ABI metadata with the served contract"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The cold scheduler ABI introduced by commit 054988c9f53ec52ac1f21d54dfcdb58d6e0f9ffa still declares JobExecuted and JobFailed at precompiles/setup.go:239 and precompiles/setup.go:240, which GetPrecompileInfoE selects at precompiles/setup.go:554, while the served constructor parses only the three events at precompiles/layerxagent/scheduler/scheduler.go:32 through precompiles/layerxagent/scheduler/scheduler.go:35 via precompiles/layerxagent/scheduler/scheduler.go:53, contradicting the complete ABI equality assertion at precompiles/setup_test.go:425 despite task 22.6.4 being marked done by commit de036d25cef971e05feeffe567b2df0797a6937f."
+close_comment = "Scheduler metadata before initialization still advertises JobExecuted and JobFailed, which are absent from the served contract ABI. A focused follow-up task will align the metadata with the served scheduler and preserve the complete ABI equality and initialization checks."
+
+[task.18.1552.1]
+title = "Issue #1552: Align cold scheduler metadata with the served ABI"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181552.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the scheduler entry in mergeAgentInfoABIs at precompiles/setup.go:230 with the exact served ABI at precompiles/layerxagent/scheduler/scheduler.go:26, removing the cold-only JobExecuted and JobFailed entries at precompiles/setup.go:239 and precompiles/setup.go:240; retain all five methods and the three served events, and preserve the keeper-free lookup at precompiles/setup.go:536 without constructing precompiles or publishing VM state."
+do_2 = "Extend TestPrecompileInfoResolvesWithoutMergeKeepers at precompiles/setup_test.go:379 to assert that cold scheduler metadata has exactly JobScheduled, JobCancelled and JobRescheduled and to snapshot and compare the VM precompile maps and address lists around cold lookups; retain the full served-versus-cold ABI equality assertion at precompiles/setup_test.go:425 and the unchanged initialization and empty registry assertions at precompiles/setup_test.go:417 and precompiles/setup_test.go:418."
+symbols = ["TestPrecompileInfoResolvesWithoutMergeKeepers"]
+touches = ["precompiles/setup.go", "precompiles/setup_test.go"]
+tests = ["precompiles/setup_test.go::TestPrecompileInfoResolvesWithoutMergeKeepers"]
+planned_paths = []
+build_cmd = "go build ./precompiles/..."
+verify_cmd = "go test -count=1 ./precompiles/ -run '^TestPrecompileInfoResolvesWithoutMergeKeepers$'"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-chain-modules"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181552]
+title = "Cold scheduler metadata equals the served contract ABI without initialization"
+ac_1 = "Cold GetPrecompileInfoE for scheduler at precompiles/setup.go:536 returns address 0x0000000000000000000000000000000000000905 and an ABI equal in full to the real served scheduler constructed at precompiles/layerxagent/scheduler/scheduler.go:49, with exactly the three events declared at precompiles/layerxagent/scheduler/scheduler.go:32 through precompiles/layerxagent/scheduler/scheduler.go:35, while Initialized stays false, PrecompileNamesToInfo stays empty and VM precompile maps and address lists remain unchanged, as TestPrecompileInfoResolvesWithoutMergeKeepers at precompiles/setup_test.go:379 proves."
+
+[acceptance.18.1552.1]
+feature = "18"
+req = "181552.1"
+scenario = "Given no initialized precompile registry or registered keepers, when scheduler metadata is resolved and then compared with the scheduler in the real served merge table, then the addresses and complete ABIs match, the scheduler advertises exactly JobScheduled, JobCancelled and JobRescheduled, and cold lookup leaves initialization, the registry and VM precompile maps and address lists unchanged."
+contract = "contracts/address-table.md#a-address-table"
+test = "precompiles/setup_test.go::TestPrecompileInfoResolvesWithoutMergeKeepers (planned)"
+qualification = "UNRUN"

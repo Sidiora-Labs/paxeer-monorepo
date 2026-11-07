@@ -2,21 +2,30 @@
 
 use std::cmp::Ordering;
 
+use crate::chain::BlockReference;
+use crate::rung::Rung;
+
 /// Internal rank for the ordered verification lattice.
 #[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[repr(u8)]
 enum VerificationRank {
-    Unverified,
-    SequencerSigned,
-    BatchIncluded,
-    StateProven,
-    CheckpointFinalised,
-    SettlementAnchored,
+    Unverified = 0,
+    SequencerSigned = 1,
+    BatchIncluded = 2,
+    StateProven = 3,
+    CheckpointFinalised = 4,
+    SettlementAnchored = 5,
+    Committed = 6,
 }
 
 /// An ordered verification level. The internal rank is private so callers can
 /// request and compare levels but cannot invent a new level representation.
-#[derive(Clone, Copy, Debug, Eq, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct VerificationLevel(VerificationRank);
+
+/// A wire label outside the declared verification lattice.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct InvalidVerificationRank(pub u8);
 
 impl VerificationLevel {
     /// No local evidence has passed.
@@ -27,14 +36,24 @@ impl VerificationLevel {
     pub const BATCH_INCLUDED: Self = Self(VerificationRank::BatchIncluded);
     /// State inclusion against the resulting state root passed.
     pub const STATE_PROVEN: Self = Self(VerificationRank::StateProven);
-    /// A threshold checkpoint certificate passed.
+    /// Retired archive label; never a current policy level.
+    #[deprecated(note = "archive only; use historical::verify for decoding")]
     pub const CHECKPOINT_FINALISED: Self = Self(VerificationRank::CheckpointFinalised);
-    /// The settlement reference matched the registered checkpoint anchor.
+    /// Retired archive label; never a current policy level.
+    #[deprecated(note = "archive only; settlement cannot establish current finality")]
     pub const SETTLEMENT_ANCHORED: Self = Self(VerificationRank::SettlementAnchored);
 
-    /// Compares achieved evidence strength with a requested level.
+    /// Verified covering-block commitment, receipt coverage and the relevant state witness passed.
+    /// A wire label is only an observation; only a proof-owned `Verified` value carries achievement.
+    pub const COMMITTED: Self = Self(VerificationRank::Committed);
+
+    /// Compares current evidence strength with a requested level.
+    /// Retired labels always fail the policy comparison, including against themselves.
     #[must_use]
     pub const fn compare(self, requested: Self) -> Ordering {
+        if !self.is_current() || !requested.is_current() {
+            return Ordering::Less;
+        }
         let achieved = self.0 as u8;
         let requested = requested.0 as u8;
         if achieved < requested {
@@ -46,10 +65,66 @@ impl VerificationLevel {
         }
     }
 
-    /// Returns the stable wire rank from zero through five.
+    #[must_use]
+    pub const fn is_current(self) -> bool {
+        !matches!(
+            self.0,
+            VerificationRank::CheckpointFinalised | VerificationRank::SettlementAnchored
+        )
+    }
+
+    /// Returns the wire label. Ranks 4 and 5 are reserved historical labels.
     #[must_use]
     pub const fn wire_rank(self) -> u8 {
         self.0 as u8
+    }
+
+    /// Decodes an observation's stable wire label, without constructing verified evidence.
+    ///
+    /// # Errors
+    /// Rejects retired checkpoint/settlement ranks and unknown labels.
+    /// Rank 6 identifies current committed evidence without reinterpreting archive rank 4.
+    pub const fn from_wire_rank(rank: u8) -> Result<Self, InvalidVerificationRank> {
+        match rank {
+            0 => Ok(Self::UNVERIFIED),
+            1 => Ok(Self::SEQUENCER_SIGNED),
+            2 => Ok(Self::BATCH_INCLUDED),
+            3 => Ok(Self::STATE_PROVEN),
+            6 => Ok(Self::COMMITTED),
+            _ => Err(InvalidVerificationRank(rank)),
+        }
+    }
+
+    /// Maps current levels to write rungs. Retired labels never confer a rung.
+    #[must_use]
+    pub const fn rung(self) -> Option<Rung> {
+        match self.0 {
+            VerificationRank::Unverified | VerificationRank::SequencerSigned => {
+                Some(Rung::Submitted)
+            }
+            VerificationRank::BatchIncluded | VerificationRank::StateProven => {
+                Some(Rung::Receipted)
+            }
+            VerificationRank::Committed => Some(Rung::Committed),
+            VerificationRank::CheckpointFinalised | VerificationRank::SettlementAnchored => None,
+        }
+    }
+}
+
+impl Ord for VerificationLevel {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let key = |level: Self| match level.0 {
+            VerificationRank::CheckpointFinalised => 0,
+            VerificationRank::SettlementAnchored => 1,
+            _ => level.wire_rank() + 2,
+        };
+        key(*self).cmp(&key(*other))
+    }
+}
+
+impl PartialOrd for VerificationLevel {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
     }
 }
 
@@ -59,8 +134,8 @@ pub struct EvidenceIds {
     receipt_digest: [u8; 32],
     batch_id: Option<[u8; 32]>,
     state_root: Option<[u8; 32]>,
-    checkpoint_id: Option<[u8; 32]>,
-    settlement_reference_hash: Option<[u8; 32]>,
+    committed_block: Option<BlockReference>,
+    storage_witness_digest: Option<[u8; 32]>,
 }
 
 impl EvidenceIds {
@@ -82,30 +157,30 @@ impl EvidenceIds {
         self.state_root
     }
 
-    /// Returns the certificate identifier when finality passed.
+    /// Returns the verified covering block, retaining the separate execution height.
     #[must_use]
-    pub const fn checkpoint_id(&self) -> Option<[u8; 32]> {
-        self.checkpoint_id
+    pub const fn committed_block(&self) -> Option<&BlockReference> {
+        self.committed_block.as_ref()
     }
 
-    /// Returns the settlement reference digest when anchoring passed.
+    /// Returns the digest of the storage witness verified against the committed state root.
     #[must_use]
-    pub const fn settlement_reference_hash(&self) -> Option<[u8; 32]> {
-        self.settlement_reference_hash
+    pub const fn storage_witness_digest(&self) -> Option<[u8; 32]> {
+        self.storage_witness_digest
     }
 }
 
 /// A decoded core value bound to proof-achieved evidence and freshness.
 ///
 /// This type intentionally has no public constructor or level mutator.
-/// `layerx-proof` gains the evidence-gated construction path with its verifiers.
+/// Committed requires verified block commitment, receipt coverage and the relevant
+/// storage witness. No label decoder, archive reader or trust-pin parser can mint it.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Verified<T> {
     value: T,
     level: VerificationLevel,
     evidence: EvidenceIds,
     head_sequence: u64,
-    relative_checkpoint: Option<[u8; 32]>,
 }
 
 impl<T> Verified<T> {
@@ -131,12 +206,6 @@ impl<T> Verified<T> {
     #[must_use]
     pub const fn head_sequence(&self) -> u64 {
         self.head_sequence
-    }
-
-    /// Returns the relative checkpoint when checkpoint evidence exists.
-    #[must_use]
-    pub const fn relative_checkpoint(&self) -> Option<[u8; 32]> {
-        self.relative_checkpoint
     }
 }
 

@@ -1,0 +1,36 @@
+[repair.22.33.1462]
+audit = "22.30.84"
+base_revision = "e3d7e5828b39e4182e9559fb6bc28d74c2f37e0f"
+acceptance = "22998.1"
+build_command = "hf-build: go build ./sdk/client/tx/..."
+verify_command = "hf-done: cg spec done 22.33.1462 -f layerx-merge --root $TASK_ROOT (declared TestRepairM_1462_ gate)"
+evidence = "The private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; qualification requires both passing gates on the same candidate. No unexecuted gate is claimed."
+baseline = "No earlier gate ledger or carried implementation existed. No baseline failures are claimed: the explicit Order prohibits a manual verify_cmd run before implementation and hf-build."
+
+[finding.factory-invalid-flags]
+tests = ["TestRepairM_1462_FactoryInvalidFlags", "TestRepairM_1462_FactoryValidFlags"]
+repair = "Return (Factory, error) from NewFactoryCLI; parse gas, fees and prices before constructing the factory, validate gas adjustment and propagate errors through GenerateOrBroadcastTxCLI before account lookup, signing or submission."
+proof = "Drive real Cobra flag parsing and generation/submission entry points with malformed gas, fees, prices and adjustment; require flag-specific errors, an empty factory and no output. Valid flags generate JSON and protobuf transactions that the production codec decodes with the expected gas, fees, messages, memo and timeout."
+
+[finding.gas-adjustment-bounds]
+tests = ["TestRepairM_1462_GasAdjustmentBounds"]
+repair = "Reject negative and nonfinite factors before simulation, reject missing gas information and nonfinite or uint64-overflowing products, and ceil the product before checked conversion. The exclusive floating-point upper bound is 2^64."
+proof = "Build and encode a real simulation transaction, send it over loopback gRPC to the production auth transaction service, decode it and consume workload gas with the production gas meter. Check fractional and integral estimates, zero, invalid factors, finite/infinite overflow and the uint64 boundary; consume successful limits through a fresh encoded and decoded transaction."
+
+[wiring.cosmos-fork]
+request = "Domain 15 (cosmos-fork): migrate sdk/x/auth/client/cli/tx_sign.go, sdk/x/auth/client/cli/tx_multisign.go, sdk/x/auth/client/cli/validate_sigs.go, sdk/x/genutil/client/cli/gentx.go, sdk/x/staking/client/cli/tx.go and sdk/x/evidence/client/cli/repair_m602_test.go to receive (Factory, error) from NewFactoryCLI and propagate/assert the error before using the factory."
+
+[wiring.chain-modules]
+request = "Domain 6 (chain-modules): migrate modules/tokenfactory/client/cli/tx.go and modules/evm/client/cli/tx.go to receive (Factory, error) from NewFactoryCLI and propagate the error before using/chaining the factory."
+
+[gotcha.gate-order]
+observed = "The embedded baseline instruction conflicts with the explicit implementation-first gate order and prohibition on manual verify_cmd runs."
+resolution = "Follow the explicit gate order and record no invented baseline result; the task scope forbids editing the root gotcha ledger or spec task record."
+
+[gotcha.node-test-import]
+observed = "Existing tx tests imported node merely for codec setup, pulling out-of-scope CLI callers of the changed NewFactoryCLI signature and unrelated native node dependencies into test compilation."
+resolution = "Construct the production protobuf/Amino codecs directly with standard, bank and legacy transaction registrations in the shared test encoding helper; retain every existing test and assertion."
+
+[gotcha.simulation-sign-mode]
+observed = "First hf-done at candidate 5762ec4da1e1c44715700253dc7b44d2b54ccc01 exited 1: the new simulation fixture left sign mode unspecified, so its decoded-signature assertion failed with invalid single sign mode 0; evidence /out/logs/verify-1.log. Flag tests and gas-result assertions passed."
+resolution = "Set the fixture factory's signing mode to the production codec handler's default and retain every assertion."

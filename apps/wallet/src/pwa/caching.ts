@@ -1,8 +1,10 @@
 export const CACHE_PREFIX = 'paxeer-wallet-';
 
-export const SERVICE_WORKER_URL = '/wallet/sw.js';
+export const PWA_BASE_PATH = '/wallet';
 
-export const SHELL_URL = '/wallet/';
+export const SERVICE_WORKER_URL = `${PWA_BASE_PATH}/sw.js`;
+
+export const SHELL_URL = `${PWA_BASE_PATH}/`;
 
 export const OFFLINE_URL = '/wallet/offline/';
 

@@ -1,0 +1,32 @@
+[sweep.go-wasm-runtime]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 5
+targets_passed = 5
+targets_failed = 0
+targets_not_run = 0
+
+[target.go-wasm-runtime.1]
+target = "wasm-runtime"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm-runtime.2]
+target = "wasm-runtime/cmd/demo"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm-runtime.3]
+target = "wasm-runtime/internal/api"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm-runtime.4]
+target = "wasm-runtime/internal/api/testdb"
+result = "passed"
+exit_code = 0
+
+[target.go-wasm-runtime.5]
+target = "wasm-runtime/types"
+result = "passed"
+exit_code = 0

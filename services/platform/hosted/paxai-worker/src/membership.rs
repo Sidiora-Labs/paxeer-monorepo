@@ -12,6 +12,7 @@ use crate::discovery::{AuthorityEvidence, FinalizedAuthority};
 use layerx_programs_ai_market::{
     admission::{AdmissionMeta, AdmissionTable, Participant, PendingExit},
     errors::{ApplicationError, ARITHMETIC, NON_CANONICAL},
+    reputation_transition::split_joint,
     rewards::{decode_reward_state, Disposition, EpochStatus, REWARD_STATE_BYTES},
     state::{self, ActorSlot, RetainedResult, Section, SharedState},
     types::{
@@ -286,8 +287,10 @@ impl MembershipObserver {
             }
         }
         let shared = state::decode_shared_state(evidence.state)?;
-        let meta = AdmissionTable::decode(shared.section(Section::ReputationAdmission)?)?
-            .get(Participant::Worker(subject.worker));
+        let (_reputation, admission_bytes) =
+            split_joint(shared.section(Section::ReputationAdmission)?)?;
+        let admission = AdmissionTable::decode(admission_bytes)?;
+        let meta = admission.get(Participant::Worker(subject.worker));
         let record = authority.record();
         let retained = retained(&shared, subject.worker, record.slot, observed.height)?;
         let mut next = self.record.clone();

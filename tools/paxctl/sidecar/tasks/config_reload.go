@@ -16,9 +16,8 @@ type ConfigReloadRequest struct {
 	Fields map[string]string `json:"fields"`
 }
 
-// ConfigReloader patches hot-reloadable fields on disk and signals seid
-// to re-read its configuration. The signal mechanism is deferred to a future
-// release; for now only the on-disk write is performed.
+// ConfigReloader validates and stages fields on disk. Until paxd exposes a
+// supported reload API with read-back, it reports restart-required explicitly.
 type ConfigReloader struct {
 	homeDir string
 }
@@ -72,10 +71,8 @@ func (r *ConfigReloader) Handler() engine.TaskHandler {
 			return fmt.Errorf("config-reload: writing config: %w", err)
 		}
 
-		// TODO: signal seid to re-read config (SIGHUP or API call)
-		reloadLog.Info("hot-reloadable fields written, seid signal pending implementation",
-			"fields", len(params.Fields))
+		reloadLog.Info("configuration staged; paxd restart required", "fields", len(params.Fields))
+		return &engine.TaskError{Task: "config-reload", Operation: "restart-required", Message: "configuration written to disk; running paxd has not applied these fields", Hint: "restart paxd to apply the staged configuration", Retryable: false}
 
-		return nil
 	})
 }

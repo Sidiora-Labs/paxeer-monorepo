@@ -14,7 +14,6 @@ export interface Props {
   isLoading?: boolean;
 }
 
-// One row per asset with a single total; the per-location parts live in an expandable row.
 const AssetList = ({ items, isLoading }: Props) => {
   const [ rowsPerPage, setRowsPerPage ] = React.useState(SCAN_ROWS_PER_PAGE[0]);
   const [ page, setPage ] = React.useState(1);
@@ -49,7 +48,7 @@ const AssetList = ({ items, isLoading }: Props) => {
   return (
     <ScanTableCard
       title={ formatScanTableCount({ kind: 'total', value: items.length, itemsName: 'assets' }) }
-      note="Chain, custody and kernel balances of one asset add up to its total"
+      note="Total balance for each asset held by this account"
       pagination={ paginationNode }
       showRows={ <ScanShowRows value={ rowsPerPage } onValueChange={ handleRowsPerPageChange } isLoading={ isLoading }/> }
     >

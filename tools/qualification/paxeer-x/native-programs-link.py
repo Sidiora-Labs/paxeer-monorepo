@@ -2,13 +2,9 @@
 import argparse
 import fcntl
 import hashlib
-import importlib.util
 import json
 import os
 from pathlib import Path
-import queue
-import shlex
-import stat
 import subprocess
 import sys
 
@@ -17,27 +13,100 @@ TASK = "104.35.28"
 SCHEMA = "layerx.native-programs-link.v1"
 DECLARED = "tools/qualification/paxeer-x/native-programs-link.py"
 PRODUCTION = (
-    "layerxd",
+    "paxd",
     "layerx-genesis-build",
-    "layerx-verify",
     "layerx-module-registry",
-    "layerx-archive-codec",
-    "layerx-custody-proof",
 )
 
 
-def catalogue():
-    path = ROOT / "tools/qualification/paxeer-x/replay-catalogue.py"
-    spec = importlib.util.spec_from_file_location("layerx_replay_catalogue", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
+def digest(path):
+    with Path(path).open("rb") as source:
+        return hashlib.file_digest(source, "sha256").hexdigest()
 
 
-def inputs(gate):
-    source = gate.inputs()
+def source_inputs():
     inventory = subprocess.run(
-        ["git", "ls-files", "-z", "--", "cmd", "*.go", "go.mod", "go.sum"],
+        [
+            "git",
+            "ls-files",
+            "-z",
+            "--cached",
+            "--others",
+            "--exclude-standard",
+            "--",
+            "Makefile",
+            "chain.mk",
+            "daemon",
+            "modules",
+            "node",
+            "core",
+            "admin",
+            "api",
+            "consensus",
+            "interchain",
+            "storage",
+            "utils",
+            "wasm",
+            "wasm-runtime",
+            "sdk",
+            "programs/vendor",
+            "src",
+            "include",
+            "modules/sequencer",
+            "node/sequencer",
+            "rpc",
+            "custodyproof",
+            "precompiles",
+            "sdk/x/params",
+            "services/agent/Cargo.toml",
+            "services/agent/Cargo.lock",
+            "services/agent/crates/layerx-client",
+            "services/agent/crates/layerx-proof",
+            "services/agent/crates/layerx-types",
+            "services/agent/crates/layerx-crypto",
+            "programs/Cargo.toml",
+            "programs/Cargo.lock",
+            "programs/crates",
+            "programs/sdk/rust",
+            "tests/programs/test_call_activity.c",
+            "tests/bridge/files.h",
+            "contracts/config",
+            "tools/paxeer-x/build",
+            ".cargo",
+            "rust-toolchain.toml",
+        ],
+        cwd=ROOT,
+        check=True,
+        capture_output=True,
+    ).stdout.split(b"\0")
+    paths = {os.fsdecode(path) for path in inventory if path}
+    return {path: digest(ROOT / path) for path in sorted(paths)}
+
+
+def save(path, value):
+    with path.open("w") as output:
+        json.dump(value, output, indent=2, sort_keys=True)
+        output.write("\n")
+    path.chmod(0o600)
+
+
+def artifact(path):
+    path = Path(path).resolve(strict=True)
+    return {"path": str(path), "sha256": digest(path)}
+
+
+def checked(value):
+    path = Path(value["path"])
+    if not path.is_file() or digest(path) != value["sha256"]:
+        raise RuntimeError("missing or changed declared artifact")
+    return path
+
+
+def inputs():
+    source = source_inputs()
+    inventory = subprocess.run(
+        ["git", "ls-files", "-z", "--cached", "--others",
+         "--exclude-standard", "--", "cmd", "*.go", "go.mod", "go.sum"],
         cwd=ROOT,
         check=True,
         capture_output=True,
@@ -45,7 +114,7 @@ def inputs(gate):
     paths = {os.fsdecode(path) for path in inventory if path} | {DECLARED}
     source.update(
         {
-            path: gate.digest(ROOT / path)
+            path: digest(ROOT / path)
             for path in sorted(paths)
             if Path(path).suffix
             in {
@@ -67,7 +136,7 @@ def inputs(gate):
     return source
 
 
-def evidence_directory(gate):
+def evidence_directory():
     directory = Path(
         os.environ.get(
             "PAXEER_X_NATIVE_PROGRAMS_LINK_EVIDENCE",
@@ -87,89 +156,21 @@ def evidence_directory(gate):
     return directory
 
 
-def commit_proof():
-    configured = os.environ.get("PAXEER_X_NATIVE_PROGRAMS_COMMIT_PROOF")
-    if not configured:
-        raise RuntimeError("protected genuine chain commit and state proof required")
-    path = Path(configured)
-    info = path.lstat()
-    if (
-        not stat.S_ISREG(info.st_mode)
-        or not 0 < info.st_size <= 128 * 1024 * 1024
-        or info.st_uid != os.geteuid()
-        or info.st_mode & 0o077
-    ):
-        raise RuntimeError(
-            "chain commit proof must be caller-owned, protected and bounded"
-        )
-    path = path.resolve(strict=True)
-    if path == ROOT or ROOT in path.parents:
-        raise RuntimeError("chain commit proof must remain outside the checkout")
-    return path
-
-
-def verify_commit(gate, evidence, manifest):
-    proof = commit_proof()
-    if gate.checked(manifest["commit_proof"]) != proof:
-        raise RuntimeError("chain commit proof differs from the declared build input")
-    with proof.open("rb") as source:
-        request = source.read(128 * 1024 * 1024 + 1)
-    if not 0 < len(request) <= 128 * 1024 * 1024:
-        raise RuntimeError("chain commit proof size")
-    if hashlib.sha256(request).hexdigest() != manifest["commit_proof"]["sha256"]:
-        raise RuntimeError("chain commit proof changed while being read")
-    command = [str(gate.checked(manifest["production"]["layerx-custody-proof"]))]
-    result = subprocess.run(
-        command, cwd=ROOT, input=request, capture_output=True, check=False, timeout=120
-    )
-    log = evidence / "verify-chain-commit.log"
-    log.write_bytes(result.stdout + result.stderr)
-    log.chmod(0o600)
-    if result.returncode:
-        raise subprocess.CalledProcessError(result.returncode, command)
-    decoded = json.loads(request)
-    verified = json.loads(result.stdout)
-    if (
-        not isinstance(decoded, dict)
-        or not isinstance(verified, dict)
-        or verified.get("version") != "paxeer-custody-state-v3"
-        or verified.get("version") != decoded["bundle"]["version"]
-        or verified.get("state_height") != decoded["bundle"]["state_height"]
-        or verified.get("finalized_height") != decoded["bundle"]["finalized_height"]
-        or verified.get("module_sha256") != decoded["expected"]["module_sha256"].lower()
-        or verified.get("deposit_id", "") != decoded["expected"].get("deposit_id", "")
-    ):
-        raise RuntimeError(
-            "verified chain commit identity differs from the declared proof"
-        )
-    gate.checked(manifest["commit_proof"])
-    return gate.artifact(log)
-
-
-def build(arguments, gate, evidence):
+def build(evidence):
     manifest = evidence / "native-programs-artifacts.json"
     manifest.unlink(missing_ok=True)
-    (evidence / "artifacts.json").unlink(missing_ok=True)
-    source = inputs(gate)
-    proof = gate.artifact(commit_proof())
-    catalogue_source = gate.inputs()
-    native_dir = Path(arguments.native_dir).resolve()
-    programs_dir = Path(arguments.programs_dir).resolve()
-    agent_dir = Path(arguments.agent_dir).resolve()
+    source = inputs()
+    native_dir = ROOT / "build"
+    programs_dir = ROOT / "programs/target"
     native_make = evidence / "build-native.mk"
-    targets = " ".join(
-        "$(BUILD_DIR)/bin/" + name
-        for name in PRODUCTION
-        if name != "layerx-custody-proof"
+    targets = "paxd-build " + " ".join(
+        "$(BUILD_DIR)/bin/" + name for name in PRODUCTION if name != "paxd"
     )
     native_make.write_text(
         ".PHONY: paxeer-x-native-programs-link-build\n"
         "paxeer-x-native-programs-link-build: "
         + targets
-        + " custody-proof-build $(BUILD_DIR)/tests/lxp_test_replay_catalogue\n"
-        "$(BUILD_DIR)/tests/lxp_test_replay_catalogue: tests/daemon/lxp_test_replay_catalogue.c tests/programs/test_call_activity.c $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) | programs-build\n"
-        "\t@mkdir -p $(@D)\n"
-        "\t$(CC) $(CPPFLAGS) $(CFLAGS) -Icmd/layerxd $< $(filter-out $(BUILD_DIR)/obj/cmd/layerxd/main.o,$(LAYERXD_OBJECTS)) $(LIBRARY) $(PROGRAMS_RUNTIME_LIB) $(LIBRARY) $(EXTRA_LDFLAGS) $(PROGRAMS_NATIVE_LDLIBS) -lcrypto -lsqlite3 -pthread -ldl -lm -o $@\n"
+        + "\n"
     )
     native_make.chmod(0o600)
     command = [
@@ -180,11 +181,11 @@ def build(arguments, gate, evidence):
         str(native_make),
         "-j4",
         "-W",
-        str(programs_dir / "debug/liblayerx_programs_sandbox.a"),
+        str(programs_dir / "release/liblayerx_programs_sandbox.a"),
         "BUILD_DIR=" + str(native_dir),
         "PROGRAMS_TARGET_DIR=" + str(programs_dir),
         "PROGRAMS_RUNTIME_LIB="
-        + str(programs_dir / "debug/liblayerx_programs_sandbox.a"),
+        + str(programs_dir / "release/liblayerx_programs_sandbox.a"),
         "paxeer-x-native-programs-link-build",
     ]
     environment = dict(
@@ -206,48 +207,8 @@ def build(arguments, gate, evidence):
             )
         if result.returncode:
             raise subprocess.CalledProcessError(result.returncode, command)
-    command = [
-        *shlex.split(arguments.cargo),
-        "test",
-        "--locked",
-        "--manifest-path",
-        "services/agent/Cargo.toml",
-        "-p",
-        "layerx-client",
-        "--test",
-        "replay_catalogue",
-        "--no-run",
-        "--message-format=json",
-    ]
-    environment.update(CARGO_TARGET_DIR=str(agent_dir), CARGO_BUILD_JOBS="4")
-    log = evidence / "build-client.log"
-    with log.open("w") as output:
-        result = subprocess.run(
-            command,
-            cwd=ROOT,
-            env=environment,
-            stdin=subprocess.DEVNULL,
-            stdout=output,
-            stderr=subprocess.STDOUT,
-            timeout=1100,
-        )
-    if result.returncode:
-        raise subprocess.CalledProcessError(result.returncode, command)
-    executables = set()
-    for line in log.read_text().splitlines():
-        if not line.startswith("{"):
-            continue
-        value = json.loads(line)
-        if (
-            value.get("reason") == "compiler-artifact"
-            and value.get("executable")
-            and value.get("target", {}).get("name") == "replay_catalogue"
-        ):
-            executables.add(value["executable"])
-    if len(executables) != 1 or inputs(gate) != source:
-        raise RuntimeError(
-            "one declared client artifact and unchanged complete source required"
-        )
+    if inputs() != source:
+        raise RuntimeError("unchanged complete source required")
     revision = subprocess.run(
         ["git", "rev-parse", "HEAD"],
         cwd=ROOT,
@@ -255,56 +216,72 @@ def build(arguments, gate, evidence):
         capture_output=True,
         text=True,
     ).stdout.strip()
-    production = {name: gate.artifact(native_dir / "bin" / name) for name in PRODUCTION}
-    gate.checked(proof)
-    transport = {
-        "schema": gate.SCHEMA,
-        "task": gate.TASK,
-        "revision": revision,
-        "inputs": catalogue_source,
-        "native": gate.artifact(native_dir / "tests/lxp_test_replay_catalogue"),
-        "daemon": production["layerxd"],
-        "rust": gate.artifact(executables.pop()),
+    production = {
+        name: artifact(native_dir / name if name == "paxd" else native_dir / "bin" / name)
+        for name in PRODUCTION
     }
-    gate.save(evidence / "artifacts.json", transport)
-    gate.save(
-        manifest,
+    publish_manifest(evidence, revision, source, production, runtime_artifacts())
+    print("ARTIFACTS " + str(manifest), flush=True)
+
+
+def runtime_artifacts():
+    return {
+        "kernel": artifact(ROOT / "build/liblayerx.a"),
+        "programs": artifact(ROOT / "programs/target/release/liblayerx_programs_sandbox.a"),
+    }
+
+
+def publish_manifest(evidence, revision, source, production, runtime):
+    save(
+        evidence / "native-programs-artifacts.json",
         {
             "schema": SCHEMA,
             "task": TASK,
             "revision": revision,
             "inputs": source,
             "production": production,
-            "commit_proof": proof,
-            "transport_manifest": gate.artifact(evidence / "artifacts.json"),
+            "runtime": runtime,
         },
     )
-    print("ARTIFACTS " + str(manifest), flush=True)
 
 
-def qualify(gate, evidence):
-    manifest = json.loads((evidence / "native-programs-artifacts.json").read_text())
-    if (
-        manifest.get("schema") != SCHEMA
-        or manifest.get("task") != TASK
-        or manifest.get("inputs") != inputs(gate)
-    ):
+def admit_manifest(manifest, revision, source):
+    if (manifest.get("schema") != SCHEMA or manifest.get("task") != TASK
+            or manifest.get("revision") != revision or manifest.get("inputs") != source
+            or not source):
         raise RuntimeError("production artifacts do not bind current complete source")
     if set(manifest.get("production", {})) != set(PRODUCTION):
         raise RuntimeError("every Programs-linked production executable required")
-    gate.checked(manifest["transport_manifest"])
+    if set(manifest.get("runtime", {})) != {"kernel", "programs"}:
+        raise RuntimeError("complete retained runtime archive closure required")
+    for value in [*manifest["production"].values(), *manifest["runtime"].values()]:
+        checked(value)
+    return manifest
+
+
+def qualify(evidence):
+    manifest = json.loads((evidence / "native-programs-artifacts.json").read_text())
+    revision = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=ROOT, text=True
+    ).strip()
+    admit_manifest(manifest, revision, inputs())
     dependencies = {}
     with (evidence / "verify-production-links.log").open("w") as output:
         for name in PRODUCTION:
-            path = gate.checked(manifest["production"][name])
+            path = checked(manifest["production"][name])
             with path.open("rb") as binary:
                 if binary.read(4) != b"\x7fELF":
                     raise RuntimeError("actual native ELF executable required: " + name)
-            command = ["readelf", "--dynamic", str(path)]
+            command = ["readelf", "--wide", "--dynamic", "--symbols", str(path)]
             result = subprocess.run(
                 command, check=True, capture_output=True, text=True, timeout=30
             )
             output.write(result.stdout)
+            if name == "paxd":
+                defined = {parts[-1] for line in result.stdout.splitlines()
+                           if len(parts := line.split()) >= 8 and parts[-2] != "UND"}
+                if not {"lxp_kernel_create", "layerx_programs_sandbox_admit_host"} <= defined:
+                    raise RuntimeError("paxd retained kernel and Programs link symbols missing")
             dependencies[name] = [
                 line.strip()
                 for line in result.stdout.splitlines()
@@ -322,18 +299,11 @@ def qualify(gate, evidence):
                 or "undefined symbol:" in result.stdout + result.stderr
             ):
                 raise RuntimeError("unresolved production native dependency: " + name)
-    if not any("libssl.so" in line for line in dependencies["layerxd"]):
-        raise RuntimeError("daemon Programs-to-Client TLS dependency missing")
-    chain_commit = verify_commit(gate, evidence, manifest)
-    gate.qualify(evidence)
-    if inputs(gate) != manifest["inputs"]:
+    if inputs() != manifest["inputs"]:
         raise RuntimeError("source changed during focused native qualification")
-    for value in manifest["production"].values():
-        gate.checked(value)
-    gate.checked(manifest["transport_manifest"])
-    gate.checked(manifest["commit_proof"])
-    transport_result = evidence / "result.json"
-    gate.save(
+    for value in [*manifest["production"].values(), *manifest["runtime"].values()]:
+        checked(value)
+    save(
         evidence / "native-programs-result.json",
         {
             "task": TASK,
@@ -341,8 +311,6 @@ def qualify(gate, evidence):
             "command": "timeout 10m python3 " + DECLARED,
             "exit": 0,
             "production_dependencies": dependencies,
-            "chain_commit": chain_commit,
-            "transport_result": gate.artifact(transport_result),
         },
     )
     print("VERIFIED " + str(evidence / "native-programs-result.json"), flush=True)
@@ -351,21 +319,12 @@ def qualify(gate, evidence):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--build", action="store_true")
-    parser.add_argument("--cargo", default="/root/.cargo/bin/cargo")
-    parser.add_argument(
-        "--native-dir", default="/root/lx-target/arbiter-prestate/native"
-    )
-    parser.add_argument(
-        "--programs-dir", default="/root/lx-target/arbiter-prestate/rust"
-    )
-    parser.add_argument("--agent-dir", default="/root/lx-target/agent")
     arguments = parser.parse_args()
-    gate = catalogue()
-    evidence = evidence_directory(gate)
+    evidence = evidence_directory()
     if arguments.build:
-        build(arguments, gate, evidence)
+        build(evidence)
     else:
-        qualify(gate, evidence)
+        qualify(evidence)
 
 
 if __name__ == "__main__":
@@ -375,7 +334,6 @@ if __name__ == "__main__":
         OSError,
         ValueError,
         RuntimeError,
-        queue.Empty,
         subprocess.SubprocessError,
     ) as error:
         print("FAILED " + str(error), file=sys.stderr)

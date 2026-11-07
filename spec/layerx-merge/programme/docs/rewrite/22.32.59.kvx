@@ -1,0 +1,12 @@
+[manifest]
+task = "22.32.59"
+domain = 6
+owner_role = "fm-chain-modules"
+pages = 1
+
+[page.1]
+path = "docs/system/governance.md"
+status = "stale"
+bytes = 2275
+source_1 = "record 22.30.62 [doc.04] (stale): Chain proposal catalogue omits Text and both software-upgrade types despite real registered handlers; existing bridge proposal row names the correct source."
+source_2 = "record 22.30.63 [doc.03] (stale): Line 21 retains the custody constant without route lifecycle context; generated declarations need active versus historical labels."

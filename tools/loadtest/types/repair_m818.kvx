@@ -1,0 +1,11 @@
+[task.22.33.818]
+audit = "22.30.179"
+finding = "empty-account-pool"
+source_revision = "81ff16c1524cd1b85002a19c493d67f189f39890"
+proof = ["TestRepairM_818_RejectInvalidPoolConfiguration", "TestRepairM_818_AdmittedPoolTransactionRoundTrip", "TestRepairM_818_AdmissionSurvivesConfigMutation"]
+repair = "NewAccountPool returns an admission error for nil configuration, nonfinite/out-of-range rates, empty fixed pools below rate 1, and nil fixed entries; admitted configuration is copied so callers cannot invalidate it."
+baseline = "Not run: the prescribed gate order prohibits verification before implementation and requires hf-done after hf-build; no pre-change test failure is claimed."
+evidence = "The runner gate ledger records the candidate revision, command, exit code and private log location for hf-build and hf-done."
+wiring_request = "Domain 16 (fm-tools-ops): tools/loadtest/generator/generator.go must consume NewAccountPool's (AccountPool, error) result for shared and scenario pools and return contextual errors through createScenarios/NewConfigBasedGenerator before deployment or generation; adapt tools/loadtest/generator/scenarios/Disperse.go and tools/loadtest/sender/writer_test.go to the error-returning constructor."
+scope_limit = "Generator integration is outside this task's paths and is not claimed as tested; constructor call sites outside types require the wiring above before the full module compiles."
+gotcha = "The task asks for spec-record edits and an unchanged-tree baseline, but the explicit scope and ordered gates forbid both; keep the repair record in types and defer out-of-path wiring."

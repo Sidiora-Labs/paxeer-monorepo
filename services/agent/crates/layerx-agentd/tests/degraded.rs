@@ -10,7 +10,7 @@ use layerx_agentd::obs::metrics::{MetricKind, MetricLabel, Metrics};
 use layerx_agentd::store::TenantId;
 use layerx_proof::inclusion::{verify_state, SequencerAuthorization};
 use layerx_proof::merkle::build_proof;
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::batch_header_digest;
 
@@ -100,7 +100,7 @@ fn core_loss_mid_write_refuses_prepare_and_ack_but_resolves_unknown_after_reconn
         &mut controller,
         Observation::Ready {
             reference: reference(100, 9),
-            maximum_verification: VerificationLevel::STATE_PROVEN,
+            maximum_rung: Rung::Receipted,
         },
     );
     assert_eq!(controller.guard_preparation(|| 1), Ok(1));
@@ -126,7 +126,7 @@ fn core_loss_mid_write_refuses_prepare_and_ack_but_resolves_unknown_after_reconn
         &mut controller,
         Observation::Ready {
             reference: reference(101, 10),
-            maximum_verification: VerificationLevel::STATE_PROVEN,
+            maximum_rung: Rung::Receipted,
         },
     );
     assert_eq!(
@@ -144,11 +144,11 @@ fn core_loss_mid_stream_serves_only_verified_cache_with_explicit_staleness_every
         &mut controller,
         Observation::Ready {
             reference: reference(100, 9),
-            maximum_verification: VerificationLevel::STATE_PROVEN,
+            maximum_rung: Rung::Receipted,
         },
     );
     let current = controller
-        .serve_cached(&cached, VerificationLevel::STATE_PROVEN)
+        .serve_cached(&cached, Rung::Receipted)
         .unwrap_or_else(|error| panic!("healthy cached read: {error:?}"));
     assert!(!current.staleness.stale);
 
@@ -160,10 +160,11 @@ fn core_loss_mid_stream_serves_only_verified_cache_with_explicit_staleness_every
     );
     assert!(!stream_ran.get());
     let degraded = controller
-        .serve_cached(&cached, VerificationLevel::STATE_PROVEN)
+        .serve_cached(&cached, Rung::Receipted)
         .unwrap_or_else(|error| panic!("degraded cached read: {error:?}"));
     assert_eq!(degraded.canonical_core_bytes, b"core-state");
-    assert_eq!(degraded.reported_level, VerificationLevel::STATE_PROVEN);
+    assert_eq!(degraded.held_rung, Rung::Receipted);
+    assert_eq!(degraded.reported_rung, Rung::Receipted);
     assert!(degraded.staleness.stale);
     assert_eq!(degraded.staleness.value_head_sequence, 100);
     assert_eq!(degraded.staleness.value_checkpoint, [9; 32]);
@@ -197,7 +198,7 @@ fn core_loss_mid_stream_serves_only_verified_cache_with_explicit_staleness_every
     let snapshot = metrics.snapshot(&tenant);
     assert!(snapshot.iter().any(|(key, point)| {
         key.kind == MetricKind::DegradedState
-            && key.label == MetricLabel::BoundaryUnavailable
+            && key.label == MetricLabel::NodeUnavailable
             && point.samples == 1
     }));
 }
@@ -210,33 +211,30 @@ fn lower_finality_on_return_is_visible_and_caps_previously_stronger_evidence() {
         &mut controller,
         Observation::Ready {
             reference: reference(100, 9),
-            maximum_verification: VerificationLevel::STATE_PROVEN,
+            maximum_rung: Rung::Receipted,
         },
     );
     let status = enter(
         &mut controller,
         Observation::Ready {
             reference: reference(99, 8),
-            maximum_verification: VerificationLevel::SEQUENCER_SIGNED,
+            maximum_rung: Rung::Submitted,
         },
     );
     assert_eq!(status.mode, Mode::Behind);
+    assert_eq!(status.maximum_rung, Rung::Submitted);
     assert_eq!(
-        status.maximum_verification,
-        VerificationLevel::SEQUENCER_SIGNED
-    );
-    assert_eq!(
-        controller.serve_cached(&cached, VerificationLevel::STATE_PROVEN),
+        controller.serve_cached(&cached, Rung::Receipted),
         Err(ReadError::FinalityUnavailable {
-            requested: VerificationLevel::STATE_PROVEN,
-            supported: VerificationLevel::SEQUENCER_SIGNED,
+            requested: Rung::Receipted,
+            supported: Rung::Submitted,
         })
     );
     let lowered = controller
-        .serve_cached(&cached, VerificationLevel::SEQUENCER_SIGNED)
+        .serve_cached(&cached, Rung::Submitted)
         .unwrap_or_else(|error| panic!("lower-level cached read: {error:?}"));
-    assert_eq!(lowered.held_level, VerificationLevel::STATE_PROVEN);
-    assert_eq!(lowered.reported_level, VerificationLevel::SEQUENCER_SIGNED);
+    assert_eq!(lowered.held_rung, Rung::Receipted);
+    assert_eq!(lowered.reported_rung, Rung::Submitted);
     assert!(lowered.staleness.stale);
     let health = controller.health(health_input());
     assert!(health.degraded_modes.contains(&DegradedMode::CoreBehind));
@@ -244,33 +242,34 @@ fn lower_finality_on_return_is_visible_and_caps_previously_stronger_evidence() {
 
 #[test]
 fn halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads() {
+    let cached = verified_cache();
     let cases = [
         (
             Mode::Halted,
             Observation::Halted {
                 reference: reference(100, 9),
-                maximum_verification: VerificationLevel::BATCH_INCLUDED,
+                maximum_rung: Rung::Receipted,
             },
             DegradedMode::CoreHalted,
-            MetricLabel::CoreHalted,
+            MetricLabel::ChainHalted,
         ),
         (
             Mode::Emergency,
             Observation::Emergency {
                 reference: reference(100, 9),
-                maximum_verification: VerificationLevel::SEQUENCER_SIGNED,
+                maximum_rung: Rung::Submitted,
             },
             DegradedMode::Emergency,
-            MetricLabel::CoreEmergency,
+            MetricLabel::ChainHalted,
         ),
         (
             Mode::DataUnavailable,
             Observation::DataUnavailable {
                 reference: reference(100, 9),
-                maximum_verification: VerificationLevel::BATCH_INCLUDED,
+                maximum_rung: Rung::Receipted,
             },
             DegradedMode::DataUnavailable,
-            MetricLabel::DataUnavailable,
+            MetricLabel::BlockUnavailable,
         ),
     ];
     for (mode, observation, health_mode, metric_label) in cases {
@@ -279,7 +278,7 @@ fn halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads() {
             &mut controller,
             Observation::Ready {
                 reference: reference(100, 9),
-                maximum_verification: VerificationLevel::STATE_PROVEN,
+                maximum_rung: Rung::Receipted,
             },
         );
         assert_eq!(enter(&mut controller, observation).mode, mode);
@@ -288,12 +287,18 @@ fn halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads() {
             .degraded_modes
             .contains(&health_mode));
         assert_eq!(
-            controller.serve_cached(&verified_cache(), VerificationLevel::STATE_PROVEN),
-            Err(ReadError::FinalityUnavailable {
-                requested: VerificationLevel::STATE_PROVEN,
-                supported: controller.status().maximum_verification,
+            controller.serve_cached(&cached, Rung::Committed),
+            Err(ReadError::InsufficientEvidence {
+                requested: Rung::Committed,
+                held: Rung::Receipted,
             })
         );
+        let capped = controller
+            .serve_cached(&cached, controller.status().maximum_rung)
+            .unwrap_or_else(|error| panic!("capped cached read: {error:?}"));
+        assert_eq!(capped.held_rung, Rung::Receipted);
+        assert_eq!(capped.reported_rung, controller.status().maximum_rung);
+        assert!(capped.staleness.stale);
         let tenant = tenant();
         let mut metrics = Metrics::new(1).unwrap_or_else(|error| panic!("metrics: {error}"));
         metrics
@@ -306,5 +311,14 @@ fn halted_emergency_and_data_unavailable_modes_propagate_and_cap_reads() {
             .snapshot(&tenant)
             .iter()
             .any(|(key, _)| key.kind == MetricKind::DegradedState && key.label == metric_label));
+        controller
+            .record_metric(&mut metrics, &tenant)
+            .unwrap_or_else(|error| panic!("second mode metric: {error}"));
+        let snapshot = metrics.snapshot(&tenant);
+        assert_eq!(snapshot.len(), 1);
+        assert_eq!(snapshot[0].0.label, metric_label);
+        assert_eq!(snapshot[0].1.total, 2);
+        assert_eq!(snapshot[0].1.samples, 2);
+        assert_eq!(snapshot[0].1.maximum, 1);
     }
 }

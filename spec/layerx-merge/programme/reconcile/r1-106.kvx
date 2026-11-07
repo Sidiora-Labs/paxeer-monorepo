@@ -1,0 +1,243 @@
+[reconcile.r1-106]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r1-106.1]
+interface = "interface.1.c-enum-lx-asset-issuance-name-bytes"
+verdict = "served"
+path = "include/layerx/lxp_ledger.h"
+line = 291
+symbol = "LX_ASSET_ISSUANCE_NAME_BYTES"
+evidence = "The anonymous enum declares LX_ASSET_ISSUANCE_NAME_BYTES = 83 at line 291, matching the registered signature; line 293 uses it as an array bound."
+
+[row.r1-106.2]
+interface = "interface.1.c-enum-lxp-state-proof-max-depth"
+verdict = "served"
+path = "include/layerx/lxp_ledger.h"
+line = 216
+symbol = "LXP_STATE_PROOF_MAX_DEPTH"
+evidence = "The enum at lines 215-219 declares LXP_STATE_PROOF_MAX_DEPTH = 32 with leaf key width 33 and leaf value limit 615, matching the signature; line 224 is the siblings array use."
+
+[row.r1-106.3]
+interface = "interface.1.c-enum-lx-programs-account-id-bytes"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 125
+symbol = "LX_PROGRAMS_ACCOUNT_ID_BYTES"
+evidence = "The enum at lines 124-127 declares LX_PROGRAMS_ACCOUNT_ID_BYTES = 32 and LX_PROGRAMS_ACCOUNT_MAX_SEED_BYTES = 128, matching the signature; line 830 uses the account id width."
+
+[row.r1-106.4]
+interface = "interface.1.c-enum-lxp-programs-occupancy-max-payers"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 947
+symbol = "LXP_PROGRAMS_OCCUPANCY_MAX_PAYERS"
+evidence = "The anonymous enum at line 947 declares LXP_PROGRAMS_OCCUPANCY_MAX_PAYERS = LXP_MAX_TRANSFER_SET_LEGS exactly as registered; line 968 uses it for the payers array."
+
+[row.r1-106.5]
+interface = "interface.1.c-lx-programs-account-binding"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 129
+symbol = "lx_programs_account_binding"
+evidence = "The typedef struct begins at line 129 and ends at 138, matching record_version, program/account/asset ids, bounded seed, registered_sequence and registration_event_digest; later occurrences are uses."
+
+[row.r1-106.6]
+interface = "interface.1.c-lx-programs-account-state-head"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 179
+symbol = "lx_programs_account_state_head"
+evidence = "The typedef struct at lines 179-190 matches the observed sequence/time, receipt digest, four roots and account-tree/universal/programs proofs; line 859 is a head output parameter."
+
+[row.r1-106.7]
+interface = "interface.1.c-lx-programs-account-visit-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 140
+symbol = "lx_programs_account_visit_fn"
+evidence = "The function-pointer typedef at lines 140-141 returns lxp_result and takes const lx_programs_account_binding *binding and void *user exactly as registered; line 844 is an iterator parameter."
+
+[row.r1-106.8]
+interface = "interface.1.c-lx-programs-balance-view"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 165
+symbol = "lx_programs_balance_view"
+evidence = "The typedef struct at lines 165-177 matches account, balance, observation fields, receipt digest, account/universal/state roots and the three registered proofs; line 852 uses the view type."
+
+[row.r1-106.9]
+interface = "interface.1.c-lx-programs-exit-route-view"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 208
+symbol = "lx_programs_exit_route_view"
+evidence = "The typedef struct at lines 208-215 matches program_id, account_id, asset_id, destination, seed_length and the bounded seed array; callback and route output parameters are later uses."
+
+[row.r1-106.10]
+interface = "interface.1.c-lx-programs-exit-route-visit-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 217
+symbol = "lx_programs_exit_route_visit_fn"
+evidence = "The function-pointer typedef at lines 217-218 returns lxp_result with const lx_programs_exit_route_view *route and void *user, matching the signature; line 905 uses it in the iterator."
+
+[row.r1-106.11]
+interface = "interface.1.c-lx-programs-lifecycle-status"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 192
+symbol = "lx_programs_lifecycle_status"
+evidence = "The typedef enum at lines 192-196 declares ACTIVE = 1, DEPRECATED = 2 and TOMBSTONED = 3 with the LX_PROGRAMS_LIFECYCLE_ prefix, matching the signature; status/prior/current fields use the type."
+
+[row.r1-106.12]
+interface = "interface.1.c-lx-programs-metering-schedule"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 317
+symbol = "lx_programs_metering_schedule"
+evidence = "The typedef struct at lines 317-323 matches uint32_t version, uint64_t coefficients[LX_PROGRAMS_METERING_COEFFICIENTS], activation_batch, authority_kind and authority_digest[32]; later occurrences are parameters."
+
+[row.r1-106.13]
+interface = "interface.1.c-lx-programs-metering-schedule-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 325
+symbol = "lx_programs_metering_schedule_fn"
+evidence = "The function-pointer typedef at lines 325-327 returns lxp_result and takes context, uint32_t recorded_version, uint64_t batch_number and a schedule pointer as registered; line 943 is a runtime field."
+
+[row.r1-106.14]
+interface = "interface.1.c-lx-programs-occupancy-parameters-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 931
+symbol = "lx_programs_occupancy_parameters_fn"
+evidence = "The typedef at lines 931-933 returns lxp_result with context, uint32_t recorded_fee_schedule_version, lx_programs_fee_schedule *schedule and occupancy_asset_id[32], matching the signature; line 941 uses the type."
+
+[row.r1-106.15]
+interface = "interface.1.c-lx-programs-value-account-view"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 143
+symbol = "lx_programs_value_account_view"
+evidence = "The typedef struct at lines 143-160 matches binding, account, balance, frozen, observation fields, receipt digest, four roots and all five registered proofs; callback and read parameters are uses."
+
+[row.r1-106.16]
+interface = "interface.1.c-lx-programs-value-account-visit-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 162
+symbol = "lx_programs_value_account_visit_fn"
+evidence = "The function-pointer typedef at lines 162-163 returns lxp_result with const lx_programs_value_account_view *account and void *user, matching the signature; line 856 is an iterator parameter."
+
+[row.r1-106.17]
+interface = "interface.1.c-lx-programs-wind-down-history-view"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 220
+symbol = "lx_programs_wind_down_history_view"
+evidence = "The typedef struct at lines 220-231 matches program_id, prior/current lifecycle status, authority, exit_program, deadline, effective_sequence, both value-account counts and account_root; line 234 uses it."
+
+[row.r1-106.18]
+interface = "interface.1.c-lx-programs-wind-down-history-visit-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 233
+symbol = "lx_programs_wind_down_history_visit_fn"
+evidence = "The function-pointer typedef at lines 233-234 returns lxp_result with const lx_programs_wind_down_history_view *history and void *user as registered; line 908 uses it in the history iterator."
+
+[row.r1-106.19]
+interface = "interface.1.c-lx-programs-wind-down-view"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 198
+symbol = "lx_programs_wind_down_view"
+evidence = "The typedef struct at lines 198-206 matches program_id, lifecycle status, exit_program, deadline, effective_sequence and uint16_t value_account_count/live_value_account_count; line 899 is a read output."
+
+[row.r1-106.20]
+interface = "interface.1.c-lxp-programs-batch-maintenance-fn"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 987
+symbol = "lxp_programs_batch_maintenance_fn"
+evidence = "Line 987 declares typedef lxp_result (*lxp_programs_batch_maintenance_fn)(void *context), exactly matching the registered signature; line 992 uses it as the maintenance callback parameter."
+
+[row.r1-106.21]
+interface = "interface.1.c-lxp-programs-occupancy-payer-receipt"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 948
+symbol = "lxp_programs_occupancy_payer_receipt"
+evidence = "The typedef struct at lines 948-954 matches principal[32], lxp_u128 due, paid and arrears, and bool frozen; line 967 uses the type for the aggregate receipt's payers array."
+
+[row.r1-106.22]
+interface = "interface.1.c-lxp-programs-replay-capture"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 680
+symbol = "lxp_programs_replay_capture"
+evidence = "The typedef struct at lines 680-693 matches network/sequence, activity and program digests, runtime/ABI and fee/metering versions, bounds, terminal status, roots, bytes/length and metadata proof fields; later hits are parameters."
+
+[row.r1-106.23]
+interface = "interface.1.c-lxp-programs-retirement-profile"
+verdict = "served"
+path = "include/layerx/programs.h"
+line = 720
+symbol = "lxp_programs_retirement_profile"
+evidence = "The typedef struct at lines 720-727 matches uint16_t version, uint32_t network_id, controller[32], archive_keys[2][32], paxai_program_id[32] and uint64_t hot_horizon; later occurrences are profile parameters."
+
+[row.r1-106.24]
+interface = "interface.1.go-layerxproof-codec-checkpoint-certificate-checkpoint-id"
+verdict = "served"
+path = "layerxproof/codec/checkpoint.go"
+line = 134
+symbol = "CheckpointID"
+evidence = "Line 134 declares func (c *CheckpointCertificate) CheckpointID() [32]byte exactly as registered and returns CheckpointHash(c.HeaderBytes, c.ValidityProof); occurrences at lines 45 and 75 are struct fields."
+
+[row.r1-106.25]
+interface = "interface.1.go-layerxproof-codec-checkpoint-hash"
+verdict = "served"
+path = "layerxproof/codec/checkpoint.go"
+line = 120
+symbol = "CheckpointHash"
+evidence = "Line 120 declares func CheckpointHash(header, validityProof []byte) [32]byte exactly as registered; line 46 declares a GuarantorAttestation field and line 135 calls the function."
+
+[row.r1-106.26]
+interface = "interface.1.go-layerxproof-codec-decode-settlement-reference"
+verdict = "served"
+path = "layerxproof/codec/checkpoint.go"
+line = 82
+symbol = "DecodeSettlementReference"
+evidence = "Line 82 declares func DecodeSettlementReference(encoded []byte) (*SettlementReference, error) exactly as registered; line 81 is its documentation, and the body checks reference width and wire version."
+
+[row.r1-106.27]
+interface = "interface.1.go-lxphost-derive-kernel-account-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1071
+symbol = "DeriveKernelAccount"
+evidence = "Line 1071 declares func DeriveKernelAccount(didKey [32]byte, kind uint16, qualifier [32]byte) (KernelAccount, error), matching the signature; lines 1066-1070 document the account kinds."
+
+[row.r1-106.28]
+interface = "interface.1.go-lxphost-didid-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1328
+symbol = "DIDID"
+evidence = "Line 1328 declares func DIDID(did []byte) ([32]byte, error) exactly as registered, wrapping C.lxp_did_id_derive; line 1102 is a call from DeriveKernelAccount."
+
+[row.r1-106.29]
+interface = "interface.1.go-lxphost-execute-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 1116
+symbol = "Execute"
+evidence = "Line 1116 declares func (h *Host) Execute(ctx sdk.Context, activity Activity, authority KernelAuthority) (Receipt, error), matching the signature; its body delegates to h.HostExecute with those arguments."
+
+[row.r1-106.30]
+interface = "interface.1.go-lxphost-kernel-account-j22"
+verdict = "served"
+path = "modules/lxphost/host.go"
+line = 902
+symbol = "KernelAccount"
+evidence = "Line 902 declares type KernelAccount struct with Name string, ID [32]byte, Kind uint16, Parent [32]byte and Address sdk.AccAddress; the later occurrences are return types, variables and composite literals."

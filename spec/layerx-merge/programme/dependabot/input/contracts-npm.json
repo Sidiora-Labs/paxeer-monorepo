@@ -1,0 +1,138 @@
+{
+ "slug": "contracts-npm",
+ "manifests": [
+  "contracts/package-lock.json"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-848j-6mx2-7j84",
+   "number": 29,
+   "package": "elliptic",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "low",
+   "range": "<= 6.6.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-8r5x-fm3f-whwj",
+   "number": 1462,
+   "package": "handlebars",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "critical",
+   "range": ">= 4.0.0, <= 4.7.9",
+   "patched": "4.7.10"
+  },
+  {
+   "ghsa": "GHSA-xw65-4hp5-5hc7",
+   "number": 1463,
+   "package": "handlebars",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.0.0, <= 4.7.9",
+   "patched": "4.7.10"
+  },
+  {
+   "ghsa": "GHSA-p8wg-vrv2-v86f",
+   "number": 1467,
+   "package": "handlebars",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "critical",
+   "range": ">= 3.0.0, <= 4.7.9",
+   "patched": "4.7.10"
+  },
+  {
+   "ghsa": "GHSA-g3hv-75wg-m249",
+   "number": 4601,
+   "package": "minimatch",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "medium",
+   "range": "< 11.0.1",
+   "patched": "11.0.1"
+  },
+  {
+   "ghsa": "GHSA-p8p7-x288-28g6",
+   "number": 5,
+   "package": "request",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "medium",
+   "range": "<= 2.88.2",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-qffp-2rhf-9h96",
+   "number": 57,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.9",
+   "patched": "7.5.10"
+  },
+  {
+   "ghsa": "GHSA-9ppj-qmqm-q256",
+   "number": 60,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "high",
+   "range": "<= 7.5.10",
+   "patched": "7.5.11"
+  },
+  {
+   "ghsa": "GHSA-vmf3-w455-68vh",
+   "number": 123,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "medium",
+   "range": "<= 7.5.15",
+   "patched": "7.5.16"
+  },
+  {
+   "ghsa": "GHSA-w8wr-v893-vjvp",
+   "number": 147,
+   "package": "tar",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "medium",
+   "range": "<= 7.5.17",
+   "patched": "7.5.18"
+  },
+  {
+   "ghsa": "GHSA-7c78-jf6q-g5cm",
+   "number": 4657,
+   "package": "tmp",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "high",
+   "range": ">= 0.2.6, < 0.2.7",
+   "patched": "0.2.7"
+  },
+  {
+   "ghsa": "GHSA-2j4c-9qqq-896r",
+   "number": 22,
+   "package": "web3-core-method",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "low",
+   "range": "<= 1.10.3",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-hhf6-3xpg-pggx",
+   "number": 21,
+   "package": "web3-core-subscriptions",
+   "ecosystem": "npm",
+   "manifest": "contracts/package-lock.json",
+   "severity": "low",
+   "range": "<= 2.0.0-alpha.1",
+   "patched": null
+  }
+ ]
+}

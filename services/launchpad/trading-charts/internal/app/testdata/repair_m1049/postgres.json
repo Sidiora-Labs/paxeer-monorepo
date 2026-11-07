@@ -1,0 +1,22 @@
+[
+  {
+    "sql": "SELECT version_id, is_applied from goose_db_version ORDER BY id DESC",
+    "fields": [{"name":"version_id","oid":20,"size":8},{"name":"is_applied","oid":16,"size":1}],
+    "rows": [["2","t"],["1","t"],["0","t"]]
+  },
+  {
+    "sql": "SELECT version_id, is_applied from goose_db_version ORDER BY id DESC",
+    "fields": [{"name":"version_id","oid":20,"size":8},{"name":"is_applied","oid":16,"size":1}],
+    "rows": [["2","t"],["1","t"],["0","t"]]
+  },
+  {
+    "sql": "SELECT version_id, is_applied from goose_db_version ORDER BY id DESC",
+    "fields": [{"name":"version_id","oid":20,"size":8},{"name":"is_applied","oid":16,"size":1}],
+    "rows": [["2","t"],["1","t"],["0","t"]]
+  },
+  {
+    "sql": "SELECT candle_start,open,high,low,close,volume_usdl FROM candles.candles WHERE pool_address= '0x00000000000000000000000000000000000a0a01'  AND timeframe= '1h'  AND candle_start >=  '1704067200'  AND candle_start <  '1704070800'  ORDER BY candle_start ASC LIMIT  '5001' ",
+    "fields": [{"name":"candle_start","oid":20,"size":8},{"name":"open","oid":25,"size":-1},{"name":"high","oid":25,"size":-1},{"name":"low","oid":25,"size":-1},{"name":"close","oid":25,"size":-1},{"name":"volume_usdl","oid":25,"size":-1}],
+    "rows": [["1704067200","1250000000000000000","2500000000000000000","1000000000000000000","2000000000000000000","4500000"]]
+  }
+]

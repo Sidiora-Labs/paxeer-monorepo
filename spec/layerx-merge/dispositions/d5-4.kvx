@@ -1,0 +1,101 @@
+[disposition.5.7.6.1]
+finding = "5.7.6.1"
+status = "resolved"
+evidence = "src/protocol/lxp_kernel.c:4491 derives the maintenance sequence and previous state root from chain_tail, or the base snapshot when no tail exists, instead of requiring an idempotency receipt."
+follow_up = "closure"
+
+[disposition.5.98.4.1]
+finding = "5.98.4.1"
+status = "resolved"
+evidence = "services/wallet/gateway/src/precompiles.ts:65 probes the handler with an unknown-selector eth_call and services/wallet/gateway/src/precompiles.ts:68 accepts LXP_PRECOMPILE_UNKNOWN_METHOD instead of testing eth_getCode."
+follow_up = "closure"
+
+[disposition.5.98.4.2]
+finding = "5.98.4.2"
+status = "resolved"
+evidence = "tools/qualification/localnode/v6120-node.sh:67 accepts LXP_AGENT_NOT_ACTIVE as a served-handler refusal, and the ordinary local fixture invokes activate_merge at tools/qualification/localnode/v6120-node.sh:789, which waits for the applied v7.0 plan at tools/qualification/localnode/v6120-node.sh:135."
+follow_up = "closure"
+
+[disposition.5.98.5.1]
+finding = "5.98.5.1"
+status = "resolved"
+evidence = "Commit 99bef8286 makes the snapshot MultiStore a pointer with WithMultiStore(&store) at rpc/pending_context_test.go:59 before require.Same at rpc/pending_context_test.go:69, and sets MaxGasWanted before opening the nonce-test executor at rpc/pending_context_test.go:103."
+follow_up = "closure"
+
+[disposition.5.98.7.1]
+finding = "5.98.7.1"
+status = "resolved"
+evidence = "Commit a5b872224 extracts AcceptedSend.Receipt into the byte-slice outcome at node/sequencer/failover_rehearsal_test.go:193 and into the receipt slice at node/sequencer/receipt_latency_test.go:118."
+follow_up = "closure"
+
+[disposition.5.98.7.2]
+finding = "5.98.7.2"
+status = "resolved"
+evidence = "Commit a5b872224 changes node/sequencer/crash_replay_test.go:56 to pass receipt.Receipt to verify.ReceiptSignature instead of the AcceptedSend struct."
+follow_up = "closure"
+
+[disposition.5.98.7.3]
+finding = "5.98.7.3"
+status = "resolved"
+evidence = "Commit a5b872224 changes node/sequencer/crash_replay_test.go:59 to clone receipt.Receipt, matching the byte-slice signature input at node/sequencer/crash_replay_test.go:56."
+follow_up = "closure"
+
+[disposition.5.98.7.4]
+finding = "5.98.7.4"
+status = "resolved"
+evidence = "Commit a5b872224 ports the named callers to receipt.Receipt at node/sequencer/node_start_test.go:158 and node/sequencer/node_start_test.go:229, node/sequencer/node_stop_test.go:35 and node/sequencer/node_stop_test.go:74, node/sequencer/commit_release_test.go:185 and node/sequencer/tcp_ack_test.go:143, and uses require.Zero for refused AcceptedSend values at node/sequencer/node_stop_test.go:33, node/sequencer/node_stop_test.go:118 and node/sequencer/node_stop_test.go:152."
+follow_up = "closure"
+
+[disposition.5.98.7.5]
+finding = "5.98.7.5"
+status = "resolved"
+evidence = "Commit a5b872224 passes receipt.Receipt to signature verification at node/sequencer/standalone_primary_test.go:243 and replaces the fenced AcceptedSend nil assertions with require.Zero at node/sequencer/handover_test.go:217 and node/sequencer/handover_test.go:237."
+follow_up = "closure"
+
+[disposition.5.5.22.1]
+finding = "5.5.22.1"
+status = "resolved"
+evidence = "Commit 7c6f9653c asserts retention of the committed send at node/sequencer/receipt_source_test.go:82 and checks at node/sequencer/receipt_source_test.go:100 that a late record cannot restore the send already evicted for capacity."
+follow_up = "closure"
+
+[disposition.5.5.22.2]
+finding = "5.5.22.2"
+status = "resolved"
+evidence = "Commit 7c6f9653c rewrites the test tail to assert capacity eviction at node/sequencer/receipt_source_test.go:90, retention of the remaining sends after commit at node/sequencer/receipt_source_test.go:105 and retention by the zero-value source at node/sequencer/receipt_source_test.go:116."
+follow_up = "closure"
+
+[disposition.5.98.8.1]
+finding = "5.98.8.1"
+status = "resolved"
+evidence = "Commit 88e4603c6 moves the header-time fixture's LastBlockTime behind its tested open times at consensus/internal/state/sequencer_proposal_test.go:360 and seals the activation proposal after LastBlockTime at consensus/internal/state/sequencer_proposal_test.go:378."
+follow_up = "closure"
+
+[disposition.5.98.8.2]
+finding = "5.98.8.2"
+status = "resolved"
+evidence = "Commit 88e4603c6 uses LastBlockTime.Add(time.Second) for the sealed-slice and mempool-order tests at consensus/internal/state/sequencer_proposal_test.go:169 and consensus/internal/state/sequencer_proposal_test.go:249, and places LastBlockTime before the fixed header open time at consensus/internal/state/sequencer_proposal_test.go:226."
+follow_up = "closure"
+
+[disposition.5.5.23.1]
+finding = "5.5.23.1"
+status = "resolved"
+evidence = "Commit 02b17a1e8 updates the open-block gas-price expectation to 1077000000 at rpc/pending_block_test.go:197 and adds the 1000000000 priority fee to the committed-fee expectation at rpc/pending_block_test.go:204."
+follow_up = "closure"
+
+[disposition.5.7.1.2]
+finding = "5.7.1.2"
+status = "resolved"
+evidence = "Commit 143889db5 explicitly registers the retirement-gated anchor message service at node/app.go:1239, restoring the handler required by modules/layerxanchor/module_retired_route_test.go:21 without restoring the retired module lifecycle."
+follow_up = "closure"
+
+[disposition.5.97.1.1]
+finding = "5.97.1.1"
+status = "resolved"
+evidence = "Commit b8e54e633 invokes go vet ./daemon/... at cmd/retirement/test_kernel_symbol_consumers_retired.py:148 instead of linking daemon binaries against unbuilt C archives, and asserts its zero return code at cmd/retirement/test_kernel_symbol_consumers_retired.py:156."
+follow_up = "closure"
+
+[disposition.5.97.1.2]
+finding = "5.97.1.2"
+status = "resolved"
+evidence = "cmd/retirement/test_kernel_symbol_consumers_retired.py:148 now runs the required go vet subprocess rather than go build, with the returncode == 0 assertion preserved at cmd/retirement/test_kernel_symbol_consumers_retired.py:156 by commit b8e54e633."
+follow_up = "closure"

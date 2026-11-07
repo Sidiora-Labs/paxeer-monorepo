@@ -3,10 +3,18 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import type { FastifyInstance } from 'fastify';
 import { verifyMessage } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
-import { newAgentKey, startIdentityProvider, type AgentKey, type IdentityProvider } from './support/identity.js';
+import {
+  newAgentKey,
+  startIdentityProvider,
+  type AgentKey,
+  type IdentityProvider,
+} from './support/identity.js';
+import { startCustodyAuthority } from './support/custody.js';
 
 let idp: IdentityProvider;
 let pg: EphemeralPostgres;
+let custody: Awaited<ReturnType<typeof startCustodyAuthority>>;
+let precompilesModule: typeof import('../src/precompiles.js');
 let app: FastifyInstance;
 let verifyModule: typeof import('../src/agent/verify.js');
 let agentsModule: typeof import('../src/routes/agents.js');
@@ -19,12 +27,15 @@ beforeAll(async () => {
   process.env.AGENT_JWT_SECRET = randomBytes(32).toString('hex');
   process.env.LOG_LEVEL = 'error';
   process.env.RPC_URLS = `${idp.url}/rpc`;
+  custody = await startCustodyAuthority(idp, process.env.RPC_URLS);
+  Object.assign(process.env, custody.env);
   pg = await startPostgres();
   const index = await import('../src/index.js');
   verifyModule = await import('../src/agent/verify.js');
   agentsModule = await import('../src/routes/agents.js');
   policyModule = await import('../src/policy/agent.js');
   poolModule = await import('../src/db/pool.js');
+  precompilesModule = await import('../src/precompiles.js');
   app = await index.buildApp();
   await app.ready();
 }, 120_000);
@@ -33,10 +44,13 @@ afterAll(async () => {
   await app?.close();
   await poolModule?.closePool();
   await pg?.stop();
+  await custody?.stop();
   await idp?.stop();
 }, 120_000);
 
-async function authenticate(agent: AgentKey): Promise<{ token: string; owner: string | null; frozen: boolean }> {
+async function authenticate(
+  agent: AgentKey
+): Promise<{ token: string; owner: string | null; frozen: boolean }> {
   const challenge = await app.inject({
     method: 'POST',
     url: '/v1/agent/auth/challenge',
@@ -75,7 +89,10 @@ async function claim(agent: AgentKey, ownerUserId: string, signature?: string, e
     method: 'POST',
     url: `/v1/agents/${encodeURIComponent(agent.did)}/claim`,
     headers: { authorization: `Bearer ${await idp.mintUserToken(ownerUserId)}` },
-    payload: { expires: expiry.toString(), signature: signature ?? claimSignature(agent, ownerUserId, expiry) },
+    payload: {
+      expires: expiry.toString(),
+      signature: signature ?? claimSignature(agent, ownerUserId, expiry),
+    },
   });
 }
 
@@ -86,7 +103,13 @@ interface SignedOptions {
   signer?: AgentKey;
 }
 
-function signedHeaders(agent: AgentKey, method: string, url: string, body: string, opts: SignedOptions = {}) {
+function signedHeaders(
+  agent: AgentKey,
+  method: string,
+  url: string,
+  body: string,
+  opts: SignedOptions = {}
+) {
   const nonce = opts.nonce ?? randomBytes(16);
   const expiry = opts.expiry ?? BigInt(Math.floor(Date.now() / 1000) + 60);
   const digest = verifyModule.agentRequestDigest({
@@ -105,7 +128,12 @@ function signedHeaders(agent: AgentKey, method: string, url: string, body: strin
   };
 }
 
-async function signedPost(agent: AgentKey, url: string, payload: unknown, opts: SignedOptions = {}) {
+async function signedPost(
+  agent: AgentKey,
+  url: string,
+  payload: unknown,
+  opts: SignedOptions = {}
+) {
   const body = JSON.stringify(payload);
   return app.inject({
     method: 'POST',
@@ -115,7 +143,12 @@ async function signedPost(agent: AgentKey, url: string, payload: unknown, opts: 
   });
 }
 
-async function ownerCall(ownerUserId: string, method: 'POST' | 'PUT', url: string, payload?: unknown) {
+async function ownerCall(
+  ownerUserId: string,
+  method: 'POST' | 'PUT',
+  url: string,
+  payload?: unknown
+) {
   return app.inject({
     method,
     url,
@@ -153,7 +186,7 @@ describe('agent request digest', () => {
           nonce,
           exp,
           createHash('sha256').update(body).digest(),
-        ]),
+        ])
       )
       .digest();
     expect(got.equals(want)).toBe(true);
@@ -176,7 +209,7 @@ describe('agent request digest', () => {
         nonce: Buffer.alloc(15),
         expiry: 1n,
         body: Buffer.alloc(0),
-      }),
+      })
     ).toThrow(RangeError);
   });
 });
@@ -186,12 +219,203 @@ describe('decodeAddressArg', () => {
     const recipient = '00000000000000000000000011112222333344445555666677778888aaaabbbb';
     const amount = '0000000000000000000000000000000000000000000000000000000000000001';
     const data = `${policyModule.ERC20_TRANSFER_SELECTOR}${recipient}${amount}`;
-    expect(policyModule.decodeAddressArg(data, 0)).toBe('0x11112222333344445555666677778888aaaabbbb');
+    expect(policyModule.decodeAddressArg(data, 0)).toBe(
+      '0x11112222333344445555666677778888aaaabbbb'
+    );
     expect(policyModule.decodeAddressArg(data, 2)).toBeNull();
     const dirty = `${policyModule.ERC20_APPROVE_SELECTOR}ff${recipient.slice(2)}${amount}`;
     expect(policyModule.decodeAddressArg(dirty, 0)).toBeNull();
   });
 });
+
+const withdrawalAllowlistTests = {
+  async 'gates every known asset-moving selector by the withdrawal allowlist'() {
+    const agent = newAgentKey('mover-policy');
+    const db = await import('../src/db/agents.js');
+    await db.upsertPrincipalOnVerify({
+      did: agent.did,
+      label: 'mover-policy',
+      keyFingerprint: agent.publicKeyHex.slice(0, 16),
+      publicKey: agent.publicKeyHex,
+    });
+    const owner = randomUUID();
+    expect(await db.claimPrincipal(agent.did, owner)).toBe(true);
+    await db.setPrincipalFrozen(agent.did, false);
+    const policy = await db.upsertPolicy(
+      agent.did,
+      {
+        mode: 'full',
+        withdrawal_allowlist_only: true,
+        max_approve_wei: 1n,
+      },
+      owner
+    );
+    const principal = await db.findPrincipal(agent.did);
+    if (!principal) throw new Error('persisted principal missing');
+    expect(principal.is_frozen).toBe(false);
+    expect(principal.owner_user_id).toBe(owner);
+    expect(policy.mode).toBe('full');
+    expect(policy.withdrawal_allowlist_only).toBe(true);
+
+    const token = '0x1111111111111111111111111111111111111111';
+    const counterparty = '0xaaaabbbbccccddddeeeeffff1111222233334444';
+    const fromWord = token.slice(2).padStart(64, '0');
+    const counterpartyWord = counterparty.slice(2).toUpperCase().padStart(64, '0');
+    const amountWord = '1'.padStart(64, '0');
+    const movers = [
+      [policyModule.ERC20_TRANSFER_SELECTOR, 0, false],
+      [policyModule.ERC20_APPROVE_SELECTOR, 0, true],
+      [policyModule.ERC20_TRANSFER_FROM_SELECTOR, 1, false],
+      ['0x39509351', 0, true],
+      ['0x1296ee62', 0, false],
+      ['0x4000aea0', 0, false],
+      ['0x3177029f', 0, true],
+      ['0xcae9ca51', 0, true],
+      ['0xa22cb465', 0, true],
+      ['0x42842e0e', 1, false],
+      ['0xb88d4fde', 1, false],
+      ['0xf242432a', 1, false],
+      ['0x2eb2c2d6', 1, false],
+    ] as const;
+    const withdrawalRule = await db.addRule({
+      did: agent.did,
+      effect: 'allow',
+      subject: 'withdrawal',
+      value: counterparty,
+      createdBy: owner,
+    });
+    const deniedAddressRule = await db.addRule({
+      did: agent.did,
+      effect: 'deny',
+      subject: 'address',
+      value: counterparty,
+      createdBy: owner,
+    });
+    const otherWithdrawalRule = await db.addRule({
+      did: agent.did,
+      effect: 'allow',
+      subject: 'withdrawal',
+      value: token,
+      createdBy: owner,
+    });
+
+    for (const [selector, argIndex, isApprove] of movers) {
+      const data = `${selector}${argIndex === 1 ? fromWord : ''}${counterpartyWord}${amountWord}`;
+      expect(policyModule.decodeMoverCounterparty(selector, data)).toEqual({
+        counterparty,
+        isApprove,
+        known: true,
+      });
+      const intent = { kind: 'transaction', to: token, data } as const;
+      expect(
+        await policyModule.evaluateAgent({ principal, policy, rules: [], intent })
+      ).toMatchObject({
+        allow: false,
+        code: 'WITHDRAWAL_NOT_ALLOWLISTED',
+        detail: { recipient: counterparty },
+      });
+      const annotatedIntent = {
+        ...intent,
+        tokenContract: token,
+        tokenRecipient: token,
+        isApprove: false,
+      };
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [otherWithdrawalRule],
+          intent: annotatedIntent,
+        })
+      ).toMatchObject({
+        allow: false,
+        code: 'WITHDRAWAL_NOT_ALLOWLISTED',
+        detail: { recipient: counterparty },
+      });
+      expect(
+        await policyModule.evaluateAgent({ principal, policy, rules: [withdrawalRule], intent })
+      ).toMatchObject({ allow: true });
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [withdrawalRule, deniedAddressRule],
+          intent,
+        })
+      ).toMatchObject({ allow: false, code: 'ADDRESS_DENYLISTED' });
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy,
+          rules: [withdrawalRule, deniedAddressRule],
+          intent: annotatedIntent,
+        })
+      ).toMatchObject({ allow: false, code: 'ADDRESS_DENYLISTED' });
+
+      for (const word of ['', counterpartyWord.slice(0, -1), `ff${counterpartyWord.slice(2)}`]) {
+        const malformed = `${selector}${argIndex === 1 ? fromWord : ''}${word}`;
+        expect(policyModule.decodeMoverCounterparty(selector, malformed)).toEqual({
+          counterparty: null,
+          isApprove,
+          known: true,
+        });
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { ...intent, data: malformed },
+          })
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { ...annotatedIntent, tokenRecipient: counterparty, data: malformed },
+          })
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+      }
+    }
+
+    for (const selector of ['0xac9650d8', '0x5ae401dc']) {
+      const data = `${selector}${counterpartyWord}${amountWord}`;
+      expect(policyModule.decodeMoverCounterparty(selector, data)).toEqual({
+        counterparty: null,
+        isApprove: false,
+        known: true,
+      });
+      for (const annotations of [{}, { tokenContract: token, tokenRecipient: counterparty }]) {
+        expect(
+          await policyModule.evaluateAgent({
+            principal,
+            policy,
+            rules: [withdrawalRule],
+            intent: { kind: 'transaction', to: token, data, ...annotations },
+          })
+        ).toMatchObject({ allow: false, code: 'COUNTERPARTY_UNDECODED' });
+      }
+      expect(
+        await policyModule.evaluateAgent({
+          principal,
+          policy: { ...policy, withdrawal_allowlist_only: false },
+          rules: [],
+          intent: { kind: 'transaction', to: token, data },
+        })
+      ).toMatchObject({ allow: true });
+    }
+    expect(policyModule.decodeMoverCounterparty('0x12345678', '0x12345678')).toEqual({
+      counterparty: null,
+      isApprove: false,
+      known: false,
+    });
+  },
+};
+
+it(
+  withdrawalAllowlistTests['gates every known asset-moving selector by the withdrawal allowlist'],
+  withdrawalAllowlistTests['gates every known asset-moving selector by the withdrawal allowlist']
+);
 
 describe('agent consent', () => {
   it('does not bind an owner at verify even when the DID label is a user id', async () => {
@@ -201,7 +425,7 @@ describe('agent consent', () => {
     expect(session.owner).toBeNull();
     const { rows } = await poolModule.query<{ owner_user_id: string | null }>(
       'select owner_user_id from agent_principals where did = $1',
-      [agent.did],
+      [agent.did]
     );
     expect(rows[0]?.owner_user_id).toBeNull();
   });
@@ -212,7 +436,11 @@ describe('agent consent', () => {
     const owner = randomUUID();
     const intruder = randomUUID();
 
-    const forged = await claim(agent, owner, claimSignature(agent, intruder, BigInt(Math.floor(Date.now() / 1000) + 60)));
+    const forged = await claim(
+      agent,
+      owner,
+      claimSignature(agent, intruder, BigInt(Math.floor(Date.now() / 1000) + 60))
+    );
     expect(forged.statusCode).toBe(401);
     expect(forged.json()).toMatchObject({ error: 'bad_claim_signature' });
 
@@ -263,7 +491,10 @@ describe('agent request signing', () => {
 
   it.each([
     ['/v1/agent/send', { tx: { to: '0x000000000000000000000000000000000000dEaD', value: '1' } }],
-    ['/v1/agent/actions/layerx/deposit', { amount: '1' }],
+    [
+      '/v1/agent/actions/allowance-and-call',
+      { idempotency_key: 'token-write', token: 'PAX', amount: '1' },
+    ],
     ['/v1/agent/precompiles/streams/settle', { stream_id: '1' }],
   ])('refuses the token on write route %s', async (url, payload) => {
     const res = await app.inject({
@@ -296,7 +527,9 @@ describe('agent request signing', () => {
     beforeAll(async () => {
       const did = encodeURIComponent(agent.did);
       expect((await ownerCall(owner, 'POST', `/v1/agents/${did}/unfreeze`)).statusCode).toBe(200);
-      expect((await ownerCall(owner, 'PUT', `/v1/agents/${did}/policy`, { mode: 'full' })).statusCode).toBe(200);
+      expect(
+        (await ownerCall(owner, 'PUT', `/v1/agents/${did}/policy`, { mode: 'full' })).statusCode
+      ).toBe(200);
     }, 60_000);
 
     it('signs a message for a correctly signed request and refuses its replay', async () => {
@@ -305,7 +538,9 @@ describe('agent request signing', () => {
       const res = await signedPost(agent, '/v1/agent/sign-message', { message }, { nonce });
       expect(res.statusCode).toBe(200);
       const body = res.json() as { signature: `0x${string}`; address: `0x${string}` };
-      expect(await verifyMessage({ address: body.address, message, signature: body.signature })).toBe(true);
+      expect(
+        await verifyMessage({ address: body.address, message, signature: body.signature })
+      ).toBe(true);
 
       const replay = await signedPost(agent, '/v1/agent/sign-message', { message }, { nonce });
       expect(replay.statusCode).toBe(401);
@@ -317,7 +552,7 @@ describe('agent request signing', () => {
         agent,
         '/v1/agent/sign-message',
         { message: 'late' },
-        { expiry: BigInt(Math.floor(Date.now() / 1000) - 1) },
+        { expiry: BigInt(Math.floor(Date.now() / 1000) - 1) }
       );
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ error: 'agent_request_expired' });
@@ -328,7 +563,7 @@ describe('agent request signing', () => {
         agent,
         '/v1/agent/sign-message',
         { message: 'early' },
-        { expiry: BigInt(Math.floor(Date.now() / 1000) + 3_600) },
+        { expiry: BigInt(Math.floor(Date.now() / 1000) + 3_600) }
       );
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ error: 'agent_request_expiry_too_far' });
@@ -339,7 +574,7 @@ describe('agent request signing', () => {
         agent,
         '/v1/agent/sign-message',
         { message: 'tampered' },
-        { signedBody: JSON.stringify({ message: 'original' }) },
+        { signedBody: JSON.stringify({ message: 'original' }) }
       );
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ error: 'agent_bad_signature' });
@@ -350,14 +585,16 @@ describe('agent request signing', () => {
         agent,
         '/v1/agent/sign-message',
         { message: 'other key' },
-        { signer: newAgentKey('impostor') },
+        { signer: newAgentKey('impostor') }
       );
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ error: 'agent_bad_signature' });
     });
 
     it('refuses a key that is not registered', async () => {
-      const res = await signedPost(newAgentKey('stranger'), '/v1/agent/sign-message', { message: 'who' });
+      const res = await signedPost(newAgentKey('stranger'), '/v1/agent/sign-message', {
+        message: 'who',
+      });
       expect(res.statusCode).toBe(401);
       expect(res.json()).toMatchObject({ error: 'agent_unknown_key' });
     });
@@ -375,35 +612,174 @@ describe('agent request signing', () => {
       expect(res.json()).toMatchObject({ error: 'agent_request_malformed' });
     });
 
-    it('refuses a signed scheduler deposit to the unserved precompile without signing', async () => {
-      const res = await signedPost(agent, '/v1/agent/precompiles/scheduler/schedule', {
-        target: '0x000000000000000000000000000000000000dEaD',
-        execute_at_block: '100',
-        gas_limit: '100000',
-        deposit_wei: '1000',
-      });
-      expect(res.statusCode).toBe(503);
-      expect(res.json()).toMatchObject({
-        error: 'precompile_not_served',
-        precompile: 'scheduler',
-        address: '0x0000000000000000000000000000000000000905',
-      });
-    });
+    const unservedPrecompileTests = {
+      async 'refuses a signed scheduler deposit to the unserved precompile without signing'() {
+        const before = await poolModule.query(
+          'select count(*) from wallet_signatures where principal_did = $1',
+          [agent.did]
+        );
+        const res = await signedPost(agent, '/v1/agent/precompiles/scheduler/schedule', {
+          target: '0x000000000000000000000000000000000000dEaD',
+          execute_at_block: '100',
+          gas_limit: '100000',
+          deposit_wei: '1000',
+        });
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toMatchObject({
+          error: 'precompile_not_served',
+          message: 'the node does not serve the scheduler precompile',
+          precompile: 'scheduler',
+          address: precompilesModule.PRECOMPILE_ADDRESSES.scheduler,
+          retryable: false,
+        });
+        expect(res.headers['retry-after']).toBe('3600');
+        const after = await poolModule.query(
+          'select count(*) from wallet_signatures where principal_did = $1',
+          [agent.did]
+        );
+        expect(after.rows).toEqual(before.rows);
+      },
+    };
+
+    it(
+      unservedPrecompileTests[
+        'refuses a signed scheduler deposit to the unserved precompile without signing'
+      ],
+      unservedPrecompileTests[
+        'refuses a signed scheduler deposit to the unserved precompile without signing'
+      ]
+    );
 
     it.each([
-      ['GET', '/v1/agent/precompiles/scheduler/pending', undefined, 'scheduler'],
-      ['GET', '/v1/agent/precompiles/streams/accrued/1', undefined, 'streams'],
-      ['POST', '/v1/agent/precompiles/eip712/hash-typed-data', { domain_separator: `0x${'11'.repeat(32)}`, struct_hash: `0x${'22'.repeat(32)}` }, 'eip712'],
-      ['POST', '/v1/agent/precompiles/tee/root-count', { family: 'intel_tdx' }, 'teeAttestor'],
-    ] as const)('refuses the read %s %s of an unserved precompile', async (method, url, payload, precompile) => {
-      const res = await app.inject({
-        method,
-        url,
-        headers: { authorization: `Bearer ${token}` },
-        ...(payload === undefined ? {} : { payload }),
-      });
-      expect(res.statusCode).toBe(503);
-      expect(res.json()).toMatchObject({ error: 'precompile_not_served', precompile });
-    });
+      [
+        'POST',
+        '/v1/agent/precompiles/scheduler/schedule',
+        {
+          target: '0x000000000000000000000000000000000000dEaD',
+          execute_at_block: '100',
+          gas_limit: '100000',
+          deposit_wei: '1000',
+        },
+        'scheduler',
+        'signed',
+      ],
+      ['POST', '/v1/agent/precompiles/scheduler/cancel', { job_id: '1' }, 'scheduler', 'signed'],
+      [
+        'POST',
+        '/v1/agent/precompiles/scheduler/reschedule',
+        { job_id: '1', new_block: '200' },
+        'scheduler',
+        'signed',
+      ],
+      ['GET', '/v1/agent/precompiles/scheduler/job/1', undefined, 'scheduler', 'token'],
+      ['GET', '/v1/agent/precompiles/scheduler/pending', undefined, 'scheduler', 'token'],
+      [
+        'POST',
+        '/v1/agent/precompiles/streams/open',
+        {
+          payee: '0x000000000000000000000000000000000000dEaD',
+          token: '0x0000000000000000000000000000000000000000',
+          rate_per_second: '1',
+          cap: '1000',
+        },
+        'streams',
+        'signed',
+      ],
+      ['POST', '/v1/agent/precompiles/streams/settle', { stream_id: '1' }, 'streams', 'signed'],
+      ['POST', '/v1/agent/precompiles/streams/close', { stream_id: '1' }, 'streams', 'signed'],
+      [
+        'POST',
+        '/v1/agent/precompiles/streams/update-rate',
+        { stream_id: '1', new_rate: '2' },
+        'streams',
+        'signed',
+      ],
+      ['GET', '/v1/agent/precompiles/streams/stream/1', undefined, 'streams', 'token'],
+      ['GET', '/v1/agent/precompiles/streams/accrued/1', undefined, 'streams', 'token'],
+      [
+        'POST',
+        '/v1/agent/precompiles/eip712/domain-separator',
+        {
+          name: 'Agent',
+          version: '1',
+          chain_id: '125',
+          verifying_contract: '0x000000000000000000000000000000000000dEaD',
+        },
+        'eip712',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/eip712/hash-typed-data',
+        {
+          domain_separator: `0x${'11'.repeat(32)}`,
+          struct_hash: `0x${'22'.repeat(32)}`,
+        },
+        'eip712',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/eip712/recover',
+        {
+          domain_separator: `0x${'11'.repeat(32)}`,
+          struct_hash: `0x${'22'.repeat(32)}`,
+          signature: `0x${'33'.repeat(65)}`,
+        },
+        'eip712',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/tee/verify',
+        { family: 'intel_tdx', quote: '0x1234' },
+        'teeAttestor',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/tee/verify',
+        {
+          family: 'intel_tdx',
+          quote: '0x1234',
+          expected_report_data: `0x${'44'.repeat(32)}`,
+        },
+        'teeAttestor',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/tee/root-count',
+        { family: 'intel_tdx' },
+        'teeAttestor',
+        'token',
+      ],
+      [
+        'POST',
+        '/v1/agent/precompiles/tee/root-of',
+        { family: 'intel_tdx', index: '0' },
+        'teeAttestor',
+        'token',
+      ],
+    ] as const)(
+      'refuses the unserved precompile route %s %s',
+      async (method, url, payload, precompile, credential) => {
+        const res =
+          credential === 'signed'
+            ? await signedPost(agent, url, payload)
+            : await app.inject({
+                method,
+                url,
+                headers: { authorization: `Bearer ${token}` },
+                ...(payload === undefined ? {} : { payload }),
+              });
+        expect(res.statusCode).toBe(503);
+        expect(res.json()).toMatchObject({
+          error: 'precompile_not_served',
+          precompile,
+          address: precompilesModule.PRECOMPILE_ADDRESSES[precompile],
+        });
+      }
+    );
   });
 });

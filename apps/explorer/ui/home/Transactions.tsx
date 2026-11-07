@@ -9,10 +9,10 @@ import LatestTxs from 'ui/home/LatestTxs';
 import LatestWatchlistTxs from 'ui/home/LatestWatchlistTxs';
 import LatestZetaChainCCTXs from 'ui/home/latestZetaChainCCTX/LatestZetaChainCCTXs';
 import FallbackRpcIcon from 'ui/shared/fallbacks/FallbackRpcIcon';
-import { ScanTableCard } from 'ui/shared/scan';
 import useAuth from 'ui/snippets/auth/useIsAuth';
 
 import { useHomeRpcDataContext } from './fallbacks/rpcDataContext';
+import HomeTableSection from './HomeTableSection';
 import LatestCrossChainTxs from './latestCrossChainTxs/LatestCrossChainTxs';
 import LatestArbitrumDeposits from './latestDeposits/LatestArbitrumDeposits';
 
@@ -62,12 +62,13 @@ const Transactions = () => {
   })();
 
   return (
-    <ScanTableCard
+    <HomeTableSection
       title="Latest transactions"
+      href={{ pathname: '/txs', query: zetachainFeature.isEnabled ? { tab: 'evm' } : undefined }}
       actions={ isRpcData ? <FallbackRpcIcon/> : undefined }
     >
       { content }
-    </ScanTableCard>
+    </HomeTableSection>
   );
 };
 

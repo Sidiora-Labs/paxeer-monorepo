@@ -3,6 +3,7 @@ import { useQuery, type UseQueryResult } from '@tanstack/react-query';
 import type { Operations } from '@kindle/sdk';
 import { queryKeys } from '@/core/query-keys';
 import { marketCachePolicy } from '@/core/cache-policy';
+import { marketAddress } from '@/page-modules/token/market-session';
 import { priceNumber } from '@/page-modules/token/market-presentation';
 import { useOperations } from './operations';
 import { validateCandles, type Candle } from './use-candles';
@@ -45,6 +46,7 @@ export function sparklineFromCandles(items: readonly Candle[], generatedAt: stri
 }
 
 export async function loadSparkline(operations: Operations, pool: string, window: { from: string; to: string }, signal?: AbortSignal): Promise<Sparkline> {
+  pool = marketAddress(pool);
   const response = await gate.run(() => operations.call('IF_CANDLES', { path: { poolAddress: pool }, query: { interval: '1h', from: window.from, to: window.to, limit: sparklineHours } }, { signal }));
   validateCandles(response, pool, '1h');
   return sparklineFromCandles(response.data.items, response.generatedAt);

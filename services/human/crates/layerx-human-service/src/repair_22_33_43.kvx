@@ -1,0 +1,33 @@
+[repair.22.33.43]
+acceptance = "22998.1"
+proof = "services/human/crates/layerx-human-service/tests/repair_22_33_43.rs"
+baseline = "Not run: the declared integration target did not exist on the unchanged tree; the explicit implementation-first, hf-build then hf-done-only order supersedes step 7. No baseline test failure is claimed."
+evidence = "The runner records the tested candidate revision, command, exit code and private log; the final task receipt copies the last bounded gate evidence."
+
+[finding.frame-registry]
+tests = ["frame_registry_real_trait_and_byte_maximum_round_trip", "frame_registry_preserves_bounds_and_typed_errors"]
+observed_declarations = ["frame.rs:119 pub trait FrameTransport", "frame.rs:286 pub fn read_frame<R: Read>(reader: &mut R, maximum: usize) -> Result<Vec<u8>, TransportError>", "frame.rs:309 pub fn write_frame<W: Write>(writer: &mut W, payload: &[u8], maximum: usize) -> Result<(), TransportError>"]
+callers = ["frame.rs:171 impl FrameTransport for Uds", "frame.rs:255 impl FrameTransport for Tls", "server/agent_runtime.rs:8 FrameTransport and Uds", "server/backend.rs:8 FrameTransport and Uds; :780 write_frame; :788 read_frame", "server/component.rs:715 read_frame; :796, :815, :821 write_frame", "bin/layerx-human-kms-gateway.rs:729 write_frame; :730 read_frame"]
+wiring_request = "Domain 10 (human), spec/layerx-merge/interfaces.kvx: update rows 10.rs-human-service-frame-frame-transport-j45, 10.rs-human-service-frame-read-frame-j45 and 10.rs-human-service-frame-write-frame-j45 to the declarations, anchors and callers recorded here; this path is outside the authorized task scope."
+bounds = "The production frame implementation is unchanged; real UDS producer/consumer round trips exercise the trait and usize maximum, exact maximum, empty payload, connection admission, deadlines, shutdown, oversize before allocation/write and truncated frames."
+
+[finding.support-unbounded-list]
+tests = ["support_unbounded_list_uses_recent_index_after_reopen", "support_admission_and_durable_retry_tombstones_survive_expiry_and_reopen", "support_index_and_body_commit_atomically", "support_legacy_index_is_persisted_once_and_ties_are_stable"]
+policy = "Admit at most 256 lifetime conversation identities per principal; keep existing 100-conversation response and 200-message/2000-character body bounds. Bodies follow the configured Support retention; the bounded index retains identity and creation digest forever as retry tombstones. Full admission refuses new identities with ConversationLimit while preserving existing operations and retries; an identical expired creation returns ConversationExpired and changed content returns Conflict without recreation."
+implementation = "Atomically persist body and sorted metadata using the real store put_batch; listing looks up bounded metadata and deserializes at most 100 retained conversation bodies. Ordinary reopening does not deserialize support history bodies; the underlying principal store still reads its opaque snapshot rows. Index corruption is refused."
+upgrade = "On first principal open without an index, index existing conversations once and persist it; never rescan them after that. A legacy history above 256 identities is refused explicitly without deleting data and requires an explicit migration/admission decision."
+proof_detail = "Create 140 real conversations, corrupt the 40 off-page bodies, list and reopen successfully, update recency and reopen again, then prove selected corruption is refused. Fill all 256 identities, test admission/retry/isolation, expire bodies, reopen and prove tombstones and the lifetime bound survive. Pinned-index refusal proves both conversation updates and new creation roll back atomically."
+
+[finding.support-reply-replay]
+tests = ["support_reply_replay_converges_after_resolve_and_reopen", "support_full_conversation_preserves_retry_and_message_bounds"]
+implementation = "Normalize the body and resolve deterministic existing message identity/author/body before restricting new person replies on resolved conversations; changed content or author under an accepted key remains Conflict."
+proof_detail = "Reply through SupportService, record the operator response, resolve, drop and reopen PrincipalStore, retry identical normalized content and assert the entire resolved conversation and stored bytes are unchanged; changed content/author conflict and a new reply stays refused. Repeat at the 200-message bound."
+
+[gotcha.22.33.43]
+observed = "The required frame registry edit and task/spec/gotcha ledger updates are outside the user-authorized paths; record the registry wiring here and leave spec/ and GOTCHA.kvx untouched."
+
+[continuation.22.33.43]
+base = "2a5922c56e84195a7fd33e76b9db7eb2cf9f9181"
+review = "Preserved all five seeded repair paths and all eight integration tests; the continuation ledger had no build or verification runs before qualification."
+wiring_request = "Main integration owner, README.md: preserve the published 22.31.470 rewrite and reconcile any README facts during integration; README.md is outside this task's explicit scope and the five seeded repair paths contain no README change."
+qualification = "Run hf-build followed by hf-done on the same candidate; runner publication owns commits and pushes."

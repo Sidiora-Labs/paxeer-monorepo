@@ -2,9 +2,9 @@
 
 import React from 'react';
 
-import type { PaxeerXReceiptsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveReceiptsItem } from 'types/api/paxeerXArchive';
 
-import { PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
+import { PAXEER_X_KERNEL_RECEIPTS_ITEM, PAXEER_X_RECEIPTS_ITEM } from 'stubs/paxeerXLists';
 import { render } from 'ui/shared/layout/testWrapper';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,15 +12,23 @@ vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper'))
 
 import PaxeerXReceiptsTable from './PaxeerXReceiptsTable';
 
-const accountless: PaxeerXReceiptsItem = {
+const receipt = {
   ...PAXEER_X_RECEIPTS_ITEM,
+  id: '0x1a2b3c4d5e6f7081928374655647382910ffeeddccbbaa99887766554433221100',
+  account: '0x0000000000000000000000000000000000000000000000000000000000000000',
+  frozen: true,
+  block_number: 8341004,
+} satisfies PaxeerXArchiveReceiptsItem;
+
+const accountless: PaxeerXArchiveReceiptsItem = {
+  ...receipt,
   id: '0x11223344556677889900aabbccddeeff0f1e2d3c4b5a69788796a5b4c3d2e1f0',
   account: null,
-  status: 'final',
-  block_number: PAXEER_X_RECEIPTS_ITEM.block_number - 1,
+  block_number: receipt.block_number - 1,
+  provenance: { evm: { ...receipt.provenance.evm, block_number: receipt.block_number - 1 } },
 };
 
-const items = [ PAXEER_X_RECEIPTS_ITEM, accountless ];
+const items = [ receipt, accountless, PAXEER_X_KERNEL_RECEIPTS_ITEM ];
 
 const renderTable = () => render(<PaxeerXReceiptsTable items={ items }/>);
 
@@ -34,7 +42,7 @@ describe('PaxeerXReceiptsTable', () => {
     const { container } = renderTable();
 
     expect(Array.from(container.querySelectorAll('thead th')).map((cell) => cell.textContent))
-      .toEqual([ 'Receipt ID', 'Account', 'Block', 'Settlement' ]);
+      .toEqual([ 'Receipt ID', 'Account', 'Block' ]);
   });
 
   it('renders one row per receipt, each marked by its id', () => {
@@ -48,11 +56,11 @@ describe('PaxeerXReceiptsTable', () => {
   it('links a receipt id to its own page and the block to the block page', () => {
     const { container } = renderTable();
 
-    const row = container.querySelector(`[data-receipt="${ PAXEER_X_RECEIPTS_ITEM.id }"]`) as HTMLElement;
+    const row = container.querySelector(`[data-receipt="${ receipt.id }"]`) as HTMLElement;
 
-    expect(row.querySelector(`a[href="/paxeer-x/receipts/${ PAXEER_X_RECEIPTS_ITEM.id }"]`)).toBeTruthy();
-    expect(row.querySelector(`a[href="/block/${ PAXEER_X_RECEIPTS_ITEM.block_number }"]`)?.textContent)
-      .toBe(String(PAXEER_X_RECEIPTS_ITEM.block_number));
+    expect(row.querySelector(`a[href="/paxeer-x/receipts/${ receipt.id }"]`)).toBeTruthy();
+    expect(row.querySelector(`a[href="/block/${ receipt.block_number }"]`)?.textContent)
+      .toBe(String(receipt.block_number));
   });
 
   it('marks a receipt the log carries without an account', () => {
@@ -63,10 +71,18 @@ describe('PaxeerXReceiptsTable', () => {
     expect(row.querySelectorAll('td')[1]?.textContent).toBe('—');
   });
 
-  it('puts every row on its own rung of the settlement ladder', () => {
+  it('renders the kernel row without an EVM block link', () => {
+    const { container } = renderTable();
+    const row = container.querySelector(`[data-receipt="${ PAXEER_X_KERNEL_RECEIPTS_ITEM.id }"]`);
+
+    expect(row?.querySelectorAll('td')[2]?.textContent).toBe('Pending');
+    expect(row?.querySelector('a[href^="/block/"]')).toBeNull();
+  });
+
+  it('renders archive rows without settlement badges', () => {
     const { container } = renderTable();
 
-    expect(Array.from(container.querySelectorAll('[data-receipt] [data-rung]')).map((badge) => badge.getAttribute('data-rung')))
-      .toEqual(items.map((item) => item.status));
+    expect(container.querySelectorAll('[data-receipt] [data-rung]')).toHaveLength(0);
+    expect(container.querySelectorAll('tbody tr td')).toHaveLength(items.length * 3);
   });
 });

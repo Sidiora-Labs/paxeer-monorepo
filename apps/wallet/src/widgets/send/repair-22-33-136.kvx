@@ -1,0 +1,33 @@
+[repair.22.33.136]
+audit = "22.30.115"
+mode = "BUILD"
+criterion = "22998.1"
+verification = "hf-build followed by hf-done; exact candidate revision and private evidence are recorded by the runner in /out/run/gates.jsonl."
+baseline = "Not executed: order steps 1 and 4 prohibit testing before complete implementation or manually running verify_cmd; they take precedence over the conflicting unchanged-tree run in finding step 9. No baseline failures are claimed. Vitest requires both a name and callback; single-function registration from order 1b produced six TODOs in verify-1 and did not qualify behavior. The corrected registration must execute all six tests."
+
+[finding.send-token-snapshot-stale]
+test = "send_token_snapshot_stale_cold_load_refresh_and_account_change"
+proof = "Loopback indexer portfolio producer, HTTP client, real query cache, sendable-token hook, widget state, max calculation and spendable validation; refresh and account change."
+
+[finding.send-qr-network]
+test = "send_qr_network_matches_wallet_and_selected_network_and_invalidates"
+proof = "Production wallet provider and network preferences accept the selected virtual chain, reject root requests there and wallet/network disagreement, clear the draft on selection changes, and reject a retained approval callback."
+
+[finding.send-native-qr-asset]
+test = "send_native_qr_asset_binds_native_and_contract_and_rejects_atomically"
+proof = "Production QR codec and widget handler select native after ERC-20 selection, bind requested contract precision, reject invalid requests without changing any draft field, and send via the real wallet provider into an ethers-signing EIP-1193 fixture; signed transactions are decoded."
+
+[finding.send-recovery-root-chain]
+test = "send_recovery_root_chain_reopens_and_isolates_chain_and_sender"
+proof = "Real wallet provider broadcasts into a signing peer, useSendForm persists chainId:sender, the consumer stops and reopens, isolates root and virtual identities, retains the broadcast chain/hash and explorer path, and clears only the current pair."
+
+[finding.send-zero-decimals]
+test = "send_zero_decimals_real_portfolio_qr_signing_optimistic_and_recovery"
+additional_test = "send_unknown_precision_never_converts_or_funds"
+proof = "Real HTTP portfolio producer and query hook preserve zero through balance, max, QR conversion, ERC-20 encoding, signed transaction, optimistic subtraction and restart recovery; unknown and unsupported precision cannot become sendable assets."
+
+[wiring.precision-producer]
+request = "Domain 12: apps/wallet/src/lib/data/facades/wallet.ts must preserve null or absent token precision as unknown instead of defaulting it to 18; the send boundary can only reject unknown metadata that reaches it."
+
+[wiring.network-portfolio]
+request = "Domain 12: apps/wallet/src/lib/queries/keys.ts and apps/wallet/src/lib/queries/portfolio.ts must key and fetch portfolio data by actual selected chain as well as account so a network change cannot reuse another network's cached balances."

@@ -1,0 +1,18 @@
+[repair.22.31.200]
+finding = "emulator-settlement-v2-contract"
+base_revision = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+disposition = "Retire the legacy HTTP settlement authority; all methods at /v1/settle return terminal HTTP 410 settlement_authority_retired without parsing evidence or issuing a settlement result."
+authority = "services/platform/middleware/seller/src/index.ts ReceiptPayloadAuthority verifies portable v2 receipts with pinned node keys; committed payments additionally require the current block-commit verifier."
+proving_test = "tools/platform/emulator/tests/repair_22_31_200.rs::emulator_settlement_v2_retirement_and_current_authority_survive_restart"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no qualification is claimed by this source record."
+baseline = "No baseline gate ran: the supplied test target was absent at the base, and the explicit gate order forbids verification before full implementation and hf-build."
+prerequisite = "Node >=24 with SDK dependencies installed by npm ci --ignore-scripts --workspaces=false in services/agent/sdk/typescript; integration loads the actual TypeScript sources using Node's type transformer."
+
+[wiring.registry]
+request = "Platform domain 8: retire interface.8.http-emulator-post-v1-settle in spec/layerx-merge/interfaces.kvx and regenerate spec/layerx-merge/contracts/platform-cli.md; remove the verbatim seller settlement promise."
+
+[wiring.examples]
+request = "Platform domain 8: remove emulator settlementUrl /v1/settle promises from services/platform/examples/*/layerx.example.json and retire services/platform/examples/support/merchant-app.mjs SettlementAuthority; use ReceiptPayloadAuthority with pinned current node receipt keys, retaining commitment verification for committed payments."
+
+[wiring.task_record]
+request = "Programme owner: copy this finding/test mapping, baseline-order conflict and wiring requests into task.22.31.200; spec files are outside this repair's allowed paths."

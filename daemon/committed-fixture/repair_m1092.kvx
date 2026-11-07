@@ -1,0 +1,63 @@
+[repair.22.33.1092]
+mode = "BUILD"
+implementation = "Record Programs deployment and call transactions over the real sequencer HTTP path; authenticate ProgramCallOutcome and derive copies from serialized canonical evidence; retain primary and standby pins throughout the V2 canonical round trip; allocate EVM, consensus RPC, standby, gRPC and API ports at the owning process and discover actual bound endpoints."
+baseline = "The resumed attempt inherits the earlier build and verify records below; verification failed at package compilation, so no TestRepairM_1092_ function ran in that attempt. The explicit ordered gate instructions prohibit a baseline verify or testing before the complete implementation, so no unchanged-tree failure is claimed."
+qualification = "The runner's final hf-done ledger supplies the exact candidate revision, command, exit code and private evidence path; no gate result is claimed here before it runs."
+
+[finding.fixture-port-reservation-race]
+proof = "TestRepairM_1092_ConcurrentRecorderEndpoints"
+remaining = "The P2P reservation is still required because consensus/libs/utils/tcp/tcp.go refuses port zero and accepts reserved listeners only within its own process; the owning domain must supply inherited-listener support before the final P2P reservation can be removed."
+
+[finding.fixture-v1-programs-case-missing]
+proof = "TestRepairM_1092_V1ProgramsProducer; TestVectorV1ProgramsRecorder"
+source = "conformance/sequencer-receipt-v1-programs.json is the recorder-emitted canonical V1 Programs source group; both Programs copies are decoded from it and checked against both deployment and call transaction hashes. The original V1 type-2 constructor case and all its assertions are retained."
+
+[finding.fixture-v2-rejects-standby-pins]
+proof = "TestRepairM_1092_V2RetainsStandbyPins"
+implementation = "Select the home's primary public key from validated genesis pins without discarding the standby; select the actual signing pin for the canonical case and retain all authorizations in the canonical source."
+
+[finding.fixture-v2-test-never-records]
+proof = "TestRepairM_1092_V2RecorderStrictConsumers; TestVectorV2RecordsPrimaryStandby"
+implementation = "The bounded gate calls the real home-loading/keyring recorder after primary and standby bootstrap, HTTP submission, mutually authenticated TLS replication and separate-store replay; generated receipts enter the unchanged strict signature and canonical consumers. The separate embedded-paxd integration case is compiled, but is not represented as executed by the focused repair gate."
+
+[wiring]
+p2p = "consensus/libs/utils/tcp/tcp.go and consensus/internal/p2p/router.go — domain 15 (consensus): accept inherited bound listeners or port zero with bound-address discovery, then replace the recorder's remaining P2P reservation with that interface."
+programs_bootstrap = "modules/lxphost/genesis.go and node/upgrades.go — domain 4 (kernel/runtime): provide governed initial Programs fee/metering schedules, occupancy funding for the dedicated fixture principal for the private recorder chain; StoreGenesis currently accepts asset-module rows only, so the recorder cannot carry Programs schedules through genesis within this task's scope."
+conformance = "sdk/platform/conformance/fixtures/sequencer-receipt-v1.json and its V1/V2 copies — domain 5 (SDK/conformance): integrate the recorder's canonical Programs group and multi-pin V2 source together, preserving chain identity and other groups, with deployment/call transaction-hash equality."
+bootstrap_gate = "daemon/committed-fixture/vector_v2_test.go — domain 5 (SDK/conformance): run TestVectorV2RecordsPrimaryStandby under the release bootstrap gate; the repair gate must stay in process and cannot execute the embedded paxd subprocess."
+
+[gotcha.local]
+baseline_order = "The task includes a baseline request but its explicit gate order forbids pre-implementation verification; follow the explicit order and do not invent baseline evidence."
+port_zero = "A port-zero configuration is not an endpoint; consume the server's bound address only after it owns the listener. Linux standby discovery matches process-owned socket descriptors before reading the TCP table."
+standby_replay = "A standby must use StartStandby's production unsigned-receipt comparison; a generic AppReplayer signed by a different standby key cannot reproduce the primary's signature."
+
+[repair_cycle.1]
+revision = "00cba858c39c11b74b9e65bdb1599a385632c3da"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go build ./daemon/committed-fixture/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "ProgramsABI exists only in the precompile package's test export file, so production recorder references did not compile."
+repair = "Embed the deploy/call/ProgramCallOutcome client descriptor extracted unchanged from the canonical precompile ABI; parse it through the production ABI loader and continue exercising the real handler."
+
+[repair_cycle.2]
+revision = "71ddaa2ab39bfa75673f89218e64db7454eef9fa"
+command = "cg spec done 22.33.1092 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (compiler detail: /tmp/repair-m1092.log)"
+observed = "The repair test did not compile because its seed helper reused the payer parameter as an account id and omitted the receipt codec import; no test executed."
+repair = "Use a distinct payerAccount local and import the production receipt codec; retain every assertion and real producer/transport/consumer operation."
+
+[continuation]
+review = "Retain the prior implementation and compiler repairs; start the two real primary/standby/HTTP network stacks concurrently after preparing independent application stores, then record and verify both emitted vectors and process-owned reachable endpoints."
+gotcha = "Concurrent-start coverage must overlap listener acquisition, not only transaction recording after two sequential starts; the preparation/start split keeps global application setup serial while overlapping production network startup."
+
+[continuation_repair.1]
+revision = "d1ae5d81afb0833e23944bd980c4328d803fb0b1"
+command = "cg spec done 22.33.1092 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log (timeout stack: /tmp/repair-m1092.log)"
+observed = "The focused gate compiled, then timed out in the standby fixture's optional historical-index snapshot import; no repair test completed."
+repair = "Configure the standby commitment store as the existing node/sequencer/repair_103_test.go replica helper does, without the optional historical index, and assert that its restored commitment hash equals the primary before production standby replay; all behavior assertions remain intact."
+
+[wiring.historical_index]
+request = "sdk/storev2/rootmulti/store.go:992 and storage/state_db/ss/composite/store.go:498 — domain 14 (storage): resolve the historical-index importer deadlock recorded at d1ae5d81afb0833e23944bd980c4328d803fb0b1, cg spec done 22.33.1092, exit 1, /out/logs/verify-1.log; the recorder proof uses the production commitment store independently of optional historical indexing."

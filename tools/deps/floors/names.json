@@ -1,0 +1,20 @@
+{
+  "manifests": {
+    "apps/names/pnpm-lock.yaml": {
+      "next": "16.4.1",
+      "protobufjs": "7.6.3"
+    },
+    "apps/names/package.json": {
+      "next": "16.4.1"
+    },
+    "sdk/names/pnpm-lock.yaml": {
+      "@vitest/mocker": "4.1.12",
+      "protobufjs": "7.6.3",
+      "tinypool": "2.1.2",
+      "vitest": "4.1.11"
+    },
+    "sdk/names/package.json": {
+      "vitest": "4.1.11"
+    }
+  }
+}

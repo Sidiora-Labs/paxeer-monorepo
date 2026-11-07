@@ -1,0 +1,126 @@
+[disposition.16.21.1]
+finding = "16.21.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:191506 declares run_one_runs_named_case and run_one_reports_unknown_case as symbols, matching the functions at tests/protocol/lxp_test_smoke.c:15 and :21 while retaining the registered case IDs for selection."
+
+[disposition.16.22.2]
+finding = "16.22.2"
+status = "resolved"
+evidence = "Tagged commit b6efab0099dbe527ecb0fca861c7939773696efe records both testutil source deletions in landed history, and tests/ci/test_retired_testutil_network.py:5 asserts both paths remain absent."
+
+[disposition.16.23.1]
+finding = "16.23.1"
+status = "resolved"
+evidence = "Commit 99ef770d03a4f2bedd4f2b90cf68c9516864a45a removed lxp_genesis_handover_trust_build and the associated handover authority call from cmd/layerx-genesis/lxp_genesis_build_cli.c, eliminating the undeclared calls that blocked the module-table build."
+
+[disposition.16.23.2.1]
+finding = "16.23.2.1"
+status = "resolved"
+evidence = "Commit ac4266d0864cec60bf4b932b4f1add783d33b4ed removed the retired manifest signature precondition from signed_snapshot_migration_fixture, which now reaches the refusal and absent-output assertions at tests/test_genesis_builder_cli.c:178 without verifying that fixture."
+
+[disposition.16.24.4]
+finding = "16.24.4"
+status = "resolved"
+evidence = "tools/loadtest/config/settings.go:27 declares MinTPS float64, MaxP99Latency Duration and MinTotalTxs uint64, matching the assignments in MergeBounds at tools/loadtest/config/config.go:47 after their addition by ea696d97e52ed4487dce7988166f08e9bd86b0a0."
+
+[disposition.16.24.5]
+finding = "16.24.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:191790 uses go vet for the test-only profiles package, and commit 2ccc6e017dd85ef865d3de0589bda74e03aac6e5 populated all seven profiles with the explicit provisional bounds of decision 1895."
+
+[disposition.16.24.5.1]
+finding = "16.24.5.1"
+status = "resolved"
+evidence = "Commit 2ccc6e017dd85ef865d3de0589bda74e03aac6e5 added bounds to all seven profiles and the test at tools/loadtest/profiles/profiles_test.go:164, whose line 196 uses config.BoundsConfig directly with no test-only BoundsConfig alias."
+
+[disposition.16.24.5.2]
+finding = "16.24.5.2"
+status = "environment"
+evidence = "spec/layerx-merge/spec.kvx:5942 explicitly records that the release-candidate measurements are absent from this feature and defers retightening to a later feature, while tools/loadtest/profiles/local.json:3 still carries the provisional 5 TPS and 5000 ms bounds. Decision 2299: release-candidate load measurement runs on the candidate network at upgrade time, outside the merge; tools/loadtest/profiles/local.json keeps the provisional development bounds."
+follow_up = "decision.2299"
+
+[disposition.16.24.6.1]
+finding = "16.24.6.1"
+status = "environment"
+evidence = "spec/layerx-merge/spec.kvx:5942 supersedes task 16.24.6 without supplying release-candidate measurements, and tools/loadtest/profiles/profiles_test.go:196 checks only that the provisional bounds exist and are positive, leaving measured tightening unimplemented. Decision 2299: release-candidate load measurement runs on the candidate network at upgrade time, outside the merge; the profile test checks only that bounds exist and are positive."
+follow_up = "decision.2299"
+
+[disposition.16.25.2]
+finding = "16.25.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:191880 lists only the two declared pytest functions as symbols, while tools/benchmark/benchmark-compare.sh:33 retains MAX_REGRESSION_PCT, RESULTS_ONLY and BASE_DIR as shell configuration variables."
+
+[disposition.16.26.1]
+finding = "16.26.1"
+status = "resolved"
+evidence = "Commit 32e5ecd12e889f24269cd81dccac8be773ac2aa8 retained the in-file ERC721 base at tools/benchmark/loadtest/contracts/evm/src/ERC721.sol:34 and MyNFT at line 149, with the binding comparison at tools/benchmark/loadtest/contracts/evm/test_sources_match_bindings.py:43 covering function, event and error names."
+
+[disposition.16.26.2]
+finding = "16.26.2"
+status = "resolved"
+evidence = "Tagged commit c445632da221a5b0159f7408e3c74e19a5866b5f records deletion of deploy_univ2.sh and both univ2_swapper binding files in landed history, so the three retired paths now have matching task-tagged deletion evidence."
+
+[disposition.16.26.3]
+finding = "16.26.3"
+status = "resolved"
+evidence = "Commit 678f178d3ea82c46146e51c1f8161956d368e834 removed all three retired WasmOcc constants from the valid slice at tools/benchmark/loadtest/message_types_test.go:9 while preserving the unknown-type rejection assertions at line 20."
+
+[disposition.16.27.1]
+finding = "16.27.1"
+status = "resolved"
+evidence = "Tagged commit a1633d0e185f6b3aee86ed734e0403b5aec0b347 records both nested workflow deletions in landed history, and tests/ci/test_retired_loadtest_workflows.py:5 asserts both deleted paths remain absent."
+
+[disposition.16.31.5]
+finding = "16.31.5"
+status = "resolved"
+evidence = "Commit da96a386ba89529f5b6b15ff82015812fd6cda64 added exclude=() to assert_symbols_unreferenced at tests/ci/retired_tests.py:20 and skips excluded paths before scanning, supporting the call at tests/ci/test_retired_replica.py:22."
+
+[disposition.16.32.7]
+finding = "16.32.7"
+status = "resolved"
+evidence = "tests/ci/retired_tests.py:20 accepts exclude=() after commit da96a386ba89529f5b6b15ff82015812fd6cda64, and the landed retrieval retirement test supplies its excluded directories at tests/ci/test_retired_da_retrieval.py:18."
+
+[disposition.16.32.8]
+finding = "16.32.8"
+status = "resolved"
+evidence = "Commit da96a386ba89529f5b6b15ff82015812fd6cda64 added the exclude keyword at tests/ci/retired_tests.py:20 and the path skip at line 41, so the tests/daemon exclusion in tests/ci/test_retired_da_bundle.py:19 is supported."
+
+[disposition.16.33.2]
+finding = "16.33.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:192981 now builds only build/tests/test_web_program_path, and the landed test at tests/ci/test_retired_state_withdraw_web.py:34 likewise builds that surviving target after asserting the state-diff source is absent."
+
+[disposition.16.33.3]
+finding = "16.33.3"
+status = "resolved"
+evidence = "Commit da96a386ba89529f5b6b15ff82015812fd6cda64 added exclude=() at tests/ci/retired_tests.py:20 with exclusion coverage at tests/ci/test_retired_tests.py:73, supporting the oracle retirement call at tests/ci/test_retired_oracle.py:22."
+
+[disposition.16.33.6.1]
+finding = "16.33.6.1"
+status = "superseded"
+evidence = "Commit 29fc161917b9d5ecdf1e0e76170c817398a366f3 deleted tests/test_tools.c with the retired replay support headers, and tests/ci/test_retired_replay_support.py:12 now asserts that the rule-less suite remains absent."
+
+[disposition.16.35.1]
+finding = "16.35.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:193302 declares only test_module_drivers_retired as a graph symbol, and tests/ci/test_retired_module_drivers.py:12 retains explicit checks that custody-proof-build is absent from the frozen-vector README."
+
+[disposition.16.36.3]
+finding = "16.36.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:193432 declares only test_websearch_settlement_retired as a symbol, and commit 1fa3dee32d9ce37d712102b2400efa5e2abb985b removed checkpoint-settlement.json from the EXTRA list at tests/ci/websearch-context.py:19."
+
+[disposition.16.93.2]
+finding = "16.93.2"
+status = "resolved"
+evidence = "Commit f3f3190f7e0035db68ffe172292f0321855224a9 deleted consensus/test/docker/Dockerfile, removing the tracked file behind the ordering conflict, and tools/containers/test_out_of_scope_list.py:12 checks that its exclusion stays absent."
+
+[disposition.16.94.1]
+finding = "16.94.1"
+status = "resolved"
+evidence = "tests/ci/test_claims_and_replay_removed.py:35 checks the retired idempotency path and the state-transition replay case rather than scanning every suite for the replay code, and tests/test_state_commitment_transition.c:616 expects LXP_ERR_SEQUENCE_REUSED."
+
+[disposition.16.95.1.1]
+finding = "16.95.1.1"
+status = "superseded"
+evidence = "Commit 2fec9b48cb7fa27437474b10305f0c341b5dd966 deleted tests/test_receipt_offline.c with the guarantor certificate suites, and tests/ci/test_retired_guarantor_cert.py:6 asserts that the offline receipt suite remains absent."

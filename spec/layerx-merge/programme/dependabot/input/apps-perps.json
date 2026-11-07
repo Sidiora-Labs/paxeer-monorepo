@@ -1,0 +1,49 @@
+{
+ "slug": "apps-perps",
+ "manifests": [
+  "apps/perps/package-lock.json",
+  "apps/perps/pnpm-lock.yaml"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-gcqx-w48m-w2h4",
+   "number": 4531,
+   "package": "deepmerge",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/package-lock.json",
+   "severity": "low",
+   "range": ">= 4.2.0, <= 4.3.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-5r4p-p66f-jhc7",
+   "number": 4041,
+   "package": "hono",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/package-lock.json",
+   "severity": "medium",
+   "range": ">= 4.12.4, < 4.13.11",
+   "patched": "4.13.11"
+  },
+  {
+   "ghsa": "GHSA-gcqx-w48m-w2h4",
+   "number": 4532,
+   "package": "deepmerge",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/pnpm-lock.yaml",
+   "severity": "low",
+   "range": ">= 4.2.0, <= 4.3.1",
+   "patched": null
+  },
+  {
+   "ghsa": "GHSA-5r4p-p66f-jhc7",
+   "number": 4151,
+   "package": "hono",
+   "ecosystem": "npm",
+   "manifest": "apps/perps/pnpm-lock.yaml",
+   "severity": "medium",
+   "range": ">= 4.12.4, < 4.13.11",
+   "patched": "4.13.11"
+  }
+ ]
+}

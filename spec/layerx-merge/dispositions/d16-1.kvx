@@ -1,0 +1,126 @@
+[disposition.16.0.3.1]
+finding = "16.0.3.1"
+status = "resolved"
+evidence = "Commit 15bb6084d landed test_aggregates_dry_run_clean with the retired-token list at tools/ci/tests/test_makefile_wave4.py:60 excluding the still-live-at-qualification lxp_daemon_lni source."
+
+[disposition.16.0.3.2]
+finding = "16.0.3.2"
+status = "resolved"
+evidence = "Commit 15bb6084d landed tests/ci/test_paxai_chain_domain.py:12 deriving the expected chain-domain digest locally without opening the then-uncreated Rust golden file."
+
+[disposition.16.0.4.1]
+finding = "16.0.4.1"
+status = "environment"
+evidence = "Commit 2c706707f publishes the continued 16.0.4 implementation and spec/layerx-merge/spec.kvx:189232 records it done, while the missing first-attempt receipt resulted from the qualification worker time budget expiring."
+
+[disposition.16.0.4.2]
+finding = "16.0.4.2"
+status = "superseded"
+evidence = "Commit 7bef570ab retired the layerxd build rules and LAYERXD_SOURCES assignment, and commit 74387f084 changed tools/platform/emulator/build.rs:33 to request build/liblayerx.a instead of the daemon aggregate."
+
+[disposition.16.0.5.1]
+finding = "16.0.5.1"
+status = "superseded"
+evidence = "Commit d9ce95938 deleted include/layerx/lxp_daemon.h with the retired daemon, removing the header that named the deleted lx_programs_state_feed_store type."
+
+[disposition.16.2.4.1]
+finding = "16.2.4.1"
+status = "resolved"
+evidence = "Commit 7bef570ab landed tools/ci/tests/test_makefile_wave6.py:12 without platform-hosted-topology-check in the retired-target list, preserving the live included rule at services/platform/Makefile.inc:199."
+
+[disposition.16.2.4.2]
+finding = "16.2.4.2"
+status = "resolved"
+evidence = "Commit 5ba4a0318 removed the daemon WAL calls from programs/tests/differential/parallel.c, whose bind_differential_prefix at programs/tests/differential/parallel.c:63 now computes the batch roots and identity in memory."
+
+[disposition.16.3.1.1]
+finding = "16.3.1.1"
+status = "open"
+evidence = "tools/containers/check.sh:92 still omits the six tracked Dockerfiles named by the finding from OUT_OF_SCOPE, so the all-services placement branch at tools/containers/check.sh:218 still rejects them despite the task-specific test selecting kernel."
+follow_up = "22.16.5"
+
+[disposition.16.3.5.1]
+finding = "16.3.5.1"
+status = "resolved"
+evidence = "Commit 1bce7ab35 added docker/redis/tests/redis-image.test.sh and tests/ci/test_runner_routing_container_runtime.py to ROOT_TOKEN_EXEMPT at tools/containers/check.sh:130, which both root-token scans consume."
+
+[disposition.16.3.5.2]
+finding = "16.3.5.2"
+status = "resolved"
+evidence = "Commit 1bce7ab35 added the seven reported paths covering perps, geth, feeder, perps-data, image-edit tests, gate 24.20 and the xweb workflow ledger to ROOT_TOKEN_EXEMPT at tools/containers/check.sh:132."
+
+[disposition.16.4.1]
+finding = "16.4.1"
+status = "resolved"
+evidence = "Commit 46181daf1 changed tools/ci/tests/test_xweb_workflow.py:14 to scan oracle-web-roots and removed the retired adapter/root filters, kernel-web leg and its gate commands from scripts/ci/xweb-workflow-check.sh."
+
+[disposition.16.5.6.1]
+finding = "16.5.6.1"
+status = "resolved"
+evidence = "Commit 6b3458582 added the four publish-images exclusions at scripts/ci/runner-routing-check.sh:53 and routed both wallet jobs through CI_LINUX_RUNNER at .github/workflows/wallet-go-test.yml:42 and .github/workflows/wallet-go-test.yml:59."
+
+[disposition.16.6.1.1]
+finding = "16.6.1.1"
+status = "resolved"
+evidence = "Commit 346b78160 trimmed scripts/ci/solidity-state-surface.sh:4 to SidioraProxyTimelock alone, removing the retired anchor and custody contracts that blocked the wider scripts scan."
+
+[disposition.16.7.1]
+finding = "16.7.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:3543 now declares the derivation message and spec/layerx-merge/spec.kvx:3546 declares the public_names section with the router, sixteen RPC names, developer endpoints and ramp consumed by tools/bringup/docs-names.sh:27."
+
+[disposition.16.7.2.1]
+finding = "16.7.2.1"
+status = "resolved"
+evidence = "Commit 8c3819188 removed both GUARANTOR and RELAY_ARCHIVE from tools/bringup/railway-names.env together with their certificate inventory rows in tools/bringup/ca.sh."
+
+[disposition.16.7.4.1]
+finding = "16.7.4.1"
+status = "resolved"
+evidence = "Commit bd3f378d6 added the XWEB_SERVE_NAMES override at tools/bringup/xweb-config.sh:210 and the XWEB_GATEWAY_ENDPOINT input so the renderer can use explicit names and a loopback asset endpoint without a private host map."
+
+[disposition.16.7.4.2]
+finding = "16.7.4.2"
+status = "open"
+evidence = "services/platform/hosted/gateway/src/paxeer.rs:665 creates asset identity rows and services/platform/hosted/gateway/src/paxeer.rs:702 adds metadata without verification or paused, while tools/qualification/paxeer-x/paid-web-contract.py:3470 still requires both fields."
+follow_up = "22.16.6"
+
+[disposition.16.8.1.1]
+finding = "16.8.1.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:190473 now sets the 16.8.1 build command to bash -n tools/paxeer-x/gates/24.14.sh, the surviving gate edited by commit 42615df2c instead of the deleted 2.2.sh."
+
+[disposition.16.8.5]
+finding = "16.8.5"
+status = "resolved"
+evidence = "Commit e5de41013 restored RELEASE.md:8 naming the v6.12.0 migration, SID holder migration and SID mint-authority move with the node/upgrades_v6120.go handler required by tools/paxeer-x/gov/test.sh:21."
+
+[disposition.16.9.2]
+finding = "16.9.2"
+status = "resolved"
+evidence = "Commit a203b94b2 landed tools/paxeer-x/tests/test_service_catalogue.py:20 asserting 40 services and tools/paxeer-x/candidate.py:140 enforcing the same count against the current catalogue."
+
+[disposition.16.9.2.1]
+finding = "16.9.2.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:25515 specifies 40 services with string-or-list dependencies, matching the parser and dependency validation landed by a203b94b2 at tools/paxeer-x/candidate.py:127 and tools/paxeer-x/candidate.py:134."
+
+[disposition.16.9.4.1]
+finding = "16.9.4.1"
+status = "resolved"
+evidence = "Commit 310d6555f changed tools/paxeer-x/tests/retired_callers_test.py:391 to collect component references from every relevant spec line and assert only that no referenced component is missing from the catalogue."
+
+[disposition.16.9.4.2]
+finding = "16.9.4.2"
+status = "resolved"
+evidence = "Commit 310d6555f changed the documentation overlap refusal case at tools/paxeer-x/tests/retired_callers_test.py:842 from agent to services/agent, matching the relocated deleted trees."
+
+[disposition.16.9.4.3]
+finding = "16.9.4.3"
+status = "resolved"
+evidence = "Commit 310d6555f landed tools/paxeer-x/tests/test_retired_catalogue_deleted.py:25 checking the self-test and catalogue membership without invoking --deleted, leaving filesystem absence to the tasks that retire those trees."
+
+[disposition.16.12.1]
+finding = "16.12.1"
+status = "superseded"
+evidence = "Commit 912eaef5c retired contracts/CheckpointRegistry.sol, removing its NativePublicationVerifier import while foundry.toml:2 continues to compile src = contracts with no exclusion for that retired source."

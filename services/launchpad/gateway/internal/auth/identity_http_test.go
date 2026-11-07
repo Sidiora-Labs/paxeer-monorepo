@@ -34,7 +34,11 @@ type identityHTTPFixture struct {
 func ownerHTTPFixture(t *testing.T) *identityHTTPFixture {
 	t.Helper()
 	f := fixtureIdentity(t)
-	if _, err := f.pool.Exec(f.ctx, IdentitySerialDDL+IdentityOwnerDDL); err != nil {
+	ownerDDL, _, ok := strings.Cut(IdentityOwnerDDL, "CREATE FUNCTION identity_verified_at_immutable()")
+	if !ok {
+		t.Fatal("identity owner schema immutable timestamp section missing")
+	}
+	if _, err := f.pool.Exec(f.ctx, IdentitySerialDDL+ownerDDL); err != nil {
 		t.Fatal(err)
 	}
 	var schema string
@@ -382,7 +386,7 @@ func TestIdentityOwnerRealJetStreamRevisionDedup(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	contract, err := os.ReadFile(filepath.Join(sourceRoot, "launchpad/spec/production-system/integration/contracts/v2/catalog.json"))
+	contract, err := os.ReadFile(filepath.Join(sourceRoot, "sdk/launchpad/packages/sdk/src/operations.gen.ts"))
 	if err != nil {
 		t.Fatal(err)
 	}

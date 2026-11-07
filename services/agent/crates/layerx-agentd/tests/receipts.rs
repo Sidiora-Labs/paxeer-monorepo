@@ -2,14 +2,17 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::receipt::{
-    classify, serve, store, store_verified_if_absent, ReceiptLookupKey, ReceiptStoreError,
+    classify, serve, serve_evidence, store, store_verified_if_absent, ReceiptLookupKey,
+    ReceiptStoreError, TransactionReceiptEvidence, TransactionReceiptMetadata,
 };
 use layerx_agentd::store::{Store, TenantId};
 use layerx_proof::receipt::AuthorizedBatch;
 use layerx_types::result::{KnownResult, ResultCode, Retriability};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use layerx_wire::encode::Encoder;
 use layerx_wire::hash::receipt_digest;
+use sha2::{Digest, Sha256};
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 
@@ -106,6 +109,37 @@ fn tenant() -> TenantId {
     TenantId::new("tenant-a").unwrap_or_else(|error| panic!("tenant: {error}"))
 }
 
+fn transaction_receipt(hash: [u8; 32]) -> TransactionReceiptEvidence {
+    let canonical_receipt = [
+        &[0xf9, 0x01, 0x08, 0x01, 0x82, 0x52, 0x08, 0xb9, 0x01, 0x00][..],
+        &[0; 256],
+        &[0xc0],
+    ]
+    .concat();
+    let signing_key = k256::ecdsa::SigningKey::from_slice(&[7; 32])
+        .unwrap_or_else(|error| panic!("signing key: {error}"));
+    let digest: [u8; 32] = Sha256::digest(&canonical_receipt).into();
+    let (signature, recovery) = signing_key
+        .sign_prehash_recoverable(&digest)
+        .unwrap_or_else(|error| panic!("receipt signature: {error}"));
+    let mut receipt_signature = [0; 65];
+    receipt_signature[..64].copy_from_slice(&signature.to_bytes());
+    receipt_signature[64] = recovery.to_byte() + 27;
+    TransactionReceiptEvidence {
+        metadata: TransactionReceiptMetadata {
+            transaction_hash: hash,
+            block_height: 12,
+            tx_index: 1,
+            status: true,
+            gas_used: 21_000,
+            logs_bloom: [0; 256],
+            receipt_signature,
+            rung: Rung::Receipted,
+        },
+        canonical_receipt,
+    }
+}
+
 #[test]
 fn verified_bytes_survive_all_three_indexes_and_restart_unchanged() {
     let root = directory("indexes");
@@ -146,27 +180,26 @@ fn verified_bytes_survive_all_three_indexes_and_restart_unchanged() {
 #[test]
 fn first_verified_ingress_is_stored_before_it_is_served() {
     let root = directory("first-ingress");
-    let signing_key = SigningKey::from_bytes(&[3; 32]);
-    let fields = fields(0);
-    let exact = sign(&fields, &signing_key);
     let idem = [0x45; 32];
+    let record = transaction_receipt(idem);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
-    assert!(matches!(
-        serve(&durable, tenant(), ReceiptLookupKey::Idempotency(idem)),
-        Err(ReceiptStoreError::Missing)
-    ));
+    assert_eq!(
+        serve_evidence(&durable, tenant(), idem).unwrap_or_else(|error| panic!("{error:?}")),
+        None
+    );
     let served = store_verified_if_absent(
         &mut durable,
         tenant(),
         idem,
-        &exact,
-        &authorised(&fields, &signing_key),
+        &record.canonical_receipt,
+        &record,
     )
     .unwrap_or_else(|error| panic!("first ingress: {error:?}"));
-    assert_eq!(served.canonical_bytes, exact);
+    assert_eq!(served, record);
+    assert_eq!(served.metadata.rung, Rung::Receipted);
     assert_eq!(
-        served.metadata.verification_level,
-        VerificationLevel::SEQUENCER_SIGNED
+        serve_evidence(&durable, tenant(), idem).unwrap_or_else(|error| panic!("{error:?}")),
+        Some(record)
     );
     let _ = std::fs::remove_dir_all(root);
 }
@@ -174,36 +207,33 @@ fn first_verified_ingress_is_stored_before_it_is_served() {
 #[test]
 fn repeated_verified_ingress_refuses_conflicts_without_replacing_the_first_receipt() {
     let root = directory("ingress-conflict");
-    let signing_key = SigningKey::from_bytes(&[3; 32]);
-    let original = fields(0);
-    let exact = sign(&original, &signing_key);
     let idem = [0x46; 32];
+    let original = transaction_receipt(idem);
     let mut durable = Store::open(&root).unwrap_or_else(|error| panic!("store: {error}"));
     store_verified_if_absent(
         &mut durable,
         tenant(),
         idem,
-        &exact,
-        &authorised(&original, &signing_key),
+        &original.canonical_receipt,
+        &original,
     )
     .unwrap_or_else(|error| panic!("first ingress: {error:?}"));
 
     let mut conflicting = original.clone();
-    conflicting.activity_id = [0x47; 32];
-    let conflicting_exact = sign(&conflicting, &signing_key);
+    conflicting.metadata.gas_used += 1;
     assert!(matches!(
         store_verified_if_absent(
             &mut durable,
             tenant(),
             idem,
-            &conflicting_exact,
-            &authorised(&conflicting, &signing_key),
+            &conflicting.canonical_receipt,
+            &conflicting,
         ),
-        Err(ReceiptStoreError::Corrupt)
+        Err(ReceiptStoreError::Store(_))
     ));
-    let served = serve(&durable, tenant(), ReceiptLookupKey::Idempotency(idem))
+    let served = serve_evidence(&durable, tenant(), idem)
         .unwrap_or_else(|error| panic!("serve original: {error:?}"));
-    assert_eq!(served.canonical_bytes, exact);
+    assert_eq!(served, Some(original));
     let _ = std::fs::remove_dir_all(root);
 }
 

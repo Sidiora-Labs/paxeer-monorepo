@@ -270,7 +270,7 @@ class ProvenanceInputAdversaries(unittest.TestCase):
         from provenance import make_statement, validate_statement
         root = pathlib.Path(__file__).resolve().parents[4]
         source = source_manifest(root, ['services/launchpad/security/supplychain/controller.py', 'services/launchpad/security/supplychain/policy.py'])
-        workflow = digest((root / 'launchpad/.github/workflows/ci.yml').read_bytes())
+        workflow = digest((root / '.github/workflows/offchain-images.yml').read_bytes())
         binary = digest(pathlib.Path(sys.executable).resolve().read_bytes())
         expected = {'source': source['sha256'], 'workflow': workflow, 'repository': 'owner/repository', 'ref': 'refs/heads/main', 'service': 'indexer', 'binary': 'indexerd', 'architecture': 'amd64', 'builder': 'reviewed-builder', 'run_id': '123', 'sbom': digest(b'approved inventory bytes'), 'image': 'registry.example/app@sha256:' + binary, 'materials': source['files']}
         build = {**expected, 'binary_sha256': binary}

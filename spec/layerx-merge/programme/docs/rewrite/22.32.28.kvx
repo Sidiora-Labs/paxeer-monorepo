@@ -1,0 +1,11 @@
+[manifest]
+task = "22.32.28"
+domain = 5
+owner_role = "fm-node-runtime"
+pages = 1
+
+[page.1]
+path = "consensus/internal/rpc/core/CONTRIBUTING.md"
+status = "stale"
+bytes = 99
+source_1 = "record 22.30.54 [doc.13] (stale): The complete page points to the wrong relative OpenAPI path; see rpc-contributing-openapi-path."

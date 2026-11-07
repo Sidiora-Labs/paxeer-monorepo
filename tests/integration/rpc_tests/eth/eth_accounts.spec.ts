@@ -1,7 +1,6 @@
 import { expect } from 'chai';
-import { bothProviders, isReachable, rawPax, rawGeth, rawAccountless, expectJsonRpcError } from '../utils/chainUtils';
+import { bothProviders, isReachable, rawPax, rawGeth, rawJsonRpc, waitUntil, expectJsonRpcError } from '../utils/chainUtils';
 import { ADDRESS, ADDRESS_LOWER } from '../utils/format';
-import { Endpoints } from '../config/endpoints';
 
 describe('eth_accounts Tests', function () {
     this.timeout(60 * 1000);
@@ -55,11 +54,24 @@ describe('eth_accounts Tests', function () {
     });
 
     describe('empty / null handling', () => {
+        // The integration runner must provision an isolated Pax node with an empty
+        // test keyring and unsafe keyring RPC enabled on a non-live chain.
+        const accountless = process.env.RPC_ACCOUNTLESS ?? 'http://127.0.0.1:9548';
+
+        before(async () => {
+            const url = new URL(accountless);
+            expect(['127.0.0.1', '[::1]', 'localhost'], 'keyless fixture must be local').to.include(url.hostname);
+            expect(url.protocol, 'keyless fixture uses local HTTP').to.equal('http:');
+            await waitUntil(async () => (await isReachable(accountless)) ? true : null, {
+                timeoutMs: 10_000,
+                intervalMs: 200,
+                label: 'required local keyless Pax RPC (RPC_ACCOUNTLESS)',
+            });
+        });
         it('a keyless node returns [] (empty array), never null', async function () {
-            if (!(await isReachable(Endpoints.accountless))) {
-                this.skip();
-            }
-            const body = await rawAccountless<string[]>('eth_accounts', []);
+            const body = await rawJsonRpc<string[]>(accountless, 'eth_accounts', []);
+            expect(body.jsonrpc).to.equal('2.0');
+            expect(body.id).to.equal(1);
             expect(body.error, JSON.stringify(body.error)).to.equal(undefined);
             expect(body.result, 'keyless node must encode the empty set as []').to.deep.equal([]);
             expect(body.result).to.not.equal(null);

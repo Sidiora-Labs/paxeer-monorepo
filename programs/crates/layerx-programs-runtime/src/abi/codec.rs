@@ -390,6 +390,7 @@ impl Calldata {
             .data
             .len()
             .checked_add(additional)
+            .and_then(|length| length.checked_add(1))
             .ok_or(CodecError::InvalidLength)?;
         if total > MAX_CALLDATA_BYTES {
             return Err(CodecError::InputTooLarge);
@@ -430,7 +431,12 @@ impl<'a> Decoder<'a> {
             return Ok(());
         }
         match self.convention {
-            EncodingConvention::LayerX => self.validate_layerx_value(depth),
+            EncodingConvention::LayerX => {
+                while self.position < self.data.len() {
+                    self.validate_layerx_value(depth)?;
+                }
+                Ok(())
+            }
             EncodingConvention::EvmHeadOnly => self.validate_evm_head_only(),
         }
     }
@@ -730,10 +736,118 @@ mod tests {
     }
 
     #[test]
-    fn decoded_size_limit_is_enforced() {
+    fn encoder_input_size_limit_is_enforced() {
         let mut calldata = Calldata::new();
         let large_bytes = vec![0u8; DECODED_SIZE_LIMIT + 1];
         assert!(calldata.encode_bytes(&large_bytes).is_err());
+    }
+
+    #[test]
+    fn decoder_budget_charges_all_top_level_values() -> Result<(), CodecError> {
+        let mut calldata = Calldata::new();
+        calldata.encode_u8(1)?;
+        calldata.encode_u16(2)?;
+        calldata.begin_fixed_array(2)?;
+        calldata.encode_u32(3)?;
+        calldata.begin_variable_array(2)?;
+        calldata.encode_u64(4)?;
+        calldata.begin_option_some()?;
+        calldata.begin_union(5)?;
+        calldata.encode_u128(6)?;
+        calldata.encode_option_none()?;
+        calldata.encode_bytes(b"seven")?;
+        let mut decoder = Decoder::new(calldata.payload(), EncodingConvention::LayerX);
+        decoder.validate_canonical(0)?;
+        assert_eq!(decoder.position, calldata.payload().len());
+        assert_eq!(decoder.decoded_size, 1 + 2 + 4 + 8 + 16 + 5);
+        assert!(decoder.decoded_size < decoder.position);
+        Ok(())
+    }
+
+    #[test]
+    fn decoder_budget_is_shared_across_top_level_values() -> Result<(), CodecError> {
+        let mut calldata = Calldata::new();
+        calldata.encode_u8(1)?;
+        calldata.encode_u16(2)?;
+        let mut decoder = Decoder::new(calldata.payload(), EncodingConvention::LayerX);
+        decoder.charge_decoded(DECODED_SIZE_LIMIT - 3)?;
+        decoder.validate_canonical(0)?;
+        assert_eq!(decoder.position, calldata.payload().len());
+        assert_eq!(decoder.decoded_size, DECODED_SIZE_LIMIT);
+
+        calldata.encode_u8(3)?;
+        let mut decoder = Decoder::new(calldata.payload(), EncodingConvention::LayerX);
+        decoder.charge_decoded(DECODED_SIZE_LIMIT - 3)?;
+        assert_eq!(
+            decoder.validate_canonical(0),
+            Err(CodecError::DecodedSizeLimitExceeded)
+        );
+        assert_eq!(decoder.decoded_size, DECODED_SIZE_LIMIT + 1);
+        Ok(())
+    }
+
+    #[test]
+    fn decoder_budget_rejects_excess_and_arithmetic_overflow() -> Result<(), CodecError> {
+        let mut decoder = Decoder::new(&[], EncodingConvention::LayerX);
+        decoder.charge_decoded(DECODED_SIZE_LIMIT - 1)?;
+        decoder.charge_decoded(1)?;
+        decoder.charge_decoded(0)?;
+        assert_eq!(decoder.decoded_size, DECODED_SIZE_LIMIT);
+        assert_eq!(
+            decoder.charge_decoded(1),
+            Err(CodecError::DecodedSizeLimitExceeded)
+        );
+
+        let mut decoder = Decoder::new(&[], EncodingConvention::LayerX);
+        assert_eq!(
+            decoder.charge_decoded(DECODED_SIZE_LIMIT + 1),
+            Err(CodecError::DecodedSizeLimitExceeded)
+        );
+        let mut decoder = Decoder::new(&[], EncodingConvention::LayerX);
+        decoder.charge_decoded(1)?;
+        assert_eq!(
+            decoder.charge_decoded(usize::MAX),
+            Err(CodecError::DecodedSizeLimitExceeded)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn decoder_scalar_accounting_is_bounded_by_encoded_size() -> Result<(), CodecError> {
+        for tag in [
+            TypeTag::U8,
+            TypeTag::U16,
+            TypeTag::U32,
+            TypeTag::U64,
+            TypeTag::U128,
+            TypeTag::U256,
+            TypeTag::I8,
+            TypeTag::I16,
+            TypeTag::I32,
+            TypeTag::I64,
+            TypeTag::I128,
+        ] {
+            let width = tag.size_bytes().unwrap_or_else(|| panic!("scalar width"));
+            let mut payload = vec![tag as u8];
+            payload.resize(width + 1, 0xa5);
+            let mut decoder = Decoder::new(&payload, EncodingConvention::LayerX);
+            decoder.validate_canonical(0)?;
+            assert_eq!(decoder.position, payload.len());
+            assert_eq!(decoder.decoded_size, width);
+            assert_eq!(decoder.decoded_size + 1, decoder.position);
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn decoder_evm_accounting_equals_consumed_size() -> Result<(), CodecError> {
+        let payload = [0xa5; 96];
+        let mut decoder = Decoder::new(&payload, EncodingConvention::EvmHeadOnly);
+        decoder.validate_canonical(0)?;
+        assert_eq!(decoder.position, payload.len());
+        assert_eq!(decoder.decoded_size, payload.len());
+        assert!(MAX_CALLDATA_BYTES - 1 < DECODED_SIZE_LIMIT);
+        Ok(())
     }
 
     #[test]

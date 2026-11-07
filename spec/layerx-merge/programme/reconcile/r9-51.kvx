@@ -1,0 +1,487 @@
+[reconcile.r9-51]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-51.1]
+interface = "interface.9.rs-agentd-events-ingest-coreevent"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/ingest.rs"
+line = 29
+symbol = "CoreEvent"
+evidence = "pub struct CoreEvent remains the declaring signature; current fields are global_sequence: u64, canonical_bytes: Vec<u8>, receipt_reference: Option<[u8; 32]>, receipt_verification_level: legacy::VerificationLevel and attributes: EventAttributes. Decision override.J43.9 targets this retained type for task 9.11.2; the identifier is unchanged and the declaration moved from line 24 to 29."
+
+[row.r9-51.2]
+interface = "interface.9.rs-agentd-events-ingest-eventingestor"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/ingest.rs"
+line = 120
+symbol = "EventIngestor"
+evidence = "pub struct EventIngestor remains the declaring signature. Its current state includes pending: BTreeMap<Cursor, CoreEvent> and head: Option<u64> alongside the store, tenant, capacity, buffered events and watermark. Decision override.J43.8 targets this retained type for task 9.11.2; the declaration moved from line 105 to 120."
+
+[row.r9-51.3]
+interface = "interface.9.rs-agentd-events-subscription-cursor-j43"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 36
+symbol = "Cursor"
+evidence = "The registered pub struct Cursor(pub u64); is now pub struct Cursor { pub block_height: u64, pub tx_index: u32, pub log_index: u32 }. The ordered subscription position is a block/transaction/log tuple rather than a single sequence; its declaration is at line 36."
+
+[row.r9-51.4]
+interface = "interface.9.rs-agentd-events-subscription-store"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/events/subscription.rs"
+line = 223
+symbol = "Store"
+evidence = "pub struct Store remains the declaring signature at line 223 rather than 178. The durable field now uses DurableBacking, whose variants own a DurableStore or share Arc<Mutex<DurableStore>>; tenant: TenantId and records: BTreeMap<String, DurableRecord> remain current fields. Decision override.J43.7 targets this retained type for task 9.11.1."
+
+[row.r9-51.5]
+interface = "interface.9.rs-agentd-export-build"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/export.rs"
+line = 172
+symbol = "build"
+evidence = "pub fn build(artifact: OfflineExport, trust: &ExportTrustSource) -> Result<BuiltExport, ExportBuildError> replaces the registered LegacyOfflineExport and expected_settlement_domain: SettlementDomain arguments. It verifies the proof artifact against receipt keys and validators, then enforces the serialized frame bound."
+
+[row.r9-51.6]
+interface = "interface.9.fmt-offline-export"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/export.rs"
+line = 331
+symbol = "produce"
+evidence = "pub fn produce(context: &ExportOwnerContext, facts: &[FactRef], requested: VerificationLevel) -> Result<ProducedExport, ExportProduceError> serves the export format through produce_retained. The current OfflineExport in layerx-agent-api/src/read.rs:589 carries facts: Vec<FactRef>, bundles: Vec<ProofBundle> and height: u64 instead of the legacy certificate/header export. MAX_EXPORT_BYTES at export.rs:33 aliases agent_rpc::MAX_BODY_BYTES, still 1048576, and bounds serialized JSON."
+
+[row.r9-51.7]
+interface = "interface.9.rs-agentd-finality-inclusionbundle-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 21
+symbol = "InclusionBundle"
+evidence = "InclusionBundle is absent from the registered finality.rs; VerifiedReceipt at finality.rs:185, VerifiedBlock at :251 and FinalityRecord at :277 now carry receipt-key and consensus-commit evidence. Repository-wide rg and git grep searches for the exact identifier, excluding spec and docs directories, found no remaining files; remaining_refs is zero."
+remaining_refs = 0
+remaining = []
+
+[row.r9-51.8]
+interface = "interface.9.rs-agentd-finality-wait-for-level-j43"
+verdict = "retired"
+path = "services/agent/crates/layerx-agentd/src/finality.rs"
+line = 289
+symbol = "wait_for_level"
+evidence = "wait_for_level is absent from the registered finality.rs; wait_for_rung<P: VerificationProgress> at finality.rs:511 now requests a Rung and polls VerificationProgress::rung_at. Repository-wide rg and git grep searches for the exact identifier, excluding spec and docs directories, found no remaining files; remaining_refs is zero."
+remaining_refs = 0
+remaining = []
+
+[row.r9-51.9]
+interface = "interface.9.fmt-human-peer-frame"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 17
+symbol = "LXHAGT01"
+evidence = "const MAGIC: &[u8; 8] = b\"LXHAGT01\" and const TRACED_MAGIC: &[u8; 8] = b\"LXHAGT02\" remain at lines 17-18; the wire magic is unchanged. The traced envelope validates a 36-byte trace and wraps an LXHAGT01 request. Unlike the registered description of a local transport implementation, human_frame.rs now reexports layerx_client::frame::transport::FrameTransport as HumanFrameTransport and shared framing with a four-byte big-endian length prefix."
+
+[row.r9-51.10]
+interface = "interface.9.proto-human-peer-prepare"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 60
+symbol = "PREPARE"
+evidence = "The registered wire signature remains opcode 1 PREPARE; the current declaration is pub const PREPARE: u8 = 1; at human.rs:60 (registered line 57). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.11]
+interface = "interface.9.proto-human-peer-submit"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 61
+symbol = "SUBMIT"
+evidence = "The registered wire signature remains opcode 2 SUBMIT; the current declaration is pub const SUBMIT: u8 = 2; at human.rs:61 (registered line 58). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.12]
+interface = "interface.9.proto-human-peer-track"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 62
+symbol = "TRACK"
+evidence = "The registered wire signature remains opcode 3 TRACK; the current declaration is pub const TRACK: u8 = 3; at human.rs:62 (registered line 59). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.13]
+interface = "interface.9.proto-human-peer-receipt-lookup"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 63
+symbol = "RECEIPT_LOOKUP"
+evidence = "The registered wire signature remains opcode 4 RECEIPT_LOOKUP; the current declaration is pub const RECEIPT_LOOKUP: u8 = 4; at human.rs:63 (registered line 60). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.14]
+interface = "interface.9.proto-human-peer-registry"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 64
+symbol = "REGISTRY"
+evidence = "The registered wire signature remains opcode 5 REGISTRY; the current declaration is pub const REGISTRY: u8 = 5; at human.rs:64 (registered line 61). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.15]
+interface = "interface.9.proto-human-peer-approval-list"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 65
+symbol = "APPROVAL_LIST"
+evidence = "The registered wire signature remains opcode 9 APPROVAL_LIST; the current declaration is pub const APPROVAL_LIST: u8 = 9; at human.rs:65 (registered line 62). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.16]
+interface = "interface.9.proto-human-peer-approval-get"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 66
+symbol = "APPROVAL_GET"
+evidence = "The registered wire signature remains opcode 10 APPROVAL_GET; the current declaration is pub const APPROVAL_GET: u8 = 10; at human.rs:66 (registered line 63). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.17]
+interface = "interface.9.proto-human-peer-approval-approve"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 67
+symbol = "APPROVAL_APPROVE"
+evidence = "The registered wire signature remains opcode 11 APPROVAL_APPROVE; the current declaration is pub const APPROVAL_APPROVE: u8 = 11; at human.rs:67 (registered line 64). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.18]
+interface = "interface.9.proto-human-peer-approval-reject"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 68
+symbol = "APPROVAL_REJECT"
+evidence = "The registered wire signature remains opcode 12 APPROVAL_REJECT; the current declaration is pub const APPROVAL_REJECT: u8 = 12; at human.rs:68 (registered line 65). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.19]
+interface = "interface.9.proto-human-peer-identity-resolve"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 71
+symbol = "IDENTITY_RESOLVE"
+evidence = "The registered wire signature remains opcode 20 IDENTITY_RESOLVE; the current declaration is pub const IDENTITY_RESOLVE: u8 = 20; at human.rs:71 (registered line 68). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.20]
+interface = "interface.9.proto-human-peer-lease-map"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 72
+symbol = "LEASE_MAP"
+evidence = "The registered wire signature remains opcode 21 LEASE_MAP; the current declaration is pub const LEASE_MAP: u8 = 21; at human.rs:72 (registered line 69). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.21]
+interface = "interface.9.proto-human-peer-owner-validate"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 73
+symbol = "OWNER_VALIDATE"
+evidence = "The registered wire signature remains opcode 22 OWNER_VALIDATE; the current declaration is pub const OWNER_VALIDATE: u8 = 22; at human.rs:73 (registered line 70). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.22]
+interface = "interface.9.proto-human-peer-owner-install"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 74
+symbol = "OWNER_INSTALL"
+evidence = "The registered wire signature remains opcode 23 OWNER_INSTALL; the current declaration is pub const OWNER_INSTALL: u8 = 23; at human.rs:74 (registered line 71). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.23]
+interface = "interface.9.proto-human-peer-agent-list"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 75
+symbol = "AGENT_LIST"
+evidence = "The registered wire signature remains opcode 24 AGENT_LIST; the current declaration is pub const AGENT_LIST: u8 = 24; at human.rs:75 (registered line 72). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.24]
+interface = "interface.9.proto-human-peer-agent-get"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 76
+symbol = "AGENT_GET"
+evidence = "The registered wire signature remains opcode 25 AGENT_GET; the current declaration is pub const AGENT_GET: u8 = 25; at human.rs:76 (registered line 73). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.25]
+interface = "interface.9.proto-human-peer-agent-control"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 77
+symbol = "AGENT_CONTROL"
+evidence = "The registered wire signature remains opcode 26 AGENT_CONTROL; the current declaration is pub const AGENT_CONTROL: u8 = 26; at human.rs:77 (registered line 74). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.26]
+interface = "interface.9.proto-human-peer-agent-limit"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 78
+symbol = "AGENT_LIMIT"
+evidence = "The registered wire signature remains opcode 27 AGENT_LIMIT; the current declaration is pub const AGENT_LIMIT: u8 = 27; at human.rs:78 (registered line 75). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.27]
+interface = "interface.9.proto-human-peer-agent-owner-rotated"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 79
+symbol = "AGENT_OWNER_ROTATED"
+evidence = "The registered wire signature remains opcode 43 AGENT_OWNER_ROTATED; the current declaration is pub const AGENT_OWNER_ROTATED: u8 = 43; at human.rs:79 (registered line 76). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.28]
+interface = "interface.9.proto-human-peer-agent-journey"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 80
+symbol = "AGENT_JOURNEY"
+evidence = "The registered wire signature remains opcode 28 AGENT_JOURNEY; the current declaration is pub const AGENT_JOURNEY: u8 = 28; at human.rs:80 (registered line 77). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.29]
+interface = "interface.9.proto-human-peer-agent-archive"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 81
+symbol = "AGENT_ARCHIVE"
+evidence = "The registered wire signature remains opcode 29 AGENT_ARCHIVE; the current declaration is pub const AGENT_ARCHIVE: u8 = 29; at human.rs:81 (registered line 78). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.30]
+interface = "interface.9.proto-human-peer-capability-install"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 82
+symbol = "CAPABILITY_INSTALL"
+evidence = "The registered wire signature remains opcode 30 CAPABILITY_INSTALL; the current declaration is pub const CAPABILITY_INSTALL: u8 = 30; at human.rs:82 (registered line 79). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.31]
+interface = "interface.9.proto-human-peer-agent-context"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 83
+symbol = "AGENT_CONTEXT"
+evidence = "The registered wire signature remains opcode 31 AGENT_CONTEXT; the current declaration is pub const AGENT_CONTEXT: u8 = 31; at human.rs:83 (registered line 80). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.32]
+interface = "interface.9.proto-human-peer-agent-budget-state"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 84
+symbol = "AGENT_BUDGET_STATE"
+evidence = "The registered wire signature remains opcode 32 AGENT_BUDGET_STATE; the current declaration is pub const AGENT_BUDGET_STATE: u8 = 32; at human.rs:84 (registered line 81). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.33]
+interface = "interface.9.proto-human-peer-agent-key-policy"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 85
+symbol = "AGENT_KEY_POLICY"
+evidence = "The registered wire signature remains opcode 33 AGENT_KEY_POLICY; the current declaration is pub const AGENT_KEY_POLICY: u8 = 33; at human.rs:85 (registered line 82). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.34]
+interface = "interface.9.proto-human-peer-agent-session-snapshot"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 86
+symbol = "AGENT_SESSION_SNAPSHOT"
+evidence = "The registered wire signature remains opcode 34 AGENT_SESSION_SNAPSHOT; the current declaration is pub const AGENT_SESSION_SNAPSHOT: u8 = 34; at human.rs:86 (registered line 83). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.35]
+interface = "interface.9.proto-human-peer-agent-session-suspend"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 87
+symbol = "AGENT_SESSION_SUSPEND"
+evidence = "The registered wire signature remains opcode 35 AGENT_SESSION_SUSPEND; the current declaration is pub const AGENT_SESSION_SUSPEND: u8 = 35; at human.rs:87 (registered line 84). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.36]
+interface = "interface.9.proto-human-peer-agent-session-bind"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 88
+symbol = "AGENT_SESSION_BIND"
+evidence = "The registered wire signature remains opcode 36 AGENT_SESSION_BIND; the current declaration is pub const AGENT_SESSION_BIND: u8 = 36; at human.rs:88 (registered line 85). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.37]
+interface = "interface.9.proto-human-peer-agent-lifecycle-publish"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 89
+symbol = "AGENT_LIFECYCLE_PUBLISH"
+evidence = "The registered wire signature remains opcode 37 AGENT_LIFECYCLE_PUBLISH; the current declaration is pub const AGENT_LIFECYCLE_PUBLISH: u8 = 37; at human.rs:89 (registered line 86). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.38]
+interface = "interface.9.proto-human-peer-agent-session-restrict"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 90
+symbol = "AGENT_SESSION_RESTRICT"
+evidence = "The registered wire signature remains opcode 38 AGENT_SESSION_RESTRICT; the current declaration is pub const AGENT_SESSION_RESTRICT: u8 = 38; at human.rs:90 (registered line 87). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.39]
+interface = "interface.9.proto-human-peer-account-sequence"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 91
+symbol = "ACCOUNT_SEQUENCE"
+evidence = "The registered wire signature remains opcode 13 ACCOUNT_SEQUENCE; the current declaration is pub const ACCOUNT_SEQUENCE: u8 = 13; at human.rs:91 (registered line 88). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.40]
+interface = "interface.9.proto-human-peer-balance"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 92
+symbol = "BALANCE"
+evidence = "The registered wire signature remains opcode 6 BALANCE; the current declaration is pub const BALANCE: u8 = 6; at human.rs:92 (registered line 89). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.41]
+interface = "interface.9.proto-human-peer-native-fee-policy"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 93
+symbol = "NATIVE_FEE_POLICY"
+evidence = "The registered wire signature remains opcode 39 NATIVE_FEE_POLICY; the current declaration is pub const NATIVE_FEE_POLICY: u8 = 39; at human.rs:93 (registered line 90). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.42]
+interface = "interface.9.proto-human-peer-session-fee-state"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 94
+symbol = "SESSION_FEE_STATE"
+evidence = "The registered wire signature remains opcode 40 SESSION_FEE_STATE; the current declaration is pub const SESSION_FEE_STATE: u8 = 40; at human.rs:94 (registered line 91). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.43]
+interface = "interface.9.proto-human-peer-session-seed-prepare"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 95
+symbol = "SESSION_SEED_PREPARE"
+evidence = "The registered wire signature remains opcode 41 SESSION_SEED_PREPARE; the current declaration is pub const SESSION_SEED_PREPARE: u8 = 41; at human.rs:95 (registered line 92). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.44]
+interface = "interface.9.proto-human-peer-account-state"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 96
+symbol = "ACCOUNT_STATE"
+evidence = "The registered wire signature remains opcode 42 ACCOUNT_STATE; the current declaration is pub const ACCOUNT_STATE: u8 = 42; at human.rs:96 (registered line 93). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.45]
+interface = "interface.9.proto-human-peer-subject"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 97
+symbol = "SUBJECT"
+evidence = "The registered wire signature remains opcode 44 SUBJECT; the current declaration is pub const SUBJECT: u8 = 44; at human.rs:97 (registered line 94). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.46]
+interface = "interface.9.proto-human-peer-operator"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 98
+symbol = "OPERATOR"
+evidence = "The registered wire signature remains opcode 45 OPERATOR; the current declaration is pub const OPERATOR: u8 = 45; at human.rs:98 (registered line 95). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.47]
+interface = "interface.9.proto-human-peer-approval-list-facts-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 99
+symbol = "APPROVAL_LIST_FACTS_V2"
+evidence = "The registered wire signature remains opcode 46 APPROVAL_LIST_FACTS_V2; the current declaration is pub const APPROVAL_LIST_FACTS_V2: u8 = 46; at human.rs:99 (registered line 96). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.48]
+interface = "interface.9.proto-human-peer-approval-get-facts-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 100
+symbol = "APPROVAL_GET_FACTS_V2"
+evidence = "The registered wire signature remains opcode 47 APPROVAL_GET_FACTS_V2; the current declaration is pub const APPROVAL_GET_FACTS_V2: u8 = 47; at human.rs:100 (registered line 97). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.49]
+interface = "interface.9.proto-human-peer-approval-budget-after-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 101
+symbol = "APPROVAL_BUDGET_AFTER_V2"
+evidence = "The registered wire signature remains opcode 48 APPROVAL_BUDGET_AFTER_V2; the current declaration is pub const APPROVAL_BUDGET_AFTER_V2: u8 = 48; at human.rs:101 (registered line 98). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.50]
+interface = "interface.9.proto-human-peer-managed-evidence-by-digest-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 102
+symbol = "MANAGED_EVIDENCE_BY_DIGEST_V2"
+evidence = "The registered wire signature remains opcode 49 MANAGED_EVIDENCE_BY_DIGEST_V2; the current declaration is pub const MANAGED_EVIDENCE_BY_DIGEST_V2: u8 = 49; at human.rs:102 (registered line 99). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.51]
+interface = "interface.9.proto-human-peer-native-approval-list-facts-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 103
+symbol = "NATIVE_APPROVAL_LIST_FACTS_V2"
+evidence = "The registered wire signature remains opcode 50 NATIVE_APPROVAL_LIST_FACTS_V2; the current declaration is pub const NATIVE_APPROVAL_LIST_FACTS_V2: u8 = 50; at human.rs:103 (registered line 100). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.52]
+interface = "interface.9.proto-human-peer-native-approval-get-facts-v2"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 104
+symbol = "NATIVE_APPROVAL_GET_FACTS_V2"
+evidence = "The registered wire signature remains opcode 51 NATIVE_APPROVAL_GET_FACTS_V2; the current declaration is pub const NATIVE_APPROVAL_GET_FACTS_V2: u8 = 51; at human.rs:104 (registered line 101). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.53]
+interface = "interface.9.proto-human-peer-native-program-approval-list-v5"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 105
+symbol = "NATIVE_PROGRAM_APPROVAL_LIST_V5"
+evidence = "The registered wire signature remains opcode 58 NATIVE_PROGRAM_APPROVAL_LIST_V5; the current declaration is pub const NATIVE_PROGRAM_APPROVAL_LIST_V5: u8 = 58; at human.rs:105 (registered line 102). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.54]
+interface = "interface.9.proto-human-peer-native-program-approval-get-v5"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 106
+symbol = "NATIVE_PROGRAM_APPROVAL_GET_V5"
+evidence = "The registered wire signature remains opcode 59 NATIVE_PROGRAM_APPROVAL_GET_V5; the current declaration is pub const NATIVE_PROGRAM_APPROVAL_GET_V5: u8 = 59; at human.rs:106 (registered line 103). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.55]
+interface = "interface.9.proto-human-peer-native-program-approval-material-v5"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 107
+symbol = "NATIVE_PROGRAM_APPROVAL_MATERIAL_V5"
+evidence = "The registered wire signature remains opcode 60 NATIVE_PROGRAM_APPROVAL_MATERIAL_V5; the current declaration is pub const NATIVE_PROGRAM_APPROVAL_MATERIAL_V5: u8 = 60; at human.rs:107 (registered line 104). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.56]
+interface = "interface.9.proto-human-peer-native-program-approval-budget-v5"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 108
+symbol = "NATIVE_PROGRAM_APPROVAL_BUDGET_V5"
+evidence = "The registered wire signature remains opcode 61 NATIVE_PROGRAM_APPROVAL_BUDGET_V5; the current declaration is pub const NATIVE_PROGRAM_APPROVAL_BUDGET_V5: u8 = 61; at human.rs:108 (registered line 105). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.57]
+interface = "interface.9.proto-human-peer-native-program-approval-decide-v5"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 109
+symbol = "NATIVE_PROGRAM_APPROVAL_DECIDE_V5"
+evidence = "The registered wire signature remains opcode 62 NATIVE_PROGRAM_APPROVAL_DECIDE_V5; the current declaration is pub const NATIVE_PROGRAM_APPROVAL_DECIDE_V5: u8 = 62; at human.rs:109 (registered line 106). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.58]
+interface = "interface.9.proto-human-peer-native-effect-approval-list-v3"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 110
+symbol = "NATIVE_EFFECT_APPROVAL_LIST_V3"
+evidence = "The registered wire signature remains opcode 52 NATIVE_EFFECT_APPROVAL_LIST_V3; the current declaration is pub const NATIVE_EFFECT_APPROVAL_LIST_V3: u8 = 52; at human.rs:110 (registered line 107). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.59]
+interface = "interface.9.proto-human-peer-native-effect-approval-get-v3"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 111
+symbol = "NATIVE_EFFECT_APPROVAL_GET_V3"
+evidence = "The registered wire signature remains opcode 53 NATIVE_EFFECT_APPROVAL_GET_V3; the current declaration is pub const NATIVE_EFFECT_APPROVAL_GET_V3: u8 = 53; at human.rs:111 (registered line 108). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."
+
+[row.r9-51.60]
+interface = "interface.9.proto-human-peer-native-effect-approval-decide-v3"
+verdict = "served"
+path = "services/agent/crates/layerx-agentd/src/human.rs"
+line = 112
+symbol = "NATIVE_EFFECT_APPROVAL_DECIDE_V3"
+evidence = "The registered wire signature remains opcode 54 NATIVE_EFFECT_APPROVAL_DECIDE_V3; the current declaration is pub const NATIVE_EFFECT_APPROVAL_DECIDE_V3: u8 = 54; at human.rs:112 (registered line 109). No opcode value or identifier change was observed. HumanFrameTransport is now a shared layerx_client::frame::transport::FrameTransport reexport through human_frame.rs:2-4; LXHAGT01/LXHAGT02 magic is retained."

@@ -244,17 +244,63 @@ try {
     ...entry, public_key: descriptions[0]!.public_key, epoch: descriptions[0]!.epoch, operations: ['sign', 'refresh'],
   } : entry) });
   const bindBody = { bind_signature: sign(null, Buffer.from(pending.body.provision.bindMessage.slice(2), 'hex'), newKey).toString('hex') };
+  const bindStartBlock = await chain.getBlockNumber();
   const bindingChallenge = await signedRequest('/v1/agent/provision', bindBody, undefined, newAgent.did, newKey);
   assert.equal(bindingChallenge.status, 409, JSON.stringify(bindingChallenge.body));
   assert.equal(bindingChallenge.body.error, 'agent_reauthorization_required');
-  const bound = await signedRequest('/v1/agent/provision', bindBody, bindingChallenge.body.signing_request, newAgent.did, newKey);
+  const batchEnvelope = JSON.parse(bindingChallenge.body.signing_request);
+  assert.equal(batchEnvelope.key_id, newKeyId);
+  assert.equal(batchEnvelope.construction.kind, 'sponsored_batch');
+  const retained = (await pool.query('select station_request from account_provisioning where user_id = $1 and kind = $2',
+    [newUserId, 'agent'])).rows[0].station_request;
+  assert.equal(retained.batch.quote.quoteNonce, batchEnvelope.construction.quote.quoteNonce);
+  assert.equal(retained.accountSignature, undefined);
+  const authorizationChallenge = await signedRequest('/v1/agent/provision', bindBody, bindingChallenge.body.signing_request, newAgent.did, newKey);
+  assert.equal(authorizationChallenge.status, 409, JSON.stringify(authorizationChallenge.body));
+  assert.equal(authorizationChallenge.body.error, 'agent_reauthorization_required');
+  const authorizationEnvelope = JSON.parse(authorizationChallenge.body.signing_request);
+  assert.equal(authorizationEnvelope.key_id, newKeyId);
+  assert.equal(authorizationEnvelope.construction.kind, 'eip7702_authorization');
+  assert.deepEqual(authorizationEnvelope.construction, { kind: 'eip7702_authorization', ...retained.authorization });
+  const signedBatch = (await pool.query('select station_request from account_provisioning where user_id = $1 and kind = $2',
+    [newUserId, 'agent'])).rows[0].station_request;
+  assert.deepEqual(signedBatch.batch, retained.batch);
+  assert.match(signedBatch.accountSignature, /^0x[0-9a-f]{130}$/);
+  assert.equal((await pool.query('select binding_state from wallets where user_id = $1 and kind = $2',
+    [newUserId, 'agent'])).rows[0].binding_state, 'pending');
+  const bound = await signedRequest('/v1/agent/provision', bindBody, authorizationChallenge.body.signing_request, newAgent.did, newKey);
   assert.equal(bound.status, 200, JSON.stringify(bound.body));
   assert.equal(bound.body.provision.state, 'active');
   const boundWallet = (await pool.query('select * from wallets where id = $1', [bound.body.provision.walletId])).rows[0];
   assert.equal(boundWallet.encrypted_private_key, null);
-  assert.equal(boundWallet.layerx_key_id, null);
+  assert.equal(boundWallet.layerx_key_id, newAgent.did);
   assert.equal(boundWallet.did, `did:layerx:${newPublic}`);
   assert.equal(boundWallet.binding_state, 'bound');
+  assert.equal(boundWallet.attestor_key_id, newKeyId);
+  const provisioned = (await pool.query('select station_request, bind_tx_hash from account_provisioning where wallet_id = $1',
+    [boundWallet.id])).rows[0];
+  assert.deepEqual(provisioned.station_request.batch, retained.batch);
+  assert.equal(provisioned.station_request.accountSignature, signedBatch.accountSignature);
+  const bindModule = await import(pathToFileURL(resolve('dist/provision/bind.js')).href);
+  const unified = await chain.readContract({ address: bindModule.ADDR_PRECOMPILE, abi: bindModule.addrAbi,
+    functionName: 'getUnifiedAccount', args: [boundWallet.address] }) as readonly [Hex, string, Hex, Hex];
+  assert.equal(unified[2], `0x${newPublic}`);
+  assert.equal(await chain.readContract({ address: bindModule.ADDR_PRECOMPILE, abi: bindModule.addrAbi,
+    functionName: 'layerXBindNonce', args: [boundWallet.address] }), 1n);
+  const stationTransaction = await chain.getTransaction({ hash: provisioned.bind_tx_hash });
+  assert.equal(stationTransaction.from.toLowerCase(), retained.batch.quote.sponsor.toLowerCase());
+  assert.equal(stationTransaction.to?.toLowerCase(), boundWallet.address.toLowerCase());
+  let stationSubmits = 0;
+  const bindEndBlock = await chain.getBlockNumber({ cacheTime: 0 });
+  for (let blockNumber = bindStartBlock; blockNumber <= bindEndBlock; blockNumber++) {
+    const block = await chain.getBlock({ blockNumber, includeTransactions: true });
+    stationSubmits += block.transactions.filter(transaction =>
+      transaction.from.toLowerCase() === retained.batch.quote.sponsor.toLowerCase()
+      && transaction.to?.toLowerCase() === boundWallet.address.toLowerCase()).length;
+  }
+  assert.equal(stationSubmits, 1);
+  assert.equal((await pool.query("select count(*)::int as count from account_setup_audit where wallet_id = $1 and event = 'bind'",
+    [boundWallet.id])).rows[0].count, 1);
   assert.equal((await pool.query('select public_key from agent_principals where did = $1', [newAgent.did])).rows[0].public_key, newPublic);
   completed.push('fresh-agent-real-threshold-generation-operator-admission-and-registered-identity-binding');
 

@@ -34,8 +34,24 @@ export const priceUpdate: PriceUpdateItem = {
     feeder_bech32: feederBech32,
     observation_count: 2,
     observations: [
-      { market_id: 1, symbol: 'ETH-USD', index_price: ethIndexPrice, mark_price: ethMarkPrice, source_timestamp_ms: 1767323044500, sequence: 9001 },
-      { market_id: 0, symbol: 'BTC-USD', index_price: btcIndexPrice, mark_price: btcMarkPrice, source_timestamp_ms: 1767323044400, sequence: 9002 },
+      {
+        accepted: true,
+        market_id: 1,
+        symbol: 'ETH-USD',
+        index_price: ethIndexPrice,
+        mark_price: ethMarkPrice,
+        source_timestamp_ms: 1767323044500,
+        sequence: 9001,
+      },
+      {
+        accepted: true,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: btcIndexPrice,
+        mark_price: btcMarkPrice,
+        source_timestamp_ms: 1767323044400,
+        sequence: 9002,
+      },
     ],
   },
 };
@@ -43,8 +59,48 @@ export const priceUpdate: PriceUpdateItem = {
 export const failedPriceUpdate: PriceUpdateItem = {
   ...priceUpdate,
   hash: olderUpdateHash,
+  block_number: 34800137,
+  timestamp: '2026-01-02T03:04:19.000000Z',
+  confirmations: 1,
   status: 'error',
   result: 'failed',
+  price_update: {
+    ...priceUpdate.price_update,
+    observations: priceUpdate.price_update.observations
+      .map((observation) => ({ ...observation, accepted: false }))
+      .sort((a, b) => a.market_id - b.market_id),
+  },
+};
+
+export const refusedPriceUpdate: PriceUpdateItem = {
+  ...priceUpdate,
+  hash: '0x2222222222222222222222222222222222222222222222222222222222222222',
+  block_number: 34800136,
+  timestamp: '2026-01-02T03:04:18.000000Z',
+  confirmations: 1,
+  price_update: {
+    ...priceUpdate.price_update,
+    observations: [
+      {
+        accepted: false,
+        market_id: 0,
+        symbol: 'BTC-USD',
+        index_price: '67500000000000000000000',
+        mark_price: '67505000000000000000000',
+        source_timestamp_ms: 1767323057500,
+        sequence: 9003,
+      },
+      {
+        accepted: true,
+        market_id: 1,
+        symbol: 'ETH-USD',
+        index_price: '3500000000000000000000',
+        mark_price: '3501000000000000000000',
+        source_timestamp_ms: 1767323057500,
+        sequence: 9002,
+      },
+    ],
+  },
 };
 
 export const markets: FeedMarketsResponse = {
@@ -54,6 +110,7 @@ export const markets: FeedMarketsResponse = {
       symbol: 'BTC-USD',
       chainflow_symbol: 'BTCUSDT',
       latest: {
+        index: 0,
         index_price: btcIndexPrice,
         mark_price: btcMarkPrice,
         source_timestamp_ms: 1767323044400,
@@ -73,10 +130,19 @@ export const markets: FeedMarketsResponse = {
   chain_head: 34800135,
 };
 
+export const refusalMarkets: FeedMarketsResponse = {
+  ...markets,
+  items: [
+    ...markets.items,
+    { market_id: 1, symbol: 'ETH-USD', chainflow_symbol: 'ETHUSDT', latest: null },
+  ],
+};
+
 export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: updateHash,
     block_number: 34800123,
+    index: 0,
     timestamp: '2026-01-02T03:04:05.000000Z',
     index_price: '67012500000000000000000',
     mark_price: btcMarkPrice,
@@ -86,6 +152,7 @@ export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: olderUpdateHash,
     block_number: 34800122,
+    index: 0,
     timestamp: '2026-01-02T03:04:04.000000Z',
     index_price: '67100000000000000000000',
     mark_price: '67105000000000000000000',
@@ -95,6 +162,7 @@ export const marketUpdates: Array<MarketUpdate> = [
   {
     update_hash: oldestUpdateHash,
     block_number: 34800121,
+    index: 0,
     timestamp: '2026-01-02T03:04:03.000000Z',
     index_price: '67000000000000000000000',
     mark_price: '67001000000000000000000',

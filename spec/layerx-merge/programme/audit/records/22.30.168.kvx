@@ -1,0 +1,1407 @@
+# Pre-upgrade audit, decision 2515. Findings are proposals; this record changes no runtime behavior.
+
+[audit.22.30.168]
+task = "22.30.168"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 138
+findings = 44
+docs_reviewed = 21
+upgrade_ready = false
+blocking = ["unbonding-retry", "deny-list-grants", "redelegation-filters", "redelegation-power-cap", "precompile-share-units", "historical-sort-contract"]
+requirements = ["7288.1", "22067.1", "15035.1", "15037.1", "15037.2", "15037.3", "15036.1", "15038.1"]
+produces_reviewed = 345
+consumes_reviewed = 308
+review_basis = "Complete member-file static review against the package requirements, 345 produced and 308 consumed registry rows, actual node module/hook/store wiring and caller encodings. SDK fork members are maintained source, not automatically vendored. Generated protocol transports outside this member list were read as interface context."
+qualification_limits = "Only the record build/verification gates are authorized here. No Go compilation, integration execution, buf regeneration or historical failed-target rerun is claimed; requirement 7288.1 regeneration and requirement 22998.1 source repairs require their own authorized tasks."
+
+[file.001]
+path = "sdk/x/authz/authorization_grant.go"
+lines = 64
+verdict = "issues"
+note = "Authorization Any packing, grant validation and expiration boundary. Findings below state proposed repairs; no source changed."
+
+[file.002]
+path = "sdk/x/authz/authorization_grant_test.go"
+lines = 44
+verdict = "issues"
+note = "Constructor success and commented expiration-boundary assertions. Findings below state proposed repairs; no source changed."
+
+[file.003]
+path = "sdk/x/authz/authorizations.go"
+lines = 38
+verdict = "clean"
+note = "Authorization AcceptResponse contract and typed execution policy. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.004]
+path = "sdk/x/authz/client/cli/query.go"
+lines = 193
+verdict = "clean"
+note = "Grant pair, granter and grantee queries, address parsing and pagination. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.005]
+path = "sdk/x/authz/client/cli/tx.go"
+lines = 262
+verdict = "clean"
+note = "Grant/revoke/exec commands, validator policy oneof and expiration transport. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.006]
+path = "sdk/x/authz/client/rest/grpc_query_test.go"
+lines = 341
+verdict = "issues"
+note = "HTTP grant queries, network setup and generated address fixtures. Findings below state proposed repairs; no source changed."
+
+[file.007]
+path = "sdk/x/authz/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "Tagged integration-suite entry and real network config constructor. Findings below state proposed repairs; no source changed."
+
+[file.008]
+path = "sdk/x/authz/client/testutil/query.go"
+lines = 182
+verdict = "clean"
+note = "CLI grant-query response decoding, pagination and invalid inputs. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.009]
+path = "sdk/x/authz/client/testutil/test_helpers.go"
+lines = 14
+verdict = "clean"
+note = "ExecGrant wrapper using actual CLI flags and validator client context. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.010]
+path = "sdk/x/authz/client/testutil/tx.go"
+lines = 1075
+verdict = "issues"
+note = "Grant/revoke/exec CLI transactions, response codes and expiration fixture. Findings below state proposed repairs; no source changed."
+
+[file.011]
+path = "sdk/x/authz/codec.go"
+lines = 24
+verdict = "clean"
+note = "Legacy amino and interface registration for authorization and SDK messages. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.012]
+path = "sdk/x/authz/errors.go"
+lines = 10
+verdict = "clean"
+note = "Authz registered codespace and invalid-expiration code declaration. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.013]
+path = "sdk/x/authz/expected_keepers.go"
+lines = 17
+verdict = "clean"
+note = "AccountKeeper and BankKeeper signatures against node wiring. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.014]
+path = "sdk/x/authz/generic_authorization.go"
+lines = 31
+verdict = "clean"
+note = "Type-URL validation and unrestricted single-message authorization acceptance. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.015]
+path = "sdk/x/authz/generic_authorization_test.go"
+lines = 17
+verdict = "clean"
+note = "Generic authorization URL validation and Accept/Delete semantics. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.016]
+path = "sdk/x/authz/genesis.go"
+lines = 41
+verdict = "issues"
+note = "Default/exported genesis shape, Any unpacking and absent semantic validation. Findings below state proposed repairs; no source changed."
+
+[file.017]
+path = "sdk/x/authz/keeper/genesis_test.go"
+lines = 58
+verdict = "clean"
+note = "Real grant import/export identity and authorization encoding assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.018]
+path = "sdk/x/authz/keeper/grpc_query.go"
+lines = 178
+verdict = "clean"
+note = "Grants, GranterGrants and GranteeGrants store iteration and pagination. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.019]
+path = "sdk/x/authz/keeper/grpc_query_test.go"
+lines = 327
+verdict = "clean"
+note = "Real keeper grant-list filtering, request validation and pagination assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.020]
+path = "sdk/x/authz/keeper/keeper.go"
+lines = 252
+verdict = "clean"
+note = "Persistent grant key lifecycle, expiry cleanup, dispatch and genesis recovery. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.021]
+path = "sdk/x/authz/keeper/keeper_test.go"
+lines = 256
+verdict = "issues"
+note = "Grant storage, dispatch, fees, revocation and incorrect expiry lookups. Findings below state proposed repairs; no source changed."
+
+[file.022]
+path = "sdk/x/authz/keeper/keys.go"
+lines = 57
+verdict = "clean"
+note = "Length-prefixed granter/grantee/type-URL key agreement with query prefixes. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.023]
+path = "sdk/x/authz/keeper/keys_test.go"
+lines = 38
+verdict = "clean"
+note = "Grant key encoding and address extraction boundary assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.024]
+path = "sdk/x/authz/keeper/msg_server.go"
+lines = 83
+verdict = "clean"
+note = "Registered grant/revoke/exec handlers, route checks and dispatched results. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.025]
+path = "sdk/x/authz/keys.go"
+lines = 12
+verdict = "clean"
+note = "ModuleName/router/store identity used by node and module registration. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.026]
+path = "sdk/x/authz/module/module.go"
+lines = 206
+verdict = "clean"
+note = "Message/query service wiring, genesis, empty block hooks and simulation registration. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.027]
+path = "sdk/x/authz/msgs.go"
+lines = 244
+verdict = "clean"
+note = "MsgGrant/MsgRevoke/MsgExec signers, Any unpacking and structural validation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.028]
+path = "sdk/x/authz/msgs_test.go"
+lines = 117
+verdict = "issues"
+note = "Signer/type validation and past-expiration constructor expectation. Findings below state proposed repairs; no source changed."
+
+[file.029]
+path = "sdk/x/authz/proto_desc.go"
+lines = 8
+verdict = "clean"
+note = "Handwritten descriptor accessor returning the generated Msg service descriptor. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.030]
+path = "sdk/x/authz/simulation/decoder.go"
+lines = 27
+verdict = "clean"
+note = "Grant-key KV decoding using the stored authorization Grant message. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.031]
+path = "sdk/x/authz/simulation/genesis.go"
+lines = 59
+verdict = "clean"
+note = "Simulation authorization construction, address selection and expiration encoding. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.032]
+path = "sdk/x/authz/simulation/operations.go"
+lines = 297
+verdict = "clean"
+note = "Weighted real grant/revoke/exec simulation and authorization message flow. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.033]
+path = "sdk/x/authz/spec/01_concepts.md"
+lines = 43
+verdict = "issues"
+note = "Authorization capability concepts and validator policy/gas lifecycle prose. Findings below state proposed repairs; no source changed."
+
+[file.034]
+path = "sdk/x/authz/spec/02_state.md"
+lines = 15
+verdict = "clean"
+note = "Persistent grant key order and embedded authorization/expiration shape. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.035]
+path = "sdk/x/authz/spec/03_messages.md"
+lines = 46
+verdict = "issues"
+note = "Grant, revoke and execution failure policies, including stale expiration promise. Findings below state proposed repairs; no source changed."
+
+[file.036]
+path = "sdk/x/authz/spec/04_events.md"
+lines = 7
+verdict = "clean"
+note = "Typed authorization event reference matching EventGrant and EventRevoke. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.037]
+path = "sdk/x/authz/spec/05_client.md"
+lines = 172
+verdict = "issues"
+note = "Authz CLI and gRPC/REST examples against current Paxeer interfaces. Findings below state proposed repairs; no source changed."
+
+[file.038]
+path = "sdk/x/authz/spec/README.md"
+lines = 27
+verdict = "clean"
+note = "Module purpose and method-scoped grants overview. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.039]
+path = "sdk/x/staking/abci.go"
+lines = 30
+verdict = "clean"
+note = "Registered BeginBlock historical tracking and EndBlock validator updates; OTel only. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.040]
+path = "sdk/x/staking/app_test.go"
+lines = 124
+verdict = "clean"
+note = "Full app simulation entry points and staking genesis/block lifecycle setup. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.041]
+path = "sdk/x/staking/bench_test.go"
+lines = 56
+verdict = "clean"
+note = "Application benchmark setup and real block/transaction workloads. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.042]
+path = "sdk/x/staking/client/cli/flags.go"
+lines = 114
+verdict = "clean"
+note = "Transaction flag names and validator commission/self-delegation CLI contract. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.043]
+path = "sdk/x/staking/client/cli/query.go"
+lines = 841
+verdict = "clean"
+note = "All staking CLI query routing, Bech32 parsing and protobuf requests. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.044]
+path = "sdk/x/staking/client/cli/tx.go"
+lines = 559
+verdict = "clean"
+note = "Create/edit/delegate/redelegate/unbond transaction construction and signers. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.045]
+path = "sdk/x/staking/client/cli/tx_test.go"
+lines = 93
+verdict = "clean"
+note = "Validator public-key JSON parsing and transaction validation cases. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.046]
+path = "sdk/x/staking/client/cli/utils.go"
+lines = 33
+verdict = "clean"
+note = "Address/message parsing shared by staking command construction. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.047]
+path = "sdk/x/staking/client/rest/grpc_query_test.go"
+lines = 828
+verdict = "issues"
+note = "HTTP gateway routes, network setup, pagination and partial redelegation fixtures. Findings below state proposed repairs; no source changed."
+
+[file.048]
+path = "sdk/x/staking/client/rest/query.go"
+lines = 400
+verdict = "clean"
+note = "Legacy staking REST query translation, height and error response handling. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.049]
+path = "sdk/x/staking/client/rest/rest.go"
+lines = 14
+verdict = "clean"
+note = "Deprecated REST route registration and deprecation headers. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.050]
+path = "sdk/x/staking/client/rest/rest_test.go"
+lines = 63
+verdict = "clean"
+note = "Route integration and HTTP deprecation behavior assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.051]
+path = "sdk/x/staking/client/rest/tx.go"
+lines = 149
+verdict = "clean"
+note = "Deprecated REST transaction parsing and generated unsigned SDK messages. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.052]
+path = "sdk/x/staking/client/rest/utils.go"
+lines = 149
+verdict = "clean"
+note = "REST request shapes and legacy transaction helper encodings. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.053]
+path = "sdk/x/staking/client/testutil/cli_test.go"
+lines = 18
+verdict = "issues"
+note = "Tagged CLI integration entry and network constructor call contract. Findings below state proposed repairs; no source changed."
+
+[file.054]
+path = "sdk/x/staking/client/testutil/suite.go"
+lines = 1404
+verdict = "issues"
+note = "End-to-end staking CLI fixtures, command identities and parameter output shapes. Findings below state proposed repairs; no source changed."
+
+[file.055]
+path = "sdk/x/staking/client/testutil/test_helpers.go"
+lines = 51
+verdict = "clean"
+note = "CLI command wrappers with typed addresses, fees and broadcast options. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.056]
+path = "sdk/x/staking/common_test.go"
+lines = 62
+verdict = "clean"
+note = "Shared app/key setup with explicit test-only 10^18 power reduction override. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.057]
+path = "sdk/x/staking/genesis.go"
+lines = 291
+verdict = "issues"
+note = "Staking import/export pool accounting, validation and validator export errors. Findings below state proposed repairs; no source changed."
+
+[file.058]
+path = "sdk/x/staking/genesis_test.go"
+lines = 251
+verdict = "clean"
+note = "Genesis supply/set initialization, export and validator serialization assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.059]
+path = "sdk/x/staking/handler.go"
+lines = 41
+verdict = "clean"
+note = "Legacy message dispatch to the registered staking MsgServer implementation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.060]
+path = "sdk/x/staking/handler_test.go"
+lines = 1196
+verdict = "clean"
+note = "Create/edit/delegate/redelegate/unbond message behavior and error assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.061]
+path = "sdk/x/staking/keeper/alias_functions.go"
+lines = 149
+verdict = "clean"
+note = "Validator/delegation interface aliases forwarding to typed keeper methods. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.062]
+path = "sdk/x/staking/keeper/common_test.go"
+lines = 51
+verdict = "clean"
+note = "Keeper test context and explicit test-only power-reduction setup. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.063]
+path = "sdk/x/staking/keeper/delegation.go"
+lines = 1049
+verdict = "issues"
+note = "Delegation indexes, queues, bank preflight, unbonding/redelegation and power cap. Findings below state proposed repairs; no source changed."
+
+[file.064]
+path = "sdk/x/staking/keeper/delegation_test.go"
+lines = 1165
+verdict = "issues"
+note = "Real staking balance/share transitions, cap checks and recipient-refusal coverage. Findings below state proposed repairs; no source changed."
+
+[file.065]
+path = "sdk/x/staking/keeper/grpc_query.go"
+lines = 542
+verdict = "issues"
+note = "Protobuf request validation, pagination and live staking query response production. Findings below state proposed repairs; no source changed."
+
+[file.066]
+path = "sdk/x/staking/keeper/grpc_query_test.go"
+lines = 805
+verdict = "issues"
+note = "Keeper gRPC query cases and partial-filter fixture distinguishability. Findings below state proposed repairs; no source changed."
+
+[file.067]
+path = "sdk/x/staking/keeper/historical_info.go"
+lines = 100
+verdict = "clean"
+note = "Historical set persistence/pruning, power order and migration boundary handling. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.068]
+path = "sdk/x/staking/keeper/historical_info_test.go"
+lines = 158
+verdict = "clean"
+note = "Historical tracking and pruning with real keeper storage. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.069]
+path = "sdk/x/staking/keeper/hooks.go"
+lines = 79
+verdict = "clean"
+note = "Hook forwarding with nil-hook handling and distribution/slashing lifecycle order. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.070]
+path = "sdk/x/staking/keeper/keeper.go"
+lines = 92
+verdict = "clean"
+note = "Keeper construction, module account guards, subspace and single hook installation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.071]
+path = "sdk/x/staking/keeper/keeper_test.go"
+lines = 72
+verdict = "clean"
+note = "Keeper defaults and historical information store round trips. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.072]
+path = "sdk/x/staking/keeper/legacy_metrics_test.go"
+lines = 75
+verdict = "clean"
+note = "Source-level guard that removed legacy telemetry emissions do not return. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.073]
+path = "sdk/x/staking/keeper/metrics.go"
+lines = 57
+verdict = "clean"
+note = "OTel meter/instrument names and counter/gauge kinds against registry rows. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.074]
+path = "sdk/x/staking/keeper/migrations.go"
+lines = 20
+verdict = "clean"
+note = "Staking store migration dispatch and legacy parameter/state transformations. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.075]
+path = "sdk/x/staking/keeper/msg_server.go"
+lines = 366
+verdict = "issues"
+note = "Live staking messages, minimum self backing, events and amount-gated OTel. Findings below state proposed repairs; no source changed."
+
+[file.076]
+path = "sdk/x/staking/keeper/otel_metrics_test.go"
+lines = 155
+verdict = "clean"
+note = "Real message success paths and OTel counter/amount assertions for 10/5 uhpx. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.077]
+path = "sdk/x/staking/keeper/params.go"
+lines = 85
+verdict = "clean"
+note = "ParamSet read/write names, typed defaults and global PowerReduction accessor. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.078]
+path = "sdk/x/staking/keeper/pool.go"
+lines = 78
+verdict = "clean"
+note = "Bonded/not-bonded pool account reads and typed bank transfer failures. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.079]
+path = "sdk/x/staking/keeper/power_reduction.go"
+lines = 15
+verdict = "clean"
+note = "Token/consensus-power conversion delegates to the configured global reduction. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.080]
+path = "sdk/x/staking/keeper/power_reduction_test.go"
+lines = 15
+verdict = "clean"
+note = "Keeper conversion round trips and large power boundary assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.081]
+path = "sdk/x/staking/keeper/querier.go"
+lines = 527
+verdict = "clean"
+note = "Legacy query names, address decoding, filtered redelegations and response codec. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.082]
+path = "sdk/x/staking/keeper/querier_test.go"
+lines = 752
+verdict = "clean"
+note = "Legacy query result shapes and malformed/missing address cases. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.083]
+path = "sdk/x/staking/keeper/query_utils.go"
+lines = 130
+verdict = "clean"
+note = "Validator/delegation enumeration and share-to-balance response conversion. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.084]
+path = "sdk/x/staking/keeper/slash.go"
+lines = 300
+verdict = "clean"
+note = "Validator, unbonding and redelegation slashing with pool burn/accounting. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.085]
+path = "sdk/x/staking/keeper/slash_test.go"
+lines = 606
+verdict = "clean"
+note = "Real slash timing, shares, balances and pool effects across bond states. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.086]
+path = "sdk/x/staking/keeper/test_common.go"
+lines = 69
+verdict = "clean"
+note = "Testing helpers around actual keeper state, pools and validator updates. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.087]
+path = "sdk/x/staking/keeper/val_state_change.go"
+lines = 397
+verdict = "issues"
+note = "End-block validator changes and durable mature queue processing/refusal gap. Findings below state proposed repairs; no source changed."
+
+[file.088]
+path = "sdk/x/staking/keeper/validator.go"
+lines = 462
+verdict = "clean"
+note = "Validator, consensus-address and power indexes, queues and last-power protobuf. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.089]
+path = "sdk/x/staking/keeper/validator_bench_test.go"
+lines = 29
+verdict = "clean"
+note = "GetValidator benchmark caller reaches the shared testing.TB setup helper. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.090]
+path = "sdk/x/staking/keeper/validator_test.go"
+lines = 1121
+verdict = "issues"
+note = "Validator set transitions, voting power, commissions and benchmark setup cast. Findings below state proposed repairs; no source changed."
+
+[file.091]
+path = "sdk/x/staking/legacy_metrics_test.go"
+lines = 35
+verdict = "clean"
+note = "Source guard for deleted block-hook legacy telemetry calls. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.092]
+path = "sdk/x/staking/metrics.go"
+lines = 40
+verdict = "clean"
+note = "Begin/end block OTel histogram declarations and registry-compatible names. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.093]
+path = "sdk/x/staking/module.go"
+lines = 211
+verdict = "clean"
+note = "Node module registration, services, migrations, genesis and block hooks. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.094]
+path = "sdk/x/staking/module_test.go"
+lines = 32
+verdict = "clean"
+note = "Module identity and service/basic-module initialization assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.095]
+path = "sdk/x/staking/otel_metrics_test.go"
+lines = 41
+verdict = "clean"
+note = "Real BeginBlocker/EndBlocker calls and duration instrument collection. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.096]
+path = "sdk/x/staking/simulation/decoder.go"
+lines = 64
+verdict = "issues"
+note = "Store-diff decoder coverage against actual record and empty-index encodings. Findings below state proposed repairs; no source changed."
+
+[file.097]
+path = "sdk/x/staking/simulation/genesis.go"
+lines = 119
+verdict = "clean"
+note = "Randomized staking genesis, commission values and parameters serialized to JSON. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.098]
+path = "sdk/x/staking/simulation/operations.go"
+lines = 473
+verdict = "clean"
+note = "Weighted staking simulations using real SDK messages and delivery helpers. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.099]
+path = "sdk/x/staking/simulation/params.go"
+lines = 34
+verdict = "clean"
+note = "Governance simulation parameter generators and declared value ranges. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.100]
+path = "sdk/x/staking/spec/01_state.md"
+lines = 217
+verdict = "issues"
+note = "Staking persistent indexes, queue framing, validator states and historical ordering. Findings below state proposed repairs; no source changed."
+
+[file.101]
+path = "sdk/x/staking/spec/02_state_transitions.md"
+lines = 176
+verdict = "issues"
+note = "Bond/unbond/redelegate/slash lifecycle and outdated immediate refund description. Findings below state proposed repairs; no source changed."
+
+[file.102]
+path = "sdk/x/staking/spec/03_messages.md"
+lines = 154
+verdict = "issues"
+note = "Staking message constraints and mismatched undelegation completion timelines. Findings below state proposed repairs; no source changed."
+
+[file.103]
+path = "sdk/x/staking/spec/04_begin_block.md"
+lines = 16
+verdict = "clean"
+note = "Historical-info tracking/pruning behavior in the begin-block hook. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.104]
+path = "sdk/x/staking/spec/05_end_block.md"
+lines = 77
+verdict = "clean"
+note = "Validator-set updates and mature delegation/redelegation queue completion. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.105]
+path = "sdk/x/staking/spec/06_hooks.md"
+lines = 27
+verdict = "issues"
+note = "Advertised callback list compared with every registered staking hook. Findings below state proposed repairs; no source changed."
+
+[file.106]
+path = "sdk/x/staking/spec/07_events.md"
+lines = 78
+verdict = "clean"
+note = "Staking event names, attributes and legacy message actions against emitted values. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.107]
+path = "sdk/x/staking/spec/08_params.md"
+lines = 17
+verdict = "issues"
+note = "Parameter type widths and on-chain versus global configuration reference. Findings below state proposed repairs; no source changed."
+
+[file.108]
+path = "sdk/x/staking/spec/09_client.md"
+lines = 2088
+verdict = "issues"
+note = "Full CLI/gRPC/REST reference, examples and response shapes against node producers. Findings below state proposed repairs; no source changed."
+
+[file.109]
+path = "sdk/x/staking/spec/README.md"
+lines = 53
+verdict = "clean"
+note = "Module abstraction, bonded stake and voting-power overview. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.110]
+path = "sdk/x/staking/teststaking/helper.go"
+lines = 133
+verdict = "clean"
+note = "Test generation and equality helpers operating on real staking types. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.111]
+path = "sdk/x/staking/teststaking/tm.go"
+lines = 44
+verdict = "clean"
+note = "Consensus-engine public-key/validator conversion helpers and power units. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.112]
+path = "sdk/x/staking/teststaking/validator.go"
+lines = 18
+verdict = "clean"
+note = "Typed validator construction, commissions and test key registration. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.113]
+path = "sdk/x/staking/types/authz.go"
+lines = 150
+verdict = "issues"
+note = "Validator allow/deny policy and token-limit acceptance against stored grants. Findings below state proposed repairs; no source changed."
+
+[file.114]
+path = "sdk/x/staking/types/authz_test.go"
+lines = 266
+verdict = "clean"
+note = "Stake authorization allow-list, denied-member, quota update and deletion cases. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.115]
+path = "sdk/x/staking/types/codec.go"
+lines = 55
+verdict = "clean"
+note = "Legacy amino and protobuf interface/message registrations. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.116]
+path = "sdk/x/staking/types/commission.go"
+lines = 103
+verdict = "clean"
+note = "Commission ranges, maximum changes and update-time validation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.117]
+path = "sdk/x/staking/types/commission_test.go"
+lines = 73
+verdict = "clean"
+note = "Commission initialization, bounds and update constraints. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.118]
+path = "sdk/x/staking/types/data_test.go"
+lines = 31
+verdict = "clean"
+note = "Real account/validator/consensus key fixtures and matching address encodings. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.119]
+path = "sdk/x/staking/types/delegation.go"
+lines = 376
+verdict = "issues"
+note = "Delegation/UBD/redelegation types, maturity and distinct balance/share quantities. Findings below state proposed repairs; no source changed."
+
+[file.120]
+path = "sdk/x/staking/types/delegation_test.go"
+lines = 144
+verdict = "clean"
+note = "Delegation entry updates, maturity and serialization/equality behavior. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.121]
+path = "sdk/x/staking/types/errors.go"
+lines = 54
+verdict = "clean"
+note = "Staking registered error identities and message-server uses. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.122]
+path = "sdk/x/staking/types/events.go"
+lines = 22
+verdict = "clean"
+note = "Event type and attribute constants used by message and end-block emitters. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.123]
+path = "sdk/x/staking/types/expected_keepers.go"
+lines = 105
+verdict = "clean"
+note = "Bank CanSendTo, account and staking-hook contracts against real implementations. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.124]
+path = "sdk/x/staking/types/exported.go"
+lines = 40
+verdict = "clean"
+note = "Validator/delegation interfaces used by consensus, IBC and module consumers. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.125]
+path = "sdk/x/staking/types/genesis.go"
+lines = 46
+verdict = "clean"
+note = "Default staking genesis, validators/delegations and protobuf Any unpacking. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.126]
+path = "sdk/x/staking/types/historical_info.go"
+lines = 82
+verdict = "issues"
+note = "Historical set producer order, codec and conflicting basic validator comparator. Findings below state proposed repairs; no source changed."
+
+[file.127]
+path = "sdk/x/staking/types/historical_info_test.go"
+lines = 74
+verdict = "issues"
+note = "Historical codec round trips and zero-power ordering fixtures. Findings below state proposed repairs; no source changed."
+
+[file.128]
+path = "sdk/x/staking/types/hooks.go"
+lines = 63
+verdict = "clean"
+note = "Ordered MultiStakingHooks dispatch matching node distribution/slashing installation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.129]
+path = "sdk/x/staking/types/keys.go"
+lines = 362
+verdict = "issues"
+note = "All length-prefixed store keys and validator time/height queue parsing bounds. Findings below state proposed repairs; no source changed."
+
+[file.130]
+path = "sdk/x/staking/types/keys_test.go"
+lines = 118
+verdict = "clean"
+note = "Key constructors, prefix/address ordering and valid queue round trips. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.131]
+path = "sdk/x/staking/types/msg.go"
+lines = 364
+verdict = "clean"
+note = "Staking message constructors, signers, amount and Bech32/basic field validation. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.132]
+path = "sdk/x/staking/types/msg_test.go"
+lines = 199
+verdict = "clean"
+note = "Message signer/address/amount/commission and self-delegation input assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.133]
+path = "sdk/x/staking/types/params.go"
+lines = 294
+verdict = "issues"
+note = "Registered parameters, defaults and decimal/threshold validation boundaries. Findings below state proposed repairs; no source changed."
+
+[file.134]
+path = "sdk/x/staking/types/params_test.go"
+lines = 38
+verdict = "clean"
+note = "Parameter validation cases and standard default validity assertions. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.135]
+path = "sdk/x/staking/types/pool.go"
+lines = 23
+verdict = "clean"
+note = "Pool string and equality semantics for bonded/not-bonded token counts. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.136]
+path = "sdk/x/staking/types/querier.go"
+lines = 82
+verdict = "clean"
+note = "Legacy query constants and request DTO field agreement with REST/CLI callers. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.137]
+path = "sdk/x/staking/types/validator.go"
+lines = 517
+verdict = "clean"
+note = "Validator share exchange, status transitions, public keys and power comparators. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[file.138]
+path = "sdk/x/staking/types/validator_test.go"
+lines = 352
+verdict = "clean"
+note = "Validator description, consensus power, share exchange and serialization cases. Full file read; no additional disagreement or retired runtime reference found in this file."
+
+[finding.unbonding-retry]
+file = "sdk/x/staking/keeper/val_state_change.go"
+line = 36
+class = "restart-recovery"
+severity = "high"
+observed = "BlockValidatorUpdates calls DequeueAllMatureUBDQueue, which deletes the persisted timeslice in keeper/delegation.go:391, before CompleteUnbonding. A bank refusal returns ErrInvalidRecipient and the loop continues without requeuing. The balance and UBD object survive, but subsequent blocks and a restart have no durable work item to retry."
+expected = "Requirement 22067.1 requires a refused mature unbonding to stay queued, preserve the pool and supply invariant, and let the block continue. Recovery must resume the payment exactly once after the recipient is permitted."
+proposal = "In sdk/x/staking/keeper/val_state_change.go retain or reinsert each refused DVPair durably and isolate completion writes so failures cannot partially pay an entry. Extend delegation_test.go through a blocked block, an unblocked later block, committed-store restart and exactly one payout."
+owner_domain = 15
+interface = "15.go-x-staking-end-blocker-j76"
+
+[finding.deny-list-grants]
+file = "sdk/x/staking/types/authz.go"
+line = 97
+class = "interface-mismatch"
+severity = "high"
+observed = "NewStakeAuthorization accepts a deny-only list and the grant CLI serializes that oneof into authz storage. Accept initializes isValidatorExists from the empty allow list and unconditionally rejects it at line 97. A denied validator fails in the deny loop; every validator outside the deny list fails afterward as well."
+expected = "A deny-list grant must authorize validators outside that list, subject to message type and token limit, when the stored Any is dispatched through authz.MsgExec. Allow-list and deny-list policies must preserve their distinct meanings."
+proposal = "In sdk/x/staking/types/authz.go apply membership-required logic only for an allow-list oneof and exclusion logic for a deny-list oneof. Prove CLI grant, persisted Any decode and real MsgExec both for an excluded validator and a permitted validator after restart."
+owner_domain = 15
+interface = "15.go-x-staking-types-new-stake-authorization-j76"
+
+[finding.stake-limit-panics]
+file = "sdk/x/staking/types/authz.go"
+line = 106
+class = "security"
+severity = "medium"
+observed = "StakeAuthorization.Accept subtracts amount using a.MaxTokens.Sub without checking denomination or available allowance. sdk/types/coin.go:111 panics for a different denom or a negative result, so a grantee exceeding a grant limit gets a panic rather than an authorization error; current authz tests cover only exact and smaller limits."
+expected = "An authorization must reject an overspend or denomination mismatch with a deterministic error and leave the saved allowance unchanged. User-controlled authorization limits must not reach a panic-only arithmetic path."
+proposal = "In sdk/x/staking/types/authz.go validate the coin denomination and amount before subtraction and return an explicit SDK authorization or funds error. Add real grant/exec overspend and wrong-denom cases asserting unchanged stored allowance and balances."
+owner_domain = 15
+interface = "7.proto-cosmos-staking-v1beta1-stakeauthorization-j39"
+
+[finding.redelegation-filters]
+file = "sdk/x/staking/keeper/grpc_query.go"
+line = 396
+class = "interface-mismatch"
+severity = "high"
+observed = "Redelegations handles an exact address triple and source-only specially; every other request reaches queryAllRedelegations at line 527, which reads only DelegatorAddr. A delegator plus source or destination therefore returns redelegations for other validators. The protobuf request, gateway query parameters and precompiles/staking/staking.go:1050 all transport those filters."
+expected = "QueryRedelegationsRequest src_validator_addr and dst_validator_addr must restrict the returned records consistently with GetAllRedelegations and the supported REST/gRPC requests. Page totals and continuation keys must describe the filtered result."
+proposal = "In sdk/x/staking/keeper/grpc_query.go apply all supplied validator filters before pagination, using the appropriate indexes or filtered pagination. Drive gRPC, HTTP gateway and the staking precompile with multiple source/destination distractors and prove every page contains only matches."
+owner_domain = 15
+interface = "7.qry-cosmos-staking-v1beta1-redelegations-j39"
+
+[finding.redelegation-power-cap]
+file = "sdk/x/staking/keeper/delegation.go"
+line = 653
+class = "runtime-risk"
+severity = "high"
+observed = "Delegate calculates newTotalPower as GetLastTotalPower plus bondAmt/PowerReduction even when BeginRedelegation calls it with subtractAccount=false and both validators bonded. At total bonded power 1050000 and target power 190000, transferring 21000 from another bonded validator is admitted as 211000/1071000 below the default 0.2 cap, while actual target power becomes 211000/1050000 above 0.2."
+expected = "The configured MaxVotingPowerRatio must bound the destination share of the actual resulting bonded voting power once the enforcement threshold is reached. A transfer of already bonded stake must not invent additional network power in the denominator."
+proposal = "In sdk/x/staking/keeper/delegation.go calculate the resulting bonded total from source and destination states and current transaction effects, without adding bonded-to-bonded transfers twice. Prove a near-cap redelegation and multiple operations in one block against the end-block validator powers."
+owner_domain = 15
+interface = "15.go-x-staking-keeper-keeper-j76"
+
+[finding.precompile-share-units]
+file = "sdk/x/staking/types/delegation.go"
+line = 345
+class = "interface-mismatch"
+severity = "high"
+observed = "NewRedelegationEntryResponse produces separate RedelegationEntry.SharesDst (sdk.Dec shares) and Balance (sdk.Int tokens). The live consumer precompiles/staking/staking.go:1072 assigns entry.Balance.String() to its ABI sharesDst field instead of SharesDst. Its TestPrecompile_Run_Redelegations fixture sets shares and balance to 40, concealing the substitution when the validator exchange rate differs from one."
+expected = "The declared RedelegationEntryResponse share quantity must reach the Solidity RedelegationEntry.sharesDst string unchanged in meaning and decimal encoding. Token balances and destination delegation shares are different quantities after rewards or slashing."
+proposal = "In precompiles/staking/staking.go encode entry.RedelegationEntry.SharesDst for sharesDst and assess the registered legacy versions for the same mapping. Replace the equal-value fixture with a real keeper redelegation at a non-unit exchange rate, then ABI-decode and assert distinct shares and balance."
+owner_domain = 6
+interface = "7.proto-cosmos-staking-v1beta1-redelegationentryresponse-j39"
+
+[finding.historical-sort-contract]
+file = "sdk/x/staking/types/historical_info.go"
+line = 51
+class = "interface-mismatch"
+severity = "high"
+observed = "NewHistoricalInfo sorts by consensus voting power descending and consensus address for ties, but ValidateBasic checks Validators, whose Less compares operator addresses ascending. A valid produced historical set with different voting powers or different operator/consensus address order can therefore fail its declared validator. The only in-tree ValidateBasic consumer is the type test, which uses zero-power fixtures."
+expected = "The declared NewHistoricalInfo producer and ValidateBasic consumer must round-trip a historical validator set, including nonzero unequal powers and distinct operator and consensus addresses, while retaining consensus-engine ordering for IBC history."
+proposal = "In sdk/x/staking/types/historical_info.go make validation use the same consensus power reduction and comparator as production, updating the API and registered consumers if necessary. Add real historical-info storage/codec round trips with unequal powers and address order opposing power order."
+owner_domain = 15
+interface = "15.go-x-staking-types-validate-basic-j76"
+
+[finding.minimum-self-backing]
+file = "sdk/x/staking/keeper/msg_server.go"
+line = 167
+class = "runtime-risk"
+severity = "medium"
+observed = "EditValidator compares a raised MinSelfDelegation with validator.Tokens, which includes other delegators. An operator with little personal stake can advertise a higher self minimum backed only by unrelated delegators, and the validator is stored without checking the operator delegation."
+expected = "A validator minimum self-delegation is a promise backed by the operator own delegation converted at the current exchange rate, not by the entire validator token pool."
+proposal = "In sdk/x/staking/keeper/msg_server.go load the operator self-delegation and compare its current token value with the requested minimum. Add an edit transaction with large third-party delegation and insufficient operator stake, asserting rejection and unchanged validator state."
+owner_domain = 15
+interface = "7.msg-cosmos-staking-v1beta1-editvalidator-j39"
+
+[finding.export-error-loss]
+file = "sdk/x/staking/genesis.go"
+line = 223
+class = "restart-recovery"
+severity = "medium"
+observed = "WriteValidators declares a named outer err, then shadows it inside IterateLastValidators with pk, err := validator.ConsPubKey(). Either public-key conversion failure stops iteration but returns the outer nil error alongside a partial validator list. node/export.go:42 trusts that error before publishing the exported genesis."
+expected = "A failed validator conversion must fail the export explicitly; a partial consensus validator set must never be presented as a successful restart or migration artifact."
+proposal = "In sdk/x/staking/genesis.go propagate callback conversion errors into the returned error and discard a partial validator list on failure. Extend genesis export tests with a real stored unsupported key and assert that the node export path refuses to publish the incomplete genesis."
+owner_domain = 15
+interface = "15.go-x-staking-write-validators-j76"
+
+[finding.large-amount-metrics]
+file = "sdk/x/staking/keeper/msg_server.go"
+line = 223
+class = "runtime-risk"
+severity = "medium"
+observed = "Delegate, BeginRedelegate and Undelegate record their success counter only inside Amount.IsInt64, alongside the amount gauge. Valid sdk.Int coin amounts above MaxInt64 complete without incrementing staking_keeper_delegate, staking_keeper_redelegate or staking_keeper_undelegate, silently undercounting successful activity."
+expected = "The migrated OTel operation counters must count every successful staking message independently of whether the coin amount fits the Int64Gauge representation. Existing 10/5 uhpx acceptance cases do not cover this boundary."
+proposal = "In sdk/x/staking/keeper/msg_server.go increment each success counter outside the amount-width guard. Define an explicit observable treatment for amounts outside the gauge range and add successful above-MaxInt64 real message cases to keeper/otel_metrics_test.go."
+owner_domain = 15
+interface = "15.met-otel-x-staking-keeper-staking-keeper-delegate-j56"
+
+[finding.expired-grant-acceptance]
+file = "sdk/x/authz/authorization_grant.go"
+line = 13
+class = "runtime-risk"
+severity = "medium"
+observed = "NewGrant has its block-time argument and future-expiration check commented out. keeper.msgServer.Grant calls SaveGrant without checking expiration, so an already expired grant is stored and emits EventGrant successfully, despite spec/03_messages.md:19 requiring grant rejection and the declared ErrInvalidExpirationTime code being unused."
+expected = "An already expired authorization must be rejected at grant creation using the chain block time, before storage or grant events, with the documented expiration error policy."
+proposal = "In sdk/x/authz/keeper/msg_server.go and keeper/keeper.go enforce the expiration boundary against ctx.BlockTime and return the documented authz error. Align NewGrant, CLI error expectations and message documentation, then prove that expired MsgGrant creates neither durable grant nor event."
+owner_domain = 15
+interface = "15.err-x-authz-err-invalid-expiration-time-j76"
+
+[finding.authz-genesis-validation]
+file = "sdk/x/authz/genesis.go"
+line = 15
+class = "restart-recovery"
+severity = "medium"
+observed = "ValidateGenesis always returns nil. InitGenesis later uses MustAccAddressFromBech32 and an authorization type assertion that can panic, and repeated granter/grantee/message tuples overwrite earlier grants. A malformed or duplicate exported/imported grant set is accepted by the validation boundary."
+expected = "Genesis validation must reject malformed addresses, unsupported or invalid authorization payloads and conflicting duplicate keys before the network attempts to initialize persistent grants."
+proposal = "In sdk/x/authz/genesis.go validate each typed grant and address and detect duplicate storage tuples, with an explicit import expiration policy. Prove validate/export/import/restart using real authorization Any values and rejection of invalid or duplicate entries."
+owner_domain = 15
+interface = "15.go-x-authz-validate-genesis-j76"
+
+[finding.expiry-test-key]
+file = "sdk/x/authz/keeper/keeper_test.go"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "TestKeeper saves an expired grant with arguments granterAddr, granteeAddr but looks it up with granteeAddr, granterAddr. TestKeeperIter saves a bank-send authorization then looks up message type abcd. Both Nil assertions can pass by querying nonexistent keys without executing expiration cleanup."
+expected = "Expiry tests must inspect the exact tuple that was saved and prove deletion of that persisted key after expiry, including resumed state rather than absence of an unrelated tuple."
+proposal = "In sdk/x/authz/keeper/keeper_test.go use identical grantee, granter and MsgTypeURL at save and lookup, demonstrate presence before expiry, and then inspect cleanup and export/import or committed-store restart after expiry."
+owner_domain = 15
+
+[finding.expiration-cases-disabled]
+file = "sdk/x/authz/authorization_grant_test.go"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "TestNewGrant comments out both invalid-expiration cases and no longer passes the table blockTime into NewGrant. The retained blockTime field provides no boundary coverage, allowing the expired-grant acceptance discrepancy to remain undetected."
+expected = "The declared invalid-expiration behavior must have executable boundary assertions against the real chain-time grant path, covering before, equal to and after the chosen expiry boundary."
+proposal = "In sdk/x/authz/authorization_grant_test.go restore effective expiration assertions through the corrected time-aware implementation; add a real MsgGrant path that asserts rejection leaves store and events unchanged rather than commenting out cases."
+owner_domain = 15
+
+[finding.expired-grant-cli-fixture]
+file = "sdk/x/authz/client/testutil/tx.go"
+line = 124
+class = "test-gap"
+severity = "medium"
+observed = "The Invalid expiration time CLI case expects transaction error code 0xd, but the current NewGrant and SaveGrant path accepts expired times and authz/errors.go declares ErrInvalidExpirationTime as code 3. The fixture, declared error and producer do not describe one behavior."
+expected = "A CLI integration assertion must use the actual documented authz expiration codespace/code and prove the response comes from the same real MsgGrant processing policy as the server."
+proposal = "In sdk/x/authz/client/testutil/tx.go assert the resolved authz expiration error code and codespace after the grant validation repair, and verify the rejected CLI transaction leaves no stored grant or EventGrant."
+owner_domain = 15
+interface = "15.err-x-authz-err-invalid-expiration-time-j76"
+
+[finding.past-time-success-test]
+file = "sdk/x/authz/msgs_test.go"
+line = 83
+class = "test-gap"
+severity = "medium"
+observed = "The past time MsgGrant case explicitly expects successful construction and validation, with a TODO for version 0.45. It codifies the opposite of spec/03_messages.md expiration rejection and never drives an expired grant through the message server."
+expected = "Grant tests must state where chain-time expiration is enforced and prove that an expired transaction fails at that boundary, without treating a time-independent structural check as proof of grant acceptance."
+proposal = "In sdk/x/authz/msgs_test.go distinguish structural validation from time-aware server validation and add the real expired MsgGrant execution assertion with chain time, error code, events and unchanged grant state."
+owner_domain = 15
+
+[finding.authz-cli-config]
+file = "sdk/x/authz/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "This norace integration suite calls network.DefaultConfig() with no argument; sdk/testutil/network/network.go:96 declares DefaultConfig(t *testing.T) Config. The actual test consumer cannot compile when its build tag is selected, so these client paths cannot supply their intended integration evidence."
+expected = "Tagged integration consumers must call the declared network configuration constructor with their real testing context and remain buildable without weakening any behavioral assertions."
+proposal = "In sdk/x/authz/client/testutil/cli_test.go pass the current testing context to network.DefaultConfig and qualify the owning tagged suite in its repair task, preserving every CLI or HTTP integration assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.authz-rest-config]
+file = "sdk/x/authz/client/rest/grpc_query_test.go"
+line = 39
+class = "test-gap"
+severity = "medium"
+observed = "This norace integration suite calls network.DefaultConfig() with no argument; sdk/testutil/network/network.go:96 declares DefaultConfig(t *testing.T) Config. The actual test consumer cannot compile when its build tag is selected, so these client paths cannot supply their intended integration evidence."
+expected = "Tagged integration consumers must call the declared network configuration constructor with their real testing context and remain buildable without weakening any behavioral assertions."
+proposal = "In sdk/x/authz/client/rest/grpc_query_test.go pass the current testing context to network.DefaultConfig and qualify the owning tagged suite in its repair task, preserving every CLI or HTTP integration assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.staking-cli-config]
+file = "sdk/x/staking/client/testutil/cli_test.go"
+line = 15
+class = "test-gap"
+severity = "medium"
+observed = "This norace integration suite calls network.DefaultConfig() with no argument; sdk/testutil/network/network.go:96 declares DefaultConfig(t *testing.T) Config. The actual test consumer cannot compile when its build tag is selected, so these client paths cannot supply their intended integration evidence."
+expected = "Tagged integration consumers must call the declared network configuration constructor with their real testing context and remain buildable without weakening any behavioral assertions."
+proposal = "In sdk/x/staking/client/testutil/cli_test.go pass the current testing context to network.DefaultConfig and qualify the owning tagged suite in its repair task, preserving every CLI or HTTP integration assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.staking-rest-config]
+file = "sdk/x/staking/client/rest/grpc_query_test.go"
+line = 37
+class = "test-gap"
+severity = "medium"
+observed = "This norace integration suite calls network.DefaultConfig() with no argument; sdk/testutil/network/network.go:96 declares DefaultConfig(t *testing.T) Config. The actual test consumer cannot compile when its build tag is selected, so these client paths cannot supply their intended integration evidence."
+expected = "Tagged integration consumers must call the declared network configuration constructor with their real testing context and remain buildable without weakening any behavioral assertions."
+proposal = "In sdk/x/staking/client/rest/grpc_query_test.go pass the current testing context to network.DefaultConfig and qualify the owning tagged suite in its repair task, preserving every CLI or HTTP integration assertion."
+owner_domain = 15
+interface = "15.go-testutil-network-default-config-j76"
+
+[finding.authz-rest-address-fixture]
+file = "sdk/x/authz/client/rest/grpc_query_test.go"
+line = 239
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryGranterGrantsGRPC and TestQueryGranteeGrantsGRPC set grantee := s.grantee[1], indexing a Bech32 string into one byte, and use string(grantee) in a URL expected to succeed. The granter endpoint also labels this as a grantee; neither fixture is a real address emitted by the account producer."
+expected = "Grant-list HTTP tests must send complete Bech32 granter and grantee addresses in the correct route and assert the returned grants belong to those exact participants."
+proposal = "In sdk/x/authz/client/rest/grpc_query_test.go use full real account addresses and the correct granter or grantee on each route; persist multiple asymmetric grants and check both successful lists and invalid-address failures."
+owner_domain = 15
+
+[finding.unbonding-retry-test]
+file = "sdk/x/staking/keeper/delegation_test.go"
+line = 340
+class = "test-gap"
+severity = "medium"
+observed = "TestCompleteUnbondingRefusesBlockedRecipient checks pool, entry and supply invariant after direct completion and one EndBlocker. It never inspects the queue, clears the refusal, advances a later block or restarts, so the test passes even when that end blocker deletes the only retry timeslice."
+expected = "Requirement 22067.1 includes durable queued work and eventual completion after refusal is removed, not only preservation of the UnbondingDelegation value for one block."
+proposal = "In sdk/x/staking/keeper/delegation_test.go assert the mature queue still schedules the refused pair, commit and reopen the store, unblock the recipient and run later end blocks, proving exactly one transfer and entry/queue cleanup."
+owner_domain = 15
+
+[finding.redelegation-filter-test]
+file = "sdk/x/staking/keeper/grpc_query_test.go"
+line = 677
+class = "test-gap"
+severity = "medium"
+observed = "TestGRPCQueryRedelegations exercises delegator-plus-source with only one stored redelegation for that delegator. Ignoring the source filter returns the same fixture, so the supported request case does not detect the handler disagreement."
+expected = "Filter tests must distinguish a correctly filtered response from the unfiltered producer by including records that match the delegator but fail each optional validator filter."
+proposal = "In sdk/x/staking/keeper/grpc_query_test.go create several actual redelegations with different source and destination pairs, query each supported partial filter across pages, and assert exact identities and filtered totals."
+owner_domain = 15
+
+[finding.rest-redelegation-filter-test]
+file = "sdk/x/staking/client/rest/grpc_query_test.go"
+line = 573
+class = "test-gap"
+severity = "medium"
+observed = "TestQueryRedelegationsGRPC sends separate source and destination query parameters, but all success cases expect the same single redelegation. A gateway/handler that discards either parameter still satisfies those assertions."
+expected = "The HTTP request filter fields must be proven through the real gateway into the staking query handler, with negative records that would leak if filtering were absent."
+proposal = "In sdk/x/staking/client/rest/grpc_query_test.go populate additional same-delegator source and destination records and assert the exact filtered response on every page for each URL combination."
+owner_domain = 15
+
+[finding.cli-params-fixture]
+file = "sdk/x/staking/client/testutil/suite.go"
+line = 875
+class = "test-gap"
+severity = "medium"
+observed = "TestGetCmdQueryParams expects text bond_denom stake, a zero minimum commission and obsolete fields; its JSON literal at line 885 has an unquoted min_commission_rate key and cannot be emitted by the JSON codec. The real Params includes the voting-power ratio and enforcement threshold."
+expected = "CLI expectations must describe valid producer JSON and the actual network parameter values and fields, including the 0.05 default commission and configured voting-power controls."
+proposal = "In sdk/x/staking/client/testutil/suite.go parse real CLI output with the production Params codec, assert every configured parameter, and use valid text/JSON snapshots for the same configuration rather than an impossible JSON fixture."
+owner_domain = 15
+
+[finding.wrong-validator-cli-query]
+file = "sdk/x/staking/client/testutil/suite.go"
+line = 468
+class = "test-gap"
+severity = "medium"
+observed = "TestGetCmdQueryValidatorDelegations constructs GetCmdQueryDelegations and supplies an account address while decoding QueryValidatorDelegationsResponse. The delegated-to-validator and all-delegations-for-account responses share a field shape, allowing the wrong command to appear covered."
+expected = "The validator-delegations test must call the validator-specific command with a validator address and prove it returns all matching delegators, distinct from account-specific delegation enumeration."
+proposal = "In sdk/x/staking/client/testutil/suite.go invoke GetCmdQueryValidatorDelegations with val.ValAddress and use several delegators/validators whose expected results differ from GetCmdQueryDelegations."
+owner_domain = 15
+
+[finding.benchmark-context-panic]
+file = "sdk/x/staking/keeper/validator_test.go"
+line = 30
+class = "test-gap"
+severity = "medium"
+observed = "bootstrapValidatorTest accepts testing.TB but asserts t.(*testing.T). BenchmarkGetValidator in keeper/validator_bench_test.go passes its *testing.B through initValidators to this helper, which necessarily panics before the benchmark body."
+expected = "A shared helper advertised for testing.TB must support the benchmark context passed by its real caller and initialize the same staking state without an impossible concrete type conversion."
+proposal = "In sdk/x/staking/keeper/validator_test.go and the owning setup helpers preserve testing.TB throughout setup or provide a proper benchmark setup path. Run BenchmarkGetValidator in that repair task and retain its real store reads."
+owner_domain = 15
+
+[finding.historical-sort-fixture]
+file = "sdk/x/staking/types/historical_info_test.go"
+line = 28
+class = "test-gap"
+severity = "medium"
+observed = "TestHistoricalInfo and TestValidateBasic use fresh zero-token validators and assert operator-address ordering. They never exercise historical sets with unequal bonded voting powers or consensus-address ties that differ from operator-address order, concealing the producer/validator ordering conflict."
+expected = "Historical-info tests must use the same nonzero power and consensus-address ordering that BeginBlock TrackHistoricalInfo emits and verify the declared validator accepts that produced value."
+proposal = "In sdk/x/staking/types/historical_info_test.go create validators with distinct real consensus keys, unequal powers and deliberately opposed operator-address order, then validate before and after the production codec/store round trip."
+owner_domain = 15
+
+[finding.simulation-store-shapes]
+file = "sdk/x/staking/simulation/decoder.go"
+line = 34
+class = "runtime-risk"
+severity = "medium"
+observed = "NewDecodeStore renders LastValidatorPowerKey values as ValAddress although SetLastValidatorPower stores protobuf Int64Value. It decodes UnbondingDelegationByValIndexKey and RedelegationByValSrcIndexKey empty index values as full objects, and valid destination-index, queue and historical prefixes fall into the panic default. Divergence diagnostics can mislabel data or panic on a real staking store."
+expected = "The staking simulation store decoder must accept the actual key/value encodings written by every supported staking store producer and identify indexes separately from serialized records."
+proposal = "In sdk/x/staking/simulation/decoder.go decode Int64Value for last powers, display index keys without fabricating records and implement queue, destination-index and historical decoders. Feed actual keeper-written KV pairs to the decoder in the repair task."
+owner_domain = 15
+interface = "15.go-x-staking-simulation-new-decode-store-j76"
+
+[finding.validator-queue-key-bounds]
+file = "sdk/x/staking/types/keys.go"
+line = 176
+class = "runtime-risk"
+severity = "medium"
+observed = "ParseValidatorQueueKey checks that the declared time length fits remaining bytes, but does not reserve the final eight bytes for height. A key containing a valid encoded time with zero to seven trailing height bytes reaches BigEndianToUint64 on a short slice and panics instead of returning an error."
+expected = "The error-returning queue parser must validate the complete time-and-height framing before decoding, even when recovering malformed store keys. A valid producer includes exactly eight height bytes."
+proposal = "In sdk/x/staking/types/keys.go validate the total key length including the eight-byte height suffix before either slice conversion, reject malformed/trailing encodings explicitly, and add truncated-height recovery cases to keys_test.go."
+owner_domain = 15
+interface = "15.go-x-staking-types-parse-validator-queue-key-j76"
+
+[finding.nil-minimum-commission]
+file = "sdk/x/staking/types/params.go"
+line = 287
+class = "runtime-risk"
+severity = "medium"
+observed = "validateMinCommissionRate asserts sdk.Dec and immediately calls IsNegative, whose sdk/types/decimal.go implementation dereferences the internal big.Int. A typed nil sdk.Dec therefore panics when passed to Params.Validate instead of being rejected, unlike the adjacent voting-power validators which explicitly call IsNil."
+expected = "Parameter validation must reject an uninitialized minimum-commission decimal with a returned error before arithmetic. Programmatic NewParams callers must receive the same safe validation boundary as other decimal parameters."
+proposal = "In sdk/x/staking/types/params.go reject IsNil before sign and range checks, and add a real NewParams/Params.Validate case with a zero-value sdk.Dec asserting an error without panic. Keep all existing range bounds."
+owner_domain = 15
+
+[finding.readme-retired-runtime]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README lines 44-47 describe two execution domains and a separate layerxd daemon settling checkpoints; line 145 instructs make layerxd and line 181 says the current kernel runs separately. These are presented as the network architecture rather than a historical compatibility description."
+expected = "Brief network facts 1 and 2 describe one paxd BFT network with its kernel inside the proposer and finality at block commit. Retired layerxd and checkpoint settlement must not be current operating instructions."
+proposal = "Rewrite README.md architecture and build instructions for the merged paxd network, chain ID 125, current daemon commands and committed-block finality; isolate any retained historical references with explicit retirement labels."
+owner_domain = 16
+
+[finding.site-network-drift]
+file = "docs/site/docs/overview/unified-network.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "This page advertises active LayerX verification/custody/anchor workflows and checkpoint/guarantor finality; its single-endpoint section points to /rpc and /rpc/schema and describes router joins. Those operations and routes are retired in the finished network."
+expected = "Brief facts 1-3 require committed-block finality, root-path node JSON-RPC and the hosted gateway px_ contract, with retired precompile operations explicitly refusing rather than described as available custody or evidence services."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md with current paxd finality and public node endpoints; document retirement errors and native bank/sub-account funding, per-key proofs and 0x1016 outward transfers instead of the old custody/anchor/router procedure."
+owner_domain = 16
+
+[finding.wiki-network-drift]
+file = "docs/wiki/UnifiedNetwork.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "This page advertises active LayerX verification/custody/anchor workflows and checkpoint/guarantor finality; its single-endpoint section points to /rpc and /rpc/schema and describes router joins. Those operations and routes are retired in the finished network."
+expected = "Brief facts 1-3 require committed-block finality, root-path node JSON-RPC and the hosted gateway px_ contract, with retired precompile operations explicitly refusing rather than described as available custody or evidence services."
+proposal = "Rewrite docs/wiki/UnifiedNetwork.md with current paxd finality and public node endpoints; document retirement errors and native bank/sub-account funding, per-key proofs and 0x1016 outward transfers instead of the old custody/anchor/router procedure."
+owner_domain = 16
+
+[finding.precompile-catalog-retirement]
+file = "docs/system/precompiles.md"
+line = 1170
+class = "doc-drift"
+severity = "medium"
+observed = "The generated catalog lists layerxanchor around line 1170, layerxcustody around line 1285, layerxverify around line 1553 and their Solidity interfaces around line 2463 as callable functions without activation-height retirement or refusal semantics. ABI existence is presented without explaining the retired runtime."
+expected = "Readers must be told that 0x1012/0x1014 and the custody methods refuse after the merge, with LXP_MODULE_DISABLED or ErrModuleRetired as declared in retired.kvx, and that finality and funds now come from native chain state."
+proposal = "Update tools/docs/gen-system-docs.sh and its retirement metadata to generate explicit lifecycle and refusal notices in docs/system/precompiles.md, linking current committed-header proofs, bank funding and bridgeOut replacements while retaining ABI history clearly labeled."
+owner_domain = 16
+
+[finding.authz-concepts-policy]
+file = "sdk/x/authz/spec/01_concepts.md"
+line = 43
+class = "doc-drift"
+severity = "medium"
+observed = "The Gas section says validators may be allowed and/or denied and that granting the authorization charges per-validator gas. NewStakeAuthorization rejects simultaneous allow and deny lists, and the per-validator ConsumeGas calls are in Accept during execution, not grant storage."
+expected = "Authorization documentation must distinguish the exclusive validator policy variants and the lifecycle stage at which traversal gas is charged, so integrators can predict grant and execution costs."
+proposal = "Rewrite sdk/x/authz/spec/01_concepts.md to describe one allow-list or deny-list, charge traversal gas during MsgExec acceptance, and include a persisted deny-only success example after the authorization repair."
+owner_domain = 15
+
+[finding.authz-message-expiration-doc]
+file = "sdk/x/authz/spec/03_messages.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The MsgGrant failure list promises that Expiration less than current unix timestamp is rejected, while the live Grant/SaveGrant/NewGrant path has no chain-time check. A user following this page receives a success response for an unusable already-expired grant."
+expected = "The documented MsgGrant expiration boundary, error code and emitted-event behavior must match the implementation and tests after the time-policy repair."
+proposal = "Update sdk/x/authz/spec/03_messages.md together with the expired-grant repair to state the exact block-time comparison, authz error codespace/code and absence of storage/events on rejection; retain the intended rejection policy."
+owner_domain = 15
+
+[finding.authz-client-network-doc]
+file = "sdk/x/authz/spec/05_client.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "CLI examples use simd and cosmos1 addresses, and the grant example at line 79 spends stake. These are not executable Paxeer node/account/denomination examples; the page also omits the implemented grants-by-granter and grants-by-grantee query commands."
+expected = "The network client page must show paxd, configured pax account prefixes and real configured bank denominations, and enumerate the public authz query commands users can actually invoke."
+proposal = "Rewrite sdk/x/authz/spec/05_client.md using paxd and generated valid Paxeer addresses/amounts, document grants-by-granter and grants-by-grantee, and capture responses from the real server rather than upstream simd fixtures."
+owner_domain = 15
+
+[finding.staking-state-doc]
+file = "sdk/x/staking/spec/01_state.md"
+line = 199
+class = "doc-drift"
+severity = "medium"
+observed = "The ValidatorQueueTime layout omits the encoded time length and height suffix used by GetValidatorQueueKey; lines 214-215 promise address-sorted historical validators although NewHistoricalInfo sorts by voting power and consensus address. Lines 40-42 also suggest leaving the active set starts unbonding every delegation rather than changing validator bond state."
+expected = "The state page must describe the actual persistent queue framing and consensus-engine historical ordering, and distinguish a validator leaving the active set from a delegator requesting an undelegation."
+proposal = "Rewrite sdk/x/staking/spec/01_state.md queue and historical sections from types/keys.go and types/historical_info.go, and clarify that delegations remain recorded while validator bond status changes; link the separate request/completion lifecycle."
+owner_domain = 15
+
+[finding.staking-unbond-transition-doc]
+file = "sdk/x/staking/spec/02_state_transitions.md"
+line = 87
+class = "doc-drift"
+severity = "medium"
+observed = "Begin Unbonding promises an immediate token transfer for an Unbonded validator. Keeper.Undelegate always creates an UnbondingDelegation and schedules current block time plus UnbondingTime, including validators already unbonded."
+expected = "The transition documentation must tell users the actual delay and queue lifecycle applied by the node, including recipient-refusal retry behavior once that repair is implemented."
+proposal = "Rewrite sdk/x/staking/spec/02_state_transitions.md to distinguish Undelegate from redelegation getBeginInfo, state the full undelegation waiting period for all validator statuses, and document durable retry without a duplicate payment."
+owner_domain = 15
+
+[finding.staking-message-wait-doc]
+file = "sdk/x/staking/spec/03_messages.md"
+line = 112
+class = "doc-drift"
+severity = "medium"
+observed = "MsgUndelegate documents inheritance of the validator completion time for Unbonding and immediate payment for Unbonded, but Keeper.Undelegate schedules a fresh full unbonding period for both. The advertised message behavior therefore differs from transaction results and queued payouts."
+expected = "Message documentation must match the response CompletionTime and actual payout eligibility emitted by the live staking handler for every validator status."
+proposal = "Update sdk/x/staking/spec/03_messages.md using real MsgUndelegate outcomes for bonded, unbonding and unbonded validators, and explain the recipient-refusal policy and the currently configured power/commission restrictions."
+owner_domain = 15
+
+[finding.staking-hooks-doc]
+file = "sdk/x/staking/spec/06_hooks.md"
+line = 10
+class = "doc-drift"
+severity = "low"
+observed = "The page lists the staking hooks but omits AfterDelegationModified and BeforeValidatorSlashed, both declared in types/expected_keepers.go and dispatched by types.MultiStakingHooks to the distribution/slashing hooks mounted in node/app.go."
+expected = "Module integrators need the full registered hook lifecycle, including the points that update reward accounting and observe slashing before stake changes."
+proposal = "Extend sdk/x/staking/spec/06_hooks.md with AfterDelegationModified and BeforeValidatorSlashed signatures, ordering and state visible to callbacks, matching keeper/hooks.go and types/hooks.go."
+owner_domain = 15
+
+[finding.staking-params-doc]
+file = "sdk/x/staking/spec/08_params.md"
+line = 12
+class = "doc-drift"
+severity = "medium"
+observed = "The table describes MaxValidators, MaxEntries and HistoricalEntries as uint16, lists PowerReduction as a module parameter, and omits MaxVotingPowerRatio and MaxVotingPowerEnforcementThreshold. Params uses uint32 for the counts, while PowerReduction is a global sdk value returned by the keeper rather than an on-chain parameter."
+expected = "The parameter reference must describe the actual protobuf types and registered ParamSetPairs so operators can govern voting-power enforcement without assuming a nonexistent PowerReduction store key."
+proposal = "Rewrite sdk/x/staking/spec/08_params.md from the registered parameter table, including uint32 widths, both voting-power controls and minimum commission; document the fixed application power reduction separately and label examples versus defaults."
+owner_domain = 15
+
+[finding.staking-client-doc]
+file = "sdk/x/staking/spec/09_client.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "This client reference repeatedly uses simd/cosmos addresses and upstream stake examples, while its parameter responses omit voting-power enforcement fields and retain older commission/default examples. Its gRPC params sample near line 970 is not the complete current Params JSON emitted by the node."
+expected = "Paxeer client documentation must provide runnable paxd commands and current Bech32 prefixes, denominations and full response shapes, including every added parameter required by the real producer."
+proposal = "Rewrite sdk/x/staking/spec/09_client.md against the live CLI and gateway schema, using valid Paxeer addresses and actual configured values; capture complete production Params and redelegation-filter examples rather than preserving upstream snapshots."
+owner_domain = 15
+
+[doc.01]
+path = "README.md"
+status = "misleading"
+notes = "Read in full. Lines 44-47, 145 and 181 retain separate layerxd/checkpoint deployment instructions; see readme-retired-runtime."
+
+[doc.02]
+path = "docs/site/docs/overview/unified-network.md"
+status = "misleading"
+notes = "Read in full. Lines 19-31, 54-124 and 128-171 advertise retired evidence/custody/finality and /rpc router behavior; see site-network-drift."
+
+[doc.03]
+path = "docs/wiki/UnifiedNetwork.md"
+status = "misleading"
+notes = "Read in full. The verification/custody/anchor descriptions and single router endpoint sections describe the pre-merge network; see wiki-network-drift."
+
+[doc.04]
+path = "docs/system/precompiles.md"
+status = "misleading"
+notes = "Read in full, including generated Solidity-interface catalog. Retired 0x1012/0x1014/custody ABI entries lack runtime lifecycle/refusal qualification; see precompile-catalog-retirement."
+
+[doc.05]
+path = "sdk/x/authz/spec/01_concepts.md"
+status = "stale"
+notes = "Line 43 misstates exclusive allow/deny policy and grant-versus-exec gas timing; remaining capability model agrees with the module."
+
+[doc.06]
+path = "sdk/x/authz/spec/02_state.md"
+status = "accurate"
+notes = "Full page read; granter then grantee length-prefixed key and embedded authorization/expiration match keeper persistence."
+
+[doc.07]
+path = "sdk/x/authz/spec/03_messages.md"
+status = "stale"
+notes = "Line 19 promises expiration rejection absent in the current grant handler; other grant/revoke/exec routing conditions were checked."
+
+[doc.08]
+path = "sdk/x/authz/spec/04_events.md"
+status = "accurate"
+notes = "Full page read; typed protobuf grant/revoke event model agrees with keeper emissions."
+
+[doc.09]
+path = "sdk/x/authz/spec/05_client.md"
+status = "stale"
+notes = "Full page read; simd/cosmos/stake examples and incomplete command coverage need Paxeer-specific replacement."
+
+[doc.10]
+path = "sdk/x/authz/spec/README.md"
+status = "accurate"
+notes = "Full page read; method-scoped grants and extensible Authorization overview agree with module registration."
+
+[doc.11]
+path = "sdk/x/staking/spec/01_state.md"
+status = "stale"
+notes = "Full page read; queue framing, historical order and validator versus delegator unbonding prose disagree; production default 10^6 power reduction itself is correct."
+
+[doc.12]
+path = "sdk/x/staking/spec/02_state_transitions.md"
+status = "stale"
+notes = "Full page read; line 87 promises immediate unbonded-validator refunds but Undelegate always creates a full-period queue entry."
+
+[doc.13]
+path = "sdk/x/staking/spec/03_messages.md"
+status = "stale"
+notes = "Full page read; lines 112-113 give wrong unbonding/unbonded completion timelines relative to Keeper.Undelegate."
+
+[doc.14]
+path = "sdk/x/staking/spec/04_begin_block.md"
+status = "accurate"
+notes = "Full page read; historical tracking and retention/pruning agree with BeginBlocker and TrackHistoricalInfo."
+
+[doc.15]
+path = "sdk/x/staking/spec/05_end_block.md"
+status = "accurate"
+notes = "Full page read; validator-set and mature queue completion description matches the normal path; durable refusal retry is an implementation defect under requirement 22067.1."
+
+[doc.16]
+path = "sdk/x/staking/spec/06_hooks.md"
+status = "stale"
+notes = "Full page read; AfterDelegationModified and BeforeValidatorSlashed are missing from the advertised callback list."
+
+[doc.17]
+path = "sdk/x/staking/spec/07_events.md"
+status = "accurate"
+notes = "Full page read; normal staking event names/attributes and legacy actions agree with the emitters and message types."
+
+[doc.18]
+path = "sdk/x/staking/spec/08_params.md"
+status = "stale"
+notes = "Full page read; uint16 widths and PowerReduction on-chain classification are wrong, and both voting-power controls are absent."
+
+[doc.19]
+path = "sdk/x/staking/spec/09_client.md"
+status = "stale"
+notes = "All 2088 lines read; upstream network examples and obsolete Params responses need current Paxeer producer captures."
+
+[doc.20]
+path = "sdk/x/staking/spec/README.md"
+status = "accurate"
+notes = "Full page read; stake/voting-power abstraction and module lifecycle overview remain applicable to the mounted node module."
+
+[doc.21]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Reviewed the slice-relevant cli, go-api, error-codes, legacy-telemetry and otel-instruments anchors and referenced rows only; this is an explicitly frozen 2a1033aa2 baseline, not a claim that historical line offsets or retired emission notes describe current execution. Current behavioral disagreements are recorded against registry row IDs."

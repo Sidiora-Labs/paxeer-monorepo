@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math/big"
 
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -41,6 +42,20 @@ func (k *Keeper) IndexPrice(ctx sdk.Context, token common.Address) (sdk.Int, err
 		return sdk.ZeroInt(), types.ErrStalePrice
 	}
 	return price.Index, nil
+}
+
+func (k *Keeper) ValidatePriceMarket(ctx sdk.Context, token types.TokenParams) error {
+	if token.IsStablecoin {
+		return nil
+	}
+	if token.MarketID == 0 {
+		return types.ErrInvalidOracle
+	}
+	_, err := k.pricefeedKeeper.GetPrice(ctx, token.MarketID)
+	if errors.Is(err, pricefeedtypes.ErrUnknownMarket) {
+		return types.ErrInvalidOracle
+	}
+	return err
 }
 
 func Convert(amount, priceIn, priceOut sdk.Int, decIn, decOut uint32, up bool) (sdk.Int, error) {

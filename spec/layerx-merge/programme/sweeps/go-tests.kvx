@@ -1,0 +1,122 @@
+[sweep.go-tests]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+enumeration_command = "CGO_ENABLED=1 go list ./tests/..."
+enumeration_exit_code = 0
+prerequisite_command = "make paxd-native-libs"
+prerequisite_exit_code = 0
+targets_total = 19
+targets_passed = 19
+targets_failed = 0
+targets_not_run = 0
+notes = "Closure inventory at the supplied main revision; targets are root-module packages returned with the default Go build tags, which exclude nested modules and the autobahn_integration-only package. No go-tests repair records or named producer-input test exclusions are present at this revision."
+
+[target.go-tests.1]
+target = "tests/chain"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.2]
+target = "tests/fixtures/example/contracts/echo"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.3]
+target = "tests/fixtures/example/contracts/erc1155"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.4]
+target = "tests/fixtures/example/contracts/erc20"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.5]
+target = "tests/fixtures/example/contracts/erc2981"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.6]
+target = "tests/fixtures/example/contracts/sendall"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.7]
+target = "tests/fixtures/example/contracts/simplestorage"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.8]
+target = "tests/integration/evm_module/rpc_io_test"
+result = "passed"
+exit_code = 0
+notes = "The default command passed; TestEVMRPCSpec is opt-in via PAX_EVM_IO_RUN_INTEGRATION=1 and was not enabled for this sweep."
+
+[target.go-tests.9]
+target = "tests/integration/evm_module/ws_test"
+result = "passed"
+exit_code = 0
+notes = "The default command passed; TestEthSubscribeNewHeads skips unless PAX_EVM_WS_RUN_INTEGRATION=1 and was not enabled for this sweep."
+
+[target.go-tests.10]
+target = "tests/integration/runner"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.11]
+target = "tests/occ"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.12]
+target = "tests/occ/messages"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.13]
+target = "tests/occ/utils"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.14]
+target = "tests/testutil/keeper"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.15]
+target = "tests/testutil/nullify"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.16]
+target = "tests/testutil/processblock"
+result = "passed"
+exit_code = 0
+
+[target.go-tests.17]
+target = "tests/testutil/processblock/msgs"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.18]
+target = "tests/testutil/processblock/verify"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."
+
+[target.go-tests.19]
+target = "tests/testutil/sample"
+result = "passed"
+exit_code = 0
+notes = "Both commands exited successfully; go test reported no test files."

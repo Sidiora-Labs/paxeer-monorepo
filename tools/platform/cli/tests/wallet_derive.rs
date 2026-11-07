@@ -14,6 +14,9 @@ fn fixture() -> Value {
 
 #[test]
 fn derive_reads_the_phrase_from_stdin_and_matches_the_shared_fixture() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let fixture = fixture();
     for vector in fixture["mnemonic_vectors"].as_array().expect("vectors") {
@@ -44,6 +47,9 @@ fn derive_reads_the_phrase_from_stdin_and_matches_the_shared_fixture() {
 
 #[test]
 fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let fixture = fixture();
     let vector = &fixture["mnemonic_vectors"][1];
@@ -110,6 +116,9 @@ fn derive_reads_files_and_exports_keys_only_to_an_owner_only_file() {
 
 #[test]
 fn derive_refuses_bad_phrases_argv_phrases_and_bind_without_an_endpoint() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let bad = cli.run_with_stdin(&["--json", "wallet", "derive"], "abandon abandon abandon\n");
     assert!(!bad.status.success());
@@ -130,4 +139,97 @@ fn derive_refuses_bad_phrases_argv_phrases_and_bind_without_an_endpoint() {
         error_envelope(&unbound)["error"]["code"],
         "bind_requires_rpc"
     );
+}
+
+#[test]
+fn derive_binding_vectors_preserve_pair_refusals_and_recovered_nonce(
+) -> Result<(), Box<dyn std::error::Error>> {
+    use layerx_client::account_binding::{
+        plan_bind, sign_bind_transaction, BindError, BindFees, BindPlan,
+    };
+    use layerx_crypto::account_derivation::derive_from_mnemonic;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let corpus = fixture();
+    let vector = &corpus["mnemonic_vectors"][0];
+    for expected in vector["accounts"].as_array().expect("derived accounts") {
+        let account = derive_from_mnemonic(
+            vector["mnemonic"].as_str().expect("mnemonic"),
+            "",
+            expected["index"].as_u64().expect("index") as u32,
+        )?;
+        assert_eq!(
+            account.evm_address(),
+            layerx_platform_cli::encoding::fixed_hex::<20>(
+                "fixture EVM address",
+                expected["evm_address"]
+                    .as_str()
+                    .expect("EVM address")
+                    .strip_prefix("0x")
+                    .expect("address prefix"),
+            )?
+        );
+        assert_eq!(account.did(), expected["did"]);
+        let BindPlan::Bind(call) = plan_bind(&account, 125, None, 0)? else {
+            panic!("unbound pair")
+        };
+        call.signed_binding()
+            .verify()
+            .expect("real binding consent");
+        let raw = sign_bind_transaction(
+            &account,
+            125,
+            &call,
+            BindFees {
+                evm_nonce: 0,
+                max_priority_fee_per_gas: 1_000_000_000,
+                max_fee_per_gas: 2_000_000_000,
+                gas_limit: 200_000,
+            },
+        )?;
+        assert_eq!(
+            layerx_platform_cli::encoding::hex_encode(&raw),
+            expected["bind"]["transaction"]["raw"]
+        );
+        let (transaction, signature) = decode_signed(&raw).expect("production EIP-1559 codec");
+        assert_eq!(
+            recover_sender(&transaction, &signature).expect("real sender"),
+            account.evm_address()
+        );
+        assert!(matches!(
+            plan_bind(&account, 125, Some(account.layerx_public_key()), 1)?,
+            BindPlan::AlreadyBound
+        ));
+        assert_eq!(
+            plan_bind(&account, 125, Some([0x61; 32]), 1).expect_err("other identity"),
+            BindError::BoundToDifferentDid { bound: [0x61; 32] }
+        );
+        let BindPlan::Bind(recovered) = plan_bind(&account, 125, None, 7)? else {
+            panic!("recovered nonce")
+        };
+        assert_eq!(recovered.signed_binding().binding().nonce(), 7);
+        assert!(recovered
+            .signed_binding()
+            .binding()
+            .verify(
+                &call.signed_binding().public_key(),
+                &call.signed_binding().signature()
+            )
+            .is_err());
+        recovered
+            .signed_binding()
+            .verify()
+            .expect("recovered consent");
+    }
+    Ok(())
+}
+
+#[test]
+fn derive_bind_accepts_the_node_root_transport() -> Result<(), String> {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").map_err(|error| error.to_string())?;
+    let root = format!(
+        "http://{}",
+        listener.local_addr().map_err(|error| error.to_string())?
+    );
+    let _client = layerx_platform_cli::rpc::RpcClient::new(&root, None)?;
+    Ok(())
 }

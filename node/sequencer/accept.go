@@ -2,6 +2,7 @@ package sequencer
 
 import (
 	"crypto/sha256"
+	"fmt"
 	"math"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
@@ -16,6 +17,9 @@ import (
 func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.fenced {
+		return nil, ErrLeaseFenced
+	}
 	if s.open == nil {
 		return nil, ErrLayerNotOpen
 	}
@@ -29,14 +33,25 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	if err != nil {
 		return nil, sdkerrors.Wrap(sdkerrors.ErrTxDecode, err.Error())
 	}
+	pre := s.receiptContextLocked()
+	beforeAdmission := s.open.ctx
+	if err := s.admit(tx, txBytes); err != nil {
+		return nil, err
+	}
 	checksum := sha256.Sum256(txBytes)
 	txIndex := len(s.open.txs) + 1
 	res, branch, err := s.deliver(tx, txBytes, checksum, txIndex)
 	if err != nil {
+		s.open.ctx = beforeAdmission
 		return nil, err
 	}
 	if !receipted(res) {
-		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, res.Log)
+		s.open.ctx = beforeAdmission
+		log := res.Log
+		if log == "" {
+			log = fmt.Sprintf("refused with code %d in %s", res.Code, res.Codespace)
+		}
+		return nil, sdkerrors.ABCIError(res.Codespace, res.Code, log)
 	}
 	branch.Write()
 
@@ -67,14 +82,16 @@ func (s *sequential) Accept(txBytes []byte) (*Accepted, error) {
 	s.lastSeq = seq
 	s.lastSeqHash = seqHash
 	return &Accepted{
-		Seq:         seq,
-		PrevSeqHash: prev,
-		SeqHash:     seqHash,
-		ActivityID:  activityID,
-		Height:      s.open.height,
-		TxIndex:     txIndex,
-		TimestampMs: s.open.timestampMs,
-		Result:      result,
+		Seq:            seq,
+		PrevSeqHash:    prev,
+		SeqHash:        seqHash,
+		ActivityID:     activityID,
+		Height:         s.open.height,
+		TxIndex:        txIndex,
+		TimestampMs:    s.open.timestampMs,
+		Result:         result,
+		BeforeContext:  pre,
+		ReceiptContext: s.receiptContextLocked(),
 	}, nil
 }
 
@@ -88,7 +105,11 @@ func (s *sequential) deliver(tx sdk.Tx, txBytes []byte, checksum [32]byte, txInd
 			err = sdkerrors.Wrapf(sdkerrors.ErrPanic, "recovered: %v", r)
 		}
 	}()
-	ctx, branch := s.host.CacheTxContext(s.open.ctx.WithTxIndex(txIndex), checksum)
+	ctx, err := SetTxPosition(s.open.ctx, txIndex)
+	if err != nil {
+		return abci.ResponseDeliverTx{}, nil, err
+	}
+	ctx, branch = s.host.CacheTxContext(ctx, checksum)
 	res = s.host.DeliverTx(ctx, abci.RequestDeliverTxV2{Tx: txBytes}, tx, checksum)
 	return res, branch, nil
 }

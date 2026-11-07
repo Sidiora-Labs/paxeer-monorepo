@@ -22,23 +22,36 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/internaltest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/rest"
 	"github.com/Sidiora-Technologies/KindleLaunch/core/api/internal/store"
+	"github.com/Sidiora-Technologies/KindleLaunch/core/api/migrations"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
 	interfaces "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 )
 
 func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadModel, *broker.PostgresStream, string, json.RawMessage) {
 	t.Helper()
+	dsn := os.Getenv("API_TEST_DATABASE_URL")
+	if dsn == "" {
+		t.Fatal("API_TEST_DATABASE_URL required: tests must exercise real PostgreSQL")
+	}
+	t.Setenv(internaltest.ExternalPostgresEnv, dsn)
 	pool := internaltest.NewPostgres(t)
 	ctx := context.Background()
 	schema := fmt.Sprintf("l22_stream_%d", time.Now().UnixNano())
-	migration, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/migrations/150002.sql")
+	sqlDB := stdlib.OpenDB(*pool.Config().ConnConfig)
+	defer sqlDB.Close()
+	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations.Migrations())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = pool.Exec(ctx, strings.ReplaceAll(string(migration), "api_stream", schema)); err != nil {
+	if _, err = provider.Up(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = pool.Exec(ctx, "ALTER SCHEMA api_stream RENAME TO "+pgx.Identifier{schema}.Sanitize()); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -55,18 +68,14 @@ func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadM
 	if err != nil {
 		t.Fatal(err)
 	}
-	raw, err := os.ReadFile("../../../../../launchpad/spec/production-system/integration/contracts/v2/examples.json")
+	raw, err := os.ReadFile("testdata/contracts/v2/examples.json")
 	if err != nil {
 		t.Fatal(err)
 	}
 	var examples struct {
 		Endpoints map[string]struct {
 			Successes []struct {
-				Body struct {
-					Data struct {
-						Stats json.RawMessage `json:"stats"`
-					} `json:"data"`
-				} `json:"body"`
+				Body json.RawMessage `json:"body"`
 			} `json:"successes"`
 		} `json:"endpoints"`
 	}
@@ -77,8 +86,21 @@ func productionReadsFixture(t *testing.T) (*pgxpool.Pool, *store.AccountingReadM
 	if len(successes) == 0 {
 		t.Fatal("frozen stats example required")
 	}
+	for _, success := range successes {
+		if err = interfaces.ValidateJSON("StatsResponse", success.Body); err != nil {
+			t.Fatalf("invalid frozen stats example: %v", err)
+		}
+	}
 	var stats map[string]json.RawMessage
-	if err = json.Unmarshal(successes[0].Body.Data.Stats, &stats); err != nil {
+	var body struct {
+		Data struct {
+			Stats json.RawMessage `json:"stats"`
+		} `json:"data"`
+	}
+	if err = json.Unmarshal(successes[0].Body, &body); err != nil {
+		t.Fatal(err)
+	}
+	if err = json.Unmarshal(body.Data.Stats, &stats); err != nil {
 		t.Fatal(err)
 	}
 	stats["volume24hRaw"] = json.RawMessage(`"1000000"`)

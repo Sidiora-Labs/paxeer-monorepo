@@ -1,0 +1,126 @@
+[disposition.9.0.3.1]
+finding = "9.0.3.1"
+status = "resolved"
+evidence = "Commit e5da82547 connects NodeRpc before starting the human owner and supplies the protocol configuration in node_integration.rs, so startup checks the RPC endpoint before requiring the human LNI socket."
+
+[disposition.9.0.3.2]
+finding = "9.0.3.2"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211 now reads LAYERX_TEST_PAXEER_CHAIN_ID and LAYERX_TEST_PAXEER_RPC_PORT and constructs the local RPC URL, as landed in e5da82547."
+
+[disposition.9.0.3.3]
+finding = "9.0.3.3"
+status = "environment"
+evidence = "services/agent/crates/layerx-agentd/host-tests/node_integration.rs:211 requires the external qualification environment to supply the running local node chain ID and RPC port before exercising the unchanged chain mismatch assertion."
+
+[disposition.9.1.1]
+finding = "9.1.1"
+status = "superseded"
+evidence = "Commit 05dcc1243 ported the mirror freshness construction to heights and rungs, and f0aa4ee07 subsequently deleted services/interop/crates/layerx-mirror/src/node.rs with the retired LNI and native certificate surface."
+
+[disposition.9.1.1.1]
+finding = "9.1.1.1"
+status = "resolved"
+evidence = "Commits 05dcc1243, 1866e77a1 and 6b9420582 ported the mirror, SDK and daemon consumers respectively to the API height and rung fields, removing the obsolete Freshness and read constructors reported by this finding."
+
+[disposition.9.1.2]
+finding = "9.1.2"
+status = "resolved"
+evidence = "Commits 1866e77a1 and 6b9420582 update the SDK protocol budget decoder to achieved_rung and the daemon event producer to ReceiptReference::Verified.rung, while 05dcc1243 ports the mirror consumer."
+
+[disposition.9.1.4.1]
+finding = "9.1.4.1"
+status = "resolved"
+evidence = "Commit b20ecde23 removes settlement_domain_gate and its invocation from services/agent/crates/layerx-agent-api/build.rs, eliminating the generator requirement for the retired SettlementDomain vocabulary."
+
+[disposition.9.1.4.2]
+finding = "9.1.4.2"
+status = "resolved"
+evidence = "services/agent/crates/layerx-agent-api/src/error.rs:143 aliases VerificationStatus to RungStatus and services/agent/crates/layerx-sdk/src/agent_envelope.rs:1056 decodes rung values, with the SDK and API test callers ported by b20ecde23."
+
+[disposition.9.1.5.1]
+finding = "9.1.5.1"
+status = "resolved"
+evidence = "Commit 77f70145f replaces agent_rpc.rs FaucetClaim enum references with a retired wire-name refusal and removes the obsolete variant uses from rpc_surface_major_two.rs, agent_operation_envelope.rs and the MCP faucet tests."
+
+[disposition.9.1.6]
+finding = "9.1.6"
+status = "resolved"
+evidence = "Commit 05dcc1243 replaces rendered_configuration reading the removed example node.checkpoint_policy with an inline policy, and services/interop/crates/layerx-mirror/src/runtime.rs:1210 now renders the Paxeer configuration without that example-file dependency."
+
+[disposition.9.1.7]
+finding = "9.1.7"
+status = "resolved"
+evidence = "Commit 1866e77a1 ports tests/sdk.rs to height-based Freshness and BalanceValue constructors and tests/offline_export.rs to EncodedOfflineArtifact, removing their obsolete API fields and VerificationLevel uses."
+
+[disposition.9.1.7.1]
+finding = "9.1.7.1"
+status = "resolved"
+evidence = "services/agent/Cargo.lock:848 includes serde_json in the layerx-committed-proof dependency list following the lock refresh in ecdaab902."
+
+[disposition.9.1.7.2]
+finding = "9.1.7.2"
+status = "resolved"
+evidence = "Commit 1866e77a1 ports services/agent/crates/layerx-sdk/tests/agent_operation_envelope.rs to the new ProofBundle representation, owned byte frames and ReadRequest.requested_rung."
+
+[disposition.9.1.7.3]
+finding = "9.1.7.3"
+status = "environment"
+evidence = "services/platform/tests/support/tls_boundary.rs:176 requires the real boundary executable and services/agent/crates/layerx-sdk/src/program_http.rs:2339 requires the private signed corpus from the qualification environment, while 1866e77a1 removes the separately reported obsolete SDK finality test."
+
+[disposition.9.1.7.4]
+finding = "9.1.7.4"
+status = "open"
+evidence = "services/agent/crates/layerx-proof/src/settlement.rs:12 still embeds contracts/config/checkpoint-settlement.json:1, whose offline_export document lacks the schema required at services/agent/crates/layerx-types/src/settlement.rs:267 and therefore still blocks the certificate verifier at services/agent/crates/layerx-proof/src/checkpoint.rs:478."
+follow_up = "9.27.4"
+
+[disposition.9.1.7.5]
+finding = "9.1.7.5"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:160130 assigns LAYERX_PAXEER_BOUNDARY_BIN without escaped quotes and its build command at line 160129 builds the boundary binary, while the private corpus remains an explicit environment input described at line 160124."
+
+[disposition.9.1.7.6]
+finding = "9.1.7.6"
+status = "resolved"
+evidence = "Commit cd8fcfa86 replaces the retired web-request callback fixture with bounded event emission and arena exhaustion in tests/programs/test_terminal_v5.c, preserving the callback failure corpus role."
+
+[disposition.9.1.7.7]
+finding = "9.1.7.7"
+status = "open"
+evidence = "services/platform/tests/support/tls_boundary.rs:170 still reserves a port and drops its listener before spawning the boundary, then accepts one successful TCP readiness probe, leaving the reported port handoff race unaddressed."
+follow_up = "22.8.9"
+
+[disposition.9.1.8.2]
+finding = "9.1.8.2"
+status = "resolved"
+evidence = "Commit 6b9420582 replaces the obsolete byte-slice estimate_fee calls with send_raw_transaction for empty encoded bytes and a typed Eip1559Call for the oversized payload in services/agent/crates/layerx-agentd/tests/fee_projection_program_state.rs:76."
+
+[disposition.9.1.8.3]
+finding = "9.1.8.3"
+status = "resolved"
+evidence = "Commit 6054b2fc1 fixes the actual custody failure by decoding canonical LXDC3 credits instead of legacy TLV payloads, and spec/layerx-merge/spec.kvx:160160 builds the TLS boundary whose executable is supplied by the following verify command."
+
+[disposition.9.1.8.4]
+finding = "9.1.8.4"
+status = "resolved"
+evidence = "Commit 6054b2fc1 repairs the decoder to accept the recorded LXDC3 custody activity and adds coverage using the unchanged daemon-light-credit-receipt fixture, removing the need to regenerate it with the missing generator."
+
+[disposition.9.1.8.5]
+finding = "9.1.8.5"
+status = "resolved"
+evidence = "services/agent/crates/layerx-crypto/src/disclosure.rs:403 decodes LXDC3 and semantics at line 536 gives Bridge credit the MAX_PAYLOAD_BYTES bound, replacing the rejected 0x4801 framing and 512-byte limit in 6054b2fc1."
+
+[disposition.9.1.8.6]
+finding = "9.1.8.6"
+status = "resolved"
+evidence = "Commit 6b9420582 derives activity kinds with peek_signed_activity_type from canonical activity bytes in both cumulative verifiers, visible at services/agent/crates/layerx-agentd/src/protocol_evidence.rs:765 and line 1136, instead of treating receipt.operation as the activity ordinal."
+
+[disposition.9.2.1]
+finding = "9.2.1"
+status = "resolved"
+evidence = "Commit 2d784c531 moves the retained core preparation API under prepare::legacy and updates human_runtime.rs imports and preparation call sites to that namespace, as shown at services/agent/crates/layerx-agentd/src/human_runtime.rs:51."
+
+[disposition.9.2.2]
+finding = "9.2.2"
+status = "resolved"
+evidence = "Commit c03f97f8e introduces SigningPreparation with an EVM transaction and actor_address, makes EVM signature attachment use 65-byte signatures and 20-byte addresses, and moves retained kernel-signature callers onto their separate functions, matching services/agent/crates/layerx-agentd/src/sign_verify.rs:52."

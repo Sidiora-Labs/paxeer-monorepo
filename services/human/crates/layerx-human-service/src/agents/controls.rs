@@ -1,28 +1,30 @@
 //! Managed-agent pause, resume, and spend-limit controls.
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
+use std::sync::{Arc, Mutex};
 
 use layerx_intents::{
-    compile, BudgetCreate, CompileError, DisclosureCheck, DisclosureCheckError, Intent,
-    IntentError, IntentKind,
+    compile, BudgetCreate, CompileError, DisclosureCheckError, Intent, IntentError, IntentKind,
 };
 use layerx_proof::receipt::VerificationFailure;
 use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, Did};
 use layerx_types::intent::{BudgetId, PeriodLength, PurposeHash, RolloverPolicy, TimestampSeconds};
-use layerx_types::payload::{ModuleId, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::payload::ModuleRegistry;
 use sha2::{Digest as _, Sha256};
 
 use crate::custody::{
     AgentSessionContract, KeyId, RevocationOutcome, SessionEntropySource, SessionKeyError,
     SessionKeyProvisioner, SessionLease, SessionLeaseState,
 };
-use crate::store::PrincipalId;
+use crate::store::{PrincipalId, PrincipalScope, PrincipalStore, RowKey, StoreError, Table};
 
 use super::{AgentCreationContract, AgentFailure, CreationStage, ProtocolAction, ProtocolEvidence};
+
+pub type Rung = layerx_types::rung::Rung;
 
 const ACTION_DOMAIN: &[u8] = b"layerx-human/agent-control-action/v1";
 const BUDGET_DOMAIN: &[u8] = b"layerx-human/agent-limit-budget/v1";
@@ -123,7 +125,7 @@ impl AgentControlProfile {
 }
 
 /// One idempotent spend-limit request.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub struct LimitChangeRequest {
     pub idempotency_key: [u8; 32],
     pub monthly_limit: u128,
@@ -331,7 +333,7 @@ pub struct PresentedLimit {
     pub enforcement_copy_key: &'static str,
     pub explanation: &'static str,
     pub evidence_digest: [u8; 32],
-    pub verification_level: VerificationLevel,
+    pub verification_level: Rung,
 }
 
 /// Fresh public state returned by every control operation.
@@ -354,9 +356,30 @@ struct CompletedLimitChange {
     view: AgentControlView,
 }
 
+#[derive(Clone, Debug, Deserialize, Serialize)]
+struct ControlSnapshot {
+    paused: bool,
+    monthly: u128,
+    protocol: bool,
+    evidence: [u8; 32],
+    rung: u8,
+    budget: Option<[u8; 32]>,
+    updated_at: u64,
+    authority_evidence: Vec<[u8; 32]>,
+}
+
+#[derive(Deserialize, Serialize)]
+struct ControlRecord {
+    version: u8,
+    profile_digest: [u8; 32],
+    current: ControlSnapshot,
+    completed: Vec<(LimitChangeRequest, ControlSnapshot)>,
+    pending: Option<(LimitChangeRequest, u64)>,
+}
+
 struct LimitChangeEvidence {
     digest: [u8; 32],
-    level: VerificationLevel,
+    level: Rung,
     replacement_budget: Option<[u8; 32]>,
 }
 
@@ -365,6 +388,8 @@ struct LimitChangeEvidence {
 /// app-enforced result and cannot acquire protocol wording.
 pub struct AgentControls<B: AgentControlContract> {
     boundary: B,
+    durable: Option<Arc<Mutex<PrincipalStore>>>,
+    pending: Option<(LimitChangeRequest, u64)>,
     profile: AgentControlProfile,
     state: AgentControlState,
     limit: PresentedLimit,
@@ -413,14 +438,13 @@ impl<B: AgentControlContract> AgentControls<B> {
             LimitEnforcement::App => APP_LIMIT_EXPLANATION,
         };
         let (limit_evidence, limit_level) = match enforcement {
-            LimitEnforcement::Protocol => (
-                profile.initial_limit_evidence_digest,
-                VerificationLevel::BATCH_INCLUDED,
-            ),
-            LimitEnforcement::App => ([0; 32], VerificationLevel::UNVERIFIED),
+            LimitEnforcement::Protocol => (profile.initial_limit_evidence_digest, Rung::Receipted),
+            LimitEnforcement::App => ([0; 32], Rung::Submitted),
         };
         Ok(Self {
             boundary,
+            durable: None,
+            pending: None,
             profile,
             state: AgentControlState::Active,
             limit: PresentedLimit {
@@ -436,6 +460,175 @@ impl<B: AgentControlContract> AgentControls<B> {
             authority_evidence: vec![authority.provision_receipt_digest],
             completed_limit_changes: BTreeMap::new(),
         })
+    }
+
+    /// Opens the principal-scoped control record before consulting live authority.
+    /// Completed retries remain available while authority is temporarily offline.
+    pub fn open(
+        boundary: B,
+        profile: AgentControlProfile,
+        monthly_limit: u128,
+        backing: LimitBacking,
+        observed_at: u64,
+        store: Arc<Mutex<PrincipalStore>>,
+    ) -> Result<Self, AgentControlError> {
+        profile.validate()?;
+        let mut locked = store
+            .lock()
+            .map_err(|_| AgentControlError::PersistenceUnavailable)?;
+        let mut scope = locked.principal(&profile.principal)?;
+        let row = control_row(&profile)?;
+        let mut controls = if let Some(row) = scope.get(Table::Journeys, &row) {
+            let record: ControlRecord = serde_json::from_slice(row.bytes())
+                .map_err(|_| AgentControlError::EvidenceConflict)?;
+            let snapshot = &record.current;
+            let mut controls = Self {
+                boundary,
+                durable: None,
+                pending: None,
+                profile,
+                state: AgentControlState::Active,
+                limit: presented(snapshot)?,
+                active_budget_id: snapshot.budget,
+                updated_at: snapshot.updated_at,
+                authority_evidence: snapshot.authority_evidence.clone(),
+                completed_limit_changes: BTreeMap::new(),
+            };
+            controls.restore(record)?;
+            controls
+        } else {
+            let controls = Self::new(boundary, profile, monthly_limit, backing, observed_at)?;
+            controls.save(&mut scope)?;
+            controls
+        };
+        drop(scope);
+        drop(locked);
+        controls.durable = Some(store);
+        Ok(controls)
+    }
+
+    fn snapshot(&self) -> ControlSnapshot {
+        ControlSnapshot {
+            paused: self.state == AgentControlState::Paused,
+            monthly: self.limit.monthly,
+            protocol: self.limit.enforcement == LimitEnforcement::Protocol,
+            evidence: self.limit.evidence_digest,
+            rung: self.limit.verification_level.wire_rank(),
+            budget: self.active_budget_id,
+            updated_at: self.updated_at,
+            authority_evidence: self.authority_evidence.clone(),
+        }
+    }
+
+    fn save(&self, scope: &mut PrincipalScope<'_>) -> Result<(), AgentControlError> {
+        if scope.principal() != &self.profile.principal {
+            return Err(AgentControlError::EvidenceConflict);
+        }
+        let completed = self
+            .completed_limit_changes
+            .values()
+            .map(|entry| {
+                let view = &entry.view;
+                (
+                    entry.request,
+                    ControlSnapshot {
+                        paused: view.state == AgentControlState::Paused,
+                        monthly: view.limit.monthly,
+                        protocol: view.limit.enforcement == LimitEnforcement::Protocol,
+                        evidence: view.limit.evidence_digest,
+                        rung: view.limit.verification_level.wire_rank(),
+                        budget: None,
+                        updated_at: view.updated_at,
+                        authority_evidence: view.authority_evidence.clone(),
+                    },
+                )
+            })
+            .collect();
+        let record = ControlRecord {
+            version: 1,
+            profile_digest: profile_digest(&self.profile),
+            current: self.snapshot(),
+            completed,
+            pending: self.pending,
+        };
+        let bytes = serde_json::to_vec(&record).map_err(|_| AgentControlError::EvidenceConflict)?;
+        scope.put(
+            Table::Journeys,
+            control_row(&self.profile)?,
+            self.updated_at,
+            bytes,
+        )?;
+        Ok(())
+    }
+
+    fn restore(&mut self, record: ControlRecord) -> Result<(), AgentControlError> {
+        if record.version != 1 || record.profile_digest != profile_digest(&self.profile) {
+            return Err(AgentControlError::EvidenceConflict);
+        }
+        let current = record.current;
+        if current.protocol != current.budget.is_some() || current.budget == Some([0; 32]) {
+            return Err(AgentControlError::EvidenceConflict);
+        }
+        self.limit = presented(&current)?;
+        self.active_budget_id = current.budget;
+        self.updated_at = current.updated_at;
+        self.state = if current.paused {
+            AgentControlState::Paused
+        } else {
+            AgentControlState::Active
+        };
+        self.authority_evidence = current.authority_evidence;
+        self.pending = record.pending;
+        self.completed_limit_changes.clear();
+        for (request, snapshot) in record.completed {
+            let fresh_until = snapshot
+                .updated_at
+                .checked_add(self.profile.freshness_seconds)
+                .ok_or(AgentControlError::TimeOverflow)?;
+            let state = if snapshot.paused {
+                AgentControlState::Paused
+            } else {
+                AgentControlState::Active
+            };
+            let view = AgentControlView {
+                agent_id: self.profile.agent_id,
+                state,
+                state_copy_key: state.copy_key(),
+                pause_consequence_copy_key: snapshot.paused.then_some(PAUSE_CONSEQUENCE_COPY_KEY),
+                pause_consequence: snapshot.paused.then_some(PAUSE_CONSEQUENCE),
+                limit: presented(&snapshot)?,
+                updated_at: snapshot.updated_at,
+                fresh_until,
+                authority_evidence: snapshot.authority_evidence,
+            };
+            if request.monthly_limit != view.limit.monthly
+                || request.idempotency_key == [0; 32]
+                || self
+                    .completed_limit_changes
+                    .insert(
+                        request.idempotency_key,
+                        CompletedLimitChange { request, view },
+                    )
+                    .is_some()
+            {
+                return Err(AgentControlError::EvidenceConflict);
+            }
+        }
+        Ok(())
+    }
+
+    fn refresh(&mut self, scope: &PrincipalScope<'_>) -> Result<(), AgentControlError> {
+        let row = scope
+            .get(Table::Journeys, &control_row(&self.profile)?)
+            .ok_or(AgentControlError::EvidenceConflict)?;
+        self.restore(
+            serde_json::from_slice(row.bytes()).map_err(|_| AgentControlError::EvidenceConflict)?,
+        )
+    }
+
+    #[must_use]
+    pub fn into_boundary(self) -> B {
+        self.boundary
     }
 
     #[must_use]
@@ -474,6 +667,20 @@ impl<B: AgentControlContract> AgentControls<B> {
     ///
     /// Returns the typed authority or freshness refusal without claiming pause.
     pub fn pause(&mut self, requested_at: u64) -> Result<AgentControlView, AgentControlError> {
+        if let Some(store) = self.durable.clone() {
+            let mut locked = store
+                .lock()
+                .map_err(|_| AgentControlError::PersistenceUnavailable)?;
+            let mut scope = locked.principal(&self.profile.principal)?;
+            self.refresh(&scope)?;
+            let view = self.pause_inner(requested_at)?;
+            self.save(&mut scope)?;
+            return Ok(view);
+        }
+        self.pause_inner(requested_at)
+    }
+
+    fn pause_inner(&mut self, requested_at: u64) -> Result<AgentControlView, AgentControlError> {
         if self.state == AgentControlState::Paused {
             return self.view(requested_at);
         }
@@ -504,6 +711,20 @@ impl<B: AgentControlContract> AgentControls<B> {
     ///
     /// Returns the typed session or evidence refusal without presenting Active.
     pub fn resume(&mut self, observed_at: u64) -> Result<AgentControlView, AgentControlError> {
+        if let Some(store) = self.durable.clone() {
+            let mut locked = store
+                .lock()
+                .map_err(|_| AgentControlError::PersistenceUnavailable)?;
+            let mut scope = locked.principal(&self.profile.principal)?;
+            self.refresh(&scope)?;
+            let view = self.resume_inner(observed_at)?;
+            self.save(&mut scope)?;
+            return Ok(view);
+        }
+        self.resume_inner(observed_at)
+    }
+
+    fn resume_inner(&mut self, observed_at: u64) -> Result<AgentControlView, AgentControlError> {
         if self.state == AgentControlState::Active {
             return self.view(observed_at);
         }
@@ -533,10 +754,61 @@ impl<B: AgentControlContract> AgentControls<B> {
     /// disclosure failures, unverified receipts, and malformed app evidence.
     pub fn change_limit(
         &mut self,
+        authority_rung: Rung,
         registry: &ModuleRegistry,
         request: LimitChangeRequest,
         observed_at: u64,
     ) -> Result<AgentControlView, AgentControlError> {
+        LimitChangeRequest::new(request.idempotency_key, request.monthly_limit)?;
+        if let Some(store) = self.durable.clone() {
+            let mut locked = store
+                .lock()
+                .map_err(|_| AgentControlError::PersistenceUnavailable)?;
+            let mut scope = locked.principal(&self.profile.principal)?;
+            self.refresh(&scope)?;
+            if let Some(completed) = self.completed_limit_changes.get(&request.idempotency_key) {
+                return if completed.request == request && authority_rung == Rung::Committed {
+                    Ok(completed.view.clone())
+                } else {
+                    Err(AgentControlError::IdempotencyConflict)
+                };
+            }
+            if authority_rung != Rung::Committed {
+                return Err(AgentControlError::EvidenceConflict);
+            }
+            let started_at = match self.pending {
+                Some((pending, started)) if pending == request => started,
+                Some(_) => return Err(AgentControlError::IdempotencyConflict),
+                None => {
+                    if observed_at < self.updated_at {
+                        return Err(AgentControlError::NonMonotonicObservation);
+                    }
+                    observed_at
+                        .checked_add(self.profile.freshness_seconds)
+                        .ok_or(AgentControlError::TimeOverflow)?;
+                    self.pending = Some((request, observed_at));
+                    self.save(&mut scope)?;
+                    observed_at
+                }
+            };
+            let view = self.change_limit_inner(authority_rung, registry, request, started_at)?;
+            self.pending = None;
+            self.save(&mut scope)?;
+            return Ok(view);
+        }
+        self.change_limit_inner(authority_rung, registry, request, observed_at)
+    }
+
+    fn change_limit_inner(
+        &mut self,
+        authority_rung: Rung,
+        registry: &ModuleRegistry,
+        request: LimitChangeRequest,
+        observed_at: u64,
+    ) -> Result<AgentControlView, AgentControlError> {
+        if authority_rung != Rung::Committed {
+            return Err(AgentControlError::EvidenceConflict);
+        }
         if let Some(completed) = self.completed_limit_changes.get(&request.idempotency_key) {
             return if completed.request == request {
                 Ok(completed.view.clone())
@@ -599,13 +871,13 @@ impl<B: AgentControlContract> AgentControls<B> {
             ),
         )?));
         let compiled = compile(&intent, registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        let disclosure = compiled.verify_disclosure(&intent)?;
         let kind = compiled.activity_type();
         let payload = compiled.payload().as_bytes().to_vec();
         let evidence = self.boundary.submit_protocol_limit(ProtocolAction {
             actor: None,
             stage: CreationStage::BudgetCreation,
-            action_key,
+            action_key: replacement,
             intent,
             compiled,
             disclosure,
@@ -613,30 +885,27 @@ impl<B: AgentControlContract> AgentControls<B> {
                 .map_err(|_| AgentControlError::InvalidProfile)?,
             started_at: observed_at,
         })?;
-        if evidence.action_key != action_key || evidence.bound_activity(kind)?.payload() != payload
-        {
+        let bound = evidence.bound_activity(kind)?;
+        if evidence.action_key != replacement || bound.payload() != payload {
             return Err(AgentControlError::EvidenceConflict);
         }
-        let verified = evidence.verify_outcome(kind)?;
+        let verified = crate::server::agent_creation::verify_evm_outcome(&evidence, kind)?;
         let protocol = verified
-            .receipt()
             .protocol()
             .ok_or(AgentControlError::EvidenceConflict)?;
-        if protocol.activity_id() != evidence.activity_id
-            || protocol.module_id() != ModuleId::Budget as u16
-            || protocol.operation() != 0
+        if protocol.activity_id() != evidence.tx_hash
+            || protocol.module_id() != 12
+            || protocol.operation() != 2
             || protocol.result_code() != 0
         {
             return Err(AgentControlError::EvidenceConflict);
         }
-        if evidence.verification_level < VerificationLevel::CHECKPOINT_FINALISED
-            || evidence.verification_level < verified.level()
-        {
+        if evidence.rung != Rung::Committed {
             return Err(AgentControlError::EvidenceConflict);
         }
         Ok(LimitChangeEvidence {
-            digest: Sha256::digest(verified.canonical_bytes()).into(),
-            level: evidence.verification_level,
+            digest: Sha256::digest(&evidence.receipt_bytes).into(),
+            level: evidence.rung,
             replacement_budget: Some(replacement),
         })
     }
@@ -663,7 +932,7 @@ impl<B: AgentControlContract> AgentControls<B> {
         }
         Ok(LimitChangeEvidence {
             digest: evidence.configuration_digest,
-            level: VerificationLevel::UNVERIFIED,
+            level: Rung::Submitted,
             replacement_budget: None,
         })
     }
@@ -704,6 +973,8 @@ fn digest(parts: &[&[u8]]) -> [u8; 32] {
 /// Typed control refusal.
 #[derive(Debug)]
 pub enum AgentControlError {
+    Store(StoreError),
+    PersistenceUnavailable,
     InvalidProfile,
     InvalidLimit,
     AuthorityMissing,
@@ -726,6 +997,8 @@ pub enum AgentControlError {
 impl Display for AgentControlError {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Self::Store(error) => write!(formatter, "control store failure: {error}"),
+            Self::PersistenceUnavailable => formatter.write_str("control persistence unavailable"),
             Self::InvalidProfile => formatter.write_str("agent control profile is invalid"),
             Self::InvalidLimit => formatter.write_str("agent spend limit is invalid"),
             Self::AuthorityMissing => formatter.write_str("agent operating authority is missing"),
@@ -806,4 +1079,78 @@ fn short_hex(bytes: &[u8; 32]) -> String {
             ]
         })
         .collect()
+}
+
+impl From<StoreError> for AgentControlError {
+    fn from(error: StoreError) -> Self {
+        Self::Store(error)
+    }
+}
+
+fn control_row(profile: &AgentControlProfile) -> Result<RowKey, StoreError> {
+    RowKey::new(format!(
+        "agent-control-{}",
+        short_hex_full(&profile.agent_id)
+    ))
+}
+
+fn short_hex_full(bytes: &[u8; 32]) -> String {
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn profile_digest(profile: &AgentControlProfile) -> [u8; 32] {
+    let mut hash = Sha256::new();
+    hash.update(b"layerx-human/control-profile/v1\0");
+    for bytes in [
+        profile.principal.as_str().as_bytes(),
+        profile.did.as_bytes(),
+        profile.owner.canonical().as_bytes(),
+        profile.budget_account.canonical().as_bytes(),
+    ] {
+        hash.update((bytes.len() as u64).to_be_bytes());
+        hash.update(bytes);
+    }
+    hash.update(profile.agent_id);
+    hash.update(profile.asset.bytes());
+    hash.update(profile.purpose.bytes());
+    hash.update(profile.period_seconds.to_be_bytes());
+    hash.update(profile.budget_lifetime_seconds.to_be_bytes());
+    hash.update(profile.freshness_seconds.to_be_bytes());
+    hash.update(profile.initial_limit_evidence_digest);
+    hash.finalize().into()
+}
+
+fn presented(snapshot: &ControlSnapshot) -> Result<PresentedLimit, AgentControlError> {
+    let enforcement = if snapshot.protocol {
+        LimitEnforcement::Protocol
+    } else {
+        LimitEnforcement::App
+    };
+    let verification_level = match snapshot.rung {
+        0 => Rung::Submitted,
+        1 => Rung::Receipted,
+        2 => Rung::Committed,
+        _ => return Err(AgentControlError::EvidenceConflict),
+    };
+    if snapshot.monthly == 0
+        || snapshot.updated_at == 0
+        || snapshot.authority_evidence.is_empty()
+        || snapshot.authority_evidence.contains(&[0; 32])
+        || (snapshot.protocol
+            && (snapshot.evidence == [0; 32] || verification_level == Rung::Submitted))
+    {
+        return Err(AgentControlError::EvidenceConflict);
+    }
+    Ok(PresentedLimit {
+        monthly: snapshot.monthly,
+        enforcement,
+        enforcement_copy_key: enforcement.copy_key(),
+        explanation: if snapshot.protocol {
+            "This limit is enforced by the protocol budget named by the verified receipt."
+        } else {
+            APP_LIMIT_EXPLANATION
+        },
+        evidence_digest: snapshot.evidence,
+        verification_level,
+    })
 }

@@ -1,5 +1,7 @@
 import { copyEntry, human_copy_catalog } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
+import { keccak256, parseTransaction } from "viem";
+import { explorerLinkPath, parseExplorerBaseUrl } from "../../explorer/links.ts";
 import {
   HumanApiDecodeError,
   HumanApiError,
@@ -13,6 +15,7 @@ import {
   type ActivityGroup,
   type ActivityPage,
   type EvidenceClass,
+  type EvidenceMaterial,
   type EvidenceRef,
   type ExportArtefact,
   type HumanApiClient,
@@ -22,7 +25,7 @@ import {
   type MoneyDirection,
   type VerificationLevel,
 } from "../../api/index.ts";
-import { protocolAmount, statusPresentation, type ProtocolAmount, type StatusKey } from "../../kit/model.ts";
+import { protocolAmount, statusPresentation, verificationRung, type ProtocolAmount, type StatusKey, type VerificationRung } from "../../kit/model.ts";
 
 export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Object.freeze({
   "getting-ready": "getting_ready",
@@ -33,6 +36,8 @@ export const STATUS_KEY_BY_STATE: Readonly<Record<JourneyState, StatusKey>> = Ob
   "still-checking": "still_checking",
   refused: "refused",
   "waiting-for-you": "waiting_for_you",
+  "awaiting-approval": "waiting_for_you",
+  closed: "refused",
 });
 
 const KIND_TOKENS: Readonly<Record<ActivityEntryKind, string>> = Object.freeze({
@@ -53,20 +58,16 @@ const KIND_LABEL_KEYS: Readonly<Record<ActivityEntryKind, string>> = Object.free
   "security-event": "activity.kind.security_event",
 });
 
-const VERIFICATION_LABEL_KEYS: Readonly<Record<VerificationLevel, string>> = Object.freeze({
+const VERIFICATION_LABEL_KEYS: Readonly<Record<VerificationRung, string>> = Object.freeze({
   unverified: "activity.verification.unverified",
   "receipt-verified": "activity.verification.receipt_verified",
   "checkpoint-finalised": "activity.verification.checkpoint_finalised",
-  "paxeer-finalised": "activity.verification.paxeer_finalised",
-  "settlement-anchored": "explorer.verification.settlement_anchored",
 });
 
-const VERIFICATION_ORDER: readonly VerificationLevel[] = Object.freeze([
+const VERIFICATION_ORDER: readonly VerificationRung[] = Object.freeze([
   "unverified",
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
-  "settlement-anchored",
 ]);
 
 export function entryStatusKey(state: JourneyState): StatusKey {
@@ -184,18 +185,45 @@ export function formatEntryTimestamp(timestamp: string): string {
   return `${datePart(timestamp)}, ${hours}:${minutes} UTC`;
 }
 
-export function explorerPath(reference: EvidenceRef): string | undefined {
-  if (reference.class === "layerx-receipt") {
-    return `/explorer/receipts/${reference.evidence_id}`;
+export function explorerPath(
+  reference: EvidenceRef,
+  material?: EvidenceMaterial,
+  configuredOrigin?: string,
+): string | undefined {
+  if (material === undefined) return undefined;
+  if (material.evidence_id !== reference.evidence_id || material.class !== reference.class) {
+    throw new Error("Resolved evidence does not match its reference");
   }
-  if (reference.class === "checkpoint-proof") {
-    return `/explorer/checkpoints/${reference.evidence_id}`;
+  const base = parseExplorerBaseUrl(configuredOrigin);
+  if (base === undefined || material.class !== "layerx-receipt"
+    || material.verification === "unverified"
+    || material.content_type !== "application/vnd.layerx.receipt-proof-v2+json") return undefined;
+  if (material.bytes_base64.length > 2_000_000) throw new RangeError("Evidence material exceeds its byte bound");
+  const bytes = Uint8Array.from(atob(material.bytes_base64), (character) => character.charCodeAt(0));
+  const portable: unknown = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+  if (typeof portable !== "object" || portable === null) throw new Error("Invalid portable receipt material");
+  if (!("format" in portable) || portable.format !== "layerx-receipt-proof-v2") return undefined;
+  if (!("rawTransaction" in portable)) return undefined;
+  const raw = portable.rawTransaction;
+  if (typeof raw !== "string" || !/^0x(?:[0-9a-f]{2})+$/u.test(raw)) {
+    throw new Error("Invalid native transaction in evidence material");
   }
-  return undefined;
+  const transaction = raw as `0x${string}`;
+  if (parseTransaction(transaction).chainId !== 125) return undefined;
+  return new URL(explorerLinkPath({ kind: "transaction", transactionHash: keccak256(transaction) }), base).href;
+}
+
+export async function resolveEvidencePath(
+  client: HumanApiClient,
+  reference: EvidenceRef,
+  configuredOrigin?: string,
+): Promise<string | undefined> {
+  const material = await client.evidenceGet(reference.evidence_id);
+  return explorerPath(reference, material, configuredOrigin);
 }
 
 export function verificationLabel(level: VerificationLevel): string {
-  return copyEntry(VERIFICATION_LABEL_KEYS[level]).message;
+  return copyEntry(VERIFICATION_LABEL_KEYS[verificationRung(level)]).message;
 }
 
 export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
@@ -205,7 +233,7 @@ export function evidenceClassLabel(evidenceClass: EvidenceClass): string {
 export function entryVerification(evidence: readonly EvidenceRef[]): VerificationLevel {
   let best = 0;
   for (const reference of evidence) {
-    const rank = VERIFICATION_ORDER.indexOf(reference.verification);
+    const rank = VERIFICATION_ORDER.indexOf(verificationRung(reference.verification));
     if (rank > best) {
       best = rank;
     }
@@ -421,18 +449,19 @@ export function detailUnresolved(detail: Readonly<Pick<ActivityEntryDetail, "sta
 const RECEIPT_LEVELS: readonly VerificationLevel[] = Object.freeze([
   "receipt-verified",
   "checkpoint-finalised",
-  "paxeer-finalised",
-  "settlement-anchored",
 ]);
 
 export function receiptBacked(reference: EvidenceRef): boolean {
   return reference.class === "layerx-receipt" && RECEIPT_LEVELS.includes(reference.verification);
 }
 
+export function detailEvidence(detail: ActivityEntryDetail): readonly EvidenceRef[] {
+  return [...detail.evidence, ...detail.stages.flatMap((stage) => stage.evidence)];
+}
+
 export function validatedDetail(detail: ActivityEntryDetail): ActivityEntryDetail {
   const completion = detail.state === "done" || detail.state === "done-finalised";
-  const hasReceipt = detail.evidence.some(receiptBacked)
-    || detail.stages.some((stage) => stage.evidence.some(receiptBacked));
+  const hasReceipt = detailEvidence(detail).some(receiptBacked);
   if (completion && !hasReceipt) {
     throw new Error("A completed activity is missing a verified receipt");
   }

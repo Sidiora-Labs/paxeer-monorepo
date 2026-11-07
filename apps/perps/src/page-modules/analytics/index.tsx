@@ -1,6 +1,8 @@
-import { useState, useMemo } from "react";
+import React, { useState, useMemo } from "react";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
 import { useIsMobile } from "@/hooks/ui/useMobile";
-import { PERPS_MARKETS, TRACK_B_STRINGS } from "@/core/perps/config";
+import { TRACK_B_STRINGS } from "@/core/perps/config";
 import { OiChart } from "@/widgets/analytics/OiChart";
 import { MarkPriceChart } from "@/widgets/analytics/MarkPriceChart";
 import { ProtocolTvlChart } from "@/widgets/analytics/ProtocolTvlChart";
@@ -9,13 +11,23 @@ import { MarketSnapshotTable } from "@/widgets/analytics/MarketSnapshotTable";
 import { AnalyticsLiquidStat } from "@/widgets/analytics/AnalyticsLiquidStat";
 import { GasWeather } from "@/ui/tokens/GasWeather";
 
+export function analyticsMarketId(
+  selection: number | undefined,
+  catalog: readonly MarketCatalogEntry[],
+): number | undefined {
+  if (selection === undefined) return catalog[0]?.marketId;
+  return catalog.find((market) => market.marketId === selection)?.marketId;
+}
+
 export default function AnalyticsPage() {
   const isMobile = useIsMobile();
-  const [selectedMarketId, setSelectedMarketId] = useState<number>(PERPS_MARKETS[0]?.marketId ?? 0);
+  const { catalog, isLoading, error } = usePerpsMarkets();
+  const [marketSelection, setSelectedMarketId] = useState<number>();
+  const selectedMarketId = analyticsMarketId(marketSelection, catalog);
 
   const marketOptions = useMemo(
-    () => PERPS_MARKETS.map((m) => ({ value: m.marketId, label: `${m.symbol}/USD` })),
-    []
+    () => catalog.map((m) => ({ value: m.marketId, label: `${m.symbol}/USD` })),
+    [catalog],
   );
 
   return (
@@ -53,9 +65,15 @@ export default function AnalyticsPage() {
           <select
             id="analytics-market"
             className="rounded-card bg-surface-2 border border-foreground/10 px-3 py-2 text-sm font-mono tabular-nums shadow-04 focus:outline-none focus:ring-2 focus:ring-long/30 transition ease-data duration-150 w-full sm:w-auto sm:min-w-[200px]"
-            value={selectedMarketId}
+            value={selectedMarketId ?? ""}
+            disabled={catalog.length === 0}
             onChange={(e) => setSelectedMarketId(Number(e.target.value))}
           >
+            {catalog.length === 0 && (
+              <option value="">
+                {error ? "Unable to load markets" : isLoading ? "Loading markets…" : "No markets available"}
+              </option>
+            )}
             {marketOptions.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}

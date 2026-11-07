@@ -1,0 +1,88 @@
+[meta]
+task = "22.31.218"
+audit = "22.30.92"
+status = "repair_pending_qualification"
+baseline = "Not run: the explicit ordered gate instructions prohibit verification before implementation and require hf-done to own the first verification. No baseline failure is claimed."
+evidence = "The bounded gate ledger supplies the exact candidate revision, command, exit and private log; no verification result is claimed in this source record."
+
+[finding.history_policy_shape]
+test = "history_policy_shape_consumes_actual_hosted_business_rows; native_history_keeps_position_groups_and_authenticates_reverse_windows"
+implementation = "Decode ascending hosted business rows, acquire bounded reverse transaction groups and authenticate receipts before returning policy history."
+limitation = "The public policy admission caller is outside scope; tests exercise its production history reader, hosted row schema, reverse cursors and actual producer-signed receipt bytes."
+
+[finding.native_checkpoint]
+test = "native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "Explicit protected validator pins, full signed native commits, strict greater-than-two-thirds verification and committed route coordinates; the offline test uses the real Programs fixture store and four independent test validators."
+
+[finding.native_proof]
+test = "native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "The route acquires complete native receipt/result inclusion, successor header, commit and validator material instead of relabelling a signature."
+limitation = "The test calls the production route with upstream loopback HTTP RPC; daemon HTTP admission coverage still belongs to the daemon harness owner."
+
+[finding.native_history_group]
+test = "history_policy_shape_consumes_actual_hosted_business_rows; native_history_keeps_position_groups_and_authenticates_reverse_windows"
+implementation = "Native route shares the account decoder: only the final in-limit position may overflow the row limit, while response-byte bounds remain enforced."
+limitation = "The loopback peer positions the hosted recording's business rows into complete final-position groups and proves two-request pagination; cross-domain gateway admission remains owned by hosted history."
+
+[finding.proof_acquisition]
+test = "native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "Retained EIP-1559 identity is bound to authenticated receipt bytes; NativeProofRequest acquires inclusion plus explicit account storage slots at the committed receipt height."
+limitation = "The legacy scope-only caller lacks native consensus configuration and account slots; it cannot safely synthesize committed account material."
+
+[finding.proof_root_algorithm]
+test = "proof_root_algorithm_uses_node_emitted_abci_bytes; proof_root_commits_recorded_node_results_at_successor_height; native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "Exact deterministic ABCI protobuf leaves, SHA-256 simple Merkle proofs and last_results_hash in signed header H+1 authenticate results at H."
+
+[finding.program_head_transport]
+test = "native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "Acquire committed native headers, complete lxphost ICS23 state evidence and sequence-batch transaction inclusion at explicit heights; persist the historical selector in the production Store, close/reopen Store and reader, then reverify the recovered coordinates."
+limitation = "A real deployment journal recovery proof across validator rotation remains dependent on the owning deployment producer."
+
+[finding.program_state_transport]
+test = "native_checkpoint_proof_acquisition_and_restart_use_real_node"
+implementation = "Use the declared native ProgramState query with explicit deployment store/key, exact program/height/profile checks and ICS23 record witnesses against the signed successor app hash."
+limitation = "The declared query has generated types but no registered merged-node handler emitting LXPS1/LXPS2 snapshot witnesses; successful program-state and recovery proof cannot be claimed."
+
+[finding.committed_remaining]
+test = "committed_remaining_preserves_allowance_and_funded_spending_power; committed_inventory_selects_only_checkpoint_funded_budget"
+implementation = "At the held checkpoint independently read budget-account ledger balance, verify min(allowance,balance), retain both values and select only funded remaining."
+limitation = "The integration test acquires actual committed inventory through HTTP ABI calls, reads funding independently and exercises source selection for partial funding and defunding; the separate budget preparation caller is outside scope."
+
+[wiring]
+policy = "services/agent/crates/layerx-agentd/src/protocol_evidence.rs — agent policy domain: prove PolicyHistorySource admission using the bounded native receipt history."
+route = "services/agent/crates/layerx-agentd/src/main.rs — agent daemon domain: install protected checkpoint validator trust and explicit native Comet result source on NativeReadRoute."
+api = "services/agent/crates/layerx-agent-api/src/read.rs — agent API domain: permit a structurally valid committed receipt bundle in check_response when its requested minimum is Receipted; preserve rung and complete-material checks."
+acquisition = "services/agent/crates/layerx-agentd/src/human_runtime.rs — agent runtime domain: carry explicit native consensus trust and requested account slots into committed proof acquisition."
+program_query = "precompiles/layerxprograms and api/layerxprograms/query.proto — merged-node Programs domain: register ProgramState and emit canonical profile-specific snapshot record plus its exact store/key witnesses at the selected height."
+boundary = "services/platform/hosted/agent-boundary/src/main.rs — hosted boundary domain: relay authenticated native commit, sequence-batch and Programs queries with explicit height and profile binding."
+source = "services/agent/crates/layerx-agentd/src/budget/program_sources.rs — agent budget domain: carry CommittedCaps::budget_source funded remaining into preparation and prove live partial funding/defunding."
+history_proof = "services/platform/hosted/indexer/tests/history_position.rs and services/platform/hosted/gateway/src/history.rs — hosted history domain: expose the real shared-position two-request fixture to the agent integration harness."
+
+[qualification.first_verify]
+revision = "4e48178515ed35b35df59f810c240aa73149f795"
+command = "cg spec done 22.31.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three tests passed; real native historical head acquisition failed because the Programs verifier also requires an authenticated lxphost store witness."
+repair = "Acquire lastSequenceKey's actual state/absence proof at H-1 and authenticate it against signed checkpoint H before passing the complete commitment to the unchanged verifier."
+
+[qualification.offline_fixture]
+implementation = "The previous attempt invoked bash, Python and a Go node build from the gate. The replacement is an in-process HTTP peer with producer-recorded signed EIP-1559 receipts, independently encoded ABCI response bytes, the Programs in-memory proof store and independently pinned test consensus authorities. The actual Go-emitted result Merkle vector and EVM storage vector remain unchanged."
+bounds = "No environment variable, credential, subprocess, external binary, native artifact or live endpoint is needed by the test. The original positive checkpoint, receipt, inclusion, committed-account and reader-recovery assertions remain; quorum rejection now retains exactly half of four validators."
+limitation = "In-memory consensus authorities test the real production consumers; they do not claim to be a live-node recording or to prove the absent merged-node ProgramState handler."
+
+[gotcha.reverse_history]
+observed = "The hosted producer only supports ascending exclusive cursors and a maximum limit of 100; scanning from the beginning cannot reach recent events within a finite scan budget."
+repair = "Start below the held head in bounded reverse block windows, expand backwards only as needed, retain complete transaction groups, authenticate each distinct receipt and refuse head/index drift or exhausted bounds."
+
+[gotcha.host_witness]
+observed = "A matching quorum does not satisfy the Programs commitment consumer without the lxphost store witness that its unchanged verifier requires."
+repair = "Acquire and verify key 02 at H-1 against signed header H; preserve the exact key, value and proof operations for protected verification."
+
+[qualification.continuation_first_verify]
+revision = "a6c1400d5324d91f0b5286d8eebf7e41c619d2d3"
+command = "cg spec done 22.31.218 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the receipt/history tests rejected the loopback peer's missing keys envelope and extra chainHeight field."
+repair = "Emit the declared px_getReceiptKeys object and exact three-field px_getHistory response; the production client still independently obtains chain height. No assertion, bound or production schema check changes."

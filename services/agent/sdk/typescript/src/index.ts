@@ -8,6 +8,9 @@ export * from "./production.js";
 export * from "./programs.js";
 export * from "./stream.js";
 export * from "./verifier.js";
+export { cometCommitHash, cometValidatorsHash, verifyCometProof, verifyReceiptInclusion, unwrapCometEvmTransaction } from "./committed-proof.js";
+export type { CometProof, CommittedReceiptInclusion } from "./committed-proof.js";
+export { encodeSequencerReceipt } from "./sequencer-receipt-codec.js";
 export * from "./native-program-call.js";
 export * from "./program-lifecycle.js";
 export * from "./native-capabilities.js";
@@ -19,8 +22,11 @@ export * from "./history.js";
 export * from "./account-derivation.js";
 
 export * from "./rpc.js";
+export * from "./names.js";
+export * from "./chains.js";
 
 export * from "./wallet.js";
+export * from "./evm-transaction.js";
 
 export * from "./x402/activity.js";
 export * from "./x402/draw.js";

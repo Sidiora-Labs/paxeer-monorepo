@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-if (($#)); then
-    echo "usage: $0 (no arguments)" >&2
+if (($#)) && { (($# != 3)) || [[ "$1" != --check-program-contracts ]]; }; then
+    echo "usage: $0 [--check-program-contracts <repo-root> <sdkgen-binary>]" >&2
     exit 2
 fi
 cd "$(dirname "${BASH_SOURCE[0]}")/../../.."
 export PATH="$HOME/.cargo/bin:/usr/local/go/bin:$PATH"
-exec python3 - <<'PY'
+exec python3 - "$@" <<'PY'
 import os
 import re
 import shutil
@@ -38,15 +38,26 @@ def credit(label, count):
     TESTS += count
 
 
+def check_program_contracts(repo_root, sdkgen=None):
+    command = ([sdkgen] if sdkgen is not None else
+               ['cargo', 'run', '--offline', '--locked', '--manifest-path',
+                'sdk/platform/generators/Cargo.toml', '-p', 'layerx-platform-sdkgen', '--'])
+    run('seven-language receipt contract drift',
+        command + ['--check-program-contracts', repo_root], cwd=repo_root)
+    credit('contract drift', 1)
+
+
 try:
+    if len(sys.argv) > 1:
+        check_program_contracts(os.path.abspath(sys.argv[2]), os.path.abspath(sys.argv[3]))
+        print('PAXEER_X_GATE tests=' + str(TESTS) + ' skipped=0')
+        sys.exit(0)
+
     run('Programs refusal fixture derivation',
-        ['python3', 'sdk/platform/conformance/fixtures/generate_program_receipt_refusals.py', '--check'])
+        ['python3', 'tools/paxeer-x/gates/receipt_refusals.py', '--check'])
     credit('fixture derivation', 1)
 
-    run('seven-language receipt contract drift',
-        ['cargo', 'run', '--offline', '--locked', '--manifest-path', 'sdk/platform/generators/Cargo.toml',
-         '-p', 'layerx-platform-sdkgen', '--', '--check-program-contracts', os.getcwd()])
-    credit('contract drift', 1)
+    check_program_contracts(os.getcwd())
     out = run('receipt generator model',
               ['cargo', 'test', '--offline', '--locked', '--manifest-path', 'sdk/platform/generators/Cargo.toml',
                '-p', 'layerx-platform-sdkgen', '--test', 'drift'])

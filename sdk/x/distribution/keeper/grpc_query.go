@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"encoding/binary"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -98,7 +99,9 @@ func (k Keeper) ValidatorSlashes(c context.Context, req *types.QueryValidatorSla
 			return false, err
 		}
 
-		if result.ValidatorPeriod < req.StartingHeight || result.ValidatorPeriod > req.EndingHeight {
+		// The validator prefix is stripped; the key starts with the big-endian block height.
+		height := binary.BigEndian.Uint64(key[:8])
+		if height < req.StartingHeight || height > req.EndingHeight {
 			return false, nil
 		}
 

@@ -1,3 +1,5 @@
+mod support;
+
 use std::fs;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::UnixListener;
@@ -15,7 +17,6 @@ use layerx_agent_api::subscription::{
     Cursor as ApiCursor, CursorAcknowledgement, DeliveryTarget, SubscriptionCreate,
     SubscriptionFilter, SubscriptionId, SubscriptionScope, SubscriptionTarget, TenantObject,
 };
-use layerx_agent_api::Sequence;
 use layerx_agentd::events::outbound::{
     deliver as deliver_outbound, Authenticator, Endpoint, EndpointFailure, OutboundError,
     PeerIdentity, StopSignal, VerifiedItem,
@@ -26,9 +27,8 @@ use layerx_agentd::events::{
     EventIngestor, RetryPolicy,
 };
 use layerx_agentd::store::{Store, TenantId};
-use layerx_client::lni::framing::{read_frame, write_frame};
+use layerx_client::frame::framing::{read_frame, write_frame};
 use layerx_types::result::ResultCode;
-use layerx_types::verify::VerificationLevel;
 
 static NEXT_PATH: AtomicU64 = AtomicU64::new(1);
 const KEY: [u8; 32] = [0x8a; 32];
@@ -129,11 +129,16 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
         Ok(value) => value,
         Err(error) => panic!("ingestor open failed: {error}"),
     };
+    let receipt = text(
+        support::pinned_evidence_verifier()
+            .verify_receipt(&support::raw_receipt([0x51; 32], 0, 25)),
+        "verified event receipt",
+    );
     let event = CoreEvent {
         global_sequence: 0,
         canonical_bytes: b"exact-core-event-zero".to_vec(),
-        receipt_reference: Some([0x51; 32]),
-        receipt_verification_level: VerificationLevel::SEQUENCER_SIGNED,
+        receipt_reference: Some(receipt.receipt_ref()),
+        receipt_verification_level: receipt.level(),
         attributes: EventAttributes {
             agent: "agent-a".to_owned(),
             account: "account-a".to_owned(),
@@ -154,7 +159,11 @@ fn engine(root: &PathBuf) -> DeliveryEngine {
     let create = SubscriptionCreate {
         scope: scope(),
         filter: filter(),
-        start: ApiCursor(Sequence(0)),
+        start: ApiCursor {
+            block_height: 0,
+            tx_index: 0,
+            log_index: 0,
+        },
         delivery_target: text(DeliveryTarget::new("uds://receiver"), "target"),
     };
     if let Err(error) = subscriptions.create(id(), create) {
@@ -206,32 +215,31 @@ fn authenticator() -> Authenticator {
 #[test]
 fn unreachable_endpoint_schedules_retry_and_preserves_health_cursor() {
     let root = test_directory("unreachable");
-    let socket = SocketPath::new("missing");
-    let metadata = match fs::metadata(std::env::temp_dir()) {
-        Ok(value) => value,
-        Err(error) => panic!("temporary directory metadata failed: {error}"),
-    };
-    let peer = PeerIdentity {
-        uid: metadata.uid(),
-        gid: metadata.gid(),
-    };
+    let socket = SocketPath::new("closed");
+    let listener = text(UnixListener::bind(&socket.0), "closed endpoint listener");
+    let peer = peer_for_socket(&socket.0);
+    drop(listener);
     let endpoint = endpoint(&socket.0, peer, 30);
     let mut delivery = engine(&root);
-    assert!(matches!(
-        deliver_outbound(
-            &mut delivery,
-            &endpoint,
-            &authenticator(),
-            &StopSignal::active(),
-            100,
+    let result = deliver_outbound(
+        &mut delivery,
+        &endpoint,
+        &authenticator(),
+        &StopSignal::active(),
+        100,
+    );
+    assert!(
+        matches!(
+            result,
+            Err(OutboundError::RetryScheduled {
+                failure: EndpointFailure::Unreachable(_),
+                ..
+            })
         ),
-        Err(OutboundError::RetryScheduled {
-            failure: EndpointFailure::Unreachable(_),
-            ..
-        })
-    ));
+        "closed endpoint must schedule an unreachable retry: {result:?}"
+    );
     let health = event_health(&delivery).unwrap_or_else(|error| panic!("event health: {error}"));
-    assert_eq!(health.acknowledged_cursor.0, 0);
+    assert_eq!(health.acknowledged_cursor.block_height, 0);
     assert_eq!(health.lag_sequences, 1);
     assert_eq!(health.failure_count, 1);
     assert!(health.lagging);
@@ -248,6 +256,7 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
         Err(error) => panic!("listener bind failed: {error}"),
     };
     let peer = peer_for_socket(&socket.0);
+    let (timed_out_tx, timed_out_rx) = mpsc::channel();
     let server = thread::spawn(move || {
         let auth = authenticator();
         let (mut first, _) = match listener.accept() {
@@ -277,7 +286,10 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
                 panic!("unexpected outbound item: {other:?}")
             }
         }
-        thread::sleep(Duration::from_millis(90));
+        text(
+            timed_out_rx.recv_timeout(Duration::from_secs(2)),
+            "first delivery timeout",
+        );
         drop(first);
 
         let (mut second, _) = match listener.accept() {
@@ -303,14 +315,18 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
     let endpoint = endpoint(&socket.0, peer, 30);
     let mut delivery = engine(&root);
     let stop = StopSignal::active();
-    assert!(matches!(
-        deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 100,),
-        Err(OutboundError::RetryScheduled {
-            failure: EndpointFailure::Timeout | EndpointFailure::Protocol,
-            ..
-        })
-    ));
-    thread::sleep(Duration::from_millis(90));
+    let result = deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 100);
+    assert!(
+        matches!(
+            result,
+            Err(OutboundError::RetryScheduled {
+                failure: EndpointFailure::Timeout | EndpointFailure::Protocol,
+                ..
+            })
+        ),
+        "silent endpoint must schedule a retry: {result:?}"
+    );
+    text(timed_out_tx.send(()), "release timed out connection");
     let receipt = match deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 300) {
         Ok(value) => value,
         Err(error) => panic!("retry delivery failed: {error}"),
@@ -331,7 +347,7 @@ fn slow_endpoint_receives_byte_identical_retry_and_bound_event_evidence() {
         panic!("consumer cursor acknowledgement failed: {error}");
     }
     let health = event_health(&delivery).unwrap_or_else(|error| panic!("event health: {error}"));
-    assert_eq!(health.acknowledged_cursor.0, 1);
+    assert_eq!(health.acknowledged_cursor.block_height, 1);
     assert_eq!(health.lag_sequences, 0);
     assert_eq!(health.failure_count, 1);
     assert_eq!(health.last_delivery_at_ms, Some(300));
@@ -348,6 +364,7 @@ fn capability_revocation_midflight_cancels_ack_wait_and_persists_stop() {
     };
     let peer = peer_for_socket(&socket.0);
     let (received_tx, received_rx) = mpsc::channel();
+    let (stopped_tx, stopped_rx) = mpsc::channel();
     let server = thread::spawn(move || {
         let auth = authenticator();
         let (mut stream, _) = match listener.accept() {
@@ -358,7 +375,7 @@ fn capability_revocation_midflight_cancels_ack_wait_and_persists_stop() {
             Ok(value) => value,
             Err(error) => panic!("frame failed: {error:?}"),
         };
-        let verified = match auth.verify(&frame, peer) {
+        let _verified = match auth.verify(&frame, peer) {
             Ok(value) => value,
             Err(error) => panic!("authentication failed: {error}"),
         };
@@ -366,9 +383,10 @@ fn capability_revocation_midflight_cancels_ack_wait_and_persists_stop() {
             received_tx.send(()).is_ok(),
             "revocation coordination failed"
         );
-        thread::sleep(Duration::from_millis(100));
-        let acknowledgement = auth.acknowledgement(verified.binding);
-        let _ = write_frame(&mut stream, &acknowledgement, 4096);
+        text(
+            stopped_rx.recv_timeout(Duration::from_secs(2)),
+            "revocation interrupts acknowledgement wait",
+        );
     });
 
     let mut delivery = engine(&root);
@@ -377,22 +395,31 @@ fn capability_revocation_midflight_cancels_ack_wait_and_persists_stop() {
     let stopper = stop.clone();
     let revoker = thread::spawn(move || {
         assert!(
-            received_rx.recv().is_ok(),
+            received_rx.recv_timeout(Duration::from_secs(2)).is_ok(),
             "receiver never observed delivery"
         );
         stopper.stop(Termination::CapabilityRevoked);
     });
-    assert!(matches!(
-        deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 100,),
-        Err(OutboundError::Stopped(Termination::CapabilityRevoked))
-    ));
+    let result = deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 100);
+    assert!(
+        matches!(
+            result,
+            Err(OutboundError::Stopped(Termination::CapabilityRevoked))
+        ),
+        "midflight revocation must stop delivery: {result:?}"
+    );
+    text(stopped_tx.send(()), "release revoked connection");
     assert!(revoker.join().is_ok(), "revoker panicked");
     assert!(server.join().is_ok(), "receiver server panicked");
     assert_eq!(delivery.buffered_len(), 0);
-    assert!(matches!(
-        deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 200,),
-        Err(OutboundError::Stopped(Termination::CapabilityRevoked))
-    ));
+    let result = deliver_outbound(&mut delivery, &endpoint, &authenticator(), &stop, 200);
+    assert!(
+        matches!(
+            result,
+            Err(OutboundError::Stopped(Termination::CapabilityRevoked))
+        ),
+        "revocation must remain stopped: {result:?}"
+    );
     let subscriptions = delivery.into_subscriptions();
     assert!(matches!(
         subscriptions.termination(&target()),

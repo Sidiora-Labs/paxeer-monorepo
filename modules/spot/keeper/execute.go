@@ -10,6 +10,7 @@ import (
 
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	receipt "github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
@@ -105,6 +106,8 @@ func (k *Keeper) restingCursors(ctx sdk.Context) (types.EndBlockCursors, error) 
 	return cursors, nil
 }
 
+// ExecuteResting publishes its cached state only after all scans succeed.
+// EndBlocker exposes the returned counters as the block's resting event.
 func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 	var work RestingExecution
 	if ctx.BlockHeight() < 0 || ctx.BlockTime().Unix() < 0 {
@@ -134,7 +137,8 @@ func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 			continue
 		}
 		if err := k.RecordSample(branch, token.Address); err != nil {
-			if errors.Is(err, types.ErrStalePrice) || errors.Is(err, types.ErrTokenPaused) {
+			if errors.Is(err, types.ErrStalePrice) || errors.Is(err, types.ErrTokenPaused) ||
+				errors.Is(err, types.ErrInvalidOracle) || errors.Is(err, pricefeedtypes.ErrUnknownMarket) {
 				continue
 			}
 			return work, err
@@ -161,21 +165,44 @@ func (k *Keeper) ExecuteResting(ctx sdk.Context) (RestingExecution, error) {
 
 func (k *Keeper) restingExpiries(ctx sdk.Context, params types.Params, work *RestingExecution) error {
 	var entries []types.OrderExpiry
-	it := sdk.KVStorePrefixIterator(k.store(ctx), types.ExpiryIndexPrefix)
-	for ; it.Valid() && uint64(len(entries)) < params.MaxExpiriesPerBlock; it.Next() {
-		key := it.Key()
-		if len(key) != 17 {
-			it.Close()
-			return fmt.Errorf("spot: invalid expiry index")
-		}
-		expiry := types.OrderExpiry{ExpiresAt: binary.BigEndian.Uint64(key[1:9]), OrderID: binary.BigEndian.Uint64(key[9:])}
-		if expiry.ExpiresAt > uint64(ctx.BlockTime().Unix()) {
-			break
-		}
-		entries = append(entries, expiry)
+	store := k.store(ctx)
+	cursor, err := expiryScanPosition(store)
+	if err != nil {
+		return err
 	}
-	it.Close()
+	scan := func(start, end []byte) error {
+		it := store.Iterator(start, end)
+		defer it.Close()
+		for ; it.Valid() && uint64(len(entries)) < params.MaxExpiriesPerBlock; it.Next() {
+			key := it.Key()
+			if len(key) != len(types.ExpiryIndexPrefix)+16 {
+				return fmt.Errorf("spot: invalid expiry index")
+			}
+			expiry := types.OrderExpiry{ExpiresAt: binary.BigEndian.Uint64(key[1:9]), OrderID: binary.BigEndian.Uint64(key[9:])}
+			if expiry.ExpiresAt > uint64(ctx.BlockTime().Unix()) {
+				break
+			}
+			entries = append(entries, expiry)
+		}
+		return nil
+	}
+	end := sdk.PrefixEndBytes(types.ExpiryIndexPrefix)
+	if len(cursor) != 0 {
+		// Appending zero seeks strictly after the fixed-width cursor key.
+		after := recordKey(types.ExpiryIndexPrefix, cursor, []byte{0})
+		if err := scan(after, end); err != nil {
+			return err
+		}
+		end = after
+	}
+	if uint64(len(entries)) < params.MaxExpiriesPerBlock {
+		if err := scan(types.ExpiryIndexPrefix, end); err != nil {
+			return err
+		}
+	}
 	for _, entry := range entries {
+		store.Set(recordKey(types.CursorPrefix, []byte{expiryCursor}),
+			recordKey(orderIDBytes(entry.ExpiresAt), orderIDBytes(entry.OrderID)))
 		work.ExpiriesExamined++
 		backoff, err := k.FillBackoff(ctx, entry.OrderID)
 		if err != nil {

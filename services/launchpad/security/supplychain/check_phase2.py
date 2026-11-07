@@ -373,11 +373,11 @@ def validate_release_measurement(config, root):
         require(expected['materials'].get(image) == image.rsplit('@sha256:', 1)[-1], 'provenance omits reviewed build image material')
     require(expected['materials'].get(build['buildx']['path']) == build['buildx']['sha256'], 'provenance omits reviewed buildx executable')
     require(build['service'] == expected['service'] and build['binary'] == expected['binary'] and build['platform'] == 'linux/' + expected['architecture'], 'release target authority mismatch')
-    required = {'deploy/launchpad/Dockerfile.svc.dockerignore', 'launchpad/.github/workflows/ci.yml', 'launchpad/.github/workflows/release.yml', 'deploy/launchpad/Dockerfile.svc'}
+    required = {'deploy/launchpad/Dockerfile.svc.dockerignore', '.github/workflows/offchain-images.yml', 'deploy/launchpad/Dockerfile.svc'}
     required.update(path.relative_to(root).as_posix() for path in (pathlib.Path(root) / 'services' / 'launchpad' / 'security' / 'supplychain').glob('*.py'))
     required.add('services/launchpad/security/supplychain/phase2.schema.json')
     require(required <= set(build['source_paths']), 'release source inputs omit owned supply-chain implementation')
-    require(digest((pathlib.Path(root) / 'launchpad/.github/workflows/ci.yml').read_bytes()) == expected['workflow'], 'release workflow revision is not current')
+    require(digest((pathlib.Path(root) / '.github/workflows/offchain-images.yml').read_bytes()) == expected['workflow'], 'release workflow revision is not current')
     require(phase2['failed_pipeline']['approved_base_commit'] == expected['commit'], 'failed pipeline is not based on approved candidate commit')
     require(phase2['confinement']['approved_binary_sha256'] == phase2['controller']['approved_binary_sha256'], 'runtime/build binary authority mismatch')
     require(phase2['confinement']['image'] == config['approved_confinement_image'], 'confinement image authority mismatch')

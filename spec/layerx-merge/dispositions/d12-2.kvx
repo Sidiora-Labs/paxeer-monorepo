@@ -1,0 +1,120 @@
+[disposition.12.34.2]
+finding = "12.34.2"
+status = "resolved"
+evidence = "e90ee7775 migrated the caps producer, view and tests to block observations, retained at apps/wallet/src/surfaces/useSurface.ts:900, apps/wallet/src/surfaces/WebDataView.tsx:64 and apps/wallet/src/surfaces/WebDataView.test.tsx:74."
+
+[disposition.12.34.2.1]
+finding = "12.34.2.1"
+status = "resolved"
+evidence = "4a2160446 ported the exchange callers to the v2 account-aware open and cancel shapes, retained at apps/wallet/src/surfaces/ExchangeView.tsx:94, apps/wallet/src/surfaces/ExchangeView.test.tsx:84 and sdk/wallet/src/modules/exchange.ts:53."
+
+[disposition.12.34.4.1]
+finding = "12.34.4.1"
+status = "resolved"
+evidence = "a73b903c1 ported both ChainAccount consumers to the nested account document, retained at apps/wallet/src/account/AccountView.tsx:40 and apps/wallet/src/account/KernelPlan.tsx:254."
+
+[disposition.12.34.6]
+finding = "12.34.6"
+status = "resolved"
+evidence = "apps/wallet/src/account/StatusLadder.tsx:17 now labels submitted, receipted and committed without anchor, apps/wallet/src/components/TransferSuccess.tsx:253 uses committed for completion, and apps/wallet/src/surfaces/useSurface.ts:900 produces the current block observation shape."
+
+[disposition.12.34.6.1]
+finding = "12.34.6.1"
+status = "resolved"
+evidence = "4a2160446 replaced the v1 perps arguments with the v2 order and account identifier, retained at apps/wallet/src/surfaces/ExchangeView.tsx:94 and sdk/wallet/src/modules/exchange.ts:54."
+
+[disposition.12.35.1]
+finding = "12.35.1"
+status = "resolved"
+evidence = "3e726112a replaced the obsolete rung and source labels, and apps/wallet/src/account/StatusLadder.tsx:17 now declares only submitted, receipted and committed with receipt, explorer and journey sources."
+
+[disposition.12.35.1.1]
+finding = "12.35.1.1"
+status = "resolved"
+evidence = "e90ee7775 migrated the caps consumers and test data, with apps/wallet/src/surfaces/WebDataView.tsx:64 reading rung and block_number and apps/wallet/src/surfaces/WebDataView.test.tsx:110 using revocation_height instead of revocation_sequence."
+
+[disposition.12.35.2.1]
+finding = "12.35.2.1"
+status = "resolved"
+evidence = "b64a7eec2 added the real sequencer endpoint path, and apps/wallet/e2e/send.spec.ts:123 routes pax_sequencerReceipt to SEQUENCER_RPC while apps/wallet/e2e/send.spec.ts:887 submits the signed transfer to that node."
+
+[disposition.12.35.2.2]
+finding = "12.35.2.2"
+status = "resolved"
+evidence = "apps/wallet/e2e/send.spec.ts:41 now observes pax_sequencerReceipt through the sequencer route at apps/wallet/e2e/send.spec.ts:123, and tools/qualification/localnode/v6120-node.sh:796 exports the real local sequencer RPC."
+
+[disposition.12.35.2.6]
+finding = "12.35.2.6"
+status = "environment"
+evidence = "apps/wallet/e2e/send.spec.ts:729 remains the Playwright receipted-transfer browser test introduced by b64a7eec2, so Chromium failing to load libglib-2.0.so.0 before executing it was a qualification-host shared-library defect."
+
+[disposition.12.35.4.1]
+finding = "12.35.4.1"
+status = "resolved"
+evidence = "8750def44 removed the sequencer standby from the local fixture, and tools/qualification/localnode/v6120-node.sh:633 configures its remaining bootstrap peer in full mode while tools/qualification/localnode/v6120-node.sh:534 enforces a single bonded primary identity."
+
+[disposition.12.35.4.2]
+finding = "12.35.4.2"
+status = "resolved"
+evidence = "tools/qualification/localnode/v6120-node.sh:534 now checks that the genesis validator, bonded staking key and sole pinned sequencer leader all match the primary, with tools/qualification/localnode/v6120-node.sh:723 checking the live RPC committee."
+
+[disposition.12.35.4.3]
+finding = "12.35.4.3"
+status = "open"
+evidence = "daemon/committed-fixture/main.go:233 still makes the standby full mode, daemon/committed-fixture/main.go:455 installs only the primary validator, and daemon/committed-fixture/main.go:477 appends the standby leader although consensus/internal/consensus/types/round_state.go:537 still panics for a leader outside the committee."
+follow_up = "22.12.3"
+
+[disposition.12.35.4.4]
+finding = "12.35.4.4"
+status = "resolved"
+evidence = "71835ba46 admitted empty-layer seals with FromSeq equal to ToSeq plus one in both WAL encoding and decoding, retained at node/sequencer/wal/wal.go:167 and node/sequencer/wal/wal.go:228."
+
+[disposition.12.35.4.5]
+finding = "12.35.4.5"
+status = "resolved"
+evidence = "c7fdb284e changed Driver.OnCommit failures from swallowed panics to returned errors, and node/sequencer/node_start.go:130 now returns the height-qualified failure through node/abci.go:325 to the Commit caller."
+
+[disposition.12.35.4.6]
+finding = "12.35.4.6"
+status = "resolved"
+evidence = "6805e8616 separated OPEN acknowledgement from local commit waiting, and node/sequencer/standby.go:904 now queues records awaiting commit and returns AckOK before the asynchronous wait at node/sequencer/standby.go:920."
+
+[disposition.12.35.4.7]
+finding = "12.35.4.7"
+status = "resolved"
+evidence = "450177d9e added the EVM server start signal to sealed-block adoption, retained at node/app.go:1865 after SetSealedStateToCommit succeeds."
+
+[disposition.12.35.4.8]
+finding = "12.35.4.8"
+status = "resolved"
+evidence = "tools/qualification/localnode/v6120-node.sh:614 now enables gRPC in configure_node so local services are registered, and 8750def44 removed the sequencer standby whose EVM listener previously failed."
+
+[disposition.12.35.4.9]
+finding = "12.35.4.9"
+status = "resolved"
+evidence = "tools/qualification/localnode/v6120_test.go:218 now retries exactly the two no-open-layer errors, with that helper wrapping the pending nonce at tools/qualification/localnode/v6120_test.go:325, pending balances and signed send at tools/qualification/localnode/v6120_test.go:362."
+
+[disposition.12.35.4.10]
+finding = "12.35.4.10"
+status = "resolved"
+evidence = "93d2d11b1 removed commit waiting from replicated-group acknowledgement, and node/sequencer/standby.go:868 separates executable records from the durable pending queue before returning AckOK at node/sequencer/standby.go:909."
+
+[disposition.12.35.4.12]
+finding = "12.35.4.12"
+status = "resolved"
+evidence = "30b042b4f removed the post-accept executor Snapshot from Accepter.send, and node/sequencer/accepter.go:87 now reads the transient receipt through the accepted ReceiptContext."
+
+[disposition.12.35.4.13]
+finding = "12.35.4.13"
+status = "resolved"
+evidence = "99bef8286 removed the panic-prone pending-context lookup and a5b872224 carries the accepted execution receipt into log publication at rpc/send.go:377, while tools/qualification/localnode/v6120_test.go:234 now reads LOCAL_NODE_HOME and prints panic context."
+
+[disposition.12.35.4.14]
+finding = "12.35.4.14"
+status = "resolved"
+evidence = "8750def44 removed the standby and its acknowledgement dependency from this local fixture, with tools/qualification/localnode/v6120-node.sh:677 starting the standalone primary without a standby address and node/sequencer/standby.go:310 acknowledging its locally synced WAL."
+
+[disposition.12.35.4.16]
+finding = "12.35.4.16"
+status = "resolved"
+evidence = "8750def44 replaced the local fixture pair with a standalone primary, and tools/qualification/localnode/v6120-node.sh:534 now asserts that the sole bonded validator and pinned leader share the primary key before tools/qualification/localnode/v6120-node.sh:723 verifies the live committee."

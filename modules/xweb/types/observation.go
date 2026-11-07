@@ -30,7 +30,7 @@ type Observation struct {
 func EncodeObservation(observation Observation) ([]byte, error) {
 	if observation.Origin != OriginProgram || observation.NetworkID == 0 ||
 		observation.ProgramID == (Hash32{}) ||
-		(observation.Kind != KindFetch && observation.Kind != KindSearch) ||
+		(observation.Kind != KindFetch && observation.Kind != KindSearch && observation.Kind != KindStorageReceipt) ||
 		len(observation.Response) > MaxResponseBytes ||
 		observation.FullLength < uint32(len(observation.Response)) ||
 		len(observation.Signatures) == 0 || len(observation.Signatures) > ObservationMaxSignatures {

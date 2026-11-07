@@ -1,0 +1,149 @@
+[disposition.8.43.8.1]
+finding = "8.43.8.1"
+status = "resolved"
+evidence = "Commit dd9b28672 implemented the published committed wire encoding and transaction binding, retained in sdk/platform/dotnet/Committed.cs:20 and sdk/platform/dotnet/PortableReceipt.cs:110, while c04bc5d48 added verification of both published V5 bundles."
+follow_up = "closure"
+
+[disposition.8.94.3.1]
+finding = "8.94.3.1"
+status = "resolved"
+evidence = "Commit 04b3a1b53 ported the worker proof literals to block_hash, block_height, app_hash and store_proof_digest, retained in services/platform/hosted/paxai-worker/tests/membership_recovery.rs:955 and services/platform/hosted/paxai-worker/tests/membership_recovery.rs:996."
+follow_up = "closure"
+
+[disposition.8.4.3.1]
+finding = "8.4.3.1"
+status = "resolved"
+evidence = "Commit f7e693b7a ported the registry node-state, deployment, journal and route readers to the reshaped chain-proof interfaces, with the current verifier imports at services/platform/hosted/registry/src/node_state.rs:4 replacing ProtocolHeadMaintenanceProof."
+follow_up = "closure"
+
+[disposition.8.4.3.2]
+finding = "8.4.3.2"
+status = "resolved"
+evidence = "Commit 228ca38d9 implemented the ledger accountId(bytes32,bytes32) and auth isLive(bytes32,uint64,uint64) probes with zero argument words, retained at services/platform/hosted/gateway/src/capabilities.rs:118 and services/platform/hosted/gateway/src/capabilities.rs:132."
+follow_up = "closure"
+
+[disposition.8.4.3.3]
+finding = "8.4.3.3"
+status = "resolved"
+evidence = "Commit 87065d5d3 ported both registry integration tests to the current fixture, envelope and publication interfaces, retained in services/platform/hosted/registry/tests/journal.rs:39 and services/platform/hosted/registry/tests/producer_tls.rs:129."
+follow_up = "closure"
+
+[disposition.8.5.2.3]
+finding = "8.5.2.3"
+status = "resolved"
+evidence = "Commit 87065d5d3 repaired the shared registry test blocker by updating journal evidence, replay and record encoding together with producer TLS publication setup, retained at services/platform/hosted/registry/tests/journal.rs:195 and services/platform/hosted/registry/tests/producer_tls.rs:129."
+follow_up = "closure"
+
+[disposition.8.14.2.1]
+finding = "8.14.2.1"
+status = "resolved"
+evidence = "Commit ec111950d removed the anchor genesis environment variable, volume mount and config map from services/platform/hosted/paxeer/deployment.yaml and all ANCHOR_GENESIS wiring and guarded genesis edits from services/platform/hosted/paxeer/init-chain.sh."
+follow_up = "closure"
+
+[disposition.8.98.3.1]
+finding = "8.98.3.1"
+status = "resolved"
+evidence = "Commits dc9afac57 and fee6cbfed replaced the authority TLS harness and checkpoint socket readers with chain RPC configuration and committed-anchor reads, leaving no layerx_client::lni paths in human_tls.rs, chain_receipts.rs or trust.rs, whose current checkpoint type is at services/platform/hosted/authority/src/trust.rs:6."
+follow_up = "closure"
+
+[disposition.8.47.11.1]
+finding = "8.47.11.1"
+status = "resolved"
+evidence = "Commits 9338baf65 and e8a68d303 retired the authority and boundary fixture consumers and 23b0cdc65 ported the Go reader to native-program-call-v4.json at sdk/platform/go/native_program_lifecycle_test.go:171, while sdk/platform/conformance/kernel-fixtures-retired-4.test.py:9 names the old fixture only to assert its readers are absent."
+follow_up = "closure"
+
+[disposition.8.98.14.1]
+finding = "8.98.14.1"
+status = "resolved"
+evidence = "Commit c6729f9bf removed the two include_str entries for deleted gateway funding and withdrawal tests, leaving the codec scan over existing sources at services/platform/hosted/core/tests/no_kernel_disclosure_codec.rs:11."
+follow_up = "closure"
+
+[disposition.8.47.11.2]
+finding = "8.47.11.2"
+status = "superseded"
+evidence = "Commit 1dbf6f74a removed terminal_binding_tests and its receipt-programs-executed-v4.json include with the retired kernel terminal vectors, leaving the next retained test module occupancy_payer_tests at services/agent/crates/layerx-proof/src/program.rs:850."
+follow_up = "closure"
+
+[disposition.8.98.3.3]
+finding = "8.98.3.3"
+status = "superseded"
+evidence = "Commit 9338baf65 retired verify_withdrawal_request and its signed-activity fetch requirement from the receipt authority, whose retained receipt authorization uses authorized_batch_by_activity at services/platform/hosted/authority/src/main.rs:814."
+follow_up = "closure"
+
+[disposition.8.98.14.2]
+finding = "8.98.14.2"
+status = "superseded"
+evidence = "Commit 9338baf65 deleted call_fixture and call_outcome_cannot_be_reclassified_as_state with their retired v3 receipt input, while the retained deploy tests read the existing fixture through services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:11."
+follow_up = "closure"
+
+[disposition.8.98.3.4]
+finding = "8.98.3.4"
+status = "resolved"
+evidence = "Commit dc9afac57 ported the budget reader to RPC and fee6cbfed replaced VerifiedCheckpoint with CommittedCheckpoint and anchor eth_call reads at services/platform/hosted/authority/src/main.rs:659, with human header binding updated at services/platform/hosted/authority/src/human.rs:589."
+follow_up = "closure"
+
+[disposition.8.45.4.1]
+finding = "8.45.4.1"
+status = "resolved"
+evidence = "Commit c11d15c58 completed the pipeline reseal and regeneration after moving handwritten EVM metadata into sdk/platform/go/evm_metadata.go:3, and added the pipeline generator checks in sdk/platform/generators/tests/pipeline_reseal.rs:47."
+follow_up = "closure"
+
+[disposition.8.45.4.2]
+finding = "8.45.4.2"
+status = "resolved"
+evidence = "Commit c11d15c58 restored POST intent routes in the Go, Swift and .NET catalogues, retained at sdk/platform/go/generated.go:421, sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift:383 and sdk/platform/dotnet/Generated/OperationCatalog.cs:385."
+follow_up = "closure"
+
+[disposition.8.45.4.3]
+finding = "8.45.4.3"
+status = "resolved"
+evidence = "Commits b574c9f9f and c11d15c58 aligned the JVM and Go human verification enums with checkpoint-finalised, retained at sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java:2523 and sdk/platform/go/generated.go:637."
+follow_up = "closure"
+
+[disposition.8.98.3.5]
+finding = "8.98.3.5"
+status = "resolved"
+evidence = "Commit fee6cbfed removed trust::checkpoint and its layerx_client::batch::lookup_untrusted call after implementing committed-anchor checkpoint reads, retained at services/platform/hosted/authority/src/main.rs:677 and services/platform/hosted/authority/src/main.rs:696."
+follow_up = "closure"
+
+[disposition.8.98.14.3]
+finding = "8.98.14.3"
+status = "resolved"
+evidence = "Commit c6729f9bf replaced the custody FrameTransport and kernel record reads with sequencer precompile calls, with endpoint-based signatures at services/platform/hosted/core/src/lib.rs:709 and services/platform/hosted/core/src/lib.rs:746."
+follow_up = "closure"
+
+[disposition.8.45.4.4]
+finding = "8.45.4.4"
+status = "resolved"
+evidence = "Commit c11d15c58 removed the stale HumanOperationMetadata.PerLeg branch and descriptor field, leaving every human operation subject to request-vector method and path comparison at sdk/platform/go/cmd/conformance/main.go:423."
+follow_up = "closure"
+
+[disposition.8.98.14.4]
+finding = "8.98.14.4"
+status = "resolved"
+evidence = "Commit c6729f9bf moved core node_info, sequence and receipt_event to network and receipt-key RPC reads, pending nonce reads and transaction-hash receipt lookup, retained at services/platform/hosted/core/src/public_reads.rs:332, services/platform/hosted/core/src/public_reads.rs:387 and services/platform/hosted/core/src/public_reads.rs:542."
+follow_up = "closure"
+
+[disposition.8.98.14.5]
+finding = "8.98.14.5"
+status = "resolved"
+evidence = "Commit c6729f9bf replaced the incompatible kernel custody records with getAsset and anchor precompile reads at services/platform/hosted/core/src/lib.rs:715 and replaced socket receipt waits with lookup_authenticated at services/platform/hosted/core/src/main.rs:591."
+follow_up = "closure"
+
+[disposition.8.98.14.6]
+finding = "8.98.14.6"
+status = "resolved"
+evidence = "Commit dc9afac57 replaced the authority budget LNI session with SequencerEndpoint and PxEndpoint at services/platform/hosted/authority/src/human/budget_state.rs:19 and added the budget-reader retirement assertion at services/platform/hosted/authority/tests/retired_client_modules.rs:48."
+follow_up = "closure"
+
+[disposition.8.98.14.7]
+finding = "8.98.14.7"
+status = "resolved"
+evidence = "The corrected task touches at spec/layerx-merge/spec.kvx:163029 omit the nonexistent node/deployment.yaml path, and c6729f9bf landed the core and probe implementation without requiring that unrelated manifest change."
+follow_up = "closure"
+
+[disposition.8.98.15.3]
+finding = "8.98.15.3"
+status = "resolved"
+evidence = "Commit dc9afac57 supplied the authority chain configuration and receipt keys, re-signed the TLS fixture at services/platform/hosted/authority/tests/human_tls.rs:177, added refusal diagnostics at services/platform/hosted/authority/tests/human_tls.rs:472 and moved fixture roots into CARGO_TARGET_TMPDIR at services/platform/hosted/authority/tests/human_tls.rs:51."
+follow_up = "closure"

@@ -1,15 +1,103 @@
 use std::collections::BTreeMap;
 
-use layerx_client::evidence::VerifiedAdmissionPrestate;
-use layerx_programs_runtime::CapabilitySet;
+use crate::AdmissionEvidence;
+use layerx_programs_runtime::{
+    abi_policy::{capability_encoding, CapabilityEncoding},
+    CapabilitySet,
+};
+pub use layerx_proof::inclusion::SequencerAuthorization as ReceiptKey;
 use layerx_proof::inclusion::VerifiedBatchHeader;
-use layerx_proof::merkle::{verify_path, Proof};
 use layerx_proof::receipt::VerifiedReceipt;
 use layerx_proof::state_range::{ModuleRangeWitness, MAX_UNIVERSAL_LEAVES};
 use layerx_proof::state_witness::StateWitness;
 use sha2::{Digest, Sha256};
 
-use crate::ReplayError;
+use crate::{activity_codec::signed_activity_bytes, ics23, ReplayError};
+
+/// Chain-produced sequencer key table and its IAVL/multistore authentication.
+/// Public fields are untrusted until `receipt_keys` or `verify_receipt` succeeds.
+/// The caller must pin `app_hash` and `height` to a trusted committed block;
+/// these methods authenticate proofs against that input, not chain consensus.
+/// Receipt signatures select a key by sequencer id and the height encoded in
+/// `batch_id` (24 zero bytes followed by a big-endian u64). That height must be
+/// in the key's inclusive validity range and no greater than `height`.
+#[derive(Clone, Debug)]
+pub struct ChainCommitProof {
+    pub height: u64,
+    pub app_hash: [u8; 32],
+    pub store_root: [u8; 32],
+    pub multistore_proof: Vec<u8>,
+    pub receipt_key: Vec<u8>,
+    pub receipt_proof: ics23::ExistenceProof,
+}
+
+impl ChainCommitProof {
+    pub fn verify_receipt(&self, receipt: &VerifiedReceipt) -> Result<(), ReplayError> {
+        self.verify_receipt_bytes(receipt.canonical_bytes())
+    }
+
+    pub fn receipt_keys(&self) -> Result<Vec<ReceiptKey>, ReplayError> {
+        if self.height == 0 || self.receipt_key != [3] {
+            return Err(ReplayError::Receipt);
+        }
+        crate::multistore::verify_store_root(
+            "sequencer",
+            self.store_root,
+            &self.multistore_proof,
+            self.app_hash,
+        )
+        .map_err(|_| ReplayError::Receipt)?;
+        ics23::verify_existence(
+            &self.receipt_proof,
+            self.store_root,
+            &self.receipt_key,
+            &self.receipt_proof.value,
+        )
+        .map_err(|_| ReplayError::Receipt)?;
+        let value = &self.receipt_proof.value;
+        if value.is_empty() || value.len() % 80 != 0 {
+            return Err(ReplayError::Receipt);
+        }
+        let mut keys = Vec::with_capacity(value.len() / 80);
+        let mut seen = std::collections::BTreeSet::new();
+        for entry in value.chunks_exact(80) {
+            let id: [u8; 32] = entry[..32].try_into().map_err(|_| ReplayError::Receipt)?;
+            let public = entry[32..64].try_into().map_err(|_| ReplayError::Receipt)?;
+            let first = u64_at(entry, 64).map_err(|_| ReplayError::Receipt)?;
+            let last = u64_at(entry, 72).map_err(|_| ReplayError::Receipt)?;
+            if id == [0; 32] || first == 0 || first > last || !seen.insert(id) {
+                return Err(ReplayError::Receipt);
+            }
+            keys.push(ReceiptKey::new(id, public, first, last));
+        }
+        Ok(keys)
+    }
+
+    pub fn verify_receipt_bytes(&self, bytes: &[u8]) -> Result<(), ReplayError> {
+        let keys = self.receipt_keys()?;
+        self.verify_receipt_with_keys(bytes, &keys)
+    }
+
+    fn verify_receipt_with_keys(
+        &self,
+        bytes: &[u8],
+        keys: &[ReceiptKey],
+    ) -> Result<(), ReplayError> {
+        let decoded = layerx_proof::receipt::verify_sequencer_signature(bytes, keys)
+            .map_err(|_| ReplayError::Receipt)?;
+        let protocol = decoded.protocol().ok_or(ReplayError::Receipt)?;
+        let batch_id = protocol.batch_id();
+        let height = u64::from_be_bytes(
+            batch_id[24..]
+                .try_into()
+                .map_err(|_| ReplayError::Receipt)?,
+        );
+        if height == 0 || height > self.height {
+            return Err(ReplayError::Receipt);
+        }
+        Ok(())
+    }
+}
 
 #[derive(Clone, Debug)]
 pub struct VerifiedReplayAuthority {
@@ -21,46 +109,48 @@ pub struct VerifiedReplayAuthority {
 }
 
 impl VerifiedReplayAuthority {
+    /// Reconstruct replay authority from authenticated admission facts on each call.
+    /// First reconstruct `admission` with [`AdmissionEvidence::verify_under_app_hash`]
+    /// from transported lxphost record proofs and a trusted app hash. `commit`
+    /// supplies the sequencer key-table ICS23 proof under its trusted app hash;
+    /// it is not a kernel receipt Merkle proof. `header` supplies batch context.
+    /// The native authority bytes must still pass `verify_native` before consumption.
     pub fn derive(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
-        receipt_proof: &Proof,
+        commit: &ChainCommitProof,
     ) -> Result<Self, ReplayError> {
-        Self::derive_call(receipt, admission, header, receipt_proof, true)
+        Self::derive_call(receipt, admission, header, commit, true)
     }
 
+    /// Derive authority for an ordinary program call, including Market calldata.
+    /// This entry point consumes the ordinary call envelope directly.
+    /// It takes the same verified [`AdmissionEvidence`], signed batch header and
+    /// trusted [`ChainCommitProof`] as [`Self::derive`], with the same receipt-key
+    /// height checks. Reconstruct admission before calling and authenticate the
+    /// resulting native bytes with [`Self::verify_native`] before consumption.
     pub fn derive_program_call(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
-        receipt_proof: &Proof,
+        commit: &ChainCommitProof,
     ) -> Result<Self, ReplayError> {
-        Self::derive_call(receipt, admission, header, receipt_proof, false)
+        Self::derive_call(receipt, admission, header, commit, false)
     }
 
     fn derive_call(
         receipt: &VerifiedReceipt,
-        admission: &VerifiedAdmissionPrestate,
+        admission: &AdmissionEvidence,
         header: &VerifiedBatchHeader,
-        receipt_proof: &Proof,
+        commit: &ChainCommitProof,
         replay_profile: bool,
     ) -> Result<Self, ReplayError> {
+        let keys = commit.receipt_keys()?;
+        commit.verify_receipt_with_keys(receipt.canonical_bytes(), &keys)?;
         let protocol = receipt.receipt().protocol().ok_or(ReplayError::Receipt)?;
         let batch = header.header();
-        let count = batch
-            .last_sequence()
-            .checked_sub(batch.first_sequence())
-            .ok_or(ReplayError::Receipt)?;
-        if count == 0
-            || count > 64
-            || u64::from(receipt_proof.leaf_count()) != count + 1
-            || u64::from(receipt_proof.leaf_index()) >= count
-            || batch
-                .first_sequence()
-                .checked_add(u64::from(receipt_proof.leaf_index()))
-                != Some(protocol.global_sequence())
-            || batch.network_id() != admission.network_id()
+        if batch.network_id() != admission.network_id()
             || protocol.timestamp() != batch.timestamp_ms()
             || protocol.activity_id() != admission.activity_id()
             || protocol.global_sequence() != admission.execution_sequence()
@@ -72,12 +162,6 @@ impl VerifiedReplayAuthority {
         {
             return Err(ReplayError::Receipt);
         }
-        verify_path(
-            receipt.canonical_bytes(),
-            receipt_proof,
-            &batch.receipt_merkle_root(),
-        )
-        .map_err(|_| ReplayError::Receipt)?;
         let activity = admission.activity();
         let bounds = activity.timestamp_bound();
         if bounds.not_after == u64::MAX
@@ -277,8 +361,7 @@ impl VerifiedReplayAuthority {
         } else {
             actor
         };
-        let signed =
-            layerx_wire::activity::encode_signed(activity).map_err(|_| ReplayError::Authority)?;
+        let signed = signed_activity_bytes(activity)?;
         let mut bytes = b"LXP/program-replay-authority/v1\0".to_vec();
         vector(&mut bytes, &signed)?;
         bytes.extend_from_slice(&actor);
@@ -724,7 +807,8 @@ impl Grant {
         timestamp: u64,
     ) -> Result<(), ReplayError> {
         let mut policy = [0; 32];
-        policy[..28].copy_from_slice(b"native-fee-authority-version\0");
+        let name = b"native-fee-authority-version";
+        policy[..name.len()].copy_from_slice(name);
         let enforced = if let Some(value) = records.get(policy.as_slice()) {
             if value.len() != 32 || value[..31].iter().any(|b| *b != 0) || value[31] != 2 {
                 return Err(ReplayError::Authority);
@@ -769,10 +853,7 @@ impl Grant {
     }
 }
 
-fn envelope(
-    admission: &VerifiedAdmissionPrestate,
-    epoch: u64,
-) -> Result<(u64, u16, u16), ReplayError> {
+fn envelope(admission: &AdmissionEvidence, epoch: u64) -> Result<(u64, u16, u16), ReplayError> {
     let native = admission.legacy().legacy().canonical_bytes();
     let mut r = Reader(native.get(78..).ok_or(ReplayError::Encoding)?);
     let count = r.u16()?;
@@ -905,12 +986,9 @@ fn call_capabilities(call: &[u8]) -> Result<CapabilitySet, ReplayError> {
         return Err(ReplayError::Authority);
     }
     let encoded = call.get(start..end).ok_or(ReplayError::Authority)?;
-    let capabilities = if abi == 1 {
-        CapabilitySet::decode_canonical(encoded)
-    } else if matches!(abi, 2 | 3 | 4) {
-        CapabilitySet::decode_v2_canonical(encoded)
-    } else {
-        return Err(ReplayError::Authority);
+    let capabilities = match capability_encoding(abi).map_err(|_| ReplayError::Authority)? {
+        CapabilityEncoding::V1 => CapabilitySet::decode_canonical(encoded),
+        CapabilityEncoding::V2 => CapabilitySet::decode_v2_canonical(encoded),
     }
     .map_err(|_| ReplayError::Authority)?;
     CapabilitySet::new(capabilities).map_err(|_| ReplayError::Authority)

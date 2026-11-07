@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import test from "node:test";
 
+import { ed25519 } from "@noble/curves/ed25519.js";
 import { secp256k1 } from "@noble/curves/secp256k1.js";
 import { keccak_256 } from "@noble/hashes/sha3.js";
 
@@ -14,6 +15,7 @@ import {
   bindTransactionRequest,
   bindNonceCall,
   boundDidCall,
+  checksumAddress,
   decodeLayerXDid,
   decodeBindNonce,
   decodeBoundDid,
@@ -25,7 +27,6 @@ import {
   keyDerivationRequest,
   keyDerivationTypedData,
   normalizeWalletSignature,
-  encodeAbiCall,
   layerXBindMessage,
   layerXDidCall,
   planLayerXBind,
@@ -33,7 +34,9 @@ import {
   signBindTransaction,
   slip10Ed25519,
   type Eip1193Requester,
-} from "../src/index.js";
+  type WalletRequest,
+} from "../src/account-derivation.js";
+import { encodeAbiCall, precompileWriteCall } from "../src/exchange.js";
 
 const fixture = JSON.parse(
   readFileSync(
@@ -64,7 +67,7 @@ for (const vector of fixture.mnemonic_vectors) {
       passphrase: vector.passphrase,
       index: expected.index,
     });
-    assert.equal(derived.evmAddress, expected.evm_address);
+    assert.equal(derived.evmAddress, checksumAddress(expected.evm_address));
     assert.equal(derived.layerxPublicKey, expected.layerx_public_key);
     assert.equal(derived.did, expected.did);
     const plan = planLayerXBind(derived, expected.bind.chain_id, {
@@ -126,7 +129,7 @@ for (const vector of wallet.vectors) {
 
   const derived = deriveFromWalletSignature(parameters, `0x${vector.signature}`);
   assert.equal(derived.did, vector.did);
-  assert.equal(derived.evmAddress, wallet.evm_address);
+  assert.equal(derived.evmAddress, checksumAddress(wallet.evm_address));
   assert.equal(derived.evmPrivateKey, null);
   for (const equivalent of vector.equivalent_signatures) {
     assert.notEqual(equivalent, vector.signature);
@@ -189,20 +192,50 @@ for (const vector of wallet.vectors) {
   );
 }
 
-// Auto-bind against a wallet answering the two precompile reads.
+// Auto-bind against a wallet answering the precompile reads and pending EVM nonce.
 const derived = deriveFromMnemonic(fixture.mnemonic_vectors[0].mnemonic);
 const expected = fixture.mnemonic_vectors[0].accounts[0];
-const chain = (bound: string | null, sent: unknown[]): Eip1193Requester => ({
+const chainId = 125n;
+const bindNonce = 4n;
+const pendingNonce = 9n;
+const bindSignature = ed25519.sign(layerXBindMessage(chainId, derived.evmAddress, bindNonce), derived.layerxSeed);
+const bindData = precompileWriteCall(
+  expected.bind.to,
+  "bindLayerX(bytes32,bytes)",
+  { types: ["bytes32", "bytes"], payable: false },
+  [`0x${derived.layerxPublicKey}`, `0x${hex(bindSignature)}`],
+).data;
+const bindRequest = {
+  from: derived.evmAddress,
+  to: expected.bind.to,
+  data: bindData,
+  value: "0x0",
+  type: "0x2",
+  chainId: "0x7d",
+  nonce: "0x9",
+};
+const bindingReads = (bound: boolean): WalletRequest[] =>
+  [boundDidCall(derived.evmAddress), bindNonceCall(derived.evmAddress), ...(bound ? [layerXDidCall(derived.evmAddress)] : [])]
+    .map((data) => ({ method: "eth_call", params: [{ to: expected.bind.to, data }, "latest"] }));
+const chain = (bound: string | null, sent: unknown[], requests: WalletRequest[]): Eip1193Requester => ({
   request: async ({ method, params }) => {
+    assert.ok(params !== undefined);
+    requests.push({ method, params });
+    if (method === "eth_getTransactionCount") {
+      assert.deepEqual(params, [derived.evmAddress, "pending"]);
+      return `0x${pendingNonce.toString(16)}`;
+    }
     if (method === "eth_sendTransaction") {
-      sent.push(params?.[0]);
+      assert.deepEqual(params, [bindRequest]);
+      assert.equal(ed25519.verify(bindSignature, layerXBindMessage(chainId, derived.evmAddress, bindNonce), bytes(derived.layerxPublicKey)), true);
+      sent.push(params[0]);
       return `0x${"12".repeat(32)}`;
     }
-    const call = params?.[0] as { to: string; data: string };
+    const call = params[0] as { to: string; data: string };
     assert.equal(method, "eth_call");
-    assert.equal(call.to, expected.bind.to);
+    assert.deepEqual(params, [{ to: expected.bind.to, data: call.data }, "latest"]);
     if (call.data === bindNonceCall(derived.evmAddress)) {
-      return `0x${"00".repeat(32)}`;
+      return `0x${bindNonce.toString(16).padStart(64, "0")}`;
     }
     if (call.data === layerXDidCall(derived.evmAddress)) {
       assert.notEqual(bound, null);
@@ -213,19 +246,31 @@ const chain = (bound: string | null, sent: unknown[]): Eip1193Requester => ({
   },
 });
 const sent: unknown[] = [];
-const outcome = await autoBindLayerX(chain(null, sent), derived, 713714);
+const requests: WalletRequest[] = [];
+const outcome = await autoBindLayerX(chain(null, sent, requests), derived, chainId);
 assert.equal(outcome.action, "bind");
-assert.deepEqual(sent, [
-  { from: derived.evmAddress, to: expected.bind.to, data: `0x${expected.bind.calldata}`, value: "0x0" },
+assert.ok(outcome.action === "bind");
+assert.equal(outcome.call.nonce, bindNonce);
+assert.equal(outcome.call.data, bindData);
+assert.equal(outcome.transactionHash, `0x${"12".repeat(32)}`);
+assert.deepEqual(sent, [bindRequest]);
+assert.deepEqual(requests, [
+  ...bindingReads(false),
+  { method: "eth_getTransactionCount", params: [derived.evmAddress, "pending"] },
+  { method: "eth_sendTransaction", params: [bindRequest] },
 ]);
 const again: unknown[] = [];
-assert.deepEqual(await autoBindLayerX(chain(derived.layerxPublicKey, again), derived, 713714), {
+const alreadyBoundRequests: WalletRequest[] = [];
+assert.deepEqual(await autoBindLayerX(chain(derived.layerxPublicKey, again, alreadyBoundRequests), derived, chainId), {
   action: "already_bound",
 });
+assert.deepEqual(alreadyBoundRequests, bindingReads(true));
+const foreignBoundRequests: WalletRequest[] = [];
 await assert.rejects(
-  autoBindLayerX(chain("bb".repeat(32), again), derived, 713714),
+  autoBindLayerX(chain("bb".repeat(32), again, foreignBoundRequests), derived, chainId),
   (error: unknown) => error instanceof AccountDerivationError && error.code === "bound_to_different_did",
 );
+assert.deepEqual(foreignBoundRequests, bindingReads(true));
 assert.deepEqual(again, []);
 assert.equal(decodeBindNonce(`0x${"00".repeat(31)}07`), 7n);
 assert.equal(decodeBoundDid(`0x${"00".repeat(128)}`), null);
@@ -237,15 +282,16 @@ console.log("account derivation: ok");
 test("derive_and_bind", () => {
   const seed = bytes(fixture.mnemonic_vectors[0].seed);
   const pair = deriveFromSeed(seed);
-  assert.equal(pair.evmAddress, expected.evm_address);
+  assert.equal(pair.evmAddress, checksumAddress(expected.evm_address));
   assert.equal(pair.did, expected.did);
-  const plan = planLayerXBind(derived, expected.bind.chain_id, { boundDidPublicKey: null, nonce: 0n });
+  const plan = planLayerXBind(derived, chainId, { boundDidPublicKey: null, nonce: bindNonce });
   assert.equal(plan.action, "bind");
   if (plan.action !== "bind") assert.fail("bind plan required");
-  assert.deepEqual(bindTransactionRequest(derived, plan.call), {
+  assert.deepEqual(bindTransactionRequest(derived, plan.call, pendingNonce), {
     method: "eth_sendTransaction",
-    params: [{ from: derived.evmAddress, to: expected.bind.to, data: `0x${expected.bind.calldata}`, value: "0x0" }],
+    params: [bindRequest],
   });
+  assert.equal(plan.call.nonce, bindNonce);
   const answer = `0x${encodeAbiCall("binding", ["bytes32", "string"], [`0x${derived.layerxPublicKey}`, derived.did]).slice(10)}`;
   assert.equal(decodeLayerXDid(answer), derived.layerxPublicKey);
   refuses("malformed_precompile_answer", () => decodeLayerXDid(`${answer}00`));

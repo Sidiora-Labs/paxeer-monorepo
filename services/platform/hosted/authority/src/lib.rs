@@ -13,9 +13,10 @@ use layerx_wire::hash::{
 };
 use layerx_wire::receipt::{decode, decode_merkle_proof, encode_unsigned};
 use serde::Deserialize;
+use sha2::{Digest as _, Sha256};
+use std::net::{Ipv6Addr, SocketAddr};
 
 mod native_state;
-pub mod ai_storage_admission;
 
 /// Lower-case hexadecimal helpers shared by the service and its tests.
 /// Refusal of hexadecimal text that is not well formed.
@@ -713,4 +714,146 @@ fn verify_selected_authorized_receipt(
         }
     }
     Ok(())
+}
+
+#[path = "human/budget_state.rs"]
+pub mod budget_state;
+pub mod chain_receipt;
+pub mod committed;
+pub mod protected;
+
+pub mod human_policy {
+    use serde::{Deserialize, Serialize};
+    #[derive(Clone, Deserialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct PrincipalPolicy {
+        pub tenant: String,
+        pub principal: String,
+        pub account_id: String,
+        pub asset_id: String,
+        pub activities: Vec<String>,
+        pub budgets: Vec<String>,
+        pub maximum_age_seconds: u64,
+        pub maximum_age_sequences: u64,
+        pub identities: Vec<Identity>,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct EvidenceReference {
+        pub activity_id: String,
+        pub receipt_digest: String,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct Identity {
+        pub did: String,
+        pub authorities: Vec<Authority>,
+        pub revocation_sequence: u64,
+        pub frozen: bool,
+        pub evidence: EvidenceReference,
+        pub capabilities: Vec<ScopeBinding>,
+        pub rotation: KeyPolicy,
+        pub recovery: KeyPolicy,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct Authority {
+        pub kind: String,
+        pub id: String,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct ScopeBinding {
+        pub authority: String,
+        pub action_key: String,
+        pub capability_id: String,
+        pub activity_types: Vec<u16>,
+        pub counterparties: Vec<String>,
+        pub assets: Vec<String>,
+        pub amount_ceiling: String,
+        pub expiry_sequence: u64,
+        pub enforceable_dimensions: Vec<String>,
+        pub evidence: EvidenceReference,
+    }
+
+    #[derive(Clone, Deserialize, Serialize)]
+    #[serde(deny_unknown_fields)]
+    pub struct KeyPolicy {
+        pub policy_revision: u64,
+        pub required_delay_seconds: u64,
+        pub maximum_delay_seconds: u64,
+        pub effective_sequence: u64,
+        pub evidence: EvidenceReference,
+    }
+}
+
+pub struct BudgetStateConfig {
+    pub chain_rpc_url: String,
+    pub protocol_network_id: u32,
+}
+
+impl budget_state::Configuration for BudgetStateConfig {
+    fn chain_rpc_url(&self) -> &str {
+        &self.chain_rpc_url
+    }
+
+    fn protocol_network_id(&self) -> u32 {
+        self.protocol_network_id
+    }
+}
+
+#[derive(Debug)]
+pub struct Response {
+    pub status: u16,
+    pub body: Vec<u8>,
+    pub retry_after: Option<u64>,
+    pub readiness_headers: Option<[&'static str; 2]>,
+}
+
+pub fn json(status: u16, value: &serde_json::Value) -> Response {
+    Response {
+        status,
+        body: value.to_string().into_bytes(),
+        retry_after: None,
+        readiness_headers: None,
+    }
+}
+
+pub fn refusal(status: u16, code: &str, retry_after: Option<u64>) -> Response {
+    let body = retry_after.map_or_else(
+        || serde_json::json!({ "error": { "code": code, "retry": "never" } }),
+        |seconds| {
+            serde_json::json!({ "error": { "code": code, "retry": "after", "retry_after_seconds": seconds } })
+        },
+    );
+    Response {
+        status,
+        body: body.to_string().into_bytes(),
+        retry_after,
+        readiness_headers: None,
+    }
+}
+
+pub fn digest(bytes: &[u8]) -> [u8; 32] {
+    Sha256::digest(bytes).into()
+}
+
+pub fn loopback_http(endpoint: &str) -> Option<(String, SocketAddr)> {
+    let authority = endpoint.strip_prefix("http://")?;
+    let authority = authority.strip_suffix('/').unwrap_or(authority);
+    if authority.contains(['/', '?', '#', '@', '\\']) {
+        return None;
+    }
+    let (host, port) = authority.rsplit_once(':')?;
+    let port = port.parse::<u16>().ok().filter(|port| *port != 0)?;
+    let address = match host {
+        "127.0.0.1" | "localhost" => SocketAddr::from(([127, 0, 0, 1], port)),
+        "[::1]" => SocketAddr::from((Ipv6Addr::LOCALHOST, port)),
+        _ => return None,
+    };
+    Some((format!("{host}:{port}"), address))
 }

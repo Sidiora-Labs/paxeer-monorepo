@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"bytes"
+	"fmt"
+
 	custodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -28,9 +30,19 @@ func layerxAmount(amount sdk.Int) bool {
 	return !amount.IsNil() && amount.IsPositive() && amount.BigInt().BitLen() <= 128
 }
 
+func (k *Keeper) retirementError(ctx sdk.Context) error {
+	return sdkerrors.Wrapf(types.ErrRetired, "%s done at height %d", types.RetiredFromUpgrade,
+		k.upgrade.GetDoneHeight(ctx, types.RetiredFromUpgrade))
+}
+
 // record assigns the owner's next nonce and its intent identifier and stores
 // the pending intent.
 func (k *Keeper) record(ctx sdk.Context, owner common.Address, intent types.Intent) (types.Intent, error) {
+	if retired, err := k.Retired(ctx); err != nil {
+		return types.Intent{}, err
+	} else if retired {
+		return types.Intent{}, k.retirementError(ctx)
+	}
 	if owner == (common.Address{}) {
 		return types.Intent{}, sdkerrors.Wrap(types.ErrInvalidIntent, "owner")
 	}
@@ -50,23 +62,16 @@ func (k *Keeper) record(ctx sdk.Context, owner common.Address, intent types.Inte
 	return intent, nil
 }
 
-// DepositMargin moves amount of the asset's denom from the owner's bank
-// account into the layerxcustody module account as a custody deposit for the
-// LayerX account, and records the deposit intent that tells the router the
-// credit is margin. The asset must margin an enabled market.
+// RecordDepositMarginIntent records an intent for margin credit the router
+// already holds for the owner account. The asset must margin an enabled market.
 func (k *Keeper) RecordDepositMarginIntent(ctx sdk.Context, owner common.Address, ownerAccount sdk.AccAddress,
 	assetID, account [32]byte, amount sdk.Int) (types.Intent, error) {
 	if !k.GetParams(ctx).MarginAsset(custodytypes.Hash32(assetID)) {
 		return types.Intent{}, types.ErrNotMarginAsset
 	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Intent, error) {
-		deposit, err := k.custody.Deposit(ctx, owner, ownerAccount, assetID, account, amount)
-		if err != nil {
-			return types.Intent{}, err
-		}
 		intent, err := k.record(ctx, owner, types.Intent{Kind: types.IntentKind_INTENT_KIND_DEPOSIT,
-			Account: deposit.Beneficiary, AssetId: deposit.AssetId, Denom: deposit.Denom, Amount: deposit.Amount,
-			DepositId: deposit.DepositId})
+			Account: custodytypes.Hash32(account), AssetId: custodytypes.Hash32(assetID), Amount: amount.String()})
 		if err != nil {
 			return types.Intent{}, err
 		}
@@ -103,6 +108,29 @@ func (k *Keeper) RecordWithdrawMarginIntent(ctx sdk.Context, owner common.Addres
 // only the shape of the order; LayerX matches it.
 func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, marketID [32]byte, side uint8,
 	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
+	account := ""
+	if bindings, ok := k.evmKeeper.(exchangeAccountBindings); ok {
+		if key, bound := bindings.GetLayerXDid(ctx, owner); bound {
+			id, err := defaultOrderAccount(key)
+			if err != nil {
+				return types.Intent{}, err
+			}
+			account = custodytypes.Hash32(id)
+		}
+	}
+	return k.recordPlaceOrderIntent(ctx, owner, marketID, account, side, price, quantity, timeInForce)
+}
+
+func (k *Keeper) RecordPlaceOrderIntentForAccount(ctx sdk.Context, owner common.Address, marketID, accountID [32]byte, side uint8,
+	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
+	if err := k.requireOrderAccount(ctx, owner, accountID); err != nil {
+		return types.Intent{}, err
+	}
+	return k.recordPlaceOrderIntent(ctx, owner, marketID, custodytypes.Hash32(accountID), side, price, quantity, timeInForce)
+}
+
+func (k *Keeper) recordPlaceOrderIntent(ctx sdk.Context, owner common.Address, marketID [32]byte, account string, side uint8,
+	price, quantity sdk.Int, timeInForce uint8) (types.Intent, error) {
 	market, found := k.GetParams(ctx).Market(custodytypes.Hash32(marketID))
 	if !found || !market.Enabled {
 		return types.Intent{}, types.ErrUnknownMarket
@@ -124,7 +152,7 @@ func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, m
 		}
 		commitment, enabled, err := types.NativeGenesisCapability(market.NativeGenesis)
 		if err != nil {
-			return types.Intent{}, sdkerrors.Wrap(types.ErrInvalidProof, err.Error())
+			return types.Intent{}, fmt.Errorf("%s: %w", err.Error(), types.ErrInvalidProof)
 		}
 		if !bytes.Equal(proven.Value, commitment[:]) {
 			return types.Intent{}, types.ErrStateMismatch
@@ -137,7 +165,7 @@ func (k *Keeper) RecordPlaceOrderIntent(ctx sdk.Context, owner common.Address, m
 	}
 	return atomically(ctx, func(ctx sdk.Context) (types.Intent, error) {
 		intent, err := k.record(ctx, owner, types.Intent{Kind: types.IntentKind_INTENT_KIND_PLACE,
-			MarketId: market.MarketId, AssetId: market.MarginAssetId, Side: uint32(side), Price: price.String(),
+			Account: account, MarketId: market.MarketId, AssetId: market.MarginAssetId, Side: uint32(side), Price: price.String(),
 			Quantity: quantity.String(), TimeInForce: uint32(timeInForce)})
 		if err != nil {
 			return types.Intent{}, err

@@ -1,0 +1,17 @@
+[alert.GHSA-9f3f-wv7r-qc8r]
+package = "github.com/pion/dtls/v2"
+manifest = "sdk/launchpad/shared/go.mod"
+verdict = "no-fix"
+version_before = "v2.2.7"
+version_after = "v2.2.7"
+pinned_by = "shared -> github.com/ethereum/go-ethereum v1.17.3 (direct) -> github.com/pion/stun/v2 v2.0.0 -> github.com/pion/dtls/v2 v2.2.7; go.mod explicitly retains dtls/v2 as an indirect requirement. No patched v2 version is named. github.com/ethereum/go-ethereum v1.17.10 removes this v2 chain by requiring github.com/pion/stun/v3 v3.1.7 -> github.com/pion/dtls/v3 v3.1.5; adopting that release also requires removing the explicit v2 indirect requirements."
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"
+
+[alert.GHSA-34rh-wp3j-6cxc]
+package = "github.com/pion/stun/v2"
+manifest = "sdk/launchpad/shared/go.mod"
+verdict = "no-fix"
+version_before = "v2.0.0"
+version_after = "v2.0.0"
+pinned_by = "shared -> github.com/ethereum/go-ethereum v1.17.3 (direct) -> github.com/pion/stun/v2 v2.0.0; go.mod explicitly retains stun/v2 as an indirect requirement. No patched v2 version is named. github.com/ethereum/go-ethereum v1.17.10 removes this v2 dependency by requiring github.com/pion/stun/v3 v3.1.7, which requires github.com/pion/dtls/v3 v3.1.5; adopting that release also requires removing the explicit v2 indirect requirements."
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

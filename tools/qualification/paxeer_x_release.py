@@ -18,7 +18,7 @@ import time
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools/paxeer-x'))
-from candidate import (SCHEMA, UNKNOWN, MAX_BYTES, DIGEST, BINDING_FIELDS, Invalid,
+from candidate import (SCHEMA, UNKNOWN, MAX_BYTES, DIGEST, BINDING_FIELDS, SERVICE_CATALOGUE, Invalid,
                        load_private, write_private, validate, catalogue, protected_path)
 
 MANIFEST = 'paxeer-x.qualification-manifest.v1'
@@ -60,7 +60,7 @@ def private_dir(path):
 
 def candidate(path):
     value = load_private(path)
-    validate(value, catalogue(ROOT / 'spec/paxeer-x/spec.kvx'), ROOT,
+    validate(value, catalogue(ROOT / SERVICE_CATALOGUE), ROOT,
              mainline=os.environ.get('PAXEER_X_MAINLINE', 'refs/heads/main'))
     require(value['schema'] == SCHEMA and not value['source']['dirty'] and value['source']['integrated'],
             'clean integrated candidate required')
@@ -77,7 +77,7 @@ def prepare(candidate_path, contract_path, evidence):
     for key in ('environment_sha256', 'inputs_sha256', 'images_sha256'):
         require(re.fullmatch('[0-9a-f]{64}', contract[key]), 'immutable contract binding missing')
     env = dict(os.environ, PAXEER_X_EVIDENCE_DIR=str(private_dir(evidence)))
-    spec_text = (ROOT / 'spec/paxeer-x/spec.kvx').read_text()
+    spec_text = (ROOT / SERVICE_CATALOGUE).read_text()
     sections = dict(re.findall(r'^\[([^\]]+)\]\n(.*?)(?=^\[|\Z)', spec_text, re.M | re.S))
     required = contract['required_acceptance']
     require(isinstance(required, list) and len(set(required)) == len(required), 'acceptance inventory repeats')
@@ -271,22 +271,22 @@ def workflow_run(args):
 
 
 def main():
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(allow_abbrev=False)
     commands = parser.add_subparsers(dest='command', required=True)
-    plan = commands.add_parser('prepare')
+    plan = commands.add_parser('prepare', allow_abbrev=False)
     for key in ('candidate', 'contract', 'evidence', 'recipient', 'ref', 'output'):
         plan.add_argument('--' + key, required=True)
-    submit = commands.add_parser('submit')
+    submit = commands.add_parser('submit', allow_abbrev=False)
     submit.add_argument('--request', required=True)
     submit.add_argument('--controller-socket', required=True)
-    status = commands.add_parser('status')
+    status = commands.add_parser('status', allow_abbrev=False)
     status.add_argument('--logical-id', required=True)
     status.add_argument('--controller-socket', required=True)
-    collect = commands.add_parser('evidence')
+    collect = commands.add_parser('evidence', allow_abbrev=False)
     for key in ('candidate', 'request', 'completed', 'trust', 'controller-binary', 'output'):
         collect.add_argument('--' + key, required=True)
-    commands.add_parser('workflow-plan')
-    worker = commands.add_parser('workflow-run')
+    commands.add_parser('workflow-plan', allow_abbrev=False)
+    worker = commands.add_parser('workflow-run', allow_abbrev=False)
     worker.add_argument('--cell', required=True)
     worker.add_argument('--controller-binary', required=True)
     worker.add_argument('--output', required=True)

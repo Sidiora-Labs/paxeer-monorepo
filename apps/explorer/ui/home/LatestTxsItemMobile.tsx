@@ -1,9 +1,13 @@
 import { Box, Flex, HStack, Text } from '@chakra-ui/react';
 import React from 'react';
 
+import type { PriceUpdateItem } from 'types/api/paxeerXFeed';
 import type { Transaction } from 'types/api/transaction';
 
+import { route } from 'nextjs/routes';
+
 import config from 'configs/app';
+import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import { Tag } from 'toolkit/chakra/tag';
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
@@ -16,16 +20,18 @@ import TxFee from 'ui/shared/tx/TxFee';
 import TxWatchListTags from 'ui/shared/tx/TxWatchListTags';
 import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
-import { isPriceUpdate, PriceUpdateFromTo, priceUpdateHref, priceUpdateMethod } from 'ui/txs/TxPriceUpdate';
+import { priceUpdateHref, priceUpdateMethod } from 'ui/txs/TxPriceUpdate';
 import TxType from 'ui/txs/TxType';
 
+import { isPriceUpdateItem, PriceUpdateWatchListTags } from './LatestTxsItem';
+
 type Props = {
-  tx: Transaction;
+  tx: Transaction | PriceUpdateItem;
   isLoading?: boolean;
 };
 
 const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
-  const priceUpdate = isPriceUpdate(tx);
+  const priceUpdate = isPriceUpdateItem(tx);
   const evmTx = priceUpdate ? undefined : tx;
   const dataTo = evmTx?.to ? evmTx.to : evmTx?.created_contract;
 
@@ -36,7 +42,8 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
       data-latest-tx={ tx.hash }
       w="100%"
       px={ 3 }
-      py={ 3 }
+      py={ 2 }
+      _hover={{ bg: 'raised' }}
       borderBottomWidth="1px"
       borderStyle="solid"
       borderColor="border.divider"
@@ -48,8 +55,7 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
           href={ priceUpdate ? priceUpdateHref(tx.hash) : undefined }
           noIcon
           truncation="constant_long"
-          textStyle="sm"
-          fontWeight="500"
+          textStyle="number"
         />
         { evmTx && <TxAdditionalInfo tx={ evmTx } isMobile isLoading={ isLoading }/> }
       </Flex>
@@ -64,20 +70,18 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
         mt="2px"
       />
       <Box mt={ 2 } data-label="tx-parties">
-        { evmTx ? (
-          <>
-            <Flex alignItems="center" columnGap={ 1 } minW={ 0 }>
-              <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
-              <AddressEntity address={ evmTx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
-            </Flex>
-            { dataTo && (
-              <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="2px">
-                <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
-                <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
-              </Flex>
-            ) }
-          </>
-        ) : <PriceUpdateFromTo tx={ tx } isLoading={ isLoading }/> }
+        <Flex alignItems="center" columnGap={ 1 } minW={ 0 }>
+          <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>From</Skeleton>
+          <AddressEntity address={ tx.from } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/>
+        </Flex>
+        { (priceUpdate || dataTo) && (
+          <Flex alignItems="center" columnGap={ 1 } minW={ 0 } mt="2px">
+            <Skeleton loading={ isLoading } textStyle="xs" color="text.muted" flexShrink={ 0 }>To</Skeleton>
+            { priceUpdate ? (
+              <Link href={ route({ pathname: '/feed' }) } loading={ isLoading } textStyle="xs" whiteSpace="nowrap">Price feed</Link>
+            ) : dataTo && <AddressEntity address={ dataTo } isLoading={ isLoading } noIcon truncation="constant" textStyle="xs"/> }
+          </Flex>
+        ) }
       </Box>
       <Flex mt={ 2 } alignItems="center" justifyContent="space-between" columnGap={ 2 } flexWrap="wrap" rowGap={ 2 }>
         <HStack gap={ 2 } data-label="tx-tags">
@@ -85,20 +89,22 @@ const LatestTxsItemMobile = ({ tx, isLoading }: Props) => {
             <ScanMethodChip method={ priceUpdateMethod(tx) } isLoading={ isLoading }/> :
             <TxType types={ tx.transaction_types } isLoading={ isLoading }/> }
           { tx.status !== 'ok' && <TxStatus status={ tx.status } errorText={ tx.status === 'error' ? tx.result : undefined } isLoading={ isLoading }/> }
-          { evmTx && <TxWatchListTags tx={ evmTx } isLoading={ isLoading }/> }
+          { evmTx ?
+            <TxWatchListTags tx={ evmTx } isLoading={ isLoading }/> :
+            <PriceUpdateWatchListTags from={ tx.from } isLoading={ isLoading }/> }
           { protocolTag && <EntityTag data={ protocolTag } isLoading={ isLoading } minW="0" noColors/> }
         </HStack>
         { !(config.UI.views.tx.hiddenFields?.value && config.UI.views.tx.hiddenFields?.tx_fee) && (
           <Box textAlign="right" data-label="tx-value">
             { !config.UI.views.tx.hiddenFields?.value && (
               <Tag variant="outlined" loading={ isLoading }>
-                { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : '-' }
+                { evmTx ? <NativeCoinValue amount={ evmTx.value } accuracy={ 5 } loading={ isLoading }/> : '—' }
               </Tag>
             ) }
             { !config.UI.views.tx.hiddenFields?.tx_fee && (
               <Skeleton loading={ isLoading } display="flex" justifyContent="flex-end" whiteSpace="pre" textStyle="xs" color="text.muted" mt="2px">
                 <Text as="span">Fee </Text>
-                { evmTx ? <TxFee tx={ evmTx } accuracy={ 5 } noUsd/> : '-' }
+                { evmTx ? <TxFee tx={ evmTx } accuracy={ 5 } noUsd/> : '—' }
               </Skeleton>
             ) }
           </Box>

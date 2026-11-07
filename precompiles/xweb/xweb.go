@@ -21,7 +21,9 @@
 package xweb
 
 import (
+	"bytes"
 	"embed"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -41,15 +43,18 @@ import (
 )
 
 const (
-	RequestMethod      = "request"
-	FulfilMethod       = "fulfil"
-	RefundMethod       = "refund"
-	GetRequestMethod   = "getRequest"
-	GetResultMethod    = "getResult"
-	GetAttestorsMethod = "getAttestors"
-	ThresholdMethod    = "threshold"
-	FeeMethod          = "fee"
-	GetParamsMethod    = "getParams"
+	RequestMethod            = "request"
+	FulfilMethod             = "fulfil"
+	FulfilProgramMethod      = "fulfilProgram"
+	RefundMethod             = "refund"
+	GetRequestMethod         = "getRequest"
+	GetResultMethod          = "getResult"
+	GetAttestorsMethod       = "getAttestors"
+	ThresholdMethod          = "threshold"
+	FeeMethod                = "fee"
+	GetParamsMethod          = "getParams"
+	GetProgramResultMethod   = "getProgramResult"
+	GetKernelNetworkIdMethod = "getKernelNetworkId"
 
 	CallbackMethod    = "onXWebResponse"
 	CallbackSignature = "onXWebResponse(uint64,bytes32,uint32,bytes)"
@@ -158,6 +163,21 @@ func NewPrecompile(keepers utils.Keepers) (*Precompile, error) {
 
 func NewPrecompileWithKeeper(keeper *xwebkeeper.Keeper, bankKeeper utils.BankKeeper, evmKeeper utils.EVMKeeper) *Precompile {
 	newABI := pcommon.MustGetABI(f, "abi.json")
+	// These program entry points are also pinned by IXWeb and its consumer proof.
+	// Refuse ABI drift before installing a method table at the native address.
+	for _, entry := range []struct {
+		name     string
+		selector [4]byte
+	}{
+		{FulfilProgramMethod, [4]byte{0x2d, 0x4b, 0xf7, 0xad}},
+		{GetProgramResultMethod, [4]byte{0x2b, 0x2e, 0x13, 0xfc}},
+		{GetKernelNetworkIdMethod, [4]byte{0xfc, 0x0d, 0x26, 0xf4}},
+	} {
+		method, found := newABI.Methods[entry.name]
+		if !found || !bytes.Equal(method.ID, entry.selector[:]) {
+			panic(fmt.Sprintf("xweb: abi.json selector mismatch for %s", entry.name))
+		}
+	}
 	executor := &PrecompileExecutor{
 		abi:        newABI,
 		address:    common.HexToAddress(XWebAddress),
@@ -173,7 +193,7 @@ func NewPrecompileWithKeeper(keeper *xwebkeeper.Keeper, bankKeeper utils.BankKee
 
 func isTransaction(method string) bool {
 	switch method {
-	case RequestMethod, FulfilMethod, RefundMethod:
+	case RequestMethod, FulfilMethod, FulfilProgramMethod, RefundMethod:
 		return true
 	default:
 		return false
@@ -183,6 +203,9 @@ func isTransaction(method string) bool {
 func (PrecompileExecutor) IsTransaction(method string) bool { return isTransaction(method) }
 
 func (p PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
+	if method.Name == FulfilProgramMethod {
+		return ProgramFulfilGas(input)
+	}
 	gas := ViewBaseGas + GasPerByte*uint64(len(input))
 	if isTransaction(method.Name) {
 		gas = WriteBaseGas + GasPerByte*uint64(len(input))
@@ -233,6 +256,12 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 	if err := p.guard(ctx.EVMPrecompileCalledFromDelegateCall(), method.Name, readOnly); err != nil {
 		return nil, err
 	}
+	switch method.Name {
+	case FulfilProgramMethod, GetProgramResultMethod, GetKernelNetworkIdMethod:
+		if !p.keeper.ProgramOriginActive(ctx) {
+			return nil, xwebkeeper.ErrProgramModuleDisabled
+		}
+	}
 	if method.Name != RequestMethod {
 		if err := pcommon.ValidateNonPayable(value); err != nil {
 			return nil, fmt.Errorf("LXP_PRECOMPILE_NON_PAYABLE: %w", err)
@@ -280,6 +309,12 @@ func (p PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller 
 		params := p.keeper.GetParams(ctx)
 		return method.Outputs.Pack(ParamsView{Fee: wei(params.Fee), MaxPayloadBytes: params.MaxPayloadBytes,
 			MaxCallbackGas: params.MaxCallbackGas, TimeoutBlocks: params.TimeoutBlocks, Paused: p.keeper.IsPaused(ctx)})
+	case FulfilProgramMethod:
+		return p.fulfilProgram(ctx, method, args)
+	case GetProgramResultMethod:
+		return p.getProgramResult(ctx, method, args)
+	case GetKernelNetworkIdMethod:
+		return p.getKernelNetworkId(ctx, method, args)
 	default:
 		return nil, fmt.Errorf("xweb: unknown method %s", method.Name)
 	}
@@ -340,6 +375,53 @@ func (p PrecompileExecutor) request(ctx sdk.Context, method *abi.Method, caller 
 		return nil, err
 	}
 	return method.Outputs.Pack(id)
+}
+
+// RequestFromProgram accepts a hosted program's request on the EVM state branch
+// and publishes the committed kind and call sequence in its program-only log.
+func (p Precompile) RequestFromProgram(evm *vm.EVM, call *xwebkeeper.ProgramCall, topic, data []byte, readOnly bool) (err error) {
+	if !bytes.Equal(topic, []byte(xwebkeeper.ProgramRequestTopic)) {
+		return nil
+	}
+	if evm == nil || evm.StateDB == nil {
+		return errors.New("xweb: program request requires EVM state")
+	}
+	db := state.GetDBImpl(evm.StateDB)
+	if db == nil {
+		return errors.New("xweb: program request requires chain state")
+	}
+	x := p.executor
+	if err := x.guard(db.Ctx().EVMPrecompileCalledFromDelegateCall(), RequestMethod, readOnly); err != nil {
+		return err
+	}
+	snapshot := db.Snapshot()
+	var original xwebkeeper.ProgramCall
+	if call != nil {
+		original = *call
+	}
+	defer func() {
+		if err != nil {
+			db.RevertToSnapshot(snapshot)
+			if call != nil {
+				*call = original
+			}
+		}
+	}()
+	ctx := db.Ctx()
+	if err := x.keeper.RequestFromProgram(ctx, call, topic, data); err != nil {
+		return err
+	}
+	id := binary.BigEndian.Uint64(data[:8])
+	request, found, err := x.keeper.GetProgramPendingRecord(ctx, call.ProgramID, id)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return errors.New("xweb: accepted program request is missing")
+	}
+	input := data[xwebkeeper.ProgramRequestHeaderBytes:]
+	return x.log(evm, "XWebProgramRequested", []common.Hash{common.Hash(call.ProgramID), topicUint64(id)},
+		request.Kind, input, request.Sequence)
 }
 
 func (p PrecompileExecutor) refund(ctx sdk.Context, method *abi.Method, args []interface{}, evm *vm.EVM) ([]byte, error) {

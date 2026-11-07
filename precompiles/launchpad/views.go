@@ -412,31 +412,32 @@ func (p PrecompileExecutor) registryViews(c *call) ([]byte, error) {
 	case "eventEmitter":
 		return c.method.Outputs.Pack(p.keeper.Generation2().EventEmitter)
 	case "getAllPools":
-		pools, err := p.registryPools(c.ctx, nil)
+		pools, _, err := p.registryWindow(c, nil, c.args[0].(*big.Int), c.args[1].(*big.Int), false)
 		if err != nil {
 			return nil, err
 		}
-		return c.method.Outputs.Pack(pagePools(pools, c.args[0].(*big.Int), c.args[1].(*big.Int)))
+		return c.method.Outputs.Pack(pools)
 	case "getPoolCount":
-		pools, err := p.registryPools(c.ctx, nil)
+		_, count, err := p.registryWindow(c, nil, new(big.Int), new(big.Int), true)
 		if err != nil {
 			return nil, err
 		}
-		return c.method.Outputs.Pack(big.NewInt(int64(len(pools))))
+		return c.method.Outputs.Pack(new(big.Int).SetUint64(count))
 	case "getPoolsByCreator", "getPoolCountByCreator", "getPoolsByCreatorPage":
 		creator := c.args[0].(common.Address)
-		pools, err := p.registryPools(c.ctx, &creator)
+		offset, limit := new(big.Int), types.MaxUint256()
+		countOnly := c.method.Name == "getPoolCountByCreator"
+		if c.method.Name == "getPoolsByCreatorPage" {
+			offset, limit = c.args[1].(*big.Int), c.args[2].(*big.Int)
+		}
+		pools, count, err := p.registryWindow(c, &creator, offset, limit, countOnly)
 		if err != nil {
 			return nil, err
 		}
-		switch c.method.Name {
-		case "getPoolsByCreator":
-			return c.method.Outputs.Pack(pools)
-		case "getPoolCountByCreator":
-			return c.method.Outputs.Pack(big.NewInt(int64(len(pools))))
-		default:
-			return c.method.Outputs.Pack(pagePools(pools, c.args[1].(*big.Int), c.args[2].(*big.Int)))
+		if countOnly {
+			return c.method.Outputs.Pack(new(big.Int).SetUint64(count))
 		}
+		return c.method.Outputs.Pack(pools)
 	case "getPoolByToken":
 		return c.method.Outputs.Pack(p.poolByToken(c.ctx, c.args[0].(common.Address)))
 	case "isRegisteredPool":
@@ -482,33 +483,44 @@ func (p PrecompileExecutor) registeredPool(ctx sdk.Context, pool common.Address)
 	return market, true, nil
 }
 
-// registryPools lists the pool addresses in market creation order, only the
-// pools of creator when creator is set.
-// ponytail: scans every market per call; a creator- and pool-ordered index
-// would page directly once the market count makes the scan costly.
-func (p PrecompileExecutor) registryPools(ctx sdk.Context, creator *common.Address) ([]common.Address, error) {
+// registryWindow retains only the requested window and charges every visited
+// market before reading it. Persisted pool/creator positions and counts belong
+// to the keeper; until those are available, skipped positions are metered too.
+func (p PrecompileExecutor) registryWindow(c *call, creator *common.Address, offset, limit *big.Int,
+	countOnly bool) ([]common.Address, uint64, error) {
 	pools := []common.Address{}
-	var err error
-	p.keeper.IterateMarkets(ctx, func(market types.Market) bool {
-		if market.Generation == types.GenerationNative {
-			return false
+	total := p.keeper.GetMarketCount(c.ctx)
+	if !countOnly && (limit.Sign() == 0 || !offset.IsUint64() || offset.Uint64() >= total) {
+		return pools, 0, nil
+	}
+	var matched uint64
+	for index := uint64(1); index != 0 && index <= total; index++ {
+		if err := c.budget.take(BaseGas); err != nil {
+			return nil, 0, err
+		}
+		market, found := p.keeper.GetMarketByIndex(c.ctx, index)
+		if !found || market.Generation == types.GenerationNative {
+			continue
 		}
 		if creator != nil {
-			var owner common.Address
-			if owner, err = p.marketCreator(ctx, market); err != nil {
-				return true
+			owner, err := p.marketCreator(c.ctx, market)
+			if err != nil {
+				return nil, 0, err
 			}
 			if owner != *creator {
-				return false
+				continue
 			}
 		}
+		matched++
+		if countOnly || matched <= offset.Uint64() {
+			continue
+		}
 		pools = append(pools, common.HexToAddress(market.PoolAddress))
-		return false
-	})
-	if err != nil {
-		return nil, err
+		if new(big.Int).SetUint64(uint64(len(pools))).Cmp(limit) >= 0 {
+			break
+		}
 	}
-	return pools, nil
+	return pools, matched, nil
 }
 
 // marketCreator is the EVM address of the creator account of market.
@@ -523,17 +535,10 @@ func (p PrecompileExecutor) marketCreator(ctx sdk.Context, market types.Market) 
 // poolByToken is PoolRegistry.getPoolByToken: the pool of the market whose
 // pool token is token, or the zero address.
 func (p PrecompileExecutor) poolByToken(ctx sdk.Context, token common.Address) common.Address {
-	pool := common.Address{}
 	if token == (common.Address{}) {
-		return pool
+		return common.Address{}
 	}
-	p.keeper.IterateMarkets(ctx, func(market types.Market) bool {
-		if market.Generation != types.GenerationNative && common.HexToAddress(market.TokenAddress) == token {
-			pool = common.HexToAddress(market.PoolAddress)
-			return true
-		}
-		return false
-	})
+	pool, _ := p.keeper.PoolByToken(ctx, token)
 	return pool
 }
 

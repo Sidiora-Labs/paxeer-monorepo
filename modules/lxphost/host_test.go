@@ -21,15 +21,16 @@ import (
 )
 
 const (
-	testNetworkID     = 7
-	registerType      = 0x00070001
-	grantType         = 0x00070008
-	programsRegistry  = 0x00090004
-	stateCommitment   = 3
-	governanceModule  = 7
-	identityStateSize = 223
-	revocationOffset  = 69
-	sequenceOffset    = 215
+	testNetworkID      = 7
+	registerType       = 0x00070001
+	grantType          = 0x00070008
+	programsRegistry   = 0x00090004
+	programsFeeVersion = 1
+	stateCommitment    = 3
+	governanceModule   = 7
+	identityStateSize  = 223
+	revocationOffset   = 69
+	sequenceOffset     = 215
 )
 
 type testChain struct {
@@ -97,6 +98,24 @@ func (c *testChain) dump() map[string][]byte {
 
 func (c *testChain) get(key []byte) []byte {
 	return sdk.NewContext(c.cms, tmproto.Header{}, false).KVStore(c.key).Get(key)
+}
+
+func seedProgramsFeeRecord(t *testing.T, chain *testChain, authority [32]byte) {
+	t.Helper()
+	record := binary.BigEndian.AppendUint32([]byte("LXFR1"), programsFeeVersion)
+	for i := 0; i < 7; i++ {
+		record = binary.BigEndian.AppendUint64(record, 1)
+	}
+	record = append(record, bytes.Repeat([]byte{0x91}, 32)...)
+	for _, value := range []uint64{1000, 8, 1, 8, 1, 100, 1, 0, 1} {
+		record = binary.BigEndian.AppendUint64(record, value)
+	}
+	record = append(record, authority[:]...)
+	record = append(record, make([]byte, 16)...)
+	require.Len(t, record, 217)
+	store := sdk.NewContext(chain.cms, tmproto.Header{}, false).KVStore(chain.key)
+	store.Set(moduleKVKey(9, []byte("progfee/active/v1")), record)
+	store.Set(moduleKVKey(9, binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), programsFeeVersion)), record)
 }
 
 type testActor struct {
@@ -224,7 +243,73 @@ func TestHostLinksKernel(t *testing.T) {
 	require.Equal(t, Code(0), receipt.ResultCode)
 	require.Equal(t, uint64(1), receipt.GlobalSequence)
 	require.NotEmpty(t, receipt.Encoded)
+	require.Nil(t, chain.get(idempotencyKey(actor.register(t, host, 0, 1700000000000).IdempotencyKey)))
 	require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+}
+
+func TestHostGovernanceActivityWithActiveFeeRecordKeepsRootContinuity(t *testing.T) {
+	t.Run("without active fee record governance leaves programs unloaded", func(t *testing.T) {
+		chain := newTestChain(t)
+		resolutionSeedMetering(t, chain)
+		host := chain.host(t)
+		actor := newTestActor(t, 0x42)
+		receipt, err := host.HostExecute(chain.context(2, resolutionBlockTime, 41),
+			actor.register(t, host, 0, resolutionBlockTime), actor.authority())
+		require.NoError(t, err)
+		require.Equal(t, Code(0), receipt.ResultCode)
+		require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+		entries, err := host.moduleKV()
+		require.NoError(t, err)
+		for _, entry := range entries {
+			require.Contains(t, []uint16{1, governanceModule}, entry.module)
+		}
+		require.Nil(t, chain.get(moduleKVKey(9, []byte("progfee/active/v1"))))
+	})
+
+	chain := newTestChain(t)
+	actor := newTestActor(t, 0x42)
+	resolutionSeedMetering(t, chain)
+	seedProgramsFeeRecord(t, chain, actor.id)
+	host := chain.host(t)
+	program := resolutionDIDKey(0x61)
+	guest := resolutionGuest("layerx_v5", "market_step_adjudicate", 6)
+	activities := []Activity{
+		actor.register(t, host, 0, resolutionBlockTime),
+		actor.registry(t, host, 1, resolutionBlockTime, 0xC4, []byte("entry")),
+		resolutionDeploy(t, host, actor, 2, program, 5, guest),
+	}
+	var previous Receipt
+	for i, activity := range activities {
+		sequence := uint64(41 + i)
+		receipt, err := host.HostExecute(chain.context(2, resolutionBlockTime, sequence), activity, actor.authority())
+		require.NoError(t, err)
+		require.Equal(t, Code(0), receipt.ResultCode)
+		require.Equal(t, sequence, receipt.GlobalSequence)
+		require.NotEqual(t, receipt.PreviousStateRoot, receipt.ResultingStateRoot)
+		if i == 0 {
+			entries, err := host.moduleKV()
+			require.NoError(t, err)
+			programs := map[string][]byte{}
+			for _, entry := range entries {
+				if entry.module == 9 {
+					programs[string(moduleKVKey(entry.module, entry.key))] = entry.value
+				}
+			}
+			require.Len(t, programs, 4)
+			for _, key := range [][]byte{
+				[]byte("progfee/active/v1"),
+				binary.BigEndian.AppendUint32([]byte("progfee/history/v1/"), 1),
+				[]byte("progmet/active/v1"),
+				binary.BigEndian.AppendUint32([]byte("progmet/history/v1/"), 1),
+			} {
+				require.Equal(t, chain.get(moduleKVKey(9, key)), programs[string(moduleKVKey(9, key))])
+			}
+		}
+		if i > 0 {
+			require.Equal(t, previous.ResultingStateRoot, receipt.PreviousStateRoot)
+		}
+		previous = receipt
+	}
 }
 
 func TestHostGlobalSequence(t *testing.T) {
@@ -377,6 +462,7 @@ func TestHostDeterministicAppHash(t *testing.T) {
 	}
 	run := func() ([][]byte, [][]byte) {
 		chain := newTestChain(t)
+		seedProgramsFeeRecord(t, chain, alice.id)
 		host := chain.host(t)
 		var receipts, hashes [][]byte
 		sequence := uint64(100)

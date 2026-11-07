@@ -17,23 +17,23 @@ const LatestTxsFallback = (props: BoxProps) => {
               <TableCell pl={ 0 } pr={{ base: 3, lg: 4 }} w={{ base: '220px', lg: '33%' }}>
                 <VStack alignItems="stretch">
                   <HStack>
-                    <IconSvg name="transactions" boxSize={ 5 } color={{ _light: 'gray.300', _dark: 'whiteAlpha.300' }}/>
-                    <FallbackBox w="90px" bgColor={{ _light: 'blue.50', _dark: 'blue.800' }}/>
-                    <FallbackBox w="90px" bgColor={{ _light: 'purple.50', _dark: 'purple.800' }}/>
+                    <IconSvg name="transactions" boxSize={ 5 } color="text.muted"/>
+                    <FallbackBox w="90px" bgColor="accent.soft"/>
+                    <FallbackBox w="90px" bgColor="raised"/>
                   </HStack>
-                  <FallbackBox w="100%"/>
+                  <FallbackBox bgColor="raised" w="100%"/>
                 </VStack>
               </TableCell>
               <TableCell px={{ base: 3, lg: 4 }}>
                 <VStack alignItems="stretch">
-                  <FallbackBox w="100%" my={ 1 }/>
-                  <FallbackBox w="100%"/>
+                  <FallbackBox bgColor="raised" w="100%" my={ 1 }/>
+                  <FallbackBox bgColor="raised" w="100%"/>
                 </VStack>
               </TableCell>
               <TableCell pl={{ base: 3, lg: 4 }} pr={{ base: 0, lg: 2 }}>
                 <VStack alignItems="stretch">
-                  <FallbackBox w="100%" my={ 1 }/>
-                  <FallbackBox w="100%"/>
+                  <FallbackBox bgColor="raised" w="100%" my={ 1 }/>
+                  <FallbackBox bgColor="raised" w="100%"/>
                 </VStack>
               </TableCell>
             </TableRow>

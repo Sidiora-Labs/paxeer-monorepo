@@ -1,18 +1,15 @@
 //! Mutually authenticated local endpoint delivery with payload binding.
 
 use std::fmt::{Debug, Display, Formatter};
-use std::fs;
 use std::io::{ErrorKind, Read, Write};
-use std::os::fd::AsRawFd;
-use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::UnixStream;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::{Arc, RwLock, Weak};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use layerx_agent_api::subscription::{ReceiptReference, SubscriptionTarget};
+use layerx_agent_api::subscription::{Cursor, ReceiptReference, SubscriptionTarget};
 use sha2::{Digest, Sha256};
 
 use super::delivery::{delivery_attempt, DeliveryEngine, DeliveryError, DeliveryItem, RetryPlan};
@@ -20,7 +17,7 @@ use super::subscription::Termination;
 
 const MAGIC: &[u8; 4] = b"LXOW";
 const ACK_MAGIC: &[u8; 4] = b"LXOA";
-const VERSION: u8 = 1;
+const VERSION: u8 = 2;
 
 /// Operating-system identity required of a local external endpoint.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -155,7 +152,7 @@ impl Authenticator {
                 if phase > 1 {
                     return Err(OutboundError::Protocol);
                 }
-                let cursor = decoder.u64()?;
+                let cursor = decode_cursor(&mut decoder)?;
                 let mut event_identity = [0_u8; 32];
                 event_identity.copy_from_slice(decoder.take(32)?);
                 let mut deduplication_id = [0_u8; 32];
@@ -184,7 +181,7 @@ impl Authenticator {
             }
             2 => VerifiedItem::BackfillComplete {
                 live_starts_at: decoder.u64()?,
-                resume_cursor: decoder.u64()?,
+                resume_cursor: decode_cursor(&mut decoder)?,
             },
             _ => return Err(OutboundError::Protocol),
         };
@@ -237,18 +234,15 @@ impl Authenticator {
                     super::delivery::DeliveryPhase::Backfill => 0,
                     super::delivery::DeliveryPhase::Live => 1,
                 });
-                payload.extend_from_slice(&event.delivery.cursor.0 .0.to_be_bytes());
+                encode_cursor(&mut payload, event.delivery.cursor);
                 payload.extend_from_slice(&event.delivery.event_identity.as_bytes());
                 payload.extend_from_slice(&event.delivery.deduplication_id.as_bytes());
                 match &event.delivery.receipt_reference {
                     ReceiptReference::None => payload.push(0),
-                    ReceiptReference::Verified {
-                        receipt_ref,
-                        verification_level,
-                    } => {
+                    ReceiptReference::Verified { receipt_ref, rung } => {
                         payload.push(1);
                         push_string(&mut payload, receipt_ref.as_str())?;
-                        payload.push(*verification_level as u8);
+                        payload.push(rung.wire_rank());
                     }
                 }
                 push_bytes(&mut payload, &event.delivery.event_bytes)?;
@@ -256,7 +250,7 @@ impl Authenticator {
             DeliveryItem::BackfillComplete(transition) => {
                 payload.push(2);
                 payload.extend_from_slice(&transition.live_starts_at.to_be_bytes());
-                payload.extend_from_slice(&transition.resume_cursor.0 .0.to_be_bytes());
+                encode_cursor(&mut payload, transition.resume_cursor);
             }
         }
         let binding = hmac_sha256(&self.key.0, &payload);
@@ -317,7 +311,7 @@ pub enum VerifiedItem {
     Event {
         global_sequence: u64,
         phase: u8,
-        cursor: u64,
+        cursor: Cursor,
         event_identity: [u8; 32],
         deduplication_id: [u8; 32],
         receipt_reference: Option<(String, u8)>,
@@ -325,7 +319,7 @@ pub enum VerifiedItem {
     },
     BackfillComplete {
         live_starts_at: u64,
-        resume_cursor: u64,
+        resume_cursor: Cursor,
     },
 }
 
@@ -526,6 +520,7 @@ struct PendingOutbound {
     binding: [u8; 32],
     peer: PeerIdentity,
     item: DeliveryItem,
+    _dispatch: super::subscription::DispatchLease,
 }
 
 fn exchange(
@@ -540,24 +535,41 @@ fn exchange(
         return Err(OutboundError::Stopped(reason));
     }
     let item = delivery_attempt(engine)?.ok_or(OutboundError::NoPendingDelivery)?;
+    let mut budget = WaitBudget::new(endpoint.deadline, endpoint.cancellation_poll);
     let frame = authenticator.bind(engine.target(), endpoint.expected_peer, &item)?;
     if frame.bytes.len() > endpoint.maximum_frame_bytes {
         return schedule_retry(engine, now_ms, EndpointFailure::Frame);
     }
-    let mut stream = match UnixStream::connect(&endpoint.path) {
-        Ok(value) => value,
-        Err(error) => {
-            return schedule_retry(engine, now_ms, EndpointFailure::Unreachable(error.kind()));
+    let mut stream = match connect_bounded(endpoint, &mut budget, stop) {
+        Ok(stream) => stream,
+        Err(EndpointIo::Stopped(reason)) => {
+            apply_stop(engine, reason)?;
+            return Err(OutboundError::Stopped(reason));
         }
+        Err(error) => return schedule_retry(engine, now_ms, error.into_failure()),
     };
-    if let Err(error) = authenticate_peer(&stream, endpoint.expected_peer) {
-        let _ = error;
+    if authenticate_peer(&stream, endpoint.expected_peer).is_err() {
         return schedule_retry(engine, now_ms, EndpointFailure::Authentication);
     }
-    if stream.set_nonblocking(true).is_err() {
-        return schedule_retry(engine, now_ms, EndpointFailure::Protocol);
-    }
-    let mut budget = WaitBudget::new(endpoint.deadline, endpoint.cancellation_poll);
+    let gate = engine.dispatch_gate()?;
+    let dispatch = loop {
+        if let Err(error) = budget.check(stop) {
+            if let EndpointIo::Stopped(reason) = error {
+                apply_stop(engine, reason)?;
+                return Err(OutboundError::Stopped(reason));
+            }
+            return schedule_retry(engine, now_ms, error.into_failure());
+        }
+        if let Some(lease) = gate.try_acquire() {
+            break lease;
+        }
+        if let Err(error) = budget.wait() {
+            return schedule_retry(engine, now_ms, error.into_failure());
+        }
+    };
+    // Pause transitions share this lease through acceptance. A pause waits for an
+    // already routed exchange; once it returns, no new frame can be dispatched.
+    engine.check_dispatch(Some(&item))?;
     let framed = frame_bytes(&frame.bytes)?;
     if let Err(failure) = write_all_bounded(&mut stream, &framed, &mut budget, stop) {
         if let EndpointIo::Stopped(reason) = failure {
@@ -589,6 +601,7 @@ fn exchange(
         binding: frame.binding,
         peer: endpoint.expected_peer,
         item,
+        _dispatch: dispatch,
     })
 }
 
@@ -623,20 +636,61 @@ fn finish_delivery(
     })
 }
 
-/// Returns the ownership identity of the connected endpoint socket inode.
+/// Returns operating-system credentials of the connected Unix peer.
 ///
 /// # Errors
-///
-/// Returns `Authentication` when the descriptor's `/proc/self/fd` metadata cannot
-/// be read.
+/// Returns `Authentication` if the kernel cannot supply peer credentials.
 pub fn peer_identity(stream: &UnixStream) -> Result<PeerIdentity, OutboundError> {
-    let descriptor = stream.as_raw_fd();
-    let metadata = fs::metadata(format!("/proc/self/fd/{descriptor}"))
-        .map_err(|_| OutboundError::Authentication)?;
+    let credentials =
+        rustix::net::sockopt::socket_peercred(stream).map_err(|_| OutboundError::Authentication)?;
     Ok(PeerIdentity {
-        uid: metadata.uid(),
-        gid: metadata.gid(),
+        uid: credentials.uid.as_raw(),
+        gid: credentials.gid.as_raw(),
     })
+}
+
+fn connect_bounded(
+    endpoint: &Endpoint,
+    budget: &mut WaitBudget,
+    stop: &StopSignal,
+) -> Result<UnixStream, EndpointIo> {
+    let address = rustix::net::SocketAddrUnix::new(&endpoint.path)
+        .map_err(|error| EndpointIo::Unreachable(std::io::Error::from(error).kind()))?;
+    loop {
+        budget.check(stop)?;
+        let descriptor = rustix::net::socket_with(
+            rustix::net::AddressFamily::UNIX,
+            rustix::net::SocketType::STREAM,
+            rustix::net::SocketFlags::CLOEXEC | rustix::net::SocketFlags::NONBLOCK,
+            None,
+        )
+        .map_err(|error| EndpointIo::Unreachable(std::io::Error::from(error).kind()))?;
+        match rustix::net::connect(&descriptor, &address) {
+            Ok(()) => return Ok(UnixStream::from(descriptor)),
+            // Linux AF_UNIX reports EAGAIN for a saturated listener: it has not
+            // started a connection, so retry on a fresh nonblocking descriptor.
+            Err(error) if error == rustix::io::Errno::AGAIN || error == rustix::io::Errno::INTR => {
+                drop(descriptor);
+                budget.wait()?;
+            }
+            Err(error) if error == rustix::io::Errno::INPROGRESS => {
+                let stream = UnixStream::from(descriptor);
+                loop {
+                    budget.check(stop)?;
+                    match stream.take_error() {
+                        Ok(Some(error)) => return Err(EndpointIo::Unreachable(error.kind())),
+                        Err(error) => return Err(EndpointIo::Unreachable(error.kind())),
+                        Ok(None) => {}
+                    }
+                    if stream.peer_addr().is_ok() {
+                        return Ok(stream);
+                    }
+                    budget.wait()?;
+                }
+            }
+            Err(error) => return Err(EndpointIo::Unreachable(std::io::Error::from(error).kind())),
+        }
+    }
 }
 
 fn authenticate_peer(stream: &UnixStream, expected: PeerIdentity) -> Result<(), OutboundError> {
@@ -666,6 +720,7 @@ fn schedule_retry<T>(
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 enum EndpointIo {
+    Unreachable(ErrorKind),
     Timeout,
     Frame,
     Protocol,
@@ -675,6 +730,7 @@ enum EndpointIo {
 impl EndpointIo {
     const fn into_failure(self) -> EndpointFailure {
         match self {
+            Self::Unreachable(kind) => EndpointFailure::Unreachable(kind),
             Self::Timeout => EndpointFailure::Timeout,
             Self::Frame => EndpointFailure::Frame,
             Self::Protocol | Self::Stopped(_) => EndpointFailure::Protocol,
@@ -682,28 +738,41 @@ impl EndpointIo {
     }
 }
 
-/// Cancellation polls an endpoint exchange may still wait out before it is
-/// abandoned, so a stalled peer is bounded without reading an ambient clock.
+/// One monotonic deadline covers connect, dispatch coordination, writes and reads.
 struct WaitBudget {
-    remaining: u64,
+    started: Instant,
+    deadline: Duration,
     poll: Duration,
 }
 
 impl WaitBudget {
     fn new(deadline: Duration, poll: Duration) -> Self {
-        let polls = deadline.as_nanos() / poll.as_nanos().max(1);
         Self {
-            remaining: u64::try_from(polls).unwrap_or(u64::MAX).max(1),
+            started: Instant::now(),
+            deadline,
             poll,
         }
     }
 
-    fn wait(&mut self) -> Result<(), EndpointIo> {
-        let Some(remaining) = self.remaining.checked_sub(1) else {
+    fn check(&self, stop: &StopSignal) -> Result<(), EndpointIo> {
+        if let Some(reason) = stop.reason() {
+            return Err(EndpointIo::Stopped(reason));
+        }
+        if self.started.elapsed() >= self.deadline {
             return Err(EndpointIo::Timeout);
-        };
-        self.remaining = remaining;
-        thread::sleep(self.poll);
+        }
+        Ok(())
+    }
+
+    fn wait(&mut self) -> Result<(), EndpointIo> {
+        let remaining = self
+            .deadline
+            .checked_sub(self.started.elapsed())
+            .ok_or(EndpointIo::Timeout)?;
+        if remaining.is_zero() {
+            return Err(EndpointIo::Timeout);
+        }
+        thread::sleep(self.poll.min(remaining));
         Ok(())
     }
 }
@@ -716,9 +785,7 @@ fn write_all_bounded(
 ) -> Result<(), EndpointIo> {
     let mut written = 0;
     while written < bytes.len() {
-        if let Some(reason) = stop.reason() {
-            return Err(EndpointIo::Stopped(reason));
-        }
+        budget.check(stop)?;
         match stream.write(&bytes[written..]) {
             Ok(0) => return Err(EndpointIo::Protocol),
             Ok(count) => written += count,
@@ -754,9 +821,7 @@ fn read_exact_bounded(
 ) -> Result<(), EndpointIo> {
     let mut read = 0;
     while read < bytes.len() {
-        if let Some(reason) = stop.reason() {
-            return Err(EndpointIo::Stopped(reason));
-        }
+        budget.check(stop)?;
         match stream.read(&mut bytes[read..]) {
             Ok(0) => return Err(EndpointIo::Protocol),
             Ok(count) => read += count,
@@ -893,4 +958,18 @@ impl<'a> Decoder<'a> {
     const fn is_empty(&self) -> bool {
         self.offset == self.bytes.len()
     }
+}
+
+fn encode_cursor(bytes: &mut Vec<u8>, cursor: Cursor) {
+    bytes.extend_from_slice(&cursor.block_height.to_be_bytes());
+    bytes.extend_from_slice(&cursor.tx_index.to_be_bytes());
+    bytes.extend_from_slice(&cursor.log_index.to_be_bytes());
+}
+
+fn decode_cursor(decoder: &mut Decoder<'_>) -> Result<Cursor, OutboundError> {
+    Ok(Cursor {
+        block_height: decoder.u64()?,
+        tx_index: decoder.u32()?,
+        log_index: decoder.u32()?,
+    })
 }

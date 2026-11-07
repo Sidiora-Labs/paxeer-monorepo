@@ -3,33 +3,37 @@
 import { act } from '@testing-library/react';
 import React from 'react';
 
-import { base } from 'mocks/txs/tx';
-import { render, routerState } from 'ui/shared/layout/testWrapper';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, test } from 'vitest';
 
-vi.mock('next/router', async() => (await import('ui/shared/layout/testWrapper')).nextRouterModule());
-
-import TxInfo from './TxInfo';
+import { answer, transaction as base, render, requests, TxInfo } from './signatureTestFixture';
 
 const labels = (container: HTMLElement, scope: string) =>
   Array.from(container.querySelectorAll(`${ scope } [data-detailed-info-label]`)).map((item) => item.textContent);
 
+async function tx_info_shows_sequencer_signature_row() {
+  const { container, findByText } = render(<TxInfo data={ base } isLoading={ false }/>);
+
+  expect(await findByText('Sequencer signature')).toBeDefined();
+  expect(await findByText(`Key id: ${ answer.receipt_key.key_id }`)).toBeDefined();
+  const signature = await findByText(answer.signature);
+  expect(signature.parentElement?.querySelector('[data-rung="receipted"]')?.textContent).toBe('Receipted');
+  expect(labels(container, '[data-tx-info] > [data-section-group="SUMMARY"] > [data-detailed-info]').slice(0, 4))
+    .toEqual([ 'Transaction hash', 'Status and method', 'Sequencer signature', 'Block' ]);
+  expect(requests.filter((path) => path?.endsWith('/signature')))
+    .toEqual([ `/api/v2/transactions/${ base.hash }/signature` ]);
+}
+
 describe('TxInfo', () => {
-  beforeEach(() => {
-    routerState.pathname = '/tx/[hash]';
-    routerState.query = { hash: base.hash };
-    fetchMock.resetMocks();
-    fetchMock.mockResponse(JSON.stringify({}), { headers: { 'Content-Type': 'application/json' } });
-  });
+  test(tx_info_shows_sequencer_signature_row.name, tx_info_shows_sequencer_signature_row);
 
   it('puts the detail card before the more details expander', () => {
     const { container } = render(<TxInfo data={ base } isLoading={ false }/>);
 
-    const blocks = Array.from(container.querySelectorAll('[data-tx-info] > [data-detailed-info], [data-tx-info] > [data-scan-expander]'));
+    const blocks = Array.from(container.querySelectorAll('[data-tx-info] > [data-section-group]'));
 
-    expect(blocks).toHaveLength(2);
-    expect(blocks[0].hasAttribute('data-detailed-info')).toBe(true);
-    expect(blocks[1].hasAttribute('data-scan-expander')).toBe(true);
+    expect(blocks.map((section) => section.getAttribute('data-section-group'))).toEqual([ 'SUMMARY', 'TRANSFERS', 'BALANCE CHANGES', 'DETAILS' ]);
+    expect(blocks[0].querySelector('[data-detailed-info]')).not.toBeNull();
+    expect(blocks[3].querySelector('[data-scan-expander]')).not.toBeNull();
   });
 
   it('orders the overview rows from the hash down to the gas price', () => {
@@ -37,13 +41,14 @@ describe('TxInfo', () => {
 
     const expected = [ 'Transaction hash', 'Status and method', 'Block', 'Timestamp', 'From', 'To', 'Value', 'Transaction fee', 'Gas price' ];
 
-    expect(labels(container, '[data-tx-info] > [data-detailed-info]').filter((label) => expected.includes(label ?? ''))).toEqual(expected);
+    expect(labels(container, '[data-tx-info] > [data-section-group="SUMMARY"] > [data-detailed-info]')
+      .filter((label) => expected.includes(label ?? ''))).toEqual(expected);
   });
 
   it('carries the hash with its copy control and the method beside the status', () => {
     const { container } = render(<TxInfo data={ base } isLoading={ false }/>);
 
-    const rows = container.querySelectorAll('[data-tx-info] > [data-detailed-info] [data-scan-value]');
+    const rows = container.querySelectorAll('[data-tx-info] > [data-section-group="SUMMARY"] > [data-detailed-info] [data-scan-value]');
 
     expect(rows[0].querySelector('[aria-label="copy"]')).not.toBeNull();
     expect(rows[1].textContent).toContain(base.method);
@@ -59,7 +64,7 @@ describe('TxInfo', () => {
   it('offers the timestamp together with its zone control', () => {
     const { container } = render(<TxInfo data={ base } isLoading={ false }/>);
 
-    const timestampRow = Array.from(container.querySelectorAll('[data-tx-info] > [data-detailed-info] [data-scan-value]'))[3];
+    const timestampRow = Array.from(container.querySelectorAll('[data-tx-info] > [data-section-group="SUMMARY"] > [data-detailed-info] [data-scan-value]'))[3];
 
     expect(timestampRow.querySelector('button')).not.toBeNull();
   });

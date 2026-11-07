@@ -1,10 +1,17 @@
 #include "layerx/lxp_kernel.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
 static bool supply_bad;
+
+static int state_root_failed(int line)
+{
+    (void)fprintf(stderr, "state root check failed at %s:%d\n", __FILE__, line);
+    return 1;
+}
 
 static lxp_result supply(const lxp_kernel *kernel)
 {
@@ -69,10 +76,8 @@ static int prepare(lxp_kernel *kernel, lxp_state_store *store,
     return 0;
 }
 
-int main(void)
+static int state_root_case(lxp_kernel *first, lxp_kernel *second)
 {
-    lxp_kernel first;
-    lxp_kernel second;
     lxp_state_store first_store;
     lxp_state_store second_store;
     lxp_state_journal first_journal;
@@ -87,83 +92,122 @@ int main(void)
     uint8_t second_root[32];
     uint8_t legacy_root[32];
     uint8_t chained[32];
-    if (prepare(&first, &first_store, &first_journal, &first_ctx, &first_arena,
+    if (prepare(first, &first_store, &first_journal, &first_ctx, &first_arena,
                 first_bytes, false) != 0 ||
-        prepare(&second, &second_store, &second_journal, &second_ctx,
+        prepare(second, &second_store, &second_journal, &second_ctx,
                 &second_arena, second_bytes, true) != 0 ||
-        lxp_state_root(&first, first_root) != LXP_OK ||
-        lxp_state_root(&second, second_root) != LXP_OK ||
+        lxp_state_root(first, first_root) != LXP_OK ||
+        lxp_state_root(second, second_root) != LXP_OK ||
         memcmp(first_root, second_root, 32U) != 0)
-        return 1;
+        return state_root_failed(__LINE__);
     (void)memcpy(legacy_root, first_root, sizeof(legacy_root));
     if (
-        lxp_kernel_register_module(&first, &program_iface) != LXP_OK ||
-        lxp_state_root(&first, first_root) != LXP_OK ||
+        lxp_kernel_register_module(first, &program_iface) != LXP_OK ||
+        lxp_state_root(first, first_root) != LXP_OK ||
         memcmp(first_root, legacy_root, 32U) == 0 ||
         lxp_state_root_chain(first_root, second_root, 1U, chained) != LXP_OK ||
-        memcmp(chained, first_root, 32U) == 0) return 1;
-    first.modules[first.module_count - 1U].enabled_epoch = 1U;
-    if (lxp_state_root(&first, chained) != LXP_OK ||
-        memcmp(chained, first_root, 32U) == 0) return 1;
-    first.modules[first.module_count - 1U].enabled_epoch = 0U;
-    ++first.modules[first.module_count - 1U].activity_types[0];
-    if (lxp_state_root(&first, chained) != LXP_OK ||
-        memcmp(chained, first_root, 32U) == 0) return 1;
-    --first.modules[first.module_count - 1U].activity_types[0];
-    first.modules[first.module_count - 1U].module_id = 10U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_UNKNOWN_MODULE) return 1;
-    first.modules[first.module_count - 1U].module_id = 9U;
-    first.module_count = LXP_KERNEL_MAX_MODULE_REGISTRATIONS + 1U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
-    first.module_count = 2U;
-    second.module_kv[second.module_kv_count].module_id = 0U;
-    ++second.module_kv_count;
-    if (lxp_state_root(&second, chained) != LXP_ERR_UNKNOWN_MODULE) return 1;
-    --second.module_kv_count;
-    second.module_kv[second.module_kv_count].module_id = 1U;
-    second.module_kv[second.module_kv_count].key_length = 0U;
-    second.module_kv[second.module_kv_count].value_length = 1U;
-    second.module_kv[second.module_kv_count].value[0] = 9U;
-    ++second.module_kv_count;
-    if (lxp_state_root(&second, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
-    --second.module_kv_count;
-    second.module_kv[second.module_kv_count].module_id = 9U;
-    second.module_kv[second.module_kv_count].key_length = 1U;
-    second.module_kv[second.module_kv_count].key[0] = 9U;
-    second.module_kv[second.module_kv_count].value_length = 1U;
-    second.module_kv[second.module_kv_count].value[0] = 9U;
-    ++second.module_kv_count;
-    if (lxp_state_root(&second, chained) != LXP_ERR_UNKNOWN_MODULE) return 1;
-    --second.module_kv_count;
+        memcmp(chained, first_root, 32U) == 0)
+        return state_root_failed(__LINE__);
+    first->modules[first->module_count - 1U].enabled_epoch = 1U;
+    if (lxp_state_root(first, chained) != LXP_OK ||
+        memcmp(chained, first_root, 32U) == 0)
+        return state_root_failed(__LINE__);
+    first->modules[first->module_count - 1U].enabled_epoch = 0U;
+    ++first->modules[first->module_count - 1U].activity_types[0];
+    if (lxp_state_root(first, chained) != LXP_OK ||
+        memcmp(chained, first_root, 32U) == 0)
+        return state_root_failed(__LINE__);
+    --first->modules[first->module_count - 1U].activity_types[0];
+    first->modules[first->module_count - 1U].iface = NULL;
+    if (lxp_state_root(first, chained) != LXP_FATAL_INVARIANT)
+        return state_root_failed(__LINE__);
     {
-        lxp_state_store *saved_state = first.state;
-        first.state = NULL;
-        if (lxp_state_root(&first, chained) != LXP_FATAL_INVARIANT)
-            return 1;
-        first.state = saved_state;
+        lxp_activity activity = {0};
+        lxp_authority_resolved authority = {0};
+        lxp_effect_buffer effects = {0};
+        lxp_result module_result = LXP_OK;
+        if (lxp_kernel_dispatch(&first->modules[first->module_count - 1U],
+                                &first_ctx, &activity, &authority, &effects,
+                                &module_result) != LXP_FATAL_INVARIANT)
+            return state_root_failed(__LINE__);
     }
-    first.blob_count = LXP_KERNEL_MAX_BLOBS + 1U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
-    first.blob_count = 0U;
-    first.blob_total_bytes = 1U;
-    if (lxp_state_root(&first, chained) != LXP_FATAL_INVARIANT) return 1;
-    first.blob_total_bytes = 0U;
+    first->modules[first->module_count - 1U].iface = &program_iface;
+    first->modules[first->module_count - 1U].module_id = 10U;
+    if (lxp_state_root(first, chained) != LXP_ERR_UNKNOWN_MODULE)
+        return state_root_failed(__LINE__);
+    first->modules[first->module_count - 1U].module_id = 9U;
+    first->module_count = LXP_KERNEL_MAX_MODULE_REGISTRATIONS + 1U;
+    if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+        return state_root_failed(__LINE__);
+    first->module_count = 2U;
+    second->module_kv[second->module_kv_count].module_id = 0U;
+    ++second->module_kv_count;
+    if (lxp_state_root(second, chained) != LXP_ERR_UNKNOWN_MODULE)
+        return state_root_failed(__LINE__);
+    --second->module_kv_count;
+    second->module_kv[second->module_kv_count].module_id = 1U;
+    second->module_kv[second->module_kv_count].key_length = 0U;
+    second->module_kv[second->module_kv_count].value_length = 1U;
+    second->module_kv[second->module_kv_count].value[0] = 9U;
+    ++second->module_kv_count;
+    if (lxp_state_root(second, chained) != LXP_ERR_LENGTH_LIMIT)
+        return state_root_failed(__LINE__);
+    --second->module_kv_count;
+    second->module_kv[second->module_kv_count].module_id = 9U;
+    second->module_kv[second->module_kv_count].key_length = 1U;
+    second->module_kv[second->module_kv_count].key[0] = 9U;
+    second->module_kv[second->module_kv_count].value_length = 1U;
+    second->module_kv[second->module_kv_count].value[0] = 9U;
+    ++second->module_kv_count;
+    if (lxp_state_root(second, chained) != LXP_ERR_UNKNOWN_MODULE)
+        return state_root_failed(__LINE__);
+    --second->module_kv_count;
+    {
+        lxp_state_store *saved_state = first->state;
+        first->state = NULL;
+        if (lxp_state_root(first, chained) != LXP_FATAL_INVARIANT)
+            return state_root_failed(__LINE__);
+        first->state = saved_state;
+    }
+    first->blob_count = LXP_KERNEL_MAX_BLOBS + 1U;
+    if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+        return state_root_failed(__LINE__);
+    first->blob_count = 0U;
+    first->blob_total_bytes = 1U;
+    if (lxp_state_root(first, chained) != LXP_FATAL_INVARIANT)
+        return state_root_failed(__LINE__);
+    first->blob_total_bytes = 0U;
     first_store.count = LXP_STATE_MAX_CELLS + 1U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
+    if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+        return state_root_failed(__LINE__);
     first_store.count = 2U;
-    first_store.idempotency_count = LXP_STATE_MAX_IDEMPOTENCY + 1U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
-    first_store.idempotency_count = 0U;
-    first.module_kv_count = LXP_KERNEL_MAX_MODULE_KV + 1U;
-    if (lxp_state_root(&first, chained) != LXP_ERR_LENGTH_LIMIT) return 1;
-    first.module_kv_count = 2U;
-    first.blob_count = 1U;
-    first.blobs[0].length = 1U;
-    first.blobs[0].bytes = NULL;
-    first.blob_total_bytes = 1U;
-    if (lxp_state_root(&first, chained) != LXP_FATAL_INVARIANT) return 1;
-    first.blob_count = 0U;
-    first.blob_total_bytes = 0U;
+    {
+        lx_account_registry accounts;
+        if (lx_account_registry_init(&accounts) != LXP_OK ||
+            lxp_state_store_bind_accounts(&first_store, &accounts) != LXP_OK)
+            return state_root_failed(__LINE__);
+        accounts.count = LX_ACCOUNT_REGISTRY_CAPACITY + 1U;
+        if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+            return state_root_failed(__LINE__);
+        accounts.count = 0U;
+        first_store.accounts = NULL;
+        lx_account_registry_release(&accounts);
+        if (lxp_state_root(first, chained) != LXP_OK ||
+            memcmp(chained, first_root, 32U) != 0)
+            return state_root_failed(__LINE__);
+    }
+    first->module_kv_count = LXP_KERNEL_MAX_MODULE_KV + 1U;
+    if (lxp_state_root(first, chained) != LXP_ERR_LENGTH_LIMIT)
+        return state_root_failed(__LINE__);
+    first->module_kv_count = 2U;
+    first->blob_count = 1U;
+    first->blobs[0].length = 1U;
+    first->blobs[0].bytes = NULL;
+    first->blob_total_bytes = 1U;
+    if (lxp_state_root(first, chained) != LXP_FATAL_INVARIANT)
+        return state_root_failed(__LINE__);
+    first->blob_count = 0U;
+    first->blob_total_bytes = 0U;
     {
         static const char *const names[] = {
             "agent:did:key:proof-a:main",
@@ -177,7 +221,7 @@ int main(void)
         size_t index;
         if (accounts == NULL ||
             lx_account_registry_init(accounts) != LXP_OK)
-            return 1;
+            return state_root_failed(__LINE__);
         for (index = 0U; index < sizeof(names) / sizeof(names[0]); ++index) {
             uint8_t id[32];
             lx_account *account;
@@ -188,13 +232,13 @@ int main(void)
                                 strlen(names[index]), id, index + 1U,
                                 LX_ACCOUNT_OPEN_CREDIT, NULL, &account) !=
                     LXP_OK)
-                return 1;
+                return state_root_failed(__LINE__);
         }
         proofs = (lxp_state_proof *)calloc(accounts->count, sizeof(*proofs));
         if (proofs == NULL ||
             accounts->count != sizeof(names) / sizeof(names[0]) ||
             lx_account_registry_proofs(accounts, root, proofs) != LXP_OK)
-            return 1;
+            return state_root_failed(__LINE__);
         for (index = 0U; index < accounts->count; ++index) {
             uint8_t single_root[32];
             lxp_state_proof single;
@@ -203,15 +247,33 @@ int main(void)
                     single_root, &single) != LXP_OK ||
                 memcmp(root, single_root, 32U) != 0 ||
                 memcmp(&proofs[index], &single, sizeof(single)) != 0)
-                return 1;
+                return state_root_failed(__LINE__);
         }
         free(proofs);
         lx_account_registry_release(accounts);
         free(accounts);
     }
     supply_bad = true;
-    if (lxp_state_root(&first, chained) != LXP_FATAL_SUPPLY_MISMATCH ||
+    if (lxp_state_root(first, chained) != LXP_FATAL_SUPPLY_MISMATCH ||
         lxp_state_store_destroy(&first_store) != LXP_OK ||
-        lxp_state_store_destroy(&second_store) != LXP_OK) return 1;
+        lxp_state_store_destroy(&second_store) != LXP_OK)
+        return state_root_failed(__LINE__);
     return 0;
+}
+
+int main(void)
+{
+    lxp_kernel *first = calloc(1U, sizeof(*first));
+    lxp_kernel *second = calloc(1U, sizeof(*second));
+    int result;
+    if (first == NULL || second == NULL) {
+        (void)fprintf(stderr, "state root kernel fixture allocation failed\n");
+        free(first);
+        free(second);
+        return 1;
+    }
+    result = state_root_case(first, second);
+    free(first);
+    free(second);
+    return result;
 }

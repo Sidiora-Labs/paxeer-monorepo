@@ -30,10 +30,6 @@ lxp_result lxp_ed25519_verify(const uint8_t public_key[32],
 lxp_result lxp_ed25519_verify_batch(const lxp_ed25519_verify_item *items,
                                     size_t count, bool *valid);
 bool lxp_secp256k1_sig_is_low_s(const uint8_t signature[64]);
-lxp_result lxp_secp256k1_sign(const uint8_t private_key[32],
-                              lxp_domain_tag_id domain,
-                              const void *message, size_t message_length,
-                              uint8_t signature[64]);
 lxp_result lxp_secp256k1_verify(const uint8_t *public_key,
                                 size_t public_key_length,
                                 const uint8_t signature[64],

@@ -15,6 +15,7 @@ import (
 	pricefeedtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/pricefeed/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
+	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	spot "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -229,6 +230,65 @@ func (e *ordersEnv) event(name string, id *big.Int, args ...interface{}) {
 	expected, err := event.Inputs.NonIndexed().Pack(args...)
 	require.NoError(e.t, err)
 	require.Equal(e.t, expected, got.Data)
+}
+
+func TestOrdersActiveViewsGasFlat(t *testing.T) {
+	e := newOrdersEnv(t)
+	evmKeeper := &testkeeper.EVMTestApp.EvmKeeper
+	versioned, err := spot.GetVersioned(app.LatestUpgrade, spotKeepers{testkeeper.EVMTestApp.GetPrecompileKeepers(), e.k})
+	require.NoError(t, err)
+	address := common.HexToAddress(types.PECOROrdersAddress)
+	contract, ok := versioned[address][app.LatestUpgrade].(vm.DynamicGasPrecompiledContract)
+	require.True(t, ok)
+	const suppliedGas uint64 = 1_000_000
+	baseline := make(map[string]uint64)
+	var firstID *big.Int
+	placed := 0
+	for _, count := range []int{10, 500} {
+		for placed < count {
+			owner := common.BigToAddress(big.NewInt(int64(10_000 + placed/100)))
+			if placed%100 == 0 {
+				require.NoError(t, testkeeper.EVMTestApp.BankKeeper.SendCoins(e.ctx,
+					evmKeeper.GetPaxAddressOrDefault(e.ctx, e.user), evmKeeper.GetPaxAddressOrDefault(e.ctx, owner),
+					sdk.NewCoins(sdk.NewInt64Coin("uhpx", 10_000_000_000))))
+			}
+			out, err := e.callAs(owner, "placeLimitSell", e.token, e.stable, big.NewInt(100_000_000), ordersPrice(500).BigInt(), big.NewInt(0))
+			require.NoError(t, err)
+			if placed == 0 {
+				firstID = new(big.Int).Set(out[0].(*big.Int))
+			}
+			placed++
+		}
+		for _, view := range []struct {
+			name string
+			args []interface{}
+			want *big.Int
+		}{
+			{"activeLimitOrderIds", []interface{}{big.NewInt(0)}, firstID},
+			{"getActiveLimitOrderCount", nil, big.NewInt(int64(count))},
+		} {
+			input, err := e.abi.Pack(view.name, view.args...)
+			require.NoError(t, err)
+			var output []byte
+			var left uint64
+			require.NoError(t, evmKeeper.RunWithOneOffEVMInstance(e.ctx, func(evm *vm.EVM) error {
+				var err error
+				output, left, err = contract.RunAndCalculateGas(evm, e.user, address, input, suppliedGas, new(big.Int), nil, true, false)
+				return err
+			}, func(string, string) {}), "%s at %d orders", view.name, count)
+			out, err := e.abi.Methods[view.name].Outputs.Unpack(output)
+			require.NoError(t, err)
+			require.Len(t, out, 1)
+			require.Equal(t, view.want, out[0], "%s at %d orders", view.name, count)
+			require.Greater(t, left, uint64(0))
+			require.Less(t, left, suppliedGas)
+			if count == 10 {
+				baseline[view.name] = left
+			} else {
+				require.Equal(t, baseline[view.name], left, "%s gas must be equal at 10 and 500 active orders", view.name)
+			}
+		}
+	}
 }
 
 func TestOrdersPlaceLimitBuy(t *testing.T) {

@@ -1,0 +1,243 @@
+[reconcile.r8-139]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-139.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitykeyexportbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4237
+symbol = "SecurityKeyExportBeginResponse"
+evidence = "HumanOperations declares public record SecurityKeyExportBeginResponse(String export_id, String confirms, String expires_at) implements SchemaTypes.GeneratedResponse at line 4237, moved from registered line 4475; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitykeyexportfinishrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4245
+symbol = "SecurityKeyExportFinishRequest"
+evidence = "HumanOperations declares public record SecurityKeyExportFinishRequest(String export_id, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4245, moved from registered line 4483; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitykeyexportfinishresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4251
+symbol = "SecurityKeyExportFinishResponse"
+evidence = "HumanOperations declares public record SecurityKeyExportFinishResponse(String public_key, HumanModels.TimedSecret secret, String self_custodied_at) implements SchemaTypes.GeneratedResponse at line 4251, moved from registered line 4489; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeylistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4260
+symbol = "SecurityPasskeyListRequest"
+evidence = "HumanOperations declares public record SecurityPasskeyListRequest() implements SchemaTypes.GeneratedRequest at line 4260, moved from registered line 4498; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeylistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4262
+symbol = "SecurityPasskeyListResponse"
+evidence = "HumanOperations declares public record SecurityPasskeyListResponse(List<HumanModels.Passkey> passkeys) implements SchemaTypes.GeneratedResponse at line 4262, moved from registered line 4500; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyregisterbeginrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4268
+symbol = "SecurityPasskeyRegisterBeginRequest"
+evidence = "HumanOperations declares public record SecurityPasskeyRegisterBeginRequest(String label, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4268, moved from registered line 4506; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyregisterbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4274
+symbol = "SecurityPasskeyRegisterBeginResponse"
+evidence = "HumanOperations declares public record SecurityPasskeyRegisterBeginResponse(String registration_id, String ceremony, String expires_at) implements SchemaTypes.GeneratedResponse at line 4274, moved from registered line 4512; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyregisterfinishrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4282
+symbol = "SecurityPasskeyRegisterFinishRequest"
+evidence = "HumanOperations declares public record SecurityPasskeyRegisterFinishRequest(String credential, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4282, moved from registered line 4520; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyregisterfinishresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4289
+symbol = "SecurityPasskeyRegisterFinishResponse"
+evidence = "HumanOperations declares public record SecurityPasskeyRegisterFinishResponse(String passkey_id, String label, String created_at, String last_used_at) implements SchemaTypes.GeneratedResponse at line 4289, moved from registered line 4527; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyrevokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4297
+symbol = "SecurityPasskeyRevokeRequest"
+evidence = "HumanOperations declares public record SecurityPasskeyRevokeRequest(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4297, moved from registered line 4535; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitypasskeyrevokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4302
+symbol = "SecurityPasskeyRevokeResponse"
+evidence = "HumanOperations declares public record SecurityPasskeyRevokeResponse(List<HumanModels.Passkey> passkeys) implements SchemaTypes.GeneratedResponse at line 4302, moved from registered line 4540; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securityrecoveryrevealrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4308
+symbol = "SecurityRecoveryRevealRequest"
+evidence = "HumanOperations declares public record SecurityRecoveryRevealRequest(String evidence_id, HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4308, moved from registered line 4546; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securityrecoveryrevealresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4314
+symbol = "SecurityRecoveryRevealResponse"
+evidence = "HumanOperations declares public record SecurityRecoveryRevealResponse(String value, String remask_at, boolean copyable) implements SchemaTypes.GeneratedResponse at line 4314, moved from registered line 4552; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitysessionrevokeallrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4333
+symbol = "SecuritySessionRevokeAllRequest"
+evidence = "HumanOperations declares public record SecuritySessionRevokeAllRequest(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4333, moved from registered line 4571; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitysessionrevokeallresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4338
+symbol = "SecuritySessionRevokeAllResponse"
+evidence = "HumanOperations declares public record SecuritySessionRevokeAllResponse(List<String> revoked_session_ids, String revoked_at) implements SchemaTypes.GeneratedResponse at line 4338, moved from registered line 4576; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitysessionrevokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4321
+symbol = "SecuritySessionRevokeRequest"
+evidence = "HumanOperations declares public record SecuritySessionRevokeRequest(HumanModels.StepUpEvidence step_up) implements SchemaTypes.GeneratedRequest at line 4321, moved from registered line 4559; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-securitysessionrevokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4326
+symbol = "SecuritySessionRevokeResponse"
+evidence = "HumanOperations declares public record SecuritySessionRevokeResponse(List<String> revoked_session_ids, String revoked_at) implements SchemaTypes.GeneratedResponse at line 4326, moved from registered line 4564; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-session-revoke-all"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4404
+symbol = "SESSION_REVOKE_ALL"
+evidence = "HumanOperations declares public static final SchemaTypes.TypedOperation<SessionRevokeAllRequest, SessionRevokeAllResponse> SESSION_REVOKE_ALL = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"session.revoke-all\", true, SessionRevokeAllRequest.class, SessionRevokeAllResponse.class); at line 4404, moved from registered line 4642; the registered signature is unchanged. The declaration binds the HUMAN plane, session.revoke-all, true, and the SessionRevokeAllRequest/SessionRevokeAllResponse class pair; the later Map.entry is a use."
+
+[row.r8-139.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionfeepolicyrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4345
+symbol = "SessionFeePolicyRequest"
+evidence = "HumanOperations declares public record SessionFeePolicyRequest() implements SchemaTypes.GeneratedRequest at line 4345, moved from registered line 4583; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionfeepolicyresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4347
+symbol = "SessionFeePolicyResponse"
+evidence = "HumanOperations declares public record SessionFeePolicyResponse(String asset_id, String currency, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long decimals) implements SchemaTypes.GeneratedResponse at line 4347, moved from registered line 4585; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4354
+symbol = "SessionListRequest"
+evidence = "HumanOperations declares public record SessionListRequest() implements SchemaTypes.GeneratedRequest at line 4354, moved from registered line 4592; the registered signature is unchanged. The HumanOperations request is empty; AgentOperations.SessionListRequest takes JsonNode context."
+
+[row.r8-139.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4356
+symbol = "SessionListResponse"
+evidence = "HumanOperations declares public record SessionListResponse(List<HumanModels.Session> sessions) implements SchemaTypes.GeneratedResponse at line 4356, moved from registered line 4594; the registered signature is unchanged. The HumanOperations response carries List<HumanModels.Session> sessions; the agent response carries JsonNode authority and value."
+
+[row.r8-139.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionopenrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4362
+symbol = "SessionOpenRequest"
+evidence = "HumanOperations declares public record SessionOpenRequest(String assertion_id, HumanModels.SessionDevice device) implements SchemaTypes.GeneratedRequest at line 4362, moved from registered line 4600; the registered signature is unchanged. The HumanOperations record implements GeneratedRequest with assertion_id and SessionDevice; HumanModels has a GeneratedResponse record with the same fields, and AgentOperations has JsonNode fields."
+
+[row.r8-139.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionopenresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4367
+symbol = "SessionOpenResponse"
+evidence = "HumanOperations declares public record SessionOpenResponse(String session_id, HumanModels.Device device, String opened_at, String last_active_at, boolean current) implements SchemaTypes.GeneratedResponse at line 4367, moved from registered line 4605; the registered signature is unchanged. The HumanOperations response carries session_id, HumanModels.Device, opened_at, last_active_at and current; the agent response carries JsonNode authority and value."
+
+[row.r8-139.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrefreshrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4376
+symbol = "SessionRefreshRequest"
+evidence = "HumanOperations declares public record SessionRefreshRequest() implements SchemaTypes.GeneratedRequest at line 4376, moved from registered line 4614; the registered signature is unchanged. The HumanOperations request is empty; AgentOperations.SessionRefreshRequest takes JsonNode session_id and context."
+
+[row.r8-139.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrefreshresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4378
+symbol = "SessionRefreshResponse"
+evidence = "HumanOperations declares public record SessionRefreshResponse(String session_id, HumanModels.Device device, String opened_at, String last_active_at, boolean current) implements SchemaTypes.GeneratedResponse at line 4378, moved from registered line 4616; the registered signature is unchanged. The HumanOperations response carries session_id, HumanModels.Device, opened_at, last_active_at and current; the agent response carries JsonNode authority and value."
+
+[row.r8-139.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrevokeallrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4396
+symbol = "SessionRevokeAllRequest"
+evidence = "HumanOperations declares public record SessionRevokeAllRequest() implements SchemaTypes.GeneratedRequest at line 4396, moved from registered line 4634; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrevokeallresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4398
+symbol = "SessionRevokeAllResponse"
+evidence = "HumanOperations declares public record SessionRevokeAllResponse(List<String> revoked_session_ids, String revoked_at) implements SchemaTypes.GeneratedResponse at line 4398, moved from registered line 4636; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrevokerequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4387
+symbol = "SessionRevokeRequest"
+evidence = "HumanOperations declares public record SessionRevokeRequest() implements SchemaTypes.GeneratedRequest at line 4387, moved from registered line 4625; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."
+
+[row.r8-139.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-sessionrevokeresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4389
+symbol = "SessionRevokeResponse"
+evidence = "HumanOperations declares public record SessionRevokeResponse(List<String> revoked_session_ids, String revoked_at) implements SchemaTypes.GeneratedResponse at line 4389, moved from registered line 4627; the registered signature is unchanged. This is the record declaration, rather than a compact constructor or TypedOperation reference."

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
   BarChart,
   Bar,
@@ -14,21 +14,32 @@ import {
 import { Skeleton } from "@/ui/atoms/skeleton";
 import { useTradeSettlements } from "@/hooks/perps/useAnalytics";
 import {
-  PERPS_MARKETS,
   TRADE_TYPE_LABELS,
   ANALYTICS_AXIS_FORMATTERS,
   ANALYTICS_CHART_COLORS,
   TRACK_B_STRINGS,
 } from "@/core/perps/config";
+import { marketLabel } from "@/core/perps/marketLabel";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
+import type { TradeSettlement } from "@/types/perps";
 import { useIsMobile } from "@/hooks/ui/useMobile";
-import { fmtUsdCompact as fmtUsd, parse18, fmtDate, weiOrZero, weiToNumber } from "@/ui/utils/format";
+import {
+  fmtUsdCompact as fmtUsd,
+  fmtUsd as fmtUsdFull,
+  parse18,
+  fmtDate,
+  weiOrZero,
+  weiToNumber,
+} from "@/ui/utils/format";
+
+import {
+  useSettlementCollateral,
+  settlementPayout,
+  type SettlementCollateral,
+} from "./settlementCollateral";
 
 interface TradeSettlementHistoryProps {
   userAddress: string | undefined;
-}
-
-function getMarketSymbol(marketId: number): string {
-  return PERPS_MARKETS.find((m) => m.marketId === marketId)?.symbol ?? `MKT-${marketId}`;
 }
 
 /** Magnitude of a wei string, taken exactly before the display edge. */
@@ -37,23 +48,51 @@ export function absUsd(v: string | null | undefined): number {
   return weiToNumber(wei < 0n ? -wei : wei);
 }
 
-export function TradeSettlementHistory({ userAddress }: TradeSettlementHistoryProps) {
+export function settlementChartData(
+  settlements: readonly TradeSettlement[],
+  labels: Parameters<typeof marketLabel>[1],
+) {
+  return settlements.slice(0, 20).map((s) => ({
+    label: `${marketLabel(BigInt(s.marketId), labels)} #${s.positionId.slice(0, 6)}`,
+    grossPnl: parse18(s.grossPnl),
+    fees: -absUsd(s.totalFeesUsd),
+    borrowing: -absUsd(s.borrowingFeeUsd),
+    funding: weiToNumber(-weiOrZero(s.fundingPaidUsd)),
+  }));
+}
+
+export function TradeSettlementHistory({
+  userAddress,
+}: TradeSettlementHistoryProps) {
   const isMobile = useIsMobile();
+  const { catalog } = usePerpsMarkets();
+  const labels = useMemo(
+    () =>
+      catalog.map((market) => ({
+        ...market,
+        marketId: BigInt(market.marketId),
+      })),
+    [catalog],
+  );
   const { data, isLoading } = useTradeSettlements(
-    userAddress ? { userAddress } : undefined
+    userAddress ? { userAddress } : undefined,
   );
 
-  const chartData = useMemo(() => {
-    if (!data || data.length === 0) return [];
-    return data.slice(0, 20).map((s) => ({
-      label: `${getMarketSymbol(s.marketId)} #${s.positionId.slice(0, 6)}`,
-      grossPnl: parse18(s.grossPnl),
-      fees: -absUsd(s.totalFeesUsd),
-      borrowing: -absUsd(s.borrowingFeeUsd),
-      funding: -absUsd(s.fundingPaidUsd),
-      netPayout: parse18(s.netPayoutTokens),
-    }));
-  }, [data]);
+  const positionIds = useMemo(
+    () => [...new Set(data?.map((s) => s.positionId) ?? [])],
+    [data],
+  );
+  const collateralQueries = useSettlementCollateral(positionIds);
+  const collateralByPosition = new Map<string, SettlementCollateral | Error>();
+  collateralQueries.forEach((query, index) => {
+    if (query.data) collateralByPosition.set(positionIds[index], query.data);
+    else if (query.error)
+      collateralByPosition.set(positionIds[index], query.error);
+  });
+  const chartData = useMemo(
+    () => settlementChartData(data ?? [], labels),
+    [data, labels],
+  );
 
   if (!userAddress) {
     return (
@@ -95,7 +134,10 @@ export function TradeSettlementHistory({ userAddress }: TradeSettlementHistoryPr
           </h3>
           <div style={{ width: "100%", height: isMobile ? 220 : 320 }}>
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+              <BarChart
+                data={chartData}
+                margin={{ top: 8, right: 8, bottom: 0, left: 0 }}
+              >
                 <XAxis
                   dataKey="label"
                   tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 9 }}
@@ -109,7 +151,11 @@ export function TradeSettlementHistory({ userAddress }: TradeSettlementHistoryPr
                   width={52}
                   tickFormatter={ANALYTICS_AXIS_FORMATTERS.compactUsd}
                 />
-                <ReferenceLine y={0} stroke="hsl(var(--border))" strokeDasharray="3 3" />
+                <ReferenceLine
+                  y={0}
+                  stroke="hsl(var(--border))"
+                  strokeDasharray="3 3"
+                />
                 <Tooltip
                   contentStyle={{
                     background: "hsl(var(--popover))",
@@ -118,13 +164,36 @@ export function TradeSettlementHistory({ userAddress }: TradeSettlementHistoryPr
                     fontSize: 12,
                   }}
                   labelStyle={{ color: "hsl(var(--muted-foreground))" }}
-                  formatter={(value: number, name: string) => [fmtUsd(value), name]}
+                  formatter={(value: number, name: string) => [
+                    fmtUsd(value),
+                    name,
+                  ]}
                 />
                 <Legend />
-                <Bar dataKey="grossPnl" name="Gross PnL" fill={ANALYTICS_CHART_COLORS.markPrice} stackId="a" />
-                <Bar dataKey="fees" name="Fees" fill={ANALYTICS_CHART_COLORS.oiShort} stackId="a" />
-                <Bar dataKey="borrowing" name="Borrowing" fill={ANALYTICS_CHART_COLORS.indexPrice} stackId="a" />
-                <Bar dataKey="funding" name="Funding" fill={ANALYTICS_CHART_COLORS.funding} stackId="a" />
+                <Bar
+                  dataKey="grossPnl"
+                  name="Gross PnL"
+                  fill={ANALYTICS_CHART_COLORS.markPrice}
+                  stackId="a"
+                />
+                <Bar
+                  dataKey="fees"
+                  name="Fees"
+                  fill={ANALYTICS_CHART_COLORS.oiShort}
+                  stackId="a"
+                />
+                <Bar
+                  dataKey="borrowing"
+                  name="Borrowing"
+                  fill={ANALYTICS_CHART_COLORS.indexPrice}
+                  stackId="a"
+                />
+                <Bar
+                  dataKey="funding"
+                  name="Funding"
+                  fill={ANALYTICS_CHART_COLORS.funding}
+                  stackId="a"
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -140,50 +209,105 @@ export function TradeSettlementHistory({ userAddress }: TradeSettlementHistoryPr
                 <th className="text-left px-4 py-2.5 font-medium">Market</th>
                 <th className="text-left px-4 py-2.5 font-medium">Type</th>
                 <th className="text-right px-4 py-2.5 font-medium">Size</th>
-                <th className="text-right px-4 py-2.5 font-medium">Gross PnL</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">Fees</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">Borrowing</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden lg:table-cell">Funding</th>
-                <th className="text-right px-4 py-2.5 font-medium">Net Payout</th>
-                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">Time</th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Gross PnL
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">
+                  Fees
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">
+                  Borrowing
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium hidden lg:table-cell">
+                  Funding
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium">
+                  Net Payout
+                </th>
+                <th className="text-right px-4 py-2.5 font-medium hidden md:table-cell">
+                  Time
+                </th>
               </tr>
             </thead>
             <tbody>
-              {data.map((s) => {
-                const grossPnl = parse18(s.grossPnl);
-                const netPayout = parse18(s.netPayoutTokens);
-                return (
-                  <tr key={s.id} className="border-b border-white/[0.06]/50 hover:bg-muted/20">
-                    <td className="px-4 py-2 font-medium">{getMarketSymbol(s.marketId)}/USD</td>
-                    <td className="px-4 py-2 text-muted-foreground capitalize">
-                      {TRADE_TYPE_LABELS[s.tradeType] ?? s.tradeTypeName ?? `Type ${s.tradeType}`}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono">{fmtUsd(parse18(s.sizeUsd))}</td>
-                    <td className={`px-4 py-2 text-right font-mono ${grossPnl >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                      {fmtUsd(grossPnl)}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-red-400 hidden md:table-cell">
-                      -{fmtUsd(absUsd(s.totalFeesUsd))}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-red-400 hidden md:table-cell">
-                      -{fmtUsd(absUsd(s.borrowingFeeUsd))}
-                    </td>
-                    <td className="px-4 py-2 text-right font-mono text-red-400 hidden lg:table-cell">
-                      -{fmtUsd(absUsd(s.fundingPaidUsd))}
-                    </td>
-                    <td className={`px-4 py-2 text-right font-mono font-semibold ${netPayout >= 0 ? "text-emerald-500" : "text-red-500"}`}>
-                      {fmtUsd(netPayout)}
-                    </td>
-                    <td className="px-4 py-2 text-right text-muted-foreground hidden md:table-cell">
-                      {fmtDate(s.blockTimestamp)}
-                    </td>
-                  </tr>
-                );
-              })}
+              <TradeSettlementRows
+                settlements={data}
+                labels={labels}
+                collateralByPosition={collateralByPosition}
+              />
             </tbody>
           </table>
         </div>
       </div>
     </div>
+  );
+}
+
+export function TradeSettlementRows({
+  settlements,
+  labels,
+  collateralByPosition,
+}: {
+  settlements: readonly TradeSettlement[];
+  labels: Parameters<typeof marketLabel>[1];
+  collateralByPosition?: ReadonlyMap<string, SettlementCollateral | Error>;
+}) {
+  return (
+    <>
+      {settlements.map((s) => {
+        const grossPnl = parse18(s.grossPnl);
+        const funding = weiToNumber(-weiOrZero(s.fundingPaidUsd));
+        const collateral = collateralByPosition?.get(s.positionId);
+        return (
+          <tr
+            key={s.id}
+            className="border-b border-white/[0.06]/50 hover:bg-muted/20"
+          >
+            <td className="px-4 py-2 font-medium">
+              {marketLabel(BigInt(s.marketId), labels)}/USD
+            </td>
+            <td className="px-4 py-2 text-muted-foreground capitalize">
+              {TRADE_TYPE_LABELS[s.tradeType] ??
+                s.tradeTypeName ??
+                `Type ${s.tradeType}`}
+            </td>
+            <td className="px-4 py-2 text-right font-mono">
+              {fmtUsd(parse18(s.sizeUsd))}
+            </td>
+            <td
+              className={`px-4 py-2 text-right font-mono ${grossPnl >= 0 ? "text-emerald-500" : "text-red-500"}`}
+            >
+              {fmtUsd(grossPnl)}
+            </td>
+            <td className="px-4 py-2 text-right font-mono text-red-400 hidden md:table-cell">
+              -{fmtUsd(absUsd(s.totalFeesUsd))}
+            </td>
+            <td className="px-4 py-2 text-right font-mono text-red-400 hidden md:table-cell">
+              -{fmtUsd(absUsd(s.borrowingFeeUsd))}
+            </td>
+            <td
+              className={`px-4 py-2 text-right font-mono hidden lg:table-cell ${funding > 0 ? "text-emerald-500" : funding < 0 ? "text-red-400" : "text-muted-foreground"}`}
+            >
+              {funding > 0 ? "+" : ""}
+              {fmtUsdFull(funding)}
+            </td>
+            <td className="px-4 py-2 text-right font-mono font-semibold">
+              {collateral instanceof Error || !collateralByPosition ? (
+                "Collateral unavailable"
+              ) : collateral ? (
+                <span title={collateral.tokenAddress}>
+                  {settlementPayout(s.netPayoutTokens, collateral)}
+                </span>
+              ) : (
+                "Loading collateral…"
+              )}
+            </td>
+            <td className="px-4 py-2 text-right text-muted-foreground hidden md:table-cell">
+              {fmtDate(s.blockTimestamp)}
+            </td>
+          </tr>
+        );
+      })}
+    </>
   );
 }

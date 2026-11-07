@@ -1,17 +1,16 @@
 import type { Metadata, Viewport } from 'next';
 import type { ReactNode } from 'react';
 import { headers } from 'next/headers';
-import { cookieToInitialState } from 'wagmi';
+import { cookieStorage, cookieToInitialState, createStorage } from 'wagmi';
 import { createWagmiConfig } from '@/core/wagmi-config';
 import AppProviders from '@/ui/providers/app-providers';
+import { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY } from '@/core/network/deployment';
 import AppShell from '@/shell/app-shell';
 import PlatformRulesModal from '@/ui/shared/platform-rules-modal';
 import CookieBanner from '@/ui/shared/cookie-banner';
 import { BackendConfigurationError } from '@/ui/shared/backend-configuration-error';
 import { backendConfigurationProblems } from '@/core/backend-origins';
 import './globals.css';
-
-const privateFixtureProfileInput = process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
 
 export const metadata: Metadata = {
   title: { default: 'Sidiora Launch', template: '%s | Sidiora Launch' },
@@ -32,6 +31,8 @@ export const viewport: Viewport = {
 };
 
 export default async function RootLayout({ children }: { children: ReactNode }) {
+  const NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE = process.env.NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
+  const privateFixtureProfileInput = NEXT_PUBLIC_PRIVATE_QUALIFICATION_AUTHORITY_PROFILE;
   // A production build without its backend origins renders one explicit error
   // state and mounts nothing that would contact a backend (no fallback host).
   const configurationProblems = backendConfigurationProblems();
@@ -47,7 +48,9 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
   }
   const hdrs = await headers();
   const cookie = hdrs.get('cookie') ?? '';
-  const wagmiInitialState = cookieToInitialState(createWagmiConfig(), cookie);
+  const config = createWagmiConfig();
+  const storage = privateFixtureProfileInput === undefined ? config.storage : createStorage({ key: PRIVATE_FIXTURE_WAGMI_STORAGE_KEY, storage: cookieStorage });
+  const wagmiInitialState = cookieToInitialState({ ...config, storage }, cookie);
 
   return (
     <html lang="en">

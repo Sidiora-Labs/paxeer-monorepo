@@ -1,0 +1,6 @@
+[repair.rust-test-interop.6]
+target = "layerx-committed-proof"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p layerx-committed-proof --no-fail-fast"
+revision = "de73d67feffb5843d555bb424aab484ca2542464"
+result = "repaired"
+change = "Regenerated services/interop/specs/conformance/committed/vector-v4-committed.json with services/interop/crates/layerx-committed-proof/scripts/record_committed_vectors.py, repaired paymentDenom binding in the crate's src/lib.rs, and covered denomination binding and fixture-derived V1 counts in tests/receipted.rs under decision 2502."

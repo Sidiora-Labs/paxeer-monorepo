@@ -1,7 +1,19 @@
-use layerx_types::payload::{ActivityType, ModuleId};
+use layerx_crypto::payments::{ledger_payment_call, CallOptions, SendCondition, SendDebit};
 use serde_json::{json, Value};
 
 use crate::wallet_signing::{PreparedPayment, SigningFacts};
+
+pub fn payment_call(
+    payload: &[u8],
+    options: &CallOptions,
+) -> Result<layerx_crypto::evm_transaction::Eip1559Call, String> {
+    if options.chain_id != 125 {
+        return Err("wallet writes require chainId 125".into());
+    }
+    ledger_payment_call(payload, options)
+        .map(|disclosed| disclosed.call)
+        .map_err(|e| format!("{e:?}"))
+}
 
 #[derive(Clone, Debug)]
 pub struct Send {
@@ -47,8 +59,8 @@ impl Send {
             .map_err(|e| format!("{e:?}"))
     }
 
-    fn debit(&self) -> layerx_crypto::send::SendDebit {
-        layerx_crypto::send::SendDebit {
+    fn debit(&self) -> SendDebit {
+        SendDebit {
             from: self.from,
             to: self.to,
             asset: self.asset,
@@ -60,7 +72,7 @@ impl Send {
             conditions: self
                 .conditions
                 .iter()
-                .map(|&(kind, timestamp)| layerx_crypto::send::SendCondition { kind, timestamp })
+                .map(|&(kind, timestamp)| SendCondition { kind, timestamp })
                 .collect(),
             authorization_kind: self.authorization.kind,
             network_id: self.authorization.network_id,
@@ -90,18 +102,21 @@ impl Send {
     }
 
     /// # Errors
-    /// Requires the payload authorization to match the independent envelope facts.
-    pub fn prepare(&self, facts: &SigningFacts<'_>) -> Result<PreparedPayment, String> {
+    /// Requires the payload authorization to match the independent transaction facts.
+    pub fn prepare(
+        &self,
+        facts: &SigningFacts<'_>,
+        options: &CallOptions,
+    ) -> Result<PreparedPayment, String> {
         if self.authorization.protocol_version != 3
             || self.authorization.network_id != facts.network_id
             || self.authorization.public_key != facts.public_key
             || self.idempotency_key != facts.idempotency_key
             || self.expires_at != facts.expires_at_ms
         {
-            return Err("Send authorization and envelope facts differ".into());
+            return Err("Send authorization and transaction facts differ".into());
         }
-        let kind = ActivityType::new(ModuleId::Asset, 5).map_err(|e| format!("{e:?}"))?;
-        PreparedPayment::from_encoded(kind, &self.encode()?, facts, Some(self.disclosure()))
+        PreparedPayment::from_send(&self.encode()?, facts, options)
     }
 
     #[must_use]
@@ -131,4 +146,41 @@ fn hex(bytes: &[u8]) -> String {
         text.push(char::from(DIGITS[usize::from(byte & 15)]));
     }
     text
+}
+
+/// Prepares a native debit using native ownership and source-sequence evidence.
+pub fn native_send_debit(
+    client: &layerx_sdk::rpc::RpcClient,
+    facts: &crate::wallet_signing::SigningFacts<'_>,
+    asset: [u8; 32],
+    to: [u8; 32],
+    amount: u128,
+) -> Result<layerx_crypto::payments::SendDebit, String> {
+    let snapshot = client
+        .get_ledger_account(facts.actor, asset)
+        .map_err(|error| format!("{error:?}"))?;
+    let from = snapshot.account_id;
+    if from == to {
+        return Err("source and destination accounts must differ".into());
+    }
+    Ok(layerx_crypto::payments::SendDebit {
+        from,
+        to,
+        asset,
+        amount,
+        source_sequence: snapshot.next_sequence,
+        idempotency_key: facts.idempotency_key,
+        expires_at: facts.expires_at_ms,
+        context_hash: layerx_crypto::payments::send_context_hash(
+            &from,
+            &to,
+            &asset,
+            amount,
+            &facts.idempotency_key,
+        ),
+        conditions: Vec::new(),
+        authorization_kind: 1,
+        network_id: facts.network_id,
+        protocol_version: 3,
+    })
 }

@@ -52,9 +52,6 @@ default-features = false
 [dev-dependencies.diff]
 version = "=0.1.13"
 
-[dev-dependencies.binaryen]
-version = "=0.12.1"
-
 [dev-dependencies.pretty_assertions]
 version = "=1.4.1"
 

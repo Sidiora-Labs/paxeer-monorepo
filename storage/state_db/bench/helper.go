@@ -1,9 +1,11 @@
 package bench
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -22,6 +24,7 @@ import (
 	commonevm "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/bench/wrappers"
+	flatkvConfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/flatkv/config"
 	sctypes "github.com/Sidiora-Labs/Paxeer-X-Network/storage/state_db/sc/types"
 )
 
@@ -43,6 +46,8 @@ type TestScenario struct {
 	// The database backend to use for the benchmark.
 	Backend      wrappers.DBType
 	Distribution KeyDistribution
+	// Historical offload requires an explicit destination; it has no local default.
+	HistoricalOffloadConfig *wrappers.HistoricalOffloadConfig
 
 	// SnapshotPath, when set, points to a state sync snapshot chunks directory
 	// (e.g. "<node_home>/data/snapshots/<height>/<format>/") containing numbered
@@ -50,6 +55,23 @@ type TestScenario struct {
 	// imported into the database via the native Committer.Importer path as a
 	// preparation stage.
 	SnapshotPath string
+}
+
+// OpenDB constructs the backend with the same configuration used by runBenchmark.
+func (scenario TestScenario) OpenDB(ctx context.Context, dataDir string) (wrappers.DBWrapper, error) {
+	var dbConfig any
+	switch scenario.Backend {
+	case wrappers.FlatKV:
+		dbConfig = flatkvConfig.DefaultConfig()
+	case wrappers.SSComposite, wrappers.CompositeDual_SSComposite:
+		dbConfig = wrappers.DefaultBenchStateStoreConfig()
+	case wrappers.SSHistoricalOffload:
+		if scenario.HistoricalOffloadConfig == nil {
+			return nil, fmt.Errorf("%s requires TestScenario.HistoricalOffloadConfig with explicit Kafka brokers and topic", scenario.Backend)
+		}
+		dbConfig = scenario.HistoricalOffloadConfig
+	}
+	return wrappers.NewDBImpl(ctx, scenario.Backend, dataDir, dbConfig)
 }
 
 // KeyDistribution defines how many keys to generate per block.
@@ -130,12 +152,14 @@ func RampDistribution(startFactor, endFactor float64) KeyDistribution {
 
 // ProgressReporter reports benchmark progress periodically.
 type ProgressReporter struct {
-	totalKeys   int64
-	totalBlocks int64
-	keysWritten atomic.Int64
-	startTime   time.Time
-	done        chan struct{}
-	interval    time.Duration
+	totalKeys     int64
+	totalBlocks   int64
+	keysWritten   atomic.Int64
+	blocksWritten atomic.Int64
+	startTime     time.Time
+	done          chan struct{}
+	stopped       chan struct{}
+	interval      time.Duration
 }
 
 // NewProgressReporter creates a new progress reporter.
@@ -144,6 +168,7 @@ func NewProgressReporter(totalKeys, totalBlocks int64, interval time.Duration) *
 		totalKeys:   totalKeys,
 		totalBlocks: totalBlocks,
 		done:        make(chan struct{}),
+		stopped:     make(chan struct{}),
 		interval:    interval,
 	}
 }
@@ -152,6 +177,7 @@ func NewProgressReporter(totalKeys, totalBlocks int64, interval time.Duration) *
 func (p *ProgressReporter) Start() {
 	p.startTime = time.Now()
 	go func() {
+		defer close(p.stopped)
 		ticker := time.NewTicker(p.interval)
 		defer ticker.Stop()
 		for {
@@ -168,35 +194,43 @@ func (p *ProgressReporter) Start() {
 // Stop stops the progress reporter and prints final stats.
 func (p *ProgressReporter) Stop() {
 	close(p.done)
+	<-p.stopped
 	elapsed := time.Since(p.startTime).Seconds()
 	keys := p.keysWritten.Load()
-	fmt.Printf("[Final] keys=%d/%d, keys/sec=%.0f, elapsed=%.2fs\n",
-		keys, p.totalKeys, float64(keys)/elapsed, elapsed)
+	fmt.Printf("[Final] blocks=%d/%d, keys=%d (nominal=%d), keys/sec=%.0f, elapsed=%.2fs\n",
+		p.blocksWritten.Load(), p.totalBlocks, keys, p.totalKeys, float64(keys)/elapsed, elapsed)
 }
 
 // Add records that keys were written.
 func (p *ProgressReporter) Add(keys int) {
 	p.keysWritten.Add(int64(keys))
+	p.blocksWritten.Add(1)
 }
 
 func (p *ProgressReporter) report() {
-	keys := p.keysWritten.Load()
 	elapsed := time.Since(p.startTime).Seconds()
 	if elapsed > 0 {
-		keysPerBlock := p.totalKeys / p.totalBlocks
-		if keysPerBlock > 0 {
-			blocks := keys / keysPerBlock
-			fmt.Printf("[Progress] blocks=%d/%d, keys=%d/%d, keys/sec=%.0f\n",
-				blocks, p.totalBlocks, keys, p.totalKeys, float64(keys)/elapsed)
-			return
-		}
-		fmt.Printf("[Progress] blocks=%d/%d, keys=%d/%d, keys/sec=%.0f\n",
-			0, p.totalBlocks, keys, p.totalKeys, float64(keys)/elapsed)
+		keys := p.keysWritten.Load()
+		fmt.Printf("[Progress] blocks=%d/%d, keys=%d (nominal=%d), keys/sec=%.0f\n",
+			p.blocksWritten.Load(), p.totalBlocks, keys, p.totalKeys, float64(keys)/elapsed)
 	}
 }
 
+type changesetStream struct {
+	changesets <-chan *proto.NamedChangeSet
+	done       <-chan struct{}
+	cancel     context.CancelFunc
+	err        error // Read only after done is closed.
+}
+
+func (s *changesetStream) stop() {
+	s.cancel()
+	<-s.done
+}
+
 // startChangesetGenerator streams per-block changesets based on the scenario distribution.
-func startChangesetGenerator(scenario TestScenario) <-chan *proto.NamedChangeSet {
+func startChangesetGenerator(ctx context.Context, scenario TestScenario) *changesetStream {
+	ctx, cancel := context.WithCancel(ctx)
 	if scenario.Distribution == nil {
 		scenario.Distribution = EvenDistribution
 	}
@@ -209,10 +243,16 @@ func startChangesetGenerator(scenario TestScenario) <-chan *proto.NamedChangeSet
 	}
 	rng := mrand.New(mrand.NewSource(1))
 	out := make(chan *proto.NamedChangeSet)
+	done := make(chan struct{})
+	stream := &changesetStream{changesets: out, done: done, cancel: cancel}
 	go func() {
+		defer close(done)
 		defer close(out)
 		var uniqueCounter int64
 		for i := range scenario.NumBlocks {
+			if ctx.Err() != nil {
+				return
+			}
 			numKeysInBlock := scenario.Distribution(scenario.NumBlocks, scenario.TotalKeys, i)
 			if numKeysInBlock < 0 {
 				numKeysInBlock = 0
@@ -220,6 +260,9 @@ func startChangesetGenerator(scenario TestScenario) <-chan *proto.NamedChangeSet
 			kvPairs := make([]*proto.KVPair, int(numKeysInBlock))
 			duplicateCount := int64(float64(numKeysInBlock) * duplicateRatio)
 			for j := range kvPairs {
+				if ctx.Err() != nil {
+					return
+				}
 				var keyIndex int64
 				if int64(j) < duplicateCount && uniqueCounter > 0 {
 					keyIndex = rng.Int63n(uniqueCounter)
@@ -230,7 +273,8 @@ func startChangesetGenerator(scenario TestScenario) <-chan *proto.NamedChangeSet
 				key := keyFromIndex(keyIndex)
 				val := make([]byte, ValueSize)
 				if _, err := rand.Read(val); err != nil {
-					panic(fmt.Sprintf("failed to generate random value: %v", err))
+					stream.err = fmt.Errorf("generate random value: %w", err)
+					return
 				}
 				kvPairs[j] = &proto.KVPair{Key: key, Value: val}
 			}
@@ -238,10 +282,14 @@ func startChangesetGenerator(scenario TestScenario) <-chan *proto.NamedChangeSet
 				Name:      EVMStoreName,
 				Changeset: proto.ChangeSet{Pairs: kvPairs},
 			}
-			out <- cs
+			select {
+			case out <- cs:
+			case <-ctx.Done():
+				return
+			}
 		}
 	}()
-	return out
+	return stream
 }
 
 func keyFromIndex(index int64) []byte {
@@ -381,75 +429,101 @@ func importSnapshot(chunksDir string, importer sctypes.Importer) error {
 	return importer.Close()
 }
 
-// runBenchmark runs the benchmark with optional progress reporting.
-// If withProgress is true, reports keys/sec every 5 seconds to stdout.
-func runBenchmark(b *testing.B, scenario TestScenario, withProgress bool) {
-	if scenario.Distribution == nil {
-		scenario.Distribution = EvenDistribution
+type benchmarkWork struct {
+	keys   int64
+	blocks int64
+}
+
+// consumeChangesets counts only successfully committed blocks and joins the
+// producer on success, cancellation, and store errors.
+func consumeChangesets(ctx context.Context, db wrappers.DBWrapper, stream *changesetStream, progress *ProgressReporter) (work benchmarkWork, err error) {
+	defer stream.stop()
+	baseVersion := db.Version()
+	for {
+		if err := ctx.Err(); err != nil {
+			return work, err
+		}
+		select {
+		case <-ctx.Done():
+			return work, ctx.Err()
+		case changeset, ok := <-stream.changesets:
+			if !ok {
+				<-stream.done
+				return work, errors.Join(stream.err, ctx.Err())
+			}
+			if err := ctx.Err(); err != nil {
+				return work, err
+			}
+			version := baseVersion + work.blocks + 1
+			entry := &proto.ChangelogEntry{Version: version, Changesets: []*proto.NamedChangeSet{changeset}}
+			if err := db.ApplyChangeSets(entry); err != nil {
+				return work, err
+			}
+			committed, err := db.Commit()
+			if err != nil {
+				return work, err
+			}
+			if committed != version {
+				return work, fmt.Errorf("committed version %d, expected %d", committed, version)
+			}
+			work.blocks++
+			work.keys += int64(len(changeset.Changeset.Pairs))
+			if progress != nil {
+				progress.Add(len(changeset.Changeset.Pairs))
+			}
+		}
 	}
+}
 
+// runBenchmark measures generated work, commits and the final flush across all
+// iterations. Database construction and snapshot import are outside the timer.
+func runBenchmark(b *testing.B, scenario TestScenario, withProgress bool) {
 	b.ResetTimer()
+	b.StopTimer()
 	b.ReportAllocs()
-
+	var total benchmarkWork
 	for range b.N {
 		func() {
-			dbDir := b.TempDir()
-			b.StopTimer()
-			cs, err := wrappers.NewDBImpl(b.Context(), scenario.Backend, dbDir, nil)
+			db, err := scenario.OpenDB(b.Context(), b.TempDir())
 			require.NoError(b, err)
-
-			// Load snapshot if available
+			closed := false
+			defer func() {
+				b.StopTimer()
+				if !closed {
+					require.NoError(b, db.Close())
+				}
+			}()
 			if scenario.SnapshotPath != "" {
-				snapshotHeight, err := parseSnapshotHeight(scenario.SnapshotPath)
+				height, err := parseSnapshotHeight(scenario.SnapshotPath)
 				require.NoError(b, err)
-				importer, err := cs.Importer(snapshotHeight)
+				importer, err := db.Importer(height)
 				require.NoError(b, err)
-				err = importSnapshot(scenario.SnapshotPath, importer)
-				require.NoError(b, err)
-				err = cs.LoadVersion(0)
-				require.NoError(b, err)
+				require.NoError(b, importSnapshot(scenario.SnapshotPath, importer))
+				require.NoError(b, db.LoadVersion(0))
 			}
-			changesetChannel := startChangesetGenerator(scenario)
-
 			var progress *ProgressReporter
 			if withProgress {
 				progress = NewProgressReporter(scenario.TotalKeys, scenario.NumBlocks, 5*time.Second)
 				progress.Start()
+				defer progress.Stop()
 			}
-
-			baseVersion := cs.Version()
 			b.StartTimer()
-			fmt.Printf("Opening DB with base version %d\n", baseVersion)
-
-			for block := int64(1); block < scenario.NumBlocks; block++ {
-				changeset, ok := <-changesetChannel
-				if !ok {
-					break
-				}
-				entry := &proto.ChangelogEntry{
-					Version:    baseVersion + block,
-					Changesets: []*proto.NamedChangeSet{changeset},
-				}
-				err := cs.ApplyChangeSets(entry)
-				require.NoError(b, err)
-				version, err := cs.Commit()
-				require.NoError(b, err)
-				require.Equal(b, baseVersion+block, version)
-				if progress != nil {
-					progress.Add(len(changeset.Changeset.Pairs))
-				}
-			}
-			closeErr := cs.Close() // close to make sure all data got flushed
+			stream := startChangesetGenerator(b.Context(), scenario)
+			work, err := consumeChangesets(b.Context(), db, stream, progress)
+			require.NoError(b, err)
+			closeErr := db.Close()
+			closed = true
 			require.NoError(b, closeErr)
-
 			b.StopTimer()
-			if progress != nil {
-				progress.Stop()
-			}
-
-			elapsed := b.Elapsed().Seconds()
-			b.ReportMetric(float64(scenario.TotalKeys)/elapsed, "keys/sec")
-			b.ReportMetric(elapsed, "seconds")
+			total.keys += work.keys
+			total.blocks += work.blocks
 		}()
+	}
+	elapsed := b.Elapsed().Seconds()
+	b.ReportMetric(float64(total.keys), "keys")
+	b.ReportMetric(float64(total.blocks), "blocks")
+	b.ReportMetric(elapsed, "seconds")
+	if elapsed > 0 {
+		b.ReportMetric(float64(total.keys)/elapsed, "keys/sec")
 	}
 }

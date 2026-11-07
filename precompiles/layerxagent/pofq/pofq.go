@@ -97,47 +97,59 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, _ comm
 	}
 	switch canonical.Name {
 	case ScoreFillMethod:
-		fill, fillOK := args[0].(*big.Int)
-		oracle, oracleOK := args[1].(*big.Int)
-		if !fillOK || !oracleOK {
-			return nil, decodeError()
-		}
-		score, err := ScoreFill(fill, oracle)
-		if err != nil {
-			return nil, err
-		}
-		return pack(canonical, score)
+		return p.scoreFill(canonical, args)
 	case ScoreBatchMethod:
-		fills, ok := args[0].([]Fill)
-		if !ok {
-			return nil, decodeError()
-		}
-		score, volume, err := ScoreBatch(fills, p.maxBatch)
-		if err != nil {
-			return nil, err
-		}
-		return pack(canonical, score, volume)
+		return p.scoreBatch(canonical, args)
 	case UpdateRollingScoreMethod:
-		values := make([]*big.Int, 4)
-		for i := range values {
-			var ok bool
-			values[i], ok = args[i].(*big.Int)
-			if !ok {
-				return nil, decodeError()
-			}
-		}
-		decay, ok := args[4].(uint16)
-		if !ok {
-			return nil, decodeError()
-		}
-		score, weight, err := UpdateRollingScore(values[0], values[1], values[2], values[3], decay)
-		if err != nil {
-			return nil, err
-		}
-		return pack(canonical, score, weight)
+		return p.updateRollingScore(canonical, args)
 	default:
 		return nil, agentcommon.ErrUnknownMethod
 	}
+}
+
+func (p *PrecompileExecutor) scoreFill(method *abi.Method, args []interface{}) ([]byte, error) {
+	fill, fillOK := args[0].(*big.Int)
+	oracle, oracleOK := args[1].(*big.Int)
+	if !fillOK || !oracleOK {
+		return nil, decodeError()
+	}
+	score, err := ScoreFill(fill, oracle)
+	if err != nil {
+		return nil, err
+	}
+	return pack(method, score)
+}
+
+func (p *PrecompileExecutor) scoreBatch(method *abi.Method, args []interface{}) ([]byte, error) {
+	fills, ok := args[0].([]Fill)
+	if !ok {
+		return nil, decodeError()
+	}
+	score, volume, err := ScoreBatch(fills, p.maxBatch)
+	if err != nil {
+		return nil, err
+	}
+	return pack(method, score, volume)
+}
+
+func (p *PrecompileExecutor) updateRollingScore(method *abi.Method, args []interface{}) ([]byte, error) {
+	values := make([]*big.Int, 4)
+	for i := range values {
+		var ok bool
+		values[i], ok = args[i].(*big.Int)
+		if !ok {
+			return nil, decodeError()
+		}
+	}
+	decay, ok := args[4].(uint16)
+	if !ok {
+		return nil, decodeError()
+	}
+	score, weight, err := UpdateRollingScore(values[0], values[1], values[2], values[3], decay)
+	if err != nil {
+		return nil, err
+	}
+	return pack(method, score, weight)
 }
 
 func ScoreFill(fillPrice, oraclePrice *big.Int) (*big.Int, error) {

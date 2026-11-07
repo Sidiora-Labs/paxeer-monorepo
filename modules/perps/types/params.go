@@ -1,8 +1,6 @@
 package types
 
 import (
-	"fmt"
-
 	"github.com/ethereum/go-ethereum/common"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -65,6 +63,8 @@ type Params struct {
 
 	ClassEOiCaps []OiCapRow `json:"class_e_oi_caps"`
 
+	// WithdrawFloorPpm bounds the notional retained by Keeper.Withdrawable,
+	// in [0, PpmDenominator], with required USD rounded up.
 	WithdrawFloorPpm             uint64  `json:"withdraw_floor_ppm"`
 	LiquidationSliceThresholdUsd sdk.Int `json:"liquidation_slice_threshold_usd"`
 	LiquidationSlicePpm          uint64  `json:"liquidation_slice_ppm"`
@@ -76,9 +76,11 @@ type Params struct {
 	LiquidationScanPerBlock uint64 `json:"liquidation_scan_per_block"`
 	LiquidationsPerBlock    uint64 `json:"liquidations_per_block"`
 	SlicesPerBlock          uint64 `json:"slices_per_block"`
-	AdlPositionsPerBlock    uint64 `json:"adl_positions_per_block"`
-	TriggersPerBlock        uint64 `json:"triggers_per_block"`
-	ExpiriesPerBlock        uint64 `json:"expiries_per_block"`
+	// AdlPositionsPerBlock is the positive counterparty budget read by
+	// Keeper.RankADL and Keeper.ExecuteADL from genesis or governance params.
+	AdlPositionsPerBlock uint64 `json:"adl_positions_per_block"`
+	TriggersPerBlock     uint64 `json:"triggers_per_block"`
+	ExpiriesPerBlock     uint64 `json:"expiries_per_block"`
 
 	MinOrderValueUsd        sdk.Int         `json:"min_order_value_usd"`
 	MarketOrderMaxValues    []OrderValueRow `json:"market_order_max_values"`
@@ -158,7 +160,7 @@ func DefaultParams() Params {
 }
 
 func invalid(format string, args ...any) error {
-	return fmt.Errorf("%w: "+format, append([]any{ErrInvalidParams}, args...)...)
+	return ErrInvalidParams.Wrapf(format, args...)
 }
 
 func positive(value sdk.Int) bool { return !value.IsNil() && value.IsPositive() }

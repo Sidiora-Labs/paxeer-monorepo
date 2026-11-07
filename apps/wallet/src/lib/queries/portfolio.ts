@@ -1,6 +1,7 @@
 'use client';
 
-import { useQuery, useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { useQueryClient, type UseQueryOptions } from '@tanstack/react-query';
+import { getWalletQueryScope, useScopedQuery, useWalletQueryScope } from './scope';
 import {
   fetchPortfolio,
   fetchPortfolioFresh,
@@ -10,6 +11,7 @@ import {
 } from '@/lib/api';
 import type { BalanceResponse } from '@/lib/api';
 import { queryKeys } from './keys';
+import { selectedWalletChainId } from '../wallet-read-contract';
 
 type PortfolioData = Awaited<ReturnType<typeof fetchPortfolio>>;
 type PaxPriceData = Awaited<ReturnType<typeof fetchPaxPriceLatest>>;
@@ -20,9 +22,9 @@ type PaxPriceData = Awaited<ReturnType<typeof fetchPaxPriceLatest>>;
  */
 export function usePortfolioQuery(
   address: string | undefined,
-  options?: Partial<UseQueryOptions<PortfolioData>>,
+  options?: Partial<UseQueryOptions<PortfolioData>>
 ) {
-  return useQuery<PortfolioData>({
+  return useScopedQuery<PortfolioData>({
     queryKey: queryKeys.portfolio(address ?? ''),
     queryFn: () => fetchPortfolio(address as string),
     enabled: Boolean(address),
@@ -35,7 +37,7 @@ export function usePortfolioQuery(
  * card stays accurate without flooding the price API.
  */
 export function usePaxPriceQuery(symbol: string = 'PAX') {
-  return useQuery<PaxPriceData>({
+  return useScopedQuery<PaxPriceData>({
     queryKey: queryKeys.paxPrice(symbol),
     queryFn: () => fetchPaxPriceLatest(symbol),
     staleTime: 60_000,
@@ -49,9 +51,9 @@ export function usePaxPriceQuery(symbol: string = 'PAX') {
  */
 export function useBalanceQuery(
   address: string | undefined,
-  options?: Partial<UseQueryOptions<BalanceResponse | null>>,
+  options?: Partial<UseQueryOptions<BalanceResponse | null>>
 ) {
-  return useQuery<BalanceResponse | null>({
+  return useScopedQuery<BalanceResponse | null>({
     queryKey: queryKeys.balance(address ?? ''),
     queryFn: () => fetchBalance(address as string),
     enabled: Boolean(address),
@@ -67,18 +69,24 @@ export function useBalanceQuery(
  */
 export function useReconcilePortfolio() {
   const qc = useQueryClient();
+  const scope = useWalletQueryScope();
 
   return async (address: string) => {
+    if (getWalletQueryScope() !== scope) throw new Error('Wallet query network changed');
+    const chainId = selectedWalletChainId();
+    const portfolioKey = queryKeys.portfolio(address, scope);
+    const balanceKey = queryKeys.balance(address, scope);
     const [freshPortfolio, freshBalance] = await Promise.all([
-      fetchPortfolioFresh(address).catch(() => null),
-      fetchBalanceFresh(address).catch(() => null),
+      fetchPortfolioFresh(address, { chainId }).catch(() => null),
+      fetchBalanceFresh(address, { chainId }).catch(() => null),
     ]);
 
+    if (getWalletQueryScope() !== scope) return;
     if (freshPortfolio) {
-      qc.setQueryData(queryKeys.portfolio(address), freshPortfolio);
+      qc.setQueryData(portfolioKey, freshPortfolio);
     }
     if (freshBalance) {
-      qc.setQueryData(queryKeys.balance(address), freshBalance);
+      qc.setQueryData(balanceKey, freshBalance);
     }
   };
 }
@@ -89,11 +97,16 @@ export function useReconcilePortfolio() {
  */
 export function useOptimisticPortfolioUpdate() {
   const qc = useQueryClient();
+  const scope = useWalletQueryScope();
 
-  return (address: string, updater: (prev: PortfolioData | undefined) => PortfolioData | undefined) => {
+  return (
+    address: string,
+    updater: (prev: PortfolioData | undefined) => PortfolioData | undefined
+  ) => {
+    if (getWalletQueryScope() !== scope) throw new Error('Wallet query network changed');
     qc.setQueryData<PortfolioData | undefined>(
-      queryKeys.portfolio(address),
-      (prev: PortfolioData | undefined) => updater(prev),
+      queryKeys.portfolio(address, scope),
+      (prev: PortfolioData | undefined) => updater(prev)
     );
   };
 }

@@ -1,6 +1,8 @@
 package evmrpc_test
 
 import (
+	"context"
+	"crypto/ed25519"
 	"crypto/sha256"
 	"math/big"
 	"strings"
@@ -10,11 +12,13 @@ import (
 
 	wasmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm/x/wasm/types"
 
+	tmbytes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc/rpcutils"
@@ -27,8 +31,143 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/export"
+	gethrpc "github.com/ethereum/go-ethereum/rpc"
 	"github.com/stretchr/testify/require"
 )
+
+type sequenceBatchBlockClient struct {
+	*MockClient
+	block *coretypes.ResultBlock
+}
+
+func (c *sequenceBatchBlockClient) Block(ctx context.Context, height *int64) (*coretypes.ResultBlock, error) {
+	if height != nil && *height == c.block.Block.Height {
+		return c.block, nil
+	}
+	return c.MockClient.Block(ctx, height)
+}
+
+func (c *sequenceBatchBlockClient) BlockByHash(ctx context.Context, hash tmbytes.HexBytes) (*coretypes.ResultBlock, error) {
+	if hash.String() == c.block.BlockID.Hash.String() {
+		return c.block, nil
+	}
+	return c.MockClient.BlockByHash(ctx, hash)
+}
+
+func TestBlockViewsSkipSequenceBatch(t *testing.T) {
+	application := app.Setup(t, false, true, false)
+	k := &application.EvmKeeper
+	header := mockBlockHeader(MockHeight8)
+	sdkCtx := application.GetContextForDeliverTx(nil).WithBlockHeight(MockHeight8).
+		WithBlockTime(header.Time).WithClosestUpgradeName(LatestCtxUpgradeName)
+	ctxProvider := func(height int64) sdk.Context {
+		if height == evmrpc.LatestCtxHeight {
+			return sdkCtx
+		}
+		return sdkCtx.WithBlockHeight(height)
+	}
+	txBytes, err := Encoder(Tx1)
+	require.NoError(t, err)
+	transaction, _ := Tx1.GetMsgs()[0].(*types.MsgEVMTransaction).AsTransaction()
+	require.NotNil(t, transaction)
+	sender, err := rpcutils.RecoverEVMSender(transaction, MockHeight8, header.Time.Unix())
+	require.NoError(t, err)
+	testkeeper.MustMockReceipt(t, k, sdkCtx, transaction.Hash(), &types.Receipt{
+		BlockNumber: MockHeight8, TransactionIndex: 0, TxHashHex: transaction.Hash().Hex(),
+		From: sender.Hex(), Status: 1, GasUsed: 21000,
+	})
+	require.Equal(t, transaction.Hash().Hex(), testkeeper.WaitForReceipt(t, k, sdkCtx, transaction.Hash()).TxHashHex)
+
+	privateKey := ed25519.NewKeyFromSeed(make([]byte, ed25519.SeedSize))
+	publicKey := privateKey.Public().(ed25519.PublicKey)
+	keyID := sha256.Sum256(publicKey)
+	txRoot := sha256.Sum256(txBytes)
+	batch := seqtypes.MsgSequenceBatch{
+		Height: MockHeight8, FromSeq: 1, ToSeq: 1,
+		PrevSeqHash: make([]byte, seqtypes.HashLength), LastSeqHash: txRoot[:], TxRoot: txRoot[:], KeyId: keyID[:],
+	}
+	digest, err := batch.SignBytes(header.ChainID)
+	require.NoError(t, err)
+	batch.Sig = ed25519.Sign(privateKey, digest[:])
+	require.NoError(t, batch.VerifySignature(header.ChainID, [32]byte(publicKey)))
+	batchBytes, err := seqtypes.EncodeSequenceBatchTx(batch)
+	require.NoError(t, err)
+	require.Len(t, batchBytes, 241)
+	wrongDomain := append([]byte(nil), batchBytes...)
+	wrongDomain[0] = 'X'
+	_, err = seqtypes.DecodeSequenceBatchTx(wrongDomain)
+	require.Error(t, err)
+	_, err = TxConfig.TxDecoder()(wrongDomain)
+	require.Error(t, err)
+
+	for _, tc := range []struct {
+		name        string
+		txs         []tmtypes.Tx
+		decodeError string
+	}{
+		{name: "sequence batch first", txs: []tmtypes.Tx{batchBytes, txBytes}},
+		{name: "different domain first", txs: []tmtypes.Tx{wrongDomain, txBytes}, decodeError: "decode consensus transaction 0"},
+		{name: "sequence batch after transaction", txs: []tmtypes.Tx{txBytes, batchBytes}, decodeError: "decode consensus transaction 1"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tmClient := &sequenceBatchBlockClient{
+				MockClient: &MockClient{},
+				block: &coretypes.ResultBlock{
+					BlockID: MockBlockID,
+					Block: &tmtypes.Block{
+						Header: header, Data: tmtypes.Data{Txs: tc.txs},
+						LastCommit: &tmtypes.Commit{Height: MockHeight8 - 1},
+					},
+				},
+			}
+			watermarks := evmrpc.NewWatermarkManager(tmClient, nil, nil, nil)
+			api := evmrpc.NewBlockAPI(tmClient, k, ctxProvider, func(int64) client.TxConfig { return TxConfig },
+				evmrpc.ConnectionTypeHTTP, watermarks, evmrpc.NewBlockCache(3000), &sync.Mutex{})
+			server := gethrpc.NewServer()
+			t.Cleanup(server.Stop)
+			require.NoError(t, server.RegisterName("eth", api))
+			rpcClient := gethrpc.DialInProc(server)
+			t.Cleanup(rpcClient.Close)
+			blockHash := common.BytesToHash(MockBlockID.Hash).Hex()
+			for _, fullTx := range []bool{false, true} {
+				for _, call := range []struct {
+					method string
+					block  string
+				}{
+					{method: "eth_getBlockByNumber", block: "0x8"},
+					{method: "eth_getBlockByHash", block: blockHash},
+				} {
+					var result map[string]interface{}
+					err := rpcClient.CallContext(context.Background(), &result, call.method, call.block, fullTx)
+					if tc.decodeError != "" {
+						require.ErrorContains(t, err, tc.decodeError, call.method)
+						continue
+					}
+					require.NoError(t, err, call.method)
+					require.Equal(t, "0x8", result["number"])
+					require.Equal(t, blockHash, result["hash"])
+					transactions := result["transactions"].([]interface{})
+					require.Len(t, transactions, 1, call.method)
+					if fullTx {
+						served := transactions[0].(map[string]interface{})
+						require.Equal(t, transaction.Hash().Hex(), served["hash"])
+						require.Equal(t, "0x0", served["transactionIndex"])
+					} else {
+						require.Equal(t, transaction.Hash().Hex(), transactions[0])
+					}
+				}
+			}
+			var count hexutil.Uint
+			err := rpcClient.CallContext(context.Background(), &count, "eth_getBlockTransactionCountByNumber", "0x8")
+			if tc.decodeError != "" {
+				require.ErrorContains(t, err, tc.decodeError)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, hexutil.Uint(1), count)
+		})
+	}
+}
 
 func TestEncodeTmBlock_EmptyTransactions(t *testing.T) {
 	k := &testkeeper.EVMTestApp.EvmKeeper
@@ -380,68 +519,6 @@ func TestEncodeTmBlock_ExcludeUntraceable(t *testing.T) {
 	require.NoError(t, err)
 	txs = res["transactions"].([]interface{})
 	require.Len(t, txs, 2, "expected revert + ante stub to flow through, got %v", txs)
-}
-
-func TestEVMLaunchHeightValidation(t *testing.T) {
-	// Test ValidateEVMBlockHeight function
-	// Should pass for pacific-1 with valid height
-	err := evmrpc.ValidateEVMBlockHeight("pacific-1", 79123881)
-	require.NoError(t, err)
-
-	err = evmrpc.ValidateEVMBlockHeight("pacific-1", 79123882)
-	require.NoError(t, err)
-
-	// Should fail for pacific-1 with invalid height
-	err = evmrpc.ValidateEVMBlockHeight("pacific-1", 79123880)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "EVM is only supported from block 79123881 onwards")
-
-	// Should pass for other chains with any height
-	err = evmrpc.ValidateEVMBlockHeight("atlantic-2", 1)
-	require.NoError(t, err)
-
-	err = evmrpc.ValidateEVMBlockHeight("test-chain", 1)
-	require.NoError(t, err)
-}
-
-func TestEVMBlockValidationEdgeCases(t *testing.T) {
-	// Test edge cases for EVM block validation
-
-	// Test exactly at launch height
-	err := evmrpc.ValidateEVMBlockHeight("pacific-1", 79123881)
-	require.NoError(t, err)
-
-	// Test one block before launch height
-	err = evmrpc.ValidateEVMBlockHeight("pacific-1", 79123880)
-	require.Error(t, err)
-	require.Equal(t, "EVM is only supported from block 79123881 onwards", err.Error())
-
-	// Test way before launch height
-	err = evmrpc.ValidateEVMBlockHeight("pacific-1", 1000000)
-	require.Error(t, err)
-	require.Equal(t, "EVM is only supported from block 79123881 onwards", err.Error())
-
-	// Test block 0
-	err = evmrpc.ValidateEVMBlockHeight("pacific-1", 0)
-	require.Error(t, err)
-	require.Equal(t, "EVM is only supported from block 79123881 onwards", err.Error())
-}
-
-func TestEVMBlockValidationDifferentChains(t *testing.T) {
-	// Test that validation only applies to pacific-1
-	chains := []string{"atlantic-2", "arctic-1", "test-chain", "unknown-chain", ""}
-
-	for _, chainID := range chains {
-		// All non-pacific-1 chains should pass validation for any block height
-		err := evmrpc.ValidateEVMBlockHeight(chainID, 1)
-		require.NoError(t, err, "Chain %s should not validate block heights", chainID)
-
-		err = evmrpc.ValidateEVMBlockHeight(chainID, 0)
-		require.NoError(t, err, "Chain %s should not validate block heights", chainID)
-
-		err = evmrpc.ValidateEVMBlockHeight(chainID, 79123880)
-		require.NoError(t, err, "Chain %s should not validate block heights", chainID)
-	}
 }
 
 func TestMissingEVMReceiptRequiresUnconsumedHistoricalNonce(t *testing.T) {

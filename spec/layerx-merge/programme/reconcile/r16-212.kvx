@@ -1,0 +1,243 @@
+[reconcile.r16-212]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-212.1]
+interface = "interface.16.mk-test-service-offer"
+verdict = "served"
+path = "Makefile"
+line = 664
+symbol = "test-service-offer"
+evidence = "The rule test-service-offer: $(BUILD_DIR)/tests/test_service_offer still declares the registered prerequisite and runs that binary, followed by the sole-writer check. The .PHONY entry and aggregate prerequisites are references."
+
+[row.r16-212.2]
+interface = "interface.16.mk-test-shadow"
+verdict = "served"
+path = "Makefile"
+line = 1125
+symbol = "test-shadow"
+evidence = "The declaring rule remains test-shadow: $(BUILD_DIR)/tests/test_shadow_replay and its recipe runs that binary. The .PHONY entry and core-test-all prerequisite do not define this rule."
+
+[row.r16-212.3]
+interface = "interface.16.mk-test-snapshot"
+verdict = "served"
+path = "Makefile"
+line = 861
+symbol = "test-snapshot"
+evidence = "The rule test-snapshot: $(BUILD_DIR)/tests/test_snapshot retains the registered prerequisite and runs the snapshot binary. Other occurrences declare it phony or invoke it through aggregate targets and recipes."
+
+[row.r16-212.4]
+interface = "interface.16.mk-test-spot-book"
+verdict = "served"
+path = "Makefile"
+line = 790
+symbol = "test-spot-book"
+evidence = "The declaring rule remains test-spot-book: $(BUILD_DIR)/tests/test_spot_book, with a recipe running that binary and the sole-writer check. The .PHONY and test-exchange-native occurrences refer to this rule."
+
+[row.r16-212.5]
+interface = "interface.16.mk-test-storage"
+verdict = "served"
+path = "Makefile"
+line = 1462
+symbol = "test-storage"
+evidence = "The declaring rule now reads test-storage: test-log test-log-durability test-recovery, continued with test-projection test-rebuild. The registered test-storage-order, test-batch-wal-recovery and test-finality-evidence prerequisites are absent from the current rule; the .PHONY occurrence is only a reference."
+
+[row.r16-212.6]
+interface = "interface.16.mk-test-stream-accrual"
+verdict = "served"
+path = "Makefile"
+line = 620
+symbol = "test-stream-accrual"
+evidence = "The declaring rule remains test-stream-accrual: $(BUILD_DIR)/tests/test_stream_accrue and runs the accrue binary. The .PHONY, test and core-test-all occurrences are references rather than the rule declaration."
+
+[row.r16-212.7]
+interface = "interface.16.mk-test-stream-lifecycle"
+verdict = "served"
+path = "Makefile"
+line = 652
+symbol = "test-stream-lifecycle"
+evidence = "The declaring rule remains test-stream-lifecycle: $(BUILD_DIR)/tests/test_stream_lifecycle and runs that binary plus the sole-writer check. The other target-name occurrences are .PHONY and aggregate prerequisites."
+
+[row.r16-212.8]
+interface = "interface.16.mk-test-stream-meter"
+verdict = "served"
+path = "Makefile"
+line = 630
+symbol = "test-stream-meter"
+evidence = "The rule test-stream-meter: $(BUILD_DIR)/tests/test_stream_meter retains the registered prerequisite and executes that binary. Its .PHONY entry and occurrences in aggregate prerequisite lists do not define the rule."
+
+[row.r16-212.9]
+interface = "interface.16.mk-test-stream-open"
+verdict = "served"
+path = "Makefile"
+line = 610
+symbol = "test-stream-open"
+evidence = "The declaring rule remains test-stream-open: $(BUILD_DIR)/tests/test_stream_open and runs the open binary followed by the sole-writer check. The .PHONY and aggregate prerequisite occurrences are references."
+
+[row.r16-212.10]
+interface = "interface.16.mk-test-stream-settle"
+verdict = "served"
+path = "Makefile"
+line = 640
+symbol = "test-stream-settle"
+evidence = "The rule test-stream-settle: $(BUILD_DIR)/tests/test_stream_settle retains its registered prerequisite and runs that binary plus the sole-writer check. Its .PHONY and aggregate prerequisite occurrences are references."
+
+[row.r16-212.11]
+interface = "interface.16.mk-test-verify-pool"
+verdict = "served"
+path = "Makefile"
+line = 1519
+symbol = "test-verify-pool"
+evidence = "The declaring rule depends on $(BUILD_DIR)/tests/lxp_test_verify_pool and, on its continuation line, $(BUILD_DIR)/tests/lxp_test_verify_pool_tsan, matching the registered signature. Its recipe runs both; .PHONY and test prerequisites refer to it."
+
+[row.r16-212.12]
+interface = "interface.16.mk-test-wave-10"
+verdict = "served"
+path = "Makefile"
+line = 853
+symbol = "test-wave-10"
+evidence = "The declaration is now test-wave-10: test-batch. The registered test-sequencer, test-batch-time, test-batch-seal, test-batch-distribute and test-sequencer-recovery prerequisites are absent from this rule. The .PHONY entry and core-test-all prerequisite are references."
+
+[row.r16-212.13]
+interface = "interface.16.mk-test-wave-11"
+verdict = "served"
+path = "Makefile"
+line = 864
+symbol = "test-wave-11"
+evidence = "The declaration is now test-wave-11: test-snapshot. The registered test-replica, test-replay, test-replica-divergence, test-history and test-replay-crossarch prerequisites are absent from this rule. The .PHONY entry and core-test-all prerequisite are references."
+
+[row.r16-212.14]
+interface = "interface.16.mk-test-wave-9"
+verdict = "served"
+path = "Makefile"
+line = 843
+symbol = "test-wave-9"
+evidence = "The declaring rule still lists test-perps-market test-perps-book test-perps-margin, continued with test-perps-funding test-perps-liquidation test-perps-insurance, matching the signature. Its other occurrences are .PHONY and aggregate prerequisites."
+
+[row.r16-212.15]
+interface = "interface.16.mk-workspace-build"
+verdict = "served"
+path = "Makefile"
+line = 2596
+symbol = "workspace-build"
+evidence = "The declaring rule retains build agent-build human-build platform-build-all programs-build interop-build, continued with paxeer-build paxeer-manifest-build developer-dashboard-build specgen-build. Its recipe also runs forge build --offline; .PHONY and workspace-ci refer to this rule."
+
+[row.r16-212.16]
+interface = "interface.16.mk-workspace-ci"
+verdict = "served"
+path = "Makefile"
+line = 2609
+symbol = "workspace-ci"
+evidence = "The declaration remains workspace-ci: public-audit workspace-inventory-check workspace-build workspace-test workspace-lint. The .PHONY entry and monorepo-ci prerequisite are references to this aggregate rule."
+
+[row.r16-212.17]
+interface = "interface.16.mk-workspace-install"
+verdict = "served"
+path = "Makefile"
+line = 2583
+symbol = "workspace-install"
+evidence = "The prerequisite-free workspace-install: declaration starts the recipe invoking workspace-node-preflight, locked Cargo fetches, JS and manifest installs, and go mod download. The earlier .PHONY entry does not carry that recipe."
+
+[row.r16-212.18]
+interface = "interface.16.mk-workspace-inventory-check"
+verdict = "served"
+path = "Makefile"
+line = 2463
+symbol = "workspace-inventory-check"
+evidence = "The prerequisite-free workspace-inventory-check: declaration runs check-paxeer-manifests.sh, check-core-gates.sh and check-platform-dependencies.sh. The .PHONY entry and paxeer-manifest and workspace-ci prerequisites are references."
+
+[row.r16-212.19]
+interface = "interface.16.mk-workspace-lint"
+verdict = "served"
+path = "Makefile"
+line = 2606
+symbol = "workspace-lint"
+evidence = "The declaring rule retains agent-lint human-lint platform-lint programs-lint interop-lint, continued with paxeer-manifest-lint developer-dashboard-static-test specgen-lint. Its .PHONY entry and workspace-ci prerequisite refer to this declaration."
+
+[row.r16-212.20]
+interface = "interface.16.mk-workspace-node-preflight"
+verdict = "served"
+path = "Makefile"
+line = 2379
+symbol = "workspace-node-preflight"
+evidence = "The prerequisite-free workspace-node-preflight: declaration carries the Node major-version check requiring at least 24. The .PHONY entry and recursive make invocation inside workspace-install are references to this rule."
+
+[row.r16-212.21]
+interface = "interface.16.mk-workspace-test"
+verdict = "served"
+path = "Makefile"
+line = 2600
+symbol = "workspace-test"
+evidence = "The declaring rule retains the registered core, agent, human, platform, programs, interop, paxeer, manifest, dashboard and specgen test prerequisites across four lines. Its recipe runs forge test --offline; .PHONY and workspace-ci reference this rule."
+
+[row.r16-212.22]
+interface = "interface.16.env-dock-kernel-init-layerx-authority-replica-id"
+verdict = "served"
+path = "docker/kernel/init.sh"
+line = 1353
+symbol = "LAYERX_AUTHORITY_REPLICA_ID"
+evidence = "The full-profile receipt-authority startup requires LAYERX_AUTHORITY_REPLICA_ID with the registered generation replica identity is required diagnostic. This validation precedes export at line 1358. The alternate profile repeats the same required-variable check at line 1382, then exports it at 1384."
+
+[row.r16-212.23]
+interface = "interface.16.env-dock-kernel-init-layerx-authority-sequencer-id"
+verdict = "served"
+path = "docker/kernel/init.sh"
+line = 1351
+symbol = "LAYERX_AUTHORITY_SEQUENCER_ID"
+evidence = "The full-profile receipt-authority startup requires LAYERX_AUTHORITY_SEQUENCER_ID with the registered generation sequencer identity is required diagnostic. The equality check at 1354 and export at 1358 are uses; the alternate profile repeats the required-variable check at 1380."
+
+[row.r16-212.24]
+interface = "interface.16.env-dock-kernel-init-layerx-authority-sequencer-public-key"
+verdict = "served"
+path = "docker/kernel/init.sh"
+line = 1352
+symbol = "LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY"
+evidence = "The full-profile receipt-authority startup requires LAYERX_AUTHORITY_SEQUENCER_PUBLIC_KEY with the registered generation sequencer public key is required diagnostic. Its export at 1358 is a later use; the alternate profile repeats the required-variable check at 1381 and exports it at 1384."
+
+[row.r16-212.25]
+interface = "interface.16.env-bringup-bringup-check-live-archive-host"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 778
+symbol = "ARCHIVE_HOST"
+evidence = "Inside check_archive_node, the facts assignment still runs timeout and ssh -n -o BatchMode=yes against ARCHIVE_HOST with archive_facts, preserving the registered signature. Help text, the roles list, status messages and the later rpc_unit lookup are other occurrences."
+
+[row.r16-212.26]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-gas-account-keystore"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 2070
+symbol = "$CHECK_LIVE_GAS_ACCOUNT_KEYSTORE"
+evidence = "The gas_sign function still invokes cast wallet sign --no-hash with its first argument and --keystore CHECK_LIVE_GAS_ACCOUNT_KEYSTORE, matching the signature. Help text, the required-variable loop and the later cast wallet address call are distinct references."
+
+[row.r16-212.27]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-gas-account-password-file"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 2071
+symbol = "$CHECK_LIVE_GAS_ACCOUNT_PASSWORD_FILE"
+evidence = "The continuation of gas_sign's cast wallet sign command still supplies --password-file CHECK_LIVE_GAS_ACCOUNT_PASSWORD_FILE with stderr redirected to /dev/null. This matches the signature rather than the help, required-variable loop or later wallet-address lookup."
+
+[row.r16-212.28]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-gas-max-token-amount"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 2086
+symbol = "CHECK_LIVE_GAS_MAX_TOKEN_AMOUNT"
+evidence = "The check_gas validation still uses if ! [[ followed by CHECK_LIVE_GAS_MAX_TOKEN_AMOUNT matched against ^[1-9][0-9]*$ ]], as registered. Its following diagnostic, help text, required-variable loop and later quote construction are other uses."
+
+[row.r16-212.29]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-gas-receipt-attempts"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 2239
+symbol = "CHECK_LIVE_GAS_RECEIPT_ATTEMPTS"
+evidence = "The check_gas receipt-poll loop still begins for attempt in $(seq with CHECK_LIVE_GAS_RECEIPT_ATTEMPTS defaulting to 36, matching the signature. Help text describes it; the comparison at 2242 only suppresses sleep after the final attempt."
+
+[row.r16-212.30]
+interface = "interface.16.env-bringup-bringup-check-live-check-live-hpx-app-origin"
+verdict = "served"
+path = "tools/bringup/check-live.sh"
+line = 947
+symbol = "CHECK_LIVE_HPX_APP_ORIGIN"
+evidence = "Inside check_hpx, the app_origin assignment reads CHECK_LIVE_HPX_APP_ORIGIN and defaults to https://$app.fly.dev, completing the registry's truncated assignment signature. The other occurrences are explanatory help text rather than the runtime assignment."

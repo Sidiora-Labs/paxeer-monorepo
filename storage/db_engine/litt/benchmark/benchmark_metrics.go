@@ -33,7 +33,10 @@ type metrics struct {
 	writeCount atomic.Uint64
 
 	// The number of read operations performed since the benchmark started.
-	readCount atomic.Uint64
+	readCount        atomic.Uint64
+	missingReadCount atomic.Uint64
+	invalidReadCount atomic.Uint64
+	expiredReadCount atomic.Uint64
 
 	// The number of flush operations performed since the benchmark started.
 	flushCount atomic.Uint64
@@ -205,6 +208,9 @@ func (m *metrics) logMetrics() {
 		"throughput", util.PrettyPrintBytes(readThroughput)+"/s",
 		"bytes", util.PrettyPrintBytes(m.bytesRead.Load()),
 		"count", util.CommaOMatic(readCount),
+		"missing", util.CommaOMatic(m.missingReadCount.Load()),
+		"invalid", util.CommaOMatic(m.invalidReadCount.Load()),
+		"expired", util.CommaOMatic(m.expiredReadCount.Load()),
 		"average_latency", util.PrettyPrintTime(averageReadLatency),
 		"longest_duration", util.PrettyPrintTime(m.longestReadDuration.Load()),
 	)

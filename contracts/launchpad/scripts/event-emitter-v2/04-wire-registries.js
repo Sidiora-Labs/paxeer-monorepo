@@ -72,8 +72,12 @@ async function maybeSet(label, current, target, setter, signer, skip) {
   return tx.hash;
 }
 
+async function qualifyUpgrade() {
+  return require("../lib/upgrade-preflight").runUpgradePreflight(["EventEmitter"]);
+}
+
 async function main() {
-  await require("../lib/upgrade-preflight").upgradePreflight(["EventEmitter"]);
+  await qualifyUpgrade();
   const network = hre.network.name;
   const [signer] = await ethers.getSigners();
   const chainId = Number((await ethers.provider.getNetwork()).chainId);
@@ -90,18 +94,9 @@ async function main() {
     addresses.OpticalRegistry_proxy,
     "OpticalRegistry_proxy"
   );
-  const metaAGRouterAddr = requireAddress(
-    addresses.MetaAGRouter_proxy,
-    "MetaAGRouter_proxy"
-  );
-  const factoryAddr = requireAddress(
-    addresses.SidioraFactory_proxy,
-    "SidioraFactory_proxy"
-  );
-  const poolRegistryAddr = requireAddress(
-    addresses.PoolRegistry_proxy,
-    "PoolRegistry_proxy"
-  );
+  const metaAGRouterAddr = requireAddress(addresses.MetaAGRouter_proxy, "MetaAGRouter_proxy");
+  const factoryAddr = requireAddress(addresses.SidioraFactory_proxy, "SidioraFactory_proxy");
+  const poolRegistryAddr = requireAddress(addresses.PoolRegistry_proxy, "PoolRegistry_proxy");
 
   console.log(`  EventEmitter:    ${eeProxy}`);
   console.log(`  OpticalRegistry: ${opticalRegistryAddr}`);
@@ -119,7 +114,7 @@ async function main() {
   if (!hasEER && !hasDAR) {
     throw new Error(
       `Signer ${signer.address} holds neither EVENT_EMITTER_ROLE nor DEFAULT_ADMIN_ROLE. ` +
-      `One of those roles is required for setOpticalRegistry/setMetaAGRouter/setSidioraFactory.`
+        `One of those roles is required for setOpticalRegistry/setMetaAGRouter/setSidioraFactory.`
     );
   }
   console.log(`  Role check:      EVENT_EMITTER_ROLE=${hasEER} DEFAULT_ADMIN_ROLE=${hasDAR}`);
@@ -172,10 +167,16 @@ async function main() {
     ee.sidioraFactory(),
     ee.poolRegistry(),
   ]);
-  if (process.env.SKIP_OPTICAL !== "1" && postOptical.toLowerCase() !== opticalRegistryAddr.toLowerCase()) {
+  if (
+    process.env.SKIP_OPTICAL !== "1" &&
+    postOptical.toLowerCase() !== opticalRegistryAddr.toLowerCase()
+  ) {
     throw new Error(`opticalRegistry storage = ${postOptical}, expected ${opticalRegistryAddr}`);
   }
-  if (process.env.SKIP_ROUTER !== "1" && postRouter.toLowerCase() !== metaAGRouterAddr.toLowerCase()) {
+  if (
+    process.env.SKIP_ROUTER !== "1" &&
+    postRouter.toLowerCase() !== metaAGRouterAddr.toLowerCase()
+  ) {
     throw new Error(`metaAGRouter storage = ${postRouter}, expected ${metaAGRouterAddr}`);
   }
   if (process.env.SKIP_FACTORY !== "1" && postFactory.toLowerCase() !== factoryAddr.toLowerCase()) {
@@ -192,7 +193,7 @@ async function main() {
     const isFactoryStaticAuth = await ee.isAuthorizedEmitter(factoryAddr);
     console.log(
       `    isAuthorizedEmitter(SidioraFactory): ${isFactoryStaticAuth}` +
-      (isFactoryStaticAuth ? "  (static set)" : "  (dynamic via sidioraFactory==msg.sender path)")
+        (isFactoryStaticAuth ? "  (static set)" : "  (dynamic via sidioraFactory==msg.sender path)")
     );
   } catch (err) {
     console.warn(`    ⚠ probe failed: ${err.message.split("\n")[0]}`);
@@ -211,9 +212,9 @@ async function main() {
       const isStatic = await ee.isAuthorizedEmitter(samplePool);
       console.log(
         `    sample pool ${samplePool}:  isAuthorizedEmitter=${isStatic}` +
-        (isStatic
-          ? "  (static)"
-          : "  (relies on poolRegistry dynamic path — confirmed at emit time)")
+          (isStatic
+            ? "  (static)"
+            : "  (relies on poolRegistry dynamic path — confirmed at emit time)")
       );
     } else {
       console.log("    ⚠ PoolRegistry has zero pools — sample-pool probe skipped");
@@ -253,9 +254,12 @@ async function main() {
   console.log("══════════════════════════════════════════════════════════════════\n");
 }
 
-main()
-  .then(() => process.exit(0))
-  .catch((err) => {
-    console.error("❌ 04-wire-registries failed:", err);
-    process.exit(1);
-  });
+module.exports = { main, qualifyUpgrade };
+
+if (require.main === module)
+  main()
+    .then(() => process.exit(0))
+    .catch((err) => {
+      console.error("❌ 04-wire-registries failed:", err);
+      process.exit(1);
+    });

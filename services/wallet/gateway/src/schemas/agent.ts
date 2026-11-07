@@ -60,10 +60,10 @@ export const AgentSignTypedDataBody = z
   .object({
     typedData: z
       .object({
-        domain: z.record(z.unknown()).optional(),
-        types: z.record(z.unknown()),
+        domain: z.record(z.string(), z.unknown()).optional(),
+        types: z.record(z.string(), z.unknown()),
         primaryType: z.string().min(1),
-        message: z.record(z.unknown()),
+        message: z.record(z.string(), z.unknown()),
       })
       .passthrough(),
   })
@@ -110,12 +110,15 @@ export const IdempotencyKey = z
   .max(128)
   .regex(/^[A-Za-z0-9_.:-]+$/, 'idempotency_key may only contain [A-Za-z0-9_.:-]');
 
-/** Solidity method signature, e.g. "depositUSDL(uint256,bytes32)". */
+/** Solidity method signature, e.g. "transfer(address,uint256)". */
 export const MethodSignature = z
   .string()
   .min(3)
   .max(256)
-  .regex(/^[a-zA-Z_$][a-zA-Z0-9_$]*\((|[a-zA-Z0-9_,\[\] ]*)\)$/, 'must be a Solidity function signature');
+  .regex(
+    /^[a-zA-Z_$][a-zA-Z0-9_$]*\((|[a-zA-Z0-9_,\[\] ]*)\)$/,
+    'must be a Solidity function signature'
+  );
 
 export const LayerxDepositBody = z
   .object({
@@ -157,7 +160,9 @@ export const ScheduleBody = z
   .strict();
 
 export const SchedulerJobIdBody = z.object({ job_id: NumericString }).strict();
-export const RescheduleBody = z.object({ job_id: NumericString, new_block: NumericString }).strict();
+export const RescheduleBody = z
+  .object({ job_id: NumericString, new_block: NumericString })
+  .strict();
 
 export const StreamOpenBody = z
   .object({

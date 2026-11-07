@@ -24,6 +24,8 @@ import (
 )
 
 func TestDefaultParams(t *testing.T) {
+	require.Equal(t, sdk.NewDec(67_000_000), types.DefaultParams().MinimumFeePerGas)
+	require.Equal(t, sdk.NewDec(67_000_000), types.MaxMinFeePerGas)
 	require.Equal(t, types.Params{
 		AllowedFeeDenoms:                       types.DefaultAllowedFeeDenoms,
 		MaxFeeTokenRateAge:                     types.DefaultMaxFeeTokenRateAge,

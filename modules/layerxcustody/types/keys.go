@@ -33,6 +33,7 @@ var (
 	CheckpointPrefix   = []byte{0x50}
 	LatestCheckpoint   = []byte{0x51}
 	ExitCheckpointKey  = []byte{0x52}
+	ExitedTotalPrefix  = []byte{0x53}
 	DepositRootPrefix  = []byte{0x60}
 )
 
@@ -67,4 +68,7 @@ func ConsumedKey(account, assetID, anchor [32]byte) []byte {
 }
 func CheckpointKey(batchNumber uint64) []byte {
 	return binary.BigEndian.AppendUint64(append([]byte(nil), CheckpointPrefix...), batchNumber)
+}
+func ExitedTotalKey(account, assetID [32]byte) []byte {
+	return join(ExitedTotalPrefix, account[:], assetID[:])
 }

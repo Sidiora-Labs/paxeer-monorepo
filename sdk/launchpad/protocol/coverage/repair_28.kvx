@@ -1,0 +1,23 @@
+[repair.22.31.28]
+finding = "emitter-caller-evidence"
+proof = "TestRepair_28_EmitterCallerEvidence (PoolSwap, RouterSwap, ForgedCaller, TraceRefusals, VerifiedNativeReceiptEvidence)"
+implementation = "Block-hash callTracer evidence binds the signed root, effective frame caller and selector, ordered receipt logs and consumer payload; native Swap uses committed receipt and transaction roots plus pinned pool registration. The measure command wires both providers."
+baseline = "The supplied attempt-1 evidence at revision 79bfde1be0b575e3f4e95969b3ecf914ee39bbb1 already reports failing PoolSwap, RouterSwap, ForgedCaller and TraceRefusals cases because debug_traceBlockByHash was unavailable; its aggregate gate also reports the unchanged historical-input failure. No unchanged gate is repeated here."
+wiring_request = "precompiles/launchpad and modules/launchpad (owning domain: native launchpad): add the native keeper/router receipt integration proof against coverage's RPCNativeReceiptSource; this task cannot import the root fork's keeper/geth types into the isolated upstream-geth protocol module."
+gotcha = "The native producer emits Swap at reserved 0x1017 without an emitSwap EVM frame; signed transaction sender and Swap.sender are not its logical pool caller."
+
+[qualification.unrelated_historical_inputs]
+revision = "8d4c22f730d4ab3231364f7aab66d502486c04de"
+command = "cg spec done 22.31.28 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Existing TestRealReviewedHistoricalDecoderMeasurement fails because the reviewed L02 manifest, digest and chain125 RPC inputs are absent; that test is unchanged."
+assumption = "Historical measurement inputs belong to release qualification; this task does not fabricate them or disable their check."
+
+[gotcha.test_receipts]
+symptom = "Receipt JSON with a null logs field is rejected by geth's required-field decoder."
+repair = "The supplemental root comparison corpus serializes empty log arrays explicitly; the pool and router receipts come from the real local node."
+
+[gotcha.trace_service]
+symptom = "The simulated backend exposes eth RPC but debug_traceBlockByHash is unavailable even with debug in HTTPModules."
+repair = "Assemble the real geth node and simulated beacon with tracers.APIs registered before node start and the native callTracer registered by its package import."

@@ -1,0 +1,16 @@
+[repair.22.33.1365]
+audit = "22.30.74"
+mode = "BUILD"
+baseline = "Not run: the explicit implementation-first order and prohibition on running verify_cmd by hand override the contradictory baseline instruction; no pre-change failure is claimed."
+verification = "hf-build then hf-done; the runner ledger supplies the exact verified candidate revision, command, exit code and private evidence log."
+fixture = "The production command exported by build-reference-apps.mjs launches committed Node process fixtures that exchange real HTTP requests and JSON responses with an in-process loopback server; no toolchain, external endpoint, credential or environment setting is required."
+
+[finding.reference-build-process-deadline]
+tests = ["referenceBuildCommandPreservesRealResponse", "referenceBuildCommandReportsBoundedFailure", "referenceBuildDeadlineKillsTermResistantGroup", "referenceBuildOverflowKillsAndBoundsBothStreams", "referenceBuildFailedLeaderCleansDescendants", "referenceBuildSpawnFailureAndLimits"]
+implementation = "All build and git commands use a bounded asynchronous runner: a fifteen-minute deadline, sixteen-MiB aggregate stdout/stderr limit, sixteen-KiB diagnostic tails per stream, detached process group, TERM followed by awaited KILL after one second, and awaited child close before settlement. Callers may tighten limits only."
+proof = "Real processes exercise successful JSON consumption, bounded failure diagnostics, stdout/stderr/combined overflow, TERM resistance, closed pipes with a live leader, a leader exiting during grace, and a failed leader with a surviving descendant. Tests assert the leader is reaped and descendants cannot execute before settlement; orphan zombies are left to the operating-system reaper."
+wiring = "None: the full repair is within services/platform/examples."
+
+[gotcha.nested-error-assertion]
+observed = "The first hf-done failed only in the spawn-error test: assert.rejects compares a nested Error cause by deep equality, not by the partial top-level error matching rules."
+action = "Assert the real cause's Error type, message and complete enumerable spawn details, preserving the ENOENT criterion and strengthening its checks."

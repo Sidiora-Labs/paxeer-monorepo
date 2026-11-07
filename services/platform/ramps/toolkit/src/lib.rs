@@ -2,19 +2,23 @@
 
 pub mod clients;
 pub mod engine;
+pub mod evm;
 pub mod journal;
 pub mod migration;
 
-use layerx_intents::{DisclosureCheck, Intent, IntentKind, LxpReceive, LxpSend, compile};
-use layerx_proof::receipt::{AuthorizedBatch, ReceiptCheck, verify};
+pub use clients::parse_transaction_hash;
+
+use layerx_client::sequencer::{ReceiptKeyEntry, SequencerLog};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{verify_sequencer_signature, ReceiptCheck};
 use layerx_types::account::{AccountId, AccountNamespace};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{AssetId, IdempotencyKey};
-use layerx_types::intent::{
-    AuthorizationSignature, ContextHash, NetworkId, PayerGrantId, ProtocolVersion, PublicKey,
-    SendAuthorization, SendAuthorizationKind, Sequence, TimestampSeconds,
+use layerx_types::rung::Rung;
+use sha3::Keccak256;
+
+use crate::evm::{
+    decode_budget_spent, decode_ledger_payment, encode_budget_spend, encode_pay_exact,
+    LedgerPayment, LEDGER_ADDRESS, PAY_ADDRESS,
 };
-use layerx_types::payload::ModuleRegistry;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -75,6 +79,7 @@ pub struct QuoteTerms {
     pub context: [u8; 32],
     pub provider_token: String,
     pub payout_token: String,
+    /// Quote expiry as Unix seconds; native payment calls use checked milliseconds.
     pub expires_at: u64,
 }
 
@@ -90,6 +95,7 @@ impl QuoteTerms {
             || self.rate_denominator == 0
             || self.maximum_slippage_bps > 10_000
             || self.context == [0; 32]
+            || self.expires_at.checked_mul(1_000).is_none()
             || self.expires_at <= now
             || self.external_currency.is_empty()
             || self.external_currency.len() > MAX_CURRENCY_BYTES
@@ -110,7 +116,10 @@ impl QuoteTerms {
 pub struct CreateOrder {
     pub order_id: String,
     pub quote_id: String,
+    #[serde(rename = "customer_budget_id", alias = "payer_grant")]
     pub payer_grant: Option<[u8; 32]>,
+    #[serde(rename = "customer_budget_purpose", alias = "payer_grant_purpose")]
+    pub payer_grant_purpose: Option<[u8; 32]>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -121,6 +130,7 @@ pub struct RampOrder {
     pub customer: AuthenticatedPrincipal,
     pub operator: OperatorIdentity,
     pub payer_grant: Option<[u8; 32]>,
+    pub payer_grant_purpose: Option<[u8; 32]>,
     pub context: [u8; 32],
     pub order_digest: [u8; 32],
 }
@@ -142,8 +152,11 @@ impl RampOrder {
         validate_operator(&operator)?;
         if request.quote_id != quote.quote_id
             || request.payer_grant == Some([0; 32])
-            || matches!(quote.direction, RampDirection::OnRamp) && request.payer_grant.is_some()
-            || matches!(quote.direction, RampDirection::OffRamp) && request.payer_grant.is_none()
+            || request.payer_grant_purpose == Some([0; 32])
+            || matches!(quote.direction, RampDirection::OnRamp)
+                && (request.payer_grant.is_some() || request.payer_grant_purpose.is_some())
+            || matches!(quote.direction, RampDirection::OffRamp)
+                && (request.payer_grant.is_none() || request.payer_grant_purpose.is_none())
         {
             return Err(RampError::InvalidOrder);
         }
@@ -154,6 +167,7 @@ impl RampOrder {
             customer,
             operator,
             payer_grant: request.payer_grant,
+            payer_grant_purpose: request.payer_grant_purpose,
             context,
             order_digest: [0; 32],
         };
@@ -188,6 +202,12 @@ impl RampOrder {
         field(
             &mut hasher,
             self.payer_grant
+                .as_ref()
+                .map_or(&[], |value| value.as_slice()),
+        );
+        field(
+            &mut hasher,
+            self.payer_grant_purpose
                 .as_ref()
                 .map_or(&[], |value| value.as_slice()),
         );
@@ -265,196 +285,233 @@ fn field(hasher: &mut Sha256, bytes: &[u8]) {
     hasher.update(bytes);
 }
 
-#[derive(Clone, Debug)]
-pub struct CompiledPayment {
-    pub intent: Intent,
-    pub activity_type: layerx_types::payload::ActivityType,
-    pub payload: layerx_types::payload::Payload,
-    pub canonical_payload: Vec<u8>,
-    pub payload_hash: [u8; 32],
+/// A compiled native ledger destination and its owned ABI calldata.
+/// The transaction signer consumes both fields; this value carries no cached
+/// execution result or receipt authorization.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LedgerCall {
+    pub to: [u8; 20],
+    pub data: Vec<u8>,
 }
 
-/// # Errors
-/// Returns [`RampError::PayerGrantRequired`], [`RampError::InvalidPrincipal`] or [`RampError::Intent`] when the draw cannot be compiled.
+fn ledger_account(account: &str) -> Result<[u8; 32], RampError> {
+    let account = AccountId::parse(account).map_err(|_| RampError::InvalidPrincipal)?;
+    layerx_wire::hash::account_id_for_protocol(
+        &account,
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .map_err(|_| RampError::Intent)
+}
+
+/// Protocol account identifiers shared by payment compilation and receipt verification.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct PaymentAccounts {
+    pub from: [u8; 32],
+    pub to: [u8; 32],
+}
+
+impl RampOrder {
+    pub fn payment_accounts(&self) -> Result<PaymentAccounts, RampError> {
+        self.validate_bound()?;
+        let (from, to) = match self.direction() {
+            RampDirection::OnRamp => (&self.operator.account, &self.customer.account),
+            RampDirection::OffRamp => (&self.customer.account, &self.operator.account),
+        };
+        Ok(PaymentAccounts {
+            from: ledger_account(from)?,
+            to: ledger_account(to)?,
+        })
+    }
+}
+
+/// The customer's maintained budget authorization. The budget must be owned
+/// by the customer, who signs the exact spending transaction at 0x101B.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CustomerPaymentAuthorization {
+    pub budget_id: [u8; 32],
+    pub purpose_hash: [u8; 32],
+}
+
+impl RampOrder {
+    pub fn customer_payment_authorization(
+        &self,
+    ) -> Result<CustomerPaymentAuthorization, RampError> {
+        if self.direction() != RampDirection::OffRamp {
+            return Err(RampError::InvalidOrder);
+        }
+        Ok(CustomerPaymentAuthorization {
+            budget_id: self
+                .payer_grant
+                .filter(|id| *id != [0; 32])
+                .ok_or(RampError::PayerGrantRequired)?,
+            purpose_hash: self
+                .payer_grant_purpose
+                .filter(|id| *id != [0; 32])
+                .ok_or(RampError::PayerGrantRequired)?,
+        })
+    }
+}
+
+/// Compatibility entry point; compiles the maintained customer budget
+/// authority, never the retired ledger draw selector. Sequence is EVM nonce.
 pub fn compile_payer_grant_draw(
     order: &RampOrder,
-    receiver_sequence: u64,
-    registry: &ModuleRegistry,
-) -> Result<CompiledPayment, RampError> {
+    _receiver_sequence: u64,
+) -> Result<LedgerCall, RampError> {
+    compile_customer_payment(order)
+}
+
+pub fn compile_customer_payment(order: &RampOrder) -> Result<LedgerCall, RampError> {
     order.validate_bound()?;
-    let grant = order.payer_grant.ok_or(RampError::PayerGrantRequired)?;
-    let (from, to) = match order.direction() {
-        RampDirection::OnRamp => (&order.operator.account, &order.customer.account),
-        RampDirection::OffRamp => (&order.customer.account, &order.operator.account),
-    };
-    let receive = LxpReceive::new(
-        AccountId::parse(from).map_err(|_| RampError::InvalidPrincipal)?,
-        AccountId::parse(to).map_err(|_| RampError::InvalidPrincipal)?,
-        AssetId::new(order.quote.layerx_asset),
-        Amount::from_u128(order.quote.layerx_amount),
-        PayerGrantId::new(grant),
-        Sequence::from_u64(receiver_sequence),
-        IdempotencyKey::new(order.order_digest),
-        ContextHash::new(order.context),
-    )
-    .map_err(|_| RampError::Intent)?;
-    compile_intent(Intent::v1(IntentKind::LxpReceive(receive)), registry)
+    let authorization = order.customer_payment_authorization()?;
+    Ok(LedgerCall {
+        to: PAY_ADDRESS,
+        data: encode_budget_spend(
+            authorization.budget_id,
+            order.payment_accounts()?.to,
+            order.quote.layerx_amount,
+        ),
+    })
 }
 
 /// # Errors
-/// Returns [`RampError::InvalidOrder`], [`RampError::InvalidPrincipal`] or [`RampError::Intent`] when the authorization message cannot be formed.
-pub fn operator_send_authorization_message(
-    order: &RampOrder,
-    account_sequence: u64,
-    network_id: u32,
-    protocol_version: u16,
-) -> Result<Vec<u8>, RampError> {
+/// Refuses orders that do not describe an operator-funded on-ramp payment.
+pub fn compile_operator_send(order: &RampOrder) -> Result<LedgerCall, RampError> {
     order.validate_bound()?;
-    if order.direction() != RampDirection::OnRamp
-        || order.payer_grant.is_some()
-        || network_id == 0
-        || protocol_version != layerx_wire::limits::PROTOCOL_VERSION
-    {
+    if order.direction() != RampDirection::OnRamp || order.payer_grant.is_some() {
         return Err(RampError::InvalidOrder);
     }
-    let from = layerx_wire::hash::account_id(
-        &AccountId::parse(&order.operator.account).map_err(|_| RampError::InvalidPrincipal)?,
-    )
-    .map_err(|_| RampError::Intent)?;
-    let to = layerx_wire::hash::account_id(
-        &AccountId::parse(&order.customer.account).map_err(|_| RampError::InvalidPrincipal)?,
-    )
-    .map_err(|_| RampError::Intent)?;
-    let mut message = Vec::with_capacity(236);
-    message.extend_from_slice(&0x5301_u16.to_be_bytes());
-    message.extend_from_slice(&from);
-    message.extend_from_slice(&to);
-    message.extend_from_slice(&order.quote.layerx_asset);
-    message.extend_from_slice(&order.quote.layerx_amount.to_be_bytes());
-    message.extend_from_slice(&account_sequence.to_be_bytes());
-    message.extend_from_slice(&order.order_digest);
-    message.extend_from_slice(&order.quote.expires_at.to_be_bytes());
-    message.extend_from_slice(&order.context);
-    message.push(0);
-    message.push(SendAuthorizationKind::Owner as u8);
-    message.extend_from_slice(&from);
-    message.extend_from_slice(&order.context);
-    message.extend_from_slice(&network_id.to_be_bytes());
-    message.extend_from_slice(&protocol_version.to_be_bytes());
-    Ok(message)
-}
-
-/// # Errors
-/// Returns [`RampError::InvalidOrder`], [`RampError::InvalidPrincipal`] or [`RampError::Intent`] when the operator send cannot be compiled.
-pub fn compile_operator_send(
-    order: &RampOrder,
-    account_sequence: u64,
-    network_id: u32,
-    protocol_version: u16,
-    public_key: [u8; 32],
-    authorization_signature: [u8; 64],
-    registry: &ModuleRegistry,
-) -> Result<CompiledPayment, RampError> {
-    operator_send_authorization_message(order, account_sequence, network_id, protocol_version)?;
-    let send = LxpSend::new(
-        AccountId::parse(&order.operator.account).map_err(|_| RampError::InvalidPrincipal)?,
-        AccountId::parse(&order.customer.account).map_err(|_| RampError::InvalidPrincipal)?,
-        AssetId::new(order.quote.layerx_asset),
-        Amount::from_u128(order.quote.layerx_amount),
-        Sequence::from_u64(account_sequence),
-        IdempotencyKey::new(order.order_digest),
-        TimestampSeconds::from_u64(order.quote.expires_at),
-        ContextHash::new(order.context),
-        SendAuthorization::new(
-            SendAuthorizationKind::Owner,
-            PublicKey::new(public_key),
-            AuthorizationSignature::new(authorization_signature),
+    let accounts = order.payment_accounts()?;
+    Ok(LedgerCall {
+        to: LEDGER_ADDRESS,
+        data: encode_pay_exact(
+            accounts.from,
+            accounts.to,
+            order.quote.layerx_asset,
+            order.quote.layerx_amount,
+            order
+                .quote
+                .expires_at
+                .checked_mul(1_000)
+                .ok_or(RampError::InvalidOrder)?,
+            order.order_digest,
         ),
-        NetworkId::new(network_id).map_err(|_| RampError::Intent)?,
-        ProtocolVersion::new(protocol_version).map_err(|_| RampError::Intent)?,
-    )
-    .map_err(|_| RampError::Intent)?;
-    compile_intent(Intent::v1(IntentKind::LxpSend(send)), registry)
-}
-
-fn compile_intent(intent: Intent, registry: &ModuleRegistry) -> Result<CompiledPayment, RampError> {
-    let compiled = compile(&intent, registry).map_err(|_| RampError::Intent)?;
-    let disclosure = DisclosureCheck::verify(&intent, &compiled).map_err(|_| RampError::Intent)?;
-    Ok(CompiledPayment {
-        intent,
-        activity_type: compiled.activity_type(),
-        payload: compiled.payload().clone(),
-        canonical_payload: disclosure.canonical_payload().to_vec(),
-        payload_hash: disclosure.payload_hash(),
     })
 }
 
 #[derive(Clone, Debug)]
 pub struct ReceiptEvidence {
-    pub activity_id: [u8; 32],
-    pub canonical_receipt: Vec<u8>,
-    pub authorized_batch: AuthorizedBatch,
+    pub raw_transaction: Vec<u8>,
+    pub signed_receipt: Vec<u8>,
+    pub receipt_keys: Vec<ReceiptKeyEntry>,
+    pub logs: Vec<SequencerLog>,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct VerifiedLayerxLeg {
-    pub activity_id: [u8; 32],
+    #[serde(
+        rename = "transaction_hash",
+        serialize_with = "serialize_transaction_hash"
+    )]
+    pub tx_hash: [u8; 32],
     pub receipt_digest: [u8; 32],
-    pub batch_id: [u8; 32],
-    pub resulting_state_root: [u8; 32],
+    pub height: u64,
+    #[serde(serialize_with = "serialize_rung")]
+    pub rung: Rung,
+}
+
+fn serialize_rung<S: serde::Serializer>(rung: &Rung, serializer: S) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(rung.name())
 }
 
 /// # Errors
-/// Returns [`RampError::Receipt`], [`RampError::ReceiptMismatch`] or [`RampError::InvalidPrincipal`] when the receipt does not bind the order.
+/// Refuses unpinned signatures, transaction mismatches and logs that do not bind exactly one payment to the order.
 pub fn verify_order_receipt(
     order: &RampOrder,
     evidence: &ReceiptEvidence,
 ) -> Result<VerifiedLayerxLeg, RampError> {
     order.validate_bound()?;
-    let verified = verify(&evidence.canonical_receipt, &evidence.authorized_batch)
+    let keys: Vec<_> = evidence
+        .receipt_keys
+        .iter()
+        .map(|key| {
+            SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect();
+    let receipt = verify_sequencer_signature(&evidence.signed_receipt, keys.as_slice())
         .map_err(|failure| RampError::Receipt(failure.check))?;
-    let protocol = verified
-        .receipt()
-        .protocol()
-        .ok_or(RampError::ReceiptMismatch)?;
-    let (from, to) = match order.direction() {
-        RampDirection::OnRamp => (&order.operator.account, &order.customer.account),
-        RampDirection::OffRamp => (&order.customer.account, &order.operator.account),
-    };
-    let expected_from = layerx_wire::hash::account_id_for_protocol(
-        &AccountId::parse(from).map_err(|_| RampError::InvalidPrincipal)?,
-        protocol.protocol_version(),
-    )
-    .map_err(|_| RampError::ReceiptMismatch)?;
-    let expected_to = layerx_wire::hash::account_id_for_protocol(
-        &AccountId::parse(to).map_err(|_| RampError::InvalidPrincipal)?,
-        protocol.protocol_version(),
-    )
-    .map_err(|_| RampError::ReceiptMismatch)?;
-    let operation = match order.direction() {
-        RampDirection::OnRamp => 5,
-        RampDirection::OffRamp => 6,
-    };
-    if protocol.module_id() != 1
-        || protocol.operation() != operation
-        || protocol.activity_id() != evidence.activity_id
-        || protocol.from() != expected_from
-        || protocol.to() != expected_to
-        || protocol.asset() != order.quote.layerx_asset
-        || protocol.amount() != order.quote.layerx_amount
-        || protocol.context_hash() != order.context
+    let protocol = receipt.protocol().ok_or(RampError::ReceiptMismatch)?;
+    let tx_hash: [u8; 32] = Keccak256::digest(&evidence.raw_transaction).into();
+    if evidence.raw_transaction.is_empty()
+        || protocol.activity_id() != tx_hash
+        || protocol.result_code() != 0
     {
         return Err(RampError::ReceiptMismatch);
     }
-    let receipt_digest = verified
-        .evidence()
-        .receipt_digest()
-        .ok_or(RampError::ReceiptMismatch)?;
+    let logs = evidence
+        .logs
+        .iter()
+        .map(|log| {
+            layerx_proof::sequencer_logs::SequencerLog::new(
+                log.address,
+                log.topics.clone(),
+                log.data.clone(),
+                log.log_index,
+            )
+        })
+        .collect();
+    layerx_proof::sequencer_logs::verify_logs(&receipt, logs)
+        .map_err(|_| RampError::ReceiptMismatch)?;
+    let PaymentAccounts { from, to } = order.payment_accounts()?;
+    match order.direction() {
+        RampDirection::OnRamp if order.payer_grant.is_none() => {
+            let expected = LedgerPayment::Exact {
+                from,
+                to,
+                reference: order.order_digest,
+                asset: order.quote.layerx_asset,
+                amount: order.quote.layerx_amount,
+            };
+            let mut payments = evidence.logs.iter().filter_map(decode_ledger_payment);
+            if payments.next() != Some(expected) || payments.next().is_some() {
+                return Err(RampError::ReceiptMismatch);
+            }
+        }
+        RampDirection::OffRamp => {
+            let (call, _) =
+                layerx_crypto::evm_transaction::decode_signed(&evidence.raw_transaction)
+                    .map_err(|_| RampError::ReceiptMismatch)?;
+            let compiled = compile_customer_payment(order)?;
+            if call.to != compiled.to || call.data != compiled.data {
+                return Err(RampError::ReceiptMismatch);
+            }
+            let expected = (
+                order.customer_payment_authorization()?.budget_id,
+                to,
+                order.quote.layerx_amount,
+            );
+            let mut payments = evidence.logs.iter().filter_map(decode_budget_spent);
+            if payments.next() != Some(expected) || payments.next().is_some() {
+                return Err(RampError::ReceiptMismatch);
+            }
+        }
+        RampDirection::OnRamp => return Err(RampError::ReceiptMismatch),
+    }
+    let height = u64::from_be_bytes(
+        protocol.batch_id()[24..]
+            .try_into()
+            .map_err(|_| RampError::ReceiptMismatch)?,
+    );
     Ok(VerifiedLayerxLeg {
-        activity_id: evidence.activity_id,
-        receipt_digest,
-        batch_id: protocol.batch_id(),
-        resulting_state_root: protocol.resulting_state_root(),
+        tx_hash,
+        receipt_digest: Keccak256::digest(&evidence.signed_receipt).into(),
+        height,
+        rung: Rung::Receipted,
     })
 }
 
@@ -471,14 +528,51 @@ pub enum AggregateStatus {
 
 #[derive(Clone, Debug, Eq, PartialEq, Serialize)]
 pub struct RampPresentation {
+    pub version: u8,
+    #[serde(serialize_with = "serialize_optional_transaction_hash")]
+    pub transaction_hash: Option<[u8; 32]>,
     pub external_custody_label: &'static str,
     pub status: AggregateStatus,
     pub order_digest: [u8; 32],
+    /// Rust source compatibility only; the v2 wire contract has no activity identifier.
+    #[deprecated(note = "use transaction_hash; legacy wire output requires presentation_v1")]
+    #[serde(skip_serializing)]
     pub activity_id: Option<[u8; 32]>,
     pub receipt_digest: Option<[u8; 32]>,
     pub provider_evidence_digest: Option<[u8; 32]>,
     pub refusal_code: Option<String>,
     pub retry_at: Option<u64>,
+}
+
+/// Explicit read-only projection for historical activity evidence.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+pub struct LegacyRampPresentation {
+    pub version: u8,
+    pub activity_id: Option<[u8; 32]>,
+    pub status: AggregateStatus,
+    pub order_digest: [u8; 32],
+    pub external_custody_label: &'static str,
+    pub receipt_digest: Option<[u8; 32]>,
+    pub provider_evidence_digest: Option<[u8; 32]>,
+    pub refusal_code: Option<String>,
+    pub retry_at: Option<u64>,
+}
+
+fn serialize_transaction_hash<S: serde::Serializer>(
+    hash: &[u8; 32],
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.serialize_str(&format!("0x{}", clients::hex(hash)))
+}
+
+fn serialize_optional_transaction_hash<S: serde::Serializer>(
+    hash: &Option<[u8; 32]>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    match hash {
+        Some(hash) => serialize_transaction_hash(hash, serializer),
+        None => serializer.serialize_none(),
+    }
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]

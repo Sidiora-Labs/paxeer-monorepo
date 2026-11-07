@@ -10,7 +10,8 @@
 #include <string.h>
 
 #define REQUIRE(condition) do { if (!(condition)) { \
-    (void)fprintf(stderr, "state commitment check failed at line %d\n", __LINE__); \
+    (void)fprintf(stderr, "state commitment check failed at line %d: %s\n", \
+                  __LINE__, #condition); \
     return 1; } } while (0)
 
 typedef struct fixture {
@@ -115,7 +116,7 @@ static int prepare_names(fixture *f, uint16_t version, bool success,
         (void)memcpy(f->transfer_asset.asset_id, send.asset, 32U);
         f->transfer_asset.registered = true;
         f->runtime = (lx_asset_runtime){&f->accounts, &f->asset, 1U,
-            &f->transfer_asset, 1U, 7U, version};
+            &f->transfer_asset, 1U, 7U, version, false};
         REQUIRE(lxp_kernel_bind_module_runtime(&f->kernel, LXP_MODULE_ASSET, &f->runtime) == LXP_OK);
     }
     f->activity.protocol_version = version;
@@ -282,47 +283,17 @@ static int legacy_root(fixture *f)
     return 0;
 }
 
-static int receipt_state_tamper(fixture *f, const uint8_t original[32])
-{
-    lxp_idempotency_key_state *entry = &f->state.idempotency[0];
-    uint8_t changed[32];
-    uint8_t projection[LXP_STATE_MAX_RECEIPT_BYTES];
-    uint32_t original_length = entry->receipt_length;
-    size_t offset;
-    REQUIRE(original_length > 1U);
-    REQUIRE(lxp_kernel_idempotency_state_value(entry->receipt, original_length,
-                projection, original_length - 1U) == LXP_ERR_NON_CANONICAL);
-    entry->receipt_length = original_length - 1U;
-    REQUIRE(lxp_state_root(&f->kernel, changed) == LXP_ERR_NON_CANONICAL);
-    entry->receipt_length = original_length;
-    for (offset = 0U; offset + 32U <= entry->receipt_length; ++offset)
-        if (memcmp(entry->receipt + offset, f->receipt.activity_id, 32U) == 0) break;
-    REQUIRE(offset + 32U <= entry->receipt_length);
-    entry->receipt[offset] ^= 1U;
-    REQUIRE(lxp_state_root(&f->kernel, changed) == LXP_OK);
-    REQUIRE(memcmp(original, changed, 32U) != 0);
-    entry->receipt[offset] ^= 1U;
-    for (offset = 0U; offset + 32U <= entry->receipt_length; ++offset)
-        if (memcmp(entry->receipt + offset, f->receipt.resulting_state_root, 32U) == 0) break;
-    REQUIRE(offset + 32U <= entry->receipt_length);
-    entry->receipt[offset] ^= 1U;
-    REQUIRE(lxp_state_root(&f->kernel, changed) == LXP_OK);
-    REQUIRE(memcmp(original, changed, 32U) == 0);
-    entry->receipt[offset] ^= 1U;
-    REQUIRE(lxp_receipt_verify(&f->receipt, f->public_key, &f->arena) == LXP_OK);
-    return 0;
-}
-
 static int transition(uint16_t version, bool success)
 {
     fixture *f = (fixture *)calloc(1U, sizeof(*f));
+    lxp_identity *identity;
     uint8_t committed[32];
-    uint8_t changed[32];
-    uint8_t saved;
     lxp_byte_span wire;
     lxp_receipt *decoded;
     REQUIRE(f != NULL);
     REQUIRE(prepare(f, version, success) == 0);
+    REQUIRE(lxp_identity_resolve(&f->identities, did, sizeof(did) - 1U,
+                                 &identity) == LXP_OK);
     REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
                                          &f->execution, &f->receipt) == LXP_OK);
     if (f->receipt.result_code != (success ? LXP_OK : LXP_ERR_FEE_LIMIT))
@@ -370,15 +341,8 @@ static int transition(uint16_t version, bool success)
     REQUIRE(lxp_state_root(&f->kernel, committed) == LXP_OK);
     if (version == LXP_PROTOCOL_VERSION_STATE_COMMITMENT) {
         REQUIRE(memcmp(committed, f->receipt.resulting_state_root, 32U) == 0);
-        REQUIRE(f->state.idempotency_count == 1U);
-        REQUIRE(receipt_state_tamper(f, committed) == 0);
-        saved = f->state.idempotency[0].key_hash[0];
-        f->state.idempotency[0].key_hash[0] ^= 1U;
-        REQUIRE(lxp_state_root(&f->kernel, changed) == LXP_OK);
-        REQUIRE(memcmp(committed, changed, 32U) != 0);
-        f->state.idempotency[0].key_hash[0] = saved;
-        REQUIRE(lxp_state_root(&f->kernel, changed) == LXP_OK);
-        REQUIRE(memcmp(committed, changed, 32U) == 0);
+        REQUIRE(identity->next_sequence == f->activity.account_sequence + 1U);
+        REQUIRE(f->state.next_sequence == f->execution.global_sequence + 1U);
         if (success) {
             REQUIRE(f->accounts.accounts[0].balance.lo + f->accounts.accounts[1].balance.lo == 10U);
             REQUIRE(f->receipt.amount.lo == 1U);
@@ -395,12 +359,15 @@ static int transition(uint16_t version, bool success)
 static int refusal_with_accounts(bool malformed)
 {
     fixture *f = (fixture *)calloc(1U, sizeof(*f));
+    lxp_identity *identity;
     uint8_t digest[32];
     uint8_t original_root[32];
     lxp_send decoded;
     lxp_result expected;
     REQUIRE(f != NULL);
     REQUIRE(prepare(f, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true) == 0);
+    REQUIRE(lxp_identity_resolve(&f->identities, did, sizeof(did) - 1U,
+                                 &identity) == LXP_OK);
     f->fees.base_fee.lo = 1U;
     REQUIRE(lxp_state_root(&f->kernel, original_root) == LXP_OK);
     if (malformed) {
@@ -414,7 +381,7 @@ static int refusal_with_accounts(bool malformed)
         REQUIRE(expected != LXP_OK);
         REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
                                               &f->execution, &f->receipt) == expected);
-        REQUIRE(f->state.idempotency_count == 0U);
+        REQUIRE(identity->next_sequence == f->activity.account_sequence);
         REQUIRE(f->state.next_sequence == 1U);
         REQUIRE(lxp_state_root(&f->kernel, digest) == LXP_OK);
         REQUIRE(memcmp(original_root, digest, 32U) == 0);
@@ -613,9 +580,7 @@ static int pay1_submit_bytes(fixture *f, uint16_t ordinal, const uint8_t *payloa
         uint8_t replay_root[32];
         uint64_t next_sequence = actor_identity->next_sequence;
         REQUIRE(lxp_kernel_execute_activity(&f->kernel, &f->activity,
-            &f->execution, &replay) == LXP_ERR_IDEMPOTENT_REPLAY);
-        REQUIRE(replay.result_code == f->receipt.result_code);
-        REQUIRE(memcmp(replay.activity_id, f->receipt.activity_id, 32U) == 0);
+            &f->execution, &replay) == LXP_ERR_SEQUENCE_REUSED);
         REQUIRE(actor_identity->next_sequence == next_sequence);
         REQUIRE(lxp_state_root(&f->kernel, replay_root) == LXP_OK);
         REQUIRE(memcmp(root, replay_root, 32U) == 0);
@@ -628,164 +593,35 @@ static int pay1_submit(fixture *f, uint16_t ordinal, size_t length, lxp_result e
     return pay1_submit_bytes(f, ordinal, f->payload, length, expected);
 }
 
-static int pay1_receive_grant(unsigned mode)
+static int pay1_retired_activities(void)
 {
     fixture *f = (fixture *)calloc(1U, sizeof(*f));
-    lxp_receive receive;
-    uint8_t payload[1024];
-    uint8_t message[512];
-    uint8_t digest[32];
-    size_t length;
-    size_t message_length;
-    REQUIRE(f != NULL);
-    REQUIRE(prepare(f, 3U, true) == 0);
-    f->payload[0] = 0U; f->payload[1] = 1U;
-    (void)memcpy(f->payload + 2U, f->asset.asset_id, 32U);
-    REQUIRE(pay1_submit(f, 4U, 34U, LXP_OK) == 0);
-    (void)memset(&receive, 0, sizeof(receive));
-    (void)memcpy(receive.from, f->accounts.accounts[0].id, 32U);
-    (void)memcpy(receive.to, f->accounts.accounts[2].id, 32U);
-    (void)memcpy(receive.asset, f->asset.asset_id, 32U);
-    (void)memcpy(receive.payer_grant.from, receive.from, 32U);
-    (void)memcpy(receive.payer_grant.recipient, receive.to, 32U);
-    (void)memcpy(receive.payer_grant.asset, receive.asset, 32U);
-    receive.payer_grant.per_draw_maximum.lo = 2U;
-    receive.payer_grant.allowance.lo = 3U;
-    receive.payer_grant.expiration = 100U;
-    receive.payer_grant.recurring = mode == 1U;
-    receive.payer_grant.window_length = mode == 1U ? 10U : 0U;
-    receive.payer_grant.has_reference = mode == 2U;
-    receive.payer_grant.reference_hash[0] = mode == 2U ? 8U : 0U;
-    receive.payer_grant.purpose_hash[0] = 9U;
-    (void)memcpy(receive.payer_grant.public_key, f->public_key, 32U);
-    REQUIRE(lxp_grant_authorization_message(&receive.payer_grant, message, sizeof(message), &message_length) == LXP_OK);
-    REQUIRE(lxp_hash_authority(message, message_length, receive.payer_grant.grant_id) == LXP_OK);
-    REQUIRE(lxp_hash_domain(LXP_DOMAIN_AUTHORITY_HASH, message, message_length, digest) == LXP_OK);
-    REQUIRE(sign_digest(digest, receive.payer_grant.signature, f->public_key) == 0);
-    for (unsigned mutation = 0U; mutation < 12U; ++mutation) {
-        lxp_payer_grant invalid = receive.payer_grant;
-        lxp_result expected = LXP_ERR_MALFORMED_GRANT;
-        if (mutation == 0U) invalid.per_draw_maximum.lo = 0U;
-        if (mutation == 1U) invalid.allowance.lo = 0U;
-        if (mutation == 2U) invalid.expiration = 0U;
-        if (mutation == 3U) { invalid.recurring = true; invalid.window_length = 0U; }
-        if (mutation == 4U) { invalid.recurring = false; invalid.window_length = 1U; }
-        if (mutation == 5U) memset(invalid.recipient, 0, 32U);
-        if (mutation == 6U) memset(invalid.purpose_hash, 0, 32U);
-        if (mutation == 7U) invalid.grant_id[0] ^= 1U;
-        if (mutation == 8U) { invalid.signature[0] ^= 1U; expected = LXP_ERR_BAD_SIGNATURE; }
-        if (mutation == 9U) { invalid.public_key[0] ^= 1U; expected = LXP_ERR_UNAUTHORIZED_DEBIT; }
-        if (mutation == 10U) { invalid.asset[0] ^= 1U; expected = LXP_ERR_ASSET_MISMATCH; }
-        if (mutation == 11U) { invalid.from[0] ^= 1U; expected = LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE; }
-        REQUIRE(lxp_payer_grant_encode(&invalid, payload, sizeof(payload), &length) == LXP_OK);
-        REQUIRE(pay1_submit_bytes(f, 7U, payload, length, expected) == 0);
+    const lxp_module_registration *registration;
+    const lxp_module_iface *iface = lx_asset_module_iface();
+    const uint32_t retired[] = {LX_ASSET_RECEIVE, LX_ASSET_GRANT_ISSUE,
+                                LX_ASSET_GRANT_REVOKE};
+    uint8_t before[32], after[32];
+    void *decoded = NULL;
+    lxp_module_ctx *ctx = calloc(1U, sizeof(*ctx));
+    REQUIRE(f != NULL && ctx != NULL);
+    REQUIRE(prepare(f, LXP_PROTOCOL_VERSION_STATE_COMMITMENT, true) == 0);
+    REQUIRE(lxp_module_ctx_init(ctx, &f->kernel, LXP_MODULE_ASSET,
+        10U, 0U, 1U, 10000U, &f->arena, false) == LXP_OK);
+    REQUIRE(lxp_state_root(&f->kernel, before) == LXP_OK);
+    for (size_t i = 0U; i < sizeof(retired) / sizeof(retired[0]); ++i) {
+        REQUIRE(lxp_kernel_module_for_activity(&f->kernel, retired[i], 0U,
+            &registration) == LXP_ERR_UNKNOWN_ACTIVITY);
+        REQUIRE(iface->decode(ctx, lxp_activity_type_ordinal(retired[i]),
+            f->payload, f->activity.payload.length, &decoded) ==
+                LXP_ERR_UNKNOWN_ACTIVITY);
     }
-    f->asset.paused = true;
-    REQUIRE(lxp_payer_grant_encode(&receive.payer_grant, payload, sizeof(payload), &length) == LXP_OK);
-    REQUIRE(pay1_submit_bytes(f, 7U, payload, length, LXP_ERR_ASSET_PAUSED) == 0);
-    f->asset.paused = false;
-    REQUIRE(lxp_payer_grant_encode(&receive.payer_grant, f->payload, sizeof(f->payload), &length) == LXP_OK);
-    REQUIRE(pay1_submit(f, 7U, length, LXP_OK) == 0);
-    REQUIRE(pay1_submit(f, 7U, length, LXP_ERR_SEQUENCE_REUSED) == 0);
-    {
-        static const uint8_t other_did[] = "did:key:bob";
-        lxp_identity *other;
-        uint8_t original_actor[32];
-        memcpy(original_actor, f->authority.actor, 32U);
-        REQUIRE(lxp_identity_register(&f->identities, other_did, sizeof(other_did) - 1U,
-            f->public_key, &other) == LXP_OK);
-        f->activity.actor_did = (lxp_byte_span){other_did, sizeof(other_did) - 1U};
-        memcpy(f->authority.actor, other->did_id, 32U);
-        payload[0] = 0U; payload[1] = 1U;
-        memcpy(payload + 2U, receive.payer_grant.grant_id, 32U);
-        memset(payload + 34U, 0, 8U);
-        REQUIRE(pay1_submit_bytes(f, 8U, payload, 42U, LXP_ERR_UNAUTHORIZED_DEBIT) == 0);
-        lxp_payer_grant unauthorized = receive.payer_grant;
-        unauthorized.grant_id[0] ^= 1U;
-        REQUIRE(lxp_payer_grant_encode(&unauthorized, payload, sizeof(payload), &length) == LXP_OK);
-        REQUIRE(pay1_submit_bytes(f, 7U, payload, length, LXP_ERR_UNAUTHORIZED_DEBIT) == 0);
-        f->activity.actor_did = (lxp_byte_span){did, sizeof(did) - 1U};
-        memcpy(f->authority.actor, original_actor, 32U);
-    }
-
-    (void)memcpy(receive.grant_id, receive.payer_grant.grant_id, 32U);
-    receive.amount.lo = 2U;
-    memcpy(message, receive.payer_grant.purpose_hash, 32U);
-    memcpy(message + 32U, receive.payer_grant.reference_hash, 32U);
-    REQUIRE(lxp_hash_context_value(message, mode == 2U ? 64U : 32U, receive.context_hash) == LXP_OK);
-    receive.receiver_authorization.kind = LXP_AUTH_OWNER;
-    receive.receiver_authorization.network_id = 7U;
-    receive.receiver_authorization.protocol_version = 3U;
-    (void)memcpy(receive.receiver_authorization.controller, receive.to, 32U);
-    (void)memcpy(receive.receiver_authorization.public_key, f->public_key, 32U);
-    (void)memcpy(receive.receiver_authorization.signed_context_hash, receive.context_hash, 32U);
-    for (unsigned mutation = 0U; mutation < 18U; ++mutation) {
-        lxp_receive invalid = receive;
-        lxp_result expected = LXP_ERR_UNAUTHORIZED_DEBIT;
-        invalid.idempotency_key[0] = (uint8_t)(f->identities.identities[0].next_sequence + 40U);
-        if (mutation == 0U) { invalid.grant_id[0] ^= 1U; expected = LXP_ERR_NO_PAYER_GRANT; }
-        if (mutation == 1U) { invalid.asset[0] ^= 1U; expected = LXP_ERR_ASSET_MISMATCH; }
-        if (mutation == 2U) { invalid.from[0] ^= 1U; expected = LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE; }
-        if (mutation == 3U) { invalid.to[0] ^= 1U; expected = LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE; }
-        if (mutation == 4U) { invalid.amount.lo = 3U; expected = LXP_ERR_GRANT_SCOPE_VIOLATION; }
-        if (mutation == 5U) { invalid.context_hash[0] ^= 1U; expected = LXP_ERR_PURPOSE_MISMATCH; }
-        if (mutation == 6U) { invalid.receiver_sequence = 1U; expected = LXP_ERR_SEQUENCE_MISMATCH; }
-        if (mutation == 7U) { invalid.receiver_authorization.signed_context_hash[0] ^= 1U; expected = LXP_ERR_CONTEXT_MISMATCH; }
-        if (mutation == 8U) invalid.receiver_authorization.network_id++;
-        if (mutation == 9U) invalid.receiver_authorization.controller[0] ^= 1U;
-        if (mutation == 10U) invalid.receiver_authorization.public_key[0] ^= 1U;
-        if (mutation == 11U) invalid.idempotency_key[1] = 1U;
-        if (mutation == 12U) memcpy(invalid.to, invalid.from, 32U);
-        if (mutation == 13U) { invalid.amount.lo = 0U; expected = LXP_ERR_ZERO_AMOUNT; }
-        if (mutation == 14U) { f->asset.paused = true; expected = LXP_ERR_ASSET_PAUSED; }
-        if (mutation == 16U) { invalid.payer_grant.grant_id[0] ^= 1U; expected = LXP_ERR_GRANT_SCOPE_VIOLATION; }
-        if (mutation == 17U) {
-            f->execution.batch_timestamp_ms = 101U;
-            f->activity.timestamp_bound = (lxp_timestamp_bound){100U, 150U};
-            expected = LXP_ERR_GRANT_EXPIRED;
-        }
-        REQUIRE(lxp_receive_authorization_message(&invalid, message, sizeof(message), &message_length) == LXP_OK);
-        REQUIRE(lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE, message, message_length, digest) == LXP_OK);
-        REQUIRE(sign_digest(digest, invalid.receiver_authorization.signature, f->public_key) == 0);
-        if (mutation == 15U) invalid.receiver_authorization.signature[0] ^= 1U;
-        REQUIRE(lxp_receive_encode(&invalid, payload, sizeof(payload), &length) == LXP_OK);
-        REQUIRE(pay1_submit_bytes(f, 6U, payload, length, expected) == 0);
-        f->asset.paused = false;
-        f->execution.batch_timestamp_ms = 10U;
-        f->activity.timestamp_bound = (lxp_timestamp_bound){1U, 100U};
-    }
-    for (unsigned draw = 0U; draw < 2U; ++draw) {
-        receive.receiver_sequence = f->accounts.accounts[2].next_sequence;
-        receive.idempotency_key[0] = (uint8_t)(f->identities.identities[0].next_sequence + 40U);
-        REQUIRE(lxp_receive_authorization_message(&receive, message, sizeof(message), &message_length) == LXP_OK);
-        REQUIRE(lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE, message, message_length, digest) == LXP_OK);
-        REQUIRE(sign_digest(digest, receive.receiver_authorization.signature, f->public_key) == 0);
-        REQUIRE(lxp_receive_encode(&receive, payload, sizeof(payload), &length) == LXP_OK);
-        REQUIRE(pay1_submit_bytes(f, 6U, payload, length, draw == 0U ? LXP_OK : mode == 2U ? LXP_ERR_INVOICE_ALREADY_SETTLED : LXP_ERR_GRANT_EXHAUSTED) == 0);
-        REQUIRE(f->accounts.accounts[0].balance.lo == 8U);
-        REQUIRE(f->accounts.accounts[2].balance.lo == 2U);
-        if (draw == 0U) REQUIRE(f->receipt.operation == 6U && f->receipt.amount.lo == 2U);
-    }
-    f->payload[0] = 0U; f->payload[1] = 1U;
-    (void)memcpy(f->payload + 2U, receive.grant_id, 32U);
-    REQUIRE(pay1_submit(f, 8U, 42U, LXP_ERR_STALE_REVOCATION) == 0);
-    f->payload[2U] ^= 1U;
-    REQUIRE(pay1_submit(f, 8U, 42U, LXP_ERR_NO_PAYER_GRANT) == 0);
-    f->payload[2U] ^= 1U;
-    for (size_t i = 0U; i < 8U; ++i)
-        f->payload[34U + i] = (uint8_t)(f->identities.identities[0].next_sequence >> (56U - i * 8U));
-    REQUIRE(pay1_submit(f, 8U, 42U, LXP_OK) == 0);
-    REQUIRE(pay1_submit(f, 8U, 42U, LXP_ERR_STALE_REVOCATION) == 0);
-    receive.amount.lo = 1U;
-    receive.idempotency_key[0] = (uint8_t)(f->identities.identities[0].next_sequence + 40U);
-    REQUIRE(lxp_receive_authorization_message(&receive, message, sizeof(message), &message_length) == LXP_OK);
-    REQUIRE(lxp_hash_domain(LXP_DOMAIN_SIGNATURE_PREIMAGE, message, message_length, digest) == LXP_OK);
-    REQUIRE(sign_digest(digest, receive.receiver_authorization.signature, f->public_key) == 0);
-    REQUIRE(lxp_receive_encode(&receive, payload, sizeof(payload), &length) == LXP_OK);
-    REQUIRE(pay1_submit_bytes(f, 6U, payload, length, LXP_ERR_GRANT_REVOKED) == 0);
-    REQUIRE(f->accounts.accounts[0].balance.lo == 8U && f->accounts.accounts[2].balance.lo == 2U);
+    REQUIRE(lxp_state_root(&f->kernel, after) == LXP_OK);
+    REQUIRE(memcmp(before, after, 32U) == 0);
+    REQUIRE(f->accounts.accounts[0].balance.lo == 10U &&
+            f->accounts.accounts[1].balance.lo == 0U);
     REQUIRE(pay1_snapshot_roundtrip(f) == 0);
     REQUIRE(lxp_state_store_destroy(&f->state) == LXP_OK);
+    free(ctx);
     free(f);
     return 0;
 }
@@ -1129,13 +965,12 @@ static int pay1_issuance(uint8_t final_root[32])
 
 static int pay1_malformed(void)
 {
-    static const uint16_t ordinals[] = {1U, 4U, 6U, 7U, 8U, 10U, 11U};
+    static const uint16_t ordinals[] = {1U, 4U, 10U, 11U};
     for (size_t i = 0U; i < sizeof(ordinals) / sizeof(ordinals[0]); ++i) {
         fixture *f = calloc(1U, sizeof(*f));
         REQUIRE(f != NULL && prepare(f, 3U, true) == 0);
         f->payload[0] = 0U;
         REQUIRE(pay1_submit(f, ordinals[i], 1U,
-            ordinals[i] == 6U ? LXP_ERR_MALFORMED_RECEIVE :
             LXP_ERR_NON_CANONICAL) == 0);
         REQUIRE(lxp_state_store_destroy(&f->state) == LXP_OK);
         free(f);
@@ -1300,9 +1135,7 @@ int main(void)
         REQUIRE(pay1_issuance(replay) == 0);
         REQUIRE(memcmp(first, replay, 32U) == 0);
     }
-    REQUIRE(pay1_receive_grant(0U) == 0);
-    REQUIRE(pay1_receive_grant(1U) == 0);
-    REQUIRE(pay1_receive_grant(2U) == 0);
+    REQUIRE(pay1_retired_activities() == 0);
     REQUIRE(pay1_malformed() == 0);
     REQUIRE(pay1_prepared_account(0U) == 0);
     REQUIRE(pay1_prepared_account(1U) == 0);

@@ -299,6 +299,34 @@ func (s *CommittedSource) capacityMeasurement() CapacityMeasurement {
 	snapshot.EndpointHealth = s.EndpointHealth()
 	return snapshot
 }
+
+// validateCapacityMeasurement uses the admitted transport reservations. Archive
+// permits are independent of the primary process and historical-work pools.
+func (s *CommittedSource) validateCapacityMeasurement(snapshot CapacityMeasurement, maxHeap uint64) error {
+	var primaryLimit, archiveLimit int64
+	limits := make(map[string]int, len(s.endpoints))
+	for _, endpoint := range s.endpoints {
+		limit := cap(endpoint.permits)
+		limits[endpoint.id] = limit
+		if endpoint.historical {
+			archiveLimit += int64(limit)
+		} else {
+			primaryLimit += int64(limit)
+		}
+	}
+	primaryLimit = min(primaryLimit, int64(cap(processPermits)))
+	if snapshot.InFlight < 0 || snapshot.InFlight > primaryLimit+archiveLimit || snapshot.ProcessPermits < 0 || snapshot.ProcessPermits > int64(cap(processPermits)) || snapshot.HistoricalPermits < 0 || snapshot.HistoricalPermits > int64(cap(historicalPermits)) || snapshot.PendingRanges > 1024 || snapshot.HeaderCacheEntries > 16384 || snapshot.HeapBytes > maxHeap {
+		return sourceError(OverloadError, "capacity-budget", nil)
+	}
+	for id, active := range snapshot.EndpointInFlight {
+		limit, admitted := limits[id]
+		if !admitted || active < 0 || active > limit {
+			return sourceError(OverloadError, "capacity-endpoint", nil)
+		}
+	}
+	return nil
+}
+
 func capacityP99(histogram map[int64]uint64, count uint64) (int64, error) {
 	if count == 0 {
 		return 0, sourceError(IncompleteError, "capacity-latency", nil)
@@ -759,15 +787,9 @@ func RunSourceCapacity(ctx context.Context, options CapacityOptions, p CapacityP
 				}
 				paused = snapshot.HistoricalPaused
 				measurementMu.Unlock()
-				if snapshot.InFlight > 64 || snapshot.ProcessPermits > 64 || snapshot.HistoricalPermits > 16 || snapshot.PendingRanges > 1024 || snapshot.HeaderCacheEntries > 16384 || snapshot.HeapBytes > options.MaxHeapBytes {
-					events <- sourceError(OverloadError, "capacity-budget", nil)
+				if err := p.Live.validateCapacityMeasurement(snapshot, options.MaxHeapBytes); err != nil {
+					events <- err
 					return
-				}
-				for _, active := range snapshot.EndpointInFlight {
-					if active > 16 {
-						events <- sourceError(OverloadError, "capacity-endpoint", nil)
-						return
-					}
 				}
 				if err := capture.write("resource_sample", snapshot); err != nil {
 					events <- err

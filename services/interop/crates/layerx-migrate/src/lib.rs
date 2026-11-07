@@ -1,10 +1,12 @@
 #![forbid(unsafe_code)]
 
+mod deadline;
 pub mod ethereum;
 pub mod gateway_client;
 pub mod history;
 mod journal;
 pub mod mapping_v2;
+pub mod migration_head;
 pub mod ramp_v2;
 mod rpc;
 pub mod solana;
@@ -19,11 +21,17 @@ use std::fmt::{Debug, Display, Formatter};
 
 use layerx_interop_gateway::adapter::{AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec};
 use layerx_interop_gateway::error::GatewayError;
-use layerx_interop_gateway::gateway::{TranslationKind, TranslationRequest, TranslationStatus};
+use layerx_interop_gateway::evidence::{SequencerEvidence, SettlementRung};
+use layerx_interop_gateway::gateway::{
+    SequencerSettlementError, TranslationKind, TranslationRequest, TranslationStatus,
+};
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::{TraceId, Traced};
 use layerx_interop_gateway::GatewayCore;
-use layerx_proof::receipt::{verify, AuthorizedBatch, VerifiedReceipt};
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::receipt::{
+    verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys, VerifiedReceipt,
+};
 use sha2::{Digest as _, Sha256};
 
 const ADAPTER_ID: &str = "migration";
@@ -580,15 +588,15 @@ impl CustodyExecution<'_> {
     }
 }
 
-/// Real plane outcome. An executed operation must carry canonical receipt
-/// bytes and independently obtained batch authority evidence.
+/// Real plane outcome. An executed operation carries sequencer evidence and
+/// independently obtained receipt key authorizations.
 #[derive(Debug)]
 pub enum MigrationPlaneResult {
     Pending,
     Refused,
     Executed {
-        canonical_receipt: Vec<u8>,
-        authorised_batch: AuthorizedBatch,
+        evidence: SequencerEvidence,
+        receipt_keys: Vec<SequencerAuthorization>,
     },
 }
 
@@ -670,8 +678,7 @@ impl BindingReceiptPolicy {
         })
     }
 
-    /// Returns the exact external-claim commitment carried by the binding
-    /// operation's protocol receipt.
+    /// Returns the external-claim commitment for the binding operation.
     #[must_use]
     pub fn context_hash(ownership: &VerifiedOwnership) -> [u8; 32] {
         binding_context_hash(ownership)
@@ -700,7 +707,6 @@ impl BindingReceiptPolicy {
             || protocol.asset() != self.asset
             || protocol.amount() != self.amount
             || protocol.to() != ownership.layerx_identity
-            || protocol.context_hash() != Self::context_hash(ownership)
             || protocol
                 .debit_balance_before()
                 .checked_sub(protocol.debit_balance_after())
@@ -718,7 +724,7 @@ impl BindingReceiptPolicy {
 
 /// Exact protocol receipt policy for custody credits. The authority and
 /// operation coordinates come from deployment configuration, while the
-/// context commitment is derived from the independently verified source fact.
+/// payment log binds the independently verified source claim.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct CustodyReceiptPolicy {
     sequencer_public_key: [u8; 32],
@@ -761,8 +767,7 @@ impl CustodyReceiptPolicy {
         })
     }
 
-    /// Returns the exact source-claim commitment that the custody operation
-    /// must carry in the protocol receipt context.
+    /// Returns the source-claim commitment for the custody operation.
     #[must_use]
     pub fn context_hash(finality: &VerifiedAssetFinality) -> [u8; 32] {
         custody_context_hash(finality)
@@ -788,7 +793,6 @@ impl CustodyReceiptPolicy {
             || protocol.module_version() != self.module_version
             || protocol.parameter_version() != self.parameter_version
             || protocol.operation() != self.operation
-            || protocol.context_hash() != Self::context_hash(finality)
             || protocol.asset() != finality.layerx_asset
             || protocol.amount() != finality.layerx_amount
             || protocol.to() != finality.destination
@@ -1008,25 +1012,54 @@ fn settle(
             Ok(MigrationState::Refused)
         }
         MigrationPlaneResult::Executed {
-            canonical_receipt,
-            authorised_batch,
+            evidence,
+            receipt_keys,
         } => {
-            if authorised_batch.sequencer_public_key() != sequencer_public_key {
+            if evidence.rung == SettlementRung::Submitted {
+                return Err(fail(MigrationError::ReceiptRequired));
+            }
+            let receipt = verify_sequencer_signature(
+                &evidence.signed_receipt,
+                ReceiptKeys::HeightRanges(&receipt_keys),
+            )
+            .map_err(|_| fail(MigrationError::ReceiptMismatch))?;
+            let protocol = receipt
+                .protocol()
+                .ok_or_else(|| fail(MigrationError::ReceiptMismatch))?;
+            let authorised_batch = AuthorizedBatch::from_receipt_keys(
+                &evidence.signed_receipt,
+                ReceiptKeys::HeightRanges(&receipt_keys),
+                protocol.asset(),
+                protocol.previous_state_root(),
+                protocol.resulting_state_root(),
+            )
+            .map_err(|_| fail(MigrationError::ReceiptMismatch))?;
+            if authorised_batch.sequencer_public_key() != sequencer_public_key
+                || evidence.transaction_hash != protocol.activity_id()
+            {
                 return Err(fail(MigrationError::ReceiptMismatch));
             }
-            let verified = verify(&canonical_receipt, &authorised_batch)
+            let verified = verify(&evidence.signed_receipt, &authorised_batch)
                 .map_err(|_| fail(MigrationError::ReceiptMismatch))?;
             verify_receipt(&verified).map_err(fail)?;
             let status = gateway
-                .settle_with_receipt(
+                .settle_with_sequencer_evidence(
                     principal,
                     key,
-                    &canonical_receipt,
-                    &authorised_batch,
+                    &evidence,
+                    &receipt_keys,
                     trace,
                     now,
                 )
-                .map_err(|error| trace.wrap(MigrationError::Gateway(error.into_error())))?;
+                .map_err(|error| {
+                    fail(match error.into_error() {
+                        SequencerSettlementError::Gateway(error) => MigrationError::Gateway(error),
+                        SequencerSettlementError::Logs(_)
+                        | SequencerSettlementError::PaymentUnmatched => {
+                            MigrationError::ReceiptMismatch
+                        }
+                    })
+                })?;
             let TranslationStatus::ReceiptVerified { receipt_digest } = status else {
                 return Err(fail(MigrationError::ReceiptRequired));
             };

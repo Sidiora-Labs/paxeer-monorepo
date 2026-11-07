@@ -1,0 +1,35 @@
+[golden.accepted]
+activation_height = 42
+first_sequenced_height = 43
+leaders = ["5151515151515151515151515151515151515151515151515151515151515151", "5252525252525252525252525252525252525252525252525252525252525252"]
+last_seq = 0
+last_seq_hash = "0000000000000000000000000000000000000000000000000000000000000000"
+receipt_key_first_height = 43
+receipt_key_last_height = 43
+test = "TestMergePlanRequiresKeyForFirstSequencedHeight"
+command = "go test ./node -run '^TestMergePlanRequiresKeyForFirstSequencedHeight$' -count=1"
+expect_exit = 0
+
+[golden.no-leaders]
+test = "TestUpgradesSequencerGenesisAtActivation"
+command = "go test ./node -run '^TestUpgradesSequencerGenesisAtActivation$' -count=1"
+expect_exit = 0
+expect_text = "carries no leader list"
+
+[golden.lastseq]
+test = "TestUpgradesSequencerGenesisAtActivation"
+command = "go test ./node -run '^TestUpgradesSequencerGenesisAtActivation$' -count=1"
+expect_exit = 0
+expect_text = "want 0"
+
+[golden.no-key]
+test = "TestMergePlanRefusesKeyCoveringOnlyActivationHeight"
+command = "go test ./node -run '^TestMergePlanRefusesKeyCoveringOnlyActivationHeight$' -count=1"
+expect_exit = 0
+expect_text = "pins no receipt key for first sequenced height"
+
+[golden.bad-genesis]
+test = "TestUpgradesSequencerGenesisAtActivation"
+command = "go test ./node -run '^TestUpgradesSequencerGenesisAtActivation$' -count=1"
+expect_exit = 0
+expect_text = "sequencer genesis"

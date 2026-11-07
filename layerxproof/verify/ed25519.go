@@ -9,7 +9,6 @@ import (
 	"errors"
 
 	"filippo.io/edwards25519"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 )
 
 // ErrBadSignature covers a non-canonical, weak, non-reduced or mathematically
@@ -86,14 +85,4 @@ func Ed25519(publicKey [32]byte, signature [64]byte, message []byte) error {
 // Ed25519Digest verifies a signature over an already domain-separated digest.
 func Ed25519Digest(publicKey [32]byte, signature [64]byte, digest [32]byte) error {
 	return Ed25519(publicKey, signature, digest[:])
-}
-
-// Ed25519Domain verifies a signature over SHA256(domain tag || canonical),
-// the form every LayerX signed object uses.
-func Ed25519Domain(publicKey [32]byte, signature [64]byte, domain codec.Domain, canonical []byte) error {
-	digest, err := codec.DomainHash(domain, canonical)
-	if err != nil {
-		return err
-	}
-	return Ed25519Digest(publicKey, signature, digest)
 }

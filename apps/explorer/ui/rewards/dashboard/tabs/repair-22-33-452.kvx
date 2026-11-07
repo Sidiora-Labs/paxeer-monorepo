@@ -1,0 +1,11 @@
+[repair.22.33.452]
+finding = "empty-rewards-activity"
+implementation = "ActivityTab checks for the absence of the first activity item before reading its dates and displays an em dash in both period labels; existing zero-valued task metrics remain visible."
+tests = "repair-22-33-452.spec.ts: emptyRewardsActivity, rewardsPeriodBecomesEmpty"
+proof_boundary = "Production ActivityTab, RewardsContextProvider, authentication initialization, API hooks, HTTP transport and query cache consume committed loopback fixtures for empty and populated responses; assertions cover authenticated requests, empty arrays, period labels, zero metrics and refresh from populated to empty."
+baseline = "No pre-change verification was run or claimed: the governing gate order requires complete implementation before formatting, hf-build and hf-done and prohibits invoking verify_cmd by hand. Before the repair, both tests reach the unguarded items[0].date access when the empty response arrives."
+wiring_requests = "None; the complete repair is inside this task's paths."
+qualification = "The runner hf-build/hf-done ledger supplies the exact qualified candidate revision, command, exit code and private log path; no result is claimed in advance."
+lint = "yarn eslint --fix ui/rewards/dashboard/tabs/ActivityTab.tsx ui/rewards/dashboard/tabs/repair-22-33-452.spec.ts exited 0; private evidence: /out/logs/eslint-22-33-452.log."
+gotcha = "The shared Vitest setup enables fetch interception; this real-transport proof disables it for its loopback server and restores it on teardown."
+repair_cycle_1 = "Revision 662eb853b94caef972832e67db4cda805e02741c: cg spec done 22.33.452 -f layerx-merge --root /work/paxeer-monorepo exited 1, /out/logs/verify-1.log; both tests stopped at Vitest classic JSX's missing React binding before exercising the response. The test harness now provides the real React namespace globally and restores the previous binding on teardown, matching the existing 299 spec's runtime setup. No production behavior or assertion changed."

@@ -3,7 +3,6 @@ package keeper
 import (
 	"encoding/binary"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -59,6 +58,7 @@ import (
 	upgradeclient "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/client"
 	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	"github.com/gogo/protobuf/proto"
 	"github.com/stretchr/testify/require"
 	dbm "github.com/tendermint/tm-db"
 
@@ -163,18 +163,20 @@ func (f *TestFaucet) NewFundedAccount(ctx sdk.Context, amounts ...sdk.Coin) sdk.
 }
 
 type TestKeepers struct {
-	AccountKeeper  authkeeper.AccountKeeper
-	StakingKeeper  stakingkeeper.Keeper
-	DistKeeper     distributionkeeper.Keeper
-	BankKeeper     bankkeeper.Keeper
-	GovKeeper      govkeeper.Keeper
-	ContractKeeper types.ContractOpsKeeper
-	WasmKeeper     *Keeper
-	IBCKeeper      *ibckeeper.Keeper
-	Router         *baseapp.Router
-	EncodingConfig wasmappparams.EncodingConfig
-	Faucet         *TestFaucet
-	MultiStore     sdk.CommitMultiStore
+	CapabilityKeeper *capabilitykeeper.Keeper
+	ScopedWasmKeeper capabilitykeeper.ScopedKeeper
+	AccountKeeper    authkeeper.AccountKeeper
+	StakingKeeper    stakingkeeper.Keeper
+	DistKeeper       distributionkeeper.Keeper
+	BankKeeper       bankkeeper.Keeper
+	GovKeeper        govkeeper.Keeper
+	ContractKeeper   types.ContractOpsKeeper
+	WasmKeeper       *Keeper
+	IBCKeeper        *ibckeeper.Keeper
+	Router           *baseapp.Router
+	EncodingConfig   wasmappparams.EncodingConfig
+	Faucet           *TestFaucet
+	MultiStore       sdk.CommitMultiStore
 }
 
 // CreateDefaultTestInput common settings for CreateTestInput
@@ -197,6 +199,24 @@ func createTestInput(
 	db dbm.DB,
 	opts ...Option,
 ) (sdk.Context, TestKeepers) {
+	return createTestInputWithMultiStore(t, isCheckTx, supportedFeatures, wasmConfig, db, store.NewCommitMultiStore(db), false, opts...)
+}
+
+// CreateTestInputWithMultiStore uses the supplied production store implementation.
+func CreateTestInputWithMultiStore(t testing.TB, supportedFeatures string, ms sdk.CommitMultiStore, opts ...Option) (sdk.Context, TestKeepers) {
+	return createTestInputWithMultiStore(t, false, supportedFeatures, types.DefaultWasmConfig(), nil, ms, true, opts...)
+}
+
+func createTestInputWithMultiStore(
+	t testing.TB,
+	isCheckTx bool,
+	supportedFeatures string,
+	wasmConfig types.WasmConfig,
+	db dbm.DB,
+	ms sdk.CommitMultiStore,
+	cacheWrites bool,
+	opts ...Option,
+) (sdk.Context, TestKeepers) {
 	tempDir := t.TempDir()
 
 	keys := sdk.NewKVStoreKeys(
@@ -207,7 +227,6 @@ func createTestInput(
 		capabilitytypes.StoreKey, feegrant.StoreKey, authzkeeper.StoreKey,
 		types.StoreKey,
 	)
-	ms := store.NewCommitMultiStore(db)
 	for _, v := range keys {
 		ms.MountStoreWithDB(v, sdk.StoreTypeIAVL, db)
 	}
@@ -227,6 +246,9 @@ func createTestInput(
 		Height: 1234567,
 		Time:   time.Date(2020, time.April, 22, 12, 0, 0, 0, time.UTC),
 	}, isCheckTx)
+	if cacheWrites {
+		ctx = ctx.WithMultiStore(ms.CacheMultiStore())
+	}
 	ctx = types.WithTXCounter(ctx, 0)
 
 	encodingConfig := MakeEncodingConfig(t)
@@ -421,97 +443,58 @@ func createTestInput(
 	govKeeper.SetTallyParams(ctx, govtypes.DefaultTallyParams())
 
 	keepers := TestKeepers{
-		AccountKeeper:  accountKeeper,
-		StakingKeeper:  stakingKeeper,
-		DistKeeper:     distKeeper,
-		ContractKeeper: contractKeeper,
-		WasmKeeper:     &keeper,
-		BankKeeper:     bankKeeper,
-		GovKeeper:      govKeeper,
-		IBCKeeper:      ibcKeeper,
-		Router:         router,
-		EncodingConfig: encodingConfig,
-		Faucet:         faucet,
-		MultiStore:     ms,
+		CapabilityKeeper: capabilityKeeper,
+		ScopedWasmKeeper: scopedWasmKeeper,
+		AccountKeeper:    accountKeeper,
+		StakingKeeper:    stakingKeeper,
+		DistKeeper:       distKeeper,
+		ContractKeeper:   contractKeeper,
+		WasmKeeper:       &keeper,
+		BankKeeper:       bankKeeper,
+		GovKeeper:        govKeeper,
+		IBCKeeper:        ibcKeeper,
+		Router:           router,
+		EncodingConfig:   encodingConfig,
+		Faucet:           faucet,
+		MultiStore:       ms,
 	}
 	return ctx, keepers
 }
 
 // TestHandler returns a wasm handler for tests (to avoid circular imports)
 func TestHandler(k types.ContractOpsKeeper) sdk.Handler {
+	server := NewMsgServerImpl(k)
 	return func(ctx sdk.Context, msg sdk.Msg) (*sdk.Result, error) {
 		ctx = ctx.WithEventManager(sdk.NewEventManager())
+		var res proto.Message
+		var err error
 		switch msg := msg.(type) {
 		case *types.MsgStoreCode:
-			return handleStoreCode(ctx, k, msg)
+			res, err = server.StoreCode(sdk.WrapSDKContext(ctx), msg)
 		case *types.MsgInstantiateContract:
-			return handleInstantiate(ctx, k, msg)
+			res, err = server.InstantiateContract(sdk.WrapSDKContext(ctx), msg)
 		case *types.MsgExecuteContract:
-			return handleExecute(ctx, k, msg)
+			res, err = server.ExecuteContract(sdk.WrapSDKContext(ctx), msg)
 		default:
-			errMsg := fmt.Sprintf("unrecognized wasm message type: %T", msg)
-			return nil, sdkerrors.Wrap(sdkerrors.ErrUnknownRequest, errMsg)
+			return nil, sdkerrors.Wrapf(sdkerrors.ErrUnknownRequest, "unrecognized wasm message type: %T", msg)
 		}
-	}
-}
-
-func handleStoreCode(ctx sdk.Context, k types.ContractOpsKeeper, msg *types.MsgStoreCode) (*sdk.Result, error) {
-	senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "sender")
-	}
-	codeID, err := k.Create(ctx, senderAddr, msg.WASMByteCode, msg.InstantiatePermission)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sdk.Result{
-		Data:   []byte(fmt.Sprintf("%d", codeID)),
-		Events: ctx.EventManager().ABCIEvents(),
-	}, nil
-}
-
-func handleInstantiate(ctx sdk.Context, k types.ContractOpsKeeper, msg *types.MsgInstantiateContract) (*sdk.Result, error) {
-	senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "sender")
-	}
-	var adminAddr sdk.AccAddress
-	if msg.Admin != "" {
-		if adminAddr, err = sdk.AccAddressFromBech32(msg.Admin); err != nil {
-			return nil, sdkerrors.Wrap(err, "admin")
+		events := sdk.NewEventManager()
+		for _, event := range ctx.EventManager().Events() {
+			if event.Type == sdk.EventTypeMessage {
+				wasmModule := false
+				for _, attr := range event.Attributes {
+					if string(attr.Key) == sdk.AttributeKeyModule && string(attr.Value) == types.ModuleName {
+						wasmModule = true
+					}
+				}
+				if !wasmModule {
+					continue
+				}
+			}
+			events.EmitEvent(event)
 		}
+		return sdk.WrapServiceResult(ctx.WithEventManager(events), res, err)
 	}
-
-	contractAddr, _, err := k.Instantiate(ctx, msg.CodeID, senderAddr, adminAddr, msg.Msg, msg.Label, msg.Funds)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sdk.Result{
-		Data:   contractAddr,
-		Events: ctx.EventManager().Events().ToABCIEvents(),
-	}, nil
-}
-
-func handleExecute(ctx sdk.Context, k types.ContractOpsKeeper, msg *types.MsgExecuteContract) (*sdk.Result, error) {
-	senderAddr, err := sdk.AccAddressFromBech32(msg.Sender)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "sender")
-	}
-	contractAddr, err := sdk.AccAddressFromBech32(msg.Contract)
-	if err != nil {
-		return nil, sdkerrors.Wrap(err, "admin")
-	}
-	data, err := k.Execute(ctx, contractAddr, senderAddr, msg.Msg, msg.Funds)
-	if err != nil {
-		return nil, err
-	}
-
-	return &sdk.Result{
-		Data:   data,
-		Events: ctx.EventManager().Events().ToABCIEvents(),
-	}, nil
 }
 
 func RandomAccountAddress(_ testing.TB) sdk.AccAddress {

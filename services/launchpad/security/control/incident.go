@@ -77,10 +77,11 @@ func (s *Store) RecoverIncident(ctx context.Context, cred, scope, k, reason, app
 		if e := t.get("quarantine", i.ServiceIdentity, &q); e != nil {
 			return e
 		}
-		if q["incident"] != k {
+		if q["incident"] != k || q["state"] != "contained" {
 			return Conflict
 		}
-		if _, e := t.Exec(contextFor(t), "DELETE FROM "+s.schema+".objects WHERE kind='quarantine' AND id=$1", i.ServiceIdentity); e != nil {
+		q["state"] = "recovered"
+		if e := t.put("quarantine", i.ServiceIdentity, q); e != nil {
 			return e
 		}
 		a.State = "succeeded"

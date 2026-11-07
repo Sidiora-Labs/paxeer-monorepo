@@ -1,0 +1,51 @@
+[task.22.33.1198]
+mode = "BUILD"
+audit = "22.30.56"
+acceptance = "22998.1"
+baseline = "Not run: the explicit implementation-first order and hf-done-only verification rule prohibit a pre-change run; no pre-existing test failure is claimed."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log; the final response copies its last evidence line."
+wiring_requests = []
+
+[finding.flatkv-read-lifecycle-prose]
+test = "TestRepairM_1198_ReadLifecycle"
+proof = "Get, Has, modification height and logical Iterator expose staged changes; RawGlobalIterator, Exporter and isolated historical handles retain committed state, and pinned iterators survive a later delete and commit. API prose cross-references existing pending-read and iterator coverage."
+
+[finding.flatkv-import-duplicate-hash]
+test = "TestRepairM_1198_ImportDuplicateHash"
+proof = "Identical and replacement repeats within and across importBatchSize pass through ImportTranslator and KVImporter; after stop and reopen, logical reads and the real VerifyLtHash scanner match the last surviving row. Replacement values are cached for only one batch and earlier batches are read from Pebble."
+
+[finding.flatkv-import-batch-release]
+test = "TestRepairM_1198_ImportBatchRelease"
+proof = "Seven real Pebble batches spanning six full flushes and a tail are retained by the test; every completed batch releases its encoded representation, then the store stops, reopens, reads logical storage and verifies the full hash scan. The worker retains cleanup ownership on Set and Commit failures."
+
+[finding.flatkv-import-validation]
+tests = ["TestRepairM_1198_ImportValidation", "TestRepairM_1198_ImportProducerRoundTrip"]
+proof = "Nil nodes, mismatched versions, branches, malformed physical keys and routed vtype envelopes fail before enqueueing, retain the first error and cannot finalize or publish a snapshot. Close and reopen preserve the baseline. Real exporter output restores account, code, storage and legacy rows including empty legacy values and older modification heights."
+
+[finding.flatkv-import-fixture-shape]
+tests = ["TestRepairM_1198_ImportFixtureShape", "TestRepairM_1198_ImportProducerRoundTrip"]
+proof = "Success fixtures use ImportTranslator envelopes, preserve idempotency, fail-fast, abort and backpressure assertions, and prove reopened logical reads and recomputed hashes. Raw 32-byte storage values remain explicit rejection cases."
+
+[finding.flatkv-wal-sync-prose]
+test = "TestRepairM_1198_WALRecovery"
+proof = "API and Commit comments match config/config.go: synchronous WAL append uses NoSync, Fsync controls Pebble only and acknowledgment does not guarantee power-loss durability. For both Pebble Fsync settings, the real WAL recovers a surviving append after stopping between WAL and DB writes."
+
+[finding.flatkv-rejected-write-test]
+test = "TestRepairM_1198_RejectedWrite"
+proof = "The extended store_write_test retains the invalid-nonce case and adds a valid account mutation followed by invalid storage; every pending buffer, changelog offset, physical row and hash is unchanged. Unrelated accepted work commits and a stopped store reopens through real WAL replay with matching logical reads and scanned per-DB/global hashes."
+
+[gotcha.task-scope]
+observed = "Repository workflow asks for GOTCHA/spec edits and publication, while this task restricts edits to flatkv and delegates publication to the runner."
+resolution = "Keep this task record in scope; preserve runner bookkeeping and do not edit spec, commit or push."
+
+[gotcha.fixture-edit]
+observed = "A guarded fixture-replacement script counted six matching fixtures rather than seven and stopped before writing."
+resolution = "Corrected the expected count and applied all six producer-envelope replacements before qualification."
+
+[qualification.repair.1]
+revision = "41bb76c6425420a3c6b834d6b67fd285cdc35d22"
+command = "cg spec done 22.33.1198 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Validation's negative-height case reopened a valid row flushed during rejected-import shutdown because SNAPSHOT_BASE allowed reuse of the incomplete working DB."
+repair = "Invalidate the working-directory reuse marker before starting import; only successful snapshot publication restores it. Keep every assertion and add a deterministic full-batch rejection/reopen proof."

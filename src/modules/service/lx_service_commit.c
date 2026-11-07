@@ -35,6 +35,19 @@ lxp_result lx_service_commit_task_execute(
     if (status != LXP_OK) return status;
     if (lx_service_commitment_lookup(ctx, request->commitment.commitment_id,
                                      &commitment) == LXP_OK) {
+        if (memcmp(request->authority->principal, commitment.provider,
+                   32U) != 0 ||
+            memcmp(request->commitment.provider, commitment.provider,
+                   32U) != 0 ||
+            memcmp(request->commitment.agreement_id, commitment.agreement_id,
+                   32U) != 0 ||
+            memcmp(request->commitment.task_hash, commitment.task_hash,
+                   32U) != 0 ||
+            memcmp(request->commitment.escrow_id, commitment.escrow_id,
+                   32U) != 0 ||
+            request->commitment.deadline != commitment.deadline ||
+            request->commitment.resource_bound != commitment.resource_bound)
+            return LXP_ERR_AGREEMENT_STATE;
         *result = commitment;
         return LXP_OK;
     }
@@ -73,13 +86,15 @@ lxp_result lx_service_commit_abandon_execute(
                                           request->commitment.commitment_id,
                                           &commitment);
     if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
-    if (commitment.abandoned) {
-        *result = commitment;
-        return LXP_OK;
-    }
     if (memcmp(request->authority->principal, commitment.provider, 32U) != 0 ||
         request->abandon_reason == 0U)
         return LXP_ERR_AGREEMENT_STATE;
+    if (commitment.abandoned) {
+        if (request->abandon_reason != commitment.abandon_reason)
+            return LXP_ERR_AGREEMENT_STATE;
+        *result = commitment;
+        return LXP_OK;
+    }
     status = lx_service_agreement_lookup(ctx, commitment.agreement_id,
                                          &agreement);
     if (status != LXP_OK ||

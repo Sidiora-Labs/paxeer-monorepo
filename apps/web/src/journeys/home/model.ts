@@ -1,5 +1,6 @@
 import { copyEntry } from "../../../copy/runtime.ts";
 import { formatCopy } from "../../../copy/format.ts";
+import { entryStatusKey } from "../activity/model.ts";
 import {
   type AccountBalance,
   type ActivityEntryDetail,
@@ -10,7 +11,7 @@ import {
 } from "../../api/index.ts";
 import {
   directionWord,
-  statusKeyFromCopyKey,
+  verificationRung,
   verificationWord,
   type ProtocolAmount,
   type StatusKey,
@@ -27,13 +28,13 @@ import {
 export const HOME_ACTIVITY_LIMIT = 5;
 
 export const HOME_DESTINATIONS = Object.freeze({
-  add: "/app/deposit",
+  add: "/bridge",
   move: MOVE_ROUTE,
-  withdraw: "/app/withdraw",
+  withdraw: "/bridge",
   approvals: "/app/approvals",
   agents: "/app/agents",
   activity: "/app/activity",
-});
+} as const);
 
 export interface HomeActionItem {
   readonly id: keyof typeof HOME_DESTINATIONS & ("add" | "move" | "withdraw");
@@ -53,6 +54,12 @@ export function homeActions(): readonly [HomeActionItem, HomeActionItem, HomeAct
       route: HOME_DESTINATIONS.withdraw,
     },
   ];
+}
+
+export function homeAction(id: string): HomeActionItem {
+  const action = homeActions().find((candidate) => candidate.id === id);
+  if (action === undefined) throw new TypeError("Unknown Home action");
+  return action;
 }
 
 export interface HomeData {
@@ -96,8 +103,8 @@ export function homeBalance(balance?: AccountBalance): HomeBalance {
   const label = copyEntry("home.balance.label").message;
   if (
     balance === undefined ||
-    balance.verification === "unverified" ||
-    !balance.evidence.some((evidence) => evidence.verification !== "unverified")
+    verificationRung(balance.verification) === "unverified" ||
+    !balance.evidence.some((evidence) => verificationRung(evidence.verification) !== "unverified")
   ) {
     return { kind: "unavailable", label, message: copyEntry("home.balance.unavailable").message };
   }
@@ -191,10 +198,10 @@ export function homeActivityRows(entries: readonly ActivityEntryDetail[]): reado
           receiptRequired &&
           !outcomeBacked
           ? "processing"
-          : statusKeyFromCopyKey(entry.state),
+          : entryStatusKey(entry.state),
       when: timestampWords(entry.occurred_at),
     };
-    if (entry.money !== undefined) {
+    if (entry.money !== undefined && outcomeBacked) {
       row.amount = moneyAmountNumber(entry.money);
       row.currency = entry.money.currency;
       row.direction =

@@ -3,6 +3,7 @@
 //! effect for the kernel to apply.
 
 use core::fmt::{self, Display};
+use sha3::{Digest, Keccak256};
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -25,7 +26,7 @@ pub use codec::{
     MAX_NESTING_DEPTH,
 };
 pub(crate) use host_state::{abi_error_bytes, HostStateCommitment, HostStateIdentity};
-pub(crate) use host_state::{CapturedAbiReplayAuthority, decode_replay_abi_error};
+pub(crate) use host_state::{decode_replay_abi_error, CapturedAbiReplayAuthority};
 pub use response::{CallResponse, ResponseRefusal, MAX_CALL_RESPONSE_BYTES};
 pub use storage_ops::StorageSelector;
 
@@ -40,13 +41,15 @@ pub const ABI_MODULE: &str = manifest::ABI_V1_MODULE;
 pub const ABI_V2_MODULE: &str = manifest::ABI_V2_MODULE;
 pub const MAX_EVENT_TOPIC_BYTES: usize = 64;
 pub const MAX_EVENT_DATA_BYTES: usize = 65_536;
+/// Maximum logs in one call, matching `LXP_MAX_EFFECTS` in `lxp_protocol.h`.
+pub const MAX_PROGRAM_EVENT_LOGS: usize = 512;
 /// Maximum events an activity may emit across its complete call graph.
 pub const MAX_EVENTS_PER_ACTIVITY: usize = crate::DEFAULT_MAX_CALL_GRAPH_EDGES as usize;
 pub const MAX_CALL_INPUT_BYTES: usize = 1_048_576;
 /// Maximum canonical grants. This is derived so even the largest grant encoding
 /// fits the single transport ceiling used by the guest and C boundaries.
 pub use layerx_program_sdk::abi::{
-    MAX_CAPABILITIES, MAX_CANONICAL_CAPABILITY_SET_BYTES, MAX_CAPABILITY_ENCODING_BYTES,
+    MAX_CANONICAL_CAPABILITY_SET_BYTES, MAX_CAPABILITIES, MAX_CAPABILITY_ENCODING_BYTES,
     MAX_CAPABILITY_ENCODING_GRANT_BYTES, MAX_CAPABILITY_ENCODING_HEADER_BYTES,
 };
 
@@ -514,6 +517,34 @@ pub struct ProgramEvent {
     pub data: Vec<u8>,
 }
 
+/// Topics and ABI data for one `ProgramGuestEvent` log emitted by 0x101D.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ProgramEventLog {
+    pub topics: [[u8; 32]; 2],
+    pub data: Vec<u8>,
+}
+
+impl ProgramEventLog {
+    /// Writes the two topics followed by ABI data, as consumed by the native
+    /// `layerx_programs_event_log_encode` boundary. Bytes after the record are
+    /// left untouched.
+    ///
+    /// # Errors
+    /// Returns `EventBounds` without writing when the output is too short.
+    pub fn write_encoded(&self, output: &mut [u8]) -> Result<usize, AbiError> {
+        let length = self
+            .data
+            .len()
+            .checked_add(64)
+            .ok_or(AbiError::EventBounds)?;
+        let output = output.get_mut(..length).ok_or(AbiError::EventBounds)?;
+        output[..32].copy_from_slice(&self.topics[0]);
+        output[32..64].copy_from_slice(&self.topics[1]);
+        output[64..].copy_from_slice(&self.data);
+        Ok(length)
+    }
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ProgramCall {
     pub caller: ProgramId,
@@ -568,21 +599,108 @@ pub struct AbiEffects {
 }
 
 impl AbiEffects {
-    /// Canonically commits every program event to its producing frame, so an
-    /// activity receipt cannot replay an event under another program frame.
+    /// Decodes the full guest bytes carried by committed native receipt evidence.
+    pub fn decode_program_event_envelope(encoded: &[u8]) -> Result<Self, AbiError> {
+        use crate::replay::ReplayCursor;
+        let mut cursor = ReplayCursor::new(encoded);
+        let decode = |_: crate::replay::ReplayWitnessError| AbiError::InvalidEncoding;
+        if cursor
+            .take(b"LayerX/programs/events/v1\0".len())
+            .map_err(decode)?
+            != b"LayerX/programs/events/v1\0"
+        {
+            return Err(AbiError::InvalidEncoding);
+        }
+        let count = cursor.count(82).map_err(decode)?;
+        if count > MAX_PROGRAM_EVENT_LOGS {
+            return Err(AbiError::EffectLimit);
+        }
+        let mut events = Vec::with_capacity(count);
+        for _ in 0..count {
+            let program =
+                ProgramId::new(cursor.array().map_err(decode)?).map_err(AbiError::Storage)?;
+            let principal =
+                PrincipalId::new(cursor.array().map_err(decode)?).map_err(AbiError::Storage)?;
+            let path = cursor.array().map_err(decode)?;
+            let depth = cursor.u8().map_err(decode)?;
+            let frame = CallFrameId::from_canonical(path, depth)?;
+            let topic = cursor.owned_field(MAX_EVENT_TOPIC_BYTES).map_err(decode)?;
+            let data = cursor.owned_field(MAX_EVENT_DATA_BYTES).map_err(decode)?;
+            if topic.is_empty() {
+                return Err(AbiError::EventBounds);
+            }
+            events.push(ProgramEvent {
+                program,
+                principal,
+                frame,
+                topic,
+                data,
+            });
+        }
+        if !cursor.done() {
+            return Err(AbiError::InvalidEncoding);
+        }
+        Ok(Self {
+            events,
+            ..Self::default()
+        })
+    }
+
+    /// Encodes the ordered guest events as 0x101D logs for the host's call program.
+    /// The variable-length guest topic becomes `event_kind = keccak256(topic)`.
     ///
     /// # Errors
     ///
-    /// Returns an encoding or event-bounds refusal if the envelope cannot be encoded.
+    /// Returns `EffectLimit` above 512 logs, or `EventBounds` for oversized events.
+    pub fn program_event_logs(&self, program: ProgramId) -> Result<Vec<ProgramEventLog>, AbiError> {
+        if self.events.len() > MAX_PROGRAM_EVENT_LOGS {
+            return Err(AbiError::EffectLimit);
+        }
+        let topic0: [u8; 32] =
+            Keccak256::digest(b"ProgramGuestEvent(bytes32,bytes32,bytes)").into();
+        self.events
+            .iter()
+            .map(|event| {
+                if event.topic.is_empty()
+                    || event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                    || event.data.len() > MAX_EVENT_DATA_BYTES
+                {
+                    return Err(AbiError::EventBounds);
+                }
+                // Two head words, then the bytes length and right-padded payload.
+                let padded_length = event.data.len().div_ceil(32) * 32;
+                let mut data = vec![0; 96 + padded_length];
+                data[..32].copy_from_slice(&Keccak256::digest(&event.topic));
+                data[63] = 64;
+                let length = u64::try_from(event.data.len()).map_err(|_| AbiError::EventBounds)?;
+                data[88..96].copy_from_slice(&length.to_be_bytes());
+                data[96..96 + event.data.len()].copy_from_slice(&event.data);
+                Ok(ProgramEventLog {
+                    topics: [topic0, program.bytes()],
+                    data,
+                })
+            })
+            .collect()
+    }
+
+    /// Canonical commitment over the ordered logs of one call, retaining each
+    /// event's producing program, principal and frame. The frozen byte layout
+    /// and `LayerX/programs/events/v1\0` domain bind the receipt to those events.
+    ///
+    /// # Errors
+    ///
+    /// Returns `EffectLimit` above 512 events, or `EventBounds` for invalid lengths.
     pub fn canonical_program_event_envelope(&self) -> Result<Vec<u8>, AbiError> {
-        if self.events.len() > MAX_EVENTS_PER_ACTIVITY {
-            return Err(AbiError::EventBounds);
+        if self.events.len() > MAX_PROGRAM_EVENT_LOGS {
+            return Err(AbiError::EffectLimit);
         }
         let mut encoded = b"LayerX/programs/events/v1\0".to_vec();
         let event_count = u32::try_from(self.events.len()).map_err(|_| AbiError::EventBounds)?;
         encoded.extend_from_slice(&event_count.to_be_bytes());
         for event in &self.events {
-            if event.topic.len() > MAX_EVENT_TOPIC_BYTES || event.data.len() > MAX_EVENT_DATA_BYTES
+            if event.topic.is_empty()
+                || event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                || event.data.len() > MAX_EVENT_DATA_BYTES
             {
                 return Err(AbiError::EventBounds);
             }
@@ -607,8 +725,8 @@ impl AbiEffects {
         &self,
         encoded: &mut Vec<u8>,
     ) -> Result<(), AbiError> {
-        if self.events.len() > MAX_EVENTS_PER_ACTIVITY {
-            return Err(AbiError::EventBounds);
+        if self.events.len() > MAX_PROGRAM_EVENT_LOGS {
+            return Err(AbiError::EffectLimit);
         }
         encoded.clear();
         encoded.extend_from_slice(b"LayerX/programs/events/v1\0");
@@ -618,7 +736,9 @@ impl AbiEffects {
                 .to_be_bytes(),
         );
         for event in &self.events {
-            if event.topic.len() > MAX_EVENT_TOPIC_BYTES || event.data.len() > MAX_EVENT_DATA_BYTES
+            if event.topic.is_empty()
+                || event.topic.len() > MAX_EVENT_TOPIC_BYTES
+                || event.data.len() > MAX_EVENT_DATA_BYTES
             {
                 return Err(AbiError::EventBounds);
             }
@@ -660,6 +780,7 @@ pub enum AbiError {
     CapabilityDenied,
     CapabilityEscalation,
     EventBounds,
+    EffectLimit,
     CallBounds,
     AmountBounds,
     ReceiptMismatch,
@@ -682,6 +803,9 @@ impl Display for AbiError {
             Self::CapabilityDenied => formatter.write_str("capability was not granted"),
             Self::CapabilityEscalation => formatter.write_str("capability narrowing escalates"),
             Self::EventBounds => formatter.write_str("program event exceeds ABI bounds"),
+            Self::EffectLimit => {
+                formatter.write_str("program call exceeds the 512-log effect limit")
+            }
             Self::CallBounds => formatter.write_str("program call exceeds ABI bounds"),
             Self::AmountBounds => formatter.write_str("402LXP transfer amount is invalid"),
             Self::ReceiptMismatch => formatter.write_str("verified receipt facts do not match"),

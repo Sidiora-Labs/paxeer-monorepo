@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { dirname, resolve as resolvePath } from 'node:path';
 import type { ValidationError } from 'yup';
 
-import { buildExternalAssetFilePath } from 'configs/app/utils';
+import { buildExternalAssetFileName } from 'configs/app/utils';
 import schema from './schema';
 import schemaMultichain from './schema_multichain';
 import { fileURLToPath } from 'node:url';
@@ -83,7 +83,7 @@ async function validateEnvs(appEnvs: Record<string, string>) {
 
 async function getExternalJsonContent(envName: string): Promise<string | void> {
   return new Promise((resolve, reject) => {
-    const fileName = `./public${ buildExternalAssetFilePath(envName, 'https://foo.bar/baz.json') }`;
+    const fileName = `./public/assets/configs/${ buildExternalAssetFileName(envName, 'https://foo.bar/baz.json') }`;
 
     fs.readFile(resolvePath(distDir, '..', fileName), 'utf8', (err, data) => {
       if (err) {
@@ -119,7 +119,7 @@ async function checkPlaceholdersCongruity(envsMap: Record<string, string>) {
         console.log(`     ${ env }`);
       });
       console.log(`   They are either deprecated or running the app with them may lead to unexpected behavior.
-   Please check the documentation for more details - https://github.com/blockscout/frontend/blob/main/docs/ENVS.md
+   Please check the documentation for more details - docs/explorer/ENVS.md
       `);
       throw new Error();
     }
@@ -152,7 +152,7 @@ function getEnvsPlaceholders(filePath: string): Promise<Array<string>> {
 }
 
 function printDeprecationWarning(envsMap: Record<string, string>) {
-  
+
 }
 
 function checkDeprecatedEnvs(envsMap: Record<string, string>) {

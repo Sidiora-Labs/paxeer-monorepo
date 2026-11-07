@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"net/http/httptest"
+	"net/netip"
 	"testing"
 
 	dto "github.com/prometheus/client_model/go"
@@ -33,8 +34,8 @@ func TestClientKey(t *testing.T) {
 			for _, v := range c.xff {
 				r.Header.Add("X-Forwarded-For", v)
 			}
-			if got := clientIP(r, trusted); got != c.want {
-				t.Fatalf("clientIP = %q, want %q", got, c.want)
+			if got := ClientKey(r, trusted); got != "ip:"+c.want {
+				t.Fatalf("ClientKey = %q, want %q", got, "ip:"+c.want)
 			}
 		})
 	}
@@ -52,8 +53,37 @@ func TestClientKeyIgnoresAPIKey(t *testing.T) {
 	b := httptest.NewRequest("GET", "/", nil)
 	b.RemoteAddr = "203.0.113.9:2"
 	b.Header.Set("X-API-Key", "random-2")
-	if ka, kb := ClientKey(a), ClientKey(b); ka != kb || ka != "ip:203.0.113.9" {
+	if ka, kb := ClientKey(a, nil), ClientKey(b, nil); ka != kb || ka != "ip:203.0.113.9" {
 		t.Fatalf("ClientKey = %q, %q; want one ip bucket", ka, kb)
+	}
+}
+
+func TestClientKeyTrustedList(t *testing.T) {
+	trusted, err := ParseTrustedProxies("10.0.0.0/8, 192.168.1.0/24")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range []struct {
+		name, remote string
+		trusted      []netip.Prefix
+		want         string
+	}{
+		{"first trusted prefix", "10.1.2.3:443", trusted, "ip:198.51.100.7"},
+		{"second trusted prefix", "192.168.1.5:443", trusted, "ip:198.51.100.7"},
+		{"untrusted peer", "203.0.113.9:443", trusted, "ip:203.0.113.9"},
+		{"nil list", "10.1.2.3:443", nil, "ip:10.1.2.3"},
+		{"empty list", "192.168.1.5:443", []netip.Prefix{}, "ip:192.168.1.5"},
+		{"peer outside supplied prefix", "10.1.2.3:443", trusted[1:], "ip:10.1.2.3"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			r := httptest.NewRequest("GET", "/", nil)
+			r.RemoteAddr = c.remote
+			r.Header.Set("X-Real-IP", "198.51.100.7")
+			r.Header.Set("X-Forwarded-For", "198.51.100.8")
+			if got := ClientKey(r, c.trusted); got != c.want {
+				t.Fatalf("ClientKey = %q, want %q", got, c.want)
+			}
+		})
 	}
 }
 

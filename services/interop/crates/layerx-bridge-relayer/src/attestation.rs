@@ -232,6 +232,26 @@ where
     if threshold == 0 {
         return Err(SignatureError::ZeroThreshold);
     }
+    let eligible = eligible_signatures(digest, candidates, attestors);
+    if eligible.len() < threshold {
+        return Err(SignatureError::BelowThreshold {
+            signatures: eligible.len(),
+            threshold,
+        });
+    }
+    Ok(eligible.into_iter().take(threshold).collect())
+}
+
+/// The common destination eligibility rule for submitted and served signatures.
+#[must_use]
+pub fn eligible_signatures<I>(
+    digest: &[u8; 32],
+    candidates: I,
+    attestors: &[[u8; 20]],
+) -> Vec<[u8; 65]>
+where
+    I: IntoIterator<Item = [u8; 65]>,
+{
     let mut by_signer = BTreeMap::new();
     for candidate in candidates {
         let Ok(signer) = recover_signer(digest, &candidate) else {
@@ -241,13 +261,7 @@ where
             by_signer.entry(signer).or_insert(candidate);
         }
     }
-    if by_signer.len() < threshold {
-        return Err(SignatureError::BelowThreshold {
-            signatures: by_signer.len(),
-            threshold,
-        });
-    }
-    Ok(by_signer.into_values().take(threshold).collect())
+    by_signer.into_values().collect()
 }
 
 #[cfg(test)]

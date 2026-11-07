@@ -105,17 +105,21 @@ type Entry interface {
 
 // Open records the opening of the pending block.
 type Open struct {
-	Height     uint64
-	OpenTimeMs uint64
-	BaseFee    *uint256.Int
+	Height          uint64
+	OpenTimeMs      uint64
+	BaseFee         *uint256.Int
+	ProposerAddress []byte
 }
 
 // Accept records one executed transaction and its canonical signed receipt.
 type Accept struct {
-	Seq     uint64
-	Height  uint64
-	Tx      []byte
-	Receipt []byte
+	Seq        uint64
+	Height     uint64
+	Tx         []byte
+	Receipt    []byte
+	ReturnData []byte
+	LogData    [][]byte
+	VMError    string
 }
 
 // Seal records the sealing of seqs FromSeq..ToSeq into the block at Height.
@@ -153,18 +157,34 @@ func (e *Open) appendPayload(dst []byte) ([]byte, error) {
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
 	dst = binary.BigEndian.AppendUint64(dst, e.OpenTimeMs)
 	fee := e.BaseFee.Bytes32()
-	return append(dst, fee[:]...), nil
+	dst = append(dst, fee[:]...)
+	if len(e.ProposerAddress) != 0 {
+		if len(e.ProposerAddress) != 20 {
+			return nil, fmt.Errorf("%w: OPEN proposer must be 20 bytes", ErrMalformed)
+		}
+		dst = append(dst, e.ProposerAddress...)
+	}
+	return dst, nil
 }
 
 func (e *Accept) appendPayload(dst []byte) ([]byte, error) {
 	dst = binary.BigEndian.AppendUint64(dst, e.Seq)
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
 	dst = appendBytes(dst, e.Tx)
-	return appendBytes(dst, e.Receipt), nil
+	dst = appendBytes(dst, e.Receipt)
+	if len(e.ReturnData) != 0 || len(e.LogData) != 0 || e.VMError != "" {
+		dst = appendBytes(dst, e.ReturnData)
+		dst = appendBytes(dst, []byte(e.VMError))
+		dst = binary.BigEndian.AppendUint32(dst, uint32(len(e.LogData)))
+		for _, data := range e.LogData {
+			dst = appendBytes(dst, data)
+		}
+	}
+	return dst, nil
 }
 
 func (e *Seal) appendPayload(dst []byte) ([]byte, error) {
-	if e.FromSeq > e.ToSeq {
+	if e.FromSeq > e.ToSeq && e.FromSeq-e.ToSeq > 1 {
 		return nil, fmt.Errorf("%w: SEAL fromSeq %d above toSeq %d", ErrMalformed, e.FromSeq, e.ToSeq)
 	}
 	dst = binary.BigEndian.AppendUint64(dst, e.Height)
@@ -218,14 +238,30 @@ func DecodeEntry(b []byte) (Entry, error) {
 	var e Entry
 	switch kind {
 	case KindOpen:
-		e = &Open{Height: d.u64(), OpenTimeMs: d.u64(), BaseFee: new(uint256.Int).SetBytes32(d.fixed(32))}
+		o := &Open{Height: d.u64(), OpenTimeMs: d.u64(), BaseFee: new(uint256.Int).SetBytes32(d.fixed(32))}
+		if !d.failed && len(d.b) != 0 {
+			o.ProposerAddress = append([]byte(nil), d.fixed(20)...)
+		}
+		e = o
 	case KindAccept:
-		e = &Accept{Seq: d.u64(), Height: d.u64(), Tx: d.bytes(), Receipt: d.bytes()}
+		a := &Accept{Seq: d.u64(), Height: d.u64(), Tx: d.bytes(), Receipt: d.bytes()}
+		if !d.failed && len(d.b) != 0 {
+			a.ReturnData = d.bytes()
+			a.VMError = string(d.bytes())
+			n := binary.BigEndian.Uint32(d.fixed(4))
+			if uint64(n) > uint64(len(d.b)/4) {
+				d.failed = true
+			}
+			for i := uint32(0); !d.failed && i < n; i++ {
+				a.LogData = append(a.LogData, d.bytes())
+			}
+		}
+		e = a
 	case KindSeal:
 		s := &Seal{Height: d.u64(), ToSeq: d.u64()}
 		copy(s.LastSeqHash[:], d.fixed(32))
 		s.FromSeq = d.u64()
-		if !d.failed && s.FromSeq > s.ToSeq {
+		if !d.failed && s.FromSeq > s.ToSeq && s.FromSeq-s.ToSeq > 1 {
 			return nil, fmt.Errorf("%w: SEAL fromSeq %d above toSeq %d", ErrMalformed, s.FromSeq, s.ToSeq)
 		}
 		e = s
@@ -706,16 +742,50 @@ type Executor interface {
 type ReplayResult struct {
 	// From is the last COMMITTED entry replay started after, nil when the WAL holds none.
 	From *Committed
+	// Lease is the last LEASE entry in the retained segments, nil when they hold none.
+	Lease *Lease
 	// Accepts is the number of ACCEPT entries re-executed with byte-identical receipts.
 	Accepts int
 	// LastAccept is the last ACCEPT re-executed, nil when there was none.
 	LastAccept *Accept
+	// LastLogged is the last ACCEPT in the retained segments, before or after the last COMMITTED.
+	LastLogged *Accept
 	// Tail is the corrupt or torn head tail that OpenWAL cut off, nil when the head ended cleanly.
 	Tail *CorruptTail
 }
 
+func (w *WAL) Scan(visit func(Entry) error) error {
+	w.pruneMu.Lock()
+	defer w.pruneMu.Unlock()
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	if w.err != nil {
+		return w.err
+	}
+	if err := w.buf.Flush(); err != nil {
+		w.fail(err)
+		return err
+	}
+	paths := make([]string, 0, len(w.sealed)+1)
+	for _, s := range w.sealed {
+		paths = append(paths, filepath.Join(w.dir, s.name()))
+	}
+	paths = append(paths, filepath.Join(w.dir, headName))
+	for _, path := range paths {
+		_, tailErr, err := scanSegment(path, visit)
+		if err != nil {
+			return err
+		}
+		if tailErr != nil {
+			return fmt.Errorf("%s: %w", path, tailErr)
+		}
+	}
+	return nil
+}
+
 // Replay feeds every entry after the last COMMITTED entry to exec in WAL order and stops with
 // ErrReceiptMismatch at the first ACCEPT whose re-executed receipt differs from the stored bytes.
+// The result reports the last LEASE entry in the retained segments, even before the last COMMITTED.
 // Appends wait while the segments are read; exec runs after they are read.
 func (w *WAL) Replay(exec Executor) (ReplayResult, error) {
 	w.pruneMu.Lock()
@@ -735,6 +805,12 @@ func (w *WAL) Replay(exec Executor) (ReplayResult, error) {
 	res := ReplayResult{From: w.lastCommitted, Tail: w.tail}
 	var after []Entry
 	collect := func(e Entry) error {
+		if lease, ok := e.(*Lease); ok {
+			res.Lease = lease
+		}
+		if accept, ok := e.(*Accept); ok {
+			res.LastLogged = accept
+		}
 		if _, ok := e.(*Committed); ok {
 			after = after[:0]
 			return nil

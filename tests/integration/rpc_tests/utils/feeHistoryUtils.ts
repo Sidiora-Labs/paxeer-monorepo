@@ -1,6 +1,12 @@
 import { ethers } from 'ethers';
 import { expect } from 'chai';
-import { Eip1559Params, nextBaseFeePax, nextBaseFeeGeth, blockGasInfo } from './chainUtils';
+import {
+    Eip1559Params,
+    nextBaseFeePax,
+    nextBaseFeeGeth,
+    blockGasInfo,
+    validateEip1559Params,
+} from './chainUtils';
 
 export { blockGasInfo };
 
@@ -33,9 +39,7 @@ export function parseFeeHistory(raw: any): ParsedFeeHistory {
         oldest: ethers.toNumber(raw.oldestBlock),
         baseFeePerGas: (raw.baseFeePerGas as string[]).map(BigInt),
         gasUsedRatio: (raw.gasUsedRatio as number[]).map(Number),
-        reward: raw.reward
-            ? (raw.reward as string[][]).map(row => row.map(BigInt))
-            : undefined,
+        reward: raw.reward ? (raw.reward as string[][]).map((row) => row.map(BigInt)) : undefined,
     };
 }
 
@@ -86,6 +90,7 @@ export async function verifyFeeHistorySeries(
     chain: 'pax' | 'geth',
     paxParams: Eip1559Params | null,
 ): Promise<void> {
+    if (chain === 'pax') validateEip1559Params(paxParams);
     const count = fh.gasUsedRatio.length;
     expect(fh.baseFeePerGas.length, 'baseFeePerGas is blockCount + 1').to.equal(count + 1);
     expect(fh.oldest, 'oldestBlock = newest - count + 1').to.equal(newest - count + 1);
@@ -122,16 +127,16 @@ export async function verifyFeeHistorySeries(
         if (chain === 'geth') {
             const predicted = nextBaseFeeGeth(fh.baseFeePerGas[i], blk.gasUsed, blk.gasLimit);
             expect(fh.baseFeePerGas[i + 1], `geth base-fee transition ${i}`).to.equal(predicted);
-        } else if (paxParams) {
+        } else {
             const predicted = nextBaseFeePax(
                 Number(fh.baseFeePerGas[i]),
                 Number(blk.gasUsed),
-                paxParams,
+                validateEip1559Params(paxParams),
             );
-            expect(
-                Number(fh.baseFeePerGas[i + 1]),
-                `pax base-fee transition ${i}`,
-            ).to.be.closeTo(predicted, 5);
+            expect(Number(fh.baseFeePerGas[i + 1]), `pax base-fee transition ${i}`).to.be.closeTo(
+                predicted,
+                5,
+            );
         }
     }
 

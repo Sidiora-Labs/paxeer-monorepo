@@ -1,4 +1,5 @@
-#!/usr/bin/env sh
+#!/usr/bin/env bash
+source docker/localnode/scripts/localnode_common.sh
 
 NODE_ID=${ID:-0}
 GIGA_EXECUTOR=${GIGA_EXECUTOR:-false}
@@ -23,22 +24,22 @@ if [ "$GIGA_MIGRATE_FROM_MEMIAVL" = "true" ] && [ "$GIGA_FLATKV_ONLY" = "true" ]
   exit 1
 fi
 
-APP_CONFIG_FILE="build/generated/node_$NODE_ID/app.toml"
-TENDERMINT_CONFIG_FILE="build/generated/node_$NODE_ID/config.toml"
-cp build/generated/genesis.json ~/.pax/config/genesis.json
-cp "$APP_CONFIG_FILE" ~/.pax/config/app.toml
-cp "$TENDERMINT_CONFIG_FILE" ~/.pax/config/config.toml
+APP_CONFIG_FILE="$SHARED_DIR/node_$NODE_ID/app.toml"
+TENDERMINT_CONFIG_FILE="$SHARED_DIR/node_$NODE_ID/config.toml"
+cp "$SHARED_DIR/genesis.json" "$PAX_HOME"/config/genesis.json
+cp "$APP_CONFIG_FILE" "$PAX_HOME"/config/app.toml
+cp "$TENDERMINT_CONFIG_FILE" "$PAX_HOME"/config/config.toml
 
 # Override up persistent peers
 NODE_IP=$(hostname -i | awk '{print $1}')
-PEERS=$(cat build/generated/persistent_peers.txt |grep -v "$NODE_IP" | paste -sd "," -)
-sed -i'' -e 's/persistent-peers = ""/persistent-peers = "'$PEERS'"/g' ~/.pax/config/config.toml
+PEERS=$(awk -v ip="$NODE_IP" 'index($0, "@" ip ":") == 0' "$SHARED_DIR/persistent_peers.txt" | paste -sd "," -)
+sed -i'' -e 's/persistent-peers = ""/persistent-peers = "'$PEERS'"/g' "$PAX_HOME"/config/config.toml
 
 # Override snapshot directory
-sed -i.bak -e "s|^snapshot-directory *=.*|snapshot-directory = \"./build/generated/node_$NODE_ID/snapshots\"|" ~/.pax/config/app.toml
+sed -i.bak -e "s|^snapshot-directory *=.*|snapshot-directory = \"$SHARED_DIR/node_$NODE_ID/snapshots\"|" "$PAX_HOME"/config/app.toml
 
 # Enable slow mode
-sed -i.bak -e 's/slow = .*/slow = true/' ~/.pax/config/app.toml
+sed -i.bak -e 's/slow = .*/slow = true/' "$PAX_HOME"/config/app.toml
 
 # Boot the cluster in v0 (memiavl_only) for the FlatKV EVM migrate test.
 # Doing this here keeps the override surface narrow: the test runner
@@ -47,27 +48,27 @@ sed -i.bak -e 's/slow = .*/slow = true/' ~/.pax/config/app.toml
 # coordinated stop.
 if [ "$GIGA_MIGRATE_FROM_MEMIAVL" = "true" ]; then
   echo "Booting node $NODE_ID in memiavl_only mode (FlatKV EVM migrate starting point)..."
-  if grep -q '^sc-write-mode[[:space:]]*=' ~/.pax/config/app.toml; then
-    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "memiavl_only"/' ~/.pax/config/app.toml
+  if grep -q '^sc-write-mode[[:space:]]*=' "$PAX_HOME"/config/app.toml; then
+    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "memiavl_only"/' "$PAX_HOME"/config/app.toml
   else
-    sed -i '/^\[state-store\]/i sc-write-mode = "memiavl_only"' ~/.pax/config/app.toml
+    sed -i '/^\[state-store\]/i sc-write-mode = "memiavl_only"' "$PAX_HOME"/config/app.toml
   fi
   # The EVM SS split is irrelevant in this mode (flatkv is not allocated),
   # but explicitly disabling it keeps app.toml self-describing in case an
   # operator inspects it post-flip.
-  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = false/' ~/.pax/config/app.toml
+  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = false/' "$PAX_HOME"/config/app.toml
 fi
 
 # Boot the cluster directly in v3 (flatkv_only) for post-migration state-sync
 # coverage. This mode must not also run the GIGA_STORAGE dual-write override.
 if [ "$GIGA_FLATKV_ONLY" = "true" ]; then
   echo "Booting node $NODE_ID in flatkv_only mode (post-migration steady state)..."
-  if grep -q '^sc-write-mode[[:space:]]*=' ~/.pax/config/app.toml; then
-    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "flatkv_only"/' ~/.pax/config/app.toml
+  if grep -q '^sc-write-mode[[:space:]]*=' "$PAX_HOME"/config/app.toml; then
+    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "flatkv_only"/' "$PAX_HOME"/config/app.toml
   else
-    sed -i '/^\[state-store\]/i sc-write-mode = "flatkv_only"' ~/.pax/config/app.toml
+    sed -i '/^\[state-store\]/i sc-write-mode = "flatkv_only"' "$PAX_HOME"/config/app.toml
   fi
-  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = false/' ~/.pax/config/app.toml
+  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = false/' "$PAX_HOME"/config/app.toml
 fi
 
 # Enable Giga Storage: FlatKV SC dual-write + EVM SS split.
@@ -85,37 +86,37 @@ if [ "$GIGA_STORAGE" = "true" ] && [ "$GIGA_MIGRATE_FROM_MEMIAVL" != "true" ] &&
   # from the memiavl tree via GetChildStoreByName. dual-write keeps memiavl
   # up-to-date for reads while also populating FlatKV. This mode is for test
   # clusters only — never deploy to testnet/mainnet.
-  if grep -q '^sc-write-mode[[:space:]]*=' ~/.pax/config/app.toml; then
-    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "test_only_dual_write"/' ~/.pax/config/app.toml
+  if grep -q '^sc-write-mode[[:space:]]*=' "$PAX_HOME"/config/app.toml; then
+    sed -i 's/^sc-write-mode[[:space:]]*=.*/sc-write-mode = "test_only_dual_write"/' "$PAX_HOME"/config/app.toml
   else
-    sed -i '/^\[state-store\]/i sc-write-mode = "test_only_dual_write"' ~/.pax/config/app.toml
+    sed -i '/^\[state-store\]/i sc-write-mode = "test_only_dual_write"' "$PAX_HOME"/config/app.toml
   fi
 
   # --- SS layer: enable EVM split ---
-  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = true/' ~/.pax/config/app.toml
+  sed -i 's/^evm-ss-split[[:space:]]*=.*/evm-ss-split = true/' "$PAX_HOME"/config/app.toml
 fi
 
 # Enable Giga Executor if requested
 if [ "$GIGA_EXECUTOR" = "true" ]; then
   echo "Enabling Giga Executor for node $NODE_ID..."
-  if grep -q "\[giga_executor\]" ~/.pax/config/app.toml; then
+  if grep -q "\[giga_executor\]" "$PAX_HOME"/config/app.toml; then
     # If the section exists, update enabled to true
-    sed -i 's/enabled = false/enabled = true/' ~/.pax/config/app.toml
+    sed -i 's/enabled = false/enabled = true/' "$PAX_HOME"/config/app.toml
   else
     # If section doesn't exist, append it
-    echo "" >> ~/.pax/config/app.toml
-    echo "[giga_executor]" >> ~/.pax/config/app.toml
-    echo "enabled = true" >> ~/.pax/config/app.toml
-    echo "occ_enabled = false" >> ~/.pax/config/app.toml
+    echo "" >> "$PAX_HOME"/config/app.toml
+    echo "[giga_executor]" >> "$PAX_HOME"/config/app.toml
+    echo "enabled = true" >> "$PAX_HOME"/config/app.toml
+    echo "occ_enabled = false" >> "$PAX_HOME"/config/app.toml
   fi
 
   # Set OCC based on GIGA_OCC flag
   if [ "$GIGA_OCC" = "true" ]; then
     echo "Enabling OCC for Giga Executor on node $NODE_ID..."
-    sed -i 's/occ_enabled = false/occ_enabled = true/' ~/.pax/config/app.toml
+    sed -i 's/occ_enabled = false/occ_enabled = true/' "$PAX_HOME"/config/app.toml
   else
     echo "Disabling OCC for Giga Executor (sequential mode) on node $NODE_ID..."
-    sed -i 's/occ_enabled = true/occ_enabled = false/' ~/.pax/config/app.toml
+    sed -i 's/occ_enabled = true/occ_enabled = false/' "$PAX_HOME"/config/app.toml
   fi
 fi
 
@@ -123,26 +124,26 @@ fi
 RECEIPT_BACKEND=${RECEIPT_BACKEND:-}
 if [ -n "$RECEIPT_BACKEND" ]; then
   echo "Setting receipt store backend to '$RECEIPT_BACKEND' for node $NODE_ID..."
-  if grep -q "\[receipt-store\]" ~/.pax/config/app.toml; then
+  if grep -q "\[receipt-store\]" "$PAX_HOME"/config/app.toml; then
     # Section exists, update the backend value
-    sed -i "s/rs-backend = .*/rs-backend = \"$RECEIPT_BACKEND\"/" ~/.pax/config/app.toml
+    sed -i "s/rs-backend = .*/rs-backend = \"$RECEIPT_BACKEND\"/" "$PAX_HOME"/config/app.toml
   else
     # Section doesn't exist, append it
-    echo "" >> ~/.pax/config/app.toml
-    echo "[receipt-store]" >> ~/.pax/config/app.toml
-    echo "rs-backend = \"$RECEIPT_BACKEND\"" >> ~/.pax/config/app.toml
+    echo "" >> "$PAX_HOME"/config/app.toml
+    echo "[receipt-store]" >> "$PAX_HOME"/config/app.toml
+    echo "rs-backend = \"$RECEIPT_BACKEND\"" >> "$PAX_HOME"/config/app.toml
   fi
 fi
 
 # Generate Autobahn (GigaRouter) config if requested
 if [ "$AUTOBAHN" = "true" ]; then
   echo "Generating Autobahn config for node $NODE_ID..."
-  AUTOBAHN_CONFIG="$HOME/.pax/config/autobahn.json"
+  AUTOBAHN_CONFIG="$PAX_HOME/config/autobahn.json"
 
   # Collect node directories as arguments
   NODE_DIRS=""
   for i in $(seq 0 $((CLUSTER_SIZE - 1))); do
-    NODE_DIRS="$NODE_DIRS build/generated/node_${i}"
+    NODE_DIRS="$NODE_DIRS $SHARED_DIR/node_${i}"
   done
 
   # Generate autobahn config using paxd
@@ -150,10 +151,10 @@ if [ "$AUTOBAHN" = "true" ]; then
 
   # Inject autobahn config file path into config.toml
   # Must be placed before any [section] header so TOML parser reads it as a top-level key.
-  if grep -q "autobahn-config-file" ~/.pax/config/config.toml; then
-    sed -i 's|autobahn-config-file = .*|autobahn-config-file = "'"$AUTOBAHN_CONFIG"'"|' ~/.pax/config/config.toml
+  if grep -q "autobahn-config-file" "$PAX_HOME"/config/config.toml; then
+    sed -i 's|autobahn-config-file = .*|autobahn-config-file = "'"$AUTOBAHN_CONFIG"'"|' "$PAX_HOME"/config/config.toml
   else
-    sed -i '1s|^|autobahn-config-file = "'"$AUTOBAHN_CONFIG"'"\n|' ~/.pax/config/config.toml
+    sed -i '1s|^|autobahn-config-file = "'"$AUTOBAHN_CONFIG"'"\n|' "$PAX_HOME"/config/config.toml
   fi
   echo "Autobahn config written to $AUTOBAHN_CONFIG"
 fi

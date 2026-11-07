@@ -280,22 +280,28 @@ func (s *surfaceHarness) exported() string {
 
 func surfaceAt(role string) common.Address { return launchpadkeeper.Generation2Surfaces[role] }
 
+func assertSurfaceRuntime(t *testing.T, db *state.DBImpl, address common.Address) {
+	t.Helper()
+	require.Equal(t, launchpadkeeper.SurfaceRuntime, db.GetCode(address), address.Hex())
+}
+
 func TestSurfaceRuntimeForwards(t *testing.T) {
 	s := newSurfaceHarness(t)
-	require.Len(t, launchpad.SurfaceRuntime, 41)
-	require.Equal(t, "0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3",
+	require.Equal(t, launchpadkeeper.SurfaceRuntime, launchpad.SurfaceRuntime)
+	require.Len(t, launchpad.SurfaceRuntime, 51)
+	require.Equal(t, "0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3",
 		hexutil.Encode(launchpad.SurfaceRuntime))
 
 	require.Len(t, launchpadkeeper.Generation2Surfaces, 9)
 	for role, address := range launchpadkeeper.Generation2Surfaces {
-		require.Equal(t, launchpad.SurfaceRuntime, s.stateDB.GetCode(address), role)
+		assertSurfaceRuntime(t, s.stateDB, address)
 		got, found, err := s.keeper.GetSurface(s.ctx(), address)
 		require.NoError(t, err, role)
 		require.True(t, found, role)
 		require.Equal(t, launchpadkeeper.Surface{Role: role, Generation: types.Generation2}, got, role)
 	}
 	for i, pool := range s.pools {
-		require.Equal(t, launchpad.SurfaceRuntime, s.stateDB.GetCode(pool), pool.Hex())
+		assertSurfaceRuntime(t, s.stateDB, pool)
 		got, found, err := s.keeper.GetSurface(s.ctx(), pool)
 		require.NoError(t, err)
 		require.True(t, found)
@@ -463,6 +469,56 @@ func TestSurfaceCallKindRefusals(t *testing.T) {
 		require.ErrorIs(t, err, vm.ErrExecutionReverted)
 	}
 	require.Equal(t, before, s.exported())
+	assertSurfaceValueRefusals(t, s)
+}
+
+// assertSurfaceValueRefusals sends native currency through the installed
+// bytecode and the EVM transfer path, with funded senders.
+func assertSurfaceValueRefusals(t *testing.T, s *surfaceHarness) {
+	t.Helper()
+	for _, sender := range []common.Address{s.alice, s.creator} {
+		s.stateDB.AddBalance(sender, uint256.NewInt(1_000_000_000_000_000_000), tracing.BalanceChangeUnspecified)
+	}
+	require.NoError(t, s.stateDB.Error())
+	check := func(t *testing.T, from, to common.Address, input []byte) {
+		t.Helper()
+		snapshot := s.stateDB.Snapshot()
+		_, _, err := s.evm.Call(from, to, input, surfaceGas, uint256.NewInt(0))
+		require.NoError(t, err, "zero-value control")
+		s.stateDB.RevertToSnapshot(snapshot)
+		before := s.exported()
+		logs, err := json.Marshal(s.stateDB.GetAllLogs())
+		require.NoError(t, err)
+		balances := map[common.Address]*big.Int{}
+		for _, a := range []common.Address{from, to, precompile} {
+			balances[a] = s.stateDB.GetBalance(a).ToBig()
+		}
+		s.frames = nil
+		_, _, err = s.evm.Call(from, to, input, surfaceGas, uint256.NewInt(1))
+		require.ErrorIs(t, err, vm.ErrExecutionReverted)
+		require.NoError(t, s.stateDB.Error())
+		for a, balance := range balances {
+			require.Equal(t, balance, s.stateDB.GetBalance(a).ToBig(), a.Hex())
+		}
+		require.Equal(t, before, s.exported())
+		afterLogs, err := json.Marshal(s.stateDB.GetAllLogs())
+		require.NoError(t, err)
+		require.Equal(t, logs, afterLogs)
+		require.Len(t, s.frames, 1, "the surface must refuse value before forwarding")
+	}
+	for role, to := range launchpadkeeper.Generation2Surfaces {
+		t.Run("value/"+role, func(t *testing.T) { check(t, s.alice, to, s.encode(role, "DEFAULT_ADMIN_ROLE")) })
+	}
+	for i, pool := range s.pools {
+		t.Run("value/pool/"+big.NewInt(int64(i)).String(), func(t *testing.T) {
+			check(t, s.alice, pool, s.encode(types.RolePool, "paused"))
+			check(t, s.creator, pool, s.encode(types.RolePool, "pause"))
+		})
+	}
+	role := repair36Grant(t, s, "repair 947 native value role")
+	t.Run("value/role write", func(t *testing.T) {
+		check(t, s.alice, surfaceAt(types.RoleRouter), s.encode(types.RoleRouter, "renounceRole", role, s.alice))
+	})
 }
 
 func TestUnknownSelectorAndSurfaceGenesis(t *testing.T) {

@@ -1,0 +1,6 @@
+[repair.rust-test-explorer-libs.16]
+target = "sourcify"
+command = "cargo test --locked --manifest-path services/explorer/services/libs/Cargo.toml -p sourcify --no-fail-fast"
+revision = "f1a29cc195803e1de7db8e207b3f0ae5912fa50e"
+result = "repaired"
+change = "Migrate services/explorer/services/libs/sourcify/Cargo.toml and src/{client,lib,types,v2,keccak}.rs to the Sourcify v2 API, preserving source-file responses, library placeholders and typed verification errors."

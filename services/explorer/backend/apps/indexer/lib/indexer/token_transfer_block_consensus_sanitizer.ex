@@ -12,6 +12,9 @@ defmodule Indexer.TokenTransferBlockConsensusSanitizer do
   alias Explorer.Chain.{Block, TokenTransfer}
   alias Explorer.Repo
 
+  @batch_size 100
+  @query_timeout 15_000
+
   def child_spec(_) do
     %{
       id: __MODULE__,
@@ -29,30 +32,43 @@ defmodule Indexer.TokenTransferBlockConsensusSanitizer do
   def init(_) do
     schedule_sanitize()
 
-    {:ok, %{}}
+    {:ok, %{cursor: -1}}
   end
 
-  def handle_info(:sanitize, state) do
+  def handle_info(:sanitize, %{cursor: cursor} = state) do
     block_numbers =
       TokenTransfer
       |> join(:inner, [tt], b in assoc(tt, :block))
       |> where([tt, b], tt.block_consensus != b.consensus)
-      |> select([tt], tt.block_number)
+      |> where([tt, b], b.number > ^cursor and (b.refetch_needed == false or is_nil(b.refetch_needed)))
+      |> select([tt, b], b.number)
       |> distinct(true)
-      |> Repo.all(timeout: :infinity)
+      |> order_by([tt, b], asc: b.number)
+      |> limit(^@batch_size)
+      |> Repo.all(timeout: @query_timeout)
 
     case block_numbers do
       [] ->
         Logger.debug("[TokenTransferBlockConsensusSanitizer] No inconsistent token transfer block consensus found")
 
+        schedule_sanitize()
+        {:noreply, %{state | cursor: -1}}
+
       numbers ->
         Logger.info("[TokenTransferBlockConsensusSanitizer] Marking #{length(numbers)} blocks for refetch")
-        Block.set_refetch_needed(numbers)
+
+        {:ok, :ok} =
+          Repo.transaction(
+            fn ->
+              Repo.query!("SET LOCAL statement_timeout = '15s'", [], timeout: @query_timeout)
+              Block.set_refetch_needed(numbers)
+            end,
+            timeout: @query_timeout
+          )
+
+        send(self(), :sanitize)
+        {:noreply, %{state | cursor: List.last(numbers)}}
     end
-
-    schedule_sanitize()
-
-    {:noreply, state}
   end
 
   defp schedule_sanitize do

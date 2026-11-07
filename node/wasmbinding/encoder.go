@@ -1,10 +1,12 @@
 package wasmbinding
 
 import (
+	"bytes"
 	"encoding/json"
 
 	evmwasm "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/client/wasm"
 	tokenfactorywasm "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/client/wasm"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/wasmbinding/bindings"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	wasmvmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/wasm-runtime/types"
@@ -17,6 +19,7 @@ type PaxWasmMessage struct {
 	BurnTokens      json.RawMessage `json:"burn_tokens,omitempty"`
 	ChangeAdmin     json.RawMessage `json:"change_admin,omitempty"`
 	SetMetadata     json.RawMessage `json:"set_metadata,omitempty"`
+	SetDenomPaused  json.RawMessage `json:"set_denom_paused,omitempty"`
 	CallEVM         json.RawMessage `json:"call_evm,omitempty"`
 	DelegateCallEVM json.RawMessage `json:"delegate_call_evm,omitempty"`
 }
@@ -25,6 +28,23 @@ func CustomEncoder(sender sdk.AccAddress, msg json.RawMessage, info wasmvmtypes.
 	var parsedMessage PaxWasmMessage
 	if err := json.Unmarshal(msg, &parsedMessage); err != nil {
 		return []sdk.Msg{}, sdkerrors.Wrap(err, "Error parsing Pax Wasm Message")
+	}
+	variants := 0
+	for _, variant := range []*json.RawMessage{
+		&parsedMessage.CreateDenom, &parsedMessage.MintTokens,
+		&parsedMessage.BurnTokens, &parsedMessage.ChangeAdmin,
+		&parsedMessage.SetMetadata, &parsedMessage.SetDenomPaused,
+		&parsedMessage.CallEVM, &parsedMessage.DelegateCallEVM,
+	} {
+		if bytes.Equal(bytes.TrimSpace(*variant), []byte("null")) {
+			*variant = nil
+		}
+		if *variant != nil {
+			variants++
+		}
+	}
+	if variants > 1 {
+		return []sdk.Msg{}, bindings.ErrParsingPaxWasmMsg.Wrap("expected exactly one message variant")
 	}
 	switch {
 	case parsedMessage.CreateDenom != nil:
@@ -37,6 +57,8 @@ func CustomEncoder(sender sdk.AccAddress, msg json.RawMessage, info wasmvmtypes.
 		return tokenfactorywasm.EncodeTokenFactoryChangeAdmin(parsedMessage.ChangeAdmin, sender)
 	case parsedMessage.SetMetadata != nil:
 		return tokenfactorywasm.EncodeTokenFactorySetMetadata(parsedMessage.SetMetadata, sender)
+	case parsedMessage.SetDenomPaused != nil:
+		return tokenfactorywasm.EncodeTokenFactorySetDenomPaused(parsedMessage.SetDenomPaused, sender)
 	case parsedMessage.CallEVM != nil:
 		return evmwasm.EncodeCallEVM(parsedMessage.CallEVM, sender, info)
 	case parsedMessage.DelegateCallEVM != nil:

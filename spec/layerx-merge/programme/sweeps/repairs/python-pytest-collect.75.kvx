@@ -1,0 +1,11 @@
+[repair.python-pytest-collect.75]
+target = "tools/launchpad/production/load"
+command = "python3 -m pytest -q --collect-only tools/launchpad/production/load"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "tools/launchpad/production/load/requirements.txt pins jsonschema, cryptography and pytest, and spec/layerx-merge/programme/sweeps/repairs/python-pytest-collect.75.kvx records the collection repair."
+producer_input_tests = [
+    "test_phase2_journeys.py::RealMixedJourneys::test_actual_connected_ten_minute_host requires LOAD_PHASE2_CONFIG_FILE with real admitted source-bound host configuration, LOAD_PHASE2_CONFIG_SHA256 with its digest, and LOAD_PHASE2_OUTPUT_DIR for capture artifacts.",
+    "test_phase3_faults.py::RealSkewAndFaultJourney::test_actual_hot_pool_and_isolated_dependency_loss requires LOAD_PHASE3_CONFIG_FILE with actual source-bound admitted four-host fault workload configuration, LOAD_PHASE3_CONFIG_SHA256 with its digest, and LOAD_PHASE3_OUTPUT_DIR for capture artifacts.",
+    "test_phase4_capacity.py::ActualCapacityAdapterProof::test_actual_calibrated_isolated_socket_fanout_event_http_host requires LOAD_PHASE4_CONFIG_FILE with actual admitted host configuration and native driver, LOAD_PHASE4_CONFIG_SHA256 with its digest, and LOAD_PHASE4_OUTPUT_DIR for capture artifacts."
+]

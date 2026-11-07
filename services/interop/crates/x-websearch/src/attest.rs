@@ -7,15 +7,17 @@ use std::time::{Duration, Instant};
 
 use k256::ecdsa::{RecoveryId, Signature, SigningKey, VerifyingKey};
 use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 
 use crate::api::{self, ApiClient, ApiError, ApiPayload, KIND_API};
+use crate::canonical::{self, ContentKind};
 use crate::content::{ContentStore, PEER_HEADER};
 use crate::fetch::{FetchError, Fetcher, HttpClient, Url};
 use crate::index::WebIndex;
-use crate::kernel::ProgramRequest;
+use crate::program::ProgramRequest;
 use crate::search;
 use crate::server::{Response, RouteError, RouteTable};
-use crate::watch::{hex0x, keccak, unhex0x, EvmError, EvmRpc, WebRequest, XWEB_PRECOMPILE};
+use crate::watch::{hex0x, keccak, unhex0x, EvmError, EvmRpc, WebRequest};
 
 /// The ASCII domain every attestation preimage starts with.
 pub const DOMAIN: &[u8] = b"PAXEERX_WEB_V1";
@@ -44,12 +46,12 @@ const PEER_CONNECT_TIMEOUT: Duration = Duration::from_secs(3);
 const PEER_TOTAL_TIMEOUT: Duration = Duration::from_secs(10);
 const DISCARD_LOG: &str = "discarded.jsonl";
 const ANSWERS_DIR: &str = "answers";
-const MAX_PROGRAM_SIGNATURES: usize = crate::kernel::MAX_OBSERVATION_SIGNATURES;
+const MAX_PROGRAM_SIGNATURES: usize = crate::program::MAX_OBSERVATION_SIGNATURES;
 const MAX_EVM_SIGNATURES: usize = 64;
 
 /// What attestors sign for one request's answer, laid out byte for byte as
 /// `modules/xweb/ATTESTATION.md` specifies.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Attestation {
     pub origin: u8,
     pub network_id: [u8; 32],
@@ -222,10 +224,12 @@ pub fn sign_digest(
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum AttestError {
-    /// The request kind is neither fetch, search nor api.
+    /// The request kind is not supported.
     UnknownKind(u8),
     /// The payload is not UTF-8 text.
     Payload,
+    InvalidPayload,
+    DigestMismatch,
     /// The fetch was refused.
     Fetch(crate::fetch::FetchError),
     /// The search failed or its canonical bytes could not be built.
@@ -261,6 +265,8 @@ impl AttestError {
             },
             Self::UnknownKind(_)
             | Self::Payload
+            | Self::InvalidPayload
+            | Self::DigestMismatch
             | Self::TooLong
             | Self::NotNamed(_)
             | Self::Api(
@@ -281,6 +287,10 @@ impl std::fmt::Display for AttestError {
         match self {
             Self::UnknownKind(kind) => write!(f, "attestation refused: unknown kind {kind}"),
             Self::Payload => f.write_str("attestation refused: payload is not UTF-8"),
+            Self::InvalidPayload => {
+                f.write_str("attestation refused: invalid storage receipt payload")
+            }
+            Self::DigestMismatch => f.write_str("attestation refused: object digest mismatch"),
             Self::Fetch(error) => write!(f, "attestation refused: fetch {error}"),
             Self::Search => f.write_str("attestation refused: search failed"),
             Self::Store => f.write_str("attestation refused: content store"),
@@ -444,13 +454,14 @@ impl Attestor {
     /// The canonical bytes, their digest and the text for a request's
     /// payload, the canonical bytes written to the content store.
     fn content(&self, kind: u8, payload: &[u8]) -> Result<([u8; 32], String), AttestError> {
-        let payload = std::str::from_utf8(payload).map_err(|_| AttestError::Payload)?;
         let (canonical, text) = match kind {
             1 => {
+                let payload = std::str::from_utf8(payload).map_err(|_| AttestError::Payload)?;
                 let page = self.fetcher.fetch(payload).map_err(AttestError::Fetch)?;
                 (page.canonical, page.text)
             }
             2 => {
+                let payload = std::str::from_utf8(payload).map_err(|_| AttestError::Payload)?;
                 let results: Vec<search::SearchResult> = search::search(&self.index, payload)
                     .map_err(|_| AttestError::Search)?
                     .into_iter()
@@ -459,6 +470,42 @@ impl Attestor {
                 let canonical = search::search_canonical_bytes(payload, &results)
                     .map_err(|_| AttestError::Search)?;
                 let text = search::search_text(&results).map_err(|_| AttestError::Search)?;
+                (canonical, text)
+            }
+            4 => {
+                let digest: [u8; 32] = payload
+                    .get(..32)
+                    .and_then(|digest| digest.try_into().ok())
+                    .ok_or(AttestError::InvalidPayload)?;
+                let base =
+                    std::str::from_utf8(&payload[32..]).map_err(|_| AttestError::InvalidPayload)?;
+                let url = Url::parse(base).map_err(|_| AttestError::InvalidPayload)?;
+                let loopback_http = self.fetcher.limits().allow_loopback
+                    && url
+                        .bare_host()
+                        .parse::<std::net::IpAddr>()
+                        .is_ok_and(|address| address.is_loopback());
+                if digest == [0; 32]
+                    || base.len() > 512
+                    || base.contains(['?', '#'])
+                    || base.ends_with('/')
+                    || (!url.secure && !loopback_http)
+                {
+                    return Err(AttestError::InvalidPayload);
+                }
+                let hex = canonical::digest_hex(&digest);
+                let bytes = self
+                    .fetcher
+                    .fetch_bytes(&format!("{base}/manifests/{hex}.json"), 8 * 1024 * 1024)
+                    .map_err(AttestError::Fetch)?;
+                let actual: [u8; 32] = Sha256::digest(&bytes).into();
+                if actual != digest {
+                    return Err(AttestError::DigestMismatch);
+                }
+                let text = format!("pns-receipt/v1\n{hex}\n{}\n{base}\n", bytes.len());
+                let canonical =
+                    canonical::canonical_bytes(ContentKind::Fetch, payload, "text/plain", &text)
+                        .map_err(|_| AttestError::Store)?;
                 (canonical, text)
             }
             kind => return Err(AttestError::UnknownKind(kind)),
@@ -510,7 +557,7 @@ impl Attestor {
             && match request.kind {
                 KIND_API => ApiPayload::decode(&request.payload)
                     .is_ok_and(|payload| payload.attestation_level() == answer.level),
-                1 | 2 => answer.level == Level::Majority,
+                1 | 2 | 4 => answer.level == Level::Majority,
                 _ => false,
             }
     }
@@ -558,18 +605,8 @@ impl Attestor {
         if request.program_id == [0; 32] || request.payload.is_empty() {
             return Err(ProgramAttestError::Attest(AttestError::Payload));
         }
-        let word = rpc
-            .eth_call(XWEB_PRECOMPILE, &keccak(b"getKernelNetworkId()")[..4])
-            .map_err(ProgramAttestError::Network)?;
-        let word: [u8; 32] = word
-            .try_into()
-            .map_err(|_| ProgramAttestError::Network(EvmError::Malformed))?;
-        if word[..28] != [0; 28] {
-            return Err(ProgramAttestError::Network(EvmError::Malformed));
-        }
-        let mut network = [0; 4];
-        network.copy_from_slice(&word[28..]);
-        let network_id = u32::from_be_bytes(network);
+        let network_id =
+            crate::watch::kernel_network_id(rpc).map_err(ProgramAttestError::Network)?;
         if network_id == 0 {
             return Err(ProgramAttestError::Network(EvmError::Malformed));
         }

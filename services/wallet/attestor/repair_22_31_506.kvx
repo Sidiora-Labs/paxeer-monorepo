@@ -1,0 +1,53 @@
+[repair]
+task = "22.31.506"
+gotcha = 3052
+decision = 2550
+acceptance = "22998.1"
+base_revision = "d3981743ad0e843abaf48e1034f7f28e345376ad"
+scope = "Ceremony workflow prerequisites, attestor replacement snapshot lineage, and exact public describe expectations."
+
+[ceremony]
+cause = "The workflow installed Go alone while internal/testsupport/postgres.go invokes pnpm install --frozen-lockfile and pnpm exec tsx in the wallet workspace."
+repair = "Install Node 22 with the repository's setup-node v6 commit, then npm install --global pnpm@9.15.9 before Test ceremony; retain both jobs' checkout/setup-go commits and persist-credentials=false."
+test = "tools/qualification/audit_repairs/test_repair_22_31_506.py"
+
+[snapshot]
+test = "TestSnapshotFollowsAddShare"
+cause = "This is a production defect, not a timing race: add-share replaces roster and share bytes at the same epoch, but snapshot validation compares the historical import receipt roster and material digest to the replacement share, so WriteSnapshot fails and leaves the previous snapshot."
+repair = "ReplaceShare atomically retains authenticated before/after records and the contributing quorum alongside the replacement; snapshot validation proves each roster transition and its link to the current share, then validates the unchanged import receipt against the original authenticated material. Historical refresh decisions remain bound to their corresponding roster."
+checks = "Keep exact snapshot counts, restore every snapshot, retain original import identity, restore/restart the newcomer and verify a real quorum signature. Assert zero snapshot failures and reject authenticated histories with corrupted original material, wrong newcomer, foreign contributor or duplicate contributor."
+completion = "HandleAddShare calls snapshotAfter synchronously before finish writes the HTTP response; callAll waits for every response. Neither target test contains a fixed snapshot/refresh delay, so no sleep or polling fallback is added."
+
+[describe]
+test = "TestDescribeReturnsPublicMaterialToTheOperator"
+cause = "The refreshed response includes the structured refresh field from doDescribe, but the test's exact field set only allowed refresh_session_id and refresh_state."
+server_is_right = "DescribeResponse.Refresh deliberately exposes the durable ceremony decision's public identity, base epoch, participant roster and audit sequence for operator reconciliation; it contains no share material and agrees with Store.CeremonyRefresh."
+repair = "Require the refresh field in the exact response set and assert every public refresh property, including commit decision, generated/imported identity, unchanged public key, exact roster and earlier nonzero audit sequence; retain all original public-key, epoch, audit-head and secret-exclusion assertions."
+
+[main_proof]
+workflow = ".github/workflows/wallet-go-test.yml"
+name = "Wallet Go tests"
+event = "push"
+branch = "main"
+required_run = "The first Wallet Go tests push run on main containing the runner-published repair revision must conclude success for both Attestor (go test ./...) and Ceremony (go test ./...). Retain that run's ID, URL and head SHA with the inventory evidence."
+status = "pending first post-repair run on main"
+limit = "The bounded local gate proves the workflow assertions and both attestor cases three times; it does not execute Ceremony or claim a green GitHub main run."
+
+[evidence]
+ledger = "/out/run/gates.jsonl"
+revision_source = "passing hf-done revision, identical to the hf-build revision"
+build = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_31_506.py && cd services/wallet/attestor && go vet ./internal/server/..."
+verify = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_31_506.py && cd services/wallet/attestor && go test -count=3 -run 'TestSnapshotFollowsAddShare$|TestDescribeReturnsPublicMaterialToTheOperator$' ./internal/server"
+record = "The runner ledger names the verified candidate revision, exact command, exit code and private log. No pre-repair reproduction is claimed: the explicit implementation-first order permits test execution only through hf-done after hf-build."
+
+[gotcha.scope]
+observed = "GOTCHA.kvx and spec files are outside task scope; the root ledger's snapshot symptom is caused by strict historical import validation rather than a fixed delay."
+action = "Retain the cause and production repair in this scoped record; do not modify root ledgers or weaken snapshot validation."
+
+[gotcha.qualification]
+observed = "The first verification passed the workflow assertions and original server assertions but the added foreign/duplicate contributor cases failed because their cleanup returned the reusable originalHistory buffer to UpdateRecord, which intentionally wipes returned plaintext after encryption."
+repair = "Return a fresh copy of originalHistory from cleanup so each negative case restores the same authentic history without weakening any assertion or changing production zeroization."
+revision = "9e711325fb8d61bf392432236bc5237a399284d7"
+command = "cg spec done 22.31.506 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"

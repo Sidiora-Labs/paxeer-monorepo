@@ -62,9 +62,11 @@ export type NativeRouteEvent =
   | { readonly kind: 'deep-link'; readonly route: string }
   | { readonly kind: 'push-route'; readonly route: string };
 
-export const parseNativeRouteEvent: BoundaryParser<NativeRouteEvent> = (
-  input,
-) => {
+const NATIVE_ROUTE_ORIGIN = 'https://wallet.local';
+const NATIVE_ROUTE_GRAMMAR =
+  /^\/[A-Za-z0-9._~!$&'()*+,;=:@%/-]*(?:\?[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*)?(?:#[A-Za-z0-9._~!$&'()*+,;=:@%/?-]*)?$/;
+
+export const parseNativeRouteEvent: BoundaryParser<NativeRouteEvent> = (input) => {
   const record = parseRecord(input);
   if (!record.ok) return record;
   const fields = rejectUnknownFields(record.value, new Set(['kind', 'route']));
@@ -78,8 +80,25 @@ export const parseNativeRouteEvent: BoundaryParser<NativeRouteEvent> = (
     maxLength: 1024,
   });
   if (!route.ok) return route;
-  if (!route.value.startsWith('/')) {
+  if (!NATIVE_ROUTE_GRAMMAR.test(route.value) || route.value.startsWith('//')) {
     return issue('$.route', 'invalid_format', 'Native route must be same-origin');
+  }
+  let url: URL;
+  let decodedPath: string;
+  try {
+    url = new URL(route.value, NATIVE_ROUTE_ORIGIN);
+    decodeURIComponent(route.value);
+    decodedPath = decodeURIComponent(url.pathname);
+  } catch {
+    return issue('$.route', 'invalid_format', 'Native route URL is invalid');
+  }
+  if (
+    url.origin !== NATIVE_ROUTE_ORIGIN ||
+    url.pathname !== route.value.split(/[?#]/, 1)[0] ||
+    /\/\/|%2f|%5c/i.test(url.pathname) ||
+    /[\\\u0000-\u001f\u007f]/.test(decodedPath)
+  ) {
+    return issue('$.route', 'invalid_format', 'Native route path is ambiguous');
   }
   return {
     ok: true,

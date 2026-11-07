@@ -14,7 +14,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
 usage() {
 	cat <<'EOF'
-usage: tools/bringup/search-front.sh names | render | config | deploy
+usage: tools/bringup/search-front.sh names | render | config | qualify | deploy <service-host>
 
 The search front of search.paxeer.network: the Railway service configured by
 services/interop/deploy/search-front/railway.env.example and built from
@@ -29,9 +29,10 @@ names     asks every RPC_HOSTS destination over ssh which apiN site its nginx
           destination does not answer or serves no apiN site.
 
 render    prints the upstream list that nginx includes at http level: a
-          comment line, the split_clients block on $xweb_client (the edge's
-          X-Real-IP, else Fly-Client-IP) that pins $xweb_node to one serving
-          name for every client, and the map that admits it. The pin is
+          comment line, the split_clients block on $xweb_client (the rightmost
+          X-Forwarded-For hop outside LAYERX_TRUSTED_PROXIES) that pins
+          $xweb_node to one serving name for every client, and the map that
+          admits it. The pin is
           SEARCH_FRONT_PRIMARY when its bounded typed /readyz contract is
           valid, else SEARCH_FRONT_BACKUP when its contract is valid, else
           SEARCH_FRONT_PRIMARY unadmitted, so readiness and search paths
@@ -39,36 +40,41 @@ render    prints the upstream list that nginx includes at http level: a
           challenge and its retry; nginx checks current readiness on that
           backend before every paid request.
 
+qualify   validates mounted render output from stdin against discovered serving
+          names, primary/backup eligibility and fresh typed readiness.
+
 config    prints the serving sidecar configuration of
           services/interop/crates/x-websearch/config.example.json with every "${NAME}"
           string replaced by the environment variable NAME and the note
           dropped. Exits 1 naming every unset or empty variable, never a
           value.
 
-deploy    retired: exits 2 and points to the Railway deployment inputs.
-          Configure the Railway service using
-          services/interop/deploy/search-front/railway.env.example and
-          docker/search-front/Dockerfile; this script does not deploy it.
+deploy <service-host>
+          prints two lines: SEARCH_FRONT_UPSTREAMS=<base64 of render output>
+          to set on the search-front service, then
+          tools/bringup/edge.sh register search.paxeer.network <service-host>
+          to register that service with the edge.
 
 Environment:
   BRINGUP_HOSTS_FILE   the private host map, as tools/bringup/check-live.sh
   CHECK_LIVE_TIMEOUT   seconds per ssh call, default 30
-  SEARCH_FRONT_PRIMARY the pinned serving name, default api15.paxeer.network
+  SEARCH_FRONT_PRIMARY the pinned serving name, default the first discovered serving RPC node
   SEARCH_FRONT_BACKUP  the serving name pinned while the primary is not
-                       ready, default api1.paxeer.network
+                       ready, default the next distinct discovered serving RPC node
   SEARCH_FRONT_READINESS_TIMEOUT seconds per HTTPS readiness probe, default 5
 
 Exits 1 when a destination or configuration step fails; 2 on a usage
-error, a host map lacking a role, or the retired deploy command.
+error or a host map lacking a role.
 EOF
 }
 
 search_front_host="search.paxeer.network"
-search_front_primary="${SEARCH_FRONT_PRIMARY:-api15.paxeer.network}"
-search_front_backup="${SEARCH_FRONT_BACKUP:-api1.paxeer.network}"
+search_front_primary="${SEARCH_FRONT_PRIMARY:-}"
+search_front_backup="${SEARCH_FRONT_BACKUP:-}"
 search_front_config_template="services/interop/crates/x-websearch/config.example.json"
 
 search_front_names() {
+	load_rpc_inventory || return 1
 	local -a dests validators lines=()
 	local k v reply name role status
 	read -r -a dests <<<"$RPC_HOSTS"
@@ -81,8 +87,8 @@ search_front_names() {
 			return 1
 		fi
 		read -r name _ <<<"$reply"
-		case "$name" in
-		api[1-9] | api1[0-6]) ;;
+		case " ${rpc_names[*]} " in
+		*" $name.$rpc_domain "*) ;;
 		*)
 			echo "search-front: RPC_HOSTS[$k] site=none" >&2
 			return 1
@@ -97,138 +103,37 @@ search_front_names() {
 	printf '%s\n' "${lines[@]}" | sort -k2,2V
 }
 
+search_front_select() {
+	local listing="$1" selection
+	load_rpc_inventory || return 1
+	selection="$(printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-selection "$rpc_inventory" "$search_front_primary" "$search_front_backup")" || return 1
+	read -r search_front_primary search_front_backup <<<"$selection"
+}
+
 search_front_candidate() {
-	local name="$1" seconds="${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
-	if [[ ! "$seconds" =~ ^[1-9][0-9]*$ ]] || [ "$seconds" -gt 30 ]; then
-		echo "search-front: readiness timeout must be 1..30 seconds" >&2
-		return 1
-	fi
-	timeout "$seconds" python3 -I - "$name" "$seconds" <<'PY'
-import json
-import sys
-import time
-import urllib.error
-import urllib.request
-
-def unique_object(pairs):
-    value = {}
-    for key, item in pairs:
-        if key in value:
-            raise ValueError("duplicate readiness field")
-        value[key] = item
-    return value
-
-def integer(value):
-    return type(value) is int and 0 <= value <= 18446744073709551615
-
-try:
-    name, seconds = sys.argv[1:]
-    origin = "https://" + name + "/readyz"
-    try:
-        response = urllib.request.urlopen(origin, timeout=int(seconds))
-    except urllib.error.HTTPError as error:
-        if error.code != 503:
-            raise
-        response = error
-    with response:
-        status = response.status
-        if status not in (200, 503):
-            raise ValueError("readiness status")
-        if response.geturl() != origin:
-            raise ValueError("readiness redirect")
-        raw = response.read(65537)
-    if len(raw) > 65536:
-        raise ValueError("readiness response bound")
-    value = json.loads(raw, object_pairs_hook=unique_object)
-    if not isinstance(value, dict) or set(value) != {"version", "ready", "roles", "checked_at_unix_ms", "network_id", "protocol_version"}:
-        raise ValueError("readiness shape")
-    if type(value["version"]) is not int or value["version"] != 1 or type(value["ready"]) is not bool or (status == 200) != value["ready"]:
-        raise ValueError("readiness version or state")
-    if not integer(value["network_id"]) or value["network_id"] == 0 or type(value["protocol_version"]) is not int or value["protocol_version"] != 3:
-        raise ValueError("readiness protocol identity")
-    checked = value["checked_at_unix_ms"]
-    now = time.time_ns() // 1000000
-    if not integer(checked) or checked > now + 5000:
-        raise ValueError("readiness clock")
-    roles = value["roles"]
-    if not isinstance(roles, list) or not 1 <= len(roles) <= 3:
-        raise ValueError("readiness roles")
-    expected = {
-        "paid_delivery": {"index", "content_storage", "payment_journal", "settlement_authority"},
-        "evm_attestor": {"evm_chain", "registered_peer_quorum", "attestor_progress", "attestation_journal"},
-        "kernel_relay": {"evm_chain", "registered_peer_quorum", "kernel_authority", "relay_progress", "kernel_journal"},
-    }
-    seen_roles = set()
-    states = {"starting", "ready", "unavailable", "stale"}
-    for role in roles:
-        if not isinstance(role, dict) or set(role) != {"role", "state", "dependencies", "freshness_budget_ms", "first_use_deadline_unix_ms"}:
-            raise ValueError("readiness role shape")
-        identity = role["role"]
-        if identity not in expected or identity in seen_roles or role["state"] not in states:
-            raise ValueError("readiness role identity or state")
-        seen_roles.add(identity)
-        budget = role["freshness_budget_ms"]
-        if not integer(budget) or not 1 <= budget <= 300000 or now - checked > budget or not integer(role["first_use_deadline_unix_ms"]):
-            raise ValueError("readiness freshness")
-        dependencies = role["dependencies"]
-        if not isinstance(dependencies, list) or len(dependencies) != len(expected[identity]):
-            raise ValueError("readiness dependencies")
-        seen_dependencies = set()
-        for dependency in dependencies:
-            if not isinstance(dependency, dict) or set(dependency) != {"dependency", "state", "critical", "last_success_unix_ms"}:
-                raise ValueError("readiness dependency shape")
-            key = dependency["dependency"]
-            if key not in expected[identity] or key in seen_dependencies or dependency["state"] not in states or dependency["critical"] is not True:
-                raise ValueError("readiness critical dependency")
-            seen_dependencies.add(key)
-            last_success = dependency["last_success_unix_ms"]
-            if last_success is not None and (not integer(last_success) or last_success > checked):
-                raise ValueError("readiness dependency freshness")
-            if dependency["state"] == "ready" and (last_success is None or checked - last_success > budget):
-                raise ValueError("ready dependency has no fresh success")
-        if (role["state"] == "ready") != all(item["state"] == "ready" for item in dependencies):
-            raise ValueError("readiness role aggregation")
-    if "paid_delivery" not in seen_roles:
-        raise ValueError("missing serving role")
-    if value["ready"] != all(role["state"] == "ready" for role in roles):
-        raise ValueError("readiness aggregate")
-except Exception:
-    sys.exit(1)
-PY
+	"${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-ready "$1" "${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
 }
 
 search_front_render() {
-	local name pinned admitted=0
-	for name in "$search_front_primary" "$search_front_backup"; do
-		if [[ ! "$name" =~ ^api([1-9]|1[0-6])\.([a-z0-9-]+\.)?paxeer\.network$ ]]; then
-			echo "search-front: $name is not a serving apiN name" >&2
-			return 1
-		fi
-	done
-	if [ "$search_front_primary" = "$search_front_backup" ]; then
-		echo "search-front: the backup repeats the primary" >&2
-		return 1
-	fi
-	pinned="$search_front_primary"
-	if search_front_candidate "$search_front_primary"; then
-		admitted=1
-	elif search_front_candidate "$search_front_backup"; then
-		pinned="$search_front_backup"
-		admitted=1
-		echo "search-front: $search_front_primary has no valid readiness contract, $pinned is pinned" >&2
-	else
-		echo "search-front: neither $search_front_primary nor $search_front_backup has a valid readiness contract" >&2
-	fi
-	echo "# The serving name of $search_front_host, rendered by tools/bringup/search-front.sh."
-	# shellcheck disable=SC2016
-	echo 'split_clients "${xweb_client}" $xweb_node {'
-	echo "    * $pinned;"
-	echo '}'
-	# shellcheck disable=SC2016
-	echo 'map $xweb_node $xweb_eligible {'
-	echo '    default 0;'
-	echo "    $pinned $admitted;"
-	echo '}'
+	load_hosts
+	local listing
+	listing="$(search_front_names)" || return 1
+	search_front_select "$listing" || return 1
+	printf '%s\n' "$listing" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-render "$rpc_inventory" "$search_front_primary" "$search_front_backup" "${SEARCH_FRONT_READINESS_TIMEOUT:-5}"
+}
+
+# qualify reads the mounted renderer output on stdin, checks the single pin
+# and exact eligibility map against discovery, then probes that serving node
+# through the same bounded typed readiness consumer used by render.
+search_front_qualify() {
+	local mounted listing pin
+	mounted="$(cat)"
+	listing="$1"
+	# Selection is derived from the current discovery/inventory before this call.
+	search_front_select "$listing" || return 1
+	pin="$(printf '%s' "$mounted" | "${BRINGUP_INSPECT_BIN:-bringup-inspect}" search-pin "$search_front_primary" "$search_front_backup")" || return 1
+	search_front_candidate "$pin" || { echo "search-front: pinned backend readiness refused" >&2; return 1; }
+	printf '%s\n' "$pin"
 }
 
 search_front_config() {
@@ -240,7 +145,7 @@ import sys
 
 with open(sys.argv[1], encoding="utf-8") as handle:
     template = json.load(handle)
-template.pop("note")
+template.pop("note", None)
 missing = []
 
 def fill(value):
@@ -266,30 +171,33 @@ PY
 }
 
 
+# Helpers may be sourced by qualification without executing the CLI.
+[ "${BASH_SOURCE[0]}" = "$0" ] || return 0
+
 mode="${1:-}"
 case "$mode" in
 -h | --help)
 	usage
 	exit 0
 	;;
-deploy)
-	echo "search-front: deploy is retired; use services/interop/deploy/search-front/railway.env.example and docker/search-front/Dockerfile for the Railway service" >&2
-	exit 2
-	;;
-names | render | config) ;;
+names | render | config | qualify | deploy) ;;
 *)
 	usage >&2
 	exit 2
 	;;
 esac
-if [ "$#" -ne 1 ]; then
+expected_args=1
+[ "$mode" != deploy ] || expected_args=2
+if [ "$#" -ne "$expected_args" ]; then
 	usage >&2
 	exit 2
 fi
 
 tools=(timeout)
+case "$mode" in names | render | qualify | deploy) tools+=("${BRINGUP_INSPECT_BIN:-bringup-inspect}") ;; esac
 [ "$mode" != names ] || tools+=(ssh sort)
 [ "$mode" = names ] || tools+=(python3)
+[ "$mode" != deploy ] || tools+=(base64)
 for tool in "${tools[@]}"; do
 	if ! command -v "$tool" >/dev/null 2>&1; then
 		echo "search-front: $tool is required" >&2
@@ -303,5 +211,16 @@ names)
 	search_front_names
 	;;
 render) search_front_render ;;
+qualify)
+	load_hosts
+	listing="$(search_front_names)" || exit 1
+	search_front_select "$listing" || exit 1
+	search_front_qualify "$listing"
+	;;
 config) search_front_config ;;
+deploy)
+	upstreams="$(search_front_render | base64 -w0)"
+	printf 'SEARCH_FRONT_UPSTREAMS=%s\n' "$upstreams"
+	printf 'tools/bringup/edge.sh register %s %s\n' "$search_front_host" "$2"
+	;;
 esac

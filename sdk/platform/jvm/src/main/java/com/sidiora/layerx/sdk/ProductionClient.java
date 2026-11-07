@@ -23,6 +23,10 @@ public final class ProductionClient {
     private final ProductionTransport transport;
     private final ObjectMapper mapper;
     private final Telemetry telemetry;
+    private final java.util.concurrent.atomic.AtomicLong telemetryFailures = new java.util.concurrent.atomic.AtomicLong();
+
+    /** Telemetry is attempted once per outcome; failures are counted, never retried or retained. */
+    public long telemetryFailureCount() { return telemetryFailures.get(); }
 
     public ProductionClient(ProductionTransport transport, ObjectMapper mapper, Telemetry telemetry) {
         this.transport = Objects.requireNonNull(transport, "transport");
@@ -37,8 +41,14 @@ public final class ProductionClient {
             .thenApply(position -> new ResumableStream<>(new ResumableStream.Cursor(position.cursor())));
     }
 
+    /** Empty STREAM_NEXT pages retain demand and cursor and use cancellable bounded backoff. */
     public Flow.Publisher<ResumableStream.Event<GeneratedSchema.HumanModels.StreamEvent>> humanStreamPublisher(
             ResumableStream<GeneratedSchema.HumanModels.StreamEvent> stream) {
+        return humanStreamPublisher(stream, ResumableStream.PollPolicy.defaults());
+    }
+
+    public Flow.Publisher<ResumableStream.Event<GeneratedSchema.HumanModels.StreamEvent>> humanStreamPublisher(
+            ResumableStream<GeneratedSchema.HumanModels.StreamEvent> stream, ResumableStream.PollPolicy polling) {
         Objects.requireNonNull(stream, "stream");
         return stream.publisher(cursor -> human(GeneratedSchema.HumanOperations.STREAM_NEXT,
             new GeneratedSchema.HumanOperations.StreamNextRequest(),
@@ -51,7 +61,7 @@ public final class ProductionClient {
                     previous = next;
                 }
                 return new ResumableStream.Page<>(cursor, events, new ResumableStream.Cursor(page.next_cursor()));
-            }));
+            }), polling);
     }
 
     public CompletionStage<SchemaTypes.AgentResponse> agent(SchemaTypes.AgentRequest request, Options options) {
@@ -101,33 +111,6 @@ public final class ProductionClient {
         return execute(OperationCatalog.human(operation), objectBody(typed, request), mapper.constructType(responseType), options);
     }
 
-    <T> CompletionStage<T> programs(String operation, ObjectNode request, Class<T> responseType, Options options) {
-        Objects.requireNonNull(operation, "operation");
-        Objects.requireNonNull(request, "request");
-        Objects.requireNonNull(responseType, "responseType");
-        Options safeOptions = options == null ? Options.none() : options;
-        var catalog = OperationCatalog.agent(operation);
-        if (catalog.idempotencyRequired() && safeOptions.idempotencyKey() == null) {
-            throw new PlatformSdkException(PlatformSdkException.Code.IDEMPOTENCY_REQUIRED, PlatformSdkException.Retry.NEVER, null, null, null);
-        }
-        try {
-            return transport.<T>callPrograms(new ProductionTransport.ProgramsCall(operation,
-                    SchemaTypes.canonicalBody(request), SchemaTypes.PathParameters.of(safeOptions.pathParameters()),
-                    safeOptions.idempotencyKey()), mapper.constructType(responseType))
-                .whenComplete((value, error) -> {
-                    if (telemetry != null) telemetry.record(new TelemetryEvent(OperationCatalog.Plane.AGENT,
-                        operation, error == null ? "completed" : "refused",
-                        error instanceof PlatformSdkException sdk ? sdk.code() :
-                            error == null ? null : PlatformSdkException.Code.TRANSPORT_FAILURE));
-                });
-        } catch (PlatformSdkException error) {
-            throw error;
-        } catch (RuntimeException error) {
-            throw new PlatformSdkException(PlatformSdkException.Code.TRANSPORT_FAILURE,
-                PlatformSdkException.Retry.SAFE, null, null, null);
-        }
-    }
-
     private <T> CompletionStage<T> execute(SchemaTypes.Operation operation, ObjectNode request,
                                             JavaType responseType, Options options) {
         Options safeOptions = options == null ? Options.none() : options;
@@ -136,14 +119,23 @@ public final class ProductionClient {
                 PlatformSdkException.Retry.NEVER, null, null, null);
         }
         try {
-            return transport.<T>call(new ProductionTransport.Call(operation, request,
-                    SchemaTypes.PathParameters.of(safeOptions.pathParameters()), safeOptions.idempotencyKey()), responseType)
-                .whenComplete((value, error) -> {
-                    if (telemetry != null) telemetry.record(new TelemetryEvent(operation.plane(), operation.wireName(),
+            CompletionStage<T> result = transport.<T>call(new ProductionTransport.Call(operation, request,
+                SchemaTypes.PathParameters.of(safeOptions.pathParameters()), safeOptions.idempotencyKey()), responseType);
+            result.whenComplete((value, error) -> {
+                if (telemetry == null) return;
+                Throwable cause = error;
+                while (cause instanceof java.util.concurrent.CompletionException && cause.getCause() != null)
+                    cause = cause.getCause();
+                try {
+                    telemetry.record(new TelemetryEvent(operation.plane(), operation.wireName(),
                         error == null ? "completed" : "refused",
-                        error instanceof PlatformSdkException sdk ? sdk.code() :
+                        cause instanceof PlatformSdkException sdk ? sdk.code() :
                             error == null ? null : PlatformSdkException.Code.TRANSPORT_FAILURE));
-                });
+                } catch (Throwable failure) {
+                    telemetryFailures.updateAndGet(count -> count == Long.MAX_VALUE ? count : count + 1);
+                }
+            });
+            return result;
         } catch (PlatformSdkException error) {
             throw error;
         } catch (RuntimeException error) {

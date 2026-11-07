@@ -1,0 +1,6 @@
+[repair.go-tools.14]
+target = "tools/specgen"
+command = "CGO_ENABLED=1 go vet ./tools/specgen/ && CGO_ENABLED=1 go test -count=1 ./tools/specgen/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "tools/specgen/adapters.go emits compact pointers byte-identical to the spec renderer including ownership markers, tools/specgen/validate_test.go checks them against renderer-produced tools/specgen/testdata/adapters snapshots, and CLAUDE.md, AGENTS.md, .cursor/rules/spec-workflow.mdc and .github/copilot-instructions.md are regenerated from spec/workflow.kvx (decision 2502, gotcha 2953)."

@@ -26,10 +26,13 @@ use layerx_human_service::agents::{
     ProtocolEvidence, PurposePresetCatalog, SessionProvision, StageState,
 };
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
+use layerx_human_service::server::agent_creation::verify_creation_call_disclosure;
+use layerx_human_service::server::schema::ApiSchema;
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_intents::{DisclosureCheck, IntentKind};
 use layerx_proof::receipt::AuthorizedBatch;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry, Payload};
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
 use serde_json::json;
 use sha2::{Digest as _, Sha256};
@@ -38,6 +41,93 @@ use support::{directory, install_and_open, principal, retention_uniform, tenancy
 
 const NETWORK_ID: u32 = 77;
 const CORE_SEQUENCE: u64 = 10;
+
+fn prepare_call(
+    payload: &Payload,
+) -> (
+    Vec<u8>,
+    layerx_crypto::disclosure::Disclosure,
+    canonical_owner::SignedOwner,
+) {
+    fn checked<T, E: std::fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("canonical owner encoding: {error:?}"))
+    }
+
+    use layerx_agentd::prepare::{
+        prepare_bound, AbiArgument, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest,
+        PrecompileCall, PrecompileTarget,
+    };
+
+    let mut budget = layerx_wire::decode::Decoder::new(payload.as_bytes(), 0);
+    assert_eq!(checked(budget.u16()), 1);
+    let mut arguments = Vec::new();
+    for _ in 0..4 {
+        arguments.push(AbiArgument::Word(checked(
+            checked(budget.fixed(32)).try_into(),
+        )));
+    }
+    for _ in 0..3 {
+        let mut word = [0; 32];
+        word[16..].copy_from_slice(&checked(budget.u128()).to_be_bytes());
+        arguments.push(AbiArgument::Word(word));
+    }
+    for _ in 0..4 {
+        let mut word = [0; 32];
+        word[24..].copy_from_slice(&checked(budget.u64()).to_be_bytes());
+        arguments.push(AbiArgument::Word(word));
+    }
+    let mut word = [0; 32];
+    word[31] = checked(budget.u8());
+    arguments.push(AbiArgument::Word(word));
+    checked(budget.finish());
+    let key = checked(k256::ecdsa::SigningKey::from_slice(&[0x68; 32]));
+    let sender = checked(layerx_crypto::secp256k1::evm_address(
+        key.verifying_key().to_encoded_point(false).as_bytes(),
+    ));
+    let prepared = checked(prepare_bound(
+        EvmPreparationState {
+            chain_id: u64::from(NETWORK_ID),
+            pending_nonce: 1,
+            base_fee_per_gas: 1,
+            head_height: CORE_SEQUENCE,
+        },
+        EvmPreparationDefaults {
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 10,
+            maximum_payload_bytes: 4096,
+        },
+        EvmPrepareRequest {
+            from: sender,
+            call: PrecompileCall {
+                target: PrecompileTarget::Pay,
+                selector: layerx_crypto::disclosure::call::ledger_selector(
+                    "budgetCreate(bytes32,bytes32,bytes32,bytes32,uint128,uint128,uint128,uint64,uint64,uint64,uint64,uint8)",
+                ),
+                arguments,
+            },
+            expected_nonce: Some(1),
+            max_priority_fee_per_gas: None,
+            max_fee_per_gas: None,
+            declared_payload_limit: 4096,
+        },
+        100_000,
+    ));
+    let canonical = layerx_human_kms::attestor::unsigned_evm_transaction(&prepared.call);
+    let disclosure = checked(layerx_crypto::disclosure::call::bind_call(
+        &prepared.call,
+        sender,
+    ));
+    let bytes = checked(prepared.call.sign(&[0x68; 32]));
+    let mut public_key = [0; 32];
+    public_key[12..].copy_from_slice(&sender);
+    let owner = canonical_owner::SignedOwner {
+        id: layerx_crypto::evm_transaction::transaction_hash(&bytes),
+        bytes,
+        public_key,
+        actor: disclosure.actor.clone(),
+    };
+    (canonical, disclosure, owner)
+}
 
 struct Fixture {
     root: std::path::PathBuf,
@@ -112,7 +202,7 @@ fn catalog(purpose: &str, ceiling: u128) -> PurposePresetCatalog {
         "version": "operator-policy-2026-08",
         "presets": [{
             "id": purpose,
-            "activity_types": [activity(ModuleId::Asset, 5).value()],
+            "call_selectors": ["0xa9059cbb", "0x095ea7b3"],
             "counterparties": [counterparty],
             "assets": [asset],
             "amount_ceiling": ceiling,
@@ -137,6 +227,12 @@ fn catalog(purpose: &str, ceiling: u128) -> PurposePresetCatalog {
 fn request(purpose: &str) -> CreateAgentRequest {
     CreateAgentRequest::new("Treasury helper", purpose, 1_000, "LXP")
         .unwrap_or_else(|error| panic!("request: {error}"))
+        .with_activity_types(
+            catalog(purpose, 2_000)
+                .activity_types(purpose)
+                .unwrap_or_else(|error| panic!("purpose activity types: {error}")),
+        )
+        .unwrap_or_else(|error| panic!("request activity types: {error}"))
 }
 
 fn context(marker: u8) -> CreationContext {
@@ -173,6 +269,7 @@ struct InProcessAgentLayer {
     agent_cache: BTreeMap<[u8; 32], AgentEvidence>,
     effects: BTreeMap<CreationStage, usize>,
     last_capability: Option<CapabilityProvision>,
+    creation_call: Option<(Vec<u8>, layerx_crypto::disclosure::Disclosure)>,
 }
 
 impl InProcessAgentLayer {
@@ -193,6 +290,7 @@ impl InProcessAgentLayer {
             agent_cache: BTreeMap::new(),
             effects: BTreeMap::new(),
             last_capability: None,
+            creation_call: None,
         }
     }
 
@@ -218,7 +316,7 @@ impl InProcessAgentLayer {
             action_key,
             object_id,
             observed_sequence: CORE_SEQUENCE,
-            verification_level: VerificationLevel::BATCH_INCLUDED,
+            rung: Rung::Committed,
             receipt_digest: [0; 32],
         };
         evidence.receipt_digest = evidence.expected_digest(stage);
@@ -242,7 +340,14 @@ impl AgentCreationContract for InProcessAgentLayer {
         {
             return Err(AgentFailure::Refused("typed intent mismatch"));
         }
-        let receipt = receipt(&action);
+        let receipt = if action.stage == CreationStage::BudgetCreation {
+            let (canonical, disclosure, owner) = prepare_call(action.compiled.payload());
+            verify_creation_call_disclosure(&canonical, &disclosure)?;
+            self.creation_call = Some((canonical, disclosure));
+            receipt_with_owner(&action, owner)
+        } else {
+            receipt(&action)
+        };
         receipt
             .verify_outcome(action.compiled.activity_type())
             .map_err(|_| AgentFailure::Refused("core receipt verification failed"))?;
@@ -530,21 +635,31 @@ struct ReceiptFields {
 }
 
 fn receipt(action: &ProtocolAction) -> ProtocolEvidence {
-    let stage = action.stage;
-    let action_key = action.action_key;
-    let owner = canonical_owner::sign(
+    let owner = canonical_owner::sign_transaction(
         action.compiled.payload(),
-        action_key,
+        action.action_key,
         layerx_intents::canonical::STATE_COMMITMENT_PROTOCOL_VERSION,
         NETWORK_ID,
     );
+    receipt_with_owner(action, owner)
+}
+
+fn receipt_with_owner(
+    action: &ProtocolAction,
+    owner: canonical_owner::SignedOwner,
+) -> ProtocolEvidence {
+    let stage = action.stage;
+    let action_key = action.action_key;
     let marker = stage as u8 + 11;
     let previous_state_root = [marker; 32];
+    let block_height = CORE_SEQUENCE;
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&block_height.to_be_bytes());
     let fields = ReceiptFields {
         activity_id: owner.id,
         previous_state_root,
         resulting_state_root: [marker.saturating_add(1); 32],
-        batch_id: support::execution_batch_id(previous_state_root, owner.id, CORE_SEQUENCE),
+        batch_id,
         asset: [0; 32],
         operation: 0,
         module: match stage {
@@ -571,17 +686,23 @@ fn receipt(action: &ProtocolAction) -> ProtocolEvidence {
         network_id: NETWORK_ID,
         action_key,
         activity_id: owner.id,
+        receipt_hash: Sha256::digest(&receipt_bytes).into(),
         receipt_bytes,
-        authorized_batch: AuthorizedBatch::new(
+        tx_hash: owner.id,
+        block_height,
+        rung: Rung::Committed,
+    };
+    canonical_owner::assert_outcome(
+        &evidence,
+        action.compiled.activity_type(),
+        &AuthorizedBatch::new(
             fields.batch_id,
             fields.asset,
             fields.previous_state_root,
             fields.resulting_state_root,
             signer.verifying_key().to_bytes(),
         ),
-        verification_level: VerificationLevel::SEQUENCER_SIGNED,
-    };
-    canonical_owner::assert_outcome(&evidence, action.compiled.activity_type());
+    );
     evidence
 }
 
@@ -675,6 +796,71 @@ fn durable_count(root: &std::path::Path, stage: CreationStage) -> usize {
 }
 
 #[test]
+fn program_call_disclosure_is_refused_as_a_lifecycle_method() {
+    use layerx_crypto::disclosure::call::{bind_call, encode_program_call, ConstructMethod};
+    use layerx_crypto::evm_transaction::{
+        decode_signed, recover_sender, transaction_hash, Eip1559Call,
+    };
+    use layerx_types::intent::ProgramId;
+    use layerx_types::program_call::{NativeProgramCall, Resources};
+
+    let native = NativeProgramCall {
+        program_id: ProgramId::new([0x31; 32]),
+        guest_abi: 5,
+        entrypoint: b"layerx_call",
+        calldata: &[1, 2, 3, 4],
+        capabilities: &[0, 0],
+        access_declaration: b"LayerX/programs/access-declaration/v1\0\0",
+        response_capacity: 16,
+        resources: Resources([1_000_000, 16_777_216, 1_048_576, 64, 7, 4096, 1_000]),
+    };
+    let mut to = [0; 20];
+    to[18..].copy_from_slice(&0x101d_u16.to_be_bytes());
+    let call = Eip1559Call {
+        chain_id: u64::from(NETWORK_ID),
+        nonce: 1,
+        max_priority_fee_per_gas: 1,
+        max_fee_per_gas: 10,
+        gas_limit: 100_000,
+        to,
+        data: encode_program_call(&native, 1_000),
+    };
+    let signed_activity = call.sign(&[0x68; 32]).expect("sign program call");
+    let (decoded, signature) = decode_signed(&signed_activity).expect("decode program call");
+    let sender = recover_sender(&decoded, &signature).expect("recover program caller");
+    let disclosure = bind_call(&decoded, sender).expect("bind program call disclosure");
+    assert!(matches!(
+        disclosure.construct_method().expect("program call method"),
+        Some(ConstructMethod::ProgramCall { call, fee_limit })
+            if call.native() == native && fee_limit == 1_000
+    ));
+    let expected = activity(ModuleId::Programs, 3);
+    assert_eq!(disclosure.activity_type, expected);
+    let mut owner_public_key = [0; 32];
+    owner_public_key[12..].copy_from_slice(&sender);
+    let activity_id = transaction_hash(&signed_activity);
+    let evidence = ProtocolEvidence {
+        signed_activity,
+        actor: disclosure.actor.clone(),
+        owner_public_key,
+        network_id: NETWORK_ID,
+        action_key: disclosure.idempotency_key,
+        activity_id,
+        receipt_bytes: Vec::new(),
+        tx_hash: activity_id,
+        receipt_hash: [0; 32],
+        block_height: CORE_SEQUENCE,
+        rung: Rung::Committed,
+    };
+    assert_eq!(
+        evidence.bound_activity(expected).err(),
+        Some(AgentFailure::Refused(
+            "invalid lifecycle transaction method"
+        )),
+    );
+}
+
+#[test]
 fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     let mut fixture = Fixture::new("agent-create-complete");
     let alice = principal("alice");
@@ -691,6 +877,82 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
     )
     .unwrap_or_else(|error| panic!("start: {error}"));
     assert_eq!(journey.status().state, CreationState::GettingReady);
+    let projection = journey.projection();
+    let intent = layerx_intents::Intent::v1(IntentKind::BudgetCreate(
+        layerx_intents::BudgetCreate::new(
+            layerx_types::intent::BudgetId::new(projection.agent_id),
+            layerx_types::account::AccountId::parse(&projection.owner_account)
+                .expect("creation owner account"),
+            layerx_types::account::AccountId::parse(&projection.budget_account)
+                .expect("creation budget account"),
+            layerx_types::ids::AssetId::new(projection.budget_asset),
+            layerx_types::amount::Amount::from_u128(projection.monthly_limit),
+            layerx_types::intent::PeriodLength::new(projection.period_seconds)
+                .expect("creation budget period"),
+            layerx_types::intent::RolloverPolicy::None,
+            layerx_types::amount::Amount::ZERO,
+            layerx_types::intent::PurposeHash::new(projection.purpose_hash),
+            layerx_types::intent::TimestampSeconds::from_u64(
+                projection.started_at + projection.budget_expiry_seconds,
+            ),
+        )
+        .expect("creation budget intent"),
+    ));
+    let compiled =
+        layerx_intents::compile(&intent, &fixture.registry).expect("compiled creation budget");
+    let (canonical, disclosure, signed_creation) = prepare_call(compiled.payload());
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(&canonical)
+        .expect("unsigned EIP-1559 creation preparation");
+    assert!(matches!(
+        disclosure.construct_method().expect("creation call source"),
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
+    ));
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &disclosure),
+        Ok(())
+    );
+    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
+    assert_eq!(
+        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
+        disclosure,
+    );
+    let mut mismatched = disclosure.clone();
+    mismatched.actor[0] ^= 1;
+    assert_ne!(mismatched.actor, from);
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &mismatched),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let mut changed_call = call.clone();
+    changed_call.nonce += 1;
+    assert_eq!(
+        verify_creation_call_disclosure(
+            &layerx_human_kms::attestor::unsigned_evm_transaction(&changed_call),
+            &disclosure,
+        ),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let mut invalid_actor = disclosure.clone();
+    invalid_actor.actor.pop();
+    assert_eq!(
+        verify_creation_call_disclosure(&canonical, &invalid_actor),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
+    let (signed_call, _) = layerx_crypto::evm_transaction::decode_signed(&signed_creation.bytes)
+        .expect("signed creation transaction");
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        verify_creation_call_disclosure(&signed_creation.bytes, &disclosure),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
     let mut agent = InProcessAgentLayer::new(&fixture.root.join("agent-store"), None);
     let active = journey
         .resume(
@@ -710,6 +972,55 @@ fn creation_is_receipt_gated_idempotent_and_uses_real_agentd_paths() {
         assert_eq!(agent.count(stage), 1, "one effect for {stage:?}");
     }
     assert_eq!(agent.sessions.open_count(), 1);
+
+    let (canonical, disclosure) = agent
+        .creation_call
+        .as_ref()
+        .expect("prepared creation call");
+    assert!(matches!(
+        disclosure.construct_method().expect("creation call source"),
+        Some(layerx_crypto::disclosure::call::ConstructMethod::PayBudgetCreate { .. })
+    ));
+    let call = layerx_human_kms::attestor::decode_unsigned_evm_transaction(canonical)
+        .expect("unsigned EIP-1559 creation preparation");
+    let from: [u8; 20] = disclosure.actor.as_slice().try_into().expect("call sender");
+    assert_eq!(
+        layerx_crypto::disclosure::call::bind_call(&call, from).expect("bind creation call"),
+        *disclosure,
+    );
+    let evidence = agent
+        .protocol_cache
+        .values()
+        .find(|evidence| {
+            let (signed_call, _) =
+                layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+                    .expect("signed lifecycle call");
+            signed_call == call
+        })
+        .expect("receipt-gated creation evidence");
+    let (signed_call, signature) =
+        layerx_crypto::evm_transaction::decode_signed(&evidence.signed_activity)
+            .expect("signed creation call");
+    assert_eq!(signed_call, call);
+    assert_eq!(
+        layerx_crypto::evm_transaction::recover_sender(&signed_call, &signature)
+            .expect("creation sender"),
+        from
+    );
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, disclosure),
+        Ok(())
+    );
+
+    let mut mismatched = disclosure.clone();
+    mismatched.actor[0] ^= 1;
+    assert_ne!(mismatched.actor, from);
+    assert_eq!(
+        verify_creation_call_disclosure(canonical, &mismatched),
+        Err(AgentFailure::Refused(
+            "agent preparation differs from creation intent"
+        )),
+    );
 
     let agent_id = journey.agent_id();
     drop(scope);
@@ -903,6 +1214,19 @@ fn crash_after_each_real_effect_replays_the_same_durable_object() {
 fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it() {
     let catalog = catalog("vendor-payments", 750);
     assert_eq!(catalog.version(), "operator-policy-2026-08");
+    assert_eq!(
+        catalog
+            .activity_types("vendor-payments")
+            .expect("purpose activity types"),
+        vec![layerx_types::programs_activity::activity_type(
+            layerx_types::programs_activity::CALL_ORDINAL,
+        )
+        .expect("programs call activity")],
+    );
+    assert!(matches!(
+        catalog.activity_types("unconfigured"),
+        Err(layerx_human_service::agents::AgentCreationError::UnknownPurpose)
+    ));
     assert!(CreateAgentRequest::new("helper", "unconfigured", 1, "LXP").is_ok());
 
     let mut fixture = Fixture::new("agent-create-config");
@@ -947,7 +1271,79 @@ fn purpose_authority_comes_from_configuration_and_monthly_limit_only_narrows_it(
         .unwrap_or_else(|| panic!("configured capability missing"));
     assert_eq!(capability.amount_ceiling, 750);
     assert_eq!(
+        capability.activity_types,
+        BTreeSet::from([layerx_types::programs_activity::CALL_ORDINAL]),
+    );
+    assert_eq!(
         capability.purposes,
         BTreeSet::from(["vendor-payments".to_owned()])
+    );
+}
+
+#[test]
+fn agents_route_admits_three_fields_and_refuses_undeclared_activity_types() {
+    let schema = ApiSchema::v1().expect("human API schema");
+    let route = schema
+        .route("POST", "/v1/agents")
+        .expect("agents route")
+        .expect("declared agents route");
+    assert_eq!(route.operation.name, "agent.create");
+    let body = json!({
+        "name": "Treasury helper",
+        "purpose": "treasury",
+        "monthly_limit": {"amount": "1000", "currency": "LXP"}
+    });
+    let admitted = schema
+        .decode_request(route.operation, Some(body.clone()))
+        .expect("documented three-field request");
+    let catalog = catalog("treasury", 2_000);
+    let purpose = admitted["purpose"].as_str().expect("purpose");
+    let derived = catalog
+        .activity_types(purpose)
+        .expect("purpose activity types");
+    let creation = CreateAgentRequest::new(
+        admitted["name"].as_str().expect("name"),
+        purpose,
+        admitted["monthly_limit"]["amount"]
+            .as_str()
+            .expect("amount")
+            .parse()
+            .expect("monthly amount"),
+        admitted["monthly_limit"]["currency"]
+            .as_str()
+            .expect("currency"),
+    )
+    .expect("creation request")
+    .with_activity_types(derived.clone())
+    .expect("derived creation activity types");
+    let mut fixture = Fixture::new("agent-create-schema-route");
+    let alice = principal("alice");
+    let mut scope = fixture.store.principal(&alice).expect("principal scope");
+    let journey = CreationJourney::start(&mut scope, &creation, &context(0x71), &catalog, 1)
+        .expect("schema-admitted request reaches creation");
+    assert_eq!(journey.status().state, CreationState::GettingReady);
+    assert_eq!(
+        journey.projection().activity_types,
+        derived
+            .iter()
+            .map(|value| value.value())
+            .collect::<Vec<_>>(),
+    );
+    assert_eq!(
+        journey.projection().call_selectors,
+        vec!["0xa9059cbb", "0x095ea7b3"],
+    );
+
+    let mut undeclared = body;
+    undeclared["activity_types"] = json!(derived
+        .iter()
+        .map(|value| value.value())
+        .collect::<Vec<_>>());
+    let refusal = schema
+        .decode_request(route.operation, Some(undeclared))
+        .expect_err("activity_types must remain undeclared");
+    assert_eq!(
+        refusal.detail(),
+        "request.activity_types is not declared in this schema version",
     );
 }

@@ -7,9 +7,11 @@ import config from 'configs/app';
 import getBlockTotalReward from 'lib/block/getBlockTotalReward';
 import { currencyUnits } from 'lib/units';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { TableCell, TableRow } from 'toolkit/chakra/table';
 import { Tag } from 'toolkit/chakra/tag';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { thinsp } from 'toolkit/utils/htmlEntities';
+import CopyToClipboard from 'ui/shared/CopyToClipboard';
 import BlockEntity, { Link as BlockEntityLink } from 'ui/shared/entities/block/BlockEntity';
 import HashStringShortenDynamic from 'ui/shared/HashStringShortenDynamic';
 import IconSvg from 'ui/shared/IconSvg';
@@ -20,13 +22,61 @@ type Props = {
   block: Block;
   duration?: number;
   isLoading?: boolean;
+  view?: 'mobile' | 'table';
 };
 
 const hasReward = !config.features.rollup.isEnabled && !config.UI.views.block.hiddenFields?.total_reward;
 
-const LatestBlocksItem = ({ block, duration, isLoading }: Props) => {
+const LatestBlocksItem = ({ block, duration, isLoading, view = 'mobile' }: Props) => {
   const totalReward = getBlockTotalReward(block);
   const durationText = duration === undefined ? '' : ` in ${ duration < 1 ? '<1' : duration }s`;
+
+  if (view === 'table') {
+    return (
+      <TableRow data-latest-block={ block.height }>
+        <TableCell>
+          <BlockEntity isLoading={ isLoading } number={ block.height } noIcon tailLength={ 2 } textStyle="number"/>
+          <TimeWithTooltip
+            timestamp={ block.timestamp }
+            enableIncrement={ !isLoading }
+            timeFormat="relative"
+            isLoading={ isLoading }
+            color="text.secondary"
+            textStyle="small"
+            display="block"
+          />
+        </TableCell>
+        <TableCell data-label="block-hash">
+          <Flex alignItems="center" minW={ 0 } className="group">
+            <BlockEntityLink hash={ block.hash } isLoading={ isLoading } minW={ 0 }>
+              <HashStringShortenDynamic hash={ block.hash } textStyle="number"/>
+            </BlockEntityLink>
+            <CopyToClipboard
+              text={ block.hash }
+              isLoading={ isLoading }
+              boxSize={ 4 }
+              opacity={ 0 }
+              _groupHover={{ opacity: 1 }}
+              _focusVisible={{ opacity: 1 }}
+            />
+          </Flex>
+          <Skeleton loading={ isLoading } textStyle="number" color="text.secondary">
+            { block.transactions_count ?? '—' } txns{ durationText }
+          </Skeleton>
+        </TableCell>
+        <TableCell isNumeric>
+          { hasReward && block.rewards != null ? (
+            <SimpleValue value={ totalReward } loading={ isLoading } endElement={ `${ thinsp }${ currencyUnits.ether }` }/>
+          ) : <chakra.span color="text.muted">—</chakra.span> }
+          { block.celo?.l1_era_finalized_epoch_number && (
+            <Tooltip content={ `Finalized epoch #${ block.celo.l1_era_finalized_epoch_number }` }>
+              <IconSvg name="checkered_flag" boxSize={ 4 } isLoading={ isLoading }/>
+            </Tooltip>
+          ) }
+        </TableCell>
+      </TableRow>
+    );
+  }
 
   return (
     <Flex
@@ -37,7 +87,8 @@ const LatestBlocksItem = ({ block, duration, isLoading }: Props) => {
       columnGap={ 3 }
       rowGap={ 2 }
       px={{ base: 3, lg: 4 }}
-      py={ 3 }
+      py={ 2 }
+      _hover={{ bg: 'raised' }}
       borderBottomWidth="1px"
       borderStyle="solid"
       borderColor="border.divider"
@@ -58,7 +109,7 @@ const LatestBlocksItem = ({ block, duration, isLoading }: Props) => {
           number={ block.height }
           noIcon
           tailLength={ 2 }
-          textStyle="sm"
+          textStyle="number"
           fontWeight="500"
         />
         <TimeWithTooltip
@@ -80,13 +131,13 @@ const LatestBlocksItem = ({ block, duration, isLoading }: Props) => {
         order={{ base: 1, md: 0 }}
       >
         <Flex alignItems="center" columnGap={ 1 } minW={ 0 } overflow="hidden">
-          <Skeleton loading={ isLoading } textStyle="sm" fontWeight="500" flexShrink={ 0 }>Hash</Skeleton>
+          <Skeleton loading={ isLoading } textStyle="number" fontWeight="500" flexShrink={ 0 }>Hash</Skeleton>
           <BlockEntityLink hash={ block.hash } isLoading={ isLoading }>
-            <HashStringShortenDynamic hash={ block.hash } fontWeight="500" textStyle="sm"/>
+            <HashStringShortenDynamic hash={ block.hash } fontWeight="500" textStyle="number"/>
           </BlockEntityLink>
         </Flex>
         <Skeleton loading={ isLoading } textStyle="xs" color="text.secondary" w="fit-content" mt="2px">
-          <chakra.span>{ block.transactions_count } { block.transactions_count === 1 ? 'txn' : 'txns' }{ durationText }</chakra.span>
+          <chakra.span>{ block.transactions_count ?? '—' } { block.transactions_count === 1 ? 'txn' : 'txns' }{ durationText }</chakra.span>
         </Skeleton>
       </Box>
       { block.celo?.l1_era_finalized_epoch_number && (
@@ -103,11 +154,9 @@ const LatestBlocksItem = ({ block, duration, isLoading }: Props) => {
           ml={{ base: 'auto', md: 0 }}
           data-label="block-reward"
         >
-          <SimpleValue
-            value={ totalReward }
-            loading={ isLoading }
-            endElement={ `${ thinsp }${ currencyUnits.ether }` }
-          />
+          { block.rewards != null ? (
+            <SimpleValue value={ totalReward } loading={ isLoading } endElement={ `${ thinsp }${ currencyUnits.ether }` }/>
+          ) : <chakra.span color="text.muted">—</chakra.span> }
         </Tag>
       ) }
     </Flex>
@@ -121,6 +170,7 @@ const rewardsKey = (block: Block) => block.rewards?.map(({ type, reward }) => `$
 
 const areRowPropsEqual = (prev: Props, next: Props) => (
   prev.isLoading === next.isLoading &&
+  prev.view === next.view &&
   prev.duration === next.duration &&
   prev.block.height === next.block.height &&
   prev.block.hash === next.block.hash &&

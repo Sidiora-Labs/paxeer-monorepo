@@ -1,0 +1,87 @@
+# Contract peers for the native node manifest; these are not deployed adapters.
+apiVersion: v1
+kind: Service
+metadata: {name: native-rpc, namespace: layerx-testnet}
+spec:
+  type: ExternalName
+  externalName: layerx-native-chain.layerx-testnet.svc
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: layerx-gateway, namespace: layerx-testnet}
+spec:
+  template:
+    metadata: {labels: {app: layerx-gateway, native-rpc-client: "true"}}
+    spec:
+      containers:
+        - name: client
+          env:
+            - {name: LAYERX_GATEWAY_PAXEER_RPC_URL, value: "http://native-rpc.layerx-testnet.svc:8545"}
+            - {name: LAYERX_GATEWAY_TENANT_RPC_URL, value: "http://native-rpc.layerx-testnet.svc:8545/chain/7"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: layerx-testnet-control, namespace: layerx-testnet}
+spec:
+  template:
+    metadata: {labels: {app: layerx-testnet-control, native-rpc-client: "true"}}
+    spec:
+      containers:
+        - name: client
+          env:
+            - {name: LAYERX_TESTNET_PAXEER_RPC_URL, value: "http://native-rpc.layerx-testnet.svc:8545"}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: layerx-program-registry, namespace: layerx-testnet}
+spec:
+  template:
+    metadata: {labels: {app: layerx-program-registry, native-rpc-client: "true"}}
+    spec:
+      containers:
+        - name: client
+          env:
+            - {name: LAYERX_REGISTRY_CHAIN_RPC_URL, value: "http://native-rpc.layerx-testnet.svc:8545"}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: native-client}
+data:
+  rpc-url: "http://native-rpc.layerx-testnet.svc:8545/chain/7"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: native-client}
+spec:
+  template:
+    metadata: {labels: {app: native-client}}
+    spec:
+      containers:
+        - name: client
+          env:
+            - name: LAYERX_TENANT_RPC_URL
+              valueFrom: {configMapKeyRef: {name: native-client, key: rpc-url}}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: native-adapter-egress, namespace: layerx-testnet}
+spec:
+  podSelector: {matchLabels: {native-rpc-client: "true"}}
+  policyTypes: [Egress]
+  egress:
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to: [{podSelector: {matchLabels: {app: layerx-node}}}]
+      ports: [{protocol: TCP, port: 8545}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: native-client-egress}
+spec:
+  podSelector: {matchLabels: {app: native-client}}
+  policyTypes: [Egress]
+  egress:
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: kube-system}}, podSelector: {matchLabels: {k8s-app: kube-dns}}}]
+      ports: [{protocol: UDP, port: 53}, {protocol: TCP, port: 53}]
+    - to: [{namespaceSelector: {matchLabels: {kubernetes.io/metadata.name: layerx-testnet}}, podSelector: {matchLabels: {app: layerx-node}}}]
+      ports: [{protocol: TCP, port: 8545}]

@@ -25,9 +25,6 @@ defmodule Explorer.Chain.PaxeerX.Anchor do
 
   @statuses ~w(unknown submitted final)a
 
-  @required_attrs ~w(batch_number checkpoint_id status block_hash block_number transaction_hash log_index)a
-  @optional_attrs ~w(event_name parameters state_root receipt_root signers kernel_height sealed_height block_consensus)a
-
   @typedoc """
   * `batch_number` - the checkpoint height, that is the anchor batch number.
   * `checkpoint_id` - the identifier of the checkpoint.
@@ -84,18 +81,6 @@ defmodule Explorer.Chain.PaxeerX.Anchor do
   """
   @spec statuses() :: [atom()]
   def statuses, do: @statuses
-
-  @spec changeset(Ecto.Schema.t(), map()) :: Ecto.Changeset.t()
-  def changeset(%__MODULE__{} = anchor, attrs) do
-    anchor
-    |> cast(attrs, @required_attrs ++ @optional_attrs)
-    |> validate_required(@required_attrs)
-    |> validate_number(:batch_number, greater_than_or_equal_to: 0)
-    |> validate_number(:signers, greater_than_or_equal_to: 0)
-    |> foreign_key_constraint(:transaction_hash)
-    |> foreign_key_constraint(:block_hash)
-    |> unique_constraint([:transaction_hash, :log_index], name: :lx_anchors_pkey)
-  end
 
   @doc """
   Query over the anchors that belong to a consensus block.

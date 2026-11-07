@@ -1,6 +1,6 @@
 # Interop service contract
 
-Source revision: `2a1033aa2`. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
+Source revision: `2a1033aa2` for unchanged rows; service configuration, CLI and readiness rows reconciled to task 22.33.86. This contract freezes the cited interface and acceptance blocks of the specification. Statuses include the specification overrides. A source marked planned has line 0; a positive source line is verified in the pinned revision.
 
 The context and decision tables reproduce the rules linked by interface identifiers. An anchor without a linked context gains no additional storage, gas, activation or pause rule here. Acceptance qualification remains UNRUN until its declared gate succeeds.
 
@@ -638,18 +638,18 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.cli-svc-layerx-interop-gateway</code> | <code>cli_command</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/main.rs:59</code> | <code>layerx-interop-gateway [--verify-readiness-receipt &lt;path&gt;]</code> |
+| <code>interface.11.cli-svc-layerx-interop-gateway</code> | <code>cli_command</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/main.rs:59</code> | <code>layerx-interop-gateway (no arguments)</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.cli-svc-layerx-interop-gateway</code> | notes | bin name from services/interop/crates/layerx-interop-service/Cargo.toml:9; no argument serves TCP/TLS on LAYERX_INTEROP_LISTEN; --verify-readiness-receipt prints the verified receipt JSON and exits |
+| <code>interface.11.cli-svc-layerx-interop-gateway</code> | notes | Binary name from Cargo.toml; no arguments serves TCP/TLS on LAYERX_INTEROP_LISTEN; every argument is refused. Assess GET /readyz with operations::ReadinessDocument. Verify actual PortableReceiptV2 payment evidence offline with operations::verify_receipted_json and independently pinned height-ranged receipt keys; readiness is operational status, not a payment proof. The historical --verify-readiness-receipt option is unsupported. |
 | <code>interface.11.cli-svc-layerx-interop-gateway</code> | overridden_by | override.J47.12 |
 
 ## env-svc-layerx-interop-allow-hosted-private-network
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-allow-hosted-private-network</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:359</code> | <code>LAYERX_INTEROP_ALLOW_&lt;PLATFORM&gt;_PRIVATE_NETWORK: 0&#124;1; allows a plain-HTTP hosted gateway URL on the hosted platform private network; optional, default 0</code> |
+| <code>interface.11.env-svc-layerx-interop-allow-hosted-private-network</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:359</code> | <code>LAYERX_INTEROP_ALLOW_&lt;PLATFORM&gt;_PRIVATE_NETWORK: 0&#124;1; allows the plain-HTTP node endpoint on the hosted platform private network; optional, default 0</code> |
 
 | Interface | Field | Value |
 |---|---|---|
@@ -660,7 +660,7 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-chain-id</code> | <code>env_var</code> | <code>stable</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:299</code> | <code>LAYERX_INTEROP_CHAIN_ID: EVM chain id for hosted readiness; required, must equal 125</code> |
+| <code>interface.11.env-svc-layerx-interop-chain-id</code> | <code>env_var</code> | <code>stable</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:299</code> | <code>LAYERX_INTEROP_CHAIN_ID: expected EVM payment and readiness chain id; required, must equal 125</code> |
 
 ## env-svc-layerx-interop-client-identity-password-file
 
@@ -684,11 +684,11 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-hosted-gateway-url</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:357</code> | <code>LAYERX_INTEROP_HOSTED_GATEWAY_URL: hosted gateway base URL (activity submission, /readyz/core); required</code> |
+| <code>interface.11.env-svc-layerx-interop-hosted-gateway-url</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:357</code> | <code>LAYERX_INTEROP_HOSTED_GATEWAY_URL: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-hosted-gateway-url</code> | notes | spec/layerx-merge/spec.kvx task 7.5.14 removes the /v1/activities submission; readiness reads remain |
+| <code>interface.11.env-svc-layerx-interop-hosted-gateway-url</code> | notes | Retired: the service uses LAYERX_INTEROP_SEQUENCER_URL for node JSON-RPC submission and receipt-key readiness; no hosted activity gateway is contacted. |
 
 ## env-svc-layerx-interop-idempotency-seconds
 
@@ -748,21 +748,21 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-receipt-authority-token-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:338</code> | <code>LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE: path to the receipt authority bearer token; required</code> |
+| <code>interface.11.env-svc-layerx-interop-receipt-authority-token-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:338</code> | <code>LAYERX_INTEROP_RECEIPT_AUTHORITY_TOKEN_FILE: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-receipt-authority-token-file</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 (receipt authority retired from this service) |
+| <code>interface.11.env-svc-layerx-interop-receipt-authority-token-file</code> | notes | Retired: no receipt-authority bearer token is loaded or used. |
 
 ## env-svc-layerx-interop-receipt-authority-url
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-receipt-authority-url</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:335</code> | <code>LAYERX_INTEROP_RECEIPT_AUTHORITY_URL: receipt authority base URL (authorized batch reads, readiness); required</code> |
+| <code>interface.11.env-svc-layerx-interop-receipt-authority-url</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:335</code> | <code>LAYERX_INTEROP_RECEIPT_AUTHORITY_URL: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-receipt-authority-url</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 moves services/interop/crates/layerx-interop-service/src/config.rs:334-338 (receipt_authority) off the receipt authority; spec/layerx-merge/spec.kvx task 7.5.14 do_2 replaces authorised batch reads with pax_sequencerReceipt |
+| <code>interface.11.env-svc-layerx-interop-receipt-authority-url</code> | notes | Retired: signed receipts come from pax_sequencerReceipt on LAYERX_INTEROP_SEQUENCER_URL. |
 
 ## env-svc-layerx-interop-redis-password-file
 
@@ -786,41 +786,41 @@ The context and decision tables reproduce the rules linked by interface identifi
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-first-batch-file</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:273</code> | <code>LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE: path to the first batch the pinned sequencer key covers; required</code> |
+| <code>interface.11.env-svc-layerx-interop-sequencer-first-batch-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:273</code> | <code>LAYERX_INTEROP_SEQUENCER_FIRST_BATCH_FILE: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-first-batch-file</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 replaces the batch window with the receipt-key height window |
+| <code>interface.11.env-svc-layerx-interop-sequencer-first-batch-file</code> | notes | Retired: configure firstHeight in LAYERX_INTEROP_RECEIPT_KEYS_FILE. |
 
 ## env-svc-layerx-interop-sequencer-id-file
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-id-file</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:271</code> | <code>LAYERX_INTEROP_SEQUENCER_ID_FILE: path to the trusted sequencer id; required</code> |
+| <code>interface.11.env-svc-layerx-interop-sequencer-id-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:271</code> | <code>LAYERX_INTEROP_SEQUENCER_ID_FILE: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-id-file</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 (sequencer handover retired) |
+| <code>interface.11.env-svc-layerx-interop-sequencer-id-file</code> | notes | Retired: configure keyId in LAYERX_INTEROP_RECEIPT_KEYS_FILE. |
 
 ## env-svc-layerx-interop-sequencer-last-batch-file
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-last-batch-file</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:274</code> | <code>LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE: path to the last batch the pinned sequencer key covers; required</code> |
+| <code>interface.11.env-svc-layerx-interop-sequencer-last-batch-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:274</code> | <code>LAYERX_INTEROP_SEQUENCER_LAST_BATCH_FILE: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-last-batch-file</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 replaces the batch window with the receipt-key height window |
+| <code>interface.11.env-svc-layerx-interop-sequencer-last-batch-file</code> | notes | Retired: configure lastHeight in LAYERX_INTEROP_RECEIPT_KEYS_FILE. |
 
 ## env-svc-layerx-interop-sequencer-public-key-file
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-public-key-file</code> | <code>env_var</code> | <code>change</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:268</code> | <code>LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE: path to the trusted sequencer ed25519 public key; required</code> |
+| <code>interface.11.env-svc-layerx-interop-sequencer-public-key-file</code> | <code>env_var</code> | <code>retire</code> | <code>services/interop/crates/layerx-interop-service/src/config.rs:268</code> | <code>LAYERX_INTEROP_SEQUENCER_PUBLIC_KEY_FILE: retired; remove from deployment and fixtures</code> |
 
 | Interface | Field | Value |
 |---|---|---|
-| <code>interface.11.env-svc-layerx-interop-sequencer-public-key-file</code> | notes | spec/layerx-merge/spec.kvx task 11.5.118 reads the sequencer receipt key from chain state at the receipt height instead of kernel handover history |
+| <code>interface.11.env-svc-layerx-interop-sequencer-public-key-file</code> | notes | Retired: configure publicKey in LAYERX_INTEROP_RECEIPT_KEYS_FILE. |
 
 ## env-svc-layerx-interop-tap-clock-skew-seconds
 
@@ -2053,7 +2053,7 @@ Contract context <code>contract_context.11.service-chain-relay</code>:
 
 | Interface | Kind | Status | Source at pinned revision | Signature |
 |---|---|---|---|---|
-| <code>interface.11.fmt-svc-readyz-sequencer-component-j47</code> | <code>file_format</code> | <code>new</code> | <code>services/interop/crates/layerx-interop-service/src/server.rs</code> (planned) | <code>/readyz components.sequencer: bool</code> |
+| <code>interface.11.fmt-svc-readyz-sequencer-component-j47</code> | <code>file_format</code> | <code>new</code> | <code>services/interop/crates/layerx-interop-service/src/server.rs</code> (planned) | <code>/readyz components.sequencer: string enum (&quot;ready&quot; or &quot;unavailable&quot;)</code> |
 
 | Interface | Field | Value |
 |---|---|---|
@@ -2081,3 +2081,67 @@ Contract context <code>contract_context.11.service-chain-relay</code>:
 | <code>req.11050</code> | ac_1 | /readyz names a sequencer component and no hosted or authority component (planned) (services/interop/crates/layerx-interop-service/src/server.rs:2825). |
 | <code>capability.11.12.5</code> | title | Report settlement readiness from the sequencer instead of the hosted gateway |
 | <code>capability.11.12.5</code> | reqs | 11050.1 |
+
+
+## Current startup and evidence procedure (22.33.86)
+
+Run `layerx-interop-gateway` with no arguments. Configure these active environment
+inputs, all with the `LAYERX_INTEROP_` prefix:
+
+| Inputs | Required value |
+|---|---|
+| `CONFIG` | Manifest JSON containing the pinned adapters, transports and protocol trust policy |
+| `LISTEN`, `LISTENER` | Socket address and `plain` or TLS listener mode; TLS requires `TLS_CERT_DER` and `TLS_KEY_DER` together |
+| `SEQUENCER_URL` | Node JSON-RPC origin; HTTPS by default; a private Railway HTTP endpoint additionally requires `ALLOW_RAILWAY_PRIVATE_NETWORK=1` |
+| `RECEIPT_KEYS_FILE` | Nonempty JSON array of `{keyId, publicKey, firstHeight, lastHeight}`; 0x-prefixed 32-byte identifiers and keys, inclusive nonoverlapping numeric height windows; startup compares every pin with `px_getReceiptKeys` |
+| `OUTBOUND_CA_DER`, `CLIENT_IDENTITY_PKCS12`, `CLIENT_IDENTITY_PASSWORD_FILE` | Outbound CA, mTLS identity and private password file |
+| `REDIS_URL`, `REDIS_USERNAME_FILE`, `REDIS_PASSWORD_FILE` | TLS Redis endpoint and private credential files |
+| `NETWORK_ID`, `WIRE_VERSION`, `PROTOCOL_NETWORK_ID` | Network label, current numeric protocol version (3), nonzero protocol network identifier |
+| `CHAIN_ID`, `READINESS_MAX_AGE_MS`, `MODULE_REGISTRY_FILE`, `TAP_CLOCK_SKEW_SECONDS` | 125; 1..=30000; module registry JSON; 0..=300 seconds |
+| `AP2_RECEIPT_SIGNERS_FILE` (required for AP2 execution/readiness) | Private (mode 0600 or stricter), at most 4096-byte JSON file; `payment` and `checkout` each contain `issuer`, `key_id`, `private_key_hex` (32-byte ES256 private scalar, lowercase hexadecimal without 0x); pin each issuer public key independently at the consumer |
+| `IDEMPOTENCY_SECONDS` (optional) | 1..=2592000 seconds, default 604800; also bounds finalized relay raw-byte retention |
+
+Remove the retired hosted-gateway, receipt-authority and individual sequencer-key
+inputs listed above. Optional migration configuration remains separate.
+`tests/repair_22_33_86.rs` loads the production configuration using only active
+inputs and sends HTTP requests through the mounted router.
+
+Read `GET /readyz` with `operations::ReadinessDocument::from_json` and
+`is_ready()`: the component values are exactly the strings `ready` or
+`unavailable`; ready HTTP status is 200, degraded status is 503. For payment
+proofs, obtain a concrete `pax_sequencerReceipt` response and its original signed
+transaction, export with `layerx_ap2::PortableLayerXEvidence::from_sequencer_receipt`,
+then pass its JSON and independently pinned `SequencerAuthorization` entries to
+`operations::verify_receipted_json`. This invokes the real PortableReceiptV2
+verifier offline. A node-reported committed rung or matching block hash does not
+supply validator-commit or receipt-batch inclusion evidence: hosted exports stay
+`receipted` until that complete proof is verified.
+
+The relay keeps unresolved signed transactions without expiry. After verifying
+the signed receipt/logs and observing a matching committed block, it atomically
+creates a permanent 32-byte transaction-hash tombstone and sets the raw record
+and submission-progress TTL to the gateway replay window. Repeated finality
+observations do not extend that window. After compaction, recovery reads evidence
+by hash and refuses unavailable evidence without resubmitting. Tombstones never
+expire, including when gateway operation records have expired.
+
+Payment expiry uses Unix milliseconds and refuses `expires_at <= payment_now`.
+AP2 mandate and Visa credential NumericDate checks continue using Unix seconds.
+
+The registry and deployment/fixture edits outside this task's paths are listed
+as wiring requests in `src/repair_22_33_86.kvx`; those files are not regenerated
+or modified by this task.
+
+
+Hosted `POST /v1/http/ap2/execute` retains the AP2 library's authorized mandate
+binding and `SignedAp2Evidence`/`ReceiptSigner` boundary on the EVM relay path.
+A successful result includes `payment_receipt_jwt`, `checkout_receipt_jwt` and
+`layerx` (PortableReceiptV2 with the original signed payer transaction). Each JWT
+binds the original verified mandate receipt reference, the canonical receipt
+digest and the same portable document. The gateway persists this entire result
+before replying; restarted replay returns the saved bytes without another
+submission or a new signature. Missing signer configuration refuses execution
+with `ap2_receipt_signers_unconfigured` before submission and makes AP2 readiness
+unavailable. Invalid configured signing material refuses startup. The signing
+finalizer currently private to the AP2 crate is an owning-domain wiring request;
+the hosted bridge uses the public AP2 authorization, signer and portable APIs.

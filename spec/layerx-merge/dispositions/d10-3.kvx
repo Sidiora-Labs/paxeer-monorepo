@@ -1,0 +1,126 @@
+[disposition.10.16.5.1]
+finding = "10.16.5.1"
+status = "superseded"
+evidence = "9f775b45b deletes the retired explorer-index binary and src/main.rs, after 4fe8f7163 had already replaced its obsolete historical verifier and protected-history calls with journal admission and chain trust."
+
+[disposition.10.16.5.2]
+finding = "10.16.5.2"
+status = "superseded"
+evidence = "9f775b45b removes explorer-index src/main.rs and its binary manifest from main, so the repeated builds against the obsolete load_registry implementation no longer describe a retained target."
+
+[disposition.10.20.3.1]
+finding = "10.20.3.1"
+status = "superseded"
+evidence = "ad92aa7fc removes the retired journey imports and runtime implementations from the surviving importers, and 5ff108e0d deletes server/movement_provider.rs with DepositRuntime and the obsolete provider client."
+
+[disposition.10.20.3.2]
+finding = "10.20.3.2"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/src/server/production_components.rs:575 retains onboarding_sponsor_principal and initializes it at line 778, satisfying the surviving reads in production_onboarding.rs:31 and production_onboarding.rs:283."
+
+[disposition.10.20.3.3]
+finding = "10.20.3.3"
+status = "superseded"
+evidence = "479b9cc75 deletes the retired movement-provider execution, service, planning, producer and test sources, including src/service.rs and its deposit, withdrawal and exit handlers."
+
+[disposition.10.20.3.4]
+finding = "10.20.3.4"
+status = "resolved"
+evidence = "ad92aa7fc supplies the canonical temporary root and private store directories in services/human/crates/layerx-human-service/tests/production_unhooked.rs:77, installs tenancy before opening components and serializes the tests through the environment mutex at line 1070."
+
+[disposition.10.20.3.5]
+finding = "10.20.3.5"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:219 spawns the real configured layerx-agentd and waits for its socket before the test opens production components at line 1077, replacing the missing-agent setup without establishing that the separate node-startup migration is qualified."
+
+[disposition.10.20.3.6]
+finding = "10.20.3.6"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:182 starts the node and authority fixtures and lines 227 through 235 pass the LNI path, authority endpoint, bearer and CA DER to the real daemon command."
+
+[disposition.10.20.3.7]
+finding = "10.20.3.7"
+status = "resolved"
+evidence = "096e161e1 replaces the obsolete one-argument historical verification in agentd load_registry with reader.verify_journal_admission, which remains at services/agent/crates/layerx-agentd/src/main.rs:1564."
+
+[disposition.10.20.3.8]
+finding = "10.20.3.8"
+status = "superseded"
+evidence = "d82f775af deletes cmd/layerxd/lxp_daemon_finality_authority.c and lxp_finality_authority_bind with the retired daemon finality surface, whose anchor-module refusal was a repository condition rather than an external environment failure."
+
+[disposition.10.20.3.9]
+finding = "10.20.3.9"
+status = "superseded"
+evidence = "d82f775af retires the layerxd finality authority and deletes lxp_finality_authority_bind, removing the consumer that tried to bootstrap from the retired anchor module."
+
+[disposition.10.20.3.10]
+finding = "10.20.3.10"
+status = "superseded"
+evidence = "05b1f8e8e deletes cmd/layerxd/lxp_daemon_protocol.c and lxp_daemon_protocol_owner_attach with the retired process core and binary, so its missing commit-observer startup binding is no longer a retained surface."
+
+[disposition.10.20.3.11]
+finding = "10.20.3.11"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:223 passes LAYERX_AGENT_NODE_RPC_URL from the fixture RPC port and line 226 passes LAYERX_AGENT_NODE_CHAIN_ID while retaining the LNI setting."
+
+[disposition.10.20.3.12]
+finding = "10.20.3.12"
+status = "resolved"
+evidence = "739a39689 maps both NodeRpcConfig::from_environment and NodeRpc::connect errors into String in start_shared_owner, with both mappings retained at services/agent/crates/layerx-agentd/src/main.rs:775."
+
+[disposition.10.20.3.13]
+finding = "10.20.3.13"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:274 sets HUMAN_LIMIT_ID from a 16-byte array and line 277 keeps the scope ID at 32 bytes, matching the daemon LimitId and LimitScope widths."
+
+[disposition.10.20.3.14]
+finding = "10.20.3.14"
+status = "open"
+evidence = "services/platform/hosted/human/material.py:1378 still requires a 64-character HUMAN_LIMIT_ID and line 904 writes it as LAYERX_AGENT_HUMAN_LIMIT_ID, whereas services/agent/crates/layerx-agentd/src/main.rs:106 enforces twice the 16-byte LimitId width declared in budget/reserve.rs:11."
+follow_up = "22.10.6"
+
+[disposition.10.20.3.15]
+finding = "10.20.3.15"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:216 creates a separate agent-socket directory with mode 0o700 and binds the daemon socket inside it while the node fixture keeps the outer root traversable."
+
+[disposition.10.20.3.16]
+finding = "10.20.3.16"
+status = "superseded"
+evidence = "5ff108e0d deletes server/movement_provider.rs and UnixMovementProvider::new when Move money switches to bank sends, removing the production startup socket validation that raised this finding."
+
+[disposition.10.20.3.17]
+finding = "10.20.3.17"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/production_unhooked.rs:87 retains a bound events listener and lines 96 through 114 configure all three LAYERX_EVENTS upstream URL and CA DER variable pairs missing from the earlier fixture."
+
+[disposition.10.20.3.18]
+finding = "10.20.3.18"
+status = "resolved"
+evidence = "266364186 removes the stale layerx-programs-protocol-adapter dependency from the registry lock entry, and services/platform/Cargo.lock:1546 still lists layerx-platform-registry without that dependency."
+
+[disposition.10.20.5.5]
+finding = "10.20.5.5"
+status = "open"
+evidence = "services/human/crates/layerx-human-service/src/server/production_components.rs:8824 still sets submitted only in memory before the fallible receipt lookup at line 8831 and the durable scope.put at line 8887, so a failed read can cause a resend whose error returns before reconciliation."
+follow_up = "18.1434.1"
+
+[disposition.10.21.1.1]
+finding = "10.21.1.1"
+status = "superseded"
+evidence = "85d56492c deletes intents src/precompile.rs and tests/precompile_router.rs together with the lib.rs module declaration and the retired IntentKind variants, removing the constructors that caused the build errors."
+
+[disposition.10.21.1.2]
+finding = "10.21.1.2"
+status = "superseded"
+evidence = "eea22dd24 deletes explorer-index src/mirror.rs and its lib.rs module declaration, retiring MirrorVerifier and the archive-type dependent report that blocked the dependent check."
+
+[disposition.10.21.3.1]
+finding = "10.21.3.1"
+status = "resolved"
+evidence = "ec7c4dc54 removes bridge constructors from the retained journey routing, 2772a218f deletes wallet binding and ad92aa7fc unhooks the retired journeys, leaving the bridge names in services/human/crates/layerx-human-service/src/audit/event.rs:103 as independent SigningOperation labels rather than deleted IntentKind references."
+
+[disposition.10.21.3.2]
+finding = "10.21.3.2"
+status = "resolved"
+evidence = "82d0b9b12 ports tests/live_kinds.rs off all four retired kinds and renumbers kind_index over the sixteen retained kinds, preserving the Perps arm at services/human/crates/layerx-intents/tests/live_kinds.rs:341 and the retained-kind coverage assertion."

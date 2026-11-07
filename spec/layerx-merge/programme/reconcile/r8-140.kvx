@@ -1,0 +1,243 @@
+[reconcile.r8-140]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-140.1]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepup-begin"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4418
+symbol = "STEPUP_BEGIN"
+evidence = "HumanOperations declaration at line 4418 matches the registered signature; the registered line 4656 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<StepupBeginRequest, StepupBeginResponse> STEPUP_BEGIN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"stepup.begin\", false, StepupBeginRequest.class, StepupBeginResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.2]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepup-finish"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4434
+symbol = "STEPUP_FINISH"
+evidence = "HumanOperations declaration at line 4434 matches the registered signature; the registered line 4672 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<StepupFinishRequest, StepupFinishResponse> STEPUP_FINISH = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"stepup.finish\", false, StepupFinishRequest.class, StepupFinishResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.3]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepupbeginrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4405
+symbol = "StepupBeginRequest"
+evidence = "HumanOperations declaration at line 4405 matches the registered signature; the registered line 4643 has drifted. Current declaration: public record StepupBeginRequest(String confirms) implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.4]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepupbeginresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4410
+symbol = "StepupBeginResponse"
+evidence = "HumanOperations declaration at line 4410 matches the registered signature; the registered line 4648 has drifted. Current declaration: public record StepupBeginResponse(String challenge_id, String confirms, String ceremony, String expires_at) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.5]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepupfinishrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4419
+symbol = "StepupFinishRequest"
+evidence = "HumanOperations declaration at line 4419 matches the registered signature; the registered line 4657 has drifted. Current declaration: public record StepupFinishRequest(String credential) implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.6]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stepupfinishresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4425
+symbol = "StepupFinishResponse"
+evidence = "HumanOperations declaration at line 4425 matches the registered signature; the registered line 4663 has drifted. Current declaration: public record StepupFinishResponse(String challenge_id, String confirms, String passkey_id, String completed_at, String expires_at) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.7]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stream-next"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4443
+symbol = "STREAM_NEXT"
+evidence = "HumanOperations declaration at line 4443 matches the registered signature; the registered line 4681 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<StreamNextRequest, StreamNextResponse> STREAM_NEXT = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"stream.next\", false, StreamNextRequest.class, StreamNextResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.8]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-stream-open"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4451
+symbol = "STREAM_OPEN"
+evidence = "HumanOperations declaration at line 4451 matches the registered signature; the registered line 4689 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<StreamOpenRequest, StreamOpenResponse> STREAM_OPEN = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"stream.open\", false, StreamOpenRequest.class, StreamOpenResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.9]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-streamnextrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4435
+symbol = "StreamNextRequest"
+evidence = "HumanOperations declaration at line 4435 matches the registered signature; the registered line 4673 has drifted. Current declaration: public record StreamNextRequest() implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.10]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-streamnextresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4437
+symbol = "StreamNextResponse"
+evidence = "HumanOperations declaration at line 4437 matches the registered signature; the registered line 4675 has drifted. Current declaration: public record StreamNextResponse(List<HumanModels.StreamEvent> events, String next_cursor) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.11]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-streamopenrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4444
+symbol = "StreamOpenRequest"
+evidence = "HumanOperations declaration at line 4444 matches the registered signature; the registered line 4682 has drifted. Current declaration: public record StreamOpenRequest() implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.12]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-streamopenresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4446
+symbol = "StreamOpenResponse"
+evidence = "HumanOperations declaration at line 4446 matches the registered signature; the registered line 4684 has drifted. Current declaration: public record StreamOpenResponse(String cursor) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.13]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-create"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4469
+symbol = "SUPPORT_CREATE"
+evidence = "HumanOperations declaration at line 4469 matches the registered signature; the registered line 4707 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportCreateRequest, SupportCreateResponse> SUPPORT_CREATE = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.create\", true, SupportCreateRequest.class, SupportCreateResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.14]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-feedback"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4486
+symbol = "SUPPORT_FEEDBACK"
+evidence = "HumanOperations declaration at line 4486 matches the registered signature; the registered line 4724 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportFeedbackRequest, SupportFeedbackResponse> SUPPORT_FEEDBACK = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.feedback\", false, SupportFeedbackRequest.class, SupportFeedbackResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.15]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-list"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4494
+symbol = "SUPPORT_LIST"
+evidence = "HumanOperations declaration at line 4494 matches the registered signature; the registered line 4732 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportListRequest, SupportListResponse> SUPPORT_LIST = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.list\", false, SupportListRequest.class, SupportListResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.16]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-read"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4507
+symbol = "SUPPORT_READ"
+evidence = "HumanOperations declaration at line 4507 matches the registered signature; the registered line 4745 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportReadRequest, SupportReadResponse> SUPPORT_READ = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.read\", false, SupportReadRequest.class, SupportReadResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.17]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-reply"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4524
+symbol = "SUPPORT_REPLY"
+evidence = "HumanOperations declaration at line 4524 matches the registered signature; the registered line 4762 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportReplyRequest, SupportReplyResponse> SUPPORT_REPLY = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.reply\", true, SupportReplyRequest.class, SupportReplyResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.18]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-support-status"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4534
+symbol = "SUPPORT_STATUS"
+evidence = "HumanOperations declaration at line 4534 matches the registered signature; the registered line 4772 has drifted. Current declaration: public static final SchemaTypes.TypedOperation<SupportStatusRequest, SupportStatusResponse> SUPPORT_STATUS = new SchemaTypes.TypedOperation<>(OperationCatalog.Plane.HUMAN, \"support.status\", false, SupportStatusRequest.class, SupportStatusResponse.class); TypedOperation field declaration selected rather than the later Map.entry catalog reference."
+
+[row.r8-140.19]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportcreaterequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4452
+symbol = "SupportCreateRequest"
+evidence = "HumanOperations declaration at line 4452 matches the registered signature; the registered line 4690 has drifted. Current declaration: public record SupportCreateRequest(String body, HumanModels.SupportShell shell, HumanModels.SupportTopic topic, String trace_id) implements SchemaTypes.GeneratedRequest { Selected the GeneratedRequest record in HumanOperations; the same-named HumanModels record implements GeneratedResponse and does not match the registered signature."
+
+[row.r8-140.20]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportcreateresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4458
+symbol = "SupportCreateResponse"
+evidence = "HumanOperations declaration at line 4458 matches the registered signature; the registered line 4696 has drifted. Current declaration: public record SupportCreateResponse(String conversation_id, HumanModels.SupportShell shell, HumanModels.SupportConversationState state, String created_at, String updated_at, List<HumanModels.SupportMessage> messages, List<HumanModels.SupportFeedback> feedback, String trace_id) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.21]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportfeedbackrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4470
+symbol = "SupportFeedbackRequest"
+evidence = "HumanOperations declaration at line 4470 matches the registered signature; the registered line 4708 has drifted. Current declaration: public record SupportFeedbackRequest(String message_id, boolean helpful) implements SchemaTypes.GeneratedRequest { Selected the GeneratedRequest record in HumanOperations; the same-named HumanModels record implements GeneratedResponse and does not match the registered signature."
+
+[row.r8-140.22]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportfeedbackresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4475
+symbol = "SupportFeedbackResponse"
+evidence = "HumanOperations declaration at line 4475 matches the registered signature; the registered line 4713 has drifted. Current declaration: public record SupportFeedbackResponse(String conversation_id, HumanModels.SupportShell shell, HumanModels.SupportConversationState state, String created_at, String updated_at, List<HumanModels.SupportMessage> messages, List<HumanModels.SupportFeedback> feedback, String trace_id) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.23]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportlistrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4487
+symbol = "SupportListRequest"
+evidence = "HumanOperations declaration at line 4487 matches the registered signature; the registered line 4725 has drifted. Current declaration: public record SupportListRequest() implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.24]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportlistresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4489
+symbol = "SupportListResponse"
+evidence = "HumanOperations declaration at line 4489 matches the registered signature; the registered line 4727 has drifted. Current declaration: public record SupportListResponse(List<HumanModels.SupportConversation> conversations) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.25]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportreadrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4495
+symbol = "SupportReadRequest"
+evidence = "HumanOperations declaration at line 4495 matches the registered signature; the registered line 4733 has drifted. Current declaration: public record SupportReadRequest(String through_message_id) implements SchemaTypes.GeneratedRequest { Selected the GeneratedRequest record in HumanOperations; the same-named HumanModels record implements GeneratedResponse and does not match the registered signature."
+
+[row.r8-140.26]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportreadresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4500
+symbol = "SupportReadResponse"
+evidence = "HumanOperations declaration at line 4500 matches the registered signature; the registered line 4738 has drifted. Current declaration: public record SupportReadResponse(String conversation_id, HumanModels.SupportConversationState state, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long unread_count, String updated_at) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.27]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportreplyrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4508
+symbol = "SupportReplyRequest"
+evidence = "HumanOperations declaration at line 4508 matches the registered signature; the registered line 4746 has drifted. Current declaration: public record SupportReplyRequest(String body) implements SchemaTypes.GeneratedRequest { Selected the GeneratedRequest record in HumanOperations; the same-named HumanModels record implements GeneratedResponse and does not match the registered signature."
+
+[row.r8-140.28]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportreplyresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4513
+symbol = "SupportReplyResponse"
+evidence = "HumanOperations declaration at line 4513 matches the registered signature; the registered line 4751 has drifted. Current declaration: public record SupportReplyResponse(String conversation_id, HumanModels.SupportShell shell, HumanModels.SupportConversationState state, String created_at, String updated_at, List<HumanModels.SupportMessage> messages, List<HumanModels.SupportFeedback> feedback, String trace_id) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.29]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportstatusrequest"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4525
+symbol = "SupportStatusRequest"
+evidence = "HumanOperations declaration at line 4525 matches the registered signature; the registered line 4763 has drifted. Current declaration: public record SupportStatusRequest() implements SchemaTypes.GeneratedRequest { Record header selected rather than a compact constructor or TypedOperation use."
+
+[row.r8-140.30]
+interface = "interface.8.go-sdkjvm-generatedschema-humanoperations-supportstatusresponse"
+verdict = "served"
+path = "sdk/platform/jvm/src/main/java/com/sidiora/layerx/sdk/GeneratedSchema.java"
+line = 4527
+symbol = "SupportStatusResponse"
+evidence = "HumanOperations declaration at line 4527 matches the registered signature; the registered line 4765 has drifted. Current declaration: public record SupportStatusResponse(String conversation_id, HumanModels.SupportConversationState state, @JsonDeserialize(using = SchemaTypes.IntegerNumberDeserializer.class) long unread_count, String updated_at) implements SchemaTypes.GeneratedResponse { Record header selected rather than a compact constructor or TypedOperation use."

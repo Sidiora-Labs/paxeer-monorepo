@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
@@ -21,7 +22,7 @@ var (
 	ErrReceiptKeyFile = errors.New("sequencer: receipt key file")
 	// ErrReceiptKeyIsConsensusKey refuses a receipt key that is the validator consensus key.
 	ErrReceiptKeyIsConsensusKey = errors.New("sequencer: receipt key is the consensus key")
-	// ErrReceiptKeyPin refuses a ReceiptKeys entry with a zero key id or firstHeight above lastHeight.
+	// ErrReceiptKeyPin refuses malformed pins or a refresh that omits the loaded public key.
 	ErrReceiptKeyPin = errors.New("sequencer: invalid receipt key pin")
 	// ErrReceiptKeyNotPinned refuses a receipt public key no ReceiptKeys entry covers at the height.
 	ErrReceiptKeyNotPinned = errors.New("sequencer: receipt key is not pinned for the height")
@@ -30,15 +31,28 @@ var (
 // ReceiptKey is the host's ed25519 receipt signing key with the ReceiptKeys
 // entries that pin its public key.
 type ReceiptKey struct {
+	*receiptKeyState
+}
+
+// Copies of ReceiptKey share the signing identity and its atomic pin slot.
+type receiptKeyState struct {
 	private ed25519.PrivateKey
 	public  [32]byte
-	pins    []verify.SequencerAuthorization
+	pins    atomic.Pointer[receiptPins]
+}
+
+type receiptPins struct {
+	entries []verify.SequencerAuthorization
 }
 
 // LoadReceiptKey loads the receipt key from keyFile, a hex 32-byte ed25519
 // seed readable by its owner only, held apart from the consensus key in
 // consensusKeyFile. It refuses start unless an entry of pins covers its
 // public key at openHeight.
+// Each load reopens the persisted seed and revalidates its permissions and pins;
+// it never creates or overwrites the producer's key file.
+// A restart must reload the key against the committed
+// pins before replaying the signed receipts held in the WAL.
 func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAuthorization, openHeight int64) (*ReceiptKey, error) {
 	info, err := os.Stat(keyFile)
 	if err != nil {
@@ -60,7 +74,7 @@ func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAut
 	}
 	private := ed25519.NewKeyFromSeed(seed)
 	clear(seed)
-	key := &ReceiptKey{private: private}
+	key := &ReceiptKey{receiptKeyState: &receiptKeyState{private: private}}
 	copy(key.public[:], private.Public().(ed25519.PublicKey))
 
 	consensus, err := privval.LoadFilePVEmptyState(consensusKeyFile, "")
@@ -70,14 +84,11 @@ func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAut
 	if bytes.Equal(consensus.Key.PubKey.Bytes(), key.public[:]) {
 		return nil, ErrReceiptKeyIsConsensusKey
 	}
-	for _, pin := range pins {
-		if pin.SequencerID == ([32]byte{}) || pin.FirstBatchNumber > pin.LastBatchNumber {
-			return nil, fmt.Errorf("%w: key id %x, heights %d..%d", ErrReceiptKeyPin, pin.SequencerID, pin.FirstBatchNumber, pin.LastBatchNumber)
-		}
-		if pin.PublicKey == key.public {
-			key.pins = append(key.pins, pin)
-		}
+	matching, err := key.validatePins(pins)
+	if err != nil {
+		return nil, err
 	}
+	key.pins.Store(&receiptPins{entries: matching})
 	if _, err := key.KeyID(openHeight); err != nil {
 		return nil, err
 	}
@@ -87,16 +98,50 @@ func LoadReceiptKey(keyFile, consensusKeyFile string, pins []verify.SequencerAut
 // PublicKey is the receipt public key pinned in ReceiptKeys.
 func (k *ReceiptKey) PublicKey() [32]byte { return k.public }
 
+func (k *ReceiptKey) validatePins(pins []verify.SequencerAuthorization) ([]verify.SequencerAuthorization, error) {
+	var matching []verify.SequencerAuthorization
+	for _, pin := range pins {
+		if pin.SequencerID == ([32]byte{}) || pin.FirstBatchNumber > pin.LastBatchNumber {
+			return nil, fmt.Errorf("%w: key id %x, heights %d..%d", ErrReceiptKeyPin, pin.SequencerID, pin.FirstBatchNumber, pin.LastBatchNumber)
+		}
+		if pin.PublicKey == k.public {
+			matching = append(matching, pin)
+		}
+	}
+	return matching, nil
+}
+
+// SetPins replaces the receipt pins only after every entry is valid and at
+// least one entry pins the loaded public key.
+func (k *ReceiptKey) SetPins(pins []verify.SequencerAuthorization) error {
+	if k == nil || k.receiptKeyState == nil {
+		return fmt.Errorf("%w: missing signing identity", ErrReceiptKeyPin)
+	}
+	matching, err := k.validatePins(pins)
+	if err != nil {
+		return err
+	}
+	if len(matching) == 0 {
+		return fmt.Errorf("%w: no entry for public key %x", ErrReceiptKeyPin, k.public)
+	}
+	k.pins.Store(&receiptPins{entries: matching})
+	return nil
+}
+
 // KeyID is the key id of the ReceiptKeys entry covering height.
 func (k *ReceiptKey) KeyID(height int64) ([32]byte, error) {
-	if height > 0 {
-		for _, pin := range k.pins {
-			if pin.FirstBatchNumber <= uint64(height) && uint64(height) <= pin.LastBatchNumber {
-				return pin.SequencerID, nil
+	var public [32]byte
+	if k != nil && k.receiptKeyState != nil {
+		public = k.public
+		if snapshot := k.pins.Load(); height > 0 && snapshot != nil {
+			for _, pin := range snapshot.entries {
+				if pin.FirstBatchNumber <= uint64(height) && uint64(height) <= pin.LastBatchNumber {
+					return pin.SequencerID, nil
+				}
 			}
 		}
 	}
-	return [32]byte{}, fmt.Errorf("%w: public key %x at height %d", ErrReceiptKeyNotPinned, k.public, height)
+	return [32]byte{}, fmt.Errorf("%w: public key %x at height %d", ErrReceiptKeyNotPinned, public, height)
 }
 
 // SignReceipt encodes the receipt with context_hash = the key id pinned at

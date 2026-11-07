@@ -1,0 +1,5 @@
+[disposition.5.98.6.1]
+finding = "5.98.6.1"
+status = "open"
+evidence = "On main at 724a3140004e63847a0987c55d0271f71659e6c2, rpc/send_sequencer_test.go:229 passes a nil WatermarkManager and rpc/send_sequencer_test.go:426 still expects ErrLayerNotOpen after sealing, while rpc/send.go:323 calls PendingContext and rpc/watermark_manager.go:63 returns ErrPendingServedBySequencer for that nil manager."
+follow_up = "22.7.3"

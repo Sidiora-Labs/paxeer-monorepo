@@ -62,7 +62,7 @@ defmodule Explorer.Chain.Cache.Counters.AverageBlockTime do
 
   @impl true
   def handle_info(:refresh_timestamps, _) do
-    refresh_period = Application.get_env(:explorer, __MODULE__)[:period]
+    refresh_period = Application.get_env(:explorer, __MODULE__)[:cache_period]
     Process.send_after(self(), :refresh_timestamps, refresh_period)
 
     {:noreply, refresh_timestamps()}

@@ -3,11 +3,16 @@ package tasks
 import (
 	"bytes"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	tmed25519 "github.com/sei-protocol/sei-chain/sei-tendermint/crypto/ed25519"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
+
+	tmtypes "github.com/sei-protocol/sei-chain/sei-tendermint/types"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/feature/s3/transfermanager"
@@ -131,8 +136,9 @@ func (u *GenesisArtifactUploader) uploadIdentity(ctx context.Context, uploader s
 		return fmt.Errorf("upload-genesis-artifacts: reading node_key.json: %w", err)
 	}
 
-	identity := map[string]any{
-		"node_key": json.RawMessage(nodeKeyData),
+	identity, err := publicIdentityFromNodeKey(nodeKeyData)
+	if err != nil {
+		return err
 	}
 	data, err := json.Marshal(identity)
 	if err != nil {
@@ -151,4 +157,52 @@ func (u *GenesisArtifactUploader) uploadIdentity(ctx context.Context, uploader s
 		return seis3.ClassifyS3Error("upload-genesis-artifacts", bucket, key, u.region, err)
 	}
 	return nil
+}
+
+type PublicNodeKey struct {
+	ID        string `json:"id"`
+	PublicKey []byte `json:"pub_key"`
+}
+type PublicNodeIdentity struct {
+	NodeKey PublicNodeKey `json:"node_key"`
+}
+
+func publicIdentityFromNodeKey(data []byte) (*PublicNodeIdentity, error) {
+	var key tmtypes.NodeKey
+	if err := json.Unmarshal(data, &key); err != nil {
+		return nil, err
+	}
+	pub := key.PubKey()
+	id := tmtypes.NodeIDFromPubKey(pub)
+	if key.ID != id {
+		return nil, fmt.Errorf("node ID does not match P2P key")
+	}
+	return &PublicNodeIdentity{NodeKey: PublicNodeKey{ID: string(id), PublicKey: pub.Bytes()}}, nil
+}
+
+func decodePublicIdentity(data []byte) (*PublicNodeIdentity, error) {
+	var identity PublicNodeIdentity
+	decoder := json.NewDecoder(bytes.NewReader(data))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&identity); err != nil {
+		return nil, err
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		return nil, fmt.Errorf("identity must contain exactly one JSON object")
+	}
+	key := identity.NodeKey
+	if len(key.PublicKey) != 32 || len(key.ID) != 40 {
+		return nil, fmt.Errorf("invalid public node identity")
+	}
+	if _, err := hex.DecodeString(key.ID); err != nil {
+		return nil, err
+	}
+	pub, err := tmed25519.PublicKeyFromBytes(key.PublicKey)
+	if err != nil {
+		return nil, err
+	}
+	if string(tmtypes.NodeIDFromPubKey(pub)) != key.ID {
+		return nil, fmt.Errorf("node ID does not match public key")
+	}
+	return &identity, nil
 }

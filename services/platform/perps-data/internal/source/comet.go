@@ -49,10 +49,10 @@ func NewComet(urls []string, timeout time.Duration) (*Comet, error) {
 		timeout = 2 * time.Second
 	}
 	c := &Comet{failures: make([]int, len(urls))}
-	for _, u := range urls {
+	for i, u := range urls {
 		client, err := rpchttp.NewWithTimeout(u, timeout)
 		if err != nil {
-			return nil, fmt.Errorf("source: comet client: %w", err)
+			return nil, fmt.Errorf("source: comet client: %w", endpointFailure("client_init", i, err))
 		}
 		c.clients = append(c.clients, client)
 	}
@@ -62,7 +62,7 @@ func NewComet(urls []string, timeout time.Duration) (*Comet, error) {
 // Header returns the consensus header of height.
 func (c *Comet) Header(ctx context.Context, height int64) (*CometHeader, error) {
 	var out *CometHeader
-	err := c.withFallback(ctx, func(client *rpchttp.HTTP) error {
+	err := c.withFallback(ctx, "header", func(client *rpchttp.HTTP) error {
 		res, err := client.Header(ctx, &height)
 		if err != nil {
 			return err
@@ -82,7 +82,7 @@ func (c *Comet) Header(ctx context.Context, height int64) (*CometHeader, error) 
 // BlockResults returns the transaction count and finalize_block_events of height.
 func (c *Comet) BlockResults(ctx context.Context, height int64) (*CometResults, error) {
 	var out *CometResults
-	err := c.withFallback(ctx, func(client *rpchttp.HTTP) error {
+	err := c.withFallback(ctx, "block_results", func(client *rpchttp.HTTP) error {
 		res, err := client.BlockResults(ctx, &height)
 		if err != nil {
 			return err
@@ -96,7 +96,7 @@ func (c *Comet) BlockResults(ctx context.Context, height int64) (*CometResults, 
 	return out, err
 }
 
-func (c *Comet) withFallback(ctx context.Context, call func(*rpchttp.HTTP) error) error {
+func (c *Comet) withFallback(ctx context.Context, method string, call func(*rpchttp.HTTP) error) error {
 	c.mu.Lock()
 	order := make([]int, len(c.clients))
 	for i := range order {
@@ -120,7 +120,7 @@ func (c *Comet) withFallback(ctx context.Context, call func(*rpchttp.HTTP) error
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}
-		lastErr = err
+		lastErr = endpointFailure(method, idx, err)
 	}
 	return fmt.Errorf("source: all %d comet node(s) failed: %w", len(c.clients), lastErr)
 }

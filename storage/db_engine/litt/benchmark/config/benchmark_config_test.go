@@ -13,6 +13,7 @@ func TestLoadConfig(t *testing.T) {
 	tempDir := t.TempDir()
 
 	testConfigJSON := `{
+		"LittConfig": {"Paths": ["/test/litt"]},
 		"MetadataDirectory": "/test/dir",
 		"MaximumWriteThroughputMB": 20.0,
 		"ValueSizeMB": 3.0,

@@ -1,0 +1,7 @@
+{
+  "manifests": {
+    "docs/site/requirements.txt": {
+      "mkdocs-material": "9.7.7"
+    }
+  }
+}

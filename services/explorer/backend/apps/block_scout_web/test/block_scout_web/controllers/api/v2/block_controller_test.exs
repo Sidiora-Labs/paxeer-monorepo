@@ -4,6 +4,10 @@ defmodule BlockScoutWeb.API.V2.BlockControllerTest do
 
   alias Explorer.Chain.{Address, Block, InternalTransaction, Transaction, Withdrawal}
   alias Explorer.Chain.Beacon.Deposit, as: BeaconDeposit
+  alias Explorer.Chain.PaxeerX.PriceFeed
+
+  @feeder "0xb97e177fe6e701db2cf85c1ba1307688166318cc"
+  @feeder_bech32 "pax1h9lpwllxuuqakt8ctsd6zvrk3qtxxxxvyfs9jc"
 
   setup do
     Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Blocks.child_id())
@@ -983,6 +987,55 @@ defmodule BlockScoutWeb.API.V2.BlockControllerTest do
         check_paginated_response(response, response_2nd_page, deposits)
       end
     end
+  end
+
+  describe "price-feed submissions" do
+    test "count as transactions of their block in the list and in the single block", %{conn: conn} do
+      block = insert(:block)
+      insert_list(2, :transaction) |> Enum.each(&with_block(&1, block))
+      assert {:ok, 1} = PriceFeed.replace_block_updates(block, [submission(0)])
+
+      plain = insert(:block)
+      insert(:transaction) |> with_block(plain)
+
+      items = json_response(get(conn, "/api/v2/blocks"), 200)["items"]
+
+      assert %{"transactions_count" => 3, "price_update_count" => 1} = Enum.find(items, &(&1["height"] == block.number))
+      assert %{"transactions_count" => 1, "price_update_count" => 0} = Enum.find(items, &(&1["height"] == plain.number))
+
+      single = json_response(get(conn, "/api/v2/blocks/#{block.number}"), 200)
+      assert single["transactions_count"] == 3
+      assert single["price_update_count"] == 1
+
+      main_page = json_response(get(conn, "/api/v2/main-page/blocks"), 200)
+
+      assert %{"transactions_count" => 3, "price_update_count" => 1} =
+               Enum.find(main_page, &(&1["height"] == block.number))
+    end
+  end
+
+  defp submission(index, options \\ []) do
+    %{
+      hash: "0x" <> Base.encode16(:crypto.strong_rand_bytes(32), case: :lower),
+      index: index,
+      feeder_bech32: @feeder_bech32,
+      feeder_hash: @feeder,
+      status: Keyword.get(options, :status, 1),
+      gas_used: Keyword.get(options, :gas_used, 100_000),
+      gas_wanted: 200_000,
+      observations: Keyword.get(options, :observations, [observation(0, 1)])
+    }
+  end
+
+  defp observation(market_id, value) do
+    %{
+      market_id: market_id,
+      accepted: true,
+      sequence: value,
+      index_price: value * 1_000_000_000_000_000_000,
+      mark_price: (value + 1) * 1_000_000_000_000_000_000,
+      source_timestamp_ms: 1_792_636_042_000 + value
+    }
   end
 
   defp compare_item(%Block{} = block, json) do

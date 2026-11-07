@@ -1,0 +1,57 @@
+[repair.22.33.837]
+audit = "22.30.180"
+finding = "trace-fixture-hides-producer"
+proving_tests = ["TestRepairM_837_NativeProducerReadOnlyAndCreation", "TestRepairM_837_NativeTraceErrorFailsClosed", "TestRepairM_837_RecordedNativeTraceConsumer", "TestRepairM_837_RecordedPaxdReadOnlyAndCreation", "TestRepairM_837_RecordedPaxdTraceErrorFailsClosed"]
+implementation = "Production native prestateTracer executes SLOAD-only bytecode and CREATE constructor bytecode against a real in-memory EVM StateDB; its results pass through HTTP JSON-RPC, TraceKeySource, ethclient, Comparator.CompareBlock and RenderMarkdown. Existing decoder unit tests are retained."
+assertions = "Full mode retains zero and nonzero SLOADs omitted by diff mode; diff poststate adds constructor storage and runtime code; isolated storage, unchanged-code and created-code divergences reject the block; a native tracer Stop error in either mode rejects partial transaction coverage without reading state."
+producer_boundary = "repair_m837_paxd.json records complete JSON-RPC exchanges from a source-built paxd single-validator node initialized with the committed hosted Paxeer genesis procedure. It contains full/diff traces by number and hash, expired-timeout trace errors, successful transaction receipts, block inventories and state reads. Native in-process tests and the older native vector remain additional checks, not substitutes for this node capture."
+baseline = "No baseline gate was run: the explicit task order forbids verification before implementation and requires hf-build before hf-done. Attempt 1 already failed verification at a665672dc15ecbf8632812a57f58ad202613e92d before any test could execute because its EVM/tracer imports needed module declarations; no additional baseline failures are claimed."
+wiring_request = "The finding capture and dependency requests are resolved within expanded scope. The separate default OCC failure is assigned to the node execution owners below."
+qualification = "The runner's /out/run/gates.jsonl records the exact candidate revision, command, exit code and private log; final response copies the last gate evidence."
+
+[repair.22.33.837.gotcha]
+observed = "The existing SLOAD/CREATE loopback fixture is hand-written, and the recorded native simple vector performs a storage write; neither is a recorded paxd capture of the requested scenarios."
+resolution = "Retain the native tracer checks and add independently captured paxd exchanges with source, genesis and binary digests; replay them through production TraceKeySource, ethclient and Comparator."
+
+[repair.22.33.837.qualification_blocker]
+revision = "a665672dc15ecbf8632812a57f58ad202613e92d"
+command = "cg spec done 22.33.837 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; underlying compiler output /tmp/repair-m837.log"
+observed = "Build passed; verification ran zero tests because production EVM/native-tracer imports require go.mod updates."
+assumption = "Historical attempt 1 blocker; the attempt 2 ruling expands scope to go.mod/go.sum and authorizes the missing declarations."
+
+[repair.22.33.837.dependency_wiring]
+request = "Resolved in attempt 2: tools/paxctl/go.mod replaces go-ethereum with ../../core/deps/geth, the same producer used by paxd, and declares its existing dependency closure; no new direct third-party dependency is introduced."
+
+[repair.22.33.837.dependency_gotcha]
+observed = "The CLI pins go-ethereum but its module graph does not admit all dependencies needed by the real StateDB/runtime/native tracer; verification asks for go.mod updates before compiling tests."
+resolution = "Use the newly authorized manifest scope to admit the production dependency closure, keep all existing assertions, and qualify the changed candidate with hf-build followed by hf-done."
+
+
+[repair.22.33.837.capture]
+fixture = "testdata/repair_m837_paxd.json"
+producer_build = "go build -tags netgo -ldflags=-checklinkname=0 -o /tmp/repair-m837-paxd ./daemon/paxd"
+genesis = "services/platform/hosted/paxeer/init-chain.sh; disposable single-validator chain hyperpax_125-1, EVM id 125, funded local fixture signer, loopback listeners only"
+inputs = "Reader constructor sets slot 1 to 7 and installs 600154506000545000 (SLOAD 1; POP; SLOAD 0; POP; STOP). A successful read-only call is followed by CREATE constructor 6009600255600060005360016000f3, which sets slot 2 to 9 and installs STOP. Expired -1ns tracer timeouts produce actual per-transaction errors in both modes."
+proof = "Node replies are retained unchanged; tests assert unchanged full-mode code and zero/nonzero SLOADs, absence from diff, CREATE poststate code/storage, clean comparison, isolated divergent storage/unchanged code/created code and fail-closed indeterminate comparison without state reads. Replay changes only JSON-RPC ids and explicit shadow-state divergences."
+private_evidence = "/tmp/repair-m837-node-build.log; /tmp/repair-m837-node-init.log; /tmp/repair-m837-node-capture.log; /tmp/repair-m837-capture.log; /out/run/gates.jsonl"
+
+[repair.22.33.837.capture_executor_gotcha]
+observed = "Source revision 4299cb15eced23eb9a839162acd11e9a937edd05 node starts, but its default OCC execution rejects the fixture signer's first balance migration with unexpected iterator call on cachekv store; initial node log /tmp/repair-m837-node.log."
+resolution = "Use the supported occ-enabled=false and giga_executor.occ_enabled=false settings for this disposable fixture capture without changing genesis or production node code; report the unrelated default-executor failure."
+wiring_request = "node/ante and engine/deps/tasks (node execution owners): repair OCC handling of signer association balance iteration; outside this shadow test scope."
+
+[repair.22.33.837.capture_result]
+source_revision = "4299cb15eced23eb9a839162acd11e9a937edd05"
+block = "0x19"
+exchanges = 22
+asserted_coverage = "Two successful transactions; four accounts; three storage slots and twelve balance/nonce/code reads; exact total fifteen keys. Both number and hash full/diff trace responses agree; expired-timeout responses retain real producer errors."
+
+[repair.22.33.837.local_copy_api_gotcha]
+revision = "4871229a6e086c1d509141841183630204071c8c"
+command = "cg spec done 22.33.837 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; /tmp/repair-m837.log"
+observed = "The in-repository StateDB.Copy signature returns vm.StateDB; the prior attempt passed it directly to concrete StateDB helpers, preventing test compilation."
+resolution = "Assert the concrete production StateDB copy type explicitly before mutating and serving divergent state; preserve all test assertions."

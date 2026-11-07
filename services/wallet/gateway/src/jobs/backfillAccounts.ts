@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { ProvisionDeps } from '../provision/state.js';
+import { requireProvisionStation, type ProvisionDeps } from '../provision/state.js';
 import type { BackfillOutcome } from '../provision/backfill.js';
 
 export const BACKFILL_OUTCOMES: readonly BackfillOutcome[] = [
@@ -63,6 +63,11 @@ export function parseBackfillArgs(argv: readonly string[]): BackfillCommandOptio
 }
 
 export async function runBackfill(deps: ProvisionDeps, opts: BackfillCommandOptions): Promise<BackfillCommandResult> {
+  if (!Number.isSafeInteger(opts.batchSize) || opts.batchSize < 1 || opts.batchSize > 500)
+    throw new BackfillUsageError('--batch-size must be between 1 and 500');
+  if (!Number.isSafeInteger(opts.maxBatches) || opts.maxBatches < 1)
+    throw new BackfillUsageError('--max-batches takes a positive safe integer');
+  requireProvisionStation(deps);
   const { backfillAccounts } = await import('../provision/backfill.js');
   const totals = Object.fromEntries(BACKFILL_OUTCOMES.map((o) => [o, 0])) as Record<BackfillOutcome, number>;
   let batches = 0;

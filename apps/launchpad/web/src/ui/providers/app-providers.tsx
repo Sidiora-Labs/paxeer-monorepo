@@ -11,19 +11,28 @@ import QueryProvider, { PrincipalCacheBarrier } from './query-provider';
 import Web3Provider from './web3-provider';
 import ToastProvider from '@/ui/shared/toast-provider';
 import { WalletRuntimeProvider } from '@/core/wallet-sdk/runtime';
-import { parsePrivateFixtureAuthorityProfileV1, RuntimeAuthorityProvider, useRuntimeAuthority, type PrivateFixtureAuthorityProfileV1 } from '@/core/runtime-authority';
+import { resolvePrivateFixtureAuthorityProfileV1, RuntimeAuthorityProvider, useRuntimeAuthority, type PrivateFixtureAuthorityProfileV1 } from '@/core/runtime-authority';
 import { TradeExecutionProvider } from '@/widgets/trading/transaction-controls/providers';
 import { paxeer } from '@/core/wagmi-config';
+import { PRIVATE_FIXTURE_WAGMI_STORAGE_KEY } from '@/core/network/deployment';
 
-function PrivateFixtureWeb3Provider({ profile, children }: { profile: PrivateFixtureAuthorityProfileV1; children: ReactNode }) {
-  const config = useMemo(() => createConfig({
+export function createPrivateFixtureWagmiStorage() {
+  return createStorage({ key: PRIVATE_FIXTURE_WAGMI_STORAGE_KEY, storage: cookieStorage });
+}
+
+export function createPrivateFixtureWagmiConfig(profile: PrivateFixtureAuthorityProfileV1) {
+  return createConfig({
     chains: [{ ...paxeer, rpcUrls: { default: { http: [profile.publicRPC] } }, blockExplorers: { default: { name: 'Paxscan', url: profile.explorerBase } } }],
     connectors: [injected()],
-    storage: createStorage({ key: 'kindle-private-qualification-v1', storage: cookieStorage }),
+    storage: createPrivateFixtureWagmiStorage(),
     transports: { 125: http(profile.publicRPC, { batch: { batchSize: 1024, wait: 16 }, retryCount: 0 }) },
     ssr: true,
-  }), [profile]);
-  return <WagmiProvider config={config}>{children}</WagmiProvider>;
+  });
+}
+
+function PrivateFixtureWeb3Provider({ profile, initialState, children }: { profile: PrivateFixtureAuthorityProfileV1; initialState?: State; children: ReactNode }) {
+  const config = useMemo(() => createPrivateFixtureWagmiConfig(profile), [profile]);
+  return <WagmiProvider config={config} initialState={initialState}>{children}</WagmiProvider>;
 }
 
 function RuntimeProviders({ children }: { children: ReactNode }) {
@@ -54,10 +63,8 @@ export default function AppProviders({
 }) {
   const configured = useMemo(() => {
     try {
-      if (privateFixtureProfile !== undefined && privateFixtureProfileInput !== undefined) throw new Error('Approved network input is ambiguous');
-      const input = privateFixtureProfileInput === undefined ? privateFixtureProfile : privateFixtureProfileInput;
-      if (input === undefined) return {};
-      const profile = parsePrivateFixtureAuthorityProfileV1(input);
+      const profile = resolvePrivateFixtureAuthorityProfileV1({ privateFixtureProfile, privateFixtureProfileInput });
+      if (profile === undefined) return {};
       if (typeof window !== 'undefined' && window.location.origin !== profile.applicationOrigin) throw new Error('Approved local network origin is unavailable');
       return { profile };
     } catch (error) { return { error: error instanceof Error ? error.message : 'Approved network input is unavailable' }; }
@@ -74,7 +81,7 @@ export default function AppProviders({
   return (
     <QueryProvider>
       {configured.profile ? (
-        <PrivateFixtureWeb3Provider profile={configured.profile}>{runtime}</PrivateFixtureWeb3Provider>
+        <PrivateFixtureWeb3Provider profile={configured.profile} initialState={wagmiInitialState}>{runtime}</PrivateFixtureWeb3Provider>
       ) : (
         <Web3Provider initialState={wagmiInitialState}>{runtime}</Web3Provider>
       )}

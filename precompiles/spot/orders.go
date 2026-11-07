@@ -385,6 +385,7 @@ func (p *ordersExecutor) dispatch(ctx sdk.Context, method *abi.Method, caller co
 		}
 		return packUint(ids[index], nil)
 	case "activeLimitOrderIds":
+		// Keep decoder failures as refusals; never ABI-encode a corrupt ID.
 		index, ok := ordersID(args[0])
 		if !ok {
 			return nil, errors.New("spot: active limit index out of bounds")

@@ -1,0 +1,40 @@
+[repair]
+task = "22.33.462"
+audit = "22.30.148"
+acceptance = "22998.1"
+inspected_revision = "04c1e9407e75f7ac92c260452f2232ab07bf3ef1"
+readme_owner = "Domain 17 / task 22.31.470 owns README.md under decision 2525. This task checks that task's rewrite without editing README.md."
+implementation = "Add offline regression assertions for the production README's network, public RPC, transaction/receipt, retirement, build and development guidance, cross-checked with its linked production sources."
+baseline = "Not run: both scoped files were absent, no /out/run/gates.jsonl existed, and gate.json recorded zero build and verify runs. The explicit implementation-first gate order and ban on manual verify_cmd execution supersede step 5's baseline request; no pre-change test failure is claimed. Existing .cgignore and spec status changes belong to runner preparation and are preserved."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_462.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The final hf-done evidence and private evidence_ledger name the exact content-derived revision, command, exit code and log; build and verify must pass on the same candidate revision. The record is finalized before gates because embedding its own candidate hash would change that hash. The runner retains the evidence and publishes the task."
+wiring_requests = []
+source_proof = "Tests read README.md directly, parse its fenced curl request as shell arguments and JSON, validate public URL components, parse the relevant Makefile/chain.mk target declarations and recipes, and check the embedded host, root-path dispatcher, transaction acceptance/forwarding, WAL receipt publication, committed receipt coverage and retirement predicates in production source. They prove documentation alignment along the described producer, transport and consumer source path."
+review_only = "No Go/C/Rust toolchain, shell subprocess, native artifact, credential, environment variable or live endpoint is used. Actual compilation, node deployment, transaction execution, BFT consensus, cryptographic proof authentication and WAL restart/recovery require runtime qualification and review. This doc-drift finding changes no stateful component or runtime interface; source checks do not claim runtime or recovery proof. README shell examples are parsed as text, not executed; no shell script, unit or manifest is repaired."
+
+[finding.readme-retired-topology]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview describes layerxd as a separate running C17 daemon built from cmd/layerxd, with checkpoints settling on-chain; lines 79 and 181 retain the pre-merge/draft and standalone build narrative."
+expected = "The merged product is one paxd BFT network on chain 125 with the kernel embedded in the node and receipts final at committed block height; no separate layerxd service is part of the running topology."
+resolution = "All expected facts are present in README.md as supplied by 22.31.470, including current build commands and the kernel library/development-tool distinction. No missing fact requires a wiring request to README.md / Domain 17 / 22.31.470. Closure depends on passing hf-done evidence, not this declaration."
+tests = ["test_readme_describes_one_embedded_paxd_chain_125_network", "test_public_rpc_urls_and_chain_probe_use_the_root", "test_transaction_and_committed_receipt_follow_production_sources", "test_custody_and_checkpoint_executors_are_explicitly_retired", "test_build_and_development_guidance_matches_make_targets"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, final newline and trailing-whitespace conventions to the two scoped files only after implementation."
+
+[gotcha.context]
+observed = "Combined reads of broad Codify context, large audit records and neighboring repair records exceeded tool output bounds."
+resolution = "Read task-specific sections and bounded source excerpts; task notes stay in this scoped record because GOTCHA.kvx and spec files are outside the authorized paths."
+
+[repair_cycle.1]
+revision = "b587698817801b5bb33c88c640a8e1f224ff699e"
+command = "cg spec done 22.33.462 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the overview test incorrectly selected only the overview when asserting the README contains both topology and transaction diagrams."
+repair = "Select the full README for the unchanged two-diagram assertion and additionally assert that the overview contains exactly the topology diagram; retain the independent ordered transaction-diagram proof."

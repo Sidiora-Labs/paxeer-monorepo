@@ -477,8 +477,16 @@ func (c *controlLoop) updateCurrentSize() {
 // handleWriteRequest handles a controlLoopWriteRequest control message.
 func (c *controlLoop) handleWriteRequest(req *controlLoopWriteRequest) {
 	for _, kv := range req.values {
-		// Do the write.
 		seg := c.segments[c.highestSegmentIndex]
+		if !seg.HasCapacity(kv) {
+			// Rotate before submitting any part of the group. Retry the unchanged group once on
+			// the fresh segment; Write still enforces the address bounds if it cannot fit there.
+			if err := c.expandSegments(); err != nil {
+				c.errorMonitor.Panic(fmt.Errorf("failed to expand segments: %w", err))
+				return
+			}
+			seg = c.segments[c.highestSegmentIndex]
+		}
 
 		// Track boundary keys. The newest primary key is simply the most recently written key. The
 		// mutable segment's first primary key is recorded the first time a key is written to a fresh

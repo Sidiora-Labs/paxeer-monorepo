@@ -129,10 +129,18 @@ func TestMigrate4to5(t *testing.T) {
 }
 
 func TestMigrate5to6(t *testing.T) {
+	assertMigrate5To6DefaultBackfill(t)
+}
+
+func assertMigrate5To6DefaultBackfill(t *testing.T) {
+	t.Helper()
 	input := testutils.CreateTestInput(t)
 
 	addr := testutils.ValAddrs[0]
-	input.Ctx.KVStore(input.OracleKeeper.GetStoreKey())
+	input.Ctx = input.Ctx.WithBlockHeight(int64(input.OracleKeeper.SlashWindow(input.Ctx)) + 10000)
+	observations := migrationHookObservations(input.Ctx, input.OracleKeeper.VotePeriod(input.Ctx), input.OracleKeeper.SlashWindow(input.Ctx))
+	require.Equal(t, uint64(5000), observations)
+	require.GreaterOrEqual(t, observations, uint64(12+13))
 	input.OracleKeeper.SetVotePenaltyCounter(
 		input.Ctx,
 		addr,
@@ -142,15 +150,38 @@ func TestMigrate5to6(t *testing.T) {
 	)
 
 	// Migrate store
-	m := keeper.NewMigrator(input.OracleKeeper)
-	input.Ctx = input.Ctx.WithBlockHeight(int64(input.OracleKeeper.GetParams(input.Ctx).SlashWindow) + 10000)
-	m.Migrate5To6(input.Ctx)
+	m := keeper.NewMigrator(input.OracleKeeper, keeper.VotePeriodHistory{
+		StartHeight: 1,
+		EndHeight:   uint64(input.Ctx.BlockHeight()),
+		VotePeriod:  input.OracleKeeper.VotePeriod(input.Ctx),
+		SlashWindow: input.OracleKeeper.SlashWindow(input.Ctx),
+	})
+	require.NoError(t, m.Migrate5To6(input.Ctx))
 
 	// Get rate
 	votePenaltyCounter := input.OracleKeeper.GetVotePenaltyCounter(input.Ctx, addr)
+	require.Equal(t, observations-12-13, votePenaltyCounter.SuccessCount)
 	require.Equal(t, types.VotePenaltyCounter{
 		MissCount:    12,
 		AbstainCount: 13,
-		SuccessCount: 9975,
+		SuccessCount: 4975,
 	}, votePenaltyCounter)
+}
+
+func migrationHookObservations(ctx sdk.Context, period, window uint64) uint64 {
+	var observations uint64
+	for height := int64(1); height < ctx.BlockHeight(); height++ {
+		blockCtx := ctx.WithBlockHeight(height)
+		if utils.IsPeriodLastBlock(blockCtx, period) {
+			observations++
+		}
+		if utils.IsPeriodLastBlock(blockCtx, window) {
+			observations = 0
+		}
+	}
+	return observations
+}
+
+func TestMigrate5To6HookBoundaries(t *testing.T) {
+	assertMigrate5To6HookBoundaries(t)
 }

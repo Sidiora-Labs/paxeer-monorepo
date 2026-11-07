@@ -55,12 +55,16 @@ defmodule BlockScoutWeb.Models.TransactionStateHelper do
   def state_changes(_transaction, _options), do: []
 
   defp get_and_cache_state_changes(transaction, options) do
-    state_changes = do_state_changes(transaction, options)
+    {state_changes, history_available?} = do_state_changes(transaction, options)
 
-    StateChanges.update(%StateChanges{
-      transaction_hash: transaction.hash,
-      state_changes: state_changes
-    })
+    if history_available? do
+      StateChanges.update(%StateChanges{
+        transaction_hash: transaction.hash,
+        state_changes: state_changes
+      })
+    else
+      ConCache.delete(StateChanges.cache_name(), transaction.hash)
+    end
 
     state_changes
   end
@@ -97,19 +101,83 @@ defmodule BlockScoutWeb.Models.TransactionStateHelper do
 
     coin_balances_before_block = transaction_to_coin_balances(transaction, previous_block_number, options)
 
-    coin_balances_before_transaction =
-      StateChange.coin_balances_before(transaction, block_transactions, coin_balances_before_block)
+    native_coin_entries = native_coin_entries(transaction, block_transactions, coin_balances_before_block)
 
-    native_coin_entries = StateChange.native_coin_entries(transaction, coin_balances_before_transaction)
-
-    token_balances_before =
+    token_balances_before_block =
       transaction.token_transfers
       |> Enum.reduce(%{}, &token_transfers_to_balances_reducer(&1, &2, previous_block_number, options))
+
+    tokens_entries = token_entries(transaction, block_transactions, token_balances_before_block)
+
+    history_available? =
+      Enum.all?(coin_balances_before_block, fn {_, {_, balance}} -> balance != :pending end) and
+        Enum.all?(token_balances_before_block, fn {_, tokens} ->
+          Enum.all?(tokens, fn {_, balances} -> Enum.all?(balances, fn {_, value} -> value != :pending end) end)
+        end)
+
+    {native_coin_entries ++ tokens_entries, history_available?}
+  end
+
+  defp native_coin_entries(transaction, block_transactions, balances_before_block) do
+    balances_before =
+      balances_before_block
+      |> Map.reject(fn {_, {_, balance}} -> balance == :pending end)
+      |> then(&StateChange.coin_balances_before(transaction, block_transactions, &1))
+
+    # Zero is the origin for transaction deltas, never a substitute for missing history.
+    deltas = Map.new(balances_before_block, fn {hash, {address, _}} -> {hash, {address, Wei.zero()}} end)
+
+    transaction
+    |> StateChange.native_coin_entries(deltas)
+    |> Enum.map(fn entry ->
+      case Map.get(balances_before, entry.address && entry.address.hash) do
+        {_, balance} -> with_balances(entry, balance)
+        nil -> with_balances(entry, :pending)
+      end
+    end)
+  end
+
+  defp token_entries(transaction, block_transactions, balances_before_block) do
+    balances_before =
+      balances_before_block
+      |> map_token_balances(&Map.reject(&1, fn {_, value} -> value == :pending end))
       |> StateChange.token_balances_before(transaction, block_transactions)
 
-    tokens_entries = StateChange.token_entries(transaction.token_transfers, token_balances_before)
+    deltas =
+      map_token_balances(balances_before_block, fn balances ->
+        Map.new(balances, fn
+          {:transfers, transfers} -> {:transfers, transfers}
+          {id, _} -> {id, Decimal.new(0)}
+        end)
+      end)
 
-    native_coin_entries ++ tokens_entries
+    transaction.token_transfers
+    |> StateChange.token_entries(deltas)
+    |> Enum.map(fn entry ->
+      [{_, transfer} | _] = entry.coin_or_token_transfers
+      balance = balances_before[entry.address][transfer.token_contract_address_hash][entry.token_id]
+      with_balances(entry, balance || :pending)
+    end)
+  end
+
+  defp map_token_balances(balances, fun) do
+    Map.new(balances, fn {address, tokens} ->
+      {address, Map.new(tokens, fn {token, values} -> {token, fun.(values)} end)}
+    end)
+  end
+
+  defp with_balances(entry, :pending) do
+    # Both existing views render negative balances as unavailable (JSON null).
+    unavailable = if entry.coin_or_token_transfers == :coin, do: %Wei{value: Decimal.new(-1)}, else: Decimal.new(-1)
+    %{entry | balance_before: unavailable, balance_after: unavailable}
+  end
+
+  defp with_balances(%StateChange{coin_or_token_transfers: :coin} = entry, balance) do
+    %{entry | balance_before: balance, balance_after: Wei.sum(balance, entry.balance_diff)}
+  end
+
+  defp with_balances(entry, balance) do
+    %{entry | balance_before: balance, balance_after: Decimal.add(balance, entry.balance_diff)}
   end
 
   defp transaction_to_coin_balances(transaction, previous_block_number, options) do
@@ -163,7 +231,7 @@ defmodule BlockScoutWeb.Models.TransactionStateHelper do
 
       _ ->
         CoinBalanceOnDemand.trigger_historic_fetch(options[:ip], address_hash, block_number)
-        Wei.zero()
+        :pending
     end
   end
 
@@ -199,7 +267,7 @@ defmodule BlockScoutWeb.Models.TransactionStateHelper do
           block_number
         )
 
-        Decimal.new(0)
+        :pending
     end
   end
 

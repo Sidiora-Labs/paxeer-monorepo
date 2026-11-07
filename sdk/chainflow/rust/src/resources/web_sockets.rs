@@ -70,7 +70,12 @@ impl ConnectPriceFeedRequestBuilder {
         let query: Vec<(String, String)> = Vec::new();
         let headers: Vec<(String, String)> = vec![("Accept".to_string(), "*/*".to_string())];
         self.client
-            .connect_websocket::<serde_json::Value, serde_json::Value>(&path, &query, &headers, true)
+            .connect_websocket::<serde_json::Value, serde_json::Value>(
+                &path,
+                &query,
+                &headers,
+                crate::client::SecurityScheme::WsToken,
+            )
             .await
     }
 }
@@ -102,7 +107,12 @@ impl ConnectMarketsRequestBuilder {
         let query: Vec<(String, String)> = Vec::new();
         let headers: Vec<(String, String)> = vec![("Accept".to_string(), "*/*".to_string())];
         self.client
-            .connect_websocket::<serde_json::Value, serde_json::Value>(&path, &query, &headers, true)
+            .connect_websocket::<serde_json::Value, serde_json::Value>(
+                &path,
+                &query,
+                &headers,
+                crate::client::SecurityScheme::WsToken,
+            )
             .await
     }
 }
@@ -134,7 +144,12 @@ impl ConnectExplorerRequestBuilder {
         let query: Vec<(String, String)> = Vec::new();
         let headers: Vec<(String, String)> = vec![("Accept".to_string(), "*/*".to_string())];
         self.client
-            .connect_websocket::<serde_json::Value, serde_json::Value>(&path, &query, &headers, true)
+            .connect_websocket::<serde_json::Value, serde_json::Value>(
+                &path,
+                &query,
+                &headers,
+                crate::client::SecurityScheme::WsToken,
+            )
             .await
     }
 }
@@ -166,7 +181,12 @@ impl ConnectExplorerAliasRequestBuilder {
         let query: Vec<(String, String)> = Vec::new();
         let headers: Vec<(String, String)> = vec![("Accept".to_string(), "*/*".to_string())];
         self.client
-            .connect_websocket::<serde_json::Value, serde_json::Value>(&path, &query, &headers, true)
+            .connect_websocket::<serde_json::Value, serde_json::Value>(
+                &path,
+                &query,
+                &headers,
+                crate::client::SecurityScheme::WsToken,
+            )
             .await
     }
 }

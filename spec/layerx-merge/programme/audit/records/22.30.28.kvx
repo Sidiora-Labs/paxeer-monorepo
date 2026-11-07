@@ -1,0 +1,1075 @@
+[audit.22.30.28]
+task = "22.30.28"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 117
+findings = 25
+docs_reviewed = 22
+upgrade_ready = false
+blocking = ["notification-wallet-boundary", "runtime-authorities-unwired"]
+
+[file.001]
+path = "apps/launchpad/web/src/components/shared/dialog.tsx"
+lines = 66
+verdict = "issues"
+note = "Unused dialog discards the controlled close callback and emits an unconsumed global close event."
+
+[file.002]
+path = "apps/launchpad/web/src/page-modules/bounties/detail.tsx"
+lines = 10
+verdict = "clean"
+note = "Bounty detail delegates the selected identity to the maintained detail widget."
+
+[file.003]
+path = "apps/launchpad/web/src/page-modules/bounties/index.tsx"
+lines = 11
+verdict = "clean"
+note = "Bounty directory delegates filtering and pagination without changing its contract."
+
+[file.004]
+path = "apps/launchpad/web/src/page-modules/bounties/new.tsx"
+lines = 20
+verdict = "clean"
+note = "Bounty creation gates the maintained composer on the connected wallet."
+
+[file.005]
+path = "apps/launchpad/web/src/page-modules/chat/conversation/index.tsx"
+lines = 28
+verdict = "clean"
+note = "Conversation selection passes its identity to the session-bound chat widgets."
+
+[file.006]
+path = "apps/launchpad/web/src/page-modules/chat/index.tsx"
+lines = 10
+verdict = "clean"
+note = "Chat index delegates to the authenticated inbox rather than creating a parallel transport."
+
+[file.007]
+path = "apps/launchpad/web/src/page-modules/create-chain/index.tsx"
+lines = 23
+verdict = "clean"
+note = "Chain creation mounts the real wizard and its registry and transaction path."
+
+[file.008]
+path = "apps/launchpad/web/src/page-modules/create/index.tsx"
+lines = 57
+verdict = "clean"
+note = "Coin creation preserves the connected wallet and supported creation-mode selection."
+
+[file.009]
+path = "apps/launchpad/web/src/page-modules/explore/index.tsx"
+lines = 81
+verdict = "clean"
+note = "Explore composes current category and discovery state, retaining explicit unavailable data."
+
+[file.010]
+path = "apps/launchpad/web/src/page-modules/holder-rewards/index.tsx"
+lines = 7
+verdict = "clean"
+note = "Holder rewards delegates to the maintained rewards implementation without independent accounting."
+
+[file.011]
+path = "apps/launchpad/web/src/page-modules/home/index.tsx"
+lines = 14
+verdict = "clean"
+note = "Home composes the current home content and banner without duplicating API shapes."
+
+[file.012]
+path = "apps/launchpad/web/src/page-modules/leaderboard/index.tsx"
+lines = 8
+verdict = "clean"
+note = "Leaderboard mounts the maintained widget and retains no retired network endpoint."
+
+[file.013]
+path = "apps/launchpad/web/src/page-modules/live/all.tsx"
+lines = 109
+verdict = "clean"
+note = "Live directory uses actual stream identity and distinguishes unknown metrics from zero."
+
+[file.014]
+path = "apps/launchpad/web/src/page-modules/live/connected-live.test.tsx"
+lines = 28
+verdict = "clean"
+note = "Read both real connected-service tests in full; they explicitly require an opt-in provisioned local fixture and do not claim ordinary test runs qualify deployment."
+
+[file.015]
+path = "apps/launchpad/web/src/page-modules/live/index.tsx"
+lines = 123
+verdict = "clean"
+note = "Live page composes current directory cards and preserves actual stream statuses."
+
+[file.016]
+path = "apps/launchpad/web/src/page-modules/live/livestream.test.ts"
+lines = 284
+verdict = "clean"
+note = "Read the complete client suite; its synthetic server proves the declared client boundary rather than deployment readiness."
+
+[file.017]
+path = "apps/launchpad/web/src/page-modules/live/production-measurement.mjs"
+lines = 58
+verdict = "issues"
+note = "Browser measurement requires four removed client/apps/web source paths despite binding current candidate digests."
+
+[file.018]
+path = "apps/launchpad/web/src/page-modules/meta-ag/orders/index.tsx"
+lines = 60
+verdict = "clean"
+note = "Orders delegates to the capability-controlled engine and preserves optional unavailable state."
+
+[file.019]
+path = "apps/launchpad/web/src/page-modules/meta-ag/swap/index.tsx"
+lines = 30
+verdict = "clean"
+note = "MetaAG swap preserves disabled capability state and does not substitute heuristic executable quotes."
+
+[file.020]
+path = "apps/launchpad/web/src/page-modules/new/index.tsx"
+lines = 5
+verdict = "clean"
+note = "New route redirects to the maintained creation entry point."
+
+[file.021]
+path = "apps/launchpad/web/src/page-modules/profile/index.tsx"
+lines = 15
+verdict = "clean"
+note = "Profile delegates wallet identity to maintained account widgets."
+
+[file.022]
+path = "apps/launchpad/web/src/page-modules/profile/profile-blocks.tsx"
+lines = 37
+verdict = "clean"
+note = "Profile blocks compose account-owned views without defining a parallel response shape."
+
+[file.023]
+path = "apps/launchpad/web/src/page-modules/profile/wallet/index.tsx"
+lines = 7
+verdict = "clean"
+note = "Wallet route delegates to the maintained wallet view and units."
+
+[file.024]
+path = "apps/launchpad/web/src/page-modules/rewards/index.tsx"
+lines = 10
+verdict = "clean"
+note = "Rewards delegates to its maintained screen and does not fabricate accrued value."
+
+[file.025]
+path = "apps/launchpad/web/src/page-modules/search/index.tsx"
+lines = 164
+verdict = "clean"
+note = "Search uses current public API results, URL query state and explicit error or empty presentation."
+
+[file.026]
+path = "apps/launchpad/web/src/page-modules/search/search.test.tsx"
+lines = 138
+verdict = "clean"
+note = "Search assertions cover real page state, deterministic boundary results and keyboard interactions."
+
+[file.027]
+path = "apps/launchpad/web/src/page-modules/swap/index.tsx"
+lines = 8
+verdict = "clean"
+note = "Swap redirects into the maintained trading surface without retaining an obsolete RPC client."
+
+[file.028]
+path = "apps/launchpad/web/src/page-modules/terminal/index.tsx"
+lines = 43
+verdict = "clean"
+note = "Terminal composes current market widgets and selected-pool route state."
+
+[file.029]
+path = "apps/launchpad/web/src/page-modules/token/index.tsx"
+lines = 6
+verdict = "clean"
+note = "Token route delegates pool identity to the maintained token screen."
+
+[file.030]
+path = "apps/launchpad/web/src/page-modules/token/market-metrics.tsx"
+lines = 40
+verdict = "clean"
+note = "Market metrics use presentation helpers and retain unknown price or liquidity states."
+
+[file.031]
+path = "apps/launchpad/web/src/page-modules/token/market-presentation.test.tsx"
+lines = 194
+verdict = "clean"
+note = "Presentation tests cover exact raw-unit conversion, freshness, formatting and unavailable values."
+
+[file.032]
+path = "apps/launchpad/web/src/page-modules/token/market-presentation.ts"
+lines = 147
+verdict = "clean"
+note = "Presentation code converts supported raw quantities for display without inventing missing observations."
+
+[file.033]
+path = "apps/launchpad/web/src/page-modules/token/market-production-wire.test.ts"
+lines = 271
+verdict = "clean"
+note = "Production wire tests compare schema-validated producer envelopes with the real market consumer and reject shape mutations."
+
+[file.034]
+path = "apps/launchpad/web/src/page-modules/token/market-session-context.tsx"
+lines = 147
+verdict = "clean"
+note = "Market context owns subscriptions and disposes the previous pool session on change."
+
+[file.035]
+path = "apps/launchpad/web/src/page-modules/token/market-session.ts"
+lines = 260
+verdict = "clean"
+note = "Market session reconciles snapshots and ordered deltas with revision and reconnect checks."
+
+[file.036]
+path = "apps/launchpad/web/src/page-modules/token/market-trade-feed.tsx"
+lines = 109
+verdict = "clean"
+note = "Trade feed preserves canonical order and leaves unavailable attribution unknown."
+
+[file.037]
+path = "apps/launchpad/web/src/page-modules/watchlist/index.tsx"
+lines = 54
+verdict = "clean"
+note = "Watchlist uses the account query boundary and preserves wallet and session acquisition states."
+
+[file.038]
+path = "apps/launchpad/web/src/shell/account-menu-store.ts"
+lines = 32
+verdict = "clean"
+note = "Account menu exposes stable bounded UI store snapshots and subscriptions."
+
+[file.039]
+path = "apps/launchpad/web/src/shell/app-shell.tsx"
+lines = 130
+verdict = "clean"
+note = "Shell mounts persistent chrome once and measures header offsets for pages and overlays."
+
+[file.040]
+path = "apps/launchpad/web/src/shell/auth-modal-store.ts"
+lines = 69
+verdict = "clean"
+note = "Auth modal store separates selection, pending connection and refusal and cleans subscriptions."
+
+[file.041]
+path = "apps/launchpad/web/src/shell/embedded-sign-in.tsx"
+lines = 145
+verdict = "clean"
+note = "Embedded sign-in checks the bound iframe origin and message context before consuming the result."
+
+[file.042]
+path = "apps/launchpad/web/src/shell/global-search-parts.tsx"
+lines = 158
+verdict = "clean"
+note = "Search result components preserve kind, identity and keyboard selection metadata."
+
+[file.043]
+path = "apps/launchpad/web/src/shell/global-search.tsx"
+lines = 220
+verdict = "clean"
+note = "Global search coordinates debounce, focus and selection through the maintained search hook."
+
+[file.044]
+path = "apps/launchpad/web/src/shell/mobile-bottom-nav.test.tsx"
+lines = 171
+verdict = "issues"
+note = "Wallet-connect fixture expects every signed-in destination including Chat without producing a session."
+
+[file.045]
+path = "apps/launchpad/web/src/shell/mobile-bottom-nav.tsx"
+lines = 182
+verdict = "issues"
+note = "Mobile More sheet conflates wallet and authenticated session requirements."
+
+[file.046]
+path = "apps/launchpad/web/src/shell/nav-config.ts"
+lines = 71
+verdict = "clean"
+note = "Navigation inventory distinguishes public, wallet and session gates and desktop consumes them separately."
+
+[file.047]
+path = "apps/launchpad/web/src/shell/paste-address.tsx"
+lines = 105
+verdict = "issues"
+note = "Unbounded address regex truncates longer transaction hashes into fabricated coin addresses."
+
+[file.048]
+path = "apps/launchpad/web/src/shell/platform-metrics.tsx"
+lines = 122
+verdict = "clean"
+note = "Platform metrics consumes the real API envelope and labels incomplete observations explicitly."
+
+[file.049]
+path = "apps/launchpad/web/src/shell/s1-helpers.test.ts"
+lines = 81
+verdict = "clean"
+note = "Helper tests cover valid address URLs and invalid short input; long-hex rejection belongs to the proposed paste fix."
+
+[file.050]
+path = "apps/launchpad/web/src/shell/shell-parity.test.tsx"
+lines = 285
+verdict = "clean"
+note = "Shell parity tests cover structure, routes, labels and menu lifecycle at the component boundary."
+
+[file.051]
+path = "apps/launchpad/web/src/shell/sidebar-nav.tsx"
+lines = 210
+verdict = "clean"
+note = "Desktop sidebar applies independent wallet and session readiness and disposes subscriptions."
+
+[file.052]
+path = "apps/launchpad/web/src/shell/sign-in-modal.embedded.test.tsx"
+lines = 86
+verdict = "clean"
+note = "Embedded modal tests cover the bound handshake and refusal paths."
+
+[file.053]
+path = "apps/launchpad/web/src/shell/sign-in-modal.test.tsx"
+lines = 192
+verdict = "clean"
+note = "Modal tests cover wallet choice, progress, refusal, close and focus behavior."
+
+[file.054]
+path = "apps/launchpad/web/src/shell/sign-in-modal.tsx"
+lines = 278
+verdict = "clean"
+note = "Sign-in modal ties pending state to the current connector and clears it on close."
+
+[file.055]
+path = "apps/launchpad/web/src/shell/sign-in-wallet-row.tsx"
+lines = 65
+verdict = "clean"
+note = "Wallet row uses actual connector support and does not equate connection with authentication."
+
+[file.056]
+path = "apps/launchpad/web/src/shell/single-mount.ts"
+lines = 31
+verdict = "clean"
+note = "Single-mount helper maintains one shell owner and releases the registration on cleanup."
+
+[file.057]
+path = "apps/launchpad/web/src/shell/ticker-strip.test.tsx"
+lines = 280
+verdict = "clean"
+note = "Ticker tests pin deduplication, ordering, empty state and live snapshot behavior."
+
+[file.058]
+path = "apps/launchpad/web/src/shell/ticker-strip.tsx"
+lines = 247
+verdict = "clean"
+note = "Ticker renders stable canonical items and respects reduced motion without synthesizing market facts."
+
+[file.059]
+path = "apps/launchpad/web/src/shell/top-bar.tsx"
+lines = 105
+verdict = "clean"
+note = "Top bar composes maintained wallet, menu and search controls within measured shell layout."
+
+[file.060]
+path = "apps/launchpad/web/src/shell/use-global-search.ts"
+lines = 175
+verdict = "clean"
+note = "Search hook bounds query lifecycle, aborts superseded requests and rejects stale completions."
+
+[file.061]
+path = "apps/launchpad/web/src/shell/use-ticker.ts"
+lines = 196
+verdict = "clean"
+note = "Ticker hook reconciles snapshot and subscription state with cleanup and duplicate suppression."
+
+[file.062]
+path = "apps/launchpad/web/src/shell/wallet-button.tsx"
+lines = 73
+verdict = "clean"
+note = "Wallet button separates disconnected, connecting and connected presentation from account session actions."
+
+[file.063]
+path = "apps/launchpad/web/src/shell/wallet-choices.test.ts"
+lines = 33
+verdict = "clean"
+note = "Wallet choice tests pin support classification for actual configured connectors."
+
+[file.064]
+path = "apps/launchpad/web/src/shell/wallet-choices.ts"
+lines = 35
+verdict = "clean"
+note = "Wallet classification distinguishes embedded, injected and unsupported choices without declaring authentication."
+
+[file.065]
+path = "apps/launchpad/web/src/shell/wallet-modal.tsx"
+lines = 94
+verdict = "clean"
+note = "Wallet modal lists actual connectors and applies connection errors through maintained state."
+
+[file.066]
+path = "sdk/launchpad/protocol/contracts/v1/accounting-cases.json"
+lines = 3952
+verdict = "clean"
+note = "Read all 62 frozen accounting cases in full, including raw units, fee disposition and refusals; explicitly synthetic mathematical instances are not receipt evidence."
+
+[file.067]
+path = "sdk/launchpad/protocol/contracts/v1/capabilities.json"
+lines = 932
+verdict = "clean"
+note = "Read the frozen capability inventory in full; provenance and absent optional deployments are explicit historical facts rather than runtime qualification."
+
+[file.068]
+path = "sdk/launchpad/protocol/contracts/v1/chain/client-deployment.json"
+lines = 29
+verdict = "clean"
+note = "Frozen deployment fixture pins chain 125, full-length addresses, token decimals and disabled optional capabilities; Router is a contract role, not a retired network router."
+
+[file.069]
+path = "sdk/launchpad/protocol/contracts/v1/chain/event-authorities.json"
+lines = 198
+verdict = "clean"
+note = "Frozen event-authority inventory separates native receipts from corroborating tracker events, fee units and canonical ordering."
+
+[file.070]
+path = "sdk/launchpad/shared/db/bigint.go"
+lines = 142
+verdict = "clean"
+note = "Exact integer arithmetic, canonical uint256 validator, six-decimal supply and WAD market-cap units agree with consumers."
+
+[file.071]
+path = "sdk/launchpad/shared/db/bigint_test.go"
+lines = 144
+verdict = "clean"
+note = "Bigint tests cover arithmetic, truncation, zero clamping and canonical uint256 boundary refusals."
+
+[file.072]
+path = "sdk/launchpad/shared/db/client.go"
+lines = 410
+verdict = "clean"
+note = "Pool construction enforces connection admission, transport restrictions, bounded transaction deadlines and observable release."
+
+[file.073]
+path = "sdk/launchpad/shared/db/client_test.go"
+lines = 112
+verdict = "clean"
+note = "Pool tests pin option validation, bounded deadlines and redacted query observations."
+
+[file.074]
+path = "sdk/launchpad/shared/db/crossschema.go"
+lines = 71
+verdict = "clean"
+note = "Cross-schema constants match indexer, metadata and stats table consumers."
+
+[file.075]
+path = "sdk/launchpad/shared/db/crossschema_test.go"
+lines = 20
+verdict = "clean"
+note = "Cross-schema tests pin the exported database schema and table identifiers."
+
+[file.076]
+path = "sdk/launchpad/shared/db/production/allocation.go"
+lines = 494
+verdict = "clean"
+note = "Connection allocation reconciles live process and target budgets before opening bounded direct and pooler resources."
+
+[file.077]
+path = "sdk/launchpad/shared/db/production/allocation_test.go"
+lines = 274
+verdict = "clean"
+note = "Allocation tests cover real budget parsing and process, pool and alias oversubscription refusals."
+
+[file.078]
+path = "sdk/launchpad/shared/db/production/compatibility_test.go"
+lines = 143
+verdict = "issues"
+note = "Independent reader compatibility test cannot read its absent frozen v1 examples fixture."
+
+[file.079]
+path = "sdk/launchpad/shared/db/production/coordinatortest/coordinatortest.go"
+lines = 638
+verdict = "clean"
+note = "Coordinator fixture verifies SQL digests before rebinding roles, applies real migrations and emits catalog-bound per-role readiness; the migration inventory directory exists."
+
+[file.080]
+path = "sdk/launchpad/shared/db/production/coordinatortest/coordinatortest_test.go"
+lines = 67
+verdict = "clean"
+note = "Coordinator tests pin root discovery and binding refusals without claiming a full database recovery qualification."
+
+[file.081]
+path = "sdk/launchpad/shared/db/production/migrations.go"
+lines = 942
+verdict = "clean"
+note = "Migration coordinator persists history, validates order and checksum, fences lease ownership and fails closed on recovery or catalog disagreement."
+
+[file.082]
+path = "sdk/launchpad/shared/db/production/numeric.go"
+lines = 41
+verdict = "clean"
+note = "Numeric helpers validate canonical raw uint256 values before storage and use exact integer ordering."
+
+[file.083]
+path = "sdk/launchpad/shared/db/production/online_indexes.go"
+lines = 394
+verdict = "clean"
+note = "Online index lifecycle binds approved plan digests, actual catalog identity and concurrent-index constraints."
+
+[file.084]
+path = "sdk/launchpad/shared/db/production/online_indexes_test.go"
+lines = 332
+verdict = "clean"
+note = "Index tests cover invalid plans, catalog identity and approved recovery behavior at the declared boundary."
+
+[file.085]
+path = "sdk/launchpad/shared/db/production/production_test.go"
+lines = 488
+verdict = "clean"
+note = "Production tests exercise real coordinated migrations, durable state, lock refusals and recovery catalog checks."
+
+[file.086]
+path = "sdk/launchpad/shared/db/production/readroute.go"
+lines = 264
+verdict = "clean"
+note = "Read router keeps ownership and idempotency reads primary and admits replicas only with explicit lag and WAL evidence."
+
+[file.087]
+path = "sdk/launchpad/shared/db/production/readroute_test.go"
+lines = 185
+verdict = "clean"
+note = "Read-router assertions cover WAL ordering, lag, read-your-write and primary-only mutation."
+
+[file.088]
+path = "sdk/launchpad/shared/db/production/roles.go"
+lines = 313
+verdict = "clean"
+note = "Role provisioning validates least-privilege manifests and emits quoted PostgreSQL grants for explicit schemas."
+
+[file.089]
+path = "sdk/launchpad/shared/util/format.go"
+lines = 51
+verdict = "clean"
+note = "Price and volume formatting uses exact big integer division with fractional truncation and negative input refusal."
+
+[file.090]
+path = "sdk/launchpad/shared/util/hash.go"
+lines = 19
+verdict = "clean"
+note = "Hash helper uses SHA256 bytes for stable signed int64 identity, independent of randomized map hashing."
+
+[file.091]
+path = "sdk/launchpad/shared/util/util_test.go"
+lines = 107
+verdict = "clean"
+note = "Utility tests pin format precision, invalid inputs and deterministic hash parity."
+
+[file.092]
+path = "services/launchpad/notifications/apns.go"
+lines = 118
+verdict = "clean"
+note = "APNS adapter validates payload and current target authority, binds credentials and bounds provider requests."
+
+[file.093]
+path = "services/launchpad/notifications/catalog_test.go"
+lines = 95
+verdict = "clean"
+note = "Catalog test pins all five notification operations and schema-valid unauthenticated refusals."
+
+[file.094]
+path = "services/launchpad/notifications/cmd/release-measure/main.go"
+lines = 120
+verdict = "clean"
+note = "Release CLI binds real inputs by digest and writes private evidence through the actual measurement implementation."
+
+[file.095]
+path = "services/launchpad/notifications/consumers.go"
+lines = 376
+verdict = "clean"
+note = "Account and chat clients use bounded mTLS, exact response decoders, current revocation state and durable producer identity."
+
+[file.096]
+path = "services/launchpad/notifications/errors.go"
+lines = 39
+verdict = "clean"
+note = "Typed notification errors map to one frozen error envelope and stable request identity."
+
+[file.097]
+path = "services/launchpad/notifications/errors_test.go"
+lines = 177
+verdict = "clean"
+note = "Error tests cover frozen response shape, status mappings and request-ID refusal or replacement."
+
+[file.098]
+path = "services/launchpad/notifications/fcm.go"
+lines = 163
+verdict = "clean"
+note = "FCM adapter validates credentials, bounds OAuth and provider responses and classifies delivery results without exposing secrets."
+
+[file.099]
+path = "services/launchpad/notifications/http.go"
+lines = 310
+verdict = "issues"
+note = "Notification routes require an actor-wallet header not produced by the ordinary authenticated SDK/API boundary."
+
+[file.100]
+path = "services/launchpad/notifications/model.go"
+lines = 206
+verdict = "clean"
+note = "Model validates notification identity, category, time windows and channel decisions before persistence."
+
+[file.101]
+path = "services/launchpad/notifications/model_test.go"
+lines = 145
+verdict = "clean"
+note = "Model tests pin preference and quiet-hour decisions, validation refusals and deterministic identities."
+
+[file.102]
+path = "services/launchpad/notifications/phase2_test.go"
+lines = 322
+verdict = "clean"
+note = "Database/provider tests cover durable claims, fencing, deduplication, retry, revocation and provider bounds."
+
+[file.103]
+path = "services/launchpad/notifications/proof_launchpad_notifications_test.go"
+lines = 431
+verdict = "clean"
+note = "Full restart proof checks PostgreSQL state, HTTP transport and schema consumers; it supplies actor-wallet manually and does not establish the production API session boundary."
+
+[file.104]
+path = "services/launchpad/notifications/release_measurement.go"
+lines = 1105
+verdict = "clean"
+note = "Full release measurement binds real database/device observations to the candidate, writes private artifacts and distinguishes component observations from the final shared release gate."
+
+[file.105]
+path = "services/launchpad/notifications/release_measurement_test.go"
+lines = 81
+verdict = "clean"
+note = "Release tests cover invalid configuration and fixture refusals rather than replacing actual measurement populations."
+
+[file.106]
+path = "services/launchpad/notifications/retention.go"
+lines = 17
+verdict = "clean"
+note = "Retention loop bounds each operation and respects cancellation while store deletion remains transactional."
+
+[file.107]
+path = "services/launchpad/notifications/runtime.go"
+lines = 423
+verdict = "issues"
+note = "Runtime has missing production source-authority injection and accepted trailing-slash origin defects; credential refresh and cancellation were also reviewed."
+
+[file.108]
+path = "services/launchpad/notifications/runtime_routes_test.go"
+lines = 44
+verdict = "issues"
+note = "Runtime route test proves only a 401 refusal and misses authenticated identity and startup readiness wiring."
+
+[file.109]
+path = "services/launchpad/notifications/schema.sql"
+lines = 34
+verdict = "clean"
+note = "SQL persists inbox/outbox, derives stable timestamp-based UUIDv7 and indexes recipient pages and delivery leases."
+
+[file.110]
+path = "services/launchpad/notifications/store.go"
+lines = 502
+verdict = "clean"
+note = "Store provides transactional deduplication, durable read state, keyset pagination, account isolation and fenced delivery completion."
+
+[file.111]
+path = "services/launchpad/notifications/store_page_test.go"
+lines = 208
+verdict = "clean"
+note = "Page tests assert exact UUIDv7 derivation, cursor bounds and unread results after read/unread transitions."
+
+[file.112]
+path = "services/launchpad/notifications/v2_http_test.go"
+lines = 284
+verdict = "clean"
+note = "HTTP tests assert frozen responses, query limits and isolation but supply actor-wallet explicitly rather than using the API identity producer."
+
+[file.113]
+path = "services/launchpad/notifications/v2_wire.go"
+lines = 91
+verdict = "clean"
+note = "V2 adapters encode actual notification UUID, wallet, read timestamp and delivery status into frozen validated envelopes."
+
+[file.114]
+path = "services/launchpad/notifications/v2_wire_test.go"
+lines = 100
+verdict = "clean"
+note = "Wire tests compare exact serialized fields and nullability and reject incoherent read timestamps."
+
+[file.115]
+path = "services/launchpad/notifications/webpush.go"
+lines = 196
+verdict = "clean"
+note = "WebPush adapter validates target endpoint and keys, encrypts bounded payloads and classifies actual provider outcomes."
+
+[file.116]
+path = "services/launchpad/notifications/wire.go"
+lines = 211
+verdict = "clean"
+note = "Shared wire bounds response bytes and redirects and requires an authenticated notification deep-link path."
+
+[file.117]
+path = "services/launchpad/notifications/worker.go"
+lines = 176
+verdict = "clean"
+note = "Worker renews durable fenced claims, rechecks target/preferences and persists results; runtime origin construction has its own finding."
+
+
+[finding.dialog-close]
+file = "apps/launchpad/web/src/components/shared/dialog.tsx"
+line = 12
+class = "dead-code"
+severity = "low"
+observed = "Dialog discards onOpenChange and its backdrop dispatches dialog-close globally, with no importer or listener connecting the unused component to controlled state."
+expected = "A controlled dialog must deliver backdrop and Escape close requests to its owner and provide the maintained focus and accessibility lifecycle."
+proposal = "Remove apps/launchpad/web/src/components/shared/dialog.tsx after confirming its unused exports, or replace it with the maintained modal primitive and callback-based close lifecycle."
+owner_domain = 4
+
+[finding.browser-source-inventory]
+file = "apps/launchpad/web/src/page-modules/live/production-measurement.mjs"
+line = 25
+class = "config-drift"
+severity = "medium"
+observed = "The L40 manifest validator requires four client/apps/web/src paths including this script. That tree is absent after the move to apps/launchpad/web, so a current checkout cannot satisfy its source reads."
+expected = "Browser evidence must bind the actual reviewed candidate files while preserving exact digests, workload admission, sample bounds and accessibility checks."
+proposal = "Update apps/launchpad/web/src/page-modules/live/production-measurement.mjs and the L40 manifest producer to inventory apps/launchpad/web paths together; retain every digest and evidence check."
+owner_domain = 4
+interface = "4.env-web-l40-browser-manifest-j30"
+
+[finding.mobile-session-gate]
+file = "apps/launchpad/web/src/shell/mobile-bottom-nav.tsx"
+line = 49
+class = "wiring-gap"
+severity = "medium"
+observed = "moreSheetGroups applies public OR walletReady to all items, including Chat whose nav-config requires session. The desktop sidebar checks sessionReady separately, so wallet-only mobile users see unavailable Chat."
+expected = "Desktop and mobile navigation must apply the same public, wallet and session requirements, including a connected wallet without an authenticated account session."
+proposal = "Pass account-session readiness into apps/launchpad/web/src/shell/mobile-bottom-nav.tsx and share the eligibility predicate with sidebar-nav.tsx; preserve the Chat page session-acquisition behavior."
+owner_domain = 4
+
+[finding.mobile-test-session-shape]
+file = "apps/launchpad/web/src/shell/mobile-bottom-nav.test.tsx"
+line = 154
+class = "test-gap"
+severity = "medium"
+observed = "The wallet-connect test expects all signed-in destinations including Chat after only wagmi connect, and moreSheetGroups(true) stands in for account sign-in without producing any session."
+expected = "The tests must distinguish wallet connectivity from the authenticated account session consumed by the desktop rail and the actual Chat page."
+proposal = "Extend apps/launchpad/web/src/shell/mobile-bottom-nav.test.tsx with disconnected, wallet-only and authenticated-session cases using the maintained session producer; pin the same eligibility as the desktop rail."
+owner_domain = 4
+
+[finding.paste-long-hex]
+file = "apps/launchpad/web/src/shell/paste-address.tsx"
+line = 10
+class = "runtime-risk"
+severity = "medium"
+observed = "ADDRESS has no hexadecimal boundary after forty digits; pasting a 64-digit transaction hash extracts the first forty digits and navigates to a fabricated /coin address."
+expected = "The paste action must accept a complete twenty-byte address, including supported URLs, and refuse longer hexadecimal identifiers rather than truncating them."
+proposal = "Require a complete hex token in apps/launchpad/web/src/shell/paste-address.tsx; extend s1-helpers.test.ts with transaction hashes and 41-digit inputs while retaining bare addresses and supported explorer URLs."
+owner_domain = 4
+
+[finding.compatibility-fixture-missing]
+file = "sdk/launchpad/shared/db/production/compatibility_test.go"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "TestPhase2ReaderCompatibility opens launchpad/spec/production-system/integration/contracts/v1/examples.json, which does not exist; sdk/launchpad/protocol/contracts/v1/examples.json is also absent."
+expected = "Requirement 181182.1 and its second acceptance clause require authentic frozen v1 fixtures under the protocol module and every SDK or service fixture reader to use that location."
+proposal = "Restore authentic frozen v1 examples.json under sdk/launchpad/protocol/contracts/v1 from its reviewed source and repoint sdk/launchpad/shared/db/production/compatibility_test.go there, retaining independent old/new reader comparison."
+owner_domain = 4
+
+[finding.notification-wallet-boundary]
+file = "services/launchpad/notifications/http.go"
+line = 137
+class = "interface-mismatch"
+severity = "high"
+observed = "Both frozen handlers require X-Actor-Wallet. The API authenticate callback at services/launchpad/api/internal/app/app.go:617-622 returns only AccountID; SdkClient sends the session and rejects custom X-Actor-Wallet headers. Ordinary authenticated IF_NOTIFICATIONS and IF_NOTIFICATION_READ calls therefore return 400. A caller-supplied valid wallet is also copied into list items without comparison to the authenticated principal."
+expected = "Requirements 4274.1 and 21067.1 require actual authenticated producer-to-transport-to-consumer list/read success with frozen envelopes and a wallet derived from the authenticated account."
+proposal = "Give services/launchpad/notifications/http.go an authenticated principal or wallet resolver and wire IdentityPrincipal.Wallet from services/launchpad/api/internal/app/app.go. Remove the client-header requirement, reject spoofed identity and prove the real SDK session list/read path with durable recovery."
+owner_domain = 4
+interface = "4.http-notifications-get-v2-me-notifications-j29"
+
+[finding.runtime-authorities-unwired]
+file = "services/launchpad/notifications/runtime.go"
+line = 288
+class = "wiring-gap"
+severity = "high"
+observed = "HTTPRuntime.Ready requires Config.Pools and Discovery.Intervals. The API NewHTTPRuntime construction at services/launchpad/api/internal/app/app.go:640 supplies neither, and its runtime document has no such fields; the installed readiness check cannot become ready and feed/callout requests are refused."
+expected = "The production API must inject the real pool and interval authorities its launched runtime requires, so health can become ready and discovery requests can resolve their actual sources."
+proposal = "Wire concrete owned pool and interval authorities into notifications.RuntimeConfig from services/launchpad/api/internal/app/app.go, validate them at startup and prove real API readiness and discovery requests while retaining refusal when an authority is absent."
+owner_domain = 4
+interface = "4.go-notifications-root-httpruntime-ready"
+
+[finding.push-origin-slash]
+file = "services/launchpad/notifications/runtime.go"
+line = 126
+class = "runtime-risk"
+severity = "medium"
+observed = "NewPushRuntime accepts DeepLinkOrigin with path / and retains it verbatim. Worker.Once appends /notifications/, producing //notifications/, which validateLink rejects before enabled push adapters can send."
+expected = "Every HTTPS origin accepted at startup must produce the authenticated notification deep-link path accepted by APNS, FCM and WebPush."
+proposal = "Canonicalize the validated origin to scheme plus authority in services/launchpad/notifications/runtime.go before constructing Worker; exercise both origin spellings through the real Worker-to-adapter path and retain strict link validation."
+owner_domain = 4
+interface = "4.go-notifications-root-new-push-runtime"
+
+[finding.runtime-positive-path-proof]
+file = "services/launchpad/notifications/runtime_routes_test.go"
+line = 12
+class = "test-gap"
+severity = "medium"
+observed = "TestHTTPRuntimeRoutesFrozenNotificationPaths uses a callback that always rejects authentication. It proves only 401 routing and never drives the authenticated API callback, source authorities or positive runtime readiness."
+expected = "Runtime route proof must cover actual authenticated list/read success and startup readiness alongside the existing unauthenticated refusal, without replacing the identity producer."
+proposal = "Extend services/launchpad/notifications/runtime_routes_test.go or its API-owned integration suite with the actual identity authority, PostgreSQL inbox and source authorities; assert list/read, readiness, refusal and recovery after reopening the store."
+owner_domain = 4
+
+[finding.notification-registry-drift]
+file = "spec/layerx-merge/interfaces.kvx"
+line = 106772
+class = "doc-drift"
+severity = "medium"
+observed = "Rows 4.go-notifications-adapt-v2-j29, 4.go-notifications-store-list-page-j29, 4.go-notifications-store-set-read-v2-j29 and 4.key-notifications-inbox-v2-id-j29 retain old signatures and md5-only UUID storage. Current code uses V2NotificationsPage, InboxPage, string plus read bool returning error, and timestamp-based UUIDv7."
+expected = "The served registry must state current producer and consumer signatures, read-state lifecycle and UUID encoding, distinguishing historical plans from live declarations."
+proposal = "Regenerate these four rows in spec/layerx-merge/interfaces.kvx from v2_wire.go, store.go and schema.sql with actual callers, timestamp-based UUIDv7 and mutable read semantics; preserve frozen HTTP response contracts."
+owner_domain = 4
+
+[finding.hosted-node-site]
+file = "docs/site/docs/platform/hosted-node.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+expected = "Brief facts 1 and 2 specify one paxd BFT network on chain 125 with the kernel inside the node and finality at commit, without a separate layerxd or sequencer service."
+proposal = "Rewrite docs/site/docs/platform/hosted-node.md for integrated paxd bootstrap, health and durable recovery; explicitly label retained daemon history and remove retired LNI, guarantor and separate checkpoint operating instructions."
+owner_domain = 8
+
+[finding.hosted-node-wiki]
+file = "docs/wiki/HostedNode.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+expected = "Brief facts 1 and 2 specify one paxd BFT network on chain 125 with the kernel inside the node and finality at commit, without a separate layerxd or sequencer service."
+proposal = "Rewrite docs/wiki/HostedNode.md for integrated paxd bootstrap, health and durable recovery; explicitly label retained daemon history and remove retired LNI, guarantor and separate checkpoint operating instructions."
+owner_domain = 8
+
+[finding.human-doc-retired-flow]
+file = "docs/site/docs/human/web-app.md"
+line = 30
+class = "doc-drift"
+severity = "medium"
+observed = "The page requires layerx-intents and custody disclosure submission, advertises deposit/withdraw and batch/checkpoint explorer routes, uses old apps/web paths and puts Human in a separate node pod (lines 8, 19-23, 30-35 and 44-49)."
+expected = "The merged Human product uses native chain balances and committed transactions; retired two-domain funding, exits and kernel explorer routes must not be presented as current supported flows."
+proposal = "Rewrite docs/site/docs/human/web-app.md for current apps/human routes and API deployment, native funding and transaction outcomes, and native explorer links; distinguish historical custody and intent journeys."
+owner_domain = 10
+
+[finding.readme-two-domains]
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+observed = "README describes two execution domains and layerxd settling separate daemon checkpoints through layerxAnchor at lines 45-48, and repeats separate kernel operation and draft merge status at lines 180-181."
+expected = "The pre-upgrade architecture must describe a single chain 125 BFT network, integrated kernel execution and committed-block finality under the audit brief."
+proposal = "Update README.md architecture and run guidance for integrated paxd and root-path node RPC; retire separate daemon and checkpoint-settlement claims and explicitly label historical build instructions."
+owner_domain = 1
+
+[finding.unified-network-retired-architecture]
+file = "docs/site/docs/overview/unified-network.md"
+line = 129
+class = "doc-drift"
+severity = "medium"
+observed = "The overview directs clients to api-mainnet-beta.paxeer.network/rpc through a router and GET /rpc/schema, and describes separate custody deposits, anchor challenges and guarantors at lines 100-124 and 129-171."
+expected = "Public node RPC is at root on api1 through api14 and api-mainnet-beta with debug, echo, eth, net, pax, test and txpool; finality is block commit and hosted px methods have a distinct contract."
+proposal = "Rewrite docs/site/docs/overview/unified-network.md around native balances, integrated execution and committed proofs; list actual root node endpoints and the separate hosted px contract, removing retired router and custody/anchor setup."
+owner_domain = 8
+
+[finding.control-funding-drift]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "Although correctly labeled private/disposable, the control page sends public accounts through custody credit submitted to the router in its opening funding guidance."
+expected = "Merged public funding has no separate custody-credit or router hop; private control instructions must direct public users to native chain funding."
+proposal = "Replace the opening funding instruction and affected cross-links in docs/site/docs/operators/beta-control.md with native chain funding guidance, retaining clear private/disposable boundaries on reset procedures."
+owner_domain = 8
+
+[finding.faucet-funding-drift]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The private faucet page tells public accounts to use custody credit submitted to the router, contradicting merged-network funding despite correctly labeling the faucet private only."
+expected = "Public funding guidance must describe native balances without implying a public router, retired custody module or public deployment of the private faucet."
+proposal = "Correct the opening guidance and affected links in docs/site/docs/platform/faucet.md to current native funding; keep private faucet authentication and deployment explicitly bounded to its owned test environment."
+owner_domain = 8
+
+[finding.gateway-rpc-endpoint-drift]
+file = "docs/site/docs/platform/gateway-rpc.md"
+line = 19
+class = "doc-drift"
+severity = "medium"
+observed = "The endpoint table publishes /rpc, /rpc/schema and /rpc/ws on api-mainnet-beta; later sections describe lx_subscribe and separate batched/finalised checkpoint stages as the public client interface."
+expected = "The merged chain has root-path node RPC and finality at block commit; hosted px methods belong to services/platform/hosted/gateway/openrpc.json and must be distinguished from node namespaces."
+proposal = "Rewrite docs/site/docs/platform/gateway-rpc.md endpoints and lifecycle for root node RPC and its supported namespaces; document hosted px operations separately and remove retired router and lx subscription instructions."
+owner_domain = 8
+
+[finding.cli-endpoint-drift]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI page requires --rpc URLs ending in /rpc at lines 8 and 131 and describes sending eth_sendRawTransaction to that path at line 298."
+expected = "Merged-network clients must use actual root-path public node RPC and committed receipts rather than a retired unified router URL."
+proposal = "Update docs/site/docs/platform/cli.md endpoint examples and validation guidance alongside the tools/platform/cli owner change; name the merged root node contract and label unsupported historical commands explicitly."
+owner_domain = 16
+
+[finding.cli-availability-contradiction]
+file = "docs/site/docs/platform/cli.md"
+line = 106
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 25-28 and the first command table say wallet/token groups are implemented; lines 106-140 say the same groups are unimplemented and deny the global --rpc and gateway-credential flags documented at the top."
+expected = "Developers need one consistent account of shipped commands, supported flags and explicit refusals tied to the current CLI parser."
+proposal = "Reconcile docs/site/docs/platform/cli.md against tools/platform/cli command parsing, remove the obsolete duplicate availability table and retain one command table with actual supported and refused outcomes."
+owner_domain = 16
+
+[finding.hosted-gateway-router-drift]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted gateway page calls the public mainnet-beta host a router and advertises /rpc, /rpc/schema and /rpc/ws there at lines 39-51 and 198-200."
+expected = "Root-path public node RPC and its namespaces must be distinguished from hosted px operations; the finished network has no unified router path."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md public routing and topology to distinguish hosted px from root node RPC, and replace retired separate-backend and checkpoint instructions with committed-block behavior."
+owner_domain = 8
+
+[finding.webhook-dependency-drift]
+file = "docs/site/docs/platform/webhooks.md"
+line = 69
+class = "doc-drift"
+severity = "medium"
+observed = "The production dependency table directs receipt authority and agent boundary to a separate kernel host and derives network identity from router.LAYERX_GATEWAY_NETWORK_ID at lines 69-78; later topology retains a separate checkpoint authority."
+expected = "Merged webhook delivery must consume committed chain facts and bind actual network identity without depending on a retired router or separately running kernel service."
+proposal = "Rewrite docs/site/docs/platform/webhooks.md dependencies, network binding and source-event lifecycle for chain-commit producers; preserve role-specific public TLS and ingress mTLS and explicitly separate historical disposable topology."
+owner_domain = 8
+
+[finding.programs-retired-adapter-doc]
+file = "docs/site/docs/programs/workspace.md"
+line = 16
+class = "doc-drift"
+severity = "medium"
+observed = "The page lists layerx-programs-protocol-adapter as a current receipt-verified C/Rust bridge, includes its FFI exemption and cites old layerxd batch-WAL differential recipes."
+expected = "The retirement inventory removes this adapter in favor of LXP ProgramState/ProgramBalances gRPC queries and native proofs; qualification must match current node ABI and deployment payload bounds."
+proposal = "Rewrite docs/site/docs/programs/workspace.md layout and gates for the retained runtime, native proof consumers and node registration; remove retired adapter/daemon recipes and state ABI agreement and the 524288-byte deployment envelope limit."
+owner_domain = 13
+
+[finding.retirement-router-replacements]
+file = "spec/layerx-merge/programme/data/retired.kvx"
+line = 158
+class = "doc-drift"
+severity = "medium"
+observed = "The component.lni and component.layerxctl-port replacement text directs EVM writes through a unified router or router even though BRIEF fact 2 removes that service and unified /rpc."
+expected = "Retirement guidance must direct owners to root-path public node RPC and native committed-state queries consistently with the finished merged-network contract."
+proposal = "Correct component.lni and component.layerxctl-port replacements in spec/layerx-merge/programme/data/retired.kvx to actual root node endpoints and native committed reads without reviving removed interfaces."
+owner_domain = 9
+
+[doc.001]
+path = "docs/site/docs/platform/hosted-node.md"
+status = "stale"
+notes = "The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+
+[doc.002]
+path = "docs/site/docs/human/web-app.md"
+status = "stale"
+notes = "The page requires layerx-intents and custody disclosure submission, advertises deposit/withdraw and batch/checkpoint explorer routes, uses old apps/web paths and puts Human in a separate node pod (lines 8, 19-23, 30-35 and 44-49)."
+
+[doc.003]
+path = "docs/wiki/HostedNode.md"
+status = "stale"
+notes = "The page presents a running layerxd sequencer pod and separate authority replica, with LNI, guarantors and checkpoint-settlement bootstrap and recovery (lines 3-22, 39-42 and 433 onward)."
+
+[doc.004]
+path = "README.md"
+status = "stale"
+notes = "README describes two execution domains and layerxd settling separate daemon checkpoints through layerxAnchor at lines 45-48, and repeats separate kernel operation and draft merge status at lines 180-181."
+
+[doc.005]
+path = "docs/site/docs/overview/unified-network.md"
+status = "stale"
+notes = "The overview directs clients to api-mainnet-beta.paxeer.network/rpc through a router and GET /rpc/schema, and describes separate custody deposits, anchor challenges and guarantors at lines 100-124 and 129-171."
+
+[doc.006]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Although correctly labeled private/disposable, the control page sends public accounts through custody credit submitted to the router in its opening funding guidance."
+
+[doc.007]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "The private faucet page tells public accounts to use custody credit submitted to the router, contradicting merged-network funding despite correctly labeling the faucet private only."
+
+[doc.008]
+path = "docs/site/docs/platform/gateway-rpc.md"
+status = "stale"
+notes = "The endpoint table publishes /rpc, /rpc/schema and /rpc/ws on api-mainnet-beta; later sections describe lx_subscribe and separate batched/finalised checkpoint stages as the public client interface."
+
+[doc.009]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "The CLI page requires --rpc URLs ending in /rpc at lines 8 and 131 and describes sending eth_sendRawTransaction to that path at line 298. Lines 25-28 and the first command table say wallet/token groups are implemented; lines 106-140 say the same groups are unimplemented and deny the global --rpc and gateway-credential flags documented at the top."
+
+[doc.010]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "stale"
+notes = "The hosted gateway page calls the public mainnet-beta host a router and advertises /rpc, /rpc/schema and /rpc/ws there at lines 39-51 and 198-200."
+
+[doc.011]
+path = "docs/site/docs/platform/webhooks.md"
+status = "stale"
+notes = "The production dependency table directs receipt authority and agent boundary to a separate kernel host and derives network identity from router.LAYERX_GATEWAY_NETWORK_ID at lines 69-78; later topology retains a separate checkpoint authority."
+
+[doc.012]
+path = "docs/site/docs/programs/workspace.md"
+status = "stale"
+notes = "The page lists layerx-programs-protocol-adapter as a current receipt-verified C/Rust bridge, includes its FFI exemption and cites old layerxd batch-WAL differential recipes."
+
+[doc.013]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Read all network facts, audit checks and record grammar; root node endpoints, committed finality, retirement and proposal-only ownership guide this review."
+
+[doc.014]
+path = "spec/layerx-merge/programme/audit/packages/22.30.28.kvx"
+status = "accurate"
+notes = "Reviewed all 117 members, sixteen requirement identifiers, 281 produced and 174 consumed interface declarations and all twelve package pages."
+
+[doc.015]
+path = "spec/layerx-merge/spec.kvx"
+status = "accurate"
+notes = "Read package requirement sections including notification shapes, real restart proof, restored v1 fixtures, UUIDv7 and unread semantics; acceptance statements are not implementation qualification claims."
+
+[doc.016]
+path = "spec/layerx-merge/interfaces.kvx"
+status = "stale"
+notes = "Notification adapter, ListPage, SetReadV2 and generated UUID declarations at 106768, 107958, 107968 and 156574 retain older signatures; actual production wiring failures have separate findings."
+
+[doc.017]
+path = "spec/layerx-merge/contracts/clients.md"
+status = "accurate"
+notes = "Reviewed launchpad shared-Go, SDK and web-app contract sections; planned acceptance tables identify intended coverage and do not establish that their gates ran."
+
+[doc.018]
+path = "spec/layerx-merge/contracts/services.md"
+status = "accurate"
+notes = "Reviewed launchpad-notifications section at lines 3264-3299 against frozen operations and acceptance names; authenticated boundary and readiness gaps are separately recorded."
+
+[doc.019]
+path = "spec/layerx-merge/programme/data/retired.kvx"
+status = "stale"
+notes = "Read retirement declarations to distinguish historical fixture facts from runtime dependencies; component.lni and component.layerxctl-port still recommend the removed router."
+
+[doc.020]
+path = "spec/workflow.kvx"
+status = "accurate"
+notes = "Consulted workflow and hard-rule sections; explicit record-only scope and runner-owned qualification and publication govern this task."
+
+[doc.021]
+path = "GOTCHA.kvx"
+status = "accurate"
+notes = "Consulted existing migration, frozen-contract and qualification gotchas as operational guidance; the ledger does not establish production readiness."
+
+[doc.022]
+path = ".agents/skills/codify-workflow/SKILL.md"
+status = "accurate"
+notes = "Consulted graph-context workflow; the explicit task scope and permitted runner gates govern implementation, evidence and publication."

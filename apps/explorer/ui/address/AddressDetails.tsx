@@ -1,4 +1,4 @@
-import { Box, chakra, Grid, Text } from '@chakra-ui/react';
+import { Box, Grid, Text } from '@chakra-ui/react';
 import { useRouter } from 'next/router';
 import React from 'react';
 
@@ -22,6 +22,7 @@ import DetailedInfoSponsoredItem from 'ui/shared/DetailedInfo/DetailedInfoSponso
 import AddressEntity from 'ui/shared/entities/address/AddressEntity';
 import BlockEntity from 'ui/shared/entities/block/BlockEntity';
 import TxEntity from 'ui/shared/entities/tx/TxEntity';
+import StatTile from 'ui/shared/Page/StatTile';
 import { ScanKeyValue } from 'ui/shared/scan';
 import ContractCreationStatus from 'ui/shared/statusTag/ContractCreationStatus';
 
@@ -45,32 +46,11 @@ interface CardProps {
   children: React.ReactNode;
 }
 
-const DetailsCard = ({ title, children }: CardProps) => {
-  return (
-    <Box
-      data-address-card={ title }
-      bg="bg.surface"
-      borderWidth="1px"
-      borderStyle="solid"
-      borderColor="border.divider"
-      borderRadius="md"
-      boxShadow="card"
-      px={ 4 }
-      py={ 4 }
-      minW={ 0 }
-    >
-      <chakra.h2 textStyle="sm" fontWeight="600" color="text.primary" mb={ 3 } data-card-title>{ title }</chakra.h2>
-      <DetailedInfo.Container
-        templateColumns="minmax(0, 1fr)"
-        columnGap={ 0 }
-        rowGap={ 2 }
-        textStyle="sm"
-      >
-        { children }
-      </DetailedInfo.Container>
-    </Box>
-  );
-};
+const DetailsCard = ({ title, children }: CardProps) => (
+  <Box data-address-card={ title }>
+    <DetailedInfo.Group label={ title }>{ children }</DetailedInfo.Group>
+  </Box>
+);
 
 interface Props {
   addressQuery: AddressQuery;
@@ -135,85 +115,27 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
   const creatorAddressHash = data.creator_address_hash;
 
   const identities = unifiedAccountQuery.data ? listIdentities(unifiedAccountQuery.data.identities) : [];
-  const hasKernelAccount = paxeerXFeature.isEnabled && identities.length > 0;
+  const hasUnifiedAccount = paxeerXFeature.isEnabled && identities.length > 0;
 
   const overviewCard = (
-    <DetailsCard title="Overview">
-      <AddressBalance data={ data } isLoading={ isLoading }/>
+    <Grid templateColumns={{ base: 'minmax(0, 1fr)', md: 'repeat(3, minmax(0, 1fr))' }} gap={ 4 } data-address-balances>
+      <AddressBalance data={ data } isLoading={ isLoading } asTile/>
       { (config.features.multichainButton.isEnabled || (data.exchange_rate && data.has_tokens)) && (
-        <ScanKeyValue
-          label="Net worth"
-          hint="Total net worth in USD of all tokens for the address"
-          isLoading={ isLoading }
-          multiRow
-        >
+        <StatTile label="Net worth" hint="Total net worth in USD of all tokens for the address" isLoading={ isLoading }>
           <AddressNetWorth addressData={ addressQuery.data } addressHash={ addressHash } isLoading={ isLoading }/>
-        </ScanKeyValue>
+        </StatTile>
       ) }
       { data.has_tokens && (
-        <ScanKeyValue label="Token holdings" hint="All tokens in the account and total value" multiRow>
+        <StatTile label="Token holdings" hint="All tokens in the account and total value" isLoading={ isLoading }>
           { addressQuery.data ? <TokenSelect/> : <Box>0</Box> }
-        </ScanKeyValue>
+        </StatTile>
       ) }
-    </DetailsCard>
+    </Grid>
   );
 
   const moreInfoCard = (
-    <DetailsCard title="More info">
+    <DetailsCard title="ADDRESS INFO">
       <AddressNameInfo data={ data } isLoading={ isLoading }/>
-      <ScanKeyValue
-        label="Transactions"
-        hint="Number of transactions related to this address"
-        isLoading={ isLoading || countersQuery.isPlaceholderData }
-      >
-        { addressQuery.data ? (
-          <AddressCounterItem
-            prop="transactions_count"
-            query={ countersQuery }
-            address={ data.hash }
-            isAddressQueryLoading={ addressQuery.isPlaceholderData }
-            isDegradedData={ addressQuery.isDegradedData }
-          />
-        ) :
-          0 }
-      </ScanKeyValue>
-      { data.has_token_transfers && (
-        <ScanKeyValue
-          label="Transfers"
-          hint="Number of transfers to/from this address"
-          isLoading={ isLoading || countersQuery.isPlaceholderData }
-        >
-          { addressQuery.data ? (
-            <AddressCounterItem
-              prop="token_transfers_count"
-              query={ countersQuery }
-              address={ data.hash }
-              isAddressQueryLoading={ addressQuery.isPlaceholderData }
-              isDegradedData={ addressQuery.isDegradedData }
-            />
-          ) :
-            0 }
-        </ScanKeyValue>
-      ) }
-      { countersQuery.data?.gas_usage_count && (
-        <ScanKeyValue
-          label="Gas used"
-          hint="Gas used by the address"
-          isLoading={ isLoading || countersQuery.isPlaceholderData }
-          multiRow
-        >
-          { addressQuery.data ? (
-            <AddressCounterItem
-              prop="gas_usage_count"
-              query={ countersQuery }
-              address={ data.hash }
-              isAddressQueryLoading={ addressQuery.isPlaceholderData }
-              isDegradedData={ addressQuery.isDegradedData }
-            />
-          ) :
-            0 }
-        </ScanKeyValue>
-      ) }
       { data.has_validated_blocks && (
         <ScanKeyValue
           label={ `Blocks ${ getNetworkValidationActionText() }` }
@@ -257,7 +179,7 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
     </DetailsCard>
   );
 
-  const kernelCard = (
+  const unifiedCard = (
     <DetailsCard title="Paxeer X account">
       { identities.map((identity) => (
         <ScanKeyValue key={ identity.kind } label={ identity.label } multiRow>
@@ -265,8 +187,8 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
           <CopyToClipboard text={ identity.value }/>
         </ScanKeyValue>
       )) }
-      <ScanKeyValue label="Unified account" hint="The kernel view of this address, with its identities, assets and activity">
-        <Link href={ route({ pathname: '/paxeer-x/account/[hash]', query: { hash: addressHash } }) } data-kernel-account-link>
+      <ScanKeyValue label="Unified account" hint="The unified account for this address, with its identities, assets and activity">
+        <Link href={ route({ pathname: '/paxeer-x/account/[hash]', query: { hash: addressHash } }) } data-unified-account-link>
           View unified account
         </Link>
       </ScanKeyValue>
@@ -322,14 +244,14 @@ const AddressDetails = ({ addressQuery, countersQuery, isLoading }: Props) => {
       { addressQuery.isDegradedData && <ServiceDegradationWarning isLoading={ isLoading } mb={ 6 }/> }
       <Grid
         data-address-details
-        templateColumns={{ base: 'minmax(0, 1fr)', lg: 'repeat(3, minmax(0, 1fr))' }}
-        gap={ 4 }
+        templateColumns={{ base: 'minmax(0, 1fr)', lg: 'minmax(0, 1fr)' }}
+        gap={ 8 }
         mb={ 6 }
         alignItems="start"
       >
         { overviewCard }
         { moreInfoCard }
-        { hasKernelAccount ? kernelCard : contractInfoCard }
+        { hasUnifiedAccount ? unifiedCard : contractInfoCard }
       </Grid>
     </>
   );

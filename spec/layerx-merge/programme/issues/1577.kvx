@@ -1,0 +1,48 @@
+[issue.1577]
+number = 1577
+title = "Wallet Open skips the token approval required by the current perps openPosition call"
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+verdict = "task"
+evidence = "apps/wallet/src/surfaces/ExchangeView.tsx:74-84 builds the openPosition call with pull 0n and :115-121 skips the approval callback when pull is zero, while precompiles/perps/positions.go:264-271 routes open through depositLeg, which checks the allowance and transfers the collateral at precompiles/perps/account.go:297-336; ExchangeView.test.tsx:122-124 asserts no allowance lookup."
+close_comment = "The wallet exchange Open action now requests the exact collateral approval the perps open call pulls, the same way deposit does, and the surface test asserts the allowance lookup and approval before the open transaction."
+
+[task.18.1577.1]
+title = "Issue #1577: Approve the collateral pull before the wallet exchange open"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181577.1"]
+capabilities = []
+interfaces = []
+do_1 = "Decision 2490 (triage record spec/layerx-merge/programme/issues/1577.kvx, verdict task): the open action of apps/wallet/src/surfaces/ExchangeView.tsx (lines 74-84) returns pull 0n, so the approval callback (lines 115-121) never requests an allowance although the perps open call pulls the collateral (precompiles/perps/positions.go:264-271 routes to depositLeg; precompiles/perps/account.go:297-336 checks allowance(owner, precompile) against the amount and transfers it). Set pull to the parsed collateralAmount for the open action and pass the chosen collateralToken to the approval (surfaceModule.approval(owner, collateralToken, pull)), so useModuleSend performs the exact approval first exactly as deposit does."
+do_2 = "Update apps/wallet/src/surfaces/ExchangeView.test.tsx (the assertion at lines 122-124 that no allowance lookup happens) so the open case with an allowance below the amount asserts the allowance lookup and an exact approval transaction before the openPosition send, and a case with sufficient allowance asserts no approval; keep every existing encoding assertion."
+symbols = []
+touches = ["apps/wallet/src/surfaces/ExchangeView.tsx", "apps/wallet/src/surfaces/ExchangeView.test.tsx"]
+tests = ["apps/wallet/src/surfaces/ExchangeView.test.tsx"]
+planned_paths = []
+build_cmd = "pnpm --dir apps/wallet --ignore-workspace install --frozen-lockfile --ignore-scripts"
+verify_cmd = "pnpm --dir apps/wallet exec vitest run src/surfaces/ExchangeView.test.tsx"
+gate_kind = "planned"
+sandbox_profile = "node"
+owner_role = "fm-wallet"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181577]
+title = "The wallet exchange open requests the exact collateral approval"
+ac_1 = "Given a connected wallet with sufficient USDL and an allowance below the collateral amount, when Open is submitted, then the surface requests the allowance, sends an exact approval and then the openPosition call, and with sufficient allowance sends only the openPosition call."
+
+[acceptance.18.1577.1]
+feature = "18"
+req = "181577.1"
+scenario = "Given an allowance below the collateral amount, when Open is submitted, then approval precedes the open transaction."
+contract = "contracts/wallet-app.md#exchange"
+test = "apps/wallet/src/surfaces/ExchangeView.test.tsx (planned)"
+qualification = "UNRUN"

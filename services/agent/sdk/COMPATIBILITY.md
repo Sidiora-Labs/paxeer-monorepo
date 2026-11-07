@@ -1,39 +1,92 @@
 # LayerX SDK compatibility
 
-This file is generated from `services/agent/schema/agent-api/v1.kvx`. Do not hand-edit.
+Version declarations come from
+[`schema/agent-api/v1.kvx`](../schema/agent-api/v1.kvx). Despite its filename,
+the current schema is contract **2.0**. The executable daemon matrix is
+documented in [`../COMPATIBILITY.md`](../COMPATIBILITY.md).
 
 | SDK version | Contract version | Node interface version | Daemon version | Support |
-|---|---|---|---|---|
+| --- | --- | --- | --- | --- |
 | `0.1.x` | `2.x` | `1.x` | `0.1.x` | supported |
 
-Within a contract major version, schema changes must be additive. A removed or changed declaration requires a contract major-version increment. Every SDK refuses an unsupported contract major instead of guessing compatibility.
+The node column is the client-version compatibility major, not another
+network or a separate protocol handshake. Node JSON-RPC uses the public node
+names at their root path, with EVM chain ID 125 (`0x7d`); see the
+[workspace README](../README.md#network-boundary). Hosted gateway operations
+use their own authenticated transport contract.
 
-The approval module was introduced additively in contract `1.1`. SDK clients negotiated below that minor must treat approval operations and lifecycle events as unavailable; no fallback may synthesize them.
+Within a contract major, schema changes must be additive. A removed or changed
+declaration requires a major-version increment. Rust, TypeScript and Python
+SDKs refuse unsupported contract majors. Approval operations and lifecycle
+events are included in major 2. The schema's `1.1` approval introduction is
+historical compatibility information for major 1, not a requirement to
+negotiate major 1 with the current SDKs.
 
 ## Enforcement guarantees
 
-All three SDKs preserve the same contract distinctions:
+All three SDKs preserve these distinctions:
 
 | Surface | Enforcement | SDK promise |
-|---|---|---|
-| Canonical activities, receipts, protocol budgets and protocol capability grants | protocol-enforced | The SDK preserves canonical bytes, exact result codes and proof material produced by the LayerX state machine. |
-| Verification level and freshness | evidence-enforced | A value is exposed as verified only at the level justified by its attached core evidence. |
-| Local policy, daemon rate limits, daemon capabilities and `DaemonLimit` spending controls | daemon-enforced | These restrictions bind only while `layerx-agentd` is in the path. Bypassing the daemon bypasses them; they are not protocol guarantees. |
-| Approval holds and decisions | daemon-enforced | The SDK preserves the approval disclosure, state, decision outcome and lifecycle event exactly. Approval confers no protocol authority, and bypassing the daemon bypasses the restriction. |
-| Caller idempotency | protocol-and-daemon coordinated | The caller key remains byte-identical across retries; `Unknown` remains explicit until receipt lookup resolves it. |
+| --- | --- | --- |
+| Canonical transactions, receipts, protocol budgets and protocol grants | protocol-enforced | Preserve exact signed bytes, protocol result codes and network-produced evidence. |
+| Verification rung and freshness | evidence-enforced | Expose only the rung justified by verified evidence, with the observed head and value height. |
+| Local policy, rate limits, daemon capabilities and `DaemonLimit` spending controls | daemon-enforced | Restrictions bind while the agent owner is in the path; they do not create protocol authority. |
+| Approval holds and decisions | daemon-enforced | Preserve disclosures, hold state, decisions and lifecycle events; approval does not grant protocol authority. |
+| Caller idempotency | protocol-and-daemon coordinated | Preserve the caller key across retries and retain `Unknown` until evidence resolves the outcome. |
 
-The generated `guarantees.md` in each dynamic-language SDK contains the schema-derived restriction rows. The authored Rust SDK exposes the same invariants through `layerx_sdk::GUARANTEES`.
+`submitted` means only the transaction hash is known. `receipted` requires a
+receipt verified against an authorized receipt key. `committed` requires a
+verified CometBFT commit at that receipt's height. The network's kernel
+proposes blocks, and finality is the block commit. Response metadata or a
+successful transport exchange alone cannot establish a rung.
+
+The generated [TypeScript guarantees](typescript/src/generated/guarantees.md)
+and [Python guarantees](python/layerx_sdk/generated/guarantees.md) contain the
+schema-derived restriction rows. The Rust SDK exposes its guarantees through
+`layerx_sdk::GUARANTEES`.
 
 ## Offline receipt verification
 
-A counterparty needs only the offline export bytes and the standalone `layerx-proof` verifier. No daemon, node, network connection or local LayerX database is consulted:
+The current `export.offline` value contains `facts`, `bundles` and `height`.
+It carries portable-v2 bundles with format `layerx-receipt-proof-v2` and
+`verificationLevel` set to `committed`.
+Each bundle contains the exact `rawTransaction`, `signedReceipt`,
+`receiptDigest` and `receiptKey`, plus `blockHeader`, `receiptInclusion`,
+`commit` and `validatorSet` for committed evidence. A state fact additionally
+carries `accountProof`. Exports require committed evidence for every requested
+fact at one height; missing evidence, mixed snapshots and partial success are
+refused. These shapes are implemented in
+[`layerx-agent-api/src/read.rs`](../crates/layerx-agent-api/src/read.rs).
 
-```text
-cargo run --manifest-path services/agent/Cargo.toml --locked -p layerx-proof --example offline_verify -- EXPORT_PATH
-```
+An offline reviewer must independently obtain the trusted `ReceiptKeys` list
+and validator-set context. Keys supplied inside an export do not establish
+their own authority. Verification checks the receipt signature and its key's
+height interval, the raw transaction hash, receipt digest and inclusion,
+the consensus block header and commit with strictly more than two thirds
+voting power, and any required account proof.
 
-The export carries the exact receipt, inclusion proofs, batch headers and checkpoint certificates. Verification fails closed if evidence is missing, malformed or does not justify the claimed verification level. The TypeScript and Python `offline-receipt-verification` examples preserve the same proof-bearing read boundary; they do not turn an unverified value into a result.
+The current portable-v2 implementation is
+[`layerx_agentd::export`](../crates/layerx-agentd/src/export.rs):
+`deserialize_export` decodes the artifact, `ExportTrustSource::new` constructs
+the independently supplied key and validator context, and `verify` checks
+the complete artifact and returns its achieved rung. These functions run
+locally without contacting a daemon or node. They use the receipt-verification
+primitives in `layerx-proof`. Structural decoding by an SDK is not proof
+verification.
+
+The `layerx-proof` example named `offline_verify` accepts a receipt hex file
+and explicit batch context; it is not a portable-v2 export-file verifier.
+The Python `offline_receipt_verification.py` example likewise verifies an
+individual receipt with supplied context, not the complete export.
 
 ## Release regeneration gate
 
-`make agent-test-sdk-compat` regenerates and diffs the SDK outputs, validates additive schema compatibility, checks this matrix and the guarantee documents, and requires the same five example scenarios in TypeScript and Python.
+`make agent-test-sdk-compat` runs contract-schema checks, SDK generator tests
+and a regeneration diff, then the documentation checker and its tests.
+The generator's prose template is
+[`compatibility.md.tpl`](../tools/sdk-gen/templates/compatibility.md.tpl);
+schema declarations remain authoritative for versions and contract shapes.
+The current template still emits the historical offline-export guidance and
+must be reconciled with the portable-v2 contract before a release regeneration.
+This release gate is separate from verifying an offline artifact or checking
+a live node's capabilities.

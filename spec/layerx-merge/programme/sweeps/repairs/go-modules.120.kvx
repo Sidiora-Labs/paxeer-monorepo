@@ -1,0 +1,9 @@
+[repair.go-modules.120]
+target = "modules/xweb/keeper"
+command = "CGO_ENABLED=1 go vet ./modules/xweb/keeper/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/xweb/keeper/"
+revision = "cea04b0a20fed9621b2f2580398024b38b76ff2e"
+result = "repaired"
+change = "modules/xweb/keeper/genesis_entries_test.go includes the recorded fee denom, program_fulfil_test.go compares account address types, request_test.go admits kind 4 under decision 2157, program_kernel_parity_test.go reads the original signed vectors from testdata/kernel-program-vectors.json after decision 2037 retired their C source, and inventory_sweep_test.go reports package wall time."
+producer_input_tests = []
+measured_wall_time_seconds = 91.034741
+measurement_result = "The initial complete package run failed assertions without a hang or external input wait."

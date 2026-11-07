@@ -1,0 +1,9 @@
+[repair.22.31.210]
+finding = "envelope-transport-budget"
+proof = ["TestRepair_210_HeaderBudget", "TestRepair_210_EnvelopeTransportBudget"]
+change = "Reserve serialized mandatory headers within the existing broker/stream limit before enqueue; bound header-carried kinds; preserve exact body bytes through real outbox, publisher, JetStream, consumer, transactional effect and acknowledgement."
+baseline = "Not run: the task's ordered gate instructions prohibit testing before implementation and require hf-build before the sole hf-done verification; no baseline failures are claimed."
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; final task evidence names that verified revision."
+wiring_publisher = "Domain 8 (perps-data): services/platform/perps-data/internal/publish/publisher.go should reference delivery.MaxTransportHeaderBytes when changing its mandatory header set; services/platform/perps-data/internal/publish/publisher_test.go:647-698 must prove largest-admitted delivery and inject legacy-invalid rows explicitly for quarantine coverage."
+wiring_stream = "Domain 8 (perps-data): services/platform/perps-data/internal/stream/layout.go should reference delivery.MaxTransportBytes instead of duplicating the unchanged 1048576-byte limit, aligned with services/platform/perps-data/deploy/nats/nats.conf max_payload."
+qualification_note = "At a0dc6242dd60605b574873c182abc73563c84e3c, cg spec done 22.31.210 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): legacy fixture at MaxInt64 could not drain because store.go's pre-existing claim barrier excludes its MaxInt64 sentinel; leave that unrelated defect unchanged and use 19-digit claimable sequences for transport/quarantine proof while retaining full-range serialized-header assertions."

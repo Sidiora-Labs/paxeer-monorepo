@@ -57,6 +57,8 @@ import (
 // lives in. It is distinct from the production api_stream schema.
 const DevelopmentStreamSchema = "api_stream_dev"
 
+const erc20DecimalsSelector = "0x313ce567"
+
 const (
 	developmentStreamBatch        = 100
 	developmentStreamRetention    = 24 * time.Hour
@@ -395,8 +397,8 @@ ORDER BY s.block_number, s.log_index LIMIT $4`, block, logIndex, head.Height, de
 
 // complete resolves each swap's receipt, checks the Swap log against the
 // indexed row and reads the emitter code epoch and token decimals. Swaps whose
-// chain facts contradict the row (or are permanently unavailable) are skipped
-// and logged; transport failures abort the batch so it is retried.
+// chain facts contradict the row are skipped and logged; unresolved receipts
+// and transport failures abort the batch so its durable cursor is unchanged.
 func (d *DevelopmentStream) complete(ctx context.Context, swaps []developmentSwap) ([]projectedSwap, error) {
 	client := d.market.chain.client
 	hashes := []string{}
@@ -422,9 +424,15 @@ func (d *DevelopmentStream) complete(ctx context.Context, swaps []developmentSwa
 	out := make([]projectedSwap, 0, len(swaps))
 	for _, s := range swaps {
 		i, ok := index[s.txHash]
-		if !ok || batch[i].Error != nil || receipts[i] == nil {
-			d.skip(s, "receipt unavailable")
+		if !ok {
+			d.skip(s, "transaction hash malformed")
 			continue
+		}
+		if batch[i].Error != nil {
+			return nil, fmt.Errorf("swap %s receipt unavailable: %w", s.id, batch[i].Error)
+		}
+		if receipts[i] == nil {
+			return nil, fmt.Errorf("swap %s receipt unavailable", s.id)
 		}
 		p, reason := swapPosition(s, receipts[i])
 		if reason != "" {
@@ -535,7 +543,7 @@ func (d *DevelopmentStream) tokenDecimals(ctx context.Context, token string, blo
 		return decimals, nil
 	}
 	var raw hexutil.Bytes
-	call := map[string]any{"to": token, "data": "0x313ce567"}
+	call := map[string]any{"to": token, "data": erc20DecimalsSelector}
 	if err := d.market.chain.client.CallContext(ctx, &raw, "eth_call", call, hexutil.EncodeUint64(uint64(block))); err != nil {
 		return 0, err
 	}

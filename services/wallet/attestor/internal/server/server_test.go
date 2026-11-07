@@ -2,12 +2,16 @@ package server
 
 import (
 	"bytes"
+	"crypto/ecdsa"
 	"crypto/ed25519"
+	"crypto/elliptic"
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"flag"
 	"io"
 	"log"
@@ -16,6 +20,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -34,7 +40,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 var updateGolden = flag.Bool("update", false, "rewrite the attestor API golden files")
@@ -45,6 +51,10 @@ func goldenValues(t *testing.T) map[string]any {
 	t.Helper()
 	ids := []string{"node-1", "node-2", "node-3", "node-4", "node-5"}
 	bundles := fixedBundles(t, ids)
+	public, err := publicKeyBytes(dealer.Secp256k1, bundles[0].PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
 	recovery := uint8(1)
 	id := func(b byte) (out lx.ID) {
 		for i := range out {
@@ -54,7 +64,7 @@ func goldenValues(t *testing.T) map[string]any {
 	}
 	return map[string]any{
 		"keys.generate.request":  GenerateRequest{SessionID: "session-generate", KeyID: "key-ed", Curve: "ed25519", Owner: "user-0001", Account: "0x1111111111111111111111111111111111111111"},
-		"keys.import.request":    ImportRequest{SessionID: "session-import", KeyID: "key-evm", Owner: "user-0001", Share: EncodeBundle(bundles[0])},
+		"keys.import.request":    ImportRequest{CeremonyID: "ceremony-import", PublicKey: hex.EncodeToString(public), Participants: ids, Threshold: dealer.Threshold, SessionID: "session-import", KeyID: "key-evm", Owner: "user-0001", Share: EncodeBundle(bundles[0])},
 		"keys.refresh.request":   RefreshRequest{SessionID: "session-refresh", KeyID: "key-evm"},
 		"keys.addshare.request":  AddShareRequest{SessionID: "session-addshare", KeyID: "key-evm", Curve: "secp256k1", PublicKey: "02" + strings.Repeat("11", 32), Owner: "user-0001", NewParticipantID: "node-6", Quorum: []string{"node-1", "node-3", "node-4", "node-5"}},
 		"keys.describe.request":  DescribeRequest{SessionID: "session-describe", KeyID: "key-evm"},
@@ -72,7 +82,7 @@ func goldenValues(t *testing.T) map[string]any {
 		"sign.request.eth_sign_digest": SignRequest{SessionID: "session-authorization", KeyID: "key-evm", Kind: KindEthSignDigest, Signers: []string{"node-1", "node-3", "node-5"}, Digest: "0x" + strings.Repeat("66", 32), Construction: &ConstructionJSON{
 			Kind: "eip7702_authorization", ChainID: "125", Address: "0x2222222222222222222222222222222222222222", Nonce: "3",
 		}},
-		"sign.request.operator_verification": VerificationRequest{SessionID: "session-verification", KeyID: "key-evm", Kind: KindOperatorVerification, Signers: []string{"node-1", "node-3", "node-5"}, ImportSessionID: "session-import"},
+		"sign.request.operator_verification": VerificationRequest{SessionID: "session-verification", KeyID: "key-evm", Kind: KindOperatorVerification, Signers: []string{"node-1", "node-3", "node-5"}, ImportSessionID: "session-import", CeremonyID: "ceremony-import", ExpectedEpoch: new(uint64)},
 		"sign.response":                      SignResponse{NodeID: "node-1", KeyID: "key-evm", Kind: KindEVMTransaction, SignedBytes: strings.Repeat("33", 32), Signature: strings.Repeat("44", 64) + "01", RecoveryID: &recovery, AuditSequence: 9},
 		"error.policy":                       errorBody{Error: policyError("value_cap", "amount exceeds the per-transaction cap")},
 		"error.token":                        errorBody{Error: newError(CodeTokenMissing, "a bearer token or agent signature is required")},
@@ -160,15 +170,22 @@ func TestParseKVXToleratesPadding(t *testing.T) {
 
 func TestGoldenMessages(t *testing.T) {
 	dir := filepath.Join(schemaDir, "golden")
-	for name, v := range goldenValues(t) {
+	values := goldenValues(t)
+	for name, value := range evmReviewGoldenValues() {
+		values[name] = value
+	}
+	for name, v := range values {
 		got, err := json.MarshalIndent(v, "", "  ")
 		if err != nil {
 			t.Fatal(err)
 		}
 		got = append(got, '\n')
 		path := filepath.Join(dir, name+".json")
+		if name == "sign.request.operator_verification" || name == "keys.import.request" {
+			path = filepath.Join("testdata", "golden", name+".json")
+		}
 		if *updateGolden {
-			if err := os.MkdirAll(dir, 0o755); err != nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
 				t.Fatal(err)
 			}
 			if err := os.WriteFile(path, got, 0o644); err != nil {
@@ -183,6 +200,109 @@ func TestGoldenMessages(t *testing.T) {
 		if !bytes.Equal(got, want) {
 			t.Fatalf("%s: golden differs\n got %s\nwant %s", name, got, want)
 		}
+	}
+}
+
+func TestGoldenImportRequest(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "golden", "keys.import.request.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request ImportRequest
+	if e := decodeRequest(raw, &request); e != nil {
+		t.Fatal(e)
+	}
+	bundle, err := DecodeBundle(request.Share)
+	if err != nil {
+		t.Fatal(err)
+	}
+	public, err := publicKeyBytes(bundle.Curve, bundle.PublicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if request.CeremonyID != "ceremony-import" || request.Epoch != 0 || request.Threshold != dealer.Threshold || len(request.Participants) != dealer.Participants || !sameIDs(request.Participants, bundle.ParticipantIDs()) || request.PublicKey != hex.EncodeToString(public) {
+		t.Fatalf("import golden does not bind its complete custody identity: %+v", request)
+	}
+}
+
+func TestGoldenOperatorVerificationMessage(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join("testdata", "golden", "sign.request.operator_verification.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var request VerificationRequest
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&request); err != nil {
+		t.Fatal(err)
+	}
+	if err := decoder.Decode(new(any)); err != io.EOF {
+		t.Fatalf("expected end of golden JSON, got %v", err)
+	}
+	if request.CeremonyID != "ceremony-import" || request.ExpectedEpoch == nil || *request.ExpectedEpoch != 0 {
+		t.Fatalf("verification must bind its ceremony and explicit initial epoch: %+v", request)
+	}
+	encoded, err := json.MarshalIndent(request, "", "  ")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(append(encoded, '\n'), raw) {
+		t.Fatalf("golden round trip differs\n got %s\nwant %s", encoded, raw)
+	}
+}
+
+func evmReviewGoldenValues() map[string]any {
+	return map[string]any{
+		"evm.review.request": EVMReviewRequest{
+			SessionID: "session-evm-review", KeyID: "key-evm",
+			Transaction: "0xec098504a817c800825208943535353535353535353535353535353535353535880de0b6b3a764000080018080",
+		},
+		"evm.review.response": EVMReviewResponse{
+			NodeID: "node-1", KeyID: "key-evm", To: "0x3535353535353535353535353535353535353535",
+			Value: "1000000000000000000", Data: "0x", Method: "", Destination: "",
+			SigningHash: "0xdaf5a779ae972f972197303d7b574746c7ef83eadac0f2791ad23db92e4c8e53",
+			ChainID:     1, Decision: "allowed", AuditSequence: 10,
+		},
+	}
+}
+
+func TestGoldenEVMReviewMessages(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		message any
+	}{
+		{"evm.review.request", &EVMReviewRequest{}},
+		{"evm.review.response", &EVMReviewResponse{}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			raw, err := os.ReadFile(filepath.Join(schemaDir, "golden", tc.name+".json"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			decoder := json.NewDecoder(bytes.NewReader(raw))
+			decoder.DisallowUnknownFields()
+			if err := decoder.Decode(tc.message); err != nil {
+				t.Fatalf("decode golden: %v", err)
+			}
+			if err := decoder.Decode(new(any)); err != io.EOF {
+				t.Fatalf("expected end of golden JSON, got %v", err)
+			}
+			encoded, err := json.MarshalIndent(tc.message, "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			encoded = append(encoded, '\n')
+			if !bytes.Equal(encoded, raw) {
+				t.Fatalf("golden round trip differs\n got %s\nwant %s", encoded, raw)
+			}
+			expected, err := json.MarshalIndent(evmReviewGoldenValues()[tc.name], "", "  ")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !bytes.Equal(append(expected, '\n'), raw) {
+				t.Fatalf("golden differs from declared message\n got %s\nwant %s", raw, expected)
+			}
+		})
 	}
 }
 
@@ -217,6 +337,61 @@ func TestSchemaListsEveryErrorCodeAndOperation(t *testing.T) {
 	}
 }
 
+func TestSchemaDescribesEveryServedRoute(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	sections := parseKVX(string(raw))
+	for _, route := range []struct {
+		path, method, auth, kind string
+	}{
+		{PathGenerate, http.MethodPost, "gateway certificate", ""},
+		{PathImport, http.MethodPost, "operator certificate and the node's ceremony flag", ""},
+		{PathRefresh, http.MethodPost, "operator certificate", ""},
+		{PathAddShare, http.MethodPost, "operator certificate", ""},
+		{PathDescribe, http.MethodPost, "operator certificate", ""},
+		{PathPublicWallet, http.MethodPost, "gateway certificate", ""},
+		{PathAuthority, http.MethodPost, "gateway certificate", ""},
+		{PathSign, http.MethodPost, "gateway certificate plus Authorization: Bearer <identity token> or the agent headers X-Agent-Key, X-Agent-Nonce, X-Agent-Expiry, X-Agent-Signature", ""},
+		{PathSign, http.MethodPost, "client certificate issued by the operator CA; no Authorization header and no agent headers; a gateway certificate is refused with operator_required", KindOperatorVerification},
+		{PathNativeSign, http.MethodPost, "gateway certificate", ""},
+		{PathLXReview, http.MethodPost, "gateway certificate", KindLXSendAuth},
+		{PathEVMReview, http.MethodPost, "gateway certificate", ""},
+		{PathHealth, http.MethodGet, "client certificate", ""},
+		{PathMetrics, http.MethodGet, "operator certificate", ""},
+	} {
+		t.Run(route.path+"/"+route.kind, func(t *testing.T) {
+			count := 0
+			for name, op := range sections {
+				if !strings.HasPrefix(name, "op.") || op["path"] != route.path || op["kind"] != route.kind {
+					continue
+				}
+				count++
+				if op["method"] != route.method {
+					t.Errorf("%s method = %q, want %q", name, op["method"], route.method)
+				}
+				if op["auth"] != route.auth {
+					t.Errorf("%s auth = %q, want %q", name, op["auth"], route.auth)
+				}
+			}
+			if count != 1 {
+				t.Errorf("v1.kvx describes %s (kind %q) with %d operations, want exactly one", route.path, route.kind, count)
+			}
+		})
+	}
+}
+
+func TestSchemaGenerateNamesGatewayCertificate(t *testing.T) {
+	raw, err := os.ReadFile(filepath.Join(schemaDir, "v1.kvx"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if auth := parseKVX(string(raw))["op.keys.generate"]["auth"]; auth != "gateway certificate" {
+		t.Fatalf("op.keys.generate auth = %q, want gateway certificate", auth)
+	}
+}
+
 func verifiedRequest(root *x509.Certificate, method, path string, body []byte) *http.Request {
 	r := httptest.NewRequest(method, path, bytes.NewReader(body))
 	r.TLS = &tls.ConnectionState{VerifiedChains: [][]*x509.Certificate{{root}}}
@@ -224,7 +399,8 @@ func verifiedRequest(root *x509.Certificate, method, path string, body []byte) *
 }
 
 func TestHandlerRefusals(t *testing.T) {
-	c := newTestCluster(t, 2, false)
+	c := newTestCluster(t, 5, false)
+	approveTestKeys(t, c, c.ids, InventoryKey{KeyID: "k", Curve: "ed25519", Owner: "o", Operations: []string{"generate"}})
 	s := c.nodes[0].server
 	h := s.Handler()
 	do := func(r *http.Request) apiResult {
@@ -248,6 +424,7 @@ func TestHandlerRefusals(t *testing.T) {
 	expectError(t, "missing key", do(op(http.MethodPost, PathRefresh, []byte(`{"session_id":"s","key_id":"absent"}`))), CodeKeyNotFound)
 	expectError(t, "unknown kind", do(gw(http.MethodPost, PathSign, []byte(`{"session_id":"s","key_id":"absent","kind":"raw"}`))), CodeSessionKind)
 	expectError(t, "sign missing key", do(gw(http.MethodPost, PathSign, []byte(`{"session_id":"s","key_id":"absent","kind":"evm_tx"}`))), CodeKeyNotFound)
+	expectError(t, "inventory precedes curve validation", do(gw(http.MethodPost, PathGenerate, []byte(`{"session_id":"s","key_id":"unapproved","curve":"p256","owner":"o"}`))), CodeKeyInvalidShare)
 	expectError(t, "unknown curve", do(gw(http.MethodPost, PathGenerate, []byte(`{"session_id":"s","key_id":"k","curve":"p256","owner":"o"}`))), CodeKeyCurve)
 	expectError(t, "ed25519 without account", do(gw(http.MethodPost, PathGenerate, []byte(`{"session_id":"s","key_id":"k","curve":"ed25519","owner":"o"}`))), CodeSessionBadRequest)
 	expectError(t, "addshare small quorum", do(op(http.MethodPost, PathAddShare, []byte(`{"session_id":"s","key_id":"k","curve":"secp256k1","public_key":"02`+strings.Repeat("79be667ef9dcbbac55a06295ce870b07029bfcdb2dce28d959f2815b16f81798", 1)+`","owner":"o","new_participant_id":"node-9","quorum":["node-1","node-2"]}`))), CodeQuorumTooFew)
@@ -276,7 +453,10 @@ func TestHandlerRefusals(t *testing.T) {
 		t.Fatalf("sign refusal was not audited: head %d then %d", before, after)
 	}
 
-	r := do(gw(http.MethodGet, PathHealth, nil))
+	unready := newTestCluster(t, 2, false)
+	healthRecorder := httptest.NewRecorder()
+	unready.nodes[0].server.Handler().ServeHTTP(healthRecorder, verifiedRequest(unready.ca.cert, http.MethodGet, PathHealth, nil))
+	r := apiResult{status: healthRecorder.Code, body: healthRecorder.Body.Bytes()}
 	var report health.Report
 	if err := json.Unmarshal(r.body, &report); err != nil || report.NodeID != "node-1" {
 		t.Fatalf("health: %d %s", r.status, r.body)
@@ -466,7 +646,60 @@ func (h *snapshotHarness) expect(t *testing.T, c *testCluster, operation string,
 	}
 }
 
-func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, account string) ed25519.PublicKey {
+func approveTestKeys(t *testing.T, c *testCluster, members []string, keys ...InventoryKey) *nativeInventoryAuthority {
+	t.Helper()
+	if c.importInventory == nil {
+		key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+		if err != nil {
+			t.Fatal(err)
+		}
+		public, err := x509.MarshalPKIXPublicKey(&key.PublicKey)
+		if err != nil {
+			t.Fatal(err)
+		}
+		dir := t.TempDir()
+		a := &nativeInventoryAuthority{key: key, path: filepath.Join(dir, "inventory.jwt"), public: filepath.Join(dir, "authority.pem"), cluster: c}
+		writeTestPEM(t, a.public, "PUBLIC KEY", public)
+		c.importInventory = a
+		previous := c.tune
+		c.tune = func(o *Options) {
+			if previous != nil {
+				previous(o)
+			}
+			pins := map[string]string{}
+			for _, peer := range c.peers {
+				if slices.Contains(a.members, peer.ID) {
+					pins[peer.ID] = peer.SPKISHA256
+				}
+			}
+			inventory, err := NewInventory(a.path, a.public, "native-corpus", "tenant-a", o.Store, pins)
+			if err != nil {
+				t.Fatal(err)
+			}
+			o.Inventory = inventory
+			o.Participants = append([]string(nil), a.members...)
+		}
+	}
+	a := c.importInventory
+	a.members = append([]string(nil), members...)
+	for _, key := range keys {
+		found := false
+		for i := range a.keys {
+			if a.keys[i].KeyID == key.KeyID {
+				a.keys[i] = key
+				found = true
+				break
+			}
+		}
+		if !found {
+			a.keys = append(a.keys, key)
+		}
+	}
+	a.publish(t)
+	return a
+}
+
+func importSnapshotKey(t *testing.T, c *testCluster, authority *nativeInventoryAuthority, holders []string, keyID, account string) ed25519.PublicKey {
 	t.Helper()
 	edSeed := sha256.Sum256([]byte("attestor snapshot ed25519 key " + keyID))
 	edPub := ed25519.NewKeyFromSeed(edSeed[:]).Public().(ed25519.PublicKey)
@@ -478,12 +711,23 @@ func importSnapshotKey(t *testing.T, c *testCluster, holders []string, keyID, ac
 	if err != nil {
 		t.Fatal(err)
 	}
+	approved := InventoryKey{KeyID: keyID, Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner, Operations: []string{"import", "refresh", "sign"}}
+	if authority != nil {
+		authority.keys = append(authority.keys, approved)
+		authority.publish(t)
+	} else {
+		approveTestKeys(t, c, holders, approved)
+	}
 	byNode := map[string]ShareBundleJSON{}
 	for _, b := range bundles {
 		byNode[b.ParticipantID] = EncodeBundle(b)
 	}
 	decodeOK[KeyResponse](t, "import", c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
+		return ImportRequest{
+			CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner,
+			PublicKey: hex.EncodeToString(edPub), Participants: holders, Threshold: dealer.Threshold,
+			Account: account, Share: byNode[n.id],
+		}
 	}, ""))
 	return edPub
 }
@@ -493,19 +737,27 @@ func TestSnapshotFollowsEveryKeyChangeAndRestoresToSign(t *testing.T) {
 	c := newTestClusterWith(t, 5, true, testPolicy(), h.tune(t))
 	h.expect(t, c, "start", map[string]int{}, "")
 
+	inventorySeed := sha256.Sum256([]byte("attestor snapshot inventory bootstrap"))
+	authority := nativeInventory(t, c, "gen-key", ed25519.NewKeyFromSeed(inventorySeed[:]).Public().(ed25519.PublicKey))
+	authority.keys[0].PublicKey = ""
+	authority.keys[0].Operations = []string{"generate"}
+	authority.publish(t)
 	genAccount := common.HexToAddress("0x4444444444444444444444444444444444444444").Hex()
-	decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
+	generated := decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
 		return GenerateRequest{SessionID: "generate-snap", KeyID: "gen-key", Curve: "ed25519", Owner: testOwner, Account: genAccount}
 	}, ""))
 	h.expect(t, c, "keys.generate", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "gen-key")
 
+	authority.keys[0].PublicKey = generated[0].PublicKey
+	authority.keys[0].Operations = []string{"refresh"}
+	authority.publish(t)
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key"}
+		return RefreshRequest{SessionID: "refresh-snap", KeyID: "gen-key", CeremonyID: "metrics-ceremony", ExistingKey: true, ExpectedEpoch: new(uint64)}
 	}, ""))
 	h.expect(t, c, "keys.refresh", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 2}, "gen-key")
 
 	account := common.HexToAddress("0x5555555555555555555555555555555555555555").Hex()
-	edPub := importSnapshotKey(t, c, c.ids, "snap-key", account)
+	edPub := importSnapshotKey(t, c, authority, c.ids, "snap-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 3, "node-2": 3, "node-3": 3, "node-4": 3, "node-5": 3}, "snap-key")
 
 	for _, id := range c.ids {
@@ -578,15 +830,35 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 	c := newTestClusterWith(t, 6, true, testPolicy(), h.tune(t))
 	holders := c.ids[:5]
 	account := common.HexToAddress("0x6666666666666666666666666666666666666666").Hex()
-	edPub := importSnapshotKey(t, c, holders, "share-key", account)
+	edPub := importSnapshotKey(t, c, nil, holders, "share-key", account)
 	h.expect(t, c, "keys.import", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "share-key")
 
-	quorum := []string{"node-1", "node-2", "node-3"}
+	originalReceipt, err := c.nodes[0].store.ImportReceipt("share-key")
+	if err != nil {
+		t.Fatal(err)
+	}
+	quorum := []string{"node-1", "node-2", "node-3", "node-4"}
 	newcomer := "node-6"
+	denied := c.call(t, c.byID(newcomer)[0], PathAddShare, AddShareRequest{SessionID: "unapproved-replacement", KeyID: "share-key", Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner, Account: account, NewParticipantID: newcomer, Quorum: quorum}, "")
+	expectError(t, "replacement requires approved roster", denied, CodeKeyInvalidShare)
+	h.expect(t, c, "refused add-share", map[string]int{"node-1": 1, "node-2": 1, "node-3": 1, "node-4": 1, "node-5": 1}, "share-key")
+	approveTestKeys(t, c, append(append([]string(nil), quorum...), newcomer))
 	decodeOK[KeyResponse](t, "add-share", c.callAll(t, c.byID(append(append([]string{}, quorum...), newcomer)...), PathAddShare, func(*testNode) any {
 		return AddShareRequest{SessionID: "addshare-snap", KeyID: "share-key", Curve: "ed25519", PublicKey: hex.EncodeToString(edPub), Owner: testOwner, Account: account, NewParticipantID: newcomer, Quorum: quorum}
 	}, ""))
-	h.expect(t, c, "keys.addshare", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 1, "node-5": 1, "node-6": 1}, "share-key")
+	h.expect(t, c, "keys.addshare", map[string]int{"node-1": 2, "node-2": 2, "node-3": 2, "node-4": 2, "node-5": 1, "node-6": 1}, "share-key")
+	for _, n := range c.nodes {
+		h.mu.Lock()
+		state := h.writers[n.id].State()
+		h.mu.Unlock()
+		if state.LastError != "" || state.Failures != 0 {
+			t.Fatalf("%s: snapshot failed after add-share: %+v", n.id, state)
+		}
+	}
+	receipt, err := c.nodes[0].store.ImportReceipt("share-key")
+	if err != nil || !reflect.DeepEqual(receipt, originalReceipt) {
+		t.Fatalf("replacement changed original import identity: %+v %v", receipt, err)
+	}
 	logged, err := os.ReadFile(filepath.Join(c.configs[5].nodeDir, "audit", audit.FileName))
 	if err != nil {
 		t.Fatal(err)
@@ -594,6 +866,77 @@ func TestSnapshotFollowsAddShare(t *testing.T) {
 	if !bytes.Contains(logged, []byte("trigger=keys.addshare")) {
 		t.Fatal("the new participant's snapshot event does not name keys.addshare")
 	}
+	cfg := c.configs[5]
+	nodeKey, err := config.ReadKeyFile(cfg.keyPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotPath := filepath.Join(h.root, newcomer, backup.Name(newcomer, 1))
+	raw, err := os.ReadFile(snapshotPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(raw)
+	c.byID(newcomer)[0].stop()
+	sharesDir := filepath.Join(cfg.nodeDir, "shares")
+	if err := os.Rename(sharesDir, filepath.Join(cfg.nodeDir, "shares-lost")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := backup.RestoreFile(snapshotPath, hex.EncodeToString(digest[:]), newcomer, snapshotBackupKey(newcomer), sharesDir, nodeKey); err != nil {
+		t.Fatal(err)
+	}
+	c.restart(t, c.byID(newcomer)[0])
+	signers := []string{"node-1", "node-2", newcomer}
+	bind := lxwire.BindMessage(testChainID, common.HexToAddress(account), 1)
+	responses := decodeOK[SignResponse](t, "sign with restored replacement", c.callAll(t, c.byID(signers...), PathSign, func(*testNode) any {
+		return SignRequest{SessionID: "restored-replacement-bind", KeyID: "share-key", Kind: KindLXBind, Signers: signers, Message: hex.EncodeToString(bind)}
+	}, c.idp.mint(t, c.idp.key, testOwner)))
+	for _, response := range responses {
+		signature, err := hex.DecodeString(response.Signature)
+		if err != nil || !ed25519.Verify(edPub, bind, signature) {
+			t.Fatalf("restored replacement signature: %+v %v", response, err)
+		}
+	}
+	contributor := c.nodes[0]
+	var originalHistory []byte
+	if err := contributor.store.WithRecord(store.RecordReplacement, "share-key", func(raw []byte) error {
+		originalHistory = append([]byte(nil), raw...)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, tc := range []struct {
+		name   string
+		mutate func([]store.ShareReplacement)
+		want   error
+	}{
+		{"original material", func(h []store.ShareReplacement) { h[0].Previous.Ciphertext[0] ^= 1 }, store.ErrAuthFailed},
+		{"replacement roster", func(h []store.ShareReplacement) { h[0].NewParticipantID = "node-5" }, store.ErrSnapshotFormat},
+		{"foreign contributor", func(h []store.ShareReplacement) { h[0].Quorum[0] = "node-6" }, store.ErrSnapshotFormat},
+		{"duplicate contributor", func(h []store.ShareReplacement) { h[0].Quorum[0] = h[0].Quorum[1] }, store.ErrSnapshotFormat},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				if err := contributor.store.UpdateRecord(store.RecordReplacement, "share-key", func([]byte) ([]byte, error) { return append([]byte(nil), originalHistory...), nil }); err != nil {
+					t.Error(err)
+				}
+			})
+			if err := contributor.store.UpdateRecord(store.RecordReplacement, "share-key", func(raw []byte) ([]byte, error) {
+				var history []store.ShareReplacement
+				if err := json.Unmarshal(raw, &history); err != nil {
+					return nil, err
+				}
+				tc.mutate(history)
+				return json.Marshal(history)
+			}); err != nil {
+				t.Fatal(err)
+			}
+			if err := contributor.store.Snapshot(io.Discard, snapshotBackupKey(contributor.id), contributor.id); !errors.Is(err, tc.want) {
+				t.Fatalf("snapshot accepted invalid replacement history: %v, want %v", err, tc.want)
+			}
+		})
+	}
+
 }
 
 func heldShareHex(t *testing.T, n *testNode, keyID string) string {
@@ -627,6 +970,9 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 		{id: "imported-evm", curve: "secp256k1"},
 		{id: "imported-lx", curve: "ed25519", account: edAccount},
 	}
+	approveTestKeys(t, c, c.ids,
+		InventoryKey{KeyID: cases[0].id, Curve: cases[0].curve, Owner: testOwner, Operations: []string{"generate"}},
+		InventoryKey{KeyID: cases[1].id, Curve: cases[1].curve, Owner: testOwner, Operations: []string{"generate"}})
 	var wg sync.WaitGroup
 	results := make([][]apiResult, len(cases))
 	for i, kc := range cases[:2] {
@@ -641,6 +987,9 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 	wg.Wait()
 	for i, kc := range cases[:2] {
 		kc.created = decodeOK[KeyResponse](t, "generate "+kc.id, results[i])
+	}
+	for _, kc := range cases[:2] {
+		approveTestKeys(t, c, c.ids, InventoryKey{KeyID: kc.id, Curve: kc.curve, PublicKey: kc.created[0].PublicKey, Owner: testOwner, Operations: []string{"refresh", "sign"}})
 	}
 	cases[2].created = importKey(t, c, cases[2].id, dealer.Secp256k1, secpSecret, "")
 	cases[3].created = importKey(t, c, cases[3].id, dealer.Ed25519, edSecret, edAccount)
@@ -667,6 +1016,12 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 				} else {
 					want = append(want, "did")
 				}
+				if strings.HasPrefix(kc.id, "imported-") {
+					want = append(want, "ceremony_id", "import_session_id", "import_digest")
+				}
+				if stage == "refreshed" {
+					want = append(want, "refresh", "refresh_session_id", "refresh_state")
+				}
 				if len(fields) != len(want) {
 					t.Fatalf("%s %s on %s: fields %s", stage, kc.id, n.id, r.body)
 				}
@@ -681,6 +1036,25 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 				var got DescribeResponse
 				if err := json.Unmarshal(r.body, &got); err != nil {
 					t.Fatal(err)
+				}
+				if strings.HasPrefix(kc.id, "imported-") && (got.CeremonyID != "metrics-ceremony" || got.ImportSessionID != "import-"+kc.id || len(got.ImportDigest) != 64) {
+					t.Fatalf("durable import identity: %+v", got)
+				}
+				if stage == "refreshed" && (got.RefreshSessionID != "refresh-"+kc.id || got.RefreshState != "complete") {
+					t.Fatalf("durable refresh identity: %+v", got)
+				}
+				if stage == "refreshed" {
+					refresh := got.Refresh
+					importSession := ""
+					if strings.HasPrefix(kc.id, "imported-") {
+						importSession = "import-" + kc.id
+					}
+					if refresh == nil || refresh.ExistingKey != strings.HasPrefix(kc.id, "generated-") || refresh.CeremonyID != "metrics-ceremony" ||
+						refresh.ImportSessionID != importSession || refresh.SessionID != "refresh-"+kc.id || refresh.KeyID != kc.id || refresh.BaseEpoch != 0 ||
+						refresh.Curve != kc.curve || refresh.PublicKey != kc.created[i].PublicKey || !slices.Equal(refresh.Participants, c.ids) ||
+						refresh.Decision != PhaseCommit || refresh.AuditSequence == 0 || refresh.AuditSequence >= got.AuditSequence {
+						t.Fatalf("durable public refresh material for %s on %s: %+v", kc.id, n.id, refresh)
+					}
 				}
 				created := kc.created[i]
 				head, _ := n.audit.Head()
@@ -698,7 +1072,13 @@ func TestDescribeReturnsPublicMaterialToTheOperator(t *testing.T) {
 		go func(i int, kc *keyCase) {
 			defer wg.Done()
 			results[i] = c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-				return RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id}
+				req := RefreshRequest{SessionID: "refresh-" + kc.id, KeyID: kc.id, CeremonyID: "metrics-ceremony", ExpectedEpoch: new(uint64)}
+				if i < 2 {
+					req.ExistingKey = true
+				} else {
+					req.ImportSessionID = "import-" + kc.id
+				}
+				return req
 			}, "")
 		}(i, kc)
 	}

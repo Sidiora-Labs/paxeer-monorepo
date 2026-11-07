@@ -22,6 +22,8 @@ var (
 	vaultJSON []byte
 	//go:embed share.json
 	shareJSON []byte
+	//go:embed share-solidity.json
+	shareSolidityJSON []byte
 )
 
 func parse(raw []byte) (abi.ABI, error) { return abi.JSON(bytes.NewReader(raw)) }
@@ -41,5 +43,13 @@ func Quoter() (abi.ABI, error) { return parse(quoterJSON) }
 // Vault returns the parsed ABI of PECORVault at 0x1025.
 func Vault() (abi.ABI, error) { return parse(vaultJSON) }
 
-// Share returns the parsed ABI of the share token pointers.
+// Share returns the NativePaxTokensERC20 deployment ABI of vault share pointers.
+// Mint, burn and ownership selectors are unavailable and revert with empty data
+// for every caller. See share-deployment.kvx for the deployment/refusal contract.
+// Transfers exceeding the bank balance return the frozen
+// ERC20InsufficientBalance(address,uint256,uint256) error.
 func Share() (abi.ABI, error) { return parse(shareJSON) }
+
+// HistoricalSolidityShare returns the historical Solidity share-token snapshot.
+// It is not the interface deployed by the spot keeper.
+func HistoricalSolidityShare() (abi.ABI, error) { return parse(shareSolidityJSON) }

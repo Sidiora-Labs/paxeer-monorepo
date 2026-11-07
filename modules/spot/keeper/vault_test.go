@@ -591,3 +591,108 @@ func TestTokenParamsEmitLogs(t *testing.T) {
 	require.Len(t, logs, 1)
 	requireVaultLog(t, logs[0], tokenPauseTopic0, []common.Address{sid}, word(0))
 }
+
+func TestListNewTokensRegistersBook(t *testing.T) {
+	e := newVaultEnv(t)
+	params, err := e.k.GetParams(e.ctx)
+	require.NoError(t, err)
+	before := append([]types.TokenParams{}, params.Tokens...)
+	book, err := e.k.GetBook(e.ctx, e.pax)
+	require.NoError(t, err)
+	book.Reserves = e6(1)
+	require.NoError(t, e.k.SetBook(e.ctx, book))
+	after := append([]types.TokenParams{}, before...)
+	after[0].Paused = true
+	app := testkeeper.EVMTestApp
+	for _, token := range []struct {
+		denom    string
+		decimals uint32
+		stable   bool
+	}{
+		{"ulistingone", 6, false},
+		{"ulistingtwo", 8, true},
+	} {
+		address := vaultAccount(token.denom)
+		app.BankKeeper.SetDenomMetaData(e.ctx, banktypes.Metadata{
+			Base: token.denom, Display: token.denom + "display", Name: token.denom, Symbol: token.denom,
+			DenomUnits: []*banktypes.DenomUnit{{Denom: token.denom, Exponent: 0},
+				{Denom: token.denom + "display", Exponent: token.decimals}},
+		})
+		require.NoError(t, app.EvmKeeper.SetERC20NativePointer(e.ctx, token.denom, address))
+		after = append(after, types.TokenParams{Address: address, Kind: types.TokenKindNative,
+			IsStablecoin: token.stable, MarketID: types.SIDMarketID})
+	}
+
+	updated, logs, err := e.k.ListTokens(e.ctx, before, after)
+	require.NoError(t, err)
+	require.Len(t, updated, 3)
+	require.Len(t, logs, 4)
+	require.Equal(t, after[0], updated[0])
+	for i, decimals := range []uint32{6, 8} {
+		token := updated[i+1]
+		expected := after[i+1]
+		expected.Decimals = decimals
+		expected.MaxUtilizationBps = types.DefaultMaxUtilizationBps
+		require.Equal(t, expected, token)
+		registeredBook, err := e.k.GetBook(e.ctx, token.Address)
+		require.NoError(t, err)
+		require.Equal(t, token.Address, registeredBook.Token)
+		require.Equal(t, uint8(decimals), registeredBook.Decimals)
+		require.Equal(t, e.k.ShareDenom(token.Address), registeredBook.ShareDenom)
+		require.True(t, registeredBook.Reserves.IsZero())
+		requireVaultLog(t, logs[2*i], tokenRegisteredTopic0, []common.Address{token.Address},
+			word(int64(decimals)), word(int64(i)))
+		requireVaultLog(t, logs[2*i+1], utilizationCapTopic0, []common.Address{token.Address},
+			word(types.DefaultMaxUtilizationBps))
+	}
+	retainedBook, err := e.k.GetBook(e.ctx, e.pax)
+	require.NoError(t, err)
+	require.Equal(t, book, retainedBook)
+	stored, err := e.k.GetParams(e.ctx)
+	require.NoError(t, err)
+	require.Equal(t, before, stored.Tokens)
+}
+
+func TestDelistRefusesTokenWithReserves(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		reserves int64
+		escrow   int64
+	}{
+		{"reserves", 1, 0},
+		{"escrow", 0, 1},
+		{"reserves and escrow", 1, 1},
+		{"empty", 0, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := newVaultEnv(t)
+			params, err := e.k.GetParams(e.ctx)
+			require.NoError(t, err)
+			book, err := e.k.GetBook(e.ctx, e.pax)
+			require.NoError(t, err)
+			book.Reserves = sdk.NewInt(tc.reserves)
+			require.NoError(t, e.k.SetBook(e.ctx, book))
+			e.setEscrow(e.pax, sdk.NewInt(tc.escrow))
+
+			updated, logs, err := e.k.ListTokens(e.ctx, params.Tokens, nil)
+			if tc.reserves != 0 || tc.escrow != 0 {
+				require.ErrorIs(t, err, types.ErrParamsInvalid)
+				require.Contains(t, err.Error(), "token "+e.pax.Hex()+" holds reserves")
+				require.Nil(t, updated)
+			} else {
+				require.NoError(t, err)
+				require.Empty(t, updated)
+			}
+			require.Empty(t, logs)
+			unchanged, err := e.k.GetBook(e.ctx, e.pax)
+			require.NoError(t, err)
+			require.Equal(t, book, unchanged)
+			escrow, err := e.k.GetEscrow(e.ctx, e.pax)
+			require.NoError(t, err)
+			require.Equal(t, sdk.NewInt(tc.escrow), escrow)
+			stored, err := e.k.GetParams(e.ctx)
+			require.NoError(t, err)
+			require.Equal(t, params, stored)
+		})
+	}
+}

@@ -44,10 +44,24 @@ export function ResizeHandle({
   const startSize = useRef(0);
   const rafId = useRef(0);
   const pendingPos = useRef(0);
+  const restoreStyles = useRef<(() => void) | null>(null);
   const onEndRef = useRef(onResizeEnd);
   onEndRef.current = onResizeEnd;
 
-  const clamp = useCallback((v: number) => Math.min(max, Math.max(min, v)), [min, max]);
+  const cleanupDrag = useCallback(() => {
+    if (rafId.current) {
+      cancelAnimationFrame(rafId.current);
+      rafId.current = 0;
+    }
+    isDragging.current = false;
+    restoreStyles.current?.();
+    restoreStyles.current = null;
+  }, []);
+
+  const clamp = useCallback(
+    (v: number) => Math.min(max, Math.max(min, v)),
+    [min, max],
+  );
 
   const applySize = useCallback(() => {
     const el = targetRef.current;
@@ -62,22 +76,48 @@ export function ResizeHandle({
   const startDrag = useCallback(
     (clientPos: number) => {
       const el = targetRef.current;
-      if (!el) return;
+      if (!el || isDragging.current) return;
       isDragging.current = true;
       startPos.current = clientPos;
       pendingPos.current = clientPos;
       const rect = el.getBoundingClientRect();
       startSize.current = direction === "horizontal" ? rect.width : rect.height;
-      document.body.style.cursor = direction === "horizontal" ? "col-resize" : "row-resize";
+      const bodyStyle = document.body.style;
+      const iframes = Array.from(document.querySelectorAll("iframe"));
+      const styles: [CSSStyleDeclaration, string][] = [
+        [bodyStyle, "cursor"],
+        [bodyStyle, "user-select"],
+        [bodyStyle, "-webkit-user-select"],
+        ...iframes.map((iframe): [CSSStyleDeclaration, string] => [
+          iframe.style,
+          "pointer-events",
+        ]),
+      ];
+      const previousStyles = styles.map(([style, property]) => ({
+        style,
+        property,
+        value: style.getPropertyValue(property),
+        priority: style.getPropertyPriority(property),
+      }));
+      const handle = handleRef.current;
+      restoreStyles.current = () => {
+        previousStyles.forEach(({ style, property, value, priority }) => {
+          if (value) style.setProperty(property, value, priority);
+          else style.removeProperty(property);
+        });
+        handle?.classList.remove("resize-active");
+      };
+      document.body.style.cursor =
+        direction === "horizontal" ? "col-resize" : "row-resize";
       document.body.style.userSelect = "none";
       document.body.style.webkitUserSelect = "none";
       // Block iframes from stealing pointer events during drag
-      document.querySelectorAll("iframe").forEach((f) => {
-        (f as HTMLIFrameElement).style.pointerEvents = "none";
+      iframes.forEach((iframe) => {
+        iframe.style.pointerEvents = "none";
       });
       handleRef.current?.classList.add("resize-active");
     },
-    [direction, targetRef]
+    [direction, targetRef],
   );
 
   const onMove = useCallback(
@@ -98,32 +138,21 @@ export function ResizeHandle({
         });
       }
     },
-    [direction, applySize]
+    [direction, applySize],
   );
 
   const endDrag = useCallback(() => {
     if (!isDragging.current) return;
-    isDragging.current = false;
-    if (rafId.current) {
-      cancelAnimationFrame(rafId.current);
-      rafId.current = 0;
-    }
     // Apply final position synchronously
     applySize();
-    document.body.style.cursor = "";
-    document.body.style.userSelect = "";
-    document.body.style.webkitUserSelect = "";
-    document.querySelectorAll("iframe").forEach((f) => {
-      (f as HTMLIFrameElement).style.pointerEvents = "";
-    });
-    handleRef.current?.classList.remove("resize-active");
+    cleanupDrag();
     const el = targetRef.current;
     if (el) {
       const rect = el.getBoundingClientRect();
       const finalPx = direction === "horizontal" ? rect.width : rect.height;
       onEndRef.current?.(Math.round(finalPx));
     }
-  }, [direction, targetRef, applySize]);
+  }, [direction, targetRef, applySize, cleanupDrag]);
 
   useEffect(() => {
     const el = handleRef.current;
@@ -154,9 +183,9 @@ export function ResizeHandle({
       window.removeEventListener("touchmove", onMove);
       window.removeEventListener("touchend", endDrag);
       window.removeEventListener("touchcancel", endDrag);
-      if (rafId.current) cancelAnimationFrame(rafId.current);
+      cleanupDrag();
     };
-  }, [direction, startDrag, onMove, endDrag]);
+  }, [direction, startDrag, onMove, endDrag, cleanupDrag]);
 
   return (
     <div
@@ -166,7 +195,7 @@ export function ResizeHandle({
         direction === "horizontal"
           ? "w-[4px] cursor-col-resize"
           : "h-[4px] cursor-row-resize",
-        className
+        className,
       )}
     >
       {/* Extended invisible hit area — 20px grab zone */}
@@ -175,7 +204,7 @@ export function ResizeHandle({
           "absolute z-10",
           direction === "horizontal"
             ? "top-0 bottom-0 -left-[8px] -right-[8px] cursor-col-resize"
-            : "left-0 right-0 -top-[8px] -bottom-[8px] cursor-row-resize"
+            : "left-0 right-0 -top-[8px] -bottom-[8px] cursor-row-resize",
         )}
       />
       {/* Visible indicator line */}
@@ -185,7 +214,7 @@ export function ResizeHandle({
           "bg-border/40 group-hover:bg-primary/40",
           direction === "horizontal"
             ? "w-px h-6 left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 group-hover:h-10 group-hover:w-[2px]"
-            : "h-px w-6 top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 group-hover:w-10 group-hover:h-[2px]"
+            : "h-px w-6 top-1/2 -translate-y-1/2 left-1/2 -translate-x-1/2 group-hover:w-10 group-hover:h-[2px]",
         )}
       />
     </div>

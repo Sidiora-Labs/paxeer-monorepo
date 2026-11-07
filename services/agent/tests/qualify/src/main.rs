@@ -10,8 +10,6 @@ mod faults;
 mod fuzz;
 #[path = "../hostile_node.rs"]
 mod hostile_node;
-#[path = "../wire.rs"]
-mod wire;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -24,23 +22,7 @@ fn main() -> ExitCode {
         return ExitCode::FAILURE;
     };
     let result = if command == "wire" {
-        let Some(repository) = arguments.next().map(PathBuf::from) else {
-            eprintln!("wire gate is missing REPOSITORY");
-            return ExitCode::FAILURE;
-        };
-        let Some(reference) = arguments.next().map(PathBuf::from) else {
-            eprintln!("wire gate is missing C_REFERENCE");
-            return ExitCode::FAILURE;
-        };
-        let Some(harness) = arguments.next().map(PathBuf::from) else {
-            eprintln!("wire gate is missing HARNESS");
-            return ExitCode::FAILURE;
-        };
-        if arguments.next().is_some() {
-            Err("wire gate received an unexpected argument".to_owned())
-        } else {
-            wire::agent_qualify_wire_gate(&repository, &reference, &harness)
-        }
+        Err("wire gate is retired".to_owned())
     } else if command == "boundary" {
         let Some(repository) = arguments.next().map(PathBuf::from) else {
             eprintln!("boundary gate is missing REPOSITORY");

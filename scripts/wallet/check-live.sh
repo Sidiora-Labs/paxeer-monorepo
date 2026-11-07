@@ -3,21 +3,25 @@ set -euo pipefail
 
 usage() {
 	cat <<'EOF'
-usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | human | human-session
+usage: scripts/wallet/check-live.sh endpoint | attestors | gateway | cutover | human | human-session | ramp
 
 Checks a deployed wallet service against its live answers.
 
-endpoint  posts JSON-RPC to $CHECK_LIVE_ENDPOINT_BASE/rpc, a shared endpoint
-          running with the chain RPC configured and the kernel backends
-          unconfigured. CHECK_LIVE_ENDPOINT_BASE is required.
+endpoint  posts eth_chainId and the served px_ reads to the node root at
+          CHECK_LIVE_NODE_RPC_URL, default https://api1.mainnet-beta.paxeer.network/.
+          api2 through api14.mainnet-beta.paxeer.network are alternate nodes.
+          The URL must name the root, without the retired /rpc suffix.
+          Each result names its owner and URL. CHECK_LIVE_HOSTED_RPC_URL is
+          retained for hosted operations; endpoint mode does not call it.
 
 Checks, each printed as "pass <check> <observed>" or "fail <check> <observed>":
   eth_chainId        the chain id is 0x7d
   px_resolveAccount  a well-formed address resolves to a result with a boolean
                      bound field, never a transport or read error
-  px_getNetwork      kernel.available is false with a reason other than available
-  lx_getAccount      the answer is error -32010 with data.code kernel_unavailable,
-                     a named backend and a reason
+  px_getNetwork      paxeer.chain_id is 0x7d, with consensus an object or
+                     null with reason consensus_unavailable
+  px_getAccount      an EVM address resolves to an account document with bound
+                     and a Paxeer balance, nonce and height
 
 attestors reads GET <base>/health from every base in
           CHECK_LIVE_ATTESTOR_BASES and prints one line per node, then one
@@ -79,8 +83,14 @@ cutover   reads the public wallet hostname CHECK_LIVE_CUTOVER_HOST over https,
           Exits 0 only when both checks pass. The mode runs only after the
           endpoint has been cut over; without the variable it refuses.
 
+ramp      checks CHECK_LIVE_RAMP_BASE/readyz as local-journal readiness and
+          verifies that both internal work and rebalance routes refuse requests
+          without an operator bearer. It does not prove external settlement.
+
 Environment:
-  CHECK_LIVE_ENDPOINT_BASE   base URL of the endpoint, no trailing /rpc
+  CHECK_LIVE_RAMP_BASE      base URL of the reference ramp
+  CHECK_LIVE_NODE_RPC_URL    node root JSON-RPC URL (eth_ and served px_ reads)
+  CHECK_LIVE_HOSTED_RPC_URL  hosted service URL, unused by endpoint mode
   CHECK_LIVE_ATTESTOR_BASES  comma-separated base URLs of the attestor APIs
   CHECK_LIVE_CLIENT_CERT     client certificate presented to https bases
   CHECK_LIVE_CLIENT_KEY      key of the client certificate
@@ -108,7 +118,7 @@ case "$mode" in
 	usage
 	exit 0
 	;;
-endpoint | attestors | gateway | cutover | human | human-session) ;;
+endpoint | attestors | gateway | cutover | human | human-session | ramp) ;;
 *)
 	usage >&2
 	exit 2
@@ -449,6 +459,7 @@ else:
 		echo "check-live: $failures check(s) failed"
 		exit 1
 	fi
+	echo "pass human-evidence checks=live,preflight,plan"
 	echo "check-live: all checks passed"
 	exit 0
 }
@@ -695,6 +706,47 @@ print(("pass " if code == "200" and named and ready else "fail ") + line)
 	exit 0
 }
 
+ramp() {
+	local base="${CHECK_LIVE_RAMP_BASE:?CHECK_LIVE_RAMP_BASE is required}" path answer
+	local tls=()
+	if [ -n "${CHECK_LIVE_CA:-}" ]; then
+		tls=(--cacert "$CHECK_LIVE_CA")
+	fi
+	base="${base%/}"
+	for path in /readyz /internal/v1/work /internal/v1/rebalances; do
+		if [ "$path" = /readyz ]; then
+			answer="$(curl -fsS --max-time "$timeout" "${tls[@]}" -H 'Cache-Control: no-cache' "$base$path")" || return 1
+		else
+			answer="$(curl -sS --max-time "$timeout" "${tls[@]}" -w '\n%{http_code}' -H 'Content-Type: application/json' --data '{}' "$base$path")" || return 1
+		fi
+		printf '%s' "$answer" | python3 -c '
+import json
+import sys
+path = sys.argv[1]
+raw = sys.stdin.read()
+if path == "/readyz":
+    doc = json.loads(raw)
+    valid = (isinstance(doc, dict) and doc.get("ready") is True
+             and doc.get("readiness_scope") == "local-journal"
+             and doc.get("external_custody") is True
+             and type(doc.get("chain_id")) is int and doc["chain_id"] > 0
+             and isinstance(doc.get("journal"), dict)
+             and doc["journal"].get("ready") is True)
+else:
+    body, _, code = raw.rpartition("\n")
+    valid = code == "401" and json.loads(body) == {"error": "operator_authentication_required"}
+if not valid:
+    raise SystemExit("fail ramp " + path)
+print("pass ramp " + path)
+' "$path" || return 1
+	done
+}
+
+if [ "$mode" = ramp ]; then
+	ramp
+	exit $?
+fi
+
 if [ "$mode" = attestors ]; then
 	attestors
 fi
@@ -715,35 +767,47 @@ if [ "$mode" = gateway ]; then
 	gateway
 fi
 
-base="${CHECK_LIVE_ENDPOINT_BASE:-}"
-if [ -z "$base" ]; then
-	echo "check-live: CHECK_LIVE_ENDPOINT_BASE is required" >&2
-	usage >&2
-	exit 2
-fi
-base="${base%/}"
+node_rpc_url="${CHECK_LIVE_NODE_RPC_URL-https://api1.mainnet-beta.paxeer.network/}"
+python3 -c '
+import sys
+from urllib.parse import urlsplit
+try:
+    url = urlsplit(sys.argv[1])
+    valid = (url.scheme == "https" or (url.scheme == "http" and url.hostname in ("localhost", "127.0.0.1")))
+    valid = (valid and url.hostname and url.port != 0 and not url.username and not url.password
+             and url.path in ("", "/") and not url.query and not url.fragment
+             and "?" not in sys.argv[1] and "#" not in sys.argv[1]
+             and not any(c.isspace() for c in sys.argv[1]))
+except ValueError:
+    valid = False
+if not valid:
+    raise SystemExit("check-live: CHECK_LIVE_NODE_RPC_URL must name an HTTPS (or loopback HTTP) node root without a route suffix")
+' "$node_rpc_url" || exit 2
 
 failures=0
+account_address="0x000000000000000000000000000000000000dEaD"
 
 call() {
-	local method="$1" params="$2"
+	local url="$1" method="$2" params="$3"
 	curl -sS --max-time "$timeout" \
 		-H 'content-type: application/json' \
 		-X POST \
 		--data "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"$method\",\"params\":$params}" \
-		"$base/rpc" 2>&1
+		"$url" 2>&1
 }
 
 judge() {
-	local check="$1" status="$2" body="$3" verdict
+	local check="$1" status="$2" body="$3" owner="$4" url="$5" verdict
 	if [ "$status" -ne 0 ]; then
 		verdict="fail transport $(printf '%s' "$body" | tr '\n' ' ' | cut -c1-200)"
 	else
 		verdict="$(printf '%s' "$body" | python3 -c '
 import json
+import re
 import sys
 
 check = sys.argv[1]
+account_address = sys.argv[2].lower()
 raw = sys.stdin.read()
 try:
     doc = json.loads(raw)
@@ -771,55 +835,69 @@ elif check == "px_resolveAccount":
     else:
         print("fail " + show(error if error is not None else result))
 elif check == "px_getNetwork":
-    kernel = result.get("kernel") if error is None and isinstance(result, dict) else None
+    network = result if error is None and isinstance(result, dict) else {}
+    paxeer, consensus = network.get("paxeer"), network.get("consensus")
     if (
-        isinstance(kernel, dict)
-        and kernel.get("available") is False
-        and isinstance(kernel.get("reason"), str)
-        and kernel["reason"] not in ("", "available")
+        isinstance(paxeer, dict)
+        and paxeer.get("chain_id") == "0x7d"
+        and (
+            isinstance(consensus, dict)
+            or (
+                "consensus" in network
+                and consensus is None
+                and network.get("reason") == "consensus_unavailable"
+            )
+        )
     ):
-        print("pass kernel.available=false reason=" + kernel["reason"])
+        print("pass consensus=" + (str(consensus.get("latest_height")) if isinstance(consensus, dict) else "unavailable"))
     else:
-        print("fail " + show(kernel if kernel is not None else (error if error is not None else result)))
-elif check == "lx_getAccount":
-    data = error.get("data") if isinstance(error, dict) else None
+        print("fail " + show(error if error is not None else result))
+elif check == "px_getAccount":
+    account = result.get("account") if isinstance(result, dict) else None
+    paxeer = result.get("paxeer") if isinstance(result, dict) else None
     if (
-        result is None
-        and isinstance(error, dict)
-        and error.get("code") == -32010
-        and isinstance(data, dict)
-        and data.get("code") == "kernel_unavailable"
-        and isinstance(data.get("backend"), str)
-        and data["backend"] != ""
-        and isinstance(data.get("reason"), str)
-        and data["reason"] != ""
+        error is None
+        and isinstance(account, dict)
+        and isinstance(account.get("bound"), bool)
+        and isinstance(account.get("evm_address"), str)
+        and account["evm_address"].lower() == account_address
+        and isinstance(paxeer, dict)
+        and isinstance(paxeer.get("address"), str)
+        and paxeer["address"].lower() == account_address
+        and all(
+            isinstance(paxeer.get(field), str)
+            and re.fullmatch(r"0x(?:0|[1-9a-fA-F][0-9a-fA-F]*)", paxeer[field])
+            for field in ("balance", "nonce")
+        )
+        and type(paxeer.get("height")) is int
+        and paxeer["height"] >= 0
     ):
-        print("pass code=-32010 backend=" + data["backend"] + " reason=" + data["reason"])
+        print("pass bound=" + str(account["bound"]).lower() + " height=" + str(paxeer["height"]))
     else:
         print("fail " + show(error if error is not None else result))
 else:
     print("fail unknown-check")
-' "$check")"
+' "$check" "$account_address")"
 	fi
 	case "$verdict" in
-	pass\ *) echo "pass $check ${verdict#pass }" ;;
+	pass\ *) echo "pass $check owner=$owner url=$url ${verdict#pass }" ;;
 	*)
-		echo "fail $check ${verdict#fail }"
+		echo "fail $check owner=$owner url=$url ${verdict#fail }"
 		failures=$((failures + 1))
 		;;
 	esac
 }
 
 run() {
-	local check="$1" params="$2" body status=0
-	body="$(call "$check" "$params")" || status=$?
-	judge "$check" "$status" "$body"
+	local owner="$1" url="$2" check="$3" params="$4" body status=0
+	body="$(call "$url" "$check" "$params")" || status=$?
+	judge "$check" "$status" "$body" "$owner" "$url"
 }
 
-run eth_chainId '[]'
-run px_resolveAccount '["0x000000000000000000000000000000000000dEaD"]'
-run px_getNetwork '[]'
-run lx_getAccount "[\"$(printf 'ab%.0s' $(seq 32))\"]"
+run node "$node_rpc_url" eth_chainId '[]'
+run node "$node_rpc_url" px_resolveAccount "[\"$account_address\"]"
+run node "$node_rpc_url" px_getNetwork '[]'
+run node "$node_rpc_url" px_getAccount "[\"$account_address\"]"
 
 if [ "$failures" -ne 0 ]; then
 	echo "check-live: $failures check(s) failed"

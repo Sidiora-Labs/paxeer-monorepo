@@ -1,3 +1,5 @@
+import { parseTransaction } from 'viem';
+import { nodeVector, receiptWireKeys } from './support/receipt-recordings.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -41,7 +43,7 @@ import {
   type SponsoredBatch,
   type SponsoredConsent,
 } from '@sidiora/layerx-sdk';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, test } from 'vitest';
 
 import * as walletSdk from '../src/index.js';
 import {
@@ -49,12 +51,14 @@ import {
   FEE_TOKEN_PRECOMPILE,
   GasStationError,
   HOLDER_RECORDS_PAGE,
+  JsonRpcClient,
   LEDGER_PRECOMPILE_LOG_FLOOR,
   LEDGER_PRECOMPILE,
   PAYER_GRANT_BYTES,
   ModuleError,
   PaxeerProvider,
   RpcResponseError,
+  SPONSORED_QUOTE_PATH,
   SPONSORED_SUBMIT_PATH,
   WEB_DATA_EVENTS,
   bridge,
@@ -68,6 +72,7 @@ import {
   gasStation,
   launchpad,
   ledgerLogFloor,
+  sendModuleTransactionReceipted,
   toWireConstruction,
   webData,
   type ModuleProvider,
@@ -83,14 +88,20 @@ type AbiEntry = { type: string; name?: string; inputs?: AbiInput[] };
 type EventVector = { event: string; fields: Record<string, string | boolean> };
 
 const root = new URL('../../../', import.meta.url);
-const calls = JSON.parse(readFileSync(new URL('./fixtures/modules/calls.json', import.meta.url), 'utf8')) as Json;
-const eventVectors = JSON.parse(readFileSync(new URL('./fixtures/modules/events.json', import.meta.url), 'utf8')) as Record<
-  string,
-  EventVector[]
->;
+const calls = JSON.parse(
+  readFileSync(new URL('./fixtures/modules/calls.json', import.meta.url), 'utf8')
+) as Json;
+const eventVectors = JSON.parse(
+  readFileSync(new URL('./fixtures/modules/events.json', import.meta.url), 'utf8')
+) as Record<string, EventVector[]>;
 
 function abi(name: string): AbiEntry[] {
-  return JSON.parse(readFileSync(new URL(`precompiles/${name === 'perps' ? 'perps/abi' : name}/abi.json`, root), 'utf8')) as AbiEntry[];
+  return JSON.parse(
+    readFileSync(
+      new URL(`precompiles/${name === 'perps' ? 'perps/abi' : name}/abi.json`, root),
+      'utf8'
+    )
+  ) as AbiEntry[];
 }
 
 function section(name: string): Json {
@@ -117,7 +128,9 @@ function selectors(entries: AbiEntry[]): Set<string> {
   return new Set(
     entries
       .filter((entry) => entry.type === 'function')
-      .map((entry) => abiSelector(`${entry.name}(${(entry.inputs ?? []).map((input) => input.type).join(',')})`)),
+      .map((entry) =>
+        abiSelector(`${entry.name}(${(entry.inputs ?? []).map((input) => input.type).join(',')})`)
+      )
   );
 }
 
@@ -126,16 +139,28 @@ function word(type: string, value: string | boolean): string {
   if (type === 'bytes32') return text(value).slice(2).toLowerCase();
   if (type === 'bool') return (value ? 1n : 0n).toString(16).padStart(64, '0');
   if (type === 'bytes16') return text(value).slice(2).toLowerCase().padEnd(64, '0');
-  if (type === 'int256') return BigInt.asUintN(256, BigInt(value as string)).toString(16).padStart(64, '0');
-  return BigInt(value as string).toString(16).padStart(64, '0');
+  if (type === 'int256')
+    return BigInt.asUintN(256, BigInt(value as string))
+      .toString(16)
+      .padStart(64, '0');
+  return BigInt(value as string)
+    .toString(16)
+    .padStart(64, '0');
 }
 
 function tail(bytes: Uint8Array): string {
   const body = Buffer.from(bytes).toString('hex');
-  return BigInt(bytes.length).toString(16).padStart(64, '0') + body.padEnd(Math.ceil(body.length / 64) * 64, '0');
+  return (
+    BigInt(bytes.length).toString(16).padStart(64, '0') +
+    body.padEnd(Math.ceil(body.length / 64) * 64, '0')
+  );
 }
 
-function encodeLog(address: string, entry: AbiEntry, fields: Record<string, string | boolean>): { address: string; topics: string[]; data: string } {
+function encodeLog(
+  address: string,
+  entry: AbiEntry,
+  fields: Record<string, string | boolean>
+): { address: string; topics: string[]; data: string } {
   const inputs = entry.inputs ?? [];
   const topics = [abiEventTopic(`${entry.name}(${inputs.map((input) => input.type).join(',')})`)];
   const body = inputs.filter((input) => !input.indexed);
@@ -148,7 +173,9 @@ function encodeLog(address: string, entry: AbiEntry, fields: Record<string, stri
     if (input.indexed) {
       topics.push(`0x${word(input.type, value)}`);
     } else if (input.type === 'string' || input.type === 'bytes') {
-      const encoded = tail(input.type === 'string' ? new TextEncoder().encode(text(value)) : unhex(text(value)));
+      const encoded = tail(
+        input.type === 'string' ? new TextEncoder().encode(text(value)) : unhex(text(value))
+      );
       heads.push(offset.toString(16).padStart(64, '0'));
       tails.push(encoded);
       offset += encoded.length / 2;
@@ -159,12 +186,17 @@ function encodeLog(address: string, entry: AbiEntry, fields: Record<string, stri
   return { address, topics, data: `0x${heads.join('')}${tails.join('')}` };
 }
 
-function expected(entry: AbiEntry, fields: Record<string, string | boolean>): Record<string, bigint | boolean | string> {
+function expected(
+  entry: AbiEntry,
+  fields: Record<string, string | boolean>
+): Record<string, bigint | boolean | string> {
   const out: Record<string, bigint | boolean | string> = {};
   for (const input of entry.inputs ?? []) {
     const value = fields[input.name] as string | boolean;
-    if (input.type.startsWith('uint') || input.type.startsWith('int')) out[input.name] = BigInt(value as string);
-    else if (typeof value === 'string' && input.type !== 'string') out[input.name] = value.toLowerCase();
+    if (input.type.startsWith('uint') || input.type.startsWith('int'))
+      out[input.name] = BigInt(value as string);
+    else if (typeof value === 'string' && input.type !== 'string')
+      out[input.name] = value.toLowerCase();
     else out[input.name] = value;
   }
   return out;
@@ -174,10 +206,15 @@ function checkEvents(
   vectors: EventVector[],
   entries: AbiEntry[],
   address: string,
-  decode: (log: { address: string; topics: string[]; data: string }) => { event: string; fields: Record<string, unknown> },
+  decode: (log: { address: string; topics: string[]; data: string }) => {
+    event: string;
+    fields: Record<string, unknown>;
+  }
 ): number {
   const events = entries.filter((entry) => entry.type === 'event');
-  expect(vectors.map((vector) => vector.event).sort()).toEqual(events.map((entry) => entry.name).sort());
+  expect(vectors.map((vector) => vector.event).sort()).toEqual(
+    events.map((entry) => entry.name).sort()
+  );
   for (const vector of vectors) {
     const entry = events.find((candidate) => candidate.name === vector.event);
     if (entry === undefined) throw new Error(`no ABI event ${vector.event}`);
@@ -201,7 +238,12 @@ function fill(byte: number, length: number): string {
   return `0x${byte.toString(16).padStart(2, '0').repeat(length)}`;
 }
 
-function grantFixture(seed: number, recurring: boolean, hasReference: boolean, revoked: boolean): WebPayerGrant {
+function grantFixture(
+  seed: number,
+  recurring: boolean,
+  hasReference: boolean,
+  revoked: boolean
+): WebPayerGrant {
   return {
     grantId: fill(seed, 32),
     from: fill(seed + 1, 32),
@@ -228,7 +270,8 @@ function grantFixture(seed: number, recurring: boolean, hasReference: boolean, r
 }
 
 function grantWire(grant: WebPayerGrant): Uint8Array {
-  const be = (value: bigint, length: number): string => value.toString(16).padStart(length * 2, '0');
+  const be = (value: bigint, length: number): string =>
+    value.toString(16).padStart(length * 2, '0');
   const flag = (value: boolean): string => (value ? '01' : '00');
   const wire = unhex(
     `0x${[
@@ -247,7 +290,7 @@ function grantWire(grant: WebPayerGrant): Uint8Array {
       be(grant.revocationSequence, 8),
       grant.publicKey.slice(2),
       grant.signature.slice(2),
-    ].join('')}`,
+    ].join('')}`
   );
   expect(wire.length).toBe(PAYER_GRANT_BYTES);
   return wire;
@@ -276,16 +319,23 @@ class ViewChain implements ModuleProvider {
     if (argument.method !== 'eth_call') throw new Error(`method not found: ${argument.method}`);
     const [call, block] = params as [{ to: string; data: string }, string];
     const answer = this.answers.get(`${call.to}:${call.data}`);
-    if (block !== 'latest' || answer === undefined) throw new Error('execution reverted: LXP_NO_PAYER_GRANT');
+    if (block !== 'latest' || answer === undefined)
+      throw new Error('execution reverted: LXP_NO_PAYER_GRANT');
     return answer;
   }
 }
 
 function viewChain(grants: readonly WebPayerGrant[]): ViewChain {
   const chain = new ViewChain();
-  chain.answers.set(`${XWEB_PRECOMPILE}:${FEE_SELECTOR}`, `0x${word('uint256', XWEB_FEE.toString())}`);
+  chain.answers.set(
+    `${XWEB_PRECOMPILE}:${FEE_SELECTOR}`,
+    `0x${word('uint256', XWEB_FEE.toString())}`
+  );
   for (const grant of grants) {
-    chain.answers.set(`${LEDGER_PRECOMPILE}:${GET_PAYER_GRANT_SELECTOR}${grant.grantId.slice(2)}`, getPayerGrantAnswer(grant));
+    chain.answers.set(
+      `${LEDGER_PRECOMPILE}:${GET_PAYER_GRANT_SELECTOR}${grant.grantId.slice(2)}`,
+      getPayerGrantAnswer(grant)
+    );
   }
   return chain;
 }
@@ -312,7 +362,11 @@ function batchFromConstruction(construction: SponsoredBatchConstruction): Sponso
     chainId: BigInt(construction.chainId),
     account: construction.account,
     nonce: BigInt(construction.nonce),
-    calls: construction.calls.map((call) => ({ to: call.to, value: BigInt(call.value), data: call.data })),
+    calls: construction.calls.map((call) => ({
+      to: call.to,
+      value: BigInt(call.value),
+      data: call.data,
+    })),
     quote: {
       sponsor: construction.quote.sponsor,
       token: construction.quote.token,
@@ -343,27 +397,43 @@ const signer: ModuleProvider & { readonly isPaxeer: true } = {
     if (argument.method === 'eth_chainId') return `0x${chainId.toString(16)}`;
     if (argument.method === 'eth_getCode') {
       const [target, block] = params as [string, string];
-      if (target !== account || block !== 'latest') throw new Error('refused eth_getCode');
+      if (target !== account || block !== 'pending') throw new Error('refused eth_getCode');
       return `0xef0100${paymaster.slice(2)}`;
     }
     if (argument.method === 'eth_call') {
       const [call, block] = params as [{ to: string; data: string }, string];
-      if (params.length !== 2 || call.to !== account || call.data !== NONCE_SELECTOR || block !== 'latest') throw new Error('refused eth_call');
+      if (
+        params.length !== 2 ||
+        call.to !== account ||
+        call.data !== NONCE_SELECTOR ||
+        block !== 'pending'
+      )
+        throw new Error('refused eth_call');
       return `0x${word('uint64', BATCH_NONCE.toString())}`;
     }
     if (argument.method === 'eth_getTransactionCount') {
       const [target, block] = params as [string, string];
-      if (target !== account || block !== 'latest') throw new Error('refused eth_getTransactionCount');
+      if (target !== account || block !== 'latest')
+        throw new Error('refused eth_getTransactionCount');
       return `0x${PENDING_NONCE.toString(16)}`;
     }
     if (argument.method === 'eth_sign') {
       const [from, digest, fields] = params as [string, string, { kind: string }];
       if (from.toLowerCase() !== account) throw new Error('refused account');
       if (fields.kind === 'eip7702_authorization') {
-        const authorization = fields as { kind: string; chainId: string; address: string; nonce: string };
+        const authorization = fields as {
+          kind: string;
+          chainId: string;
+          address: string;
+          nonce: string;
+        };
         if (Object.keys(authorization).length !== 4) throw new Error('refused authorization');
         const recomputed = value(
-          eip7702AuthorizationDigest({ chainId: BigInt(authorization.chainId), address: authorization.address, nonce: BigInt(authorization.nonce) }),
+          eip7702AuthorizationDigest({
+            chainId: BigInt(authorization.chainId),
+            address: authorization.address,
+            nonce: BigInt(authorization.nonce),
+          })
         );
         if (digest !== recomputed) throw new Error('refused digest');
         return signDigest(recomputed, accountKey);
@@ -380,7 +450,38 @@ const signer: ModuleProvider & { readonly isPaxeer: true } = {
 
 const submissions: SponsoredAdapterRequest[] = [];
 const answers: SponsoredSubmissionEvidence[] = [];
+const budgetQuote = { gasCost: '300000000000000', dailyRemaining: '9750000' };
+const quoteRequests: {
+  method: string;
+  path: string;
+  authorization: string | undefined;
+  body: unknown;
+}[] = [];
 const rpcCalls: { authorization: string | undefined; body: Json }[] = [];
+const moduleReceiptFixtures = JSON.parse(
+  readFileSync(new URL('./fixtures/sequencer-receipt.json', import.meta.url), 'utf8')
+) as Record<'submitted' | 'receipted' | 'committed', Json>;
+const bridgeRecording = nodeVector('V1-layerxbridge-bridge-out');
+const bridgeReceiptVector = {
+  event: 'BridgeOut',
+  fields: {
+    chain: '1',
+    asset: '0x5fbdb2315678afecb367f032d93f642f64180aa3',
+    amount: '5000000000000000000',
+    recipient: '0x3c44cdddb6a900fa2b585dd299e03d12fa4293bc',
+    nonce: '7',
+  },
+};
+const bridgeReceiptEvent = abi('layerxbridge').find(
+  (entry) => entry.type === 'event' && entry.name === bridgeReceiptVector.event
+)!;
+const moduleReceipted = bridgeRecording.receiptJson;
+const moduleSubmitted = {
+  rung: 'submitted',
+  txHash: moduleReceipted.txHash,
+  nonce: moduleReceipted.nonce,
+};
+const moduleReceiptRequests: { scenario: string; method: string; params: unknown[] }[] = [];
 let server: Server;
 let gatewayUrl: string;
 let holderAnswer: ((params: unknown[]) => unknown) | null = null;
@@ -389,18 +490,112 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
   const chunks: Buffer[] = [];
   req.on('data', (chunk: Buffer) => chunks.push(chunk));
   req.on('end', () => {
+    if (req.method === 'POST' && req.url?.startsWith('/module-receipts/')) {
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number;
+        method: string;
+        params: unknown[];
+      };
+      const scenario = req.url.slice('/module-receipts/'.length);
+      moduleReceiptRequests.push({ scenario, method: body.method, params: body.params });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      if (body.method === 'px_getReceiptKeys') {
+        res.end(
+          JSON.stringify({ jsonrpc: '2.0', id: body.id, result: receiptWireKeys(moduleReceipted) })
+        );
+      } else if (body.method === 'paxeer_sendTransactionReceipted') {
+        const code =
+          scenario === 'injected'
+            ? 4200
+            : scenario === 'rejected'
+              ? 4001
+              : scenario === 'unavailable'
+                ? -32010
+                : null;
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            ...(code === null
+              ? {
+                  result: scenario === 'submitted' ? moduleSubmitted : moduleReceipted,
+                }
+              : { error: { code, message: scenario } }),
+          })
+        );
+      } else if (scenario === 'injected' && body.method === 'eth_sendTransaction') {
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: moduleSubmitted.txHash,
+          })
+        );
+      } else if (scenario === 'injected' && body.method === 'pax_sequencerReceipt') {
+        const polls = moduleReceiptRequests.filter(
+          (request) => request.scenario === scenario && request.method === body.method
+        ).length;
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: polls === 1 ? moduleSubmitted : moduleReceipted,
+          })
+        );
+      } else {
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            error: { code: -32601, message: 'method not found' },
+          })
+        );
+      }
+      return;
+    }
     if (req.method === 'POST' && req.url === '/rpc') {
       const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as Json;
       rpcCalls.push({ authorization: req.headers.authorization, body });
       res.writeHead(200, { 'content-type': 'application/json' });
       if (holderAnswer !== null && body.method === 'px_listHolderRecords') {
-        res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, result: holderAnswer(body.params as unknown[]) }));
+        res.end(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: body.id,
+            result: holderAnswer(body.params as unknown[]),
+          })
+        );
         return;
       }
-      res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, error: { code: -32601, message: 'method not found' } }));
+      res.end(
+        JSON.stringify({
+          jsonrpc: '2.0',
+          id: body.id,
+          error: { code: -32601, message: 'method not found' },
+        })
+      );
       return;
     }
-    if (req.method !== 'POST' || req.url !== SPONSORED_SUBMIT_PATH || req.headers.authorization !== 'Bearer session-token') {
+    if (
+      req.method === 'POST' &&
+      req.url === SPONSORED_QUOTE_PATH &&
+      req.headers.authorization === 'Bearer session-token'
+    ) {
+      quoteRequests.push({
+        method: req.method,
+        path: req.url,
+        authorization: req.headers.authorization,
+        body: JSON.parse(Buffer.concat(chunks).toString('utf8')),
+      });
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(budgetQuote));
+      return;
+    }
+    if (
+      req.method !== 'POST' ||
+      req.url !== SPONSORED_SUBMIT_PATH ||
+      req.headers.authorization !== 'Bearer session-token'
+    ) {
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'not_found' }));
       return;
@@ -411,6 +606,7 @@ function handle(req: IncomingMessage, res: ServerResponse): void {
     const answer: SponsoredSubmissionEvidence = {
       tx_hash: transactionHash,
       status: 'pending',
+      receipt: null,
       station: {
         state: 'pending',
         deadline: body.construction.quote.deadline,
@@ -432,7 +628,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await new Promise<void>((resolve, reject) => server.close((err) => (err ? reject(err) : resolve())));
+  await new Promise<void>((resolve, reject) =>
+    server.close((err) => (err ? reject(err) : resolve()))
+  );
 });
 
 describe('modules', () => {
@@ -452,8 +650,14 @@ describe('modules', () => {
     const orderId = big((args.cancelOrder as Json).orderId);
     const positionId = big((args.closePosition as Json).positionId);
     const pairs: Array<[PrecompileCall, PrecompileCall]> = [
-      [module.deposit(text(deposit.token), big(deposit.amount)), perpsDepositCall(text(deposit.token), big(deposit.amount))],
-      [module.withdraw(text(withdraw.token), big(withdraw.amount)), perpsWithdrawCall(text(withdraw.token), big(withdraw.amount))],
+      [
+        module.deposit(text(deposit.token), big(deposit.amount)),
+        perpsDepositCall(text(deposit.token), big(deposit.amount)),
+      ],
+      [
+        module.withdraw(text(withdraw.token), big(withdraw.amount)),
+        perpsWithdrawCall(text(withdraw.token), big(withdraw.amount)),
+      ],
       [module.openPosition(order), perpsOpenPositionCall(order)],
       [module.cancelOrder(orderId), perpsCancelOrderCall(orderId)],
       [module.closePosition(positionId), perpsClosePositionCall(positionId)],
@@ -465,9 +669,53 @@ describe('modules', () => {
       expect(ours.value).toBe(0n);
       expect(known.has(ours.data.slice(0, 10))).toBe(true);
     }
+    const openAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'openPosition'
+    );
+    const cancelAbi = abi('perps').find(
+      (entry) => entry.type === 'function' && entry.name === 'cancelOrder'
+    );
+    if (!openAbi?.inputs || !cancelAbi?.inputs) throw new Error('missing perps open/cancel ABI');
+    expect(openAbi.inputs.map((input) => input.type)).toEqual([
+      'uint256',
+      'address',
+      'uint256',
+      'uint256',
+      'bool',
+    ]);
+    expect(cancelAbi.inputs.map((input) => input.type)).toEqual(['uint256']);
+    const openSelector = abiSelector(
+      `openPosition(${openAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    const cancelSelector = abiSelector(
+      `cancelOrder(${cancelAbi.inputs.map((input) => input.type).join(',')})`
+    );
+    expect(module.openPosition(order).data).toBe(
+      openSelector +
+        [
+          word('uint256', order.marketId.toString()),
+          word('address', order.collateralToken),
+          word('uint256', order.collateralAmount.toString()),
+          word('uint256', order.leverage.toString()),
+          word('bool', order.isLong),
+        ].join('')
+    );
+    expect(module.cancelOrder(orderId).data).toBe(
+      cancelSelector + word('uint256', orderId.toString())
+    );
+    expect(module.openPosition({ ...order, isLong: false }).data).toBe(
+      perpsOpenPositionCall({ ...order, isLong: false }).data
+    );
     expect(known.has(abiSelector('placeOrder(bytes32,uint8,uint256,uint256,uint8)'))).toBe(false);
     const moved = exchange(signer, '0x00000000000000000000000000000000000A1015');
-    expect(moved.openPosition(order)).toEqual({ ...perpsOpenPositionCall(order), to: '0x00000000000000000000000000000000000a1015' });
+    expect(moved.openPosition(order)).toEqual({
+      ...perpsOpenPositionCall(order),
+      to: '0x00000000000000000000000000000000000a1015',
+    });
+    expect(moved.cancelOrder(orderId)).toEqual({
+      ...perpsCancelOrderCall(orderId),
+      to: '0x00000000000000000000000000000000000a1015',
+    });
   });
 
   it('modules_bridge calldata equals the agent SDK builders and the ABI selectors', () => {
@@ -489,8 +737,18 @@ describe('modules', () => {
     const pairs: Array<[PrecompileCall, PrecompileCall]> = [
       [module.bridgeIn(attestation), bridgeInCall(attestation)],
       [
-        module.bridgeOut(big(outbound.chain), text(outbound.asset), big(outbound.amount), text(outbound.recipient)),
-        bridgeOutCall(big(outbound.chain), text(outbound.asset), big(outbound.amount), text(outbound.recipient)),
+        module.bridgeOut(
+          big(outbound.chain),
+          text(outbound.asset),
+          big(outbound.amount),
+          text(outbound.recipient)
+        ),
+        bridgeOutCall(
+          big(outbound.chain),
+          text(outbound.asset),
+          big(outbound.amount),
+          text(outbound.recipient)
+        ),
       ],
     ];
     for (const [ours, theirs] of pairs) {
@@ -504,7 +762,12 @@ describe('modules', () => {
     const module = launchpad(signer);
     const swap = (entry: unknown) => {
       const order = entry as Json;
-      return { pool: text(order.pool), amountIn: big(order.amountIn), minOut: big(order.minOut), deadline: big(order.deadline) };
+      return {
+        pool: text(order.pool),
+        amountIn: big(order.amountIn),
+        minOut: big(order.minOut),
+        deadline: big(order.deadline),
+      };
     };
     const market = args.createMarket as Json;
     const strategy = args.setFeeStrategy as Json;
@@ -514,20 +777,35 @@ describe('modules', () => {
       [module.sell(swap(args.sell)), launchpadSellCall(swap(args.sell))],
       [
         module.createMarket(text(market.name), text(market.symbol), market.feeStrategy as number),
-        launchpadCreateMarketCall(text(market.name), text(market.symbol), market.feeStrategy as number),
+        launchpadCreateMarketCall(
+          text(market.name),
+          text(market.symbol),
+          market.feeStrategy as number
+        ),
       ],
       [
-        module.createMarket(text(market.name), text(market.symbol), market.feeStrategy as number, text(market.optical)),
-        launchpadCreateMarketCall(text(market.name), text(market.symbol), market.feeStrategy as number, text(market.optical)),
+        module.createMarket(
+          text(market.name),
+          text(market.symbol),
+          market.feeStrategy as number,
+          text(market.optical)
+        ),
+        launchpadCreateMarketCall(
+          text(market.name),
+          text(market.symbol),
+          market.feeStrategy as number,
+          text(market.optical)
+        ),
       ],
       [
         module.setFeeStrategy(big(strategy.nftId), strategy.feeStrategy as number),
         launchpadSetFeeStrategyCall(big(strategy.nftId), strategy.feeStrategy as number),
       ],
       [module.claimFees(big(claim.nftId)), launchpadClaimFeesCall(big(claim.nftId))],
-      ...(args.nftWrite as LaunchpadNftWrite[]).map(
-        (write): [PrecompileCall, PrecompileCall] => [module.nftWrite(write, big(claim.nftId)), launchpadNftCall(write, big(claim.nftId))],
-      ),
+      ...(args.nftWrite as LaunchpadNftWrite[]).map((write): [PrecompileCall, PrecompileCall] => [
+        module.nftWrite(write, big(claim.nftId)),
+        launchpadNftCall(write, big(claim.nftId)),
+      ]),
     ];
     const known = selectors(abi('launchpad'));
     expect(pairs).toHaveLength(10);
@@ -542,10 +820,24 @@ describe('modules', () => {
     const module = feeToken(signer);
     const known = selectors(abi('feetoken'));
     const set = module.setFeeDenom(text(args.denom));
-    expect(set).toEqual({ to: FEE_TOKEN_PRECOMPILE, data: encodeAbiCall('setFeeDenom', ['string'], [text(args.denom)]), value: 0n });
-    expect(module.clearFeeDenom()).toEqual({ to: FEE_TOKEN_PRECOMPILE, data: abiSelector('clearFeeDenom()'), value: 0n });
-    expect(module.getFeeDenomCallData(text(args.account))).toBe(encodeAbiCall('getFeeDenom', ['address'], [text(args.account)]));
-    for (const data of [set.data, module.clearFeeDenom().data, module.getFeeDenomCallData(text(args.account))]) {
+    expect(set).toEqual({
+      to: FEE_TOKEN_PRECOMPILE,
+      data: encodeAbiCall('setFeeDenom', ['string'], [text(args.denom)]),
+      value: 0n,
+    });
+    expect(module.clearFeeDenom()).toEqual({
+      to: FEE_TOKEN_PRECOMPILE,
+      data: abiSelector('clearFeeDenom()'),
+      value: 0n,
+    });
+    expect(module.getFeeDenomCallData(text(args.account))).toBe(
+      encodeAbiCall('getFeeDenom', ['address'], [text(args.account)])
+    );
+    for (const data of [
+      set.data,
+      module.clearFeeDenom().data,
+      module.getFeeDenomCallData(text(args.account)),
+    ]) {
       expect(known.has(data.slice(0, 10))).toBe(true);
     }
     const answer = `0x${encodeAbiCall('getFeeDenom', ['string'], [text(args.denom)]).slice(10)}`;
@@ -563,8 +855,12 @@ describe('modules', () => {
     const attestors = { attestors: [], required: 0 };
     const built = module.buildApiRequest(apiCall, attestors);
     expect(built).toEqual(buildXWebApiRequest(apiCall, attestors));
-    expect(module.api(built, callbackGas, fee)).toEqual(xwebApiRequestCall(built.payload, callbackGas, fee));
-    expect(module.request(3, built.payload, callbackGas, fee)).toEqual(xwebApiRequestCall(built.payload, callbackGas, fee));
+    expect(module.api(built, callbackGas, fee)).toEqual(
+      xwebApiRequestCall(built.payload, callbackGas, fee)
+    );
+    expect(module.request(3, built.payload, callbackGas, fee)).toEqual(
+      xwebApiRequestCall(built.payload, callbackGas, fee)
+    );
     const known = selectors(abi('xweb'));
     for (const [tx, kind, payload] of [
       [module.fetch(text(args.fetch), callbackGas, fee), 1n, text(args.fetch)],
@@ -582,7 +878,11 @@ describe('modules', () => {
       expect(known.has(tx.data.slice(0, 10))).toBe(true);
     }
     const refund = module.refund(big(args.refund));
-    expect(refund).toEqual({ to: XWEB_PRECOMPILE, data: encodeAbiCall('refund', ['uint64'], [7n]), value: 0n });
+    expect(refund).toEqual({
+      to: XWEB_PRECOMPILE,
+      data: encodeAbiCall('refund', ['uint64'], [7n]),
+      value: 0n,
+    });
     expect(known.has(refund.data.slice(0, 10))).toBe(true);
     expect(() => module.fetch('', callbackGas, fee)).toThrow(ModuleError);
   });
@@ -590,24 +890,40 @@ describe('modules', () => {
   it('acceptance 5.40.1: fee() eth_calls fee() on 0x1019 and decodes the uint256 answer', async () => {
     const chain = viewChain([]);
     expect(await webData(chain).fee()).toBe(XWEB_FEE);
-    expect(chain.requests).toEqual([{ method: 'eth_call', params: [{ to: XWEB_PRECOMPILE, data: '0xddca3f43' }, 'latest'] }]);
+    expect(chain.requests).toEqual([
+      { method: 'eth_call', params: [{ to: XWEB_PRECOMPILE, data: '0xddca3f43' }, 'latest'] },
+    ]);
     expect(FEE_SELECTOR).toBe('0xddca3f43');
     expect(selectors(abi('xweb')).has(FEE_SELECTOR)).toBe(true);
     const max = (1n << 256n) - 1n;
     chain.answers.set(`${XWEB_PRECOMPILE}:${FEE_SELECTOR}`, `0x${word('uint256', max.toString())}`);
     expect(await webData(chain).fee()).toBe(max);
     chain.answers.set(`${XWEB_PRECOMPILE}:${FEE_SELECTOR}`, `0x${word('uint256', '1')}00`);
-    await expect(webData(chain).fee()).rejects.toMatchObject({ code: 'invalid_answer', field: 'uint' });
+    await expect(webData(chain).fee()).rejects.toMatchObject({
+      code: 'invalid_answer',
+      field: 'uint',
+    });
   });
 
   it('acceptance 5.40.2: caps() reads xweb fee() and layerxledger getPayerGrant through eth_call only', async () => {
     const recurring = grantFixture(0x11, true, true, false);
     const single = grantFixture(0xa1, false, false, true);
     const chain = viewChain([recurring, single]);
-    const caps = await webData(chain).caps([recurring.grantId, single.grantId.toUpperCase().replace('0X', '0x')]);
+    const caps = await webData(chain).caps([
+      recurring.grantId,
+      single.grantId.toUpperCase().replace('0X', '0x'),
+    ]);
     expect(caps).toEqual({ fee: XWEB_FEE, grants: [recurring, single] });
-    expect(Object.isFrozen(caps) && Object.isFrozen(caps.grants) && caps.grants.every((grant) => Object.isFrozen(grant))).toBe(true);
-    expect(chain.requests.map((request) => request.method)).toEqual(['eth_call', 'eth_call', 'eth_call']);
+    expect(
+      Object.isFrozen(caps) &&
+        Object.isFrozen(caps.grants) &&
+        caps.grants.every((grant) => Object.isFrozen(grant))
+    ).toBe(true);
+    expect(chain.requests.map((request) => request.method)).toEqual([
+      'eth_call',
+      'eth_call',
+      'eth_call',
+    ]);
     expect(chain.requests.some((request) => request.method === 'lx_getWalletCaps')).toBe(false);
     expect(chain.requests.map((request) => request.params)).toEqual([
       [{ to: XWEB_PRECOMPILE, data: FEE_SELECTOR }, 'latest'],
@@ -619,14 +935,20 @@ describe('modules', () => {
 
     const empty = viewChain([]);
     expect(await webData(empty).caps([])).toEqual({ fee: XWEB_FEE, grants: [] });
-    expect(empty.requests).toEqual([{ method: 'eth_call', params: [{ to: XWEB_PRECOMPILE, data: FEE_SELECTOR }, 'latest'] }]);
+    expect(empty.requests).toEqual([
+      { method: 'eth_call', params: [{ to: XWEB_PRECOMPILE, data: FEE_SELECTOR }, 'latest'] },
+    ]);
 
-    await expect(webData(chain).caps(['0x1234'])).rejects.toMatchObject({ code: 'invalid_value', field: 'grantId' });
+    await expect(webData(chain).caps(['0x1234'])).rejects.toMatchObject({
+      code: 'invalid_value',
+      field: 'grantId',
+    });
     await expect(webData(chain).caps([fill(0x99, 32)])).rejects.toThrow('LXP_NO_PAYER_GRANT');
 
     const key = `${LEDGER_PRECOMPILE}:${GET_PAYER_GRANT_SELECTOR}${recurring.grantId.slice(2)}`;
     const good = getPayerGrantAnswer(recurring);
-    const patch = (offset: number, value: string): string => `${good.slice(0, 2 + offset * 2)}${value}${good.slice(2 + offset * 2 + value.length)}`;
+    const patch = (offset: number, value: string): string =>
+      `${good.slice(0, 2 + offset * 2)}${value}${good.slice(2 + offset * 2 + value.length)}`;
     const wire = 8 * 32;
     for (const bad of [
       good.slice(0, -2),
@@ -643,12 +965,17 @@ describe('modules', () => {
       patch(wire, '12'),
     ]) {
       chain.answers.set(key, bad);
-      await expect(webData(chain).caps([recurring.grantId])).rejects.toMatchObject({ code: 'invalid_answer', field: 'getPayerGrant' });
+      await expect(webData(chain).caps([recurring.grantId])).rejects.toMatchObject({
+        code: 'invalid_answer',
+        field: 'getPayerGrant',
+      });
     }
   });
 
   it('caps() reads payer grants in bounded batches, never all ids at once', async () => {
-    const grants = Array.from({ length: 2 * CAPS_READ_BATCH + 3 }, (_, index) => grantFixture(0x10 + index * 4, true, false, false));
+    const grants = Array.from({ length: 2 * CAPS_READ_BATCH + 3 }, (_, index) =>
+      grantFixture(0x10 + index * 4, true, false, false)
+    );
     const chain = viewChain(grants);
     let inFlight = 0;
     let peak = 0;
@@ -673,86 +1000,186 @@ describe('modules', () => {
     expect(ledgerLogFloor(1)).toBeUndefined();
     expect(ledgerLogFloor(229)).toBeUndefined();
     const source = readFileSync(new URL('../src/provider.ts', import.meta.url), 'utf8');
-    const line = source.split('\n').findIndex((entry) => entry.startsWith('export const LEDGER_PRECOMPILE_LOG_FLOOR'));
+    const line = source
+      .split('\n')
+      .findIndex((entry) => entry.startsWith('export const LEDGER_PRECOMPILE_LOG_FLOOR'));
     expect(source.split('\n')[line - 1]).toMatch(/^\/\/ .*v6\.12\.0.*activation/u);
   });
 
   it('acceptance 5.40.3: the web-data module source imports nothing from kernel.js', () => {
     const source = readFileSync(new URL('../src/modules/web-data.ts', import.meta.url), 'utf8');
-    const imports = [...source.matchAll(/^import[\s\S]*?from\s+'([^']+)';$/gmu)].map((match) => match[1]);
+    const imports = [...source.matchAll(/^import[\s\S]*?from\s+'([^']+)';$/gmu)].map(
+      (match) => match[1]
+    );
     expect(imports).toEqual(['@sidiora/layerx-sdk/browser', './index.js']);
     expect(source).not.toMatch(/kernel\.js|readWalletCaps|WalletCapsSnapshot|lx_getWalletCaps/u);
   });
 
   it('acceptance 5.50.2: the wallet SDK carries no lx_getWalletCaps path and forwards the retired method to the RPC base', async () => {
     const root = new URL('../src/', import.meta.url);
-    const sources = readdirSync(root, { recursive: true, encoding: 'utf8' }).filter((file) => file.endsWith('.ts'));
+    const sources = readdirSync(root, { recursive: true, encoding: 'utf8' }).filter((file) =>
+      file.endsWith('.ts')
+    );
     expect(sources).toContain('kernel.ts');
     expect(sources).toContain('provider.ts');
-    for (const file of sources) expect(readFileSync(new URL(file, root), 'utf8')).not.toMatch(/lx_getWalletCaps|readWalletCaps|decodeWalletCaps/u);
+    for (const file of sources)
+      expect(readFileSync(new URL(file, root), 'utf8')).not.toMatch(
+        /lx_getWalletCaps|readWalletCaps|decodeWalletCaps/u
+      );
     expect('readWalletCaps' in walletSdk).toBe(false);
     expect('decodeWalletCaps' in walletSdk).toBe(false);
 
-    const provider = new PaxeerProvider({ gatewayUrl, rpcUrl: `${gatewayUrl}/rpc`, token: () => 'session-token' });
+    const provider = new PaxeerProvider({
+      gatewayUrl,
+      rpcUrl: `${gatewayUrl}/rpc`,
+      token: () => 'session-token',
+    });
     rpcCalls.length = 0;
     const refusal = await provider.request({ method: 'lx_getWalletCaps', params: [] }).then(
       () => null,
-      (error: unknown) => error,
+      (error: unknown) => error
     );
     expect(refusal).toBeInstanceOf(RpcResponseError);
     expect(refusal).toMatchObject({ code: -32601, message: 'method not found' });
-    expect(rpcCalls).toEqual([{ authorization: undefined, body: { jsonrpc: '2.0', id: 1, method: 'lx_getWalletCaps', params: [] } }]);
+    expect(rpcCalls).toEqual([
+      {
+        authorization: undefined,
+        body: { jsonrpc: '2.0', id: 1, method: 'lx_getWalletCaps', params: [] },
+      },
+    ]);
   });
 
   it('modules_holder_records page px_listHolderRecords through the provider to the end', async () => {
-    const provider = new PaxeerProvider({ gatewayUrl, rpcUrl: `${gatewayUrl}/rpc`, token: () => 'session-token' });
+    const provider = new PaxeerProvider({
+      gatewayUrl,
+      rpcUrl: `${gatewayUrl}/rpc`,
+      token: () => 'session-token',
+    });
     const holder = `0x${'ab'.repeat(20)}`;
-    const record = (id: string) => ({ kind: 'grant', holder, contract: 'ledger', record_id: id.repeat(32), state: 'active' });
+    const record = (id: string) => ({
+      kind: 'grant',
+      holder,
+      contract: 'ledger',
+      record_id: id.repeat(32),
+      state: 'active',
+    });
     const cursors = ['00000000000000050000000000000000', '00000000000000070000000000000000'];
     holderAnswer = (params) => {
-      if (params[2] === null) return { items: [record('a1')], next_cursor: cursors[0], indexedHeight: 990, chainHeight: 1000 };
-      if (params[2] === cursors[0]) return { items: [record('a2')], next_cursor: cursors[1], indexedHeight: 985, chainHeight: 1002 };
+      if (params[2] === null)
+        return {
+          items: [record('a1')],
+          next_cursor: cursors[0],
+          indexedHeight: 990,
+          chainHeight: 1000,
+        };
+      if (params[2] === cursors[0])
+        return {
+          items: [record('a2')],
+          next_cursor: cursors[1],
+          indexedHeight: 985,
+          chainHeight: 1002,
+        };
       return { items: [], next_cursor: null, indexedHeight: 995, chainHeight: 1001 };
     };
     try {
       rpcCalls.length = 0;
-      const records = await listHolderRecords(provider, holder.toUpperCase().replace('0X', '0x'), 'grant');
-      expect(records).toEqual({ items: [record('a1'), record('a2')], indexedHeight: 985n, chainHeight: 1002n });
+      const records = await listHolderRecords(
+        provider,
+        holder.toUpperCase().replace('0X', '0x'),
+        'grant'
+      );
+      expect(records).toEqual({
+        items: [record('a1'), record('a2')],
+        indexedHeight: 985n,
+        chainHeight: 1002n,
+      });
       expect(rpcCalls.map((call) => call.body.params)).toEqual([
         [holder, 'grant', null, HOLDER_RECORDS_PAGE],
         [holder, 'grant', cursors[0], HOLDER_RECORDS_PAGE],
         [holder, 'grant', cursors[1], HOLDER_RECORDS_PAGE],
       ]);
 
-      holderAnswer = () => ({ items: [record('a1')], next_cursor: null, indexedHeight: null, chainHeight: 1000 });
+      holderAnswer = () => ({
+        items: [record('a1')],
+        next_cursor: null,
+        indexedHeight: null,
+        chainHeight: 1000,
+      });
       expect((await listHolderRecords(provider, holder, 'grant')).indexedHeight).toBeNull();
-      holderAnswer = () => ({ items: [{ ...record('a1'), holder: `0x${'cd'.repeat(20)}` }], next_cursor: null, indexedHeight: 1, chainHeight: 1 });
-      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(ModuleError);
-      holderAnswer = (params) => ({ items: [], next_cursor: params[2] ?? cursors[0], indexedHeight: 1, chainHeight: 1 });
-      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(ModuleError);
+      holderAnswer = () => ({
+        items: [{ ...record('a1'), holder: `0x${'cd'.repeat(20)}` }],
+        next_cursor: null,
+        indexedHeight: 1,
+        chainHeight: 1,
+      });
+      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(
+        ModuleError
+      );
+      holderAnswer = (params) => ({
+        items: [],
+        next_cursor: params[2] ?? cursors[0],
+        indexedHeight: 1,
+        chainHeight: 1,
+      });
+      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(
+        ModuleError
+      );
       holderAnswer = () => ({ items: [], next_cursor: null, indexedHeight: 1 });
-      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(ModuleError);
+      await expect(listHolderRecords(provider, holder, 'grant')).rejects.toBeInstanceOf(
+        ModuleError
+      );
     } finally {
       holderAnswer = null;
     }
-    const unserved = await listHolderRecords(provider, holder, 'grant').then(() => null, (error: unknown) => error);
+    const unserved = await listHolderRecords(provider, holder, 'grant').then(
+      () => null,
+      (error: unknown) => error
+    );
     expect(unserved).toMatchObject({ code: -32601 });
   });
 
   it('modules_events decode logs encoded from each precompile ABI', () => {
     const decoded =
-      checkEvents(eventVectors.exchange ?? [], abi('perps'), exchange(signer).address, exchange(signer).decodeEvent) +
-      checkEvents(eventVectors.bridge ?? [], abi('layerxbridge'), bridge(signer).address, bridge(signer).decodeEvent) +
-      checkEvents(eventVectors.launchpad ?? [], abi('launchpad'), launchpad(signer).address, launchpad(signer).decodeEvent) +
-      checkEvents(eventVectors.webData ?? [], abi('xweb'), webData(signer).address, webData(signer).decodeEvent);
-    expect(decoded).toBe(PERPS_EVENTS.length + BRIDGE_EVENTS.length + LAUNCHPAD_EVENTS.length + WEB_DATA_EVENTS.length);
+      checkEvents(
+        eventVectors.exchange ?? [],
+        abi('perps'),
+        exchange(signer).address,
+        exchange(signer).decodeEvent
+      ) +
+      checkEvents(
+        eventVectors.bridge ?? [],
+        abi('layerxbridge'),
+        bridge(signer).address,
+        bridge(signer).decodeEvent
+      ) +
+      checkEvents(
+        eventVectors.launchpad ?? [],
+        abi('launchpad'),
+        launchpad(signer).address,
+        launchpad(signer).decodeEvent
+      ) +
+      checkEvents(
+        eventVectors.webData ?? [],
+        abi('xweb'),
+        webData(signer).address,
+        webData(signer).decodeEvent
+      );
+    expect(decoded).toBe(
+      PERPS_EVENTS.length + BRIDGE_EVENTS.length + LAUNCHPAD_EVENTS.length + WEB_DATA_EVENTS.length
+    );
     const vector = eventVectors.webData?.[0];
     const entry = abi('xweb').find((candidate) => candidate.name === vector?.event);
     if (vector === undefined || entry === undefined) throw new Error('missing web data vector');
     const log = encodeLog(XWEB_PRECOMPILE, entry, vector.fields);
-    expect(() => webData(signer).decodeEvent({ ...log, address: FEE_TOKEN_PRECOMPILE })).toThrow(ModuleError);
-    expect(() => webData(signer).decodeEvent({ ...log, topics: log.topics.slice(0, 2) })).toThrow(ModuleError);
-    expect(() => exchange(signer).decodeEvent({ ...log, address: exchange(signer).address })).toThrow();
+    expect(() => webData(signer).decodeEvent({ ...log, address: FEE_TOKEN_PRECOMPILE })).toThrow(
+      ModuleError
+    );
+    expect(() => webData(signer).decodeEvent({ ...log, topics: log.topics.slice(0, 2) })).toThrow(
+      ModuleError
+    );
+    expect(() =>
+      exchange(signer).decodeEvent({ ...log, address: exchange(signer).address })
+    ).toThrow();
   });
 
   it('modules_gas_station digest equals the agent SDK and the flow signs, assembles and submits', async () => {
@@ -763,20 +1190,51 @@ describe('modules', () => {
       },
     });
     const retained = new Map<string, string>();
-    const stationOptions = { chainId, sponsor: relayer, paymaster, quoteUrl: `${gatewayUrl}/quote`, gatewayUrl, accessToken: () => 'session-token' };
-    const station = gasStation(signer, { ...stationOptions, submissionStore: retainedStore(retained) });
-    const budget = await station.quote({ gasLimit: 250_000n, rate: '3114000' });
-    const gasCost = 250_000n * 1_000_000_000n;
+    const stationOptions = {
+      chainId,
+      sponsor: relayer,
+      paymaster,
+      quoteUrl: `${gatewayUrl}/quote`,
+      gatewayUrl,
+      accessToken: () => 'session-token',
+    };
+    const station = gasStation(signer, {
+      ...stationOptions,
+      submissionStore: retainedStore(retained),
+    });
+    const session = [
+      { method: 'eth_accounts', params: [] },
+      { method: 'eth_chainId', params: [] },
+    ];
+    signed.length = 0;
+    const budget = await station.quote({ account, gasLimit: 250_000n, rate: '3114000' });
+    const gasCost = BigInt(budgetQuote.gasCost);
+    expect(quoteRequests).toEqual([
+      {
+        method: 'POST',
+        path: SPONSORED_QUOTE_PATH,
+        authorization: 'Bearer session-token',
+        body: { account, gasLimit: '250000', gasPrice: '1000000000', rate: '3114000' },
+      },
+    ]);
+    expect(signed).toEqual([
+      { method: 'eth_gasPrice', params: [] },
+      ...session,
+      ...session,
+      { method: 'eth_accounts', params: [] },
+    ]);
     expect(budget).toEqual({
       gasLimit: 250_000n,
       gasPrice: 1_000_000_000n,
       gasCost,
+      dailyRemaining: BigInt(budgetQuote.dailyRemaining),
       rate: '3114000',
       tokenAmount: (gasCost * 3_114_000n + 10n ** 18n - 1n) / 10n ** 18n,
       token: SIDIORA_TOKEN,
       symbol: 'SID',
       decimals: 6,
     });
+    expect(budget.gasCost).not.toBe(budget.gasLimit * budget.gasPrice);
     expect(feeTokenAmount(21_000n * 1_000_000_000n, '3114000')).toBe(66n);
     expect(feeTokenAmount(10n ** 18n, '3.114')).toBe(4n);
     expect(feeTokenAmount(10n ** 18n, '3114000')).toBe(3_114_000n);
@@ -809,26 +1267,50 @@ describe('modules', () => {
     expect(station.digest(batch)).toBe(value(sponsoredBatchDigest(batch)));
     const construction = station.construction(batch);
     expect(construction.kind).toBe('sponsored_batch');
-    expect(Object.keys(construction).sort()).toEqual(['account', 'calls', 'chainId', 'kind', 'nonce', 'quote']);
+    expect(Object.keys(construction).sort()).toEqual([
+      'account',
+      'calls',
+      'chainId',
+      'kind',
+      'nonce',
+      'quote',
+    ]);
     expect(Object.keys(construction.quote).sort()).toEqual(
-      ['deadline', 'gasCost', 'maxTokenAmount', 'quoteNonce', 'sponsor', 'token', 'tokenAmount'].sort(),
+      [
+        'deadline',
+        'gasCost',
+        'maxTokenAmount',
+        'quoteNonce',
+        'sponsor',
+        'token',
+        'tokenAmount',
+      ].sort()
     );
-    expect(value(sponsoredBatchDigest(batchFromConstruction(construction)))).toBe(station.digest(batch));
+    expect(value(sponsoredBatchDigest(batchFromConstruction(construction)))).toBe(
+      station.digest(batch)
+    );
     const changed = station.construction({ ...batch, nonce: 5n });
-    expect(value(sponsoredBatchDigest(batchFromConstruction(changed)))).not.toBe(station.digest(batch));
+    expect(value(sponsoredBatchDigest(batchFromConstruction(changed)))).not.toBe(
+      station.digest(batch)
+    );
 
     const relayerSignature = signDigest(value(gasQuoteDigest(chainId, account, quote)), relayerKey);
     const now = quote.deadline - 60n;
-    const config = { quoteUrl: `${gatewayUrl}/quote`, chainId, sponsor: relayer, token: SIDIORA_TOKEN, decimals: SIDIORA_DECIMALS, paymaster };
+    const config = {
+      quoteUrl: `${gatewayUrl}/quote`,
+      chainId,
+      sponsor: relayer,
+      token: SIDIORA_TOKEN,
+      decimals: SIDIORA_DECIMALS,
+      paymaster,
+    };
     const expectedConsent = value(sponsoredConsent(config, batch, now));
     expect(expectedConsent.batchDigest).toBe(station.digest(batch));
-    const session = [
-      { method: 'eth_accounts', params: [] },
-      { method: 'eth_chainId', params: [] },
-    ];
-
     const declinedStore = new Map<string, string>();
-    const declined = gasStation(signer, { ...stationOptions, submissionStore: retainedStore(declinedStore) });
+    const declined = gasStation(signer, {
+      ...stationOptions,
+      submissionStore: retainedStore(declinedStore),
+    });
     const declinedConsents: SponsoredConsent[] = [];
     signed.length = 0;
     await expect(
@@ -838,8 +1320,11 @@ describe('modules', () => {
           declinedConsents.push(consent);
           return false;
         },
-      }),
-    ).rejects.toMatchObject({ name: 'GasStationError', refusal: { code: 'refused', field: 'consent' } });
+      })
+    ).rejects.toMatchObject({
+      name: 'GasStationError',
+      refusal: { code: 'refused', field: 'consent' },
+    });
     expect(declinedConsents).toEqual([expectedConsent]);
     expect(signed).toEqual(session);
     expect(declinedStore.size).toBe(0);
@@ -860,14 +1345,23 @@ describe('modules', () => {
     const signRequest = signed.find((entry) => entry.method === 'eth_sign');
     expect(signRequest?.params).toEqual([account, station.digest(batch), construction]);
     const accountSignature = signDigest(station.digest(batch), accountKey);
-    const authorizationFields = { kind: 'eip7702_authorization', chainId: '125', address: paymaster, nonce: PENDING_NONCE.toString() };
-    const authorizationDigest = value(eip7702AuthorizationDigest({ chainId, address: paymaster, nonce: PENDING_NONCE }));
-    const authorizationSignature = signDigest(authorizationDigest, accountKey);
-    const authorization = {
+    const authorizationFields = {
+      kind: 'eip7702_authorization',
       chainId: '125',
       address: paymaster,
+      nonce: PENDING_NONCE.toString(),
+    };
+    const authorizationDigest = value(
+      eip7702AuthorizationDigest({ chainId, address: paymaster, nonce: PENDING_NONCE })
+    );
+    const authorizationSignature = signDigest(authorizationDigest, accountKey);
+    const yParity = Number.parseInt(authorizationSignature.slice(130), 16) - 27;
+    if (yParity !== 0 && yParity !== 1) throw new Error('invalid authorization recovery bit');
+    const authorization: SponsoredAdapterRequest['authorization'] = {
+      chainId: '125',
+      address: `0x${paymaster.slice(2)}`,
       nonce: '7',
-      yParity: Number.parseInt(authorizationSignature.slice(130), 16) - 27,
+      yParity,
       r: `0x${authorizationSignature.slice(2, 66)}`,
       s: `0x${authorizationSignature.slice(66, 130)}`,
     };
@@ -876,8 +1370,8 @@ describe('modules', () => {
       ...session,
       ...session,
       { method: 'eth_chainId', params: [] },
-      { method: 'eth_getCode', params: [account, 'latest'] },
-      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'latest'] },
+      { method: 'eth_getCode', params: [account, 'pending'] },
+      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'pending'] },
       { method: 'eth_getTransactionCount', params: [account, 'latest'] },
       ...session,
       { method: 'eth_sign', params: [account, station.digest(batch), construction] },
@@ -888,18 +1382,32 @@ describe('modules', () => {
       ...session,
       { method: 'eth_accounts', params: [] },
     ]);
-    expect(signed.filter((entry) => entry.params.includes('pending'))).toEqual([]);
+    expect(signed.filter((entry) => entry.params.includes('pending'))).toEqual([
+      { method: 'eth_getCode', params: [account, 'pending'] },
+      { method: 'eth_call', params: [{ to: account, data: NONCE_SELECTOR }, 'pending'] },
+    ]);
     expect(await station.batchNonce(account)).toBe(BATCH_NONCE);
 
-    const reference = value(sponsoredBatchCall(config, batch, accountSignature, relayerSignature, now));
+    const reference = value(
+      sponsoredBatchCall(config, batch, accountSignature, relayerSignature, now)
+    );
     expect(station.executeCall(batch, accountSignature, relayerSignature, now)).toEqual(reference);
     expect(reference.to).toBe(account);
     expect(reference.value).toBe(0n);
     expect(submissions).toHaveLength(1);
     const submitted = submissions[0];
-    expect(Object.keys(submitted ?? {}).sort()).toEqual(
-      ['account', 'account_signature', 'authorization', 'chain_id', 'construction', 'data', 'quote_decimals', 'relayer_signature', 'to', 'value'],
-    );
+    expect(Object.keys(submitted ?? {}).sort()).toEqual([
+      'account',
+      'account_signature',
+      'authorization',
+      'chain_id',
+      'construction',
+      'data',
+      'quote_decimals',
+      'relayer_signature',
+      'to',
+      'value',
+    ]);
     expect(submitted?.chain_id).toBe('125');
     expect(submitted?.account).toBe(account);
     expect(submitted?.to).toBe(account);
@@ -910,13 +1418,22 @@ describe('modules', () => {
     expect(submitted?.relayer_signature).toBe(relayerSignature);
     expect(submitted?.quote_decimals).toBe(6);
     expect(submitted?.authorization).toEqual(authorization);
-    expect(submitted).toEqual(station.adapterRequest(batch, accountSignature, relayerSignature, submitted!.authorization, now));
+    expect(submitted).toEqual(
+      station.adapterRequest(
+        batch,
+        accountSignature,
+        relayerSignature,
+        submitted!.authorization,
+        now
+      )
+    );
 
     const transactionHash = hex(keccak_256(unhex(reference.data)));
     expect(answers).toEqual([
       {
         tx_hash: transactionHash,
         status: 'pending',
+        receipt: null,
         station: {
           state: 'pending',
           deadline: quote.deadline.toString(),
@@ -929,7 +1446,9 @@ describe('modules', () => {
     expect(hash).toBe(transactionHash);
 
     const identity = `paxeer:sponsored:v1:125:${account}:${relayer}:${quote.quoteNonce}`;
-    expect([...retained.keys()].sort()).toEqual([`paxeer:sponsored:pending:v1:125:${account}`, identity].sort());
+    expect([...retained.keys()].sort()).toEqual(
+      [`paxeer:sponsored:pending:v1:125:${account}`, identity].sort()
+    );
     expect(retained.get(`paxeer:sponsored:pending:v1:125:${account}`)).toBe(identity);
     expect(JSON.parse(retained.get(identity) ?? 'null')).toEqual(submitted);
     const resumable = await station.pending(account);
@@ -938,21 +1457,42 @@ describe('modules', () => {
 
     expect(() => station.digest({ ...batch, calls: [] })).toThrow(ModuleError);
     expect(() => station.digest({ ...batch, chainId: 1n })).toThrow(GasStationError);
-    expect(() => station.executeCall(batch, accountSignature, relayerSignature, quote.deadline + 1n)).toThrow(GasStationError);
-    expect(() => station.executeCall(batch, relayerSignature, relayerSignature, now)).toThrow(GasStationError);
-    const offline = gasStation(signer, { chainId, sponsor: relayer, paymaster, quoteUrl: `${gatewayUrl}/quote` });
+    expect(() =>
+      station.executeCall(batch, accountSignature, relayerSignature, quote.deadline + 1n)
+    ).toThrow(GasStationError);
+    expect(() => station.executeCall(batch, relayerSignature, relayerSignature, now)).toThrow(
+      GasStationError
+    );
+    const offline = gasStation(signer, {
+      chainId,
+      sponsor: relayer,
+      paymaster,
+      quoteUrl: `${gatewayUrl}/quote`,
+    });
     await expect(offline.submit(batch, relayerSignature, { now })).rejects.toThrow(ModuleError);
-    await expect(offline.submit(batch, relayerSignature, { now })).rejects.toMatchObject({ code: 'unavailable', field: 'submissionStore' });
+    await expect(offline.submit(batch, relayerSignature, { now })).rejects.toMatchObject({
+      code: 'unavailable',
+      field: 'submissionStore',
+    });
   });
 
   it('modules_gas_station digest is the provider routine and equals the agent SDK for identical fields', () => {
-    const station = gasStation(signer, { chainId, sponsor: relayer, paymaster, quoteUrl: `${gatewayUrl}/quote` });
+    const station = gasStation(signer, {
+      chainId,
+      sponsor: relayer,
+      paymaster,
+      quoteUrl: `${gatewayUrl}/quote`,
+    });
     const batch: SponsoredBatch = {
       chainId,
       account,
       nonce: 11n,
       calls: [
-        { to: SIDIORA_TOKEN, value: 0n, data: `0xa9059cbb${'00'.repeat(12)}${relayer.slice(2)}${'00'.repeat(31)}2a` },
+        {
+          to: SIDIORA_TOKEN,
+          value: 0n,
+          data: `0xa9059cbb${'00'.repeat(12)}${relayer.slice(2)}${'00'.repeat(31)}2a`,
+        },
         { to: `0x${'dd'.repeat(20)}`, value: 7n, data: '0x' },
       ],
       quote: {
@@ -974,9 +1514,12 @@ describe('modules', () => {
     expect(digest).toBe(value(sponsoredBatchDigest(batchFromConstruction(construction))));
     expect(constructionDigest(toWireConstruction(construction))).toBe(digest);
     expect(toWireConstruction(construction)).toEqual(construction);
-    const altered = station.construction({ ...batch, quote: { ...batch.quote, tokenAmount: 312n } });
+    const altered = station.construction({
+      ...batch,
+      quote: { ...batch.quote, tokenAmount: 312n },
+    });
     expect(station.digest({ ...batch, quote: { ...batch.quote, tokenAmount: 312n } })).toBe(
-      value(sponsoredBatchDigest(batchFromConstruction(altered))),
+      value(sponsoredBatchDigest(batchFromConstruction(altered)))
     );
     expect(constructionDigest(altered)).not.toBe(digest);
   });
@@ -996,10 +1539,20 @@ describe('modules', () => {
       token: null,
       denom: null,
     });
-    const sid = { symbol: 'SID', name: 'Sidiora', decimals: SIDIORA_DECIMALS, native: false, token: SIDIORA_TOKEN.toLowerCase(), denom: 'usid' };
+    const sid = {
+      symbol: 'SID',
+      name: 'Sidiora',
+      decimals: SIDIORA_DECIMALS,
+      native: false,
+      token: SIDIORA_TOKEN.toLowerCase(),
+      denom: 'usid',
+    };
     expect(helper.choice('sid_sponsored').denomination).toEqual(sid);
     expect(helper.choice('sid_native').denomination).toEqual(sid);
-    expect(helper.choice('pax_gas').path).toEqual({ kind: 'native_gas', method: 'eth_sendTransaction' });
+    expect(helper.choice('pax_gas').path).toEqual({
+      kind: 'native_gas',
+      method: 'eth_sendTransaction',
+    });
     expect(helper.choice('sid_sponsored').path).toEqual({
       kind: 'sponsored_batch',
       method: 'eth_sign',
@@ -1024,3 +1577,142 @@ describe('modules', () => {
     expect(() => helper.denominate('pax_gas', -1n)).toThrow(ModuleError);
   });
 });
+
+function moduleReceiptProvider(scenario: string): ModuleProvider {
+  const client = new JsonRpcClient({ url: `${gatewayUrl}/module-receipts/${scenario}` });
+  return { request: ({ method, params }) => client.call(method, params ?? []) };
+}
+
+function bridgeOutTransaction(provider: ModuleProvider): PrecompileCall {
+  const fields = bridgeReceiptVector.fields;
+  const tx = bridge(provider).bridgeOut(
+    BigInt(fields.chain),
+    fields.asset,
+    BigInt(fields.amount),
+    fields.recipient
+  );
+  expect(tx.data).toBe(parseTransaction(bridgeRecording.rawTransaction).data);
+  return tx;
+}
+
+async function send_module_transaction_receipted_answers_the_receipt_with_logs() {
+  const provider = moduleReceiptProvider('direct');
+  const tx = bridgeOutTransaction(provider);
+  const from = `0x${moduleReceipted.from!.slice(2).toUpperCase()}`;
+  const before = moduleReceiptRequests.length;
+  const answer = await sendModuleTransactionReceipted(provider, from, tx);
+  expect(answer).toEqual(moduleReceipted);
+  expect(answer.rung).toBe('receipted');
+  expect(answer.logs).toHaveLength(1);
+  expect(answer.logs).toEqual(moduleReceipted.logs);
+  expect(bridge(provider).decodeEvent(answer.logs![0]!)).toMatchObject({
+    event: bridgeReceiptVector.event,
+    fields: expected(bridgeReceiptEvent, bridgeReceiptVector.fields),
+  });
+  expect(moduleReceiptRequests.slice(before)).toEqual([
+    {
+      scenario: 'direct',
+      method: 'paxeer_sendTransactionReceipted',
+      params: [
+        {
+          from: moduleReceipted.from,
+          to: tx.to,
+          data: tx.data,
+          value: `0x${tx.value.toString(16)}`,
+          type: '0x2',
+          chainId: '0x7d',
+        },
+      ],
+    },
+    { scenario: 'direct', method: 'px_getReceiptKeys', params: [] },
+  ]);
+  for (const [scenario, code] of [
+    ['rejected', 4001],
+    ['unavailable', -32010],
+  ] as const) {
+    const start = moduleReceiptRequests.length;
+    await expect(
+      sendModuleTransactionReceipted(moduleReceiptProvider(scenario), from, tx)
+    ).rejects.toMatchObject({ code });
+    expect(moduleReceiptRequests.slice(start).map((request) => request.method)).toEqual([
+      'paxeer_sendTransactionReceipted',
+    ]);
+  }
+  const start = moduleReceiptRequests.length;
+  await expect(
+    sendModuleTransactionReceipted(moduleReceiptProvider('submitted'), from, tx)
+  ).rejects.toMatchObject({
+    code: 'invalid_answer',
+    field: 'paxeer_sendTransactionReceipted',
+  });
+  expect(moduleReceiptRequests.slice(start).map((request) => request.method)).toEqual([
+    'paxeer_sendTransactionReceipted',
+  ]);
+}
+
+async function send_module_transaction_receipted_falls_back_for_an_injected_provider() {
+  const provider = moduleReceiptProvider('injected');
+  const tx = bridgeOutTransaction(provider);
+  const before = moduleReceiptRequests.length;
+  const answer = await sendModuleTransactionReceipted(provider, moduleReceipted.from!, tx);
+  expect(answer).toEqual(moduleReceipted);
+  expect(answer.rung).toBe('receipted');
+  expect(answer.txHash).toBe(moduleSubmitted.txHash);
+  expect(answer.logs).toEqual(moduleReceipted.logs);
+  const params = [
+    {
+      from: moduleReceipted.from,
+      to: tx.to,
+      data: tx.data,
+      value: `0x${tx.value.toString(16)}`,
+      type: '0x2',
+      chainId: '0x7d',
+    },
+  ];
+  expect(moduleReceiptRequests.slice(before)).toEqual([
+    { scenario: 'injected', method: 'paxeer_sendTransactionReceipted', params },
+    { scenario: 'injected', method: 'eth_sendTransaction', params },
+    { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
+    { scenario: 'injected', method: 'pax_sequencerReceipt', params: [answer.txHash] },
+    { scenario: 'injected', method: 'px_getReceiptKeys', params: [] },
+  ]);
+}
+
+test(
+  'send_module_transaction_receipted_answers_the_receipt_with_logs',
+  send_module_transaction_receipted_answers_the_receipt_with_logs
+);
+test(
+  'send_module_transaction_receipted_falls_back_for_an_injected_provider',
+  send_module_transaction_receipted_falls_back_for_an_injected_provider
+);
+
+async function modules_status_refuses_a_batch_from_another_chain_or_sponsor() {
+  const station = gasStation(signer, { chainId, sponsor: relayer, paymaster });
+  const batch: SponsoredBatch = {
+    chainId,
+    account,
+    nonce: 4n,
+    calls: [{ to: paymaster, data: '0x', value: 0n }],
+    quote: {
+      sponsor: relayer,
+      token: SIDIORA_TOKEN,
+      maxTokenAmount: 2n,
+      tokenAmount: 1n,
+      deadline: 1_900_000_000n,
+      quoteNonce: 1n,
+      gasCost: 1n,
+      decimals: 6,
+    },
+  };
+  const signature = signDigest(value(gasQuoteDigest(chainId, account, batch.quote)), relayerKey);
+  const before = signed.length;
+  await expect(station.status({ ...batch, chainId: 1n }, signature)).rejects.toMatchObject({
+    code: 'chain_mismatch',
+  });
+  await expect(
+    station.status({ ...batch, quote: { ...batch.quote, sponsor: account } }, signature)
+  ).rejects.toMatchObject({ code: 'sponsor_mismatch' });
+  expect(signed).toHaveLength(before);
+}
+test(modules_status_refuses_a_batch_from_another_chain_or_sponsor);

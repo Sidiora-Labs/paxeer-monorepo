@@ -1,0 +1,253 @@
+[reconcile.r8-146]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-146.1]
+interface = "interface.8.go-sdkswift-agentcertificateauthority-init"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 729
+symbol = "init"
+evidence = "AgentCertificateAuthority declares public init(pemFile: URL) throws; it validates a local PEM certificate and stores its DER bytes."
+
+[row.r8-146.2]
+interface = "interface.8.go-sdkswift-agentenveloperesult"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 429
+symbol = "AgentEnvelopeResult"
+evidence = "The public struct AgentEnvelopeResult declaration still conforms to Sendable and Equatable and contains requestID, value and verificationStatus."
+
+[row.r8-146.3]
+interface = "interface.8.go-sdkswift-agentenvelopetransport"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 435
+symbol = "AgentEnvelopeTransport"
+evidence = "The public final class AgentEnvelopeTransport declaration still conforms to PlatformTransport and @unchecked Sendable."
+
+[row.r8-146.4]
+interface = "interface.8.go-sdkswift-agentenvelopetransport-send"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 514
+symbol = "send"
+evidence = "AgentEnvelopeTransport declares public func send(_ call: TransportCall) async throws -> JSONValue; its body returns sendEnvelope(call).value, distinguishing it from the other transports."
+
+[row.r8-146.5]
+interface = "interface.8.go-sdkswift-agentenvelopetransport-sendenvelope"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 518
+symbol = "sendEnvelope"
+evidence = "AgentEnvelopeTransport declares public func sendEnvelope(_ call: TransportCall) async throws -> AgentEnvelopeResult and classifies the exchanged response."
+
+[row.r8-146.6]
+interface = "interface.8.go-sdkswift-agentsessioncredential"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 399
+symbol = "AgentSessionCredential"
+evidence = "The public final class AgentSessionCredential declaration retains @unchecked Sendable and CustomStringConvertible conformance."
+
+[row.r8-146.7]
+interface = "interface.8.go-sdkswift-agentsessioncredential-description"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 426
+symbol = "description"
+evidence = "AgentSessionCredential declares public var description: String returning [REDACTED]; this is the credential member beside tokenID.destroy(), not the other credential descriptions."
+
+[row.r8-146.8]
+interface = "interface.8.go-sdkswift-agentsessioncredential-destroy"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Transport.swift"
+line = 425
+symbol = "destroy"
+evidence = "AgentSessionCredential declares public func destroy() { tokenID.destroy() }, distinguishing it from the other destroy methods that erase secret."
+
+[row.r8-146.9]
+interface = "interface.8.cli-examples-support-runtime-mjs-action"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 247
+symbol = "--action"
+evidence = "parseArguments validates the --action option in the four-argument branch and restricts its value to deploy, list or buy, matching the registered conditional."
+
+[row.r8-146.10]
+interface = "interface.8.cli-examples-support-runtime-mjs-environment"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 244
+symbol = "--environment"
+evidence = "parseArguments validates --environment at arguments_[0], accepts only emulator or beta and requires two or four arguments, matching the registered conditional."
+
+[row.r8-146.11]
+interface = "interface.8.ts-examples-support-runtime-exactobject-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 208
+symbol = "exactObject"
+evidence = "The export function exactObject(value) declaration rejects null, arrays and non-object values before returning value."
+
+[row.r8-146.12]
+interface = "interface.8.ts-examples-support-runtime-hex32-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 229
+symbol = "hex32"
+evidence = "The export function hex32(value) declaration parses optional 0x-prefixed, 64-digit hexadecimal input into 32 bytes."
+
+[row.r8-146.13]
+interface = "interface.8.ts-examples-support-runtime-securebaseurl-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 213
+symbol = "secureBaseUrl"
+evidence = "The export function secureBaseUrl(value) declaration adds a trailing slash before calling secureUrl, distinct from its call sites."
+
+[row.r8-146.14]
+interface = "interface.8.ts-examples-support-runtime-secureurl-j41"
+verdict = "served"
+path = "services/platform/examples/support/runtime.mjs"
+line = 218
+symbol = "secureUrl"
+evidence = "The export function secureUrl(value) declaration validates URL credentials, fragments, query strings and secure or loopback protocols."
+
+[row.r8-146.15]
+interface = "interface.8.err-agent-boundary-entitlement-denied"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/deployment.rs"
+line = 36
+symbol = "entitlement_denied"
+evidence = "deployment::route returns Some(refusal(403, entitlement_denied, None)) when the caller plane is not Registry, matching the registered return statement."
+
+[row.r8-146.16]
+interface = "interface.8.err-agent-boundary-not-found"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/deployment.rs"
+line = 39
+symbol = "not_found"
+evidence = "deployment::route returns Some(refusal(404, not_found, None)) when query.is_some(); this matches the registered return Some statement rather than the later match fallback."
+
+[row.r8-146.17]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-listen"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 354
+symbol = "LAYERX_AGENT_BOUNDARY_LISTEN"
+evidence = "config declares let listen = env::var(LAYERX_AGENT_BOUNDARY_LISTEN), followed by socket-address parsing; the later occurrence is only its diagnostic."
+
+[row.r8-146.18]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-network-id"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 386
+symbol = "LAYERX_AGENT_BOUNDARY_NETWORK_ID"
+evidence = "config declares let network_name = env::var(LAYERX_AGENT_BOUNDARY_NETWORK_ID) before canonical identifier validation, matching the registered binding."
+
+[row.r8-146.19]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-node-url"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 404
+symbol = "LAYERX_AGENT_BOUNDARY_NODE_URL"
+evidence = "The Config node field reads &env::var(LAYERX_AGENT_BOUNDARY_NODE_URL) as the node_endpoint argument; earlier occurrences in node_endpoint are diagnostics."
+
+[row.r8-146.20]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-protocol-network-id"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 379
+symbol = "LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID"
+evidence = "config declares let protocol_network_id = env::var(LAYERX_AGENT_BOUNDARY_PROTOCOL_NETWORK_ID), then parses a non-zero u32; other occurrences are diagnostics."
+
+[row.r8-146.21]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-receipt-wait-ms-j69"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 375
+symbol = "LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS"
+evidence = "config declares let receipt_wait_ms = parse_u64(LAYERX_AGENT_BOUNDARY_RECEIPT_WAIT_MS, 5_000)? before checking the 1..=60000 bound."
+
+[row.r8-146.22]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-state-dir"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 392
+symbol = "LAYERX_AGENT_BOUNDARY_STATE_DIR"
+evidence = "config reads env::var(LAYERX_AGENT_BOUNDARY_STATE_DIR) inside the PathBuf::from binding for state_dir; the following occurrence is its required-variable error."
+
+[row.r8-146.23]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-tls-cert-der"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 262
+symbol = "LAYERX_AGENT_BOUNDARY_TLS_CERT_DER"
+evidence = "server_tls_config declares let certificate_path = env::var(LAYERX_AGENT_BOUNDARY_TLS_CERT_DER), then loads the DER certificate; the following occurrence is its diagnostic."
+
+[row.r8-146.24]
+interface = "interface.8.env-agent-boundary-layerx-agent-boundary-tls-key-der"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 264
+symbol = "LAYERX_AGENT_BOUNDARY_TLS_KEY_DER"
+evidence = "server_tls_config declares let key_path = env::var(LAYERX_AGENT_BOUNDARY_TLS_KEY_DER), then loads the private key; the following occurrence is its diagnostic."
+
+[row.r8-146.25]
+interface = "interface.8.err-agent-boundary-activity-not-journaled"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1926
+symbol = "activity_not_journaled"
+evidence = "No activity_not_journaled identifier or literal remains anywhere in the registered main.rs. Receipt lookup now uses chain receipts; the repository-wide search excluding spec and docs found no remaining files."
+remaining_refs = 0
+remaining = []
+
+[row.r8-146.26]
+interface = "interface.8.err-agent-boundary-bad-signature"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 860
+symbol = "bad_signature"
+evidence = "No bad_signature identifier or literal remains in the registered main.rs, and its former SubmitOutcome refusal is absent. Repository-wide whole-symbol search excluding spec and docs finds only other services, SDK verifiers and tests, not a relocated boundary declaration."
+remaining_refs = 35
+remaining = ["programs/crates/layerx-programs-arbiter/tests/authority_from_prestate.rs:250", "programs/crates/layerx-programs-arbiter/tests/market_sandbox_profile.rs:152", "programs/crates/layerx-programs-arbiter/tests/proof_arbiter_crate.rs:1242", "programs/crates/layerx-programs-arbiter/tests/verified_step.rs:122", "sdk/integrations/fastapi/tests/test_seller_receipts.py:398", "services/agent/crates/layerx-client/tests/receipt_rpc.rs:269", "services/agent/crates/layerx-crypto/src/evm_transaction.rs:62", "services/agent/crates/layerx-crypto/tests/disclosure_call.rs:537", "services/agent/crates/layerx-proof/tests/checkpoint.rs:323", "services/agent/crates/layerx-proof/tests/native_terminal_outcome.rs:450", "services/agent/sdk/python/layerx_sdk/verifier.py:213", "services/agent/sdk/python/layerx_sdk/verifier.pyi:93", "services/agent/sdk/python/tests/test_ai_market_commit.py:241", "services/agent/sdk/python/tests/test_sequencer_receipt.py:145", "services/agent/sdk/python/tests/test_x402_draw_sequencer.py:88", "services/agent/sdk/python/tests/test_x402_http_sequencer.py:133", "services/agent/sdk/typescript/src/verifier.ts:424", "services/agent/sdk/typescript/test/sequencer-receipt-verify.test.ts:73", "services/agent/sdk/typescript/test/x402-draw-sequencer.test.ts:172", "services/human/crates/layerx-human-service/tests/evidence_node.rs:459", "services/interop/crates/layerx-fiat/tests/sequencer_settlement.rs:376", "services/interop/crates/layerx-x402/tests/facilitator_evidence.rs:740", "services/interop/crates/x-websearch/src/attest.rs:692", "services/interop/crates/x-websearch/tests/attest.rs:1633", "services/interop/crates/x-websearch/tests/proof_x_websearch_program_requests.rs:280", "services/platform/hosted/agent-boundary/tests/chain_receipt.rs:407", "services/platform/hosted/authority/tests/support/lifecycle_dispatch.rs:221", "services/platform/hosted/indexer/src/ai_health.rs:128", "services/platform/hosted/indexer/tests/ai_health_privacy.rs:783", "services/wallet/gateway/src/auth/did.ts:127", "tests/agent/sdk/python/test_ai_market.py:1062", "tests/agent/sdk/python/test_receipt_fixture.py:54", "tests/protocol/paxeer_x_rejection_policy.py:34", "tools/platform/cli/src/a2a.rs:1233", "tools/qualification/paxeer-x/registry-contract.py:1046"]
+
+[row.r8-146.27]
+interface = "interface.8.err-agent-boundary-content-type-required"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1449
+symbol = "content_type_required"
+evidence = "No content_type_required literal remains in the registered main.rs; the boundary route now serves receipt reads. Repository-wide search excluding spec and docs finds six other service files, not a relocated boundary refusal."
+remaining_refs = 6
+remaining = ["services/platform/hosted/core/src/main.rs:1797", "services/platform/hosted/faucet/src/main.rs:950", "services/platform/hosted/identity/src/main.rs:721", "services/platform/hosted/paxeer/src/comet.rs:376", "services/platform/hosted/paxeer/src/main.rs:400", "services/platform/hosted/testnet/src/main.rs:1181"]
+
+[row.r8-146.28]
+interface = "interface.8.err-agent-boundary-idempotency-conflict"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1762
+symbol = "idempotency_conflict"
+evidence = "No idempotency_conflict literal remains in the registered main.rs; the former boundary mutation refusal is absent. Repository-wide search excluding spec and docs finds eight files in other services and their tests."
+remaining_refs = 8
+remaining = ["services/interop/crates/layerx-interop-service/src/server.rs:192", "services/interop/crates/x-websearch/src/payment.rs:2085", "services/interop/crates/x-websearch/tests/payment.rs:1816", "services/platform/hosted/core/src/main.rs:1326", "services/platform/hosted/faucet/src/main.rs:1115", "services/platform/hosted/gateway/src/main.rs:2241", "services/platform/hosted/internal/src/kms.rs:528", "services/platform/hosted/registry/src/routes.rs:895"]
+
+[row.r8-146.29]
+interface = "interface.8.err-agent-boundary-idempotency-key-required"
+verdict = "retired"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 1736
+symbol = "idempotency_key_required"
+evidence = "No idempotency_key_required literal remains in the registered main.rs; its former mutation-header refusal is absent. Repository-wide whole-symbol search excluding spec and docs finds ten files in other services and tooling, including the namespaced MCP reason."
+remaining_refs = 10
+remaining = ["services/agent/crates/layerx-mcp/src/stdio.rs:625", "services/interop/crates/layerx-interop-service/src/server.rs:134", "services/platform/hosted/core/src/main.rs:1269", "services/platform/hosted/faucet/src/main.rs:972", "services/platform/hosted/gateway/src/main.rs:2191", "services/platform/hosted/internal/src/kms.rs:506", "services/platform/hosted/registry/src/routes.rs:846", "services/platform/hosted/testnet/src/main.rs:1187", "services/platform/hosted/webhooks/src/main.rs:312", "tools/bringup/check-live.test.sh:2629"]
+
+[row.r8-146.30]
+interface = "interface.8.err-agent-boundary-identity-required"
+verdict = "served"
+path = "services/platform/hosted/agent-boundary/src/main.rs"
+line = 756
+symbol = "identity_required"
+evidence = "authenticate returns Err(refusal(401, identity_required, None)) in the missing Bearer authorization branch; later identical codes cover empty or unrecognized tokens."

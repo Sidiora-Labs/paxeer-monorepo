@@ -25,6 +25,9 @@ make_registry_file() {
   done
 }
 
+# Save build-time defaults in the raw NAME=value format consumed by Next.js.
+# make_envs_script.sh fills only unset keys from this snapshot; deployment
+# values, including explicit empty strings, take precedence over these defaults.
 # Function to save build-time environment variables to .env file
 save_build-time_envs() {
   output_file=".env"

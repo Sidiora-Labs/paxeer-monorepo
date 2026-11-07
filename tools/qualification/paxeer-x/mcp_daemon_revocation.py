@@ -2,6 +2,7 @@
 import copy
 from contextlib import contextmanager
 from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import importlib.util
 import json
 import os
@@ -16,6 +17,10 @@ import time
 
 sys.dont_write_bytecode = True
 ROOT = Path(__file__).resolve().parents[3]
+sys.path.insert(0, str(ROOT / "services/agent/sdk/python"))
+from layerx_sdk.production import PlatformSdkError
+from layerx_sdk.verifier import _decode_sequencer_receipt
+
 COMMAND = "timeout 30m python3 tools/qualification/paxeer-x/mcp_daemon_revocation.py"
 ROLES = ("closed", "revoked", "narrowed", "expiring", "same_tenant", "other_tenant")
 BOUNDARIES = ("reads", "subscriptions", "prepare", "approvals", "writes")
@@ -121,6 +126,109 @@ def bytes32(value):
         and any(value)
         and all(type(item) is int and 0 <= item <= 255 for item in value)
     )
+
+
+def hex32(value):
+    return (
+        isinstance(value, str)
+        and re.fullmatch("[0-9a-f]{64}", value) is not None
+        and value != "0" * 64
+    )
+
+
+def achieved_rung(response, minimum="receipted"):
+    ranks = {"submitted": 0, "receipted": 1, "committed": 2}
+    verification = response.get("verification_status")
+    require(
+        isinstance(verification, dict)
+        and set(verification) == {"state", "rung"}
+        and verification["state"] == "achieved"
+        and isinstance(verification["rung"], str)
+        and verification["rung"] in ranks
+        and ranks[verification["rung"]] >= ranks[minimum],
+        "actual outcome lacks achieved " + minimum + " protocol evidence",
+    )
+    return verification["rung"]
+
+
+def tracked_evidence(response, reference):
+    rung = achieved_rung(response, "submitted")
+    submission = response.get("value")
+    require(
+        isinstance(submission, dict)
+        and hex32(reference)
+        and submission.get("tx_hash") == reference
+        and submission.get("submission_ref") == reference
+        and submission.get("rung") == rung
+        and submission.get("state") in ("Unknown", "Submitted", "Executed", "Committed")
+        and isinstance(submission.get("evidence"), list)
+        and isinstance(submission.get("transitions"), list),
+        "restart dropped or replaced an already-durable unknown submission",
+    )
+    terminal = submission["state"] in ("Executed", "Committed")
+    require(
+        (terminal and rung in ("receipted", "committed")
+         and hex32(submission.get("receipt_ref")))
+        or (not terminal and rung == "submitted" and "receipt_ref" not in submission),
+        "submission state and achieved receipt rung disagree",
+    )
+    require(
+        submission["state"] != "Committed" or rung == "committed",
+        "committed submission lacks committed evidence",
+    )
+    return submission
+
+
+def recovered_receipt(response, submission):
+    rung = achieved_rung(response)
+    value = response.get("value")
+    require(
+        isinstance(value, dict)
+        and set(value) == {"found", "receipt"}
+        and value["found"] is True
+        and isinstance(value["receipt"], dict),
+        "unknown reconciliation lacks a current receipt lookup",
+    )
+    receipt = value["receipt"]
+    require(
+        set(receipt) == {"tx_hash", "canonical_bytes", "authorised_batch", "rung"}
+        and receipt["tx_hash"] == submission["tx_hash"]
+        and receipt["rung"] == rung == submission["rung"],
+        "unknown reconciliation invented an executed receipt",
+    )
+    facts = READINESS.receipt_facts(receipt["canonical_bytes"], submission["tx_hash"])
+    try:
+        _, unsigned = _decode_sequencer_receipt(bytes.fromhex(receipt["canonical_bytes"]))
+    except PlatformSdkError:
+        require(False, "recovered receipt is not a complete canonical signed receipt")
+    domain = b"LXP/v1/receipt\0"
+    receipt_ref = hashlib.sha256(domain + unsigned).hexdigest()
+    require(
+        receipt_ref == submission["receipt_ref"],
+        "recovered receipt digest mismatch: "
+        + json.dumps({
+            "derived": receipt_ref,
+            "recorded": submission["receipt_ref"],
+            "domain_hex": domain.hex(),
+            "unsigned_canonical_hex": unsigned.hex(),
+            "signed_canonical_hex": receipt["canonical_bytes"],
+            "submission": submission,
+        }, sort_keys=True),
+    )
+    batch = receipt["authorised_batch"]
+    require(
+        receipt_ref == submission["receipt_ref"]
+        and isinstance(batch, dict)
+        and set(batch) == {
+            "batch_id", "asset", "previous_state_root", "resulting_state_root",
+            "sequencer_public_key",
+        }
+        and all(hex32(value) for value in batch.values())
+        and batch["previous_state_root"] == facts["previous_state_root"]
+        and batch["resulting_state_root"] == facts["resulting_state_root"],
+        "recovered receipt digest or authorised header roots disagree",
+    )
+    return dict(facts, receipt_ref=receipt_ref)
 
 
 def invocation_evidence(record, credential, call):
@@ -506,6 +614,7 @@ class Phase:
                 "participants",
                 "transitions",
                 "unknown_track_request",
+                "unknown_receipt_request",
                 "boundary_evidence",
             },
             "missing genuine MCP revocation fixture profile",
@@ -617,12 +726,10 @@ class Phase:
         )
         if verified:
             require(
-                status == 200
-                and response.get("verification_status", {}).get("state") == "achieved"
-                and response["verification_status"].get("level")
-                in ("StateProven", "CheckpointFinalised"),
-                "actual outcome lacks StateProven protocol evidence",
+                status == 200,
+                "actual verified operation was refused",
             )
+            achieved_rung(response)
         return status, response
 
     def live(self, role, boundary="reads"):
@@ -1164,47 +1271,41 @@ class Phase:
 
     def unknown(self):
         envelope = self.fixture.envelope(self.profile["unknown_track_request"])
+        reference = envelope.get("request", {}).get("submission_ref")
         require(
-            envelope["operation"] == "track",
+            envelope["operation"] == "track" and hex32(reference),
             "durable unknown must use actual authorized tracking",
         )
         status, response = self.rpc(envelope)
-        value = response.get("value", {})
+        require(status == 200, "actual unknown tracking was refused")
+        value = tracked_evidence(response, reference)
         require(
-            status == 200
-            and value.get("submission", {}).get("state") == "Unknown"
-            and re.fullmatch("[0-9a-f]{64}", value.get("activity_id", "")),
+            value["state"] == "Unknown",
             "genuine already-durable unknown submission is missing",
         )
         self.unknown_before = value
         self.daemon.stop()
         self.daemon.start()
         status, response = self.rpc(envelope)
-        after = response.get("value", {})
-        require(
-            status == 200
-            and after.get("activity_id") == value["activity_id"]
-            and after.get("submission", {}).get("submission_ref")
-            == value["submission"]["submission_ref"]
-            and after["submission"]["state"] in ("Unknown", "Acknowledged", "Executed"),
-            "restart dropped or replaced an already-durable unknown submission",
-        )
-        if after["submission"]["state"] == "Executed":
+        require(status == 200, "actual recovered tracking was refused")
+        after = tracked_evidence(response, reference)
+        if after["state"] in ("Executed", "Committed"):
+            lookup = self.fixture.envelope(self.profile["unknown_receipt_request"])
             require(
-                response.get("verification_status", {}).get("state") == "achieved"
-                and response["verification_status"].get("level")
-                in ("StateProven", "CheckpointFinalised")
-                and after.get("receipt", {}).get("verification_level")
-                in ("StateProven", "CheckpointFinalised"),
-                "unknown reconciliation invented an executed receipt",
+                lookup["operation"] == "program.receipt"
+                and lookup.get("credential") == envelope.get("credential")
+                and isinstance(lookup.get("credential"), dict)
+                and lookup.get("request", {}).get("expected_activity_id") == reference
+                and hex32(lookup["request"].get("idempotency_key"))
+                and lookup["request"].get("requested_rung") == after["rung"],
+                "recovery receipt lookup lost tenant, invocation or requested rung binding",
             )
-            READINESS.receipt_facts(
-                after["receipt"]["canonical_bytes"], after["activity_id"]
-            )
+            _, receipt_response = self.rpc(lookup, verified=True)
+            recovered_receipt(receipt_response, after)
         return {
-            "activity_id": after["activity_id"],
-            "state": after["submission"]["state"],
-            "submission_ref": after["submission"]["submission_ref"],
+            "activity_id": after["tx_hash"],
+            "state": after["state"],
+            "submission_ref": after["submission_ref"],
         }
 
     def close(self):

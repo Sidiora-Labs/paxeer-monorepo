@@ -1,0 +1,32 @@
+[sweep.node-platform-middleware]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cd TARGET && npm ci && npm run build && npm test"
+targets_total = 5
+targets_passed = 5
+targets_failed = 0
+targets_not_run = 0
+
+[target.node-platform-middleware.1]
+target = "services/platform/middleware/seller"
+result = "passed"
+exit_code = 0
+
+[target.node-platform-middleware.2]
+target = "services/platform/middleware/buyer"
+result = "passed"
+exit_code = 0
+
+[target.node-platform-middleware.3]
+target = "services/platform/middleware/merchant"
+result = "passed"
+exit_code = 0
+
+[target.node-platform-middleware.4]
+target = "services/platform/middleware/agent"
+result = "passed"
+exit_code = 0
+
+[target.node-platform-middleware.5]
+target = "services/platform/middleware/conformance"
+result = "passed"
+exit_code = 0

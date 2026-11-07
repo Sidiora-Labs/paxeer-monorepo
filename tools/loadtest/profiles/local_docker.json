@@ -1,6 +1,10 @@
 {
-  "chainId": 713714,
-  "paxChainId": "local-docker",
+  "chainId": 125,
+  "bounds": {
+    "minAverageTps": 5,
+    "maxP99LatencyMs": 5000
+  },
+  "paxChainId": "qualification-chain-125-local_docker",
   "endpoints": [
     "http://127.0.0.1:8545",
     "http://127.0.0.1:8547",

@@ -1,8 +1,5 @@
 use super::*;
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::program_call::NativeProgramCall;
-use layerx_wire::activity::decode_signed;
-use layerx_wire::hash::{activity_id, payload_hash};
+use sha2::{Digest, Sha256};
 
 fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
     result.unwrap_or_else(|failure| panic!("{failure:?}"))
@@ -38,26 +35,27 @@ fn captured() -> serde_json::Value {
 
 fn verify_capture(document: serde_json::Value) -> Result<(), String> {
     let stored: StoredExecution = serde_json::from_value(document).map_err(error)?;
-    let activity_type = must(ActivityType::new(ModuleId::Programs, 3));
-    let registration = must(ModuleRegistration::new(
-        ModuleId::Programs,
-        &[activity_type],
-    ));
-    let registry = must(ModuleRegistry::new(&[registration]));
-    let signed = fixture("activity.lxa");
-    let activity = must(decode_signed(&signed, &registry));
-    let call = must(NativeProgramCall::decode(activity.payload()));
+    let mut activity_digest = Sha256::new();
+    activity_digest.update(Domain::ActivityId.tag());
+    activity_digest.update(fixture("activity.lxa"));
     verify(
         &stored,
         &fixture("receipt"),
         ExpectedCall {
-            activity_id: must(activity_id(&activity)),
-            program_id: call.callee().bytes(),
-            payload_hash: must(payload_hash(&activity)),
-            guest_abi_version: call.guest_abi,
-            actor_did: activity.actor_did(),
+            activity_id: activity_digest.finalize().into(),
+            program_id: parse_hex32(
+                "70cad3daf5160e04c970fce00bf1145c16362b7035d28db8dbae8df61191b22d",
+            )
+            .unwrap_or_else(|| panic!("captured program identifier")),
+            payload_hash: parse_hex32(
+                "b5e7fc8afb8451624ae712ca4f38344d7a57677ed7c2075274abe8560d423fd0",
+            )
+            .unwrap_or_else(|| panic!("captured payload hash")),
+            guest_abi_version: 2,
+            actor_did:
+                b"did:layerx:90d25c03974722e9c0962563fa33a558775cb79b7d2be5730dbd7970336e2fa92",
         },
-        activity.network_id(),
+        7_332,
     )
 }
 

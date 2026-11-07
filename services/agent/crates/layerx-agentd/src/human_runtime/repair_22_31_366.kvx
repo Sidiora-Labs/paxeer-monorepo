@@ -1,0 +1,6 @@
+[repair.22.31.366]
+finding = "subject_retained_evm_decode"
+tests = ["subject_retained_evm_decode_survives_commitment_and_restart", "subject_retained_evm_decode_binds_current_transaction_actor", "subject_retained_evm_decode_refuses_owner_target_network_asset_and_tenant_mismatch", "subject_retained_evm_decode_refuses_changed_action_consent_and_contract", "subject_retained_evm_decode_refuses_failed_ambiguous_and_corrupt_records", "subject_retained_evm_decode_native_bind_uses_the_real_account_constructor"]
+verified_revision = "The hf-build/hf-done private gate ledger records the exact qualified candidate revision and command result."
+baseline = "No pre-change verify was run: Order 1/4 forbids testing before complete implementation and forbids running verify_cmd outside hf-done; the declared integration target did not exist on the unchanged tree."
+wiring_request = "Domain 9: services/platform/hosted/authority/src/human/dynamic.rs registration_binding/child must consume exact EVM registration bytes and authenticate the matching transaction, owner and target state; its current decoder accepts only retired activity envelopes."

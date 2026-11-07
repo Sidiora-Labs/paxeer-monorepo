@@ -1,0 +1,29 @@
+[disposition.20.6.1.1]
+finding = "20.6.1.1"
+status = "resolved"
+evidence = "On current main, spec/layerx-merge/spec.kvx:117588 runs yarn --cwd apps/explorer tsc --noEmit -p tsconfig.json against the project at apps/explorer/tsconfig.json:1, eliminating the duplicated apps/explorer path."
+follow_up = "closure"
+
+[disposition.20.9.8.1]
+finding = "20.9.8.1"
+status = "resolved"
+evidence = "Commit 3c3a1da8acd58cc2d9522f4fedd5af33ab4a2734 landed the direct k256 dependency with the ecdsa feature at tools/platform/cli/Cargo.toml:21, satisfying the retained SigningKey reference at tools/platform/cli/src/chains.rs:438 on current main."
+follow_up = "closure"
+
+[disposition.20.2.2.1]
+finding = "20.2.2.1"
+status = "resolved"
+evidence = "On current main, newChainsHarness sets MinimumFeePerGas to 42000000 at precompiles/layerxchains/layerxchains_test.go:56, below MaxMinFeePerGas of 67000000 at modules/evm/types/params.go:55, removing the reported parameter-validation panic."
+follow_up = "closure"
+
+[disposition.20.3.1.1]
+finding = "20.3.1.1"
+status = "resolved"
+evidence = "Commit 1d41dbfba8f423a960ddfa71d32fe31d6c7285bb landed signedDomainTx with FrontierSigner for legacy transactions at node/ante/evm_checktx_domain_test.go:48 and signer ID 125 for typed zero at node/ante/evm_checktx_domain_test.go:52, so current main avoids LatestSignerForChainID(0)."
+follow_up = "closure"
+
+[disposition.20.7.1.1]
+finding = "20.7.1.1"
+status = "resolved"
+evidence = "Commit 198abad5ae76b68df5efb6b8a67fc321a16b27e4 landed the Vitest test at apps/launchpad/web/src/widgets/create-chain/chain-domain.test.ts:127, matching apps/launchpad/web/vitest.config.ts:11 on current main where chain-domain.test.mjs is absent."
+follow_up = "closure"

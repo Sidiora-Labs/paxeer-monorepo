@@ -1,0 +1,42 @@
+[sweep.go-utils]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 7
+targets_passed = 7
+targets_failed = 0
+targets_not_run = 0
+
+[target.go-utils.1]
+target = "utils"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.2]
+target = "utils/datastructures"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.3]
+target = "utils/helpers"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.4]
+target = "utils/helpers/legacy/v575"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.5]
+target = "utils/helpers/legacy/v600"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.6]
+target = "utils/logging"
+result = "passed"
+exit_code = 0
+
+[target.go-utils.7]
+target = "utils/metrics"
+result = "passed"
+exit_code = 0

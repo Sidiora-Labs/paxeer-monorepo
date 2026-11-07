@@ -1,0 +1,49 @@
+[issue.1512]
+number = 1512
+title = "[P2] Update retained test-log after retired log append kinds are refused"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Makefile:1400 and Makefile:1404 retain the log test whose loop at tests/storage/lxp_test_log.c:32 requires successful appends for kinds 1..9, so kind 3 returns 1 before the checks at tests/storage/lxp_test_log.c:39, while src/storage/lxp_log.c:34 and src/storage/lxp_log.c:420 intentionally refuse kinds 3, 6, 8 and 9 before writing under spec/layerx-merge/spec.kvx:812 (decision.124); commit b46c2a694a019fe8dc72c1e8ac6f7b3b183db301 changed the append contract without changing this test, task.16.32.12 at spec/layerx-merge/spec.kvx:205116 covers other suites, and tests/codec/lxp_test_log_kinds.c:97 already produces historical bytes for the read regression at tests/codec/lxp_test_log_kinds.c:171."
+close_comment = "The retained log test still expects retired record kinds to append successfully and exits before its sequence-exhaustion and corruption checks. A focused test repair will cover admitted appends and retired-kind refusals while preserving the existing safety checks and historical-record readability."
+
+[task.18.1512.1]
+title = "Issue #1512: Align the retained log test with admitted append kinds"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181512.1"]
+capabilities = []
+interfaces = []
+do_1 = "Replace the contiguous kind loop in tests/storage/lxp_test_log.c:32 with explicit admitted kinds LXP_LOG_ACTIVITY, LXP_LOG_RECEIPT, LXP_LOG_CHECKPOINT, LXP_LOG_STATE_DIFF and LXP_LOG_GENESIS, matching src/storage/lxp_log.c:34; retain successful append/read body and record-kind assertions for every admitted kind."
+do_2 = "In main at tests/storage/lxp_test_log.c:13, assert that retired kinds 3, 6, 8 and 9 return LXP_ERR_NON_CANONICAL without changing the write offset, previous-record offset, next sequence, output offset or segment bytes, as demonstrated by tests/codec/lxp_test_log_kinds.c:44; preserve the sequence-exhaustion and unchanged-state assertions at tests/storage/lxp_test_log.c:39, invalid-kind rejection at tests/storage/lxp_test_log.c:47 and corrupted-body rejection at tests/storage/lxp_test_log.c:50."
+do_3 = "Run the retained log test through its existing Makefile:1400 build target and require main to reach all append, read, refusal, sequence-exhaustion and corruption assertions; preserve decision.124 at spec/layerx-merge/spec.kvx:812 and the existing historical-producer/read coverage at tests/codec/lxp_test_log_kinds.c:97 and tests/codec/lxp_test_log_kinds.c:171, using historical bytes for retired-kind reads rather than successful new appends of retired kinds."
+symbols = ["main"]
+touches = ["tests/storage/lxp_test_log.c"]
+tests = ["tests/storage/lxp_test_log.c::main"]
+planned_paths = []
+build_cmd = "make -C . build/liblayerx.a"
+verify_cmd = "make -C . build/tests/lxp_test_log && ./build/tests/lxp_test_log"
+gate_kind = "planned"
+sandbox_profile = "go-cgo"
+owner_role = "fm-kernel"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181512]
+title = "The retained log test exercises the current append contract and all safety checks"
+ac_1 = "Given the retained test at tests/storage/lxp_test_log.c:13, when its standalone main runs through the Makefile:1404 test-log entrypoint, then kinds 1, 2, 4, 5 and 7 append and read back correctly, kinds 3, 6, 8 and 9 are refused without changing segment bytes or append state, and the sequence-exhaustion, invalid-kind and corruption assertions at tests/storage/lxp_test_log.c:39, tests/storage/lxp_test_log.c:47 and tests/storage/lxp_test_log.c:50 execute and pass without weakening the refusal at src/storage/lxp_log.c:420 or the historical read contract at src/storage/lxp_log.c:465."
+
+[acceptance.18.1512.1]
+feature = "18"
+req = "181512.1"
+scenario = "Given a fresh log segment and the retained log test, when main appends and reads every admitted kind, attempts retired and invalid kinds, attempts sequence exhaustion and corrupts a stored body, then admitted records round-trip, refusals leave bytes and append state unchanged, sequence exhaustion preserves the write offset and next sequence, corrupted reads fail, and the test exits successfully."
+contract = "contracts/kernel.md#format-kernel-log-segment"
+test = "tests/storage/lxp_test_log.c::main (planned)"
+qualification = "UNRUN"

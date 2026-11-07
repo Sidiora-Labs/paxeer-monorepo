@@ -5,21 +5,25 @@ import (
 	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"math"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/privval"
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	sequencermodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer"
 	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/types"
@@ -48,8 +52,14 @@ func sequencerPublicKey() []byte {
 // height 1 on.
 func activationGenesis(t *testing.T) json.RawMessage {
 	t.Helper()
+	return activationGenesisAt(t, 2)
+}
+
+func activationGenesisAt(t *testing.T, height uint64) json.RawMessage {
+	t.Helper()
 	bz, err := json.Marshal(map[string]any{
-		"leaders": [][]byte{sequencerLeader},
+		"leaders":           [][]byte{sequencerLeader},
+		"activation_height": height,
 		"receipt_keys": seqkeeper.ReceiptKeys{{
 			KeyId:       sequencerKeyID,
 			PublicKey:   sequencerPublicKey(),
@@ -90,15 +100,19 @@ func activate(t *testing.T, w *app.TestWrapper) {
 // evmTransfer funds from and returns a signed one-wei EVM transfer to to and its hash.
 func evmTransfer(t *testing.T, w *app.TestWrapper, from utils.TestAcct, to common.Address) ([]byte, common.Hash) {
 	t.Helper()
+	w.App.EvmKeeper.SetAddressMapping(w.Ctx, from.AccountAddress, from.EvmAddress)
 	w.FundAcc(from.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(1_000_000_000_000_000_000))))
+	chainID := w.App.EvmKeeper.ChainID(w.Ctx)
+	ethCfg := evmtypes.DefaultChainConfig().EthereumConfig(chainID)
+	signer := ethtypes.MakeSigner(ethCfg, big.NewInt(w.Ctx.BlockHeight()), uint64(w.Ctx.BlockTime().Unix()))
 	signed, err := ethtypes.SignTx(ethtypes.NewTx(&ethtypes.DynamicFeeTx{
 		GasFeeCap: new(big.Int).SetUint64(100_000_000_000),
 		GasTipCap: new(big.Int).SetUint64(100_000_000_000),
 		Gas:       21000,
-		ChainID:   big.NewInt(config.DefaultChainID),
+		ChainID:   chainID,
 		To:        &to,
 		Value:     big.NewInt(1),
-	}), from.EvmSigner, from.EvmPrivateKey)
+	}), signer, from.EvmPrivateKey)
 	require.NoError(t, err)
 	txData, err := ethtx.NewTxDataFromTx(signed)
 	require.NoError(t, err)
@@ -151,26 +165,86 @@ func signedBatchAt(t *testing.T, height uint64, seed []byte, fromSeq, toSeq uint
 
 // processBlock commits the block of w.Ctx with the state written so far, finalizes txs as the
 // next block and moves w.Ctx onto that block's state.
-func processBlock(w *app.TestWrapper, txs [][]byte) ([]*abci.ExecTxResult, error) {
+func commitSequencedParent(w *app.TestWrapper) error {
 	height, at := w.Ctx.BlockHeight(), w.Ctx.BlockTime()
 	if _, err := w.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
 		Header: &tmproto.Header{ChainID: sequencedChainID, Height: height, Time: at},
 	}); err != nil {
-		return nil, err
+		return err
 	}
 	w.App.SetDeliverStateToCommit()
-	if _, err := w.App.Commit(context.Background()); err != nil {
-		return nil, err
-	}
+	_, err := w.App.Commit(context.Background())
+	return err
+}
+
+func finalizeSequencedBlock(w *app.TestWrapper, txs [][]byte) ([]*abci.ExecTxResult, error) {
+	height, at := w.Ctx.BlockHeight(), w.Ctx.BlockTime()
 	resp, err := w.App.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-		Txs:    txs,
-		Header: &tmproto.Header{ChainID: sequencedChainID, Height: height + 1, Time: at.Add(2 * time.Second)},
+		Txs: txs, Header: &tmproto.Header{ChainID: sequencedChainID, Height: height + 1, Time: at.Add(2 * time.Second).Truncate(time.Millisecond)},
 	})
 	w.Ctx = w.App.GetContextForDeliverTx(nil)
 	if err != nil {
 		return nil, err
 	}
 	return resp.TxResults, nil
+}
+
+func processBlock(w *app.TestWrapper, txs [][]byte) ([]*abci.ExecTxResult, error) {
+	if err := commitSequencedParent(w); err != nil {
+		return nil, err
+	}
+	return finalizeSequencedBlock(w, txs)
+}
+
+// producedSequencedBlock signs the real executor's state transition through the consensus source.
+func producedSequencedBlock(t *testing.T, w *app.TestWrapper, seed []byte, txs ...[]byte) ([][]byte, []byte) {
+	t.Helper()
+	height := w.App.LastBlockHeight() + 1
+	validators := w.App.StakingKeeper.GetAllValidators(w.App.GetCheckCtx())
+	require.Len(t, validators, 1)
+	proposer, err := validators[0].GetConsAddr()
+	require.NoError(t, err)
+	last, err := w.App.SequencerKeeper.LastSeq(w.App.GetCheckCtx())
+	require.NoError(t, err)
+	hash, err := w.App.SequencerKeeper.LastSeqHash(w.App.GetCheckCtx())
+	require.NoError(t, err)
+	exec, err := sequencer.NewExecutor(w.App, sequencer.Options{ChainID: sequencedChainID, ProposerAddress: proposer, LastSeq: last, LastSeqHash: hash})
+	require.NoError(t, err)
+	dir := t.TempDir()
+	consensus := filepath.Join(dir, "consensus.json")
+	pv, err := privval.GenFilePV(consensus, filepath.Join(dir, "state.json"), "")
+	require.NoError(t, err)
+	require.NoError(t, pv.Save())
+	receipt := filepath.Join(dir, "receipt-key")
+	require.NoError(t, os.WriteFile(receipt, []byte(hex.EncodeToString(seed)), 0600))
+	pins, err := w.App.SequencerKeeper.ReceiptKeyPins(w.App.GetCheckCtx())
+	require.NoError(t, err)
+	key, err := sequencer.LoadReceiptKey(receipt, consensus, pins, height)
+	require.NoError(t, err)
+	source, err := sequencer.NewConsensusSource(w.App, exec, key)
+	require.NoError(t, err)
+	require.NoError(t, exec.Open(height, w.Ctx.BlockTime().Add(2*time.Second).UnixMilli()))
+	for _, tx := range txs {
+		accepted, err := exec.Accept(tx)
+		require.NoError(t, err)
+		require.Zero(t, accepted.Result.Code, accepted.Result.Log)
+	}
+	_, err = source.Seal(context.Background(), height)
+	require.NoError(t, err)
+	sealed := source.Sealed()
+	require.NotNil(t, sealed)
+	msg, err := app.DecodeSequenceBatch(sealed.Txs[0])
+	require.NoError(t, err)
+	return sealed.Txs, msg.LastSeqHash
+}
+
+func processProducedBlock(t *testing.T, w *app.TestWrapper, txs ...[]byte) ([]*abci.ExecTxResult, []byte) {
+	t.Helper()
+	require.NoError(t, commitSequencedParent(w))
+	block, last := producedSequencedBlock(t, w, sequencerKeySeed, txs...)
+	results, err := finalizeSequencedBlock(w, block)
+	require.NoError(t, err)
+	return results, last
 }
 
 func requireSequencerState(t *testing.T, w *app.TestWrapper, lastSeq uint64, lastSeqHash []byte) {
@@ -181,6 +255,10 @@ func requireSequencerState(t *testing.T, w *app.TestWrapper, lastSeq uint64, las
 	gotHash, err := w.App.SequencerKeeper.LastSeqHash(w.Ctx)
 	require.NoError(t, err)
 	require.Equal(t, lastSeqHash, gotHash[:])
+	exported, err := w.App.SequencerKeeper.ExportGenesis(w.Ctx)
+	require.NoError(t, err)
+	require.Equal(t, gotSeq, exported.LastSeq)
+	require.Equal(t, gotHash, exported.LastSeqHash)
 }
 
 func requireReceiptIndex(t *testing.T, w *app.TestWrapper, hash common.Hash, index uint64) {
@@ -201,11 +279,7 @@ func TestSequencedBlockDeliversBatchAtTxZero(t *testing.T) {
 		activate(t, w)
 		tx1, hash1 := evmTransfer(t, w, alice, toAlice)
 		tx2, hash2 := evmTransfer(t, w, bob, toBob)
-		last := bytes.Repeat([]byte{0x77}, seqtypes.HashLength)
-		batch := signedBatch(t, 1, 2, zeroSeqHash, last, txRootOf(hash1, hash2), sequencerKeyID)
-
-		results, err := processBlock(w, [][]byte{batch, tx1, tx2})
-		require.NoError(t, err)
+		results, last := processProducedBlock(t, w, tx1, tx2)
 		require.Len(t, results, 3)
 		require.Equal(t, abci.ExecTxResult{}, *results[0])
 		for i, res := range results[1:] {
@@ -215,14 +289,17 @@ func TestSequencedBlockDeliversBatchAtTxZero(t *testing.T) {
 		}
 		requireReceiptIndex(t, w, hash1, 1)
 		requireReceiptIndex(t, w, hash2, 2)
-		_, err = w.App.EvmKeeper.GetTransientReceipt(w.Ctx, hash1, 0)
+		_, err := w.App.EvmKeeper.GetTransientReceipt(w.Ctx, hash1, 0)
 		require.Error(t, err)
 		requireSequencerState(t, w, 2, last)
 	})
 
 	t.Run("below activation", func(t *testing.T) {
 		w := newSequencerWrapper(t, tm, valPub, false)
-		initSequencerGenesis(t, w, activationGenesis(t))
+		initSequencerGenesis(t, w, activationGenesisAt(t, 3))
+		height, err := w.App.SequencerKeeper.ActivationHeight(w.Ctx)
+		require.NoError(t, err)
+		require.Equal(t, int64(3), height)
 		require.False(t, w.App.Sequenced(w.Ctx, w.Ctx.BlockHeight()+1))
 		tx1, hash1 := evmTransfer(t, w, alice, toAlice)
 		tx2, hash2 := evmTransfer(t, w, bob, toBob)
@@ -253,17 +330,26 @@ func TestSequencedBlockRefusesBadBatch(t *testing.T) {
 		want  error
 	}{
 		{
+			name: "wrong lastSeqHash",
+			batch: func(t *testing.T, tx []byte, hash common.Hash) [][]byte {
+				return [][]byte{signedBatch(t, 1, 1, zeroSeqHash, last, txRootOf(hash), sequencerKeyID), tx}
+			},
+			want: seqtypes.ErrInvalidSequenceBatch,
+		},
+		{
 			name: "wrong prevSeqHash",
 			batch: func(t *testing.T, tx []byte, hash common.Hash) [][]byte {
 				prev := bytes.Repeat([]byte{0x01}, seqtypes.HashLength)
-				return [][]byte{signedBatch(t, 1, 1, prev, last, txRootOf(hash), sequencerKeyID), tx}
+				next := seqtypes.SeqHash([32]byte(prev), 1, [32]byte(hash))
+				return [][]byte{signedBatch(t, 1, 1, prev, next[:], txRootOf(hash), sequencerKeyID), tx}
 			},
 			want: seqkeeper.ErrSeqDiscontinuity,
 		},
 		{
 			name: "fromSeq not after the stored lastSeq",
 			batch: func(t *testing.T, tx []byte, hash common.Hash) [][]byte {
-				return [][]byte{signedBatch(t, 2, 2, zeroSeqHash, last, txRootOf(hash), sequencerKeyID), tx}
+				next := seqtypes.SeqHash([32]byte{}, 2, [32]byte(hash))
+				return [][]byte{signedBatch(t, 2, 2, zeroSeqHash, next[:], txRootOf(hash), sequencerKeyID), tx}
 			},
 			want: seqkeeper.ErrSeqDiscontinuity,
 		},
@@ -271,14 +357,16 @@ func TestSequencedBlockRefusesBadBatch(t *testing.T) {
 			name: "unknown keyId",
 			batch: func(t *testing.T, tx []byte, hash common.Hash) [][]byte {
 				unknown := bytes.Repeat([]byte{0x66}, seqtypes.KeyIDLength)
-				return [][]byte{signedBatch(t, 1, 1, zeroSeqHash, last, txRootOf(hash), unknown), tx}
+				next := seqtypes.SeqHash([32]byte{}, 1, [32]byte(hash))
+				return [][]byte{signedBatch(t, 1, 1, zeroSeqHash, next[:], txRootOf(hash), unknown), tx}
 			},
 			want: seqkeeper.ErrUnknownReceiptKey,
 		},
 		{
 			name: "tampered signature",
 			batch: func(t *testing.T, tx []byte, hash common.Hash) [][]byte {
-				bz := signedBatch(t, 1, 1, zeroSeqHash, last, txRootOf(hash), sequencerKeyID)
+				next := seqtypes.SeqHash([32]byte{}, 1, [32]byte(hash))
+				bz := signedBatch(t, 1, 1, zeroSeqHash, next[:], txRootOf(hash), sequencerKeyID)
 				bz[len(bz)-1] ^= 0x01
 				return [][]byte{bz, tx}
 			},
@@ -327,20 +415,17 @@ func TestSequencedBlockOCCEqualsSequential(t *testing.T) {
 	// InitChain stamps the epoch with the wall clock; both apps start from the same record.
 	sequential.App.EpochKeeper.SetEpoch(sequential.Ctx, occ.App.EpochKeeper.GetEpoch(occ.Ctx))
 
-	last := bytes.Repeat([]byte{0x77}, seqtypes.HashLength)
 	run := func(w *app.TestWrapper) ([]*abci.ExecTxResult, []common.Hash, []byte) {
 		activate(t, w)
-		txs := [][]byte{nil}
+		txs := [][]byte{}
 		hashes := make([]common.Hash, 0, len(senders))
 		for i, sender := range senders {
 			tx, hash := evmTransfer(t, w, sender, recipients[i].EvmAddress)
 			txs = append(txs, tx)
 			hashes = append(hashes, hash)
 		}
-		txs[0] = signedBatch(t, 1, uint64(len(senders)), zeroSeqHash, last, txRootOf(hashes...), sequencerKeyID)
-		results, err := processBlock(w, txs)
-		require.NoError(t, err)
-		require.Len(t, results, len(txs))
+		results, last := processProducedBlock(t, w, txs...)
+		require.Len(t, results, len(txs)+1)
 		require.Equal(t, abci.ExecTxResult{}, *results[0])
 		for i, hash := range hashes {
 			require.Equal(t, uint32(0), results[i+1].Code, "tx %d: %s", i+1, results[i+1].Log)
@@ -410,9 +495,8 @@ func TestSequencedBlockGenesisOneKeySet(t *testing.T) {
 	require.JSONEq(t, string(genesis), string(exported))
 
 	// An empty batch signed by the pinned key delivers against the same key set.
-	batch := signedBatch(t, 1, 0, zeroSeqHash, zeroSeqHash, seqtypes.EmptyTxRoot[:], sequencerKeyID)
-	results, err := processBlock(w, [][]byte{batch})
-	require.NoError(t, err)
+	results, last := processProducedBlock(t, w)
+	require.Equal(t, zeroSeqHash, last)
 	require.Equal(t, []*abci.ExecTxResult{{}}, results)
 	requireSequencerState(t, w, 0, zeroSeqHash)
 }
@@ -437,7 +521,6 @@ func TestSequencedBlockReceiptKeyRotation(t *testing.T) {
 	valPub := secp256k1.GenPrivKey().PubKey()
 	alice := utils.NewSigner()
 	to := utils.NewSigner().EvmAddress
-	last := bytes.Repeat([]byte{0x77}, seqtypes.HashLength)
 	const h2 = 2
 	k1 := seqkeeper.ReceiptKeyEntry{KeyId: sequencerKeyID, PublicKey: sequencerPublicKey(), FirstHeight: 1, LastHeight: math.MaxUint64}
 	k2Seed := bytes.Repeat([]byte{0x22}, ed25519.SeedSize)
@@ -501,9 +584,8 @@ func TestSequencedBlockReceiptKeyRotation(t *testing.T) {
 
 	t.Run("K2 at h2 delivers", func(t *testing.T) {
 		w, tx, hash := rotate(t)
-		batch := signedBatchAt(t, h2, k2Seed, 1, 1, zeroSeqHash, last, txRootOf(hash), k2KeyID)
-
-		resp, err := finalize(w, [][]byte{batch, tx})
+		block, last := producedSequencedBlock(t, w, k2Seed, tx)
+		resp, err := finalize(w, block)
 		require.NoError(t, err)
 		require.Len(t, resp.TxResults, 2)
 		require.Equal(t, abci.ExecTxResult{}, *resp.TxResults[0])
@@ -515,7 +597,8 @@ func TestSequencedBlockReceiptKeyRotation(t *testing.T) {
 
 	t.Run("K1 at h2 fails the block", func(t *testing.T) {
 		w, tx, hash := rotate(t)
-		batch := signedBatchAt(t, h2, sequencerKeySeed, 1, 1, zeroSeqHash, last, txRootOf(hash), sequencerKeyID)
+		next := seqtypes.SeqHash([32]byte{}, 1, [32]byte(hash))
+		batch := signedBatchAt(t, h2, sequencerKeySeed, 1, 1, zeroSeqHash, next[:], txRootOf(hash), sequencerKeyID)
 
 		resp, err := finalize(w, [][]byte{batch, tx})
 		require.ErrorIs(t, err, seqkeeper.ErrUnknownReceiptKey)
@@ -530,14 +613,14 @@ func TestSequencedBlockGenesisRoundTrip(t *testing.T) {
 	cdc := app.MakeEncodingConfig().Marshaler
 	alice, bob := utils.NewSigner(), utils.NewSigner()
 	toAlice, toBob := utils.NewSigner().EvmAddress, utils.NewSigner().EvmAddress
-	last := bytes.Repeat([]byte{0x77}, seqtypes.HashLength)
-
 	w := newSequencerWrapper(t, tm, valPub, false)
 	activate(t, w)
 	tx1, hash1 := evmTransfer(t, w, alice, toAlice)
 	tx2, hash2 := evmTransfer(t, w, bob, toBob)
-	_, err := processBlock(w, [][]byte{signedBatch(t, 1, 2, zeroSeqHash, last, txRootOf(hash1, hash2), sequencerKeyID), tx1, tx2})
-	require.NoError(t, err)
+	results, last := processProducedBlock(t, w, tx1, tx2)
+	require.Len(t, results, 3)
+	requireReceiptIndex(t, w, hash1, 1)
+	requireReceiptIndex(t, w, hash2, 2)
 	requireSequencerState(t, w, 2, last)
 
 	exported := sequencermodule.NewAppModule(w.App.SequencerKeeper, w.App.GetSubspace(seqtypes.ModuleName)).ExportGenesis(w.Ctx, cdc)

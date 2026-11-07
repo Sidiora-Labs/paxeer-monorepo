@@ -1,0 +1,46 @@
+[repair.22.33.1249]
+audit = "22.30.61"
+baseline = "Attempt 1 had no previous hf-build/hf-done ledger or repair tests. The explicit gate order prohibits testing before implementation and running verify by hand, so no unchanged-tree failure is claimed."
+evidence = "hf-build and hf-done record the exact candidate revision, command, exit code and private log; the runner publishes only matching build and verify revisions."
+policy = "SDK xweb error 26 is LXP_XWEB_INVALID_PAYLOAD, invalid storage receipt payload, terminal (Retryable no). Paid pending and all fulfilled records require a valid asset denomination. Historical zero-fee pending fixtures remain valid without a mapping. Answer headers and the exact chunk set must agree with the production writer and reader."
+
+[finding.storage-receipt-error-name]
+tests = ["TestRepairM_1249_StorageReceiptErrorName"]
+proof = "Real payload encoder, keeper and 0x1019 EVM call; ABI Error(string) decode agrees with the common registry, with terminal classification against committed Python and TypeScript consumer maps."
+wiring_contract = "Fulfilled by task 22.31.566: spec/layerx-merge/contracts/address-table.md registers LXP_XWEB_INVALID_PAYLOAD, SDK xweb code 26, invalid storage receipt payload, Retryable no; address-inventory.md records the row."
+wiring_contract_status = "fulfilled"
+wiring_python = "Fulfilled by task 22.31.566 through scripts/ci/result-codes-gen.py: the generated Python retry table carries LXP_XWEB_INVALID_PAYLOAD as False."
+wiring_sdk = "services/agent/sdk/python/layerx_sdk/revert.py and services/agent/sdk/typescript/src/revert.ts (agent SDK domain): publish the code as terminal via scripts/ci/result-codes-gen.py; retain the Rust services/agent/crates/layerx-types/build.rs registry-derived classification."
+
+[finding.pending-genesis-fee-denom]
+tests = ["TestRepairM_1249_PendingGenesisFeeDenom", "TestRepairM_1249_ZeroFeeGenesisPolicy"]
+proof = "Real paid request producer and bank ledger, module JSON export/import, disk close/reopen, protobuf QueryClient and signed fulfilment pay all four original denominations; second reopen preserves payouts and fulfilled records. Missing mappings are rejected without import writes."
+
+[finding.program-answer-genesis]
+tests = ["TestRepairM_1249_ProgramAnswerGenesisRecovery", "TestRepairM_1249_ProgramAnswerGenesisRejectsCorruption"]
+proof = "Real signed fulfilment produces empty, boundary and multipart answers through 4096 bytes; module JSON import and disk reopen recover query results and invariants. Missing, extra, malformed and misowned chunks or invalid header lengths are rejected before import writes."
+
+[gotcha.gate-order]
+observed = "The embedded task asks for unchanged-tree verification while the explicit order allows verification only after complete implementation and hf-build."
+resolution = "Follow the explicit order, preserve the gate budget, and report no baseline test result. GOTCHA.kvx and spec files are outside this task's scope."
+
+[wiring.registry-parity]
+request = "precompiles/common/lxp_errors_test.go (chain-modules domain): after the address-table owner adds the code-26 row, retain its exact registry/table parity assertions; do not weaken or bypass them."
+
+[qualification.preexisting-cli-compilation]
+revision = "4e95f1e5fb4c89d1920d002a9cfb4dfa863994fa"
+command = "cg spec done 22.33.1249 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler details /tmp/repair-m1249.log"
+observed = "The declared gate failed to compile existing auth, staking and tokenfactory CLI dependencies; tokenfactory callers use the two-result tx.NewFactoryCLI as one value, and no repair test executed."
+assumption = "These unchanged dependencies are outside scope and are recorded without repair or rerun; hf-build passed on the same revision, and this task remains implemented, not qualified."
+
+[qualification.continuation]
+base = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+prerequisite = "22.31.463 at 524ea0876e3a672b34c204e4bb237277fb9dec51 carries the fallible transaction factory through its CLI callers."
+review = "Preserved all seven attempt-1 paths; checked the 40-byte header and 1024-byte chunks against putProgramAnswer and GetProgramResult, and validation before writes against keeper.InitGenesis."
+evidence = "The continued attempt uses hf-build then hf-done; their private gate ledger records the matching candidate revision, exact command, exit code and log path."
+
+[gotcha.graph-context]
+observed = "cg brief reports a different next task and cg grep returns no indexed matches for the scoped keeper symbols."
+resolution = "Use the explicitly assigned task and inspect its production source files directly; hf-done synchronizes the scoped graph before qualification."

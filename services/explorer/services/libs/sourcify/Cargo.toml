@@ -17,6 +17,7 @@ serde_json = "1.0.96"
 thiserror = "1.0.40"
 tracing = { version = "0.1.37", optional = true }
 url = "2.4.0"
+tokio = { version = "1.28.2", features = ["time"] }
 
 [dev-dependencies]
 governor = "0.5.1"

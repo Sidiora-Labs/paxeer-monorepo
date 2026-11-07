@@ -78,13 +78,6 @@ class PxAssetTable:
     joined_limit: int
     def __init__(self, assets: tuple[PxAssetEntry, ...], joined_limit: int) -> None: ...
 
-class PxAnchorHead:
-    latest_finalized_batch: int | None
-    status: int | None
-    status_name: str | None
-    status_ladder: Mapping[str, str] | None
-    def __init__(self, latest_finalized_batch: int | None, status: int | None, status_name: str | None, status_ladder: Mapping[str, str] | None) -> None: ...
-
 class PxPaxeerHead:
     chain_id: int
     latest_block: int
@@ -94,8 +87,8 @@ class PxNetworkHead:
     network_id: str
     paxeer: PxPaxeerHead
     layerx: Mapping[str, object] | None
-    anchor: PxAnchorHead | None
-    def __init__(self, network_id: str, paxeer: PxPaxeerHead, layerx: Mapping[str, object] | None, anchor: PxAnchorHead | None) -> None: ...
+    latest_committed_height: int
+    def __init__(self, network_id: str, paxeer: PxPaxeerHead, layerx: Mapping[str, object] | None, latest_committed_height: int) -> None: ...
 
 class HistoryAssetMetadata:
     asset: str
@@ -121,6 +114,7 @@ class HistoryRow:
     asset: str
     amount: int
     tx_id: str
+    tx_hash: str
     ordinal: int
     final: bool
     decoded: object
@@ -129,7 +123,7 @@ class HistoryRow:
     tx_index: int
     log_index: int
     side: str | None
-    def __init__(self, id: int, height_or_seq: int, chain: str, kind: str, direction: str, account: str, counterparty: str | None, asset: str, amount: int, tx_id: str, ordinal: int, final: bool, decoded: object, asset_metadata: HistoryAssetMetadata | None, block_height: int, tx_index: int, log_index: int, side: str | None) -> None: ...
+    def __init__(self, id: int, height_or_seq: int, chain: str, kind: str, direction: str, account: str, counterparty: str | None, asset: str, amount: int, tx_id: str, tx_hash: str, ordinal: int, final: bool, decoded: object, asset_metadata: HistoryAssetMetadata | None, block_height: int, tx_index: int, log_index: int, side: str | None) -> None: ...
 
 class HistoryPage:
     account: str
@@ -177,7 +171,7 @@ def decode_px_asset_balance(value: object) -> PxAssetBalance: ...
 def decode_px_custody_asset(value: object) -> PxCustodyAsset | None: ...
 def decode_px_asset_table(value: object) -> PxAssetTable: ...
 def decode_px_network_head(value: object) -> PxNetworkHead: ...
-def decode_px_anchor_head(value: object) -> PxAnchorHead: ...
+def history_cursor(block_height: int, tx_index: int, log_index: int) -> str: ...
 def history_params(account: str, *, cursor: str | None = ..., limit: int | None = ..., kind: str | None = ...) -> list[object]: ...
 def history_account(account: str) -> str: ...
 def decode_paxeer_history_page(value: object, limit: int = ...) -> HistoryPage: ...

@@ -2,29 +2,32 @@ use ed25519_dalek::{Signer as _, SigningKey as EdSigningKey};
 use k256::ecdsa::{Signature, SigningKey};
 use layerx_crypto::secp256k1;
 use layerx_proof::availability::{AvailabilityClass, Chunk};
-use layerx_proof::checkpoint::{Attestation, GuarantorKey, SettlementDomain};
 use layerx_proof::export::{
     verify_complete, CompleteExportError, IndependentOfflineTrust, OfflineTrustError,
-    TrustedCheckpointMembership,
 };
 use layerx_proof::export_codec::{
-    parse_fact_set, AccountStateRecord, ArtifactDecodeError, CheckpointRecord,
+    parse_fact_set, AccountStateRecord, AccountStateVariant, ArtifactDecodeError,
     CompleteOfflineArtifact, ExportCodecError, FactRefError, FactSelector, HeaderRecord,
-    InclusionRecord, ProofRecord, ReceiptRecord, MAX_FACT_REFS, MAX_FACT_REF_BYTES,
-    MAX_RECORD_BYTES, RECORD_VERSION,
+    InclusionRecord, InclusionRecordKind, ProofRecord, ReceiptRecord, MAX_FACT_REFS,
+    MAX_FACT_REF_BYTES, MAX_RECORD_BYTES, RECORD_VERSION,
 };
-use layerx_proof::merkle::{build_leaf_hash_proof, encode_proof, Proof};
+use layerx_proof::merkle::MerkleError;
+use layerx_proof::merkle::{build_leaf_hash_proof, build_proof, encode_proof, Proof};
 use layerx_proof::signed_authority::SignedAuthorityHistory;
-use layerx_types::verify::VerificationLevel;
-use layerx_wire::activity::decode_signed;
+use layerx_proof::state::AccountProofError;
+use layerx_types::rung::Rung;
 use layerx_wire::encode::Encoder;
 use layerx_wire::handover::{decode_genesis_trust, sequencer_id};
-use layerx_wire::hash::{availability_chunk_digest, batch_header_digest, receipt_digest};
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_wire::hash::{
+    availability_chunk_digest, batch_header_digest, program_execution_batch_id, receipt_digest,
+};
+use layerx_wire::limits::{PROTOCOL_VERSION, STATE_COMMITMENT_PROTOCOL_VERSION};
+use layerx_wire::receipt::{decode as decode_receipt, decode_batch_header, encode_unsigned};
+use sha2::{Digest as _, Sha256};
 
 const GENESIS: &[u8] = include_bytes!("fixtures/signed-authority/genesis.bin");
 const HEADERS: &[u8] = include_bytes!("fixtures/signed-authority/headers.bin");
-const HANDOVER: &[u8] = include_bytes!("fixtures/signed-authority/handover.activity");
+const HANDOVER_PAYLOAD: &[u8] = include_bytes!("fixtures/signed-authority/handover.payload");
 const HEADER_RECORD: usize = 418;
 const HEADER_BYTES: usize = 354;
 const NO_RECORDS: [Vec<u8>; 0] = [];
@@ -54,22 +57,52 @@ fn lp(out: &mut Vec<u8>, bytes: &[u8]) {
 
 // Signed native receipt in the layout the receipt verifier decodes.
 fn receipt(activity: [u8; 32], signer: &EdSigningKey) -> Vec<u8> {
+    receipt_with_batch(activity, signer, [2; 32], [4; 32], PROTOCOL_VERSION)
+}
+
+fn receipt_with_batch(
+    activity: [u8; 32],
+    signer: &EdSigningKey,
+    previous_state_root: [u8; 32],
+    batch_id: [u8; 32],
+    protocol_version: u16,
+) -> Vec<u8> {
+    receipt_with_state(
+        activity,
+        signer,
+        previous_state_root,
+        [3; 32],
+        batch_id,
+        protocol_version,
+        9,
+    )
+}
+
+fn receipt_with_state(
+    activity: [u8; 32],
+    signer: &EdSigningKey,
+    previous_state_root: [u8; 32],
+    resulting_state_root: [u8; 32],
+    batch_id: [u8; 32],
+    protocol_version: u16,
+    sequence: u64,
+) -> Vec<u8> {
     let encode = |signature: Option<[u8; 64]>| {
         let mut encoder = Encoder::new(4096);
         assert_eq!(
-            encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
+            encoder.structure_header_version(0x5201, protocol_version),
             Ok(())
         );
-        assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(()));
+        assert_eq!(encoder.u16(protocol_version), Ok(()));
         assert_eq!(encoder.bytes(&activity, 32), Ok(()));
-        assert_eq!(encoder.u64(9), Ok(()));
-        assert_eq!(encoder.bytes(&[2; 32], 32), Ok(()));
-        assert_eq!(encoder.bytes(&[3; 32], 32), Ok(()));
+        assert_eq!(encoder.u64(sequence), Ok(()));
+        assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
+        assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
         assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
         assert_eq!(encoder.i32(0), Ok(()));
         assert_eq!(encoder.sequence_length(0, 512), Ok(()));
         assert_eq!(encoder.u128(1), Ok(()));
-        assert_eq!(encoder.bytes(&[4; 32], 32), Ok(()));
+        assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
         assert_eq!(encoder.u16(1), Ok(()));
         assert_eq!(encoder.u32(1), Ok(()));
         assert_eq!(encoder.u32(1), Ok(()));
@@ -94,7 +127,8 @@ fn receipt(activity: [u8; 32], signer: &EdSigningKey) -> Vec<u8> {
         encoder.finish()
     };
     let digest = must(receipt_digest(&encode(None)));
-    encode(Some(signer.sign(&digest).to_bytes()))
+    let signed = encode(Some(signer.sign(&digest).to_bytes()));
+    must(layerx_wire::receipt::encode(&must(decode_receipt(&signed))))
 }
 
 fn ed_key(value: u8) -> EdSigningKey {
@@ -110,7 +144,6 @@ struct Native {
 // Trust is built only from the checked-in native genesis and its signed headers.
 fn native() -> Native {
     let genesis = must(decode_genesis_trust(GENESIS));
-    let activity = must(decode_signed(HANDOVER, &genesis.registry));
     let mut history = must(SignedAuthorityHistory::from_genesis(
         genesis.network_id,
         genesis.canonical_state_root,
@@ -118,7 +151,7 @@ fn native() -> Native {
         genesis.governance_witness,
     ));
     for (index, record) in HEADERS.chunks_exact(HEADER_RECORD).enumerate() {
-        let packet = (index >= 13).then_some(activity.payload());
+        let packet = (index >= 13).then_some(HANDOVER_PAYLOAD);
         must(history.advance(
             &record[..HEADER_BYTES],
             &must(record[HEADER_BYTES..].try_into()),
@@ -148,28 +181,11 @@ fn guarantor(value: u8) -> (SigningKey, [u8; 33], [u8; 32]) {
     (signing, public_key, guarantor_id)
 }
 
-fn domain() -> SettlementDomain {
-    SettlementDomain::new(31_337, [0x55; 20])
-}
-
-fn membership(values: &[u8], threshold: usize) -> TrustedCheckpointMembership {
-    let keys = values
-        .iter()
-        .map(|value| {
-            let (_, public_key, guarantor_id) = guarantor(*value);
-            GuarantorKey::new(guarantor_id, public_key, true)
-        })
-        .collect();
-    must(TrustedCheckpointMembership::new(1, keys, threshold))
-}
-
 fn trust() -> IndependentOfflineTrust {
     let native = native();
     must(IndependentOfflineTrust::new(
         native.registry,
         native.history,
-        domain(),
-        vec![membership(&[1, 2, 3], 2)],
     ))
 }
 
@@ -203,17 +219,14 @@ fn receipt_record_bytes(activity: [u8; 32], receipt: &[u8], sequencer: [u8; 32])
     out.push(1);
     lp(&mut out, receipt_ref(activity).as_bytes());
     lp(&mut out, receipt);
-    out.extend_from_slice(&[4; 32]);
-    out.extend_from_slice(&[5; 32]);
-    out.extend_from_slice(&[2; 32]);
-    out.extend_from_slice(&[3; 32]);
+    let decoded = must(decode_receipt(receipt));
+    let protocol = decoded.protocol().expect("protocol receipt fixture");
+    out.extend_from_slice(&protocol.batch_id());
+    out.extend_from_slice(&protocol.asset());
+    out.extend_from_slice(&protocol.previous_state_root());
+    out.extend_from_slice(&protocol.resulting_state_root());
     out.extend_from_slice(&sequencer);
-    let unsigned_digest = {
-        let signature_offset = receipt.len() - 65;
-        let mut unsigned = receipt[..signature_offset].to_vec();
-        unsigned.push(0);
-        must(receipt_digest(&unsigned))
-    };
+    let unsigned_digest = must(receipt_digest(&must(encode_unsigned(&decoded))));
     out.extend_from_slice(&unsigned_digest);
     out
 }
@@ -273,7 +286,8 @@ fn account_state_bytes(
     out
 }
 
-fn attestation(guarantor_value: u8) -> Attestation {
+// Frozen historical wire bytes; no retired proof API is needed to test refusal.
+fn attestation(guarantor_value: u8) -> Vec<u8> {
     let (signing, _, guarantor_id) = guarantor(guarantor_value);
     let checkpoint = [0x61; 32];
     let attested_at_ms = 1_000 + u64::from(guarantor_value);
@@ -297,25 +311,11 @@ fn attestation(guarantor_value: u8) -> Attestation {
     let signer = must(secp256k1::evm_address(
         signing.verifying_key().to_encoded_point(true).as_bytes(),
     ));
-    Attestation::new(
-        PROTOCOL_VERSION,
-        42,
-        31_337,
-        [0x55; 20],
-        7,
-        checkpoint,
-        checkpoint,
-        guarantor_id,
-        8,
-        [12; 32],
-        true,
-        true,
-        0x1f,
-        attested_at_ms,
-        signer,
-        signature.to_bytes().into(),
-        27 + u8::from(recovery),
-    )
+    let mut bytes = message.to_vec();
+    bytes.extend_from_slice(&signer);
+    bytes.extend_from_slice(&signature.to_bytes());
+    bytes.push(27 + u8::from(recovery));
+    bytes
 }
 
 struct Chunks {
@@ -380,10 +380,7 @@ fn checkpoint_bytes(
     certificate.push(2);
     certificate.push(2);
     for item in &attestations {
-        certificate.extend_from_slice(&item.canonical_statement());
-        certificate.extend_from_slice(&item.signer());
-        certificate.extend_from_slice(&item.signature());
-        certificate.push(item.signature_v());
+        certificate.extend_from_slice(item);
     }
     certificate.push(0);
     let mut out = b"LXCP".to_vec();
@@ -443,34 +440,17 @@ fn assert_strict<T>(bytes: &[u8], decode: impl Fn(&[u8]) -> Result<T, ExportCode
 fn fact_grammar_accepts_each_canonical_form_in_request_order() {
     let activity = id(1);
     let account = id(2);
-    let texts = [
-        checkpoint_ref(activity, u64::MAX),
-        state_ref(activity, account),
-        receipt_ref(activity),
-        format!("activity:{}", hex(&activity)),
-        checkpoint_ref(activity, 1),
-    ];
+    let texts = [state_ref(activity, account), receipt_ref(activity)];
     let parsed = must(parse_fact_set(&texts));
     assert_eq!(
         parsed,
         vec![
-            FactSelector::Checkpoint {
-                activity_id: activity,
-                batch_number: u64::MAX
-            },
             FactSelector::State {
                 activity_id: activity,
                 account_id: account
             },
             FactSelector::Receipt {
                 activity_id: activity
-            },
-            FactSelector::Activity {
-                activity_id: activity
-            },
-            FactSelector::Checkpoint {
-                activity_id: activity,
-                batch_number: 1
             },
         ]
     );
@@ -533,15 +513,15 @@ fn fact_grammar_refuses_every_noncanonical_form() {
     );
     assert_eq!(
         FactSelector::parse(&format!("checkpoint:{good}:0")),
-        Err(FactRefError::ZeroBatch)
+        Err(FactRefError::UnknownKind)
     );
     assert_eq!(
         FactSelector::parse(&format!("checkpoint:{good}:18446744073709551616")),
-        Err(FactRefError::Decimal)
+        Err(FactRefError::UnknownKind)
     );
     assert_eq!(
         FactSelector::parse(&format!("checkpoint:{good}:01")),
-        Err(FactRefError::Decimal)
+        Err(FactRefError::UnknownKind)
     );
     assert_eq!(
         FactSelector::parse(&format!("ledger:{good}")),
@@ -612,24 +592,16 @@ fn receipt_header_and_inclusion_records_round_trip_their_frozen_byte_layouts() {
     wrong_kind.extend_from_slice(&receipt_wire[9 + receipt_ref(activity).len()..]);
     assert_eq!(
         ReceiptRecord::decode(&wrong_kind).err(),
-        Some(ExportCodecError::ReferenceKind)
+        Some(ExportCodecError::Reference(FactRefError::UnknownKind))
     );
 
     let digest = must(header.digest());
-    for (kind, reference, leaf) in [
-        (2_u8, receipt_ref(activity), receipt_bytes.clone()),
-        (
-            1_u8,
-            format!("activity:{}", hex(&activity)),
-            b"activity-leaf".to_vec(),
-        ),
-    ] {
+    for (kind, reference, leaf) in [(2_u8, receipt_ref(activity), receipt_bytes.clone())] {
         let wire = inclusion_bytes(kind, &reference, &leaf, &pair_proof(1), digest);
         let decoded = must(InclusionRecord::decode(&wire));
         assert!(matches!(
             (&decoded.kind, kind),
-            (layerx_proof::export_codec::InclusionRecordKind::Activity, 1)
-                | (layerx_proof::export_codec::InclusionRecordKind::Receipt, 2)
+            (layerx_proof::export_codec::InclusionRecordKind::Receipt, 2)
         ));
         assert_eq!(decoded.reference.canonical_text(), reference);
         assert_eq!(decoded.canonical_leaf, leaf);
@@ -639,7 +611,7 @@ fn receipt_header_and_inclusion_records_round_trip_their_frozen_byte_layouts() {
         let routed = must(ProofRecord::decode(&wire));
         assert_eq!(must(routed.encode()), wire);
         assert_strict(&wire, InclusionRecord::decode);
-        for tag in [0_u8, 3, 0xff] {
+        for tag in [0_u8, 1, 3, 0xff] {
             let mut unknown = wire.clone();
             unknown[5] = tag;
             assert_eq!(
@@ -658,7 +630,7 @@ fn receipt_header_and_inclusion_records_round_trip_their_frozen_byte_layouts() {
     );
     assert_eq!(
         InclusionRecord::decode(&swapped).err(),
-        Some(ExportCodecError::ReferenceKind)
+        Some(ExportCodecError::Tag)
     );
     // A Merkle path that does not match its tree size is not a canonical proof.
     let mut bad_proof = inclusion_bytes(
@@ -736,91 +708,17 @@ fn account_state_records_round_trip_both_variants_and_refuse_unknown_variants() 
 }
 
 #[test]
-fn checkpoint_record_round_trips_and_refuses_partial_reordered_or_unknown_material() {
-    let activity = id(1);
-    let reference = checkpoint_ref(activity, 1);
-    let header = &HEADERS[..HEADER_BYTES];
-    let wire = checkpoint_bytes(&reference, header, &[0, 1, 2], None);
-    let decoded = must(CheckpointRecord::decode(&wire));
-    assert_eq!(
-        decoded.reference,
-        FactSelector::Checkpoint {
-            activity_id: activity,
-            batch_number: 1
-        }
-    );
-    assert_eq!(decoded.certificate.checkpoint().header_bytes(), header);
-    assert_eq!(decoded.certificate.threshold(), 2);
-    assert_eq!(decoded.certificate.attestations().len(), 2);
-    assert_eq!(decoded.certificate.attestations()[0], attestation(1));
-    assert_eq!(decoded.set_version, 1);
-    assert_eq!(decoded.bonded_set.len(), 3);
-    assert_eq!(decoded.checkpoint_id, [0x61; 32]);
-    assert_eq!(decoded.registered_settlement_reference, None);
-    let data = availability();
-    assert_eq!(decoded.availability.len(), 3);
-    for (position, (chunk, proof)) in decoded.availability.iter().enumerate() {
-        assert_eq!(chunk, &data.chunks[position]);
-        assert_eq!(proof, &data.proofs[position]);
-    }
-    assert_eq!(must(decoded.encode()), wire);
-    assert_strict(&wire, CheckpointRecord::decode);
-
-    for order in [
-        &[1_usize, 0, 2][..],
-        &[0, 2][..],
-        &[0, 1, 1][..],
-        &[2, 1, 0][..],
-    ] {
-        let reordered = checkpoint_bytes(&reference, header, order, None);
-        assert!(
-            CheckpointRecord::decode(&reordered).is_err(),
-            "order {order:?} accepted"
-        );
-    }
-    assert!(CheckpointRecord::decode(&checkpoint_bytes(&reference, header, &[], None)).is_err());
-    assert!(
-        CheckpointRecord::decode(&checkpoint_bytes(&reference, header, &[0, 1, 2], Some(4)))
-            .is_err()
-    );
-    assert!(
-        CheckpointRecord::decode(&checkpoint_bytes(&reference, header, &[0, 1, 2], Some(2)))
-            .is_err()
-    );
-    let mut unknown_class = wire.clone();
-    let class_at = wire.len() - chunk_bytes(&data.chunks[2], &data.proofs[2]).len() + 12;
-    unknown_class[class_at] = 6;
-    assert!(CheckpointRecord::decode(&unknown_class).is_err());
-    let mut option_tag = wire.clone();
-    let option_at = wire.len()
-        - 2
-        - (0..3)
-            .map(|index| chunk_bytes(&data.chunks[index], &data.proofs[index]).len())
-            .sum::<usize>()
-        - 1;
-    option_tag[option_at] = 2;
-    assert!(CheckpointRecord::decode(&option_tag).is_err());
-    assert!(CheckpointRecord::decode(&checkpoint_bytes(
-        &receipt_ref(activity),
-        header,
-        &[0, 1, 2],
-        None
-    ))
-    .is_err());
-}
-
-#[test]
 fn record_size_is_capped_at_exactly_one_mebibyte() {
     let digest = [0x51; 32];
-    let reference = format!("activity:{}", hex(&id(1)));
-    let empty = inclusion_bytes(1, &reference, &[], &single_proof(), digest).len();
+    let reference = receipt_ref(id(1));
+    let empty = inclusion_bytes(2, &reference, &[], &single_proof(), digest).len();
     let fits = vec![0x5a; MAX_RECORD_BYTES - empty];
-    let exact = inclusion_bytes(1, &reference, &fits, &single_proof(), digest);
+    let exact = inclusion_bytes(2, &reference, &fits, &single_proof(), digest);
     assert_eq!(exact.len(), MAX_RECORD_BYTES);
     let decoded = must(InclusionRecord::decode(&exact));
     assert_eq!(must(decoded.encode()).len(), MAX_RECORD_BYTES);
     let over = vec![0x5a; MAX_RECORD_BYTES - empty + 1];
-    let oversized = inclusion_bytes(1, &reference, &over, &single_proof(), digest);
+    let oversized = inclusion_bytes(2, &reference, &over, &single_proof(), digest);
     assert_eq!(oversized.len(), MAX_RECORD_BYTES + 1);
     assert_eq!(
         InclusionRecord::decode(&oversized).err(),
@@ -925,247 +823,524 @@ fn artifact_container_round_trips_and_refuses_duplicate_or_malformed_buckets() {
 }
 
 #[test]
-fn independent_trust_refuses_false_membership_threshold_and_network() {
-    let keys = |values: &[u8]| -> Vec<GuarantorKey> {
-        values
-            .iter()
-            .map(|value| {
-                let (_, public_key, guarantor_id) = guarantor(*value);
-                GuarantorKey::new(guarantor_id, public_key, true)
-            })
-            .collect()
-    };
-    assert!(TrustedCheckpointMembership::new(1, keys(&[1, 2, 3]), 0).is_err());
-    assert!(TrustedCheckpointMembership::new(1, keys(&[1, 2, 3]), 4).is_err());
-    assert!(TrustedCheckpointMembership::new(1, Vec::new(), 1).is_err());
-    assert!(TrustedCheckpointMembership::new(1, keys(&[1, 1, 2]), 2).is_err());
-    let native = native();
-    assert!(matches!(
-        IndependentOfflineTrust::new(
-            native.registry,
-            native.history,
-            domain(),
-            vec![membership(&[1, 2, 3], 2), membership(&[1, 2, 4], 2)],
-        ),
-        Err(OfflineTrustError::DuplicateSetVersion)
+fn independent_trust_refuses_unverified_authority() {
+    let genesis = must(decode_genesis_trust(GENESIS));
+    let authority = must(SignedAuthorityHistory::from_genesis(
+        genesis.network_id,
+        genesis.canonical_state_root,
+        genesis.initial_sequencer_key,
+        genesis.governance_witness,
     ));
-    let trust = trust();
-    assert_eq!(trust.settlement(), domain());
-    assert_eq!(trust.network_id(), self::native().history.network_id());
+    assert!(matches!(
+        IndependentOfflineTrust::new(genesis.registry, authority),
+        Err(OfflineTrustError::NoAuthority)
+    ));
+    assert_eq!(trust().network_id(), native().history.network_id());
+}
+
+fn signed_export_batch(
+    receipts: &[Vec<u8>],
+    previous: [u8; 32],
+    resulting: [u8; 32],
+    first_sequence: u64,
+    last_sequence: u64,
+) -> (HeaderRecord, IndependentOfflineTrust, Vec<Proof>) {
+    let genesis = must(decode_genesis_trust(GENESIS));
+    let signer = ed_key(9);
+    let public_key = signer.verifying_key().to_bytes();
+    let sequencer = must(sequencer_id(&public_key));
+    let leaves: Vec<_> = receipts.iter().map(Vec::as_slice).collect();
+    let receipt_root = must(build_proof(&leaves, 0)).1;
+    let proofs = (0..receipts.len())
+        .map(|index| must(build_proof(&leaves, index)).0)
+        .collect();
+    let mut encoder = Encoder::new(HEADER_BYTES);
+    must(encoder.structure_header_version(0x1701, STATE_COMMITMENT_PROTOCOL_VERSION));
+    must(encoder.u8(15));
+    must(encoder.tag(1, 15));
+    must(encoder.u16(STATE_COMMITMENT_PROTOCOL_VERSION));
+    must(encoder.tag(2, 15));
+    must(encoder.u32(genesis.network_id));
+    for (tag, value) in [(3, 1), (4, 1), (5, first_sequence), (6, last_sequence)] {
+        must(encoder.tag(tag, 15));
+        must(encoder.u64(value));
+    }
+    for (tag, value) in [
+        (7, previous),
+        (8, resulting),
+        (9, [8; 32]),
+        (10, receipt_root),
+        (11, [10; 32]),
+        (12, [11; 32]),
+        (13, [12; 32]),
+    ] {
+        must(encoder.tag(tag, 15));
+        must(encoder.bytes(&value, 32));
+    }
+    must(encoder.tag(14, 15));
+    must(encoder.u64(1_000));
+    must(encoder.tag(15, 15));
+    must(encoder.bytes(&sequencer, 32));
+    let canonical_header = encoder.finish();
+    let digest = must(batch_header_digest(&canonical_header));
+    let signature = signer.sign(&digest).to_bytes();
+    let mut history = must(SignedAuthorityHistory::from_genesis(
+        genesis.network_id,
+        genesis.canonical_state_root,
+        public_key,
+        genesis.governance_witness,
+    ));
+    must(history.advance(&canonical_header, &signature, None));
+    let trust = must(IndependentOfflineTrust::new(genesis.registry, history));
+    (
+        HeaderRecord {
+            canonical_header,
+            signature,
+            sequencer_id: sequencer,
+            public_key,
+            first_batch: 1,
+            last_batch: 1,
+        },
+        trust,
+        proofs,
+    )
+}
+
+fn receipted_export_for(
+    activities: &[[u8; 32]],
+) -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+    let signer = ed_key(9);
+    let previous = must(decode_batch_header(&HEADERS[..HEADER_BYTES])).previous_state_root();
+    let last = must(u64::try_from(activities.len()));
+    let batch = must(program_execution_batch_id(previous, [8; 32], 1, last, 1));
+    let receipts: Vec<_> = activities
+        .iter()
+        .enumerate()
+        .map(|(index, activity)| {
+            receipt_with_state(
+                *activity,
+                &signer,
+                previous,
+                [3; 32],
+                batch,
+                STATE_COMMITMENT_PROTOCOL_VERSION,
+                must(u64::try_from(index)) + 1,
+            )
+        })
+        .collect();
+    let (header, trust, proofs) = signed_export_batch(&receipts, previous, [3; 32], 1, last);
+    let digest = must(header.digest());
+    let records: Vec<_> = activities
+        .iter()
+        .zip(&receipts)
+        .map(|(activity, receipt)| {
+            receipt_record_bytes(*activity, receipt, signer.verifying_key().to_bytes())
+        })
+        .collect();
+    let inclusions: Vec<_> = activities
+        .iter()
+        .zip(&receipts)
+        .zip(&proofs)
+        .map(|((activity, receipt), proof)| {
+            inclusion_bytes(2, &receipt_ref(*activity), receipt, proof, digest)
+        })
+        .collect();
+    (
+        must(CompleteOfflineArtifact::decode(
+            &activities
+                .iter()
+                .map(|activity| receipt_ref(*activity))
+                .collect::<Vec<_>>(),
+            &records,
+            &inclusions,
+            &NO_RECORDS,
+            &[must(header.encode())],
+        )),
+        trust,
+    )
+}
+
+fn receipted_export() -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+    receipted_export_for(&[id(1)])
+}
+
+fn transported(artifact: &CompleteOfflineArtifact) -> CompleteOfflineArtifact {
+    let wire = must(artifact.encode());
+    must(CompleteOfflineArtifact::decode(
+        &wire.facts,
+        &wire.receipts,
+        &wire.proofs,
+        &wire.certificates,
+        &wire.headers,
+    ))
+}
+
+fn assert_receipted(artifact: &CompleteOfflineArtifact, trust: &IndependentOfflineTrust) {
+    let report = must(verify_complete(
+        &transported(artifact),
+        trust,
+        Rung::Receipted,
+    ));
+    assert_eq!(report.achieved(), Rung::Receipted);
+    assert_eq!(report.facts().len(), artifact.facts.len());
+    for (verified, expected) in report.facts().iter().zip(&artifact.facts) {
+        assert_eq!(verified.fact(), *expected);
+        assert_eq!(verified.achieved(), Rung::Receipted);
+    }
 }
 
 #[test]
-fn settlement_anchored_is_refused_without_an_offline_finality_proof() {
-    let native = native();
-    let activity = id(1);
-    let header = header_record(0, native.first_key, 1, 13);
-    let artifact = decode_artifact(
-        &[receipt_ref(activity)],
-        &receipt_artifact(&header, activity),
-        &[],
-    );
+fn complete_export_reports_the_requested_rung() {
+    let (artifact, trust) = receipted_export();
+    assert!(must(artifact.encode()).certificates.is_empty());
+    let report = must(verify_complete(&artifact, &trust, Rung::Receipted));
+    assert_eq!(report.achieved(), Rung::Receipted);
+    assert_eq!(report.facts().len(), 1);
+    assert_eq!(report.facts()[0].fact(), artifact.facts[0]);
+    assert_eq!(report.facts()[0].achieved(), Rung::Receipted);
+}
+
+#[test]
+fn complete_export_below_the_requested_rung_is_refused() {
+    let (artifact, trust) = receipted_export();
+    assert!(must(artifact.encode()).certificates.is_empty());
     assert_eq!(
-        verify_complete(&artifact, &trust(), VerificationLevel::SETTLEMENT_ANCHORED).err(),
-        Some(CompleteExportError::SettlementAnchoringUnavailable)
+        verify_complete(&artifact, &trust, Rung::Committed),
+        Err(CompleteExportError::RungNotAchieved {
+            fact: 0,
+            achieved: Rung::Receipted,
+            requested: Rung::Committed,
+        })
     );
 }
 
 #[test]
 fn rogue_sequencer_key_and_false_key_range_are_refused_against_independent_trust() {
-    let native = native();
-    let activity = id(1);
-    let trust = trust();
-    let level = VerificationLevel::BATCH_INCLUDED;
-    let genuine = header_record(0, native.first_key, 1, 13);
-    let control = verify_complete(
-        &decode_artifact(
-            &[receipt_ref(activity)],
-            &receipt_artifact(&genuine, activity),
-            &[],
-        ),
-        &trust,
-        level,
-    );
-    // The receipt is not a leaf of the real batch, so the control cannot pass either.
-    assert!(control.is_err());
-    assert!(!matches!(control, Err(CompleteExportError::Header { .. })));
-    // A reversed key range is not a canonical header record and never decodes.
-    let reversed = receipt_artifact(&header_record(0, native.first_key, 1, 0), activity);
+    let (control, trust) = receipted_export();
+    assert_receipted(&control, &trust);
+    let mut reversed = must(control.encode());
+    let mut header = control.headers[0].clone();
+    header.last_batch = 0;
+    reversed.headers[0] = header_bytes(&header);
     assert_eq!(
         CompleteOfflineArtifact::decode(
-            &[receipt_ref(activity)],
-            &reversed[..1],
-            &reversed[1..2],
-            &NO_RECORDS,
-            &reversed[2..],
+            &reversed.facts,
+            &reversed.receipts,
+            &reversed.proofs,
+            &reversed.certificates,
+            &reversed.headers
         )
         .err(),
         Some(ArtifactDecodeError::Record {
             bucket: "headers",
             index: 0,
-            error: ExportCodecError::Bound,
+            error: ExportCodecError::Bound
         })
     );
-    let rogue = ed_key(0x77).verifying_key().to_bytes();
-    let handover = native.history.intervals()[1].public_key();
-    for header in [
-        header_record(0, rogue, 1, 13),
-        header_record(0, handover, 1, 13),
-        header_record(0, native.first_key, 2, 13),
-        header_record(0, native.first_key, 0, 0),
-        header_record(14, native.first_key, 1, 15),
-        {
-            let mut wrong_id = header_record(0, native.first_key, 1, 13);
-            wrong_id.sequencer_id = [0x01; 32];
-            wrong_id
-        },
-    ] {
-        let artifact = decode_artifact(
-            &[receipt_ref(activity)],
-            &receipt_artifact(&header, activity),
-            &[],
-        );
-        assert!(
-            matches!(
-                verify_complete(&artifact, &trust, level),
-                Err(CompleteExportError::Header { fact: 0 })
-            ),
-            "header {:?} accepted",
-            (header.public_key, header.first_batch, header.last_batch)
+    // Each case changes exactly one field of the working signed batch.
+    let mut candidates = Vec::new();
+    let mut changed = control.clone();
+    changed.headers[0].public_key = ed_key(0x77).verifying_key().to_bytes();
+    candidates.push(changed);
+    let mut changed = control.clone();
+    changed.headers[0].public_key = native().history.intervals()[1].public_key();
+    candidates.push(changed);
+    let mut range_control = control.clone();
+    range_control.headers[0].last_batch = 13;
+    assert_receipted(&range_control, &trust);
+    let mut changed = range_control;
+    changed.headers[0].first_batch = 2;
+    candidates.push(changed);
+    let mut range_control = control.clone();
+    range_control.headers[0].first_batch = 0;
+    assert_receipted(&range_control, &trust);
+    let mut changed = range_control;
+    changed.headers[0].last_batch = 0;
+    candidates.push(changed);
+    let mut changed = control.clone();
+    changed.headers[0].signature = ed_key(0x77)
+        .sign(&must(changed.headers[0].digest()))
+        .to_bytes();
+    candidates.push(changed);
+    let mut changed = control.clone();
+    changed.headers[0].sequencer_id = [1; 32];
+    candidates.push(changed);
+    let mut changed = control.clone();
+    changed.headers[0].signature[0] ^= 1;
+    candidates.push(changed);
+    for candidate in candidates {
+        assert_eq!(
+            verify_complete(&transported(&candidate), &trust, Rung::Receipted),
+            Err(CompleteExportError::Header { fact: 0 })
         );
     }
-    let mut forged = header_record(0, native.first_key, 1, 13);
-    forged.canonical_header[100] ^= 1;
-    let artifact = decode_artifact(
-        &[receipt_ref(activity)],
-        &receipt_artifact(&forged, activity),
-        &[],
+    let mut forged = control.clone();
+    forged.headers[0].canonical_header[100] ^= 1;
+    let digest = must(forged.headers[0].digest());
+    let ProofRecord::Inclusion(inclusion) = &mut forged.proofs[0] else {
+        panic!("receipt inclusion")
+    };
+    inclusion.header_digest = digest;
+    assert_eq!(
+        verify_complete(&transported(&forged), &trust, Rung::Receipted),
+        Err(CompleteExportError::Header { fact: 0 })
     );
-    assert!(verify_complete(&artifact, &trust, level).is_err());
 }
 
 #[test]
 fn swapped_and_orphan_records_are_refused() {
-    let native = native();
-    let header = header_record(0, native.first_key, 1, 13);
-    let first = receipt_artifact(&header, id(1));
-    let second = receipt_artifact(&header, id(2));
-    let facts = vec![receipt_ref(id(1)), receipt_ref(id(2))];
-    let trust = trust();
-    let level = VerificationLevel::SEQUENCER_SIGNED;
-    // Each reference names the other fact's receipt bytes.
-    let swap = |record: &[u8], from: [u8; 32], to: [u8; 32]| -> Vec<u8> {
-        let (old, new) = (receipt_ref(from), receipt_ref(to));
-        let at = 9;
-        assert_eq!(&record[at..at + old.len()], old.as_bytes());
-        let mut out = record.to_vec();
-        out[at..at + new.len()].copy_from_slice(new.as_bytes());
-        out
+    let (control, trust) = receipted_export_for(&[id(1), id(2)]);
+    assert_receipted(&control, &trust);
+    let mut changed = control.clone();
+    changed.receipts[0].reference = control.receipts[1].reference;
+    changed.receipts[1].reference = control.receipts[0].reference;
+    assert_eq!(
+        verify_complete(&transported(&changed), &trust, Rung::Receipted),
+        Err(CompleteExportError::ReceiptBinding { fact: 0 })
+    );
+    let mut changed = control.clone();
+    let first = changed.proofs[0].clone();
+    let second = changed.proofs[1].clone();
+    let (ProofRecord::Inclusion(first), ProofRecord::Inclusion(second)) = (first, second) else {
+        panic!("receipt inclusions")
     };
-    let receipts = [
-        swap(&first[0], id(1), id(2)),
-        swap(&second[0], id(2), id(1)),
-    ];
-    let artifact = must(CompleteOfflineArtifact::decode(
-        &facts,
-        &receipts,
-        &[first[1].clone(), second[1].clone()],
-        &NO_RECORDS,
-        &first[2..],
-    ));
-    assert!(verify_complete(&artifact, &trust, level).is_err());
-    let inclusions = [
-        swap_inclusion(&first[1], id(1), id(2)),
-        swap_inclusion(&second[1], id(2), id(1)),
-    ];
-    let artifact = must(CompleteOfflineArtifact::decode(
-        &facts,
-        &[first[0].clone(), second[0].clone()],
-        &inclusions,
-        &NO_RECORDS,
-        &first[2..],
-    ));
-    assert!(verify_complete(&artifact, &trust, level).is_err());
-    // A complete second receipt that no requested fact uses is an orphan.
-    let artifact = must(CompleteOfflineArtifact::decode(
-        &facts[..1],
-        &[first[0].clone(), second[0].clone()],
-        &[first[1].clone(), second[1].clone()],
-        &NO_RECORDS,
-        &first[2..],
-    ));
-    assert!(verify_complete(&artifact, &trust, level).is_err());
-    // A requested fact with no primary record is refused, never served partially.
-    let artifact = must(CompleteOfflineArtifact::decode(
-        &facts,
-        &first[..1],
-        &first[1..2],
-        &NO_RECORDS,
-        &first[2..],
-    ));
-    assert!(verify_complete(&artifact, &trust, level).is_err());
+    let ProofRecord::Inclusion(record) = &mut changed.proofs[0] else {
+        panic!("inclusion")
+    };
+    record.reference = second.reference;
+    let ProofRecord::Inclusion(record) = &mut changed.proofs[1] else {
+        panic!("inclusion")
+    };
+    record.reference = first.reference;
+    assert_eq!(
+        verify_complete(&transported(&changed), &trust, Rung::Receipted),
+        Err(CompleteExportError::ReceiptBinding { fact: 0 })
+    );
+    let mut changed = control.clone();
+    changed.facts.pop();
+    assert_eq!(
+        verify_complete(&transported(&changed), &trust, Rung::Receipted),
+        Err(CompleteExportError::OrphanRecord)
+    );
+    let mut changed = control.clone();
+    changed.receipts.pop();
+    assert_eq!(
+        verify_complete(&transported(&changed), &trust, Rung::Receipted),
+        Err(CompleteExportError::MissingRecord { fact: 1 })
+    );
 }
 
-fn swap_inclusion(record: &[u8], from: [u8; 32], to: [u8; 32]) -> Vec<u8> {
-    let (old, new) = (receipt_ref(from), receipt_ref(to));
-    let at = 10;
-    assert_eq!(&record[at..at + old.len()], old.as_bytes());
-    let mut out = record.to_vec();
-    out[at..at + new.len()].copy_from_slice(new.as_bytes());
-    out
+fn state_leaf(key: &[u8], value: &[u8]) -> [u8; 32] {
+    let mut bytes = b"LXP/v1/state-leaf\0".to_vec();
+    bytes.extend_from_slice(&must(u32::try_from(key.len())).to_be_bytes());
+    bytes.extend_from_slice(&must(u32::try_from(value.len())).to_be_bytes());
+    bytes.extend_from_slice(key);
+    bytes.extend_from_slice(value);
+    Sha256::digest(bytes).into()
+}
+
+fn occupancy_leaf(root: [u8; 32]) -> Vec<u8> {
+    use layerx_programs_runtime::{
+        meter::FeeSchedule, occupancy::OccupancyLedger, FeeScheduleParameters,
+    };
+    let schedule = FeeSchedule::new_complete(FeeScheduleParameters {
+        version: 1,
+        fee_units_per_cpu_fuel: 1,
+        fee_units_per_memory_byte: 2,
+        fee_units_per_storage_read_byte: 3,
+        fee_units_per_storage_write_byte: 4,
+        fee_units_per_output_value: 5,
+        fee_units_per_output_byte: 6,
+        fee_units_per_occupancy_byte_batch: 7,
+    });
+    let prepared = must(OccupancyLedger::activated_after(0).prepare_unchanged_batch(1, schedule));
+    let settlement = prepared.settlement();
+    let evidence = settlement.canonical_evidence();
+    let usage = settlement.usage();
+    let mut schedule_bytes = 1_u32.to_be_bytes().to_vec();
+    for price in 1_u64..=7 {
+        schedule_bytes.extend_from_slice(&price.to_be_bytes());
+    }
+    schedule_bytes.extend_from_slice(&[0x81; 32]);
+    let mut commitment = b"LXP/v1/context-hash\0".to_vec();
+    commitment.extend_from_slice(&schedule_bytes);
+    let mut bytes = b"LXP/programs/occupancy-receipt/v2\0".to_vec();
+    bytes.extend_from_slice(&1_u64.to_be_bytes());
+    bytes.extend_from_slice(&2_u64.to_be_bytes());
+    bytes.extend_from_slice(&1_u32.to_be_bytes());
+    bytes.extend_from_slice(&schedule_bytes);
+    for amount in [
+        usage.byte_batches,
+        usage.fee_units,
+        usage.paid_fee_units,
+        usage.arrears_fee_units,
+    ] {
+        bytes.extend_from_slice(&amount.to_be_bytes());
+    }
+    assert!(must(settlement.payer_dispositions()).is_empty());
+    bytes.extend_from_slice(&0_u16.to_be_bytes());
+    bytes.extend_from_slice(&Sha256::digest(commitment));
+    lp(&mut bytes, &evidence);
+    bytes.extend_from_slice(&Sha256::digest(&evidence));
+    bytes.extend_from_slice(&[0x82; 32]);
+    bytes.extend_from_slice(&must(settlement.transfer_root([0x81; 32])));
+    bytes.extend_from_slice(&root);
+    bytes.extend_from_slice(&root);
+    bytes
+}
+
+fn state_export(maintained: bool) -> (CompleteOfflineArtifact, IndependentOfflineTrust) {
+    let vectors = include_str!("../../../../../tests/vectors/program_account_state_v2.vec");
+    let entry = |name: &str| {
+        vectors
+            .lines()
+            .find_map(|line| {
+                let (key, value) = line.split_once('=')?;
+                (key == name).then_some(value)
+            })
+            .unwrap_or_else(|| panic!("missing native account vector {name}"))
+    };
+    let unhex = |text: &str| {
+        text.as_bytes()
+            .chunks_exact(2)
+            .map(|pair| must(u8::from_str_radix(must(std::str::from_utf8(pair)), 16)))
+            .collect::<Vec<_>>()
+    };
+    let account: [u8; 32] = must(unhex(entry("account_id")).try_into());
+    let account_value = unhex(entry("account_value"));
+    let mut key = vec![4];
+    key.extend_from_slice(&account);
+    let leaf = state_leaf(&key, &account_value);
+    assert_eq!(leaf.as_slice(), unhex(entry("account_leaf")));
+    let sibling = state_leaf(b"other-account", b"recorded peer");
+    let mut node = b"LXP/v1/state-node\0".to_vec();
+    node.extend_from_slice(&leaf);
+    node.extend_from_slice(&sibling);
+    let account_root: [u8; 32] = Sha256::digest(node).into();
+    let universal_root = state_leaf(b"account-tree", &account_root);
+    let resulting = state_leaf(&0_u16.to_be_bytes(), &universal_root);
+    let previous = must(decode_batch_header(&HEADERS[..HEADER_BYTES])).previous_state_root();
+    let last = if maintained { 2 } else { 1 };
+    let batch = must(program_execution_batch_id(previous, [8; 32], 1, last, 1));
+    let signer = ed_key(9);
+    let receipt = receipt_with_state(
+        id(1),
+        &signer,
+        previous,
+        resulting,
+        batch,
+        STATE_COMMITMENT_PROTOCOL_VERSION,
+        1,
+    );
+    let mut receipts = vec![receipt.clone()];
+    if maintained {
+        receipts.push(occupancy_leaf(resulting));
+    }
+    let (header, trust, proofs) = signed_export_batch(&receipts, previous, resulting, 1, last);
+    let digest = must(header.digest());
+    let state = AccountStateRecord {
+        reference: FactSelector::State {
+            activity_id: id(1),
+            account_id: account,
+        },
+        variant: if maintained {
+            AccountStateVariant::Maintenance {
+                activity_count: 1,
+                parameter_version: 1,
+                dependency_receipt_activity_id: id(1),
+            }
+        } else {
+            AccountStateVariant::Activity
+        },
+        account_id: account,
+        account_value,
+        account_root,
+        universal_root,
+        resulting_state_root: resulting,
+        account_proof: must(Proof::new(0, 2, vec![sibling])),
+        account_tree_proof: single_proof(),
+        universal_root_proof: single_proof(),
+        receipt_bytes: receipts[usize::from(maintained)].clone(),
+        receipt_proof: proofs[usize::from(maintained)].clone(),
+        header_digest: digest,
+    };
+    let mut artifact = CompleteOfflineArtifact {
+        facts: vec![state.reference],
+        receipts: Vec::new(),
+        proofs: vec![ProofRecord::AccountState(state)],
+        headers: vec![header],
+    };
+    if maintained {
+        artifact
+            .receipts
+            .push(must(ReceiptRecord::decode(&receipt_record_bytes(
+                id(1),
+                &receipt,
+                signer.verifying_key().to_bytes(),
+            ))));
+        artifact
+            .proofs
+            .push(ProofRecord::Inclusion(InclusionRecord {
+                kind: InclusionRecordKind::Receipt,
+                reference: FactSelector::Receipt { activity_id: id(1) },
+                canonical_leaf: receipt,
+                proof: proofs[0].clone(),
+                header_digest: digest,
+            }));
+    }
+    (transported(&artifact), trust)
 }
 
 #[test]
 fn state_path_tamper_and_missing_maintenance_link_are_refused() {
-    let native = native();
-    let trust = trust();
-    let activity = id(1);
-    let account = id(0x22);
-    let header = header_record(0, native.first_key, 1, 13);
-    let digest = must(header.digest());
-    let signer = ed_key(9);
-    let receipt_bytes = receipt(activity, &signer);
-    let facts = vec![state_ref(activity, account)];
-    let plain = account_state_bytes(&facts[0], 1, &receipt_bytes, digest, None);
-    let verify = |proofs: Vec<Vec<u8>>, receipts: Vec<Vec<u8>>| {
-        let artifact = must(CompleteOfflineArtifact::decode(
-            &facts,
-            &receipts,
-            &proofs,
-            &NO_RECORDS,
-            &[header_bytes(&header)],
-        ));
-        verify_complete(&artifact, &trust, VerificationLevel::STATE_PROVEN)
-    };
-    let control = verify(vec![plain.clone()], Vec::new());
-    assert!(control.is_err());
-    let path_at = 9 + facts[0].len() + 1 + 32 + 4 + 48 + 96 + 4 + 10;
-    let mut tampered = plain.clone();
-    tampered[path_at] ^= 1;
-    assert!(verify(vec![tampered], Vec::new()).is_err());
-    // Maintenance state without its dependency receipt and inclusion is refused.
-    let maintained =
-        account_state_bytes(&facts[0], 2, b"maintenance", digest, Some((3, 7, activity)));
-    let missing = verify(vec![maintained.clone()], Vec::new());
-    assert!(matches!(
-        missing,
-        Err(CompleteExportError::MissingRecord { fact: 0 }
-            | CompleteExportError::MaintenanceLink { fact: 0 })
-    ));
-    // A dependency receipt for another activity does not complete the link.
-    let other = receipt(id(3), &signer);
-    let wrong = verify(
-        vec![
-            maintained,
-            inclusion_bytes(2, &receipt_ref(id(3)), &other, &single_proof(), digest),
-        ],
-        vec![receipt_record_bytes(
-            id(3),
-            &other,
-            signer.verifying_key().to_bytes(),
-        )],
-    );
-    assert!(wrong.is_err());
+    for maintained in [false, true] {
+        let (control, trust) = state_export(maintained);
+        assert_receipted(&control, &trust);
+        let mut tampered = control.clone();
+        let ProofRecord::AccountState(state) = &mut tampered.proofs[0] else {
+            panic!("account state")
+        };
+        let mut siblings = state.account_proof.siblings().to_vec();
+        siblings[0][0] ^= 1;
+        state.account_proof = must(Proof::new(0, 2, siblings));
+        assert_eq!(
+            verify_complete(&transported(&tampered), &trust, Rung::Receipted),
+            Err(CompleteExportError::AccountState {
+                fact: 0,
+                error: AccountProofError::AccountProof(MerkleError::RootMismatch)
+            })
+        );
+        if maintained {
+            let mut missing = control.clone();
+            missing.receipts.clear();
+            assert_eq!(
+                verify_complete(&transported(&missing), &trust, Rung::Receipted),
+                Err(CompleteExportError::MissingRecord { fact: 0 })
+            );
+            let mut wrong = control.clone();
+            let ProofRecord::AccountState(state) = &mut wrong.proofs[0] else {
+                panic!("account state")
+            };
+            let AccountStateVariant::Maintenance {
+                dependency_receipt_activity_id,
+                ..
+            } = &mut state.variant
+            else {
+                panic!("maintenance variant")
+            };
+            *dependency_receipt_activity_id = id(3);
+            assert_eq!(
+                verify_complete(&transported(&wrong), &trust, Rung::Receipted),
+                Err(CompleteExportError::MaintenanceLink { fact: 0 })
+            );
+            let mut wrong = control.clone();
+            wrong.receipts[0].reference = FactSelector::Receipt { activity_id: id(3) };
+            assert_eq!(
+                verify_complete(&transported(&wrong), &trust, Rung::Receipted),
+                Err(CompleteExportError::MissingRecord { fact: 0 })
+            );
+        }
+    }
 }
 
 #[test]
@@ -1175,60 +1350,87 @@ fn checkpoint_facts_refuse_wrong_domain_membership_and_incomplete_availability()
     let header = header_record(0, native.first_key, 1, 13);
     let parts = receipt_artifact(&header, activity);
     let reference = checkpoint_ref(activity, 1);
-    let facts = vec![reference.clone()];
-    let run = |trust: &IndependentOfflineTrust, certificate: Vec<u8>| {
-        let artifact = decode_artifact(&facts, &parts, &[certificate]);
-        verify_complete(&artifact, trust, VerificationLevel::CHECKPOINT_FINALISED)
-    };
-    let full = checkpoint_bytes(&reference, &HEADERS[..HEADER_BYTES], &[0, 1, 2], None);
-    assert!(run(&trust(), full.clone()).is_err());
-    let other = |domain: SettlementDomain, member: TrustedCheckpointMembership| {
-        let native = self::native();
-        must(IndependentOfflineTrust::new(
-            native.registry,
-            native.history,
-            domain,
-            vec![member],
-        ))
-    };
-    for trust in [
-        other(
-            SettlementDomain::new(31_337, [0x56; 20]),
-            membership(&[1, 2, 3], 2),
-        ),
-        other(
-            SettlementDomain::new(31_338, [0x55; 20]),
-            membership(&[1, 2, 3], 2),
-        ),
-        other(domain(), membership(&[1, 2, 4], 2)),
-        other(domain(), membership(&[1, 2], 2)),
-        other(domain(), membership(&[1, 2, 3], 3)),
-    ] {
-        assert!(run(&trust, full.clone()).is_err());
+    for order in [&[0, 1, 2][..], &[0, 1][..], &[][..]] {
+        let certificate = checkpoint_bytes(&reference, &HEADERS[..HEADER_BYTES], order, None);
+        assert_eq!(
+            CompleteOfflineArtifact::decode(
+                &[receipt_ref(activity)],
+                &parts[..1],
+                &parts[1..2],
+                &[certificate],
+                &parts[2..],
+            )
+            .err(),
+            Some(ArtifactDecodeError::Record {
+                bucket: "certificates",
+                index: 0,
+                error: ExportCodecError::Tag,
+            })
+        );
     }
-    // Missing tail chunk and substituted chunk bytes are refused, never partially served.
-    assert!(run(
-        &trust(),
-        checkpoint_bytes(&reference, &HEADERS[..HEADER_BYTES], &[0, 1], None)
-    )
-    .is_err());
-    let mut substituted = full.clone();
-    let data = availability();
-    let tail = chunk_bytes(&data.chunks[2], &data.proofs[2]);
-    let bytes_at = full.len() - tail.len() + 21 + 4;
-    substituted[bytes_at] ^= 1;
-    assert!(run(&trust(), substituted).is_err());
-    // A certificate for a different batch than the requested reference is refused.
-    let next = checkpoint_ref(activity, 2);
-    let artifact = decode_artifact(
-        &[next.clone()],
-        &parts,
-        &[checkpoint_bytes(
-            &next,
-            &HEADERS[..HEADER_BYTES],
-            &[0, 1, 2],
-            None,
-        )],
+}
+
+#[test]
+fn complete_export_decoder_refuses_checkpoint_and_activity_records() {
+    let (artifact, trust) = receipted_export();
+    let encoded = must(artifact.encode());
+    let decode = |facts: &[String], proofs: &[Vec<u8>], certificates: &[Vec<u8>]| {
+        CompleteOfflineArtifact::decode(
+            facts,
+            &encoded.receipts,
+            proofs,
+            certificates,
+            &encoded.headers,
+        )
+    };
+    let control = must(decode(&encoded.facts, &encoded.proofs, &[]));
+    let report = must(verify_complete(&control, &trust, Rung::Receipted));
+    assert_eq!(report.achieved(), Rung::Receipted);
+    assert_eq!(report.facts().len(), 1);
+    let activity = artifact.facts[0].activity_id();
+    for reference in [
+        format!("activity:{}", hex(&activity)),
+        checkpoint_ref(activity, 1),
+    ] {
+        assert_eq!(
+            decode(&[reference.clone()], &encoded.proofs, &[]).err(),
+            Some(ArtifactDecodeError::Facts(FactRefError::UnknownKind))
+        );
+        let record = inclusion_bytes(2, &reference, b"retired", &single_proof(), [1; 32]);
+        assert_eq!(
+            decode(&encoded.facts, &[record], &[]).err(),
+            Some(ArtifactDecodeError::Record {
+                bucket: "proofs",
+                index: 0,
+                error: ExportCodecError::Reference(FactRefError::UnknownKind)
+            })
+        );
+    }
+    let mut activity_record = encoded.proofs[0].clone();
+    activity_record[5] = 1;
+    assert_eq!(
+        decode(&encoded.facts, &[activity_record], &[]).err(),
+        Some(ArtifactDecodeError::Record {
+            bucket: "proofs",
+            index: 0,
+            error: ExportCodecError::Tag
+        })
     );
-    assert!(verify_complete(&artifact, &trust(), VerificationLevel::CHECKPOINT_FINALISED).is_err());
+    let legacy = checkpoint_bytes(
+        &checkpoint_ref(activity, 1),
+        &HEADERS[..HEADER_BYTES],
+        &[0, 1, 2],
+        None,
+    );
+    for certificate in [legacy, encoded.receipts[0].clone(), Vec::new()] {
+        assert_eq!(
+            decode(&encoded.facts, &encoded.proofs, &[certificate]).err(),
+            Some(ArtifactDecodeError::Record {
+                bucket: "certificates",
+                index: 0,
+                error: ExportCodecError::Tag
+            })
+        );
+    }
+    assert_eq!(must(control.encode()), encoded);
 }

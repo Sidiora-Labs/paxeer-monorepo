@@ -1,0 +1,24 @@
+[repair.22.33.180]
+audit = "22.30.119"
+acceptance = "22998.1"
+baseline = "Not run: the explicit task gate order prohibits verification before implementation and prohibits invoking verify_cmd by hand. No pre-change failures are claimed."
+evidence = "The hf-done receipt records the exact verified candidate revision, command, exit code and private evidence location."
+gotcha = "The committed in-process PostgreSQL engine serializes backend statements; concurrent wire clients alone cannot reproduce a multi-backend row-lock wait. The budget test additionally checks PostgreSQL's actual target-row plan predicates and transaction-clock expiry."
+
+[finding.action-lease-fencing]
+test = "services/wallet/gateway/test/repair-22-33-180.test.ts:staleActionLeaseCannotOverwriteRecovery"
+repair = "Use the existing monotonically increasing attempts counter as the durable lease epoch; guard progress, nonce and budget mutations and lease release by epoch and unexpired lease; permit epoch-less intake only before the first claim."
+proof = "Real database connections, expired original lease, full stop/reopen, replacement claim, delayed stale progress and release, signed-draft mismatch refusal, retained signed bytes, protected nonce reservation, release invalidation and durable recovery."
+wiring_worker = "Domain 12 wallet gateway: services/wallet/gateway/src/agent/actions/worker.ts must pass the claimed row.attempts to releaseLease; missing epochs fail closed."
+wiring_orchestrator = "Domain 12 wallet gateway: services/wallet/gateway/src/agent/actions/orchestrator.ts must pass the original claimed row.attempts to every progress, transaction retention, budget and nonce mutation, retaining that epoch across rereads instead of adopting a replacement owner's attempts."
+
+[finding.budget-atomicity]
+test = "services/wallet/gateway/test/repair-22-33-180.test.ts:budgetReservationsRecheckEligibility"
+repair = "Repeat principal, scope, active, wall-clock expiry and cap eligibility on the outer atomic UPDATE; a lost contention race returns null explicitly."
+proof = "Two PostgreSQL wire connections submit reservations whose sum exceeds the cap; the target-row query plan must retain every eligibility predicate, and an expired grant is refused even inside an older transaction."
+limitation = "PGlite runs actual PostgreSQL in process but serializes backend execution; the test does not claim to reproduce simultaneous multi-backend row-lock waiting."
+
+[finding.obsolete-bootstrap-schema]
+test = "services/wallet/gateway/test/repair-22-33-180.test.ts:supportedBootstrapAcceptsAgentAndMigratedHuman"
+repair = "Retire all duplicate bootstrap DDL and Supabase setup instructions; direct installation and upgrades exclusively to runMigrations and its registered migrations."
+proof = "The retired SQL creates no tables on an empty PostgreSQL database; production runMigrations initializes the supported schema, production wallet provisioning and consumers accept agent wallets and migrated human rows with no envelope, and migration reruns preserve both."

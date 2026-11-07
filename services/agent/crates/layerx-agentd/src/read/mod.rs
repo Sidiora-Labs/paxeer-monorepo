@@ -1,59 +1,67 @@
 //! Proof-gated daemon read surfaces.
 
+pub(crate) mod abci_result;
 #[path = "availability.rs"]
 mod available;
 #[path = "balance.rs"]
 mod balances;
 #[path = "checkpoint.rs"]
 mod checkpoint_impl;
+pub mod committed;
 #[path = "history.rs"]
-mod historical;
+mod history_impl;
 mod native;
-#[path = "proof_bundle.rs"]
-pub(crate) mod proof_bundle_owner;
+mod result_source;
+pub use abci_result::AbciResultProof;
+pub use committed::{CommittedCaps, CommittedReadError, CommittedReads};
+pub use result_source::NativeResultSource;
 #[path = "program_balances.rs"]
 mod program_balances_impl;
 #[path = "program_node.rs"]
 mod program_node;
+#[path = "proof_bundle.rs"]
+pub(crate) mod proof_bundle_owner;
 pub use native::{NativeReadError, NativeReadRoute};
+pub use proof_bundle_owner::{acquire_native_receipt, NativeProofRequest};
 
-pub use available::{
-    availability, AvailabilityAudit, AvailabilityFailure, AvailabilityRead, AvailabilityRequest,
-    ReplayFraming,
-};
+pub use available::{availability, AvailabilityRead, AvailabilityReadError, AvailabilityRequest};
 pub use balances::{balance, BalanceRead, Freshness};
 pub use checkpoint_impl::{
-    proof_bundle, CheckpointReadError, GuarantorSignature, HeaderCommitments, ProofBundleKind,
-    ProofBundleRequest, ServedCheckpoint, ServedProofBundle,
+    proof_bundle, validator_set_hash, BlockCommit, BlockId, CheckpointHeader, CheckpointReadError,
+    CommitTimestamp, CommitValidator, CommitVote, ProofBundleKind, ProofBundleRequest,
+    ServedCheckpoint, ServedProofBundle,
 };
 pub use program_balances_impl::{
-    program_balances_from_protocol, ProgramBalanceFreshness, ProgramBalanceRead,
-    ProgramValueBalance, ProtocolProgramBalanceReader,
+    program_balances_from_protocol, CommittedProgramBalanceFreshness, ProgramBalanceFreshness,
+    ProgramBalanceRead, ProgramValueBalance, ProtocolProgramBalanceReader,
 };
-pub use program_node::{LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute};
+pub use program_node::{
+    ChainHeadError, LayerxdProgramBalanceReader, ProgramAuthority, ProgramBalanceReadRoute,
+    ProgramReadError,
+};
 
-/// Verifies and serves one checkpoint certificate.
+/// Verifies the block header and its Comet precommit quorum at the requested height.
+/// The caller supplies the trusted validator set for this chain and height in consensus order.
 ///
 /// # Errors
 ///
-/// Returns `AvailabilityUnavailable` when availability was not obtained, the certificate failure
-/// when the bonded set does not meet threshold, and `Header` when the batch header does not
-/// decode.
+/// Returns `Commit` for a mismatched block, invalid signature or voting power at or below two thirds.
 pub fn checkpoint(
-    certificate: &layerx_proof::checkpoint::Certificate,
-    bonded_set: &[layerx_proof::checkpoint::GuarantorKey],
-    registered_checkpoint_id: [u8; 32],
-    expected_settlement_domain: layerx_proof::checkpoint::SettlementDomain,
-    registered_settlement_reference: Option<&[u8]>,
-    availability_obtained: bool,
+    requested_height: u64,
+    expected_chain_id: &str,
+    header: &CheckpointHeader,
+    commit: &BlockCommit,
+    validators: &[CommitValidator],
 ) -> Result<ServedCheckpoint, CheckpointReadError> {
     checkpoint_impl::serve_checkpoint(
-        certificate,
-        bonded_set,
-        registered_checkpoint_id,
-        expected_settlement_domain,
-        registered_settlement_reference,
-        availability_obtained,
+        requested_height,
+        expected_chain_id,
+        header,
+        commit,
+        validators,
     )
 }
-pub use historical::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};
+pub use history_impl::{history, Cursor, HistoryLimits, HistoryPage, HistoryReadError};
+
+pub mod checkpoint_request;
+pub use checkpoint_request::CheckpointRequest;

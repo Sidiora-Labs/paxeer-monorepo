@@ -1,6 +1,7 @@
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+use base64::engine::general_purpose::{STANDARD, URL_SAFE_NO_PAD};
 use base64::Engine as _;
 use layerx_human_kms::attestor::AttestorClient;
+use layerx_types::clock::{Clock, ClockError, ClockReading, Deadline};
 use p256::ecdsa::signature::Signer as _;
 use p256::ecdsa::{Signature, SigningKey};
 use serde_json::{json, Value};
@@ -15,7 +16,89 @@ use std::process::{Child, Command, Stdio};
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::Duration;
+
+#[path = "../../../../../platform/hosted/runtime-clock/src/server.rs"]
+mod runtime_clock_server;
+
+pub struct StepClock {
+    clock: Arc<layerx_client::runtime_clock::RuntimeClock>,
+    authority: RunningClock,
+}
+
+impl StepClock {
+    pub fn new() -> Result<Arc<Self>> {
+        let authority = RunningClock::start()?;
+        let clock = layerx_client::runtime_clock::RuntimeClock::connect(
+            layerx_client::runtime_clock::ClockBinding {
+                socket: authority.socket.clone(),
+                process: std::process::id(),
+                user: rustix::process::geteuid().as_raw(),
+            },
+        )?;
+        Ok(Arc::new(Self { clock, authority }))
+    }
+
+    pub fn now(&self) -> Result<u64> {
+        Ok(self.sample(Duration::from_secs(1))?.unix_seconds())
+    }
+}
+
+impl Clock for StepClock {
+    fn sample(&self, transport_budget: Duration) -> std::result::Result<ClockReading, ClockError> {
+        self.clock.sample(transport_budget)
+    }
+}
+
+struct RunningClock {
+    socket: PathBuf,
+    shutdown: Arc<AtomicBool>,
+    worker: Option<JoinHandle<std::io::Result<()>>>,
+}
+
+impl RunningClock {
+    fn start() -> Result<Self> {
+        let mut server = runtime_clock_server::Server::bind(&std::env::temp_dir())?;
+        let socket = server.socket().to_path_buf();
+        let shutdown = Arc::new(AtomicBool::new(false));
+        let stopped = Arc::clone(&shutdown);
+        let worker = thread::spawn(move || {
+            while !stopped.load(Ordering::Acquire) {
+                server.poll()?;
+                thread::sleep(Duration::from_millis(1));
+            }
+            Ok(())
+        });
+        Ok(Self {
+            socket,
+            shutdown,
+            worker: Some(worker),
+        })
+    }
+}
+
+impl Drop for RunningClock {
+    fn drop(&mut self) {
+        self.shutdown.store(true, Ordering::Release);
+        if let Some(worker) = self.worker.take() {
+            let _ = worker.join();
+        }
+    }
+}
+
+pub struct ClockAuthority {
+    pub socket: PathBuf,
+    _clock: Arc<StepClock>,
+}
+
+impl ClockAuthority {
+    pub fn start(clock: Arc<StepClock>) -> Result<Self> {
+        Ok(Self {
+            socket: clock.authority.socket.clone(),
+            _clock: clock,
+        })
+    }
+}
 
 pub type Result<T> = std::result::Result<T, Box<dyn Error>>;
 
@@ -32,9 +115,11 @@ pub fn checked<T, E: std::fmt::Debug>(value: std::result::Result<T, E>) -> Resul
 }
 
 pub fn scratch(label: &str) -> Result<PathBuf> {
-    let nanos = SystemTime::now().duration_since(UNIX_EPOCH)?.as_nanos();
+    let mut unique = [0; 16];
+    getrandom::fill(&mut unique)?;
+    let unique = hex(&unique);
     let root = std::env::temp_dir().join(format!(
-        "{label}-{}-{nanos}-{}",
+        "{label}-{}-{unique}-{}",
         std::process::id(),
         SCRATCH.fetch_add(1, Ordering::AcqRel)
     ));
@@ -320,17 +405,42 @@ fn respond(stream: &mut TcpStream, document: &str) -> Result<()> {
 }
 
 pub struct TokenSigner {
+    pub clock: Arc<StepClock>,
     key_id: String,
     key: SigningKey,
 }
 
 impl TokenSigner {
+    fn public_pem(&self) -> String {
+        let mut spki = vec![
+            0x30, 0x59, 0x30, 0x13, 0x06, 0x07, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x02, 0x01, 0x06,
+            0x08, 0x2a, 0x86, 0x48, 0xce, 0x3d, 0x03, 0x01, 0x07, 0x03, 0x42, 0x00,
+        ];
+        spki.extend_from_slice(self.key.verifying_key().to_encoded_point(false).as_bytes());
+        format!(
+            "-----BEGIN PUBLIC KEY-----\n{}\n-----END PUBLIC KEY-----\n",
+            STANDARD.encode(spki)
+        )
+    }
+
+    fn sign_inventory(&self, claims: &Value) -> String {
+        let header = json!({"alg": "ES256", "typ": "wallet-custody-inventory+jwt"});
+        let input = format!(
+            "{}.{}",
+            URL_SAFE_NO_PAD.encode(header.to_string()),
+            URL_SAFE_NO_PAD.encode(claims.to_string())
+        );
+        let signature: Signature = self.key.sign(input.as_bytes());
+        format!("{input}.{}", URL_SAFE_NO_PAD.encode(signature.to_bytes()))
+    }
+
     pub fn generate(key_id: &str) -> Result<Self> {
         loop {
             let mut scalar = [0_u8; 32];
             getrandom::fill(&mut scalar)?;
             if let Ok(key) = SigningKey::from_slice(&scalar) {
                 return Ok(Self {
+                    clock: StepClock::new()?,
                     key_id: key_id.to_owned(),
                     key,
                 });
@@ -352,7 +462,7 @@ impl TokenSigner {
     }
 
     pub fn mint(&self, subject: &str) -> Result<String> {
-        let now = SystemTime::now().duration_since(UNIX_EPOCH)?.as_secs();
+        let now = self.clock.now()?;
         let header = json!({ "alg": "ES256", "typ": "JWT", "kid": self.key_id });
         let claims = json!({
             "iss": ISSUER,
@@ -376,12 +486,18 @@ impl TokenSigner {
 }
 
 pub struct Cluster {
+    pub clock: Arc<StepClock>,
+    pub clock_authority: ClockAuthority,
     root: PathBuf,
     pub pki: Pki,
     pub nodes: Vec<(String, SocketAddr)>,
     children: Vec<(String, Child)>,
+    commands: Vec<(String, Command)>,
     pub tokens: TokenSigner,
     keys: KeySetServer,
+    inventory_members: Vec<Value>,
+    inventory_keys: Vec<Value>,
+    inventory_sequence: u64,
 }
 
 impl Drop for Cluster {
@@ -404,6 +520,26 @@ impl Cluster {
 
     pub fn start_with_kernel_policy(
         activity_types: &[String],
+        kernel_policy: &Value,
+    ) -> Result<Self> {
+        Self::start_with_policies(
+            activity_types,
+            &json!({
+                "version": 1,
+                "defaults": {
+                    "chain_id": 125,
+                    "kinds": ["lx_activity", "evm_tx"],
+                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
+                    "rate_per_minute": 1000
+                }
+            }),
+            kernel_policy,
+        )
+    }
+
+    pub fn start_with_policies(
+        activity_types: &[String],
+        policy: &Value,
         kernel_policy: &Value,
     ) -> Result<Self> {
         let root = scratch("attestor-cluster")?;
@@ -429,19 +565,9 @@ impl Cluster {
             pins.push(pki.pin(id)?);
         }
         let tokens = TokenSigner::generate("attestor-test-key")?;
+        fs::write(root.join("authority.pem"), tokens.public_pem())?;
         let keys = KeySetServer::serve(json!({ "keys": [tokens.jwk()?] }).to_string())?;
-        fs::write(
-            root.join("policy.json"),
-            serde_json::to_vec(&json!({
-                "version": 1,
-                "defaults": {
-                    "chain_id": 125,
-                    "kinds": ["lx_activity"],
-                    "caps": {"native": {"per_transaction": "1000000000000000000", "daily": "10000000000000000000"}},
-                    "rate_per_minute": 1000
-                }
-            }))?,
-        )?;
+        fs::write(root.join("policy.json"), serde_json::to_vec(policy)?)?;
         fs::write(
             root.join("kernel-policy.json"),
             serde_json::to_vec(kernel_policy)?,
@@ -454,14 +580,27 @@ impl Cluster {
             .map(|(index, id)| (id.clone(), addresses[index]))
             .collect();
         let peers: Vec<SocketAddr> = addresses[NODES..NODES * 2].to_vec();
+        let clock = Arc::clone(&tokens.clock);
+        let clock_authority = ClockAuthority::start(Arc::clone(&clock))?;
         let mut cluster = Self {
+            clock,
+            clock_authority,
             root: root.clone(),
             pki,
             nodes,
             children: Vec::new(),
+            commands: Vec::new(),
             tokens,
             keys,
+            inventory_members: ids
+                .iter()
+                .zip(&pins)
+                .map(|(id, pin)| json!({"id": id, "spki_sha256": pin}))
+                .collect(),
+            inventory_keys: Vec::new(),
+            inventory_sequence: 0,
         };
+        cluster.publish_inventory()?;
         for (index, id) in ids.iter().enumerate() {
             let others: Vec<usize> = (0..NODES).filter(|other| *other != index).collect();
             let peer_list = others
@@ -480,8 +619,18 @@ impl Cluster {
             fs::write(&key_file, hex(&node_key))?;
             fs::set_permissions(&key_file, fs::Permissions::from_mode(0o600))?;
             let log = fs::File::create(root.join(format!("{id}.log")))?;
-            let child = Command::new(&daemon)
+            let mut command = Command::new(&daemon);
+            command
                 .env_clear()
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_SOCKET",
+                    &cluster.clock_authority.socket,
+                )
+                .env("LAYERX_RUNTIME_CLOCK_PID", std::process::id().to_string())
+                .env(
+                    "LAYERX_RUNTIME_CLOCK_UID",
+                    rustix::process::geteuid().as_raw().to_string(),
+                )
                 .env("ATTESTOR_NODE_ID", id)
                 .env("ATTESTOR_REGION", "test")
                 .env("ATTESTOR_LISTEN_ADDR", cluster.nodes[index].1.to_string())
@@ -494,6 +643,17 @@ impl Cluster {
                 .env("ATTESTOR_JWKS_URL", cluster.keys.url())
                 .env("ATTESTOR_JWT_ISSUER", ISSUER)
                 .env("ATTESTOR_JWT_AUDIENCE", AUDIENCE)
+                .env(
+                    "ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_AUTHORITY_ISSUER", ISSUER)
+                .env("ATTESTOR_AUTHORITY_TENANT", "attestor-test")
+                .env(
+                    "ATTESTOR_INVENTORY_PUBLIC_KEY_FILE",
+                    root.join("authority.pem"),
+                )
+                .env("ATTESTOR_INVENTORY_FILE", root.join("inventory.jwt"))
                 .env("ATTESTOR_POLICY_FILE", root.join("policy.json"))
                 .env(
                     "ATTESTOR_TLS_CERT_FILE",
@@ -516,9 +676,10 @@ impl Cluster {
                 .env("ATTESTOR_RPC_URL", &chain_rpc)
                 .stdin(Stdio::null())
                 .stdout(log.try_clone()?)
-                .stderr(log)
-                .spawn()?;
+                .stderr(log);
+            let child = command.spawn()?;
             cluster.children.push((id.clone(), child));
+            cluster.commands.push((id.clone(), command));
         }
         cluster.wait_ready()?;
         Ok(cluster)
@@ -526,6 +687,221 @@ impl Cluster {
 
     pub fn client(&self) -> Result<AttestorClient> {
         operator_client(&self.pki, &self.nodes)
+    }
+
+    pub fn set_ledger_grant_policy(
+        &mut self,
+        key_id: &str,
+        owner: &str,
+        public_key: &[u8],
+        capability: [u8; 32],
+        maximum_validity_ms: u64,
+    ) -> Result<()> {
+        let policy = json!({
+            "version": 2,
+            "rules": [{
+                "key_id": key_id,
+                "owner": owner,
+                "tenant": owner,
+                "agent_did": format!("did:layerx:{}", hex(public_key)),
+                "owner_public_key": hex(public_key),
+                "operations": ["ledger-issue-grant"],
+                "capabilities": [hex(&capability)],
+                "maximum_validity_ms": maximum_validity_ms,
+                "rate_per_minute": 1000,
+            }],
+        });
+        let path = self.root.join("native-policy.json");
+        fs::write(&path, serde_json::to_vec(&policy)?)?;
+        for (_, child) in &mut self.children {
+            child.kill()?;
+            child.wait()?;
+        }
+        self.children.clear();
+        for (id, command) in &mut self.commands {
+            let child = command.env("ATTESTOR_NATIVE_POLICY_FILE", &path).spawn()?;
+            self.children.push((id.clone(), child));
+        }
+        self.wait_ready()
+    }
+
+    pub fn provision_kms_evm(&mut self, directory: &Path) -> Result<()> {
+        let owner = "provider-wallet-owner";
+        let public: [u8; 32] = self
+            .generate_key(
+                "provider-native",
+                "ed25519",
+                owner,
+                "0x1111111111111111111111111111111111111111",
+            )?
+            .try_into()
+            .map_err(|_| "Ed25519 key length")?;
+        let evm_public = self.generate_key("provider-evm", "secp256k1", owner, "")?;
+        let group = k256::ecdsa::VerifyingKey::from_sec1_bytes(&evm_public)?;
+        let point = group.to_encoded_point(false);
+        let address: [u8; 20] = sha3::Keccak256::digest(&point.as_bytes()[1..])[12..].try_into()?;
+        assert_ne!(address, [0; 20]);
+        for (name, bytes) in [
+            ("attestor-ca.der", self.pki.certificate_der("node-ca")?),
+            ("attestor-client.der", self.pki.certificate_der("gateway")?),
+            ("attestor-client.pk8", self.pki.key_der("gateway")?),
+            ("evm-assertion.jwt", self.tokens.mint(owner)?.into_bytes()),
+        ] {
+            let path = directory.join(name);
+            fs::write(&path, bytes)?;
+            fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        }
+        let nodes: Vec<_> = self
+            .nodes
+            .iter()
+            .map(|(id, address)| json!({"id": id, "address": address}))
+            .collect();
+        let path = directory.join("attestor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&json!({
+                "nodes": nodes,
+                "trust_anchors": [directory.join("attestor-ca.der")],
+                "client_certificate_chain": [directory.join("attestor-client.der")],
+                "client_private_key_pkcs8": directory.join("attestor-client.pk8"),
+                "key_id": "provider-native",
+                "public_key": public,
+                "evm_key_id": "provider-evm",
+                "evm_address": address,
+                "signers": SIGNERS,
+                "network_id": 125,
+                "timeout_seconds": 60,
+            }))?,
+        )?;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        Ok(())
+    }
+
+    fn publish_inventory(&mut self) -> Result<()> {
+        self.inventory_sequence += 1;
+        let now = self.clock.now()?;
+        let claims = json!({
+            "version": 1, "iss": ISSUER, "aud": "wallet-custody-inventory",
+            "tenant": "attestor-test", "sequence": self.inventory_sequence.to_string(),
+            "iat": now - 1, "exp": now + 3600, "protocol": "wallet", "threshold": 3,
+            "members": self.inventory_members, "keys": self.inventory_keys,
+        });
+        let pending = self.root.join("inventory.pending");
+        fs::write(&pending, self.tokens.sign_inventory(&claims))?;
+        fs::set_permissions(&pending, fs::Permissions::from_mode(0o600))?;
+        fs::rename(pending, self.root.join("inventory.jwt"))?;
+        Ok(())
+    }
+
+    pub fn approve_generate(&mut self, key_id: &str, curve: &str, owner: &str) -> Result<()> {
+        self.inventory_keys.push(json!({
+            "key_id": key_id, "epoch": 0, "curve": curve, "public_key": "",
+            "owner": owner, "operations": ["generate"],
+        }));
+        self.publish_inventory()
+    }
+
+    pub fn approve_sign(&mut self, key_id: &str, public_key: &[u8]) -> Result<()> {
+        let entry = self
+            .inventory_keys
+            .iter_mut()
+            .find(|entry| entry["key_id"] == key_id)
+            .ok_or("missing inventory key")?;
+        entry["public_key"] = json!(hex(public_key));
+        entry["operations"] = json!(["sign"]);
+        self.publish_inventory()
+    }
+
+    pub fn generate_key(
+        &mut self,
+        key_id: &str,
+        curve: &str,
+        owner: &str,
+        account: &str,
+    ) -> Result<Vec<u8>> {
+        self.approve_generate(key_id, curve, owner)?;
+        let trusted =
+            ureq::tls::Certificate::from_der(&self.pki.certificate_der("node-ca")?).to_owned();
+        let certificate =
+            ureq::tls::Certificate::from_der(&self.pki.certificate_der("gateway")?).to_owned();
+        let private_key =
+            ureq::tls::PrivateKey::from_pem(&fs::read(self.pki.path("gateway.key"))?)?;
+        let agent: ureq::Agent = ureq::Agent::config_builder()
+            .tls_config(
+                ureq::tls::TlsConfig::builder()
+                    .provider(ureq::tls::TlsProvider::Rustls)
+                    .root_certs(ureq::tls::RootCerts::new_with_certs(&[trusted]))
+                    .client_cert(Some(ureq::tls::ClientCert::new_with_certs(
+                        &[certificate],
+                        private_key,
+                    )))
+                    .build(),
+            )
+            .timeout_global(Some(Duration::from_secs(120)))
+            .max_redirects(0)
+            .build()
+            .into();
+        let body = serde_json::to_vec(&json!({
+            "session_id": format!("generate-{key_id}"), "key_id": key_id,
+            "curve": curve, "owner": owner, "account": account,
+        }))?;
+        let responses: Vec<Result<Value>> = thread::scope(|scope| {
+            let handles: Vec<_> = self
+                .nodes
+                .iter()
+                .map(|(_, address)| {
+                    let agent = &agent;
+                    let body = &body;
+                    scope.spawn(move || -> std::result::Result<Value, String> {
+                        let mut response = agent
+                            .post(format!("https://{address}/v1/keys/generate"))
+                            .header("content-type", "application/json")
+                            .send(body.as_slice())
+                            .map_err(|error| error.to_string())?;
+                        let bytes = response
+                            .body_mut()
+                            .with_config()
+                            .limit(65_536)
+                            .read_to_vec()
+                            .map_err(|error| error.to_string())?;
+                        serde_json::from_slice(&bytes).map_err(|error| error.to_string())
+                    })
+                })
+                .collect();
+            handles
+                .into_iter()
+                .map(|handle| match handle.join() {
+                    Ok(result) => result.map_err(Into::into),
+                    Err(_) => Err("key generation worker panicked".into()),
+                })
+                .collect()
+        });
+        let mut public = None;
+        for ((node, _), response) in self.nodes.iter().zip(responses) {
+            let response = response?;
+            assert_eq!(response["node_id"], *node);
+            assert_eq!(response["key_id"], key_id);
+            assert_eq!(response["curve"], curve);
+            assert!(response["audit_sequence"]
+                .as_u64()
+                .is_some_and(|value| value > 0));
+            let encoded = response["public_key"]
+                .as_str()
+                .ok_or("missing public key")?;
+            let key = (0..encoded.len())
+                .step_by(2)
+                .map(|offset| u8::from_str_radix(&encoded[offset..offset + 2], 16))
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if let Some(agreed) = &public {
+                assert_eq!(agreed, &key);
+            } else {
+                public = Some(key);
+            }
+        }
+        let public = public.ok_or("no key generation responses")?;
+        assert_eq!(public.len(), if curve == "secp256k1" { 65 } else { 32 });
+        self.approve_sign(key_id, &public)?;
+        Ok(public)
     }
 
     pub fn gateway(&self) -> Result<AttestorClient> {
@@ -538,7 +914,7 @@ impl Cluster {
 
     fn wait_ready(&mut self) -> Result<()> {
         let client = self.client()?;
-        let started = Instant::now();
+        let mut deadline = Deadline::start(self.clock.as_ref(), Duration::from_secs(120))?;
         let mut pending: Vec<String> = self.nodes.iter().map(|(id, _)| id.clone()).collect();
         while !pending.is_empty() {
             let mut exited = None;
@@ -554,7 +930,7 @@ impl Cluster {
             pending.retain(|id| {
                 !matches!(client.health(id), Ok(health) if health.ready && health.reachable_peers == 4)
             });
-            if started.elapsed() > Duration::from_secs(120) {
+            if deadline.remaining(self.clock.as_ref())?.is_zero() {
                 return Err(
                     format!("attestors {pending:?} never became ready: {}", self.logs()).into(),
                 );

@@ -3,22 +3,22 @@ defmodule BlockScoutWeb.Account.TagTransactionController do
 
   alias Explorer.Account.TagTransaction
 
-  import BlockScoutWeb.Account.AuthController, only: [authenticate!: 1]
+  import BlockScoutWeb.Account.AuthController, only: [authenticate: 2]
+
+  plug(:authenticate)
 
   def index(conn, _params) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     render(conn, "index.html", transaction_tags: TagTransaction.get_tags_transaction_by_identity_id(current_user.id))
   end
 
   def new(conn, _params) do
-    authenticate!(conn)
-
     render(conn, "form.html", tag_transaction: new_tag())
   end
 
   def create(conn, %{"tag_transaction" => tag_address}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     case TagTransaction.create(%{
            name: tag_address["name"],
@@ -38,7 +38,7 @@ defmodule BlockScoutWeb.Account.TagTransactionController do
   end
 
   def delete(conn, %{"id" => id}) do
-    current_user = authenticate!(conn)
+    current_user = conn.assigns.current_user
 
     TagTransaction.delete(id, current_user.id)
 

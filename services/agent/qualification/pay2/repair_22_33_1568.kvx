@@ -1,0 +1,20 @@
+[repair.22.33.1568]
+audit = "22.30.99"
+baseline = "The runner ledger contained no prior build or verify runs. The prerequisite already registered pay2e and repaired its public APIs. The corrected repair target did not exist before this task; no baseline execution is claimed because the ordered instructions require complete implementation, hf-build, then hf-done and prohibit a manual verify run."
+planned_path = "repair_m1568_test.go maps to tests/repair_22_33_1568.rs under the task's do_10 toolchain correction; no Go or subprocess toolchain is used."
+evidence = "The runner-owned /out/run/gates.jsonl records the candidate revision, exact commands, exits and private logs. The final response copies the last gate evidence; no candidate file is changed after qualification."
+wiring_request = "services/agent/tests/support (agent domain) and services/platform/hosted (platform domain): provision the real funded node/gateway plus private PAY2_FUNDED_INPUTS, PAY2_COMMITTED_AUTHORITY and PAY2_EVIDENCE_OUT for the existing live pay2e scenario; the declared repair gate needs none of them."
+
+[finding.pay2-target-missing]
+test = "TestRepairM_1568_registered_target_executes_signed_scenario"
+implementation = "Retain the explicit pay2e target and all existing funded economic and MCP assertions; register the corrected repair target and share the executable signed-payment/restart scenario with pay2e. The all-tests build compiles the existing live scenario against current public SDK APIs."
+proof = "Real derived dual-key signers and PAY2 funding helpers produce SEND, grant issue and Receive; production Wallet methods prepare, sign and transmit canonical transactions over real loopback HTTP. Production signature recovery and disclosure codecs consume them and the actual agent store retains all three across close/reopen, including independent identity/account nonces and every economic field. Transport acceptance remains Pending without authentic receipt evidence; no live settlement or funded-network qualification is claimed."
+
+[finding.pay2-build-text-only]
+test = "TestRepairM_1568_build_inputs_are_not_execution_evidence"
+implementation = "build.rs tracks the registered pay2e manifest and all transitive local source inputs, checking only that each is a file. The repair gate executes the shared signed-payment scenario separately; source readability is never treated as execution evidence."
+proof = "The actual build-input checker accepts the complete inventory and refuses every individually missing or directory-valued input. The companion executable scenario proves the SDK producer/transport/consumer path and real store recovery without a subprocess, credential, runtime environment setting or live endpoint."
+
+[gotcha.prerequisite_registration]
+observed = "The audit's missing-target observation predates prerequisite 22.31.229: pay2e is already explicitly registered and its funded public API migration is present in the task's starting tree."
+action = "Preserve the prerequisite implementation and all assertions, add shared executable repair evidence, and distinguish the independently provisioned live scenario from the self-contained gate."

@@ -1,12 +1,16 @@
 # Spot module
 
-Module ID `10` (`LXP_MODULE_SPOT`). Activity types are `0x000Axxxx`
-(`include/layerx/lx_spot.h`). Spot reuses the perps price-time matching
-engine for two-asset limit and market orders on a book of markets it owns,
-settling both legs of every fill immediately through the asset module.
+Kernel module ID `10` (`LXP_MODULE_SPOT`) owns activity types `0x000Axxxx`.
+It handles two-asset limit and market orders using the shared perps price-time
+matching engine and settles both legs of each fill through the asset module.
+Its implementation is
+[`include/layerx/lx_spot.h`](../../include/layerx/lx_spot.h) and
+[`src/modules/spot/`](../../src/modules/spot/).
 
-Sources: `include/layerx/lx_spot.h`, `src/modules/spot/`,
-`tests/modules/test_spot_book.c`.
+Spot executes in the integrated kernel inside `paxd`. Paxeer is one BFT network
+with EVM chain ID `125` (`0x7d`); its kernel participates in block proposal, and a
+receipt is final when its block is committed. See
+[Unified Network Architecture](UnifiedNetwork.md).
 
 ---
 
@@ -14,78 +18,110 @@ Sources: `include/layerx/lx_spot.h`, `src/modules/spot/`,
 
 | Constant | Value | Role |
 | --- | --- | --- |
-| `LX_SPOT_MARKET_CREATE` | `0x000A0001` | Create a market for a base/quote asset pair |
+| `LX_SPOT_MARKET_CREATE` | `0x000A0001` | Create a base/quote market |
 | `LX_SPOT_ORDER_PLACE` | `0x000A0002` | Place a limit or market order |
 | `LX_SPOT_ORDER_CANCEL` | `0x000A0003` | Cancel a resting order |
-| `LX_SPOT_MARKET_HALT` | `0x000A0004` | Halt trading on a market |
-| `LX_SPOT_MARKET_RESUME` | `0x000A0005` | Resume a halted market |
+| `LX_SPOT_MARKET_HALT` | `0x000A0004` | Halt trading |
+| `LX_SPOT_MARKET_RESUME` | `0x000A0005` | Resume trading |
 
-Up to `LX_SPOT_MARKET_CAPACITY` (64) markets and `LX_SPOT_BOOK_CAPACITY`
-(256) resting orders per market are supported; capacities are compile-time
-constants.
+`LX_SPOT_MARKET_CAPACITY` is 64 markets; `LX_SPOT_BOOK_CAPACITY` is 256 resting
+orders per market. These compile-time kernel limits are declared in `lx_spot.h`.
 
 ---
 
 ## Markets
 
-`MARKET_CREATE`'s 160-byte payload (`LX_SPOT_MARKET_PAYLOAD_BYTES`) is
-`market_id32 || base_asset32 || quote_asset32 || tick_size:u128be ||
-lot_size:u128be || administrator32` (`src/modules/spot/lx_spot_market.c:52-67`).
-A market that already exists refuses with `LXP_ERR_MARKET_ALREADY_EXISTS`.
-On decode, `base_escrow_id` and `quote_escrow_id` are derived with
-`lx_spot_escrow_id(market_id, asset)` rather than carried on the wire
-(`src/modules/spot/lx_spot_market.c:87-92`). `MARKET_HALT` and
-`MARKET_RESUME` take a 32-byte market-id-only payload
-(`LX_SPOT_MARKET_ID_PAYLOAD_BYTES`) and flip the market's `halted` flag;
-placing an order against a halted market refuses with
-`LXP_ERR_MARKET_HALTED`.
+`MARKET_CREATE` has the following 160-byte payload
+(`LX_SPOT_MARKET_PAYLOAD_BYTES`):
+
+```text
+market_id32 || base_asset32 || quote_asset32 ||
+tick_size:u128be || lot_size:u128be || administrator32
+```
+
+[`lx_spot_market.c`](../../src/modules/spot/lx_spot_market.c) requires nonzero
+identifiers, distinct base/quote assets and nonzero tick/lot sizes. Escrow account
+IDs are derived by `lx_spot_escrow_id(market_id, asset_id)` and are not transmitted
+in the payload. An existing market refuses creation with
+`LXP_ERR_MARKET_ALREADY_EXISTS`.
+
+`MARKET_HALT` and `MARKET_RESUME` take only a 32-byte market ID
+(`LX_SPOT_MARKET_ID_PAYLOAD_BYTES`). Creation and halt/resume require the
+administrator to match `lxp_authority_resolved.actor`. A new order against a halted
+market returns `LXP_ERR_MARKET_HALTED`.
 
 ## Orders
 
-`ORDER_PLACE`'s 163-byte payload (`LX_SPOT_ORDER_PAYLOAD_BYTES`) is
-`market_id32 || order_id32 || base_account_id32 || quote_account_id32 ||
-side:u8 || kind:u8 || time_in_force:u8 || price:u128be || quantity:u128be`
-(`src/modules/spot/lx_spot_market.c:117-134`). `side` aliases the perps
-buy/sell enum (`LX_SPOT_SIDE_BID`/`LX_SPOT_SIDE_ASK`). `kind` is `1` limit
-or `2` market; a limit order needs a nonzero price and time-in-force `1`
-GTC or `2` IOC, a market order needs a zero price and is always IOC
-(`src/modules/spot/lx_spot_market.c:97-115`). `ORDER_CANCEL`'s 64-byte
-payload is `market_id32 || order_id32`.
+`ORDER_PLACE` has the following 163-byte payload
+(`LX_SPOT_ORDER_PAYLOAD_BYTES`):
 
-Incoming orders match against the resting book through
-`lx_spot_book_match`, the same price-time engine perps uses: best price,
-then earliest global sequence, then order id. Every fill trades at the
-maker's price and draws down the maker's remaining quantity and escrow; a
-fully filled maker leaves the book. A resting order escrows what it still
-needs to settle - base units for an ask, quote units (price times
-remaining) for a bid (`include/layerx/lx_spot.h:92-106`). One activity
-produces at most `LX_SPOT_DISPATCH_MAX_FILLS` (8) fills and
-`LX_SPOT_DISPATCH_MAX_LEGS` (18) transfer legs, sized to fit one transfer
-set (`LXP_MAX_TRANSFER_SET_LEGS`).
+```text
+market_id32 || order_id32 || base_account_id32 || quote_account_id32 ||
+side:u8 || kind:u8 || time_in_force:u8 || price:u128be || quantity:u128be
+```
+
+`side` aliases the perps buy/sell enum as `LX_SPOT_SIDE_BID` and
+`LX_SPOT_SIDE_ASK`. `kind` is `1` for limit or `2` for market. Limit orders require
+nonzero price and time-in-force `1` GTC or `2` IOC. Market orders require zero
+price and IOC. Quantity must be nonzero; order/account IDs must be nonzero, and
+the base and quote accounts must differ. Dispatch enforces quantity multiples
+of the lot size and limit-price multiples of the tick size.
+
+`ORDER_CANCEL` takes the 64-byte payload `market_id32 || order_id32`.
+The debit accounts must belong to the actor and correspond to the market assets;
+cancellation checks ownership before releasing the remaining escrow.
+
+`lx_spot_book_match` uses best price, then earliest global sequence, then order
+ID. Fills execute at the maker's price. They reduce the maker's remaining
+quantity and escrow; fully filled makers leave the book. A resting ask escrows
+base units; a resting bid escrows price times remaining quantity in quote units.
+One activity is bounded to `LX_SPOT_DISPATCH_MAX_FILLS` (8) fills and
+`LX_SPOT_DISPATCH_MAX_LEGS` (18) transfer legs, fitting one transfer set.
 
 ## Settlement
 
-Every fill settles both legs immediately through the asset module as
-`402LXP` transfer legs; spot never holds a shadow balance. Refusals include
-`LXP_ERR_ASSET_MISMATCH`, `LXP_ERR_ASSET_PAUSED`,
+[`lx_spot_dispatch.c`](../../src/modules/spot/lx_spot_dispatch.c) emits canonical
+transfer sets for both legs of each fill and escrow movements. Spot maintains
+order and escrow records while the canonical ledger applies the transfers in
+the same activity; it does not maintain an independent balance ledger.
+
+Refusals include `LXP_ERR_ASSET_MISMATCH`, `LXP_ERR_ASSET_PAUSED`,
 `LXP_ERR_UNAUTHORIZED_DEBIT`, `LXP_ERR_UNKNOWN_ACCOUNT_NAMESPACE`,
 `LXP_ERR_SEQUENCE_REUSED`, `LXP_ERR_NON_CANONICAL`, `LXP_ERR_LENGTH_LIMIT`,
-`LXP_ERR_UNKNOWN_FIELD` and `LXP_ERR_UNKNOWN_ACTIVITY`
-(`src/modules/spot/lx_spot_dispatch.c`). `tests/modules/test_spot_book.c`
-(Makefile target `test-spot-book`) covers book matching and a conservation
-check.
+`LXP_ERR_UNKNOWN_FIELD` and `LXP_ERR_UNKNOWN_ACTIVITY`.
+[`tests/modules/test_spot_book.c`](../../tests/modules/test_spot_book.c)
+(the `test-spot-book` Make target) covers matching and conservation.
 
-The module runtime is bound alongside perps and service through
-`lxp_daemon_module_runtimes_bind` (`cmd/layerxd/lxp_daemon_modules.h`) and
-is enabled in genesis through `services/platform/hosted/node/genesis-modules.conf`.
+### Integrated runtime
 
-Spot is a LayerX kernel module executing inside `layerxd`. It is a
-different surface from the Paxeer-side `layerxexchange` precompile and Go
-module (EVM address `0x1015`), which takes orders from the Paxeer chain;
-see [Unified Network Architecture](UnifiedNetwork.md). The protocol
-specification in `spec/layerx-beta/spec.kvx` describes this module under
-module id 7; the shipped module id is `10` because ids 7-9 were already
-assigned to governance, bridge and programs.
+[`modules/lxphost/host.go`](../../modules/lxphost/host.go) registers
+`lx_spot_module_iface()` with `lxp_kernel_register_module` during host reset.
+`Host.HostExecute` enters the registered module's validation/execution hooks
+through cgo, uses the SDK context's block time/height, and loads and commits
+module state through the host store. The separate daemon and its runtime-binding
+procedure are retired; current operation uses the integrated host.
+
+### Native EVM spot routes
+
+The kernel activity payloads above are distinct from the ABI calls served by
+[`modules/spot/`](../../modules/spot/) and
+[`precompiles/spot/`](../../precompiles/spot/) on the same chain. The native spot
+keeper's addresses are declared in
+[`modules/spot/types/keys.go`](../../modules/spot/types/keys.go):
+
+| Address | Surface |
+| --- | --- |
+| `0x0000000000000000000000000000000000001021` | PECOR market and swap rail |
+| `0x0000000000000000000000000000000000001022` | Limit orders |
+| `0x0000000000000000000000000000000000001023` | Stop-limit and stop-loss orders |
+| `0x0000000000000000000000000000000000001024` | Read-only quoter |
+| `0x0000000000000000000000000000000000001025` | Liquidity vault |
+
+The served ABI files live in
+[`precompiles/spot/abi/`](../../precompiles/spot/abi/), and registration is gated
+by the `v6.12.0` activation plan. The kernel's activity capacities and binary
+payloads do not define those ABI contracts. Both surfaces execute on Paxeer;
+there is no extra settlement network to configure.
 
 ---
 
@@ -94,4 +130,6 @@ assigned to governance, bridge and programs.
 - [Modules](Modules.md)
 - [Perps](Perps.md)
 - [Asset](Asset.md)
+- [Hosted program registry](HostedRegistry.md) — program metadata and source verification
+- [Unified Network Architecture](UnifiedNetwork.md)
 - [Home](Home.md)

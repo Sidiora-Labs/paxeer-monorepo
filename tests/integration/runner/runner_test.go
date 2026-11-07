@@ -18,75 +18,78 @@
 package runner_test
 
 import (
+	"path/filepath"
 	"testing"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/tests/integration/runner"
 )
 
+func runSuite(t *testing.T, name string) {
+	t.Helper()
+	for _, suite := range runner.Suites {
+		if suite.Name == name {
+			for _, file := range suite.Files {
+				runner.RunFile(t, filepath.Join("..", filepath.FromSlash(file)))
+			}
+			return
+		}
+	}
+	t.Fatalf("YAML suite %q is not registered", name)
+}
+
 func TestStartup(t *testing.T) {
-	runner.RunFile(t, "../startup/startup_test.yaml")
+	runSuite(t, "TestStartup")
 }
 
 // Tests are declared in the order the CI matrix ran them as Python scripts
 // (go test executes tests in declaration order): staking, then bank, then mint.
 
 func TestStakingModule(t *testing.T) {
-	runner.RunFile(t, "../staking_module/staking_test.yaml")
+	runSuite(t, "TestStakingModule")
 }
 
 func TestBankModule(t *testing.T) {
-	runner.RunFile(t, "../bank_module/send_funds_test.yaml")
-	runner.RunFile(t, "../bank_module/multi_sig_send_test.yaml")
-	runner.RunFile(t, "../bank_module/simulation_tx.yaml")
+	runSuite(t, "TestBankModule")
 }
 
 func TestMintModule(t *testing.T) {
-	runner.RunFile(t, "../mint_module/mint_test.yaml")
+	runSuite(t, "TestMintModule")
 }
 
 func TestGovModule(t *testing.T) {
-	runner.RunFile(t, "../gov_module/gov_proposal_test.yaml")
-	runner.RunFile(t, "../gov_module/staking_proposal_test.yaml")
+	runSuite(t, "TestGovModule")
 }
 
 func TestOracleModule(t *testing.T) {
-	runner.RunFile(t, "../oracle_module/verify_penalty_counts.yaml")
-	runner.RunFile(t, "../oracle_module/set_feeder_test.yaml")
+	runSuite(t, "TestOracleModule")
 }
 
 func TestDistributionModule(t *testing.T) {
-	runner.RunFile(t, "../distribution_module/community_pool.yaml")
-	runner.RunFile(t, "../distribution_module/rewards.yaml")
+	runSuite(t, "TestDistributionModule")
 }
 
 func TestTokenFactoryModule(t *testing.T) {
-	runner.RunFile(t, "../tokenfactory_module/create_tokenfactory_test.yaml")
+	runSuite(t, "TestTokenFactoryModule")
 }
 
 func TestAuthzModule(t *testing.T) {
-	runner.RunFile(t, "../authz_module/send_authorization_test.yaml")
-	runner.RunFile(t, "../authz_module/staking_authorization_test.yaml")
-	runner.RunFile(t, "../authz_module/generic_authorization_test.yaml")
+	runSuite(t, "TestAuthzModule")
 }
 
 func TestWasmModule(t *testing.T) {
-	runner.RunFile(t, "../wasm_module/timelocked_token_delegation_test.yaml")
-	runner.RunFile(t, "../wasm_module/timelocked_token_admin_test.yaml")
-	runner.RunFile(t, "../wasm_module/timelocked_token_withdraw_test.yaml")
-	runner.RunFile(t, "../wasm_module/timelocked_token_emergency_withdraw_test.yaml")
+	runSuite(t, "TestWasmModule")
 }
 
 func TestPaxDB(t *testing.T) {
-	runner.RunFile(t, "../paxdb/flatkv_evm_test.yaml")
-	runner.RunFile(t, "../paxdb/state_store_test.yaml")
+	runSuite(t, "TestPaxDB")
 }
 
 func TestChainOperation(t *testing.T) {
-	runner.RunFile(t, "../chain_operation/snapshot_operation.yaml")
+	runSuite(t, "TestChainOperation")
 }
 
 // TestStateSync requires the pax-rpc-node container, which is only present in
 // the CI RPC-node cluster (make run-rpc-node-integration-ci).
 func TestStateSync(t *testing.T) {
-	runner.RunFile(t, "../chain_operation/statesync_operation.yaml")
+	runSuite(t, "TestStateSync")
 }

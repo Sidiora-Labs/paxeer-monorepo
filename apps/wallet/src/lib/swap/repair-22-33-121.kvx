@@ -1,0 +1,67 @@
+[repair.22.33.121]
+audit = "22.30.114"
+finding_ids = ["29", "7", "5", "30", "31", "8"]
+baseline = "Not run: the explicit numbered implementation/build/verify order forbids verification before the complete implementation and forbids running verify_cmd by hand. No pre-change failure or passing result is claimed. The new capability, discovery metadata, network provenance and restart APIs do not exist in the starting tree; finding 7 adds execution evidence beyond the prerequisite generation-2 ABI codec repair."
+evidence = "The final hf-done evidence line and private gate ledger identify the verified candidate revision, exact command, exit code and log location. No gate result is claimed in advance."
+
+[finding.29]
+test = "finding_29_registry_capability_controls_route_selection"
+implementation = "Resolve PoolRegistry on the supplied active-network provider into chain/endpoint-scoped launchpad, PECOR, unsupported or undiscovered capabilities. Only a successful zero registry response proves unsupported membership; arbitrary imported tokens and isLaunchpad metadata cannot select a launchpad route. A network switch clears capabilities."
+
+[finding.30]
+test = "finding_30_indexed_tokens_require_selected_chain_registry_membership"
+implementation = "The real indexer transport joins each ERC-20 with selected-chain PoolRegistry membership. Only registered tokens appear in the launchpad array; unsupported discovery is separate. The cache is chain/endpoint scoped and full inventory writes follow successful terminal enumeration."
+
+[finding.31]
+test = "finding_31_failed_pages_preserve_good_inventory_and_bound_exposes_continuation"
+implementation = "The array-compatible result exposes discovery status, completeness, cursor, page count, scanned count, original cache timestamp and refresh error. Failed pages and truncated 500-row/10-page scans preserve the previous complete cache. An explicit cursor continues enumeration without replacing the complete inventory with a suffix."
+
+[finding.8]
+test = "finding_8_active_network_quotes_expire_and_switch_invalidates_inflight_work"
+implementation = "The caller supplies active chain, endpoint and provider via setSwapNetwork. Quotes identify chain, endpoint, selection generation and expiry. Both pending quote/discovery requests and already returned quotes are rejected after a network switch. The executor checks quote validity and matching signer/provider identity before approval and again before swap submission. There is no build-time RPC fallback."
+
+[finding.7]
+test = "finding_7_funded_generation_2_multihop_receipt_and_minimum_revert"
+implementation = "The production executor drives the real generation-2 Router, Factory, PoolRegistry, Quoter, SidioraPool and ERC-20 contracts in a pure JavaScript EVM. Assert the successful receipt, exact calldata minimum and actual input/output balances, then fund an independent destination-pool buy and require the real SlippageExceeded selector with unchanged user balances. The original executor regression retains its minimum assertions and now also requires funded success followed by the minimum-specific failure."
+
+[finding.5]
+test = "finding_5_restart_reconciles_bridge_receipt_and_resumes_exact_settlement"
+implementation = "The prerequisite already replaced the audited mixed sequential route with one atomic transaction. Keep that atomic execution and persist its wallet, network, route, confirmation bounds, submission state and hash. Historical sequential progress can be recorded before any continuation: the recovery component reconciles the first-leg receipt and sums exact wallet USDL Transfer deltas. Stop and reopen the component over the serialized store; resume spends only that received USDL under the original final minimum and expiry, or explicitly retain assets. An unresolved submission without a hash is held for reconciliation rather than automatically repeated."
+
+[fixture]
+implementation = "The nested private package pins only qualification dependencies in npm-shrinkwrap.json; npm ci --prefix apps/wallet/src/lib/swap --ignore-scripts installs them. Installed dependencies are kept outside the allowed source directory with an ignored node_modules directory symlink so candidate preparation does not vendor packages. Vitest compiles repository Solidity sources in process with solc-js and executes them with EthereumJS VM. No native artifact, external binary, subprocess, environment variable, credential or live endpoint is used. The indexer peer is a loopback server whose token metadata is read from factory-created production ERC-20s, and the persistence peer is an in-memory serialized store."
+
+[wiring.domain12]
+active_network = "Domain 12, apps/wallet/src/widgets/swap/useSwapQuotes.ts: supply the selected wallet provider, chain and endpoint to setSwapNetwork before requesting quotes; include the network identity in hook inputs and clear displayed quotes when it changes."
+discovery = "Domain 12, apps/wallet/src/widgets/swap/useOutputTokens.ts: select the same network before reading the discovery cache, scope query keys by chain/endpoint and display discovery.status plus its explicit continuation and unsupported inventory."
+recovery = "Domain 12, apps/wallet/src/widgets/swap/: reopen SwapRecovery for the active wallet and original network, reconcile on mount, and present only its available resume/retain actions; new mixed routes stay atomic."
+
+[gotcha.scoped]
+area = "test"
+symptom = "The baseline verification instruction conflicts with the explicit bounded gate order; Vitest 4 treats single-function test registration as TODO."
+do = "Follow the numbered gate order, record the unrun baseline honestly and register each named proof with test(proof.name, proof). Keep the new persistence/discovery records within task scope because spec and the root gotcha ledger are excluded."
+
+[gotcha.candidate_dependencies]
+area = "tooling"
+symptom = "The candidate wrapper walks ignored node_modules beneath a directory touch and force-adds dependency files; its generated-lock filter also excludes a new pnpm lock under a directory touch."
+do = "The first wrapper preparation was stopped before any command or ledger row existed. Keep installed packages outside source scope with an ignored directory symlink, and retain the exact install lock as npm-shrinkwrap.json inside the task package."
+
+[gotcha.fixture_depositor]
+area = "test"
+symptom = "The funded fixture buy reverted with selector 0x0161a64a."
+cause = "The repository Router and Treasury ABIs decode MissingRole(address,bytes32); its role argument is keccak256(DEPOSITOR_ROLE). FeeAccumulator.recordFee calls Treasury.deposit for the protocol cut, but the fixture had not authorized the accumulator."
+do = "Grant the accumulator Treasury DEPOSITOR_ROLE before funding pools in both fixtures. The finding 7 proof revokes that role, drives the real multihop call, asserts the decoded account and role with unchanged balances, restores authorization, then proves funded execution and the independent minimum-output refusal."
+
+[qualification.build_1]
+revision = "40e635cbb9fee1b340bf34c0533158fc895d7faa"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "Updated executor test registrations passed timeout objects in Vitest's three-argument numeric-timeout position."
+
+[qualification.build_2]
+revision = "dbbeeb7bb1fd471e73d6446df6e52e773c304991"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-2.log"
+observed = "The first repair changed one timeout registration but missed the other multiline object; final repair replaces that registration explicitly and regenerates a portable dependency lock from an empty directory."

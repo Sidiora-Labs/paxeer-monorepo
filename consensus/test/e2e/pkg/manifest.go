@@ -32,6 +32,12 @@ type Manifest struct {
 	// setting validator_update.0 (see below).
 	Validators *map[string]int64 `toml:"validators"`
 
+	// LeaderPin names validator nodes in leader rotation order.
+	LeaderPin []string `toml:"leader_pin"`
+	// LeaderPinHeight activates a non-empty LeaderPin at or above InitialHeight.
+	// Both fields must be unset to disable the pin.
+	LeaderPinHeight int64 `toml:"leader_pin_height"`
+
 	// ValidatorUpdates is a map of heights to validator names and their power,
 	// and will be returned by the ABCI application. For example, the following
 	// changes the power of validator01 and validator02 at height 1000:
@@ -162,7 +168,12 @@ func (m Manifest) Save(file string) error {
 	if err != nil {
 		return fmt.Errorf("failed to create manifest file %q: %w", file, err)
 	}
-	return toml.NewEncoder(f).Encode(m)
+	encodeErr := toml.NewEncoder(f).Encode(m)
+	closeErr := f.Close()
+	if encodeErr != nil {
+		return encodeErr
+	}
+	return closeErr
 }
 
 // LoadManifest loads a testnet manifest from a file.

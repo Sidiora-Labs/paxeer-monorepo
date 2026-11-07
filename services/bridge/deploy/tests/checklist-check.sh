@@ -309,6 +309,32 @@ passes 'an agreeing Solana deployment' solana
 grep -qF 'ok Sidiora registration of' "$WORK/last.log" \
     || { quote; fail 'the Solana checklist did not read the Sidiora registration back'; }
 
+checklist-check() {
+    local records="$WORK/app records" app_env="$WORK/bridge app.env"
+    mkdir -p "$records"
+    cp "$FIXTURES/records/ethereum.json" "$records/ethereum.json"
+    jq -r '"NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=" + .vault' "$records/ethereum.json" > "$app_env"
+    fixture ethereum > /dev/null
+    passes 'an app env matching the deployment record' \
+        evm "PAXEER_BRIDGE_DEPLOYMENT_RECORD=$records/ethereum.json" "PAXEER_BRIDGE_APP_ENV=$app_env"
+    grep -qF 'ok bridge app env:' "$WORK/last.log" || {
+        quote
+        fail 'the matching app env was not checked'
+    }
+
+    printf 'NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM=%s\n' "$ZERO_ADDRESS" > "$app_env"
+    fixture ethereum > /dev/null
+    fails 'NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM differs from deployment record' \
+        'an app env naming another vault' \
+        evm "PAXEER_BRIDGE_DEPLOYMENT_RECORD=$records/ethereum.json" "PAXEER_BRIDGE_APP_ENV=$app_env"
+    grep -qE '^checklist: ethereum FAIL .*NEXT_PUBLIC_BRIDGE_VAULT_ETHEREUM' "$WORK/last.log" || {
+        quote
+        fail 'the mismatching app env did not produce a FAIL line naming its vault variable'
+    }
+    [ ! -s "$CALLS" ] || fail 'a mismatching app env reached an endpoint'
+}
+checklist-check
+
 # A placeholder stops the run before any endpoint is dialled.
 PLACEHOLDER_ROOT="$WORK/placeholder"
 mkdir -p "$PLACEHOLDER_ROOT/ethereum"

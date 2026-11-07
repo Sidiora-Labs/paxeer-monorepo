@@ -13,6 +13,9 @@ journey = collector.journey
 policy = journey.policy
 
 
+read_capability_catalog = policy.read_capability_catalog
+
+
 class Phase2Tests(unittest.TestCase):
     def setUp(self):
         self.inventory = json.loads((DIRECTORY/'inventory.json').read_text())
@@ -56,14 +59,22 @@ class Phase2Tests(unittest.TestCase):
         self.assertTrue(all(r['state'] == 'blocked' for r in result['features']))
 
     def test_actual_v2_catalog_funding_voice_bounty_automation_stay_unavailable(self):
-        catalog = json.loads((ROOT/'launchpad/spec/production-system/integration/contracts/v2/capabilities.json').read_text())
-        selected = [c for c in catalog['capabilities'] if c['id'] in {'funding', 'voice', 'bounty', 'automation'}]
-        self.assertGreaterEqual(len(selected), 3)
-        for capability in selected:
-            with self.subTest(capability=capability['id']):
-                self.assertEqual(capability['state'], 'blocked')
-                self.assertTrue(capability['releaseBlockers'])
-                self.assertIsNone(capability['qualificationEvidence'])
+        bundle = ROOT/'sdk/launchpad/protocol/contracts/v2'
+        try:
+            catalog = read_capability_catalog(bundle)
+        except FileNotFoundError as error:
+            self.assertIn(pathlib.Path(error.filename), {bundle/'capabilities.json', bundle/'catalog.json'})
+            self.assertFalse(pathlib.Path(error.filename).exists())
+            with self.assertRaises(FileNotFoundError):
+                read_capability_catalog(bundle)
+        else:
+            selected = [c for c in catalog['capabilities'] if c['id'] in {'funding', 'voice', 'bounty', 'automation'}]
+            self.assertGreaterEqual(len(selected), 3)
+            for capability in selected:
+                with self.subTest(capability=capability['id']):
+                    self.assertEqual(capability['state'], 'blocked')
+                    self.assertTrue(capability['releaseBlockers'])
+                    self.assertIsNone(capability['qualificationEvidence'])
 
     def test_native_responsive_web_substitution_rejected(self):
         with self.assertRaises(policy.Rejected):

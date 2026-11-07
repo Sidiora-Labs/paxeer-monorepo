@@ -1,0 +1,6 @@
+[repair.go-precompiles.109]
+target = "precompiles/layerxagent/eip712"
+command = "CGO_ENABLED=1 go vet ./precompiles/layerxagent/eip712/ && CGO_ENABLED=1 go test -count=1 ./precompiles/layerxagent/eip712/"
+revision = "c69af8b6706e55a243bc0f3a0e184b872b900e14"
+result = "already-passing"
+change = "none"

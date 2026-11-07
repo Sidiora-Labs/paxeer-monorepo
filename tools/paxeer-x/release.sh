@@ -47,7 +47,7 @@ if not tokens:
 root = Path(subprocess.run(['git', '-C', str(HERE), 'rev-parse', '--show-toplevel'],
                            capture_output=True, text=True, check=True).stdout.strip())
 reqs = {}
-for block in re.split(r'(?m)^(?=\[)', (root / 'spec/paxeer-x/spec.kvx').read_text(encoding='utf-8')):
+for block in re.split(r'(?m)^(?=\[)', (root / 'tools/paxeer-x/gates/registry.kvx').read_text(encoding='utf-8')):
     header = re.match(r'\[task\.([0-9.]+)\]\s*\n', block)
     if header:
         found = re.search(r'^reqs\s*=\s*(\[.*\])\s*$', block, re.M)

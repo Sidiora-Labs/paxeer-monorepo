@@ -1,0 +1,35 @@
+[disposition.6.96.3.1]
+finding = "6.96.3.1"
+status = "resolved"
+evidence = "Commits acf7c48b8535b8a3d384652ee2467ddb4acf5d5c and 1f9bcec126993d68125ee8c11c0d899c693a48d3 replaced the anchor test's live-withdrawal expectations with ErrModuleRetired assertions and ported the remaining custody tests to stored claims and isolated retirement contexts."
+follow_up = "closure"
+
+[disposition.6.96.3.2]
+finding = "6.96.3.2"
+status = "resolved"
+evidence = "Commit acf7c48b8535b8a3d384652ee2467ddb4acf5d5c changed every withdrawal call in TestWithdrawalReadsAnchorFinalizedCheckpoint to expect ErrModuleRetired, as retained at modules/layerxcustody/keeper/anchor_reader_test.go:119 and :168 while the finalized anchor reads remain at :159."
+follow_up = "closure"
+
+[disposition.6.96.4.1]
+finding = "6.96.4.1"
+status = "resolved"
+evidence = "Commit 1f9bcec126993d68125ee8c11c0d899c693a48d3 removed tests of retired withdrawal and exit success paths, introduced seedClaim and payStoredWithdrawal for retained state tests, and changed claim-message expectations to ErrModuleRetired, as shown by modules/layerxcustody/keeper/keeper_test.go:129 and modules/layerxcustody/keeper/retire_msg_server_test.go:29."
+follow_up = "closure"
+
+[disposition.6.96.4.2]
+finding = "6.96.4.2"
+status = "resolved"
+evidence = "The task's symbols at spec/layerx-merge/spec.kvx:136196 and tests at spec/layerx-merge/spec.kvx:136198 now name only TestGenesisRoundTrip and TestSolvencyInvariantHoldsAcrossTheMergePlan, declared at modules/layerxcustody/keeper/keeper_test.go:358 and modules/layerxcustody/keeper/merge_release_test.go:132, with no deleted test in either list."
+follow_up = "closure"
+
+[disposition.6.60.5.1]
+finding = "6.60.5.1"
+status = "resolved"
+evidence = "Commit e3c481da78e324562d0e21951b337043da2b29b2 removed MOVEMENT_PROOF_TARGET and the test-owner-movement-proof declaration and recipe from Makefile, eliminating its reference to tests/bridge/owner-custody.py before commit 718ac77c91a6de5c4e2e90af5a2c4bbf014ab7c0 retired that script."
+follow_up = "closure"
+
+[disposition.6.60.2.1]
+finding = "6.60.2.1"
+status = "resolved"
+evidence = "Commit 3f29436b67917d8673b8af423933b8d04638a1c5 removed both orphaned Makefile rules for tests/bridge/sign-credit and tests/bridge/test-credit together with their retired C harness sources, leaving test-bridge-deposit followed directly by the bridge-withdraw build rule at Makefile:933."
+follow_up = "closure"

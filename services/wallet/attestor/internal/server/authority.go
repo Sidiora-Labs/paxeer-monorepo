@@ -14,7 +14,7 @@ import (
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/auth/agent"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 const PathAuthority = "/v1/authority"
@@ -130,6 +130,10 @@ func (i *Inventory) Check(keyID, operation, owner, curve string, record *store.S
 	if err != nil {
 		return err
 	}
+	return checkInventory(inventory, keyID, operation, owner, curve, record)
+}
+
+func checkInventory(inventory WalletInventory, keyID, operation, owner, curve string, record *store.ShareRecord) error {
 	var approved *InventoryKey
 	for n := range inventory.Keys {
 		if inventory.Keys[n].KeyID == keyID {
@@ -163,6 +167,58 @@ func (i *Inventory) Check(keyID, operation, owner, curve string, record *store.S
 		}
 	} else if operation != "generate" || approved.PublicKey != "" || approved.Epoch != 0 {
 		return agent.ErrAuthority
+	}
+	return nil
+}
+
+func (i *Inventory) checkAddShare(req AddShareRequest, self string, held *store.ShareRecord) error {
+	if i == nil {
+		return agent.ErrAuthority
+	}
+	inventory, err := i.load()
+	if err != nil {
+		return err
+	}
+	participants := append(append([]string(nil), req.Quorum...), req.NewParticipantID)
+	participants, unique := sortedUnique(participants)
+	if !unique || len(participants) != dealer.Participants {
+		return agent.ErrAuthority
+	}
+	public, err := hex.DecodeString(req.PublicKey)
+	if err != nil {
+		return agent.ErrAuthority
+	}
+	admission := store.ShareRecord{KeyID: req.KeyID, Curve: req.Curve, PublicKey: public, Epoch: req.Epoch, Participants: participants}
+	if err := checkInventory(inventory, req.KeyID, "refresh", req.Owner, req.Curve, &admission); err != nil {
+		return err
+	}
+	approved := make([]string, 0, len(inventory.Members))
+	for _, member := range inventory.Members {
+		approved = append(approved, member.ID)
+	}
+	if !sameIDs(participants, approved) {
+		return agent.ErrAuthority
+	}
+	if self == req.NewParticipantID {
+		if held != nil {
+			return agent.ErrAuthority
+		}
+		return nil
+	}
+	if held == nil || held.Epoch != req.Epoch || held.Curve != req.Curve || !bytes.Equal(held.PublicKey, public) || len(held.Participants) != dealer.Participants {
+		return agent.ErrAuthority
+	}
+	members := make(map[string]bool, len(held.Participants))
+	for _, id := range held.Participants {
+		members[id] = true
+	}
+	if members[req.NewParticipantID] {
+		return agent.ErrAuthority
+	}
+	for _, id := range req.Quorum {
+		if !members[id] {
+			return agent.ErrAuthority
+		}
 	}
 	return nil
 }
@@ -216,6 +272,38 @@ func (s *Server) inventoryRoute(operation string, next http.HandlerFunc) http.Ha
 			writeError(w, newError(CodeSessionBadRequest, "invalid key operation"))
 			return
 		}
+		if operation == "addshare" {
+			var req AddShareRequest
+			if e := decodeRequest(body, &req); e != nil {
+				writeError(w, e)
+				return
+			}
+			if len(req.Quorum) < int(dealer.Threshold) {
+				writeError(w, newError(CodeQuorumTooFew, "add-share needs at least %d existing participants", dealer.Threshold))
+				return
+			}
+			var held *store.ShareRecord
+			if s.opts.NodeID != req.NewParticipantID {
+				record, payload, e := s.loadShare(req.KeyID)
+				if e != nil {
+					writeError(w, e)
+					return
+				}
+				held = &record
+				approved := req
+				approved.Owner = payload.Owner
+				if err := s.opts.Inventory.checkAddShare(approved, s.opts.NodeID, held); err != nil {
+					writeError(w, newError(CodeKeyInvalidShare, "approved inventory refuses replacement membership"))
+					return
+				}
+			} else if err := s.opts.Inventory.checkAddShare(req, s.opts.NodeID, nil); err != nil {
+				writeError(w, newError(CodeKeyInvalidShare, "approved inventory refuses replacement membership"))
+				return
+			}
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			next(w, r)
+			return
+		}
 		owner, curve := request.Owner, request.Curve
 		var rec *store.ShareRecord
 		if operation == "import" {
@@ -252,11 +340,35 @@ func (s *Server) inventoryRoute(operation string, next http.HandlerFunc) http.Ha
 			owner = payload.Owner
 			curve = record.Curve
 		}
-		if err := s.opts.Inventory.Check(request.KeyID, operation, owner, curve, rec); err != nil {
+		var admissionErr error
+		if operation == "generate" {
+			if s.opts.Inventory == nil {
+				admissionErr = agent.ErrAuthority
+			} else {
+				inventory, err := s.opts.Inventory.load()
+				admissionErr = err
+				if err == nil {
+					for _, key := range inventory.Keys {
+						if key.KeyID == request.KeyID {
+							curve = key.Curve
+							break
+						}
+					}
+					admissionErr = checkInventory(inventory, request.KeyID, operation, owner, curve, rec)
+				}
+			}
+		} else {
+			admissionErr = s.opts.Inventory.Check(request.KeyID, operation, owner, curve, rec)
+		}
+		if admissionErr != nil {
 			writeError(w, s.deny("keys."+operation, request.KeyID, owner, "denied", "", newError(CodeKeyInvalidShare, "owner-approved wallet inventory does not admit operation")))
 			return
 		}
 		if operation == "generate" {
+			if request.Curve != curve {
+				writeError(w, newError(CodeKeyCurve, "request curve differs from approved generation curve"))
+				return
+			}
 			record, payload, err := s.loadShare(request.KeyID)
 			if err == nil {
 				if record.Epoch != 0 || payload.Owner != owner || record.Curve != curve || len(record.Participants) != 5 {

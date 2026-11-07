@@ -2,23 +2,40 @@ use std::collections::HashMap;
 
 use parking_lot::RwLock;
 
-use crate::core::types::IndexedEvent;
+use crate::core::types::{Event, FixedI128, IndexedEvent};
 
-/// Dual-partitioned append-only event log.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FundingSettlement {
+    pub block_number: u64,
+    pub funding_rate_hourly: FixedI128,
+    pub long_payment: FixedI128,
+    pub short_payment: FixedI128,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct VaultDeficitRecord {
+    pub block_number: u64,
+    /// Reported shortfall in token units, not USD or a running balance.
+    pub deficit: FixedI128,
+}
+
+/// Market, trader and global append-only event log.
 ///
 /// Replaces ScyllaDB tables:
 /// - `events_by_market` (partition: market_id)
 /// - `events_by_trader` (partition: trader_address)
 ///
-/// Events are stored in two parallel indexes. Each event is appended to both
-/// the market partition and the trader partition. Within each partition,
-/// events are sorted by (block_number, log_index) — natural insertion order.
+/// Every event is retained globally and indexed by each available routing key.
+/// Partitions preserve engine application/WAL order, including late events.
 ///
 /// Concurrency: `parking_lot::RwLock` on each partition. Single writer,
 /// multiple concurrent readers.
 pub struct EventStore {
     by_market: RwLock<HashMap<u16, Vec<IndexedEvent>>>,
     by_trader: RwLock<HashMap<[u8; 20], Vec<IndexedEvent>>>,
+    global: RwLock<Vec<IndexedEvent>>,
+    funding_settlements: RwLock<HashMap<u16, FundingSettlement>>,
+    vault_deficits: RwLock<HashMap<[u8; 20], VaultDeficitRecord>>,
     total_count: std::sync::atomic::AtomicU64,
 }
 
@@ -27,6 +44,9 @@ impl EventStore {
         Self {
             by_market: RwLock::new(HashMap::new()),
             by_trader: RwLock::new(HashMap::new()),
+            global: RwLock::new(Vec::new()),
+            funding_settlements: RwLock::new(HashMap::new()),
+            vault_deficits: RwLock::new(HashMap::new()),
             total_count: std::sync::atomic::AtomicU64::new(0),
         }
     }
@@ -41,6 +61,35 @@ impl EventStore {
         market_id: Option<u16>,
         trader_address: Option<[u8; 20]>,
     ) {
+        match &event.event {
+            Event::FundingSettled {
+                market_id,
+                funding_rate,
+                long_payment,
+                short_payment,
+            } => {
+                self.funding_settlements.write().insert(
+                    *market_id,
+                    FundingSettlement {
+                        block_number: event.block_number,
+                        funding_rate_hourly: *funding_rate,
+                        long_payment: *long_payment,
+                        short_payment: *short_payment,
+                    },
+                );
+            }
+            Event::VaultDeficit { token, deficit } => {
+                self.vault_deficits.write().insert(
+                    *token,
+                    VaultDeficitRecord {
+                        block_number: event.block_number,
+                        deficit: *deficit,
+                    },
+                );
+            }
+            _ => {}
+        }
+        self.global.write().push(event.clone());
         if let Some(mid) = market_id {
             self.by_market
                 .write()
@@ -50,15 +99,38 @@ impl EventStore {
         }
 
         if let Some(addr) = trader_address {
-            self.by_trader
-                .write()
-                .entry(addr)
-                .or_default()
-                .push(event);
+            self.by_trader.write().entry(addr).or_default().push(event);
         }
 
         self.total_count
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    /// All accepted events, including records without a market or trader.
+    pub fn global(&self, from_block: Option<u64>, to_block: Option<u64>) -> Vec<IndexedEvent> {
+        filter_by_block_range(&self.global.read(), from_block, to_block)
+    }
+
+    pub fn latest_global(&self, count: usize) -> Vec<IndexedEvent> {
+        self.global
+            .read()
+            .iter()
+            .rev()
+            .take(count)
+            .cloned()
+            .collect()
+    }
+
+    /// Latest hourly settlement. FundingRateUpdated owns the per-second and
+    /// 24-hour rates; a settlement must not overwrite either of those fields.
+    pub fn latest_funding_settlement(&self, market_id: u16) -> Option<FundingSettlement> {
+        self.funding_settlements.read().get(&market_id).cloned()
+    }
+
+    /// Latest reported token shortfall. The producer emits a report before
+    /// subsequent ADL; it does not encode the outstanding deficit after ADL.
+    pub fn latest_vault_deficit(&self, token: &[u8; 20]) -> Option<VaultDeficitRecord> {
+        self.vault_deficits.read().get(token).cloned()
     }
 
     /// Query events for a market, optionally filtered by block range [from, to).
@@ -115,10 +187,7 @@ impl EventStore {
 
     /// Count events for a market.
     pub fn market_event_count(&self, market_id: u16) -> usize {
-        self.by_market
-            .read()
-            .get(&market_id)
-            .map_or(0, |v| v.len())
+        self.by_market.read().get(&market_id).map_or(0, |v| v.len())
     }
 
     /// Count events for a trader.
@@ -126,10 +195,9 @@ impl EventStore {
         self.by_trader.read().get(trader).map_or(0, |v| v.len())
     }
 
-    /// Total events across all partitions (may double-count if both market and trader indexed).
+    /// Total accepted events, counted once regardless of routing partitions.
     pub fn total_count(&self) -> u64 {
-        self.total_count
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.total_count.load(std::sync::atomic::Ordering::Relaxed)
     }
 
     /// Number of unique markets with events.
@@ -416,9 +484,8 @@ mod tests {
         store.append(make_event(100, 0, 1), Some(0), Some(addr(1)));
         store.append(make_close_event(101, 0, 1), Some(0), Some(addr(1)));
 
-        let opens_only = store.by_market_filtered(0, |e| {
-            matches!(e.event, Event::PositionOpened { .. })
-        });
+        let opens_only =
+            store.by_market_filtered(0, |e| matches!(e.event, Event::PositionOpened { .. }));
         assert_eq!(opens_only.len(), 1);
 
         let closes_only = store.by_trader_filtered(&addr(1), |e| {

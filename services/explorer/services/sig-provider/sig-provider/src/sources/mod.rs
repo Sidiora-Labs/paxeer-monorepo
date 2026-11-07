@@ -1,5 +1,7 @@
+mod directory_http;
 pub mod eth_bytecode_db;
 pub mod fourbyte;
+pub mod precompiles;
 pub mod sigeth;
 
 use async_trait::async_trait;
@@ -19,6 +21,18 @@ fn hash(hex: &str) -> String {
 #[automock]
 #[async_trait]
 pub trait SignatureSource {
+    /// Whether this source can answer this key. A finite local inventory does
+    /// not establish global absence when directory lookups fail.
+    fn covers_function(&self, _hex: &str) -> bool {
+        true
+    }
+    fn covers_event(&self, _hex: &str) -> bool {
+        true
+    }
+    fn accepts_imports(&self) -> bool {
+        true
+    }
+
     async fn create_signatures(&self, abi: &str) -> Result<(), anyhow::Error>;
     // Resulting signatures should be sorted in priority descending order (first - max priority)
     async fn get_function_signatures(&self, hex: &str) -> Result<Vec<String>, anyhow::Error>;
@@ -29,7 +43,10 @@ pub trait SignatureSource {
         &self,
         hex: &[String],
     ) -> Result<Vec<Vec<String>>, anyhow::Error> {
-        Ok(vec![vec![]; hex.len()])
+        futures::future::join_all(hex.iter().map(|key| self.get_event_signatures(key)))
+            .await
+            .into_iter()
+            .collect()
     }
 
     // for errors
@@ -39,6 +56,10 @@ pub trait SignatureSource {
 #[automock]
 #[async_trait]
 pub trait CompleteSignatureSource {
+    fn covers_event(&self, _hex: &str) -> bool {
+        true
+    }
+
     async fn get_event_signatures(
         &self,
         hex: &str,
@@ -48,11 +69,50 @@ pub trait CompleteSignatureSource {
         &self,
         hex: &[String],
     ) -> Result<Vec<Vec<alloy_json_abi::Event>>, anyhow::Error> {
-        Ok(vec![vec![]; hex.len()])
+        futures::future::join_all(hex.iter().map(|key| self.get_event_signatures(key)))
+            .await
+            .into_iter()
+            .collect()
     }
 
     // for errors
     fn source(&self) -> String;
+}
+
+pub(crate) fn decode_complete_event(
+    event: &ethabi::Event,
+    raw: &ethabi::RawLog,
+) -> Option<ethabi::Log> {
+    // Positional names keep unnamed and repeated parameter names distinct in ethabi.
+    let mut positional = event.clone();
+    for (index, input) in positional.inputs.iter_mut().enumerate() {
+        input.name = index.to_string();
+    }
+    let mut decoded = positional.parse_log(raw.clone()).ok()?;
+    let mut data = Vec::new();
+    let mut topics = Vec::new();
+    for (input, param) in event.inputs.iter().zip(&decoded.params) {
+        if input.indexed {
+            topics.extend(ethabi::encode(std::slice::from_ref(&param.value)));
+        } else {
+            data.push(param.value.clone());
+        }
+    }
+    let raw_topics: Vec<_> = raw
+        .topics
+        .iter()
+        .skip(usize::from(!event.anonymous))
+        .flat_map(|topic| topic.as_bytes().iter().copied())
+        .collect();
+    // decode_whole in ethabi 18 counts only heads for dynamic types. Round-trip
+    // validation checks the entire encoding, including dynamic tails and padding.
+    if ethabi::encode(&data) != raw.data || topics != raw_topics {
+        return None;
+    }
+    for (input, param) in event.inputs.iter().zip(&mut decoded.params) {
+        param.name = input.name.clone();
+    }
+    Some(decoded)
 }
 
 pub fn new_client() -> ClientWithMiddleware {

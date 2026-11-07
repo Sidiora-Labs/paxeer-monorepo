@@ -149,6 +149,18 @@ func (suite *IntegrationTestSuite) TestSendCoinsAndWei() {
 	require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr2))
 	require.Equal(sdk.NewInt(100), keeper.GetBalance(ctx, addr1, sdk.DefaultBondDenom).Amount)
 	require.Equal(sdk.ZeroInt(), keeper.GetBalance(ctx, addr2, sdk.DefaultBondDenom).Amount)
+	keeper.RegisterRecipientChecker(func(_ sdk.Context, recipient sdk.AccAddress) bool {
+		return !recipient.Equals(blockedAddr)
+	})
+	for _, wei := range []sdk.Int{sdk.ZeroInt(), sdk.OneInt()} {
+		eventsBefore := len(ctx.EventManager().Events())
+		require.Error(keeper.SendCoinsAndWei(ctx, addr1, blockedAddr, sdk.OneInt(), wei))
+		require.Equal(sdk.NewInt(100), keeper.GetBalance(ctx, addr1, sdk.DefaultBondDenom).Amount)
+		require.Equal(sdk.ZeroInt(), keeper.GetBalance(ctx, blockedAddr, sdk.DefaultBondDenom).Amount)
+		require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr1))
+		require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, blockedAddr))
+		require.Len(ctx.EventManager().Events(), eventsBefore)
+	}
 	// should just do uhpx send if wei is zero
 	require.NoError(keeper.SendCoinsAndWei(ctx, addr1, addr3, sdk.NewInt(50), sdk.ZeroInt()))
 	require.Equal(sdk.ZeroInt(), keeper.GetWeiBalance(ctx, addr1))

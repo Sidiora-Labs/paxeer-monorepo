@@ -1,0 +1,23 @@
+[task]
+id = "22.31.283"
+audit = "22.30.162"
+base_revision = "ff6bf6162f496eda36bdb11465eb09d6f21a6fdd"
+baseline = "Not run: the explicit gate order forbids verification before full implementation; no pre-change failure is claimed."
+qualification = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exits and private evidence paths."
+
+[finding.ss-restore-completion]
+tests = ["TestRepair_283_RestoreImmediateHistoryAndRestart", "TestRepair_283_RestoreImportErrorAndRetry", "TestRepair_283_RestoreReadAndSCFailures"]
+repair = "Cancel queued SS forwarding on read or SC failure, drain and join both SS workers, propagate import/metadata errors, and publish restore metadata only after all imports succeed."
+wiring_request = "Domain 5: storage/state_db/ss/composite/store.go and storage/db_engine/pebbledb/mvcc/{db,batch}.go must durably publish split-backend restore completion atomically, propagate EVM metadata errors, and avoid advancing query-head metadata from partial import batches."
+
+[finding.future-query-height]
+tests = ["TestRepair_283_FutureQueryHeight"]
+repair = "Reject future CMS query heights with ErrInvalidHeight and retain the actual resolved CMS response height in BaseApp; prove SS and SC values, heights, errors and cryptographically verified proofs through real ABCI queries."
+
+[qualification.first_attempt]
+revision = "fa87c658161bc8f80fd3eff3f3bd483c8b17cdaa"
+command = "cg spec done 22.31.283 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The fixture asserted normal post-restore asynchronous commit completion immediately; the immediate snapshot-restore reads and other regression tests passed."
+repair = "Keep every assertion and wait for the later normal commit to reach SS; the initial post-restore checks still run immediately without polling."

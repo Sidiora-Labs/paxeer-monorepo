@@ -124,16 +124,10 @@ impl CommitFinality {
     /// The committed head only: a block below commit rank or a head with no
     /// committed height is `FinalityUnavailable`.
     pub fn of(snapshot: &SnapshotBinding) -> Result<Self, Refusal> {
-        snapshot
-            .require_finalized()
+        let (height, commit) = snapshot
+            .finalized_head()
             .map_err(|_| Refusal::FinalityUnavailable)?;
-        if snapshot.execution_height == 0 {
-            return Err(Refusal::FinalityUnavailable);
-        }
-        Ok(Self {
-            height: snapshot.execution_height,
-            commit: snapshot.checkpoint,
-        })
+        Ok(Self { height, commit })
     }
 }
 
@@ -1181,7 +1175,7 @@ mod tests {
             native_state_root: digest(0x5a),
             observed_sequence: height + 7,
             execution_height: height,
-            batch_id: digest(0xbb),
+            block_hash: digest(commit),
         };
         let facts = CaptureFacts {
             proof,
@@ -1192,8 +1186,10 @@ mod tests {
         };
         let finality = FinalityEvidence {
             native_state_root: proof.native_state_root,
-            checkpoint: digest(commit),
-            settlement: Presence::Absent,
+            block_height: height,
+            block_hash: digest(commit),
+            app_hash: proof.native_state_root,
+            store_proof_digest: digest(0xdd),
             rank,
         };
         bind_snapshot(state, &facts, &finality, 1_700_000_000_000).unwrap()

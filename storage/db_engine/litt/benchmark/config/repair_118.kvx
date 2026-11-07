@@ -1,0 +1,15 @@
+[repair.22.31.118]
+audit = "22.30.53"
+baseline = "Not run: the ordered gate instructions require implementation before qualification and forbid running verify_cmd by hand; the initial gate ledger had no previous runs, so no baseline failures are claimed."
+evidence = "The private hf-build/hf-done ledger at /out/run/gates.jsonl names the exact verified candidate revision, command, exit code and log location; the runner publishes that candidate."
+wiring = "None: both repairs are confined to the benchmark dashboard and its qualification tests; the current LittDBMetrics producer and default OTel Prometheus transport remain the source of metric names and units."
+
+[finding.dashboard-latency-shape]
+test = "TestRepair_118_DashboardLatencyShape"
+change = "Use per-table histogram_quantile over rates of second-valued buckets for p50/p90/p99, and a rate(sum)/rate(count) weighted average; multiply only the result by 1000 for the existing millisecond display."
+proof = "Load every real latency panel and assert its query formula, legend, references and units against two real HTTP /metrics scrapes from LittDBMetrics through SetupOtelPrometheus and promhttp; assert every selector, histogram type, second-valued sum, count and LatencyBuckets boundary for two tables with unequal observation counts."
+
+[finding.dashboard-counter-names]
+test = "TestRepair_118_DashboardCounterNames"
+change = "Use exported _total counter names on all seven throughput, flush and cache panels, including _bytes_total translation for byte counters."
+proof = "Load the real dashboard counter targets, resolve every selector against two real HTTP exporter scrapes and assert counter types, exact values and increments for two tables, including cache hits and disk misses."

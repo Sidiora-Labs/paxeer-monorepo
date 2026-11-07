@@ -3,11 +3,11 @@
   "info": {
     "title": "LayerX public JSON-RPC",
     "version": "0.1.0",
-    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace joins both domains through the native precompiles addr (0x0000000000000000000000000000000000001004), layerxCustody (0x0000000000000000000000000000000000001013) and layerxAnchor (0x0000000000000000000000000000000000001014). eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) or launchpad (0x0000000000000000000000000000000000001017) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
+    "description": "Public JSON-RPC reads, authenticated activity submission and scoped WebSocket subscriptions. Native DID enumeration, asset listing/detail and canonical fee estimation forward to authenticated core reads; unavailable evidence is returned explicitly and balances, metadata or fees are never fabricated. The same endpoint relays the Paxeer EVM JSON-RPC namespaces eth_, net_ and web3_ to the chain's node byte for byte, including eth_sendRawTransaction and batches that mix EVM and LayerX calls; node-side signing methods (eth_accounts, eth_coinbase, eth_sendTransaction, eth_sign, eth_signTransaction, eth_signTypedData, eth_signTypedData_v4, eth_mining) and eth_subscribe/eth_unsubscribe are refused here rather than at the node. The px_ namespace resolves accounts through addr (0x1004), reads balances through bank (0x1001), and exposes consensus reads for signed commits, validator sets and sequence batches with transaction inclusion proofs. Receipt signing keys are published by px_getReceiptKeys; pax_sequencerReceipt relays the node receipt and commitment rung unchanged. eth_sendRawTransaction and eth_sendRawTransactionSync whose transaction is addressed to the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016), launchpad (0x0000000000000000000000000000000000001017), ledger (0x000000000000000000000000000000000000101a), pay (0x000000000000000000000000000000000000101b), auth (0x000000000000000000000000000000000000101c) or programs (0x000000000000000000000000000000000000101d) precompile are refused with -32003 surface_unavailable while px_getCapabilities reports that surface false."
   },
   "methods": [
     {
-      "name": "lx_register",
+      "name": "px_register",
       "paramStructure": "by-position",
       "params": [
         {
@@ -84,7 +84,429 @@
       ]
     },
     {
-      "name": "lx_requestFunds",
+      "name": "px_getCommit",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "signedHeader"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "signedHeader": {
+              "type": "object",
+              "required": [
+                "header",
+                "commit"
+              ],
+              "properties": {
+                "header": {
+                  "type": "object",
+                  "required": [
+                    "height"
+                  ],
+                  "properties": {
+                    "height": {
+                      "type": "string",
+                      "pattern": "^[0-9]*[1-9][0-9]*$",
+                      "description": "Positive decimal u64 block height."
+                    }
+                  }
+                },
+                "commit": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Reads the consensus commit at a positive decimal u64 height. Returns the decimal height and the consensus signed_header unchanged as signedHeader, including its header and commit. An unconfigured, unreachable or invalid consensus response is -32003 with data.code consensus_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getValidators",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "validators",
+            "total"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "validators": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "address",
+                  "pubKey",
+                  "votingPower"
+                ],
+                "properties": {
+                  "address": {
+                    "type": "string"
+                  },
+                  "pubKey": {
+                    "type": "object",
+                    "required": [
+                      "type",
+                      "value"
+                    ],
+                    "properties": {
+                      "type": {
+                        "type": "string"
+                      },
+                      "value": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "votingPower": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                }
+              }
+            },
+            "total": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            }
+          }
+        }
+      },
+      "description": "Reads the full validator set at a positive decimal u64 height, collecting all consensus pages. Returns decimal-string height, total and votingPower; pubKey preserves the consensus pub_key object. An unconfigured, unreachable or inconsistent consensus response is -32003 with data.code consensus_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getReceiptKeys",
+      "paramStructure": "by-position",
+      "params": [],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "keys"
+          ],
+          "properties": {
+            "keys": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "keyId",
+                  "publicKey",
+                  "firstHeight",
+                  "lastHeight"
+                ],
+                "properties": {
+                  "keyId": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  },
+                  "publicKey": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  },
+                  "firstHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  },
+                  "lastHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 18446744073709551615
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Publishes the configured pinned receipt signing keys and their inclusive height ranges. keyId and publicKey are 0x-prefixed 32-byte hexadecimal strings; firstHeight and lastHeight are JSON integers. Requires an explicit empty positional params array. An unconfigured list is -32003 with data.code receipt_keys_unavailable.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "receipt_keys_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_getSequenceBatch",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "height",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^[0-9]*[1-9][0-9]*$",
+            "description": "Positive decimal u64 block height."
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "height",
+            "tx",
+            "proof"
+          ],
+          "properties": {
+            "height": {
+              "type": "string",
+              "pattern": "^[0-9]*[1-9][0-9]*$",
+              "description": "Positive decimal u64 block height."
+            },
+            "tx": {
+              "type": "string",
+              "pattern": "^0x([0-9a-fA-F]{2})*$"
+            },
+            "proof": {
+              "type": "object",
+              "required": [
+                "total",
+                "index",
+                "leafHash",
+                "aunts"
+              ],
+              "properties": {
+                "total": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "index": {
+                  "type": "integer",
+                  "const": 0
+                },
+                "leafHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "aunts": {
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "pattern": "^0x[0-9a-fA-F]{64}$"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "description": "Reads transaction 0 of the consensus block at a positive decimal u64 height. tx is the 0x-hex encoded MsgSequenceBatch transaction; proof contains total, index, leafHash and aunts for its Merkle inclusion under header.data_hash. The proof is verified before a result is served. A block without a MsgSequenceBatch at transaction 0 is -32602 with data.code no_sequence_batch; a proof mismatch is -32003 with data.code invalid_consensus_response.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32602,
+          "message": "Invalid params",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "no_sequence_batch"
+              }
+            }
+          }
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "consensus_unavailable"
+              }
+            }
+          }
+        },
+        {
+          "code": -32003,
+          "message": "Chain read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "invalid_consensus_response"
+              }
+            }
+          }
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable",
+          "data": {
+            "type": "object",
+            "required": [
+              "code"
+            ],
+            "properties": {
+              "code": {
+                "const": "public_read_rate_limit"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "px_requestFunds",
       "paramStructure": "by-position",
       "params": [
         {
@@ -108,10 +530,47 @@
       "result": {
         "name": "claim",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "funded",
+            "funding_id",
+            "transaction_id",
+            "amount",
+            "network",
+            "starter_credit"
+          ],
+          "properties": {
+            "funded": {
+              "type": "boolean",
+              "const": true
+            },
+            "funding_id": {
+              "type": "string",
+              "pattern": "^[0-9a-fA-F]+$",
+              "maxLength": 128
+            },
+            "transaction_id": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 128
+            },
+            "amount": {
+              "type": "string",
+              "pattern": "^[0-9]+$",
+              "maxLength": 39
+            },
+            "network": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 64
+            },
+            "starter_credit": {
+              "type": "object"
+            }
+          }
         }
       },
-      "description": "Claims one beta faucet grant for the authenticated identity principal and proxies it to the faucet service. Requires the same bearer identity session used to provision gateway keys; the signer public key must be one the session authorises, so a principal cannot fund a key it does not hold. The faucet bounds claims per principal per window, and the gateway derives the faucet idempotency key from SHA-256(len-prefixed \"layerx-faucet-claim-v1\", principal, did, signer_public_key), so a repeated request returns the same grant instead of a second one. The result is the faucet claim record: funded, funding_id, transaction_id, decimal-string amount and network; a claim whose evidence is incomplete is -32603 and is never reported as funded. Malformed arguments are -32602; a missing session, an unauthorised signer key or a faucet refusal is -32002; the per-minute claim budget and faucet quotas are -32005; a faucet that is unconfigured, unavailable or still settling is -32001 with a machine-readable data.code.",
+      "description": "Claims the authenticated identity principal's starter credit through the faucet claim path. Params are a DID and its bound, nonzero 32-byte lowercase hexadecimal Ed25519 signer public key without a 0x prefix. The bearer session must authorise the signer. The result includes funded, funding_id, transaction_id, decimal-string amount, network and the settled starter_credit record. Idempotency is bound to the principal and starter-credit grant, so retries reuse the grant. Incomplete funding evidence or an amount mismatch is -32603; pending claims are -32001 with data.code faucet_claim_pending. An unavailable identity backend is -32010 Kernel unavailable.",
       "errors": [
         {
           "code": -32602,
@@ -160,1205 +619,396 @@
               }
             }
           }
-        }
-      ]
-    },
-    {
-      "name": "lx_getAccount",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "account_id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Reads one account by 32-byte hexadecimal account id through the public core account read. Returns name, asset_id, balance, next_sequence, frozen, and authenticated node evidence. Invalid selectors are JSON-RPC -32602. Missing or unverifiable evidence is -32001; the public read rate limit is -32005.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getBalance",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "account_id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Same core account read as lx_getAccount. Clients that need only the current units use balance and asset_id from that object.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getBalances",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "did",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Enumerates the complete bounded DID account list from LNI minor 5 committed account reads requested at state-proven level. Returns did, accounts with canonical values, native proof material, freshness and a per-entry verification label, and a listing verification label naming the weakest level any entry achieved: state_proven, checkpoint_finalised or settlement_anchored. No independently verified completeness claim. An empty listing, unavailable or invalid native evidence returns -32001 with core code did_account_listing_unavailable.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getReceipt",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "activity_id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Reads the verified receipt for a 32-byte hexadecimal activity id. A successful result includes receipt bytes and result_code. Missing evidence is JSON-RPC -32001. An admission acknowledgement is never returned as success.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getActivityStatus",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "activity_id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Same receipt read as lx_getReceipt. Activity status is the receipt result state (completed, refused, or the upstream pending/unavailable refusal), not a separate status document.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getBatchHeader",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "batch_number",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Reads a sequencer-signed batch header by nonzero decimal batch number. Leading zeros and the value 0 are invalid parameters.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getCheckpoint",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "checkpoint_id",
-          "required": true,
-          "schema": {
-            "type": "string"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Reads checkpoint evidence by 32-byte hexadecimal checkpoint id. The all-zero identifier is refused.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getNodeInfo",
-      "paramStructure": "by-position",
-      "params": [],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Handshake node information: protocol_version, network_id, chain_head_sequence, latest_sealed_batch, latest_finalised_checkpoint, authorised_sequencer_key, and advertised capabilities.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getSequence",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "account_id",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{64}$"
-          }
-        },
-        {
-          "name": "selector",
-          "required": false,
-          "schema": {
-            "type": "string",
-            "enum": [
-              "identity"
-            ]
-          }
-        }
-      ],
-      "result": {
-        "name": "snapshot",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "One account_id argument reads account next_sequence. With [did, \"identity\"], reads identity.next_sequence from the authenticated native preparation snapshot for envelope signing. Account and identity sequences are independent.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getProof",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "kind",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "enum": [
-              "activity",
-              "receipt",
-              "account"
-            ]
-          }
-        },
-        {
-          "name": "activity_id",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{64}$"
-          }
-        },
-        {
-          "name": "account_id",
-          "required": false,
-          "description": "Required only when kind is account.",
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{64}$"
-          }
-        }
-      ],
-      "result": {
-        "name": "proof",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Verified proof with canonical value and signed batch header. kind activity or receipt takes the activity id. kind account requires activity_id and account_id. Account proofs export the exact verified native proof bytes without reconstruction.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_sendActivity",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "canonical_hex",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^([0-9a-fA-F]{2})+$",
-            "maxLength": 1048576,
-            "description": "At most 1048576 hexadecimal characters encoding 524288 bytes. The full JSON request including envelope, parameters and batch overhead remains subject to the 8388608-byte HTTP request bound; ingress may impose a smaller body bound."
-          }
-        },
-        {
-          "name": "commitment",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "enum": [
-              "executed",
-              "batched",
-              "finalised"
-            ]
-          }
-        }
-      ],
-      "result": {
-        "name": "outcome",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Requires an activity:write gateway key and the existing route scope for Programs activities. Admits strictly canonical Asset register (1), account_open (4), send (5), receive (6), grant_issue (7), grant_revoke (8), mint (10) and burn (11), plus Programs deploy (1), upgrade (2), call (3), transfer (5), account registration (6) and wind-down (7). Asset pause/unpause (2/3) are excluded and Asset ordinal 9 is reserved and refused. Uses activity-ID outer deduplication and preserves signed protocol idempotency. Returns a verified receipt for executed, verified inclusion for batched, and an exact matching verified checkpoint header for finalised; returns JSON-RPC -32001 with state=pending and requested_commitment when evidence is absent after the bounded wait; no success result or commitment downgrade is returned. An admission acknowledgement never establishes execution.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32002,
-          "message": "Insufficient scope"
-        },
-        {
-          "code": -32001,
-          "message": "Submission unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_subscribe",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "topic",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "enum": [
-              "receipts",
-              "checkpoints",
-              "account"
-            ]
-          }
-        },
-        {
-          "name": "account_id",
-          "required": false,
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{64}$"
-          },
-          "description": "Required for account subscriptions only."
-        },
-        {
-          "name": "cursor",
-          "required": false,
-          "schema": {
-            "type": "string",
-            "pattern": "^(0|[1-9][0-9]*)$"
-          },
-          "description": "Last delivered receipt-feed position for this topic, taken from params.cursor of the last notification received before the connection was lost. Positional: for account subscriptions it follows account_id."
-        }
-      ],
-      "result": {
-        "name": "subscription",
-        "schema": {
-          "type": "string"
-        }
-      },
-      "description": "Authenticated GET /rpc/ws upgrade using Authorization: LayerX-Key. receipt:read scope for receipts; state:read for checkpoints and account. Server notifications use lx_subscription with params.subscription, params.result and params.cursor. params.cursor is the receipt-feed position last delivered on that subscription, as a canonical decimal string. At most 32 connections, 8 subscriptions per connection and 16 queued receipt wakes. Slow consumers and feed loss close with 1013; key revocation closes with 1008. Reconnect by subscribing again with the cursor of the last notification: receipt subscriptions replay every event after it, checkpoint and account subscriptions replay the current snapshot once, and events replayed on resume are delivered before any live event. The resume window is 16 positions; a wider gap is refused with -32005 and a cursor ahead of chain_head_sequence with -32602, and the subscription is not created. Reconcile through reads after a refused resume. Ping every 5 seconds, idle deadline 60 seconds, connection lifetime one hour. Browser Origin requests are refused. Core requires LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE matching the gateway component token. Receipts originate from authenticated native commit waits; checkpoints and account snapshots refresh on wakes, checkpoints also on bounded wait expiry."
-    },
-    {
-      "name": "lx_unsubscribe",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "subscription",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^(0|[1-9][0-9]*)$"
-          },
-          "description": "Identifier returned by lx_subscribe on this connection."
-        }
-      ],
-      "result": {
-        "name": "cancelled",
-        "schema": {
-          "type": "boolean",
-          "enum": [
-            true
-          ]
-        }
-      },
-      "description": "Cancels one subscription on the WebSocket connection that created it and stops its notifications; other subscriptions keep their identifiers and cursors. WebSocket only: over POST /rpc it returns -32004. An identifier that is not active on this connection returns -32602.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32004,
-          "message": "WebSocket required"
-        }
-      ]
-    },
-    {
-      "name": "lx_listAssets",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "cursor",
-          "required": false,
-          "schema": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^[0-9a-fA-F]{64}$"
-          }
-        },
-        {
-          "name": "limit",
-          "required": false,
-          "schema": {
-            "type": "integer",
-            "minimum": 1,
-            "maximum": 256
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Returns one page of assets ordered by ascending asset_id together with next_cursor, observed_head_sequence, state_root and verification=authenticated_committed_snapshot from typed LNI minor-5 AssetRead. The native registry holds up to 1024 records: cursor is the exclusive asset_id to resume after, limit defaults to 64 and may not exceed 256, and next_cursor is null once the page is the last one. A malformed cursor or limit returns -32602; unsupported or unavailable evidence returns -32001. Snapshot authentication is not an independent Merkle proof.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getAsset",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "asset_id",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9a-fA-F]{64}$"
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Returns asset metadata, observed_head_sequence, state_root and verification=authenticated_committed_snapshot from typed LNI minor-5 AssetRead. Unknown assets or unavailable evidence return -32001. Amounts are decimal strings and identifiers and custody_reference are hexadecimal.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_estimateFee",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "canonical_hex",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^([0-9a-fA-F]{2})+$",
-            "maxLength": 1048576,
-            "description": "At most 1048576 hexadecimal characters encoding 524288 bytes. The full JSON request including envelope, parameters and batch overhead remains subject to the 8388608-byte HTTP request bound; ingress may impose a smaller body bound."
-          }
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object"
-        }
-      },
-      "description": "Strictly decodes any activity admitted by lx_sendActivity and returns fee as a decimal string, parameter_version, canonical_schedule as hexadecimal, canonical_bytes, observed_head_sequence, state_root and verification=authenticated_committed_snapshot from native FeeEstimate. The native committed schedule determines the canonical-envelope price for Asset 1/2/3/4/5/6/7/8/10/11 and Programs 1/2/3/5/6/7. A schedule requiring unavailable execution or storage units fails closed with -32001. Asset ordinal 9 is reserved and refused. This estimate does not reserve a fee or prove execution.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
-        }
-      ]
-    },
-    {
-      "name": "lx_getProgramEvents",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "query",
-          "required": true,
-          "schema": {
-            "type": "object",
-            "properties": {
-              "topic": {
-                "type": "string",
-                "pattern": "^([0-9a-f]{2}){1,64}$"
-              },
-              "from_sequence": {
-                "type": "integer",
-                "minimum": 0,
-                "maximum": 18446744073709551615
-              },
-              "limit": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 256
-              }
-            },
-            "required": [
-              "topic",
-              "from_sequence",
-              "limit"
-            ],
-            "additionalProperties": false
-          }
-        }
-      ],
-      "result": {
-        "name": "page",
-        "schema": {
-          "type": "object",
-          "properties": {
-            "events": {
-              "type": "array",
-              "maxItems": 256,
-              "items": {
-                "type": "object",
-                "properties": {
-                  "sequence": {
-                    "type": "integer",
-                    "minimum": 0
-                  },
-                  "program_id": {
-                    "type": "string",
-                    "pattern": "^[0-9a-f]{64}$"
-                  },
-                  "topic": {
-                    "type": "string",
-                    "pattern": "^([0-9a-f]{2}){1,64}$"
-                  },
-                  "data": {
-                    "type": "string",
-                    "pattern": "^([0-9a-f]{2})*$",
-                    "maxLength": 131072
-                  }
-                },
-                "required": [
-                  "sequence",
-                  "program_id",
-                  "topic",
-                  "data"
-                ],
-                "additionalProperties": false
-              }
-            },
-            "next_sequence": {
-              "type": "integer",
-              "minimum": 0
-            }
-          },
-          "required": [
-            "events",
-            "next_sequence"
-          ],
-          "additionalProperties": false
-        }
-      },
-      "description": "Pages committed program events whose topic equals the lowercase hexadecimal topic, starting at the global activity sequence from_sequence and returning at most limit events (1 to 256) in ascending sequence order. Each event carries its global sequence, the emitting program_id, the topic and the raw event data as lowercase hexadecimal; only successful program outcomes contribute. next_sequence is where the following page starts and never passes the node's durable head, so a page past the head is empty with next_sequence equal to the head. The read forwards to the core service's GET /v1/programs/events/<topic>/<from_sequence>/<limit> and every returned event is checked against the query before it is answered. Malformed or extra params return -32602; an unavailable node or core returns -32001; a response that does not match the query returns -32603.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "Read unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
         },
         {
           "code": -32603,
-          "message": "Invalid upstream response"
+          "message": "Faucet claim evidence incomplete"
+        }
+      ]
+    },
+    {
+      "name": "pax_sequencerReceipt",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "txHash",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^0x[0-9a-fA-F]{64}$"
+          }
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "required": [
+                "rung",
+                "txHash",
+                "nonce"
+              ],
+              "properties": {
+                "rung": {
+                  "enum": [
+                    "submitted",
+                    "receipted",
+                    "committed"
+                  ]
+                },
+                "txHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "nonce": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "seq": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "height": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "index": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "timestamp": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "status": {
+                  "type": "string",
+                  "enum": [
+                    "0x0",
+                    "0x1"
+                  ]
+                },
+                "returnData": {
+                  "type": "string",
+                  "pattern": "^0x([0-9a-fA-F]{2})*$"
+                },
+                "logs": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "address",
+                      "topics",
+                      "data",
+                      "logIndex"
+                    ],
+                    "properties": {
+                      "address": {
+                        "type": "string",
+                        "pattern": "^0x[0-9a-fA-F]{40}$"
+                      },
+                      "topics": {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "^0x[0-9a-fA-F]{64}$"
+                        },
+                        "maxItems": 4
+                      },
+                      "data": {
+                        "type": "string",
+                        "pattern": "^0x([0-9a-fA-F]{2})*$"
+                      },
+                      "logIndex": {
+                        "type": "string",
+                        "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                      }
+                    }
+                  }
+                },
+                "gasUsed": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "cumulativeGasUsed": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "effectiveGasPrice": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "feeDenom": {
+                  "type": "string"
+                },
+                "feeAmount": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "sponsor": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "from": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "to": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "contractAddress": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{40}$"
+                },
+                "vmError": {
+                  "type": "string"
+                },
+                "keyId": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "signingKey": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                },
+                "receipt": {
+                  "type": "string",
+                  "pattern": "^0x([0-9a-fA-F]{2})*$"
+                },
+                "blockNumber": {
+                  "type": "string",
+                  "pattern": "^0x(0|[1-9a-fA-F][0-9a-fA-F]*)$"
+                },
+                "blockHash": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]{64}$"
+                }
+              },
+              "oneOf": [
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "submitted"
+                    }
+                  },
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "seq"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "height"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "index"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "timestamp"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "status"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "returnData"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "logs"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "gasUsed"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "cumulativeGasUsed"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "effectiveGasPrice"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "feeDenom"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "feeAmount"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "sponsor"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "from"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "to"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "contractAddress"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "vmError"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "keyId"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "signingKey"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "receipt"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockNumber"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockHash"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "receipted"
+                    }
+                  },
+                  "required": [
+                    "rung",
+                    "txHash",
+                    "nonce",
+                    "seq",
+                    "height",
+                    "index",
+                    "timestamp",
+                    "status",
+                    "returnData",
+                    "logs",
+                    "gasUsed",
+                    "cumulativeGasUsed",
+                    "effectiveGasPrice",
+                    "feeDenom",
+                    "feeAmount",
+                    "sponsor",
+                    "from",
+                    "to",
+                    "contractAddress",
+                    "vmError",
+                    "keyId",
+                    "signingKey",
+                    "receipt"
+                  ],
+                  "not": {
+                    "anyOf": [
+                      {
+                        "required": [
+                          "blockNumber"
+                        ]
+                      },
+                      {
+                        "required": [
+                          "blockHash"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                {
+                  "properties": {
+                    "rung": {
+                      "const": "committed"
+                    }
+                  },
+                  "required": [
+                    "rung",
+                    "txHash",
+                    "nonce",
+                    "seq",
+                    "height",
+                    "index",
+                    "timestamp",
+                    "status",
+                    "returnData",
+                    "logs",
+                    "gasUsed",
+                    "cumulativeGasUsed",
+                    "effectiveGasPrice",
+                    "feeDenom",
+                    "feeAmount",
+                    "sponsor",
+                    "from",
+                    "to",
+                    "contractAddress",
+                    "vmError",
+                    "keyId",
+                    "signingKey",
+                    "receipt",
+                    "blockNumber",
+                    "blockHash"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      },
+      "description": "Relays the node response unchanged for one 0x-prefixed 32-byte transaction hash. Unknown hashes return null. submitted carries rung, txHash and nonce; receipted adds the decoded signed receipt, signing key and execution outputs; committed also includes blockNumber and blockHash for the covering MsgSequenceBatch. Quantities are 0x-prefixed hexadecimal strings. Receipt consistency and signature checks do not establish signing authority without pinned receipt keys. The node may refuse with -32000 when the method is served only by a sequencer.",
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
         },
         {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
+          "code": -32000,
+          "message": "pax_sequencerReceipt served by sequencer"
+        },
+        {
+          "code": -32001,
+          "message": "Paxeer read unavailable"
         }
       ]
     },
@@ -1370,8 +1020,10 @@
           "name": "account",
           "required": true,
           "schema": {
-            "type": "string"
-          }
+            "type": "string",
+            "pattern": "^(0x[0-9a-fA-F]{40}|did:layerx:[0-9a-fA-F]{64})$"
+          },
+          "description": "EVM or explicit DID lookup selector retained from the original lookup; layerx_account is a separate native reference and cannot be used for reverse resolution."
         }
       ],
       "result": {
@@ -1404,17 +1056,101 @@
           "name": "account",
           "required": true,
           "schema": {
-            "type": "string"
-          }
+            "type": "string",
+            "pattern": "^(0x[0-9a-fA-F]{40}|did:layerx:[0-9a-fA-F]{64})$"
+          },
+          "description": "EVM or explicit DID lookup selector retained from the original lookup; layerx_account is a separate native reference and cannot be used for reverse resolution."
         }
       ],
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "account",
+            "paxeer"
+          ],
+          "properties": {
+            "account": {
+              "type": "object",
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "paxeer": {
+              "oneOf": [
+                {
+                  "type": "null"
+                },
+                {
+                  "type": "object",
+                  "required": [
+                    "address",
+                    "balance",
+                    "nonce",
+                    "height"
+                  ],
+                  "properties": {
+                    "address": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]{40}$"
+                    },
+                    "balance": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]+$"
+                    },
+                    "nonce": {
+                      "type": "string",
+                      "pattern": "^0x[0-9a-fA-F]+$"
+                    },
+                    "height": {
+                      "type": "integer",
+                      "minimum": 0
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "description": "Resolves the account and joins both halves: paxeer is {address, balance, nonce} read with eth_getBalance and eth_getTransactionCount at latest, layerx is the public core account read for the DID's main account. Either half is null when the account is not bound or the domain has no record. Balances and sequences are never fabricated: an unavailable domain is an explicit -32001 rather than a zero.",
+      "description": "Reads account resolution, EVM balance and nonce from chain state at one height returned by eth_blockNumber. The result is {account, paxeer:{address, balance, nonce, height}}; paxeer is null for an account without an EVM binding. No kernel backend is required.",
       "errors": [
         {
           "code": -32602,
@@ -1438,17 +1174,91 @@
           "name": "account",
           "required": true,
           "schema": {
-            "type": "string"
-          }
+            "type": "string",
+            "pattern": "^(0x[0-9a-fA-F]{40}|did:layerx:[0-9a-fA-F]{64})$"
+          },
+          "description": "EVM or explicit DID lookup selector retained from the original lookup; layerx_account is a separate native reference and cannot be used for reverse resolution."
         }
       ],
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "account",
+            "height",
+            "balances"
+          ],
+          "properties": {
+            "account": {
+              "type": "object",
+              "required": [
+                "evm_address",
+                "pax_address",
+                "layerx_did",
+                "layerx_account",
+                "bound"
+              ],
+              "properties": {
+                "evm_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pax_address": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_did": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "layerx_account": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "bound": {
+                  "type": "boolean"
+                }
+              },
+              "additionalProperties": false
+            },
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "balances": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "denom",
+                  "amount"
+                ],
+                "properties": {
+                  "denom": {
+                    "type": "string"
+                  },
+                  "amount": {
+                    "type": "string",
+                    "pattern": "^[0-9]+$"
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
         }
       },
-      "description": "Per-asset balances on both domains for one account. Assets come from the public core asset registry ordered by asset_id and are joined with the custody precompile's getAsset; the Paxeer amount is the bank precompile's balance(address,denom) and the LayerX amount is the DID's account for that asset. At most the first 16 assets are joined per answer, reported as joined_limit. Amounts are exact decimal strings of the on-chain 256-bit values.",
+      "description": "Reads the bound EVM address coin list from bank all_balances(address), with account resolution and every eth_call pinned to one height returned by eth_blockNumber. The result is {account, height, balances:[{denom, amount}]}; amounts are exact decimal strings of on-chain 256-bit values. No kernel backend is required.",
       "errors": [
         {
           "code": -32602,
@@ -1461,38 +1271,6 @@
         {
           "code": -32005,
           "message": "Read unavailable"
-        },
-        {
-          "code": -32010,
-          "message": "Kernel unavailable",
-          "data": {
-            "type": "object",
-            "required": [
-              "code",
-              "backend",
-              "reason"
-            ],
-            "properties": {
-              "code": {
-                "const": "kernel_unavailable"
-              },
-              "backend": {
-                "enum": [
-                  "core_agent_boundary",
-                  "public_core",
-                  "independent_receipt_authority",
-                  "identity",
-                  "program_registry"
-                ]
-              },
-              "reason": {
-                "enum": [
-                  "not_configured",
-                  "unreachable"
-                ]
-              }
-            }
-          }
         }
       ]
     },
@@ -1503,10 +1281,93 @@
       "result": {
         "name": "result",
         "schema": {
-          "type": "object"
+          "type": "object",
+          "required": [
+            "height",
+            "assets",
+            "joined_limit"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "height": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "assets": {
+              "type": "array",
+              "maxItems": 16,
+              "items": {
+                "type": "object",
+                "required": [
+                  "asset_id",
+                  "denom",
+                  "kind",
+                  "name",
+                  "symbol",
+                  "decimals",
+                  "supply"
+                ],
+                "additionalProperties": false,
+                "properties": {
+                  "asset_id": {
+                    "type": "string"
+                  },
+                  "denom": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "kind": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "symbol": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "decimals": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 255
+                  },
+                  "supply": {
+                    "type": [
+                      "string",
+                      "null"
+                    ],
+                    "pattern": "^[0-9]+$"
+                  },
+                  "paused": {
+                    "type": "boolean"
+                  },
+                  "verification": {
+                    "type": "string",
+                    "enum": [
+                      "authenticated_committed_snapshot"
+                    ]
+                  }
+                }
+              }
+            },
+            "joined_limit": {
+              "type": "integer",
+              "const": 16
+            }
+          }
         }
       },
-      "description": "The joined asset map: for each LayerX asset (asset_id, denom and its public core record) the custody precompile's record on Paxeer (pointer, enabled, paused, minimum_deposit, custody_cap, custodied, released, pending), or null when the asset is not registered with custody. At most 16 assets are joined per answer, reported as joined_limit. Takes no arguments.",
+      "description": "Lists indexer assets sorted by asset_id, limited to 16. Bank denoms read name, symbol, decimals and supply from bank 0x1001; ledger assets read getAsset at 0x101A. Successful ledger reads also include paused (boolean) and verification (authenticated_committed_snapshot). All chain reads use the returned height. A failed or unsupported asset read leaves name, symbol, decimals and supply null and omits paused and verification. Supply is an integer in base units rendered as a decimal string. Takes no arguments.",
       "errors": [
         {
           "code": -32602,
@@ -1562,31 +1423,98 @@
         "name": "result",
         "schema": {
           "type": "object",
+          "required": [
+            "network_id",
+            "paxeer",
+            "consensus"
+          ],
+          "additionalProperties": false,
           "properties": {
-            "kernel": {
+            "network_id": {
+              "type": "string"
+            },
+            "paxeer": {
               "type": "object",
               "required": [
-                "available",
+                "chain_id",
+                "latest_block"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "chain_id": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]+$"
+                },
+                "latest_block": {
+                  "type": "string",
+                  "pattern": "^0x[0-9a-fA-F]+$"
+                }
+              }
+            },
+            "consensus": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "required": [
+                "latest_height",
+                "latest_block_hash",
+                "latest_app_hash",
+                "catching_up"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "latest_height": {
+                  "type": "string",
+                  "pattern": "^[0-9]+$"
+                },
+                "latest_block_hash": {
+                  "type": "string",
+                  "pattern": "^([0-9a-fA-F]{2})*$"
+                },
+                "latest_app_hash": {
+                  "type": "string",
+                  "pattern": "^([0-9a-fA-F]{2})*$"
+                },
+                "catching_up": {
+                  "type": "boolean"
+                }
+              }
+            },
+            "reason": {
+              "type": "string",
+              "enum": [
+                "consensus_unavailable"
+              ]
+            }
+          },
+          "oneOf": [
+            {
+              "properties": {
+                "consensus": {
+                  "type": "object"
+                }
+              },
+              "not": {
+                "required": [
+                  "reason"
+                ]
+              }
+            },
+            {
+              "required": [
                 "reason"
               ],
               "properties": {
-                "available": {
-                  "type": "boolean"
-                },
-                "reason": {
-                  "enum": [
-                    "available",
-                    "not_configured",
-                    "unreachable",
-                    "no_finalised_checkpoint"
-                  ]
+                "consensus": {
+                  "type": "null"
                 }
               }
             }
-          }
+          ]
         }
       },
-      "description": "One head for the whole network: network_id, paxeer {chain_id, latest_block} from eth_chainId and eth_blockNumber, layerx {node_info} from the public core node information, and anchor {latest_finalized_batch, status, status_name, status_ladder} from the anchor precompile's latestFinalized and statusOf. The status ladder is the anchor's own: 0 unknown, 1 submitted, 2 final. kernel {available, reason} reports whether kernel-side operations are offered: reason is available, not_configured when the endpoint runs without the kernel backends, unreachable when the public core node information cannot be read, or no_finalised_checkpoint when the anchor precompile reports no finalised batch. Takes no arguments.",
+      "description": "Network head: network_id and paxeer {chain_id, latest_block} from eth_chainId and eth_blockNumber, beside consensus {latest_height, latest_block_hash, latest_app_hash, catching_up} from the consensus status method. latest_height is a decimal string; hashes retain the consensus hexadecimal encoding. When the consensus endpoint is unset, unreachable, or returns an invalid response, consensus is null and reason is consensus_unavailable; the Paxeer chain ID and latest block still answer. Takes no arguments.",
       "errors": [
         {
           "code": -32602,
@@ -1603,270 +1531,6 @@
       ]
     },
     {
-      "name": "lx_getHistory",
-      "paramStructure": "by-position",
-      "params": [
-        {
-          "name": "account",
-          "required": true,
-          "schema": {
-            "type": "string",
-            "pattern": "^[0-9A-Fa-f]{64}$"
-          },
-          "description": "A LayerX account id."
-        },
-        {
-          "name": "cursor",
-          "required": false,
-          "schema": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^[0-9A-Za-z]{1,32}$"
-          },
-          "description": "The opaque next_cursor of the previous page, passed to the indexer unchanged; null or absent for the newest page."
-        },
-        {
-          "name": "limit",
-          "required": false,
-          "schema": {
-            "type": [
-              "integer",
-              "null"
-            ],
-            "minimum": 1,
-            "maximum": 100,
-            "default": 50
-          },
-          "description": "Rows per page."
-        },
-        {
-          "name": "kind",
-          "required": false,
-          "schema": {
-            "type": [
-              "string",
-              "null"
-            ],
-            "pattern": "^[a-z0-9_]{1,64}$"
-          },
-          "description": "Only rows of this indexer kind, for example lxp_transfer, native_transfer, erc20_transfer or custody_deposit."
-        }
-      ],
-      "result": {
-        "name": "result",
-        "schema": {
-          "type": "object",
-          "required": [
-            "account",
-            "items",
-            "next_cursor"
-          ],
-          "additionalProperties": false,
-          "properties": {
-            "account": {
-              "type": "string",
-              "pattern": "^[0-9a-f]{64}$"
-            },
-            "items": {
-              "type": "array",
-              "maxItems": 100,
-              "items": {
-                "type": "object",
-                "required": [
-                  "id",
-                  "height_or_seq",
-                  "chain",
-                  "kind",
-                  "direction",
-                  "account",
-                  "counterparty",
-                  "asset",
-                  "amount",
-                  "tx_id",
-                  "ordinal",
-                  "final",
-                  "decoded",
-                  "asset_metadata"
-                ],
-                "additionalProperties": false,
-                "properties": {
-                  "id": {
-                    "type": "string",
-                    "pattern": "^[1-9][0-9]*$",
-                    "description": "The indexer row id; rows are ordered newest first by it."
-                  },
-                  "height_or_seq": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$",
-                    "description": "The LayerX sequence or Paxeer block height of the row."
-                  },
-                  "chain": {
-                    "type": "string",
-                    "enum": [
-                      "layerx",
-                      "paxeer"
-                    ],
-                    "description": "The chain that recorded the row."
-                  },
-                  "kind": {
-                    "type": "string",
-                    "pattern": "^[a-z0-9_]{1,64}$"
-                  },
-                  "direction": {
-                    "type": "string",
-                    "enum": [
-                      "in",
-                      "out"
-                    ]
-                  },
-                  "account": {
-                    "type": "string"
-                  },
-                  "counterparty": {
-                    "type": [
-                      "string",
-                      "null"
-                    ]
-                  },
-                  "asset": {
-                    "type": "string"
-                  },
-                  "amount": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$",
-                    "description": "Exact decimal amount in the asset's base units."
-                  },
-                  "tx_id": {
-                    "type": "string"
-                  },
-                  "ordinal": {
-                    "type": "string",
-                    "pattern": "^(0|[1-9][0-9]*)$"
-                  },
-                  "final": {
-                    "type": "boolean",
-                    "description": "True once the row is below its chain's finalized boundary."
-                  },
-                  "decoded": {
-                    "description": "The indexer's decoded payload for the row."
-                  },
-                  "asset_metadata": {
-                    "type": [
-                      "object",
-                      "null"
-                    ],
-                    "description": "The row's asset joined from the indexer's /v1/assets record and the LayerX asset registry, or null when the indexer has no record of the asset.",
-                    "required": [
-                      "asset",
-                      "chain",
-                      "kind",
-                      "address",
-                      "denom",
-                      "symbol",
-                      "decimals",
-                      "native_id",
-                      "pointer",
-                      "metadata"
-                    ],
-                    "additionalProperties": false,
-                    "properties": {
-                      "asset": {
-                        "type": "string",
-                        "description": "The indexer asset label: 64-hex LayerX asset id, evm:native, evm:<address> or denom:<denom>."
-                      },
-                      "chain": {
-                        "type": "string",
-                        "enum": [
-                          "layerx",
-                          "paxeer"
-                        ]
-                      },
-                      "kind": {
-                        "type": "string",
-                        "description": "The indexer asset kind: layerx, native, erc20, pointer, bank or tokenfactory."
-                      },
-                      "address": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "description": "The EVM contract address for erc20 and pointer assets."
-                      },
-                      "denom": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "description": "The Cosmos denom for bank, tokenfactory and pointer assets."
-                      },
-                      "symbol": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "description": "The indexer metadata symbol, else the LayerX registry symbol of the asset (by asset id) or of its denom; null when neither declares one."
-                      },
-                      "decimals": {
-                        "type": [
-                          "integer",
-                          "null"
-                        ],
-                        "minimum": 0,
-                        "description": "The indexer metadata decimals, else the LayerX registry decimals, else 18 for the EVM native coin; null when nothing declares them."
-                      },
-                      "native_id": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "pattern": "^[0-9a-f]{64}$",
-                        "description": "The LayerX asset id this asset is, or that the registry maps its denom to."
-                      },
-                      "pointer": {
-                        "type": [
-                          "string",
-                          "null"
-                        ],
-                        "pattern": "^0x[0-9a-f]{40}$",
-                        "description": "The EVM pointer contract address when the asset is a pointer."
-                      },
-                      "metadata": {
-                        "description": "The indexer's own metadata document for the asset."
-                      }
-                    }
-                  }
-                }
-              }
-            },
-            "next_cursor": {
-              "type": [
-                "string",
-                "null"
-              ],
-              "description": "The opaque cursor of the next older page, or null when this page is the last."
-            }
-          }
-        }
-      },
-      "description": "The indexed transfer history of one LayerX account, newest first, from the layerx-indexer read API. Rows are the indexer's own (including Paxeer custody rows credited to the account), each joined with asset_metadata. Cursors are the indexer's, passed through unchanged. An account the indexer has never seen answers an empty page.",
-      "errors": [
-        {
-          "code": -32602,
-          "message": "Invalid params"
-        },
-        {
-          "code": -32001,
-          "message": "History unavailable"
-        },
-        {
-          "code": -32005,
-          "message": "Read unavailable"
-        }
-      ]
-    },
-    {
       "name": "px_getHistory",
       "paramStructure": "by-position",
       "params": [
@@ -1875,9 +1539,9 @@
           "required": true,
           "schema": {
             "type": "string",
-            "pattern": "^0x[0-9A-Fa-f]{40}$"
+            "pattern": "^(0x[0-9a-fA-F]{40}|did:layerx:[0-9a-fA-F]{64})$"
           },
-          "description": "A Paxeer EVM address."
+          "description": "A Paxeer EVM address, or an explicit DID resolved to its bound EVM address through addr 0x0000000000000000000000000000000000001004; an unbound DID is refused with -32602."
         },
         {
           "name": "cursor",
@@ -1887,9 +1551,9 @@
               "string",
               "null"
             ],
-            "pattern": "^[0-9A-Za-z]{1,32}$"
+            "pattern": "^[0-9a-f]{32}$"
           },
-          "description": "The opaque next_cursor of the previous page, passed to the indexer unchanged; null or absent for the newest page."
+          "description": "The next_cursor of the previous page: the indexer's 32-lowercase-hex (blockHeight, txIndex, logIndex) position cursor, passed through unchanged; null or absent for the first page. Any other form, including the 112-hex form, is refused with -32602."
         },
         {
           "name": "limit",
@@ -1915,7 +1579,7 @@
             ],
             "pattern": "^[a-z0-9_]{1,64}$"
           },
-          "description": "Only rows of this indexer kind, for example lxp_transfer, native_transfer, erc20_transfer or custody_deposit."
+          "description": "Only rows of this indexer kind, for example native_transfer, erc20_transfer, pointer_transfer or bank_transfer."
         }
       ],
       "result": {
@@ -1925,7 +1589,10 @@
           "required": [
             "account",
             "items",
-            "next_cursor"
+            "next_cursor",
+            "indexedHeight",
+            "chainHeight",
+            "freshness"
           ],
           "additionalProperties": false,
           "properties": {
@@ -1952,14 +1619,17 @@
                   "ordinal",
                   "final",
                   "decoded",
-                  "asset_metadata"
+                  "asset_metadata",
+                  "blockHeight",
+                  "txIndex",
+                  "logIndex"
                 ],
                 "additionalProperties": false,
                 "properties": {
                   "id": {
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
-                    "description": "The indexer row id; rows are ordered newest first by it."
+                    "description": "The indexer row id; rows are ordered by (blockHeight, txIndex, logIndex)."
                   },
                   "height_or_seq": {
                     "type": "string",
@@ -2100,6 +1770,29 @@
                         "description": "The indexer's own metadata document for the asset."
                       }
                     }
+                  },
+                  "blockHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The block height of the row's position."
+                  },
+                  "txIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The transaction index of the row's position."
+                  },
+                  "logIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The log index of the row's position."
+                  },
+                  "tx_index": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "log_index": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
                   }
                 }
               }
@@ -2110,6 +1803,23 @@
                 "null"
               ],
               "description": "The opaque cursor of the next older page, or null when this page is the last."
+            },
+            "indexedHeight": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "The Paxeer height the indexer has indexed (indexer freshness); null before the first indexed block."
+            },
+            "chainHeight": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The Paxeer head height eth_blockNumber answers."
+            },
+            "freshness": {
+              "type": "object",
+              "description": "The indexer readiness document."
             }
           }
         }
@@ -2138,9 +1848,10 @@
           "name": "account",
           "required": true,
           "schema": {
-            "type": "string"
+            "type": "string",
+            "pattern": "^(0x[0-9a-fA-F]{40}|did:layerx:[0-9a-fA-F]{64})$"
           },
-          "description": "An EVM address, an explicit did:layerx:<hex> DID, resolved as px_resolveAccount does."
+          "description": "An EVM address or explicit DID; a DID resolves to its bound EVM address through addr 0x0000000000000000000000000000000000001004 and history is read for that EVM address only. An unbound DID is refused with -32602."
         },
         {
           "name": "cursor",
@@ -2150,9 +1861,9 @@
               "string",
               "null"
             ],
-            "pattern": "^[0-9A-Za-z]{1,32}$"
+            "pattern": "^[0-9a-f]{32}$"
           },
-          "description": "The opaque next_cursor of the previous page, passed to the indexer unchanged; null or absent for the newest page."
+          "description": "The next_cursor of the previous page: the indexer's 32-lowercase-hex (blockHeight, txIndex, logIndex) position cursor, passed through unchanged; null or absent for the first page. Any other form, including the 112-hex form, is refused with -32602."
         },
         {
           "name": "limit",
@@ -2178,7 +1889,7 @@
             ],
             "pattern": "^[a-z0-9_]{1,64}$"
           },
-          "description": "Only rows of this indexer kind, for example lxp_transfer, native_transfer, erc20_transfer or custody_deposit."
+          "description": "Only rows of this indexer kind, for example native_transfer, erc20_transfer, pointer_transfer or bank_transfer."
         }
       ],
       "result": {
@@ -2189,7 +1900,10 @@
             "account",
             "accounts",
             "items",
-            "next_cursor"
+            "next_cursor",
+            "indexedHeight",
+            "chainHeight",
+            "freshness"
           ],
           "additionalProperties": false,
           "properties": {
@@ -2242,14 +1956,17 @@
                   "final",
                   "decoded",
                   "asset_metadata",
-                  "side"
+                  "side",
+                  "blockHeight",
+                  "txIndex",
+                  "logIndex"
                 ],
                 "additionalProperties": false,
                 "properties": {
                   "id": {
                     "type": "string",
                     "pattern": "^[1-9][0-9]*$",
-                    "description": "The indexer row id; rows are ordered newest first by it."
+                    "description": "The indexer row id; rows are ordered by (blockHeight, txIndex, logIndex)."
                   },
                   "height_or_seq": {
                     "type": "string",
@@ -2398,6 +2115,29 @@
                       "paxeer"
                     ],
                     "description": "Which half of the unified account the row belongs to."
+                  },
+                  "blockHeight": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The block height of the row's position."
+                  },
+                  "txIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The transaction index of the row's position."
+                  },
+                  "logIndex": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "description": "The log index of the row's position."
+                  },
+                  "tx_index": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
+                  },
+                  "log_index": {
+                    "type": "string",
+                    "pattern": "^(0|[1-9][0-9]*)$"
                   }
                 }
               }
@@ -2408,6 +2148,23 @@
                 "null"
               ],
               "description": "The opaque cursor of the next older page, or null when this page is the last."
+            },
+            "indexedHeight": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "The Paxeer height the indexer has indexed (indexer freshness); null before the first indexed block."
+            },
+            "chainHeight": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The Paxeer head height eth_blockNumber answers."
+            },
+            "freshness": {
+              "type": "object",
+              "description": "The indexer readiness document."
             }
           }
         }
@@ -2433,6 +2190,116 @@
       ]
     },
     {
+      "name": "px_listHolderRecords",
+      "paramStructure": "by-position",
+      "params": [
+        {
+          "name": "address",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "pattern": "^0x[0-9A-Fa-f]{40}$"
+          },
+          "description": "The holder's Paxeer EVM address."
+        },
+        {
+          "name": "kind",
+          "required": true,
+          "schema": {
+            "type": "string",
+            "enum": [
+              "budget",
+              "grant"
+            ]
+          },
+          "description": "The record kind: layerxpay budgets or ledger and grant precompile grants."
+        },
+        {
+          "name": "cursor",
+          "required": false,
+          "schema": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "pattern": "^[0-9a-f]{32}$"
+          },
+          "description": "The next_cursor of the previous page: the indexer's 32-lowercase-hex (blockHeight, txIndex, logIndex) position cursor, passed through unchanged; null or absent for the first page. Any other form, including the 112-hex form, is refused with -32602."
+        },
+        {
+          "name": "limit",
+          "required": false,
+          "schema": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "minimum": 1,
+            "maximum": 100,
+            "default": 50
+          },
+          "description": "Records per page; above 100 is refused with -32602."
+        }
+      ],
+      "result": {
+        "name": "result",
+        "schema": {
+          "type": "object",
+          "required": [
+            "items",
+            "next_cursor",
+            "indexedHeight",
+            "chainHeight"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "items": {
+              "type": "array",
+              "maxItems": 100,
+              "items": {
+                "type": "object",
+                "description": "One indexer holder record of the requested kind held by the address."
+              }
+            },
+            "next_cursor": {
+              "type": [
+                "string",
+                "null"
+              ],
+              "pattern": "^[0-9a-f]{32}$"
+            },
+            "indexedHeight": {
+              "type": [
+                "integer",
+                "null"
+              ],
+              "minimum": 0,
+              "description": "The Paxeer height the indexer has indexed (indexer freshness); null before the first indexed block."
+            },
+            "chainHeight": {
+              "type": "integer",
+              "minimum": 0,
+              "description": "The Paxeer head height eth_blockNumber answers."
+            }
+          }
+        }
+      },
+      "errors": [
+        {
+          "code": -32602,
+          "message": "Invalid params"
+        },
+        {
+          "code": -32001,
+          "message": "History unavailable"
+        },
+        {
+          "code": -32005,
+          "message": "Read unavailable"
+        }
+      ]
+    },
+    {
       "name": "px_getCapabilities",
       "paramStructure": "by-position",
       "params": [],
@@ -2444,21 +2311,77 @@
             "exchange",
             "bridge",
             "launchpad",
+            "ledger",
+            "pay",
+            "auth",
+            "programs",
+            "addresses",
             "probed_at",
             "rpc_height"
           ],
           "properties": {
             "exchange": {
               "type": "boolean",
-              "description": "True when eth_getCode at the exchange precompile 0x0000000000000000000000000000000000001015 answers code."
+              "description": "True when eth_call of totalMarkets() at the exchange precompile 0x0000000000000000000000000000000000001015 decodes as the view's uint256 return value; false when the call reverts or answers a malformed value."
             },
             "bridge": {
               "type": "boolean",
-              "description": "True when eth_getCode at the bridge precompile 0x0000000000000000000000000000000000001016 answers code."
+              "description": "True when eth_call of isPaused() at the bridge precompile 0x0000000000000000000000000000000000001016 decodes as the view's bool return value; false when the call reverts or answers a malformed value."
             },
             "launchpad": {
               "type": "boolean",
-              "description": "True when eth_getCode at the launchpad precompile 0x0000000000000000000000000000000000001017 answers code."
+              "description": "True when eth_call of getPoolCount() at the launchpad precompile 0x0000000000000000000000000000000000001017 decodes as the view's uint256 return value; false when the call reverts or answers a malformed value."
+            },
+            "ledger": {
+              "type": "boolean",
+              "description": "True when eth_call of accountId(bytes32,bytes32) at the ledger precompile 0x000000000000000000000000000000000000101a using two zero bytes32 arguments decodes as the view's bytes32 return value; false when the call reverts or answers a malformed value."
+            },
+            "pay": {
+              "type": "boolean",
+              "description": "True when eth_call of budgetRemaining(bytes32) at the pay precompile 0x000000000000000000000000000000000000101b using a zero bytes32 argument decodes as the view's uint128 return value; false when the call reverts or answers a malformed value."
+            },
+            "auth": {
+              "type": "boolean",
+              "description": "True when eth_call of isLive(bytes32,uint64,uint64) at the auth precompile 0x000000000000000000000000000000000000101c using a zero bytes32 and two zero uint64 arguments decodes as the view's bool and string return values; false when the call reverts or answers a malformed value."
+            },
+            "programs": {
+              "type": "boolean",
+              "description": "True when eth_call of getCurrentFeeSchedule() at the programs precompile 0x000000000000000000000000000000000000101d decodes as the view's uint32, uint64[7] and bytes32 return values; false when the call reverts or answers a malformed value."
+            },
+            "addresses": {
+              "type": "object",
+              "required": [
+                "exchange",
+                "bridge",
+                "launchpad",
+                "ledger",
+                "pay",
+                "auth",
+                "programs"
+              ],
+              "properties": {
+                "exchange": {
+                  "type": "string"
+                },
+                "bridge": {
+                  "type": "string"
+                },
+                "launchpad": {
+                  "type": "string"
+                },
+                "ledger": {
+                  "type": "string"
+                },
+                "pay": {
+                  "type": "string"
+                },
+                "auth": {
+                  "type": "string"
+                },
+                "programs": {
+                  "type": "string"
+                }
+              }
             },
             "probed_at": {
               "type": "integer",
@@ -2468,12 +2391,12 @@
             "rpc_height": {
               "type": "string",
               "pattern": "^(0|[1-9][0-9]*)$",
-              "description": "The Paxeer block height, as a decimal string, at which every eth_getCode was read."
+              "description": "The Paxeer block height, as a decimal string, at which every probe call was made."
             }
           }
         }
       },
-      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then eth_getCode at that height for the exchange (0x0000000000000000000000000000000000001015), bridge (0x0000000000000000000000000000000000001016) and launchpad (0x0000000000000000000000000000000000001017) precompiles: 0x is false, any code is true. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
+      "description": "Which Paxeer X fork surfaces the chain answers for. The gateway reads eth_blockNumber and then uses eth_call at that height to probe each precompile's view: exchange at 0x0000000000000000000000000000000000001015 with totalMarkets(), bridge at 0x0000000000000000000000000000000000001016 with isPaused(), launchpad at 0x0000000000000000000000000000000000001017 with getPoolCount(), ledger at 0x000000000000000000000000000000000000101a with accountId(bytes32,bytes32) using two zero bytes32 arguments, pay at 0x000000000000000000000000000000000000101b with budgetRemaining(bytes32) using a zero bytes32 argument, auth at 0x000000000000000000000000000000000000101c with isLive(bytes32,uint64,uint64) using a zero bytes32 and two zero uint64 arguments, and programs at 0x000000000000000000000000000000000000101d with getCurrentFeeSchedule(). A surface is true when the answer decodes as its view's return value, and false when the call reverts or answers a malformed value, including an empty answer. The answer is cached for LAYERX_GATEWAY_CAPABILITIES_TTL_SECONDS (default 15). While a surface is false, eth_sendRawTransaction and eth_sendRawTransactionSync addressed to its precompile are refused with -32003 Surface unavailable and data {code: surface_unavailable, surface, address}; reads and history are never gated. Takes no arguments.",
       "errors": [
         {
           "code": -32602,
@@ -2491,6 +2414,7 @@
     },
     {
       "name": "px_getRouteCatalogue",
+      "paramStructure": "by-position",
       "summary": "Authenticated product route catalogue and dependency readiness.",
       "params": [],
       "result": {
@@ -2525,10 +2449,24 @@
             },
             "readiness": {
               "type": "object"
+            },
+            "canonical_origin": {
+              "const": "https://api-mainnet-beta.paxeer.network"
+            },
+            "rpc_paths": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "enum": [
+                  "/",
+                  "/rpc"
+                ]
+              }
             }
           }
         }
-      }
+      },
+      "description": "Returns the unified-origin route catalogue and dependency readiness. Readiness reports dependency health and identity checks; route entries describe request contracts and do not establish successful end-to-end feature execution."
     }
   ]
 }

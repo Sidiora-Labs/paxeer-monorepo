@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 /**
  * Live bridge reads — the truth layer.
@@ -11,15 +11,17 @@
  * bridged balance via the Bank precompile against the denom getCap
  * returns — never a client-computed denom.
  */
-import { useQuery } from "@tanstack/react-query";
-import { useAccount, useBalance, useReadContract, type UseReadContractReturnType } from "wagmi";
-import type { Address } from "viem";
+import { useQuery } from '@tanstack/react-query';
+import { useAccount, useBalance, useReadContract, type UseReadContractReturnType } from 'wagmi';
+import type { Address } from 'viem';
 
-import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from "./contracts";
-import { bridgeConfig } from "./config";
-import { paxeer as paxeerChain, type BridgeChain } from "./chains";
-import { fetchDepositAttestation, fetchReleaseAttestation } from "./attestation-api";
-import type { BridgeTransfer } from "./transfers";
+import { bankAbi, BANK_ADDRESS, layerxBridgeAbi, LAYERX_BRIDGE_ADDRESS, paxeerXVaultAbi } from './contracts';
+import { bridgeConfig } from './config';
+import { paxeer as paxeerChain, type BridgeChain } from './chains';
+import { attestationPollInterval, fetchDepositAttestation, fetchReleaseAttestation } from './attestation-api';
+import type { BridgeTransfer } from './transfers';
+import { readSolanaCustodyState } from './solana-custody';
+import { recipientRecordFromResponse, recipientRecordRequest, solanaRecipientHandle } from './solana';
 
 export const paxeerConfigured = bridgeConfig.paxeerRpcUrl !== undefined;
 export const attestationApiConfigured = bridgeConfig.attestationApiUrl !== undefined;
@@ -48,46 +50,46 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
   const paused = useReadContract({
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
-    functionName: "isPaused",
+    functionName: 'isPaused',
     chainId: paxeerChain.id,
     query,
-  }) as UseReadContractReturnType<typeof layerxBridgeAbi, "isPaused">;
+  }) as UseReadContractReturnType<typeof layerxBridgeAbi, 'isPaused'>;
   const chainInfo = useReadContract({
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
-    functionName: "getChain",
-    args: [chain.chainId],
+    functionName: 'getChain',
+    args: [ chain.chainId ],
     chainId: paxeerChain.id,
     query,
-  }) as UseReadContractReturnType<typeof layerxBridgeAbi, "getChain">;
+  }) as UseReadContractReturnType<typeof layerxBridgeAbi, 'getChain'>;
   const cap = useReadContract({
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
-    functionName: "getCap",
-    args: [chain.chainId, assetId],
+    functionName: 'getCap',
+    args: [ chain.chainId, assetId ],
     chainId: paxeerChain.id,
     query,
-  }) as UseReadContractReturnType<typeof layerxBridgeAbi, "getCap">;
+  }) as UseReadContractReturnType<typeof layerxBridgeAbi, 'getCap'>;
   const attestors = useReadContract({
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
-    functionName: "getAttestors",
+    functionName: 'getAttestors',
     chainId: paxeerChain.id,
     query,
-  }) as UseReadContractReturnType<typeof layerxBridgeAbi, "getAttestors">;
+  }) as UseReadContractReturnType<typeof layerxBridgeAbi, 'getAttestors'>;
 
   const chainData = chainInfo.data as
-    | readonly [boolean, Address, bigint, boolean]
-    | undefined;
+    | readonly [boolean, Address, bigint, boolean] |
+    undefined;
   const capData = cap.data as
-    | readonly [string, bigint, bigint, bigint]
-    | undefined;
+    | readonly [string, bigint, bigint, bigint] |
+    undefined;
   const attestorData = attestors.data as
-    | readonly [readonly Address[], readonly bigint[], number]
-    | undefined;
+    | readonly [readonly Address[], readonly bigint[], number] |
+    undefined;
 
   const loaded =
-    paxeerConfigured && !paused.isLoading && !chainInfo.isLoading && !cap.isLoading && !attestors.isLoading;
+    paxeerConfigured && paused.isSuccess && chainInfo.isSuccess && cap.isSuccess && attestors.isSuccess;
   const error = paxeerConfigured && (paused.isError || chainInfo.isError || cap.isError || attestors.isError);
 
   return {
@@ -108,6 +110,8 @@ export function usePaxeerPairState(chain: BridgeChain, assetId: Address): Paxeer
 }
 
 export type VaultState = {
+  enabled?: boolean;
+  vault?: Address;
   paused: boolean | undefined;
   perTx: bigint;
   total: bigint;
@@ -119,6 +123,16 @@ export type VaultState = {
 };
 
 export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultState {
+  const solanaAsset = chain.assets.find((asset) => asset.assetId.toLowerCase() === assetAddress.toLowerCase());
+  const solana = useQuery({
+    queryKey: [ 'solana-custody', bridgeConfig.foreignRpcUrls.solana, bridgeConfig.solanaProgramId, assetAddress ],
+    enabled: chain.kind === 'solana' && solanaAsset !== undefined && bridgeConfig.solanaProgramId !== undefined && bridgeConfig.foreignRpcUrls.solana !== undefined,
+    queryFn: ({ signal }) => readSolanaCustodyState(solanaAsset!, {
+      programId: bridgeConfig.solanaProgramId,
+      rpcUrl: bridgeConfig.foreignRpcUrls.solana,
+    }, signal),
+    refetchInterval: REFRESH_MS,
+  });
   const vault = chain.vault;
   const chainId = chain.viemChain?.id;
   const enabled = vault !== undefined && chainId !== undefined;
@@ -127,43 +141,57 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
   const paused = useReadContract({
     abi: paxeerXVaultAbi,
     address: vault,
-    functionName: "paused",
+    functionName: 'paused',
     chainId,
     query,
   });
   const caps = useReadContract({
     abi: paxeerXVaultAbi,
     address: vault,
-    functionName: "caps",
-    args: [assetAddress],
+    functionName: 'caps',
+    args: [ assetAddress ],
     chainId,
     query,
   });
   const outstanding = useReadContract({
     abi: paxeerXVaultAbi,
     address: vault,
-    functionName: "outstanding",
-    args: [assetAddress],
+    functionName: 'outstanding',
+    args: [ assetAddress ],
     chainId,
     query,
   });
   const attestors = useReadContract({
     abi: paxeerXVaultAbi,
     address: vault,
-    functionName: "attestors",
+    functionName: 'attestors',
     chainId,
     query,
   });
   const threshold = useReadContract({
     abi: paxeerXVaultAbi,
     address: vault,
-    functionName: "threshold",
+    functionName: 'threshold',
     chainId,
     query,
   });
 
   const capsData = caps.data as readonly [bigint, bigint] | undefined;
 
+  if (chain.kind === 'solana') {
+    return {
+      paused: solana.data?.paused,
+      enabled: solana.data?.enabled,
+      vault: solana.data?.vault,
+      perTx: solana.data?.perTx ?? 0n,
+      total: solana.data?.total ?? 0n,
+      outstanding: solana.data?.outstanding ?? 0n,
+      attestors: solana.data?.attestors ?? [],
+      threshold: solana.data?.threshold,
+      loaded: solana.isSuccess,
+      error: solana.isError,
+    };
+  }
   return {
     paused: paused.data,
     perTx: capsData?.[0] ?? 0n,
@@ -173,11 +201,11 @@ export function useVaultState(chain: BridgeChain, assetAddress: Address): VaultS
     threshold: threshold.data !== undefined ? Number(threshold.data) : undefined,
     loaded:
       enabled &&
-      !paused.isLoading &&
-      !caps.isLoading &&
-      !outstanding.isLoading &&
-      !attestors.isLoading &&
-      !threshold.isLoading,
+      paused.isSuccess &&
+      caps.isSuccess &&
+      outstanding.isSuccess &&
+      attestors.isSuccess &&
+      threshold.isSuccess,
     error:
       enabled &&
       (paused.isError || caps.isError || outstanding.isError || attestors.isError || threshold.isError),
@@ -196,13 +224,13 @@ export function useForeignBalance(chain: BridgeChain, assetAddress: Address, isN
 }
 
 /** Paxeer-side bridged balance of a denom, via the Bank precompile. */
-export function useBridgedBalance(denom: string | undefined) {
+export function useBridgedBalance(denom: string | undefined): UseReadContractReturnType<typeof bankAbi, 'balance'> {
   const { address } = useAccount();
   return useReadContract({
     abi: bankAbi,
     address: BANK_ADDRESS,
-    functionName: "balance",
-    args: address && denom ? [address, denom] : undefined,
+    functionName: 'balance',
+    args: address && denom ? [ address, denom ] : undefined,
     chainId: paxeerChain.id,
     query: {
       refetchInterval: REFRESH_MS,
@@ -214,12 +242,12 @@ export function useBridgedBalance(denom: string | undefined) {
 /** Poll the backend for a deposit's attestation until it is ready. */
 export function useDepositAttestation(transfer: BridgeTransfer | undefined, settled: boolean) {
   return useQuery({
-    queryKey: ["deposit-attestation", transfer?.id],
+    queryKey: [ 'deposit-attestation', transfer?.id ],
     enabled:
       attestationApiConfigured &&
       !settled &&
       transfer !== undefined &&
-      transfer.direction === "in" &&
+      transfer.direction === 'in' &&
       transfer.logIndex !== undefined,
     queryFn: () =>
       fetchDepositAttestation({
@@ -227,19 +255,19 @@ export function useDepositAttestation(transfer: BridgeTransfer | undefined, sett
         txHash: transfer!.sourceTxHash,
         logIndex: BigInt(transfer!.logIndex!),
       }),
-    refetchInterval: (query) => (query.state.data?.status === "ready" ? false : POLL_MS),
+    refetchInterval: (query) => attestationPollInterval(query.state.data, POLL_MS),
   });
 }
 
 /** Poll the backend for a withdrawal's release attestation until ready. */
 export function useReleaseAttestation(transfer: BridgeTransfer | undefined, settled: boolean) {
   return useQuery({
-    queryKey: ["release-attestation", transfer?.id],
+    queryKey: [ 'release-attestation', transfer?.id ],
     enabled:
       attestationApiConfigured &&
       !settled &&
       transfer !== undefined &&
-      transfer.direction === "out" &&
+      transfer.direction === 'out' &&
       transfer.bridgeOutNonce !== undefined,
     queryFn: () =>
       fetchReleaseAttestation({
@@ -247,7 +275,40 @@ export function useReleaseAttestation(transfer: BridgeTransfer | undefined, sett
         paxeerTxHash: transfer!.sourceTxHash,
         paxeerNonce: BigInt(transfer!.bridgeOutNonce!),
       }),
-    refetchInterval: (query) => (query.state.data?.status === "ready" ? false : POLL_MS),
+    refetchInterval: (query) => attestationPollInterval(query.state.data, POLL_MS),
+  });
+}
+
+export type RecipientRecordConfig = {
+  programId: string | undefined;
+  rpcUrl: string | undefined;
+};
+
+export function useRecipientRecord(
+  destination: string | undefined,
+  { programId, rpcUrl }: RecipientRecordConfig = {
+    programId: bridgeConfig.solanaProgramId,
+    rpcUrl: bridgeConfig.foreignRpcUrls.solana,
+  },
+) {
+  const handle = destination === undefined ? undefined : solanaRecipientHandle(destination);
+  const request = programId && destination !== undefined ? recipientRecordRequest(programId, destination) : undefined;
+  return useQuery({
+    queryKey: [ 'solana-recipient-record', rpcUrl, programId, handle ],
+    enabled: rpcUrl !== undefined && programId !== undefined && request !== undefined,
+    queryFn: async({ signal }) => {
+      if (!rpcUrl || !request || !handle) throw new Error('The Solana recipient lookup is not configured or the destination is invalid.');
+      const response = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request),
+        cache: 'no-store',
+        signal,
+      });
+      if (!response.ok) throw new Error(`The Solana RPC answered ${ response.status }.`);
+      return recipientRecordFromResponse(await response.json(), handle);
+    },
+    refetchInterval: REFRESH_MS,
   });
 }
 
@@ -256,19 +317,19 @@ export function useDepositNullified(transfer: BridgeTransfer | undefined) {
   return useReadContract({
     abi: layerxBridgeAbi,
     address: LAYERX_BRIDGE_ADDRESS,
-    functionName: "isNullified",
+    functionName: 'isNullified',
     args:
-      transfer && transfer.direction === "in" && transfer.logIndex !== undefined
-        ? [BigInt(transfer.foreignChainId), transfer.sourceTxHash, BigInt(transfer.logIndex)]
-        : undefined,
+      transfer && transfer.direction === 'in' && transfer.logIndex !== undefined ?
+        [ BigInt(transfer.foreignChainId), transfer.sourceTxHash, BigInt(transfer.logIndex) ] :
+        undefined,
     chainId: paxeerChain.id,
     query: {
       refetchInterval: REFRESH_MS,
       enabled:
         paxeerConfigured &&
         transfer !== undefined &&
-        transfer.direction === "in" &&
+        transfer.direction === 'in' &&
         transfer.logIndex !== undefined,
     },
-  }) as UseReadContractReturnType<typeof layerxBridgeAbi, "isNullified">;
+  }) as UseReadContractReturnType<typeof layerxBridgeAbi, 'isNullified'>;
 }

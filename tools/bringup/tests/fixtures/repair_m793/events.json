@@ -1,0 +1,20 @@
+[
+  {
+    "id": "event-current",
+    "kind": "journey",
+    "principal": "principal-probe",
+    "subject": "journey-current",
+    "subject_sequence": 1,
+    "occurred_at": 1750000001,
+    "verification": "unverified",
+    "receipt_digest": null,
+    "facts": [
+      {
+        "name": "state",
+        "value": "getting-ready",
+        "verification": "unverified",
+        "receipt_digest": null
+      }
+    ]
+  }
+]

@@ -1,18 +1,17 @@
 //! Identifiers for the exact bytes and commitments supporting a level.
 
-use layerx_types::verify::VerificationLevel;
+use layerx_types::{rung::Rung, verify::VerificationLevel};
 
 use crate::level::Achieved;
 
-/// Evidence identifiers inseparably paired with an achieved level.
+/// Receipt, inclusion and state identifiers inseparably paired with an achieved
+/// level. These verifiers establish at most [`Rung::Receipted`].
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Evidence {
     achieved: Achieved,
     receipt_digest: Option<[u8; 32]>,
     header_digest: Option<[u8; 32]>,
     proof_root: Option<[u8; 32]>,
-    checkpoint_id: Option<[u8; 32]>,
-    settlement_reference: Option<Vec<u8>>,
 }
 
 impl Evidence {
@@ -22,9 +21,12 @@ impl Evidence {
             receipt_digest: Some(receipt_digest),
             header_digest: None,
             proof_root: None,
-            checkpoint_id: None,
-            settlement_reference: None,
         }
+    }
+
+    pub(crate) const fn with_pinned_receipt_keys(mut self) -> Self {
+        self.achieved = Achieved::pinned_sequencer_signed();
+        self
     }
 
     pub(crate) const fn batch(header_digest: [u8; 32], proof_root: [u8; 32]) -> Self {
@@ -33,8 +35,6 @@ impl Evidence {
             receipt_digest: None,
             header_digest: Some(header_digest),
             proof_root: Some(proof_root),
-            checkpoint_id: None,
-            settlement_reference: None,
         }
     }
 
@@ -44,26 +44,6 @@ impl Evidence {
             receipt_digest: None,
             header_digest: Some(header_digest),
             proof_root: Some(proof_root),
-            checkpoint_id: None,
-            settlement_reference: None,
-        }
-    }
-
-    pub(crate) fn checkpoint(
-        checkpoint_id: [u8; 32],
-        settlement_reference: Option<Vec<u8>>,
-    ) -> Self {
-        Self {
-            // A matching registration reference proves only that the
-            // checkpoint was registered. Settlement anchoring requires a
-            // separate live Paxeer finality verifier and is never inferred
-            // from transported bytes.
-            achieved: Achieved::checkpoint_finalised(),
-            receipt_digest: None,
-            header_digest: None,
-            proof_root: None,
-            checkpoint_id: Some(checkpoint_id),
-            settlement_reference,
         }
     }
 
@@ -75,6 +55,12 @@ impl Evidence {
     #[must_use]
     pub const fn level(&self) -> VerificationLevel {
         self.achieved.level()
+    }
+
+    /// Returns the rung established by this evidence's verifier, capped at Receipted.
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.achieved.rung()
     }
 
     /// Returns the signed receipt digest when receipt verification produced it.
@@ -93,18 +79,5 @@ impl Evidence {
     #[must_use]
     pub const fn proof_root(&self) -> Option<[u8; 32]> {
         self.proof_root
-    }
-
-    /// Returns the recomputed registered checkpoint identifier.
-    #[must_use]
-    pub const fn checkpoint_id(&self) -> Option<[u8; 32]> {
-        self.checkpoint_id
-    }
-
-    /// Borrows the exact matched settlement-registration reference. Its
-    /// presence does not establish Paxeer settlement anchoring.
-    #[must_use]
-    pub fn settlement_reference(&self) -> Option<&[u8]> {
-        self.settlement_reference.as_deref()
     }
 }

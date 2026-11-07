@@ -1,7 +1,8 @@
 # Programs
 
-Programs is kernel module ID `9` (`LXP_MODULE_PROGRAMS`). Activity types occupy
-the high 16 bits of `activity_type`, so Programs ordinals are `0x0009xxxx`.
+Programs is kernel module ID `9` (`LXP_MODULE_PROGRAMS`). The module ID occupies
+the high 16 bits of `activity_type`, so Programs activity types are `0x0009xxxx`
+with the ordinal in the low 16 bits.
 Guest WASM runs through this module. Monetary effects still leave as `402LXP`
 transfer sets; the module does not call `set_balance`.
 
@@ -13,24 +14,26 @@ SDKs live under `programs/sdk/`. `sdk/platform/` holds client SDKs (dotnet, go, 
 swift, conformance, generators). CALL receipt terminal verification for
 those clients is on [SdkTerminalVerification](SdkTerminalVerification.md).
 
-This page is a read of those sources. Where they disagree, both sides are
-cited. LXT-20 request codecs and the payments-merchant example are not in this
-tree; see
-[Payments developer path](PaymentsQuickstart.md) and [Assets](Assets.md).
+Programs executes inside `paxd` on the merged BFT network, chain ID **125**
+(`0x7d`). `modules/lxphost/` hosts the kernel and Rust runtime in the node's
+transaction context. Program storage, transfers, and receipt events become
+final with their block's commit. See [Home](Home.md) for the network overview.
 
-Sources:
+The Rust guest SDK includes LXT-20 codecs at `programs/sdk/rust/src/lxt20.rs`
+and the examples `token-lxt20` and `payments-merchant` under
+`programs/sdk/rust/examples/`. See [LXT-20](#lxt-20),
+[Payments developer path](PaymentsQuickstart.md), and [Assets](Assets.md).
 
-- `include/layerx/lxp_module.h` (`LXP_MODULE_PROGRAMS = 9`)
-- `include/layerx/programs.h` (`LX_PROGRAMS_DEPLOY` … `LX_PROGRAMS_SANDBOX_DESTROY`)
-- `src/modules/programs/registration.c` (`programs_module_registration`, `_v2`, `_v3`, `_v4`)
-- `programs/README.md`
+Sources: `include/layerx/lxp_module.h`, `include/layerx/programs.h`,
+`src/modules/programs/registration.c`, `modules/lxphost/host.go`, and
+`precompiles/layerxprograms/LayerXPrograms.sol`.
 
 ---
 
 ## Activity kinds
 
 Dispatch is in `programs_decode` / `programs_validate` / `programs_execute`
-(`src/modules/programs/registration.c`). Ordinal 1 and 2 are lifecycle
+(`src/modules/programs/registration.c`). Ordinals 1 and 2 are lifecycle
 (`lxp_programs_lifecycle_*` in `deploy.c`). Ordinal 3 is CALL
 (`lxp_programs_call_*` in `call.c`). Remaining ordinals have dedicated
 controllers.
@@ -44,22 +47,33 @@ controllers.
 | `LX_PROGRAMS_TRANSFER` | `0x00090005` | 5 | `transfer.c` |
 | `LX_PROGRAMS_ACCOUNT` | `0x00090006` | 6 | `accounts.c` (module ABI ≥ 2) |
 | `LX_PROGRAMS_WIND_DOWN` | `0x00090007` | 7 | `winddown.c` (module ABI ≥ 2) |
-| `LX_PROGRAMS_FEE_GOVERNANCE` | `0x00090008` | 8 | fee governance (module ABI ≥ 2) |
 | `LX_PROGRAMS_SANDBOX` | `0x00090009` | 9 | `sandbox.c` (module ABI ≥ 3) |
 | `LX_PROGRAMS_SANDBOX_DESTROY` | `0x0009000A` | 10 | `sandbox_expiry.c` (module ABI ≥ 4) |
+| `LX_PROGRAMS_STORAGE_RETIREMENT` | `0x0009000B` | 11 | `blob_lifecycle.c` (retirement-enabled registration) |
 
-Which types are advertised depends on the registered module ABI, not on the
-guest ABI:
+Activity availability follows the registered module interface:
 
-- v1 (`LX_PROGRAMS_ABI_VERSION = 1`): DEPLOY, UPGRADE, CALL, REGISTRY, TRANSFER
-- v2 (`LX_PROGRAMS_ACCOUNT_ABI_VERSION = 2`): adds ACCOUNT, WIND_DOWN, FEE_GOVERNANCE
-- v3 (`LX_PROGRAMS_SANDBOX_ABI_VERSION = 3`): adds SANDBOX
-- v4 (`LX_PROGRAMS_SANDBOX_DESTROY_ABI_VERSION = 4`): adds SANDBOX_DESTROY
+- v1: DEPLOY, UPGRADE, CALL, REGISTRY, TRANSFER.
+- v2: adds ACCOUNT and WIND_DOWN.
+- v3: adds SANDBOX.
+- v4: adds SANDBOX_DESTROY. The
+  `programs_module_registration_v4_storage_retirement` variant also advertises
+  STORAGE_RETIREMENT.
+- v5: `programs_module_registration_v5` advertises the same activity set as
+  the retirement-enabled v4 interface and permits guest ABI 5.
 
-Genesis registers Programs v4 for every accepted protocol version
-(`src/protocol/lxp_genesis.c:594-598`). Asset v1 is registered only when
-`protocol_version` is 3. Library default `LXP_PROTOCOL_VERSION` is occupancy
-protocol 2.
+Ordinal 8, the former fee-governance relay, is retired and is not advertised.
+Fee and metering schedules are governed state, with native read/quote methods
+listed below. Module registration and guest import versions are distinct;
+see [Guest ABI versions and protocol 3](#guest-abi-versions-and-protocol-3).
+
+The native host registers retirement-enabled v4 by default; selection of
+`ProgramsGuestABI = 5` registers v5 (`modules/lxphost/host.go`). The node
+reconstructs that selection from committed `node/programs-guest-abi` state:
+absence means v4, and the two bytes `00 05` select v5 (`node/app.go`). A
+runtime that supports ABI 5 is insufficient unless the host registration also
+admits it. Kernel genesis registration has its own feature flags in
+`src/protocol/lxp_genesis.c`.
 
 ### DEPLOY
 
@@ -71,13 +85,16 @@ authority), reserved zero, 32-byte upgrade authority (all-zero iff immutable),
 `execute_deploy` refuses an existing program key (`LXP_ERR_SEQUENCE_REUSED`),
 stores the artifact, writes a 71-byte program record, optionally stores the
 interface, and emits event type 1 (`PROGRAM_EVENT_DEPLOYED` / `LX_PROGRAMS_EVENT_DEPLOYED`)
-with the new code hash. Module ABI 2 or 3 binds the deployer as owner
-unconditionally; ABI 4 binds only when `protocol_version == 3`. DEPLOY is
-refused with `LXP_ERR_VERSION_UNSUPPORTED` on ABI 4 outside protocol 3
-(`deploy.c:400-409`).
+with the new code hash. Registrations after v1 bind the deployer as owner
+through `lxp_programs_account_owner_bind`. The account-module predicate admits
+module v2/v3, or module v4/v5 on protocol 3. The native host uses protocol 3.
 
-WASM must start with `\0asm` version 1 and SHA-256 to the declared hash
-(`validate_wasm`).
+WASM must start with `\0asm` version 1 and SHA-256 to the declared hash;
+lifecycle validation also invokes the Rust artifact validator. A deployment
+payload must fit `LXP_MAX_PAYLOAD_BYTES = 524288` including its **104-byte**
+fixed header. With an interface, add its four-byte length prefix and interface
+bytes as well. A WASM file that fits 524288 bytes by itself can still be too
+large to deploy. The interface encoding is bounded at 952 bytes.
 
 ### UPGRADE
 
@@ -87,8 +104,10 @@ hash (36), new hash (68), `hook_length` u16 (100, always present, non-zero
 iff bit0), `wasm_length` u32 (102), optional `interface_length` u32 (106),
 then hook bytes, interface bytes, WASM. The length field is fixed; the hook
 bytes are optional. `execute_upgrade` requires the stored
-policy to be authority (`PROGRAM_POLICY_AUTHORITY`), the activity principal to
-match the stored authority, and `old_hash` to match the record. ABI transitions
+policy to be authority (`PROGRAM_POLICY_AUTHORITY`), authorization through
+`upgrade_policy_authorized`, and `old_hash` to match the record. On protocol 3,
+the authority check accepts the principal or its canonical main/named account;
+legacy protocols require the principal itself. ABI transitions
 must be monotonic (`lxp_programs_abi_transition_validate`). Version counter at
 record offset 67 increments. Event type 2 carries old hash then new hash.
 
@@ -109,33 +128,66 @@ record, requires `lxp_programs_program_active`, and opens the artifact by
 occupancy) and hands the arena-owned activity to the Rust CALL FFI
 (`layerx_programs_call_begin` via `call_scalar_begin`).
 
-Guest ABI 0 is refused. Guest ABI above the registered module ABI, or above 2,
-is `LXP_ERR_VERSION_UNSUPPORTED`. Guest ABI 2 additionally requires
-`lxp_protocol_version_uses_occupancy` (protocol 2 or 3).
+Guest ABI 0 is noncanonical. A guest ABI above the registered module ABI
+or above 5 is `LXP_ERR_VERSION_UNSUPPORTED`; ABIs 2–5 also require occupancy
+protocol 2 or 3. The guest ABI must equal the deployed record's version.
 
-### Simulate is not an activity type
+### Native submission, reads, and simulation
 
-Simulate is LNI capability `simulate` (request tag 30 / response tag 31,
-LNI minor ≥ 4). `lxp_daemon_lni_simulate` decodes one signed activity, refuses
-anything other than `LX_PROGRAMS_CALL`, prepares a one-activity batch against
-the current head, encodes the receipt plus terminal and call-graph, signs
-simulation evidence, then `lxp_kernel_prepared_batch_destroy` and
-`lxp_arena_reset`. The durable log, sequence, and occupancy ledger are not
-committed.
+The EVM Programs surface is `layerxprograms` at
+`0x000000000000000000000000000000000000101D`. Its complete ABI is
+`precompiles/layerxprograms/LayerXPrograms.sol` and `abi.json`. The node imports
+the constructor in `node/precompiles.go`; the merge activation policy is in
+`node/upgrades.go` and `precompiles/setup.go`. Source registration alone does
+not prove activation on a particular endpoint.
 
-Hosted routes `POST /v1/programs/call` and `POST /v1/programs/simulate` carry
-the same CALL bytes over LNI; only simulate uses the non-committing path.
+| Operation | Native methods |
+| --- | --- |
+| Deploy or upgrade | `deploy`, `upgrade` |
+| Execute a guest | `call` |
+| Simulate a guest | `simulateCall` (view) |
+| Inspect deployment and interface | `getProgram`, `getInterface`, `getProgramOwner`, `getStateHead` |
+| Register and inspect accounts | `registerAccount`, `getAccountProfile`, `getProgramAccount`, `getProgramAccountById`, `getValueAccount` |
+| Inspect costs | `quoteCallFee`, `getCurrentFeeSchedule`, `getFeeSchedule`, `getCurrentMeteringSchedule`, `getMeteringSchedule` |
+| Wind down | `setExitRoute`, `deprecate`, `exitValue`, `exitValueBounded`, `tombstone` |
+| Manage bounded leases and storage | `sandboxFund`, `sandboxActivate`, `sandboxExecute`, `getSandbox`, `retireStorage` |
 
-Sources:
+ABI-encode writes to this address, sign a chain-125 EVM transaction, and
+submit with `eth_sendRawTransaction`. Read views with `eth_call` at an explicit
+committed block. Retain the transaction hash, receipt, block identity, and
+relevant Programs logs. A successful submission is not proof of execution;
+check transaction status and the CALL terminal result, then bind the evidence
+to the committed block.
 
-- `include/layerx/programs.h:165-179`
-- `src/modules/programs/registration.c:17-52, 62-199, 216-290`
-- `src/modules/programs/deploy.c` (`decode_deploy`, `decode_upgrade` at 264-306, `execute_deploy` at 400-409, `execute_upgrade`)
-- `src/protocol/lxp_genesis.c:594-598`
-- `src/modules/programs/call.c` (`lxp_programs_call_decode`, `lxp_programs_call_validate`, `lxp_programs_call_execute`)
-- `cmd/layerxd/lxp_daemon_lni.c` (`lxp_daemon_lni_simulate`, `send_simulate`)
-- `services/agent/schema/lni/README.md` (LNI 1.4 `simulate`; 1.6 `program_read`)
-- [LNI](LNI.md)
+The caller must have an EVM-to-DID binding. An unbound caller is refused with
+`LXP_ADDR_EVM_NOT_BOUND`. Delegatecall is refused, methods are nonpayable,
+and writes under staticcall are refused with `LXP_PROGRAM_REFUSED`.
+`submit` constructs a protocol-3 activity from the verified caller and invokes
+`Host.Execute`; a program cannot select a different principal by changing
+calldata. Sources: `principal.go`, `submit.go`, and `errors.go` in
+`precompiles/layerxprograms/`.
+
+Simulation is not an activity ordinal. Use `eth_call` to invoke
+`simulateCall` with the same program ID, ABI, entrypoint, calldata,
+capabilities, access declaration, response capacity, seven-field budget, and
+fee limit as `call`. `method_simulate.go` invokes `Host.Simulate`, which uses
+a cached chain context and a private host. It returns a hypothetical terminal
+without publishing storage, balances, sequence, or committed logs. Simulation
+is evidence about the selected state; it does not reserve a later execution
+or establish finality.
+
+Public JSON-RPC uses the root of `https://api-mainnet-beta.paxeer.network`
+and `https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, chain ID `125` (`0x7d`). See
+[Public JSON-RPC](PublicRpc.md). Hosted `px_*` methods are a separate service
+contract in `services/platform/hosted/gateway/openrpc.json`, not public node
+methods. The gateway's `px_getCapabilities` probes `getCurrentFeeSchedule()`
+at `0x101D`; when Programs is unavailable it refuses direct Programs
+transaction submissions with JSON-RPC `-32003` and data code
+`surface_unavailable`. Obtain gateway availability from its operator.
+
+Sources: `precompiles/layerxprograms/method_call.go`, `method_simulate.go`,
+`submit.go`, `modules/lxphost/host.go`, and `modules/lxphost/simulate.go`.
 
 ---
 
@@ -143,9 +195,9 @@ Sources:
 
 The Rust guest SDK LXT-20 codecs live at `programs/sdk/rust/src/lxt20.rs`
 and `programs/sdk/rust/examples/token-lxt20`. The contract below is that
-reference. `programs/fixtures/pay5` account-authorization vectors are
-cited by the runtime; if a fixture path is absent from a checkout, do not
-invent its contents.
+reference. Deployment, account-registration, CALL receipt, terminal, and
+call-graph fixtures are in `programs/fixtures/pay5/native-token/`; the merchant
+counterparts are in `programs/fixtures/pay5/native-merchant/`.
 
 The Rust guest SDK's LXT-20 example is an ABI-v2 state machine backed by one
 native Asset. Token balances and allowances are program storage; the backing
@@ -191,7 +243,7 @@ subtracts the exact amount, including when the allowance is the maximum
 `PreparedProgramAccount` derives an account from:
 
 ```text
-SHA-256("LayerX/programs/program-account/v1\\0"
+SHA-256("LayerX/programs/program-account/v1\0"
        || program_id32 || seed_length:u32_be || seed)
 ```
 
@@ -211,18 +263,17 @@ eight selectors, input/output bounds, and transfer capability offsets. Because
 `transfer` and `transfer_from` carry `CallerAuthorizedSpend`, the canonical
 interface uses `LayerX/program-interface/v2\0`; the v1 interface encoding and
 guest ABI 1 refuse that descriptor
-(`programs/crates/layerx-programs-registry/src/interface.rs:13-14, 306-320,
-820-835`).
+(`programs/crates/layerx-programs-registry/src/interface.rs`).
 
 The reference descriptor binds the backing Asset and per-call ceiling, with
 recipient/amount offsets `10`/`42` for `transfer` and `42`/`74` for
 `transfer_from`
-(`programs/crates/layerx-programs-registry/src/lxt20.rs:68-70, 89-100`). It
+(`programs/crates/layerx-programs-registry/src/lxt20.rs`). It
 does not grant spending authority. Admission extracts the recipient and u128
 amount from canonical calldata, refuses zero or over-ceiling values, and
 requires a matching caller `ProgramSpend` grant bound to this program, its
 derived source account, Asset, recipient, and amount
-(`programs/crates/layerx-programs-runtime/src/dynamic_spend.rs:11-47`). A
+(`programs/crates/layerx-programs-runtime/src/dynamic_spend.rs`). A
 registry source/state record alone is not proof that the native deploy
 activity executed; require its verified receipt.
 
@@ -235,23 +286,27 @@ The initialization request is:
 Initialization atomically stages the full fixed supply from the configured
 issuer to the registered program account. A recipient must call `approve`,
 including zero, at least once so its derived program-account storage exists
-before a transfer credits it.
+before a transfer credits it. The deployment authority must also register each
+recipient account with the native account module; guest storage registration
+alone does not create the native account.
 
 ### Calls and receipt reads
 
-Build the reference guest with:
+Build the token reference guest from its directory so Cargo discovers the
+vendored-source and WASM settings in `programs/.cargo/config.toml`:
 
 ```sh
-cargo build \
-  --manifest-path programs/sdk/rust/examples/payments-merchant/Cargo.toml \
-  --target wasm32-unknown-unknown --release
+cd programs/sdk/rust/examples/token-lxt20
+cargo build --locked --target wasm32-unknown-unknown --release
 ```
 
-Submit deploy and call activities through the native Programs routes or
-`lx_sendActivity`, retain the activity id, and require the requested commitment
-evidence. A call's transfer grants must match the generated interface and the
-registered program account; any capability widening or unmatched dynamic
-spend is refused atomically.
+For the merchant example, run the same Cargo command from
+`programs/sdk/rust/examples/payments-merchant/`. Both example manifests use
+release `opt-level = "z"`. Include the matching generated interface in
+`deploy` and confirm the committed deployment and interface with `getProgram`
+and `getInterface`. Use the native methods above for submission and reads.
+A call's transfer grants must match its interface and registered accounts;
+capability widening or unmatched dynamic spend is refused atomically.
 
 Guest `receipt_read` does not expose raw kernel state. The host writes exactly
 116 bytes for an explicitly granted digest:
@@ -277,32 +332,37 @@ spend legs require an empty name; principal and funding legs recompute the
 source account from the supplied canonical name. The resulting 115-byte kernel
 legs and transfer root therefore commit the actual account endpoints while the
 original authorization retains the signer principal and invocation authority
-(`programs/crates/layerx-programs-runtime/src/transfer.rs:882-918, 921-955`).
+(`programs/crates/layerx-programs-runtime/src/transfer.rs`).
 Nested wrappers, trailing data, forged names, or a recomputed root mismatch are
 refused. The positive native per-Asset evidence and negative vectors for that
 refusal live in `programs/fixtures/pay5/account-authorization-vectors.json`,
-which is not in this tree.
+alongside native-token and native-merchant fixtures.
 
 ---
 
-## Guest ABI v2 and protocol 3
+## Guest ABI versions and protocol 3
 
-Three version numbers are not the same thing.
+These version numbers describe different compatibility boundaries.
 
 | Number | What it versions | Values in tree |
 | --- | --- | --- |
-| Guest ABI | WASM import surface a program is compiled against | Frozen 1 and 2 (`programs/abi-frozen.sha256`) |
-| Module iface ABI | Which Programs activity types the kernel registers | 1–4 (`LX_PROGRAMS_*_ABI_VERSION`) |
+| Guest ABI | WASM import surface a program is compiled against | Frozen 1–5 (`programs/abi-frozen.sha256`) |
+| Module iface ABI | Which Programs activity types the kernel registers | Registrations v1–v5 (`registration.c`) |
 | Protocol version | Envelope / occupancy / state-commitment | 1 legacy, 2 occupancy, 3 state commitment |
 
 ### Guest ABI
 
-Crate-root `ABI_VERSION` is 2. `ABI_MANIFEST` in
-`programs/crates/layerx-programs-runtime/src/lib.rs` concatenates the frozen
-`layerx_v1` namespace and the `layerx_v2` namespace
-(`src/abi/manifest.rs`).
+The canonical policy is `programs/sdk/rust/src/abi_policy.rs`, re-exported by
+the runtime. It admits guest ABIs **1–5** and only monotonic upgrades among
+those versions. The runtime crate-root `ABI_VERSION` is **4** and its
+`ABI_MANIFEST` is the v1–v4 composite. The version-addressed `manifest(5)`
+adds the v5 namespace; the crate-root constant is not the admission ceiling.
 
-**`layerx_v1` (ABI 1; also imported unchanged by ABI 2):**
+Imports are cumulative: each admitted version retains the older namespaces
+unchanged and adds its own namespace. Exact import names and WASM types are
+validated against `programs/crates/layerx-programs-runtime/src/abi/manifest.rs`.
+
+**`layerx_v1` (ABI 1 and later):**
 
 | Host function | Signature |
 | --- | --- |
@@ -314,7 +374,7 @@ Crate-root `ABI_VERSION` is 2. `ABI_MANIFEST` in
 | `transfer_402` | `(i64,i64,i32,i32,i32,i32)->i32` |
 | `receipt_read` | `(i32,i32,i32,i32)->i32` |
 
-**`layerx_v2` (ABI 2 only):**
+**`layerx_v2` (ABI 2 and later):**
 
 | Host function | Signature |
 | --- | --- |
@@ -338,61 +398,77 @@ Crate-root `ABI_VERSION` is 2. `ABI_MANIFEST` in
 | `bigint_rem_256` | `(i32,i32,i32,i32,i32,i32)->i32` |
 | `bigint_modexp_256` | `(i32,i32,i32,i32,i32,i32,i32,i32)->i32` |
 
+**Later namespaces (in addition to all earlier imports):**
+
+| Guest ABI | Import module and function | Signature |
+| --- | --- | --- |
+| 3 | `layerx_v3.oracle_read` | `(i32,i32,i32,i32)->i32` |
+| 4 | `layerx_v4.web_read` | `(i32,i32,i32,i32)->i32` |
+| 5 | `layerx_v5.market_step_adjudicate` | `(i32,i32,i32,i32,i32,i32)->i32` |
+
 Guest capability tags 1–6 are StorageRead, StorageWrite, EmitEvent, Call,
-Transfer402, ReceiptRead. ABI 2 adds SharedStorageRead/Write (7–8),
-ProgramSpend (9), and BalanceView (10)
-(`programs/crates/layerx-programs-runtime/src/abi/capability.rs`).
-Bounded `storage_scan_scoped` encoding, ceilings, and refusals are on
-[StorageScan](StorageScan.md).
+Transfer402, and ReceiptRead. ABI 2 adds SharedStorageRead/Write (7–8),
+ProgramSpend (9), and BalanceView (10); all later ABIs retain that capability
+encoding. See `abi/capability.rs` and [Storage scan](StorageScan.md) for the
+bounded scan surface. Host imports do not grant authority by themselves.
 
-Rust `admit_abi_version` accepts only 1 and 2. C CALL decode also caps guest
-ABI at 2. C `lxp_programs_abi_transition_validate` additionally accepts
-requested `LX_PROGRAMS_SANDBOX_ABI_VERSION` (3). That C lifecycle admission is
-wider than the frozen guest ABI and the Rust runtime.
+### Host and guest agreement
 
-ABI 1 CALL is admitted on protocol 1, 2, or 3. ABI 2 CALL requires occupancy
-protocol 2 or 3 (`protocol_admits_abi` in `ffi_call.rs`; same predicate in
-`lxp_programs_call_decode`).
+`admit_abi_version`, `admit_abi_upgrade`, and `capability_encoding` are shared
+by the SDK, runtime, and registry. The C lifecycle validator delegates to the
+Rust `layerx_programs_abi_transition_admit` FFI. CALL also enforces the
+registered module's ceiling and an exact match to the deployed guest ABI.
+Thus v4 host registration admits guests through v4; ABI 5 needs v5 host
+registration on every deployment, execution, and recovery path.
 
-C guest SDK header `programs/sdk/c/include/layerx/program.h` defines
-`LXP_PROGRAM_ABI_VERSION = 1` and `LXP_PROGRAM_ABI_MODULE "layerx_v1"`. ABI 2
-capability tags `ProgramSpend` (9) and `BalanceView` (10) are documented in
-`programs/README.md` as ABI-2-only.
+ABI 1 CALL retains protocol-1/2/3 compatibility. ABIs 2–5 use capability
+encoding v2 and require occupancy protocol 2 or 3. Program-account operations
+have an additional predicate: ABI 2 has the original account support; ABI
+3–5 require protocol 3 and a stored account profile. Use `registerAccount`
+with profile 2 to opt in and inspect `getAccountProfile` rather than assuming
+that a later guest version automatically grants program spending.
+Sources: `src/modules/programs/accounts.c`, `call.c`, `deploy.c`,
+`programs/sdk/rust/src/abi_policy.rs`, and runtime `ffi_call.rs`.
+
+The C SDK's legacy `LXP_PROGRAM_ABI_VERSION` remains 1; the same header also
+publishes explicit v1–v4 constants. Choose the declared guest version and
+matching import surface explicitly; do not infer it from a module-interface
+version or the runtime crate-root constant.
 
 ### Protocol 3
 
-`LXP_PROTOCOL_VERSION_STATE_COMMITMENT = 3`. Occupancy is used by both 2 and 3
-(`lxp_protocol_version_uses_occupancy`). Header default `LXP_PROTOCOL_VERSION`
-is 2. The hosted deployment pins wire protocol 3
-(`services/platform/hosted/testnet/deployment.yaml:10`,
-`lxp-wire-protocol-version: "3"`). Beta-cluster genesis writes
-`protocol_version: 3` (`services/platform/hosted/tests/beta-cluster.sh:794`). Genesis
-builder accepts protocol 2 or 3 and registers Asset v1 when protocol is 3
-(`cmd/layerx-genesis/lxp_genesis_builder.c:88,152`). Bridge credit
-`validate_credit` requires `activity->protocol_version != 3U` to fail.
-The hosted readiness response reports its `wire_version`; it does not select
-the protocol used by genesis.
+`LXP_PROTOCOL_VERSION_STATE_COMMITMENT = 3`; protocol 2 is occupancy and
+protocol 1 is legacy. The C header default `LXP_PROTOCOL_VERSION` remains 2,
+but the native Programs submission and simulation paths explicitly construct
+protocol-3 activities. Old standalone hosted deployment pins do not select
+the native host's protocol.
 
-Protocol 3 receipt encoding carries occupancy fields on program outcomes with
-`encoding_version >= 2`. `layerx_programs_call_terminal_publish` writes
-`encoding_version = 3`.
+On protocol 3, `layerx_programs_call_terminal_publish` writes program-outcome
+encoding version **4**, including the applied-legs digest. Other retained
+protocols use outcome encoding 3. Guest ABI, protocol version, program-outcome
+encoding, and terminal execution encoding are separate version spaces.
 
-Sources:
+### AI market guest packaging
 
-- `include/layerx/lxp_protocol.h:8-12`
-- `src/protocol/lxp_protocol.c:35-61`
-- `programs/crates/layerx-programs-runtime/src/lib.rs` (`ABI_VERSION`, `ABI_MANIFEST`)
-- `programs/crates/layerx-programs-runtime/src/abi/manifest.rs`
-- `programs/crates/layerx-programs-runtime/src/abi_policy.rs`
-- `programs/crates/layerx-programs-runtime/src/ffi_call.rs` (`protocol_admits_abi`)
-- `src/modules/programs/deploy.c:84-96` (`lxp_programs_abi_transition_validate`)
-- `src/modules/programs/call.c:1703-1707, 1029`
-- `programs/abi-frozen.sha256`
-- `programs/sdk/c/include/layerx/program.h:10-21`
-- `services/platform/hosted/testnet/deployment.yaml:10`
-- `services/platform/hosted/tests/beta-cluster.sh:794`
-- `cmd/layerx-genesis/lxp_genesis_builder.c:88,152`
-- `src/protocol/lxp_genesis.c:594-598`
+The AI market is `programs/crates/layerx-programs-ai-market/`. Build its WASM
+in release mode with size optimization and an explicit chain domain:
+
+```sh
+cd programs
+PAXAI_CHAIN_DOMAIN=62b6b14734fa769c3e0fbc94de495a3d038be49a2524b1c071d75d0a4eed71f6 \
+CARGO_PROFILE_RELEASE_OPT_LEVEL=z \
+cargo build --locked --release --target wasm32-unknown-unknown \
+  -p layerx-programs-ai-market
+```
+
+That 32-byte lowercase hex domain is `MERGED_CHAIN_DOMAIN` for chain 125 in
+`src/lib.rs` of the crate; malformed or foreign overrides are refused. Keep
+the configured build domain consistent with the deployed network. Package
+the resulting artifact within the **524288-byte** deployment payload ceiling,
+including the **104-byte** fixed header and any framed interface; without an
+interface the WASM ceiling is 524184 bytes. `programs/Cargo.toml` defaults to
+release optimization level 3, so the size override above is intentional.
+The guest's recorded ABI must also be admitted by the actual host registration.
 
 ---
 
@@ -413,9 +489,10 @@ Key prefix `"program\0"` plus 32-byte program id (40 bytes). Value is 71 bytes:
 Interface records, when present, use prefix `"interface\0"` plus program id.
 
 WASM bytes are blobs addressed by `(program_id, code_hash)`
-(`lxp_programs_artifact_store` / `lxp_programs_artifact_open`). Snapshots carry
-those blobs in the kernel-blob section so restore reproduces the Programs
-subtree root and a post-restore CALL resolves the same artifact.
+(`lxp_programs_artifact_store` / `lxp_programs_artifact_open`). The native host
+loads and publishes blobs through its chain store (`modules/lxphost/host.go`);
+reopening the host must resolve the same code hash and artifact. A generated
+registry record alone does not establish a committed deployment.
 
 ### Wind-down states
 
@@ -433,51 +510,47 @@ exit.
 
 Sources:
 
-- `src/modules/programs/deploy.c:12-33, 98-109, 366-417, 420-496`
-- `include/layerx/programs.h:248-252`
-- `src/modules/programs/winddown.c:204-211`
-- `src/modules/programs/call.c:1751-1757`
+- `src/modules/programs/deploy.c`
+- `include/layerx/programs.h`
+- `src/modules/programs/winddown.c`
+- `src/modules/programs/call.c`
 - `programs/crates/layerx-programs-registry/src/lib.rs` (exports)
 - `programs/crates/layerx-programs-runtime/src/lifecycle.rs` (`UpgradePolicy`, `Deploy`, `Upgrade`)
 
 ---
 
-## Occupancy and why CALL settlement depends on batch finality
+## Occupancy and committed state
 
-Occupancy meters namespace bytes held across protocol batches. Time is the
-batch number, not a wall clock. Keys: `"progocc/head/v3"`, `"progocc/final/v3"`,
-ledger chunks `"progocc/l/v3/"`. Receipt domain
-`LXP/programs/occupancy-receipt/v2`.
+Occupancy meters namespace bytes held across protocol batches. Its clock is
+a deterministic batch index; the native host uses the block height as its
+batch number and the block timestamp as kernel time. The accounting keys are
+`progocc/head/v3`, `progocc/final/v3`, and ledger chunks `progocc/l/v3/`;
+occupancy receipts use `LXP/programs/occupancy-receipt/v2`.
 
-On CALL execute, `lxp_programs_occupancy_bind_call` carves occupancy out of
-the signed fee limit after pricing the six execution-budget fields. A success
-terminal is a fatal invariant if occupancy protocol is on and
-`occupancy->applied` is false (`layerx_programs_call_terminal_begin`).
+`lxp_programs_occupancy_bind_call` reserves occupancy budget from the signed
+fee limit after pricing the execution budget. A successful occupancy-bearing
+CALL requires its occupancy effects to be applied; charges emit authenticated
+maintenance transfer sets. The CALL outcome carries byte-batches, fee units,
+Asset ID, evidence digest, and the occupancy transfer root.
 
-`applied` is set when occupancy output is persisted and any due legs are
-emitted through `lxp_ctx_emit_programs_maintenance_transfer_set`. Batch close
-is a different seam: replay registration requires a batch finalizer on
-occupancy protocols (`lxp_replay_engine_register`). That finalizer is
-`lxp_programs_replay_finalize` → `lxp_programs_finalize_occupancy_batch`.
+The kernel's ordered maintenance path uses
+`lxp_kernel_prepare_batch_maintenance` and
+`lxp_programs_finalize_occupancy_batch_with_maintenance` (or the selected
+occupancy-only variant). Finalization checks contiguous batch numbers,
+journals changes, processes sandbox expiry, and produces canonical occupancy
+evidence. This is deterministic accounting, not another network finality
+stage. The old replica replay finalizer is retired.
 
-Finalize requires `batch_number == finalized_batch + 1` (`LXP_ERR_BATCH_GAP`
-or `LXP_ERR_IDEMPOTENT_REPLAY` otherwise), opens a journal, runs sandbox
-expiry, then the Rust occupancy finalize. Occupancy charges for bytes that
-*persist across batches*, so a CALL that writes storage is not fully settled
-until the batch that contains it is finalized. Simulate destroys the prepared
-batch, so it never reaches this finalizer.
+For native execution, `HostExecute` loads module state and blobs from the
+chain store and publishes the resulting state through the transaction's
+context. The transaction and its receipt are final at block commit. Later
+occupancy charges for storage that remains allocated are later state
+transitions; they do not delay finality of the original CALL. Simulation
+returns hypothetical accounting evidence and publishes no durable state.
 
-CALL success outcomes with outcome `encoding_version >= 2` copy occupancy
-byte-batches, fee units, asset id, evidence digest, and occupancy transfer
-root from the occupancy receipt into the program outcome.
-
-Sources:
-
-- `src/modules/programs/occupancy.c` (`lxp_programs_occupancy_bind_call`, `lxp_programs_finalize_occupancy_batch`, `lxp_programs_replay_finalize`)
-- `src/modules/programs/occupancy.h` (`finalized_batch`, `applied`, `call_authorized`)
-- `src/modules/programs/call.c:927-930, 1048-1061, 1915-1919`
-- `src/replica/lxp_replay.c:79-81`
-- `programs/README.md` (occupancy settlement)
+Sources: `src/modules/programs/occupancy.c`, `src/protocol/lxp_kernel.c`,
+`src/protocol/lxp_maintenance.c`, `modules/lxphost/host.go`, and
+`modules/lxphost/simulate.go`.
 
 ---
 
@@ -492,6 +565,26 @@ call graph, terminal payload, events - are hashed on publish.
 activity context. Only success emits `CALL_OUTCOME` and copies the transfer
 root. Failure/resource bind the outcome without that event.
 
+### Decode the terminal before consuming the guest response
+
+`call` and `simulateCall` return
+`(int32 terminalResult, uint8 terminalKind, bytes response)`. The `response`
+contains the complete canonical `LXP/programs/terminal-applied-legs/v1\0`
+frame: execution evidence, authority/occupancy attachments, and applied
+transfer legs. It is not raw guest return data. `responseCapacity` bounds
+only the nested guest response, up to 1048576 bytes; preserve the full evidence
+frame for verification.
+
+`DecodeProgramExecutionResult` in `precompiles/layerxprograms/response.go`
+validates framing and binds the applied legs to an independently verified
+transfer root. For an executed CALL, authenticate the `ProgramCallOutcome`
+log's address, program, activity, receipt, and committed block before using
+its root. A root computed only from the untrusted frame cannot authenticate
+that frame. Simulation has no committed log; its root must come from the
+trusted simulation context. See the exact formats and separate frame bound
+in `precompiles/layerxprograms/response.md` and
+[SDK terminal verification](SdkTerminalVerification.md).
+
 ### Guest ABI 1: principal-only transfer sources
 
 `layerx_programs_call_transfer_leg` source kinds:
@@ -500,12 +593,12 @@ root. Failure/resource bind the outcome without that event.
 - `PROGRAM_TRANSFER_SOURCE_PROGRAM = 2`
 - `PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING = 3`
 
-Kind 1 requires `from == authority->principal`, zero `owner_program`, and no
-seed. Kinds 2 and 3 require `value->abi_version == LX_PROGRAMS_ACCOUNT_ABI_VERSION`
-(guest ABI 2). ABI 1 therefore cannot debit a program-owned account or fund
-one through this CALL transfer path.
+Kind 1 requires the principal's resolved payment account, zero `owner_program`,
+and no seed. Kinds 2 and 3 require an account-capable guest (ABI 2–5) and the
+account-profile checks described above. ABI 1 cannot debit a program-owned
+account or fund one through this CALL transfer path.
 
-### Guest ABI 2: authority attachment
+### Guest ABI 2 and later: authority attachment
 
 `layerx_programs_call_transfer_apply` validates every leg, then attaches a
 `lxp_transfer_source_authority` per distinct `from` (`authorized_from`,
@@ -514,17 +607,17 @@ before `lxp_ctx_emit_transfer_set`.
 
 Kind 2 (program spend): `from` must be the derived module-value account for
 `(owner_program, seed)`; that account has no authority key; owner must equal
-staging program. Kind 3 (program funding): `from` is still the principal;
-`to` is the derived program value account.
+staging program. Kind 3 (program funding): `from` is the principal's resolved
+payment account; `to` is the derived program value account.
 
 The 402 context `authorized_from` remains the activity principal. Extra
-source authorities are how ABI 2 debits program-owned accounts without giving
-the guest `set_balance`.
+source authorities allow account-capable guests to debit program-owned
+accounts without giving the guest `set_balance`.
 
 Sources:
 
-- `include/layerx/lxp_receipt.h:34-72`
-- `src/modules/programs/call.c:25-29, 887-1092, 1369-1641`
+- `include/layerx/lxp_receipt.h`
+- `src/modules/programs/call.c`
 - `programs/crates/layerx-programs-runtime/src/ffi_call.rs` (CALL FFI)
 
 ---
@@ -551,9 +644,9 @@ bodies are still accepted by `envelope_effect_valid`. Emit requires
 frame, runtime/ABI/fee/metering versions, transfer-set root, call-graph
 digest, terminal-payload digest, event-envelope digest.
 
-`lxp_programs_project_committed_events` (`event.c:238-286`) filters those two
+`lxp_programs_project_committed_events` (`event.c`) filters those two
 Programs event types and orders them by increasing ordinal.
-`lxp_programs_project_receipt_events` (`event.c:288-317`) treats guest-envelope
+`lxp_programs_project_receipt_events` (`event.c`) treats guest-envelope
 or `CALL_OUTCOME` events without `program_outcome.present` as non-canonical.
 
 DEPLOY/UPGRADE still emit event types 1 and 2 from `deploy.c` (code hashes),
@@ -561,78 +654,59 @@ which are not in this publication seam.
 
 Sources:
 
-- `include/layerx/programs.h:180-191`
+- `include/layerx/programs.h`
 - `src/modules/programs/event.h`
-- `src/modules/programs/event.c:238-286` (`lxp_programs_project_committed_events`)
-- `src/modules/programs/event.c:288-317` (`lxp_programs_project_receipt_events`)
-- `src/modules/programs/call.c:1116-1211, 1004-1092`
+- `src/modules/programs/event.c` (`lxp_programs_project_committed_events`)
+- `src/modules/programs/event.c` (`lxp_programs_project_receipt_events`)
+- `src/modules/programs/call.c`
 
 ---
 
-## Custody credit and program funding
+## Custody credit retirement and program funding
 
-Genesis registers Programs v4 on every accepted protocol version; Asset v1 is
-protocol-3-conditional (`src/protocol/lxp_genesis.c:594-598`). A CALL needs a
-funded fee-paying principal. When a bridge profile is present, genesis writes
-a zero `custody-issued:` supply key (`src/protocol/lxp_genesis.c:549-553`).
+The kernel custody credit activity and its light client are retired.
+The former bridge-profile genesis and deposit-backed issuance procedures
+are no longer supported funding paths. See
+[Custody](Custody.md) for the retirement notice and the
+[Human custody](HumanCustody.md) and [Payments developer path](PaymentsQuickstart.md)
+for the current ledger and payment paths.
 
-Custody credit is Bridge module 8 ordinal 1:
-`LXP_BRIDGE_CREDIT = (8U << 16U) | 1U`. It exists only when genesis carries
-the 223-byte profile under key `custody-credit-profile/v1` (`LXBC3` … protocol
-bytes `0, 3`). Profile genesis requires protocol 3
-(`lxp_bridge_genesis_profile`). Credit verify and credit validate also
-require protocol 3. The activity actor must be `LXP_AUTHORITY_OWNER`.
-
-Credit does not preallocate balances. It issues against a Paxeer deposit
-proven by light client against the profile's trusted header, then
-`lxp_ctx_bridge_credit`
-(`src/protocol/lxp_module_ctx.c:1215`) credits the beneficiary main account via
-`402LXP`. That account can then pay CALL fees and ABI-2 `PROGRAM_FUNDING`
-legs into `module:programs:value:<account-id>` accounts. A principal can
-fund a program account; it cannot authorize debits from one (ABI-1 has no
-program-source kind; ABI-2 program debits require the deriving program's
-frame and seed).
-
-See [Custody](Custody.md) for the profile layout and evidence path.
+Program-account funding is a separate operation. A CALL needs a funded
+fee-paying principal. An account-capable guest (ABI 2–5) can stage
+principal-authorized `PROGRAM_FUNDING` transfer legs to fund `module:programs:value:<account-id>` accounts. It cannot
+authorize debits from a program account: ABI-1 has no program-source kind,
+and account-capable program debits require the deriving program's frame,
+seed, registered Asset, and bounded grant.
 
 Sources:
 
-- `include/layerx/lxp_bridge_credit.h` (`LXP_BRIDGE_CREDIT`, sizes)
-- `src/modules/bridge/lxp_bridge_credit.c` (`lxp_bridge_profile_key`, `lxp_bridge_genesis_profile`, `validate_credit`, `lxp_bridge_module_iface`)
-- `src/protocol/lxp_module_ctx.c:1215` (`lxp_ctx_bridge_credit`)
-- `src/protocol/lxp_genesis.c:549-553, 594-598`
-- `src/modules/programs/call.c:1520-1565` (`PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING`)
-- `src/modules/programs/accounts.c` (program account derivation / lookup)
-- `docs/wiki/Custody.md`
+- `src/modules/programs/call.c` (`layerx_programs_call_transfer_leg`)
+- `src/modules/programs/call.c` (`transfer_source_validate`, including `PROGRAM_TRANSFER_SOURCE_PROGRAM_FUNDING`)
+- `src/modules/programs/accounts.c` (`lxp_programs_account_derive`)
+- `src/modules/programs/accounts.c` (`lxp_programs_account_lookup`)
 
 ---
 
 ## Frozen-ABI drift gates
 
-`programs/abi-frozen.sha256` pins two vectors:
+`programs/abi-frozen.sha256` pins five immutable vectors:
 
-```
+```text
 1 09fcad46aeea9659d7d555a4a09ec151bd36d60b85bfd052d1f7a43cf71d58a3
 2 8827869bf1324c3e82c60baf7360b1c3e2baa84d8591e49eb6b73c2cea6c8b69
+3 0d1c2505bb16c52cbac38f966359fafd4e930949f968484250ec96520a7de0b2
+4 733f27cbf903eaceab532424d13e321f6dd8939afb1f85511c7a5a12c0289aef
+5 07d573becee2e920b7bacb3f7d712ff017070681d46337f62e9b6987c58a2e87
 ```
 
 `make programs-abi-drift` runs `tests/programs/check-abi-drift.sh`, which
-executes `scripts/programs/generate-abi-vectors.py --check`. The generator
-rebuilds the v1 and v2 manifests from `abi/manifest.rs`, `abi/mod.rs`,
-`lib.rs`, and `programs/sdk/rust/src/abi.rs`, and fails if they diverge from
-the frozen checksums or from each other (v1 table vs v1 manifest; v1+v2
-tables vs composite v2 manifest; v2 function types vs signatures). Crate-root
-`ABI_VERSION` must remain 2. The file is updated only when a newly allocated
-ABI version is frozen.
-
-`make programs-test` depends on `programs-abi-drift`.
-
-Sources:
-
-- `programs/abi-frozen.sha256`
-- `tests/programs/check-abi-drift.sh`
-- `scripts/programs/generate-abi-vectors.py`
-- `Makefile` (`programs-abi-drift`, `programs-test`)
+invokes `scripts/programs/generate-abi-vectors.py --check`. The generator
+checks all five manifests and vectors (`programs/tests/vectors/abi-v1.hex`
+through `abi-v5.hex`), their import tables and function types, canonical SDK
+version policy, and frozen checksums. It requires the crate-root manifest
+to identify ABI 4 while retaining the separately frozen v5 extension.
+`make programs-test` depends on the drift gate. Do not edit frozen older
+vectors to make a changed host surface appear compatible.
 
 ---
 
@@ -643,7 +717,7 @@ Sources:
 - [Asset](Asset.md)
 - [Bridge](Bridge.md)
 - [Fees](Fees.md)
-- [LNI](LNI.md)
+- [Public JSON-RPC](PublicRpc.md)
 - [Sandbox](Sandbox.md)
 - [Storage scan](StorageScan.md)
 - [Roadmap](Roadmap.md)

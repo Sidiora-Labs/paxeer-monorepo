@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/internaltest"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -57,11 +58,8 @@ func fixture(t *testing.T) *Store {
 		}
 		admin.Close()
 	})
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/schema-proposal.sql")
-	if e != nil {
-		t.Fatal(e)
-	}
-	if _, e = db.Exec(ctx, string(ddl)); e != nil {
+	ddl := internaltest.CoordinatorMigrationSQL(t, schema, 380000)
+	if _, e = db.Exec(ctx, ddl); e != nil {
 		t.Fatal(e)
 	}
 	return &Store{DB: db, Clock: func() time.Time { return time.Date(2026, 10, 10, 12, 0, 0, 0, time.UTC) }, Targets: fixtureTargets{}}

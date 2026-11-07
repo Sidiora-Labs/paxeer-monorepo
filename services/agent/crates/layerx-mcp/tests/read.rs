@@ -5,11 +5,10 @@ use layerx_agent_api::identity::Asset;
 use layerx_agent_api::prepare::CanonicalBytes;
 use layerx_agent_api::proof::ProofBundle;
 use layerx_agent_api::read::{
-    AccountRef, BalanceValue, BatchRef, CheckpointRef, CheckpointValue, Freshness, HistoryCursor,
-    HistoryValue, RelativeTo,
+    AccountRef, BalanceValue, CheckpointValue, Freshness, HistoryCursor, HistoryValue, RelativeTo,
 };
-use layerx_agent_api::verify::Level;
-use layerx_agent_api::{Amount, Sequence};
+use layerx_agent_api::verify::Rung;
+use layerx_agent_api::Amount;
 use layerx_mcp::tools::read::{
     availability, balance, checkpoint, history, proof, receipt, Continuation, Pagination,
     ReadToolError, ReceiptValue, StableCursor,
@@ -21,21 +20,46 @@ fn bytes(value: &[u8]) -> CanonicalBytes {
 
 fn freshness() -> Freshness {
     Freshness {
-        chain_head: Sequence(120),
-        latest_sealed_batch: BatchRef::new("batch-11")
-            .unwrap_or_else(|error| panic!("batch: {error:?}")),
-        latest_finalised_checkpoint: CheckpointRef::new("checkpoint-9")
-            .unwrap_or_else(|error| panic!("checkpoint: {error:?}")),
-        value_sequence: Sequence(117),
-        relative_to: RelativeTo::Checkpoint(
-            CheckpointRef::new("checkpoint-9")
-                .unwrap_or_else(|error| panic!("checkpoint: {error:?}")),
-        ),
+        chain_head: 120,
+        value_height: 117,
+        relative_to: RelativeTo::Block {
+            height: 117,
+            hash: [0x41; 32],
+        },
     }
 }
 
+fn proof_bundle() -> ProofBundle {
+    let value = serde_json::json!({
+        "facts": ["receipt:0x0101010101010101010101010101010101010101010101010101010101010101"],
+        "bundles": [{
+            "format": "layerx-receipt-proof-v2",
+            "verificationLevel": "committed",
+            "rawTransaction": "0x636f72652d726f6f74",
+            "signedReceipt": "0x636f72652d72656365697074",
+            "receiptDigest": format!("0x{}", "01".repeat(32)),
+            "receiptKey": {
+                "keyId": format!("0x{}", "02".repeat(32)),
+                "publicKey": format!("0x{}", "03".repeat(32)),
+                "firstHeight": "1",
+                "lastHeight": "120"
+            },
+            "blockHeader": "0x70726f6f662d61",
+            "receiptInclusion": "0x70726f6f662d62",
+            "commit": "0x636f6d6d6974",
+            "validatorSet": "0x76616c696461746f7273",
+            "accountProof": "0x6163636f756e742d70726f6f66"
+        }],
+        "height": "117"
+    });
+    layerx_sdk::rpc_export::decode_offline_export(&value, layerx_sdk::Operation::ExportOffline)
+        .unwrap_or_else(|error| panic!("proof bundle: {error:?}"))
+        .bundles
+        .remove(0)
+}
+
 #[test]
-fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
+fn every_read_shape_carries_its_rung_and_the_exact_height_freshness() {
     let expected_freshness = freshness();
     let balance_result = balance(
         BalanceValue {
@@ -44,13 +68,14 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
             asset: Asset::new("LXP").unwrap_or_else(|error| panic!("asset: {error:?}")),
             amount: Amount(42),
             canonical_state: bytes(b"core-balance"),
+            height: 117,
         },
-        Level::StateProven,
+        None,
         expected_freshness.clone(),
         1024,
     )
     .unwrap_or_else(|error| panic!("balance: {error:?}"));
-    assert_eq!(balance_result.verification_level, Level::StateProven);
+    assert_eq!(balance_result.rung, None);
     assert_eq!(balance_result.freshness, expected_freshness);
     assert!(balance_result.page.complete);
 
@@ -58,37 +83,31 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
         ReceiptValue {
             canonical_receipt: bytes(b"core-receipt"),
             evidence_ids: vec![[1; 32]],
+            height: 117,
         },
-        Level::BatchIncluded,
+        Some(Rung::Receipted),
         freshness(),
         1024,
     )
     .unwrap_or_else(|error| panic!("receipt: {error:?}"));
-    assert_eq!(receipt_result.verification_level, Level::BatchIncluded);
+    assert_eq!(receipt_result.rung, Some(Rung::Receipted));
 
     let checkpoint_result = checkpoint(
-        CheckpointValue(bytes(b"core-certificate")),
-        Level::CheckpointFinalised,
+        CheckpointValue {
+            commit: bytes(b"core-certificate"),
+            validator_set: bytes(b"core-validators"),
+            height: 117,
+        },
+        Some(Rung::Committed),
         freshness(),
         1024,
     )
     .unwrap_or_else(|error| panic!("checkpoint: {error:?}"));
-    assert_eq!(
-        checkpoint_result.verification_level,
-        Level::CheckpointFinalised
-    );
+    assert_eq!(checkpoint_result.rung, Some(Rung::Committed));
 
-    let proof_result = proof(
-        ProofBundle {
-            target: bytes(b"core-root"),
-            proofs: vec![bytes(b"proof-a"), bytes(b"proof-b")],
-        },
-        Level::StateProven,
-        freshness(),
-        1024,
-    )
-    .unwrap_or_else(|error| panic!("proof: {error:?}"));
-    assert_eq!(proof_result.verification_level, Level::StateProven);
+    let proof_result = proof(proof_bundle(), Some(Rung::Committed), freshness(), 1024)
+        .unwrap_or_else(|error| panic!("proof: {error:?}"));
+    assert_eq!(proof_result.rung, Some(Rung::Committed));
 
     let provider =
         ProviderRef::new("provider-a").unwrap_or_else(|error| panic!("provider: {error:?}"));
@@ -104,7 +123,7 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
             }],
             providers: Vec::new(),
         },
-        Level::BatchIncluded,
+        None,
         freshness(),
         1024,
     )
@@ -116,8 +135,12 @@ fn every_read_shape_requires_a_level_and_carries_the_exact_freshness() {
 fn unverified_or_evidence_free_values_never_enter_a_fact_result() {
     assert!(matches!(
         checkpoint(
-            CheckpointValue(bytes(b"unverified")),
-            Level::Unverified,
+            CheckpointValue {
+                commit: bytes(b"unverified"),
+                validator_set: bytes(b"core-validators"),
+                height: 117,
+            },
+            Some(Rung::Submitted),
             freshness(),
             1024,
         ),
@@ -128,8 +151,9 @@ fn unverified_or_evidence_free_values_never_enter_a_fact_result() {
             ReceiptValue {
                 canonical_receipt: bytes(b"receipt"),
                 evidence_ids: Vec::new(),
+                height: 117,
             },
-            Level::SequencerSigned,
+            Some(Rung::Receipted),
             freshness(),
             1024,
         ),
@@ -144,10 +168,11 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
     let all = HistoryValue {
         records: vec![bytes(b"one"), bytes(b"two"), bytes(b"three")],
         next_cursor: None,
+        height: 117,
     };
     let first = history(
         &all.clone(),
-        Level::BatchIncluded,
+        None,
         freshness(),
         query,
         snapshot,
@@ -166,7 +191,7 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
     assert_eq!(cursor.offset, 2);
     let second = history(
         &all,
-        Level::BatchIncluded,
+        None,
         freshness(),
         query,
         snapshot,
@@ -186,8 +211,9 @@ fn history_truncation_is_explicit_and_uses_snapshot_bound_stable_cursors() {
             &HistoryValue {
                 records: vec![bytes(b"one")],
                 next_cursor: None,
+                height: 117,
             },
-            Level::BatchIncluded,
+            Some(Rung::Receipted),
             freshness(),
             query,
             snapshot,
@@ -203,12 +229,14 @@ fn upstream_core_pagination_is_never_misreported_as_complete() {
     let result = history(
         &HistoryValue {
             records: vec![bytes(b"one")],
-            next_cursor: Some(
-                HistoryCursor::new("core-cursor-2")
-                    .unwrap_or_else(|error| panic!("cursor: {error:?}")),
-            ),
+            next_cursor: Some(HistoryCursor {
+                block_height: 117,
+                tx_index: 2,
+                log_index: 0,
+            }),
+            height: 117,
         },
-        Level::BatchIncluded,
+        None,
         freshness(),
         [1; 32],
         [2; 32],

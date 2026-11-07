@@ -4,11 +4,12 @@ members = [
     "crates/layerx-wire",
     "crates/layerx-crypto",
     "crates/layerx-proof",
-    "crates/layerx-paxeer-verifier",
     "crates/layerx-client",
     "crates/layerx-identity-binding",
     "crates/layerx-agent-api",
+    # The owner library and executable host are separate workspace packages.
     "crates/layerx-agentd",
+    # This host builds layerx-agentd/src/main.rs, the sole clock exception.
     "crates/layerx-agentd-host",
     "crates/layerx-mcp",
     "crates/layerx-sdk",
@@ -22,6 +23,8 @@ version = "0.1.0"
 license = "Apache-2.0"
 
 [workspace.lints.rust]
+# Clock boundaries are checked separately by tools/boundary-check using
+# nondeterminism-allowlist.toml; workspace membership grants no exemption.
 unsafe_code = "deny"
 
 [workspace.lints.clippy]

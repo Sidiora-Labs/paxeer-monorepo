@@ -124,6 +124,7 @@ fn enrol(root: &Path) -> [u8; 32] {
         root,
         served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .map(|tool| tool.required_scope.to_owned())
             .collect(),
     )
@@ -177,7 +178,7 @@ fn document_for(
         "session_token_file": token_file.display().to_string(),
         "session_generation": 1,
         "capability_id": CAPABILITY_ID,
-        "core_sequence": 50,
+        "core_height": 50,
         "deadline_ms": 5_000,
         "agent": {
             "endpoint": endpoint,
@@ -303,6 +304,28 @@ fn exchange(session: &mut Session<DaemonBoundary>, requests: &[Value]) -> Vec<Va
         .collect()
 }
 
+fn assert_closed_input_schema(schema: &Value, tool_name: &str) {
+    if let Some(branches) = schema.get("oneOf") {
+        let branches = branches
+            .as_array()
+            .expect("oneOf must contain schema branches");
+        assert!(
+            !branches.is_empty(),
+            "tool {tool_name} has no input branches"
+        );
+        for branch in branches {
+            assert_closed_input_schema(branch, tool_name);
+        }
+    } else {
+        assert_eq!(schema.get("type").and_then(Value::as_str), Some("object"));
+        assert_eq!(
+            schema.get("additionalProperties").and_then(Value::as_bool),
+            Some(false),
+            "tool {tool_name} has an open input schema"
+        );
+    }
+}
+
 #[test]
 fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_described() {
     let full = catalogue::surface(DeploymentMode::Full);
@@ -321,9 +344,9 @@ fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_describe
             .filter(|tool| tool.kind == ToolKind::Read)
             .count()
     );
-    for tool in served() {
-        let listing = catalogue::listing(*tool)
-            .unwrap_or_else(|| panic!("tool {} has no listing", tool.name));
+    for tool in catalogue::surface(DeploymentMode::Full) {
+        let listing =
+            catalogue::listing(tool).unwrap_or_else(|| panic!("tool {} has no listing", tool.name));
         assert_eq!(
             listing.pointer("/name").and_then(Value::as_str),
             Some(tool.name)
@@ -331,20 +354,7 @@ fn the_served_catalogue_is_the_daemon_catalogue_and_every_tool_is_fully_describe
         assert!(catalogue::description(tool.name).is_some());
         let schema = catalogue::input_schema(tool.name)
             .unwrap_or_else(|| panic!("tool {} has no schema", tool.name));
-        let branches = schema
-            .pointer("/oneOf")
-            .and_then(Value::as_array)
-            .map_or_else(|| vec![&schema], |branches| branches.iter().collect());
-        for branch in branches {
-            assert_eq!(
-                branch
-                    .pointer("/additionalProperties")
-                    .and_then(Value::as_bool),
-                Some(false),
-                "tool {} has an open input schema",
-                tool.name
-            );
-        }
+        assert_closed_input_schema(&schema, tool.name);
         assert_eq!(
             listing
                 .pointer("/annotations/readOnlyHint")
@@ -421,6 +431,7 @@ fn a_binding_document_is_closed_complete_and_narrowable() {
     let mut binding = Binding::open(&path).unwrap_or_else(|error| panic!("open: {error:?}"));
     assert_eq!(binding.mode(), DeploymentMode::Full);
     assert_eq!(binding.deadline(), Duration::from_millis(5_000));
+    assert_eq!(binding.core_height(), 50);
     let declared = binding
         .listener()
         .unwrap_or_else(|| panic!("listener absent"))
@@ -462,16 +473,25 @@ fn a_binding_document_is_closed_complete_and_narrowable() {
             fields.insert("session_id".to_owned(), json!("07"));
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp.sock/");
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp.sock/");
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!(format!("/tmp/{}", "s".repeat(108)));
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] =
+                json!(format!("/tmp/{}", "s".repeat(108)));
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp\0.sock");
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["socket"] = json!("/tmp/mcp\0.sock");
         },
         &|fields: &mut serde_json::Map<String, Value>| {
-            fields.get_mut("listener").unwrap_or_else(|| panic!("listener"))["admitted_uids"] = json!([42, 42]);
+            fields
+                .get_mut("listener")
+                .unwrap_or_else(|| panic!("listener"))["admitted_uids"] = json!([42, 42]);
         },
     ];
     for change in changes {
@@ -505,12 +525,12 @@ fn assert_daemon_handshake(initialize: &Value, listed: &Value) {
         .pointer("/result/_meta/layerx~1write_tools")
         .and_then(Value::as_u64)
         .unwrap_or_default();
-    assert_eq!(reads.saturating_add(writes), 22);
+    assert_eq!(reads.saturating_add(writes), 33);
     let tools = listed
         .pointer("/result/tools")
         .and_then(Value::as_array)
         .unwrap_or_else(|| panic!("tools absent"));
-    assert_eq!(tools.len(), 22);
+    assert_eq!(tools.len(), 33);
 }
 
 fn assert_daemon_read(read: &Value, program: &str) {
@@ -667,6 +687,7 @@ fn a_read_only_binding_never_exposes_a_write_tool() {
         listed.len(),
         served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .filter(|tool| tool.kind == ToolKind::Read)
             .count()
     );
@@ -783,7 +804,7 @@ fn the_protocol_socket_refuses_every_unprotected_endpoint_and_serves_an_admitted
             .pointer("/result/tools")
             .and_then(Value::as_array)
             .map(Vec::len),
-        Some(22)
+        Some(33)
     );
     let _ = fs::remove_dir_all(root);
 }
@@ -895,6 +916,7 @@ fn daemon_enrolment_writes_the_binding_the_served_path_opens() {
         permitted_activity_types: BTreeSet::from([7]),
         scopes: served()
             .iter()
+            .chain(catalogue::SESSION_TOOLS.iter())
             .map(|tool| tool.required_scope.to_owned())
             .collect(),
         expiry_sequence: 300,
@@ -975,10 +997,37 @@ fn web_scoped_document(root: &Path, endpoint: &str, web: Option<Value>) -> Strin
 }
 
 fn web_section() -> Value {
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../../services/interop/crates/x-websearch/tests/fixtures");
+    let read = |name| {
+        let bytes =
+            fs::read(fixtures.join(name)).unwrap_or_else(|error| panic!("fixture {name}: {error}"));
+        serde_json::from_slice::<Value>(&bytes)
+            .unwrap_or_else(|error| panic!("fixture {name}: {error}"))
+    };
+    let metered = read("gateway/metered.json");
+    let exchange = read("client-exchange.json");
+    let receiver_address = metered
+        .pointer("/ledger/receiverAddress")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded receiver address"));
+    let payer_address = exchange
+        .pointer("/exchange/0/request/headers/LAYERX-PAYER-ADDRESS")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded payer address"));
+    let network = exchange
+        .pointer("/exchange/0/response/headers/PAYMENT-REQUIRED/accepts/0/network")
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("recorded network"));
     json!({
         "endpoint": "http://127.0.0.1:9450",
-        "network": "eip155:1337",
-        "sequencer_public_key": "5e".repeat(32),
+        "payer_address": payer_address,
+        "receiver_address": receiver_address,
+        "network": network,
+        "receipt_key_index": [{"keyId": "2a".repeat(32), "publicKey": "5e".repeat(32), "firstHeight": 0, "lastHeight": 9}],
+        "sequencer_id": "2a".repeat(32),
+        "first_batch_number": 0,
+        "last_batch_number": 9,
         "timeout_ms": 5_000,
         "pending_attempts": 3,
         "approval_threshold": "0",
@@ -1053,11 +1102,7 @@ fn the_web_section_is_closed_and_typed() {
     let parsed: Value =
         serde_json::from_str(&body).unwrap_or_else(|error| panic!("reparse: {error}"));
     let cases: [(&str, Value, &str); 6] = [
-        (
-            "unexpected",
-            json!("1"),
-            "web has an unaccepted field",
-        ),
+        ("unexpected", json!("1"), "web has an unaccepted field"),
         ("approval_threshold", json!(10), "field approval_threshold"),
         (
             "approval_threshold",
@@ -1067,7 +1112,7 @@ fn the_web_section_is_closed_and_typed() {
         (
             "sequencer_public_key",
             json!("5e"),
-            "field sequencer_public_key",
+            "field web.sequencer_public_key is retired; use receipt_key_index",
         ),
         ("pending_attempts", json!(256), "field web.pending_attempts"),
         ("timeout_ms", json!("5000"), "field timeout_ms"),
@@ -1103,14 +1148,23 @@ fn the_web_section_is_closed_and_typed() {
 fn listener_applies_the_declared_group_and_keeps_replacement_files() {
     let root = directory("declared-group");
     let metadata = fs::metadata(&root).unwrap_or_else(|error| panic!("metadata: {error}"));
-    let group = if metadata.uid() == 0 { metadata.gid().saturating_add(1) } else { metadata.gid() };
+    let group = if metadata.uid() == 0 {
+        metadata.gid().saturating_add(1)
+    } else {
+        metadata.gid()
+    };
     std::os::unix::fs::chown(&root, None, Some(group))
         .unwrap_or_else(|error| panic!("directory group: {error}"));
     let socket = root.join("mcp.sock");
     let listener = Listener::bind(ListenerConfig {
-        endpoint: socket.clone(), owner_uid: metadata.uid(), owner_gid: group,
-        mode: 0o660, admitted_uids: vec![metadata.uid()], deadline: Duration::from_secs(1),
-    }).unwrap_or_else(|error| panic!("listener: {error:?}"));
+        endpoint: socket.clone(),
+        owner_uid: metadata.uid(),
+        owner_gid: group,
+        mode: 0o660,
+        admitted_uids: vec![metadata.uid()],
+        deadline: Duration::from_secs(1),
+    })
+    .unwrap_or_else(|error| panic!("listener: {error:?}"));
     let bound = fs::symlink_metadata(&socket).unwrap_or_else(|error| panic!("socket: {error}"));
     assert_eq!(bound.uid(), metadata.uid());
     assert_eq!(bound.gid(), group);
@@ -1118,6 +1172,24 @@ fn listener_applies_the_declared_group_and_keeps_replacement_files() {
     fs::remove_file(&socket).unwrap_or_else(|error| panic!("unlink: {error}"));
     fs::write(&socket, b"replacement").unwrap_or_else(|error| panic!("replacement: {error}"));
     drop(listener);
-    assert_eq!(fs::read(&socket).unwrap_or_else(|error| panic!("preserved: {error}")), b"replacement");
+    assert_eq!(
+        fs::read(&socket).unwrap_or_else(|error| panic!("preserved: {error}")),
+        b"replacement"
+    );
     fs::remove_dir_all(root).unwrap_or_else(|error| panic!("cleanup: {error}"));
+}
+
+#[path = "support/session_transport.rs"]
+mod session_transport;
+
+#[test]
+fn session_only_scopes_describe_list_and_call_over_transport() {
+    session_transport::session_tools_bind_describe_and_acknowledge();
+    session_transport::session_tools_authenticated_daemon_codec();
+    session_transport::all_session_tools_through_daemon_and_mcp();
+}
+
+#[test]
+fn session_only_read_only_transport_enforces_restrictions() {
+    session_transport::session_tools_read_only_filtering();
 }

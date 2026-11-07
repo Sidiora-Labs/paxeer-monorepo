@@ -11,7 +11,6 @@ from .native_capabilities import (
     decode_native_capability_set,
 )
 from .native_program_call import decode_native_program_call, encode_native_program_call
-from .verifier import ProgramReceiptOutcome, ProtocolReceipt
 
 _ACTIVITY_DOMAIN = b"LXP/v1/activity-id\0"
 _PAYLOAD_DOMAIN = b"LXP/v1/payload-hash\0"
@@ -48,6 +47,7 @@ _STATE_COMMITMENT_PROTOCOL_VERSION = 3
 _MAX_OCCUPANCY_PAYERS = 256
 _MAX_PAYER_DID_BYTES = 255
 _MAX_U128 = (1 << 128) - 1
+_MAX_U64 = (1 << 64) - 1
 _CAPABILITIES: Mapping[str, int] = {"storage_read": 1, "storage_write": 2, "transfer": 3, "emit_event": 4, "compose": 5}
 _MAX_TRACE = 34 + 65_536 * 52
 _MAX_GRAPH = len(b"LayerX/programs/call-graph/v1\0") + 32 + 16 + 8 + 64 * 68
@@ -60,6 +60,8 @@ class DecodedSignedProgramCall:
     not_before: int
     not_after: int
     canonical_bytes: bytes
+    sender: str
+    nonce: int
 
 
 @dataclass(frozen=True)
@@ -76,42 +78,28 @@ class OccupancyPayer:
     account: bytes | None = None
 
 
-def bind_signed_program_lifecycle(canonical: bytes, payload: bytes | None, ordinal: int, expected_idempotency_key: str | None = None) -> DecodedSignedProgramCall:
-    canonical = bytes(canonical)
-    payload = None if payload is None else bytes(payload)
-    if not 0 < len(canonical) <= 1_048_576 or type(ordinal) is not int or ordinal not in (1, 2, 7):
-        _fail("activity bounds")
-    reader = _Reader(canonical)
-    if reader.u16() != 3 or reader.u16() != 0x1001 or reader.byte() != 12:
-        _fail("signed activity header")
-    _field(reader, 1)
-    if reader.u16() != 3:
-        _fail("signed activity protocol")
-    _field(reader, 2); reader.u32()
-    _field(reader, 3)
-    if reader.u32() != 0x0009_0000 + ordinal:
-        _fail("signed activity type")
-    _field(reader, 4); reader.sized_u32(255)
-    _field(reader, 5); reader.sized_u32(524_288)
-    _field(reader, 6); reader.u64()
-    _field(reader, 7); not_before = reader.u64(); not_after = reader.u64()
-    _field(reader, 8); key = reader.sized_u32(32, 32).hex()
-    _field(reader, 9); reader.u128()
-    _field(reader, 10); digest = reader.sized_u32(32, 32)
-    _field(reader, 11); retained_payload = reader.sized_u32(524_288)
-    _field(reader, 12); reader.sized_u32(128); reader.end()
-    if payload is None:
-        from .program_lifecycle import (
-            NativeProgramDeploy,
-            NativeProgramUpgrade,
-            NativeProgramWindDown,
-        )
-        decoders = {1: NativeProgramDeploy.decode, 2: NativeProgramUpgrade.decode, 7: NativeProgramWindDown.decode}
-        payload = decoders[ordinal](retained_payload).encode()
-    if (not_after < not_before or retained_payload != payload or digest != sha256(_PAYLOAD_DOMAIN + payload).digest()
-            or expected_idempotency_key is not None and key != expected_idempotency_key):
-        _fail("lifecycle binding")
-    return DecodedSignedProgramCall(sha256(_ACTIVITY_DOMAIN + canonical).hexdigest(), key, not_before, not_after, bytes(canonical))
+def _program_transaction(canonical: bytes):
+    from .evm_transaction import decode_signed
+    from .account_derivation import keccak256
+    transaction, signature = decode_signed(canonical)
+    if transaction.chain_id != 125 or transaction.to != bytes.fromhex("000000000000000000000000000000000000101d") or transaction.value:
+        _fail("program transaction chain or destination")
+    sender = transaction.recover_signer(signature)
+    return transaction, sender, keccak256(canonical).hex()
+
+
+def bind_signed_program_lifecycle(canonical: bytes, payload: bytes | None, ordinal: int,
+                                  expected_idempotency_key: str | None = None) -> DecodedSignedProgramCall:
+    from .evm_transaction import encode_call
+    from .program_lifecycle import NativeProgramDeploy, NativeProgramUpgrade, NativeProgramWindDown
+    transaction, sender, identity = _program_transaction(canonical)
+    from .program_lifecycle import decode_lifecycle_calldata
+    retained = decode_lifecycle_calldata(transaction.data, ordinal)
+    if payload is not None and retained.encode() != payload:
+        _fail("lifecycle calldata binding")
+    if expected_idempotency_key is not None and expected_idempotency_key != identity:
+        _fail("lifecycle transaction identity")
+    return DecodedSignedProgramCall(identity, identity, 0, _MAX_U64, bytes(canonical), sender, transaction.nonce)
 
 
 @dataclass(frozen=True)
@@ -131,105 +119,45 @@ class _SignedCallEnvelope:
 
 
 def _signed_call_envelope(canonical: bytes) -> _SignedCallEnvelope:
-    if not isinstance(canonical, bytes) or not 0 < len(canonical) <= 1_048_576:
-        _fail("signed activity bounds")
-    reader = _Reader(canonical)
-    envelope_version = reader.u16()
-    if envelope_version not in (1, 2, 3) or reader.u16() != 0x1001 or reader.byte() != 12:
-        _fail("signed activity header")
-    _field(reader, 1)
-    if reader.u16() != envelope_version:
-        _fail("signed activity protocol")
-    _field(reader, 2); network_id = reader.u32()
-    _field(reader, 3)
-    if reader.u32() != 0x0009_0003:
-        _fail("signed activity type")
-    _field(reader, 4); reader.sized_u32(255)
-    _field(reader, 5); public_key = reader.sized_u32(524_288)
-    _field(reader, 6); reader.u64()
-    _field(reader, 7); not_before = reader.u64(); not_after = reader.u64()
-    _field(reader, 8); idempotency = reader.sized_u32(32, 32)
-    _field(reader, 9); envelope_fee_limit = reader.u128()
-    _field(reader, 10); payload_hash = reader.sized_u32(32, 32)
-    _field(reader, 11); payload = reader.sized_u32(524_288)
-    unsigned_end = len(canonical) - reader.remaining()
-    _field(reader, 12); signature = reader.sized_u32(128)
-    reader.end()
-    unsigned = bytearray(canonical[:unsigned_end]); unsigned[4] = 11
-    signature_digest = sha256(b"LXP/v1/signature-preimage\0" + unsigned).digest()
-    if not_after < not_before:
-        _fail("signed activity bounds")
-    if payload_hash != sha256(_PAYLOAD_DOMAIN + payload).digest():
-        _fail("signed activity payload hash")
-    return _SignedCallEnvelope(canonical, envelope_version, not_before, not_after,
-                               idempotency, envelope_fee_limit, payload_hash, payload, network_id, public_key, signature, signature_digest)
+    from .ai_market import _decode_programs_call
+    from .account_derivation import keccak256
+    transaction, sender, identity = _program_transaction(canonical)
+    native, fee = _decode_programs_call(transaction.data)
+    payload = encode_native_program_call(native)
+    return _SignedCallEnvelope(bytes(canonical), 3, 0, _MAX_U64, bytes.fromhex(identity), fee,
+                               sha256(_PAYLOAD_DOMAIN + payload).digest(), payload, transaction.chain_id,
+                               bytes.fromhex(sender[2:]), b"", transaction.signing_digest())
 
 
 def verify_native_program_call_signature(canonical: bytes, signatures: object, expected_network: int | None = None) -> None:
     envelope = _signed_call_envelope(canonical)
-    if (envelope.protocol_version != 3 or not envelope.network_id
-            or expected_network is not None and (type(expected_network) is not int or not 0 < expected_network < 1 << 32)
-            or expected_network is not None and envelope.network_id != expected_network
-            or len(envelope.public_key) != 32 or not any(envelope.public_key)
-            or len(envelope.signature) != 64
-            or not signatures.verify_ed25519(envelope.public_key, envelope.signature, envelope.signature_digest)):
-        _fail("native activity signature or network")
+    if expected_network is not None and (type(expected_network) is not int or expected_network != envelope.network_id):
+        _fail("program transaction network")
 
 
 def bind_retained_program_call(canonical: bytes, expected_activity: str,
                                expected_program: str, expected_protocol: int) -> tuple[bytes, int, str]:
     envelope = _signed_call_envelope(canonical)
-    if (envelope.protocol_version != expected_protocol
-            or sha256(_ACTIVITY_DOMAIN + canonical).hexdigest() != expected_activity):
-        _fail("retained call activity binding")
-    if envelope.protocol_version == 3 or (
-            envelope.protocol_version == 2 and not envelope.payload.startswith(_CALL_DOMAIN)):
-        native = decode_native_program_call(envelope.payload)
-        program, abi = native.program_id.hex(), native.guest_abi
-    else:
-        reader = _Reader(envelope.payload)
-        if reader.fixed(len(_CALL_DOMAIN)) != _CALL_DOMAIN:
-            _fail("program call domain")
-        program = reader.fixed(32).hex()
-        if reader.u64() == 0:
-            _fail("program call budget")
-        reader.u128()
-        count = reader.u16()
-        if count > 5:
-            _fail("program call capabilities")
-        prior = 0
-        for _ in range(count):
-            current = reader.byte()
-            if not prior < current <= 5:
-                _fail("program call capability tag")
-            prior = current
-        reader.sized_u32(1_048_576)
-        reader.end()
-        abi = 1
-    if program != expected_program or program == "0" * 64:
-        _fail("retained call program binding")
-    return envelope.payload_hash, abi, envelope.idempotency.hex()
+    native = decode_native_program_call(envelope.payload)
+    if expected_protocol != 3 or envelope.idempotency.hex() != expected_activity or native.program_id.hex() != expected_program:
+        _fail("retained call transaction binding")
+    return envelope.payload_hash, native.guest_abi, envelope.idempotency.hex()
 
 
 def decode_signed_program_call(call: object, expected_idempotency_key: str | None = None) -> DecodedSignedProgramCall:
     canonical = bytes(call.signed_activity)
     envelope = _signed_call_envelope(canonical)
     native = getattr(call, "native_call", None)
-    if native is not None:
-        if (envelope.protocol_version != 3 or envelope.fee_limit != call.fee_limit
-                or native.program_id.hex() != call.program_id or native.calldata != call.calldata
-                or native.resources[0] != call.fuel or call.capabilities
-                or envelope.payload != encode_native_program_call(native)):
-            _fail("native signed activity binding")
-    else:
-        _decode_call_payload(envelope.payload, call)
+    if (native is None or envelope.fee_limit != call.fee_limit
+            or native.program_id.hex() != call.program_id or native.calldata != call.calldata
+            or native.resources[0] != call.fuel or call.capabilities
+            or envelope.payload != encode_native_program_call(native)):
+        _fail("program transaction call binding")
     key = envelope.idempotency.hex()
     if expected_idempotency_key is not None and key != expected_idempotency_key:
-        _fail("signed activity idempotency")
-    return DecodedSignedProgramCall(
-        sha256(_ACTIVITY_DOMAIN + canonical).hexdigest(), key,
-        envelope.not_before, envelope.not_after, canonical,
-    )
+        _fail("program transaction identity")
+    transaction, sender, identity = _program_transaction(canonical)
+    return DecodedSignedProgramCall(identity, key, 0, _MAX_U64, canonical, sender, transaction.nonce)
 
 
 def assert_fresh_simulation_observation(
@@ -252,192 +180,6 @@ def assert_fresh_simulation_observation(
         or now - observed_at > maximum_age_milliseconds
     ):
         _fail("simulation observation bounds")
-
-
-def decode_and_verify_program_terminal(
-    terminal_payload: bytes,
-    call_graph: bytes,
-    expected_program_id: str,
-    receipt: ProgramReceiptOutcome,
-    protocol_version: int,
-    *, protocol: ProtocolReceipt | None = None, expected_payload_hash: bytes | None = None,
-    occupancy_payers: tuple[OccupancyPayer, ...] = (),
-) -> DecodedProgramTerminal:
-    if not call_graph or sha256(call_graph).digest() != receipt.call_graph_root:
-        _fail("program call graph root")
-    if not terminal_payload or len(terminal_payload) > 1_048_576 or sha256(terminal_payload).digest() != receipt.terminal_payload_root:
-        _fail("program terminal root")
-    if terminal_payload.startswith(_PRE_RUNTIME):
-        return _verify_pre_runtime(terminal_payload, call_graph, receipt, protocol_version,
-                                   protocol, expected_payload_hash)
-    inner = terminal_payload
-    if receipt.encoding_version == 4:
-        domain = b"LXP/programs/terminal-applied-legs/v1\0"
-        wrapper = _Reader(inner)
-        if wrapper.fixed(len(domain)) != domain:
-            _fail("applied terminal domain")
-        inner = wrapper.sized_u32(1_048_576)
-        if not inner:
-            _fail("empty applied terminal detail")
-        legs = wrapper.sized_u32(256 * 115)
-        wrapper.end()
-        if sha256(legs).digest() != receipt.applied_legs_digest:
-            _fail("applied legs digest")
-        _verify_applied_legs(legs, receipt.transfer_root)
-    authorization: bytes | None = None
-    authority_root: bytes | None = None
-    occupancy: bytes | None = None
-    if inner.startswith(_AUTHORITY):
-        wrapper = _Reader(inner[len(_AUTHORITY):])
-        inner = wrapper.sized_u32(1_048_576)
-        authorization = wrapper.sized_u32(1_048_576)
-        authority_root = wrapper.fixed(32)
-        wrapper.end()
-    if inner.startswith(_OCCUPANCY):
-        wrapper = _Reader(inner[len(_OCCUPANCY):])
-        inner = wrapper.sized_u32(1_048_576)
-        occupancy = wrapper.sized_u32(65_536)
-        wrapper.end()
-    if inner.startswith((_AUTHORITY, _OCCUPANCY)):
-        _fail("program terminal wrapper order")
-
-    usage: Mapping[str, object] | None = None
-    candidate = False
-    successful = False
-    if inner.startswith((_EXECUTION_V2, _EXECUTION_V3)):
-        if receipt.terminal_kind != 1 or receipt.abi_version != 1:
-            _fail("legacy terminal kind")
-        traced = inner.startswith(_EXECUTION_V3)
-        decoded = _decode_legacy(inner[len(_EXECUTION_V3 if traced else _EXECUTION_V2):], traced)
-        _bind_metadata(decoded, receipt)
-        outcome: Mapping[str, object] = {"kind": "legacy_completed", "code": receipt.result_code, "values": decoded["values"]}
-        usage = cast(Mapping[str, object], decoded["usage"])
-        successful = True
-    elif inner.startswith((_EXECUTION_V4, _EXECUTION_V5)):
-        candidate = True
-        if inner.startswith(_EXECUTION_V5):
-            if protocol_version != 3 or receipt.abi_version not in (3, 4, 5):
-                _fail("v5 terminal ABI or protocol")
-            decoded = _decode_candidate_v5(inner[len(_EXECUTION_V5):], receipt.abi_version)
-            if decoded["kind"] != receipt.terminal_kind or decoded["program"] != expected_program_id:
-                _fail("v5 terminal binding")
-            if decoded["fee"] != receipt.fee_schedule_version:
-                _fail("v5 fee schedule binding")
-        else:
-            decoded = _decode_candidate(inner[len(_EXECUTION_V4):])
-            if decoded["kind"] != receipt.terminal_kind or receipt.abi_version != 2 or decoded["program"] != expected_program_id:
-                _fail("candidate terminal binding")
-        _bind_metadata(decoded, receipt)
-        if decoded["graph"] != call_graph:
-            _fail("candidate call graph")
-        if decoded["outcome"] == "success":
-            if receipt.result_code != 0:
-                _fail("candidate response result code")
-            outcome = {"kind": "completed", "code": decoded["code"], "response": cast(bytes, decoded["response"]).hex()}
-            successful = True
-        elif decoded["outcome"] == "failure":
-            outcome = {"kind": "refused", "failure": {"kind": "guest_refused", "code": receipt.result_code}}
-        else:
-            outcome = {"kind": "refused", "failure": {"kind": "resource"}}
-        usage = cast(Mapping[str, object], decoded["usage"])
-    elif inner.startswith(_FAILURE):
-        if receipt.terminal_kind != 2:
-            _fail("failure terminal kind")
-        _decode_failure(inner[len(_FAILURE):])
-        outcome = {"kind": "refused", "failure": {"kind": "guest_refused", "code": receipt.result_code}}
-    elif inner.startswith(_RESOURCE):
-        if receipt.terminal_kind != 3:
-            _fail("resource terminal kind")
-        reader = _Reader(inner[len(_RESOURCE):]); _decode_resource(reader, False); reader.end()
-        outcome = {"kind": "refused", "failure": {"kind": "resource"}}
-    elif inner.startswith(_SETTLEMENT):
-        if receipt.terminal_kind != 2 or len(inner) != len(_SETTLEMENT) + 1 or inner[-1] not in range(1, 13):
-            _fail("settlement terminal")
-        outcome = {"kind": "refused", "failure": {"kind": "guest_refused", "code": receipt.result_code}}
-    elif inner.startswith(_CALLBACK):
-        if receipt.terminal_kind != 2 or len(inner) != len(_CALLBACK) + 5:
-            _fail("callback terminal")
-        outcome = {"kind": "refused", "failure": {"kind": "guest_refused", "code": receipt.result_code}}
-    else:
-        _fail("unknown terminal domain")
-
-    occupancy_required = protocol_version in (2, 3) and successful
-    if (occupancy is not None) != occupancy_required:
-        _fail("occupancy attachment presence")
-    occupancy_payment_accounts: tuple[bytes, ...] = ()
-    if occupancy is not None:
-        if not occupancy:
-            if receipt.occupancy_evidence_digest != bytes(32) or receipt.occupancy_transfer_root != bytes(32) or receipt.occupancy_byte_batches or receipt.occupancy_fee_units:
-                _fail("empty occupancy attachment")
-        else:
-            if sha256(occupancy).digest() != receipt.occupancy_evidence_digest:
-                _fail("occupancy evidence digest")
-            settlement = _decode_occupancy_settlement(occupancy)
-            if (settlement["byte_batches"] != receipt.occupancy_byte_batches
-                    or settlement["fee_units"] != receipt.occupancy_fee_units):
-                _fail("occupancy receipt binding")
-            occupancy_payment_accounts = _verify_occupancy_transfer_root(
-                settlement, protocol_version, receipt.occupancy_asset_id,
-                receipt.occupancy_transfer_root, occupancy_payers)
-    elif receipt.occupancy_evidence_digest != bytes(32) or receipt.occupancy_transfer_root != bytes(32) or receipt.occupancy_byte_batches or receipt.occupancy_fee_units:
-        _fail("unexpected occupancy commitment")
-    transfer_present = receipt.transfer_root != bytes(32)
-    recorded = receipt.encoding_version != 4 and authorization is None and transfer_present
-    authority_required = candidate or receipt.encoding_version == 4 and successful
-    if not recorded and ((authorization is not None) != transfer_present if authority_required else authorization is not None):
-        _fail("transfer authority presence")
-    if authorization is not None:
-        if not authorization or authority_root != receipt.transfer_root:
-            _fail("transfer authority root")
-        _verify_authorization_root(authorization, cast(bytes, authority_root),
-                                   require_v2=receipt.encoding_version == 4)
-    if protocol_version not in (1, 2, 3):
-        _fail("program receipt protocol")
-    return DecodedProgramTerminal(outcome, usage if usage is not None else _receipt_usage(receipt),
-        "recorded_terminal_root_not_locally_reconstructable" if recorded else "reconstructed",
-        occupancy_payment_accounts)
-
-
-def _verify_pre_runtime(terminal: bytes, graph: bytes, outcome: ProgramReceiptOutcome,
-                        protocol_version: int, protocol: ProtocolReceipt | None,
-                        expected_payload_hash: bytes | None) -> DecodedProgramTerminal:
-    if protocol is None or expected_payload_hash is None or len(expected_payload_hash) != 32:
-        _fail("pre-runtime original call binding required")
-    reader = _Reader(terminal[len(_PRE_RUNTIME):])
-    activity = reader.fixed(32)
-    payload_hash = reader.fixed(32)
-    result = reader.i32()
-    module = reader.u32()
-    parameter = reader.u32()
-    encoding, applied = 3, bytes(32)
-    if reader.remaining():
-        encoding = reader.byte()
-        if encoding != 4:
-            _fail("pre-runtime encoding")
-        applied = reader.fixed(32)
-    reader.end()
-    if (result >= 0 or activity != protocol.activity_id or payload_hash != expected_payload_hash
-            or result != protocol.result_code or result != outcome.result_code
-            or module != protocol.module_version or parameter != protocol.parameter_version
-            or encoding != outcome.encoding_version or protocol.module_id != 9 or protocol.operation != 3
-            or protocol.protocol_version != protocol_version or protocol.program_outcome != outcome
-            or outcome.terminal_kind != 2 or outcome.runtime_version != 1
-            or (protocol_version, encoding) not in ((2, 3), (3, 4))
-            or outcome.memory_bytes or outcome.storage_read_bytes
-            or outcome.output_values or outcome.output_bytes):
-        _fail("pre-runtime receipt binding")
-    empty = sha256(b"").digest() if encoding == 4 else bytes(32)
-    if applied != empty or outcome.applied_legs_digest != empty or outcome.transfer_root != bytes(32):
-        _fail("pre-runtime transfer authority")
-    if (outcome.occupancy_asset_id != bytes(32) or outcome.occupancy_evidence_digest != bytes(32)
-            or outcome.occupancy_transfer_root != bytes(32)
-            or outcome.occupancy_byte_batches or outcome.occupancy_fee_units):
-        _fail("pre-runtime occupancy")
-    if graph != _EMPTY_CALL_GRAPH:
-        _fail("pre-runtime call graph")
-    return DecodedProgramTerminal(
-        {"kind": "refused", "failure": {"kind": "guest_refused", "code": result}},
-        _receipt_usage(outcome), "reconstructed")
 
 
 def _verify_applied_legs(encoded: bytes, expected: bytes) -> None:
@@ -673,15 +415,6 @@ def _decode_resource(reader: _Reader, candidate: bool, usage: Mapping[str, objec
 def _usage_for(usage: Mapping[str, object], resource: int) -> int:
     fields = ("cpu_fuel", "memory_bytes", "storage_read_bytes", "storage_write_bytes", "output_values", "output_bytes")
     return int(usage[fields[resource]]) if resource < len(fields) else 0
-
-
-def _bind_metadata(decoded: Mapping[str, object], receipt: ProgramReceiptOutcome) -> None:
-    if decoded["runtime"] != receipt.runtime_version or decoded["abi"] != receipt.abi_version or (decoded["abi"] == 2 and decoded["fee"] != receipt.fee_schedule_version) or decoded["metering"] != receipt.metering_schedule_version or decoded["usage"] != _receipt_usage(receipt):
-        _fail("terminal receipt metadata")
-
-
-def _receipt_usage(receipt: ProgramReceiptOutcome) -> Mapping[str, object]:
-    return _usage(receipt.cpu_fuel, receipt.memory_bytes, receipt.storage_read_bytes, receipt.storage_write_bytes, receipt.output_values, receipt.output_bytes, receipt.fee_units)
 
 
 def _usage(cpu: int, memory: int, read: int, write: int, values: int, output: int, fee: int) -> Mapping[str, object]:

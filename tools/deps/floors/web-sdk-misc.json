@@ -1,0 +1,24 @@
+{
+  "manifests": {
+    "apps/web/package-lock.json": {
+      "brace-expansion": "5.0.12",
+      "esbuild": "0.28.1",
+      "minimatch": "11.0.1",
+      "next": "16.4.1",
+      "sharp": "0.35.5",
+      "source-map-js": "1.2.2"
+    },
+    "sdk/js/package-lock.json": {
+      "protobufjs": "7.6.3"
+    },
+    "tools/wasm-tools/playground/package-lock.json": {
+      "esbuild": "0.25.0"
+    },
+    "apps/bridge/package.json": {
+      "vitest": "4.1.11"
+    },
+    "sdk/wallet/package.json": {
+      "vitest": "4.1.11"
+    }
+  }
+}

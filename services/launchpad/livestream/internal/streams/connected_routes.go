@@ -18,6 +18,7 @@ import (
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/config"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/livestream/internal/livepeer"
 	sharedauth "github.com/Sidiora-Technologies/KindleLaunch/shared/auth"
+	v2 "github.com/Sidiora-Technologies/KindleLaunch/shared/interfaces/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -45,6 +46,16 @@ func (p *RestrictionReader) Allowed(ctx context.Context, wallet, pool string) (b
 	return !banned, nil
 }
 func (h *Handlers) operationMutation(w http.ResponseWriter, r *http.Request, action string, o Operation, body []byte, mutate func(context.Context, pgx.Tx, Authorization) (Operation, error)) {
+	h.operationMutationResponse(w, r, action, o, body, mutate, func(_ string, changed Operation) ([]byte, error) {
+		result, err := AdaptV2Operation(changed)
+		if err != nil {
+			return nil, err
+		}
+		return json.Marshal(map[string]any{"operation": result})
+	})
+}
+
+func (h *Handlers) operationMutationResponse(w http.ResponseWriter, r *http.Request, action string, o Operation, body []byte, mutate func(context.Context, pgx.Tx, Authorization) (Operation, error), adapt func(string, Operation) ([]byte, error)) {
 	if h.lifecycle == nil || h.operationLedger == nil || h.operationVerifier == nil || h.restrictions == nil || h.operationLedger.Pool != h.lifecycle.pool {
 		h.lifecycleError(w, ErrUnavailable)
 		return
@@ -105,11 +116,7 @@ func (h *Handlers) operationMutation(w http.ResponseWriter, r *http.Request, act
 		if e != nil {
 			return nil, e
 		}
-		result, e := AdaptV2Operation(changed)
-		if e != nil {
-			return nil, e
-		}
-		return json.Marshal(map[string]any{"operation": result})
+		return adapt(requestID, changed)
 	})
 	if err != nil {
 		if errors.Is(err, sharedauth.ErrReplayMismatch) {
@@ -168,10 +175,14 @@ func (h *Handlers) connectedCreate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	h.operationMutation(w, r, "stream.create", Operation{Pool: body.PoolAddress, Title: body.Title}, raw, func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
+	if err := v2.ValidateJSON("StreamCreateBody", raw); err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	h.operationMutationResponse(w, r, "stream.create", Operation{Pool: body.PoolAddress, Title: body.Title}, raw, func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
 		ready := h.providerReady != nil && h.providerReady(ctx) == nil
 		return h.lifecycle.CreateTx(ctx, tx, CreateIntent{Wallet: d.Wallet, Pool: body.PoolAddress, Title: body.Title, IdempotencyKey: r.Header.Get("Idempotency-Key")}, CreatorDecision{Wallet: d.Wallet, Pool: d.Pool, Allowed: d.Allowed, ExpiresAt: d.ExpiresAt}, ready)
-	})
+	}, AdaptV2StreamCreate)
 }
 func (h *Handlers) connectedAction(w http.ResponseWriter, r *http.Request, action string) {
 	if h.lifecycle == nil {
@@ -190,12 +201,42 @@ func (h *Handlers) connectedAction(w http.ResponseWriter, r *http.Request, actio
 	if !ok {
 		return
 	}
-	revision, err := strconv.ParseInt(body.Revision, 10, 64)
-	if err != nil || revision < 1 || strconv.FormatInt(revision, 10) != body.Revision {
+	h.actionCore(w, r, action, o, raw, body.Revision, nil)
+}
+
+func (h *Handlers) frozenAction(w http.ResponseWriter, r *http.Request, action string) {
+	var body v2.StreamStartBody
+	raw, ok := boundedBody(w, r, 1024, &body)
+	if !ok {
+		return
+	}
+	if err := v2.ValidateJSON("StreamStartBody", raw); err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	if h.lifecycle == nil {
+		h.lifecycleError(w, ErrUnavailable)
+		return
+	}
+	o, err := h.lifecycle.Get(r.Context(), chi.URLParam(r, "id"))
+	if err != nil {
+		h.lifecycleError(w, err)
+		return
+	}
+	adapt := AdaptV2StreamStart
+	if action == "end" {
+		adapt = AdaptV2StreamEnd
+	}
+	h.actionCore(w, r, action, o, raw, string(body.ExpectedRevision), adapt)
+}
+
+func (h *Handlers) actionCore(w http.ResponseWriter, r *http.Request, action string, o Operation, raw []byte, expectedRevision string, adapt func(string, Operation) ([]byte, error)) {
+	revision, err := strconv.ParseInt(expectedRevision, 10, 64)
+	if err != nil || revision < 1 || strconv.FormatInt(revision, 10) != expectedRevision {
 		h.lifecycleError(w, ErrInvalid)
 		return
 	}
-	h.operationMutation(w, r, "stream."+action, o, raw, func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
+	mutate := func(ctx context.Context, tx pgx.Tx, d Authorization) (Operation, error) {
 		if action == "rotate" {
 			return h.lifecycle.RequestRotationTx(ctx, tx, o.ID, d.Wallet, revision)
 		}
@@ -203,7 +244,12 @@ func (h *Handlers) connectedAction(w http.ResponseWriter, r *http.Request, actio
 			return h.lifecycle.RequestRestorationTx(ctx, tx, o.ID, d.Wallet, revision)
 		}
 		return h.lifecycle.TransitionTx(ctx, tx, o.ID, d.Wallet, action, revision, ActionDecision{Wallet: d.Wallet, OperationID: o.ID, Action: action, Revision: revision, Allowed: d.Allowed, ExpiresAt: d.ExpiresAt})
-	})
+	}
+	if adapt != nil {
+		h.operationMutationResponse(w, r, "stream."+action, o, raw, mutate, adapt)
+		return
+	}
+	h.operationMutation(w, r, "stream."+action, o, raw, mutate)
 }
 func (h *Handlers) connectedEdit(w http.ResponseWriter, r *http.Request) {
 	if h.lifecycle == nil {
@@ -331,6 +377,27 @@ func (h *Handlers) connectedHeartbeat(w http.ResponseWriter, r *http.Request) {
 	if _, ok := boundedBody(w, r, 1024, &body); !ok {
 		return
 	}
+	h.heartbeatCore(w, r, body.SessionID, body.Token, false)
+}
+
+func (h *Handlers) frozenHeartbeat(w http.ResponseWriter, r *http.Request) {
+	var body v2.StreamHeartbeatBody
+	raw, ok := boundedBody(w, r, 32768, &body)
+	if !ok {
+		return
+	}
+	if err := v2.ValidateJSON("StreamHeartbeatBody", raw); err != nil {
+		h.lifecycleError(w, ErrInvalidRequest)
+		return
+	}
+	h.heartbeatCore(w, r, body.PlaybackSessionId, body.ViewerToken, true)
+}
+
+func (h *Handlers) heartbeatCore(w http.ResponseWriter, r *http.Request, sessionID, token string, frozen bool) {
+	if h.lifecycle == nil || h.viewerTokens == nil || h.viewers == nil {
+		h.lifecycleError(w, ErrUnavailable)
+		return
+	}
 	id := chi.URLParam(r, "id")
 	private, policyRevision, privacyErr := h.lifecycle.PlaybackPrivacy(r.Context(), id)
 	if errors.Is(privacyErr, ErrInvalid) {
@@ -341,7 +408,7 @@ func (h *Handlers) connectedHeartbeat(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	if err := h.viewerTokens.VerifyPolicyBound(body.Token, id, body.SessionID, policyRevision, h.clock()); err != nil {
+	if err := h.viewerTokens.VerifyPolicyBound(token, id, sessionID, policyRevision, h.clock()); err != nil {
 		h.lifecycleError(w, ErrViewerToken)
 		return
 	}
@@ -364,13 +431,39 @@ func (h *Handlers) connectedHeartbeat(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	_ = private
-	estimate, err := h.viewers.Heartbeat(r.Context(), id, body.SessionID)
+	estimate, err := h.viewers.Heartbeat(r.Context(), id, sessionID)
 	if err != nil {
 		h.lifecycleError(w, err)
 		return
 	}
 	if !estimate.Accepted {
 		writeRateLimited(w, 15, "Viewer heartbeat rate limited")
+		return
+	}
+	if frozen {
+		requestID, err := randomID()
+		if err != nil {
+			h.lifecycleError(w, err)
+			return
+		}
+		raw, err := AdaptV2StreamHeartbeat(requestID, id, estimate.Count, h.clock())
+		if err != nil {
+			h.lifecycleError(w, err)
+			return
+		}
+		if estimate.Stale {
+			var response v2.StreamHeartbeatResponse
+			if err = json.Unmarshal(raw, &response); err == nil {
+				response.Data.ViewerQuality = "stale"
+				raw, err = marshalV2Lifecycle("StreamHeartbeatResponse", response)
+			}
+			if err != nil {
+				h.lifecycleError(w, err)
+				return
+			}
+		}
+		w.Header().Set("Cache-Control", "no-store")
+		writeJSON(w, http.StatusOK, json.RawMessage(raw))
 		return
 	}
 	quality := "verified"
@@ -453,21 +546,17 @@ func (h *Handlers) connectedCredential(w http.ResponseWriter, r *http.Request) {
 		h.lifecycleError(w, ErrDenied)
 		return
 	}
-	if strings.HasSuffix(r.URL.Path, "/ingest-key") {
-		if h.ingestKeys == nil {
-			h.lifecycleError(w, ErrUnavailable)
-			return
-		}
-		key, e := h.ingestKeys.LoadKey(r.Context(), o)
-		if e != nil {
-			h.lifecycleError(w, e)
-			return
-		}
-		w.Header().Set("Cache-Control", "no-store")
-		writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestKey": key})
+	if h.ingestKeys == nil {
+		h.lifecycleError(w, ErrUnavailable)
 		return
 	}
-	h.ingestCredential(w, r)
+	key, e := h.ingestKeys.LoadKey(r.Context(), o)
+	if e != nil {
+		h.lifecycleError(w, e)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, 200, map[string]any{"streamId": o.ID, "ingestKey": key})
 }
 func (p *RestrictionReader) AllowedTx(ctx context.Context, tx pgx.Tx, wallet, pool string) (bool, error) {
 	if p == nil || tx == nil || !addressPattern.MatchString(wallet) || !addressPattern.MatchString(pool) {
@@ -568,7 +657,7 @@ func NewConnectedRuntime(ctx context.Context, cfg config.Config, pool *pgxpool.P
 		return nil
 	}
 	metrics := &LifecycleMetrics{}
-	deps := Deps{PlaybackWebhookSecret: cfg.PlaybackWebhookSecret, ObserveOutcome: metrics.ObserveWebhook, Lifecycle: lifecycle, Authorize: authorize, ProviderReady: ready, IngestKeys: keys, Viewers: viewers, ViewerTokens: &ViewerTokenAuthority{Key: []byte(cfg.ViewerTokenKey)}, OperationLedger: &sharedauth.Ledger{Pool: pool, Environment: cfg.ActionEnvironment, AuditKey: []byte(cfg.ActionAuditKey)}, OperationVerifier: &sharedauth.WalletOperationVerifier{Backend: backend}, Restrictions: policy, Livepeer: provider, WebhookSecret: cfg.LivepeerWebhookSecret, DecodeWebhook: decode, WebhookMilliseconds: cfg.WebhookTimestampUnit == "milliseconds", Playback: ProviderPlayback(provider, thumbnails), MarketCaps: &MarketCapReader{Pool: pool}}
+	deps := Deps{StudioWebhook: true, PlaybackWebhookSecret: cfg.PlaybackWebhookSecret, ObserveOutcome: metrics.ObserveWebhook, Lifecycle: lifecycle, Authorize: authorize, ProviderReady: ready, IngestKeys: keys, Viewers: viewers, ViewerTokens: &ViewerTokenAuthority{Key: []byte(cfg.ViewerTokenKey)}, OperationLedger: &sharedauth.Ledger{Pool: pool, Environment: cfg.ActionEnvironment, AuditKey: []byte(cfg.ActionAuditKey)}, OperationVerifier: &sharedauth.WalletOperationVerifier{Backend: backend}, Restrictions: policy, Livepeer: provider, WebhookSecret: cfg.LivepeerWebhookSecret, DecodeWebhook: decode, WebhookMilliseconds: cfg.WebhookTimestampUnit == "milliseconds", Playback: ProviderPlayback(provider, thumbnails), MarketCaps: &MarketCapReader{Pool: pool}}
 	return &ConnectedRuntime{Usage: usage, Metrics: metrics, Deps: deps, Provision: &ProvisionWorker{Store: lifecycle, Provider: provider, Credentials: keys, Restrictions: policy}, Reconcile: &ReconcileWorker{Store: lifecycle, Provider: provider, Restrictions: policy, Disagreement: metrics.DisagreementAlert}, Ready: ready}, nil
 }
 func (r *ConnectedRuntime) Run(ctx context.Context) error {

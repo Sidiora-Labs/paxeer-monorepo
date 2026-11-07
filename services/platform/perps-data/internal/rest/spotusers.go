@@ -38,9 +38,11 @@ type SpotNode interface {
 // SpotUsers serves the spot user routes and the spot leaderboards of
 // contracts/data-services.md section 25 from schema perps and the node.
 type SpotUsers struct {
-	db    *sql.DB
-	node  SpotNode
-	board spotBoard
+	db          *sql.DB
+	node        SpotNode
+	board       spotBoard
+	marketsOnce sync.Once
+	markets     *records.MarketSet
 }
 
 // spotBoardTTL is how long one fold of every account serves the leaderboards.
@@ -362,6 +364,7 @@ type spotTrader struct {
 // tokens it received by transfer) is logged once with the reason and left
 // out; it never fails the fold of the others. omitted counts those accounts.
 func (s *SpotUsers) fold(ctx context.Context, user *common.Address) (traders map[common.Address]*spotTrader, omitted int, err error) {
+	s.board.folds.Add(1)
 	var arg any
 	if user != nil {
 		arg = user.Bytes()
@@ -632,37 +635,40 @@ func (s *SpotUsers) positions(ctx context.Context, user common.Address, _ map[st
 	if err != nil {
 		return nil, err
 	}
+	return s.positionsFromFold(ctx, user, traders[user])
+}
+
+func (s *SpotUsers) positionsFromFold(ctx context.Context, user common.Address, tr *spotTrader) (spotPositionsBody, error) {
 	body := spotPositionsBody{Address: spotHex(user), Positions: []spotPositionJSON{}}
-	tr := traders[user]
 	if tr == nil {
 		return body, nil
 	}
 	tokens, err := s.tokens(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	height, err := s.head(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	for _, b := range tr.books {
 		node, err := s.balanceOf(ctx, b.token, user, height)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		qty, err := spotInt(b.pos.CurrentHoldings)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		sold, err := spotInt(b.pos.TotalTokensSold)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		var avgExit *string
 		if sold.Sign() > 0 {
 			received, err := spotInt(b.pos.TotalUsdlReceived)
 			if err != nil {
-				return nil, err
+				return body, err
 			}
 			v := new(big.Int).Quo(new(big.Int).Mul(received, spotWad), sold).String()
 			avgExit = &v
@@ -1078,12 +1084,18 @@ func (s *SpotUsers) mark(ctx context.Context, meta spotToken) (string, bool, err
 	if meta.symbol == nil || meta.decimals == nil {
 		return "", false, nil
 	}
-	market, ok := marketIDs[*meta.symbol]
+	s.marketsOnce.Do(func() {
+		s.markets = records.NewMarketSet(s.db, 30*time.Second)
+	})
+	market, ok, err := s.markets.ID(ctx, *meta.symbol)
+	if err != nil {
+		return "", false, err
+	}
 	if !ok {
 		return "", false, nil
 	}
 	var raw string
-	err := s.db.QueryRowContext(ctx, spotIndexPriceSQL, market).Scan(&raw)
+	err = s.db.QueryRowContext(ctx, spotIndexPriceSQL, market).Scan(&raw)
 	if errors.Is(err, sql.ErrNoRows) {
 		return "", false, nil
 	}
@@ -1119,8 +1131,11 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 	if err != nil {
 		return nil, err
 	}
+	return s.pnlSummaryFromFold(ctx, user, traders[user])
+}
+
+func (s *SpotUsers) pnlSummaryFromFold(ctx context.Context, user common.Address, tr *spotTrader) (spotPnlBody, error) {
 	body := spotPnlBody{Address: spotHex(user), RealizedUsd: "0"}
-	tr := traders[user]
 	if tr == nil {
 		zero := "0"
 		body.UnrealizedUsd, body.TotalUsd = &zero, &zero
@@ -1128,11 +1143,11 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 	}
 	tokens, err := s.tokens(ctx)
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	realized, err := tr.realized()
 	if err != nil {
-		return nil, err
+		return body, err
 	}
 	unrealized, marked := new(big.Int), true
 	for _, b := range tr.books {
@@ -1141,7 +1156,7 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 		}
 		price, ok, err := s.mark(ctx, tokens[b.token])
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		if !ok {
 			marked = false
@@ -1149,15 +1164,15 @@ func (s *SpotUsers) pnlSummary(ctx context.Context, user common.Address, _ map[s
 		}
 		raw, err := pnl.TotalPnl(b.pos.RealizedPnlUsdl, b.pos.AvgCostBasis, b.pos.CurrentHoldings, price)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		total, err := spotInt(raw)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		own, err := spotInt(b.pos.RealizedPnlUsdl)
 		if err != nil {
-			return nil, err
+			return body, err
 		}
 		unrealized.Add(unrealized, total.Sub(total, own))
 	}
@@ -1248,9 +1263,7 @@ type spotLeaderboardBody struct {
 	Items           []spotRankJSON `json:"items"`
 }
 
-// leaderboard ranks every spot trader by realized profit (pnl), stable volume
-// (volume) or the percentage of profitable closed legs among the decided ones
-// (win-rate), highest first, ties by address.
+// leaderboard serves the ranks published by the spot store projection.
 func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 	kind := r.PathValue("kind")
 	if !slices.Contains(spotLeaderboards, kind) {
@@ -1262,8 +1275,43 @@ func (s *SpotUsers) leaderboard(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid limit")
 		return
 	}
-	body, err := s.rank(r.Context(), kind, limit)
+	body, err := s.projectedRank(r.Context(), kind, limit)
 	spotWrite(w, body, err)
+}
+
+// One statement gives metadata and bounded ranks the same MVCC snapshot,
+// including a metadata row when this kind has no entries.
+const spotLeaderboardSQL = `SELECT g.generated_at, g.omitted_accounts, r.rank, r.account,
+	CASE WHEN r.kind = 'win-rate' THEN round(r.value, 4)::text ELSE r.value::text END
+FROM (SELECT 1) one
+LEFT JOIN perps.spot_board_generation g ON g.singleton = true
+LEFT JOIN LATERAL (SELECT kind, rank, account, value FROM perps.spot_leaderboard
+	WHERE kind = $1 ORDER BY rank LIMIT $2) r ON true ORDER BY r.rank`
+
+func (s *SpotUsers) projectedRank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
+	body := spotLeaderboardBody{Kind: kind, Items: []spotRankJSON{}}
+	rows, err := s.db.QueryContext(ctx, spotLeaderboardSQL, kind, limit)
+	if err != nil {
+		return body, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var at sql.NullTime
+		var omitted, rank sql.NullInt64
+		var value sql.NullString
+		var account []byte
+		if err := rows.Scan(&at, &omitted, &rank, &account, &value); err != nil {
+			return body, err
+		}
+		if at.Valid {
+			body.AsOf = spotISO(at.Time)
+		}
+		body.OmittedAccounts = int(omitted.Int64)
+		if rank.Valid {
+			body.Items = append(body.Items, spotRankJSON{Rank: int(rank.Int64), Address: spotHex(common.BytesToAddress(account)), Value: value.String})
+		}
+	}
+	return body, rows.Err()
 }
 
 func (s *SpotUsers) rank(ctx context.Context, kind string, limit int) (spotLeaderboardBody, error) {
@@ -1309,7 +1357,6 @@ func (s *SpotUsers) rebuildBoard() (any, error) {
 	if view, ok := s.freshBoard(); ok {
 		return view, nil
 	}
-	s.board.folds.Add(1)
 	ctx, cancel := context.WithTimeout(context.Background(), spotBoardFoldTimeout)
 	defer cancel()
 	ranks, omitted, err := s.rankAll(ctx)
@@ -1404,8 +1451,6 @@ const spotOrderAccountSQL = `SELECT account FROM perps.spot_orders WHERE order_i
 // SpotTrade, the positions of its token as SpotPosition, the profit summary
 // as SpotPnlSummary and the leg it closed as SpotClosedLeg. Other rows feed
 // no stream.
-// ponytail: each trade refolds the account's history three times (positions,
-// profit, legs); fold once and share it if busy accounts lag the socket.
 func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]SpotStreamItem, error) {
 	var p spotFactPayload
 	if err := json.Unmarshal(env.Payload, &p); err != nil {
@@ -1450,17 +1495,25 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 		return nil, fmt.Errorf("rest: spot payload block %q", p.Block)
 	}
 	trade, found, err := s.tradeAt(ctx, user, block, p.LogIndex)
-	if err != nil || !found {
-		return items, err
+	if err != nil {
+		return nil, err
+	}
+	if !found {
+		return nil, fmt.Errorf("rest: spot trade %s-%d of event %s not found", p.Block, p.LogIndex, env.EventID)
 	}
 	if items, err = appendSpotItem(items, "trade", user, trade); err != nil {
 		return nil, err
 	}
-	positions, err := s.positions(ctx, user, nil)
+	traders, _, err := s.fold(ctx, &user)
 	if err != nil {
 		return nil, err
 	}
-	for _, position := range positions.(spotPositionsBody).Positions {
+	tr := traders[user]
+	positions, err := s.positionsFromFold(ctx, user, tr)
+	if err != nil {
+		return nil, err
+	}
+	for _, position := range positions.Positions {
 		if position.Token != trade.TokenIn && position.Token != trade.TokenOut {
 			continue
 		}
@@ -1468,18 +1521,14 @@ func (s *SpotUsers) StreamItems(ctx context.Context, env delivery.Envelope) ([]S
 			return nil, err
 		}
 	}
-	summary, err := s.pnlSummary(ctx, user, nil)
+	summary, err := s.pnlSummaryFromFold(ctx, user, tr)
 	if err != nil {
 		return nil, err
 	}
 	if items, err = appendSpotItem(items, "pnl", user, summary); err != nil {
 		return nil, err
 	}
-	traders, _, err := s.fold(ctx, &user)
-	if err != nil {
-		return nil, err
-	}
-	if tr := traders[user]; tr != nil {
+	if tr != nil {
 		tokens, err := s.tokens(ctx)
 		if err != nil {
 			return nil, err

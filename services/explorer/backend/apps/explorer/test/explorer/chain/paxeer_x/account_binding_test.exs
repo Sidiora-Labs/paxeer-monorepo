@@ -148,14 +148,19 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
 
       assert UnifiedAccount.identities(address_hash) == %{
                evm: Address.checksum(address_hash),
-               pax: nil,
+               pax: @pax_address,
                did: did,
-               kernel_account: nil,
                bound: true
              }
 
       assert {:ok, identity} = Identity.parse(did)
       assert {:ok, ^address_hash} = UnifiedAccount.resolve(identity, [])
+      reader = Task.async(fn -> UnifiedAccount.identities(address_hash) end)
+      assert %{bound: true, did: ^did, pax: @pax_address, evm: evm} = Task.await(reader)
+      refute Process.alive?(reader.pid)
+      reopened = Task.async(fn -> UnifiedAccount.identities(address_hash) end)
+      assert Task.await(reopened) == %{bound: true, did: did, pax: @pax_address, evm: evm}
+      assert {:ok, %{insert_paxeer_x_account_bindings: []}} = Import.all(options)
     end
 
     test "the later LayerXUnbound log removes the current identity view" do
@@ -183,12 +188,22 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
 
       assert {:ok, identity} = Identity.parse(bound.layerx_did)
       assert :error = UnifiedAccount.resolve(identity, [])
+      reader = Task.async(fn -> UnifiedAccount.identities(address_hash) end)
+      expected = %{evm: Address.checksum(address_hash), pax: nil, did: nil, bound: false}
+      assert Task.await(reader) == expected
+      refute Process.alive?(reader.pid)
+      reopened = Task.async(fn -> UnifiedAccount.identities(address_hash) end)
+      assert Task.await(reopened) == expected
+
+      assert {:ok, %{insert_paxeer_x_account_bindings: []}} =
+               Import.all(%{paxeer_x_account_bindings: %{params: [unbound, bound]}})
+
+      assert Repo.aggregate(AccountBinding, :count) == 2
     end
 
     test "refuses a binding topic from another emitter and missing binding arguments" do
@@ -228,7 +243,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: @pax_address,
                did: attrs.layerx_did,
-               kernel_account: attrs.layerx_account,
                bound: true
              }
 
@@ -259,7 +273,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
     end
@@ -337,7 +350,6 @@ defmodule Explorer.Chain.PaxeerX.AccountBindingTest do
                evm: Address.checksum(reorged_attrs.evm_address_hash),
                pax: nil,
                did: nil,
-               kernel_account: nil,
                bound: false
              }
 

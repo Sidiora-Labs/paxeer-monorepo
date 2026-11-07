@@ -1,5 +1,6 @@
 /**
- * Collateral, PnL & Liquidation helpers for Paxeer Perps positions.
+ * Position-only collateral, PnL and liquidation estimates for Paxeer Perps.
+ * Cross-margin account risk comes separately from the current getAccount view.
  *
  * Every amount is a bigint at the 18-decimal scale the perps gateway and the
  * perps precompile use for sizeUsd, collateralUsd, leverage, entryPrice,
@@ -14,8 +15,9 @@
  *
  *   remainingCollateral = initialCollateral + unrealizedPnl − fundingPaid − fees
  *
- *   Liquidation occurs when remainingCollateral ≤ maintenanceMargin (10% of initial).
- *     cushion  = (1 − mm) / leverage − (fundingPaid + fees) / sizeUsd
+ *   The position-only estimate reaches the market tier maintenance when:
+ *     maintenance = sizeUsd × maintenanceBps / 10000 − deductionUsd
+ *     cushion  = (initialCollateral − fundingPaid − fees − maintenance) / sizeUsd
  *     LONG  liqPrice = entryPrice × (1 − cushion)
  *     SHORT liqPrice = entryPrice × (1 + cushion)
  *
@@ -26,6 +28,8 @@
  */
 
 import { parseWei, toPlainDecimal } from "@/ui/utils/format";
+import { accountRiskFromView, type AccountRiskView, type AccountView } from "./accountView";
+import { maintenanceMargin as marketMaintenanceMargin, type MarginTier } from "./marketConfig";
 
 export const WAD = 10n ** 18n;
 const HUNDRED_PCT = 100n * WAD;
@@ -55,6 +59,10 @@ export interface ParsedPosition {
 }
 
 export interface PositionPnl {
+  estimateScope: "position-only";
+  liquidationPriceLabel: "Position-only liquidation estimate";
+  /** Current cross-margin risk; null until an account snapshot is supplied. */
+  accountRisk: AccountRiskView | null;
   markPrice: bigint;
   initialCollateral: bigint;    // sizeUsd / leverage (what the user actually put up)
   remainingCollateral: bigint;  // initialCollateral + unrealizedPnl − funding − fees (live)
@@ -63,7 +71,7 @@ export interface PositionPnl {
   unrealizedPnlPct: bigint;     // return on initial collateral, 18-dec percent
   netValue: bigint;             // remaining collateral (same as remainingCollateral)
   marginPct: bigint;            // remaining / sizeUsd × 100, 18-dec percent
-  liqPrice: bigint;             // estimated price where position is wiped out, 18-dec USD
+  liqPrice: bigint;             // position-only estimate, never the account liquidation boundary
   liqSafetyBps: bigint;         // 0 = at liquidation, 10000 = at or beyond entry
   roe: bigint;                  // alias for unrealizedPnlPct
 }
@@ -85,11 +93,7 @@ export interface PositionRowInput {
   openTxHash?: string;
 }
 
-// ── Constants ───────────────────────────────────────────────────────
-
-// Maintenance margin — positions are liquidated when remaining collateral
-// drops to this fraction of the initial collateral (1000 bps = 10%).
-const MAINTENANCE_MARGIN_BPS = 1_000n;
+export const maintenanceMargin = marketMaintenanceMargin;
 
 // ── Parsing ─────────────────────────────────────────────────────────
 
@@ -145,14 +149,29 @@ const ceilDiv = (a: bigint, b: bigint) => (a + b - 1n) / b; // a ≥ 0, b > 0
 
 // ── Core computation ────────────────────────────────────────────────
 
-export function computePositionPnl(pos: ParsedPosition, markPrice: bigint): PositionPnl {
+export function computePositionPnl(
+  pos: ParsedPosition,
+  markPrice: bigint,
+  tiers: readonly MarginTier[] = [],
+  account: AccountView | null = null,
+): PositionPnl {
   const { sizeUsd, entryPrice, leverage } = pos;
+  if (typeof markPrice !== "bigint" || sizeUsd < 0n || entryPrice < 0n || leverage < 0n) {
+    throw new RangeError("Invalid position PnL input");
+  }
+  const risk = {
+    estimateScope: "position-only",
+    liquidationPriceLabel: "Position-only liquidation estimate",
+    accountRisk: account === null ? null : accountRiskFromView(account),
+  } as const;
+  const maintenance = maintenanceMargin(sizeUsd, tiers);
   const initialCollateral = leverage > 0n ? (sizeUsd * WAD) / leverage : sizeUsd;
   const charges = pos.fundingPaidUsd + pos.feesUsd;
   const idle = initialCollateral - charges;
 
   if (markPrice <= 0n || entryPrice <= 0n) {
     return {
+      ...risk,
       markPrice: 0n,
       initialCollateral,
       remainingCollateral: idle,
@@ -177,17 +196,12 @@ export function computePositionPnl(pos: ParsedPosition, markPrice: bigint): Posi
     ? (move * (leverage > 0n ? leverage : WAD) * 100n) / entryPrice
     : 0n;
 
-  // Liq when remaining collateral = mm × initial, i.e. the loss equals
-  // initial × (1 − mm) − funding − fees. Over size, with initial = size / lev:
-  //   |Δ| / entry = (1 − mm) / lev − charges / size
-  // kept over the one denominator BPS × lev × size so nothing truncates early.
   let liqPrice = 0n;
   if (leverage > 0n && sizeUsd > 0n) {
-    const den = BPS * leverage * sizeUsd;
-    const cushion = (BPS - MAINTENANCE_MARGIN_BPS) * WAD * sizeUsd - charges * BPS * leverage;
+    const cushion = idle - maintenance;
     liqPrice = pos.isLong
-      ? den > cushion ? ceilDiv(entryPrice * (den - cushion), den) : 0n
-      : den + cushion > 0n ? (entryPrice * (den + cushion)) / den : 0n;
+      ? sizeUsd > cushion ? ceilDiv(entryPrice * (sizeUsd - cushion), sizeUsd) : 0n
+      : sizeUsd + cushion > 0n ? (entryPrice * (sizeUsd + cushion)) / sizeUsd : 0n;
   }
 
   // Safety: distance from mark to liq over the distance from entry to liq.
@@ -201,6 +215,7 @@ export function computePositionPnl(pos: ParsedPosition, markPrice: bigint): Posi
   }
 
   return {
+    ...risk,
     markPrice,
     initialCollateral,
     remainingCollateral,

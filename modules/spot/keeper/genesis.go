@@ -1,9 +1,11 @@
 package keeper
 
 import (
+	"bytes"
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/spot/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -15,7 +17,16 @@ import (
 const (
 	activationCursor byte = 0x00
 	fillCursor       byte = 0x01
+	expiryCursor     byte = 0x02
 )
+
+func expiryScanPosition(store sdk.KVStore) ([]byte, error) {
+	cursor := store.Get(recordKey(types.CursorPrefix, []byte{expiryCursor}))
+	if cursor != nil && len(cursor) != 16 {
+		return nil, fmt.Errorf("spot: invalid expiry cursor")
+	}
+	return cursor, nil
+}
 
 // recordKey is prefix followed by each part.
 func recordKey(prefix []byte, parts ...[]byte) []byte {
@@ -51,7 +62,8 @@ func getRecord(store sdk.KVStore, key []byte, out any) (bool, error) {
 }
 
 // InitGenesis imports every prefix of gs. It panics when gs fails
-// validation or a record cannot be written.
+// validation or a record cannot be written. AppModule passes its decoded JSON
+// here; active list positions are rebuilt in the supplied genesis order.
 func (k *Keeper) InitGenesis(ctx sdk.Context, gs types.GenesisState) {
 	if err := k.initGenesis(ctx, gs); err != nil {
 		panic(fmt.Errorf("spot: invalid genesis: %w", err))
@@ -109,12 +121,22 @@ func (k *Keeper) initGenesis(ctx sdk.Context, gs types.GenesisState) error {
 		{types.ActiveStopLimitPrefix, gs.ActiveStopLimitOrders},
 		{types.ActiveStopLossPrefix, gs.ActiveStopLossOrders},
 	} {
-		for i, id := range index.ids {
-			store.Set(recordKey(index.prefix, orderIDBytes(id)), orderIDBytes(uint64(i)))
+		for _, id := range index.ids {
+			if err := activeAdd(store, index.prefix, id); err != nil {
+				return err
+			}
 		}
 	}
 	for _, entry := range gs.Expiries {
 		store.Set(recordKey(types.ExpiryIndexPrefix, orderIDBytes(entry.ExpiresAt), orderIDBytes(entry.OrderID)), []byte{})
+	}
+	// Expiries are exported in circular scan order. The last entry is the
+	// predecessor of the next scan, including when the old cursor was removed.
+	store.Delete(recordKey(types.CursorPrefix, []byte{expiryCursor}))
+	if len(gs.Expiries) != 0 {
+		last := gs.Expiries[len(gs.Expiries)-1]
+		store.Set(recordKey(types.CursorPrefix, []byte{expiryCursor}),
+			recordKey(orderIDBytes(last.ExpiresAt), orderIDBytes(last.OrderID)))
 	}
 
 	type record struct {
@@ -303,6 +325,14 @@ func (k *Keeper) exportGenesis(ctx sdk.Context) (*types.GenesisState, error) {
 	expiries, err := exportKeys(store, types.ExpiryIndexPrefix, 16)
 	if err != nil {
 		return nil, err
+	}
+	cursor, err := expiryScanPosition(store)
+	if err != nil {
+		return nil, err
+	}
+	if len(cursor) != 0 {
+		next := sort.Search(len(expiries), func(i int) bool { return bytes.Compare(expiries[i], cursor) > 0 })
+		expiries = append(expiries[next:], expiries[:next]...)
 	}
 	for _, key := range expiries {
 		gs.Expiries = append(gs.Expiries, types.OrderExpiry{ExpiresAt: binary.BigEndian.Uint64(key[:8]),

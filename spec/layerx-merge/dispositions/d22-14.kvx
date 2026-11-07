@@ -1,0 +1,98 @@
+# Evidence read from main-line revision ace3608260f2ec826292dab08cd058031efe2f46.
+
+[disposition.22.16.4.2]
+finding = "22.16.4.2"
+status = "resolved"
+evidence = "Commit ff75a3d8a00ba84d6a93aa26e979d3d747cef368 changed tests/codec/lxp_test_receipt_authority_v2.c:138 to read the V2 authority record through begin_authority and assert its version, network, protocol, module, operation, result and block height directly from the 151-byte record. The byte-for-byte record comparison remains at tests/codec/lxp_test_receipt_authority_v2.c:152."
+
+[disposition.22.8.10.1]
+finding = "22.8.10.1"
+status = "environment"
+evidence = "On main, tools/platform/cli/src/credential.rs:17 selects operating-system credential storage by default and an encrypted file store when explicitly requested, while tools/platform/cli/src/credential.rs:48 reports an unavailable operating-system store as an error. The credential prerequisite check at tools/platform/cli/tests/common/credential_environment.rs:26 preserves mandatory D-Bus coverage when LAYERX_CLI_TESTS_REQUIRE_DBUS is set."
+
+[disposition.22.7.3.1]
+finding = "22.7.3.1"
+status = "resolved"
+evidence = "Commit 0aea0c30078d51279d6db6e229d2c3d290e50600 gives the receipt-root chain its consensus parameters at rpc/header_receipts_root_test.go:70 and checks both event-bus and committed-notifier heads against the same block's results at rpc/header_receipts_root_test.go:197. The tracer transaction uses the sender's current nonce at rpc/debug_tracer_shape_test.go:63, and rpc/notifier.go:121 publishes a copied header with the finalized block's state root."
+
+[disposition.22.9.23.1]
+finding = "22.9.23.1"
+status = "resolved"
+evidence = "Commit 8c8479abd94bc9750297a3fca4d828dc38a069de selects the ledger payExact vector and derives amount, asset and recipient from its PaymentExact log and payer from its padded transaction sender at services/agent/sdk/python/tests/test_sequencer_receipt.py:28. Grant draws bind the receiver controller and signed context, carry integer network_id 125, and sign the authorization at services/agent/sdk/python/tests/test_x402_draw_sequencer.py:235."
+
+[disposition.22.16.4.4]
+finding = "22.16.4.4"
+status = "resolved"
+evidence = "Commit ff75a3d8a00ba84d6a93aa26e979d3d747cef368 limits test_arbiter_native_authority_absent at tests/ci/test_requested_suites_absent.py:26 to the deleted daemon source and references to that source. The live authority-facts type remains declared at include/layerx/lxp_receipt.h:128 and is no longer classified as a retired test reference."
+
+[disposition.22.2.5.1]
+finding = "22.2.5.1"
+status = "resolved"
+evidence = "Commit ea039363eee9b135bcc504e4c82802cd930c0c8a replaces the deleted keeper reader with the getPayerGrant precompile call at precompiles/layerxledger/payments_test.go:161 and precompiles/layerxledger/views_test.go:174. Both assert the current LXP_NO_PAYER_GRANT retirement refusal, and payments_test.go:164 also checks that the refusal preserves the stores and logs."
+
+[disposition.22.7.3.2]
+finding = "22.7.3.2"
+status = "resolved"
+evidence = "Commit 0aea0c30078d51279d6db6e229d2c3d290e50600 reads the live nonce at rpc/debug_tracer_shape_test.go:63, falls back to committed state when no block is open at rpc/simulate.go:339, supplies the header chain's consensus parameters at rpc/header_receipts_root_test.go:70 and publishes the finalized state root at rpc/notifier.go:121. Commit 054988c9f53ec52ac1f21d54dfcdb58d6e0f9ffa installs the merge precompile dependencies through precompiletest.Install at rpc/tests/utils.go:83."
+
+[disposition.22.2.5.5]
+finding = "22.2.5.5"
+status = "resolved"
+evidence = "Commit ea039363eee9b135bcc504e4c82802cd930c0c8a removes the module-store revoke replay marker: modules/layerxauth/keeper/revoke.go:16 checks actor binding first, then modules/layerxauth/keeper/revoke.go:30 executes revocation through the kernel on a cached context. Kernel revocation refusals propagate without a module replay marker, and the cache is committed only after a matching GrantRevoked event."
+
+[disposition.22.2.6.4]
+finding = "22.2.6.4"
+status = "resolved"
+evidence = "Commit 0ecd6928d77b72510067eff4f37843c52504a77a identifies DA missing as a service-delivery refusal at spec/layerx-merge/contracts/address-table.md:337, derives the below-merge address set from MergeAddressTable at precompiles/common/retire_test.go:105 and gives getDispute a readGas(1000) row at precompiles/layerxpay/gas.go:75. The corresponding registry entry at precompiles/common/lxp_errors.go:164 has no kernel value, and the service-view gas cases remain explicit at precompiles/layerxpay/service_views_test.go:161."
+
+[disposition.22.6.7.5]
+finding = "22.6.7.5"
+status = "resolved"
+evidence = "Commit ccd3b0d9d2af7c9b24f51389fa3343cc13d2fa25 makes ValidateGenesis accept an absent anchor state at modules/layerxanchor/module.go:48 because anchor exports have no genesis lifecycle. Nonempty state still goes through json.Unmarshal at modules/layerxanchor/module.go:55, preserving the malformed-state refusal."
+
+[disposition.22.11.7.4]
+finding = "22.11.7.4"
+status = "resolved"
+evidence = "Commit 7d816c4c0f81c6b2f13a30e08a162ac49c7e4de8 records Receipted only for a successful pending receipt at services/interop/crates/layerx-bridge-relayer/src/relayer.rs:1440, leaving a failed pending receipt eligible for Reverted under the Pending-only rule at services/interop/crates/layerx-bridge-relayer/src/journal.rs:551. The service supplies a real Ed25519 public key at services/interop/crates/layerx-interop-service/tests/sequencer_start.rs:83 and validates the keys object through decode_receipt_keys at sequencer_start.rs:208."
+
+[disposition.22.23.8.1]
+finding = "22.23.8.1"
+status = "open"
+evidence = "On main, services/agent/crates/layerx-client/src/sequencer.rs:904 still requires an exact 23-field receipt shape without paymentDenom, and sequencer.rs:966 reads only feeDenom, so the current node receipt view is rejected. The TypeScript consumers already bind the asset to paymentDenom at services/agent/sdk/typescript/src/ai_market.ts:3572 and services/agent/sdk/typescript/src/gas-station.ts:686 in commit de96a83f0a290dec7f2667392c9eb4ff2e9b2cec; task 22.23.11 owns the remaining Rust decoder repair."
+follow_up = "22.23.11"
+
+[disposition.22.24.1.1]
+finding = "22.24.1.1"
+status = "open"
+evidence = "On main, apps/explorer/yarn.lock:13258 retains bigint-buffer 1.1.5, apps/explorer/yarn.lock:14827 retains deepmerge 4.2.2 and go.mod:241 retains github.com/pion/dtls/v2 2.2.7. The dependency sweep records the retained dependency chains as no-fix at spec/layerx-merge/programme/dependabot/reports/apps-explorer.kvx:46 and spec/layerx-merge/programme/dependabot/reports/root-go-mod.kvx:10; task 22.96.1 owns the explorer manifest and lock in that sweep, whose retained dependencies still require replacement or removal."
+follow_up = "22.96.1"
+
+[disposition.22.9.27.2]
+finding = "22.9.27.2"
+status = "resolved"
+evidence = "Commit 2bfc83f6dd887f656ce428083106a0b178bc1744 mounts both sequencer and chain-registry stores in newSeqReceiptChain9005 at rpc/sequencer_receipt_test.go:85. The pending-resolution receipt route uses the application's own SequencerKeeper at rpc/resolution_pending_test.go:151 and reads its pins through the same context at resolution_pending_test.go:146."
+
+[disposition.22.2.5.7]
+finding = "22.2.5.7"
+status = "resolved"
+evidence = "Commit b42f9fa5046d09a4c27311c260386e715af013e5 scopes programs fee loading to named active and history rows at modules/lxphost/ctx.go:174 and seeds the admitted programs fee record at modules/lxphost/scope_test.go:110. TestHostUnrelatedModuleNineRowsStillIgnored compares the loaded module-9 rows with exactly the active fee record and selected history at modules/lxphost/fee_record_load_test.go:253 while preserving unrelated rows and payment replay records."
+
+[disposition.22.9.28.1]
+finding = "22.9.28.1"
+status = "resolved"
+evidence = "Commit b333bce4cf409f360f0e236826d6ad24a3258d79 serves governed receipt keys through receiptKeys at rpc/sequencer_receipt.go:382 and commits changed pins before reading them at rpc/sequencer_receipt_test.go:735. Commit 2bfc83f6dd887f656ce428083106a0b178bc1744 supplies the pending-resolution route with the application's registered SequencerKeeper at rpc/resolution_pending_test.go:151."
+
+[disposition.22.23.8.3]
+finding = "22.23.8.3"
+status = "resolved"
+evidence = "Commit 40f6499dd56deb45584628d4a870e8b2229a3e5c adds the separate producer-generated V1-fee-token-payment case at sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json:12. Its paymentDenom is usid, feeDenom is uhpx and asset is the payment-denomination digest at sdk/platform/conformance/fixtures/sequencer-receipt-fee-token-v1.json:28, providing distinct payment and fee assets without changing the twelve existing cases."
+
+[disposition.22.95.2.1]
+finding = "22.95.2.1"
+status = "resolved"
+evidence = "Commit 4ef92b3c96c971c4a52e1845a213406fa0c8771e initializes the validator with both consensus leaders, the receipt key and the primary's committed sequence/hash at node/sequencer/resolution_test.go:338. TestResolutionStandbyReplay submits the proposal with the standby's proposer address and still requires ACCEPT at node/sequencer/resolution_test.go:355."
+
+[disposition.22.7.3.5]
+finding = "22.7.3.5"
+status = "resolved"
+evidence = "Task 22.95.8 landed in commit 774e204d035138cfa032e2b84b699047917074f8, removing rpc/tests/regression_test.go and rpc/tests/mock_data with their upstream-chain-only readers. The remaining gas-price coverage builds its own consensus parameters and asserts both congestion outcomes at rpc/tests/gas_price_test.go:14, and the live server setup uses pax-test at rpc/tests/utils.go:112."

@@ -1,0 +1,51 @@
+[repair.22.31.503]
+gotcha = "3044"
+decision = "2544"
+acceptance = "22998.1"
+change = "Move all four page repair suites and their records outside the Next.js pages route tree, preserving all assertions and resolving imports to the original production routes; complete the OG, description and Mixpanel page maps for both chain routes."
+moved_records = ["api/repair-22-33-448.kvx", "api/monitoring/repair-22-33-450.kvx", "api/tokens/[hash]/instances/[id]/repair-22-33-449.kvx", "apps/repair-22-33-451.kvx"]
+moved_specs = ["api/repair-22-33-448.spec.ts", "api/monitoring/repair-22-33-450.spec.ts", "api/tokens/[hash]/instances/[id]/repair-22-33-449.spec.ts", "apps/repair-22-33-451.spec.ts"]
+guard = "no-tests-under-pages.spec.ts: noTestsUnderPages recursively walks the real pages tree and reports every filename containing .spec. or .test. or ending in .kvx."
+build_command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+verify_command = "cd apps/explorer && yarn vitest run nextjs/pages-tests"
+verified_revision_evidence = "/out/run/gates.jsonl: the runner records the exact candidate revision, command, exit and private log; qualification requires passing build and hf-done records at the same revision."
+
+[constraint.additional-page-repair]
+observed = "Attempt 1 left the 449 spec and record under pages, causing the unconditional guard to fail with those two paths."
+repair = "Step do_4 explicitly authorizes moving the 449 pair to nextjs/pages-tests/api/tokens/[hash]/instances/[id]/; its type import and lazy runtime import still target the original production media-type route."
+
+[repair.chain-page-types]
+gotchas = ["3086", "3097"]
+authorization = "Step do_6 supersedes the earlier rebase ruling and includes both missing chain page types in this task."
+map_entries = ["/chains: Root page", "/chains/[id]: Regular page"]
+implementation = "lib/metadata/getPageOgType.ts keeps the exhaustive Record<Route['pathname'], OGPageType>; the production build regenerates nextjs/nextjs-routes.d.ts."
+description_entries = "lib/metadata/templates/description.ts explicitly maps /chains and /chains/[id] to its existing DEFAULT_TEMPLATE, preserving its exhaustive route type and the established description used by other root and detail pages."
+
+[repair.chain-page-analytics]
+gotcha = "3109"
+decision = "2575"
+implementation = "lib/mixpanel/getPageType.ts preserves the exhaustive Record<Route['pathname'], string> and adds both chain routes in its multichain section."
+map_entries = ["/chains: Chains", "/chains/[id]: Chain details"]
+map_inventory = "The exhaustive route maps are OG_TYPE_DICT, description TEMPLATE_MAP, title TEMPLATE_MAP and PAGE_TYPE_DICT; all four cover /chains and /chains/[id]. The title map already declares both routes and needs no change."
+
+[qualification.build_1]
+revision = "4e91b4ff76a7ae79a3730f2f219dd9b52c5cb304"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The previous attempt lacked required /chains and /chains/[id] entries in lib/metadata/getPageOgType.ts; at that time the file was outside scope. Step do_6 now authorizes the two entries and fresh build and verify gates."
+
+[qualification.continuation-build_1]
+revision = "3b4eea2717e41964d3025214088aecad558b44b5"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "The regenerated chain routes also require entries in the exhaustive description TEMPLATE_MAP; the first repair adds both explicit entries in the allowed metadata directory without widening its type."
+
+[qualification.continuation-build_2]
+revision = "9f48afbaa27b93f57f203d469a4abde6d4e278fa"
+command = "cd apps/explorer && corepack enable && yarn install --frozen-lockfile --ignore-scripts && NODE_ENV=production yarn next build"
+exit = 1
+log = "/out/logs/build-2.log"
+observed = "The pre-existing exhaustive PAGE_TYPE_DICT in lib/mixpanel/getPageType.ts lacks /chains and /chains/[id]; this file is outside the allowed scope."
+assumption = "Qualification requires a separately authorized repair to that map; hf-done refuses to run until hf-build passes, and repeating this unchanged failure is prohibited."

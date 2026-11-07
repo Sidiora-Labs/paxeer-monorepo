@@ -73,9 +73,6 @@ export function gatewayUrl(path: string): string {
   return join(HOSTS.gateway, path);
 }
 
-/** @deprecated Use `gatewayUrl`. Retained as an alias during migration. */
-export const mediaApiUrl = gatewayUrl;
-
 /** Build a REST URL on media/metadata : /metadata/*, /logo, /banner. */
 export function metadataApiUrl(path: string): string {
   return join(HOSTS.metadata, path);

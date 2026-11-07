@@ -9,7 +9,7 @@ export {
   HighlightsPanelSkeleton,
   MarketsTableSkeleton,
 } from "./MarketsSkeletons";
-export { useMarketsRows, filterAndSort, NEW_MARKET_IDS } from "./useMarketsRows";
+export { useMarketsRows, filterAndSort } from "./useMarketsRows";
 export type {
   MarketRow,
   MarketsCategoryFilter,

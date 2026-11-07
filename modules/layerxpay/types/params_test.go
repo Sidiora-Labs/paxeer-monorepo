@@ -247,7 +247,7 @@ func TestParamsJSONRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	const wantDefault = `{"params":{"paused":true,"escrow_enabled":false,"budget_enabled":false,"stream_enabled":false,"service_enabled":false},"kernel_records":null}`
+	const wantDefault = `{"params":{"paused":true,"escrow_enabled":false,"budget_enabled":false,"stream_enabled":false,"service_enabled":false},"kernel_records":null,"agent_stream_metadata":null}`
 	if string(defaultJSON) != wantDefault {
 		t.Fatalf("default JSON = %s, want %s", defaultJSON, wantDefault)
 	}

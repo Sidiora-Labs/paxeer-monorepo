@@ -1,0 +1,886 @@
+# Pre-upgrade Human audit: authored source reviewed at the recorded revision.
+# Findings are repair proposals; no service implementation is changed.
+
+[audit.22.30.103]
+task = "22.30.103"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 43
+findings = 50
+docs_reviewed = 18
+upgrade_ready = false
+blocking = ["native-onboarding-refused", "funding-authorization-refused", "export-key-loss", "remote-native-signature-gap", "history-state-schema", "receipt-operation-domain", "bank-plan-cannot-commit"]
+
+[file.01]
+path = "services/human/crates/layerx-human-identity-provider/Cargo.toml"
+lines = 33
+verdict = "clean"
+note = "Read in full: crate targets, dependency paths and enabled features agree with the identity provider source and client types."
+
+[file.02]
+path = "services/human/crates/layerx-human-identity-provider/README.md"
+lines = 191
+verdict = "issues"
+note = "Read in full: LXIP/LXIB framing and peer checks agree; launch-clock and first-batch provisioning instructions need the findings below."
+
+[file.03]
+path = "services/human/crates/layerx-human-identity-provider/src/assertion.rs"
+lines = 813
+verdict = "clean"
+note = "Read in full: ES256 binding fields match the wallet gateway issuer; issuer/audience/subject, expiry, key refresh and authenticated runtime-clock refusals checked."
+
+[file.04]
+path = "services/human/crates/layerx-human-identity-provider/src/binding.rs"
+lines = 81
+verdict = "clean"
+note = "Read in full: LXIB bounded lookup response and status encodings agree with the production identity-binding client and tenant/DID restrictions."
+
+[file.05]
+path = "services/human/crates/layerx-human-identity-provider/src/lib.rs"
+lines = 169
+verdict = "clean"
+note = "Read in full: exported provider types and errors agree with assertion, binding, state and Unix server consumers."
+
+[file.06]
+path = "services/human/crates/layerx-human-identity-provider/src/main.rs"
+lines = 197
+verdict = "clean"
+note = "Read in full: serve/probe/provision dispatch, required clock, peer identities and configuration parsing checked against hosted launch paths."
+
+[file.07]
+path = "services/human/crates/layerx-human-identity-provider/src/probe.rs"
+lines = 104
+verdict = "clean"
+note = "Read in full: operation-zero framing, peer validation and bounded connection response agree with server dispatch."
+
+[file.08]
+path = "services/human/crates/layerx-human-identity-provider/src/provision.rs"
+lines = 72
+verdict = "clean"
+note = "Read in full: protected-state owner provisioning validates input and emits the fields consumed by the hosted owner assembler."
+
+[file.09]
+path = "services/human/crates/layerx-human-identity-provider/src/provision_head.rs"
+lines = 145
+verdict = "issues"
+note = "Read in full: signature and proof refusals remain strict; the first-batch-only producer dependency is not current provisioning."
+
+[file.10]
+path = "services/human/crates/layerx-human-identity-provider/src/state.rs"
+lines = 896
+verdict = "clean"
+note = "Read in full: principal/device/recovery and producer-bound assertion persistence, atomic publication, permissions and reopen checks reviewed against LXIP/LXIB consumers."
+
+[file.11]
+path = "services/human/crates/layerx-human-identity-provider/src/wire.rs"
+lines = 226
+verdict = "clean"
+note = "Read in full: LXIP and LXIB length limits, version/opcode/status bytes, exact fields and trailing-byte refusal agree with their clients."
+
+[file.12]
+path = "services/human/crates/layerx-human-identity-provider/tests/account.rs"
+lines = 61
+verdict = "clean"
+note = "Read in full: account derivation and malformed DID refusal exercise the real provision-account command and protocol account type."
+
+[file.13]
+path = "services/human/crates/layerx-human-identity-provider/tests/account_head.rs"
+lines = 274
+verdict = "issues"
+note = "Read in full: tamper and first-batch refusal checks are useful but do not prove the current merged account-state producer."
+
+[file.14]
+path = "services/human/crates/layerx-human-identity-provider/tests/assertion.rs"
+lines = 1485
+verdict = "clean"
+note = "Read in full: assertion, expiry, issuer, subject and binding-key tamper tests match current producer fields and real verifier types; broader issuer-to-store proof is proposed on principal_store.rs."
+
+[file.15]
+path = "services/human/crates/layerx-human-identity-provider/tests/catalog.rs"
+lines = 49
+verdict = "clean"
+note = "Read in full: catalogue and crate dependency expectations agree with the current identity provider package layout."
+
+[file.16]
+path = "services/human/crates/layerx-human-identity-provider/tests/client.rs"
+lines = 226
+verdict = "clean"
+note = "Read in full: Unix identity-client frames, status mappings, peer errors and provisioning response shapes checked against the provider."
+
+[file.17]
+path = "services/human/crates/layerx-human-identity-provider/tests/principal_store.rs"
+lines = 836
+verdict = "issues"
+note = "Read in full: identity-to-store tenancy and reopen coverage checked; the signed binding issuer is still constructed locally."
+
+[file.18]
+path = "services/human/crates/layerx-human-identity-provider/tests/probe.rs"
+lines = 81
+verdict = "clean"
+note = "Read in full: the actual probe/server operation and bounded malformed-response refusals match the framing implementation."
+
+[file.19]
+path = "services/human/crates/layerx-human-identity-provider/tests/provider.rs"
+lines = 824
+verdict = "clean"
+note = "Read in full: real provider command, protected-state persistence, device/recovery response and peer/configuration refusal tests checked."
+
+[file.20]
+path = "services/human/crates/layerx-human-identity-provider/tests/support/mod.rs"
+lines = 87
+verdict = "clean"
+note = "Read in full: protected fixture directories, real process setup and environment helpers match the provider launch contract."
+
+[file.21]
+path = "services/human/crates/layerx-human-service/src/agents/archive.rs"
+lines = 967
+verdict = "issues"
+note = "Read in full: archive stage/evidence and history references reviewed; generic helper history integrity issue recorded without claiming a current production call."
+
+[file.22]
+path = "services/human/crates/layerx-human-service/src/agents/controls.rs"
+lines = 807
+verdict = "issues"
+note = "Read in full: receipt-backed versus app-local limit wording, adapters and authority transitions reviewed; generic helper restart state differs from the separate production implementation."
+
+[file.23]
+path = "services/human/crates/layerx-human-service/src/agents/create_native.rs"
+lines = 558
+verdict = "issues"
+note = "Read in full: native creation stages, funding consent and protocol evidence checked against live production start/resume callers."
+
+[file.24]
+path = "services/human/crates/layerx-human-service/src/agents/mod.rs"
+lines = 47
+verdict = "clean"
+note = "Read in full: exports resolve to real lifecycle types and adapters; no additional behavior or incompatible wire shape is introduced here."
+
+[file.25]
+path = "services/human/crates/layerx-human-service/src/agents/reclaim.rs"
+lines = 789
+verdict = "issues"
+note = "Read in full: scoped route, budget-defund/receive authority, nonce and durable idempotency records checked; retry ordering issue recorded."
+
+[file.26]
+path = "services/human/crates/layerx-human-service/src/agents/recovery.rs"
+lines = 1299
+verdict = "issues"
+note = "Read in full: challenge, competing authority, durable transition and evidence checks reviewed; generic recovery has no supported running-service adapter."
+
+[file.27]
+path = "services/human/crates/layerx-human-service/src/agents/spend.rs"
+lines = 278
+verdict = "issues"
+note = "Read in full: principal scope and view vocabulary checked; the authoritative budget reconciliation is never implemented in this helper."
+
+[file.28]
+path = "services/human/crates/layerx-human-service/src/custody/evm.rs"
+lines = 322
+verdict = "issues"
+note = "Read in full: EIP-1559 call rebinding, recovered sender and signed action persistence checked; retained native first-funding authorization cannot round-trip."
+
+[file.29]
+path = "services/human/crates/layerx-human-service/src/custody/gateway.rs"
+lines = 779
+verdict = "issues"
+note = "Read in full: LXKP request/response shapes, peer checks, worker admission and backend dispatch checked; synchronous provider work escapes the declared deadline."
+
+[file.30]
+path = "services/human/crates/layerx-human-service/src/custody/mod.rs"
+lines = 1383
+verdict = "issues"
+note = "Read in full: protected record tree, provider bindings, rotation and export lifecycle reviewed, including KMS export consumer and restart publication windows."
+
+[file.31]
+path = "services/human/crates/layerx-human-service/src/custody/provider.rs"
+lines = 1712
+verdict = "issues"
+note = "Read in full: LXKP opcodes, response bounds, 32-byte key and 65-byte transaction signature handling agree; remote native-consent capability does not."
+
+[file.32]
+path = "services/human/crates/layerx-human-service/src/custody/sessions.rs"
+lines = 1384
+verdict = "issues"
+note = "Read in full: lease, pause/archive/revoke and rotation state machines checked; generic helper has restart, renewal and production-driver gaps."
+
+[file.33]
+path = "services/human/crates/layerx-human-service/src/custody/signer.rs"
+lines = 1077
+verdict = "clean"
+note = "Read in full: exact EIP-1559 signing/recovery, principal scope, durable rate/replay records and audit checked; emergency-exit signing is absent. Native remote-provider failure is attributed to provider.rs."
+
+[file.34]
+path = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+lines = 2537
+verdict = "issues"
+note = "Read in full: plan compilation, prepare/approval/sign/submit, receipt lookup, persistence, historical decode and status/evidence consumers reviewed."
+
+[file.35]
+path = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+lines = 772
+verdict = "issues"
+note = "Read in full: plan digest, exact call/nonce/sender bindings and retained signed-transaction retry checks agree; initial submission remains processing and later progress is read by journey status. Unconstructed retired refusal variants remain."
+
+[file.36]
+path = "services/human/crates/layerx-human-service/src/journeys/mod.rs"
+lines = 55
+verdict = "clean"
+note = "Read in full: public journey exports and MovementExecutionIdentity fields resolve to the actual implementations and principal/tenant types; orphan wire code is recorded on wire.rs."
+
+[file.37]
+path = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+lines = 1552
+verdict = "issues"
+note = "Read in full: bank-plan constructor, canonical bytes, execution/rung transitions and durable commit/load paths compared; the accepted bank plan is lost at commit."
+
+[file.38]
+path = "services/human/crates/layerx-human-service/src/journeys/observed.rs"
+lines = 641
+verdict = "issues"
+note = "Read in full: joined wallet/ledger/config source checks, principal binding and missing-observation refusals checked; compulsory retired custody inputs conflict with bank-only planning."
+
+[file.39]
+path = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+lines = 1071
+verdict = "issues"
+note = "Read in full: endpoint authority, closed mechanisms, canonical route codec and emitted bank call checked against the chain and production movement path."
+
+[file.40]
+path = "services/human/crates/layerx-human-service/src/journeys/router.rs"
+lines = 2825
+verdict = "issues"
+note = "Read in full: deterministic candidate ordering, allowances, canonical binding, executable shapes and planner observations checked; absent ledger balance still becomes zero."
+
+[file.41]
+path = "services/human/crates/layerx-human-service/src/journeys/wire.rs"
+lines = 104
+verdict = "issues"
+note = "Read in full: bounded movement-provider primitives have no remaining producer or consumer after provider removal."
+
+[file.42]
+path = "services/human/crates/layerx-human-service/tests/auth.rs"
+lines = 752
+verdict = "issues"
+note = "Read in full: passkey/session/CSRF/step-up, digest and expiry tests checked against real auth types; retired user-flow examples need a current sensitive operation."
+
+[file.43]
+path = "services/human/crates/layerx-human-service/tests/custody_operations.rs"
+lines = 19
+verdict = "clean"
+note = "Read in full: closed internal operation labels agree with the signer and emergency-exit is explicitly rejected; retained authorization labels do not register retired HTTP initiation routes."
+
+[finding.identity-first-batch]
+file = "services/human/crates/layerx-human-identity-provider/src/provision_head.rs"
+line = 109
+class = "retired-reference"
+severity = "medium"
+observed = "validate-account-head pins SequencerAuthorization to heights 1..1, decodes the protocol-3 account-head receipt and signed batch header, and returns consumed=0. The hosted provision-owner Job still invokes it through services/platform/hosted/human/provision.sh, whose producer is the old /v1/protocol/account-state/head agent boundary."
+expected = "Owner provisioning in the merged network must derive its account and consumed budget state from authenticated committed chain observations and remain usable after the first batch."
+proposal = "Migrate provision_head.rs together with services/platform/hosted/human/provision.sh and provision-owner-job.yaml to the committed-chain account-state producer; preserve authentication, identity binding and unsupported-history refusals and prove provisioning after a restart at a later height."
+owner_domain = 10
+interface = "10.cli-layerx-human-identity-provider-validate-account-head"
+
+[finding.identity-head-fixture]
+file = "services/human/crates/layerx-human-identity-provider/tests/account_head.rs"
+line = 140
+class = "test-gap"
+severity = "medium"
+observed = "The account-head tests use daemon credit-receipt protocol-3 fixtures and prove the first-batch consumed=0 path, including later-batch refusal, without exercising the current merged-node account-state producer used for owner provisioning."
+expected = "The account-head acceptance evidence must show the real merged producer, transport and provisioning consumer agree on committed state, rather than only a locally constructed retired receipt shape."
+proposal = "Extend tests/account_head.rs with the actual merged-node provisioning response through the production transport and validator, including a later committed height and reopen; retain every signature, account, key, proof and tamper refusal already covered."
+owner_domain = 10
+interface = "10.cli-layerx-human-identity-provider-validate-account-head"
+
+[finding.identity-binding-producer-test]
+file = "services/human/crates/layerx-human-identity-provider/tests/principal_store.rs"
+line = 171
+class = "test-gap"
+severity = "medium"
+observed = "Signer::binding builds its own wallet-binding JWS in this integration test. Its current fields agree with services/wallet/gateway/src/provision/state.ts:633-644, but the actual issuer is absent from the asserted LXIP-to-PrincipalStore path, so an issuer encoding change is not tested here."
+expected = "A producer-signed assertion binding must be proven from the wallet provisioning issuer through LXIP operation 4, LXIB lookup and principal tenancy recovery after reopening."
+proposal = "Add a producer-path test using the wallet gateway binding issuer and the real identity provider transport before opening PrincipalStore; reopen the stores and assert the same tenant and DID, with forged, cross-subject and cross-tenant bindings still refused."
+owner_domain = 10
+interface = "10.rs-human-service-server-identity-dispatch-remote-identity-provider-resolve-assertion-with-binding"
+
+[finding.identity-clock-doc]
+file = "services/human/crates/layerx-human-identity-provider/README.md"
+line = 29
+class = "doc-drift"
+severity = "medium"
+observed = "The required serve environment table lists the identity provider paths and UID but omits LAYERX_RUNTIME_CLOCK_SOCKET, LAYERX_RUNTIME_CLOCK_PID and LAYERX_RUNTIME_CLOCK_UID. src/main.rs:104-109 requires RuntimeClock initialization before serving."
+expected = "The documented launch environment must be sufficient to start the production identity provider with its authenticated runtime clock and bounded probe behavior."
+proposal = "Update the provider README required environment and launch sequence with all three runtime-clock settings, their supervisor ownership and peer checks, startup ordering and the operational readiness probe."
+owner_domain = 10
+
+[finding.identity-provision-doc]
+file = "services/human/crates/layerx-human-identity-provider/README.md"
+line = 27
+class = "doc-drift"
+severity = "medium"
+observed = "The command table presents validate-account-head and protocol-3 account derivation as the ordinary owner-provisioning workflow, without explaining the validator's first-batch-only receipt dependency or the merged committed-chain replacement."
+expected = "Provisioning documentation must describe the current one-network account-state source and clearly identify historical receipt compatibility that cannot provision a current owner."
+proposal = "Rewrite the provider README provisioning commands together with the account-head migration, naming the committed-chain producer and the authenticated observations required before publishing an owner configuration."
+owner_domain = 10
+
+[finding.native-onboarding-refused]
+file = "services/human/crates/layerx-human-service/src/agents/create_native.rs"
+line = 191
+class = "wiring-gap"
+severity = "high"
+observed = "The native creation stage list always starts with Custody and DidRegistration, but resume_native unconditionally returns Refused(\"native onboarding operation is retired\") at DidRegistration. ProductionComponents still calls start_native and resume_native for agent creation, so a fresh native agent cannot reach funding, budget or session provisioning."
+expected = "The exposed managed-agent creation operation must progress through the merged network identity lifecycle and reach its receipt-backed usable-agent result, while historical retired records remain readable."
+proposal = "Replace the retired DidRegistration stage and its production adapter with the current chain identity and authority lifecycle in agents/create_native.rs and server/agent_creation_native.rs; retain explicit historical handling and prove the actual HTTP creation-to-receipt and restart path."
+owner_domain = 10
+interface = "10.rs-human-service-agents-create-creation-journey"
+
+[finding.reclaim-old-key-retry]
+file = "services/human/crates/layerx-human-service/src/agents/reclaim.rs"
+line = 250
+class = "restart-recovery"
+severity = "medium"
+observed = "Reclaim::start checks the stored last-used nonce before looking up the exact idempotency record at line 292. After a later reclaim records nonce N+1, retrying the original identical request at nonce N returns StaleNonce instead of the already retained reclaim."
+expected = "An exact retry of an already recorded principal-scoped reclaim must return the same journey without another effect, including after subsequent reclaims and a store reopen."
+proposal = "In agents/reclaim.rs, resolve and validate an existing idempotency record before freshness admission for a new reclaim; exercise reopen, request N, request N+1 and exact retry N, preserving conflict and stale-new-request refusals."
+owner_domain = 10
+interface = "10.rs-human-service-agents-reclaim-reclaim-start"
+
+[finding.control-state-restart]
+file = "services/human/crates/layerx-human-service/src/agents/controls.rs"
+line = 366
+class = "restart-recovery"
+severity = "medium"
+observed = "AgentControls keeps active_budget_id, authority evidence and completed_limit_changes only in memory and new reconstructs an empty completion map. Reconstructing this helper after a limit change loses the result needed to recognize the same key and may derive another replacement budget. Production controls have a separate implementation."
+expected = "A supported receipt-backed limit change must recover its active authority and exact idempotent result before admitting another change after restart."
+proposal = "Persist principal-scoped control requests, active budget and completion evidence in agents/controls.rs, or consolidate the helper with the durable production control path; prove an exact completed-limit retry after reconstruction without creating another authority."
+owner_domain = 10
+interface = "10.rs-human-service-agents-controls-agent-controls-change-limit"
+
+[finding.archive-history-mutation]
+file = "services/human/crates/layerx-human-service/src/agents/archive.rs"
+line = 513
+class = "runtime-risk"
+severity = "medium"
+observed = "ArchiveJourney::history dereferences each stored table/key and returns the row's current bytes. The archive record retains neither a snapshot nor a digest, so changed retained history is silently returned even though the method promises to refuse altered rows. This helper is not the running production archive implementation."
+expected = "An archived agent's retained history must preserve the content that was archived or detect later mutation before presenting it as immutable evidence."
+proposal = "In agents/archive.rs, retain immutable history bytes or authenticated row digests with the archive transition and compare on history reads; cover a changed row at the same table/key and preserve missing-history refusals."
+owner_domain = 10
+interface = "10.rs-human-service-agents-archive-archive-journey-history"
+
+[finding.recovery-production-gap]
+file = "services/human/crates/layerx-human-service/src/agents/recovery.rs"
+line = 535
+class = "wiring-gap"
+severity = "medium"
+observed = "AgentRecovery has durable recovery stages but no running-service AgentRecoveryBoundary implementation or production caller. server/production_rotation.rs returns upstream_degraded for agent.recover and refuses a fresh retired rotation, so this generic recovery service does not implement the advertised production journey."
+expected = "Managed-agent recovery offered by the product must have a live authority producer, transport, receipt consumer and restart path, with unsupported historical operations explicitly identified."
+proposal = "Wire agents/recovery.rs to the current production chain recovery and authority adapter, or consolidate it with the supported lifecycle path; prove delay, competing authority, typed refusal, committed receipt and recovery after interruption through the actual service operation."
+owner_domain = 10
+interface = "10.rs-human-service-agents-recovery-agent-recovery"
+
+[finding.spend-never-reconciles]
+file = "services/human/crates/layerx-human-service/src/agents/spend.rs"
+line = 254
+class = "wiring-gap"
+severity = "medium"
+observed = "SpendReconciliation::reconcile checks the principal then always returns ProtocolBudgetStateUnavailable. The projection constructors never obtain an authoritative budget observation and are confined to helper/test paths, so the declared spend view has no successful reconciliation path."
+expected = "A supported spend view must project the owner's verified budget and receipt state, while an unavailable observation must remain distinguishable from a real zero balance."
+proposal = "Connect agents/spend.rs to canonical production budget state and verified receipt observations, or consolidate the helper with the implemented production projection; prove success, principal isolation, unavailable state and restart using the real budget producer."
+owner_domain = 10
+interface = "10.rs-human-service-agents-spend-spend-reconciliation"
+
+[finding.auth-retired-example]
+file = "services/human/crates/layerx-human-service/tests/auth.rs"
+line = 331
+class = "retired-reference"
+severity = "low"
+observed = "The successful step-up example authorizes OperationClass::Withdrawal with intended_destination=/withdraw/review, and the sensitive-operation inventory also presents withdrawal, exit and wallet rebinding without identifying them as historical compatibility cases."
+expected = "Authentication tests should demonstrate current sensitive product operations and keep any retained retired-operation decoding clearly separated from current initiation behavior."
+proposal = "Use a surviving security or agent authority change for the complete step-up scenario in tests/auth.rs; retain every digest, CSRF, expiry and replay assertion, and label any necessary retired operation cases as compatibility-only checks."
+owner_domain = 10
+
+[finding.funding-authorization-refused]
+file = "services/human/crates/layerx-human-service/src/custody/evm.rs"
+line = 305
+class = "interface-mismatch"
+severity = "high"
+observed = "Keystore::authorize_send always returns SignError::InvalidDisclosure. The real server/agent_creation_native.rs:283 caller still invokes CustodySigner::authorize_send during prepare_native_funding and expects the retained 64-byte owner signature, so initial funding has no successful authorization producer even after onboarding advances."
+expected = "The declared custody authorization and managed-agent first-funding consumer must round-trip the same executable transfer, sender binding and signature representation."
+proposal = "Migrate server/agent_creation_native.rs funding and custody/evm.rs together to exact EIP-1559 bank transfers through authorize_send_transaction, retaining the complete signed transaction and its 65-byte signature; remove the old 64-byte dependency only after every live caller migrates."
+owner_domain = 10
+interface = "10.rs-human-service-custody-evm-keystore-authorize-send"
+
+[finding.export-key-loss]
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs"
+line = 889
+class = "restart-recovery"
+severity = "high"
+observed = "export_primary_once calls the destructive provider export before persisting its local self-custody marker or returning the key to the owner. layerx-human-kms/src/store.rs:352-377 durably marks self_custodied and erases the seed before replying; a lost reply, local marker failure or subsequent security.rs audit failure leaves the owner without the seed and future exports refused."
+expected = "The only primary key must survive interrupted export delivery and restart; the transition to owner custody cannot erase the sole usable copy before a recoverable acknowledged handover."
+proposal = "Introduce a durable recipient-encrypted delivery object and stable export ceremony identifier across custody/mod.rs, the KMS store and security.rs; recover the identical object after interruption until owner acknowledgment, then retire managed signing without regenerating a different key."
+owner_domain = 10
+interface = "10.rs-human-service-custody-keystore-export-primary-once"
+
+[finding.custody-temp-recovery]
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs"
+line = 1334
+class = "restart-recovery"
+severity = "medium"
+observed = "write_atomic and replace_atomic create the fixed .key.tmp path with create_new. A crash after creation leaves that protected temporary file; startup accepts the tree and record enumeration ignores it, but retrying the same key publication fails AlreadyExists indefinitely."
+expected = "Custody startup must reconcile an interrupted key-record publication so a retry can resume safely without losing the remote binding or accepting uncommitted key material."
+proposal = "Reconcile protected temporary records during Keystore startup against the committed record and remote binding; resume publication or remove only a verified uncommitted inode, and cover crash-before-link and crash-before-rename recovery in the custody owner's repair."
+owner_domain = 10
+
+[finding.custody-read-bound]
+file = "services/human/crates/layerx-human-service/src/custody/mod.rs"
+line = 1073
+class = "runtime-risk"
+severity = "medium"
+observed = "read_record checks that the record is a nonempty regular file then fs::read allocates the entire file. The 4096-byte provider-reference limit is applied only by the later decoder, so an oversized or corrupted record can exhaust memory before the typed corruption refusal."
+expected = "A finite LXCK record encoding must be bounded on the opened descriptor before allocating its body, including during restart and inspection of damaged storage."
+proposal = "In custody/mod.rs, calculate the largest supported LXCK record size and perform a bounded descriptor read before decoding; reject excess bytes with the existing corruption result and retain the ownership, link and permission checks."
+owner_domain = 10
+
+[finding.gateway-operation-deadline]
+file = "services/human/crates/layerx-human-service/src/custody/gateway.rs"
+line = 478
+class = "runtime-risk"
+severity = "medium"
+observed = "GatewayLimits.deadline declares a separate budget for the relayed provider operation, but dispatch invokes synchronous create, describe, rotate, destroy and probe without passing that budget. Signing polls a future whose RemoteKmsProvider blocks synchronously, and block_on accepts Ready without checking elapsed time, allowing the provider deadline to exceed the gateway budget."
+expected = "Every relayed provider operation must obey the configured total operation deadline in addition to finite worker admission and socket I/O limits."
+proposal = "Pass one absolute remaining deadline from custody/gateway.rs through provider operations and the remote transport, including synchronous lifecycle calls; prove that the actual delayed backend is refused within the gateway budget without extending worker lifetime indefinitely."
+owner_domain = 10
+interface = "10.rs-human-service-custody-gateway-gateway-limits"
+
+[finding.remote-native-signature-gap]
+file = "services/human/crates/layerx-human-service/src/custody/provider.rs"
+line = 607
+class = "interface-mismatch"
+severity = "high"
+observed = "KmsProvider::sign_native defaults to unconditional KmsError::Refused and RemoteKmsProvider never implements it. Production startup admits ProductionKms::Remote, but the always-exposed native.send.access.begin/confirm flow reaches native_send.rs:433 and sign_native_consent_in_scope, whose accepted remote configuration cannot produce the consent signature. The attestor provider does implement native signing."
+expected = "An admitted production provider for an exposed native-access flow must implement the exact declared consent-signature producer consumed by that flow, or reject the unsupported capability before offering it."
+proposal = "Implement an authenticated native-consent LXKP request from RemoteKmsProvider through the actual KMS producer, or add explicit provider capability admission to startup and operation discovery with a named unsupported-capability refusal; retain and prove the working attestor path."
+owner_domain = 10
+interface = "10.rs-human-service-custody-signer-custody-signer-sign-native-consent-in-scope"
+
+[finding.sessions-state-restart]
+file = "services/human/crates/layerx-human-service/src/custody/sessions.rs"
+line = 750
+class = "restart-recovery"
+severity = "medium"
+observed = "SessionKeyProvisioner stores current and retired leases, pause/archive state and rotation journeys only in its agents and rotations BTreeMaps. new initializes both maps empty and exposes no restore operation, losing external authority identifiers and pending transitions after reconstruction. This is a dormant generic helper."
+expected = "Supported session lifecycle authority must be recovered before serving pause, revoke, renewal or rotation operations after restart."
+proposal = "Persist principal-scoped leases, lifecycle state and rotation transitions in custody/sessions.rs and reconcile them with the real daemon/chain on reopen; cover interruption between installation, suspension, revocation and receipt reconciliation before enabling the helper in production."
+owner_domain = 10
+interface = "10.rs-human-service-custody-sessions-session-key-provisioner"
+
+[finding.session-renewal-orphan]
+file = "services/human/crates/layerx-human-service/src/custody/sessions.rs"
+line = 1263
+class = "restart-recovery"
+severity = "medium"
+observed = "renew_one installs a replacement with provision_new before suspending and revoking the predecessor, but stores the replacement only after both old-authority operations succeed at line 1289. A later error leaves the installed replacement untracked and retry installs another replacement. This helper has no current production driver."
+expected = "A partial renewal must retain every installed authority and resume the same transition or revoke its exact replacement after failure."
+proposal = "Persist an explicit renewal transition with predecessor and replacement identifiers before installing authority in custody/sessions.rs, record completed external steps and reconcile the same transition after refusal or restart; prove no orphan grant remains."
+owner_domain = 10
+interface = "10.rs-human-service-custody-sessions-session-key-provisioner-renew-expiring"
+
+[finding.session-second-rotation]
+file = "services/human/crates/layerx-human-service/src/custody/sessions.rs"
+line = 930
+class = "runtime-risk"
+severity = "medium"
+observed = "announce_rotation rejects any identity already present in rotations. reconcile_rotation changes its entry to Effective or Lapsed but never removes or archives it, so one terminal rotation prevents all subsequent rotations of that identity in the generic provisioner."
+expected = "An identity must support successive successful rotations and a fresh challenge after a lapsed attempt, while retaining completed rotation evidence."
+proposal = "Separate the active rotation index from durable rotation history in custody/sessions.rs; permit a new announcement only after the preceding transition is terminal and prove both a second completed rotation and a retry after lapse."
+owner_domain = 10
+interface = "10.rs-human-service-custody-sessions-session-key-provisioner-announce-rotation"
+
+[finding.session-production-driver]
+file = "services/human/crates/layerx-human-service/src/custody/sessions.rs"
+line = 745
+class = "wiring-gap"
+severity = "medium"
+observed = "The running service supplies no AgentSessionContract implementation, SessionKeyProvisioner::new caller or renew_expiring driver. Constructors and contract implementations are confined to test targets and generic control/archive helpers, leaving this advertised unattended lifecycle orchestrator unstarted."
+expected = "Unattended renewal, session pause/revocation and rotation require a live production producer, transport, durable consumer and scheduled driver."
+proposal = "Wire custody/sessions.rs lifecycle operations to the actual production daemon and durable scheduler, or retire the dormant helper in favor of the implemented production lifecycle path; prove the resulting unattended renewal and recovery behavior through its real caller."
+owner_domain = 10
+interface = "10.rs-human-service-custody-sessions-session-key-provisioner"
+
+[finding.history-state-schema]
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 392
+class = "interface-mismatch"
+severity = "high"
+observed = "JourneyEngine returns JourneyState::Closed for retained retired kinds. server/production_reads.rs:624 serializes state=closed, but schema/human-api/journeys.kvx JourneyState excludes closed. server/http.rs:593 validates every response against that enum, so a historical journey get or list containing it becomes upstream_degraded instead of readable closed history."
+expected = "Requirement 10054.2 requires retired withdraw journeys to remain readable as closed history, with one state vocabulary agreed by the engine, HTTP encoder and client consumer."
+proposal = "Coordinate the historical state contract in journeys/engine.rs, journeys.kvx, production_reads.rs and the client copy/decoder path; explicitly declare the supported closed state and prove an actual stored legacy journey through get/list response encoding after reopen without enabling new retired journeys."
+owner_domain = 10
+interface = "10.fmt-human-api-type-journey-state"
+
+[finding.receipt-operation-domain]
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 1951
+class = "interface-mismatch"
+severity = "high"
+observed = "compile_plan sets expected_operation to the intent activity ordinal and receipt_matches_leg requires that byte. Native send is activity 0x00010005, so it expects 5; the real node/sequencer/receipt.go:400 writes etx.Type(), which is 2 for the EIP-1559 transaction signed by this engine, with module_id 12. The committed native receipt therefore cannot complete the declared engine advance interface."
+expected = "Receipt verification must agree with the merged node producer on the execution-domain operation and bind the disclosed send separately to its exact signed transaction and authenticated receipt."
+proposal = "Update journeys/engine.rs receipt verification and its production adapter to verify EVM receipt module/type, transaction hash, exact bank call and committed evidence using the actual node producer; keep all signature, fee, nonce, identity and rung checks and prove advance plus restart with a real EIP-1559 send receipt."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-engine-journey-engine-advance"
+
+[finding.receipt-authority-retained]
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 243
+class = "config-drift"
+severity = "medium"
+observed = "ReceiptMaterial still requires authorised_batch: AuthorizedBatch and verification_level: VerificationLevel alongside its new Rung fields; verified records also retain that supplied authority. Registry row 10.rs-human-service-journeys-engine-receipt-material is marked change and says both legacy dependencies are replaced, and requirement 10054.1 explicitly requires no receipt authority."
+expected = "The current journey receipt boundary must use the declared rung and chain-state key authorization contract, with producer, transport and consumer agreeing on the replacement rather than requiring both old and new authority forms."
+proposal = "Migrate journeys/engine.rs ReceiptMaterial, the real agent receipt producer and server decoder together to authenticated chain-state receipt keys and current rung evidence; preserve signature, inclusion-height, transaction and block commitment checks, and prove retrieval and reopen without caller-supplied AuthorizedBatch."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-engine-receipt-material"
+
+[finding.verified-evidence-reload]
+file = "services/human/crates/layerx-human-service/src/journeys/engine.rs"
+line = 2147
+class = "restart-recovery"
+severity = "medium"
+observed = "validate_record accepts a ReceiptVerified leg with receipt, digest, activity and submission references but does not require rung_evidence or receipt_authority. After decoding, state can report Done while verified_leg_evidence refuses the same leg because either evidence field is absent, leaving an accepted stored record unusable by the read/export path."
+expected = "Loading an active completed journey must either recover a complete independently verifiable evidence bundle or refuse it before exposing Done; historical migrations need an explicit separate rule."
+proposal = "Require and verify the complete evidence invariant for active ReceiptVerified legs in journeys/engine.rs, and define an authenticated historical migration where older evidence is supported; prove reopen behavior for valid records and missing evidence without presenting completion first."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-engine-journey-engine-verified-leg-evidence"
+
+[finding.bank-plan-cannot-commit]
+file = "services/human/crates/layerx-human-service/src/journeys/move_money.rs"
+line = 1046
+class = "interface-mismatch"
+severity = "high"
+observed = "MovePlan::new_bank_transfers accepts a valid two-leg plan with consecutive EVM nonces and bank_transfers populated while route.legs is empty. MoveJourney::commit_profile always calls engine_plan, which builds only from route.legs; JourneyPlan::new then rejects the empty plan. stored_move likewise omits bank transfers. The separate production intent-evm path does not repair this declared durable MoveJourney interface."
+expected = "Requirements 10052.1-2 require accepted bank movement plans to commit, retain both transfers and resume to Receipted and Committed evidence without losing their nonce or transaction binding."
+proposal = "Converge move_money.rs bank-plan execution and persistence with the durable production bank path, retaining every raw signed transaction, nonce, hash and receipt; prove the actual constructor-to-commit-to-reopen-to-completion path for two sends through the declared MoveJourney interface."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-move-money-move-journey-commit"
+
+[finding.bank-target-drift]
+file = "services/human/crates/layerx-human-service/src/journeys/resolver.rs"
+line = 862
+class = "config-drift"
+severity = "medium"
+observed = "Relationship::BankTransfer validates denom but encodes transfer(address,uint256) to a caller-supplied pointer address; neither denom nor request.asset is authenticated against that target. Requirement 10051.1 specifies a bank 0x1001 send, and server/production_components.rs uses the bank send selector 0x5c05961b on its separate production path."
+expected = "The resolver and production movement path must agree on the canonical bank target, denomination and asset binding rather than assigning the same bank-transfer name to different execution contracts."
+proposal = "Align journeys/resolver.rs with the explicit bank 0x1001 send(from,to,denom,amount) contract, or specify and authenticate a chain-derived pointer-to-denomination/asset mapping if pointers are supported; prove the emitted call against the actual bank consumer at the pending nonce."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-resolver-route-resolver-resolve"
+
+[finding.missing-balance-is-zero]
+file = "services/human/crates/layerx-human-service/src/journeys/router.rs"
+line = 726
+class = "runtime-risk"
+severity = "medium"
+observed = "ObservedState::available substitutes Amount::from_u128(0) when no endpoint/asset balance exists. ObservedStateBuilder validates required wallet rows but not all required ledger rows, so a partial ledger snapshot can be treated as an observed zero and influence top-up selection. The authoritative observed-state contract explicitly forbids this substitution."
+expected = "An unobserved balance must cause a typed refusal naming the missing source; a known zero must remain distinguishable from an absent observation before planning or consuming any allowance."
+proposal = "Make journeys/router.rs balance access preserve unknown state and require every endpoint/asset needed by a candidate to have an authoritative observation; coordinate observed.rs and production adapters, and prove missing-ledger refusal separately from a genuine zero and an authorized top-up."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-router-observed-state"
+
+[finding.router-two-domains]
+file = "services/human/crates/layerx-human-service/src/journeys/router.rs"
+line = 1
+class = "retired-reference"
+severity = "low"
+observed = "The router module describes a plan spanning separate Paxeer and LayerX domains, documents Paxeer-to-LayerX top-ups and defines a two-settlement-domain vocabulary even though executable shape classification now admits only the surviving kernel send shapes and wallet bridge routes are refused."
+expected = "The one merged network must be the current planning model; retained historical vocabulary must not describe an active cross-network bridge or separate LayerX interface."
+proposal = "Rewrite journeys/router.rs module documentation and current plan vocabulary around the merged network and supported bank routes; isolate any necessary historical decoding and remove unreachable cross-domain planning concepts after their consumers migrate."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-router-domain"
+
+[finding.observation-requires-retired-wallet]
+file = "services/human/crates/layerx-human-service/src/journeys/observed.rs"
+line = 351
+class = "wiring-gap"
+severity = "medium"
+observed = "ObservedStateBuilder::build unconditionally requires NetworkObservation and constructs CustodyContext from a bound wallet plus reserve and withdrawals accounts before building any snapshot. This generic helper still requires the retired joined two-domain custody model even for a supported bank-only send, and no current production builder caller supplies a replacement path."
+expected = "Current one-network bank planning must obtain authoritative sender balances and authority without requiring a retired deposit/withdraw boundary or a wallet join that the route does not use."
+proposal = "Refactor journeys/observed.rs required observations by the actual current route and wire them to committed/pending chain reads; retire the compulsory reserve/withdrawals and dual-domain join dependency while preserving unknown-balance refusal and principal/tenant binding."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-router-observed-state"
+
+[finding.movement-wire-orphan]
+file = "services/human/crates/layerx-human-service/src/journeys/wire.rs"
+line = 3
+class = "dead-code"
+severity = "low"
+observed = "The movement-provider Writer, Reader, MAX_TEXT_BYTES and MAX_PROOF_ITEMS are declared in this module, but no journey or production transport calls them after movement-provider removal; journeys/mod.rs still includes the orphaned module."
+expected = "A retired movement-provider transport should not remain as an apparent supported wire contract in the current journey implementation."
+proposal = "Remove journeys/wire.rs and its module declaration once the owning domain confirms no external generated consumer; retain canonical encoding in the active resolver/EVM transport and its real producer-to-consumer coverage."
+owner_domain = 10
+
+[finding.intent-retired-refusals]
+file = "services/human/crates/layerx-human-service/src/journeys/intent_submit.rs"
+line = 565
+class = "dead-code"
+severity = "low"
+observed = "SubmitRefusal retains DepositMismatch and WithdrawalMismatch and their public code/status/display branches, but the deposit/withdraw submission constructors are removed and no remaining executable submission path constructs those variants."
+expected = "The active intent submission refusal surface should describe operations that can still be initiated; any required historical compatibility should have an explicit decoding owner."
+proposal = "Remove the unconstructed deposit/withdraw-only refusal variants from journeys/intent_submit.rs after checking client compatibility, or move them into the historical decoding contract; preserve all refusal checks for current bank and native submission."
+owner_domain = 10
+interface = "10.rs-human-service-journeys-intent-submit-submit-refusal"
+
+[finding.custody-wiki-retired]
+file = "docs/wiki/HumanCustody.md"
+line = 42
+class = "doc-drift"
+severity = "medium"
+observed = "HumanCustody presents wallet binding, deposit credit, withdrawal claims, emergency exit and checkpoint/Paxeer finality as current custody behavior. It also says primary keys never leave custody and export is out of scope, while the service exposes a primary-key export ceremony."
+expected = "The custody overview must describe one merged network, exact EIP-1559 bank signing, current receipt rungs and the implemented owner export lifecycle, with retired operations identified as history."
+proposal = "Rewrite docs/wiki/HumanCustody.md around current managed signing and owner handover, submitted/receipted/committed evidence and direct bank sends; retain only clearly labeled historical custody-boundary material and document the export recovery repair."
+owner_domain = 10
+
+[finding.hosted-kms-algorithms]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 196
+class = "doc-drift"
+severity = "medium"
+observed = "The KMS request table and operator summary describe ed25519-only creation and signing. internal/src/kms.rs also accepts secp256k1, returns a 33-byte public key for it and includes recovery_id in its signature response, with different digest and algorithm-mismatch rules."
+expected = "Operators and KMS consumers must have the exact supported algorithms, byte lengths, encodings and refusal rules implemented by the hosted producer."
+proposal = "Update hosted-internal.md KMS tables and examples to document ed25519 and secp256k1, the 32-byte signing digest, public-key and signature encodings, recovery_id and algorithm_mismatch, using the current request and response types."
+owner_domain = 8
+
+[finding.hosted-events-enrollment]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 352
+class = "doc-drift"
+severity = "medium"
+observed = "The event-source section says startup refuses an empty principal map and the configuration table describes a plain JSON credential map. The actual producer uses authenticated enrollment generations, starts empty waiting for principals and requires LAYERX_EVENTS_ENROLLMENT_KEY_FILE, absent from this table."
+expected = "The operator guide must explain current authenticated enrollment, empty-start readiness and restart behavior with every required configuration key."
+proposal = "Rewrite hosted-internal.md event enrollment and readiness sections from the current Enrollments producer; document authenticated generations, key-file ownership, atomic snapshot replacement and waiting-principals behavior after an empty start or restart."
+owner_domain = 8
+
+[finding.hosted-human-first-batch]
+file = "services/platform/hosted/human/README.md"
+line = 113
+class = "doc-drift"
+severity = "medium"
+observed = "The hosted Human README documents validate-account-head as a protocol-3 first-batch sequencer-pin check returning consumed=0 and describes movement custody references, guarantor/checkpoint configuration and a separate kernel pod/LNI path as present operator dependencies."
+expected = "The deployment guide must explain the actual merged-chain account and authority observations and only current runtime dependencies, without prescribing retired first-batch provisioning."
+proposal = "Rewrite services/platform/hosted/human/README.md provisioning and configuration around committed chain state, current bank receipts and the merged node; remove retired movement-provider and separate-sequencer instructions when their owning production paths migrate."
+owner_domain = 8
+
+[finding.journeys-guide-retired]
+file = "docs/site/docs/human/journeys.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The journey guide presents wallet binding, deposit, withdrawal and emergency exit as current journeys, describes distinct LayerX/Paxeer custody and finality, and teaches bound-wallet cross-domain plans as ordinary executable movement."
+expected = "The current journey guide must describe one merged network, surviving bank and managed-agent operations, honest submitted/receipted/committed states and readable historical retired kinds."
+proposal = "Rewrite docs/site/docs/human/journeys.md current journey map and movement examples from the shipped operation catalogue and chain receipt flow; label retired kinds as historical read-only records and remove their initiation instructions."
+owner_domain = 10
+
+[finding.readme-pt-BR]
+file = "docs/readme/README.pt-BR.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.pt-BR.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-fr]
+file = "docs/readme/README.fr.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.fr.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-ja]
+file = "docs/readme/README.ja.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.ja.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-ru]
+file = "docs/readme/README.ru.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.ru.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-zh-CN]
+file = "docs/readme/README.zh-CN.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.zh-CN.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-de]
+file = "docs/readme/README.de.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.de.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.readme-es]
+file = "docs/readme/README.es.md"
+line = 37
+class = "doc-drift"
+severity = "medium"
+observed = "This translated README describes two execution domains and running layerxd, retains separate sequencer/guarantor and LNI diagrams, and presents custody settlement/checkpoints and retired precompiles as active architecture. The command and repository-path examples also describe the old tree."
+expected = "Every language entry page must describe the same single paxd network, committed-block finality, current root node RPC and hosted px methods; retired components and addresses cannot be advertised as runnable features."
+proposal = "Rewrite docs/readme/README.es.md architecture text, commands, links and diagrams from the merged-network facts, including the sections around lines 37, 80, 125, 152 and 190; preserve useful product explanations and identify any retained historical addresses as refusal-only."
+owner_domain = 17
+
+[finding.web-app-retired-routes]
+file = "docs/site/docs/human/web-app.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The web-app route inventory lists deposit, withdraw, settings/exit, journeys and recovery as shipped routes although the current apps/web/src/app tree lacks those routes. Its success-evidence paragraph also presents separate LayerX and Paxeer finality as current."
+expected = "The web-app guide must state the actual shipped navigation and explain success using the merged network's receipt and rung evidence."
+proposal = "Rewrite docs/site/docs/human/web-app.md against the current app route tree and exposed operations; replace retired route examples and dual-finality copy with current bank/agent flows and submitted, receipted and committed evidence."
+owner_domain = 10
+
+[finding.journeys-wiki-retired]
+file = "docs/wiki/HumanJourneys.md"
+line = 31
+class = "doc-drift"
+severity = "medium"
+observed = "HumanJourneys presents wallet binding, deposit, withdrawal and emergency exit as current journeys and supplies initiation-looking operation tables at lines 99-178, although those kinds are retired and absent from PRODUCTION_OPERATIONS. It also calls schema minor 4 current while v1.kvx is minor 10."
+expected = "The journey wiki must distinguish supported initiation from historical decoding and identify the actual API contract revision used by the running service."
+proposal = "Rewrite docs/wiki/HumanJourneys.md around active movement and agent lifecycle operations with current API revision and receipt semantics; label retained retired kinds as read-only history and remove executable-looking retired initiation tables."
+owner_domain = 10
+
+[finding.service-catalogue-router]
+file = "spec/layerx-merge/contracts/services.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The inspected service catalogue describes a separate sequencer private to a router, advertises unified /rpc gateway routes near line 50 and retains unified-router in its dependency diagram at lines 185-189. These opening sections contradict the finished network topology."
+expected = "The service catalogue and diagrams must describe one paxd network, root node RPC and a distinct hosted px gateway, with no running router or separate sequencer service."
+proposal = "Update the source that owns spec/layerx-merge/contracts/services.md and regenerate the affected catalogue/dependency sections for the merged topology; name current operator dependencies and remove retired router and unified /rpc instructions."
+owner_domain = 8
+
+[finding.journey-schema-finality-copy]
+file = "services/human/schema/human-api/journeys.kvx"
+line = 14
+class = "doc-drift"
+severity = "medium"
+observed = "JourneyState semantics describe done as a LayerX receipt or a separate Paxeer finality proof and done-finalised as an additional checkpoint proof, while the same page now carries submitted/receipted/committed rung mapping and marks old Paxeer evidence variants retired."
+expected = "Normative human API prose must give one coherent explanation of completion on the merged chain, where a committed block is final and legacy evidence vocabulary is compatibility-only."
+proposal = "Rewrite journeys.kvx semantic and boundary prose with the owning API documentation source so consumers use current rungs and committed receipt evidence; retain deliberate legacy decoding annotations and coordinate the separately reported closed-state contract repair."
+owner_domain = 10
+
+[finding.intent-schema-dual-domain]
+file = "services/human/schema/human-api/intent.kvx"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The intent spine and no_new_verb text still promise plans across both settlement domains and active deposit/withdraw custody boundaries. IntentDomain calls paxeer and layerx settlement domains despite the send-only merged-network execution path and current EVM call fields on the same page."
+expected = "The normative intent contract must describe a single merged network and current executable bank plans, with historical domain labels explicitly distinguished from supported execution."
+proposal = "Update intent.kvx prose and current domain semantics together with the planner/client contract owner; document current bank call, pending nonce and receipt progress while preserving strict replan, digest binding, unknown-observation refusal and any intentional historical decoding."
+owner_domain = 10
+
+[doc.01]
+path = "docs/wiki/HumanCustody.md"
+status = "stale"
+notes = "Read in full. Lines 38-45 and 55-117 describe old disclosure/custody boundaries, export exclusion and dual finality; rewrite for current signing, owner export and merged-chain rungs."
+
+[doc.02]
+path = "docs/wiki/HumanJourneys.md"
+status = "stale"
+notes = "Read in full. Lines 3-4 misstate the current schema minor; lines 31 and 99-178 present retired journeys and their initiation operations as current."
+
+[doc.03]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Read in full. KMS tables at 196-198 and summary at 416 omit secp256k1; lines 352-380 misstate event enrollment, empty-start readiness and required authentication-key configuration."
+
+[doc.04]
+path = "docs/site/docs/human/web-app.md"
+status = "stale"
+notes = "Read in full, 57 lines. Route inventory at line 20 and separate-finality success copy at line 34 disagree with the shipped app and merged journey behavior."
+
+[doc.05]
+path = "docs/site/docs/human/journeys.md"
+status = "stale"
+notes = "Read in full. Lines 4-5, 17-26 and 46-60 advertise retired initiation, dual custody/finality and cross-domain movement; rewrite with active bank/agent journeys and historical closed records."
+
+[doc.06]
+path = "docs/readme/README.pt-BR.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.07]
+path = "docs/readme/README.fr.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.08]
+path = "docs/readme/README.ja.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.09]
+path = "docs/readme/README.ru.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.10]
+path = "docs/readme/README.zh-CN.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.11]
+path = "docs/readme/README.de.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.12]
+path = "docs/readme/README.es.md"
+status = "misleading"
+notes = "Read in full, 301 lines. Architecture at 37/125, running daemon commands near 80 and diagrams near 152 and 190-209 advertise separate execution domains, layerxd, sequencer/guarantor, LNI and retired custody/checkpoint paths; old tree links also need correction."
+
+[doc.13]
+path = "services/human/crates/layerx-human-identity-provider/README.md"
+status = "stale"
+notes = "Read in full as a package member. The required launch table omits authenticated runtime-clock settings; the provisioning table describes first-batch protocol-3 receipt validation as current."
+
+[doc.14]
+path = "services/platform/hosted/human/README.md"
+status = "stale"
+notes = "Read in full. Separate-kernel/LNI, movement-provider and guarantor dependencies and first-batch-only provisioning at lines 113-119 need a merged-chain operator rewrite."
+
+[doc.15]
+path = "spec/layerx-merge/contracts/services.md"
+status = "stale"
+notes = "Selected sections read: opening service catalogue and dependency diagram through line 240, Human service/KMS sections around 1435-1475 and 1548-1600, and identity-provider section 2700-2722. No whole-page review claimed. Lines 47-50 and 185-189 retain router, separate sequencer and unified /rpc topology."
+
+[doc.16]
+path = "services/human/schema/human-api/journeys.kvx"
+status = "stale"
+notes = "Read in full as the normative response contract. JourneyState lacks the engine-produced closed state, and completion prose retains separate LayerX/Paxeer finality despite current rung mapping."
+
+[doc.17]
+path = "services/human/schema/human-api/intent.kvx"
+status = "stale"
+notes = "Read in full as the normative intent contract. Strict unknown-observation and digest/replan rules are current, but the spine, no_new_verb and IntentDomain text still describe active dual-domain deposit/withdraw planning."
+
+[doc.18]
+path = "services/human/schema/human-api/v1.kvx"
+status = "accurate"
+notes = "Read in full, 162 lines. The current descriptor is major 1/minor 10; native-access operation paths and request/result types, decimal-string scalar encodings and strict authenticated principal/tenant authorization agree with the inspected production consumers. Provider capability failure is recorded separately on custody/provider.rs; included-module drift is recorded on those pages."

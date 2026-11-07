@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -15,6 +14,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reflect"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/admin"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/engine/deps/tasks"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/baseapp"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -90,6 +91,7 @@ import (
 	upgradeclient "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/client"
 	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	upgradetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/types"
+	storekeys "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/keys"
 	paxdb "github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
@@ -162,13 +164,22 @@ import (
 	launchpadkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/keeper"
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagentmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent"
+	layerxagentkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/keeper"
+	layerxagenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	layerxanchormodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor"
 	layerxanchorkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/keeper"
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
+	layerxauthmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth"
+	layerxauthkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/keeper"
+	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	layerxbridgemodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge"
 	layerxbridgeclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	layerxbridgekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/keeper"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainsmodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains"
+	layerxchainskeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/keeper"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody"
 	layerxcustodykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
@@ -178,6 +189,13 @@ import (
 	layerxgov "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov"
 	layerxgovclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/client/cli"
 	layerxgovtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxgov/types"
+	layerxledgermodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger"
+	layerxledgerkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/keeper"
+	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
+	layerxpaymodule "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay"
+	layerxpaykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/keeper"
+	layerxpaytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/lxphost"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint"
 	mintclient "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/client/cli"
 	mintkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/mint/keeper"
@@ -287,12 +305,18 @@ var (
 		layerxanchormodule.AppModuleBasic{},
 		layerxexchangemodule.AppModuleBasic{},
 		layerxbridgemodule.AppModuleBasic{},
-		launchpadmodule.AppModuleBasic{},
+		launchpadmodule.NewAppModuleBasic(),
 		perpsmodule.AppModuleBasic{},
 		spotmodule.AppModuleBasic{},
 		pricefeedmodule.AppModuleBasic{},
 		xwebmodule.AppModuleBasic{},
 		sequencermodule.AppModuleBasic{},
+		lxphost.StoreAppModuleBasic{},
+		layerxledgermodule.AppModuleBasic{},
+		layerxauthmodule.AppModuleBasic{},
+		layerxpaymodule.AppModuleBasic{},
+		layerxchainsmodule.AppModuleBasic{},
+		layerxagentmodule.AppModuleBasic{},
 		// this line is used by starport scaffolding # stargate/app/moduleBasic
 	)
 
@@ -312,6 +336,8 @@ var (
 		tokenfactorytypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
 		layerxcustodytypes.ModuleName:   nil,
 		layerxanchortypes.ModuleName:    {authtypes.Burner},
+		layerxledgertypes.ModuleName:    {authtypes.Minter, authtypes.Burner},
+		layerxchainstypes.ModuleName:    nil,
 		spottypes.ModuleName:            {authtypes.Minter, authtypes.Burner},
 		// launchpad, launchpad_treasury and layerxbridge are deliberately absent:
 		// the bank keeper blocks every maccPerms address as a receiver, and each
@@ -349,10 +375,17 @@ var (
 		pricefeedtypes.StoreKey,
 		xwebtypes.StoreKey,
 		seqtypes.StoreKey,
+		storekeys.LayerXLedgerStoreKey,
+		storekeys.LayerXAuthStoreKey,
+		storekeys.LayerXPayStoreKey,
+		storekeys.LayerXChainsStoreKey,
+		storekeys.LayerXProgramsStoreKey,
+		storekeys.LayerXAgentStoreKey,
+		storekeys.LayerXHostStoreKey,
 		// this line is used by starport scaffolding # stargate/app/storeKey
 	}
 
-	// WasmProposalsEnabled enables all x/wasm proposals when it's value is "true"
+	// WasmProposalsEnabled selects all ten x/wasm proposal kinds when its value is "true"
 	// and EnableSpecificWasmProposals is empty. Otherwise, all x/wasm proposals
 	// are disabled.
 	// Used as a flag to turn it on and off
@@ -402,7 +435,8 @@ func init() {
 
 // GetWasmEnabledProposals parses the WasmProposalsEnabled and
 // EnableSpecificWasmProposals values to produce a list of enabled proposals to
-// pass into the application.
+// pass into the application. Callers must pass this result to honor the build
+// overrides; passing wasm.EnableAllProposals directly bypasses this selection.
 func GetWasmEnabledProposals() []wasm.ProposalType {
 	if EnableSpecificWasmProposals == "" {
 		if WasmProposalsEnabled == "true" {
@@ -493,8 +527,16 @@ type App struct {
 
 	EpochKeeper epochmodulekeeper.Keeper
 
-	TokenFactoryKeeper tokenfactorykeeper.Keeper
-	LayerXAnchorKeeper layerxanchorkeeper.Keeper
+	TokenFactoryKeeper     tokenfactorykeeper.Keeper
+	LayerXAnchorKeeper     layerxanchorkeeper.Keeper
+	LayerXLedgerKeeper     *layerxledgerkeeper.Keeper
+	LayerXAuthKeeper       *layerxauthkeeper.Keeper
+	LayerXAgentKeeper      LayerXAgentKeeper
+	LayerXPayKeeper        *layerxpaykeeper.Keeper
+	LayerXChainsKeeper     *layerxchainskeeper.Keeper
+	LayerXHost             *lxphost.Host
+	hostedProgramsGuestABI uint16
+	retiredLayerXHosts     []*lxphost.Host
 
 	LayerXCustodyKeeper *layerxcustodykeeper.Keeper
 
@@ -560,9 +602,11 @@ type App struct {
 	// defend against stale tuples from prior failed commits or
 	// non-stashing return paths (EthReplay/EthBlockTest).
 	blockHeaderNotifier   tmutils.Option[*evmrpc.BlockHeaderNotifier]
+	pendingBlockHeader    *tmproto.Header
 	adminConfig           admin.Config
 	adminServer           *grpc.Server
 	lightInvarianceConfig LightInvarianceConfig
+	lightInvarianceErr    error
 
 	genesisImportConfig genesistypes.GenesisImportConfig
 
@@ -591,8 +635,93 @@ type App struct {
 	GigaOCCEnabled bool
 
 	// openBlock is the sequencer executor's open block; nil in full-node mode.
-	openBlock OpenBlock
+	openBlock             OpenBlock
+	sequencerSource       tmtypes.SequencerSource
+	sequencerRPC          evmrpc.SequencerOption
+	sequencerReceipt      evmrpc.SequencerReceiptOption
+	commitListener        func(height int64, appHash []byte) error
+	lastBlockIDMutex      sync.RWMutex
+	committedBlockID      tmproto.BlockID
+	committingBlockID     tmproto.BlockID
+	committingBlockHeight int64
 }
+
+const LayerXHostStoreKey = storekeys.LayerXHostStoreKey
+
+func NewHost(storeKey sdk.StoreKey, networkID uint32) (*lxphost.Host, error) {
+	return newHostWithProgramsABI(storeKey, networkID, 4)
+}
+
+func newHostWithProgramsABI(storeKey sdk.StoreKey, networkID uint32, abi uint16) (*lxphost.Host, error) {
+	return lxphost.NewHost(lxphost.Config{
+		StoreKey: storeKey, NetworkID: networkID, Epoch: 1, ProgramsGuestABI: abi,
+		ParameterVersion: 1, TimestampWindowMs: 60_000, GasLimit: 10_000_000,
+	})
+}
+
+const hostedProgramsGuestABIKey = "node/programs-guest-abi"
+
+func (app *App) refreshHostedKernelProgramsABI(ctx sdk.Context) {
+	record := ctx.KVStore(app.keys[LayerXHostStoreKey]).Get([]byte(hostedProgramsGuestABIKey))
+	abi := uint16(4)
+	if record != nil {
+		if !bytes.Equal(record, []byte{0, 5}) {
+			panic(fmt.Errorf("invalid hosted programs guest ABI selection: %x", record))
+		}
+		abi = 5
+	}
+	if app.hostedProgramsGuestABI == abi {
+		return
+	}
+	networkID := evmconfig.GetEVMChainID(app.ChainID)
+	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
+		panic(fmt.Errorf("LayerX network ID out of range: %s", networkID))
+	}
+	host, err := newHostWithProgramsABI(app.keys[LayerXHostStoreKey], uint32(networkID.Uint64()), abi)
+	if err != nil {
+		panic(fmt.Errorf("creating hosted programs ABI %d: %w", abi, err))
+	}
+	authority := layerxgovtypes.GovernanceAuthority()
+	pay, err := layerxpaykeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXPayStoreKey],
+		app.keys[LayerXHostStoreKey], host, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+	if err != nil {
+		host.Close()
+		panic(fmt.Errorf("rebinding hosted pay keeper: %w", err))
+	}
+	previous := app.LayerXHost
+	app.LayerXHost = host
+	*app.LayerXLedgerKeeper = *layerxledgerkeeper.NewKeeperWithIssuer(app.appCodec, app.keys[storekeys.LayerXLedgerStoreKey],
+		host, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
+	*app.LayerXAuthKeeper = *layerxauthkeeper.NewKeeper(app.appCodec, app.keys[storekeys.LayerXAuthStoreKey],
+		host, &app.AuthzKeeper, &app.EvmKeeper, authority)
+	*app.LayerXPayKeeper = pay
+	app.LayerXAgentKeeper.host = host
+	if app.customPrecompiles != nil {
+		custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, app.GetPrecompileKeepers())
+		if err != nil {
+			panic(fmt.Errorf("rebinding hosted precompiles: %w", err))
+		}
+		next, err := app.v6120Contracts()
+		if err != nil {
+			panic(fmt.Errorf("rebinding hosted v6.12.0 precompiles: %w", err))
+		}
+		app.customPrecompiles = custom
+		app.v6120Next = next
+		app.refreshXWebPrecompile(ctx)
+	}
+	app.hostedProgramsGuestABI = abi
+	// Readers of an earlier precompile set may still be using the old host.
+	// Drain all generations together when the application closes.
+	app.retiredLayerXHosts = append(app.retiredLayerXHosts, previous)
+}
+
+type LayerXAgentKeeper struct {
+	layerxagentkeeper.Keeper
+	host *lxphost.Host
+}
+
+func (k LayerXAgentKeeper) Host() *lxphost.Host { return k.host }
 
 type AppOption func(*App)
 
@@ -729,11 +858,11 @@ func New(
 	transferModule := transfer.NewAppModule(app.TransferKeeper)
 	transferIBCModule := transfer.NewIBCModule(app.TransferKeeper)
 
-	// Create evidence Keeper for to register the IBC light client misbehaviour evidence route
+	// No evidence submission routes are approved; seal this policy before service registration.
 	evidenceKeeper := evidencekeeper.NewKeeper(
 		appCodec, keys[evidencetypes.StoreKey], &app.StakingKeeper, app.SlashingKeeper,
 	)
-	// If evidence needs to be handled for the app, set routes in router here and seal
+	evidenceKeeper.SetRouter(evidencetypes.NewRouter())
 	app.EvidenceKeeper = *evidenceKeeper
 
 	app.OracleKeeper = oraclekeeper.NewKeeper(
@@ -761,11 +890,9 @@ func New(
 		app.GetSubspace(tokenfactorytypes.ModuleName),
 		app.AccountKeeper,
 		app.BankKeeper.(bankkeeper.BaseKeeper).WithMintCoinsRestriction(tokenfactorytypes.NewTokenFactoryDenomMintCoinsRestriction()),
-		app.DistrKeeper,
 	)
 	app.BankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
-
-	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(app.keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
+	app.LayerXAnchorKeeper = layerxanchorkeeper.NewKeeper(keys[layerxanchortypes.StoreKey], app.AccountKeeper, app.BankKeeper)
 
 	// The last arguments can contain custom message handlers, and custom query handlers,
 	// if we want to allow any custom callbacks
@@ -827,19 +954,48 @@ func New(
 	app.BankKeeper.RegisterRecipientChecker(app.EvmKeeper.CanAddressReceive)
 	app.LayerXCustodyKeeper = layerxcustodykeeper.NewKeeper(appCodec, keys[layerxcustodytypes.StoreKey],
 		app.AccountKeeper, app.BankKeeper, &app.EvmKeeper, app.UpgradeKeeper)
-	// Custody trusts only anchor-finalized checkpoints and anchor sequencer
-	// authorizations; its own authority-registered checkpoints are unused.
-	app.LayerXCustodyKeeper.SetAnchorReader(layerxanchorkeeper.NewCustodyAnchor(app.LayerXAnchorKeeper))
+	authority := layerxgovtypes.GovernanceAuthority()
+	networkID := evmconfig.GetEVMChainID(app.ChainID)
+	if !networkID.IsUint64() || networkID.Uint64() > math.MaxUint32 {
+		panic(fmt.Sprintf("LayerX network ID out of range: %s", networkID))
+	}
+	app.LayerXHost, err = NewHost(keys[storekeys.LayerXHostStoreKey], uint32(networkID.Uint64()))
+	app.hostedProgramsGuestABI = 4
+	if err != nil {
+		panic(fmt.Sprintf("error creating shared LayerX host: %s", err))
+	}
+	app.LayerXLedgerKeeper = layerxledgerkeeper.NewKeeperWithIssuer(appCodec, keys[storekeys.LayerXLedgerStoreKey],
+		app.LayerXHost, app.BankKeeper, &app.EvmKeeper, authority,
+		layerxledgerkeeper.NewTokenfactoryIssuerKeeper(app.TokenFactoryKeeper))
+	app.LayerXAuthKeeper = layerxauthkeeper.NewKeeper(appCodec, keys[storekeys.LayerXAuthStoreKey],
+		app.LayerXHost, &app.AuthzKeeper, &app.EvmKeeper, authority)
+	app.LayerXAgentKeeper = LayerXAgentKeeper{
+		Keeper: layerxagentkeeper.NewKeeper(keys[storekeys.LayerXAgentStoreKey], &app.EvmKeeper, MergeUpgrade),
+		host:   app.LayerXHost,
+	}
+	payKeeper, err := layerxpaykeeper.NewKeeper(appCodec, keys[storekeys.LayerXPayStoreKey],
+		keys[storekeys.LayerXHostStoreKey], app.LayerXHost, &app.EvmKeeper, app.LayerXCustodyKeeper, authority)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LayerX pay keeper: %s", err))
+	}
+	app.LayerXPayKeeper = &payKeeper
+	app.LayerXChainsKeeper, err = layerxchainskeeper.NewKeeperWithAddressResolver(appCodec, keys[storekeys.LayerXChainsStoreKey],
+		app.BankKeeper, app.EvmKeeper.GetBaseDenom, &app.EvmKeeper)
+	if err != nil {
+		panic(fmt.Sprintf("error creating LayerX chains keeper: %s", err))
+	}
+	app.EvmKeeper.SetChainsBinding(evmChainsBinding{app.LayerXChainsKeeper})
 	app.LayerXExchangeKeeper = layerxexchangekeeper.NewKeeper(appCodec, keys[layerxexchangetypes.StoreKey],
 		app.LayerXCustodyKeeper, &app.EvmKeeper)
+	app.LayerXExchangeKeeper.SetUpgradeKeeper(app.UpgradeKeeper)
 	app.LayerXBridgeKeeper = layerxbridgekeeper.NewKeeper(keys[layerxbridgetypes.StoreKey], app.BankKeeper,
 		&app.EvmKeeper, app.TokenFactoryKeeper)
 	app.LaunchpadKeeper = launchpadkeeper.NewKeeper(keys[launchpadtypes.StoreKey], app.BankKeeper,
 		tokenfactorykeeper.NewMsgServerImpl(app.TokenFactoryKeeper), &app.EvmKeeper)
-	app.BankKeeper.(bankkeeper.BaseKeeper).RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
-	app.GigaBankKeeper.RegisterBalanceChangeHook(launchpadtypes.ModuleName, app.LaunchpadKeeper.BeforeBalanceChange)
 	app.PricefeedKeeper = pricefeedkeeper.NewKeeper(keys[pricefeedtypes.StoreKey], &app.StakingKeeper, app.AccountKeeper, &app.EvmKeeper)
 	app.PerpsKeeper = perpskeeper.NewKeeper(keys[perpstypes.StoreKey], &app.EvmKeeper, app.PricefeedKeeper)
+	// The module and served spot precompiles share this stateless keeper;
+	// every view reads the store attached to its call context.
 	app.SpotKeeper = spotkeeper.NewKeeper(keys[spottypes.StoreKey], app.BankKeeper, &app.EvmKeeper, app.PricefeedKeeper)
 	app.XWebKeeper = xwebkeeper.NewKeeper(keys[xwebtypes.StoreKey], app.BankKeeper, &app.EvmKeeper)
 	app.SequencerKeeper = seqkeeper.NewKeeper(keys[seqtypes.StoreKey])
@@ -847,9 +1003,9 @@ func New(
 	bApp.SetPreCommitHandler(app.HandlePreCommit)
 	bApp.SetCloseHandler(app.HandleClose)
 
-	app.evmRPCConfig, err = evmrpcconfig.ReadConfig(appOpts)
+	app.evmRPCConfig, err = ReadEVMRPCConfig(appOpts)
 	if err != nil {
-		panic(fmt.Sprintf("error reading EVM config due to %s", err))
+		panic(err)
 	}
 	// TODO: remove the mode gate and always construct the notifier once
 	// non-Autobahn is also producer-wired to feed it (i.e. a listener
@@ -916,6 +1072,7 @@ func New(
 	app.GigaEvmKeeper.UseRegularStore = true
 	app.GigaBankKeeper.UseRegularStore = true
 	app.GigaBankKeeper.RegisterRecipientChecker(app.GigaEvmKeeper.CanAddressReceive)
+	app.GigaBankKeeper.RegisterSendEnabledChecker(app.TokenFactoryKeeper.SendEnabledChecker)
 	// Read Giga Executor config
 	gigaExecutorConfig, err := gigaconfig.ReadConfig(appOpts)
 	if err != nil {
@@ -923,7 +1080,7 @@ func New(
 	}
 	app.GigaExecutorEnabled = gigaExecutorConfig.Enabled
 	app.GigaOCCEnabled = gigaExecutorConfig.OCCEnabled
-	tmtypes.SkipLastResultsHashValidation.Store(gigaExecutorConfig.Enabled)
+
 	if gigaExecutorConfig.Enabled {
 		// evmone is loaded best-effort
 		if evmoneVM, err := gigalib.InitEvmoneVM(); err == nil {
@@ -979,6 +1136,10 @@ func New(
 
 	// this line is used by starport scaffolding # stargate/app/keeperDefinition
 
+	// Mainnet ICA is intentionally unsupported: no controller/host keepers,
+	// stores, capabilities, module account, authentication middleware, services,
+	// genesis entry or IBC routes are mounted. The library and simapp do not
+	// enable it. Availability contract: interchain/modules/apps/27-interchain-accounts/README.md.
 	// Create static IBC router, add transfer route, then set and seal it
 	ibcRouter := ibcporttypes.NewRouter()
 	ibcRouter.AddRoute(ibctransfertypes.ModuleName, transferIBCModule)
@@ -987,7 +1148,11 @@ func New(
 	app.IBCKeeper.SetRouter(ibcRouter)
 
 	if enableCustomEVMPrecompiles {
-		app.customPrecompiles = precompiles.GetCustomPrecompiles(LatestUpgrade, app.GetPrecompileKeepers())
+		custom, err := precompiles.GetCustomPrecompilesE(LatestUpgrade, app.GetPrecompileKeepers())
+		if err != nil {
+			panic(fmt.Sprintf("error building the custom precompiles due to %s", err))
+		}
+		app.customPrecompiles = custom
 		next, err := app.v6120Contracts()
 		if err != nil {
 			panic(fmt.Sprintf("error building the v6.12.0 precompiles due to %s", err))
@@ -1026,7 +1191,6 @@ func New(
 		transferModule,
 		epochModule,
 		tokenfactorymodule.NewAppModule(app.TokenFactoryKeeper, app.AccountKeeper, app.BankKeeper),
-		layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper),
 		authzmodule.NewAppModule(appCodec, app.AuthzKeeper, app.AccountKeeper, app.BankKeeper, app.interfaceRegistry),
 		layerxcustodymodule.NewAppModule(app.LayerXCustodyKeeper),
 		layerxexchangemodule.NewAppModule(app.LayerXExchangeKeeper),
@@ -1037,6 +1201,12 @@ func New(
 		pricefeedmodule.NewAppModule(app.PricefeedKeeper),
 		xwebmodule.NewAppModule(app.XWebKeeper),
 		sequencermodule.NewAppModule(app.SequencerKeeper, app.GetSubspace(seqtypes.ModuleName)),
+		lxphost.NewStoreAppModule(keys[storekeys.LayerXHostStoreKey]),
+		layerxledgermodule.NewAppModule(app.LayerXLedgerKeeper),
+		layerxauthmodule.NewAppModule(app.LayerXAuthKeeper),
+		layerxpaymodule.NewAppModule(*app.LayerXPayKeeper),
+		layerxchainsmodule.NewAppModule(app.LayerXChainsKeeper),
+		layerxagentmodule.NewAppModule(app.LayerXAgentKeeper.Keeper, authority),
 		// this line is used by starport scaffolding # stargate/app/appModule
 	)
 
@@ -1059,6 +1229,11 @@ func New(
 		PerpsKeeper:   app.PerpsKeeper,
 		SpotKeeper:    app.SpotKeeper,
 		V6120Live:     func() bool { return app.v6120Live },
+		AgentKeeper:   &app.LayerXAgentKeeper.Keeper,
+		MergeLive: func() bool {
+			ctx := app.DeliverContext()
+			return ctx != nil && app.Sequenced(*ctx, ctx.BlockHeight())
+		},
 	}
 	app.CheckTxKeepers = legacyabci.CheckTxKeepers{
 		AccountKeeper:   app.AccountKeeper,
@@ -1116,7 +1291,6 @@ func New(
 		wasm.ModuleName,
 		evmtypes.ModuleName,
 		layerxcustodytypes.ModuleName,
-		layerxanchortypes.ModuleName,
 		layerxexchangetypes.ModuleName,
 		layerxbridgetypes.ModuleName,
 		launchpadtypes.ModuleName,
@@ -1125,12 +1299,21 @@ func New(
 		pricefeedtypes.ModuleName,
 		xwebtypes.ModuleName,
 		seqtypes.ModuleName,
+		storekeys.LayerXHostStoreKey,
+		layerxledgertypes.ModuleName,
+		layerxauthtypes.ModuleName,
+		layerxpaytypes.ModuleName,
+		layerxchainstypes.ModuleName,
+		layerxagenttypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis
 	)
 
 	app.mm.RegisterRoutes(app.Router(), app.QueryRouter(), encodingConfig.Amino)
 	app.configurator = module.NewConfigurator(app.appCodec, app.MsgServiceRouter(), app.GRPCQueryRouter())
 	app.mm.RegisterServices(app.configurator)
+	// Keep the retirement-gated message route without restoring the anchor's
+	// genesis, export or migration lifecycle after its store is deleted.
+	layerxanchormodule.NewAppModule(app.LayerXAnchorKeeper, &app.UpgradeKeeper).RegisterServices(app.configurator)
 
 	// create the simulation manager and define the order of the modules for deterministic simulations
 	app.sm = module.NewSimulationManager(
@@ -1189,6 +1372,7 @@ func New(
 			OracleKeeper:      &app.OracleKeeper,
 			PricefeedKeeper:   app.PricefeedKeeper,
 			EVMKeeper:         &app.EvmKeeper,
+			LayerXAuthKeeper:  app.LayerXAuthKeeper,
 			UpgradeKeeper:     &app.UpgradeKeeper,
 			TracingInfo:       app.GetBaseApp().TracingInfo,
 			LatestCtxGetter:   app.LatestCtx,
@@ -1228,7 +1412,30 @@ func New(
 			tmos.Exit(err.Error())
 		}
 
+		// Host construction precedes LoadLatestVersion, so select from the store
+		// only now; BeginBlock observes it again through applyNamedUpgrade.
 		ctx := app.NewUncachedContext(true, tmproto.Header{})
+		app.refreshHostedKernelProgramsABI(ctx)
+		if bz := ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Get(committedBlockIdentityKey); len(bz) != 0 {
+			if err := app.committedBlockID.Unmarshal(bz); err != nil {
+				return fmt.Errorf("load committed block identity: %w", err)
+			}
+		} else if height := app.LastBlockHeight(); height > 0 {
+			// A database committed by an older binary has no identity key. Its
+			// staking history carries the decided header of the committed tip.
+			historical, found := app.StakingKeeper.GetHistoricalInfo(ctx, height)
+			if !found {
+				return fmt.Errorf("committed block identity missing at height %d", height)
+			}
+			header, err := tmtypes.HeaderFromProto(&historical.Header)
+			if err != nil {
+				return fmt.Errorf("recover committed block identity: %w", err)
+			}
+			app.committedBlockID.Hash = header.Hash()
+			if len(app.committedBlockID.Hash) == 0 {
+				return fmt.Errorf("committed header hash missing at height %d", height)
+			}
+		}
 		if err := app.WasmKeeper.InitializePinnedCodes(ctx); err != nil {
 			tmos.Exit(fmt.Sprintf("failed initialize pinned codes %s", err))
 		}
@@ -1268,6 +1475,14 @@ func (app *App) sendEVMServerStartSignals() {
 		app.wsServerStartSignalSent = true
 		app.wsServerStartSignal <- struct{}{}
 	}
+}
+
+func (app *App) SendEVMServerStartSignals() {
+	app.sendEVMServerStartSignals()
+}
+
+func (app *App) ServeEVMServers(httpServer, wsServer evmrpc.EVMServer) {
+	app.serveEVMServers(httpServer, wsServer)
 }
 
 func (app *App) serveEVMServers(httpServer, wsServer evmrpc.EVMServer) {
@@ -1323,14 +1538,37 @@ func (app *App) Close() error {
 	return app.BaseApp.Close()
 }
 
+var committedBlockIdentityKey = []byte("node/committed-block-id")
+
 // HandlePreCommit happens right before the block is committed
 func (app *App) HandlePreCommit(ctx sdk.Context) error {
-	return app.EvmKeeper.FlushTransientReceipts(ctx)
+	if err := app.EvmKeeper.FlushTransientReceipts(ctx); err != nil {
+		return err
+	}
+	id := tmproto.BlockID{Hash: ctx.HeaderHash()}
+	bz, err := id.Marshal()
+	if err != nil {
+		return fmt.Errorf("persist committed block identity: %w", err)
+	}
+	ctx.KVStore(app.GetKey(upgradetypes.StoreKey)).Set(committedBlockIdentityKey, bz)
+	committed := app.LastBlockID()
+	app.lastBlockIDMutex.Lock()
+	defer app.lastBlockIDMutex.Unlock()
+	app.committedBlockID = committed
+	app.committingBlockID = id
+	app.committingBlockHeight = ctx.BlockHeight()
+	return nil
 }
 
 // Close closes all items that needs closing (called by baseapp)
 func (app *App) HandleClose() error {
 	var errs []error
+	if app.LayerXHost != nil {
+		app.LayerXHost.Close()
+	}
+	for _, host := range app.retiredLayerXHosts {
+		host.Close()
+	}
 
 	// Close trace db so its WAL is flushed; baker writes use NoSync.
 	if tc := app.EvmKeeper.TraceDB(); tc != nil {
@@ -1446,10 +1684,40 @@ func (app *App) SetStoreUpgradeHandlers() {
 	}
 
 	if storeUpgrades, ok := layerxStoreUpgrades(upgradeInfo.Name); ok && !app.UpgradeKeeper.IsSkipHeight(upgradeInfo.Height) {
+		if upgradeInfo.Name == MergeUpgrade {
+			app.SetStoreLoader(func(ms sdk.CommitMultiStore) error {
+				reporter, reportsPending := ms.(pendingStoreReporter)
+				if !reportsPending {
+					return upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades)(ms)
+				}
+				// Load the committed tree inventory before deciding what to add:
+				// full genesis already carries these stores, while an older
+				// database exposes the missing trees as pending stores.
+				if err := baseapp.DefaultStoreLoader(ms); err != nil {
+					return err
+				}
+				if upgradeInfo.Height != ms.LastCommitID().Version+1 {
+					return nil
+				}
+				missing := storetypes.StoreUpgrades{}
+				for _, name := range storeUpgrades.Added {
+					if reporter.IsPendingStore(name) {
+						missing.Added = append(missing.Added, name)
+					}
+				}
+				if len(missing.Added) == 0 {
+					return nil
+				}
+				return upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &missing)(ms)
+			})
+			return
+		}
 		// configure store loader that checks if version == upgradeHeight and applies store upgrades
 		app.SetStoreLoader(upgradetypes.UpgradeStoreLoader(upgradeInfo.Height, &storeUpgrades))
 	}
 }
+
+const retiredAnchorStoreName = "layerxanchor"
 
 // layerxStoreUpgrades returns the store upgrades of the named LayerX upgrade plan.
 func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
@@ -1464,6 +1732,8 @@ func layerxStoreUpgrades(name string) (storetypes.StoreUpgrades, bool) {
 		return activationStoreUpgrades(), true
 	case MergeUpgrade:
 		return mergeStoreUpgrades(), true
+	case AnchorStoreDeleteUpgrade:
+		return storetypes.StoreUpgrades{Deleted: []string{retiredAnchorStoreName}}, true
 	case V6120Upgrade:
 		return v6120StoreUpgrades(), true
 	}
@@ -1506,7 +1776,25 @@ func (app *App) MidBlocker(ctx sdk.Context, height int64) []abci.Event {
 // InitChainer application update at chain initialization
 func (app *App) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
-	if !app.genesisImportConfig.StreamGenesisImport {
+	if app.genesisImportConfig.StreamGenesisImport {
+		// The streaming reader reports open errors only on stdout and otherwise
+		// returns an empty stream. Refuse an unavailable input before writing state.
+		file, err := os.Open(filepath.Clean(app.genesisImportConfig.GenesisStreamFile))
+		if err != nil {
+			panic(fmt.Errorf("open genesis stream: %w", err))
+		}
+		info, statErr := file.Stat()
+		closeErr := file.Close()
+		if statErr != nil {
+			panic(fmt.Errorf("stat genesis stream: %w", statErr))
+		}
+		if closeErr != nil {
+			panic(fmt.Errorf("close genesis stream: %w", closeErr))
+		}
+		if !info.Mode().IsRegular() {
+			panic(fmt.Errorf("genesis stream %q must be a regular file", file.Name()))
+		}
+	} else {
 		if err := json.Unmarshal(req.AppStateBytes, &genesisState); err != nil {
 			panic(err)
 		}
@@ -1534,7 +1822,7 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 	// Start block processing timing (ends at FinalizeBlock)
 	app.StartBenchmarkBlockProcessing()
 
-	// Once the merge plan is done tx 0 is the sequence batch, decoded on its own; the gas check
+	// From the keeper activation height tx 0 is the sequence batch, decoded on its own; the gas check
 	// covers the sequenced transactions behind it.
 	sequenced := app.Sequenced(ctx, req.Header.Height)
 	var batch seqtypes.MsgSequenceBatch
@@ -1542,10 +1830,12 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 	if sequenced {
 		if len(req.Txs) == 0 {
 			logger.Error("sequenced proposal has no sequence batch", "height", req.Header.Height)
+			recordSequencedReject(ctx.Context(), sequencedRejectNoBatch)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 		if batch, err = DecodeSequenceBatch(req.Txs[0]); err != nil {
 			logger.Error("sequenced proposal tx 0 is not a sequence batch", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectBatchDecode)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 		blockTxs = req.Txs[1:]
@@ -1561,17 +1851,25 @@ func (app *App) ProcessProposalHandler(ctx sdk.Context, req *abci.RequestProcess
 		}, nil
 	}
 
+	// Keep validation on the clean context; ProcessBlock writes to ctx downstream.
+	checkCtx := app.GetProcessProposalCleanContext()
 	if sequenced {
-		if root := app.SequencedTxRoot(blockTxs, typedTxs); !bytes.Equal(batch.TxRoot, root[:]) {
-			logger.Error("sequence batch txRoot differs from the sealed sequence", "height", req.Header.Height,
-				"batchTxRoot", fmt.Sprintf("%X", batch.TxRoot), "txRoot", fmt.Sprintf("%X", root))
+		if err := seqtypes.VerifyBatchTxs(batch, app.sequencedActivityIDs(blockTxs, typedTxs)); err != nil {
+			logger.Error("sequence batch differs from block transactions", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectBatchTxs)
+			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
+		}
+		if err := app.checkSequencerOrder(checkCtx, batch); err != nil {
+			logger.Error("sequence batch order check failed", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectOrder)
+			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
+		}
+		if err := app.checkSequencerProposer(checkCtx, req.Header.ProposerAddress); err != nil {
+			logger.Error("sequenced proposal proposer check failed", "height", req.Header.Height, "err", err)
+			recordSequencedReject(ctx.Context(), sequencedRejectProposer)
 			return &abci.ResponseProcessProposal{Status: abci.ResponseProcessProposal_REJECT}, nil
 		}
 	}
-
-	// Use the clean context for gas validation only. We cannot reassign
-	// ctx because ProcessBlock writes to ctx's store downstream.
-	checkCtx := app.GetProcessProposalCleanContext()
 
 	// Invariant: at this point nil entries in typedTxs are proto decode failures only.
 	// EVM preprocessing runs later inside ProcessBlock; do not reorder that before this check.
@@ -1662,6 +1960,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	if hasHeadNotifier {
 		headNotifier.ClearStash()
 	}
+	app.pendingBlockHeader = nil
 	startTime := time.Now()
 	defer func() {
 		app.ClearOptimisticProcessingInfo()
@@ -1680,7 +1979,60 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 
 	if completion != nil {
 		<-completion
+	}
 
+	if source, ok := app.sequencerSource.(interface {
+		SealForFinalize(height int64, txs [][]byte) error
+	}); ok {
+		if err := source.SealForFinalize(req.Header.Height, req.Txs); err != nil {
+			return nil, err
+		}
+	}
+	sealed, err := app.sealedBlockForFinalize()
+	if err != nil {
+		return nil, err
+	}
+	if sealed != nil && sealed.Height == req.Header.Height && app.Sequenced(ctx, req.Header.Height) {
+		matches := len(sealed.Txs) == len(req.Txs)
+		for i := 0; matches && i < len(req.Txs); i++ {
+			matches = bytes.Equal(sealed.Txs[i], req.Txs[i])
+		}
+		if matches {
+			sealedCtx := sealed.ctx.WithBlockHeader(*req.Header).WithHeaderHash(req.Hash)
+			ms, ok := sealedCtx.MultiStore().(sdk.CacheMultiStore)
+			if !ok {
+				return nil, errors.New("sealed block context has no cache multistore")
+			}
+			if err := app.StoreVotes(sealedCtx, req.Header.Height, req.DecidedLastCommit.Votes); err != nil {
+				return nil, err
+			}
+			if historical, found := app.StakingKeeper.GetHistoricalInfo(sealedCtx, req.Header.Height); found {
+				historical.Header = *req.Header
+				app.StakingKeeper.SetHistoricalInfo(sealedCtx, req.Header.Height, &historical)
+			}
+			if err := app.SetSealedStateToCommit(sealedCtx, ms); err != nil {
+				return nil, err
+			}
+			defer app.sendEVMServerStartSignals()
+			if app.EvmKeeper.EthReplayConfig.Enabled || app.EvmKeeper.EthBlockTestConfig.Enabled {
+				return &abci.ResponseFinalizeBlock{}, nil
+			}
+			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
+			cms := app.WriteState()
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
+			resp := app.getFinalizeBlockResponse(app.GetWorkingHash(), sealed.Events, sealed.Results, sealed.EndBlock, consensusParamUpdates)
+			if hasHeadNotifier {
+				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+					return nil, err
+				}
+			}
+			return &resp, nil
+		}
+	}
+
+	if completion != nil {
 		// Get the final state atomically after completion
 		app.optimisticProcessingInfoMutex.RLock()
 		aborted := app.optimisticProcessingInfo.Aborted
@@ -1690,7 +2042,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 		endBlockResp := app.optimisticProcessingInfo.EndBlockResp
 		app.optimisticProcessingInfoMutex.RUnlock()
 
-		if !aborted && bytes.Equal(finalHash, req.Hash) {
+		if app.sequencerSource == nil && !aborted && bytes.Equal(finalHash, req.Hash) {
 			utilmetrics.IncrementOptimisticProcessingCounter(true) // TODO(PLT-327): remove once app_optimistic_processing_total verified
 			appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 				otelmetric.WithAttributes(attribute.Bool("enabled", true)))
@@ -1700,11 +2052,15 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 			}
 			consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 			cms := app.WriteState()
-			app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+			if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+				return nil, err
+			}
 			appHash := app.GetWorkingHash()
 			resp := app.getFinalizeBlockResponse(appHash, events, txRes, endBlockResp, consensusParamUpdates)
 			if hasHeadNotifier {
-				headNotifier.Stash(req, &resp)
+				if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+					return nil, err
+				}
 			}
 			return &resp, nil
 		}
@@ -1713,12 +2069,7 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	appMetrics.optimisticProcessing.Add(ctx.Context(), 1,
 		otelmetric.WithAttributes(attribute.Bool("enabled", false)))
 	logger.Info("optimistic processing ineligible")
-	bpreq := &BlockProcessRequest{
-		Hash:                req.Hash,
-		ByzantineValidators: req.ByzantineValidators,
-		Height:              req.Header.Height,
-		Time:                req.Header.Time,
-	}
+	bpreq := NewBlockProcessRequest(req)
 	events, txResults, endBlockResp, processErr := app.ProcessBlock(ctx, req.Txs, bpreq, req.DecidedLastCommit, false, nil)
 	if processErr != nil {
 		logger.Error("ProcessBlock failed in FinalizeBlocker", "err", processErr)
@@ -1731,13 +2082,38 @@ func (app *App) FinalizeBlocker(ctx sdk.Context, req *abci.RequestFinalizeBlock)
 	}
 	consensusParamUpdates := app.GetConsensusParamsForStateToCommit()
 	cms := app.WriteState()
-	app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig)
+	if err := app.LightInvarianceChecks(ctx.Context(), cms, app.lightInvarianceConfig); err != nil {
+		return nil, err
+	}
 	appHash := app.GetWorkingHash()
 	resp := app.getFinalizeBlockResponse(appHash, events, txResults, endBlockResp, consensusParamUpdates)
 	if hasHeadNotifier {
-		headNotifier.Stash(req, &resp)
+		if err := app.stashBlockHeader(headNotifier, req, &resp); err != nil {
+			return nil, err
+		}
 	}
 	return &resp, nil
+}
+
+func (app *App) stashBlockHeader(notifier *evmrpc.BlockHeaderNotifier, req *abci.RequestFinalizeBlock, resp *abci.ResponseFinalizeBlock) error {
+	results, err := abci.MarshalTxResults(resp.TxResults)
+	if err != nil {
+		return fmt.Errorf("marshal committed header results: %w", err)
+	}
+	txs := make(tmtypes.Txs, len(req.Txs))
+	for i, tx := range req.Txs {
+		txs[i] = tx
+	}
+	req.Header.DataHash = txs.Hash()
+	req.Header.LastResultsHash = merkle.HashFromByteSlices(results)
+	app.pendingBlockHeader = req.Header
+	notifier.Stash(req, resp)
+	return nil
+}
+
+func (app *App) BlockHeaderNotifier() *evmrpc.BlockHeaderNotifier {
+	notifier, _ := app.blockHeaderNotifier.Get()
+	return notifier
 }
 
 func (app *App) DeliverTxWithResult(ctx sdk.Context, tx []byte, typedTx sdk.Tx) *abci.ExecTxResult {
@@ -1814,7 +2190,7 @@ func (app *App) ProcessTxsSynchronousV2(ctx sdk.Context, txs [][]byte, typedTxs 
 
 // ProcessTxsSynchronousGiga runs txs[firstTx:] in order through the Giga executor, each at its
 // block position, and returns their results; the txs before firstTx are not executed.
-func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) []*abci.ExecTxResult {
+func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, error) {
 	blockProcessGigaStart := time.Now()
 	defer func() {
 		utilmetrics.BlockProcessLatency(blockProcessGigaStart, utilmetrics.Synchronous) // TODO(PLT-327): remove once app_block_process_duration_seconds verified
@@ -1822,15 +2198,23 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 			otelmetric.WithAttributes(attribute.String("type", utilmetrics.SynchronousGiga)))
 	}()
 
+	ctx, blockCache := app.CacheContext(ctx)
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		results := app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+		if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+			return nil, err
+		}
+		blockCache.Write()
+		return results, nil
+	}
 	ms := ctx.MultiStore().CacheMultiStore()
-	defer ms.Write()
 	ctx = ctx.WithMultiStore(ms)
 
 	// Cache block-level constants (identical for all txs in this block).
 	cache, cacheErr := newGigaBlockCache(ctx, &app.GigaEvmKeeper)
 	if cacheErr != nil {
 		logger.Error("failed to build giga block cache", "error", cacheErr, "height", ctx.BlockHeight())
-		return nil
+		return nil, fmt.Errorf("giga block cache: %w", cacheErr)
 	}
 
 	txResults := make([]*abci.ExecTxResult, len(txs)-firstTx)
@@ -1848,6 +2232,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 
 		// Execute EVM transaction through giga executor with panic recovery.
 		// Matches V2's recover behavior in legacyabci/deliver_tx.go.
+		gigaCtx, gigaCache := app.CacheContext(ctx)
 		var result *abci.ExecTxResult
 		var execErr error
 		// fallbackToV2: store-iteration panic; re-run this tx via v2 to match v2.
@@ -1873,11 +2258,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 					}
 					// For other panics (e.g., nil deref from malformed protobuf), log and return ErrPanic
 					logger.Error("panic in giga synchronous executor", "panic", r, "stack", string(debug.Stack()))
-					result = &abci.ExecTxResult{
-						Codespace: sdkerrors.UndefinedCodespace,
-						Code:      sdkerrors.ErrPanic.ABCICode(),
-						Log:       fmt.Sprintf("panic recovered: %v", r),
-					}
+					execErr = fmt.Errorf("giga synchronous panic: %v", r)
 				}
 			}()
 
@@ -1893,7 +2274,7 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 				return
 			}
 
-			result, execErr = app.executeEVMTxWithGigaExecutor(ctx, evmMsg, cache)
+			result, execErr = app.executeEVMTxWithGigaExecutor(gigaCtx, evmMsg, cache)
 		}()
 
 		// Store-iteration panic: re-run via v2 so the result matches v2 exactly.
@@ -1914,21 +2295,24 @@ func (app *App) ProcessTxsSynchronousGiga(ctx sdk.Context, txs [][]byte, typedTx
 				ms.Write()
 				continue
 			}
-			txResults[slot] = &abci.ExecTxResult{
-				Code: 1,
-				Log:  fmt.Sprintf("[BUG] giga executor error: %v", execErr),
-			}
-			continue
+			return nil, fmt.Errorf("giga transaction %d: %w", i, execErr)
 		}
 
 		txResults[slot] = result
-		ctx.GigaMultiStore().WriteGiga()
+		gigaCtx.GigaMultiStore().WriteGiga()
+		gigaCache.Write()
 		utilmetrics.IncrTxProcessTypeCounter(utilmetrics.Synchronous) // TODO(PLT-327): remove once app_tx_process_type_total verified
 		appMetrics.txProcessType.Add(ctx.Context(), 1,
 			otelmetric.WithAttributes(attribute.String("type", utilmetrics.SynchronousGiga)))
 	}
 
-	return txResults
+	if err := validateExecutionResults(txResults, len(txs)-firstTx); err != nil {
+		return nil, err
+	}
+	ctx.GigaMultiStore().WriteGiga()
+	ms.Write()
+	blockCache.Write()
+	return txResults, nil
 }
 
 func (app *App) shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs []sdk.Tx) bool {
@@ -1965,25 +2349,79 @@ func (app *App) shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs [
 func (app *App) CacheContext(ctx sdk.Context) (sdk.Context, sdk.CacheMultiStore) {
 	ms := ctx.MultiStore()
 	msCache := ms.CacheMultiStore()
+	if giga, ok := msCache.(sdk.GigaMultiStore); ok {
+		// Both engines must publish into this branch. The default Giga cache
+		// chain points at its parent's Giga stores, which can bypass the
+		// ordinary branch when a later execution stage fails.
+		giga.SetGigaKVStores(func(key sdk.StoreKey, _ sdk.KVStore) sdk.KVStore {
+			return gigastore.NewStore(msCache.GetKVStore(key), key, storetypes.DefaultCacheSizeLimit)
+		})
+	}
 	return ctx.WithMultiStore(msCache), msCache
 }
 
 // ExecuteTxsConcurrently calls the appropriate function for processing transacitons. Only
 // txs[firstTx:] are executed, each at its block position; the results are theirs, in order.
-func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context) {
-	processSynchronously := app.shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs[firstTx:])
-	if app.GigaExecutorEnabled && app.GigaOCCEnabled && !processSynchronously {
-		return app.ProcessTXsWithOCCGiga(ctx, txs, typedTxs, firstTx)
-	} else if app.GigaExecutorEnabled {
-		return app.ProcessTxsSynchronousGiga(ctx, txs, typedTxs, firstTx), ctx
-	} else if !ctx.IsOCCEnabled() {
-		return app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx), ctx
+func validateExecutionResults(results []*abci.ExecTxResult, expected int) error {
+	if len(results) != expected {
+		return fmt.Errorf("incomplete execution results: got %d, want %d", len(results), expected)
 	}
-	if processSynchronously {
-		return app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx), ctx
+	for i, result := range results {
+		if result == nil {
+			return fmt.Errorf("nil execution result at index %d", i)
+		}
+		if result.Codespace == gigaInfrastructureCodespace ||
+			((result.Codespace == sdkerrors.RootCodespace || result.Codespace == sdkerrors.UndefinedCodespace) &&
+				(result.Code == sdkerrors.ErrPanic.ABCICode() || result.Code == sdkerrors.ErrOCCAbort.ABCICode())) {
+			return fmt.Errorf("execution infrastructure failure at index %d: %s", i, result.Log)
+		}
 	}
+	return nil
+}
 
-	return app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+func (app *App) hasDomainTransactions(ctx sdk.Context, txs []sdk.Tx) bool {
+	root := app.EvmKeeper.ChainID(ctx)
+	for _, tx := range txs {
+		if msg := app.GetEVMMsg(tx); msg != nil {
+			etx, _ := msg.AsTransaction()
+			if etx.Protected() && etx.ChainId().Cmp(root) != 0 {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (app *App) ExecuteTxsConcurrently(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context, error) {
+	original := ctx
+	ctx, branch := app.CacheContext(ctx)
+	processSynchronously := app.shouldProcessSingleRecipientEVMTransfersSynchronously(typedTxs[firstTx:])
+	var results []*abci.ExecTxResult
+	var err error
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		// Domain routing includes registry liveness, signature recovery, VM context,
+		// fee handling and activity accounting in the ordinary handler.
+		results = app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+	} else if app.GigaExecutorEnabled && app.GigaOCCEnabled && !processSynchronously {
+		results, ctx, err = app.ProcessTXsWithOCCGiga(ctx, txs, typedTxs, firstTx)
+	} else if app.GigaExecutorEnabled {
+		results, err = app.ProcessTxsSynchronousGiga(ctx, txs, typedTxs, firstTx)
+	} else if !ctx.IsOCCEnabled() || processSynchronously {
+		results = app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+	} else {
+		results, ctx = app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+	}
+	if err == nil {
+		err = validateExecutionResults(results, len(txs)-firstTx)
+	}
+	if err != nil {
+		return nil, original, err
+	}
+	if app.GigaExecutorEnabled {
+		ctx.GigaMultiStore().WriteGiga()
+	}
+	branch.Write()
+	return results, original, nil
 }
 
 func (app *App) GetDeliverTxEntry(ctx sdk.Context, txIndex int, bz []byte, tx sdk.Tx) (res *sdk.DeliverTxEntry) {
@@ -2070,7 +2508,7 @@ func (app *App) ProcessTXsWithOCCV2(ctx sdk.Context, txs [][]byte, typedTxs []sd
 
 // ProcessTXsWithOCCGiga runs txs[firstTx:] concurrently via OCC, using the Giga executor, each
 // with its block position as AbsoluteIndex
-func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context) {
+func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []sdk.Tx, firstTx int) ([]*abci.ExecTxResult, sdk.Context, error) {
 	blockProcessStart := time.Now()
 	delegatedToV2 := false
 	defer func() {
@@ -2080,6 +2518,16 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		}
 	}()
 
+	original := ctx
+	ctx, blockCache := app.CacheContext(ctx)
+	if app.hasDomainTransactions(ctx, typedTxs[firstTx:]) {
+		results := app.ProcessTxsSynchronousV2(ctx, txs, typedTxs, firstTx)
+		if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+			return nil, original, err
+		}
+		blockCache.Write()
+		return results, original, nil
+	}
 	evmEntries := make([]*sdk.DeliverTxEntry, 0, len(txs)-firstTx)
 	v2Entries := make([]*sdk.DeliverTxEntry, 0, len(txs)-firstTx)
 	firstCosmosSeen := false
@@ -2090,7 +2538,12 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 				logger.Error("Giga OCC cannot execute block due to tx ordering, falling back to V2")
 				// Oops! This isn't "all EVM txs, then all Cosmos txs" - we need to fallback to V2.
 				delegatedToV2 = true
-				return app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+				results, _ := app.ProcessTXsWithOCCV2(ctx, txs, typedTxs, firstTx)
+				if err := validateExecutionResults(results, len(txs)-firstTx); err != nil {
+					return nil, original, err
+				}
+				blockCache.Write()
+				return results, original, nil
 			}
 
 			evmEntries = append(evmEntries, app.GetDeliverTxEntry(ctx, txIndex, tx, typedTxs[txIndex]))
@@ -2114,7 +2567,7 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		cache, cacheErr := newGigaBlockCache(evmCtx, &app.GigaEvmKeeper)
 		if cacheErr != nil {
 			logger.Error("failed to build giga block cache", "error", cacheErr, "height", ctx.BlockHeight())
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", cacheErr)
 		}
 
 		// Create OCC scheduler with giga executor deliverTx capturing the cache.
@@ -2128,10 +2581,13 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		evmBatchResult, evmSchedErr = evmScheduler.ProcessAll(evmCtx, evmEntries)
 		if evmSchedErr != nil {
 			logger.Error("benchmark OCC scheduler error (EVM txs)", "error", evmSchedErr, "height", ctx.BlockHeight(), "txCount", len(evmEntries))
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", evmSchedErr)
 		}
 
 		for _, r := range evmBatchResult {
+			if r.Codespace == gigaInfrastructureCodespace {
+				return nil, original, errors.New(r.Log)
+			}
 			if r.Code == gigautils.GigaAbortCode && r.Codespace == gigautils.GigaAbortCodespace {
 				fallbackToV2 = true
 				break
@@ -2149,8 +2605,8 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 			}
 		} else {
 			// Commit EVM cache to main store before processing non-EVM txs.
-			evmCache.Write()
 			evmCtx.GigaMultiStore().WriteGiga()
+			evmCache.Write()
 		}
 	}
 
@@ -2166,7 +2622,7 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		v2BatchResult, v2SchedErr = v2Scheduler.ProcessAll(ctx, v2Entries)
 		if v2SchedErr != nil {
 			logger.Error("benchmark OCC scheduler error", "error", v2SchedErr, "height", ctx.BlockHeight(), "txCount", len(v2Entries))
-			return nil, ctx
+			return nil, original, fmt.Errorf("giga execution: %w", v2SchedErr)
 		}
 	}
 
@@ -2198,7 +2654,23 @@ func (app *App) ProcessTXsWithOCCGiga(ctx sdk.Context, txs [][]byte, typedTxs []
 		})
 	}
 
-	return execResults, ctx
+	if err := validateExecutionResults(execResults, len(txs)-firstTx); err != nil {
+		return nil, original, err
+	}
+	ctx.GigaMultiStore().WriteGiga()
+	blockCache.Write()
+	return execResults, original, nil
+}
+
+// NewBlockProcessRequest carries the finalize request metadata into direct block execution.
+// The caller must supply a non-nil request and header, as on the ABCI finalize path.
+func NewBlockProcessRequest(req *abci.RequestFinalizeBlock) *BlockProcessRequest {
+	return &BlockProcessRequest{
+		Hash:                req.Hash,
+		ByzantineValidators: req.ByzantineValidators,
+		Height:              req.Header.Height,
+		Time:                req.Header.Time,
+	}
 }
 
 // ProcessBlock executes block transactions. If preDecoded is non-nil and len(preDecoded)==len(txs),
@@ -2224,6 +2696,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	}()
 
 	defer app.sendEVMServerStartSignals()
+	ctx, blockCache := app.CacheContext(ctx)
 
 	ctx = ctx.WithIsOCCEnabled(app.OccEnabled())
 
@@ -2232,7 +2705,7 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	blockSpan.SetAttributes(attribute.Int64("height", req.Height))
 	ctx = ctx.WithTraceSpanContext(blockSpanCtx)
 
-	// Once the merge plan is done tx 0 is the sequence batch: it is applied after BeginBlock and
+	// From the keeper activation height tx 0 is the sequence batch: it is applied after BeginBlock and
 	// the transactions behind it execute at their block positions.
 	firstTx := 0
 	var batch seqtypes.MsgSequenceBatch
@@ -2249,12 +2722,6 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	beginBlockResp := app.BeginBlock(ctx, req.Height, lastCommit.Votes, req.ByzantineValidators, true)
 	events = append(events, beginBlockResp.Events...)
 
-	if firstTx == 1 {
-		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
-			return nil, nil, abci.ResponseEndBlock{}, err
-		}
-	}
-
 	evmTxs := make([]*evmtypes.MsgEVMTransaction, len(txs)) // nil for non-EVM txs
 	var typedTxs []sdk.Tx
 	if len(preDecoded) == len(txs) {
@@ -2264,18 +2731,45 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 		typedTxs = append(make([]sdk.Tx, firstTx), app.DecodeTransactionsConcurrently(ctx, txs[firstTx:])...)
 	}
 
+	if firstTx == 1 {
+		if err := seqtypes.VerifyBatchTxs(batch, app.sequencedActivityIDs(txs[1:], typedTxs[1:])); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
+		if err := app.SequencerKeeper.DeliverSequenceBatch(ctx.WithTxIndex(0), batch); err != nil {
+			recordSequencedHalt(ctx.Context())
+			return nil, nil, abci.ResponseEndBlock{}, sequencedHalt(req.Height, err)
+		}
+	}
+
 	for i := firstTx; i < len(txs); i++ {
 		evmTxs[i] = app.GetEVMMsg(typedTxs[i])
 	}
 
 	// Execute all transactions behind the batch; txResults[0] of a sequenced block is the batch
 	// result, code 0 with zero gas.
-	txResults, ctx = app.ExecuteTxsConcurrently(ctx, txs, typedTxs, firstTx)
+	txResults, ctx, err = app.ExecuteTxsConcurrently(ctx, txs, typedTxs, firstTx)
+	if err != nil {
+		return nil, nil, abci.ResponseEndBlock{}, err
+	}
 	if firstTx == 1 {
 		txResults = append([]*abci.ExecTxResult{{}}, txResults...)
 	}
 
-	midBlockEvents := app.MidBlock(ctx, req.Height)
+	blockEvents, endBlockResp, err := app.CompleteBlock(ctx, req.Height, txResults, evmTxs)
+	if err != nil {
+		return nil, nil, abci.ResponseEndBlock{}, err
+	}
+	events = append(events, blockEvents...)
+	blockCache.Write()
+	return events, txResults, endBlockResp, nil
+}
+
+func (app *App) CompleteBlock(ctx sdk.Context, height int64, txResults []*abci.ExecTxResult, evmTxs []*evmtypes.MsgEVMTransaction) (events []abci.Event, endBlockResp abci.ResponseEndBlock, err error) {
+	if err := validateExecutionResults(txResults, len(evmTxs)); err != nil {
+		return nil, abci.ResponseEndBlock{}, err
+	}
+	midBlockEvents := app.MidBlock(ctx, height)
 	events = append(events, midBlockEvents...)
 
 	// Flush giga stores so WriteDeferredBalances (which uses the standard BankKeeper)
@@ -2291,24 +2785,37 @@ func (app *App) ProcessBlock(ctx sdk.Context, txs [][]byte, req *BlockProcessReq
 	lazyWriteEvents := app.BankKeeper.WriteDeferredBalances(ctx)
 	events = append(events, lazyWriteEvents...)
 
-	// Sum up total used per block only for evm transactions
+	// Decision 2335: domain-routed transactions must not contribute to the root base fee.
+	domainTxs := make(map[string]struct{})
+	readCtx := ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1))
+	app.LayerXChainsKeeper.IterateDomains(readCtx, func(domain layerxchainstypes.Domain) bool {
+		for _, hash := range app.LayerXChainsKeeper.DomainTxs(readCtx, domain.Id, uint64(height)) {
+			domainTxs[hash.Hex()] = struct{}{}
+		}
+		return false
+	})
+
+	// Sum up total used per block only for root EVM transactions.
 	var evmTotalGasUsed int64
 	for _, txResult := range txResults {
 		if txResult.EvmTxInfo != nil {
+			if _, domain := domainTxs[txResult.EvmTxInfo.TxHash]; domain {
+				continue
+			}
 			evmTotalGasUsed += txResult.GasUsed
 		}
 	}
 
-	endBlockResp = app.EndBlock(ctx, req.Height, evmTotalGasUsed)
+	endBlockResp = app.EndBlock(ctx, height, evmTotalGasUsed)
 
 	feeCtx := ctx.WithEventManager(sdk.NewEventManager())
 	if err := app.EvmKeeper.RouteCollectedFeeTokens(feeCtx); err != nil {
-		return nil, nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
+		return nil, abci.ResponseEndBlock{}, fmt.Errorf("route collected fee tokens: %w", err)
 	}
 	endBlockResp.Events = append(endBlockResp.Events, sdk.MarkEventsToIndex(feeCtx.EventManager().ABCIEvents(), app.IndexEvents)...)
 
 	events = append(events, endBlockResp.Events...)
-	return events, txResults, endBlockResp, nil
+	return events, endBlockResp, nil
 }
 
 // executeEVMTxWithGigaExecutor executes a single EVM transaction using the giga executor.
@@ -2325,10 +2832,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	// Recover sender using the same logic as preprocess.go (version-based signer selection)
 	sender, paxAddr, _, recoverErr := evmante.RecoverSenderFromEthTx(ctx, ethTx, chainID)
 	if recoverErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to recover sender from signature: %v", recoverErr),
-		}, nil
+		return nil, gigaCanonicalExecutionRequired{recoverErr}
 	}
 
 	_, isAssociated := app.GigaEvmKeeper.GetEVMAddress(ctx, paxAddr)
@@ -2340,19 +2844,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	ctx = ctx.WithGasMeter(sdk.NewInfiniteGasMeterWithMultiplier(ctx))
 
 	if validation.err != nil {
-		// Validation failed - bump nonce via keeper if it was valid (matches V2's DeliverTxCallback
-		// behavior where nonce is incremented even on fee validation failures).
-		// For successful txs, the nonce is bumped by the EVM during execution.
-		if validation.bumpNonce {
-			app.GigaEvmKeeper.SetNonce(ctx, sender, validation.currentNonce+1)
-			app.EvmKeeper.SetNonceBumped(ctx)
-		}
-		// V2 reports intrinsic gas as gasUsed even on validation failure (for metrics),
-		// but no actual balance is deducted
-		intrinsicGas, _ := core.IntrinsicGas(ethTx.Data(), ethTx.AccessList(), ethTx.SetCodeAuthorizations(), ethTx.To() == nil, true, true, true)
-		validation.err.GasUsed = int64(intrinsicGas)  //nolint:gosec
-		validation.err.GasWanted = int64(ethTx.Gas()) //nolint:gosec
-		return validation.err, nil
+		return nil, gigaCanonicalExecutionRequired{errors.New(validation.err.Log)}
 	}
 
 	if !isAssociated {
@@ -2387,13 +2879,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 			err = app.EvmKeeper.SetAnteFeeTokenCharge(stateDB.Ctx(), ethTx.Hash(), charge)
 		}
 		if err != nil {
-			codespace, code, log := sdkerrors.ABCIInfo(err, false)
-			return &abci.ExecTxResult{
-				Codespace: codespace,
-				Code:      code,
-				GasWanted: int64(ethTx.Gas()), //nolint:gosec
-				Log:       log,
-			}, nil
+			return nil, gigaCanonicalExecutionRequired{err}
 		}
 		feeCollector, _ := app.GigaEvmKeeper.GetFeeCollectorAddress(ctx)
 		feeTokenStateDB = &gigaFeeTokenStateDB{
@@ -2417,7 +2903,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	cfg := cache.chainConfig
 
 	// Create Giga executor VM
-	gigaExecutor := gigaexecutor.NewGethExecutor(blockCtx, execStateDB, cfg, vm.Config{}, gigaCustomPrecompiles(ctx.BlockHeight()))
+	gigaExecutor := gigaexecutor.NewGethExecutor(blockCtx, execStateDB, cfg, vm.Config{}, app.gigaCustomPrecompiles(ctx))
 
 	// Execute with feeAlreadyCharged=true — matching V2's msg_server behavior
 	execResult, execErr := gigaExecutor.ExecuteTransactionFeeCharged(ethTx, sender, cache.baseFee, &gp)
@@ -2428,61 +2914,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 
 	if execErr != nil {
-		// Match V2 error handling: bump nonce, commit fee deduction, track surplus
-		stateDB.SetNonce(sender, stateDB.GetNonce(sender)+1, tracing.NonceChangeEoACall)
-		surplus, ferr := stateDB.Finalize()
-		if ferr != nil {
-			// stateDB.Finalize is not expected to fail in practice. If it
-			// does, the nonce bump above may not have been persisted, so per
-			// the receipt-iff-nonce-bumped invariant we cannot claim the tx
-			// happened: skip the receipt + deferred-info writes and return.
-			logger.Error("giga: failed to finalize stateDB on consensus error",
-				"tx-hash", ethTx.Hash(),
-				"error", ferr,
-			)
-			return &abci.ExecTxResult{
-				Code:      1,
-				GasWanted: int64(ethTx.Gas()), //nolint:gosec
-				Log:       fmt.Sprintf("giga: failed to finalize stateDB on consensus error: %v", ferr),
-			}, nil
-		}
-
-		// Receipt-iff-nonce-bumped invariant: this tx bumped the sender's
-		// nonce on the line above, so it must produce a receipt. State-
-		// transition errors land here when Execute() bails before any
-		// opcode ran (notably EIP-7623's floor-data-gas check, which
-		// happens inside go-ethereum's Execute() rather than the Pax
-		// antehandler). Without an explicit WriteReceipt the receipt
-		// store stays empty for this tx hash — Giga's
-		// AppendToEvmTxDeferredInfo call below doesn't propagate the
-		// error, so EndBlock's synthetic-receipt path skips it — and
-		// eth_getTransactionReceipt returns null forever, hanging any
-		// client that polls for it.
-		evmMsg := &core.Message{
-			Nonce:     ethTx.Nonce(),
-			GasLimit:  ethTx.Gas(),
-			GasPrice:  effectiveGasPrice, // EIP-1559 effective gas price (not GasFeeCap)
-			GasFeeCap: ethTx.GasFeeCap(),
-			GasTipCap: ethTx.GasTipCap(),
-			To:        ethTx.To(),
-			Value:     ethTx.Value(),
-			Data:      ethTx.Data(),
-			From:      sender,
-		}
-		if _, rerr := app.GigaEvmKeeper.WriteReceipt(ctx, stateDB, evmMsg, uint32(ethTx.Type()), ethTx.Hash(), ethTx.Gas(), execErr.Error()); rerr != nil {
-			logger.Error("giga: failed to write failed-tx receipt",
-				"tx-hash", ethTx.Hash(),
-				"error", rerr,
-			)
-		}
-		bloom := ethtypes.Bloom{}
-		app.EvmKeeper.AppendToEvmTxDeferredInfo(ctx, bloom, ethTx.Hash(), surplus)
-
-		return &abci.ExecTxResult{
-			Code:      1,
-			GasWanted: int64(ethTx.Gas()), //nolint:gosec
-			Log:       fmt.Sprintf("giga executor apply message error: %v", execErr),
-		}, nil
+		return nil, gigaCanonicalExecutionRequired{execErr}
 	}
 
 	// Check if the execution hit a fail-fast precompile (Cosmos interop detected)
@@ -2492,19 +2924,13 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 
 	if feeTokenStateDB != nil && feeTokenStateDB.err != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to finalize state: %v", feeTokenStateDB.err),
-		}, nil
+		return nil, fmt.Errorf("finalize fee-token state: %w", feeTokenStateDB.err)
 	}
 
 	// Finalize state changes — captures surplus (fee deduction + execution balance changes)
 	surplus, ferr := stateDB.Finalize()
 	if ferr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to finalize state: %v", ferr),
-		}, nil
+		return nil, fmt.Errorf("finalize state: %w", ferr)
 	}
 
 	// Write receipt
@@ -2532,10 +2958,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	receipt, rerr := app.GigaEvmKeeper.WriteReceipt(ctx, stateDB, evmMsg, uint32(ethTx.Type()), ethTx.Hash(), execResult.UsedGas, vmError)
 	if rerr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to write receipt: %v", rerr),
-		}, nil
+		return nil, fmt.Errorf("write receipt: %w", rerr)
 	}
 
 	// Append deferred info for EndBlock processing
@@ -2551,8 +2974,11 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 
 	// GasWanted should be set to the transaction's gas limit to match standard executor behavior.
 	// This is critical for LastResultsHash computation which uses Code, Data, GasWanted, and GasUsed.
-	gasWanted := int64(ethTx.Gas())      //nolint:gosec // G115: safe, Gas() won't exceed int64 max
-	gasUsed := int64(execResult.UsedGas) //nolint:gosec // G115: safe, UsedGas won't exceed int64 max
+	normalizer := app.EvmKeeper.GetPriorityNormalizer(ctx)
+	gasWanted := normalizer.MulInt64(int64(ethTx.Gas())).TruncateInt().Int64()                                 //nolint:gosec
+	meter := sdk.NewGasMeterWithMultiplier(ctx, uint64(gasWanted))                                             //nolint:gosec
+	meter.ConsumeGas(normalizer.MulInt64(int64(execResult.UsedGas)).TruncateInt().Uint64(), "evm transaction") //nolint:gosec
+	gasUsed := int64(meter.GasConsumed())                                                                      //nolint:gosec
 
 	// Build Data field to match standard executor format.
 	// Standard path wraps MsgEVMTransactionResponse in TxMsgData.
@@ -2566,10 +2992,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	evmResponseBytes, marshalErr := evmResponse.Marshal()
 	if marshalErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to marshal evm response: %v", marshalErr),
-		}, nil
+		return nil, fmt.Errorf("marshal evm response: %w", marshalErr)
 	}
 
 	// Wrap in TxMsgData like the standard path does
@@ -2583,10 +3006,7 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 	}
 	txMsgDataBytes, txMarshalErr := proto.Marshal(txMsgData)
 	if txMarshalErr != nil {
-		return &abci.ExecTxResult{
-			Code: 1,
-			Log:  fmt.Sprintf("failed to marshal tx msg data: %v", txMarshalErr),
-		}, nil
+		return nil, fmt.Errorf("marshal tx msg data: %w", txMarshalErr)
 	}
 
 	return &abci.ExecTxResult{
@@ -2596,9 +3016,10 @@ func (app *App) executeEVMTxWithGigaExecutor(ctx sdk.Context, msg *evmtypes.MsgE
 		GasUsed:   gasUsed,
 		Log:       vmError,
 		EvmTxInfo: &abci.EvmTxInfo{
-			TxHash:  ethTx.Hash().Hex(),
-			VmError: vmError,
-			Nonce:   ethTx.Nonce(),
+			SenderAddress: sender.Hex(),
+			TxHash:        ethTx.Hash().Hex(),
+			VmError:       vmError,
+			Nonce:         ethTx.Nonce(),
 		},
 	}, nil
 }
@@ -2618,6 +3039,27 @@ func gigaCustomPrecompiles(height int64) map[common.Address]vm.PrecompiledContra
 	}
 	return gigaprecompiles.AllCustomPrecompilesFailFast
 }
+
+func (app *App) gigaCustomPrecompiles(ctx sdk.Context) map[common.Address]vm.PrecompiledContract {
+	result := make(map[common.Address]vm.PrecompiledContract)
+	for address, contract := range gigaCustomPrecompiles(ctx.BlockHeight()) {
+		result[address] = contract
+	}
+	for address := range app.EvmKeeper.CustomPrecompiles(ctx) {
+		if contract, ok := gigaV6120FailFast[address]; ok {
+			result[address] = contract
+		}
+	}
+	return result
+}
+
+// gigaCanonicalExecutionRequired routes rejected or unsupported transitions to
+// the complete handler so fee callbacks and consensus error encoding agree.
+type gigaCanonicalExecutionRequired struct{ error }
+
+func (gigaCanonicalExecutionRequired) IsAbortError() bool { return true }
+
+const gigaInfrastructureCodespace = "giga-infrastructure"
 
 // gigaDeliverTx is the OCC-compatible deliverTx function for the giga executor.
 // makeGigaDeliverTx returns an OCC-compatible deliverTx callback that captures the given
@@ -2656,7 +3098,7 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 				// For other panics (e.g., nil deref from malformed protobuf), log and return ErrPanic
 				logger.Error("panic in gigaDeliverTx", "panic", r, "stack", string(debug.Stack()))
 				resp = abci.ResponseDeliverTx{
-					Codespace: sdkerrors.UndefinedCodespace,
+					Codespace: gigaInfrastructureCodespace,
 					Code:      sdkerrors.ErrPanic.ABCICode(),
 					Log:       fmt.Sprintf("recovered: %v\nstack:\n%v", r, string(debug.Stack())),
 				}
@@ -2692,7 +3134,7 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 				}
 			}
 
-			return abci.ResponseDeliverTx{Code: 1, Log: fmt.Sprintf("giga executor error: %v", err)}
+			return abci.ResponseDeliverTx{Code: 1, Codespace: gigaInfrastructureCodespace, Log: fmt.Sprintf("giga executor error: %v", err)}
 		}
 
 		return abci.ResponseDeliverTx{
@@ -2707,6 +3149,26 @@ func (app *App) makeGigaDeliverTx(cache *gigaBlockCache) func(sdk.Context, abci.
 			EvmTxInfo: result.EvmTxInfo,
 		}
 	}
+}
+
+func (app *App) DomainAllowance(ctx sdk.Context, chainID *big.Int) (id uint32, gas uint64, bytes uint64, active bool, known bool) {
+	// The root chain follows the application's configured EVM chain ID, just
+	// as ante validation does; it does not consume a virtual domain allowance.
+	if chainID != nil && chainID.Cmp(app.EvmKeeper.ChainID(ctx)) == 0 {
+		return 0, 0, 0, true, true
+	}
+	id, known = layerxchainstypes.DomainOfChainID(chainID)
+	if !known {
+		return 0, 0, 0, false, false
+	}
+	if id == 0 {
+		return 0, 0, 0, true, true
+	}
+	domain, known := app.LayerXChainsKeeper.ResolveChainID(ctx, chainID)
+	if !known {
+		return id, 0, 0, false, false
+	}
+	return id, domain.GasAllowance, domain.ByteAllowance, domain.Status == layerxchainstypes.StatusActive, true
 }
 
 func (app *App) GetEVMMsg(tx sdk.Tx) (res *evmtypes.MsgEVMTransaction) {
@@ -3050,6 +3512,87 @@ func (app *App) SetOpenBlock(ob OpenBlock) {
 	app.openBlock = ob
 }
 
+type sealedFinalizeBlock struct {
+	Height   int64
+	Txs      [][]byte
+	Results  []*abci.ExecTxResult
+	Events   []abci.Event
+	EndBlock abci.ResponseEndBlock
+	ctx      sdk.Context
+}
+
+func (app *App) sealedBlockForFinalize() (*sealedFinalizeBlock, error) {
+	if app.sequencerSource == nil {
+		return nil, nil
+	}
+	source := reflect.ValueOf(app.sequencerSource)
+	if source.Kind() == reflect.Ptr && source.IsNil() {
+		return nil, errors.New("nil installed sequencer source")
+	}
+	getSealed := source.MethodByName("Sealed")
+	if !getSealed.IsValid() {
+		return nil, nil
+	}
+	if getSealed.Type().NumIn() != 0 || getSealed.Type().NumOut() != 1 {
+		return nil, errors.New("invalid sequencer Sealed method")
+	}
+	layer := getSealed.Call(nil)[0]
+	if layer.Kind() != reflect.Ptr || layer.Type().Elem().Kind() != reflect.Struct {
+		return nil, errors.New("invalid sequencer sealed layer type")
+	}
+	if layer.IsNil() {
+		return nil, nil
+	}
+	contextLayer, ok := layer.Interface().(interface{ Context() sdk.Context })
+	if !ok {
+		return nil, errors.New("sequencer sealed layer has no context")
+	}
+	sealed := &sealedFinalizeBlock{ctx: contextLayer.Context()}
+	target := reflect.ValueOf(sealed).Elem()
+	for _, name := range []string{"Height", "Txs", "Results", "Events", "EndBlock"} {
+		field := layer.Elem().FieldByName(name)
+		dest := target.FieldByName(name)
+		if !field.IsValid() || !field.CanInterface() || !field.Type().AssignableTo(dest.Type()) {
+			return nil, fmt.Errorf("invalid sequencer sealed layer field %s", name)
+		}
+		dest.Set(field)
+	}
+	return sealed, nil
+}
+
+func (app *App) StoreVotes(ctx sdk.Context, height int64, votes []abci.VoteInfo) error {
+	return app.SequencerKeeper.StoreVotes(ctx, height, votes)
+}
+
+func (app *App) SetSequencerSource(src tmtypes.SequencerSource) {
+	app.sequencerSource = src
+}
+
+func (app *App) SequencerSource() tmtypes.SequencerSource {
+	return app.sequencerSource
+}
+
+func (app *App) SetSequencerRPC(opt evmrpc.SequencerOption, rcpt evmrpc.SequencerReceiptOption) {
+	app.sequencerRPC = opt
+	app.sequencerReceipt = rcpt
+}
+
+func (app *App) SetCommitListener(fn func(height int64, appHash []byte) error) {
+	app.commitListener = fn
+}
+
+func (app *App) LastBlockID() tmproto.BlockID {
+	app.lastBlockIDMutex.RLock()
+	defer app.lastBlockIDMutex.RUnlock()
+	id := app.committedBlockID
+	if app.committingBlockHeight > 0 && app.committingBlockHeight == app.LastBlockHeight() {
+		id = app.committingBlockID
+	}
+	id.Hash = append([]byte(nil), id.Hash...)
+	id.PartSetHeader.Hash = append([]byte(nil), id.PartSetHeader.Hash...)
+	return id
+}
+
 // LatestCtx is the ante read context. In sequencer mode it is a branch of L_open while a block
 // is open, so reads see every receipted transaction; otherwise it is the check context.
 func (app *App) LatestCtx() sdk.Context {
@@ -3075,6 +3618,43 @@ func (app *App) PendingSnapshot() (sdk.Context, error) {
 	return isolatedRead(ctx).WithIsEVM(true).WithTraceMode(true).WithIsCheckTx(false).WithClosestUpgradeName(LatestUpgrade), nil
 }
 
+type rpcPendingSnapshot struct {
+	app    *App
+	source evmrpc.PendingSnapshot
+}
+
+func (app *App) RPCPendingSnapshot() (evmrpc.PendingSnapshot, error) {
+	if app.openBlock == nil {
+		return nil, ErrPendingServedBySequencer
+	}
+	source, ok := app.openBlock.(evmrpc.PendingSnapshot)
+	if !ok {
+		return nil, errors.New("sequencer open block does not provide pending transactions")
+	}
+	return rpcPendingSnapshot{app: app, source: source}, nil
+}
+
+var _ evmrpc.PendingBaseFee = rpcPendingSnapshot{}
+
+func (s rpcPendingSnapshot) BaseFeePerGas() (sdk.Dec, error) {
+	if source, ok := s.source.(evmrpc.PendingBaseFee); ok {
+		return source.BaseFeePerGas()
+	}
+	ctx, err := s.app.PendingSnapshot()
+	if err != nil {
+		return sdk.Dec{}, err
+	}
+	return s.app.EvmKeeper.GetNextBaseFeePerGas(ctx), nil
+}
+
+func (s rpcPendingSnapshot) Snapshot() (sdk.Context, error) {
+	return s.app.PendingSnapshot()
+}
+
+func (s rpcPendingSnapshot) PendingTx(hash [32]byte) (evmrpc.PendingTx, bool) {
+	return s.source.PendingTx(hash)
+}
+
 // isolatedRead gives a branch of L_open its own gas meter and event managers so concurrent
 // reads never share mutable state with Accept.
 func isolatedRead(ctx sdk.Context) sdk.Context {
@@ -3091,71 +3671,40 @@ const lxpModuleReservedCount uint16 = 11
 // kernel module set, so no kernel module id is reused.
 const EVMReceiptModuleID = lxpModuleReservedCount + 1
 
-// Sequenced reports whether the block at height, executing on ctx, is built from the sealed
-// receipt order: the merge plan, which brings the sequencer module up, is done in ctx at a
-// height below it. It reads chain state, never node config, so every validator agrees; the
-// block that applies the plan is not sequenced, so a write of the plan by an optimistic run of
-// that block cannot change the answer for it.
+// Sequenced reports whether height has reached the keeper's persisted activation
+// height; reconstructing the application does not reset the sequencing boundary.
 func (app *App) Sequenced(ctx sdk.Context, height int64) bool {
-	done := app.UpgradeKeeper.GetDoneHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), MergeUpgrade)
-	return done > 0 && height > done
+	sequenced, err := app.SequencerKeeper.Sequenced(ctx, height)
+	if err != nil {
+		panic(err)
+	}
+	return sequenced
 }
 
 // sequenceBatchDomain prefixes the tx 0 encoding of MsgSequenceBatch.
-const sequenceBatchDomain = "PAXEER/v1/sequence-batch\x00"
+const sequenceBatchDomain = seqtypes.SequenceBatchDomain
 
 // sequenceBatchTxLength is the domain, three u64 fields, four 32-byte fields and the signature.
-const sequenceBatchTxLength = len(sequenceBatchDomain) + 3*8 + 3*seqtypes.HashLength + seqtypes.KeyIDLength + seqtypes.SignatureLength
+const sequenceBatchTxLength = seqtypes.SequenceBatchTxLength
 
-// EncodeSequenceBatch encodes m as tx 0 of a sequenced block: domain ‖ u64be height ‖
-// u64be fromSeq ‖ u64be toSeq ‖ prevSeqHash ‖ lastSeqHash ‖ txRoot ‖ keyId ‖ sig.
+// EncodeSequenceBatch encodes m as tx 0 of a sequenced block.
 func EncodeSequenceBatch(m seqtypes.MsgSequenceBatch) ([]byte, error) {
-	if err := m.ValidateBasic(); err != nil {
-		return nil, err
-	}
-	b := make([]byte, 0, sequenceBatchTxLength)
-	b = append(b, sequenceBatchDomain...)
-	b = binary.BigEndian.AppendUint64(b, m.Height)
-	b = binary.BigEndian.AppendUint64(b, m.FromSeq)
-	b = binary.BigEndian.AppendUint64(b, m.ToSeq)
-	b = append(b, m.PrevSeqHash...)
-	b = append(b, m.LastSeqHash...)
-	b = append(b, m.TxRoot...)
-	b = append(b, m.KeyId...)
-	return append(b, m.Sig...), nil
+	return seqtypes.EncodeSequenceBatchTx(m)
 }
 
 // DecodeSequenceBatch decodes tx 0 of a sequenced block and checks its field shape.
 func DecodeSequenceBatch(tx []byte) (seqtypes.MsgSequenceBatch, error) {
-	if len(tx) != sequenceBatchTxLength || string(tx[:len(sequenceBatchDomain)]) != sequenceBatchDomain {
-		return seqtypes.MsgSequenceBatch{}, seqtypes.ErrInvalidSequenceBatch.Wrapf("tx 0 is not a sequence batch: %d bytes", len(tx))
-	}
-	rest := tx[len(sequenceBatchDomain):]
-	next := func(n int) []byte {
-		field := bytes.Clone(rest[:n])
-		rest = rest[n:]
-		return field
-	}
-	m := seqtypes.MsgSequenceBatch{
-		Height:  binary.BigEndian.Uint64(next(8)),
-		FromSeq: binary.BigEndian.Uint64(next(8)),
-		ToSeq:   binary.BigEndian.Uint64(next(8)),
-	}
-	m.PrevSeqHash = next(seqtypes.HashLength)
-	m.LastSeqHash = next(seqtypes.HashLength)
-	m.TxRoot = next(seqtypes.HashLength)
-	m.KeyId = next(seqtypes.KeyIDLength)
-	m.Sig = next(seqtypes.SignatureLength)
-	if err := m.ValidateBasic(); err != nil {
-		return seqtypes.MsgSequenceBatch{}, err
-	}
-	return m, nil
+	return seqtypes.DecodeSequenceBatchTx(tx)
 }
 
 // SequencedTxRoot is sha256 over the activity ids of txs in order: keccak256 of the signed EVM
 // transaction, else sha256 of the tx bytes.
 func (app *App) SequencedTxRoot(txs [][]byte, typedTxs []sdk.Tx) [32]byte {
-	root := sha256.New()
+	return seqtypes.TxRoot(app.sequencedActivityIDs(txs, typedTxs))
+}
+
+func (app *App) sequencedActivityIDs(txs [][]byte, typedTxs []sdk.Tx) [][32]byte {
+	ids := make([][32]byte, len(txs))
 	for i, tx := range txs {
 		id := sha256.Sum256(tx)
 		if msg := app.GetEVMMsg(typedTxs[i]); msg != nil {
@@ -3163,16 +3712,19 @@ func (app *App) SequencedTxRoot(txs [][]byte, typedTxs []sdk.Tx) [32]byte {
 				id = [32]byte(etx.Hash())
 			}
 		}
-		root.Write(id[:])
+		ids[i] = id
 	}
-	var out [32]byte
-	copy(out[:], root.Sum(nil))
-	return out
+	return ids
 }
 
 func (app *App) RPCContextProvider(i int64) sdk.Context {
 	if i == PendingCtxHeight {
+		deadline := time.Now().Add(evmrpc.PendingOpenWait)
 		ctx, err := app.PendingSnapshot()
+		for errors.Is(err, evmrpc.ErrLayerNotOpen) && time.Now().Before(deadline) {
+			time.Sleep(time.Millisecond)
+			ctx, err = app.PendingSnapshot()
+		}
 		if err != nil {
 			panic(err)
 		}
@@ -3244,7 +3796,8 @@ func (app *App) SnapshotAwareRPCContextProvider() evmrpc.TraceContextProvider {
 	})
 }
 
-// RegisterTendermintService implements the Application.RegisterLocalServices method.
+// RegisterLocalServices installs the local query services and the RPC options
+// supplied by the sequencer before either EVM server starts.
 func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.TxConfig) {
 	authtx.RegisterTxService(app.GRPCQueryRouter(), node, txConfig, app.Simulate, app.interfaceRegistry)
 	tmservice.RegisterTendermintService(app.GRPCQueryRouter(), node, app.interfaceRegistry)
@@ -3261,9 +3814,32 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 
 	rpcCtxProvider := app.RPCContextProvider
 	traceCtxProvider := app.SnapshotAwareRPCContextProvider()
+	var options []evmrpc.ServerOption
+	if app.sequencerRPC != (evmrpc.SequencerOption{}) {
+		options = append(options, app.sequencerRPC)
+	}
+	if app.openBlock != nil {
+		source, err := app.RPCPendingSnapshot()
+		if err != nil {
+			panic(err)
+		}
+		pending, err := evmrpc.NewPendingOption(source)
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, pending)
+	}
+	if app.sequencerReceipt.ForwardURL != nil {
+		forward, err := evmrpc.NewSequencerForwardOption(app.sequencerReceipt.ForwardURL.String())
+		if err != nil {
+			panic(err)
+		}
+		options = append(options, forward)
+	}
+	httpOptions := append([]evmrpc.ServerOption{traceCtxProvider, app.sequencerReceipt}, options...)
 	var evmHTTPServer, evmWSServer evmrpc.EVMServer
 	if app.evmRPCConfig.HTTPEnabled {
-		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), traceCtxProvider)
+		httpServer, err := evmrpc.NewEVMHTTPServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, app.RPCContextProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), httpOptions...)
 		if err != nil {
 			panic(err)
 		}
@@ -3271,8 +3847,9 @@ func (app *App) RegisterLocalServices(node client.LocalClient, txConfig client.T
 	}
 
 	if app.evmRPCConfig.WSEnabled {
-		headNotifier, _ := app.blockHeaderNotifier.Get()
-		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier)
+		headNotifier := app.BlockHeaderNotifier()
+		wsOptions := append([]evmrpc.ServerOption{app.sequencerReceipt}, options...)
+		wsServer, err := evmrpc.NewEVMWebSocketServer(app.evmRPCConfig, node, &app.EvmKeeper, app.BeginBlockKeepers, app.BaseApp, app.TracerAnteHandler, rpcCtxProvider, txConfigProvider, DefaultNodeHome, app.GetStateStore(), headNotifier, wsOptions...)
 		if err != nil {
 			panic(err)
 		}
@@ -3385,7 +3962,7 @@ func (app *App) checkTotalBlockGas(ctx sdk.Context, typedTxs []sdk.Tx) (_result 
 		blockParams := ctx.ConsensusParams().Block
 		maxGasWanted := uint64(blockParams.MaxGasWanted) //nolint:gosec
 		maxGas := uint64(blockParams.MaxGas)             //nolint:gosec
-		if totalGasWanted > maxGasWanted || totalGas > maxGas {
+		if (blockParams.MaxGasWanted > 0 && totalGasWanted > maxGasWanted) || totalGas > maxGas {
 			return false
 		}
 	}
@@ -3489,8 +4066,27 @@ func (app *App) BlacklistedAccAddrs() map[string]bool {
 	return blacklistedAddrs
 }
 
+type chainsPrecompileBankKeeper struct {
+	putils.BankKeeper
+	chains *layerxchainskeeper.Keeper
+}
+
+func (k *chainsPrecompileBankKeeper) LayerXChainsK() *layerxchainskeeper.Keeper { return k.chains }
+
+func (pk *PrecompileKeepers) LayerXChainsK() *layerxchainskeeper.Keeper {
+	wired, ok := pk.BankKeeper.(interface {
+		LayerXChainsK() *layerxchainskeeper.Keeper
+	})
+	if !ok {
+		return nil
+	}
+	return wired.LayerXChainsK()
+}
+
 func (app *App) GetPrecompileKeepers() putils.Keepers {
-	return NewPrecompileKeepers(app)
+	keepers := NewPrecompileKeepers(app)
+	keepers.BankKeeper = &chainsPrecompileBankKeeper{BankKeeper: keepers.BankKeeper, chains: app.LayerXChainsKeeper}
+	return keepers
 }
 
 // v6120Contracts builds the contracts the v6.12.0 set adds or switches: the
@@ -3521,7 +4117,7 @@ func (app *App) v6120Contracts() (map[common.Address][2]vm.PrecompiledContract, 
 	if err != nil {
 		return nil, err
 	}
-	spot, err := spotprecompile.NewPrecompileSet(keepers)
+	spot, err := spotprecompile.NewServedSet(keepers)
 	if err != nil {
 		return nil, err
 	}
@@ -3910,4 +4506,50 @@ func (b layerXGovernanceBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) 
 func (b layerXGovernanceBasic) RegisterInterfaces(registry types.InterfaceRegistry) {
 	b.AppModuleBasic.RegisterInterfaces(registry)
 	layerxgovtypes.RegisterInterfaces(registry)
+}
+
+type evmChainsBinding struct {
+	*layerxchainskeeper.Keeper
+}
+
+func (b evmChainsBinding) RecordDomainTx(ctx sdk.Context, id uint32, height int64, hash common.Hash, gasUsed uint64) {
+	if height < 0 {
+		panic("negative domain transaction height")
+	}
+	b.Keeper.RecordDomainTx(ctx, id, uint64(height), hash, gasUsed)
+}
+
+func (b evmChainsBinding) DomainGasUsed(ctx sdk.Context, id uint32, height int64) uint64 {
+	if height < 0 {
+		panic("negative domain gas height")
+	}
+	return b.Keeper.DomainGasUsed(ctx, id, uint64(height))
+}
+
+func (b evmChainsBinding) ActiveDomains(ctx sdk.Context) []uint32 {
+	var ids []uint32
+	b.IterateDomains(ctx, func(d layerxchainstypes.Domain) bool {
+		if d.Status == layerxchainstypes.StatusActive {
+			ids = append(ids, d.Id)
+		}
+		return false
+	})
+	return ids
+}
+
+func (b evmChainsBinding) Operator(ctx sdk.Context, id uint32) (common.Address, uint16) {
+	d, ok := b.GetDomain(ctx, id)
+	if !ok {
+		panic(layerxchainstypes.ErrUnknownDomain)
+	}
+	return d.Operator, d.FeeShareBps
+}
+
+// ReadEVMRPCConfig decodes the startup options consumed by the node's EVM servers.
+func ReadEVMRPCConfig(appOpts servertypes.AppOptions) (evmrpcconfig.Config, error) {
+	config, err := evmrpcconfig.ReadConfig(appOpts)
+	if err != nil {
+		return config, fmt.Errorf("error reading EVM config due to %w", err)
+	}
+	return config, nil
 }

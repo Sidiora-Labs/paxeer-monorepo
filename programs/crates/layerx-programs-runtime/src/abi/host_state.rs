@@ -68,8 +68,33 @@ pub(crate) fn abi_error_bytes(error: &AbiError) -> Vec<u8> {
         AbiError::AccessDeclaration => out.push(14),
         AbiError::OracleUnknownMarket => out.push(15),
         AbiError::OracleMarketHalted => out.push(16),
+        AbiError::EffectLimit => out.push(17),
     }
     out
+}
+
+impl AbiError {
+    /// Returns the frozen error encoding used in canonical replay state.
+    #[must_use]
+    pub fn canonical_replay_bytes(&self) -> Vec<u8> {
+        abi_error_bytes(self)
+    }
+
+    /// Decodes exactly one canonical replay error, retaining its typed refusal.
+    ///
+    /// # Errors
+    ///
+    /// Rejects unknown tags, truncated fields, and trailing or noncanonical bytes.
+    pub fn from_canonical_replay_bytes(
+        bytes: &[u8],
+    ) -> Result<Self, crate::replay::ReplayWitnessError> {
+        let mut cursor = crate::replay::ReplayCursor::new(bytes);
+        let error = decode_replay_abi_error(&mut cursor)?;
+        if !cursor.done() || abi_error_bytes(&error) != bytes {
+            return Err(crate::replay::ReplayWitnessError::Encoding);
+        }
+        Ok(error)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -467,6 +492,7 @@ pub(crate) fn decode_replay_abi_error(
         14 => AbiError::AccessDeclaration,
         15 => AbiError::OracleUnknownMarket,
         16 => AbiError::OracleMarketHalted,
+        17 => AbiError::EffectLimit,
         _ => return Err(E::Encoding),
     })
 }
@@ -625,13 +651,7 @@ impl Abi {
                 }
                 Ok(view)
             } else {
-                let bytes = cursor.field()?;
-                let mut error = ReplayCursor::new(bytes);
-                let value = decode_replay_abi_error(&mut error)?;
-                if !error.done() || abi_error_bytes(&value) != bytes {
-                    return Err(E::Encoding);
-                }
-                Err(value)
+                Err(AbiError::from_canonical_replay_bytes(cursor.field()?)?)
             };
             balances.insert(key, view);
         }

@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -200,7 +199,7 @@ func (k *Keeper) CheckOpen(ctx sdk.Context, req OpenRequest) error {
 		return err
 	}
 	if notional.Sign() == 0 {
-		return fmt.Errorf("%w: order notional", types.ErrZeroAmount)
+		return types.ErrZeroAmount.Wrapf("order notional")
 	}
 	if err := checkLeverageFloor(req.Leverage); err != nil {
 		return err
@@ -227,8 +226,7 @@ func (k *Keeper) CheckOpen(ctx sdk.Context, req OpenRequest) error {
 	tier := tierFor(tiers, resulting)
 	limit := new(big.Int).Mul(new(big.Int).SetUint64(tier.MaxLeverage), wad)
 	if req.Leverage.ToBig().Cmp(limit) > 0 {
-		return fmt.Errorf("%w: leverage %s above %dx for notional %s in market %d",
-			types.ErrLeverageTooHigh, req.Leverage.Dec(), tier.MaxLeverage, resulting, req.MarketID)
+		return types.ErrLeverageTooHigh.Wrapf("leverage %s above %dx for notional %s in market %d", req.Leverage.Dec(), tier.MaxLeverage, resulting, req.MarketID)
 	}
 	summary, err := k.accountMargin(ctx, stored)
 	if err != nil {
@@ -242,8 +240,7 @@ func (k *Keeper) CheckOpen(ctx sdk.Context, req OpenRequest) error {
 	free := new(big.Int).Sub(summary.Equity.BigInt(), reserve)
 	required := new(big.Int).Add(summary.InitialMargin.BigInt(), orderMargin)
 	if free.Cmp(required) < 0 {
-		return fmt.Errorf("%w: equity %s less fee reserve %s below initial margin %s",
-			types.ErrInsufficientMargin, summary.Equity, reserve, required)
+		return types.ErrInsufficientMargin.Wrapf("equity %s less fee reserve %s below initial margin %s", summary.Equity, reserve, required)
 	}
 	return nil
 }
@@ -255,7 +252,7 @@ func (k *Keeper) SetMarginMode(ctx sdk.Context, account common.Address, mode uin
 		return err
 	}
 	if mode != MarginModeCross {
-		return fmt.Errorf("%w: margin mode %d", types.ErrCrossMarginOnly, mode)
+		return types.ErrCrossMarginOnly.Wrapf("margin mode %d", mode)
 	}
 	return nil
 }
@@ -329,7 +326,7 @@ func (k *Keeper) accountMargin(ctx sdk.Context, stored types.Account) (MarginSum
 	}
 	if err := k.iterateRestingOrders(ctx, stored.Address, func(order types.Order) error {
 		if order.FilledBase.Gt(&order.SizeBase) {
-			return fmt.Errorf("%w: order %s filled above its size", types.ErrInvalidParams, order.ID.Dec())
+			return types.ErrInvalidParams.Wrapf("order %s filled above its size", order.ID.Dec())
 		}
 		remaining := new(big.Int).Sub(order.SizeBase.ToBig(), order.FilledBase.ToBig())
 		notional := remaining.Mul(remaining, order.LimitPrice.ToBig())
@@ -359,17 +356,17 @@ func (k *Keeper) accountMargin(ctx sdk.Context, stored types.Account) (MarginSum
 func (k *Keeper) loadAccount(ctx sdk.Context, account common.Address) (types.Account, error) {
 	bz := k.store(ctx).Get(types.AccountKey(account))
 	if bz == nil {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, account.Hex())
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", account.Hex())
 	}
 	var stored types.Account
 	if err := stored.Unmarshal(bz); err != nil {
-		return types.Account{}, fmt.Errorf("%w: corrupt account %s: %v", types.ErrInvalidParams, account.Hex(), err)
+		return types.Account{}, types.ErrInvalidParams.Wrapf("corrupt account %s: %v", account.Hex(), err)
 	}
 	if stored.Address != account {
-		return types.Account{}, fmt.Errorf("%w: account %s holds %s", types.ErrInvalidParams, account.Hex(), stored.Address.Hex())
+		return types.Account{}, types.ErrInvalidParams.Wrapf("account %s holds %s", account.Hex(), stored.Address.Hex())
 	}
 	if !stored.Created {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, account.Hex())
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", account.Hex())
 	}
 	return stored, nil
 }
@@ -380,21 +377,20 @@ func accountPositionsPrefix(account common.Address) []byte {
 
 func (k *Keeper) loadPosition(ctx sdk.Context, account common.Address, marketID uint64, idBytes []byte) (types.Position, error) {
 	if len(idBytes) != 32 {
-		return types.Position{}, fmt.Errorf("%w: position index of %s in market %d holds %d bytes",
-			types.ErrInvalidParams, account.Hex(), marketID, len(idBytes))
+		return types.Position{}, types.ErrInvalidParams.Wrapf("position index of %s in market %d holds %d bytes", account.Hex(), marketID, len(idBytes))
 	}
 	var id uint256.Int
 	id.SetBytes32(idBytes)
 	bz := k.store(ctx).Get(types.PositionKey(id))
 	if bz == nil {
-		return types.Position{}, fmt.Errorf("%w: indexed position %s missing", types.ErrInvalidParams, id.Dec())
+		return types.Position{}, types.ErrInvalidParams.Wrapf("indexed position %s missing", id.Dec())
 	}
 	var position types.Position
 	if err := position.Unmarshal(bz); err != nil {
-		return types.Position{}, fmt.Errorf("%w: corrupt position %s: %v", types.ErrInvalidParams, id.Dec(), err)
+		return types.Position{}, types.ErrInvalidParams.Wrapf("corrupt position %s: %v", id.Dec(), err)
 	}
 	if position.ID != id || position.Account != account || position.MarketID != marketID {
-		return types.Position{}, fmt.Errorf("%w: position %s does not match its index", types.ErrInvalidParams, id.Dec())
+		return types.Position{}, types.ErrInvalidParams.Wrapf("position %s does not match its index", id.Dec())
 	}
 	return position, nil
 }
@@ -418,7 +414,7 @@ func (k *Keeper) iterateAccountPositions(ctx sdk.Context, account common.Address
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+8 {
-			return fmt.Errorf("%w: account position key %x", types.ErrInvalidParams, key)
+			return types.ErrInvalidParams.Wrapf("account position key %x", key)
 		}
 		position, err := k.loadPosition(ctx, account, sdk.BigEndianToUint64(key[len(prefix):]), iterator.Value())
 		if err != nil {
@@ -438,20 +434,20 @@ func (k *Keeper) iterateRestingOrders(ctx sdk.Context, account common.Address, v
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+32 {
-			return fmt.Errorf("%w: account order key %x", types.ErrInvalidParams, key)
+			return types.ErrInvalidParams.Wrapf("account order key %x", key)
 		}
 		var id uint256.Int
 		id.SetBytes32(key[len(prefix):])
 		bz := k.store(ctx).Get(types.OrderKey(id))
 		if bz == nil {
-			return fmt.Errorf("%w: indexed order %s missing", types.ErrInvalidParams, id.Dec())
+			return types.ErrInvalidParams.Wrapf("indexed order %s missing", id.Dec())
 		}
 		var order types.Order
 		if err := order.Unmarshal(bz); err != nil {
-			return fmt.Errorf("%w: corrupt order %s: %v", types.ErrInvalidParams, id.Dec(), err)
+			return types.ErrInvalidParams.Wrapf("corrupt order %s: %v", id.Dec(), err)
 		}
 		if order.ID != id || order.Account != account {
-			return fmt.Errorf("%w: order %s does not match its index", types.ErrInvalidParams, id.Dec())
+			return types.ErrInvalidParams.Wrapf("order %s does not match its index", id.Dec())
 		}
 		if order.Status != types.OrderStatusResting {
 			continue
@@ -466,7 +462,7 @@ func (k *Keeper) iterateRestingOrders(ctx sdk.Context, account common.Address, v
 // markOf is the stored mark of a market, ErrPriceStale before its first mark.
 func markOf(state types.MarketState) (*big.Int, error) {
 	if state.MarkPrice.IsZero() {
-		return nil, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, state.MarketID)
+		return nil, types.ErrPriceStale.Wrapf("market %d has no mark", state.MarketID)
 	}
 	return state.MarkPrice.ToBig(), nil
 }
@@ -537,14 +533,14 @@ func initialMargin(notional *big.Int, leverage uint256.Int) (*big.Int, error) {
 
 func checkLeverageFloor(leverage uint256.Int) error {
 	if leverage.ToBig().Cmp(wad) < 0 {
-		return fmt.Errorf("%w: leverage %s below 1x", types.ErrInvalidParams, leverage.Dec())
+		return types.ErrInvalidParams.Wrapf("leverage %s below 1x", leverage.Dec())
 	}
 	return nil
 }
 
 func checkTakerRate(takerFeePpm uint64) error {
 	if takerFeePpm >= types.PpmDenominator {
-		return fmt.Errorf("%w: taker rate %d ppm", types.ErrInvalidParams, takerFeePpm)
+		return types.ErrInvalidParams.Wrapf("taker rate %d ppm", takerFeePpm)
 	}
 	return nil
 }
@@ -559,7 +555,7 @@ func ceilDiv(numerator, denominator *big.Int) *big.Int {
 
 func nonNegativeUsd(amount sdk.Int, name string) (*big.Int, error) {
 	if amount.IsNil() || amount.IsNegative() {
-		return nil, fmt.Errorf("%w: %s must be set and non-negative", types.ErrInvalidParams, name)
+		return nil, types.ErrInvalidParams.Wrapf("%s must be set and non-negative", name)
 	}
 	return amount.BigInt(), nil
 }
@@ -567,7 +563,7 @@ func nonNegativeUsd(amount sdk.Int, name string) (*big.Int, error) {
 // usdInt converts a USD amount to sdk.Int, refusing one beyond 256 bits.
 func usdInt(value *big.Int) (sdk.Int, error) {
 	if value.BitLen() > 256 {
-		return sdk.Int{}, fmt.Errorf("%w: USD amount %s beyond 256 bits", types.ErrOverflow, value)
+		return sdk.Int{}, types.ErrOverflow.Wrapf("USD amount %s beyond 256 bits", value)
 	}
 	return sdk.NewIntFromBigInt(value), nil
 }

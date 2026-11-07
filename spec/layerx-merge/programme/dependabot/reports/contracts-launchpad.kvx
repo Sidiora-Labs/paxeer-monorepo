@@ -1,0 +1,8 @@
+[alert.GHSA-848j-6mx2-7j84]
+package = "elliptic"
+manifest = "contracts/launchpad/pnpm-lock.yaml"
+verdict = "no-fix"
+version_before = "6.6.1"
+version_after = "6.6.1"
+pinned_by = "hardhat@2.28.6 -> @ethersproject/abi@5.8.0 -> @ethersproject/hash@5.8.0 -> @ethersproject/abstract-signer@5.8.0 -> @ethersproject/abstract-provider@5.8.0 -> @ethersproject/transactions@5.8.0 -> @ethersproject/signing-key@5.8.0 -> elliptic@6.6.1. Direct dependencies solidity-docgen@0.6.0-beta.36 and @bonadocs/docgen@1.0.1-alpha.6 also pull hardhat@2.28.6 through their hardhat ^2.8.0 peer; @bonadocs/docgen additionally depends on solidity-docgen. Direct dependency @nomicfoundation/hardhat-toolbox@5.0.0 pulls hardhat@2.28.6 and also has paths @nomicfoundation/hardhat-toolbox@5.0.0 -> hardhat-gas-reporter@1.0.10 -> eth-gas-reporter@0.2.27 -> ethers@5.8.0 -> @ethersproject/signing-key@5.8.0 -> elliptic@6.6.1, and @nomicfoundation/hardhat-toolbox@5.0.0 -> @nomicfoundation/hardhat-network-helpers@1.1.2 -> ethereumjs-util@7.1.5 -> ethereum-cryptography@0.1.3 -> secp256k1@4.0.4 -> elliptic@6.6.1. hardhat@3.0.0 removes the Hardhat 2 @ethersproject dependency path. @nomicfoundation/hardhat-toolbox@7.0.0 declares no dependencies or peer dependencies, removing its paths. The latest solidity-docgen@0.6.0-beta.36 and @bonadocs/docgen@1.0.1-alpha.6 still require hardhat ^2.8.0; neither offers a newer release supporting Hardhat 3. Upgrading Hardhat alone cannot remove elliptic from the full dependency graph while those Hardhat 2 peers remain. The advisory names no patched version."
+revision = "4a9dbd7408d98ec112b849894a0d4c9ed40a2aa9"

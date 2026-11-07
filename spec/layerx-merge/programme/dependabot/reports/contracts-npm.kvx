@@ -1,0 +1,116 @@
+[alert.GHSA-848j-6mx2-7j84]
+package = "elliptic"
+manifest = "contracts/package-lock.json"
+verdict = "no-fix"
+version_before = "6.6.1"
+version_after = "6.6.1"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 -> @truffle/contract@4.6.31 -> ethers@4.0.49 -> elliptic@6.6.1"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-8r5x-fm3f-whwj]
+package = "handlebars"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "4.7.9"
+version_after = "4.7.10"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-xw65-4hp5-5hc7]
+package = "handlebars"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "4.7.9"
+version_after = "4.7.10"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-p8wg-vrv2-v86f]
+package = "handlebars"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "4.7.9"
+version_after = "4.7.10"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-g3hv-75wg-m249]
+package = "minimatch"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "9.0.7"
+version_after = "11.0.1"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-p8p7-x288-28g6]
+package = "request"
+manifest = "contracts/package-lock.json"
+verdict = "no-fix"
+version_before = "2.88.2"
+version_after = "2.88.2"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 -> web3@1.10.4 -> web3-bzz@1.10.4 -> swarm-js@0.1.42 -> eth-lib@0.1.29 -> servify@0.1.12 -> request@2.88.2"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-qffp-2rhf-9h96]
+package = "tar"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-9ppj-qmqm-q256]
+package = "tar"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-vmf3-w455-68vh]
+package = "tar"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-w8wr-v893-vjvp]
+package = "tar"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "7.5.8"
+version_after = "7.5.18"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-7c78-jf6q-g5cm]
+package = "tmp"
+manifest = "contracts/package-lock.json"
+verdict = "upgraded"
+version_before = "0.2.6"
+version_after = "0.2.7"
+pinned_by = ""
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-2j4c-9qqq-896r]
+package = "web3-core-method"
+manifest = "contracts/package-lock.json"
+verdict = "no-fix"
+version_before = "1.10.0, 1.10.4"
+version_after = "1.10.0, 1.10.4"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 -> @truffle/contract@4.6.31 -> web3@1.10.0 -> web3-core@1.10.0 -> web3-core-method@1.10.0; @openzeppelin/test-helpers@0.5.16 -> web3@1.10.4 -> web3-core@1.10.4 -> web3-core-method@1.10.4"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"
+
+[alert.GHSA-hhf6-3xpg-pggx]
+package = "web3-core-subscriptions"
+manifest = "contracts/package-lock.json"
+verdict = "no-fix"
+version_before = "1.10.0, 1.10.4"
+version_after = "1.10.0, 1.10.4"
+pinned_by = "@openzeppelin/test-helpers@0.5.16 -> @truffle/contract@4.6.31 -> web3@1.10.0 -> web3-eth@1.10.0 -> web3-core-subscriptions@1.10.0; @openzeppelin/test-helpers@0.5.16 -> web3@1.10.4 -> web3-eth@1.10.4 -> web3-core-subscriptions@1.10.4"
+revision = "acb0ede973ea7d56086f9026bd71bd4d78145ae9"

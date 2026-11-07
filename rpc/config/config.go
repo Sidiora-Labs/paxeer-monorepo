@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"runtime"
@@ -11,7 +12,21 @@ import (
 	"github.com/spf13/cast"
 )
 
+var ErrInvalidRPCStatsInterval = errors.New("evm.rpc_stats_interval must be at least 1ns so the metrics ticker interval is positive")
+
 const (
+	// BatchRequestLimit is the default maximum number of requests in an RPC batch.
+	BatchRequestLimit int = 1000
+
+	// BatchResponseMaxSize is the default maximum RPC batch response size in bytes.
+	BatchResponseMaxSize int = 25000000
+
+	// SendRawTxSyncTimeout is the default timeout for synchronous raw transaction submission.
+	SendRawTxSyncTimeout time.Duration = 2 * time.Second
+
+	// MaxSubscriptionsLogs is the default maximum number of concurrent logs subscriptions.
+	MaxSubscriptionsLogs uint64 = 10000
+
 	// WorkerBatchSize is the number of blocks processed in each batch.
 	// Used in filter.go for batch processing of block queries.
 	WorkerBatchSize = 100
@@ -32,10 +47,25 @@ const (
 	// goroutine creation on high-core machines. Tasks are primarily I/O bound
 	// (fetching and processing block logs), so 2x CPU cores can be excessive.
 	MaxWorkerPoolSize = 64
+
+	// MinFilterTimeout keeps the half-timeout cleanup ticker positive.
+	MinFilterTimeout = 2 * time.Nanosecond
 )
 
 // EVMRPC Config defines configurations for EVM RPC server on this node
 type Config struct {
+	// PxIndexerURL supplies /v1/assets enumeration; empty means unavailable.
+	PxIndexerURL string `mapstructure:"px_indexer_url"`
+
+	// Maximum number of requests in an RPC batch.
+	BatchRequestLimit int `mapstructure:"batch_request_limit"`
+
+	// Maximum response size in bytes for an RPC batch.
+	BatchResponseMaxSize int `mapstructure:"batch_response_max_size"`
+
+	// Timeout for synchronous raw transaction submission.
+	SendRawTxSyncTimeout time.Duration `mapstructure:"send_raw_tx_sync_timeout"`
+
 	// controls whether an HTTP EVM server is enabled
 	HTTPAddress string `mapstructure:"http_address"`
 	HTTPEnabled bool   `mapstructure:"http_enabled"`
@@ -89,9 +119,6 @@ type Config struct {
 	// timeout for filters
 	FilterTimeout time.Duration `mapstructure:"filter_timeout"`
 
-	// checkTx timeout for sig verify
-	CheckTxTimeout time.Duration `mapstructure:"checktx_timeout"`
-
 	// max number of txs to pull from mempool
 	MaxTxPoolTxs uint64 `mapstructure:"max_tx_pool_txs"`
 
@@ -109,6 +136,9 @@ type Config struct {
 
 	// max number of concurrent NewHead subscriptions
 	MaxSubscriptionsNewHead uint64 `mapstructure:"max_subscriptions_new_head"`
+
+	// max number of concurrent logs subscriptions
+	MaxSubscriptionsLogs uint64 `mapstructure:"max_subscriptions_logs"`
 
 	// test api enables certain override apis for integration test situations
 	EnableTestAPI bool `mapstructure:"enable_test_api"`
@@ -174,6 +204,9 @@ type Config struct {
 }
 
 var DefaultConfig = Config{
+	BatchRequestLimit:            BatchRequestLimit,
+	BatchResponseMaxSize:         BatchResponseMaxSize,
+	SendRawTxSyncTimeout:         SendRawTxSyncTimeout,
 	HTTPAddress:                  "0.0.0.0",
 	HTTPEnabled:                  true,
 	HTTPPort:                     8545,
@@ -188,13 +221,13 @@ var DefaultConfig = Config{
 	CORSOrigins:                  "*",
 	WSOrigins:                    "*",
 	FilterTimeout:                120 * time.Second,
-	CheckTxTimeout:               5 * time.Second,
 	MaxTxPoolTxs:                 1000,
 	Slow:                         false,
 	DenyList:                     make([]string, 0),
 	MaxLogNoBlock:                10000,
 	MaxBlocksForLog:              2000,
 	MaxSubscriptionsNewHead:      10000,
+	MaxSubscriptionsLogs:         MaxSubscriptionsLogs,
 	EnableTestAPI:                false,
 	EnableUnsafeKeyringRPC:       false,
 	MaxConcurrentTraceCalls:      10,
@@ -222,6 +255,10 @@ var DefaultConfig = Config{
 }
 
 const (
+	flagBatchRequestLimit            = "evm.batch_request_limit"
+	flagBatchResponseMaxSize         = "evm.batch_response_max_size"
+	flagSendRawTxSyncTimeout         = "evm.send_raw_tx_sync_timeout"
+	flagMaxSubscriptionsLogs         = "evm.max_subscriptions_logs"
 	flagHTTPAddress                  = "evm.http_address"
 	flagHTTPEnabled                  = "evm.http_enabled"
 	flagHTTPPort                     = "evm.http_port"
@@ -237,7 +274,6 @@ const (
 	flagWSOrigins                    = "evm.ws_origins"
 	flagFilterTimeout                = "evm.filter_timeout"
 	flagMaxTxPoolTxs                 = "evm.max_tx_pool_txs"
-	flagCheckTxTimeout               = "evm.checktx_timeout"
 	flagSlow                         = "evm.slow"
 	flagDenyList                     = "evm.deny_list"
 	flagMaxLogNoBlock                = "evm.max_log_no_block"
@@ -265,9 +301,41 @@ const (
 	flagIPRateLimitBurst             = "evm.ip_rate_limit_burst"
 )
 
+// duration decodes a timeout without accepting a negative wait interval.
+func duration(value interface{}) (time.Duration, error) {
+	result, err := cast.ToDurationE(value)
+	if err != nil {
+		return 0, err
+	}
+	if result < 0 {
+		return 0, fmt.Errorf("timeout must be non-negative")
+	}
+	return result, nil
+}
+
 func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	cfg := DefaultConfig // copy
 	var err error
+	if v := opts.Get("evm.px_indexer_url"); v != nil {
+		if cfg.PxIndexerURL, err = cast.ToStringE(v); err != nil {
+			return cfg, fmt.Errorf("evm.px_indexer_url: %w", err)
+		}
+	}
+	if v := opts.Get(flagBatchRequestLimit); v != nil {
+		if cfg.BatchRequestLimit, err = cast.ToIntE(v); err != nil {
+			return cfg, fmt.Errorf("%s: %w", flagBatchRequestLimit, err)
+		}
+	}
+	if v := opts.Get(flagBatchResponseMaxSize); v != nil {
+		if cfg.BatchResponseMaxSize, err = cast.ToIntE(v); err != nil {
+			return cfg, fmt.Errorf("%s: %w", flagBatchResponseMaxSize, err)
+		}
+	}
+	if v := opts.Get(flagSendRawTxSyncTimeout); v != nil {
+		if cfg.SendRawTxSyncTimeout, err = duration(v); err != nil {
+			return cfg, fmt.Errorf("%s: %w", flagSendRawTxSyncTimeout, err)
+		}
+	}
 	if v := opts.Get(flagHTTPAddress); v != nil {
 		cfg.HTTPAddress, err = cast.ToStringE(v)
 		if err != nil {
@@ -339,13 +407,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagFilterTimeout); v != nil {
 		if cfg.FilterTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagFilterTimeout, err)
 		}
 	}
-	if v := opts.Get(flagCheckTxTimeout); v != nil {
-		if cfg.CheckTxTimeout, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
-		}
+	if cfg.FilterTimeout < MinFilterTimeout {
+		return cfg, fmt.Errorf("%s must be at least 2ns so the cleanup ticker interval is positive", flagFilterTimeout)
 	}
 	if v := opts.Get(flagMaxTxPoolTxs); v != nil {
 		if cfg.MaxTxPoolTxs, err = cast.ToUint64E(v); err != nil {
@@ -375,6 +441,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	if v := opts.Get(flagMaxSubscriptionsNewHead); v != nil {
 		if cfg.MaxSubscriptionsNewHead, err = cast.ToUint64E(v); err != nil {
 			return cfg, err
+		}
+	}
+	if v := opts.Get(flagMaxSubscriptionsLogs); v != nil {
+		if cfg.MaxSubscriptionsLogs, err = cast.ToUint64E(v); err != nil {
+			return cfg, fmt.Errorf("%s: %w", flagMaxSubscriptionsLogs, err)
 		}
 	}
 	if v := opts.Get(flagEnableTestAPI); v != nil {
@@ -414,8 +485,11 @@ func ReadConfig(opts servertypes.AppOptions) (Config, error) {
 	}
 	if v := opts.Get(flagRPCStatsInterval); v != nil {
 		if cfg.RPCStatsInterval, err = cast.ToDurationE(v); err != nil {
-			return cfg, err
+			return cfg, fmt.Errorf("%s: %w", flagRPCStatsInterval, err)
 		}
+	}
+	if cfg.RPCStatsInterval < time.Nanosecond {
+		return cfg, ErrInvalidRPCStatsInterval
 	}
 	if v := opts.Get(flagWorkerPoolSize); v != nil {
 		if cfg.WorkerPoolSize, err = cast.ToIntE(v); err != nil {
@@ -487,10 +561,22 @@ const ConfigTemplate = `
 ###############################################################################
 
 [evm]
+# Maximum number of requests in an RPC batch.
+batch_request_limit = {{ .EVM.BatchRequestLimit }}
+
+# Maximum response size in bytes for an RPC batch.
+batch_response_max_size = {{ .EVM.BatchResponseMaxSize }}
+
+# Timeout for synchronous raw transaction submission.
+send_raw_tx_sync_timeout = "{{ .EVM.SendRawTxSyncTimeout }}"
+
 # controls whether an HTTP EVM server is enabled
 http_enabled = {{ .EVM.HTTPEnabled }}
 http_port = {{ .EVM.HTTPPort }}
 http_address = "{{ .EVM.HTTPAddress }}"
+
+# Optional indexer for px_listAssets; metadata comes from this node.
+px_indexer_url = "{{ .EVM.PxIndexerURL }}"
 
 # controls whether a websocket server is enabled
 ws_enabled = {{ .EVM.WSEnabled }}
@@ -536,20 +622,21 @@ cors_origins = "{{ .EVM.CORSOrigins }}"
 # list of WS origins, separated by comma
 ws_origins = "{{ .EVM.WSOrigins }}"
 
-# timeout for filters
+# Timeout for filters. Minimum: 2ns; cleanup runs every half-timeout.
 filter_timeout = "{{ .EVM.FilterTimeout }}"
 
-# checkTx timeout for sig verify
-checktx_timeout = "{{ .EVM.CheckTxTimeout }}"
+max_tx_pool_txs = {{ .EVM.MaxTxPoolTxs }}
 
 # controls whether to have txns go through one by one
 slow = {{ .EVM.Slow }}
+
+enable_test_api = {{ .EVM.EnableTestAPI }}
 
 # Exposes local test-keyring signing methods. Keep false on every public RPC node.
 enable_unsafe_keyring_rpc = {{ .EVM.EnableUnsafeKeyringRPC }}
 
 # Deny list defines list of methods that EVM RPC should fail fast, e.g ["debug_traceBlockByNumber"]
-deny_list = {{ .EVM.DenyList }}
+deny_list = [{{ range $i, $method := .EVM.DenyList }}{{ if $i }}, {{ end }}{{ printf "%q" $method }}{{ end }}]
 
 # Legacy pax_* / pax2_* JSON-RPC (EVM HTTP only - not Cosmos REST on 1317).
 #
@@ -613,9 +700,14 @@ max_blocks_for_log = {{ .EVM.MaxBlocksForLog }}
 # max number of concurrent NewHead subscriptions
 max_subscriptions_new_head = {{ .EVM.MaxSubscriptionsNewHead }}
 
+# max number of concurrent logs subscriptions
+max_subscriptions_logs = {{ .EVM.MaxSubscriptionsLogs }}
+
 # MaxConcurrentTraceCalls defines the maximum number of concurrent debug_trace calls.
 # Set to 0 for unlimited.
 max_concurrent_trace_calls = {{ .EVM.MaxConcurrentTraceCalls }}
+
+max_concurrent_simulation_calls = {{ .EVM.MaxConcurrentSimulationCalls }}
 
 # Max number of blocks allowed to look back for tracing
 # Set to -1 for unlimited lookback, which is useful for archive nodes.
@@ -626,6 +718,9 @@ trace_timeout = "{{ .EVM.TraceTimeout }}"
 
 # Enable the parallelized default debug_traceBlock* path.
 enable_parallelized_block_trace = {{ .EVM.EnableParallelizedBlockTrace }}
+
+# Interval for reporting RPC stats. Minimum: 1ns (must be positive).
+rpc_stats_interval = "{{ .EVM.RPCStatsInterval }}"
 
 # WorkerPoolSize defines the number of workers in the worker pool.
 # Default: min(64, CPU cores × 2). Capped at 64 to prevent excessive goroutines on high-core machines.

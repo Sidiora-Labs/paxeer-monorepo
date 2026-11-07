@@ -1,4 +1,4 @@
-import type { Address } from "viem";
+import { isAddress, type Address, type Hash } from "viem";
 import { getPublicClient, getWalletClient } from "@/core/viem/clients";
 import { paxeerChain } from "@/core/chain";
 import { createLogger } from "@/core/log/logger";
@@ -90,7 +90,7 @@ export async function writeContract(params: {
   const gas = gasWithMargin(await publicClient.estimateContractGas(call));
   const { maxFeePerGas, maxPriorityFeePerGas } = await estimateClampedFees();
 
-  return walletClient.writeContract({
+  const hash = await walletClient.writeContract({
     chain: paxeerChain,
     account,
     address: params.address,
@@ -102,6 +102,8 @@ export async function writeContract(params: {
     maxPriorityFeePerGas,
     ...(params.value ? { value: params.value } : {}),
   } as any);
+  recordTransactionBroadcast(hash);
+  return hash;
 }
 
 // Transaction confirmation.
@@ -147,33 +149,165 @@ function isReceiptPendingError(err: unknown): boolean {
   return /not\s*(be\s*)?found|does not exist|indexing|not indexed/i.test(msg);
 }
 
-export async function waitForTx(hash: `0x${string}`): Promise<WaitForTxResult> {
-  const client = getPublicClient();
-  const deadline = Date.now() + RECEIPT_TIMEOUT_MS;
+export interface PendingTransaction {
+  readonly chainId: number;
+  /** Null until the node indexes the broadcast's sender; it blocks every account meanwhile. */
+  readonly account: Address | null;
+  readonly hash: Hash;
+}
 
+export const PENDING_TRANSACTIONS_KEY = "paxeer:pending-transactions:v1";
+let pendingTransactions: readonly PendingTransaction[] = [];
+const transactionListeners = new Set<() => void>();
+const receiptWaits = new Map<Hash, Promise<WaitForTxResult>>();
+
+export function subscribePendingTransactions(listener: () => void) {
+  transactionListeners.add(listener);
+  return () => {
+    transactionListeners.delete(listener);
+  };
+}
+
+export function getPendingTransactions(): readonly PendingTransaction[] {
+  return pendingTransactions;
+}
+
+function decodePendingTransactions(raw: string | null): PendingTransaction[] {
+  if (raw === null) return [];
+  const records: unknown = JSON.parse(raw);
+  if (!Array.isArray(records)) throw new Error("Invalid pending transaction journal");
+  return records.map((record: unknown) => {
+    if (
+      typeof record !== "object" ||
+      record === null ||
+      !("chainId" in record) ||
+      record.chainId !== paxeerChain.id ||
+      !("account" in record) ||
+      !(
+        record.account === null ||
+        (typeof record.account === "string" && isAddress(record.account))
+      ) ||
+      !("hash" in record) ||
+      typeof record.hash !== "string" ||
+      !/^0x[0-9a-fA-F]{64}$/.test(record.hash)
+    ) {
+      throw new Error("Invalid pending transaction journal entry");
+    }
+    return { chainId: record.chainId, account: record.account, hash: record.hash as Hash };
+  });
+}
+
+function notifyTransactions() {
+  for (const listener of transactionListeners) listener();
+}
+
+/** Called before allowing a financial operation. Storage errors must remain visible. */
+export function hydratePendingTransactions() {
+  if (typeof window === "undefined")
+    throw new Error("Transaction recovery requires browser storage");
+  const stored = decodePendingTransactions(window.localStorage.getItem(PENDING_TRANSACTIONS_KEY));
+  const merged = new Map(stored.map((record) => [record.hash, record]));
+  for (const record of pendingTransactions) merged.set(record.hash, record);
+  pendingTransactions = [...merged.values()];
+  window.localStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(pendingTransactions));
+  notifyTransactions();
+}
+
+function persistTransactions() {
+  // Keep the in-memory hash even if durable storage fails after a broadcast.
+  try {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(PENDING_TRANSACTIONS_KEY, JSON.stringify(pendingTransactions));
+    }
+  } finally {
+    notifyTransactions();
+  }
+}
+
+/** Exposes the hash synchronously, before any receipt RPC or transaction lookup. */
+export function recordTransactionBroadcast(hash: Hash) {
+  if (pendingTransactions.some((record) => record.hash === hash)) return;
+  pendingTransactions = [...pendingTransactions, { chainId: paxeerChain.id, account: null, hash }];
+  if (typeof window !== "undefined") {
+    try {
+      hydratePendingTransactions();
+    } finally {
+      notifyTransactions();
+    }
+  } else {
+    notifyTransactions();
+  }
+}
+
+function forgetTransaction(hash: Hash) {
+  pendingTransactions = pendingTransactions.filter((record) => record.hash !== hash);
+  persistTransactions();
+}
+
+export class TransactionRevertedError extends Error {
+  constructor(readonly hash: Hash) {
+    super(`Transaction reverted (hash: ${hash})`);
+    this.name = "TransactionRevertedError";
+  }
+}
+
+async function reconcileTransaction(hash: Hash): Promise<WaitForTxResult> {
+  const client = getPublicClient();
+  if ((await client.getChainId()) !== paxeerChain.id) {
+    throw new Error("Wrong network for pending transaction recovery");
+  }
+  // Sender indexing is optional: receipt polling must not wait for it on
+  // nodes whose transaction index trails committed receipts.
+  void client
+    .getTransaction({ hash })
+    .then((transaction) => {
+      if (!pendingTransactions.some((record) => record.hash === hash)) return;
+      pendingTransactions = pendingTransactions.map((record) =>
+        record.hash === hash ? { ...record, account: transaction.from } : record,
+      );
+      persistTransactions();
+    })
+    .catch((error: unknown) => {
+      if (!isReceiptPendingError(error)) {
+        log.warn(
+          `Pending transaction sender lookup failed for ${hash}: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+    });
+  const deadline = Date.now() + RECEIPT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     let receipt: Awaited<ReturnType<typeof client.getTransactionReceipt>> | null = null;
     try {
       receipt = await client.getTransactionReceipt({ hash });
-    } catch (err: unknown) {
-      if (!isReceiptPendingError(err)) throw err;
+    } catch (error: unknown) {
+      if (!isReceiptPendingError(error)) throw error;
     }
-
     if (receipt) {
-      if (receipt.status === "reverted") {
-        throw new Error(`Transaction reverted (hash: ${hash})`);
+      if (receipt.transactionHash.toLowerCase() !== hash.toLowerCase()) {
+        throw new Error("Pending transaction receipt hash mismatch");
       }
-      return {
-        status: "success",
-        transactionHash: hash,
-        blockNumber: receipt.blockNumber,
-      };
+      if (receipt.status === "reverted") {
+        forgetTransaction(hash);
+        throw new TransactionRevertedError(hash);
+      }
+      if (receipt.status !== "success") throw new Error("Invalid transaction receipt status");
+      forgetTransaction(hash);
+      return { status: "success", transactionHash: hash, blockNumber: receipt.blockNumber };
     }
-
     await new Promise((resolve) => setTimeout(resolve, RECEIPT_POLL_INTERVAL_MS));
   }
-
   throw new Error(
     `Transaction timed out — not confirmed within ${RECEIPT_TIMEOUT_MS}ms (hash: ${hash})`,
   );
+}
+
+export function waitForTx(hash: Hash): Promise<WaitForTxResult> {
+  recordTransactionBroadcast(hash);
+  const existing = receiptWaits.get(hash);
+  if (existing) return existing;
+  const waiting = reconcileTransaction(hash).finally(() => {
+    receiptWaits.delete(hash);
+  });
+  receiptWaits.set(hash, waiting);
+  return waiting;
 }

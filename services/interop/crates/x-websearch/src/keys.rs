@@ -1,4 +1,3 @@
-use ed25519_dalek::SigningKey as ReceiverKey;
 use k256::ecdsa::SigningKey as SecpKey;
 use std::ffi::OsString;
 use std::io::Read as _;
@@ -172,17 +171,11 @@ impl KeyFiles {
             .as_ref()
             .map(|secret| secp(secret, KeyRole::Submitter))
             .transpose()?;
-        if receiver.iter().all(|byte| *byte == 0) {
-            return Err(KeyError {
-                role: KeyRole::Receiver,
-                refusal: KeyRefusal::InvalidKey,
-            });
-        }
-        let receiver = ReceiverKey::from_bytes(&receiver);
+        let receiver = secp(&receiver, KeyRole::Receiver)?;
         Ok(Keys {
             attestor,
             submitter,
-            receiver,
+            receiver_key: receiver,
         })
     }
 }
@@ -241,7 +234,7 @@ const fn nibble(byte: u8) -> Option<u8> {
 pub struct Keys {
     attestor: Option<SecpKey>,
     submitter: Option<SecpKey>,
-    receiver: ReceiverKey,
+    receiver_key: SecpKey,
 }
 
 impl Keys {
@@ -256,8 +249,8 @@ impl Keys {
     }
 
     #[must_use]
-    pub const fn receiver(&self) -> &ReceiverKey {
-        &self.receiver
+    pub const fn receiver(&self) -> &SecpKey {
+        &self.receiver_key
     }
 }
 

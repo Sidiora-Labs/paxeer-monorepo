@@ -1,0 +1,49 @@
+[issue.1545]
+number = 1545
+title = "[Coherence] The advisory raise deletes the go.sum of five nested Go modules, so none of them can build or verify"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "Commit 3a45b8541b41b4ead9a244ff463d6d042e05f2cc deleted all five nested checksum files, and tools/paxctl/go.mod:9, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and sdk/cosmovisor/go.mod:37 still declare the raised dependencies without their modules' go.sum files or a root go.work, whereas ca07914ff9e9fed65781c9c08c73a62d63e77c33 restored only services/wallet/attestor/go.sum (entries at services/wallet/attestor/go.sum:1), leaving four modules outside the lock-consistency guarantee in spec/layerx-merge/spec.kvx:137921 and its build gate at spec/layerx-merge/spec.kvx:137927."
+close_comment = "The attestor checksum file has been restored, but paxctl, loadtest, ceremony and cosmovisor still lack their module checksum files. Task 18.1545.1 tracks restoring those four files and checking that their dependency graphs and builds work without changing dependency metadata."
+
+[task.18.1545.1]
+title = "Issue #1545: Restore checksums for the four remaining nested Go modules"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181545.1"]
+capabilities = []
+interfaces = []
+do_1 = "Regenerate tools/paxctl/go.sum, tools/loadtest/go.sum, services/wallet/ceremony/go.sum and sdk/cosmovisor/go.sum with each module's Go toolchain and GOWORK=off against the committed manifests, including dependencies used by tests; preserve the dependency versions and replacements at tools/paxctl/go.mod:9 and :35, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and :47, and sdk/cosmovisor/go.mod:37, without hand-writing checksums or changing manifests."
+do_2 = "Add tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums as one regression test over exactly those four real modules: require each go.sum to be nonempty, snapshot each go.mod and go.sum, run go list -mod=readonly -deps -test ./... and go mod verify with GOWORK=off and GOFLAGS=-mod=readonly, assert successful exits and a nonempty package list, and assert all snapshots remain byte-identical; do not substitute fixtures or skip modules."
+do_3 = "Build each affected module once with GOWORK=off and GOFLAGS=-mod=readonly; the restored attestor checksum file belongs to the completed repair at spec/layerx-merge/spec.kvx:137723 and is not part of this change, and the existing manifest-floor test at sdk/cosmovisor/deps_floor_test.go:12 remains intact."
+symbols = ["test_go_root_nested_checksums"]
+touches = ["tools/paxctl/go.sum", "tools/loadtest/go.sum", "services/wallet/ceremony/go.sum", "sdk/cosmovisor/go.sum", "tools/deps/tests/test_go_root_checksums.py"]
+tests = ["tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums"]
+planned_paths = ["tools/paxctl/go.sum", "tools/loadtest/go.sum", "services/wallet/ceremony/go.sum", "sdk/cosmovisor/go.sum", "tools/deps/tests/test_go_root_checksums.py"]
+build_cmd = "python3 -m py_compile tools/deps/tests/test_go_root_checksums.py && (cd tools/paxctl && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd tools/loadtest && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd services/wallet/ceremony && GOWORK=off GOFLAGS=-mod=readonly go build ./...) && (cd sdk/cosmovisor && GOWORK=off GOFLAGS=-mod=readonly go build ./...)"
+verify_cmd = "python3 -m pytest tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums -q"
+gate_kind = "planned"
+sandbox_profile = "mixed"
+owner_role = "fm-tools-ops"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181545]
+title = "Nested Go modules retain complete checksums at their raised dependency versions"
+ac_1 = "For the committed manifests at tools/paxctl/go.mod:9, tools/loadtest/go.mod:6, services/wallet/ceremony/go.mod:8 and sdk/cosmovisor/go.mod:37, each module has a nonempty go.sum, builds with GOWORK=off and GOFLAGS=-mod=readonly, resolves all package and test dependencies in read-only mode and passes go mod verify without changing go.mod or go.sum."
+
+[acceptance.18.1545.1]
+feature = "18"
+req = "181545.1"
+scenario = "Given the four standalone modules with their committed dependency versions and restored checksum files, when each read-only module build and the focused checksum regression test run with workspace mode disabled, then all four modules build, resolve their package and test dependencies and verify their checksums while preserving every manifest and checksum file."
+contract = "contracts/tools-ops.md#qualification-harness"
+test = "tools/deps/tests/test_go_root_checksums.py::test_go_root_nested_checksums (planned)"
+qualification = "UNRUN"

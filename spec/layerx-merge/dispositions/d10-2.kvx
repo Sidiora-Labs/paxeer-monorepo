@@ -1,0 +1,124 @@
+[disposition.10.4.3.2]
+finding = "10.4.3.2"
+status = "environment"
+evidence = "services/human/crates/layerx-human-service/tests/native_journey_approval.rs:599 and services/human/crates/layerx-human-service/tests/native_send_producer.rs:555 require protected real-owner release fixtures, whose absence belongs to the qualification environment."
+
+[disposition.10.5.1]
+finding = "10.5.1"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:166008 declares only ProvisionEvidence and RotationObservation for task 10.5.1, removing the unindexed qualified method requirement while reconcile_rotation remains implemented at services/human/crates/layerx-human-service/src/custody/sessions.rs:1017."
+
+[disposition.10.5.2.1]
+finding = "10.5.2.1"
+status = "resolved"
+evidence = "9d647159b replaced the undefined onboarding fixture dependency with the in-process Unix peer at services/human/crates/layerx-human-service/tests/native_onboarding_rungs.rs:378, which supplies the pending nonce to the real onboarding path."
+
+[disposition.10.6.5.6]
+finding = "10.6.5.6"
+status = "environment"
+evidence = "services/human/crates/layerx-human-service/tests/native_send_producer.rs:555 still requires the protected real-owner producer fixture, so the recorded missing-fixture failure concerns the qualification environment rather than a repository defect."
+
+[disposition.10.6.5.7]
+finding = "10.6.5.7"
+status = "resolved"
+evidence = "2dc2c17ab changed the kernel-send test to read its intent-evm row through PrincipalScope at services/human/crates/layerx-human-service/tests/intent_submit.rs:628 and check retained state after replay, with refusal tests checking the same storage instead of JourneyEngine::load."
+
+[disposition.10.11.1]
+finding = "10.11.1"
+status = "resolved"
+evidence = "3acb6d740 ported the KMS consumers to the chain snapshot and attestor certificate, as retained at services/human/crates/layerx-human-kms/src/server.rs:140 and services/human/crates/layerx-human-kms/src/store.rs:164."
+
+[disposition.10.11.1.1]
+finding = "10.11.1.1"
+status = "resolved"
+evidence = "6b9420582 ported the daemon consumers to the reshaped rung and height API, and services/agent/crates/layerx-agentd/src/agent_rpc_adapters.rs:1210 constructs ReadRequest with requested_rung."
+
+[disposition.10.11.5.1]
+finding = "10.11.5.1"
+status = "resolved"
+evidence = "4bbccf849 ported sign_send_now together with deletion of sign_send, and services/human/crates/layerx-human-service/src/server/production_components.rs:7457 retains the EIP-1559 authorization path."
+
+[disposition.10.11.9.1]
+finding = "10.11.9.1"
+status = "resolved"
+evidence = "ca1b83fcd added run_native_cluster so services/human/crates/layerx-human-kms/tests/attestor_native_profile.rs:277 starts the real local attestor cluster when the live fixture variable is absent instead of returning NotPresent."
+
+[disposition.10.12.1]
+finding = "10.12.1"
+status = "resolved"
+evidence = "8905cf9fe refreshed the Cargo lockfiles after the domain merge, including the missing tungstenite dependency in services/human/Cargo.lock, repairing the recorded stale-lock condition before the landed gas-station client ad1ef66b1."
+
+[disposition.10.12.1.1]
+finding = "10.12.1.1"
+status = "superseded"
+evidence = "f0aa4ee07 deleted services/interop/crates/layerx-mirror/src/node.rs and retired its LNI source and native checkpoint policy, removing the Freshness producer named by this finding."
+
+[disposition.10.13.1]
+finding = "10.13.1"
+status = "resolved"
+evidence = "a5edae038 adapted the creation-evidence consumers together with the interface change, and services/human/crates/layerx-human-service/src/server/agent_creation.rs:631 fills ProtocolEvidence with tx_hash, receipt_hash, block_height and rung from ReceiptMaterial."
+
+[disposition.10.13.1.1]
+finding = "10.13.1.1"
+status = "resolved"
+evidence = "a5edae038 preserved the kernel activity types separately from preset call selectors, and services/human/crates/layerx-human-service/src/agents/create.rs:751 retains activity_types on SessionProvision and CapabilityProvision."
+
+[disposition.10.13.3]
+finding = "10.13.3"
+status = "resolved"
+evidence = "85c5b32c5 landed the shared ReceiptMaterial transaction hash, receipt hash, block height and rung fields before decoder task 7f9f7d610, and services/human/crates/layerx-human-service/src/journeys/engine.rs:242 retains that shape."
+
+[disposition.10.13.3.1]
+finding = "10.13.3.1"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4474 decodes the shared ReceiptLookupFrame and receipt_material constructs ReceiptMaterial with block_height and rung, without the obsolete observed_height or signature fields."
+
+[disposition.10.13.6]
+finding = "10.13.6"
+status = "resolved"
+evidence = "85c5b32c5 widened persisted journey signatures from 64 to 65 bytes, and services/human/crates/layerx-human-service/src/journeys/engine.rs:2142 enforces that width consistently with SignatureBytes::new on submission."
+
+[disposition.10.13.6.1]
+finding = "10.13.6.1"
+status = "resolved"
+evidence = "services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:1623 now passes a 65-byte signature through attach_external_signature, matching the SignatureBytes contract at services/agent/crates/layerx-agent-api/src/write.rs:78."
+
+[disposition.10.13.6.2]
+finding = "10.13.6.2"
+status = "resolved"
+evidence = "014c0f8d7 made archive_waits_for_committed_fund_disposition exercise the archive boundary directly, and services/human/crates/layerx-human-service/tests/agent_controls_rungs.rs:3338 varies disposition rungs without advancing a reclaim journey before archive."
+
+[disposition.10.13.8.1]
+finding = "10.13.8.1"
+status = "resolved"
+evidence = "a5c762631 ported the preview decoder and load_access callers, and services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4848 derives nonce and both EIP-1559 fee fields from the producer transaction."
+
+[disposition.10.13.8.2]
+finding = "10.13.8.2"
+status = "resolved"
+evidence = "a5c762631 landed the decoder and caller changes previously blocked by drifting task references, with preview transaction decoding at services/human/crates/layerx-human-service/src/server/agent_runtime.rs:4848 and pending-nonce expiry checks at services/human/crates/layerx-human-service/src/server/native_send.rs:503."
+
+[disposition.10.14.1.1]
+finding = "10.14.1.1"
+status = "resolved"
+evidence = "230d2c96c replaced the retired 4-or-5 verification-byte check, and services/human/crates/layerx-human-service/src/server/agent_runtime.rs:2009 accepts null verification or a named rung from the JSON balance answer."
+
+[disposition.10.14.1.2]
+finding = "10.14.1.2"
+status = "resolved"
+evidence = "230d2c96c aligned AgentRuntime::balance with the daemon response, and services/human/crates/layerx-human-service/src/server/agent_runtime.rs:1988 reads one length-prefixed JSON value and decodes its balance, freshness and optional verification fields."
+
+[disposition.10.15.1]
+finding = "10.15.1"
+status = "resolved"
+evidence = "a37ac61cd added the missing compatibility rows through 1.9, the GET journey.page request and all six key-export golden vectors, while services/human/schema/human-api/compatibility.kvx:56 also records the current schema minor 1.10."
+
+[disposition.10.15.2]
+finding = "10.15.2"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:167014 declares only retired and retired_variants as task symbols, while services/human/schema/human-api/errors.kvx:9 retains operation-retired as schema data rather than a required graph declaration."
+
+[disposition.10.16.3]
+finding = "10.16.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:167232 declares only check_compatibility as the task symbol, while services/human/tools/schema-check/src/lib.rs:2401 retains compatibility-row-missing as a diagnostic rule covered by the compatibility_rows tests."

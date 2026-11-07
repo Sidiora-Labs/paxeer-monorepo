@@ -5,6 +5,8 @@ export const recipe = defineRecipe({
 
   variants: {
     loading: {
+      'true': {},
+      'false': {},
       // special value to override the default behavior of the skeleton in Chakra
       // it uses "background: unset" when the loading prop is set to false
       // but it causes issues with background color of child element (e.g. button, badge, etc.)

@@ -94,17 +94,17 @@ func loadMigrationFixture() (migrationFixture, error) {
 			return migrationFixture{}, err
 		}
 		if err := json.Unmarshal(bz, out); err != nil {
-			return migrationFixture{}, fmt.Errorf("%w: %s: %v", types.ErrInvalidConfiguration, name, err)
+			return migrationFixture{}, types.ErrInvalidConfiguration.Wrapf("%s: %v", name, err)
 		}
 	}
 	if len(fx.layout.Generations) != 2 || fx.layout.Generations[0].Generation != types.Generation1 ||
 		fx.layout.Generations[1].Generation != types.Generation2 {
-		return migrationFixture{}, fmt.Errorf("%w: layout.json generations", types.ErrInvalidConfiguration)
+		return migrationFixture{}, types.ErrInvalidConfiguration.Wrap("layout.json generations")
 	}
 	fx.holders = make(map[common.Address][]common.Address, len(holders))
 	for _, entry := range holders {
 		if _, dup := fx.holders[entry.Token]; dup {
-			return migrationFixture{}, fmt.Errorf("%w: holders.json token %s repeated", types.ErrInvalidConfiguration,
+			return migrationFixture{}, types.ErrInvalidConfiguration.Wrapf("holders.json token %s repeated",
 				entry.Token.Hex())
 		}
 		fx.holders[entry.Token] = entry.Holders
@@ -119,7 +119,7 @@ func (l migrationLayout) slot(role, field string) (common.Hash, error) {
 			return uintWord(entry.Slot), nil
 		}
 	}
-	return common.Hash{}, fmt.Errorf("%w: layout.json has no %s.%s", types.ErrInvalidConfiguration, role, field)
+	return common.Hash{}, types.ErrInvalidConfiguration.Wrapf("layout.json has no %s.%s", role, field)
 }
 
 // slotReader is the EVM storage read of the migration.
@@ -346,7 +346,7 @@ func readPool(ctx sdk.Context, k *Keeper, evm EVMReader, caller NestedCaller, fx
 		return err
 	}
 	if quote != k.quoteToken(ctx) {
-		return fmt.Errorf("%w: pool %s quotes %s", types.ErrInvalidConfiguration, pool.Address.Hex(), quote.Hex())
+		return types.ErrInvalidConfiguration.Wrapf("pool %s quotes %s", pool.Address.Hex(), quote.Hex())
 	}
 	optical, err := address("opticalAddress")
 	if err != nil {
@@ -439,7 +439,7 @@ func readPool(ctx sdk.Context, k *Keeper, evm EVMReader, caller NestedCaller, fx
 	}
 	holders, ok := fx.holders[token]
 	if !ok {
-		return fmt.Errorf("%w: holders.json lists no holders of %s", types.ErrInvalidConfiguration, token.Hex())
+		return types.ErrInvalidConfiguration.Wrapf("holders.json lists no holders of %s", token.Hex())
 	}
 	sum := sdk.ZeroInt()
 	for _, holder := range holders {
@@ -891,8 +891,7 @@ func readAccounting(ctx sdk.Context, k *Keeper, evm EVMReader, fx migrationFixtu
 		"airdropSnapshotBlock", "airdropEligibleSupply", "airdropEpochRemaining", "airdropClaimedSupply",
 		"accountingInitialized", "legacyAirdropUnallocated", "legacyAirdropRoot", "legacyAirdropRemaining"} {
 		if _, ok := slots[field]; !ok {
-			return nil, sdk.Int{}, sdk.Int{}, fmt.Errorf("%w: layout.json has no FeeAccumulator.%s",
-				types.ErrInvalidConfiguration, field)
+			return nil, sdk.Int{}, sdk.Int{}, types.ErrInvalidConfiguration.Wrapf("layout.json has no FeeAccumulator.%s", field)
 		}
 	}
 	generation1, generation2 := generation1Roles.FeeAccumulator, k.generation2.FeeAccumulator
@@ -1047,7 +1046,7 @@ func ParamsFromProtocolConfig(ctx sdk.Context, evm slotReader) (types.Params, []
 	g2 := readProtocolConfig(s, generation2Roles.ProtocolConfig)
 	bps := func(v sdk.Int) (uint64, error) {
 		if !v.IsUint64() {
-			return 0, fmt.Errorf("%w: ProtocolConfig value %s exceeds uint64", types.ErrInvalidParams, v)
+			return 0, types.ErrInvalidParams.Wrapf("ProtocolConfig value %s exceeds uint64", v)
 		}
 		return v.Uint64(), nil
 	}

@@ -3,14 +3,12 @@ package tests
 import (
 	"bytes"
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"strconv"
 	"strings"
-	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
@@ -22,14 +20,18 @@ import (
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	paxutils "github.com/Sidiora-Labs/Paxeer-X-Network/utils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gogo/protobuf/proto"
 )
 
 type MockClient struct {
 	mock.Client
-	blocks           [][][]byte
-	txResults        [][]*abci.ExecTxResult
-	consParamUpdates []*tmproto.ConsensusParams
-	events           [][]abci.Event
+	blocks                 [][][]byte
+	headers                []*tmtypes.Header
+	committedAppHashes     [][]byte
+	committedResultsHashes [][]byte
+	txResults              [][]*abci.ExecTxResult
+	consParamUpdates       []*tmproto.ConsensusParams
+	events                 [][]abci.Event
 
 	mockedBlockResults        map[int64]*coretypes.ResultBlock
 	mockedBlockByHashResults  map[string]*coretypes.ResultBlock
@@ -87,25 +89,32 @@ func (c *MockClient) BlockByHash(_ context.Context, hash tmbytes.HexBytes) (*cor
 }
 
 func (c *MockClient) getBlock(i int64) *coretypes.ResultBlock {
-	if i < 1 {
+	if i < 1 || i > int64(len(c.headers)) {
 		return nil
 	}
-	header := mockBlockHeader(i)
+	header, err := tmtypes.HeaderFromProto(proto.Clone(c.headers[i-1].ToProto()).(*tmproto.Header))
+	if err != nil {
+		panic(err)
+	}
 	return &coretypes.ResultBlock{
 		BlockID: tmtypes.BlockID{Hash: header.Hash()},
 		Block: &tmtypes.Block{
-			Data:       tmtypes.Data{Txs: paxutils.Map(c.blocks[i-1], func(tx []byte) tmtypes.Tx { return tmtypes.Tx(tx) })},
-			Header:     *header,
-			LastCommit: &tmtypes.Commit{Height: i},
+			Data:       tmtypes.Data{Txs: paxutils.Map(c.blocks[i-1], func(tx []byte) tmtypes.Tx { return tmtypes.Tx(bytes.Clone(tx)) })},
+			Header:     header,
+			LastCommit: &tmtypes.Commit{Height: i - 1},
 		},
 	}
 }
 
-func (c *MockClient) Header(_ context.Context, h *int64) (*coretypes.ResultHeader, error) {
-	if h == nil {
-		return &coretypes.ResultHeader{Header: mockBlockHeader(int64(len(c.blocks)))}, nil
+func (c *MockClient) Header(ctx context.Context, h *int64) (*coretypes.ResultHeader, error) {
+	block, err := c.Block(ctx, h)
+	if err != nil {
+		return nil, err
 	}
-	return &coretypes.ResultHeader{Header: mockBlockHeader(*h)}, nil
+	if block == nil || block.Block == nil {
+		return nil, errors.New("not found")
+	}
+	return &coretypes.ResultHeader{Header: &block.Block.Header}, nil
 }
 
 func (c *MockClient) Genesis(context.Context) (*coretypes.ResultGenesis, error) {
@@ -160,6 +169,7 @@ func (c *MockClient) recordBlockResult(txResults []*abci.ExecTxResult, consParam
 }
 
 func (c *MockClient) Validators(ctx context.Context, height *int64, page, perPage *int) (*coretypes.ResultValidators, error) {
+	var captured *coretypes.ResultValidators
 	if c.mockedValidators != nil {
 		blockNum := int64(-1)
 		if height != nil {
@@ -169,14 +179,38 @@ func (c *MockClient) Validators(ctx context.Context, height *int64, page, perPag
 		if !ok {
 			return nil, errors.New("not found")
 		}
-		return res, nil
+		captured = res
+	} else {
+		validator := tmtypes.NewValidator(ed25519.TestSecretKey([]byte("rpc-test-validator")).Public(), 1)
+		captured = &coretypes.ResultValidators{Validators: []*tmtypes.Validator{validator}, Count: 1, Total: 1}
+		if height != nil {
+			captured.BlockHeight = *height
+		}
 	}
-	validator := tmtypes.NewValidator(ed25519.TestSecretKey([]byte("rpc-test-validator")).Public(), 1)
-	res := &coretypes.ResultValidators{Validators: []*tmtypes.Validator{validator}, Count: 1, Total: 1}
-	if height != nil {
-		res.BlockHeight = *height
+	// Each trace contains a single recorded page. Replay used only these
+	// captured validators, so they form the complete set for this fixture.
+	total := len(captured.Validators)
+	pageNumber, pageSize := 1, 30
+	if page != nil {
+		pageNumber = *page
 	}
-	return res, nil
+	if perPage != nil && *perPage > 0 {
+		pageSize = *perPage
+	}
+	if pageSize > 100 {
+		pageSize = 100
+	}
+	pages := (total + pageSize - 1) / pageSize
+	if pageNumber < 1 || pageNumber > pages {
+		return nil, fmt.Errorf("validator page %d is outside range [1, %d]", pageNumber, pages)
+	}
+	start := (pageNumber - 1) * pageSize
+	end := min(start+pageSize, total)
+	res := *captured
+	res.Validators = append([]*tmtypes.Validator(nil), captured.Validators[start:end]...)
+	res.Count = total
+	res.Total = total
+	return &res, nil
 }
 
 func (c *MockClient) Events(_ context.Context, req *coretypes.RequestEvents) (*coretypes.ResultEvents, error) {
@@ -229,38 +263,4 @@ func (c *MockClient) Events(_ context.Context, req *coretypes.RequestEvents) (*c
 
 func (c *MockClient) UnconfirmedTxs(context.Context, *int, *int) (*coretypes.ResultUnconfirmedTxs, error) {
 	return &coretypes.ResultUnconfirmedTxs{}, nil
-}
-
-func mockHash(height int64, prefix int64) tmbytes.HexBytes {
-	heightBz, prefixBz := make([]byte, 8), make([]byte, 8)
-	binary.BigEndian.PutUint64(heightBz, uint64(height)) //nolint:gosec
-	binary.BigEndian.PutUint64(prefixBz, uint64(prefix)) //nolint:gosec
-	return tmbytes.HexBytes(append(prefixBz, heightBz...))
-}
-
-func mockBlockHeader(height int64) *tmtypes.Header {
-	header := tmtypes.Header{
-		ChainID:            "test",
-		Height:             height,
-		Time:               time.Unix(1696941649+height, 0),
-		DataHash:           mockHash(height, 1),
-		AppHash:            mockHash(height, 2),
-		LastResultsHash:    mockHash(height, 3),
-		ProposerAddress:    mockHash(height, 4),
-		LastCommitHash:     mockHash(height, 5),
-		ValidatorsHash:     mockHash(height, 6),
-		NextValidatorsHash: mockHash(height, 7),
-		ConsensusHash:      mockHash(height, 8),
-		EvidenceHash:       mockHash(height, 9),
-	}
-	if height <= 0 {
-		header.LastBlockID = tmtypes.BlockID{
-			Hash: tmbytes.HexBytes([]byte{}),
-		}
-	} else {
-		header.LastBlockID = tmtypes.BlockID{
-			Hash: mockBlockHeader(height - 1).Hash(),
-		}
-	}
-	return &header
 }

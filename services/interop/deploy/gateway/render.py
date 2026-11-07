@@ -378,7 +378,7 @@ def beta_roots(path, reasons):
     }
 
 
-def cluster_roots(environ, network_id, sequencer_public_key, beta, reasons):
+def cluster_roots(environ, network_id, receipt_public_keys, beta, reasons):
     """The trust roots, defaulting to the cluster's own generated identities."""
     roots = {}
     for root in ROOTS:
@@ -398,7 +398,7 @@ def cluster_roots(environ, network_id, sequencer_public_key, beta, reasons):
             elif network_id is None:
                 roots[root] = (None, BETA_SOURCE)
             continue
-        if network_id is None or sequencer_public_key is None:
+        if network_id is None or receipt_public_keys is None:
             roots[root] = (None, IN_CLUSTER_SOURCE)
             continue
         if root == "x402_supported":
@@ -409,7 +409,7 @@ def cluster_roots(environ, network_id, sequencer_public_key, beta, reasons):
                 {
                     "kinds": [{"x402Version": 2, "scheme": "exact", "network": network}],
                     "extensions": [],
-                    "signers": {network: ["did:layerx:%s" % sequencer_public_key]},
+                    "signers": {network: ["did:layerx:%s" % key for key in receipt_public_keys]},
                 },
                 IN_CLUSTER_SOURCE,
             )
@@ -695,10 +695,11 @@ def validate_roots(document, reasons):
                 reasons.append("%s contains an invalid exact scheme" % ROOT_VARIABLE["x402_supported"])
             else:
                 signers = supported["signers"].get(kind["network"])
-                if (not isinstance(signers, list) or len(signers) != 1
-                        or not isinstance(signers[0], str) or not signers[0].startswith("did:layerx:")
-                        or not nonzero(signers[0][len("did:layerx:"):])):
-                    reasons.append("%s requires the exact LayerX signer" % ROOT_VARIABLE["x402_supported"])
+                if (not isinstance(signers, list) or not 1 <= len(signers) <= 64
+                        or any(not isinstance(signer, str) or not signer.startswith("did:layerx:")
+                               or not nonzero(signer[len("did:layerx:"):]) for signer in signers)
+                        or len(set(signers)) != len(signers)):
+                    reasons.append("%s requires distinct LayerX signers" % ROOT_VARIABLE["x402_supported"])
             if (not all(text(extension, 32) for extension in supported["extensions"])
                     or len(set(supported["extensions"])) != len(supported["extensions"])):
                 reasons.append("%s contains invalid extensions" % ROOT_VARIABLE["x402_supported"])
@@ -793,7 +794,7 @@ def render(
     root,
     environ,
     network_id=None,
-    sequencer_public_key=None,
+    receipt_public_keys=None,
     beta_roots_file=None,
     sources=None,
 ):
@@ -803,19 +804,34 @@ def render(
     adapters, transports = derived(root)
     conformance_variables(environ, adapters, transports, reasons)
     beta = beta_roots(beta_roots_file, reasons) if beta_roots_file else None
-    roots = cluster_roots(environ, network_id, sequencer_public_key, beta, reasons)
+    if network_id is not None:
+        if (
+            not isinstance(receipt_public_keys, list)
+            or not receipt_public_keys
+            or any(
+                not isinstance(key, str)
+                or not DIGEST_PATTERN.fullmatch(key)
+                or int(key, 16) == 0
+                for key in receipt_public_keys
+            )
+        ):
+            raise Refused(["real nonzero receipt public keys are required"])
+        receipt_public_keys = sorted(set(receipt_public_keys))
+    roots = cluster_roots(environ, network_id, receipt_public_keys, beta, reasons)
     manifest = environ.get(OVERRIDE_VARIABLE, "").strip()
     if manifest:
         override(manifest, adapters, transports, roots, reasons)
     document = validated(adapters, transports, roots, network_id is None, reasons, sources)
+    if reasons:
+        raise Refused(reasons)
     if network_id is not None:
         expected_network = caip2(network_id, reasons)
-        if not isinstance(sequencer_public_key, str) or not DIGEST_PATTERN.fullmatch(sequencer_public_key) or int(sequencer_public_key, 16) == 0:
-            reasons.append("a real nonzero sequencer public key is required")
         supported = document.get("x402_supported")
         if expected_network and isinstance(supported, dict):
-            expected_signer = {expected_network: ["did:layerx:%s" % sequencer_public_key]}
-            if (supported.get("signers") != expected_signer
+            expected_signers = ["did:layerx:%s" % key for key in receipt_public_keys]
+            declared_signers = supported.get("signers", {})
+            if (set(declared_signers) != {expected_network}
+                    or sorted(declared_signers.get(expected_network, [])) != expected_signers
                     or not isinstance(supported.get("kinds"), list)
                     or any(not isinstance(kind, dict) or kind.get("network") != expected_network
                            for kind in supported.get("kinds", []))):
@@ -832,12 +848,67 @@ def sequencer_key(path):
     return value
 
 
+def receipt_keys(path):
+    try:
+        keys = json.loads(pathlib.Path(path).read_text(), object_pairs_hook=closed_object)
+    except (OSError, ValueError) as error:
+        raise Refused(["receipt keys file %s is unreadable: %s" % (path, error)]) from error
+    if not isinstance(keys, list) or not keys:
+        raise Refused(["receipt keys file %s must contain a nonempty JSON array" % path])
+    fields = {"keyId", "publicKey", "firstHeight", "lastHeight"}
+    key_ids = set()
+    for index, entry in enumerate(keys):
+        source = "receipt keys file %s entry %d" % (path, index)
+        if not isinstance(entry, dict) or set(entry) != fields:
+            raise Refused([
+                "%s must declare exactly %s" % (source, ", ".join(sorted(fields)))
+            ])
+        for field in ("keyId", "publicKey"):
+            value = entry[field]
+            if (
+                not isinstance(value, str)
+                or not value.startswith("0x")
+                or not DIGEST_PATTERN.fullmatch(value[2:])
+            ):
+                raise Refused([
+                    "%s %s must be a 0x-prefixed 32-byte lowercase hexadecimal value"
+                    % (source, field)
+                ])
+            if field == "publicKey" and int(value[2:], 16) == 0:
+                raise Refused([
+                    "%s publicKey must be a nonzero sequencer public key" % source
+                ])
+        for field in ("firstHeight", "lastHeight"):
+            if type(entry[field]) is not int or not 0 <= entry[field] <= (1 << 64) - 1:
+                raise Refused([
+                    "%s %s must be an unsigned 64-bit integer" % (source, field)
+                ])
+        if entry["firstHeight"] > entry["lastHeight"]:
+            raise Refused([
+                "%s key %s has a reversed height range" % (source, entry["keyId"])
+            ])
+        if entry["keyId"] in key_ids:
+            raise Refused([
+                "%s repeats keyId %s; receipt key identifiers must be unique"
+                % (source, entry["keyId"])
+            ])
+        key_ids.add(entry["keyId"])
+    keys.sort(key=lambda entry: entry["firstHeight"])
+    for previous, current in zip(keys, keys[1:]):
+        if current["firstHeight"] <= previous["lastHeight"]:
+            raise Refused([
+                "receipt keys file %s has overlapping height ranges for keys %s and %s"
+                % (path, previous["keyId"], current["keyId"])
+            ])
+    return keys
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true")
     parser.add_argument("--self-test", action="store_true")
     parser.add_argument("--network-id")
-    parser.add_argument("--sequencer-public-key-file")
+    parser.add_argument("--receipt-keys-file")
     parser.add_argument("--beta-roots-file")
     parser.add_argument("--out")
     parser.add_argument("--migration-profile-out")
@@ -847,17 +918,21 @@ def main(argv):
         return self_test()
     root = pathlib.Path(arguments.repo_root)
     try:
+        keys = (
+            receipt_keys(arguments.receipt_keys_file) if arguments.receipt_keys_file else None
+        )
         if arguments.check:
             render(root, os.environ)
             return 0
-        if not arguments.network_id or not arguments.sequencer_public_key_file or not arguments.out:
-            parser.error("--network-id, --sequencer-public-key-file and --out are required")
+        if not arguments.network_id or not arguments.receipt_keys_file or not arguments.out:
+            parser.error("--network-id, --receipt-keys-file and --out are required")
+        public_keys = sorted({entry["publicKey"][2:] for entry in keys})
         sources = {}
         document = render(
             root,
             os.environ,
             arguments.network_id,
-            sequencer_key(arguments.sequencer_public_key_file),
+            public_keys,
             arguments.beta_roots_file,
             sources,
         )
@@ -893,6 +968,36 @@ def main(argv):
     return 0
 
 
+def self_test_root_fixture():
+    """Build the fixture through the beta-root producer and current validators."""
+    import tempfile
+
+    material = {
+        "ap2_keys": {use_case: "04" + "ab" * 64 for use_case in BETA_AP2_USE_CASES},
+        "visa_agent_public_key": "cc" * 32,
+        "visa_agent_expires_at": 1893456000,
+        "fiat_provider_public_key": "dd" * 32,
+        "principal_digest": "11" * 32,
+        "layerx_agent": "22" * 32,
+        "payer_account": "22" * 32,
+        "payee_account": "44" * 32,
+        "asset": "55" * 32,
+        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
+        "currency": "LXT",
+        "asset_decimals": 18,
+    }
+    reasons = []
+    with tempfile.TemporaryDirectory() as directory:
+        roots_file = pathlib.Path(directory) / "interop-beta-roots.json"
+        roots_file.write_text(json.dumps(material))
+        roots = beta_roots(roots_file, reasons)
+    assert roots is not None and not reasons, reasons
+    assert set(roots) == set(EXTERNAL_ROOTS), roots
+    validate_roots(roots, reasons)
+    assert not reasons, reasons
+    return material, roots
+
+
 def self_test():
     """Exercise the real render against the documents and vectors in this checkout."""
     import shutil
@@ -900,7 +1005,67 @@ def self_test():
 
     root = repository_root()
     vendor = root / "services/interop/specs/vendor"
-    network, key = "layerx-testnet", "ab" * 32
+    network, key = "layerx-beta", "ab" * 32
+    with tempfile.TemporaryDirectory() as directory:
+        keys_file = pathlib.Path(directory) / "receipt-keys.json"
+
+        def key_entries(ranges):
+            return [
+                {
+                    "keyId": "0x%064x" % (index + 1),
+                    "publicKey": "0x" + key,
+                    "firstHeight": first,
+                    "lastHeight": last,
+                }
+                for index, (first, last) in enumerate(ranges)
+            ]
+
+        for ranges in (
+            [(10, 20), (15, 25)],
+            [(15, 25), (10, 20)],
+            [(10, 20), (20, 30)],
+            [(10, 30), (15, 20)],
+            [(10, 20), (10, 30)],
+            [(10, 20), (10, 20)],
+            [(30, 40), (10, 20), (15, 25)],
+            [((1 << 64) - 1, (1 << 64) - 1), (0, (1 << 64) - 1)],
+        ):
+            entries = key_entries(ranges)
+            keys_file.write_text(json.dumps(entries))
+            try:
+                receipt_keys(keys_file)
+            except Refused as refused:
+                message = "; ".join(refused.reasons)
+                assert "overlapping height ranges" in message, message
+                ordered = sorted(entries, key=lambda entry: entry["firstHeight"])
+                pair = next(
+                    (previous, current)
+                    for previous, current in zip(ordered, ordered[1:])
+                    if current["firstHeight"] <= previous["lastHeight"]
+                )
+                assert all(entry["keyId"] in message for entry in pair), message
+            else:
+                raise AssertionError("overlapping receipt keys were accepted: %r" % ranges)
+
+        entries = key_entries([(11, (1 << 64) - 1), (0, 0), (1, 10)])
+        keys_file.write_text(json.dumps(entries))
+        assert receipt_keys(keys_file) == [entries[1], entries[2], entries[0]]
+        for broken, expected in (
+            ([], "nonempty JSON array"),
+            ([entries[1], {**entries[2], "keyId": entries[1]["keyId"]}], "repeats keyId"),
+            (key_entries([(20, 10)]), "reversed height range"),
+            ([{**entries[0], "publicKey": "0x" + "00" * 32}], "nonzero"),
+            ([{**entries[0], "publicKey": "0x" + "ab" * 31}], "32-byte lowercase hexadecimal"),
+            ([{**entries[0], "firstHeight": True}], "unsigned 64-bit integer"),
+            ([{**entries[0], "lastHeight": 1 << 64}], "unsigned 64-bit integer"),
+        ):
+            keys_file.write_text(json.dumps(broken))
+            try:
+                receipt_keys(keys_file)
+            except Refused as refused:
+                assert any(expected in reason for reason in refused.reasons), refused.reasons
+            else:
+                raise AssertionError("invalid receipt keys were accepted: %r" % broken)
     first_party = {
         identifier: first_party_suite(root, identifier)
         for identifier in ADAPTERS
@@ -926,29 +1091,22 @@ def self_test():
             if identifier not in transport_first_party
         }
     )
+    material, fixture_roots = self_test_root_fixture()
     complete.update(
-        {
-            ROOT_VARIABLE["ap2_keys"]: json.dumps(
-                [
-                    {
-                        "use_case": "checkout-mandate",
-                        "key_id": "k1",
-                        "public_key_sec1": "04" + "ab" * 64,
-                    }
-                ]
-            ),
-            ROOT_VARIABLE["ap2_assets"]: json.dumps([{"principal_digest": "33" * 32}]),
-            ROOT_VARIABLE["visa_agents"]: json.dumps([{"key_id": "tap-1"}]),
-            ROOT_VARIABLE["visa_targets"]: json.dumps([{"authority": "shop.example"}]),
-            ROOT_VARIABLE["fiat_providers"]: json.dumps(
-                [{"provider": "example-provider", "public_key_ed25519": "dd" * 32}]
-            ),
-        }
+        {ROOT_VARIABLE[name]: json.dumps(fixture_roots[name]) for name in EXTERNAL_ROOTS}
+    )
+    complete[ROOT_VARIABLE["fiat_providers"]] = json.dumps(
+        [
+            {
+                "provider": "example-provider",
+                "public_key_ed25519": material["fiat_provider_public_key"],
+            }
+        ]
     )
 
     def refusal(environ, network_id=network, public_key=key, beta_file=None):
         try:
-            render(root, environ, network_id, public_key, beta_file)
+            render(root, environ, network_id, [public_key], beta_file)
         except Refused as refused:
             return refused.reasons
         raise AssertionError("the render accepted %r" % sorted(environ))
@@ -972,7 +1130,7 @@ def self_test():
     assert not any(reason.startswith(ROOT_VARIABLE["ucp_payment_handler"]) for reason in reasons)
     assert render(root, {**complete}) is not None
 
-    document = render(root, dict(complete), network, key)
+    document = render(root, dict(complete), network, [key])
     adapters = {entry["id"]: entry for entry in document["adapters"]}
     assert sorted(adapters) == sorted(ADAPTERS)
     provenance = {
@@ -1000,11 +1158,20 @@ def self_test():
 
     transport_tests = (root / "services/interop/crates/layerx-x402/tests/transports.rs").read_text()
     tests = {
-        "x402": (root / "services/interop/crates/layerx-x402/tests/vectors.rs").read_text(),
+        "x402": "\n".join(
+            (root / "services/interop/crates/layerx-x402/tests" / filename).read_text()
+            for filename in ("vectors.rs", "sequenced_vectors.rs")
+        ),
         "ap2": (root / "services/interop/crates/layerx-ap2/tests/mandates.rs").read_text(),
-        "ucp": (root / "services/interop/crates/layerx-ucp/tests/conformance_vectors.rs").read_text(),
+        "ucp": "\n".join(
+            (root / "services/interop/crates/layerx-ucp/tests" / filename).read_text()
+            for filename in ("conformance_vectors.rs", "sequenced_vectors.rs")
+        ),
         "visa-tap": (root / "services/interop/crates/layerx-visa-tap/tests/conformance.rs").read_text(),
-        "fiat": (root / "services/interop/crates/layerx-fiat/tests/adapter.rs").read_text(),
+        "fiat": "\n".join(
+            (root / "services/interop/crates/layerx-fiat/tests" / filename).read_text()
+            for filename in ("adapter.rs", "sequenced_vectors.rs")
+        ),
     }
     tests.update(
         {TRANSPORT_CONFORMANCE[identifier]: transport_tests for identifier in TRANSPORTS}
@@ -1040,17 +1207,23 @@ def self_test():
         assert adapters[identifier]["conformance_vectors"] == count
         assert adapters[identifier]["conformance_sha256"] == digest
         exercised(identifier, declared, tests[identifier])
-    assert adapters["x402"]["conformance_vectors"] == 22
+    x402_records = [
+        json.loads(path.read_text())
+        for path in sorted((root / CONFORMANCE_DIRECTORY / "x402").rglob("*.json"))
+    ]
+    assert adapters["x402"]["conformance_vectors"] == sum(
+        len(records) if isinstance(records, list) else 1 for records in x402_records
+    )
     assert adapters["ap2"]["conformance_vectors"] == 6
-    assert adapters["ucp"]["conformance_vectors"] == 26
+    assert adapters["ucp"]["conformance_vectors"] == 29
     assert adapters["visa-tap"]["conformance_vectors"] == 23
-    assert adapters["fiat"]["conformance_vectors"] == 26
+    assert adapters["fiat"]["conformance_vectors"] == 31
 
     overriding = dict(complete)
     overriding[CONFORMANCE_VARIABLE["x402"]] = "owner-x402-suite,4,%s" % ("77" * 32)
     overridden = {
         entry["id"]: entry
-        for entry in render(root, overriding, network, key)["adapters"]
+        for entry in render(root, overriding, network, [key])["adapters"]
     }
     assert overridden["x402"]["conformance_suite"] == "owner-x402-suite"
     assert overridden["x402"]["conformance_vectors"] == 4
@@ -1081,7 +1254,7 @@ def self_test():
     transport_override[TRANSPORT_VARIABLE["a2a"]] = "99" * 32
     overridden_transports = {
         entry["id"]: entry
-        for entry in render(root, transport_override, network, key)["transports"]
+        for entry in render(root, transport_override, network, [key])["transports"]
     }
     assert overridden_transports["a2a"]["conformance_sha256"] == "99" * 32
     assert overridden_transports["http"]["conformance_sha256"] == transport_first_party["http"][2]
@@ -1128,20 +1301,6 @@ def self_test():
         for reason in refusal(dict(complete), network_id="layerxtestnet")
     )
 
-    material = {
-        "ap2_keys": {use_case: "04" + "ab" * 64 for use_case in BETA_AP2_USE_CASES},
-        "visa_agent_public_key": "cc" * 32,
-        "visa_agent_expires_at": 1893456000,
-        "fiat_provider_public_key": "dd" * 32,
-        "principal_digest": "11" * 32,
-        "layerx_agent": "22" * 32,
-        "payer_account": "22" * 32,
-        "payee_account": "44" * 32,
-        "asset": "55" * 32,
-        "audience": "https://layerx-interop-gateway.layerx-testnet.svc.cluster.local:9443",
-        "currency": "LXT",
-        "asset_decimals": 18,
-    }
     with tempfile.TemporaryDirectory() as directory:
         roots_file = pathlib.Path(directory) / "interop-beta-roots.json"
         roots_file.write_text(json.dumps(material))
@@ -1151,7 +1310,7 @@ def self_test():
             if variable not in {ROOT_VARIABLE[name] for name in EXTERNAL_ROOTS}
         }
         sources = {}
-        generated = render(root, dict(environ), network, key, str(roots_file), sources)
+        generated = render(root, dict(environ), network, [key], str(roots_file), sources)
         for name in EXTERNAL_ROOTS:
             assert sources[name] == BETA_SOURCE, name
         assert [pin["use_case"] for pin in generated["ap2_keys"]] == list(BETA_AP2_USE_CASES)
@@ -1186,7 +1345,7 @@ def self_test():
         ]
         declared = dict(environ)
         declared[ROOT_VARIABLE["fiat_providers"]] = complete[ROOT_VARIABLE["fiat_providers"]]
-        pinned = render(root, declared, network, key, str(roots_file))
+        pinned = render(root, declared, network, [key], str(roots_file))
         assert pinned["fiat_providers"][0]["provider"] == "example-provider"
         assert pinned["visa_agents"] == generated["visa_agents"]
 
@@ -1239,7 +1398,7 @@ def self_test():
         )
         environ = dict(complete)
         environ[OVERRIDE_VARIABLE] = str(manifest)
-        overridden = render(root, environ, network, key)
+        overridden = render(root, environ, network, [key])
         adapters = {entry["id"]: entry for entry in overridden["adapters"]}
         assert adapters["ucp"]["conformance_suite"] == "owner-ucp-suite"
         assert adapters["ucp"]["version"] == "20260409"

@@ -1,11 +1,5 @@
-# Prune per-run integration test images from GHCR.
-#
-# paxeer-integration-test.yml pushes ghcr.io/paxeer-network/pax-chain-integration-test-{localnode,rpcnode}:<run_id>
-# on every workflow run. The shared buildx cache lives on the :cache tag and is never deleted here.
-#
-# Packages:
-#   https://github.com/orgs/Paxeer-Network/packages/container/pax-chain-integration-test-localnode
-#   https://github.com/orgs/Paxeer-Network/packages/container/pax-chain-integration-test-rpcnode
+# Prune integration images using the publisher's integration-registry.json.
+# Scheduled runs are dry runs; an explicit dispatch may apply the validated plan.
 
 name: Paxeer / GHCR integration test cleanup
 
@@ -28,32 +22,27 @@ concurrency:
   group: ghcr-integration-test-cleanup
   cancel-in-progress: false
 
+permissions:
+  contents: read
+
 jobs:
   cleanup:
     name: Prune old integration test images
     runs-on: ubuntu-latest
     permissions:
+      contents: read
+      actions: read
       packages: write
     steps:
-      - name: Delete stale run-id tags
+      - name: Checkout registry configuration
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          persist-credentials: false
+      - name: Load integration registry configuration
+        run: python3 .github/workflows/scripts/integration_registry.py environment
+      - name: Plan and prune stale publisher run-id tags
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          OLDER_THAN_DAYS: ${{ inputs.older_than_days || 14 }}
-          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run || false }}
-        run: |
-          # For each integration test package, delete versions whose tags are all numeric run-IDs and are older than OLDER_THAN_DAYS.
-          # Numeric-only tag filter naturally preserves the :cache tag and any other non-run-ID tags.
-          cutoff=$(date -u -d "${OLDER_THAN_DAYS} days ago" +%s)
-          for pkg in pax-chain-integration-test-localnode pax-chain-integration-test-rpcnode; do
-            gh api --paginate "orgs/Paxeer-Network/packages/container/${pkg}/versions" \
-              --jq '.[] | select(.metadata.container.tags | length > 0 and all(test("^[0-9]+$"))) | [.id, .created_at] | @tsv' |
-            while IFS=$'\t' read -r version_id created_at; do
-              created_ts=$(date -u -d "$created_at" +%s)
-              if (( created_ts < cutoff )); then
-                echo "Deleting version ${version_id} of ${pkg} (created: ${created_at})"
-                if [[ "$DRY_RUN" != "true" ]]; then
-                  gh api --method DELETE "orgs/Paxeer-Network/packages/container/${pkg}/versions/${version_id}"
-                fi
-              fi
-            done
-          done
+          OLDER_THAN_DAYS: ${{ github.event_name == 'workflow_dispatch' && format('{0}', inputs.older_than_days) || '14' }}
+          DRY_RUN: ${{ github.event_name != 'workflow_dispatch' || inputs.dry_run }}
+        run: python3 .github/workflows/scripts/integration_registry.py cleanup

@@ -4,7 +4,11 @@ from dataclasses import dataclass, field
 from re import fullmatch
 from typing import Awaitable, Callable, Generic, Literal, Mapping, Protocol, TypeVar
 
-from layerx_sdk import AuthorizedReceiptBatch, LocalSignatureVerifier, ReceiptVerification
+from fastapi import HTTPException
+from layerx_sdk import LocalSignatureVerifier
+from layerx_sdk.account_derivation import keccak256
+from layerx_sdk.px import PxReceiptKeyEntry
+from layerx_sdk.verifier import SequencerReceiptVerification
 
 from .protocol import (
     PAYMENT_REQUIRED_HEADER,
@@ -19,16 +23,14 @@ from .protocol import (
     SettlementResponse,
     canonical_json,
     constant_time_equal,
-    constant_time_equal_text,
-    encode_base64,
+    decode_payment_payload_header,
     encode_payment_required_header,
     encode_settlement_header,
-    decode_base64,
-    decode_payment_payload_header,
     match_requirements,
-    merkle_leaf_digest,
+    parse_hex32,
     parse_layerx_evidence,
     parse_payment_required,
+    parse_receipt_hex,
     payment_idempotency_key,
     sha256_digest,
     verify_payment_receipt,
@@ -59,8 +61,9 @@ class SettlementRefused:
 
 @dataclass(frozen=True)
 class SettlementSettled:
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
     kind: Literal["settled"] = "settled"
 
 
@@ -71,24 +74,26 @@ class SellerPaymentAuthority(Protocol):
     async def settle(self, request: SellerSettlementRequest) -> SellerSettlementOutcome: ...
 
 
-class AuthorizedBatchResolver(Protocol):
-    async def resolve(self, canonical_receipt: bytes) -> AuthorizedReceiptBatch: ...
+AuthorizedBatchResolver = tuple[PxReceiptKeyEntry, ...]
+StaticAuthorizedBatches = tuple[PxReceiptKeyEntry, ...]
 
 
 @dataclass(frozen=True)
 class ProposedFulfillment:
     idempotency_key: str
     request_digest: str
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
 
 
 @dataclass(frozen=True)
 class StoredFulfillment(Generic[T]):
     idempotency_key: str
     request_digest: str
-    canonical_receipt: bytes
-    authorized_batch: AuthorizedReceiptBatch
+    raw_transaction: bytes
+    signed_receipt: bytes
+    receipt_key: PxReceiptKeyEntry
     resource: T
 
 
@@ -127,7 +132,7 @@ class RefusedDecision:
 class ReleasedDecision(Generic[T]):
     settlement: SettlementResponse
     headers: Mapping[str, str]
-    verification: ReceiptVerification
+    verification: SequencerReceiptVerification
     resource: T
     status: Literal[200] = 200
     kind: Literal["released"] = "released"
@@ -137,31 +142,32 @@ SellerDecision = PaymentRequiredDecision | PendingDecision | RefusedDecision | R
 
 
 class ReceiptPayloadAuthority:
-    __slots__ = ("_authorized_batches",)
+    __slots__ = ("_receipt_keys",)
 
-    def __init__(self, authorized_batches: AuthorizedBatchResolver) -> None:
-        self._authorized_batches = authorized_batches
+    def __init__(self, receipt_keys: tuple[PxReceiptKeyEntry, ...]) -> None:
+        if not isinstance(receipt_keys, tuple) or not receipt_keys:
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        self._receipt_keys = receipt_keys
 
     async def settle(self, request: SellerSettlementRequest) -> SellerSettlementOutcome:
         evidence = parse_layerx_evidence(request.payload.payload)
-        canonical_receipt = decode_base64(evidence.receipt, MiddlewareErrorCode.INVALID_PAYMENT_PAYLOAD)
-        digest = merkle_leaf_digest(canonical_receipt)
-        if not constant_time_equal_text(evidence.receipt_digest, digest.hex()):
+        pinned = next((key for key in self._receipt_keys if key == evidence.receipt_key), None)
+        if pinned is None:
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-        authorized_batch = await self._authorized_batches.resolve(canonical_receipt)
-        return SettlementSettled(canonical_receipt=canonical_receipt, authorized_batch=authorized_batch)
-
-
-class StaticAuthorizedBatches:
-    __slots__ = ("_batch",)
-
-    def __init__(self, batch: AuthorizedReceiptBatch) -> None:
-        self._batch = batch
-
-    async def resolve(self, canonical_receipt: bytes) -> AuthorizedReceiptBatch:
-        if len(canonical_receipt) == 0:
+        if evidence.verification_level != "receipted":
             raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
-        return self._batch
+        raw_transaction = parse_receipt_hex(evidence.raw_transaction)
+        signed_receipt = parse_receipt_hex(evidence.signed_receipt)
+        verified = verify_payment_receipt(
+            signed_receipt, raw_transaction, (pinned,), request.requirements
+        )
+        if not constant_time_equal(parse_hex32(evidence.receipt_digest), keccak256(verified.canonical_bytes)):
+            raise MiddlewareError(MiddlewareErrorCode.VERIFICATION_FAILURE)
+        return SettlementSettled(
+            raw_transaction=raw_transaction,
+            signed_receipt=signed_receipt,
+            receipt_key=pinned,
+        )
 
 
 class SellerMiddleware(Generic[T]):
@@ -204,13 +210,13 @@ class SellerMiddleware(Generic[T]):
         canonical = canonical_json(payload.to_wire())
         request_digest_bytes = sha256_digest(canonical.encode("utf-8"))
         request_digest = request_digest_bytes.hex()
-        idempotency_key = payment_idempotency_key(principal, request_digest_bytes)
+        request_key = payment_idempotency_key(principal, request_digest_bytes)
         outcome = await self._authority.settle(
             SellerSettlementRequest(
                 principal=principal,
                 payload=payload,
                 requirements=requirements,
-                idempotency_key=idempotency_key,
+                idempotency_key=request_key,
                 request_digest=request_digest,
             )
         )
@@ -218,38 +224,47 @@ class SellerMiddleware(Generic[T]):
             return PendingDecision()
         if isinstance(outcome, SettlementRefused):
             return refusal_decision(requirements, outcome.reason)
-        proposed = ProposedFulfillment(
-            idempotency_key=idempotency_key,
-            request_digest=request_digest,
-            canonical_receipt=outcome.canonical_receipt,
-            authorized_batch=outcome.authorized_batch,
-        )
         verification = verify_payment_receipt(
-            proposed.canonical_receipt,
-            proposed.authorized_batch,
+            outcome.signed_receipt,
+            outcome.raw_transaction,
+            (outcome.receipt_key,),
             requirements,
-            self._signatures,
+        )
+        fulfillment_key = idempotency_key(principal, verification)
+        proposed = ProposedFulfillment(
+            idempotency_key=fulfillment_key,
+            request_digest=request_digest,
+            raw_transaction=outcome.raw_transaction,
+            signed_receipt=outcome.signed_receipt,
+            receipt_key=outcome.receipt_key,
         )
         stored = await self._fulfillments.fulfill(proposed, release)
-        if stored.idempotency_key != idempotency_key or stored.request_digest != request_digest:
+        if (
+            stored.idempotency_key != fulfillment_key
+            or stored.receipt_key != proposed.receipt_key
+        ):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
         stored_verification = verify_payment_receipt(
-            stored.canonical_receipt,
-            stored.authorized_batch,
+            stored.signed_receipt,
+            stored.raw_transaction,
+            (proposed.receipt_key,),
             requirements,
-            self._signatures,
         )
         if not constant_time_equal(verification.receipt_digest, stored_verification.receipt_digest):
             raise MiddlewareError(MiddlewareErrorCode.FULFILLMENT_CONFLICT)
-        receipt_digest = merkle_leaf_digest(stored.canonical_receipt).hex()
+        if stored.request_digest != request_digest:
+            raise HTTPException(status_code=409, detail="settled_receipt_reuse")
+        receipt_digest = "0x" + keccak256(stored_verification.canonical_bytes).hex()
         evidence = LayerXReceiptEvidence(
-            receipt=encode_base64(stored.canonical_receipt),
+            raw_transaction="0x" + stored.raw_transaction.hex(),
+            signed_receipt="0x" + stored.signed_receipt.hex(),
             receipt_digest=receipt_digest,
+            receipt_key=stored.receipt_key,
         )
         settlement = SettlementResponse(
             success=True,
             payer=stored_verification.receipt.from_account.hex(),
-            transaction=f"lxp:{receipt_digest}",
+            transaction="0x" + stored_verification.receipt.activity_id.hex(),
             network=requirements.network,
             amount=requirements.amount,
             extensions={"layerx": layerx_evidence_wire(evidence)},
@@ -263,9 +278,21 @@ class SellerMiddleware(Generic[T]):
         )
 
 
+def idempotency_key(principal: str, verification: SequencerReceiptVerification) -> str:
+    return payment_idempotency_key(principal, verification.receipt_digest)
+
+
 def layerx_evidence_wire(evidence: LayerXReceiptEvidence) -> JsonValue:
     return {
-        "receipt": evidence.receipt,
+        "format": evidence.format,
+        "rawTransaction": evidence.raw_transaction,
+        "signedReceipt": evidence.signed_receipt,
+        "receiptKey": {
+            "keyId": "0x" + parse_hex32(evidence.receipt_key.key_id).hex(),
+            "publicKey": "0x" + parse_hex32(evidence.receipt_key.public_key).hex(),
+            "firstHeight": hex(evidence.receipt_key.first_height),
+            "lastHeight": hex(evidence.receipt_key.last_height),
+        },
         "receiptDigest": evidence.receipt_digest,
         "verificationLevel": evidence.verification_level,
     }

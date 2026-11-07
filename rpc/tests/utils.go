@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -13,10 +14,13 @@ import (
 	"time"
 
 	abci "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/abci/types"
-	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/ed25519"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/crypto/merkle"
+	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
+	precompiletest "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/testutil"
 	evmrpc "github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
@@ -51,53 +55,62 @@ func (ts TestServer) Run(r func(port int)) {
 }
 
 func (ts TestServer) SetupBlocks(blocks [][][]byte, initializer ...func(sdk.Context, *app.App)) {
-	ts.mockClient.blocks = append(ts.mockClient.blocks, blocks...)
-	blockHeight := int64(len(ts.mockClient.txResults) + 1)
-	for i, block := range blocks {
-		height := blockHeight + int64(i)
-		blockTime := time.Now()
-		res, err := ts.app.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-			Txs:  block,
-			Hash: mockHash(height, 0),
-			Header: &tmproto.Header{
-				ChainID: ts.app.ChainID,
-				Height:  height,
-				Time:    blockTime,
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-		_, _ = ts.app.Commit(context.Background())
-		ts.mockClient.recordBlockResult(res.TxResults, res.ConsensusParamUpdates, res.Events)
+	for _, block := range blocks {
+		finalizeFixtureBlock(ts.app, ts.mockClient, block)
 	}
+}
+
+func finalizeFixtureBlock(a *app.App, c *MockClient, txs [][]byte, initializer ...func(sdk.Context, *app.App)) *abci.ResponseFinalizeBlock {
+	height := int64(len(c.blocks) + 1)
+	validator := tmtypes.NewValidator(ed25519.TestSecretKey([]byte("rpc-test-validator")).Public(), 1)
+	block := tmtypes.MakeBlock(height, paxutils.Map(txs, func(tx []byte) tmtypes.Tx { return tmtypes.Tx(bytes.Clone(tx)) }), &tmtypes.Commit{Height: height - 1}, nil)
+	block.ChainID = a.ChainID
+	block.Time = time.Now().UTC()
+	block.ProposerAddress = validator.Address
+	block.ValidatorsHash = tmtypes.NewValidatorSet([]*tmtypes.Validator{validator}).Hash()
+	block.NextValidatorsHash = bytes.Clone(block.ValidatorsHash)
+	block.AppHash = bytes.Clone(a.LastCommitID().Hash)
+	if height > 1 {
+		block.LastBlockID = tmtypes.BlockID{Hash: bytes.Clone(c.headers[height-2].Hash())}
+		block.LastResultsHash = bytes.Clone(c.committedResultsHashes[height-2])
+	}
+	request := &abci.RequestFinalizeBlock{Txs: txs, Hash: block.Hash(), Header: block.Header.ToProto()}
+	res, err := a.FinalizeBlock(context.Background(), request)
+	if err != nil {
+		panic(err)
+	}
+	ctx := a.GetContextForDeliverTx(nil)
+	for _, initialize := range initializer {
+		initialize(ctx, a)
+	}
+	if _, err := a.Commit(context.Background()); err != nil {
+		panic(err)
+	}
+	results, err := abci.MarshalTxResults(res.TxResults)
+	if err != nil {
+		panic(err)
+	}
+	c.blocks = append(c.blocks, paxutils.Map(block.Txs, func(tx tmtypes.Tx) []byte { return bytes.Clone(tx) }))
+	c.headers = append(c.headers, &block.Header)
+	c.committedAppHashes = append(c.committedAppHashes, bytes.Clone(a.LastCommitID().Hash))
+	c.committedResultsHashes = append(c.committedResultsHashes, merkle.HashFromByteSlices(results))
+	c.recordBlockResult(res.TxResults, res.ConsensusParamUpdates, res.Events)
+	return res
 }
 
 func initializeApp(
 	t *testing.T,
 	chainID string,
 	initializer ...func(sdk.Context, *app.App),
-) (*app.App, *abci.ResponseFinalizeBlock) {
+) (*app.App, *MockClient) {
 	a := app.Setup(t, false, true, chainID == "pacific-1")
+	if err := precompiletest.Install(a); err != nil {
+		t.Fatal(err)
+	}
 	a.ChainID = chainID
-	res, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-		Txs:  [][]byte{},
-		Hash: mockHash(1, 0),
-		Header: &tmproto.Header{
-			ChainID: chainID,
-			Height:  1,
-			Time:    time.Now(),
-		},
-	})
-	if err != nil {
-		panic(err)
-	}
-	ctx := a.GetContextForDeliverTx(nil)
-	for _, i := range initializer {
-		i(ctx, a)
-	}
-	_, _ = a.Commit(context.Background())
-	return a, res
+	c := &MockClient{}
+	finalizeFixtureBlock(a, c, [][]byte{}, initializer...)
+	return a, c
 }
 
 func SetupTestServer(
@@ -105,40 +118,11 @@ func SetupTestServer(
 	blocks [][][]byte,
 	initializer ...func(sdk.Context, *app.App),
 ) TestServer {
-	a, res := initializeApp(t, "pax-test", initializer...)
-	mockClient := &MockClient{blocks: append([][][]byte{{}}, blocks...)}
-	mockClient.recordBlockResult(res.TxResults, res.ConsensusParamUpdates, res.Events)
-	for i, block := range blocks {
-		height := int64(i + 2)
-		blockTime := time.Now()
-		res, err := a.FinalizeBlock(context.Background(), &abci.RequestFinalizeBlock{
-			Txs:  block,
-			Hash: mockHash(height, 0),
-			Header: &tmproto.Header{
-				ChainID: a.ChainID,
-				Height:  height,
-				Time:    blockTime,
-			},
-		})
-		if err != nil {
-			panic(err)
-		}
-		// for i, txRes := range res.TxResults {
-		// 	fmt.Printf("tx %d: %s\n", i, txRes.Log)
-		// }
-		_, _ = a.Commit(context.Background())
-		mockClient.recordBlockResult(res.TxResults, res.ConsensusParamUpdates, res.Events)
+	a, mockClient := initializeApp(t, "pax-test", initializer...)
+	for _, block := range blocks {
+		finalizeFixtureBlock(a, mockClient, block)
 	}
 	return setupTestServer(a, a.RPCContextProvider, mockClient)
-}
-
-func SetupMockPacificTestServer(t *testing.T, initializer func(*app.App, *MockClient) sdk.Context) TestServer {
-	a, res := initializeApp(t, "pacific-1")
-	mockClient := &MockClient{blocks: [][][]byte{{}}}
-	// seed mock client with genesis block results so latest height queries work
-	mockClient.recordBlockResult(res.TxResults, res.ConsensusParamUpdates, res.Events)
-	ctx := initializer(a, mockClient)
-	return setupTestServer(a, func(int64) sdk.Context { return ctx }, mockClient)
 }
 
 func setupTestServer(

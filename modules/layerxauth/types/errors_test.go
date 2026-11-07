@@ -40,7 +40,6 @@ func TestErrorTexts(t *testing.T) {
 		{"non_canonical", ErrNonCanonical, 8, -3, "LXP_NON_CANONICAL"},
 		{"unauthorized_debit", ErrUnauthorizedDebit, 9, -207, "LXP_UNAUTHORIZED_DEBIT"},
 		{"idempotent_replay", ErrIdempotentReplay, 10, -302, "LXP_IDEMPOTENT_REPLAY"},
-		{"paused_scope", ErrPausedScope, 11, -735, "LXP_PAUSED_SCOPE"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

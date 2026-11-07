@@ -10,7 +10,7 @@ use layerx_types::account::AccountId;
 use layerx_types::amount::Amount;
 use layerx_types::ids::{AssetId, IdempotencyKey};
 use layerx_types::intent::{BudgetId, Sequence};
-use layerx_types::payload::ModuleRegistry;
+use layerx_types::payload::{ModuleId, ModuleRegistry};
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -27,6 +27,7 @@ use crate::trace::TraceId;
 
 const RECORD_VERSION: u8 = 1;
 const RECORD_PREFIX: &str = "agent-reclaim-";
+const NONCE_PREFIX: &str = "agent-nonce-";
 const PLAN_DOMAIN: &[u8] = b"layerx-human-agent-reclaim/v1\0";
 
 /// The only three protocol-authorized ways to return value from an agent.
@@ -66,9 +67,17 @@ pub struct ReclaimAgentContext {
     pub authority: AuthorityRef,
     pub custody_key: KeyId,
     pub account_sequence: u64,
+    pub nonce: u64,
     pub not_before: u64,
     pub not_after: u64,
     pub fee_limit: u128,
+}
+
+impl ReclaimAgentContext {
+    #[must_use]
+    pub const fn nonce(&self) -> u64 {
+        self.nonce
+    }
 }
 
 /// Immutable request to take money back from one agent.
@@ -232,6 +241,12 @@ impl Reclaim {
         now: u64,
     ) -> Result<Self, ReclaimError> {
         validate_request(request)?;
+        let nonce_row = RowKey::new(format!(
+            "{NONCE_PREFIX}{}",
+            hex(&Sha256::digest(
+                request.agent_account.canonical().as_bytes()
+            ))
+        ))?;
         let route = reclaim_route(request)?;
         let leg = route.legs().first().ok_or(ReclaimError::RouteWidened)?;
         if route.legs().len() != 1
@@ -241,53 +256,72 @@ impl Reclaim {
         {
             return Err(ReclaimError::RouteWidened);
         }
-        let (actor, account_sequence) = match &request.mechanism {
-            ReclaimMechanism::ReceiveUnderPayerGrant(route) => {
+        let actor = match &request.mechanism {
+            ReclaimMechanism::ReceiveUnderPayerGrant(_) => {
                 let did = request
                     .owner
                     .canonical()
                     .strip_prefix("agent:")
                     .and_then(|value| value.strip_suffix(":main"))
                     .ok_or(ReclaimError::InvalidRequest)?;
-                (AgentDid::new(did)?, route.receive.receiver_sequence())
+                AgentDid::new(did)?
             }
-            _ => (request.agent.actor.clone(), request.agent.account_sequence),
+            _ => request.agent.actor.clone(),
         };
         let compiled = compile(leg.intent(), registry)?;
+        if matches!(request.mechanism, ReclaimMechanism::BudgetDefund { .. })
+            && (compiled.activity_type().module() != ModuleId::Budget
+                || compiled.activity_type().ordinal() != 8)
+        {
+            return Err(ReclaimError::RouteWidened);
+        }
         let digest = request_digest(request, compiled.payload_hash());
         let row = record_row(request.idempotency_key)?;
-        let record = if let Some(existing) = scope.get(Table::Journeys, &row) {
+        if let Some(existing) = scope.get(Table::Journeys, &row) {
             let record = decode(existing.bytes())?;
             if record.plan_digest != digest || record.journey_id != request.journey_id.as_str() {
                 return Err(ReclaimError::IdempotencyConflict);
             }
-            record
-        } else {
-            let record = Record {
-                version: RECORD_VERSION,
-                journey_id: request.journey_id.as_str().to_owned(),
-                idempotency_key: request.idempotency_key,
-                plan_digest: digest,
-                agent: request.agent.label.clone(),
-                asset: request.asset.bytes(),
-                amount: request.amount.value(),
-                fee_limit: request.agent.fee_limit,
-                mechanism: mechanism_code(&request.mechanism),
-                result: None,
-                activity_projected: false,
-                refused: false,
-                started_at: now,
-                updated_at: now,
-            };
-            persist_record(scope, &record)?;
-            record
+            let engine = JourneyEngine::load(scope, &request.journey_id)?
+                .ok_or(ReclaimError::Corrupt("reclaim engine missing"))?;
+            return Ok(Self { record, engine });
+        }
+        if let Some(previous) = scope.get(Table::Journeys, &nonce_row) {
+            let bytes = previous
+                .bytes()
+                .try_into()
+                .map_err(|_| ReclaimError::Corrupt("invalid agent nonce"))?;
+            let last_used = u64::from_be_bytes(bytes);
+            if request.agent.nonce() < last_used {
+                return Err(ReclaimError::StaleNonce {
+                    nonce: request.agent.nonce(),
+                    last_used,
+                });
+            }
+        }
+        let record = Record {
+            version: RECORD_VERSION,
+            journey_id: request.journey_id.as_str().to_owned(),
+            idempotency_key: request.idempotency_key,
+            plan_digest: digest,
+            agent: request.agent.label.clone(),
+            asset: request.asset.bytes(),
+            amount: request.amount.value(),
+            fee_limit: request.agent.fee_limit,
+            mechanism: mechanism_code(&request.mechanism),
+            result: None,
+            activity_projected: false,
+            refused: false,
+            started_at: now,
+            updated_at: now,
         };
         let journey_leg = JourneyLeg::new(
             leg.intent().clone(),
             request.idempotency_key,
             actor,
             request.agent.authority.clone(),
-            account_sequence,
+            request.agent.account_sequence,
+            request.agent.nonce(),
             request.agent.not_before,
             request.agent.not_after,
             request.agent.fee_limit,
@@ -300,7 +334,17 @@ impl Reclaim {
             Operation::ProtocolMutation,
             vec![journey_leg],
         )?;
-        let engine = JourneyEngine::start(scope, &plan, registry, now)?;
+        let engine = scope.transaction(|scope| -> Result<_, ReclaimError> {
+            let engine = JourneyEngine::start(scope, &plan, registry, now)?;
+            persist_record(scope, &record)?;
+            scope.put(
+                Table::Journeys,
+                nonce_row,
+                now,
+                request.agent.nonce().to_be_bytes().to_vec(),
+            )?;
+            Ok(engine)
+        })?;
         Ok(Self { record, engine })
     }
 
@@ -371,7 +415,14 @@ impl Reclaim {
                     let material = agent
                         .reclaim_receipt(evidence.action_key, evidence.activity_id)
                         .map_err(ReclaimError::Agent)?;
-                    if material.canonical_bytes != evidence.canonical_receipt {
+                    if material.canonical_bytes != evidence.canonical_receipt
+                        || material.tx_hash != evidence.tx_hash
+                        || material.receipt_hash != evidence.receipt_digest
+                        || material.rung < evidence.rung
+                        || material.signed_receipt != evidence.signed_receipt
+                        || material.receipt_key != evidence.receipt_key
+                        || material.inclusion_height != evidence.inclusion_height
+                    {
                         return Err(ReclaimError::ReceiptMismatch);
                     }
                     let verified = verify(&material.canonical_bytes, &material.authorised_batch)?;
@@ -397,6 +448,7 @@ impl Reclaim {
                 }
                 self.project_activity(scope, None, now)?;
             }
+            JourneyState::Closed => return Err(ReclaimError::Corrupt("reclaim journey is closed")),
             JourneyState::Refused => {
                 self.record.refused = true;
                 self.persist_at(scope, now)?;
@@ -428,6 +480,9 @@ impl Reclaim {
             match engine.state() {
                 JourneyState::GettingReady => ReclaimStage::GettingReady,
                 JourneyState::Sending => ReclaimStage::Sending,
+                JourneyState::Closed => {
+                    return Err(ReclaimError::Corrupt("reclaim journey is closed"))
+                }
                 JourneyState::Processing | JourneyState::Done | JourneyState::Refused => {
                     ReclaimStage::Processing
                 }
@@ -560,6 +615,7 @@ fn request_digest(request: &ReclaimRequest, payload_hash: [u8; 32]) -> [u8; 32] 
     hash_text(&mut digest, request.agent.authority.as_str());
     hash_text(&mut digest, request.agent.custody_key.as_str());
     digest.update(request.agent.account_sequence.to_be_bytes());
+    digest.update(request.agent.nonce().to_be_bytes());
     digest.update(request.agent.not_before.to_be_bytes());
     digest.update(request.agent.not_after.to_be_bytes());
     digest.update(request.agent.fee_limit.to_be_bytes());
@@ -651,6 +707,7 @@ pub enum ReclaimError {
     Receipt(VerificationFailure),
     Feed(FeedError),
     InvalidRequest,
+    StaleNonce { nonce: u64, last_used: u64 },
     IdempotencyConflict,
     RouteWidened,
     ReceiptMismatch,
@@ -670,6 +727,12 @@ impl Display for ReclaimError {
             Self::Receipt(error) => write!(formatter, "reclaim receipt failure: {error:?}"),
             Self::Feed(error) => write!(formatter, "reclaim activity failure: {error}"),
             Self::InvalidRequest => formatter.write_str("reclaim request is invalid"),
+            Self::StaleNonce { nonce, last_used } => {
+                write!(
+                    formatter,
+                    "reclaim nonce {nonce} is below last used nonce {last_used}"
+                )
+            }
             Self::IdempotencyConflict => formatter.write_str("reclaim idempotency key conflicts"),
             Self::RouteWidened => formatter.write_str("reclaim route is not exactly one return"),
             Self::ReceiptMismatch => {

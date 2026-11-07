@@ -1,0 +1,18 @@
+{
+ "slug": "core-deps-db-backend",
+ "manifests": [
+  "core/deps/db-backend/go.mod"
+ ],
+ "alerts": [
+  {
+   "ghsa": "GHSA-2v4p-qf9q-27wj",
+   "number": 4667,
+   "package": "google.golang.org/grpc",
+   "ecosystem": "go",
+   "manifest": "core/deps/db-backend/go.mod",
+   "severity": "high",
+   "range": ">= 1.83.0, < 1.83.2",
+   "patched": "1.83.2"
+  }
+ ]
+}

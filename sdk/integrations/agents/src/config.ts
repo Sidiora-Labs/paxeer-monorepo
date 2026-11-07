@@ -1,4 +1,4 @@
-import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, isSelectableProtocolVersion, SecretBytes, type SelectableProtocolVersion } from "@sidiora/layerx-sdk";
+import { AgentEnvelopeTransport, AgentSessionCredential, LayerXKeyCredential, isSelectableProtocolVersion, SecretBytes, type SelectableProtocolVersion, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
 
 export const DECLARED_KEYS = [
   "LAYERX_AGENT_RPC_URL",
@@ -16,6 +16,7 @@ export const DECLARED_KEYS = [
   "LAYERX_BUDGET_SERVICE_URL",
   "LAYERX_SIGNER_SERVICE_URL",
   "LAYERX_RECEIPT_SERVICE_URL",
+  "LAYERX_RECEIPT_KEYS_JSON",
   "LAYERX_TENANT",
   "LAYERX_ACTOR",
   "LAYERX_AUTHORITY",
@@ -68,6 +69,7 @@ export interface WebhookListener {
 export interface AgentDeclaredConfig {
   readonly agentRpcUrl: string;
   readonly protocolVersion: SelectableProtocolVersion;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly budgetServiceUrl?: string;
   readonly signerServiceUrl?: string;
   readonly receiptServiceUrl?: string;
@@ -93,6 +95,7 @@ export function readDeclaredConfig(environment: Environment): AgentDeclaredConfi
   return {
     agentRpcUrl: endpoint(required(environment, "LAYERX_AGENT_RPC_URL")),
     protocolVersion: declaredProtocolVersion(required(environment, "LAYERX_PROTOCOL_VERSION")),
+    receiptKeys: parseReceiptKeys(required(environment, "LAYERX_RECEIPT_KEYS_JSON")),
     ...(optional(environment, "LAYERX_BUDGET_SERVICE_URL") === undefined ? {} : { budgetServiceUrl: endpoint(required(environment, "LAYERX_BUDGET_SERVICE_URL")) }),
     ...(optional(environment, "LAYERX_SIGNER_SERVICE_URL") === undefined ? {} : { signerServiceUrl: endpoint(required(environment, "LAYERX_SIGNER_SERVICE_URL")) }),
     ...(optional(environment, "LAYERX_RECEIPT_SERVICE_URL") === undefined ? {} : { receiptServiceUrl: endpoint(required(environment, "LAYERX_RECEIPT_SERVICE_URL")) }),
@@ -209,6 +212,58 @@ export function parseHex32(value: string): Uint8Array {
 
 export function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function parseReceiptKeys(value: string): readonly SequencerReceiptKey[] {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    throw new AgentIntegrationError("invalid-declared-key");
+  }
+  if (!Array.isArray(parsed) || parsed.length === 0) {
+    throw new AgentIntegrationError("invalid-declared-key");
+  }
+  const seen = new Set<string>();
+  return Object.freeze(parsed.map((value: unknown): SequencerReceiptKey => {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) {
+      throw new AgentIntegrationError("invalid-declared-key");
+    }
+    const key = value as Readonly<Record<string, unknown>>;
+    const fields = ["keyId", "publicKey", "firstHeight", "lastHeight"];
+    if (Object.keys(key).length !== fields.length || fields.some((field) => !Object.hasOwn(key, field))) {
+      throw new AgentIntegrationError("invalid-declared-key");
+    }
+    const keyId = receiptKeyBytes(key["keyId"]);
+    const publicKey = receiptKeyBytes(key["publicKey"]);
+    const first_height = receiptKeyHeight(key["firstHeight"]);
+    const last_height = receiptKeyHeight(key["lastHeight"]);
+    const identifier = toHex(keyId);
+    if (seen.has(identifier) || first_height > last_height) {
+      throw new AgentIntegrationError("invalid-declared-key");
+    }
+    seen.add(identifier);
+    return Object.freeze({ keyId, publicKey, first_height, last_height });
+  }));
+}
+
+function receiptKeyBytes(value: unknown): Uint8Array {
+  if (typeof value !== "string" || !/^0x[0-9a-f]{64}$/u.test(value) || value === `0x${"00".repeat(32)}`) {
+    throw new AgentIntegrationError("invalid-declared-key");
+  }
+  return parseHex32(value.slice(2));
+}
+
+function receiptKeyHeight(value: unknown): bigint {
+  if (typeof value === "number") {
+    if (!Number.isSafeInteger(value) || value < 0) throw new AgentIntegrationError("invalid-declared-key");
+    return BigInt(value);
+  }
+  if (typeof value !== "string" || !/^(0|[1-9][0-9]{0,19})$/u.test(value)
+    || BigInt(value) > 0xffff_ffff_ffff_ffffn) {
+    throw new AgentIntegrationError("invalid-declared-key");
+  }
+  return BigInt(value);
 }
 
 function parseWebhookKeys(value: string): Readonly<Record<string, Uint8Array>> {

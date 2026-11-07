@@ -1,4 +1,5 @@
 use crate::intent::ProgramId;
+use crate::limits::MAX_PAYLOAD_BYTES;
 
 const MAX_WASM_BYTES: usize = 1_048_576;
 const MAX_INTERFACE_BYTES: usize = 952;
@@ -159,6 +160,27 @@ fn validate_code(
     Ok(())
 }
 
+// Count every encoded byte before allocating a deployment or upgrade body.
+fn encoded_length(
+    header: usize,
+    wasm: usize,
+    hook: usize,
+    interface: Option<&[u8]>,
+) -> Result<usize, InvalidNativeLifecycle> {
+    let interface = match interface {
+        Some(bytes) => 4_usize
+            .checked_add(bytes.len())
+            .ok_or(InvalidNativeLifecycle)?,
+        None => 0,
+    };
+    header
+        .checked_add(wasm)
+        .and_then(|size| size.checked_add(hook))
+        .and_then(|size| size.checked_add(interface))
+        .filter(|size| *size <= MAX_PAYLOAD_BYTES)
+        .ok_or(InvalidNativeLifecycle)
+}
+
 impl<'a> NativeProgramDeploy<'a> {
     /// # Errors
     /// Rejects invalid policy, identifiers, ABI or body lengths.
@@ -175,7 +197,8 @@ impl<'a> NativeProgramDeploy<'a> {
             ProgramUpgradePolicy::Authority(authority) if authority != [0; 32] => (1, authority),
             ProgramUpgradePolicy::Authority(_) => return Err(InvalidNativeLifecycle),
         };
-        let mut bytes = Vec::new();
+        let size = encoded_length(104, self.wasm.len(), 0, self.interface)?;
+        let mut bytes = Vec::with_capacity(size);
         bytes.extend_from_slice(&self.program_id.bytes());
         bytes.extend_from_slice(&self.guest_abi.to_be_bytes());
         bytes.extend_from_slice(&[policy, 0]);
@@ -193,6 +216,9 @@ impl<'a> NativeProgramDeploy<'a> {
     /// # Errors
     /// Rejects malformed headers, truncation, trailing bytes and invalid bounds.
     pub fn decode(payload: &'a [u8]) -> Result<Self, InvalidNativeLifecycle> {
+        if payload.len() > MAX_PAYLOAD_BYTES {
+            return Err(InvalidNativeLifecycle);
+        }
         let mut remaining = payload;
         let program_id = ProgramId::new(take(&mut remaining)?);
         let guest_abi = u16::from_be_bytes(take(&mut remaining)?);
@@ -249,7 +275,13 @@ impl<'a> NativeProgramUpgrade<'a> {
         }
         let flags =
             u8::from(!self.migration_hook.is_empty()) | (u8::from(self.clear_interface) << 1);
-        let mut bytes = Vec::new();
+        let size = encoded_length(
+            106,
+            self.wasm.len(),
+            self.migration_hook.len(),
+            self.interface,
+        )?;
+        let mut bytes = Vec::with_capacity(size);
         bytes.extend_from_slice(&self.program_id.bytes());
         bytes.extend_from_slice(&self.guest_abi.to_be_bytes());
         bytes.extend_from_slice(&[flags, 0]);
@@ -275,6 +307,9 @@ impl<'a> NativeProgramUpgrade<'a> {
     /// # Errors
     /// Rejects malformed headers, truncation, trailing bytes and invalid bounds.
     pub fn decode(payload: &'a [u8]) -> Result<Self, InvalidNativeLifecycle> {
+        if payload.len() > MAX_PAYLOAD_BYTES {
+            return Err(InvalidNativeLifecycle);
+        }
         let mut remaining = payload;
         let program_id = ProgramId::new(take(&mut remaining)?);
         let guest_abi = u16::from_be_bytes(take(&mut remaining)?);

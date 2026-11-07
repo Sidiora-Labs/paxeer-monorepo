@@ -5,6 +5,11 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import org.junit.jupiter.api.Test;
 import java.math.BigInteger;
+import java.nio.ByteBuffer;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
+import java.util.List;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -13,34 +18,44 @@ import static org.junit.jupiter.api.Assertions.*;
 public final class ReceiptFixtureTest {
     @Test
     void nativeLifecycleCFixtures() throws Exception {
-        for (String name : new String[]{"deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone", "wind-down-exit"}) {
-            JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve("native-program-" + name + "-v3.json")));
-            assertEquals(3, fixture.get("protocol_version").intValue()); assertEquals(9, fixture.get("module").intValue());
-            int ordinal = fixture.get("ordinal").intValue(); byte[] payload = hexDecode(fixture.get("payload_hex").asText());
-            byte[] signed = hexDecode(fixture.get("signed_activity_hex").asText());
-            NativeProgramLifecycle value = NativeProgramLifecycle.decode(ordinal, payload); assertArrayEquals(payload, value.encode());
-            var request = new NativeProgramLifecycleRequest(value, signed);
-            assertArrayEquals(hexDecode(fixture.get("activity_id_hex").asText()), request.activityId());
-            assertEquals(fixture.get("idempotency_key_hex").asText(), request.idempotencyKey());
-            for (int length = 0; length < payload.length; length++) {
-                byte[] prefix = java.util.Arrays.copyOf(payload, length);
-                assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, prefix));
-            }
-            assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, java.util.Arrays.copyOf(payload, payload.length + 1)));
-            byte[] changedPayload = payload.clone(); changedPayload[0] ^= 1;
-            assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(NativeProgramLifecycle.decode(ordinal, changedPayload), signed));
-            for (int offset : new int[]{1, 7, 17}) {
-                byte[] changed = signed.clone(); changed[offset] ^= 1;
-                assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(value, changed));
-            }
-            for (int length = 0; length < signed.length; length++) {
-                byte[] prefix = java.util.Arrays.copyOf(signed, length);
-                assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(value, prefix));
-            }
-            if (ordinal == 1 || ordinal == 2) {
-                for (int offset : new int[]{35, 68, payload.length - 1}) {
-                    byte[] changed = payload.clone(); changed[offset] ^= 1;
-                    assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, changed));
+        for (String version : List.of("v3", "v4")) {
+            for (String name : new String[]{"deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone", "wind-down-exit"}) {
+                JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve("native-program-" + name + "-" + version + ".json")));
+                assertEquals(3, fixture.get("protocol_version").intValue()); assertEquals(9, fixture.get("module").intValue());
+                int ordinal = fixture.get("ordinal").intValue(); byte[] payload = hexDecode(fixture.get("payload_hex").asText());
+                NativeProgramLifecycle value = NativeProgramLifecycle.decode(ordinal, payload); assertArrayEquals(payload, value.encode());
+                byte[] calldata = hexDecode(fixture.required("evm").required("calldata").asText().substring(2));
+                assertArrayEquals(calldata, NativeProgramLifecycleRequest.calldata(value, BigInteger.valueOf(1000)));
+                byte[] signed = signedTransaction(calldata);
+                assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(value,
+                    hexDecode(fixture.required("signed_activity_hex").asText())));
+                var request = new NativeProgramLifecycleRequest(value, signed,
+                    new IdempotencyKey(fixture.required("idempotency_key_hex").asText()));
+                assertArrayEquals(ProgramsClient.Programs.transactionHash(signed), request.activityId());
+                assertArrayEquals(signed, request.signedTransaction());
+                assertEquals(ordinal, request.ordinal());
+                assertArrayEquals(payload, request.payload());
+                assertEquals(fixture.get("idempotency_key_hex").asText(), request.idempotencyKey());
+                for (int length = 0; length < payload.length; length++) {
+                    byte[] prefix = java.util.Arrays.copyOf(payload, length);
+                    assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, prefix));
+                }
+                assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, java.util.Arrays.copyOf(payload, payload.length + 1)));
+                byte[] changedPayload = payload.clone(); changedPayload[0] ^= 1;
+                assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(NativeProgramLifecycle.decode(ordinal, changedPayload), signed));
+                for (byte[] changed : List.of(new byte[] {0}, Arrays.copyOf(signed, signed.length + 1),
+                        signedTransaction(new byte[] {0, 1, 2, 3}))) {
+                    assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(value, changed));
+                }
+                for (int length = 0; length < signed.length; length++) {
+                    byte[] prefix = java.util.Arrays.copyOf(signed, length);
+                    assertThrows(IllegalArgumentException.class, () -> new NativeProgramLifecycleRequest(value, prefix));
+                }
+                if (ordinal == 1 || ordinal == 2) {
+                    for (int offset : new int[]{35, 68, payload.length - 1}) {
+                        byte[] changed = payload.clone(); changed[offset] ^= 1;
+                        assertThrows(IllegalArgumentException.class, () -> NativeProgramLifecycle.decode(ordinal, changed));
+                    }
                 }
             }
         }
@@ -50,38 +65,25 @@ public final class ReceiptFixtureTest {
 
     @Test
     void nativeSignedBinding() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve("native-program-call-v3.json")));
+        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve("native-program-call-v4.json")));
         byte[] payload = hexDecode(fixture.get("payload_hex").asText());
         NativeProgramCall nativeCall = NativeProgramCall.decode(payload);
         assertArrayEquals(payload, nativeCall.encode());
-        byte[] signed = hexDecode(fixture.get("signed_activity_hex").asText());
-        var method = ProgramsClient.class.getDeclaredMethod("decodeSignedCall", ProgramsClient.Call.class);
-        method.setAccessible(true);
-        method.invoke(null, new ProgramsClient.Call(nativeCall, BigInteger.valueOf(1000), signed));
-        assertThrows(java.lang.reflect.InvocationTargetException.class, () -> method.invoke(null, new ProgramsClient.Call(nativeCall, BigInteger.valueOf(999), signed)));
+        byte[] signed = signedTransaction(nativeCall.calldata(BigInteger.valueOf(1000)));
+        assertArrayEquals(ProgramsClient.Programs.transactionHash(signed), nativeCall.bindSignedActivity(signed));
+        assertArrayEquals(payload, NativeProgramCall.decodeSignedActivity(signed).encode());
         NativeProgramCall changed = new NativeProgramCall(nativeCall.programId(), nativeCall.guestAbi(), nativeCall.entrypoint(), nativeCall.calldata(), nativeCall.capabilities(), nativeCall.accessDeclaration(), (nativeCall.responseCapacity() + 1) % 1_048_577, nativeCall.resources());
         assertNotEquals(nativeCall.responseCapacity(), changed.responseCapacity());
-        changed.encode();
-        assertThrows(java.lang.reflect.InvocationTargetException.class, () -> method.invoke(null, new ProgramsClient.Call(changed, BigInteger.valueOf(1000), signed)));
+        assertThrows(IllegalArgumentException.class, () -> changed.bindSignedActivity(signed));
+        assertThrows(PlatformSdkException.class, () -> nativeCall.bindSignedActivity(
+            hexDecode(fixture.required("signed_activity_hex").asText())));
+        for (int length = 0; length < signed.length; length++) {
+            byte[] truncated = Arrays.copyOf(signed, length);
+            assertThrows(PlatformSdkException.class, () -> nativeCall.bindSignedActivity(truncated));
+        }
         for (int length = 0; length < payload.length; length++) {
             byte[] truncated = java.util.Arrays.copyOf(payload, length);
             assertThrows(IllegalArgumentException.class, () -> NativeProgramCall.decode(truncated));
-        }
-    }
-
-    @Test
-    void explicitProtocolThree() throws Exception {
-        for (String name : new String[]{"receipt-positive-v3.json", "receipt-programs-positive-v3.json"}) {
-            JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve(name)));
-            byte[] canonical = hexDecode(fixture.get("canonical_receipt_hex").asText());
-            var authority = authorizedBatch(fixture);
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyReceipt(canonical, authority));
-            var verified = LocalVerifier.verifyReceipt(canonical, authority, 3);
-            assertEquals(3, verified.receipt().protocolVersion());
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyProgramLifecycleReceipt(canonical, verified.receipt().activityId(), authority.sequencerPublicKey()));
-            assertArrayEquals(hexDecode(fixture.get("expected").get("receipt_digest_hex").asText()), verified.receiptDigest());
-            canonical[canonical.length - 1] ^= 1;
-            assertThrows(PlatformSdkException.class, () -> LocalVerifier.verifyReceipt(canonical, authority, 3));
         }
     }
 
@@ -94,110 +96,75 @@ public final class ReceiptFixtureTest {
         org.junit.jupiter.api.Assertions.assertArrayEquals(hexDecode("11".repeat(32)), outcome.callGraphRoot());
         org.junit.jupiter.api.Assertions.assertArrayEquals(hexDecode("22".repeat(32)), outcome.terminalPayloadRoot());
     }
-    private static final ObjectMapper JSON = new ObjectMapper();
-    private static final Path FIXTURE = Paths
-        .get(System.getProperty("layerx.repo.root", "../../.."))
-        .resolve("sdk/platform/conformance/fixtures/receipt-positive-v2.json");
-    private static final Path FIXTURE_ROOT = FIXTURE.getParent();
+    static final String SENDER = "0x7e5f4552091a69125d5dfcb7b8c2659029395bdf";
 
-    @Test
-    void testCoreFixtureReceiptVerifiesPositively() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE));
-        JsonNode expected = fixture.get("expected");
-        byte[] canonical = hexDecode(fixture.get("canonical_receipt_hex").asText());
-        LocalVerifier.ReceiptVerification verified =
-            LocalVerifier.verifyReceipt(canonical, authorizedBatch(fixture));
-        assertEquals(expected.get("level").asText(), verified.level().wire());
-        assertArrayEquals(canonical, verified.canonicalBytes());
-        assertArrayEquals(hexDecode(expected.get("receipt_digest_hex").asText()),
-            verified.receiptDigest());
-        LocalVerifier.ProtocolReceipt receipt = verified.receipt();
-        assertEquals(expected.get("result_code").intValue(), receipt.resultCode());
-        assertEquals(expected.get("protocol_version").intValue(), receipt.protocolVersion());
-        assertEquals(expected.get("operation").intValue(), receipt.operation());
-        assertEquals(expected.get("module_id").intValue(), receipt.moduleId());
-        assertEquals(BigInteger.valueOf(expected.get("global_sequence").longValue()),
-            receipt.globalSequence());
-        assertEquals(BigInteger.valueOf(expected.get("timestamp_ms").longValue()),
-            receipt.timestamp());
-        assertEquals(new BigInteger(expected.get("amount").asText()), receipt.amount());
-        assertEquals(new BigInteger(expected.get("fee_charged").asText()), receipt.feeCharged());
-        assertEquals(new BigInteger(expected.get("from_balance_before").asText()),
-            receipt.fromBalanceBefore());
-        assertEquals(new BigInteger(expected.get("from_balance_after").asText()),
-            receipt.fromBalanceAfter());
-        assertEquals(new BigInteger(expected.get("to_balance_before").asText()),
-            receipt.toBalanceBefore());
-        assertEquals(new BigInteger(expected.get("to_balance_after").asText()),
-            receipt.toBalanceAfter());
-        assertArrayEquals(hexDecode(expected.get("activity_id_hex").asText()),
-            receipt.activityId());
-        assertArrayEquals(hexDecode(expected.get("from_hex").asText()), receipt.from());
-        assertArrayEquals(hexDecode(expected.get("to_hex").asText()), receipt.to());
-        JsonNode batch = fixture.get("authorized_batch");
-        assertArrayEquals(hexDecode(batch.get("batch_id_hex").asText()), receipt.batchId());
-        assertArrayEquals(hexDecode(batch.get("asset_hex").asText()), receipt.asset());
-        assertArrayEquals(hexDecode(batch.get("previous_state_root_hex").asText()),
-            receipt.previousStateRoot());
-        assertArrayEquals(hexDecode(batch.get("resulting_state_root_hex").asText()),
-            receipt.resultingStateRoot());
+    static ProgramsClient.ProgramCall transaction(byte[] calldata) {
+        var tx = JSON.createObjectNode().put("type", "0x2").put("chainId", "0x7d")
+            .put("from", SENDER).put("to", ProgramsClient.PROGRAMS_ADDRESS)
+            .put("nonce", "0x3").put("gas", "0x5208").put("maxPriorityFeePerGas", "0x1")
+            .put("maxFeePerGas", "0x2").put("value", "0x0")
+            .put("data", "0x" + HexFormat.of().formatHex(calldata));
+        tx.putArray("accessList");
+        return new ProgramsClient.ProgramCall(tx);
     }
 
-    @Test
-    void testCoreFixtureReceiptByteFlipFails() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(FIXTURE));
-        byte[] mutated = hexDecode(fixture.get("canonical_receipt_hex").asText());
-        mutated[mutated.length - 1] ^= 0x01;
-        assertThrows(PlatformSdkException.class,
-            () -> LocalVerifier.verifyReceipt(mutated, authorizedBatch(fixture)));
+    static byte[] signedTransaction(byte[] calldata) {
+        return sign(transaction(calldata));
     }
 
-    @Test
-    void programsReceiptPreservesOptionalOutcome() throws Exception {
-        JsonNode fixture = JSON.readTree(Files.readString(
-            FIXTURE_ROOT.resolve("receipt-programs-positive-v2.json")));
-        LocalVerifier.ReceiptVerification verified = LocalVerifier.verifyReceipt(
-            hexDecode(fixture.get("canonical_receipt_hex").asText()),
-            authorizedBatch(fixture));
-        LocalVerifier.ProgramReceiptOutcome outcome = verified.receipt().programOutcome();
-        assertNotNull(outcome);
-        assertEquals(3, outcome.encodingVersion());
-        assertEquals(1, outcome.runtimeVersion());
-        assertEquals(1, outcome.abiVersion());
-        assertEquals(BigInteger.valueOf(2), outcome.occupancyByteBatches());
-        assertEquals(BigInteger.valueOf(7), outcome.occupancyFeeUnits());
-        assertArrayEquals(hexDecode(fixture.get("authorized_batch").get("asset_hex").asText()),
-            outcome.occupancyAssetId());
-        assertFalse(allZero(outcome.occupancyEvidenceDigest()));
-        assertFalse(allZero(outcome.occupancyTransferRoot()));
-        assertEquals(BigInteger.valueOf(16), outcome.feeUnits());
-    }
-
-    @Test
-    void refusalVectorsExposeSharedTaxonomy() throws Exception {
-        for (String name : new String[] {"receipt-refusals-v2.json", "receipt-programs-refusals-v2.json"}) {
-            JsonNode fixture = JSON.readTree(Files.readString(FIXTURE_ROOT.resolve(name)));
-            for (JsonNode vector : fixture.get("vectors")) {
-                PlatformSdkException failure = assertThrows(PlatformSdkException.class,
-                    () -> LocalVerifier.verifyReceipt(
-                        hexDecode(vector.get("canonical_receipt_hex").asText()),
-                        authorizedBatch(fixture)), vector.get("name").asText());
-                assertNotNull(failure.receiptCheck());
-                assertEquals(vector.get("expected_check").asText(),
-                    failure.receiptCheck().wire(), vector.get("name").asText());
+    private static byte[] sign(ProgramsClient.ProgramCall call) {
+        var curve = org.bouncycastle.crypto.ec.CustomNamedCurves.getByName("secp256k1");
+        var domain = new org.bouncycastle.crypto.params.ECDomainParameters(curve.getCurve(), curve.getG(), curve.getN());
+        var signer = new org.bouncycastle.crypto.signers.ECDSASigner(
+            new org.bouncycastle.crypto.signers.HMacDSAKCalculator(new org.bouncycastle.crypto.digests.SHA256Digest()));
+        signer.init(true, new org.bouncycastle.crypto.params.ECPrivateKeyParameters(BigInteger.ONE, domain));
+        byte[] digest = ProgramsClient.Programs.transactionHash(call.signingPayload());
+        BigInteger[] signature = signer.generateSignature(digest);
+        BigInteger lowS = signature[1].min(curve.getN().subtract(signature[1]));
+        signer.init(false, new org.bouncycastle.crypto.params.ECPublicKeyParameters(curve.getG(), domain));
+        assertTrue(signer.verifySignature(digest, signature[0], lowS));
+        List<byte[]> fields = transactionFields(call.signingPayload());
+        for (int parity = 0; parity < 2; parity++) {
+            var encoded = new java.io.ByteArrayOutputStream();
+            for (int i = 0; i < fields.size(); i++) encoded.writeBytes(ProgramsClient.Programs.rlp(fields.get(i), i == 8));
+            encoded.writeBytes(ProgramsClient.Programs.rlp(parity == 0 ? new byte[0] : new byte[] {1}, false));
+            for (BigInteger component : new BigInteger[] {signature[0], lowS}) {
+                byte[] bytes = component.toByteArray();
+                if (bytes[0] == 0) bytes = Arrays.copyOfRange(bytes, 1, bytes.length);
+                encoded.writeBytes(ProgramsClient.Programs.rlp(bytes, false));
             }
+            byte[] signed = ProgramsClient.Programs.concat(new byte[] {2}, ProgramsClient.Programs.rlp(encoded.toByteArray(), true));
+            try { ProgramsClient.Programs.bind(call, signed); return signed; }
+            catch (PlatformSdkException error) { assertEquals(PlatformSdkException.Code.VERIFICATION_FAILURE, error.code()); }
         }
+        throw new AssertionError("neither recovery parity matches the signing key");
     }
 
-    private static LocalVerifier.AuthorizedReceiptBatch authorizedBatch(JsonNode fixture) {
-        JsonNode batch = fixture.get("authorized_batch");
-        return new LocalVerifier.AuthorizedReceiptBatch(
-            hexDecode(batch.get("batch_id_hex").asText()),
-            hexDecode(batch.get("asset_hex").asText()),
-            hexDecode(batch.get("previous_state_root_hex").asText()),
-            hexDecode(batch.get("resulting_state_root_hex").asText()),
-            hexDecode(batch.get("sequencer_public_key_hex").asText()));
+    private static List<byte[]> transactionFields(byte[] raw) {
+        ByteBuffer input = ByteBuffer.wrap(raw);
+        assertEquals(2, input.get());
+        ByteBuffer list = ByteBuffer.wrap(rlpValue(input));
+        assertFalse(input.hasRemaining());
+        List<byte[]> fields = new ArrayList<>();
+        while (list.hasRemaining()) fields.add(rlpValue(list));
+        return fields;
     }
+    private static byte[] rlpValue(ByteBuffer input) {
+        int prefix = input.get() & 255;
+        if (prefix < 128) return new byte[] {(byte) prefix};
+        int base = prefix >= 192 ? 192 : 128;
+        int size = prefix - base;
+        if (size > 55) {
+            int lengthBytes = size - 55; size = 0;
+            for (int i = 0; i < lengthBytes; i++) size = size * 256 + (input.get() & 255);
+        }
+        byte[] value = new byte[size]; input.get(value); return value;
+    }
+
+    private static final ObjectMapper JSON = new ObjectMapper();
+    private static final Path FIXTURE_ROOT = Paths
+        .get(System.getProperty("layerx.repo.root", "../../.."))
+        .resolve("sdk/platform/conformance/fixtures");
 
     private static byte[] hexDecode(String hex) {
         assertEquals(0, hex.length() & 1, "hex must have even length");
@@ -209,8 +176,4 @@ public final class ReceiptFixtureTest {
         return data;
     }
 
-    private static boolean allZero(byte[] value) {
-        for (byte current : value) if (current != 0) return false;
-        return true;
-    }
 }

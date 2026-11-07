@@ -10,16 +10,17 @@ use std::collections::BTreeMap;
 use std::fmt::{Display, Formatter};
 
 use layerx_proof::inclusion::SequencerAuthorization;
-use layerx_proof::merkle::leaf_hash;
-use layerx_proof::receipt::{verify, verify_sequencer_signature, AuthorizedBatch, ReceiptKeys};
+use layerx_proof::receipt::{
+    verify_sequencer_signature, ReceiptCheck, ReceiptKeys, VerificationFailure,
+};
 use layerx_proof::sequencer_logs::{verify_logs, SequencerLog, SequencerLogRefusal};
-use sha2::{Digest as _, Sha256};
-use sha3::Keccak256;
+use sha3::{Digest as _, Keccak256};
 
 use crate::adapter::{AdapterDescriptor, AdapterId};
 use crate::audit::{AuditChain, AuditEventKind};
 use crate::codec::{self, Decoder};
 use crate::error::GatewayError;
+use crate::evidence::{canonical_receipt_digest, SequencerEvidence, SettlementRung};
 use crate::principal::{GatewayStore, PrincipalId, RowKey, Table};
 use crate::redaction::{emit, FieldValue, Label, ADAPTER_CALL_SCHEMA};
 use crate::trace::{TraceId, Traced};
@@ -328,8 +329,17 @@ fn pays_idempotency_key(
     if log.address() != LEDGER_ADDRESS {
         return false;
     }
+    // Both payment events put uint128 amount in the second data word.
+    // A signed log still needs canonical ABI padding before it can settle.
+    if !log
+        .data()
+        .get(32..48)
+        .is_some_and(|padding| padding.iter().all(|byte| *byte == 0))
+    {
+        return false;
+    }
     match log.topics() {
-        [topic, _, _, reference] if topic == payment_exact => {
+        [topic, reference, _, _] if topic == payment_exact => {
             log.data().len() == PAYMENT_EXACT_DATA_BYTES && reference == idempotency_key
         }
         [topic, _, _, _] if topic == payment_drawn => {
@@ -492,50 +502,20 @@ impl GatewayCore {
         Ok(TranslationStatus::Pending)
     }
 
-    /// Terminates one state-changing translation in a receipt-verified
-    /// `LayerX` operation. The canonical receipt bytes come from the plane's
-    /// payload authorities and are verified here through the protocol's
-    /// offline verifier; the adapter supplies no payload bytes of its own and
-    /// no other path can mark a state-changing translation successful.
-    ///
-    /// # Errors
-    ///
-    /// Refuses unknown translations, read-only translations, closed
-    /// translations, conflicting repeated settlements, and every receipt that
-    /// fails the protocol verifier, leaving the translation pending.
-    pub fn settle_with_receipt(
-        &mut self,
-        principal: &PrincipalId,
-        idempotency_key: [u8; 32],
-        canonical_receipt: &[u8],
-        authorised: &AuthorizedBatch,
-        trace: &TraceId,
-        now: u64,
-    ) -> Result<TranslationStatus, Traced<GatewayError>> {
-        self.settle_verified(principal, idempotency_key, trace, now, || {
-            let verified =
-                verify(canonical_receipt, authorised).map_err(GatewayError::ReceiptRejected)?;
-            leaf_hash(verified.canonical_bytes())
-                .map_err(|_| GatewayError::Corrupt("receipt cannot be digested"))
-        })
-    }
-
     /// Terminates one state-changing translation on a sequencer-signed
     /// `ProtocolReceipt` v2. The receipt signature is verified against the
     /// height-ranged `ReceiptKeys` list, the served logs are bound to the
     /// receipt's signed effects, and exactly one layerxledger (0x101A) log
     /// must pay the translation's idempotency key: a `PaymentExact` matched by
     /// its paymentReference or a `PaymentDrawn` matched by the idempotencyKey
-    /// in its data. The translation records the sha256 digest of the signed
-    /// receipt bytes.
+    /// in its data. The translation records the canonical receipt digest.
     ///
     /// # Errors
     ///
-    /// Refuses unknown, read-only, closed and conflicting translations as
-    /// [`Self::settle_with_receipt`] does, a receipt the signature verifier
-    /// rejects, logs that disagree with the signed effects, and a receipt
-    /// without exactly one matching payment log, leaving the translation
-    /// pending.
+    /// Refuses unknown, read-only, closed and conflicting translations, a
+    /// receipt the signature verifier rejects, logs that disagree with the
+    /// signed effects, and a receipt without exactly one matching payment
+    /// log, leaving the translation pending.
     #[allow(clippy::too_many_arguments)]
     pub fn settle_with_sequencer_receipt(
         &mut self,
@@ -547,11 +527,82 @@ impl GatewayCore {
         trace: &TraceId,
         now: u64,
     ) -> Result<TranslationStatus, Traced<SequencerSettlementError>> {
+        let receipt =
+            verify_sequencer_signature(signed_receipt, ReceiptKeys::HeightRanges(receipt_keys))
+                .map_err(|error| {
+                    trace.wrap(SequencerSettlementError::from(
+                        GatewayError::ReceiptRejected(error),
+                    ))
+                })?;
+        let transaction_hash = receipt
+            .protocol()
+            .ok_or_else(|| {
+                trace.wrap(SequencerSettlementError::from(
+                    GatewayError::ReceiptRejected(VerificationFailure {
+                        check: ReceiptCheck::ReceiptShape,
+                    }),
+                ))
+            })?
+            .activity_id();
+        let evidence = SequencerEvidence {
+            transaction_hash,
+            signed_receipt: signed_receipt.to_vec(),
+            logs,
+            rung: SettlementRung::Receipted,
+        };
+        self.settle_with_sequencer_evidence(
+            principal,
+            idempotency_key,
+            &evidence,
+            receipt_keys,
+            trace,
+            now,
+        )
+    }
+
+    /// Settles receipted or committed evidence using its canonical receipt digest.
+    ///
+    /// # Errors
+    ///
+    /// Submitted evidence returns `ReceiptPending` without writing state. Other
+    /// rungs bind the evidence transaction hash to the signed receipt activity ID
+    /// and apply the signature, log and payment checks of the receipt path.
+    #[allow(clippy::too_many_arguments)]
+    pub fn settle_with_sequencer_evidence(
+        &mut self,
+        principal: &PrincipalId,
+        idempotency_key: [u8; 32],
+        evidence: &SequencerEvidence,
+        receipt_keys: &[SequencerAuthorization],
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<TranslationStatus, Traced<SequencerSettlementError>> {
+        if evidence.rung == SettlementRung::Submitted {
+            return Err(trace.wrap(SequencerSettlementError::from(GatewayError::ReceiptPending)));
+        }
+        let reject = |failure| {
+            trace.wrap(SequencerSettlementError::from(
+                GatewayError::ReceiptRejected(failure),
+            ))
+        };
+        let receipt = verify_sequencer_signature(
+            &evidence.signed_receipt,
+            ReceiptKeys::HeightRanges(receipt_keys),
+        )
+        .map_err(reject)?;
+        let protocol = receipt.protocol().ok_or_else(|| {
+            reject(VerificationFailure {
+                check: ReceiptCheck::ReceiptShape,
+            })
+        })?;
+        if protocol.activity_id() != evidence.transaction_hash {
+            return Err(reject(VerificationFailure {
+                check: ReceiptCheck::ActivityId,
+            }));
+        }
         self.settle_verified(principal, idempotency_key, trace, now, || {
-            let receipt =
-                verify_sequencer_signature(signed_receipt, ReceiptKeys::HeightRanges(receipt_keys))
-                    .map_err(GatewayError::ReceiptRejected)?;
-            let verified = verify_logs(&receipt, logs).map_err(SequencerSettlementError::Logs)?;
+            let verified = verify_logs(&receipt, evidence.logs.clone())
+                .map_err(SequencerSettlementError::Logs)?;
             let payment_exact = keccak256(PAYMENT_EXACT_EVENT);
             let payment_drawn = keccak256(PAYMENT_DRAWN_EVENT);
             let matches = verified
@@ -564,7 +615,8 @@ impl GatewayCore {
             if matches != 1 {
                 return Err(SequencerSettlementError::PaymentUnmatched);
             }
-            Ok(Sha256::digest(signed_receipt).into())
+            canonical_receipt_digest(&evidence.signed_receipt)
+                .map_err(SequencerSettlementError::from)
         })
     }
 
@@ -728,5 +780,112 @@ impl GatewayCore {
         let telemetry = telemetry_row("refuse", idempotency_key).map_err(fail)?;
         scope.put(Table::Telemetry, telemetry, now, emission);
         Ok(record.status)
+    }
+}
+
+#[cfg(test)]
+mod ledger_producer_proof {
+    use super::*;
+    use std::io::Read;
+    use std::process::Command;
+
+    #[test]
+    fn proof_layerxledger_0x101a() {
+        let mut input = Vec::new();
+        std::io::stdin()
+            .lock()
+            .read_to_end(&mut input)
+            .expect("read ledger producer input");
+        if input.is_empty() {
+            eprintln!("Building the real ledger producer's native programs library");
+            let output = Command::new("cargo")
+                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+                .args([
+                    "build",
+                    "--locked",
+                    "--manifest-path",
+                    "programs/Cargo.toml",
+                    "-p",
+                    "layerx-programs-sandbox",
+                    "--features",
+                    "host-ffi",
+                    "--target-dir",
+                    "programs/target",
+                ])
+                .output()
+                .expect("build the real ledger producer's native programs library");
+            assert!(
+                output.status.success(),
+                "ledger producer native programs library build failed: {}\n{}\n{}",
+                output.status,
+                String::from_utf8_lossy(&output.stdout),
+                String::from_utf8_lossy(&output.stderr)
+            );
+            eprintln!("Starting the real ledger producer and its gateway consumer");
+            let output = Command::new("go")
+                .current_dir(concat!(env!("CARGO_MANIFEST_DIR"), "/../../../.."))
+                .args([
+                    "test",
+                    "-count=1",
+                    "-v",
+                    "./precompiles/layerxledger",
+                    "-run",
+                    "^TestProofLayerxledger0x101a$/^gateway$",
+                ])
+                .output()
+                .expect("start the real ledger producer");
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            assert!(
+                output.status.success(),
+                "ledger producer and gateway consumer failed: {}\n{stdout}\n{stderr}",
+                output.status
+            );
+            assert!(
+                stdout.contains("--- PASS: TestProofLayerxledger0x101a/gateway"),
+                "the real ledger producer must execute its gateway consumer: {stdout}"
+            );
+            return;
+        }
+        let proof: serde_json::Value = serde_json::from_slice(&input)
+            .expect("precompiles/layerxledger/proof_layerxledger_0x101a_test.go producer");
+        fn bytes<const N: usize>(value: &str) -> [u8; N] {
+            let value = value.strip_prefix("0x").unwrap();
+            assert_eq!(value.len(), N * 2);
+            std::array::from_fn(|i| u8::from_str_radix(&value[i * 2..i * 2 + 2], 16).unwrap())
+        }
+        let key = bytes::<32>(proof["reference"].as_str().unwrap());
+        let exact = keccak256(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)");
+        let drawn =
+            keccak256(b"PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)");
+        let logs = proof["paymentLogs"].as_array().unwrap();
+        assert_eq!(logs.len(), 2);
+        let produced = &logs[1];
+        let data_hex = produced["data"]
+            .as_str()
+            .unwrap()
+            .strip_prefix("0x")
+            .unwrap();
+        let data: Vec<u8> = (0..data_hex.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&data_hex[i..i + 2], 16).unwrap())
+            .collect();
+        let log = SequencerLog::new(
+            bytes(produced["address"].as_str().unwrap()),
+            produced["topics"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|topic| bytes(topic.as_str().unwrap()))
+                .collect(),
+            data.clone(),
+            1,
+        );
+        assert!(pays_idempotency_key(&log, &key, &exact, &drawn));
+        assert!(!pays_idempotency_key(&log, &[0xff; 32], &exact, &drawn));
+        let mut malformed = data;
+        malformed[47] = 1;
+        let log = SequencerLog::new(log.address(), log.topics().to_vec(), malformed, 1);
+        assert!(!pays_idempotency_key(&log, &key, &exact, &drawn));
     }
 }

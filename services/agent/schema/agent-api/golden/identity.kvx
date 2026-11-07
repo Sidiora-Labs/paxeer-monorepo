@@ -6,15 +6,40 @@ compatibility = "additive_only"
 [type.SessionContext]
 required = ["tenant","agent_did","authority_ref","permitted_activity_types","expiry","client","policy_version"]
 
+[operation.tenant.readiness]
+request = "TenantReadinessRequest"
+required = []
+response = "TenantReadiness"
+authority = "Current tenant/session/token/generation credential through the ordinary Read operation permit; no supplied tenant selector."
+
+[type.TenantReadinessRequest]
+required = []
+unknown_fields = "refused"
+
+[type.TenantReadiness]
+required = ["transport_ready:bool","verified_reads_ready:bool","writes_admitted:bool","recovery_reason:optional<TenantRecoveryReason>"]
+invariant = "writes_admitted exactly when recovery_reason is absent; admitted writes require transport and a genuine STATE_PROVEN account read for this authenticated tenant. Recovery refusal remains tenant-local across durable restart. This observation does not prove economic execution."
+
+[type.TenantRecoveryReason]
+variants = ["recovery_pending","store_unavailable","store_refused","budget_state_unverified","receipt_evidence_missing","durable_recovery_failed","spend_unreconciled","transport_unavailable","verified_read_unavailable"]
+
 [operation.agent.register]
 request = "AgentRegistration"
-required = ["tenant","agent_did","authority_ref","client","policy_version"]
-response = "AuthorityResponse<AgentRecord>"
+required = ["tenant","agent_did","authority_ref","client","policy_version","owner_address","binding_consent","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+owner_address = "40 lowercase hex characters: the owner EVM address that will sign the transaction"
+binding_consent = "128 lowercase hex characters: the externally owner-signed Ed25519 binding consent; verified against the node chain id and current bind nonce"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.open]
 request = "SessionOpen"
-required = ["context"]
-response = "AuthorityResponse<SessionRecord>"
+required = ["context","grant_id","registration_payload","expiry_sequence","purpose","fee_limit"]
+response = "AuthorityResponse<Prepared>"
+grant_id = "64 lowercase hex characters: the provisioned session grant id"
+registration_payload = "Lowercase hex bytes of the canonical session grant matching grant_id and the provisioned session address"
+expiry_sequence = "Nonzero decimal_string u64 passed to grantSession"
+purpose = "64 lowercase hex characters passed to grantSession"
+fee_limit = "decimal_string u128: upper bound on max_fee_per_gas"
 
 [operation.session.refresh]
 request = "SessionRefresh"
@@ -35,21 +60,72 @@ response = "AuthorityResponse<SessionRecords>"
 required = ["activity_types","counterparties","assets","amount_ceilings","rate_ceilings","purpose_constraints","expiry"]
 set_semantics = "Every set is explicitly supplied. An explicit empty set denies that dimension; omission is invalid and never means allow all."
 
+[type.NativeRegistrationCapability]
+activity_types = "Every capability in the native active chain lists Asset module 1 ordinal 1."
+assets = "Every capability lists the derived registered asset and an amount ceiling at least supply_cap for it, and the fee asset when a fee limit is set."
+counterparties = "Every capability lists the actor native fee principal account that holds the SupplyCap authorization."
+purpose_constraints = "Every capability lists the exact native-registration-v1 purpose commitment signed by the owner."
+principal = "Agent and human principals use the same authority path, fees and signatures; no principal kind is preferred."
+
 [operation.capability.create]
 required = ["tenant","agent_did","dimensions"]
 response = "AuthorityResponse<CapabilityRecord>"
+idempotency_key = "required"
+owner_request = "MutationEnvelope<CapabilityCreate>"
+keyless = "A create without an idempotency key is refused before the owner is called."
+identity = "Lowercase hex SHA-256 of UTF-8 LayerX/capability/create/v1, one NUL byte, the u32 big-endian length-prefixed authenticated tenant and agent UTF-8, then the exact 32-byte idempotency key."
+replay = "Same key with the same request returns the original record; same key with a changed request is refused; an existing record is never overwritten."
+authority_narrowing = "The record narrows the protocol authority of the session that issues it: expiry multiplied by 1000 is not later than the verified grant not_after_ms, and assets and counterparties resolve only through the canonical core identity and asset resolution. A dimension that cannot be compared is refused, never skipped."
+shape_rules = "Duplicate entries in a set, a rate ceiling with window_seconds 0, an amount ceiling for an asset outside assets, and an expiry already reached at the core protocol timestamp are refused."
 
 [operation.capability.attenuate]
 required = ["tenant","agent_did","parent_id","dimensions"]
 response = "AuthorityResponse<CapabilityRecord>"
+idempotency_key = "required"
+owner_request = "MutationEnvelope<CapabilityAttenuate>"
+parent_id_text = "64 lowercase hex characters naming an owner-issued record of the same tenant and agent; any other text is refused."
+identity = "Lowercase hex SHA-256 of UTF-8 LayerX/capability/attenuate/v1, one NUL byte, the u32 big-endian length-prefixed authenticated tenant and agent UTF-8, the 32 parent identifier bytes, then the exact 32-byte idempotency key."
+narrowing = "Every dimension of the child is no wider than the parent: expiry not later, each set a subset, every amount ceiling names a parent asset with an amount not above it, and every parent rate window is matched by a child window at least as long with no more actions. A wider child is refused."
 
 [operation.capability.list]
 required = ["tenant","agent_did"]
 response = "AuthorityResponse<CapabilityRecords>"
+idempotency_key = "absent"
+authority = "operation_permit"
 
 [operation.capability.revoke]
 required = ["tenant","agent_did","capability_id"]
 response = "AuthorityResponse<CapabilityRecord>"
+idempotency_key = "required"
+owner_request = "MutationEnvelope<CapabilityRevoke>"
+capability_id_text = "64 lowercase hex characters naming an owner-issued record of the same tenant and agent; any other text is refused."
+subtree = "Revokes the named record and every record whose parent chain reaches it in one durable write; preparations bound to a revoked record that have not been submitted end in the existing Failed terminal with a capability-revocation reason."
+replay = "Revoking an already revoked record returns the stored record without a new write."
+
+[type.CapabilityRecord]
+required = ["capability_id","parent_id","tenant","agent_did","dimensions","state","created_at_ms","created_at_sequence","revoked_at_ms","revoked_at_sequence"]
+capability_id = "64 lowercase hex characters issued by the owner"
+parent_id = "64 lowercase hex characters or null for a root record"
+dimensions = "CapabilityDimensions in its request encoding; a set echoed empty is an explicit deny-all."
+state = "CapabilityState"
+created_at_ms = "decimal_string: protocol timestamp in milliseconds of the core preparation snapshot read at creation"
+created_at_sequence = "decimal_string: observed head sequence of the same snapshot"
+revoked_at_ms = "decimal_string or null"
+revoked_at_sequence = "decimal_string or null"
+time_basis = "expiry and window_seconds are seconds of core protocol time; a record is expired when the core protocol timestamp in milliseconds is at least expiry multiplied by 1000. Sequence fields are sequences and are never compared with time."
+
+[type.CapabilityState]
+variants = ["active","revoked","expired"]
+precedence = "revoked whenever revoked_at_ms and revoked_at_sequence are present, which are present together or both null; otherwise expired when the core protocol timestamp of the list or mutation snapshot has reached expiry; otherwise active."
+
+[type.CapabilityRecords]
+required = ["capabilities"]
+capabilities = "CapabilityRecord[] in ascending capability_id order, revoked and expired records included"
+basis = "Lists the timed records issued through capability.create and capability.attenuate. Legacy sequence-based records remain on the existing Human install surface and are not listed here."
+
+[type.AuthorityDescription]
+required = ["tenant","agent_did","authority_ref","protocol_authority"]
+protocol_authority = "lowercase hex of the canonical protocol authority bytes; never empty"
 
 [type.BudgetEnforcement]
 variants = ["ProtocolBudget","DaemonLimit"]
@@ -58,14 +134,22 @@ DaemonLimit.guarantee = "daemon_enforced"
 DaemonLimit.notice = "Bypassing the daemon bypasses this limit. It is not equivalent to a protocol budget."
 
 [operation.budget.create]
+optional = ["authorization","purpose"]
+purpose = "TextV1 purpose label: nonempty UTF-8 text, any content including 64 hexadecimal characters, committed with purpose_commitment_v1 as SHA-256 of b\"layerx:purpose-commitment:v1\\0\" followed by the exact text bytes. When present the daemon refuses the create unless the commitment equals the purpose disclosed by the signed budget-create activity; the label is checked against that activity and is never a signing input. When absent the create is unchanged."
+authorization = "BudgetAuthorization: required when enforcement is ProtocolBudget, refused when enforcement is DaemonLimit"
+expiry_unit = "TimestampSeconds; the core expiry is expiry multiplied by 1000 with checked overflow and must equal the signed activity expiry in milliseconds exactly"
 required = ["tenant","agent_did","asset","limit","enforcement","expiry"]
 response = "AuthorityResponse<BudgetRecord>"
 
 [operation.budget.fund]
+optional = ["enforcement","authorization"]
+enforcement = "Optional assertion. The enforcement in force is taken from the authenticated budget lookup and a differing assertion is refused; omission never selects a weaker enforcement. Funding a DaemonLimit is refused."
+authorization = "BudgetAuthorization: required for a ProtocolBudget; an unsigned protocol fund is refused"
 required = ["tenant","agent_did","budget_id","amount"]
 response = "AuthorityResponse<BudgetRecord>"
 
 [operation.budget.list]
+served_shape = "The served adapter currently answers a bare budgets array of budget_id and agent_id without the authority wrapper. Until it answers AuthorityResponse<BudgetRecords>, SDKs refuse the bare shape as a decode violation."
 required = ["tenant","agent_did"]
 response = "AuthorityResponse<BudgetRecords>"
 
@@ -74,9 +158,106 @@ required = ["tenant","agent_did","budget_id"]
 response = "AuthorityResponse<BudgetReconciliation>"
 
 [operation.budget.revoke]
+optional = ["authorization"]
+authorization = "BudgetAuthorization: required when the authenticated budget lookup names a ProtocolBudget, refused for a DaemonLimit"
 required = ["tenant","agent_did","budget_id"]
 response = "AuthorityResponse<BudgetRecord>"
+
+[operation.budget.state]
+required = ["tenant","agent_did","budget_id"]
+response = "AuthorityResponse<BudgetState>"
+refusals = "budget.not_found, BudgetRefusal Terminal, when the authenticated budget lookup names no budget of this tenant and agent. activity_id is null in the answer and its record; no activity_id is invented."
 
 [type.AuthorityResponse]
 required = ["authority","value"]
 authority_description = "Every response names the tenant, agent DID, authority reference and exact protocol authority actually used."
+
+[operation.mcp.invoke]
+request = "McpInvokeRequest"
+request_required = ["tool","arguments"]
+required = ["idempotency_key"]
+response = "object"
+
+[type.McpInvokeRequest]
+required = ["tool","arguments"]
+
+[type.BudgetAuthorization]
+required = ["preparation_ref","signature"]
+optional = ["signer_public_key"]
+preparation_ref = "The preparation of the exact canonical budget activity being authorised."
+signature = "128 lowercase hex characters, 64 bytes, over that preparation"
+signer_public_key = "64 lowercase hex characters or null: only an equality assertion against the cached authorised owner key; never the verifying authority"
+
+[type.BudgetRecord]
+required = ["enforcement","budget_id","head","activity_id"]
+enforcement = "BudgetEnforcement; selects the field set"
+budget_id = "64 lowercase hex characters"
+head = "decimal_string: observed head sequence of the snapshot the record was read from"
+activity_id = "64 lowercase hex characters of the core activity whose verified receipt produced this ProtocolBudget state in a create, fund or revoke response; null in list responses, for every DaemonLimit record, and in budget.state responses, which prove current state rather than one producing activity"
+ProtocolBudget.required = ["owner","budget_account","asset_id","purpose_hash","per_period_limit","configured_period_limit","carry_cap","spent_this_period","carried","period_length_ms","period_start_ms","expiry_ms","revocation_counter","rollover_policy","closed","revoked","delegates","source_account","achieved_verification_level"]
+ProtocolBudget.source = "Projected from the decoded core budget record whose state was proven."
+ProtocolBudget.units = "Amounts are decimal_string u128; period_length_ms, period_start_ms and expiry_ms are decimal_string milliseconds of core protocol time; revocation_counter is a decimal_string counter and never a time; rollover_policy is a decimal_string u8; account and asset fields are 64 lowercase hex; source_account is 64 lowercase hex or null; delegates is an array of 64 lowercase hex."
+ProtocolBudget.achieved_verification_level = "StateProven or higher; a record below StateProven is refused"
+DaemonLimit.required = ["asset","ceiling","consumed","expiry_ms","revoked","notice"]
+DaemonLimit.source = "Projected from the durable daemon limit record."
+DaemonLimit.units = "ceiling and consumed are decimal_string u128; expiry_ms is decimal_string milliseconds of core protocol time; asset is 64 lowercase hex."
+DaemonLimit.notice = "Exactly the BudgetEnforcement DaemonLimit notice. A DaemonLimit record carries no verification level and is never StateProven."
+
+[type.BudgetRecords]
+required = ["budgets"]
+budgets = "BudgetRecord[] in ascending budget_id order"
+
+[type.BudgetState]
+required = ["record","balance","proven_head","activity_id"]
+record = "BudgetRecord of the enforcement in force, with its own head and activity_id keys and the same level strings as create, fund and revoke. verification_status is achieved at achieved_verification_level for a ProtocolBudget and at Unverified for a DaemonLimit."
+balance = "decimal_string u128 of the state-proven budget account balance of the budget asset at proven_head"
+proven_head = "decimal_string u64: the head sequence the budget state was proven at, equal to record.head"
+activity_id = "64 lowercase hex characters or null, equal to record.activity_id; null for a budget.state read, which proves current state rather than one producing activity"
+
+[operation.policy.dry_run]
+required = ["tenant","agent_did","session_id","capability_id","activity_type","counterparty","asset","amount","purpose","core_sequence"]
+response = "PolicyDryRunResult"
+session_id = "64 lowercase hex characters naming a session of the authenticated tenant"
+capability_id = "64 lowercase hex characters naming a capability of the authenticated tenant"
+activity_type = "decimal_string u16"
+counterparty = "64 lowercase hex characters"
+asset = "64 lowercase hex characters"
+amount = "decimal_string u128"
+purpose = "text"
+core_sequence = "decimal_string u64: the caller-stated sequence the hypothetical activity is evaluated at; not a freshness claim"
+semantics = "Evaluates the tenant policy against the hypothetical activity under the real session and capability. It creates no preparation, signature or submission and is a local restriction, never protocol authorisation."
+context = "Where protocol budget, cumulative use or approval evidence is unavailable the result is the existing invalid_context deny; no evidence is invented."
+verification_status = "Always achieved at Unverified; the result carries no freshness, no observed sequence and no state root."
+legacy_payload = "The earlier policy_dry_run payload is the second accepted request shape LegacyPolicyDryRun, read only through the PolicyIntent grammar; it is never reinterpreted."
+legacy_shape = "LegacyPolicyDryRun: exactly the keys context and canonical_intent. Its key set is disjoint from the typed request; a body mixing keys of both shapes or carrying any unknown key is malformed."
+legacy_context = "context is exactly tenant, agent_did, authority_ref, permitted_activity_types, expiry, client and policy_version. permitted_activity_types is an array of decimal_string u16, and an empty array denies; expiry is a decimal_string of seconds. All seven fields are assertions checked against server-owned verified session data, never sources of authority."
+legacy_intent = "canonical_intent is lowercase hex of the bounded PolicyIntent bytes. Raw canonical unsigned activity bytes without the PolicyIntent magic are accepted only when their complete typed semantics and a genuinely retained purpose binding exist; otherwise they are refused as policy.intent_binding_missing."
+legacy_response = "Unchanged: the seven-key PolicyDryRunResult, mode dry_run, verification_status achieved at Unverified."
+
+[type.PolicyDryRunResult]
+required = ["outcome","policy_version","matched_rules","deciding_rule","reason","mode","authority_statement"]
+outcome = ["allow","deny"]
+policy_version = "non-empty text"
+matched_rules = "array of non-empty rule identifiers"
+deciding_rule = "non-empty rule identifier or null"
+reason = ["permitted_by_rule","explicit_deny","approval_required","no_permitting_rule","invalid_context","evaluation_failure"]
+mode = "dry_run"
+authority_statement = "non-empty local-restriction notice for the outcome"
+
+[type.LegacyPolicyDryRun]
+required = ["context","canonical_intent"]
+context = "object with exactly tenant, agent_did, authority_ref, permitted_activity_types, expiry, client and policy_version; each an assertion against server-owned verified session data"
+permitted_activity_types = "array of decimal_string u16; empty denies"
+expiry = "decimal_string seconds"
+canonical_intent = "even-length lowercase hex of 1 to 524288 bytes (MAX_PAYLOAD_BYTES): PolicyIntent bytes, or raw canonical unsigned activity bytes"
+context_type = "SessionContext"
+
+[type.PolicyIntent]
+magic_version = "8 bytes 4c58504400000001"
+purpose_length = "u32 big-endian byte length of purpose"
+purpose = "non-empty UTF-8 of purpose_length bytes"
+activity_length = "u32 big-endian byte length of activity"
+activity = "non-empty canonical unsigned activity bytes of activity_length bytes"
+trailing = "none; any byte after activity is malformed"
+bound = "encoded length at most 524288 bytes (MAX_PAYLOAD_BYTES)"
+family_tag = "bytes beginning with 4c585044 are read only as PolicyIntent; any decode failure, including another version, is malformed and never read as raw activity"

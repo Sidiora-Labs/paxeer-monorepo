@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
 )
 
 type IStoreTracer interface {
@@ -95,7 +94,6 @@ func (gs *Store) Set(key []byte, value []byte) {
 
 // Implements KVStore.
 func (gs *Store) Has(key []byte) bool {
-	defer telemetry.MeasureSince(time.Now(), "store", "gaskv", "has")
 	gs.gasMeter.ConsumeGas(gs.gasConfig.HasCost, types.GasHasDesc)
 	start := traceStart(gs.tracer)
 	res := gs.parent.Has(key)
@@ -107,7 +105,6 @@ func (gs *Store) Has(key []byte) bool {
 
 // Implements KVStore.
 func (gs *Store) Delete(key []byte) {
-	defer telemetry.MeasureSince(time.Now(), "store", "gaskv", "delete")
 	// charge gas to prevent certain attack vectors even though space is being freed
 	gs.gasMeter.ConsumeGas(gs.gasConfig.DeleteCost, types.GasDeleteDesc)
 	start := traceStart(gs.tracer)
@@ -171,12 +168,40 @@ func (gs *Store) VersionExists(version int64) bool {
 	return gs.parent.VersionExists(version)
 }
 
+// DeleteAll charges the same gas as a forward range scan followed by Delete
+// for each key. Enumeration finishes and closes before any mutation occurs.
 func (gs *Store) DeleteAll(start, end []byte) error {
-	return gs.parent.DeleteAll(start, end)
+	keys, err := gs.collectRangeKeys(start, end)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		gs.Delete([]byte(key))
+	}
+	return nil
 }
 
-func (gs *Store) GetAllKeyStrsInRange(start, end []byte) (res []string) {
-	return gs.parent.GetAllKeyStrsInRange(start, end)
+// GetAllKeyStrsInRange charges the same seek and byte costs as a forward
+// iterator, including an empty range's initial seek, and traces the values read.
+func (gs *Store) GetAllKeyStrsInRange(start, end []byte) []string {
+	keys, err := gs.collectRangeKeys(start, end)
+	if err != nil {
+		panic(err)
+	}
+	return keys
+}
+
+func (gs *Store) collectRangeKeys(start, end []byte) (keys []string, err error) {
+	iterator := gs.Iterator(start, end)
+	defer func() { err = iterator.Close() }()
+	for ; iterator.Valid(); iterator.Next() {
+		// Strings own their bytes after Next or Close invalidates iterator keys.
+		keys = append(keys, string(iterator.Key()))
+		if gs.tracer != nil {
+			iterator.Value()
+		}
+	}
+	return keys, nil
 }
 
 type gasIterator struct {

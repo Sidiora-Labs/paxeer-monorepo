@@ -1,7 +1,9 @@
 package dbcache
 
 import (
+	"bytes"
 	"fmt"
+	"sync"
 
 	dbm "github.com/tendermint/tm-db"
 
@@ -14,15 +16,16 @@ var _ types.Checkpointable = (*cachedKeyValueDB)(nil)
 
 // A unified interface for a key-value database and its read-through cache.
 type cachedKeyValueDB struct {
-	db    types.KeyValueDB
-	cache Cache
-	read  Reader
+	db      types.KeyValueDB
+	cache   Cache
+	read    Reader
+	writeMu sync.Mutex
 }
 
 // Combine a cache and a key-value database into a unified interface.
 //
-// Due to the nature of a Cache, it is not safe to mutate byte slices (keys or values) passed to or received from
-// any of the methods on a cachedKeyValueDB after calling them.
+// Due to the nature of a Cache, keys and values passed to a cachedKeyValueDB must remain immutable.
+// Get and BatchGet return independent value copies that callers may mutate.
 func NewCachedKeyValueDB(db types.KeyValueDB, cache Cache) types.KeyValueDB {
 	read := func(key []byte) ([]byte, bool, error) {
 		val, err := db.Get(key)
@@ -39,8 +42,7 @@ func NewCachedKeyValueDB(db types.KeyValueDB, cache Cache) types.KeyValueDB {
 
 // Get returns the value for the given key, or ErrNotFound if not found.
 //
-// It is not safe to mutate the key slice after calling this method, nor is it safe to mutate the value slice
-// that is returned.
+// It is not safe to mutate the key slice after calling this method. The returned value is a copy.
 func (c *cachedKeyValueDB) Get(key []byte) ([]byte, error) {
 	val, found, err := c.cache.Get(c.read, key, true)
 	if err != nil {
@@ -49,16 +51,19 @@ func (c *cachedKeyValueDB) Get(key []byte) ([]byte, error) {
 	if !found {
 		return nil, errorutils.ErrNotFound
 	}
-	return val, nil
+	return bytes.Clone(val), nil
 }
 
 // BatchGet performs a batch read operation. Given a map of keys to read, performs the reads and updates the
 // map with the results. On cache misses the provided Reader is called to fetch from the backing store.
 //
-// It is not thread safe to read or mutate the map while this method is running. It is also not safe to mutate the
-// key or value slices in the map after calling this method.
+// It is not thread safe to read or mutate the map while this method is running. Returned values are copies.
 func (c *cachedKeyValueDB) BatchGet(keys map[string]types.BatchGetResult) error {
 	err := c.cache.BatchGet(c.read, keys)
+	for key, result := range keys {
+		result.Value = bytes.Clone(result.Value)
+		keys[key] = result
+	}
 	if err != nil {
 		return fmt.Errorf("failed to get values from cache: %w", err)
 	}
@@ -69,6 +74,9 @@ func (c *cachedKeyValueDB) BatchGet(keys map[string]types.BatchGetResult) error 
 //
 // It is not safe to mutate the key or value slices after calling this method.
 func (c *cachedKeyValueDB) Set(key []byte, value []byte, opts types.WriteOptions) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	err := c.db.Set(key, value, opts)
 	if err != nil {
 		return fmt.Errorf("failed to set value in database: %w", err)
@@ -81,6 +89,9 @@ func (c *cachedKeyValueDB) Set(key []byte, value []byte, opts types.WriteOptions
 //
 // It is not safe to mutate the key slice after calling this method.
 func (c *cachedKeyValueDB) Delete(key []byte, opts types.WriteOptions) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+
 	err := c.db.Delete(key, opts)
 	if err != nil {
 		return fmt.Errorf("failed to delete value in database: %w", err)
@@ -98,7 +109,7 @@ func (c *cachedKeyValueDB) NewIter(opts *types.IterOptions) (dbm.Iterator, error
 // It is not safe to mutate the key/value slices passed to the batch once inserted. This remains true even
 // after the batch is committed.
 func (c *cachedKeyValueDB) NewBatch() types.Batch {
-	return newCachedBatch(c.db.NewBatch(), c.cache)
+	return newCachedBatch(c.db.NewBatch(), c.cache, &c.writeMu)
 }
 
 func (c *cachedKeyValueDB) Flush() error {

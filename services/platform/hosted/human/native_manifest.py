@@ -1,55 +1,52 @@
-import json
 from pathlib import Path
-import sys
 
-from provision import write_json
+from provision import fields, h32, protected_bytes, protected_json, require, uint, write_json
 
 
-def configure(work_dir, network, sequencer, image, stateful):
+def owner_config(work_dir, network, chain=None):
+    """Validate the owner transport and funding inputs before retaining them."""
+    import ssl
+    from urllib.parse import urlsplit
+    from merged_owner import evm
     root = Path(work_dir) / 'human-evidence-input'
-    work = '/run/owner/work'
-    private = work + '/human-evidence-input'
-    kms = (root / 'owner-kms.json').exists()
-    authority = dict(kms_signer=dict(socket='/run/layerx/human/onboarding-signer.sock', peer_uid=4020, peer_gid=4020),
-                     kms_owner_file=private + '/owner-kms.json') if kms else dict(
-        owner_seed_file=private + '/owner.seed', pending_seed_file=private + '/pending.seed')
-    write_json(root / 'owner-native.json', dict(node_socket='/run/layerx/node/layerxd.lni.sock',
-        network_id=network, **authority,
-        sequencer_public_key=sequencer, layerxctl='/usr/local/bin/layerxctl', fee_limit=1000 if kms else 0,
-        authority_url='https://localhost:9445', authority_token_file=private + '/authority.token',
-        authority_ca_file=private + '/ca.crt', authority_state_root='/run/owner/authority'))
-    pod = stateful['spec']['template']['spec']
-    if any(c['name'] == 'owner-producer' for c in pod['containers']):
-        raise ValueError('owner producer already present; reconcile retained execution')
-    commands = '''umask 077
-mkdir -m 0700 /run/owner/work
-mkdir -m 0700 /run/owner/work/human-evidence-input
-for name in owner-native.json recovery-policy.json recovery-guardians.json owner-admission.json custody-credit.bin owner.seed pending.seed authority.token ca.crt; do
-    install -m 0600 "/run/owner/input/$name" "/run/owner/work/human-evidence-input/$name"
-done
-install -m 0600 /run/owner/input/human-owner-result.json /run/owner/work/human-owner-result.json
-exec sleep infinity'''
-    if kms:
-        commands = commands.replace('custody-credit.bin owner.seed pending.seed authority.token',
-                                    'custody-credit.bin owner-kms.json authority.token')
-    pod['containers'].append(dict(name='owner-producer', image=image, command=['/bin/sh', '-ec'], args=[commands],
-        securityContext=dict(runAsUser=4021, runAsGroup=4020, runAsNonRoot=True, allowPrivilegeEscalation=False,
-                             readOnlyRootFilesystem=True, capabilities=dict(drop=['ALL'])),
-        resources=dict(requests=dict(cpu='100m', memory='64Mi'), limits=dict(cpu='1', memory='256Mi')),
-        volumeMounts=[dict(name='owner-input', mountPath='/run/owner/input', readOnly=True),
-                      dict(name='owner-work', mountPath='/run/owner'),
-                      dict(name='run', mountPath='/run/layerx'),
-                      dict(name='human-state', mountPath='/run/owner/authority', subPath='authority')]))
-    pod['volumes'].extend([dict(name='owner-input', secret=dict(secretName='layerx-human-native-input', defaultMode=0o440)),
-                          dict(name='owner-work', emptyDir=dict(medium='Memory', sizeLimit='32Mi'))])
-    for field in ('status',):
-        stateful.pop(field, None)
-    for field in ('managedFields', 'resourceVersion', 'uid', 'creationTimestamp', 'generation'):
-        stateful['metadata'].pop(field, None)
+    path = root / 'owner-evm.json'
+    config = protected_json(path)
+    fields(config, 'rpc_url rpc_ca_file network_id chain_id confirmations owner_seed_file evm_key_file asset_id funding_key_file funding_source funding_amount',
+           path, 'merged owner configuration')
+    for name, bits in [('network_id', 32), ('chain_id', 64), ('confirmations', 32), ('funding_amount', 128)]:
+        uint(config[name], bits, path, name, 1)
+    require(config['network_id'] == network and (chain is None or config['chain_id'] == chain),
+            path, 'merged owner network and chain binding')
+    require(type(config['rpc_url']) is str, path, 'HTTPS RPC URL')
+    url = urlsplit(config['rpc_url'])
+    require(url.scheme == 'https' and url.hostname and url.username is None and url.password is None
+            and not url.query and not url.fragment, path, 'authenticated HTTPS JSON-RPC')
+    ssl.create_default_context(cadata=protected_bytes(config['rpc_ca_file'], 65536).decode('ascii'))
+    for name in ('asset_id', 'funding_source'):
+        h32(config[name], path, name)
+    require(len(protected_bytes(config['owner_seed_file'], 32)) == 32, path, 'owner Ed25519 seed')
+    for name in ('evm_key_file', 'funding_key_file'):
+        protected_bytes(config[name], 128)
+        evm.read_key(config[name])
+    for name in ('custody-credit.bin', 'owner-custody.json', 'custody.profile'):
+        require(not (root / name).exists() and not (root / name).is_symlink(), root / name,
+                'retained pre-merge input requires explicit migration; preserve original custody')
+    return config
+
+
+def configure(work_dir, network, sequencer, image, stateful, chain=None):
+    """Retain the explicit merged RPC configuration; no retired daemon sidecar."""
+    root = Path(work_dir) / 'human-evidence-input'
+    from owner_kms import retain_json
+    config = owner_config(work_dir, network, chain)
+    retain_json(root / 'owner-native.json', config)
     return stateful
 
 
 if __name__ == '__main__':
+    import json
+    import sys
+
     source = Path(sys.argv[5])
     value = configure(sys.argv[1], int(sys.argv[2]), sys.argv[3], sys.argv[4], json.loads(source.read_text()))
     write_json(Path(sys.argv[6]), value)

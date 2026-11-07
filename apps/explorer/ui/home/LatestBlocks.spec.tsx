@@ -69,7 +69,7 @@ const renderCard = (socketUrl?: string, onRender?: React.ProfilerOnRenderCallbac
 const heights = (container: HTMLElement) => Array.from(container.querySelectorAll('[data-latest-block]'))
   .map((item) => item.getAttribute('data-latest-block'));
 
-const rowsContainer = (container: HTMLElement) => container.querySelector('[data-label="latest-blocks-rows"]') as HTMLElement;
+const rowsContainer = (container: HTMLElement) => container.querySelector('[data-label="latest-blocks-table-rows"]') as HTMLElement;
 
 vi.setConfig({ testTimeout: 60_000 });
 
@@ -126,14 +126,16 @@ describe('LatestBlocks', () => {
     expect(rows[1].textContent).not.toContain(' in ');
   });
 
-  it('closes the card with the link to every block', async() => {
-    const { container } = renderCard();
+  it('links to every block in the heading row', async() => {
+    renderCard();
 
     await screen.findByText('Latest blocks');
 
-    const footer = container.querySelector('[data-label="view-all-blocks"] a') as HTMLAnchorElement;
+    const footer = screen.getByRole('link', { name: 'View all blocks' });
 
-    expect(footer.textContent).toBe('View all blocks');
+    expect(footer.closest('[data-header]')).not.toBeNull();
+
+    expect(footer.textContent).toBe('View all');
     expect(footer.getAttribute('href')).toBe('/blocks');
   });
 
@@ -264,6 +266,36 @@ describe('LatestBlocks', () => {
       expect(rowRenders.filter((height) => height === blockMock.base.height)).toHaveLength(0);
       expect(rowRenders.filter((height) => height === blockMock.base2.height)).toHaveLength(0);
       expect(rowRenders.filter((height) => height === blockMock.base.height + 1)).toHaveLength(1);
+    } finally {
+      await socket.close();
+    }
+  });
+
+  it('replaces the row of a block sent again once its price updates are counted', async() => {
+    const socket = await createTestSocket();
+
+    try {
+      const { container } = renderCard(socket.url);
+
+      await vi.waitFor(() => {
+        expect(heights(container)).toEqual([ String(blockMock.base.height), String(blockMock.base2.height) ]);
+      }, { timeout: 30_000, interval: 100 });
+
+      await socket.join(TOPIC);
+
+      const row = () => container.querySelector(`[data-latest-block="${ blockMock.base.height }"]`) as HTMLElement;
+      expect(row().textContent).toContain(`${ blockMock.base.transactions_count } txns`);
+
+      socket.send(TOPIC, 'new_block', {
+        average_block_time: '1000',
+        block: { ...blockMock.base, transactions_count: blockMock.base.transactions_count + 2, price_update_count: 2 },
+      });
+
+      await vi.waitFor(() => {
+        expect(row().textContent).toContain(`${ blockMock.base.transactions_count + 2 } txns`);
+      }, { timeout: 30_000, interval: 50 });
+
+      expect(heights(container)).toEqual([ String(blockMock.base.height), String(blockMock.base2.height) ]);
     } finally {
       await socket.close();
     }

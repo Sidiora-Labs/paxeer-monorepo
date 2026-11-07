@@ -86,27 +86,31 @@ func RegisterCwPointerCmd() *cobra.Command {
 	return cmd
 }
 
+// BuildEvmPointerCall builds the pointer registration consumed by the command.
+func BuildEvmPointerCall(pointerType, address string) (precompiles.PrecompileInfo, []byte, error) {
+	var method string
+	switch pointerType {
+	case "CW20":
+		method = pointer.AddCW20Pointer
+	case "CW721":
+		method = pointer.AddCW721Pointer
+	case "CW1155":
+		method = pointer.AddCW1155Pointer
+	case "NATIVE":
+		method = pointer.AddNativePointer
+	default:
+		return precompiles.PrecompileInfo{}, nil, fmt.Errorf("invalid pointer type: %s", pointerType)
+	}
+	return BuildPrecompileCall(pointer.PrecompileName, []string{method, address})
+}
+
 func RegisterEvmPointerCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "register-evm-pointer [pointer type] [cw-address] --gas-fee-cap=<cap> --gas-limit=<limit> --evm-rpc=<url>",
 		Short: `Register an EVM pointer for a CosmWasm contract. Pointer type is either CW20, CW721, CW1155, or NATIVE.`,
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pInfo := precompiles.GetPrecompileInfo(pointer.PrecompileName)
-			var payload []byte
-			var err error
-			switch args[0] {
-			case "CW20":
-				payload, err = getMethodPayload(pInfo.ABI, []string{pointer.AddCW20Pointer, args[1]})
-			case "CW721":
-				payload, err = getMethodPayload(pInfo.ABI, []string{pointer.AddCW721Pointer, args[1]})
-			case "CW1155":
-				payload, err = getMethodPayload(pInfo.ABI, []string{pointer.AddCW1155Pointer, args[1]})
-			case "NATIVE":
-				payload, err = getMethodPayload(pInfo.ABI, []string{pointer.AddNativePointer, args[1]})
-			default:
-				return fmt.Errorf("invalid pointer type: %s", args[0])
-			}
+			pInfo, payload, err := BuildEvmPointerCall(args[0], args[1])
 			if err != nil {
 				return err
 			}
@@ -123,17 +127,17 @@ func RegisterEvmPointerCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			nonce, err := getNonce(rpc, key.PublicKey)
+			nonce, err := getNonce(cmd.Context(), rpc, key.PublicKey)
 			if err != nil {
 				return err
 			}
 
 			txData.Nonce = nonce
 			txData.Data = payload
-			addr := common.HexToAddress(pointer.PointerAddress)
+			addr := pInfo.Address
 			txData.To = &addr
 
-			resp, err := sendTx(txData, rpc, key)
+			resp, err := sendTx(cmd.Context(), txData, rpc, key)
 			if err != nil {
 				return err
 			}

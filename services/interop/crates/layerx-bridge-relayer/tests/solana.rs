@@ -122,6 +122,7 @@ fn parts(recording: &Recording, signer: &SignerServer, journal: &Path) -> Relaye
         attestor: Attestor::new(signer.remote("attestor-1", &key(ATTESTOR)))
             .unwrap_or_else(|error| panic!("attestor: {error:?}")),
         paxeer: PaxeerLink {
+            receipt_keys: support::receipt_keys(),
             settings: PAXEER,
             rpc: recording.endpoint("paxeer"),
             submitter: Submitter::paxeer(signer.remote("paxeer-fees-1", &key(PAXEER_FEES)))
@@ -230,6 +231,7 @@ const CONFIG: &str = r#"{
     "attestor": {"handle": "bridge-attestor-1", "public_key": "0x02aa"},
     "paxeer": {
         "chain_id": 229,
+        "receipt_keys": [{"sequencer_id": "0x6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b6b", "public_key": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e", "first_height": 1000, "last_height": 1999}],
         "endpoints": [{"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 3000}],
         "finality_depth": 2, "start_block": 0, "max_block_range": 500,
         "submitter": {"handle": "bridge-paxeer-fees", "public_key": "0x02bb"},
@@ -625,6 +627,7 @@ fn solana_deposits_are_observed_and_submitted_as_bridge_in_exactly_once() {
 
     // Restart on the same journal: nothing new is final, the vector deposit's
     // transaction is included and nothing is signed again.
+    recording.committed_receipt(&first_bridge_in);
     recording.set_phase("restart");
     let mut relayer = start(&recording, &signer, &journal, settings())
         .unwrap_or_else(|error| panic!("relayer restart: {error}"));
@@ -653,7 +656,7 @@ fn solana_deposits_are_observed_and_submitted_as_bridge_in_exactly_once() {
             .and_then(|item| item.completion),
         Some(Completion::Included {
             tx_hash: Keccak256::digest(&first_bridge_in).into(),
-            block_number: 0x10,
+            block_number: 1003,
         })
     );
     assert_eq!(attestor_requests(&signer), 1);

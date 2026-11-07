@@ -1,0 +1,11 @@
+[sweep.go-cmd]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 0
+targets_passed = 0
+targets_failed = 0
+targets_not_run = 0
+enumeration_command = "CGO_ENABLED=1 go list ./cmd/..."
+enumeration_exit_code = 0
+observed = "go list printed no package paths and warned that ./cmd/... matched no packages; there are no root-module Go targets under cmd/ at this revision."
+native_libraries = "Not needed because enumeration returned no Go packages."

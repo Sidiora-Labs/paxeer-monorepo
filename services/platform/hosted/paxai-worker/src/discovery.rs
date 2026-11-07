@@ -10,7 +10,7 @@ use crate::auth::{
     ERROR_BODY_BYTES,
 };
 use crate::metadata::{Endpoint, Manifest};
-use layerx_client::head::Head;
+use layerx_client::px::PxNetworkHead;
 use layerx_programs_ai_market::{
     admission::{AdmissionMeta, AdmissionTable, Participant},
     codec,
@@ -18,6 +18,7 @@ use layerx_programs_ai_market::{
     queries::{bind_snapshot, CaptureFacts, FinalityEvidence, QueryError, SnapshotBinding},
     registry::{market_clock, MarketClock, MarketHeader},
     registry_ops::{PolicySection, ACTIVE, SUSPENDED},
+    reputation_transition::split_joint,
     rewards::{decode_reward_state, REWARD_STATE_BYTES},
     state::{self, Section},
     types::{
@@ -42,9 +43,9 @@ use std::fmt;
 use std::io::{self, Read, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, TcpStream};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-/// A finalized view older than this many sealed batches is stale for new admission.
+/// A finalized view older than this many committed blocks is stale for new admission.
 pub const MAX_FINALITY_LAG: u64 = 8;
 /// A transport or runner observation is current for this long.
 pub const READINESS_TTL_MS: u64 = 30_000;
@@ -62,12 +63,12 @@ pub struct IdentityEvidence {
 }
 
 /// Everything one finalized authority view is built from.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AuthorityEvidence<'a> {
     pub state: &'a [u8],
     pub facts: &'a CaptureFacts,
     pub finality: &'a FinalityEvidence,
-    pub head: Head,
+    pub head: PxNetworkHead,
     pub owner: IdentityEvidence,
     pub roster: Option<&'a [u8]>,
     pub observed_ms: u64,
@@ -121,8 +122,8 @@ impl FinalizedAuthority {
             return Err(ServiceError::WrongDomain);
         }
         let height = snapshot.execution_height;
-        let sealed = evidence.head.sealed_batch;
-        if sealed < height || sealed - height > MAX_FINALITY_LAG {
+        let committed = evidence.head.latest_committed_height;
+        if committed < height || committed - height > MAX_FINALITY_LAG {
             return Err(ServiceError::StaleAuthority);
         }
         let shared = state::decode_shared_state(evidence.state)?;
@@ -131,7 +132,9 @@ impl FinalizedAuthority {
         let record = WorkerTable::decode(workers)?
             .get(worker)
             .ok_or(ServiceError::NotFound)?;
-        let admission = AdmissionTable::decode(shared.section(Section::ReputationAdmission)?)?;
+        let (_reputation, admission_bytes) =
+            split_joint(shared.section(Section::ReputationAdmission)?)?;
+        let admission = AdmissionTable::decode(admission_bytes)?;
         let current_epoch = admission.current_epoch();
         let (roster, frozen) = match (current_epoch, evidence.roster) {
             (None, None) => (Presence::Absent, None),
@@ -201,6 +204,10 @@ impl FinalizedAuthority {
     #[must_use]
     pub const fn current_epoch(&self) -> Option<u64> {
         self.current_epoch
+    }
+    #[must_use]
+    pub const fn membership(&self) -> Option<AdmissionMeta> {
+        self.membership
     }
     #[must_use]
     pub const fn record(&self) -> &WorkerCurrent {
@@ -611,6 +618,37 @@ fn tls_failure(error: &io::Error) -> TransportError {
     }
 }
 
+fn remaining(deadline: Instant) -> io::Result<Duration> {
+    deadline
+        .checked_duration_since(Instant::now())
+        .filter(|left| !left.is_zero())
+        .ok_or_else(|| io::Error::from(io::ErrorKind::TimedOut))
+}
+
+struct DeadlineSocket {
+    socket: TcpStream,
+    deadline: Instant,
+}
+impl Read for DeadlineSocket {
+    fn read(&mut self, bytes: &mut [u8]) -> io::Result<usize> {
+        self.socket
+            .set_read_timeout(Some(remaining(self.deadline)?))?;
+        self.socket.read(bytes)
+    }
+}
+impl Write for DeadlineSocket {
+    fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
+        self.socket
+            .set_write_timeout(Some(remaining(self.deadline)?))?;
+        self.socket.write(bytes)
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        self.socket
+            .set_write_timeout(Some(remaining(self.deadline)?))?;
+        self.socket.flush()
+    }
+}
+
 /// Client for one worker endpoint: one resolution, every answer inside the profile, a TLS
 /// 1.3 handshake validated by `WebPKI` and the manifest pin before any request byte is sent,
 /// and no redirect following.
@@ -626,6 +664,7 @@ impl EndpointClient {
         host: &str,
         port: u16,
         resolve: impl FnOnce(&str, u16) -> io::Result<Vec<IpAddr>>,
+        deadline: Instant,
     ) -> Result<TcpStream, TransportError> {
         let answers = resolve(host, port).map_err(|_| TransportError::Unavailable)?;
         if answers.is_empty() {
@@ -637,7 +676,9 @@ impl EndpointClient {
         let socket = answers
             .iter()
             .find_map(|ip| {
-                TcpStream::connect_timeout(&SocketAddr::new(*ip, port), self.timeout).ok()
+                remaining(deadline).ok().and_then(|timeout| {
+                    TcpStream::connect_timeout(&SocketAddr::new(*ip, port), timeout).ok()
+                })
             })
             .ok_or(TransportError::Unavailable)?;
         let peer = socket
@@ -658,7 +699,8 @@ impl EndpointClient {
         endpoint: &Endpoint,
         host: &str,
         socket: TcpStream,
-    ) -> Result<StreamOwned<ClientConnection, TcpStream>, TransportError> {
+        deadline: Instant,
+    ) -> Result<StreamOwned<ClientConnection, DeadlineSocket>, TransportError> {
         let provider = Arc::new(rustls::crypto::ring::default_provider());
         let inner =
             WebPkiServerVerifier::builder_with_provider(self.roots.clone(), provider.clone())
@@ -677,7 +719,7 @@ impl EndpointClient {
             ServerName::try_from(host.to_owned()).map_err(|_| TransportError::UnsafeEndpoint)?;
         let connection =
             ClientConnection::new(Arc::new(config), name).map_err(|_| TransportError::Protocol)?;
-        let mut stream = StreamOwned::new(connection, socket);
+        let mut stream = StreamOwned::new(connection, DeadlineSocket { socket, deadline });
         while stream.conn.is_handshaking() {
             stream
                 .conn
@@ -704,11 +746,16 @@ impl EndpointClient {
         let (host, port) = endpoint
             .authority()
             .map_err(|_| TransportError::UnsafeEndpoint)?;
-        if !path.starts_with("/paxai/v1/") || body.len() > MAX_ENVELOPE_BYTES {
+        if (path != auth::STATUS_PATH && auth::Route::from_path(path).is_none())
+            || body.len() > MAX_ENVELOPE_BYTES
+        {
             return Err(TransportError::UnsafeEndpoint);
         }
-        let socket = self.connect(host, port, resolve)?;
-        let mut stream = self.handshake(endpoint, host, socket)?;
+        let deadline = Instant::now()
+            .checked_add(self.timeout)
+            .ok_or(TransportError::Unavailable)?;
+        let socket = self.connect(host, port, resolve, deadline)?;
+        let mut stream = self.handshake(endpoint, host, socket, deadline)?;
         let head = format!(
             "POST {path} HTTP/1.1\r\nHost: {host}:{port}\r\nContent-Type: application/octet-stream\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
             body.len()
@@ -769,32 +816,35 @@ fn read_response(stream: &mut impl Read) -> Result<(u16, Vec<u8>), TransportErro
     }
     let text = std::str::from_utf8(&head).map_err(|_| TransportError::Malformed)?;
     let mut lines = text.split("\r\n");
-    let status = lines
-        .next()
-        .and_then(|line| line.strip_prefix("HTTP/1.1 "))
-        .and_then(|rest| rest.get(..3))
-        .and_then(|code| code.parse::<u16>().ok())
+    let status_line = lines.next().ok_or(TransportError::Malformed)?;
+    let rest = status_line
+        .strip_prefix("HTTP/1.1 ")
         .ok_or(TransportError::Malformed)?;
-    let mut length = None;
-    for line in lines {
-        if let Some((name, value)) = line.split_once(':') {
-            if name.eq_ignore_ascii_case("content-length") {
-                length = Some(
-                    value
-                        .trim()
-                        .parse::<usize>()
-                        .map_err(|_| TransportError::Malformed)?,
-                );
-            }
-        }
+    let (code, reason) = rest.split_once(' ').ok_or(TransportError::Malformed)?;
+    if code.len() != 3
+        || !code.bytes().all(|b| b.is_ascii_digit())
+        || !reason.bytes().all(|b| (32..=126).contains(&b))
+    {
+        return Err(TransportError::Malformed);
     }
-    let length = length.unwrap_or(0);
+    let status = code.parse::<u16>().map_err(|_| TransportError::Malformed)?;
+    if !(100..=599).contains(&status) {
+        return Err(TransportError::Malformed);
+    }
+    let length = crate::http::content_length(lines).ok_or(TransportError::Malformed)?;
     if length > MAX_ENVELOPE_BYTES {
         return Err(TransportError::Malformed);
     }
     let mut body = vec![0; length];
-    stream
-        .read_exact(&mut body)
-        .map_err(|error| tls_failure(&error))?;
+    stream.read_exact(&mut body).map_err(|error| {
+        if matches!(
+            error.kind(),
+            io::ErrorKind::UnexpectedEof | io::ErrorKind::InvalidData
+        ) {
+            TransportError::Malformed
+        } else {
+            tls_failure(&error)
+        }
+    })?;
     Ok((status, body))
 }

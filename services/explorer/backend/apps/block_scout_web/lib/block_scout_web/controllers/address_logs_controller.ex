@@ -92,6 +92,7 @@ defmodule BlockScoutWeb.AddressLogsController do
 
   def search_logs(conn, %{"topic" => topic, "address_id" => address_hash_string} = params) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
+         {:ok, false} <- AccessHelper.restricted_access?(address_hash_string, params),
          :ok <- Address.check_address_exists(address_hash) do
       topic = String.trim(topic)
 
@@ -118,7 +119,7 @@ defmodule BlockScoutWeb.AddressLogsController do
             nil
 
           next_page_params ->
-            address_logs_path(conn, :index, address_hash, Map.delete(next_page_params, "type"))
+            address_logs_path(conn, :search_logs, Map.delete(next_page_params, "type"))
         end
 
       items =

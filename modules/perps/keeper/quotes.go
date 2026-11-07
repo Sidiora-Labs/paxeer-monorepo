@@ -77,7 +77,7 @@ func (k Keeper) QuoteOpen(ctx sdk.Context, account common.Address, marketID uint
 	if err != nil {
 		return OpenPositionQuote{}, err
 	}
-	events, err := k.quotePlace(cache, order, uint256.Int{})
+	events, err := k.quotePlace(cache, order, order.SizeBase)
 	if err != nil {
 		return OpenPositionQuote{}, err
 	}
@@ -162,7 +162,7 @@ func (k Keeper) CompatOpenOrder(ctx sdk.Context, account common.Address, marketI
 	if err != nil {
 		return types.Order{}, err
 	}
-	if market.PxDecimals > types.USDDecimals || market.SzDecimals > types.USDDecimals || params.DefaultSlippagePpm > types.PpmDenominator {
+	if market.PxDecimals > types.USDDecimals || market.SzDecimals > types.USDDecimals || params.DefaultSlippagePpm >= types.PpmDenominator {
 		return types.Order{}, types.ErrInvalidParams
 	}
 	price := new(big.Int)
@@ -172,26 +172,17 @@ func (k Keeper) CompatOpenOrder(ctx sdk.Context, account common.Address, marketI
 		tick := new(big.Int).Exp(big.NewInt(10), big.NewInt(int64(types.USDDecimals-market.PxDecimals)), nil)
 		price.Mul(price.Quo(price, tick), tick)
 	} else {
-		it := sdk.KVStorePrefixIterator(ctx.KVStore(k.storeKey), types.BookSidePrefix(marketID, types.SideBuy))
-		defer it.Close()
-		for ; it.Valid(); it.Next() {
-			if len(it.Value()) != 32 {
-				return types.Order{}, fmt.Errorf("perps: invalid book order id")
-			}
-			var id uint256.Int
-			id.SetBytes(it.Value())
-			var maker types.Order
-			if err := maker.Unmarshal(ctx.KVStore(k.storeKey).Get(types.OrderKey(id))); err != nil {
-				return types.Order{}, err
-			}
-			if maker.Account != account && maker.FilledBase.Lt(&maker.SizeBase) {
-				price.Set(maker.LimitPrice.ToBig())
-				break
-			}
+		// Size at the visible best bid, including the caller's own bid; the
+		// matching engine applies self-trade prevention identically in a quote
+		// and in execution after this shared sizing step.
+		bid, ok, err := k.BestBid(ctx, marketID)
+		if err != nil {
+			return types.Order{}, err
 		}
-		if price.Sign() == 0 {
+		if !ok {
 			return types.Order{}, types.ErrNoLiquidity
 		}
+		price.Set(bid.ToBig())
 	}
 	if price.Sign() == 0 {
 		return types.Order{}, types.ErrPriceStale
@@ -214,7 +205,9 @@ func (k Keeper) CompatOpenOrder(ctx sdk.Context, account common.Address, marketI
 	if err != nil {
 		return types.Order{}, err
 	}
-	sizeUsd, err := quoteWord(new(big.Int).Quo(new(big.Int).Mul(base, state.MarkPrice.ToBig()), quoteScale()))
+	size := new(big.Int).Mul(base, state.MarkPrice.ToBig())
+	size.Add(size, new(big.Int).Sub(quoteScale(), big.NewInt(1)))
+	sizeUsd, err := quoteWord(size.Quo(size, quoteScale()))
 	if err != nil {
 		return types.Order{}, err
 	}
@@ -249,7 +242,7 @@ func (k Keeper) QuotePartialClose(ctx sdk.Context, positionID, closeSizeUsd uint
 	if err != nil {
 		return PartialCloseQuote{}, err
 	}
-	events, err := k.quotePlace(cache, order, uint256.Int{})
+	events, err := k.quotePlace(cache, order, order.SizeBase)
 	if err != nil {
 		return PartialCloseQuote{}, err
 	}
@@ -312,7 +305,7 @@ func (k Keeper) OracleTWAP(ctx sdk.Context, marketID uint64) (*big.Int, error) {
 }
 
 // quotePlace places order as the quotes simulate it; a non-zero sizeBase
-// sizes it in base, as the whole-position close is placed.
+// sizes it in base, as closing orders are placed.
 func (k Keeper) quotePlace(ctx sdk.Context, order types.Order, sizeBase uint256.Int) ([]types.EventRecord, error) {
 	placed, err := k.PlaceOrder(ctx, order.Account, OrderParams{MarketID: order.MarketID, IsLong: order.IsLong,
 		OrderType: uint8(order.Type), TimeInForce: uint8(order.TimeInForce), SizeUsd: order.SizeUsd, SizeBase: sizeBase,

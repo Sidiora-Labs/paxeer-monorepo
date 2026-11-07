@@ -1,0 +1,1019 @@
+[audit.22.30.42]
+task = "22.30.42"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 87
+findings = 41
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["device-token-rotation", "notification-session-revocation", "notification-channel-optout", "backfill-profile-fields", "backfill-provisioning-order", "export-sdk-authorization"]
+
+[file.1]
+path = "services/launchpad/pnl-tracker/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Embedded PnL migration filesystem agrees with the goose loader."
+
+[file.2]
+path = "services/launchpad/user/cmd/userd/main.go"
+lines = 20
+verdict = "clean"
+note = "Entrypoint passes process cancellation to app.Run and reports failure."
+
+[file.3]
+path = "services/launchpad/user/internal/account/account_test.go"
+lines = 542
+verdict = "clean"
+note = "Read all store cases, revisions, refusals, watch bounds, consent and backfill assertions; backfill defects are recorded at the producer."
+
+[file.4]
+path = "services/launchpad/user/internal/account/backfill.go"
+lines = 288
+verdict = "issues"
+note = "Read range locking, source checksums, quarantine, identity linkage, events and read-switch projections; preservation defects are recorded."
+
+[file.5]
+path = "services/launchpad/user/internal/account/connected_integration_test.go"
+lines = 1021
+verdict = "clean"
+note = "Read complete connected identity, devices, assets, preferences, recovery, deletion and restart cases using tracked service migrations."
+
+[file.6]
+path = "services/launchpad/user/internal/account/development_profile_writes.go"
+lines = 276
+verdict = "clean"
+note = "Development writes authenticate through identity, validate ownership/fields, update the legacy projection and invalidate cache."
+
+[file.7]
+path = "services/launchpad/user/internal/account/development_profiles.go"
+lines = 221
+verdict = "clean"
+note = "Development public projections preserve versioned envelopes, bounded batch handling and wallet validation."
+
+[file.8]
+path = "services/launchpad/user/internal/account/devices_http.go"
+lines = 220
+verdict = "issues"
+note = "Read proof verification, installation/session binding, token sealing, registration, deletion and eligibility; rotation violates the consumer contract."
+
+[file.9]
+path = "services/launchpad/user/internal/account/endpoint_proof.go"
+lines = 133
+verdict = "clean"
+note = "Compact endpoint/device proofs enforce signed versions, bounded encodings, account, provider, token digest and expiry."
+
+[file.10]
+path = "services/launchpad/user/internal/account/events.go"
+lines = 114
+verdict = "clean"
+note = "Events bind stable identity, revision, declared subjects and transactionally queued delivery envelopes."
+
+[file.11]
+path = "services/launchpad/user/internal/account/http.go"
+lines = 430
+verdict = "clean"
+note = "Read all route registration, gateway resolution, owner actions, cursor handling and response generation against frozen operations."
+
+[file.12]
+path = "services/launchpad/user/internal/account/http_test.go"
+lines = 215
+verdict = "clean"
+note = "Read HTTP validation, bounded request decoding and error mapping assertions."
+
+[file.13]
+path = "services/launchpad/user/internal/account/jobs_http.go"
+lines = 322
+verdict = "issues"
+note = "Read export/deletion status, recovery receipts and authenticated downloads; typed authorization and failed-read recovery have findings."
+
+[file.14]
+path = "services/launchpad/user/internal/account/jobs_worker.go"
+lines = 378
+verdict = "clean"
+note = "Read durable job claims, leases/retries, encrypted export publication and deletion acknowledgments; unused runtime switch is recorded at config."
+
+[file.15]
+path = "services/launchpad/user/internal/account/models.go"
+lines = 375
+verdict = "clean"
+note = "Profile/preference/consent/watch types enforce address, URL, enum, timezone and capacity constraints; provisioning default drift is recorded at its producer."
+
+[file.16]
+path = "services/launchpad/user/internal/account/observability.go"
+lines = 133
+verdict = "clean"
+note = "Metrics use bounded labels and readiness reflects dependency failures without publishing account secrets."
+
+[file.17]
+path = "services/launchpad/user/internal/account/preferences_http.go"
+lines = 769
+verdict = "issues"
+note = "Read identity provisioning, preferences, attribution, watchlist and presentation paths; initial privacy defaults differ from shared defaults."
+
+[file.18]
+path = "services/launchpad/user/internal/account/privacy.go"
+lines = 451
+verdict = "clean"
+note = "Read durable export/deletion requests, ledger binding, leases, tombstones and consumption; premature consumption is recorded at the HTTP caller."
+
+[file.19]
+path = "services/launchpad/user/internal/account/production_profiles_test.go"
+lines = 116
+verdict = "clean"
+note = "Production profile tests exercise stable projection and asset ownership/approval refusals."
+
+[file.20]
+path = "services/launchpad/user/internal/account/profiles_http.go"
+lines = 107
+verdict = "clean"
+note = "Profile handlers validate ownership, revision and approved assets and return versioned envelopes."
+
+[file.21]
+path = "services/launchpad/user/internal/account/profiles_http_test.go"
+lines = 140
+verdict = "clean"
+note = "Read profile HTTP validation, principal refusal and public projection assertions."
+
+[file.22]
+path = "services/launchpad/user/internal/account/proof_launchpad_user_test.go"
+lines = 508
+verdict = "clean"
+note = "Read complete PostgreSQL/TCP/generated-decoder proof and reopen/refusal cases; it proves its stated authenticated-context boundary and queued-job round trips."
+
+[file.23]
+path = "services/launchpad/user/internal/account/qualify_phase2.py"
+lines = 88
+verdict = "clean"
+note = "Phase-two qualifier drives actual configured gateway/identity paths and bounds requests and outputs."
+
+[file.24]
+path = "services/launchpad/user/internal/account/qualify_phase4.py"
+lines = 730
+verdict = "clean"
+note = "Read all phase-four scenarios, real service calls, SQL snapshots and restart/revocation assertions; no further shape mismatch identified."
+
+[file.25]
+path = "services/launchpad/user/internal/account/store.go"
+lines = 444
+verdict = "clean"
+note = "Read transaction locking, event enqueue, revisions, profile/preferences/watch persistence and consent eligibility; delivery projection issues belong to app.go."
+
+[file.26]
+path = "services/launchpad/user/internal/account/v2_catalog_test.go"
+lines = 111
+verdict = "clean"
+note = "Catalog test enumerates frozen user methods, reachable routes and unauthenticated error envelopes."
+
+[file.27]
+path = "services/launchpad/user/internal/account/v2_owner_http.go"
+lines = 67
+verdict = "clean"
+note = "Owner adapters preserve action semantics while producing frozen v2 envelopes and no-content deletes."
+
+[file.28]
+path = "services/launchpad/user/internal/account/v2_owner_http_test.go"
+lines = 371
+verdict = "issues"
+note = "Read gateway assertions, signed operations, exports/deletion and devices; deletion fixture uses separate integration DDL."
+
+[file.29]
+path = "services/launchpad/user/internal/account/v2_owner_wire.go"
+lines = 143
+verdict = "issues"
+note = "Read owner envelope validation/projection against schemas; registry signatures and contract pointer need reconciliation."
+
+[file.30]
+path = "services/launchpad/user/internal/account/v2_owner_wire_test.go"
+lines = 309
+verdict = "issues"
+note = "Read complete owner adapter/consumer cases; completed export fixture omits the real producer authorization."
+
+[file.31]
+path = "services/launchpad/user/internal/account/v2_watchlist_http.go"
+lines = 88
+verdict = "clean"
+note = "V2 watchlist routes preserve revision, position, body/query validation and 204 deletes."
+
+[file.32]
+path = "services/launchpad/user/internal/account/v2_watchlist_http_test.go"
+lines = 269
+verdict = "clean"
+note = "Read signed watchlist HTTP mutation/refusal cases, cursor handling and frozen round trips."
+
+[file.33]
+path = "services/launchpad/user/internal/account/v2_wire.go"
+lines = 71
+verdict = "issues"
+note = "Read profile/watchlist adapters and position bounds; two registry signatures differ from exports."
+
+[file.34]
+path = "services/launchpad/user/internal/account/v2_wire_test.go"
+lines = 204
+verdict = "clean"
+note = "Read adapter schema, order, malformed input, bounds and consumer assertions."
+
+[file.35]
+path = "services/launchpad/user/internal/account/wire.go"
+lines = 189
+verdict = "clean"
+note = "Wire conversion preserves decimal revisions, timestamps, job state mapping and consent/category channel representation."
+
+[file.36]
+path = "services/launchpad/user/internal/app/account_assets_test.go"
+lines = 140
+verdict = "clean"
+note = "Asset tests exercise metadata approval, account ownership and immutable object references."
+
+[file.37]
+path = "services/launchpad/user/internal/app/app.go"
+lines = 1166
+verdict = "issues"
+note = "Read complete production/development wiring, TLS, workers, subjects, dependencies and internal authorities; notification disagreements are recorded."
+
+[file.38]
+path = "services/launchpad/user/internal/app/committed_blocks.go"
+lines = 25
+verdict = "clean"
+note = "Chain verifier uses node-reported committed hashes and its RPC connection participates in app shutdown."
+
+[file.39]
+path = "services/launchpad/user/internal/app/committed_blocks_test.go"
+lines = 189
+verdict = "clean"
+note = "Read reported-hash and refusal tests at their documented direct committed-state boundary."
+
+[file.40]
+path = "services/launchpad/user/internal/app/development_profile_writes_test.go"
+lines = 369
+verdict = "clean"
+note = "Read development gateway-to-user writes, identity refusals and SQL/cache assertions."
+
+[file.41]
+path = "services/launchpad/user/internal/app/development_profiles_test.go"
+lines = 242
+verdict = "clean"
+note = "Read development versioned profile GET/batch routing and legacy-row projections."
+
+[file.42]
+path = "services/launchpad/user/internal/config/config.go"
+lines = 509
+verdict = "issues"
+note = "Read all defaults, mounted secrets, TLS pins, schema/budget and production checks; metadata-avatar switch is unused."
+
+[file.43]
+path = "services/launchpad/user/internal/config/config_test.go"
+lines = 200
+verdict = "clean"
+note = "Read production-required settings, secret transport and read-switch configuration tests."
+
+[file.44]
+path = "services/launchpad/user/internal/db/external.sql"
+lines = 13
+verdict = "clean"
+note = "Foreign indexer model is read-only and matches created-pool query fields."
+
+[file.45]
+path = "services/launchpad/user/internal/db/query.sql"
+lines = 65
+verdict = "clean"
+note = "Read all legacy profile/image/watch SQL, conflict keys, timestamps and parameter binding."
+
+[file.46]
+path = "services/launchpad/user/internal/db/sqlcdb/db.go"
+lines = 32
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; database wrapper takes its verdict from the generator rather than a source review."
+
+[file.47]
+path = "services/launchpad/user/internal/db/sqlcdb/models.go"
+lines = 44
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; models use pgtype.Text; reproduction drift is recorded against sqlc.yaml."
+
+[file.48]
+path = "services/launchpad/user/internal/db/sqlcdb/querier.go"
+lines = 27
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; generated query interface takes its verdict from its generator."
+
+[file.49]
+path = "services/launchpad/user/internal/db/sqlcdb/query.sql.go"
+lines = 274
+verdict = "generated"
+note = "Generated by sqlc v1.31.1; generated bindings take their verdict from the generator; SQL inputs were reviewed."
+
+[file.50]
+path = "services/launchpad/user/internal/image/image.go"
+lines = 84
+verdict = "issues"
+note = "Read MIME policy and SVG checks; raw expressions do not enforce the claimed active-content safety boundary."
+
+[file.51]
+path = "services/launchpad/user/internal/image/image_test.go"
+lines = 106
+verdict = "clean"
+note = "Read all MIME and SVG tests; literal corpus does not cover XML-normalized active URLs noted at image.go."
+
+[file.52]
+path = "services/launchpad/user/internal/internaltest/containers.go"
+lines = 240
+verdict = "clean"
+note = "Read service/container provisioning, bounded startup, cleanup and external dependency handling for integration fixtures."
+
+[file.53]
+path = "services/launchpad/user/internal/migrate/migrate.go"
+lines = 42
+verdict = "clean"
+note = "Migration loader opens the configured database, selects embedded migrations and propagates failures."
+
+[file.54]
+path = "services/launchpad/user/internal/user/handlers.go"
+lines = 526
+verdict = "issues"
+note = "Read legacy profile/image/watch routes, storage, scanning, caching and signatures; replay, multipart and immutable-cache issues are recorded."
+
+[file.55]
+path = "services/launchpad/user/internal/user/handlers_test.go"
+lines = 537
+verdict = "clean"
+note = "Read PostgreSQL/Redis/storage/scanner handler cases; legacy defects are recorded at implementation."
+
+[file.56]
+path = "services/launchpad/user/internal/user/helpers.go"
+lines = 89
+verdict = "issues"
+note = "Read nullable conversions, pool mappings and image URLs; request origin can enter shared cache."
+
+[file.57]
+path = "services/launchpad/user/internal/user/helpers_internal_test.go"
+lines = 117
+verdict = "clean"
+note = "Read normalization, nullable, URL and mapping tests; origin weakness is recorded at baseURL."
+
+[file.58]
+path = "services/launchpad/user/migrations/migrations.go"
+lines = 11
+verdict = "clean"
+note = "Embedded user migration filesystem is consumed by goose and includes tracked schema."
+
+[file.59]
+path = "services/launchpad/user/migrations/migrations_test.go"
+lines = 130
+verdict = "clean"
+note = "Read migration embedding, manifest and tracked DDL assertions; no extra qualification gate was executed."
+
+[file.60]
+path = "services/launchpad/user/pkg/types/types.go"
+lines = 86
+verdict = "clean"
+note = "Legacy public JSON types match handlers, SQL mappings and development transport."
+
+[file.61]
+path = "services/launchpad/user/sqlc.yaml"
+lines = 31
+verdict = "issues"
+note = "Nullable generator overrides disagree with checked-in models and caller types."
+
+[file.62]
+path = "tools/launchpad/cache/capacity.py"
+lines = 479
+verdict = "clean"
+note = "Read complete allocation, bounded HTTP/scheduler, fault/recovery and aggregation; results preserve capacity evidence boundaries."
+
+[file.63]
+path = "tools/launchpad/cache/check.sh"
+lines = 9
+verdict = "clean"
+note = "Check script dispatches declared local policy/unit command and propagates status."
+
+[file.64]
+path = "tools/launchpad/cache/phase2-check.sh"
+lines = 29
+verdict = "clean"
+note = "Phase-two cache script requires explicit identity, database/Redis and environment inputs and invokes real harness stages."
+
+[file.65]
+path = "tools/launchpad/cache/test_capacity.py"
+lines = 32
+verdict = "clean"
+note = "Capacity tests assert frozen rates/resource bounds and reject invalid allocation without claiming product capacity."
+
+[file.66]
+path = "tools/launchpad/production/feature-acceptance/README.md"
+lines = 42
+verdict = "clean"
+note = "Read all 42 README lines; phase-one/three caller, trust and assurance boundaries match code and do not grant release approval."
+
+[file.67]
+path = "tools/launchpad/production/feature-acceptance/__init__.py"
+lines = 0
+verdict = "clean"
+note = "Empty Python package marker with no executable behavior or declared interface."
+
+[file.68]
+path = "tools/launchpad/production/feature-acceptance/build_inventory.py"
+lines = 76
+verdict = "issues"
+note = "Read generation, owner lineage and prerequisites; authoritative specification input is absent."
+
+[file.69]
+path = "tools/launchpad/production/feature-acceptance/collect_journeys.py"
+lines = 92
+verdict = "clean"
+note = "Collector verifies owner bundles through admitted journey policy and emits bounded qualification states."
+
+[file.70]
+path = "tools/launchpad/production/feature-acceptance/evidence.schema.json"
+lines = 832
+verdict = "clean"
+note = "Read signed evidence schema, closed envelope, bindings, scenario and immutable artifact requirements."
+
+[file.71]
+path = "tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json"
+lines = 1732
+verdict = "issues"
+note = "Read all readiness fields and serial/lane gates; declared commands reference an absent root specification."
+
+[file.72]
+path = "tools/launchpad/production/feature-acceptance/inventory.json"
+lines = 4873
+verdict = "generated"
+note = "Generated by build_inventory.py; 55 feature declarations remain unqualified and are not runtime evidence; absent generator input is recorded at its source."
+
+[file.73]
+path = "tools/launchpad/production/feature-acceptance/journey-evidence.schema.json"
+lines = 797
+verdict = "clean"
+note = "Read complete journey schema, definitions, encodings, capture, candidate and trace bindings."
+
+[file.74]
+path = "tools/launchpad/production/feature-acceptance/journey_policy.py"
+lines = 228
+verdict = "clean"
+note = "Read full qualification/collection, required trace, audit and independent reviewer checks; failures remain blocked."
+
+[file.75]
+path = "tools/launchpad/production/feature-acceptance/phase-1-evidence-policy.json"
+lines = 41
+verdict = "clean"
+note = "Read phase-one immutable capture, independent review and dependency requirements against policy."
+
+[file.76]
+path = "tools/launchpad/production/feature-acceptance/phase-1-scenario-manifest.json"
+lines = 1
+verdict = "clean"
+note = "Read full one-line manifest; local policy tests are explicitly distinct from product/release qualification."
+
+[file.77]
+path = "tools/launchpad/production/feature-acceptance/phase-2-evidence-policy.json"
+lines = 41
+verdict = "clean"
+note = "Read phase-two owner/dependency proof requirements against collector and journey schema."
+
+[file.78]
+path = "tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json"
+lines = 62
+verdict = "issues"
+note = "Read all phase-two scenarios; declared command uses an absent specification."
+
+[file.79]
+path = "tools/launchpad/production/feature-acceptance/phase-3-evidence-policy.json"
+lines = 25
+verdict = "clean"
+note = "Read phase-three independent adversarial review and redaction policy against validators."
+
+[file.80]
+path = "tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json"
+lines = 59
+verdict = "issues"
+note = "Read all phase-three scenarios and adversarial requirements; command uses an absent specification."
+
+[file.81]
+path = "tools/launchpad/production/feature-acceptance/phase-4-evidence-policy.json"
+lines = 47
+verdict = "clean"
+note = "Read phase-four isolated evidence and authority bindings; no global capacity/release claim is made."
+
+[file.82]
+path = "tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json"
+lines = 49
+verdict = "issues"
+note = "Read all phase-four scenarios and final gate boundary; command uses an absent specification."
+
+[file.83]
+path = "tools/launchpad/production/feature-acceptance/policy.py"
+lines = 632
+verdict = "issues"
+note = "Read full cryptographic/artifact/reviewer, calibration and closure policy; root spec pin targets an absent file."
+
+[file.84]
+path = "tools/launchpad/production/feature-acceptance/readiness.py"
+lines = 59
+verdict = "clean"
+note = "Read readiness CLI input loading, mode dispatch and rejection status; output does not replace final gates."
+
+[file.85]
+path = "tools/launchpad/production/feature-acceptance/tests/test_phase2.py"
+lines = 141
+verdict = "issues"
+note = "Read negative dependency/owner/capability cases; actual catalog assertion reads an absent capabilities path."
+
+[file.86]
+path = "tools/launchpad/production/feature-acceptance/tests/test_phase4.py"
+lines = 104
+verdict = "issues"
+note = "Read calibration, pinned-byte and graph tests; gate enumeration reads an absent specification."
+
+[file.87]
+path = "tools/launchpad/production/feature-acceptance/tests/test_policy.py"
+lines = 230
+verdict = "issues"
+note = "Read complete Ed25519/rejection corpus; exact inventory comparison requires an absent generator input."
+
+[finding.device-token-rotation]
+file = "services/launchpad/user/internal/account/devices_http.go"
+line = 116
+class = "interface-mismatch"
+severity = "high"
+observed = "devicePut conflicts only on account_endpoint.fingerprint. A new token for the same installation creates another live row, and the same-device cap exception permits accumulation. app.go:871 emits duplicate DeviceInstallationID values; notifications/consumers.go:199-207 rejects duplicates or more than 32 targets. The single-target query can select an old token."
+expected = "An installation must have one current delivery endpoint, and token rotation must preserve a unique bounded target list accepted by the real notification consumer across restart."
+proposal = "In services/launchpad/user/internal/account/devices_http.go and user/migrations atomically replace/revoke the previous installation endpoint and enforce unique current bindings; prove rotation and reopen through AccountClient.Targets and ResolveEndpoint."
+owner_domain = 4
+interface = "4.http-user-put-v2-me-devices-device-id-j29"
+
+[finding.notification-session-revocation]
+file = "services/launchpad/user/internal/app/app.go"
+line = 778
+class = "interface-mismatch"
+severity = "high"
+observed = "accountNotificationAuthority.target checks endpoint/installation revoked flags and endpoint age, but never joins identity_sessions, auth_epoch, access expiry or installation session binding. The :resolve handler uses this helper. notifications/worker.go relies on CurrentTarget before sending. EndpointEligible has identity checks but is not called by this authority."
+expected = "Internal target status and resolution must reflect authoritative session revocation and binding, so logout or session replacement prevents delivery to that session endpoint."
+proposal = "In services/launchpad/user/internal/app/app.go share the authoritative eligibility predicate from account/devices_http.go with target list/read/resolve; exercise actual notification delivery after logout, epoch change and service reopen."
+owner_domain = 4
+interface = "4.http-user-get-internal-v2-accounts-account-id-targets-device-id"
+
+[finding.notification-channel-optout]
+file = "services/launchpad/user/internal/app/app.go"
+line = 837
+class = "interface-mismatch"
+severity = "high"
+observed = "Delivery preferences build CategoryChannels solely from account_consent.enabled and ignore preferences.Channels. Both preference patch paths can disable global push without changing consent rows. notifications/model.go:139-142 uses CategoryChannels instead of the global channel check, so an enabled category still sends after global opt-out."
+expected = "A saved global channel opt-out must suppress every category, and the HTTP delivery preference must carry the effective consent evaluated by the real worker."
+proposal = "In services/launchpad/user/internal/app/app.go intersect global channels with persisted category consent and align notifications/model.go semantics; prove a real preferences PATCH causes worker refusal, including after reopen."
+owner_domain = 4
+interface = "4.http-user-get-internal-v2-accounts-account-id-delivery-preference"
+
+[finding.notification-quiet-timezone]
+file = "services/launchpad/user/internal/app/app.go"
+line = 816
+class = "interface-mismatch"
+severity = "medium"
+observed = "accountDeliveryPreference.Timezone is copied from preferences.Timezone but only Start/End are copied from QuietHours. Preferences allow a distinct QuietHours.Timezone; notifications/model.go:151-165 therefore computes quiet hours in the wrong zone when these values differ."
+expected = "Quiet-hour times must be evaluated in their stored timezone, including when it differs from the display timezone and across daylight-saving changes."
+proposal = "In services/launchpad/user/internal/app/app.go and services/launchpad/notifications/model.go carry and evaluate QuietHours.Timezone explicitly, or enforce one documented zone at writes; prove differing-zone settings through actual delivery."
+owner_domain = 4
+interface = "4.http-user-get-internal-v2-accounts-account-id-delivery-preference"
+
+[finding.backfill-profile-fields]
+file = "services/launchpad/user/internal/account/backfill.go"
+line = 60
+class = "restart-recovery"
+severity = "high"
+observed = "BackfillLegacyRange selects only wallet/name/bio and writes only these profile fields at line 190. PublicFromReadSwitch reads legacy website at line 256, so a valid visible website disappears after stable reads are enabled. Social/image references also have no explicit preservation or quarantine accounting."
+expected = "Stable-read cutover must preserve valid user profile content or quarantine unresolved field/asset migrations before reporting a range verified."
+proposal = "In services/launchpad/user/internal/account/backfill.go inventory all legacy fields, preserve valid website/social values and migrate assets through ownership approval; quarantine unresolved rows and compare full public projections before enabling stable reads."
+owner_domain = 4
+
+[finding.backfill-provisioning-order]
+file = "services/launchpad/user/internal/account/backfill.go"
+line = 192
+class = "restart-recovery"
+severity = "high"
+observed = "Backfill inserts account_state with ON CONFLICT(account_id) DO NOTHING, then increments Linked/Verified and emits account.backfill.completed. ensureIdentityAccount can already have created a blank profile, causing valid legacy name/bio to be discarded while migration reports success."
+expected = "Verification must establish that source content reached the stable account regardless of whether authentication provisioned the identity before backfill."
+proposal = "In services/launchpad/user/internal/account/backfill.go reconcile legacy fields under the account lock without overwriting later user edits; quarantine conflicts and count verified only after durable comparison, testing both provisioning orders after reopen."
+owner_domain = 4
+
+[finding.export-sdk-authorization]
+file = "services/launchpad/user/internal/account/jobs_http.go"
+line = 156
+class = "interface-mismatch"
+severity = "high"
+observed = "jobGet emits job.downloadAuthorization for ready exports, and DownloadHandler requires it in X-Export-Authorization at line 244. AdaptV2AccountJob preserves the field and the open schema permits it, but sdk/launchpad/shared/interfaces/v2/types.gen.go AccountJob and sdk-v2/src/types.gen.ts omit it. The generated Go decoder discards the credential needed to download."
+expected = "A completed export must be downloadable through its declared typed SDK response and gateway transport without recovering undocumented raw JSON fields."
+proposal = "Declare the authorization mechanism in the source API contracts, regenerate SDK types under sdk/launchpad and align user status/download plus gateway forwarding; retain private no-store handling and prove actual worker-to-typed-consumer-to-download behavior."
+owner_domain = 4
+interface = "4.http-user-get-v2-me-exports-job-id-j29"
+
+[finding.export-failed-read-consumes-token]
+file = "services/launchpad/user/internal/account/jobs_http.go"
+line = 249
+class = "restart-recovery"
+severity = "medium"
+observed = "DownloadHandler commits ConsumeExport before fetching the encrypted object at line 259 or decrypting it. A transient object-store failure returns an error after the durable one-use token was consumed, preventing retry of the same ready export."
+expected = "Transient storage failure or restart before any download bytes are produced must leave a recoverable access path while enforcing the intended one-use policy."
+proposal = "In services/launchpad/user/internal/account/jobs_http.go and privacy.go use a durable bounded download claim recoverable after failed retrieval; finalize consumption at a defined delivery boundary and test storage outage plus reopen without a second successful download."
+owner_domain = 4
+
+[finding.provisioned-privacy-default]
+file = "services/launchpad/user/internal/account/preferences_http.go"
+line = 703
+class = "config-drift"
+severity = "medium"
+observed = "ensureIdentityAccount constructs preferences with omitted PrivateActivity=false and quiet hours 00:00-00:00. DefaultPreferences at models.go:240 instead sets PrivateActivity=true and 22:00-07:00. Gateway-provisioned accounts receive different privacy defaults from backfilled/store-created accounts."
+expected = "New accounts must receive one documented privacy-preserving default set independent of provisioning path, while explicit later user choices remain authoritative."
+proposal = "In services/launchpad/user/internal/account/preferences_http.go initialize from DefaultPreferences and set timestamps explicitly; reconcile untouched auto-provisioned defaults without overwriting choices and compare gateway/backfill provisioning outputs."
+owner_domain = 4
+
+[finding.legacy-wallet-replay]
+file = "services/launchpad/user/internal/user/handlers.go"
+line = 223
+class = "security"
+severity = "medium"
+observed = "Legacy updateProfile, uploadImage and watchlistAuth accept any message/signature recovering the wallet. The message is not bound to action, body, nonce, expiry or chain; a previously obtained signature can authorize different writes repeatedly. app.go mounts these routes outside production."
+expected = "Every exposed wallet-authorized mutation must bind consent to its exact action/content with replay and expiry protection, including shared development/preview deployments."
+proposal = "In services/launchpad/user/internal/user/handlers.go use the shared signed-operation/identity path bound to chain 125, method, path, body digest, nonce and expiry; prove replay and cross-action reuse are rejected on actual routes."
+owner_domain = 4
+
+[finding.legacy-multipart-unbounded]
+file = "services/launchpad/user/internal/user/handlers.go"
+line = 261
+class = "runtime-risk"
+severity = "medium"
+observed = "uploadImage parses the complete multipart form before authentication. multipartMaxMemory limits memory before disk spill, not total bytes; avatar/banner limits apply only to the selected file after parsing. Extra unauthenticated parts can consume disk and parsing resources."
+expected = "Upload bytes and part counts must be bounded before multipart parsing/expensive allocation, with temporary resources released on refusal."
+proposal = "In services/launchpad/user/internal/user/handlers.go apply a total MaxBytesReader budget before parsing and constrain parts; authenticate bounded headers where possible and prove oversized multipart requests stop before storage/scanner work."
+owner_domain = 4
+
+[finding.legacy-image-cache-stale]
+file = "services/launchpad/user/internal/user/handlers.go"
+line = 392
+class = "runtime-risk"
+severity = "medium"
+observed = "serveImage marks /users/{wallet}/{avatar|banner} immutable for one year, but uploadImage overwrites a stable object key at line 331 and returns the same URL. Successful image replacement can remain invisible to clients/CDNs for a year despite Redis invalidation."
+expected = "A successful image replacement must become visible through the profile URL; immutable cache headers require URLs identifying immutable bytes."
+proposal = "In services/launchpad/user/internal/user/handlers.go use content-addressed/versioned image URLs with retained old objects, or require revalidation on stable URLs; prove replacement via public reads and cache headers."
+owner_domain = 4
+
+[finding.svg-normalized-active-content]
+file = "services/launchpad/user/internal/image/image.go"
+line = 52
+class = "security"
+severity = "medium"
+observed = "IsSVGSafe checks raw bytes with a javascript: regex and a small tag denylist. An SVG href containing java&#x73;cript: passes lexical checks but XML decoding produces an active JavaScript URL. Legacy upload accepts and serves image/svg+xml on the service origin."
+expected = "Accepted images must remain passive after XML/URL parsing and direct navigation; lexical checks must not claim an active-content safety boundary."
+proposal = "In services/launchpad/user/internal/image/image.go use a maintained XML/namespace/URL allowlist or rasterization and restrict serving in user/handlers.go; cover character references, namespace variants and external active content."
+owner_domain = 4
+
+[finding.profile-host-cache-poisoning]
+file = "services/launchpad/user/internal/user/helpers.go"
+line = 23
+class = "security"
+severity = "medium"
+observed = "baseURL trusts r.Host and X-Forwarded-Proto when PublicURL is empty. handlers.go:146-157 caches the resulting absolute-URL profile under a wallet-only Redis key, allowing one request origin to populate links returned to other callers."
+expected = "Shared cached public profiles must contain canonical admitted-origin links independent of caller-controlled Host and forwarding headers."
+proposal = "In services/launchpad/user/internal/user/helpers.go require canonical PublicURL or validate hosts/trusted proxies before generating links; cache relative/canonical URLs and test two different hosts sharing a wallet cache."
+owner_domain = 4
+
+[finding.sqlc-nullable-config]
+file = "services/launchpad/user/sqlc.yaml"
+line = 24
+class = "config-drift"
+severity = "low"
+observed = "sqlc.yaml requests nullable text/varchar as *string, while checked-in sqlcdb models/query bindings use pgtype.Text and helpers.go explicitly converts pgtype.Text. Regeneration would change caller-facing nullable types."
+expected = "Checked-in generator configuration must reproduce generated database types consumed by handlers without manual post-generation edits."
+proposal = "In services/launchpad/user/sqlc.yaml choose the existing pgtype.Text contract or migrate callers deliberately; regenerate with pinned sqlc and verify the resulting API builds reproducibly."
+owner_domain = 4
+
+[finding.metadata-avatar-unused-switch]
+file = "services/launchpad/user/internal/config/config.go"
+line = 57
+class = "dead-code"
+severity = "low"
+observed = "ACCOUNT_ALLOW_METADATA_AVATARS is loaded and assigned to Runtime.AllowMetadataAvatars at app.go:298, but no account path reads it. ApprovedAccountAsset remains mandatory regardless of the switch, so its advertised behavior is unavailable."
+expected = "An advertised configuration switch must control a documented live path or be removed/rejected instead of silently ignored."
+proposal = "In services/launchpad/user/internal/config/config.go and account/jobs_worker.go remove the unused switch and reconcile its registry row, or wire a documented ownership-safe metadata policy with explicit refusal tests."
+owner_domain = 4
+interface = "4.env-user-account-allow-metadata-avatars"
+
+[finding.owner-adapter-registry-signature]
+file = "services/launchpad/user/internal/account/v2_owner_wire.go"
+line = 11
+class = "interface-mismatch"
+severity = "low"
+observed = "Registry row 4.go-user-adapt-v2-owner-j29 declares requestID uuid.UUID arguments; actual adapters take raw []byte, with update or kind/status parameters. Its contracts/services.md#launchpad-user contract target is absent from this tree."
+expected = "Adapter registry signatures and contract links must describe the concrete callable API and an existing authoritative response contract."
+proposal = "Reconcile spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-owner-j29 with user/internal/account/v2_owner_wire.go and replace its missing contracts/services.md link with the authoritative frozen user contracts."
+owner_domain = 4
+interface = "4.go-user-adapt-v2-owner-j29"
+
+[finding.profile-adapter-registry-signature]
+file = "services/launchpad/user/internal/account/v2_wire.go"
+line = 31
+class = "interface-mismatch"
+severity = "low"
+observed = "Registry row 4.go-user-adapt-v2-profile-patch-j29 declares requestID, WireProfile, revision and time arguments; AdaptV2ProfilePatch accepts Envelope[PublicProfile]. Its contracts/services.md contract link is absent."
+expected = "The profile adapter declaration must match its concrete Go input type and link an existing authoritative ProfilePatchResponse contract."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-profile-patch-j29 from user/internal/account/v2_wire.go to Envelope[PublicProfile] and link the current frozen response schema."
+owner_domain = 4
+interface = "4.go-user-adapt-v2-profile-patch-j29"
+
+[finding.watch-adapter-registry-signature]
+file = "services/launchpad/user/internal/account/v2_wire.go"
+line = 13
+class = "interface-mismatch"
+severity = "low"
+observed = "Registry row 4.go-user-adapt-v2-watchlist-j29 declares four requestID/entries/revision/time arguments; AdaptV2Watchlist accepts Envelope[[]WireWatchEntry]. Its contracts/services.md contract target is absent."
+expected = "The watchlist adapter registry must match the callable envelope signature and existing frozen WatchlistGetResponse contract."
+proposal = "Update spec/layerx-merge/interfaces.kvx row 4.go-user-adapt-v2-watchlist-j29 from user/internal/account/v2_wire.go and replace the missing contract target with the current frozen response schema."
+owner_domain = 4
+interface = "4.go-user-adapt-v2-watchlist-j29"
+
+[finding.completed-export-fixture]
+file = "services/launchpad/user/internal/account/v2_owner_wire_test.go"
+line = 223
+class = "test-gap"
+severity = "medium"
+observed = "The completed export fixture sets ExpiresAt/DownloadURL but omits DownloadAuthorization emitted by jobs_http.go:156. It decodes into v2.AccountExportStatusResponse and checks URL/expiry/state, hiding the typed consumer loss of the required credential."
+expected = "Completed-export acceptance must use the actual ready producer shape and demonstrate authenticated download through its generated consumer, including refusal/recovery."
+proposal = "In services/launchpad/user/internal/account/v2_owner_wire_test.go retain rejection cases and add real worker/status/generated-decoder/download coverage asserting authorization survives and one-use semantics hold across reopen."
+owner_domain = 4
+
+[finding.deletion-fixture-schema-source]
+file = "services/launchpad/user/internal/account/v2_owner_http_test.go"
+line = 61
+class = "test-gap"
+severity = "medium"
+observed = "v2OwnerDeletionFixture applies launchpad/spec/production-system/integration/migrations/330000..330002.sql, while normal connected/user fixtures use embedded service migrations. This separate DDL source can qualify deletion against a schema different from the deployed service."
+expected = "Deletion integration tests must use authoritative tracked user/identity migrations and preserve complete owner-operation and recovery assertions."
+proposal = "In services/launchpad/user/internal/account/v2_owner_http_test.go replace integration-DDL loading with the tracked user/identity fixture used by connected_integration_test.go, retaining real deletion recovery/consumer checks."
+owner_domain = 4
+
+[finding.inventory-spec-missing]
+file = "tools/launchpad/production/feature-acceptance/build_inventory.py"
+line = 6
+class = "wiring-gap"
+severity = "medium"
+observed = "build_inventory.py pins launchpad/spec/production-system/spec.kvx and build() reads it at line 57, but this file is absent. The checked-in generated feature inventory cannot be reproduced from its declared input at this revision."
+expected = "Feature inventory must be reproducible from a tracked authoritative specification while preserving all 55 identities, owners and prerequisite lineage."
+proposal = "In tools/launchpad/production/feature-acceptance/build_inventory.py migrate the spec input/parser to the authoritative tracked source, reconcile mappings explicitly and regenerate inventory.json without treating declarations as qualification."
+owner_domain = 4
+
+[finding.readiness-spec-missing]
+file = "tools/launchpad/production/feature-acceptance/policy.py"
+line = 454
+class = "wiring-gap"
+severity = "medium"
+observed = "root_capacity_references requires authority.spec to resolve exactly to absent launchpad/spec/production-system/spec.kvx. required_release_gates reads this graph, so a valid current pin cannot satisfy the hardcoded input and final closure cannot enumerate its gates."
+expected = "Readiness and final closure must bind an existing current authoritative graph and require all real serial/lane gates without weakening evidence validation."
+proposal = "In tools/launchpad/production/feature-acceptance/policy.py migrate root specification binding and graph parsing, explicitly reconcile 200 lane tasks/serial gates and rematerialize readiness declarations with unchanged evidence obligations."
+owner_domain = 4
+
+[finding.inventory-test-missing-input]
+file = "tools/launchpad/production/feature-acceptance/tests/test_policy.py"
+line = 63
+class = "test-gap"
+severity = "medium"
+observed = "The exact inventory assertion calls build_inventory.build(), which reads absent launchpad/spec/production-system/spec.kvx. It cannot evaluate its intended criterion from this checkout; this is a static missing-input observation, not an executed test result."
+expected = "The exact inventory assertion must execute against tracked authoritative generator input and reject every difference in complete feature inventory."
+proposal = "In tools/launchpad/production/feature-acceptance/tests/test_policy.py retain equality and migrate generator input alongside build_inventory.py; qualify the complete suite without skipping this test."
+owner_domain = 4
+
+[finding.closure-test-missing-input]
+file = "tools/launchpad/production/feature-acceptance/tests/test_phase4.py"
+line = 77
+class = "test-gap"
+severity = "medium"
+observed = "test_closure_manifest_uses_all200_lane_tasks_and_real_serial_gate_commands reads absent launchpad/spec/production-system/spec.kvx before its lane count and serial command assertions can evaluate."
+expected = "Closure tests must enumerate the current tracked graph and assert all required lane and serial gates with their real qualification commands."
+proposal = "In tools/launchpad/production/feature-acceptance/tests/test_phase4.py use the migrated authoritative graph through the production policy input, preserving full lane count, serial membership and current-source checks."
+owner_domain = 4
+
+[finding.catalog-test-missing-input]
+file = "tools/launchpad/production/feature-acceptance/tests/test_phase2.py"
+line = 59
+class = "test-gap"
+severity = "medium"
+observed = "The actual-v2-catalog test reads launchpad/spec/production-system/integration/contracts/v2/capabilities.json, which is absent. Its unavailable-capability assertions therefore cannot inspect the actual current SDK/catalog source."
+expected = "Capability policy assertions must read the authoritative tracked v2 catalog and keep unsupported features unavailable until real evidence enables them."
+proposal = "In tools/launchpad/production/feature-acceptance/tests/test_phase2.py read the current authoritative generated catalog with provenance checks, preserving all unavailable-feature assertions and refusing missing/mismatched input."
+owner_domain = 4
+
+[finding.phase2-manifest-spec]
+file = "tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json"
+line = 60
+class = "config-drift"
+severity = "medium"
+observed = "The manifest verify_cmd for 2.50 selects --spec launchpad/spec/production-system/spec.kvx. That file is absent, so the declared command cannot bind evidence to the current authoritative task graph."
+expected = "Every published qualification command must resolve a tracked graph and retain current-source checking plus complete task/evidence obligations."
+proposal = "In tools/launchpad/production/feature-acceptance/phase-2-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+owner_domain = 4
+
+[finding.phase3-manifest-spec]
+file = "tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json"
+line = 56
+class = "config-drift"
+severity = "medium"
+observed = "The manifest verify_cmd for 3.50 selects --spec launchpad/spec/production-system/spec.kvx. That file is absent, so the declared command cannot bind evidence to the current authoritative task graph."
+expected = "Every published qualification command must resolve a tracked graph and retain current-source checking plus complete task/evidence obligations."
+proposal = "In tools/launchpad/production/feature-acceptance/phase-3-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+owner_domain = 4
+
+[finding.phase4-manifest-spec]
+file = "tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json"
+line = 45
+class = "config-drift"
+severity = "medium"
+observed = "The manifest verify_cmd for 4.50 selects --spec launchpad/spec/production-system/spec.kvx. That file is absent, so the declared command cannot bind evidence to the current authoritative task graph."
+expected = "Every published qualification command must resolve a tracked graph and retain current-source checking plus complete task/evidence obligations."
+proposal = "In tools/launchpad/production/feature-acceptance/phase-4-scenario-manifest.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+owner_domain = 4
+
+[finding.final-manifest-spec]
+file = "tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json"
+line = 74
+class = "config-drift"
+severity = "medium"
+observed = "The manifest verify_cmd for all serial/lane gates selects --spec launchpad/spec/production-system/spec.kvx. That file is absent, so the declared command cannot bind evidence to the current authoritative task graph."
+expected = "Every published qualification command must resolve a tracked graph and retain current-source checking plus complete task/evidence obligations."
+proposal = "In tools/launchpad/production/feature-acceptance/final-integrated-gate-readiness.json regenerate commands from the migrated authoritative graph after reconciling task identities; preserve all scenario coverage, --require-current-source and final_gate 9.1."
+owner_domain = 4
+
+[finding.boundary-site]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 describe the retired layerx-paxeer-boundary TLS relay as the only hosted chain-125 path and direct operators to the retired hosted/paxeer deployment/relay topology."
+expected = "Merged Paxeer JSON-RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, without a separate custody relay."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-boundary.md around the merged node root RPC and chain-125 trust boundary, removing retired hosted/paxeer deployment/relay instructions and aligning its counterpart page."
+owner_domain = 8
+
+[finding.boundary-wiki]
+file = "docs/wiki/PaxeerBoundary.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-7 describe the retired layerx-paxeer-boundary TLS relay as the only hosted chain-125 path and direct operators to the retired hosted/paxeer deployment/relay topology."
+expected = "Merged Paxeer JSON-RPC is at the root of api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network, without a separate custody relay."
+proposal = "Rewrite docs/wiki/PaxeerBoundary.md around the merged node root RPC and chain-125 trust boundary, removing retired hosted/paxeer deployment/relay instructions and aligning its counterpart page."
+owner_domain = 8
+
+[finding.beta-site]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents a separate LayerX daemon/boundary and lines 26-42 deploy GuarantorBond/CheckpointRegistry and mount layerxd --custody-profile. This provisions the retired split network."
+expected = "Beta must exercise the single merged Paxeer BFT network, kernel block production and finality at chain commit without separate daemon/guarantor/checkpoint custody."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md bring-up, image, bootstrap, readiness and recovery guidance from merged deployment; remove layerxd/relay/retired checkpoint commands and synchronize site/wiki pages."
+owner_domain = 8
+
+[finding.beta-wiki]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The page presents a separate LayerX daemon/boundary and lines 26-42 deploy GuarantorBond/CheckpointRegistry and mount layerxd --custody-profile. This provisions the retired split network."
+expected = "Beta must exercise the single merged Paxeer BFT network, kernel block production and finality at chain commit without separate daemon/guarantor/checkpoint custody."
+proposal = "Rewrite docs/wiki/BetaCluster.md bring-up, image, bootstrap, readiness and recovery guidance from merged deployment; remove layerxd/relay/retired checkpoint commands and synchronize site/wiki pages."
+owner_domain = 8
+
+[finding.registry-site]
+file = "docs/site/docs/platform/registry.md"
+line = 182
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table requires LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY; line 86 describes recovery through a separate receipt authority. Pre-merge trust dependencies are presented as current operator requirements."
+expected = "Registry verification/recovery guidance must use merged committed-chain authority; there is no separate sequencer service or settlement-finality plane."
+proposal = "In docs/site/docs/platform/registry.md replace sequencer trust history and receipt-authority setup with committed receipt/state verification and recovery, updating the matching site/wiki configuration tables."
+owner_domain = 8
+
+[finding.registry-wiki]
+file = "docs/wiki/HostedRegistry.md"
+line = 182
+class = "doc-drift"
+severity = "medium"
+observed = "The configuration table requires LAYERX_REGISTRY_SEQUENCER_TRUST_HISTORY; line 86 describes recovery through a separate receipt authority. Pre-merge trust dependencies are presented as current operator requirements."
+expected = "Registry verification/recovery guidance must use merged committed-chain authority; there is no separate sequencer service or settlement-finality plane."
+proposal = "In docs/wiki/HostedRegistry.md replace sequencer trust history and receipt-authority setup with committed receipt/state verification and recovery, updating the matching site/wiki configuration tables."
+owner_domain = 8
+
+[finding.quickstart-retired-rpc]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart advertises POST /rpc and later /rpc/ws, router and separate LayerX settlement examples, including api-mainnet-beta.paxeer.network/rpc. These endpoints and semantics are retired."
+expected = "Public Paxeer RPC uses node-host roots, chain id 125 and committed-block finality, with no router, /rpc, /rpc/ws or separate LayerX interface."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md commands and expected results for root JSON-RPC/supported namespaces; replace split settlement/router examples with real committed transaction receipts."
+owner_domain = 8
+
+[finding.settlement-retired-custody]
+file = "docs/site/docs/concepts/paxeer-settlement.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-6 separate ordinary LayerX activity from Paxeer transactions and assign custody/checkpoint/guarantor/challenge/exit settlement to Paxeer, preserving a retired two-system model."
+expected = "LayerX belongs to Paxeer and receipts finalize at block commit; retired guarantor/checkpoint custody must not guide operators or integrators."
+proposal = "Rewrite docs/site/docs/concepts/paxeer-settlement.md for merged execution, committed receipts and current assets; remove separate custody/checkpoint and sequencer-dependent exit procedures."
+owner_domain = 8
+
+[finding.checkpoint-retired-finality]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-6 say LayerX periodically checkpoints activity and every epoch requires Paxeer checkpoint registration; subsequent sections describe guarantor-backed checkpoint commitments as current protocol."
+expected = "The finished network has committed BFT block finality without a separate guarantor/checkpoint-registration finality dependency."
+proposal = "Replace docs/site/docs/concepts/checkpoints.md with current committed-block/state-proof lifecycle or explicit retirement history, removing live checkpoint registration and guarantor instructions."
+owner_domain = 8
+
+[finding.evidence-retired-publication]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page instructs registerCheckpoint, publishCheckpointWitnesses and vault deposit-root authority configuration, treating guarantor certificates and retired custody evidence publication as active requirements."
+expected = "Operator evidence procedures must derive finality/state from the merged committed chain without retired checkpoint, guarantor or vault-root authority provisioning."
+proposal = "Rewrite docs/site/docs/operators/settlement-evidence.md around committed receipt/state evidence and recovery; remove retired publication/authority commands and separately describe historical retention."
+owner_domain = 8
+
+[finding.internal-cluster-install-drift]
+file = "docs/site/docs/operators/hosted-internal.md"
+line = 71
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 71-80 say IMAGE_NAMES lacks an internal image and manifests_apply installs only control/gateway/registry/developer, while beta-cluster lists layerx-internal. The page also retains the old receipt-authority/agent-boundary split."
+expected = "Internal installation/readiness guidance must agree with a current merged deployment and its actual image/manifest inventory."
+proposal = "Reconcile docs/site/docs/operators/hosted-internal.md with merged beta deployment; replace obsolete image/apply statements and document actual signing/event services, namespaces and recovery dependencies."
+owner_domain = 8
+
+[doc.1]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-7 and relay/bootstrap sections describe the retired hosted/paxeer boundary; see boundary-site."
+
+[doc.2]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3 and 26-42 retain daemon, relay and guarantor/checkpoint bootstrap; see beta-site."
+
+[doc.3]
+path = "docs/site/docs/platform/registry.md"
+status = "stale"
+notes = "Lines 86 and 182 retain receipt-authority recovery and sequencer trust history; see registry-site."
+
+[doc.4]
+path = "docs/wiki/PaxeerBoundary.md"
+status = "stale"
+notes = "Lines 3-7 duplicate the retired boundary/relay instructions; see boundary-wiki."
+
+[doc.5]
+path = "docs/wiki/HostedRegistry.md"
+status = "stale"
+notes = "Lines 86 and 182 duplicate the pre-merge authority/trust configuration; see registry-wiki."
+
+[doc.6]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 3 and 26-42 retain split bootstrap; also lacks site native-custody/Explorer-read sections; see beta-wiki."
+
+[doc.7]
+path = "docs/site/docs/overview/quickstart.md"
+status = "misleading"
+notes = "Line 20 advertises /rpc; later websocket/router and split settlement examples are retired; see quickstart-retired-rpc."
+
+[doc.8]
+path = "docs/site/docs/concepts/paxeer-settlement.md"
+status = "stale"
+notes = "Lines 3-6 and custody/exit sections describe the retired network split; see settlement-retired-custody."
+
+[doc.9]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "Lines 3-6 present periodic checkpoint registration as current finality; see checkpoint-retired-finality."
+
+[doc.10]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 3, 7 and 9 require retired certificates, checkpoint witnesses and vault authorities; see evidence-retired-publication."
+
+[doc.11]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "stale"
+notes = "Lines 71-80 contradict internal image/install inventory and retain split authorities; see internal-cluster-install-drift."
+
+[doc.12]
+path = "docs/site/docs/operators/guarantor.md"
+status = "accurate"
+notes = "Read the full retirement page; guarantor is correctly retired and receipts are final at chain commit."
+
+[doc.13]
+path = "tools/launchpad/production/feature-acceptance/README.md"
+status = "accurate"
+notes = "Read all 42 lines: phase-one/three trust, artifacts and assurance boundaries match implementation and grant no product/capacity/release approval."
+
+[doc.14]
+path = "contracts/services.md"
+status = "missing"
+notes = "User adapter registry rows link #launchpad-user here, but this file is absent; adapter signature findings propose authoritative contract pointers."

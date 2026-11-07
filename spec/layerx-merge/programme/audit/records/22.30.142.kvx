@@ -1,0 +1,1610 @@
+[audit.22.30.142]
+task = "22.30.142"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 149
+findings = 61
+docs_reviewed = 14
+upgrade_ready = false
+blocking = ["32", "57", "58", "59", "60", "61"]
+review_basis = "Full source review of all 149 members; package requirements, 41 produced and 235 consumed registry rows, route wiring, gateway/native receipt encodings, persistence/recovery and listed documentation. Optional Optimism defects are identified by profile and do not assert that Paxeer uses an external sequencer."
+native_contracts = "Native receipt keys {keys:[...]}, signedHeader normalization, validator entries, decimal heights and MsgSequenceBatch binary fields agree across gateway, verifier and status/signature callers. Archive receipt_id schema maps its query name to id; frozen data is intentional."
+severity_basis = "High findings identify the public verified-contract cursor round-trip and the documented restricted-resource key failing across OpenAPI casting in five endpoint families. Optional Optimism profile failures, invalid-input handling, policy omissions and stale guidance are medium; the unmounted component controller is low."
+
+[file.1]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/address_controller.ex"
+lines = 41
+verdict = "clean"
+note = "V2 address linking checks the authenticated account and binds the requested address through the account model."
+
+[file.2]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/authenticate_controller.ex"
+lines = 402
+verdict = "clean"
+note = "Reviewed email, OTP, wallet SIWE and Dynamic authentication branches, rate limits and session population."
+
+[file.3]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/email_controller.ex"
+lines = 105
+verdict = "clean"
+note = "Email linking and resend use authenticated identity checks and account verification errors."
+
+[file.4]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/fallback_controller.ex"
+lines = 163
+verdict = "clean"
+note = "Account fallback maps authentication, identity, address, OTP and changeset failures to explicit responses."
+
+[file.5]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/tags_controller.ex"
+lines = 91
+verdict = "clean"
+note = "Address and transaction tags are resolved in the authenticated account context with typed hash validation."
+
+[file.6]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api/v2/user_controller.ex"
+lines = 462
+verdict = "clean"
+note = "V2 account collections and mutations select records by the authenticated identity or its watchlist."
+
+[file.7]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api_key_controller.ex"
+lines = 65
+verdict = "issues"
+note = "Legacy API-key actions treat a redirect connection as an authenticated identity; see the authentication finding."
+
+[file.8]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/auth_controller.ex"
+lines = 106
+verdict = "issues"
+note = "The shared authenticate! helper returns a connection on denial without stopping its callers."
+
+[file.9]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/custom_abi_controller.ex"
+lines = 87
+verdict = "issues"
+note = "Custom ABI actions dereference the result of authenticate! without distinguishing its redirect branch."
+
+[file.10]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_address_controller.ex"
+lines = 49
+verdict = "issues"
+note = "Address-tag actions continue after authenticate! returns a redirect connection."
+
+[file.11]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_transaction_controller.ex"
+lines = 49
+verdict = "issues"
+note = "Transaction-tag actions continue after authenticate! returns a redirect connection."
+
+[file.12]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_address_controller.ex"
+lines = 105
+verdict = "issues"
+note = "Watchlist-address actions use watchlist_id on the redirect branch of authenticate!."
+
+[file.13]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_controller.ex"
+lines = 26
+verdict = "issues"
+note = "Watchlist rendering passes an unauthenticated redirect connection to a helper expecting watchlist_id."
+
+[file.14]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_coin_balance_by_day_controller.ex"
+lines = 27
+verdict = "clean"
+note = "Daily native balance history validates the address and applies restricted_access? before reading history."
+
+[file.15]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_coin_balance_controller.ex"
+lines = 120
+verdict = "clean"
+note = "Coin-balance HTML and JSON paths validate the address, enforce restrictions and use the shared paging cursor."
+
+[file.16]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_controller.ex"
+lines = 51
+verdict = "clean"
+note = "Verified source display checks address parsing, contract existence and address restrictions before rendering."
+
+[file.17]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_controller.ex"
+lines = 165
+verdict = "issues"
+note = "Standard JSON verification acknowledges unreadable or missing uploads without enqueueing a verification job."
+
+[file.18]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_via_flattened_code_controller.ex"
+lines = 52
+verdict = "clean"
+note = "Flattened Solidity form and submission use the publisher input and verification worker paths."
+
+[file.19]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_via_json_controller.ex"
+lines = 34
+verdict = "clean"
+note = "Metadata JSON verification form resolves the requested contract and preserves verification form context."
+
+[file.20]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_via_multi_part_files_controller.ex"
+lines = 40
+verdict = "clean"
+note = "Multipart verification form resolves the contract and configured library inputs."
+
+[file.21]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_via_standard_json_input_controller.ex"
+lines = 39
+verdict = "clean"
+note = "Standard JSON input form resolves the contract and compiler/form options consistently."
+
+[file.22]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_vyper_controller.ex"
+lines = 50
+verdict = "clean"
+note = "Vyper form and submission preserve the address, compiler and verification worker input fields."
+
+[file.23]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_controller.ex"
+lines = 202
+verdict = "issues"
+note = "Address list rendering directly matches Integer.parse on the untrusted items_count query value."
+
+[file.24]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_internal_transaction_controller.ex"
+lines = 140
+verdict = "clean"
+note = "Internal transaction paging validates the address, checks restrictions and renders the same cursor shape it accepts."
+
+[file.25]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_logs_controller.ex"
+lines = 149
+verdict = "issues"
+note = "Ordinary log listing checks restrictions; topic search omits that check on its separately mounted route."
+
+[file.26]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_read_contract_controller.ex"
+lines = 93
+verdict = "clean"
+note = "Read-contract rendering enforces restrictions in both verified and custom-ABI paths and derives wallet requirements."
+
+[file.27]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_read_proxy_controller.ex"
+lines = 46
+verdict = "clean"
+note = "Read-proxy rendering resolves the verified contract and applies address restrictions before rendering proxy functions."
+
+[file.28]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_token_balance_controller.ex"
+lines = 42
+verdict = "clean"
+note = "Token balance display validates the owner address and applies restrictions before reading balances."
+
+[file.29]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_token_controller.ex"
+lines = 94
+verdict = "clean"
+note = "Address token paging separates JSON tiles and HTML rendering, with address restrictions before data access."
+
+[file.30]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_token_transfer_controller.ex"
+lines = 224
+verdict = "clean"
+note = "Address and token-specific transfers retain batch paging, token filtering and restricted-address checks."
+
+[file.31]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_transaction_controller.ex"
+lines = 163
+verdict = "clean"
+note = "Address transaction HTML/JSON paths use parsed addresses, restrictions and cursor-based transaction lists."
+
+[file.32]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_validation_controller.ex"
+lines = 99
+verdict = "clean"
+note = "Validation list uses parsed addresses, restricted access and the shared block pagination contract."
+
+[file.33]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_withdrawal_controller.ex"
+lines = 122
+verdict = "clean"
+note = "Address withdrawals use the validated address and the same withdrawal cursor for rendering and follow-up requests."
+
+[file.34]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_write_contract_controller.ex"
+lines = 86
+verdict = "issues"
+note = "The custom-ABI fallback renders the write page after the interaction-disabled guard rejects the primary path."
+
+[file.35]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_write_proxy_controller.ex"
+lines = 47
+verdict = "clean"
+note = "Proxy write rendering checks contract_interaction_disabled? before resolving and exposing write controls."
+
+[file.36]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/admin/dashboard_controller.ex"
+lines = 7
+verdict = "clean"
+note = "Admin dashboard is a render-only action behind the admin router role and owner-registration pipeline."
+
+[file.37]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/admin/session_controller.ex"
+lines = 37
+verdict = "clean"
+note = "Admin login uses the configured administrator authentication path and explicit invalid-credentials rendering."
+
+[file.38]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/admin/setup_controller.ex"
+lines = 90
+verdict = "clean"
+note = "Admin setup validates first-owner state and submitted credentials before creating the administrator identity."
+
+[file.39]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/admin/tasks_controller.ex"
+lines = 22
+verdict = "issues"
+note = "Task responses are encoded twice, yielding a JSON string instead of a status object; caller uses HTTP status only."
+
+[file.40]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/api_logger.ex"
+lines = 16
+verdict = "clean"
+note = "API log facade passes messages to the API logger and does not introduce a receipt or settlement state path."
+
+[file.41]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/eth_rpc/eth_controller.ex"
+lines = 54
+verdict = "clean"
+note = "Ethereum JSON-RPC proxy validates request shape, respects the allowed methods and relays upstream responses."
+
+[file.42]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/health_controller.ex"
+lines = 305
+verdict = "clean"
+note = "Health, readiness, liveness and export checks inspect actual database/indexing state with explicit error responses."
+
+[file.43]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/address_controller.ex"
+lines = 632
+verdict = "clean"
+note = "Reviewed all Etherscan account actions against translator dispatch, required/optional parameters and RPC views."
+
+[file.44]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/block_controller.ex"
+lines = 191
+verdict = "clean"
+note = "Block reward, countdown, timestamp lookup and eth_block_number actions preserve Etherscan response envelopes."
+
+[file.45]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/celo_controller.ex"
+lines = 50
+verdict = "clean"
+note = "Celo epoch lookup remains scoped to its supported chain profile and uses the RPC response view contract."
+
+[file.46]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/contract_controller.ex"
+lines = 788
+verdict = "clean"
+note = "Reviewed verification variants, status polling, ABI/source and creation lookup against RPCTranslator action dispatch."
+
+[file.47]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/helper.ex"
+lines = 55
+verdict = "clean"
+note = "RPC helper parses bounded page/offset options and validates complete address lists before invoking chain queries."
+
+[file.48]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/logs_controller.ex"
+lines = 238
+verdict = "clean"
+note = "Log filter validation, topic operators, block ranges and RPC response rendering use the declared Etherscan path."
+
+[file.49]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/rpc_translator.ex"
+lines = 195
+verdict = "clean"
+note = "Translator dispatch uses a fixed module/action map, rejects unsupported requests and redacts API-key log data."
+
+[file.50]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/stats_controller.ex"
+lines = 124
+verdict = "clean"
+note = "Supply, price and fee actions preserve Etherscan stats names and string-number response conventions."
+
+[file.51]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/token_controller.ex"
+lines = 95
+verdict = "clean"
+note = "Token metadata and holder pagination validate token addresses and render the RPC view envelope."
+
+[file.52]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/rpc/transaction_controller.ex"
+lines = 103
+verdict = "clean"
+note = "Transaction status, receipt status and transaction detail use the registered action names and error envelopes."
+
+[file.53]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v1/gas_price_oracle_controller.ex"
+lines = 50
+verdict = "clean"
+note = "Gas oracle API distinguishes cached estimates from unavailable estimates and uses the expected oracle view."
+
+[file.54]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v1/supply_controller.ex"
+lines = 12
+verdict = "clean"
+note = "Supply endpoint delegates to the configured supply provider and returns its documented text response."
+
+[file.55]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v1/verified_smart_contract_controller.ex"
+lines = 62
+verdict = "clean"
+note = "V1 verified-contract submission validates the source request and authentication before its creation path."
+
+[file.56]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_badge_controller.ex"
+lines = 83
+verdict = "clean"
+note = "Address-badge mutation and lookup use the configured badge authority and typed address validation."
+
+[file.57]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_controller.ex"
+lines = 1597
+verdict = "issues"
+note = "V2 address paths validate hashes and restrictions, but their cast :key parameter is lost at the string-keyed access-helper boundary."
+
+[file.58]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/advanced_filter_controller.ex"
+lines = 394
+verdict = "clean"
+note = "Advanced filter lists, CSV streaming and method lookup use cast filters and the shared chain filter pipeline."
+
+[file.59]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/api_key_controller.ex"
+lines = 72
+verdict = "clean"
+note = "Temporary V2 API-key issuance validates the requested authority/captcha and uses configured rate-limit tokens."
+
+[file.60]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/arbitrum_controller.ex"
+lines = 335
+verdict = "clean"
+note = "Arbitrum routes use chain-specific batch, DA and message schemas; external rollup finality is not Paxeer finality."
+
+[file.61]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/blob_controller.ex"
+lines = 32
+verdict = "clean"
+note = "Blob lookup parses its full hash and returns not-found through the V2 fallback when absent."
+
+[file.62]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/block_controller.ex"
+lines = 729
+verdict = "clean"
+note = "Block routes distinguish number/hash lookup, consensus blocks, rollup batches and child-list paging with typed inputs."
+
+[file.63]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/celo_controller.ex"
+lines = 199
+verdict = "clean"
+note = "Celo epoch and election-reward routes validate chain-specific numbers and reward types before querying."
+
+[file.64]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/config_controller.ex"
+lines = 268
+verdict = "issues"
+note = "Indexer availability is inferred from one raw environment string rather than the effective runtime configuration."
+
+[file.65]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/csv_export_controller.ex"
+lines = 313
+verdict = "issues"
+note = "Address CSV exports omit restriction checks; the guarded token-holder export additionally loses a valid cast :key authorization override."
+
+[file.66]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/ethereum/deposit_controller.ex"
+lines = 140
+verdict = "clean"
+note = "Ethereum deposit lists/counts share the deposit model and timestamp/hash paging contract."
+
+[file.67]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/fallback_controller.ex"
+lines = 354
+verdict = "issues"
+note = "Fallback lacks the nonempty_bytecode tag emitted by ImportController for an ordinary externally owned address."
+
+[file.68]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/import_controller.ex"
+lines = 296
+verdict = "issues"
+note = "Token import documentation promises an x-api-key header while its token mutation actions read params.api_key."
+
+[file.69]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/internal_transaction_controller.ex"
+lines = 115
+verdict = "clean"
+note = "Internal-transaction list uses cast paging/filter parameters and the matching internal-transaction response schema."
+
+[file.70]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/main_page_controller.ex"
+lines = 194
+verdict = "clean"
+note = "Home-page interleaving caps native submissions at three of six slots when at least three EVM transactions exist."
+
+[file.71]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/mud_controller.ex"
+lines = 468
+verdict = "issues"
+note = "MUD filter hex is accepted without a 32-byte bound before calculating bitstring padding size."
+
+[file.72]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex"
+lines = 1077
+verdict = "issues"
+note = "Optimism interop has unchecked key/signature input, ambiguous signed integers and non-expiring remote key cache."
+
+[file.73]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/archive_controller.ex"
+lines = 133
+verdict = "clean"
+note = "Archive lists read frozen consensus data, page anchors by batch_number and receipts by id, and omit live status."
+
+[file.74]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/capabilities_controller.ex"
+lines = 75
+verdict = "clean"
+note = "Capabilities omit custody/anchor; price_feed follows effective indexer/fetcher state or a recent successful scan."
+
+[file.75]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/feed_controller.ex"
+lines = 207
+verdict = "clean"
+note = "Native feed market/update routes cast IDs, hashes, bounds and paging inputs and use the feed query/view shapes."
+
+[file.76]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/price_update_list.ex"
+lines = 118
+verdict = "clean"
+note = "Native price updates use synthetic transaction indexes, deterministic merge ordering and matching pagination fields."
+
+[file.77]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_signature_controller.ex"
+lines = 151
+verdict = "clean"
+note = "Signature route verifies R1-R6, shares the gateway sequence-batch decoder with status and adds committed_height after R7-R8."
+
+[file.78]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/transaction_status_controller.ex"
+lines = 167
+verdict = "clean"
+note = "Status uses consensus indexed blocks or verified receipt evidence; gateway keys, signedHeader and decimal heights agree."
+
+[file.79]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/paxeer_x/unified_account_controller.ex"
+lines = 293
+verdict = "clean"
+note = "Unified account validates subject identity and signed account-bound cursor, snapshot lifetime and reorg continuity."
+
+[file.80]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/polygon_zkevm_controller.ex"
+lines = 180
+verdict = "clean"
+note = "Polygon zkEVM batch/deposit/withdrawal routes use their own chain profile, schemas and paging functions."
+
+[file.81]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/account_abstraction_controller.ex"
+lines = 466
+verdict = "clean"
+note = "Account-abstraction proxy actions use the configured upstream resource paths and explicit fallback behavior."
+
+[file.82]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/metadata_controller.ex"
+lines = 30
+verdict = "clean"
+note = "Metadata proxy preserves the requested address list and configured metadata service response contract."
+
+[file.83]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/noves_fi_controller.ex"
+lines = 58
+verdict = "clean"
+note = "NovesFi proxy routes preserve address/transaction arguments and handle unavailable third-party interpretation."
+
+[file.84]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/solidity_scan_controller.ex"
+lines = 38
+verdict = "issues"
+note = "SolidityScan returns failure tuples but declares no action_fallback, leaving expected error branches unrendered."
+
+[file.85]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/universal_proxy_controller.ex"
+lines = 13
+verdict = "clean"
+note = "Universal proxy delegates only its configured service route through the shared proxy mechanism."
+
+[file.86]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/xname_controller.ex"
+lines = 24
+verdict = "clean"
+note = "Xname lookup checks its service configuration and requested address before returning upstream name data."
+
+[file.87]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/scroll_controller.ex"
+lines = 149
+verdict = "clean"
+note = "Scroll batch and bridge lists use chain-specific batch numbers, statuses and cursors."
+
+[file.88]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/search_controller.ex"
+lines = 164
+verdict = "clean"
+note = "Search and redirect paths validate query types and use native price-update and ordinary chain search result shapes."
+
+[file.89]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/shibarium_controller.ex"
+lines = 81
+verdict = "clean"
+note = "Shibarium deposits and withdrawals retain their external bridge data model and list/count paging paths."
+
+[file.90]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/smart_contract_controller.ex"
+lines = 430
+verdict = "issues"
+note = "V2 contract paths lose the cast :key override at the access helper. The typed atom-keyed paging helper is valid for V2; its legacy caller mismatch is recorded at file.132."
+
+[file.91]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/stats_controller.ex"
+lines = 369
+verdict = "clean"
+note = "Statistics and charts use cached chain metrics with explicit unavailable branches and typed chart ranges."
+
+[file.92]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/token_controller.ex"
+lines = 792
+verdict = "issues"
+note = "V2 token/NFT routes enforce restrictions, but cannot accept the documented authorization override after OpenAPI casts key to :key."
+
+[file.93]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/token_transfer_controller.ex"
+lines = 113
+verdict = "clean"
+note = "Global token-transfer lists use cast type/address filters and the shared transfer paging/rendering contract."
+
+[file.94]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex"
+lines = 1234
+verdict = "issues"
+note = "Reviewed transaction routes, filters and fallback tags; transaction access validation loses the cast :key override at the policy helper."
+
+[file.95]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/utils_controller.ex"
+lines = 43
+verdict = "clean"
+note = "Calldata decoding checks supported input format and maps the decoder result or failure to a JSON response."
+
+[file.96]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/validator_controller.ex"
+lines = 218
+verdict = "clean"
+note = "Validator lists/counters use profile-specific query and view paths; they do not replace Paxeer BFT finality."
+
+[file.97]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/verification_controller.ex"
+lines = 420
+verdict = "clean"
+note = "Verification actions validate address/compiler/source inputs and enqueue the corresponding real verification workers."
+
+[file.98]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/withdrawal_controller.ex"
+lines = 76
+verdict = "clean"
+note = "Withdrawal lists/counters use the common withdrawal model and its typed pagination schema."
+
+[file.99]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/zksync_controller.ex"
+lines = 114
+verdict = "clean"
+note = "zkSync batch routes remain isolated to their external rollup profile and use the declared batch response shapes."
+
+[file.100]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api_docs_controller.ex"
+lines = 18
+verdict = "clean"
+note = "API documentation pages are rendered through the configured API and Ethereum RPC documentation templates."
+
+[file.101]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/block_controller.ex"
+lines = 116
+verdict = "clean"
+note = "Legacy block pages distinguish hash, number, uncle and reorg lists with shared block paging helpers."
+
+[file.102]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/block_transaction_controller.ex"
+lines = 168
+verdict = "clean"
+note = "Block transaction pages resolve the block and distinguish missing/above-tip blocks before querying transactions."
+
+[file.103]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/block_withdrawal_controller.ex"
+lines = 106
+verdict = "clean"
+note = "Block withdrawal pages validate the parent block and use the standard withdrawal paging cursor."
+
+[file.104]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/market_history_chart_controller.ex"
+lines = 70
+verdict = "clean"
+note = "Market history chart combines price and available supply using the configured supply provider and chart options."
+
+[file.105]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain/transaction_history_chart_controller.ex"
+lines = 43
+verdict = "clean"
+note = "Transaction history chart uses the configured interval and chain history source with explicit JSON encoding."
+
+[file.106]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/chain_controller.ex"
+lines = 185
+verdict = "clean"
+note = "Legacy chain home, search, autocomplete and block fragments use the chain model and bounded page helpers."
+
+[file.107]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/common_components_controller.ex"
+lines = 12
+verdict = "issues"
+note = "CommonComponentsController.index has no registered route or application caller; templates use the view directly."
+
+[file.108]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/csv_export_controller.ex"
+lines = 43
+verdict = "clean"
+note = "CSV export page validates the requested address and applies restrictions before rendering download controls."
+
+[file.109]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/page_not_found_controller.ex"
+lines = 9
+verdict = "clean"
+note = "Not-found controller consistently renders the missing-page response for unmatched web paths."
+
+[file.110]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/pending_transaction_controller.ex"
+lines = 71
+verdict = "clean"
+note = "Pending transaction list preserves pending-state filtering and the shared transaction cursor/partial rendering."
+
+[file.111]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/recent_transactions_controller.ex"
+lines = 52
+verdict = "clean"
+note = "Recent transaction list uses the same transaction query and cursor shape as its rendered follow-up URL."
+
+[file.112]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/robots_controller.ex"
+lines = 13
+verdict = "clean"
+note = "Robots and sitemap actions serve the configured static search-engine discovery responses."
+
+[file.113]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/search_controller.ex"
+lines = 72
+verdict = "clean"
+note = "Legacy search validates query types and renders chain search results through its bounded list path."
+
+[file.114]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/smart_contract_controller.ex"
+lines = 264
+verdict = "issues"
+note = "Contract AJAX actions omit address restrictions, leave args_count unbounded and use Map.values for ordered ABI arrays."
+
+[file.115]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/contract_controller.ex"
+lines = 56
+verdict = "issues"
+note = "Token write tabs render a disabled page shell and defer refusal to AJAX instead of applying the configured page guard."
+
+[file.116]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/holder_controller.ex"
+lines = 58
+verdict = "clean"
+note = "Token holder JSON path validates token hash and restrictions before fetching and paging balances."
+
+[file.117]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/helper.ex"
+lines = 21
+verdict = "clean"
+note = "NFT rendering helper carries token identity into the requested template; authorization must occur in its callers."
+
+[file.118]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/holder_controller.ex"
+lines = 78
+verdict = "issues"
+note = "NFT holder routes query and render restricted tokens without the AccessHelper guard used by parent token lists."
+
+[file.119]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/metadata_controller.ex"
+lines = 32
+verdict = "issues"
+note = "NFT metadata route returns restricted token metadata without checking address restrictions."
+
+[file.120]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/transfer_controller.ex"
+lines = 81
+verdict = "issues"
+note = "NFT transfer routes query and render restricted token transfers without checking address restrictions."
+
+[file.121]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance_controller.ex"
+lines = 27
+verdict = "clean"
+note = "NFT instance redirect resolves token/type and redirects to the instance transfer page; it does not itself return instance data."
+
+[file.122]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/inventory_controller.ex"
+lines = 78
+verdict = "clean"
+note = "Token inventory enforces restrictions, validates token type and shares token-instance paging parameters."
+
+[file.123]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/token_controller.ex"
+lines = 25
+verdict = "issues"
+note = "Legacy token counter route returns holder/transfer counts without checking token restrictions."
+
+[file.124]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/tokens_controller.ex"
+lines = 73
+verdict = "issues"
+note = "Token list rendering directly matches Integer.parse on an unchecked items_count query parameter."
+
+[file.125]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/transfer_controller.ex"
+lines = 93
+verdict = "clean"
+note = "Token transfer JSON and HTML paths validate token hash/type and enforce the token restriction policy."
+
+[file.126]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_controller.ex"
+lines = 137
+verdict = "clean"
+note = "Legacy transaction details resolve chain transactions and access restrictions before rendering chain data."
+
+[file.127]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_internal_transaction_controller.ex"
+lines = 132
+verdict = "clean"
+note = "Transaction internal traces validate the parent transaction and use shared internal-transaction paging."
+
+[file.128]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_log_controller.ex"
+lines = 119
+verdict = "clean"
+note = "Transaction log listing validates the parent transaction and uses matching log cursor fields."
+
+[file.129]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_raw_trace_controller.ex"
+lines = 70
+verdict = "clean"
+note = "Transaction raw-trace rendering checks its transaction and explicit trace error paths before rendering."
+
+[file.130]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_state_controller.ex"
+lines = 131
+verdict = "clean"
+note = "Transaction state changes use the chain state-diff path and transaction access checks with paginated results."
+
+[file.131]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/transaction_token_transfer_controller.ex"
+lines = 134
+verdict = "clean"
+note = "Transaction token-transfer pages validate transaction identity and retain ERC-1155 batch cursor fields."
+
+[file.132]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/verified_contracts_controller.ex"
+lines = 72
+verdict = "issues"
+note = "Verified-contract list emits id but calls an atom-keyed smart_contract_id decoder; a mounted search action is absent."
+
+[file.133]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/visualize_sol2uml_controller.ex"
+lines = 71
+verdict = "issues"
+note = "Sol2uml exposes restricted contract sources to the visualizer and returns diagrams without the normal address guard."
+
+[file.134]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/withdrawal_controller.ex"
+lines = 42
+verdict = "clean"
+note = "Global withdrawals page uses the common withdrawal query and cursor used by its partial rendering."
+
+[file.135]
+path = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/tracer.ex"
+lines = 5
+verdict = "clean"
+note = "Spandex tracer module is a configuration-backed tracer declaration and adds no independent chain data interface."
+
+[file.136]
+path = "services/explorer/backend/apps/block_scout_web/test/block_scout_web/controllers/address_transaction_controller_test.exs"
+lines = 154
+verdict = "clean"
+note = "Address transaction tests exercise real controller list/cursor and restricted-address responses; assertions were read unchanged."
+
+[file.137]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/deposit.ex"
+lines = 338
+verdict = "clean"
+note = "Optimism deposit fetcher persists imported L1 deposit transactions and resumes through hash/reorg-aware checkpoint logic."
+
+[file.138]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/dispute_game.ex"
+lines = 451
+verdict = "issues"
+note = "Dispute game RPC retry exhaustion is collapsed into an empty successful chunk, so its cursor advances past missing games."
+
+[file.139]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/eip1559_config_update.ex"
+lines = 708
+verdict = "issues"
+note = "Jovian first-definition marker is persisted before its required historical rewind, allowing a crash to suppress the rewind."
+
+[file.140]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/helper.ex"
+lines = 48
+verdict = "clean"
+note = "Interop helper centralizes RPC/startup diagnostic messages and carries no independent mutable indexing state."
+
+[file.141]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message.ex"
+lines = 470
+verdict = "clean"
+note = "Interop event scanner decodes SentMessage/RelayedMessage fields, persists messages and handles chain reorg removal."
+
+[file.142]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_failed.ex"
+lines = 403
+verdict = "issues"
+note = "Failed relay scanner matches raw ABI bytes against a hex event string and passes raw bytes to a hex-only decoder."
+
+[file.143]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_queue.ex"
+lines = 435
+verdict = "issues"
+note = "Interop queue signs adjacent decimal fields without boundaries; valid signatures do not uniquely identify message fields."
+
+[file.144]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/multichain_export.ex"
+lines = 260
+verdict = "issues"
+note = "Multichain export logs the full failed request body including its API key."
+
+[file.145]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/operator_fee.ex"
+lines = 144
+verdict = "clean"
+note = "Operator-fee buffered fetcher batches receipt reads, updates actual transaction fee fields and returns explicit request failures."
+
+[file.146]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/output_root.ex"
+lines = 247
+verdict = "clean"
+note = "Output-root fetcher persists L1 event data and resumes using its stored transaction and reorg-aware boundary."
+
+[file.147]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/transaction_batch.ex"
+lines = 1704
+verdict = "issues"
+note = "Batch fetcher loses incomplete channels across restart and advances its durable cursor after unavailable DA reads."
+
+[file.148]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/withdrawal.ex"
+lines = 371
+verdict = "clean"
+note = "Optimism withdrawals decode MessagePassed events, persist state and handle L2 reorg deletion through the real chain model."
+
+[file.149]
+path = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/withdrawal_event.ex"
+lines = 371
+verdict = "issues"
+note = "L1 withdrawal events use persisted/reorg resume state; Super Root address extraction corrupts valid addresses with a long zero prefix."
+
+[finding.1]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/auth_controller.ex"
+line = 69
+class = "runtime-risk"
+severity = "medium"
+observed = "authenticate! returns current_user(conn) or redirect(conn, to: root()); its unauthenticated branch is a Plug.Conn, not a user, and neither halts callers nor propagates the updated connection. AccountRouter checks feature enablement but does not authenticate these legacy actions."
+expected = "An unauthenticated or expired account session must end with a usable login redirect before any user-owned query, mutation or rendering continues."
+proposal = "In controllers/account/auth_controller.ex, introduce a connection authentication plug that assigns the verified user and halts after redirect on denial; migrate all legacy account actions and add expired-session route tests."
+owner_domain = 14
+
+[finding.2]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api_key_controller.ex"
+line = 33
+class = "runtime-risk"
+severity = "medium"
+observed = "API-key listing/editing/mutations uses the result of authenticate! as a user and later dereferences id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/api_key_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.3]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/custom_abi_controller.ex"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "custom-ABI listing/editing/mutations uses the result of authenticate! as a user and later dereferences id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/custom_abi_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.4]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_address_controller.ex"
+line = 9
+class = "runtime-risk"
+severity = "medium"
+observed = "address-tag listing/deletion/creation uses the result of authenticate! as a user and later dereferences id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_address_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.5]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_transaction_controller.ex"
+line = 9
+class = "runtime-risk"
+severity = "medium"
+observed = "transaction-tag listing/deletion/creation uses the result of authenticate! as a user and later dereferences id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/tag_transaction_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.6]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_address_controller.ex"
+line = 17
+class = "runtime-risk"
+severity = "medium"
+observed = "watchlist-address creation/editing/deletion uses the result of authenticate! as a user and later dereferences watchlist_id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_address_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.7]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_controller.ex"
+line = 11
+class = "runtime-risk"
+severity = "medium"
+observed = "watchlist rendering uses the result of authenticate! as a user and later dereferences watchlist_id; with an expired or missing session that value is a redirect Plug.Conn, so the mounted request raises instead of finishing the redirect."
+expected = "Every account action must stop on authentication denial and perform user-scoped work only with a verified account identity."
+proposal = "Update services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/account/watchlist_controller.ex to use the halted authentication plug and its assigned identity; exercise missing and expired sessions on both reads and mutations without entering the account model."
+owner_domain = 14
+
+[finding.8]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_contract_verification_controller.ex"
+line = 88
+class = "runtime-risk"
+severity = "medium"
+observed = "The json:standard create branch maps missing JSON upload or File.read failure to nil, then unconditionally sends 204; no SolidityPublisherWorker job was enqueued and the user receives no verification result."
+expected = "A verification submission must report invalid/unreadable source input immediately and acknowledge acceptance only when a job has actually been queued."
+proposal = "In address_contract_verification_controller.ex, return explicit upload/read validation errors and send the accepted response only after Que.add succeeds; cover missing JSON and unreadable upload paths."
+owner_domain = 14
+
+[finding.9]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_controller.ex"
+line = 71
+class = "runtime-risk"
+severity = "medium"
+observed = "The JSON /accounts list directly matches {items_count, _} = Integer.parse(items_count_str); a query items_count=abc produces :error and raises after the list query instead of a client error."
+expected = "Public pagination counters must reject malformed and negative values without crashing the request or querying an unbounded alternative."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_controller.ex, parse the complete nonnegative counter through the shared safe integer helper before querying; add malformed, trailing-text and negative query cases."
+owner_domain = 14
+
+[finding.10]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/tokens_controller.ex"
+line = 42
+class = "runtime-risk"
+severity = "medium"
+observed = "The JSON /tokens list directly matches {items_count, _} = Integer.parse(items_count_str); a query items_count=abc produces :error and raises after the list query instead of a client error."
+expected = "Public pagination counters must reject malformed and negative values without crashing the request or querying an unbounded alternative."
+proposal = "In services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/tokens_controller.ex, parse the complete nonnegative counter through the shared safe integer helper before querying; add malformed, trailing-text and negative query cases."
+owner_domain = 14
+
+[finding.11]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_logs_controller.ex"
+line = 93
+class = "security"
+severity = "medium"
+observed = "search_logs checks address parsing/existence but omits restricted_access? before Chain.address_to_logs; WebRouter mounts GET /search-logs without an address-policy plug, while both ordinary index branches enforce the restriction."
+expected = "Restricted-address log data must obey the same access policy on topic search, ordinary listing and their JSON fragments."
+proposal = "In address_logs_controller.ex, enforce AccessHelper.restricted_access? before topic search and preserve its authorized key parameters in paging; verify a restricted address cannot be read through /search-logs."
+owner_domain = 14
+
+[finding.12]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/address_write_contract_controller.ex"
+line = 61
+class = "config-drift"
+severity = "medium"
+observed = "The primary with rejects contract_interaction_disabled? = true, but its catch-all else enters a custom-ABI rendering branch without that guard. The disabled write-page shell still renders and its later SmartContractController AJAX request is refused, leaving unusable write UI."
+expected = "The configured contract-interaction switch must govern both verified ABI and custom ABI write controls consistently."
+proposal = "Move the interaction-disabled check ahead of both rendering branches in address_write_contract_controller.ex and exercise disabled/enabled settings with and without a custom ABI."
+owner_domain = 14
+interface = "14.cfg-web-contract"
+
+[finding.13]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/admin/tasks_controller.ex"
+line = 14
+class = "runtime-risk"
+severity = "medium"
+observed = "@ok_resp and @not_ok_resp are already Poison-encoded objects, then create_contract_methods encodes them again in send_resp; consumers decoding once receive a JSON string. The current dashboard checks only HTTP success and does not detect this."
+expected = "The administrative task result should be a single JSON object with its status field and an application/json content type."
+proposal = "In admin/tasks_controller.ex retain map constants and use json once with the selected HTTP status; assert the decoded body is an object for success and failure, and update the dashboard to read that field."
+owner_domain = 14
+
+[finding.14]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/config_controller.ex"
+line = 116
+class = "config-drift"
+severity = "medium"
+observed = "indexer_enabled? compares DISABLE_INDEXER only with the literal true string. runtime.exs:316 also disables indexing for api application mode and uses parse_bool_env_var; runtime.exs:1278 writes that effective value into Indexer.Supervisor. An API-only node can therefore advertise running fetchers."
+expected = "The configuration response must describe the effective indexer and supervisor state used to start processes, including API-only mode and parsed environment values."
+proposal = "In api/v2/config_controller.ex derive indexer_enabled from Application.get_env(:indexer, Indexer.Supervisor)[:enabled] and combine each actual supervisor flag; add an API-only mode case."
+owner_domain = 14
+interface = "14.env-disable-indexer"
+
+[finding.15]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/csv_export_controller.ex"
+line = 95
+class = "security"
+severity = "medium"
+observed = "items_csv validates address format and existence but never calls restricted_access? before exporting transactions, internal transactions, token transfers or logs (also Celo rewards). The API pipeline has no global address policy; export_token_holders already has the missing guard."
+expected = "Address export routes must enforce the same restricted-address policy as their ordinary data endpoints before opening a CSV stream."
+proposal = "Add AccessHelper.restricted_access? to the common items_csv path in api/v2/csv_export_controller.ex before exporting or send_chunked; cover restricted and authorized-key exports across the shared actions."
+owner_domain = 14
+
+[finding.16]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/fallback_controller.ex"
+line = 314
+class = "runtime-risk"
+severity = "medium"
+observed = "FallbackController handles not_a_smart_contract but has no clause for {:nonempty_bytecode, false}; ImportController.try_to_search_contract emits exactly that tuple for an address without contract bytecode and action_fallback cannot render it."
+expected = "A valid non-contract address submitted for source lookup must receive a documented client response, without a fallback function-clause crash."
+proposal = "Align api/v2/fallback_controller.ex and ImportController on the existing not_a_smart_contract error tag, or add an explicit matching error response; exercise source lookup for an indexed externally owned address."
+owner_domain = 14
+interface = "14.http-get-api-v2-import-smart-contracts-address-hash-param"
+
+[finding.17]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/import_controller.ex"
+line = 25
+class = "doc-drift"
+severity = "medium"
+observed = "The token-info POST and DELETE documentation promises protection by x-api-key, while import_token_info and delete_token_info call validate_api_key_address_hash_and_token with params[api_key]; a header-only caller following the documented contract is rejected."
+expected = "The published authentication location for administrative token metadata mutations must agree with the request fields the controller actually reads."
+proposal = "In api/v2/import_controller.ex and its API documentation choose and document one authentication transport, migrate token-info callers to it and verify a real header/body request round-trip without exposing the key in logs."
+owner_domain = 14
+interface = "14.http-post-api-v2-import-token-info"
+
+[finding.18]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/mud_controller.ex"
+line = 432
+class = "runtime-risk"
+severity = "medium"
+observed = "encode_filter decodes any even-length 0x value then uses 256 - byte_size(bin)*8 as a bitstring size. The OpenAPI filter_key0/filter_key1 schemas are unconstrained strings; 33 decoded bytes produce a negative padding size and crash MUD record listing."
+expected = "A MUD key filter must fit its declared 32-byte key field, with invalid lengths and encodings reported as client validation errors."
+proposal = "In api/v2/mud_controller.ex validate decoded byte length and numeric range against FieldSchema before padding; constrain the filter schemas and exercise 32-byte, 33-byte and malformed-hex filters."
+owner_domain = 14
+interface = "14.http-get-api-v2-mud-worlds-world-tables-table-id-records"
+
+[finding.19]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex"
+line = 648
+class = "runtime-risk"
+severity = "medium"
+observed = "interop_public_key pipes env[:private_key] into String.trim_leading before checking its type; the documented invalid-or-undefined key 404 branch is unreachable when this optional setting is nil."
+expected = "An enabled Optimism API without an interop signing key must report the configured unavailable response rather than crash on a normal configuration omission."
+proposal = "In api/v2/optimism_controller.ex validate private_key as a nonempty binary before trimming/decoding and deriving the public key; cover unset, malformed and valid settings."
+owner_domain = 14
+interface = "14.http-get-api-v2-optimism-interop-public-key"
+
+[finding.20]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex"
+line = 747
+class = "runtime-risk"
+severity = "medium"
+observed = "interop_import only pattern matches a signature prefix before Base.decode16!; invalid hex raises after the remote key lookup. Other untyped fields reach Integer.to_string and DateTime.from_unix! without a schema, producing further request crashes."
+expected = "Untrusted interop payloads must pass field types, lengths and timestamp bounds before signature verification or database imports; bad signatures must receive the explicit authentication/client error."
+proposal = "In api/v2/optimism_controller.ex validate the complete interop request schema and use non-bang hex/date decoding before any remote request; cover malformed signatures, wrong numeric types and out-of-range timestamps."
+owner_domain = 14
+interface = "14.http-post-api-v2-import-optimism-interop"
+
+[finding.21]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex"
+line = 711
+class = "security"
+severity = "medium"
+observed = "Relay verification concatenates decimal nonce, init_chain_id and relay_chain_id without field boundaries, matching MessageQueue.prepare_post_data. For the same relay chain 45, nonce/init pairs (1,23) and (12,3) both sign 12345 plus the same transaction hash/failed flag. Remote key selection uses relay_chain_id, so changing the first pair leaves signature verification unchanged."
+expected = "An authenticated interop message must bind one unambiguous tuple of nonce, source domain, destination domain, transaction hash and result."
+proposal = "Version a domain-separated canonical binary or length-delimited encoding in api/v2/optimism_controller.ex and interop/message_queue.ex; reject altered field boundaries and check the local chain binding before import."
+owner_domain = 14
+interface = "14.http-post-api-v2-import-optimism-interop"
+
+[finding.22]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/optimism_controller.ex"
+line = 1043
+class = "restart-recovery"
+severity = "medium"
+observed = "interop_fetch_public_key caches a successful remote public key by URL without expiration or refresh. Explorer.Application configures this ConCache with ttl_check_interval false; after remote key rotation valid new messages fail until this explorer is restarted."
+expected = "Interop trust-key rotation must have a defined refresh/revocation lifecycle so signing-key recovery does not require restarting every consuming explorer."
+proposal = "In api/v2/optimism_controller.ex and Explorer.Application implement bounded cache lifetime plus authenticated key-version refresh on verification failure; test remote rotation and old-key retirement without weakening signature checks."
+owner_domain = 14
+interface = "14.http-get-api-v2-optimism-interop-public-key"
+
+[finding.23]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/proxy/solidity_scan_controller.ex"
+line = 24
+class = "runtime-risk"
+severity = "medium"
+observed = "solidityscan_report returns format/address/restriction/unverified/Vyper/empty-response tuples from with, but neither this controller nor the shared BlockScoutWeb controller macro declares action_fallback. These ordinary failures leave Phoenix without a connection response even though FallbackController has matching handlers."
+expected = "The mounted SolidityScan endpoint must render defined 4xx or unavailable responses for its expected validation and upstream failure cases."
+proposal = "Register the existing V2 FallbackController in api/v2/proxy/solidity_scan_controller.ex and add routed invalid-address, unverified-contract, restricted-address and empty-upstream response cases."
+owner_domain = 14
+interface = "14.http-get-api-v2-proxy-3rdparty-solidityscan-smart-contracts-address-hash-report"
+
+[finding.24]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/smart_contract_controller.ex"
+line = 25
+class = "security"
+severity = "medium"
+observed = "Both regular AJAX contract index/show and custom_abi_render query contract data without restricted_access?. WebRouter mounts /smart-contracts without a global address guard, allowing restricted contract functions and read results through a route that bypasses guarded address pages."
+expected = "Address restrictions must be applied before returning contract ABI/function data or executing on-demand contract reads on every exposed route."
+proposal = "In smart_contract_controller.ex enforce AccessHelper.restricted_access? in index, show and custom-ABI paths before resolving or querying the contract; cover restricted AJAX requests with and without the authorized key."
+owner_domain = 14
+
+[finding.25]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/smart_contract_controller.ex"
+line = 180
+class = "runtime-risk"
+severity = "medium"
+observed = "show accepts arbitrary args_count, directly matches Integer.parse and constructs 0..args_count-1. A short query with a very large integer allocates work and argument entries unrelated to the selected ABI; a nonnumeric value raises."
+expected = "Contract argument count must match the chosen ABI with bounded work before invoking an RPC-backed read, and malformed counts must return a client error."
+proposal = "In smart_contract_controller.ex derive expected arity from the selected ABI, parse a complete bounded nonnegative count and reject mismatches before allocation; cover malformed and oversized counts."
+owner_domain = 14
+
+[finding.26]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/smart_contract_controller.ex"
+line = 231
+class = "runtime-risk"
+severity = "medium"
+observed = "convert_map_to_array recognizes numeric map keys but uses Map.values without numeric ordering. String keys 0,1,10,2 are enumerated lexically for small maps, and larger maps have unspecified order, so ABI array arguments can reach Reader in the wrong order."
+expected = "The argument array sent to the contract reader must preserve the numeric indexes supplied by the user at every nesting level."
+proposal = "In smart_contract_controller.ex normalize numeric keys, require contiguous indexes and sort numerically before recursively converting values; verify at least 12 distinct ordered elements through the real read argument path."
+owner_domain = 14
+
+[finding.27]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/contract_controller.ex"
+line = 23
+class = "config-drift"
+severity = "medium"
+observed = "Token contract tabs select action write and render a 200 write-page shell without checking contract_interaction_disabled?. The subsequent SmartContractController AJAX request rejects disabled writes, leaving the user on a loading/error shell instead of the unavailable response used by address write routes."
+expected = "A disabled interaction setting must consistently refuse write pages across token and address URLs without leaving a page waiting for a forbidden AJAX action."
+proposal = "In tokens/contract_controller.ex apply the configured interaction guard to the chosen write action before rendering; verify both token write routes and keep read availability consistent with the intended setting."
+owner_domain = 14
+interface = "14.cfg-web-contract"
+
+[finding.28]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/holder_controller.ex"
+line = 14
+class = "security"
+severity = "medium"
+observed = "NFT holder balances and HTML instance details are read after token/hash/type checks with no restricted_access? guard. The parent token holder/inventory/transfer controllers enforce that policy, and WebRouter has no global address restriction plug."
+expected = "Restricted token data must obey the same access policy through instance routes as through collection and ordinary token routes."
+proposal = "Add AccessHelper.restricted_access? before queries/rendering in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/holder_controller.ex and carry authorized restriction keys through page links; exercise both HTML/JSON variants where present."
+owner_domain = 14
+
+[finding.29]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/metadata_controller.ex"
+line = 12
+class = "security"
+severity = "medium"
+observed = "NFT metadata are read after token/hash/type checks with no restricted_access? guard. The parent token holder/inventory/transfer controllers enforce that policy, and WebRouter has no global address restriction plug."
+expected = "Restricted token data must obey the same access policy through instance routes as through collection and ordinary token routes."
+proposal = "Add AccessHelper.restricted_access? before queries/rendering in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/metadata_controller.ex and carry authorized restriction keys through page links; exercise both HTML/JSON variants where present."
+owner_domain = 14
+
+[finding.30]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/transfer_controller.ex"
+line = 18
+class = "security"
+severity = "medium"
+observed = "NFT transfer history and HTML instance details are read after token/hash/type checks with no restricted_access? guard. The parent token holder/inventory/transfer controllers enforce that policy, and WebRouter has no global address restriction plug."
+expected = "Restricted token data must obey the same access policy through instance routes as through collection and ordinary token routes."
+proposal = "Add AccessHelper.restricted_access? before queries/rendering in services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/instance/transfer_controller.ex and carry authorized restriction keys through page links; exercise both HTML/JSON variants where present."
+owner_domain = 14
+
+[finding.31]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/tokens/token_controller.ex"
+line = 14
+class = "security"
+severity = "medium"
+observed = "token_counters only validates the hash before Token.fetch_token_counters and returns holder/transfer counts for restricted tokens; the mounted /token-counters route has no address policy plug and the V2 token counterpart applies the restriction."
+expected = "Token restrictions must cover auxiliary counters as well as their main token detail and transfer pages."
+proposal = "In tokens/token_controller.ex enforce AccessHelper.restricted_access? before fetching counters and retain explicit invalid/restricted responses; add direct route coverage for a restricted token."
+owner_domain = 14
+
+[finding.32]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/verified_contracts_controller.ex"
+line = 25
+class = "interface-mismatch"
+severity = "high"
+observed = "index forwards raw string-keyed query params to smart_contract_addresses_paging_options, whose clauses accept atom-keyed smart_contract_id or hash, and next_page_path emits id. Following a legitimate cursor repeats the first page; this is the caller side of the shared-helper finding."
+expected = "GET /verified-contracts must return a next_page_path whose cursor is accepted by the next request and yields the next non-overlapping set of records."
+proposal = "In verified_contracts_controller.ex translate the legacy query into the shared typed cursor and emit the same field name; prove two routed pages with more than one page of contracts have no overlap."
+owner_domain = 14
+interface = "14.http-get-verified-contracts"
+
+[finding.33]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/verified_contracts_controller.ex"
+line = 0
+class = "wiring-gap"
+severity = "medium"
+observed = "WebRouter.ex:438 registers GET /search-verified-contracts to search_verified_contracts, but VerifiedContractsController declares only index/2. No action definition exists in the application, so this mounted request raises an undefined-function error."
+expected = "Every registered explorer route must resolve to an implemented action and return its intended search result or explicit validation response."
+proposal = "Implement the search_verified_contracts action in verified_contracts_controller.ex using the real filtered contract query and shared paging, and add a routed request proving that the mounted path executes it."
+owner_domain = 14
+
+[finding.34]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/visualize_sol2uml_controller.ex"
+line = 17
+class = "security"
+severity = "medium"
+observed = "Both Sol2uml branches resolve contract addresses without restricted_access?; the JSON branch additionally forwards restricted verified source code to the visualization service and returns its diagram. The normal address source page is guarded."
+expected = "Restricted-address policy must be checked before reading contract sources, sending them to integrations or returning derived diagrams."
+proposal = "In visualize_sol2uml_controller.ex apply the shared restriction check in HTML and JSON paths before contract resolution or visualization; prove a restricted address triggers no visualization request."
+owner_domain = 14
+
+[finding.35]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/dispute_game.ex"
+line = 373
+class = "restart-recovery"
+severity = "medium"
+observed = "read_game_list returns [] after its finite RPC retries fail; handle_info imports that as a successful empty chunk and advances start_index from end_index. Later successful games can move the persisted maximum past the skipped range, making the gap survive restart. This belongs to the optional Optimism profile."
+expected = "An RPC failure while reading known dispute game indexes must retain retryable progress and must not be treated as an actually empty game range."
+proposal = "In optimism/dispute_game.ex return an explicit error, stop advancement at the failed chunk and resume that chunk idempotently; test exhausted RPC retries followed by recovery and process restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-disputegame-supervisor"
+
+[finding.36]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/eip1559_config_update.ex"
+line = 699
+class = "restart-recovery"
+severity = "medium"
+observed = "jovian_first_time_defined? persists the Jovian-defined marker before handle_continue rewinds the last-handled block hash at lines 123-128. A crash or RPC failure between those operations makes the next process see the marker and skip the historical rewind. This affects the optional Optimism Jovian activation/backfill path."
+expected = "First-time activation of a new fee-data format must persist its replay intent until historical backfill is safely initialized, including after a crash."
+proposal = "In optimism/eip1559_config_update.ex persist replay intent and cursor transition together or retain a recoverable pending-backfill state; test a restart after marker creation but before cursor rewind."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-eip1559configupdate"
+
+[finding.37]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_failed.ex"
+line = 316
+class = "runtime-risk"
+severity = "medium"
+observed = "ABI.TypeDecoder.decode returns the relay bytes argument as raw binary, but the next pattern pins sent_message_event_signature, a 0x-prefixed 66-character string from Message.sent_message_event_signature. Canonical failed relay calldata cannot match; additionally decode_data expects hex text but receives the remaining raw bytes. The same failed transaction is encountered after restart in an enabled Optimism profile."
+expected = "Failed relay indexing must decode the real ABI bytes and SentMessage topic/data bytes without mixing raw binary and hexadecimal text representations."
+proposal = "In optimism/interop/message_failed.ex decode the event signature to 32 raw bytes and decode the remaining ABI payload with the raw decoder; validate lengths and handle malformed relay calls explicitly. Add real ABI-encoded failed relay and malformed calldata route-to-import tests."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-interop-messagefailed-supervisor"
+
+[finding.38]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/message_queue.ex"
+line = 312
+class = "security"
+severity = "medium"
+observed = "prepare_post_data signs relay messages by concatenating decimal nonce, init_chain_id and relay_chain_id with no separators. The receiving OptimismController repeats it; nonce/init pairs (1,23) and (12,3) share the signed bytes for the same relay chain and transaction hash."
+expected = "The signature producer must encode a unique, versioned tuple so changing a message identity always changes the signed digest."
+proposal = "Update optimism/interop/message_queue.ex together with the receiving controller to use a domain-separated canonical typed encoding, with an explicit migration/version boundary; add a cross-peer test rejecting ambiguous numeric-field substitutions."
+owner_domain = 14
+interface = "14.http-post-api-v2-import-optimism-interop"
+
+[finding.39]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/interop/multichain_export.ex"
+line = 256
+class = "security"
+severity = "medium"
+observed = "prepare_body includes api_key in the request map; post_json_request logs inspect(json_body) on every non-200 or transport failure. An ordinary remote outage therefore writes the configured multichain API credential into explorer logs."
+expected = "Remote integration credentials must not enter request/error logs during retries or response failures."
+proposal = "In optimism/interop/multichain_export.ex log only non-sensitive request identifiers and status, redact credential fields and transport request objects, and exercise a failed export proving the configured key is absent from captured logs."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-interop-multichainexport"
+
+[finding.40]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/transaction_batch.ex"
+line = 143
+class = "restart-recovery"
+severity = "medium"
+observed = "The batch fetcher initializes incomplete_channels to an empty map while persisting the last fetched L1 block hash after every chunk at line 347. get_last_l1_item resumes that counter. Frames retained only in memory from earlier chunks are lost when a channel spans a checkpoint and the process restarts, so its later final frame cannot assemble the batch. This profile is optional Optimism."
+expected = "A restartable frame indexer must recover every incomplete channel whose L1 input was passed by its durable scan cursor."
+proposal = "In optimism/transaction_batch.ex persist incomplete frames with the checkpoint atomically or resume from the earliest unresolved frame with idempotent imports; prove a channel spanning chunks completes identically across a restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-transactionbatch"
+
+[finding.41]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/transaction_batch.ex"
+line = 651
+class = "restart-recovery"
+severity = "medium"
+observed = "Unavailable beacon blobs return inputs_acc; failed Celestia, EigenDA and Alt-DA reads return []. get_transaction_batches_inner treats those empty inputs as success and the outer loop persists the chunk-end cursor. A transient DA outage can permanently omit batches after later chunks or restart in the enabled Optimism profile."
+expected = "Unavailable transaction data must remain a retryable indexing gap, with no durable progress past unresolved commitments."
+proposal = "In optimism/transaction_batch.ex distinguish fetch failure from validated non-batch input, propagate retryable errors and retain or durably queue the missing commitment before advancing; test transient DA failure followed by successful recovery and restart."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-transactionbatch"
+
+[finding.42]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/transaction_batch.ex"
+line = 571
+class = "config-drift"
+severity = "medium"
+observed = "The empty eip4844_blobs_api_url clause returns [] immediately, although the nonempty-URL failure path supports fetching the same blobs from the configured beacon fallback. A deployment with only beacon access silently skips every EIP-4844 batch instead of attempting that available source."
+expected = "The supported beacon fallback must be attempted when the primary blob API is unavailable or intentionally unset, and unresolved blobs must not be acknowledged as processed."
+proposal = "In optimism/transaction_batch.ex use the same primary/fallback selection for an absent primary URL as for a failed request, retaining explicit errors when both fail; verify a beacon-only configuration imports real batch input."
+owner_domain = 14
+interface = "14.cfg-indexer-indexer-fetcher-optimism-transactionbatch"
+
+[finding.43]
+file = "docs/site/docs/operators/beta-cluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster operator page presents a separate LayerX daemon alongside Paxeer and describes its custody-profile/sequencer bring-up as the current network operation."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md around the integrated paxd topology, actual root node RPC, and native committed receipts; label any retained standalone custody/sequencer procedure as historical or isolated test-only."
+owner_domain = 8
+
+[finding.44]
+file = "docs/wiki/BetaCluster.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The wiki beta-cluster guide still describes separate Paxeer and LayerX daemon bring-up, including custody-profile installation into layerxd."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Update docs/wiki/BetaCluster.md with the same merged paxd topology and operator lifecycle as the canonical operator page; clearly separate any retained private historical harness."
+owner_domain = 8
+
+[finding.45]
+file = "docs/system/routes.md"
+line = 908
+class = "doc-drift"
+severity = "medium"
+observed = "The generated route catalogue page titles itself Router routes and advertises /rpc/evm/ws under a LayerX settlement boundary service; these conflict with the merged public node endpoint model. Its explorer archive and transaction evidence paths are already updated."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Correct the source route catalogue in tools/paxeer-x/route-catalogue.json and regenerate docs/system/routes.md with the merged node root/WebSocket contract, retaining the correct explorer archive and signature/status routes."
+owner_domain = 8
+
+[finding.46]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "The repository overview says the network has separate Paxeer and LayerX execution domains, with a running layerxd daemon and checkpoint settlement through layerxAnchor."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Rewrite README.md network architecture and build-entry references around the integrated paxd kernel and committed-block finality; move standalone daemon/checkpoint descriptions into explicitly historical material."
+owner_domain = 17
+
+[finding.47]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The Paxeer network page presents Paxeer as a custody and settlement chain next to LayerX, with ordinary activity off-chain and periodic checkpoints from a separate sequencer."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Rewrite docs/paxeer-network.md for one network and native committed activity, preserving correct chain id 125 and tenant-domain namespace semantics; separate disposable private funding procedures from public node access."
+owner_domain = 17
+
+[finding.48]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The monorepo layout overview names layerxd as the current LayerX kernel and describes separate custody/checkpoint settlement authority instead of the integrated network state machine."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Update docs/MONOREPO.md current components and trust-boundary prose to locate the kernel in paxd; keep external service authorization boundaries while removing the retired daemon settlement topology."
+owner_domain = 17
+
+[finding.49]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart directs integrators to a unified /rpc and /rpc/ws gateway and teaches the pre-merge sequencing/finalisation lifecycle rather than committed-block finality."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md examples to use root node RPC and the hosted gateway contract for px_ methods; show current transaction status/signature verification and identify private test funding explicitly."
+owner_domain = 8
+
+[finding.50]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+line = 119
+class = "doc-drift"
+severity = "medium"
+observed = "The boundary concept page describes a separate LayerX settlement/checkpoint and guarantor architecture as a current running network boundary."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Update docs/site/docs/concepts/paxeer-boundary.md to explain integrated kernel authority and committed native evidence; retain external service and node exposure boundaries and clearly label historical settlement-contract discussion."
+owner_domain = 8
+
+[finding.51]
+file = "docs/site/docs/operators/beta-control.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-control guide presents a LayerX router and separate hosted network as operator entry points and retains pre-merge funding/receipt concepts."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md operator entry points and transaction lifecycle for merged paxd and the declared hosted gateway; isolate historical/private funding and custody procedures from public network instructions."
+owner_domain = 8
+
+[finding.52]
+file = "docs/site/docs/platform/faucet.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The faucet page mixes private-network funding guidance with a router and lx_requestFunds gateway flow presented as an integrator-facing network surface."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "In docs/site/docs/platform/faucet.md explicitly scope disposable funding to the private profile and document only its real supported endpoint; link merged-network callers to root node RPC and current gateway capabilities."
+owner_domain = 8
+
+[finding.53]
+file = "docs/site/docs/platform/cli.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires a /rpc endpoint and contradicts its own implemented-command inventory with a later table calling the same command groups unimplemented."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Update docs/site/docs/platform/cli.md endpoint defaults and examples for the merged network and reconcile each command status with its actual implementation; distinguish retained private/historical commands."
+owner_domain = 8
+
+[finding.54]
+file = "services/explorer/backend/README.md"
+line = 36
+class = "doc-drift"
+severity = "medium"
+observed = "The backend README lists live /paxeer-x/anchors, /receipts and /receipts/:id additions even though ApiRouter now mounts only frozen archive replacements and the signature route."
+expected = "The merged network is one BFT paxd chain with an integrated kernel, root-path node RPC and hosted gateway px_ methods; frozen archive reads are distinct from live committed transaction evidence."
+proposal = "Update services/explorer/backend/README.md to list /paxeer-x/archive/anchors, /archive/receipts and /archive/receipts/:id plus /transactions/:hash/signature; state frozen archive items carry no live settlement status."
+owner_domain = 14
+
+[finding.55]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/common_components_controller.ex"
+line = 4
+class = "dead-code"
+severity = "low"
+observed = "CommonComponentsController.index is declared but neither router registers this controller and no application caller references it. CommonComponentsView is used directly by templates, which does not make this action reachable."
+expected = "A retained web controller must implement a registered product route or have a documented live caller; shared view usage alone is not controller wiring."
+proposal = "Remove the unused controller action/module from controllers/common_components_controller.ex if the component page is retired, or register a specific supported component route with a routed test if the page remains a product feature."
+owner_domain = 14
+
+[finding.56]
+file = "services/explorer/backend/apps/indexer/lib/indexer/fetcher/optimism/withdrawal_event.ex"
+line = 335
+class = "runtime-risk"
+severity = "medium"
+observed = "Super Root prove input parses its address word by repeatedly trimming a 24-zero prefix and then String.pad_leading(42, 0x). A valid address whose leading 12 bytes are zero loses actual address bytes too and gains repeated 0x text rather than zero padding. This is an optional Optimism withdrawal proof path."
+expected = "An ABI address word must decode to exactly its final 20 bytes with one 0x prefix regardless of leading zeros in the address."
+proposal = "In optimism/withdrawal_event.ex decode the ABI address as fixed-width bytes instead of trimming textual prefixes; exercise ordinary and leading-zero addresses through real Super Root prove calldata."
+owner_domain = 14
+
+[finding.57]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/address_controller.ex"
+line = 1554
+class = "interface-mismatch"
+severity = "high"
+observed = "The address detail and its address-owned lists path accepts OpenAPI base_params with key, uses CastAndValidate and atom-keyed action parameters, then forwards that map to AccessHelper.restricted_access?. Explorer.AccessHelper recognizes the authorization override only via Map.has_key?(params, \"key\") and params[\"key\"], so a valid query key becomes :key and is ignored."
+expected = "A correctly authorized request to a restricted resource must round-trip the declared key query parameter through casting into the policy check; requests with an absent or wrong key must remain forbidden."
+proposal = "In Explorer.AccessHelper and the V2 controller boundary normalize the declared key parameter without changing the restriction policy, while preserving legacy string-keyed callers. Add routed correct-key, wrong-key and absent-key cases for address detail and its address-owned lists through real OpenAPI casting."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param"
+
+[finding.58]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/smart_contract_controller.ex"
+line = 63
+class = "interface-mismatch"
+severity = "high"
+observed = "The verified smart-contract detail and audit-report access path accepts OpenAPI base_params with key, uses CastAndValidate and atom-keyed action parameters, then forwards that map to AccessHelper.restricted_access?. Explorer.AccessHelper recognizes the authorization override only via Map.has_key?(params, \"key\") and params[\"key\"], so a valid query key becomes :key and is ignored."
+expected = "A correctly authorized request to a restricted resource must round-trip the declared key query parameter through casting into the policy check; requests with an absent or wrong key must remain forbidden."
+proposal = "In Explorer.AccessHelper and the V2 controller boundary normalize the declared key parameter without changing the restriction policy, while preserving legacy string-keyed callers. Add routed correct-key, wrong-key and absent-key cases for verified smart-contract detail and audit-report access through real OpenAPI casting."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts-address-hash-param"
+
+[finding.59]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/token_controller.ex"
+line = 69
+class = "interface-mismatch"
+severity = "high"
+observed = "The token detail, balances, holders and NFT access path accepts OpenAPI base_params with key, uses CastAndValidate and atom-keyed action parameters, then forwards that map to AccessHelper.restricted_access?. Explorer.AccessHelper recognizes the authorization override only via Map.has_key?(params, \"key\") and params[\"key\"], so a valid query key becomes :key and is ignored."
+expected = "A correctly authorized request to a restricted resource must round-trip the declared key query parameter through casting into the policy check; requests with an absent or wrong key must remain forbidden."
+proposal = "In Explorer.AccessHelper and the V2 controller boundary normalize the declared key parameter without changing the restriction policy, while preserving legacy string-keyed callers. Add routed correct-key, wrong-key and absent-key cases for token detail, balances, holders and NFT access through real OpenAPI casting."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param"
+
+[finding.60]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/transaction_controller.ex"
+line = 1229
+class = "interface-mismatch"
+severity = "high"
+observed = "The transaction detail and transaction-owned lists path accepts OpenAPI base_params with key, uses CastAndValidate and atom-keyed action parameters, then forwards that map to AccessHelper.restricted_access?. Explorer.AccessHelper recognizes the authorization override only via Map.has_key?(params, \"key\") and params[\"key\"], so a valid query key becomes :key and is ignored."
+expected = "A correctly authorized request to a restricted resource must round-trip the declared key query parameter through casting into the policy check; requests with an absent or wrong key must remain forbidden."
+proposal = "In Explorer.AccessHelper and the V2 controller boundary normalize the declared key parameter without changing the restriction policy, while preserving legacy string-keyed callers. Add routed correct-key, wrong-key and absent-key cases for transaction detail and transaction-owned lists through real OpenAPI casting."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param"
+
+[finding.61]
+file = "services/explorer/backend/apps/block_scout_web/lib/block_scout_web/controllers/api/v2/csv_export_controller.ex"
+line = 55
+class = "interface-mismatch"
+severity = "high"
+observed = "The token-holder CSV export path accepts OpenAPI base_params with key, uses CastAndValidate and atom-keyed action parameters, then forwards that map to AccessHelper.restricted_access?. Explorer.AccessHelper recognizes the authorization override only via Map.has_key?(params, \"key\") and params[\"key\"], so a valid query key becomes :key and is ignored."
+expected = "A correctly authorized request to a restricted resource must round-trip the declared key query parameter through casting into the policy check; requests with an absent or wrong key must remain forbidden."
+proposal = "In Explorer.AccessHelper and the V2 controller boundary normalize the declared key parameter without changing the restriction policy, while preserving legacy string-keyed callers. Add routed correct-key, wrong-key and absent-key cases for token-holder CSV export through real OpenAPI casting."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-holders-csv"
+
+[doc.1]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Lines 3, 50 and 88-90 describe a separate LayerX daemon, daemon custody-profile input and separate sequencer operation; these are not the merged network topology."
+
+[doc.2]
+path = "docs/wiki/BetaCluster.md"
+status = "stale"
+notes = "Lines 3 and 42 retain the separate daemon and layerxd custody-profile topology from the pre-merge cluster guide."
+
+[doc.3]
+path = "docs/system/routes.md"
+status = "stale"
+notes = "Explorer backend archive routes at lines 237-240 and signature/status at 296 and 298 agree with mounted routes; title line 3, service description line 35 and /rpc/evm/ws at line 908 retain pre-merge boundary terminology/path."
+
+[doc.4]
+path = "contracts/bridge/README.md"
+status = "accurate"
+notes = "The bridge README describes external EVM/Solana lock/release, chain 125 and the native bridge precompile, with attestation and recovery checks. Those external bridges are distinct from retired standalone LayerX settlement."
+
+[doc.5]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47 present two execution domains and a separate cmd/layerxd C daemon whose checkpoints settle through layerxAnchor."
+
+[doc.6]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 3-9 describe a separate LayerX custody/settlement layer and public faucet; lines 13-20 retain standalone balance/checkpoint architecture. The tenant namespace description at lines 24-28 is consistent."
+
+[doc.7]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 identifies layerxd as a current kernel; lines 70-72 describe separate custody/checkpoint trust boundaries as the running network."
+
+[doc.8]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Lines 20, 167-219 and 596-599 give public /rpc or /rpc/ws paths; the receipt flow describes old batched/finalised rungs and standalone lx_ activity."
+
+[doc.9]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 119-129 present the guarantor/checkpoint settlement suite as current deployment; the node root RPC and chain-id examples themselves agree with chain 125."
+
+[doc.10]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Lines 5 and 8-10 use router and separate hosted LayerX framing; lines 293-305 teach the old treasurySEND/LNI funding route as current."
+
+[doc.11]
+path = "docs/site/docs/platform/faucet.md"
+status = "stale"
+notes = "Lines 5 and 21-29 present router/lx_requestFunds gateway usage alongside private-only funding policy, obscuring which network supports the procedure."
+
+[doc.12]
+path = "docs/site/docs/platform/cli.md"
+status = "stale"
+notes = "Line 8 and lines 277-299 instruct use of /rpc; the implementation table at lines 40-53 conflicts with the stub/unimplemented descriptions at lines 106-138."
+
+[doc.13]
+path = "services/explorer/backend/README.md"
+status = "stale"
+notes = "Lines 36-38 advertise retired /paxeer-x/anchors and /receipts paths and omit the live signature and frozen archive paths."
+
+[doc.14]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "accurate"
+notes = "Reviewed the slice route/acceptance sections as a contract explicitly frozen at revision 2a1033aa2 (line 3), not a current endpoint directory. Sections 969-1174 correctly retain archive, signature and retirement criteria; old planned/at-HEAD notes describe that pinned source and must not replace current ApiRouter discovery."

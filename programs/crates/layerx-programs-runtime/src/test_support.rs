@@ -1,5 +1,11 @@
 //! Deterministic WASM binary construction for validation and execution tests.
 
+/// Counts actual host-linker registrations on this test thread.
+#[must_use]
+pub fn host_linker_constructions_on_current_thread() -> usize {
+    crate::host::linker_constructions_on_current_thread()
+}
+
 /// The `i32` value type code.
 pub const TYPE_I32: u8 = 0x7f;
 /// The `i64` value type code.
@@ -176,4 +182,82 @@ pub fn add_module() -> Vec<u8> {
             &[OP_LOCAL_GET, 0, OP_LOCAL_GET, 1, OP_I32_ADD, OP_END],
         )]),
     ])
+}
+
+/// Invokes a real composed guest through its versioned host linker without publishing effects.
+///
+/// # Errors
+///
+/// Returns the actual ABI, entrypoint, instantiation or nested-call refusal.
+pub fn invoke_composed_for_qualification(
+    storage: &crate::Storage,
+    request: crate::AuthorizedExecutionRequest<'_>,
+) -> Result<i32, crate::ExecutionError> {
+    use crate::{abi::Abi, calls::Composition, meter::Meter, ExecutionError};
+
+    crate::entrypoint::preflight(request.calldata).map_err(ExecutionError::Entrypoint)?;
+    let revision = request.module.abi_revision();
+    let principal = request.authorization.principal();
+    let abi = Abi::new(
+        crate::abi_policy::abi_version(revision),
+        request.program,
+        request.authorization,
+        storage.clone(),
+        request.receipts,
+    )
+    .map_err(ExecutionError::Abi)?;
+    let composition = Composition::new(
+        request
+            .composition
+            .claim_resolver(None)
+            .map_err(ExecutionError::Composition)?,
+        crate::CallGraph::root(request.composition.rules(), request.program, principal),
+        revision,
+    );
+    let meter = Meter::new(
+        crate::ResourceBudget::declared(),
+        crate::FeeSchedule::declared(),
+    );
+    let mut instance = if revision == crate::AbiRevision::V1 {
+        request
+            .module
+            .instantiate_composed(meter, abi, composition)
+            .map_err(|(fault, _)| ExecutionError::Fault(fault))?
+    } else {
+        request
+            .module
+            .instantiate_composed_response_context_retained(
+                meter,
+                abi,
+                composition,
+                request.response_capacity,
+                None,
+            )
+            .map_err(ExecutionError::Response)?
+            .map_err(|failure| ExecutionError::Fault(failure.0))?
+    };
+    let outcome = crate::entrypoint::invoke(&mut instance, request.entrypoint, request.calldata);
+    if let Some(refusal) = instance.state().refusal() {
+        return Err(ExecutionError::Composition(refusal.clone()));
+    }
+    outcome.map_err(ExecutionError::Entrypoint)
+}
+
+/// Executes a validated revision through the production executor with recorded fees.
+///
+/// # Errors
+/// Returns the actual execution refusal without fabricating evidence.
+pub fn execute_versioned_for_qualification(
+    module: &crate::ValidatedModule,
+    prices: crate::FeeSchedule,
+    export: &str,
+    args: &[crate::WasmValue],
+) -> Result<crate::ExecutionRecord, crate::ExecutionError> {
+    crate::Executor::new_versioned(
+        crate::ResourceBudget::declared(),
+        prices,
+        crate::RUNTIME_VERSION,
+        crate::abi_policy::abi_version(module.abi_revision()),
+    )
+    .execute(module, export, args)
 }

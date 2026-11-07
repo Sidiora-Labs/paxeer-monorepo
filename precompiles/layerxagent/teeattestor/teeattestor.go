@@ -32,6 +32,9 @@ const (
 	VerifyAndExpectMethod         = "verifyAndExpect"
 	RootOfMethod                  = "rootOf"
 	RootCountMethod               = "rootCount"
+	BindPeerMethod                = "bindPeer"
+	PeerBindingMethod             = "peerBinding"
+	PeerAttestationBound          = "PeerAttestationBound"
 	MaxAttestationAge      uint64 = 600
 	envelopeHeaderLength          = 96
 	envelopePreimageLength        = 95
@@ -40,6 +43,9 @@ const (
 )
 
 const abiJSON = `[
+    {"type":"function","name":"bindPeer","stateMutability":"nonpayable","inputs":[{"name":"family","type":"uint8"},{"name":"envelope","type":"bytes"},{"name":"peerKey","type":"bytes32"},{"name":"modelDigest","type":"bytes32"},{"name":"runtimeDigest","type":"bytes32"}],"outputs":[{"name":"bound","type":"bool"}]},
+    {"type":"function","name":"peerBinding","stateMutability":"view","inputs":[{"name":"peerKey","type":"bytes32"}],"outputs":[{"name":"family","type":"uint8"},{"name":"modelDigest","type":"bytes32"},{"name":"runtimeDigest","type":"bytes32"},{"name":"blockHeight","type":"uint64"}]},
+    {"type":"event","name":"PeerAttestationBound","anonymous":false,"inputs":[{"name":"peerKey","type":"bytes32","indexed":true},{"name":"family","type":"uint8","indexed":false},{"name":"modelDigest","type":"bytes32","indexed":false},{"name":"runtimeDigest","type":"bytes32","indexed":false}]},
     {"type":"function","name":"verify","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"quote","type":"bytes"}],"outputs":[{"name":"att","type":"tuple","components":[{"name":"family","type":"uint8"},{"name":"mrtd","type":"bytes32"},{"name":"reportData","type":"bytes32"},{"name":"timestamp","type":"uint64"},{"name":"debug","type":"bool"}]}]},
     {"type":"function","name":"verifyAndExpect","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"quote","type":"bytes"},{"name":"expectedReportData","type":"bytes32"}],"outputs":[{"name":"att","type":"tuple","components":[{"name":"family","type":"uint8"},{"name":"mrtd","type":"bytes32"},{"name":"reportData","type":"bytes32"},{"name":"timestamp","type":"uint64"},{"name":"debug","type":"bool"}]}]},
     {"type":"function","name":"rootOf","stateMutability":"view","inputs":[{"name":"family","type":"uint8"},{"name":"index","type":"uint256"}],"outputs":[{"name":"root","type":"bytes"}]},
@@ -113,7 +119,7 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 		return nil, fmt.Errorf("%w: precompile keepers are unavailable", agentcommon.ErrNoContext)
 	}
 	wired, ok := keepers.(utils.XWebKeepers)
-	if !ok {
+	if !ok || wired.XWebK() == nil {
 		return nil, fmt.Errorf("%w: xweb keeper is unavailable", agentcommon.ErrNoContext)
 	}
 	evmKeeper, ok := keepers.EVMK().(*evmkeeper.Keeper)
@@ -128,10 +134,47 @@ func NewMergePrecompile(keepers utils.Keepers, planName string) (precompiles.IPr
 }
 
 func (p *PrecompileExecutor) RequiredGas(input []byte, method *abi.Method) uint64 {
-	if method == nil || len(input) > math.MaxInt-4 {
+	if method == nil {
+		return pcommon.UnknownMethodCallGas
+	}
+	if len(input) > math.MaxInt-4 {
 		return math.MaxUint64
 	}
+	if method.Name == BindPeerMethod || method.Name == PeerBindingMethod {
+		base, perByte := uint64(106000), uint64(30)
+		if method.Name == PeerBindingMethod {
+			base, perByte = 1000, 3
+		}
+		length := uint64(len(input) + 4)
+		if length > (math.MaxUint64-base)/perByte {
+			return math.MaxUint64
+		}
+		return base + perByte*length
+	}
 	return agentcommon.MethodGas(method.ID, len(input)+4)
+}
+
+// RequiredGas includes the local peer methods alongside the shared agent table.
+func (p *TeeAttestorPrecompile) RequiredGas(input []byte) uint64 {
+	if len(input) >= 4 {
+		method, err := p.MethodById(input[:4])
+		if err == nil && (method.Name == BindPeerMethod || method.Name == PeerBindingMethod) {
+			return (&PrecompileExecutor{}).RequiredGas(input[4:], method)
+		}
+	}
+	return p.Precompile.RequiredGas(input)
+}
+
+// Run routes the local peer methods through the height-bound executor; its
+// Execute method enforces the same write, delegatecall and nonpayable guards.
+func (p *TeeAttestorPrecompile) Run(evm *vm.EVM, caller ethcommon.Address, callingContract ethcommon.Address, input []byte, value *big.Int, readOnly bool, isDelegate bool, hooks *tracing.Hooks) ([]byte, error) {
+	if evm != nil && len(input) >= 4 {
+		method, err := p.MethodById(input[:4])
+		if err == nil && (method.Name == BindPeerMethod || method.Name == PeerBindingMethod) {
+			return p.Precompile.Precompile.Run(evm, caller, callingContract, input, value, readOnly, isDelegate, hooks)
+		}
+	}
+	return p.Precompile.Run(evm, caller, callingContract, input, value, readOnly, isDelegate, hooks)
 }
 
 func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller ethcommon.Address, callingContract ethcommon.Address, args []interface{}, value *big.Int, readOnly bool, evm *vm.EVM, hooks *tracing.Hooks) ([]byte, error) {
@@ -160,11 +203,27 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	if err := agentcommon.ValidateArgsLength(args, len(method.Inputs)); err != nil {
 		return nil, err
 	}
+	if method.Name == PeerBindingMethod {
+		peerKey, ok := args[0].([32]byte)
+		if !ok {
+			return nil, fmt.Errorf("%w: peer key must be bytes32", agentcommon.ErrABIDecode)
+		}
+		return p.peerBinding(ctx, method, peerKey)
+	}
 	family, ok := args[0].(uint8)
 	if !ok {
 		return nil, fmt.Errorf("%w: family must be uint8", agentcommon.ErrABIDecode)
 	}
 	switch method.Name {
+	case BindPeerMethod:
+		envelope, envelopeOK := args[1].([]byte)
+		peerKey, peerOK := args[2].([32]byte)
+		modelDigest, modelOK := args[3].([32]byte)
+		runtimeDigest, runtimeOK := args[4].([32]byte)
+		if !envelopeOK || !peerOK || !modelOK || !runtimeOK {
+			return nil, fmt.Errorf("%w: invalid peer binding arguments", agentcommon.ErrABIDecode)
+		}
+		return p.bindPeer(ctx, method, family, envelope, peerKey, modelDigest, runtimeDigest, evm)
 	case VerifyMethod, VerifyAndExpectMethod:
 		quote, ok := args[1].([]byte)
 		if !ok {
@@ -203,6 +262,54 @@ func (p *PrecompileExecutor) Execute(ctx sdk.Context, method *abi.Method, caller
 	default:
 		return nil, agentcommon.ErrUnknownMethod
 	}
+}
+
+func peerBindingKey(peerKey [32]byte, field byte) ethcommon.Hash {
+	return crypto.Keccak256Hash([]byte("paxeer.teeattestor.peerBinding.v1"), peerKey[:], []byte{field})
+}
+
+// bindPeer accepts only the existing signed PXVE development envelope family
+// today (family identifiers 0 through 3); it does not verify hardware quotes.
+func (p *PrecompileExecutor) bindPeer(ctx sdk.Context, method *abi.Method, family uint8, envelope []byte, peerKey, modelDigest, runtimeDigest [32]byte, evm *vm.EVM) ([]byte, error) {
+	expected := crypto.Keccak256Hash(peerKey[:], modelDigest[:], runtimeDigest[:])
+	attestation, err := p.VerifyAndExpect(ctx, family, envelope, expected)
+	if err != nil {
+		return nil, err
+	}
+	if ctx.BlockHeight() < 0 {
+		return nil, agentcommon.ErrOverflow
+	}
+	if evm == nil || evm.StateDB == nil {
+		return nil, agentcommon.ErrNoContext
+	}
+	event := p.abi.Events[PeerAttestationBound]
+	data, err := event.Inputs.NonIndexed().Pack(attestation.Family, modelDigest, runtimeDigest)
+	if err != nil {
+		return nil, err
+	}
+	output, err := method.Outputs.Pack(true)
+	if err != nil {
+		return nil, err
+	}
+	if err := pcommon.EmitEVMLog(evm, ethcommon.HexToAddress(TeeAttestorAddress), []ethcommon.Hash{event.ID, peerKey}, data); err != nil {
+		return nil, err
+	}
+	var metadata ethcommon.Hash
+	metadata[23] = attestation.Family
+	binary.BigEndian.PutUint64(metadata[24:], uint64(ctx.BlockHeight()))
+	address := ethcommon.HexToAddress(TeeAttestorAddress)
+	evm.StateDB.SetState(address, peerBindingKey(peerKey, 0), modelDigest)
+	evm.StateDB.SetState(address, peerBindingKey(peerKey, 1), runtimeDigest)
+	evm.StateDB.SetState(address, peerBindingKey(peerKey, 2), metadata)
+	return output, nil
+}
+
+func (p *PrecompileExecutor) peerBinding(ctx sdk.Context, method *abi.Method, peerKey [32]byte) ([]byte, error) {
+	address := ethcommon.HexToAddress(TeeAttestorAddress)
+	modelDigest := p.evmKeeper.GetState(ctx, address, peerBindingKey(peerKey, 0))
+	runtimeDigest := p.evmKeeper.GetState(ctx, address, peerBindingKey(peerKey, 1))
+	metadata := p.evmKeeper.GetState(ctx, address, peerBindingKey(peerKey, 2))
+	return method.Outputs.Pack(metadata[23], [32]byte(modelDigest), [32]byte(runtimeDigest), binary.BigEndian.Uint64(metadata[24:]))
 }
 
 func parseDevEnvelope(family uint8, data []byte) (devEnvelope, error) {

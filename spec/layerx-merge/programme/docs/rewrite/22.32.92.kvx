@@ -1,0 +1,42 @@
+[manifest]
+task = "22.32.92"
+domain = 10
+owner_role = "fm-human"
+pages = 4
+
+[page.1]
+path = "docs/site/docs/concepts/identity.md"
+status = "misleading"
+bytes = 3635
+source_1 = "record 22.30.100 [doc.03] (misleading): Lines 14-37 describe DID-controlled economic accounts and lines 34-35 deny balance authority to the EVM key. Economic authority now follows the EVM address and its ledger binding."
+source_2 = "record 22.30.102 [doc.08] (stale): Read in full. Rewrite the exact locations in identity-onboarding-doc: The identity page describes an optional EVM payout binding with no balance authority (34-35) and says Human onboarding is active after only a DID-registration receipt (54-57). It does not describe the merged chain-125 wallet binding, bindLayerX transaction and gas-station sponsorship required by the current onboarding contract."
+source_3 = "record 22.30.104 [doc.1] (misleading): Read in full. Lines 16-19, 34-35 and 54-58 retain DID-only account and payout-only EVM authority descriptions; see identity_documentation. Current Human owner authority and native onboarding differ."
+source_4 = "record 22.30.106 [doc.2] (misleading): Full page read. Lines 29-35 and 56 retain batch/payout-binding authority separation and receipt-only activation; explain native owner authority and committed-success onboarding."
+source_5 = "record 22.30.165 [doc.009] (stale): Lines 3, 18 onward and 33-37 describe kernel-state named activities and batch-relative identity lifecycle; native module and gateway responsibility need reconciliation."
+source_6 = "record 22.30.92 [doc.01] (misleading): Line 35 denies the bound EVM key's native authority to move the associated balances."
+
+[page.2]
+path = "docs/site/docs/human/journeys.md"
+status = "misleading"
+bytes = 4121
+source_1 = "record 22.30.103 [doc.05] (stale): Read in full. Lines 4-5, 17-26 and 46-60 advertise retired initiation, dual custody/finality and cross-domain movement; rewrite with active bank/agent journeys and historical closed records."
+source_2 = "record 22.30.105 [doc.11] (misleading): Lines 4-12 advertise retired journeys; lines 17-20 and 46-57 describe separate custody/execution domains; lines 25-29 and 62 fail to state Committed completion."
+source_3 = "record 22.30.106 [doc.7] (misleading): Full page read. Lines 17-26 and 46-57 retain custody-boundary, two-domain plans and receipt-only completion; align journeys with recoverable committed outcomes on one chain."
+
+[page.3]
+path = "docs/site/docs/human/web-app.md"
+status = "misleading"
+bytes = 2639
+source_1 = "record 22.30.103 [doc.04] (stale): Read in full, 57 lines. Route inventory at line 20 and separate-finality success copy at line 34 disagree with the shipped app and merged journey behavior."
+source_2 = "record 22.30.106 [doc.6] (misleading): Full page read. Lines 20-23 retain retired app/explorer route claims and 34-35 give receipt-or-finality completion; document current routes and committed outcomes."
+source_3 = "record 22.30.118 [doc.010] (stale): Lines 14-15 and 19-23 describe custody, deposit/withdraw/exit and checkpoints; lines 30-35 distinguish LayerX receipts from Paxeer finality proofs."
+source_4 = "record 22.30.120 [doc.007] (stale): Read in full. Finding human-web-pipeline records the merged-network documentation drift beginning at line 30."
+source_5 = "record 22.30.28 [doc.002] (stale): The page requires layerx-intents and custody disclosure submission, advertises deposit/withdraw and batch/checkpoint explorer routes, uses old apps/web paths and puts Human in a separate node pod (lines 8, 19-23, 30-35 and 44-49)."
+
+[page.4]
+path = "docs/site/docs/platform/gateway-rpc.md"
+status = "misleading"
+bytes = 20390
+source_1 = "record 22.30.106 [doc.4] (misleading): Full page read. Lines 19-25 publish retired /rpc router paths and 49-68 list legacy lx_ methods. Separate root-path node RPC from hosted px_ OpenRPC methods."
+source_2 = "record 22.30.28 [doc.008] (stale): The endpoint table publishes /rpc, /rpc/schema and /rpc/ws on api-mainnet-beta; later sections describe lx_subscribe and separate batched/finalised checkpoint stages as the public client interface."
+source_3 = "record 22.30.93 [doc.05] (misleading): Read the full page. Lines 19-31 publish retired /rpc, /rpc/schema and /rpc/ws endpoints; method/read descriptions still mix lx_ canonical activities and legacy verification with the merged public chain. See gateway-rpc-doc."

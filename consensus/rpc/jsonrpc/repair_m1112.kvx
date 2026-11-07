@@ -1,0 +1,15 @@
+[task]
+id = "22.33.1112"
+audit = "22.30.46"
+acceptance = "22998.1"
+baseline = "Not run: the explicit ordered gates prohibit testing before the entire implementation and prohibit running verify_cmd outside hf-done; no pre-change failure is claimed."
+evidence = "The final hf-done ledger receipt records the exact verified candidate revision, command, exit code and private log location."
+wiring_requests = []
+
+[finding.39]
+tests = ["TestRepairM_1112_DocumentedProgram", "TestRepairM_1112_DocumentedTransports"]
+repair = "Publish a complete context-aware typed hello_world handler, connection-limited listener and configured HTTP/WebSocket server; align URI, HTTP and WebSocket requests and document transport-specific response framing and shutdown."
+proof = "Compare every published server declaration to the compiled fixture, then send the published request examples through that fixture's real registrar, listener, Serve, URI/JSON-RPC codecs and WebSocket manager; decode results, IDs and envelopes, cancel context and check listener closure."
+
+[gotcha.1]
+observed = "The baseline request conflicts with the explicit implementation-first gate order; follow the ordered gates and make no baseline claim."

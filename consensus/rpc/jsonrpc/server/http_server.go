@@ -159,14 +159,14 @@ func writeHTTPResponse(w http.ResponseWriter, rsp rpctypes.RPCResponse) {
 }
 
 // writeRPCResponse writes one or more JSON-RPC responses to w. A single
-// response is encoded as an object, otherwise the response is sent as a batch
-// (array) of response objects.
+// response to a non-batch request is encoded as an object, otherwise the
+// response is sent as a batch (array) of response objects.
 //
 // Unless there is an error encoding the responses, the status is 200 OK.
-func writeRPCResponse(w http.ResponseWriter, rsps ...rpctypes.RPCResponse) {
+func writeRPCResponse(w http.ResponseWriter, isBatch bool, rsps ...rpctypes.RPCResponse) {
 	var body []byte
 	var err error
-	if len(rsps) == 1 {
+	if !isBatch && len(rsps) == 1 {
 		body, err = json.Marshal(rsps[0])
 	} else {
 		body, err = json.Marshal(rsps)

@@ -1,5 +1,12 @@
-#[path = "../../layerx-programs-registry/tests/support/mod.rs"]
-pub mod protocol_support;
+#[path = "../../layerx-programs-registry/tests/support/chain.rs"]
+mod chain;
+
+use ed25519_dalek::{Signer, SigningKey};
+use layerx_programs::chain_proof::{
+    decode::decode_commitment_proof, header::ChainHeader, validators::TrustedValidator,
+    vote::vote_sign_bytes,
+};
+use sha2::{Digest, Sha256};
 
 use layerx_programs_runtime::test_support::{
     code_section, func_body, function_section, module, raw_section, type_section, unsigned_leb,
@@ -8,28 +15,34 @@ use layerx_programs_runtime::test_support::{
 use layerx_programs_runtime::{
     Abi, AuthorizationContext, CapabilitySet, FeeSchedule, Meter, PrincipalId, ProgramId,
     ProgramInstance, ResourceBudget, Storage, UnavailableReceiptOracle, ValidatedModule,
-    ValidationLimits, WasmEngine, WasmValue, ABI_V1_VERSION,
+    ValidationLimits, WasmEngine, WasmValue, ABI_V1_VERSION, ABI_V2_VERSION,
 };
 use layerx_programs_sandbox::{
-    restore, Lease, LeaseActivity, LeaseId, LeaseLimits, LeaseState, LeaseTransition, SandboxState,
-    Snapshot, SnapshotRefusal, TransitionEvidence,
+    restore, Lease, LeaseActivity, LeaseCapabilities, LeaseId, LeaseLimits, LeaseState,
+    LeaseTransition, SandboxState, Snapshot, SnapshotRefusal, TransitionEvidence,
 };
 
 use layerx_programs_sandbox::snapshot::{RestoreRequest, RestoredSandbox};
 
 const ENTRYPOINT: &[u8] = b"sandbox_transition";
 const CALL_PREFIX: usize = 106;
+const VALIDATOR_SEEDS: [[u8; 32]; 3] = [[1; 32], [2; 32], [3; 32]];
 
 fn candidate(id: u8, tenant: u8, opened: u64, expiry: u64) -> Lease {
+    let image = layerx_programs_runtime::hash_bytes(
+        layerx_programs_runtime::HashAlgorithm::Sha256,
+        &continuation_module(),
+    )
+    .unwrap();
+    candidate_with_image(id, tenant, opened, expiry, image)
+}
+
+fn candidate_with_image(id: u8, tenant: u8, opened: u64, expiry: u64, image: [u8; 32]) -> Lease {
     Lease::request(
         LeaseId::new([id; 32]).unwrap_or_else(|error| panic!("lease id: {error}")),
         PrincipalId::new([tenant; 32]).unwrap_or_else(|error| panic!("tenant: {error}")),
         ProgramId::new([3; 32]).unwrap_or_else(|error| panic!("host: {error}")),
-        layerx_programs_runtime::hash_bytes(
-            layerx_programs_runtime::HashAlgorithm::Sha256,
-            &continuation_module(),
-        )
-        .unwrap_or_else(|error| panic!("hash: {error}")),
+        image,
         [4; 32],
         10_000,
         LeaseLimits {
@@ -104,38 +117,117 @@ fn call_payload(host: ProgramId, transition: LeaseTransition) -> Vec<u8> {
     payload
 }
 
-fn evidence(
+fn proven_transition(
     lease: &Lease,
     mut transition: LeaseTransition,
-    batch: u64,
-) -> (LeaseTransition, TransitionEvidence) {
-    let fixture = protocol_support::programs_call_fixture(
-        &call_payload(lease.host_program(), transition),
-        batch,
-        protocol_support::NOW,
-    );
-    let verifier = protocol_support::verifier_for_fixture(&fixture, batch, batch, None, 1_000);
-    let proof = &fixture.proof.state;
-    let head = verifier
-        .verify_current_protocol_head(
-            &proof.receipt,
-            &proof.receipt_proof,
-            &proof.header,
-            &proof.header_signature,
-            protocol_support::NOW,
+    block_height: u64,
+) -> (LeaseTransition, Vec<u8>, chain::ChainFixture) {
+    transition.activity_id = Sha256::digest(call_payload(lease.host_program(), transition)).into();
+    let mut canonical = lease
+        .canonical_state_bytes()
+        .unwrap_or_else(|error| panic!("lease state: {error}"));
+    // The fixed fields precede the state tag and the length-prefixed receipt history.
+    let state_offset =
+        b"LayerX/programs/sandbox/lease-state/v3\0".len() + 8 * 32 + 16 + 18 * 8 + 4 + 7 * 8 + 16;
+    canonical[state_offset] = transition.to as u8;
+    canonical[state_offset + 1] = u8::try_from(lease.history().len() + 1)
+        .unwrap_or_else(|error| panic!("history length: {error}"));
+    let history_end = state_offset + 2 + lease.history().len() * (3 + 3 * 32 + 8);
+    let mut receipt = vec![
+        transition.activity as u8,
+        transition.from as u8,
+        transition.to as u8,
+    ];
+    receipt.extend_from_slice(&transition.activity_id);
+    receipt.extend_from_slice(&transition.usage_observation_digest);
+    let mut digest = Sha256::new();
+    digest.update(lease.id().bytes());
+    digest.update(&receipt);
+    digest.update(block_height.to_be_bytes());
+    receipt.extend_from_slice(&digest.finalize());
+    receipt.extend_from_slice(&block_height.to_be_bytes());
+    canonical.splice(history_end..history_end, receipt);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let mut fixture = chain::ChainFixture::new_in_store(
+        "lxphost",
+        "paxeer-lease-chain",
+        &VALIDATOR_SEEDS,
+        vec![(key, canonical.clone())],
+    )
+    .unwrap_or_else(|error| panic!("chain: {error:?}"));
+    assert!(block_height > 0, "state height must be positive");
+    fixture.header.height = i64::try_from(block_height)
+        .ok()
+        .and_then(|height| height.checked_add(1))
+        .unwrap_or_else(|| panic!("block height overflow"));
+    fixture.commit.height = fixture.header.height;
+    fixture.commit.block_id.hash = fixture
+        .header
+        .hash()
+        .unwrap_or_else(|error| panic!("header hash: {error:?}"))
+        .to_vec();
+    let keys = VALIDATOR_SEEDS.map(|seed| SigningKey::from_bytes(&seed));
+    for signature in &mut fixture.commit.signatures {
+        let key = keys
+            .iter()
+            .find(|key| {
+                TrustedValidator::new(key.verifying_key().to_bytes(), 1)
+                    .address
+                    .as_slice()
+                    == signature.validator_address
+            })
+            .unwrap_or_else(|| panic!("validator signing key absent"));
+        let bytes = vote_sign_bytes(
+            &fixture.header.chain_id,
+            fixture.commit.height,
+            fixture.commit.round,
+            Some(&fixture.commit.block_id),
+            signature.timestamp,
         )
-        .unwrap_or_else(|error| panic!("head: {error}"));
-    transition.activity_id = head.activity_id();
+        .unwrap_or_else(|error| panic!("vote sign bytes: {error:?}"));
+        signature.signature = key.sign(&bytes).to_bytes().to_vec();
+    }
+    (transition, canonical, fixture)
+}
+
+fn evidence(
+    lease: &Lease,
+    transition: LeaseTransition,
+    block_height: u64,
+) -> (LeaseTransition, TransitionEvidence) {
+    let (transition, canonical, fixture) = proven_transition(lease, transition, block_height);
+    let key = layerx_programs_sandbox::sandbox_state_key(0, lease.id().bytes())
+        .unwrap_or_else(|error| panic!("lease key: {error}"));
+    let commitment = decode_commitment_proof(
+        &fixture
+            .encode_key(&key)
+            .unwrap_or_else(|error| panic!("encode lease commitment: {error:?}")),
+    )
+    .unwrap_or_else(|error| panic!("decode lease commitment: {error:?}"));
+    assert_eq!(commitment.store_name, "lxphost");
+    assert_eq!(commitment.key, key);
+    assert_eq!(commitment.value.as_deref(), Some(canonical.as_slice()));
+    let header = ChainHeader::decode(&commitment.signed_header)
+        .unwrap_or_else(|error| panic!("decode header: {error:?}"));
+    let head = fixture
+        .verifier
+        .verify_head(&header, &fixture.commit)
+        .unwrap_or_else(|error| panic!("head: {error:?}"));
     let call_evidence = TransitionEvidence::verify_call(
         &head,
         lease,
         transition,
         &AuthorizationContext::new(lease.tenant(), CapabilitySet::empty()),
-        &fixture.proof.activity,
-        &fixture.proof.activity_proof,
-        &proof.header,
+        commitment
+            .value
+            .as_deref()
+            .unwrap_or_else(|| panic!("lease commitment value absent")),
+        &commitment.proof_ops,
     )
     .unwrap_or_else(|error| panic!("evidence: {error}"));
+    assert_eq!(call_evidence.state_height(), block_height);
+    assert_eq!(call_evidence.tx_hash(), transition.activity_id);
     (transition, call_evidence)
 }
 
@@ -155,7 +247,7 @@ fn advance(mut lease: Lease, edges: &[(LeaseActivity, LeaseState, LeaseState, u6
     let mut book = layerx_programs_sandbox::LeaseBook::new();
     book.insert_requested(lease, request, proof)
         .unwrap_or_else(|error| panic!("request: {error}"));
-    for &(activity, from, to, batch) in edges {
+    for &(activity, from, to, block_height) in edges {
         lease = book
             .get(request.lease)
             .unwrap_or_else(|| panic!("lease"))
@@ -169,7 +261,7 @@ fn advance(mut lease: Lease, edges: &[(LeaseActivity, LeaseState, LeaseState, u6
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         };
-        let (transition, proof) = evidence(&lease, transition, batch);
+        let (transition, proof) = evidence(&lease, transition, block_height);
         book.transition(lease.id(), transition, proof)
             .unwrap_or_else(|error| panic!("advance: {error}"));
     }
@@ -182,7 +274,7 @@ fn advance_existing(
     mut lease: Lease,
     edges: &[(LeaseActivity, LeaseState, LeaseState, u64)],
 ) -> Lease {
-    for &(activity, from, to, batch) in edges {
+    for &(activity, from, to, block_height) in edges {
         let transition = LeaseTransition {
             lease: lease.id(),
             tenant: lease.tenant(),
@@ -192,7 +284,7 @@ fn advance_existing(
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         };
-        let (transition, proof) = evidence(&lease, transition, batch);
+        let (transition, proof) = evidence(&lease, transition, block_height);
         lease
             .transition(transition, proof)
             .unwrap_or_else(|error| panic!("advance existing: {error}"));
@@ -232,7 +324,7 @@ fn funded(id: u8, tenant: u8) -> Lease {
     )
 }
 
-fn activation(lease: &Lease, batch: u64) -> (LeaseTransition, TransitionEvidence) {
+fn activation(lease: &Lease, block_height: u64) -> (LeaseTransition, TransitionEvidence) {
     evidence(
         lease,
         LeaseTransition {
@@ -244,7 +336,7 @@ fn activation(lease: &Lease, batch: u64) -> (LeaseTransition, TransitionEvidence
             activity_id: [0; 32],
             usage_observation_digest: [0; 32],
         },
-        batch,
+        block_height,
     )
 }
 
@@ -318,9 +410,21 @@ fn running_instance(
     module: &layerx_programs_runtime::ValidatedModule,
     storage: Storage,
 ) -> layerx_programs_runtime::ProgramInstance {
-    let authorization = AuthorizationContext::new(lease.tenant(), CapabilitySet::empty());
+    let capabilities = LeaseCapabilities::derive(lease).unwrap();
+    assert_eq!(
+        capabilities.namespace(),
+        lease.namespace().storage_namespace().unwrap()
+    );
+    assert_ne!(capabilities.principal(), lease.tenant());
+    let authorization =
+        AuthorizationContext::new(capabilities.principal(), capabilities.grants().clone());
+    let abi_version = match module.abi_revision() {
+        layerx_programs_runtime::AbiRevision::V1 => ABI_V1_VERSION,
+        layerx_programs_runtime::AbiRevision::V2 => ABI_V2_VERSION,
+        other => panic!("unexpected continuation ABI: {other:?}"),
+    };
     let abi = Abi::new(
-        ABI_V1_VERSION,
+        abi_version,
         lease.host_program(),
         authorization,
         storage,
@@ -335,7 +439,7 @@ fn running_instance(
 fn snapshot_transition(
     lease: &Lease,
     digest: [u8; 32],
-    batch: u64,
+    block_height: u64,
 ) -> (LeaseTransition, TransitionEvidence) {
     evidence(
         lease,
@@ -348,7 +452,7 @@ fn snapshot_transition(
             activity_id: [0; 32],
             usage_observation_digest: digest,
         },
-        batch,
+        block_height,
     )
 }
 
@@ -892,4 +996,277 @@ fn verify_foreign_target_refusal(source: &Lease, module: &ValidatedModule, snaps
         ),
         Err(SnapshotRefusal::NotSnapshotOwner)
     ));
+}
+
+fn storage_continuation_module() -> Vec<u8> {
+    use layerx_programs_runtime::test_support::{import_section, TYPE_I64};
+    let imports = [
+        ("layerx_v1", "storage_read", 0),
+        ("layerx_v1", "storage_write", 0),
+        ("layerx_v1", "transfer_402", 1),
+        ("layerx_v1", "event_emit", 0),
+        ("layerx_v2", "storage_read_scoped", 2),
+        ("layerx_v2", "storage_write_scoped", 2),
+        ("layerx_v1", "program_call", 3),
+    ];
+    fn constant(mut value: i64, body: &mut Vec<u8>) {
+        body.push(OP_I32_CONST);
+        loop {
+            let mut byte = (value as u8) & 127;
+            value >>= 7;
+            let done = (value == 0 && byte & 64 == 0) || (value == -1 && byte & 64 != 0);
+            if !done {
+                byte |= 128;
+            }
+            body.push(byte);
+            if done {
+                break;
+            }
+        }
+    }
+    fn check(index: u8, args: &[i64], expected: i64, body: &mut Vec<u8>) {
+        for arg in args {
+            constant(*arg, body);
+        }
+        body.extend([0x10, index]);
+        constant(expected, body);
+        body.extend([0x46, OP_I32_ADD]);
+    }
+    let mut body = Vec::new();
+    constant(0, &mut body);
+    check(0, &[0, 1, 128, 1], 2, &mut body);
+    // Increment the byte actually read through the ABI, keeping it for the result.
+    constant(64, &mut body);
+    constant(128, &mut body);
+    body.extend([0x2d, 0, 0]);
+    constant(1, &mut body);
+    body.extend([OP_I32_ADD, 0x3a, 0, 0]);
+    check(1, &[0, 1, 64, 1], 0, &mut body);
+    body.extend([0x42, 0, 0x42, 1]);
+    for arg in [32, 32, 32, 32] {
+        constant(arg, &mut body);
+    }
+    body.extend([0x10, 2]);
+    constant(-1, &mut body);
+    body.extend([0x46, OP_I32_ADD]);
+    check(3, &[0, 1, 0, 1], -1, &mut body);
+    check(4, &[2, 0, 1, 128, 1], -1, &mut body);
+    check(5, &[2, 0, 1, 64, 1], -1, &mut body);
+    check(6, &[32, 32, 0, 0, 96, 2], -1, &mut body);
+    constant(128, &mut body);
+    body.extend([0x2d, 0, 0]);
+    constant(16, &mut body);
+    body.extend([0x6c, OP_I32_ADD, OP_END]);
+    let mut data = vec![0u8; 98];
+    data[0] = b'k';
+    data[32..64].fill(8);
+    let mut segment = vec![1, 0, OP_I32_CONST, 0, OP_END];
+    segment.extend(unsigned_leb(data.len() as u64));
+    segment.extend(data);
+    let mut exports = vec![2];
+    for (name, kind, index) in [("continue", 0, 7), ("memory", 2, 0)] {
+        exports.extend(unsigned_leb(name.len() as u64));
+        exports.extend_from_slice(name.as_bytes());
+        exports.push(kind);
+        exports.push(index);
+    }
+    module(&[
+        type_section(&[
+            (&[TYPE_I32; 4], &[TYPE_I32]),
+            (
+                &[TYPE_I64, TYPE_I64, TYPE_I32, TYPE_I32, TYPE_I32, TYPE_I32],
+                &[TYPE_I32],
+            ),
+            (&[TYPE_I32; 5], &[TYPE_I32]),
+            (&[TYPE_I32; 6], &[TYPE_I32]),
+            (&[], &[TYPE_I32]),
+        ]),
+        import_section(&imports),
+        function_section(&[4]),
+        raw_section(5, &[1, 0, 1]),
+        raw_section(7, &exports),
+        code_section(&[func_body(&[], &body)]),
+        raw_section(11, &segment),
+    ])
+}
+
+#[test]
+fn restore_lease_storage_continues_after_reopen_without_injected_authority() {
+    use layerx_programs_runtime::{Capability, StorageNamespace};
+    let module = WasmEngine::new(ValidationLimits::declared())
+        .unwrap()
+        .validate_v2(&storage_continuation_module())
+        .unwrap();
+    let mut source = advance(
+        candidate_with_image(81, 9, 10, 30, module.code_hash()),
+        &[
+            (
+                LeaseActivity::Fund,
+                LeaseState::Requested,
+                LeaseState::Funded,
+                11,
+            ),
+            (
+                LeaseActivity::Activate,
+                LeaseState::Funded,
+                LeaseState::Active,
+                12,
+            ),
+        ],
+    );
+    let target = advance(
+        candidate_with_image(82, 9, 20, 40, module.code_hash()),
+        &[(
+            LeaseActivity::Fund,
+            LeaseState::Requested,
+            LeaseState::Funded,
+            21,
+        )],
+    );
+    let source_namespace = LeaseCapabilities::derive(&source).unwrap().namespace();
+    let target_namespace = LeaseCapabilities::derive(&target).unwrap().namespace();
+    let tenant_namespace = StorageNamespace::principal(source.host_program(), source.tenant());
+    let shared_namespace = StorageNamespace::shared(source.host_program());
+    let neighbour_namespace =
+        StorageNamespace::principal(source.host_program(), PrincipalId::new([10; 32]).unwrap());
+    let mut storage = Storage::new();
+    for (namespace, value) in [
+        (source_namespace, 41),
+        (tenant_namespace, 125),
+        (shared_namespace, 126),
+        (neighbour_namespace, 127),
+    ] {
+        let mut tx = storage.transaction(namespace);
+        tx.write(b"k", &[value]).unwrap();
+        assert_eq!(tx.commit(), 1);
+    }
+    let mut instance = running_instance(&source, &module, storage);
+    let capture = Snapshot::capture(&source, &mut instance, "continue", &[]).unwrap();
+    let (edge, proof) = snapshot_transition(&source, capture.digest().unwrap(), 13);
+    let snapshot = Snapshot::commit(&mut source, &mut instance, capture, edge, proof).unwrap();
+    let persisted_storage = instance
+        .storage_snapshot()
+        .unwrap()
+        .replay_state_bytes(1 << 24)
+        .unwrap();
+    let persisted_source = source.canonical_state_bytes().unwrap();
+    let persisted_snapshot = snapshot.state().canonical_bytes().unwrap();
+    let digest = snapshot.digest();
+    drop(instance);
+    drop(snapshot);
+    drop(source);
+    let source = Lease::decode_state(&persisted_source).unwrap();
+    let supplied = SandboxState::from_canonical(&source, &persisted_snapshot).unwrap();
+    let hostile_grants = CapabilitySet::new([
+        Capability::StorageRead,
+        Capability::StorageWrite,
+        Capability::SharedStorageRead,
+        Capability::SharedStorageWrite,
+        Capability::EmitEvent,
+        Capability::Transfer402 {
+            asset: [8; 32],
+            to: [8; 32],
+            maximum_amount: 100,
+        },
+        Capability::Call {
+            program: ProgramId::new([8; 32]).unwrap(),
+        },
+    ])
+    .unwrap();
+    for grants in [CapabilitySet::empty(), hostile_grants] {
+        let mut target = Lease::decode_state(&target.canonical_state_bytes().unwrap()).unwrap();
+        let mut storage =
+            Storage::decode_untrusted_replay_state(&persisted_storage, 1 << 24).unwrap();
+        let (activation, evidence) = activation(&target, 22);
+        let mut restore_meter = meter();
+        let before_meter = restore_meter.clone();
+        let before_storage = storage.clone();
+        let before_target = target.clone();
+        assert!(matches!(
+            restore(
+                &source,
+                &mut target,
+                &mut storage,
+                &mut restore_meter,
+                RestoreRequest {
+                    snapshot_digest: digest,
+                    supplied: supplied.clone(),
+                    authorization: AuthorizationContext::new(
+                        PrincipalId::new([10; 32]).unwrap(),
+                        grants.clone()
+                    ),
+                    module: &module,
+                    activation,
+                    evidence
+                }
+            ),
+            Err(SnapshotRefusal::NotSnapshotOwner)
+        ));
+        assert_eq!(target, before_target);
+        assert_eq!(storage, before_storage);
+        assert_eq!(restore_meter.finish(), before_meter.finish());
+        let owner = target.tenant();
+        let restored = restore(
+            &source,
+            &mut target,
+            &mut storage,
+            &mut restore_meter,
+            RestoreRequest {
+                snapshot_digest: digest,
+                supplied: supplied.clone(),
+                authorization: AuthorizationContext::new(owner, grants),
+                module: &module,
+                activation,
+                evidence,
+            },
+        )
+        .unwrap();
+        // Seven ABI authorization checks and the old cell byte are independent.
+        assert_eq!(restored.outputs(), &[WasmValue::I32(41 * 16 + 7)]);
+        assert_eq!(target.state(), LeaseState::Active);
+        assert_eq!(restored.state().source_namespace(), target.namespace());
+        assert_eq!(
+            storage.transaction(target_namespace).read(b"k").unwrap(),
+            Some(vec![42])
+        );
+        for (namespace, value) in [
+            (source_namespace, 41),
+            (tenant_namespace, 125),
+            (shared_namespace, 126),
+            (neighbour_namespace, 127),
+        ] {
+            assert_eq!(
+                storage.transaction(namespace).read(b"k").unwrap(),
+                Some(vec![value])
+            );
+        }
+        let persisted = storage.replay_state_bytes(1 << 24).unwrap();
+        let lease_bytes = target.canonical_state_bytes().unwrap();
+        drop(restored);
+        drop(storage);
+        drop(target);
+        let target = Lease::decode_state(&lease_bytes).unwrap();
+        let reopened = Storage::decode_untrusted_replay_state(&persisted, 1 << 24).unwrap();
+        let mut resumed = running_instance(&target, &module, reopened);
+        assert_eq!(
+            resumed.call("continue", &[]),
+            Ok(vec![WasmValue::I32(42 * 16 + 7)])
+        );
+        let mut committed = resumed.storage_snapshot().unwrap();
+        assert_eq!(
+            committed.transaction(target_namespace).read(b"k").unwrap(),
+            Some(vec![43])
+        );
+        for (namespace, value) in [
+            (source_namespace, 41),
+            (tenant_namespace, 125),
+            (shared_namespace, 126),
+            (neighbour_namespace, 127),
+        ] {
+            assert_eq!(
+                committed.transaction(namespace).read(b"k").unwrap(),
+                Some(vec![value])
+            );
+        }
+    }
 }

@@ -26,12 +26,12 @@ default = []
 backtraces = []
 
 [dependencies]
-cosmwasm-std = { git = "https://github.com/Paxeer-Network/pax-cosmwasm.git", rev = "v1.5.13", features = [
+cosmwasm-std = { git = "https://github.com/Paxeer-Network/pax-cosmwasm.git", rev = "cd3c4399b8c0ea0d08b2068a893ed2973685fe30", features = [
   "staking",
   "stargate",
   "iterator",
 ] }
-cosmwasm-vm = { git = "https://github.com/Paxeer-Network/pax-cosmwasm.git", rev = "v1.5.13", features = [
+cosmwasm-vm = { git = "https://github.com/Paxeer-Network/pax-cosmwasm.git", rev = "cd3c4399b8c0ea0d08b2068a893ed2973685fe30", features = [
   "staking",
   "stargate",
   "iterator",
@@ -47,7 +47,7 @@ serde = { version = "1.0.103", default-features = false, features = ["derive"] }
 tempfile = "3.4.0"
 
 [build-dependencies]
-cbindgen = "0.24.3"
+cbindgen = "0.29.2"
 
 [profile.release]
 opt-level = 3
@@ -66,3 +66,6 @@ overflow-checks = true
 # See the forked parser source: https://github.com/Paxeer-Network/pax-wasm-tools
 [patch.crates-io]
 wasmparser = { git = "https://github.com/Paxeer-Network/pax-wasm-tools", rev = "wasmparser-0.95.1" }
+
+[patch."https://github.com/Paxeer-Network/pax-cosmwasm.git"]
+cosmwasm-crypto = { path = "vendor/cosmwasm-crypto" }

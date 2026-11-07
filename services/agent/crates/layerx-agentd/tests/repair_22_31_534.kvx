@@ -1,0 +1,40 @@
+[repair.22.31.534]
+gotcha = 3124
+decision = 2585
+acceptance = "22998.1"
+predicate = "budget::budget_state_is_committed decodes VerificationLevel::from_wire_rank and accepts only Rung::Committed; lower current labels return NotCommitted, retired and unknown labels return RetiredOrUnknown."
+sites = ["src/human_runtime.rs::approval_budget_after", "src/budget/program_sources.rs::bind_program_presentation_budget_proof"]
+boundary = "Human ApprovalBoundaryError::Refused preserves AgentBoundaryError::Refused through inbox and decision error wrappers; no exhaustive ApprovalBoundaryError matches need expansion."
+fixture = "The named tests/support/approval_fixture is absent on this base; repair_22_31_534 imports the existing human_approval_budget_actor.rs proof as approval_fixture, retaining real TLS authority, node transcript, durable store reopen, daemon socket transport, budget-value and changed-binding assertions. Its legacy recorded budget observation label and exact assertions use current Committed label 6."
+labels = "6 accepted; 0 through 3 NotCommitted; 4, 5 and all 7 through 255 RetiredOrUnknown."
+dependencies = "Gotcha 2962: no external credential, live endpoint, device or subprocess toolchain is needed by the repair proof."
+
+[qualification]
+build = "hf-build: cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.534 -f layerx-merge --root /work/paxeer-monorepo; runs repair_22_31_534 and Human repair_22_31_462 with --locked."
+gate_results = "The runner writes exact candidate revision, command, exit and private log to /out/run/gates.jsonl and prints the final evidence JSON; that ledger is the qualification record for this repair, including any repair reruns. No pre-gate pass is claimed."
+build_log = "/out/logs/build-1.log"
+verify_log = "/out/logs/verify-1.log"
+
+[qualification.attempt_1_build_1]
+revision = "06e88c29e92e54ac162e69c34282ea7c34a79e39"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Pre-existing approval_semantics.rs fails at DecisionRequest initializers on lines 171, 191, 245 and 269 (missing current_time) and get on line 298 (missing TimestampSeconds argument); the Human-service build and hf-done were not reached."
+assumption = "The unrelated approval_semantics time migration belongs to task 22.31.519; retain its tests and do not repair or rerun this recorded failure under 22.31.534."
+
+[continuation]
+gotchas = [3129, 3132]
+decisions = [2589, 2591]
+base = "b1aa3bffb4959c1fb561cbd465ab9d14dc011415"
+resolution = "Preserve the landed authority-library fixture and Committed assertions; integrate the inherited shared predicate at both call sites, retaining every other condition and error mapping."
+evidence = "Current-attempt hf-build and hf-done outcomes, including the verified candidate revision, command, exit and private log, are recorded by the runner in /out/run/gates.jsonl; the attempt-1 failure above is historical."
+
+[qualification.attempt_2_build_1]
+revision = "0a554b374dd7d4a88def3d3698878c4c621e8304"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --tests && cargo build --locked --manifest-path services/human/crates/layerx-human-service/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "Unrelated E0308 in rpc_surface_major_two: agent_rpc_wire.rs:3357 passes daemon::agent_rpc_wire::NativeSendPrepareRequestV2 to native_send_prepare_digest expecting crate::agent_rpc_wire::NativeSendPrepareRequestV2; Human-service build and hf-done were not reached."
+assumption = "The duplicate RPC module type belongs to the existing RPC test harness; preserve it unchanged and do not chase or rerun this unrelated failure under the budget-state repair."

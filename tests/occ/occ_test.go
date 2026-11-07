@@ -3,6 +3,7 @@ package occ
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"testing"
 	"time"
 
@@ -17,38 +18,56 @@ import (
 func assertEqualState(t *testing.T, expectedCtx sdk.Context, actualCtx sdk.Context, testName string) {
 	expectedStoreKeys := expectedCtx.MultiStore().StoreKeys()
 	actualStoreKeys := actualCtx.MultiStore().StoreKeys()
-	require.Equal(t, len(expectedStoreKeys), len(actualStoreKeys), testName)
+	require.NoError(t, compareStoreKeyNames(expectedStoreKeys, actualStoreKeys), testName)
 
-	// store keys are mapped by reference, so Name()==Name() comparison is needed
-	for _, esk := range expectedStoreKeys {
-		for _, ask := range actualStoreKeys {
-			if esk.Name() == ask.Name() {
-				expected := expectedCtx.MultiStore().GetKVStore(esk)
-				actual := actualCtx.MultiStore().GetKVStore(ask)
-				utils.CompareStores(t, esk, expected, actual, testName)
-			}
-		}
+	// Store keys are mapped by reference; pair the independently sorted names.
+	for i, esk := range expectedStoreKeys {
+		ask := actualStoreKeys[i]
+		expected := expectedCtx.MultiStore().GetKVStore(esk)
+		actual := actualCtx.MultiStore().GetKVStore(ask)
+		utils.CompareStores(t, esk, expected, actual, testName)
 	}
 }
 
-// assertEqualEventAttributes checks if both attribute slices have the same attributes, regardless of order.
-func assertEqualEventAttributes(t *testing.T, testName string, expected, actual []types.EventAttribute) {
-	require.Equal(t, len(expected), len(actual), "%s: Number of event attributes do not match", testName)
-
-	// Convert the slice of EventAttribute to a string for comparison to avoid issues with byte slice comparison.
-	attributesToString := func(attrs []types.EventAttribute) map[string]bool {
-		attrStrs := make(map[string]bool)
-		for _, attr := range attrs {
-			attrStr := fmt.Sprintf("%s=%s/%v", attr.Key, attr.Value, attr.Index)
-			attrStrs[attrStr] = true
-		}
-		return attrStrs
+func compareStoreKeyNames(expected, actual []sdk.StoreKey) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf("number of stores does not match: %d != %d", len(expected), len(actual))
 	}
+	sort.Slice(expected, func(i, j int) bool { return expected[i].Name() < expected[j].Name() })
+	sort.Slice(actual, func(i, j int) bool { return actual[i].Name() < actual[j].Name() })
+	for i := range expected {
+		if expected[i].Name() != actual[i].Name() {
+			return fmt.Errorf("store names do not match: %q != %q", expected[i].Name(), actual[i].Name())
+		}
+	}
+	return nil
+}
 
-	expectedAttrStrs := attributesToString(expected)
-	actualAttrStrs := attributesToString(actual)
+// assertEqualEventAttributes compares attribute occurrences, regardless of order.
+func assertEqualEventAttributes(t *testing.T, testName string, expected, actual []types.EventAttribute) {
+	require.NoError(t, compareEventAttributes(expected, actual), "%s: Event attributes do not match", testName)
+}
 
-	require.Equal(t, expectedAttrStrs, actualAttrStrs, "%s: Event attributes do not match", testName)
+func compareEventAttributes(expected, actual []types.EventAttribute) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf("number of event attributes does not match: %d != %d", len(expected), len(actual))
+	}
+	type attributeKey struct {
+		key, value string
+		index      bool
+	}
+	counts := make(map[attributeKey]int, len(expected))
+	for _, attr := range expected {
+		counts[attributeKey{string(attr.Key), string(attr.Value), attr.Index}]++
+	}
+	for _, attr := range actual {
+		key := attributeKey{string(attr.Key), string(attr.Value), attr.Index}
+		if counts[key] == 0 {
+			return fmt.Errorf("unexpected event attribute occurrence: %+v", attr)
+		}
+		counts[key]--
+	}
+	return nil
 }
 
 // assertEqualEvents checks if both event slices have the same events, regardless of order.
@@ -81,20 +100,28 @@ func assertExecTxResultCode(t *testing.T, expected, actual []*types.ExecTxResult
 
 // assertEqualExecTxResults checks if both slices have the same transaction results, regardless of order.
 func assertEqualExecTxResults(t *testing.T, expected, actual []*types.ExecTxResult, testName string) {
-	require.Equal(t, len(expected), len(actual), "%s: Number of transaction results do not match", testName)
+	require.NoError(t, compareExecTxResults(expected, actual), "%s: Transaction results do not match", testName)
+}
 
-	// Here, we assume that ExecTxResult is comparable; if not, you'll need to create a key
-	// that is based on the comparable parts of the ExecTxResult.
+func compareExecTxResults(expected, actual []*types.ExecTxResult) error {
+	if len(expected) != len(actual) {
+		return fmt.Errorf("number of transaction results does not match: %d != %d", len(expected), len(actual))
+	}
+	consumed := make([]bool, len(actual))
 	for _, expectedRes := range expected {
 		found := false
-		for _, actualRes := range actual {
-			if reflect.DeepEqual(expectedRes, actualRes) {
+		for i, actualRes := range actual {
+			if !consumed[i] && reflect.DeepEqual(expectedRes, actualRes) {
+				consumed[i] = true
 				found = true
 				break
 			}
 		}
-		require.True(t, found, "%s: Expected ExecTxResult not found: %+v", testName, expectedRes)
+		if !found {
+			return fmt.Errorf("expected ExecTxResult occurrence not found: %+v", expectedRes)
+		}
 	}
+	return nil
 }
 
 type Test struct {
@@ -109,6 +136,9 @@ func TestParallelTransactionsWasmInstantiate(t *testing.T) {
 	runTest(t, Test{
 		name: "Test wasm instantiations",
 		runs: 3,
+		before: func(tCtx *utils.TestContext) {
+			require.Equal(t, tCtx.CW20CodeID, tCtx.CodeID)
+		},
 		txs: func(tCtx *utils.TestContext) []*utils.TestMessage {
 			return utils.JoinMsgs(
 				messages.WasmInstantiate(tCtx, 10),

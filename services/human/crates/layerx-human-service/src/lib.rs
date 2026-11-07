@@ -5,9 +5,9 @@ pub mod agents;
 pub mod approvals;
 pub mod audit;
 pub mod auth;
-pub mod binding;
 pub mod custody;
 mod event_producer;
+pub mod frame;
 pub mod health;
 pub mod journeys;
 pub mod notify;
@@ -24,7 +24,7 @@ pub mod trace;
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct HumanWorkspaceManifest {
     /// Human-plane crates in build order.
-    pub crates: [&'static str; 4],
+    pub crates: [&'static str; 2],
     /// The only contract through which the human plane reaches `LayerX`.
     pub core_boundary: &'static str,
 }
@@ -33,12 +33,7 @@ pub struct HumanWorkspaceManifest {
 #[must_use]
 pub const fn human_workspace_manifest() -> HumanWorkspaceManifest {
     HumanWorkspaceManifest {
-        crates: [
-            "layerx-intents",
-            "layerx-human-service",
-            "layerx-paxeer-client",
-            "layerx-explorer-index",
-        ],
+        crates: ["layerx-intents", "layerx-human-service"],
         core_boundary: "layerx-agent-api",
     }
 }

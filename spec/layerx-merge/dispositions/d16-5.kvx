@@ -1,0 +1,11 @@
+[disposition.16.97.6.1]
+finding = "16.97.6.1"
+status = "resolved"
+evidence = "Commit be3b74e4505c56a70a88ba095e18193612aae1ec landed on main and added the repository SDK path insertion at tests/agent/sdk/python/test_receipt_fixture.py:9 before the layerx_sdk imports, removing the missing-path collection failure."
+follow_up = "closure"
+
+[disposition.16.2.2.1]
+finding = "16.2.2.1"
+status = "resolved"
+evidence = "Commit bebbd80a36f9ca1e815e5d63dd63d0f9a590d4f4 landed on main and removed the retired checkpoint-settlement header requests and presence assertions from all eight qualification producers, including the make invocation at scripts/qualification/paxeer-x/program-terminal-v5.py:48."
+follow_up = "closure"

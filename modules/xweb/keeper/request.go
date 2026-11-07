@@ -3,6 +3,7 @@ package keeper
 import (
 	"encoding/hex"
 	"fmt"
+	"math"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -13,8 +14,9 @@ import (
 // takes paid, which must equal the current fee exactly, from the requester's
 // account into the module account. It refuses when paused, for an unknown
 // kind, an empty payload or one over the payload cap, an api payload that
-// does not decode or names an attestor outside the registered set, and a
-// callback gas of zero or over the callback cap. It returns the request id.
+// does not decode or names an attestor outside the registered set, a
+// malformed storage-receipt payload, or a callback gas of zero or over the
+// callback cap. It returns the request id.
 func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, payload []byte,
 	callbackGas uint64, paid sdk.Int) (uint64, error) {
 	if k.IsPaused(ctx) {
@@ -38,6 +40,11 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 		}
 		level, attestor = api.Level, api.Attestor
 	}
+	if kind == types.KindStorageReceipt {
+		if _, err := types.DecodeStorageReceiptPayload(payload); err != nil {
+			return 0, err
+		}
+	}
 	if callbackGas == 0 || callbackGas > params.MaxCallbackGas {
 		return 0, types.ErrCallbackGas.Wrapf("%d, cap %d", callbackGas, params.MaxCallbackGas)
 	}
@@ -47,6 +54,14 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 	if requester == (common.Address{}) {
 		return 0, types.ErrInvalidRequest.Wrap("zero requester")
 	}
+	if params.TimeoutBlocks == 0 || params.TimeoutBlocks > types.TimeoutBlocksLimit {
+		return 0, types.ErrInvalidParams.Wrapf("timeout %d outside 1..%d", params.TimeoutBlocks, types.TimeoutBlocksLimit)
+	}
+	height := ctx.BlockHeight()
+	if height < 0 || height > math.MaxInt64-int64(params.TimeoutBlocks) {
+		return 0, types.ErrInvalidRequest.Wrapf("height %d cannot accommodate timeout %d", height, params.TimeoutBlocks)
+	}
+	timeoutHeight := height + int64(params.TimeoutBlocks)
 
 	cached, write := ctx.CacheContext()
 	payer := k.evmKeeper.GetPaxAddressOrDefault(cached, requester)
@@ -61,8 +76,8 @@ func (k Keeper) Request(ctx sdk.Context, requester common.Address, kind uint8, p
 		PayloadHash:   types.Keccak(payload),
 		CallbackGas:   callbackGas,
 		Fee:           params.Fee,
-		Height:        ctx.BlockHeight(),
-		TimeoutHeight: ctx.BlockHeight() + int64(params.TimeoutBlocks),
+		Height:        height,
+		TimeoutHeight: timeoutHeight,
 		Status:        types.StatusPending,
 		Level:         level,
 		Attestor:      attestor,

@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"fmt"
 	"math/big"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/perps/types"
@@ -13,9 +12,6 @@ import (
 var (
 	accountFixedOne   = big.NewInt(1_000_000_000_000_000_000)
 	accountUsdPerUsdl = big.NewInt(1_000_000_000_000)
-	// accountNotionalFloorDivisor makes the withdrawal floor 10 percent of
-	// the position notional at mark.
-	accountNotionalFloorDivisor = big.NewInt(10)
 )
 
 // GetAccount returns the stored account, ErrNoAccount when the address never
@@ -26,7 +22,7 @@ func (k *Keeper) GetAccount(ctx sdk.Context, address common.Address) (types.Acco
 		return types.Account{}, err
 	}
 	if !found {
-		return types.Account{}, fmt.Errorf("%w: %s", types.ErrNoAccount, address)
+		return types.Account{}, types.ErrNoAccount.Wrapf("%s", address)
 	}
 	return account, nil
 }
@@ -36,7 +32,7 @@ func (k *Keeper) GetAccount(ctx sdk.Context, address common.Address) (types.Acco
 // whether this call created it.
 func (k *Keeper) EnsureAccount(ctx sdk.Context, address common.Address) (account types.Account, created bool, err error) {
 	if address == (common.Address{}) {
-		return types.Account{}, false, fmt.Errorf("%w: account", types.ErrZeroAddress)
+		return types.Account{}, false, types.ErrZeroAddress.Wrapf("account")
 	}
 	account, found, err := k.accountLoad(ctx, address)
 	if err != nil || found {
@@ -53,7 +49,7 @@ func (k *Keeper) EnsureAccount(ctx sdk.Context, address common.Address) (account
 // It returns the settlement events followed by CollateralDeposited.
 func (k *Keeper) Deposit(ctx sdk.Context, address common.Address, amount uint256.Int) ([]types.EventRecord, error) {
 	if amount.IsZero() {
-		return nil, fmt.Errorf("%w: deposit", types.ErrZeroAmount)
+		return nil, types.ErrZeroAmount.Wrapf("deposit")
 	}
 	if _, _, err := k.EnsureAccount(ctx, address); err != nil {
 		return nil, err
@@ -67,10 +63,13 @@ func (k *Keeper) Deposit(ctx sdk.Context, address common.Address, amount uint256
 		return nil, err
 	}
 	if _, overflow := account.Collateral.AddOverflow(&account.Collateral, &amount); overflow {
-		return nil, fmt.Errorf("%w: collateral of %s plus %s", types.ErrOverflow, address, amount.Dec())
+		return nil, types.ErrOverflow.Wrapf("collateral of %s plus %s", address, amount.Dec())
 	}
 	k.accountStore(ctx, account)
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
+		return nil, err
+	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
 		return nil, err
 	}
 	return append(events, collateralEvent(types.EventCollateralDeposited, address, amount, account.Collateral)), nil
@@ -83,10 +82,10 @@ func (k *Keeper) Deposit(ctx sdk.Context, address common.Address, amount uint256
 // CollateralWithdrawn.
 func (k *Keeper) Withdraw(ctx sdk.Context, address common.Address, amount uint256.Int) ([]types.EventRecord, error) {
 	if address == (common.Address{}) {
-		return nil, fmt.Errorf("%w: account", types.ErrZeroAddress)
+		return nil, types.ErrZeroAddress.Wrapf("account")
 	}
 	if amount.IsZero() {
-		return nil, fmt.Errorf("%w: withdrawal", types.ErrZeroAmount)
+		return nil, types.ErrZeroAmount.Wrapf("withdrawal")
 	}
 	events, err := k.Settle(ctx, address)
 	if err != nil {
@@ -100,6 +99,9 @@ func (k *Keeper) Withdraw(ctx sdk.Context, address common.Address, amount uint25
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
 		return nil, err
 	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
+		return nil, err
+	}
 	return append(events, collateralEvent(types.EventCollateralWithdrawn, address, amount, account.Collateral)), nil
 }
 
@@ -109,13 +111,13 @@ func (k *Keeper) Withdraw(ctx sdk.Context, address common.Address, amount uint25
 // settlement events followed by CollateralTransferred.
 func (k *Keeper) TransferCollateral(ctx sdk.Context, from, to common.Address, amount uint256.Int) ([]types.EventRecord, error) {
 	if amount.IsZero() {
-		return nil, fmt.Errorf("%w: transfer", types.ErrZeroAmount)
+		return nil, types.ErrZeroAmount.Wrapf("transfer")
 	}
 	if from == (common.Address{}) || to == (common.Address{}) {
-		return nil, fmt.Errorf("%w: transfer from %s to %s", types.ErrZeroAddress, from, to)
+		return nil, types.ErrZeroAddress.Wrapf("transfer from %s to %s", from, to)
 	}
 	if from == to {
-		return nil, fmt.Errorf("%w: %s", types.ErrSelfTransfer, from)
+		return nil, types.ErrSelfTransfer.Wrapf("%s", from)
 	}
 	if _, err := k.GetAccount(ctx, to); err != nil {
 		return nil, err
@@ -138,7 +140,7 @@ func (k *Keeper) TransferCollateral(ctx sdk.Context, from, to common.Address, am
 		return nil, err
 	}
 	if _, overflow := recipient.Collateral.AddOverflow(&recipient.Collateral, &amount); overflow {
-		return nil, fmt.Errorf("%w: collateral of %s plus %s", types.ErrOverflow, to, amount.Dec())
+		return nil, types.ErrOverflow.Wrapf("collateral of %s plus %s", to, amount.Dec())
 	}
 	k.accountStore(ctx, sender)
 	k.accountStore(ctx, recipient)
@@ -147,6 +149,11 @@ func (k *Keeper) TransferCollateral(ctx sdk.Context, from, to common.Address, am
 	}
 	if _, err := k.RefreshMarginRatio(ctx, to); err != nil {
 		return nil, err
+	}
+	for _, address := range []common.Address{from, to} {
+		if err := k.refreshAccountADLRanks(ctx, address); err != nil {
+			return nil, err
+		}
 	}
 	return append(events, types.EventRecord{
 		Name: types.EventCollateralTransferred,
@@ -162,7 +169,7 @@ func (k *Keeper) TransferCollateral(ctx sdk.Context, from, to common.Address, am
 // and the OrderCancelled events followed by CollateralWithdrawn.
 func (k *Keeper) EmergencyWithdraw(ctx sdk.Context, address common.Address) (uint256.Int, []types.EventRecord, error) {
 	if address == (common.Address{}) {
-		return uint256.Int{}, nil, fmt.Errorf("%w: account", types.ErrZeroAddress)
+		return uint256.Int{}, nil, types.ErrZeroAddress.Wrapf("account")
 	}
 	if _, err := k.GetAccount(ctx, address); err != nil {
 		return uint256.Int{}, nil, err
@@ -172,7 +179,7 @@ func (k *Keeper) EmergencyWithdraw(ctx sdk.Context, address common.Address) (uin
 		return uint256.Int{}, nil, err
 	}
 	if len(positions) > 0 {
-		return uint256.Int{}, nil, fmt.Errorf("%w: %s holds %d positions", types.ErrInsufficientMargin, address, len(positions))
+		return uint256.Int{}, nil, types.ErrInsufficientMargin.Wrapf("%s holds %d positions", address, len(positions))
 	}
 	orderIDs, err := k.accountOpenOrders(ctx, address)
 	if err != nil {
@@ -191,7 +198,7 @@ func (k *Keeper) EmergencyWithdraw(ctx sdk.Context, address common.Address) (uin
 		return uint256.Int{}, nil, err
 	}
 	if amount.IsZero() {
-		return uint256.Int{}, nil, fmt.Errorf("%w: %s has nothing withdrawable", types.ErrZeroAmount, address)
+		return uint256.Int{}, nil, types.ErrZeroAmount.Wrapf("%s has nothing withdrawable", address)
 	}
 	account, err := k.accountDebitWithdrawable(ctx, address, amount)
 	if err != nil {
@@ -201,9 +208,9 @@ func (k *Keeper) EmergencyWithdraw(ctx sdk.Context, address common.Address) (uin
 	return amount, append(events, collateralEvent(types.EventCollateralWithdrawn, address, amount, account.Collateral)), nil
 }
 
-// Withdrawable is equity - max(initial margin of positions and orders, 10
-// percent of the position notional at mark), floored at 0, in USDL units
-// rounded down (contracts/perps-parameters.md section 2).
+// Withdrawable is equity - max(initial margin of positions and orders, the
+// configured withdrawal floor on position notional at mark), floored at 0,
+// in USDL units rounded down (contracts/perps-parameters.md section 2).
 func (k *Keeper) Withdrawable(ctx sdk.Context, address common.Address) (uint256.Int, error) {
 	if _, err := k.GetAccount(ctx, address); err != nil {
 		return uint256.Int{}, err
@@ -228,7 +235,12 @@ func (k *Keeper) Withdrawable(ctx sdk.Context, address common.Address) (uint256.
 		}
 		notional.Add(notional, value.ToBig())
 	}
-	required := accountCeilDiv(notional, accountNotionalFloorDivisor)
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return uint256.Int{}, err
+	}
+	floor := new(big.Int).Mul(notional, new(big.Int).SetUint64(params.WithdrawFloorPpm))
+	required := accountCeilDiv(floor, ppmScale)
 	if initial := margin.InitialMargin.BigInt(); initial.Cmp(required) > 0 {
 		required = initial
 	}
@@ -271,7 +283,7 @@ func (k *Keeper) Settle(ctx sdk.Context, address common.Address) ([]types.EventR
 			return nil, err
 		}
 		if state.MarkPrice.IsZero() {
-			return nil, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, position.MarketID)
+			return nil, types.ErrPriceStale.Wrapf("market %d has no mark", position.MarketID)
 		}
 		costBasis, err := accountNotional(position.SizeBase, state.MarkPrice, !position.IsLong)
 		if err != nil {
@@ -297,6 +309,9 @@ func (k *Keeper) Settle(ctx sdk.Context, address common.Address) ([]types.EventR
 	}
 	k.accountStore(ctx, account)
 	if _, err := k.RefreshMarginRatio(ctx, address); err != nil {
+		return nil, err
+	}
+	if err := k.refreshAccountADLRanks(ctx, address); err != nil {
 		return nil, err
 	}
 	return events, nil
@@ -365,8 +380,7 @@ func (k *Keeper) accountDebitWithdrawable(ctx sdk.Context, address common.Addres
 		return types.Account{}, err
 	}
 	if amount.Gt(&withdrawable) || amount.Gt(&account.Collateral) {
-		return types.Account{}, fmt.Errorf("%w: %s requests %s of %s withdrawable", types.ErrInsufficientMargin,
-			address, amount.Dec(), withdrawable.Dec())
+		return types.Account{}, types.ErrInsufficientMargin.Wrapf("%s requests %s of %s withdrawable", address, amount.Dec(), withdrawable.Dec())
 	}
 	account.Collateral.Sub(&account.Collateral, &amount)
 	return account, nil
@@ -379,10 +393,10 @@ func (k *Keeper) accountLoad(ctx sdk.Context, address common.Address) (types.Acc
 	}
 	var account types.Account
 	if err := account.Unmarshal(bz); err != nil {
-		return types.Account{}, false, fmt.Errorf("%w: account %s: %v", types.ErrInvalidParams, address, err)
+		return types.Account{}, false, types.ErrInvalidParams.Wrapf("account %s: %v", address, err)
 	}
 	if account.Address != address {
-		return types.Account{}, false, fmt.Errorf("%w: account %s holds %s", types.ErrInvalidParams, address, account.Address)
+		return types.Account{}, false, types.ErrInvalidParams.Wrapf("account %s holds %s", address, account.Address)
 	}
 	return account, true, nil
 }
@@ -400,7 +414,7 @@ func (k *Keeper) accountPositions(ctx sdk.Context, address common.Address) ([]ty
 	var ids []uint256.Int
 	for ; iterator.Valid(); iterator.Next() {
 		if len(iterator.Key()) != len(prefix)+8 || len(iterator.Value()) != 32 {
-			return nil, fmt.Errorf("%w: account market position entry %x", types.ErrInvalidParams, iterator.Key())
+			return nil, types.ErrInvalidParams.Wrapf("account market position entry %x", iterator.Key())
 		}
 		var id uint256.Int
 		id.SetBytes32(iterator.Value())
@@ -410,14 +424,14 @@ func (k *Keeper) accountPositions(ctx sdk.Context, address common.Address) ([]ty
 	for _, id := range ids {
 		bz := k.store(ctx).Get(types.PositionKey(id))
 		if bz == nil {
-			return nil, fmt.Errorf("%w: %s indexed for %s", types.ErrUnknownPosition, id.Dec(), address)
+			return nil, types.ErrUnknownPosition.Wrapf("%s indexed for %s", id.Dec(), address)
 		}
 		var position types.Position
 		if err := position.Unmarshal(bz); err != nil {
-			return nil, fmt.Errorf("%w: position %s: %v", types.ErrInvalidParams, id.Dec(), err)
+			return nil, types.ErrInvalidParams.Wrapf("position %s: %v", id.Dec(), err)
 		}
 		if position.Account != address {
-			return nil, fmt.Errorf("%w: position %s indexed for %s", types.ErrNotPositionHolder, id.Dec(), address)
+			return nil, types.ErrNotPositionHolder.Wrapf("position %s indexed for %s", id.Dec(), address)
 		}
 		positions = append(positions, position)
 	}
@@ -452,7 +466,7 @@ func (k *Keeper) accountOpenOrders(ctx sdk.Context, address common.Address) ([]u
 	for ; iterator.Valid(); iterator.Next() {
 		key := iterator.Key()
 		if len(key) != len(prefix)+32 {
-			return nil, fmt.Errorf("%w: account order key %x", types.ErrInvalidParams, key)
+			return nil, types.ErrInvalidParams.Wrapf("account order key %x", key)
 		}
 		var id uint256.Int
 		id.SetBytes32(key[len(prefix):])
@@ -468,7 +482,7 @@ func (k *Keeper) accountMark(ctx sdk.Context, marketID uint64) (uint256.Int, err
 		return uint256.Int{}, err
 	}
 	if state.MarkPrice.IsZero() {
-		return uint256.Int{}, fmt.Errorf("%w: market %d has no mark", types.ErrPriceStale, marketID)
+		return uint256.Int{}, types.ErrPriceStale.Wrapf("market %d has no mark", marketID)
 	}
 	return state.MarkPrice, nil
 }
@@ -480,7 +494,7 @@ func (k *Keeper) accountVenueBooks(ctx sdk.Context) (types.VenueBooks, error) {
 		return books, nil
 	}
 	if err := books.Unmarshal(bz); err != nil {
-		return types.VenueBooks{}, fmt.Errorf("%w: venue books: %v", types.ErrInvalidParams, err)
+		return types.VenueBooks{}, types.ErrInvalidParams.Wrapf("venue books: %v", err)
 	}
 	return books, nil
 }
@@ -496,7 +510,7 @@ func accountNotional(size, price uint256.Int, roundUp bool) (uint256.Int, error)
 	}
 	var out uint256.Int
 	if out.SetFromBig(notional) {
-		return uint256.Int{}, fmt.Errorf("%w: notional of size %s at %s", types.ErrOverflow, size.Dec(), price.Dec())
+		return uint256.Int{}, types.ErrOverflow.Wrapf("notional of size %s at %s", size.Dec(), price.Dec())
 	}
 	return out, nil
 }
@@ -514,14 +528,38 @@ func accountCeilDiv(numerator, denominator *big.Int) *big.Int {
 func accountAdd(word uint256.Int, amount *big.Int) (uint256.Int, error) {
 	var addend, sum uint256.Int
 	if amount.Sign() < 0 || addend.SetFromBig(amount) {
-		return uint256.Int{}, fmt.Errorf("%w: %s", types.ErrOverflow, amount)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s", amount)
 	}
 	if _, overflow := sum.AddOverflow(&word, &addend); overflow {
-		return uint256.Int{}, fmt.Errorf("%w: %s plus %s", types.ErrOverflow, word.Dec(), amount)
+		return uint256.Int{}, types.ErrOverflow.Wrapf("%s plus %s", word.Dec(), amount)
 	}
 	return sum, nil
 }
 
 func collateralEvent(name string, address common.Address, amount, balance uint256.Int) types.EventRecord {
 	return types.EventRecord{Name: name, Args: []any{address, new(big.Int).Set(amount.ToBig()), new(big.Int).Set(balance.ToBig())}}
+}
+
+// refreshAccountADLRanks runs after the final account balance is stored, so
+// settlement, collateral movements and fills all use the same rank formula.
+func (k *Keeper) refreshAccountADLRanks(ctx sdk.Context, address common.Address) error {
+	positions, err := k.accountPositions(ctx, address)
+	if err != nil {
+		return err
+	}
+	if len(positions) == 0 {
+		return nil
+	}
+	equity, err := k.Equity(ctx, address)
+	if err != nil {
+		return err
+	}
+	store := k.store(ctx)
+	for _, position := range positions {
+		store.Delete(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID))
+		position.RankScore = positionRank(position, equity.BigInt())
+		store.Set(types.PositionKey(position.ID), position.Marshal())
+		store.Set(types.AdlRankIndexKey(position.MarketID, types.SideOf(position.IsLong), position.RankScore, position.ID), []byte{})
+	}
+	return nil
 }

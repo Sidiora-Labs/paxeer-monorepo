@@ -24,14 +24,14 @@
 #   threshold of attestor signatures over the outbound preimage, built here byte
 #   by byte from contracts/bridge/evm/ATTESTATION.md and asserted equal to the vault's own
 #   digest; a second release of the same Paxeer burn is refused;
-#   opens the chain on a Paxeer side made of the real layerxbridge keeper and
-#   precompile, which reads every governance body services/bridge/deploy/proposals
-#   generates for the deployment through that package's DecodeBody under its
-#   type URL, executes it and answers the precompile's views, after proving the
+#   opens the chain through generated governance proposals on a disposable
+#   persisted paxd node whose production precompile answers the checklist,
+#   after proving the
 #   decoder refuses a body under a wrong type URL and a body with an unknown
 #   field, each by name; and runs
 #   services/bridge/deploy/checklist.sh against both, asserting every check passes with
-#   the native coin checked first.
+#   the native coin checked first; then restarts paxd and anvil from their
+#   homes, rechecks governance and balances and retries the original releases.
 #
 # Every read the checklist and the dry run's own assertions make passes through
 # a recording proxy on the loopback interface. The recording is written in the
@@ -91,7 +91,7 @@ case ${1:-} in
 esac
 
 tools=(jq curl cast go python3 base64 od)
-[ "$mode" = replay ] || tools=(anvil forge "${tools[@]}")
+[ "$mode" = replay ] || tools=(paxd anvil forge "${tools[@]}")
 for tool in "${tools[@]}"; do
     command -v "$tool" > /dev/null 2>&1 || fail "$tool is required for the dry run and is not on the PATH"
 done
@@ -127,6 +127,9 @@ stop() {
     local target=$1 pid kept=()
     kill "$target" 2> /dev/null || true
     wait "$target" 2> /dev/null || true
+    if kill -0 "$target" 2> /dev/null; then
+        fail "the node process $target did not stop"
+    fi
     for pid in "${PIDS[@]}"; do
         [ "$pid" = "$target" ] || kept+=("$pid")
     done
@@ -421,21 +424,27 @@ jq '{attestors: .attestors, threshold: .threshold}' "$CONFIG" > "$MANIFEST"
 RPC_VARIABLE=$(jq -r '.environment.rpc_url' "$CONFIG")
 KEY_VARIABLE=$(jq -r '.environment.deploy_key' "$CONFIG")
 
-# anvil on the loopback interface, under the chain id the configuration names.
+# The same state file is loaded and flushed by both anvil processes.
 ANVIL_PORT=$(python3 -c 'import socket; s = socket.socket(); s.bind(("127.0.0.1", 0)); print(s.getsockname()[1]); s.close()')
-anvil --host 127.0.0.1 --port "$ANVIL_PORT" --chain-id "$CHAIN_ID" > "$WORK/anvil.log" 2>&1 &
-ANVIL_PID=$!
-PIDS+=("$ANVIL_PID")
 ANVIL_URL="http://127.0.0.1:$ANVIL_PORT"
-for _ in $(seq 1 200); do
-    curl --silent --fail --noproxy '*' --header 'Content-Type: application/json' \
-        --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$ANVIL_URL" > /dev/null 2>&1 && break
-    kill -0 "$ANVIL_PID" 2> /dev/null || {
-        sed -e 's/^/    /' "$WORK/anvil.log" >&2
-        fail "anvil stopped before it answered"
-    }
-    sleep 0.1
-done
+start_anvil() {
+    anvil --state "$WORK/anvil-state.json" --preserve-historical-states --host 127.0.0.1 --port "$ANVIL_PORT" --chain-id "$CHAIN_ID" > "$WORK/anvil.log" 2>&1 &
+    ANVIL_PID=$!
+    PIDS+=("$ANVIL_PID")
+    ANVIL_URL="http://127.0.0.1:$ANVIL_PORT"
+    for _ in $(seq 1 200); do
+        curl --silent --fail --noproxy '*' --header 'Content-Type: application/json' \
+            --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$ANVIL_URL" > /dev/null 2>&1 && break
+        kill -0 "$ANVIL_PID" 2> /dev/null || {
+            sed -e 's/^/    /' "$WORK/anvil.log" >&2
+            fail "anvil stopped before it answered"
+        }
+        sleep 0.1
+    done
+    [ "$(curl --silent --fail --noproxy '*' --header 'Content-Type: application/json' \
+        --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}' "$ANVIL_URL" | jq -r .result)" = "$(printf '0x%x' "$CHAIN_ID")" ] || fail "anvil did not become ready"
+}
+start_anvil
 export ETH_RPC_URL="$ANVIL_URL"
 expect "chain id anvil answers" "$CHAIN_ID" "$(cast chain-id)"
 for account in "$DEPLOYER" "$OWNER" "$DEPOSITOR"; do
@@ -520,6 +529,11 @@ release() {
         [[ $signature =~ ^0x[0-9a-fA-F]{130}$ ]] || fail "attestor ${ATTESTORS[index]} signed with $signature"
         signatures+="${signatures:+,}$signature"
     done
+    jq -n --arg asset "$asset" --arg amount "$amount" --arg recipient "$RECIPIENT" \
+        --arg burn "0x$burn" --arg nonce "$nonce" --arg signatures "[$signatures]" \
+        '{args: [$asset, $amount, $recipient, $burn, $nonce, $signatures]}' > "$WORK/release-$nonce.json"
+    python3 "$SCRIPT_DIR/recovery.py" save "$WORK/releases" "$nonce" "$WORK/release-$nonce.json" \
+        || fail "the signed release was not persisted"
     send "$DEPOSITOR_KEY" "$VAULT" 'release(address,uint256,address,bytes32,uint64,bytes[])' \
         "$asset" "$amount" "$RECIPIENT" "0x$burn" "$nonce" "[$signatures]" > /dev/null
     if cast call --from "$DEPOSITOR" "$VAULT" 'release(address,uint256,address,bytes32,uint64,bytes[])' \
@@ -549,11 +563,10 @@ jq -n --arg vault "$VAULT" --arg token "$TOKEN" --arg recipient "$RECIPIENT" \
       recipient_token: $recipient_token, recipient_native: $recipient_native, nullifiers: $nullifiers}' \
     > "$EXPECTATIONS"
 
-# The Paxeer side: the real layerxbridge keeper executes the governance bodies
-# generated for this deployment, and its precompile answers the views.
+# Generate bodies for decoder checks and envelopes for the live governance route.
 BODIES="$WORK/bodies"
 (cd "$REPO_ROOT" && go run ./services/bridge/deploy/proposals/cmd/paxeer-bridge-proposals -manifest "$MANIFEST" \
-    -authority "$GOVERNANCE_AUTHORITY" -vault "$VAULT" "$CONFIG" "$BODIES") > "$WORK/proposals.log" 2>&1 || {
+    -authority "$GOVERNANCE_AUTHORITY" -vault "$VAULT" -proposals "$WORK/proposals" "$CONFIG" "$BODIES") > "$WORK/proposals.log" 2>&1 || {
     sed -e 's/^/    /' "$WORK/proposals.log" >&2
     fail "the governance bodies were not generated"
 }
@@ -562,27 +575,18 @@ cat > "$GO_PACKAGE/paxeerside_test.go" << 'GO'
 package paxeerside
 
 import (
-	"encoding/hex"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"math/big"
-	"net"
-	"net/http"
 	"os"
 	"path/filepath"
-	"sort"
 	"strings"
-	"sync"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/services/bridge/deploy/proposals"
-	bridgetestutil "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/testutil"
+	bridgecli "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/client/cli"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxbridge"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/bridge/deploy/proposals"
 )
 
 // decode reads one generated body through the generator's own decoder, which
@@ -664,130 +668,35 @@ func assertRefusals(t *testing.T, path string, register *types.MsgRegisterChain)
 }
 
 func TestPaxeerSide(t *testing.T) {
-	bodies, portFile := os.Getenv("PAXEER_SIDE_BODIES"), os.Getenv("PAXEER_SIDE_PORT_FILE")
-	if bodies == "" || portFile == "" {
-		t.Fatal("PAXEER_SIDE_BODIES and PAXEER_SIDE_PORT_FILE are required")
-	}
-	testApp := app.Setup(t, false, false, false)
-	k, ctx := bridgetestutil.NewKeeper(testApp, testApp.GetContextForDeliverTx([]byte{}))
-	k.InitGenesis(ctx, *types.DefaultGenesis())
-
+	bodies := os.Getenv("PAXEER_SIDE_BODIES")
 	registerPath := filepath.Join(bodies, "01-register-chain.json")
 	register := decode[types.MsgRegisterChain](t, registerPath)
 	assertRefusals(t, registerPath, &register)
-	if err := k.RegisterChain(ctx, register); err != nil {
-		t.Fatalf("01-register-chain.json: %v", err)
-	}
-	attestors := decode[types.MsgSetAttestors](t, filepath.Join(bodies, "02-set-attestors.json"))
-	if err := k.SetAttestors(ctx, attestors); err != nil {
-		t.Fatalf("02-set-attestors.json: %v", err)
-	}
-	caps, err := filepath.Glob(filepath.Join(bodies, "03-set-cap-*.json"))
-	if err != nil || len(caps) == 0 {
-		t.Fatalf("no cap bodies under %s", bodies)
-	}
-	sort.Strings(caps)
-	for _, path := range caps {
-		capBody := decode[types.MsgSetCap](t, path)
-		if err := k.SetCap(ctx, capBody); err != nil {
-			t.Fatalf("%s: %v", path, err)
-		}
-	}
-
-	precompile := layerxbridge.NewPrecompileWithKeeper(k)
-	executor := precompile.GetExecutor()
-	contract := precompile.GetABI()
-	var lock sync.Mutex
-	call := func(method string, params []json.RawMessage) (string, error) {
-		if method != "eth_call" {
-			return "", fmt.Errorf("%s is not served", method)
-		}
-		if len(params) == 0 {
-			return "", errors.New("eth_call without a call")
-		}
-		var target struct {
-			To   string `json:"to"`
-			Data string `json:"data"`
-		}
-		if err := json.Unmarshal(params[0], &target); err != nil {
-			return "", err
-		}
-		if !strings.EqualFold(target.To, precompile.Address().Hex()) {
-			return "", fmt.Errorf("%s is not the layerxBridge precompile", target.To)
-		}
-		input, err := hex.DecodeString(strings.TrimPrefix(target.Data, "0x"))
-		if err != nil || len(input) < 4 {
-			return "", fmt.Errorf("%s is not call data", target.Data)
-		}
-		abiMethod, err := contract.MethodById(input[:4])
-		if err != nil {
-			return "", err
-		}
-		args, err := abiMethod.Inputs.Unpack(input[4:])
-		if err != nil {
-			return "", err
-		}
-		lock.Lock()
-		defer lock.Unlock()
-		out, err := executor.Execute(ctx, abiMethod, common.Address{}, common.Address{}, args, new(big.Int), true, nil, nil)
-		if err != nil {
-			return "", err
-		}
-		return "0x" + hex.EncodeToString(out), nil
-	}
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var request struct {
-			ID     json.RawMessage   `json:"id"`
-			Method string            `json:"method"`
-			Params []json.RawMessage `json:"params"`
-		}
-		answer := map[string]interface{}{"jsonrpc": "2.0"}
-		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
-			answer["error"] = map[string]interface{}{"code": -32700, "message": err.Error()}
-		} else {
-			answer["id"] = request.ID
-			if result, err := call(request.Method, request.Params); err != nil {
-				answer["error"] = map[string]interface{}{"code": -32000, "message": err.Error()}
-			} else {
-				answer["result"] = result
-			}
-		}
-		w.Header().Set("Content-Type", "application/json")
-		_ = json.NewEncoder(w).Encode(answer)
-	})
-	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	raw, err := os.ReadFile(filepath.Join(os.Getenv("PAXEER_SIDE_PROPOSALS"), "04-proposal-open-chain.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	port := fmt.Sprint(listener.Addr().(*net.TCPAddr).Port)
-	if err := os.WriteFile(portFile+".tmp", []byte(port), 0o600); err != nil {
+	if _, err := bridgecli.DecodeBridgeProposal(app.MakeEncodingConfig().Marshaler, raw); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.Rename(portFile+".tmp", portFile); err != nil {
-		t.Fatal(err)
-	}
-	t.Fatal(http.Serve(listener, handler))
 }
 GO
 (cd "$REPO_ROOT" && go test -c -o "$WORK/paxeer-side.test" "./${GO_PACKAGE#"$REPO_ROOT"/}") > "$WORK/paxeer-build.log" 2>&1 || {
     sed -e 's/^/    /' "$WORK/paxeer-build.log" >&2
-    fail "the Paxeer side did not build"
+    fail "the Paxeer proposal decoder check did not build"
 }
 rm -rf "$GO_PACKAGE"
 GO_PACKAGE=""
-PAXEER_SIDE_BODIES="$BODIES" PAXEER_SIDE_PORT_FILE="$WORK/paxeer.port" \
-    "$WORK/paxeer-side.test" -test.run '^TestPaxeerSide$' -test.timeout 0 > "$WORK/paxeer.log" 2>&1 &
-PAXEER_PID=$!
-PIDS+=("$PAXEER_PID")
-wait_for_file "$WORK/paxeer.port" "$PAXEER_PID" "the Paxeer side" "$WORK/paxeer.log"
-PAXEER_URL="http://127.0.0.1:$(cat "$WORK/paxeer.port")"
+PAXEER_SIDE_BODIES="$BODIES" PAXEER_SIDE_PROPOSALS="$WORK/proposals" \
+    "$WORK/paxeer-side.test" -test.run '^TestPaxeerSide$' > "$WORK/paxeer-decoder.log" 2>&1 \
+    || fail "the Paxeer proposal decoder checks failed"
 for refusal in 'a body under a wrong type URL' 'a body with an unknown field'; do
-    grep -qF "paxeer side: refused $refusal by name: " "$WORK/paxeer.log" || {
-        sed -e 's/^/    /' "$WORK/paxeer.log" >&2
-        fail "the Paxeer side did not refuse $refusal by name"
-    }
-    printf 'evm-dry-run-check: the proposal decoder refuses %s by name\n' "$refusal"
+    grep -qF "paxeer side: refused $refusal by name: " "$WORK/paxeer-decoder.log" \
+        || fail "the Paxeer proposal decoder did not refuse $refusal by name"
 done
+. "$SCRIPT_DIR/persisted-paxeer.sh"
+prepare_paxeer
+submit_bridge_proposal "$WORK/proposals/04-proposal-open-chain.json" PROPOSAL_STATUS_PASSED
 
 # Every read from here on passes through the recording proxy.
 jq -n --arg chain "$CHAIN" --arg anvil "$ANVIL_URL" --arg paxeer "$PAXEER_URL" \
@@ -800,6 +709,37 @@ PROXY_URL=$SERVER_URL
 run_checklist "$WORK/chains" "$PROXY_URL/$CHAIN" "$PROXY_URL/paxeer" "$RECORD" "$MANIFEST" "$WORK/checklist.log"
 printf 'readback' > "$WORK/phase"
 assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
+
+# Stop both real nodes and reopen their existing homes before any replay.
+paxd query gov proposals --node "$PAXEER_NODE" --home "$PAXEER_HOME" --output json \
+    > "$WORK/governance-before.json" || fail "paxd governance snapshot failed"
+stop "$PAXEER_PID"
+stop "$ANVIL_PID"
+[ -s "$WORK/anvil-state.json" ] || fail "anvil did not persist its home"
+start_anvil
+start_paxeer
+assert_paxeer_recovery "$WORK/governance-before.json" "$WORK/governance-after.json"
+printf '*' > "$WORK/phase"
+run_checklist "$WORK/chains" "$PROXY_URL/$CHAIN" "$PROXY_URL/paxeer" "$RECORD" "$MANIFEST" "$WORK/checklist-recovered.log"
+printf 'readback' > "$WORK/phase"
+assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
+for nonce in 1 2; do
+    python3 "$SCRIPT_DIR/recovery.py" read "$WORK/releases" "$nonce" > "$WORK/retry.json" \
+        || fail "the original signed release could not be reopened"
+    mapfile -t release_args < <(jq -r '.args[]' "$WORK/retry.json")
+    if cast call --from "$DEPOSITOR" "$VAULT" 'release(address,uint256,address,bytes32,uint64,bytes[])' \
+        "${release_args[@]}" > "$WORK/recovered-refusal.log" 2>&1; then
+        fail "the recovered vault would pay burn $nonce twice"
+    fi
+    grep -qiE "NullifierUsed|$(cast sig 'NullifierUsed(bytes32)' | sed 's/^0x//')" "$WORK/recovered-refusal.log" \
+        || fail "the recovered release was refused for a reason other than its spent nullifier"
+    retry_status=0
+    retry_receipt=$(cast send --private-key "$DEPOSITOR_KEY" --gas-limit 500000 --json "$VAULT" \
+        'release(address,uint256,address,bytes32,uint64,bytes[])' "${release_args[@]}" 2> "$WORK/recovered-send.log") \
+        || retry_status=$?
+    expect "recovered release transaction reverted (cast exit $retry_status)" 0x0 "$(jq -er '.status' <<< "$retry_receipt")"
+    assert_readback "$PROXY_URL/$CHAIN" "$RECORD" "$EXPECTATIONS"
+done
 
 # The nodes stop here: everything after this reads the recording only.
 stop "$PROXY_PID"

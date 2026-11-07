@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -13,20 +14,34 @@ import (
 	evmkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/keeper"
 	launchpadv610keeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/legacy/v610/keeper"
 	launchpadtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/launchpad/types"
+	layerxagenttypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxagent/types"
 	layerxanchortypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxanchor/types"
 	layerxauthtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxauth/types"
 	layerxbridgetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxbridge/types"
+	layerxchainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	layerxcustodytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	layerxexchangetypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxexchange/types"
 	layerxledgertypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxledger/types"
+	layerxpaytypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxpay/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
 	tokenfactorykeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/tokenfactory/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb"
 	xwebtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/xweb/types"
 	appparams "github.com/Sidiora-Labs/Paxeer-X-Network/node/params"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/precompiles"
+	pcommon "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/common"
 	feetokenprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/feetoken"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/clearing"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/eip712"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/orob"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/pofq"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxagent/teeattestor"
 	anchorprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxanchor"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxauth"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxchains"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxledger"
+	_ "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxpay"
 	verifyprecompile "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/layerxverify"
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
@@ -109,7 +124,9 @@ const V610Upgrade = "v6.10"
 // Like the activation plan it carries no entry in the embedded tag list. Every
 // gate reads this constant, so the activation rehearsal can rename the plan in
 // one place.
-const MergeUpgrade = "v7.0"
+const MergeUpgrade = pcommon.MergeUpgrade
+
+const AnchorStoreDeleteUpgrade = "v7.0-anchor-store-delete"
 
 // The governance voting periods the v6.10 plan writes. Every other governance
 // parameter, the deposit and the tally parameters among them, is left as the
@@ -199,6 +216,9 @@ func (app *App) RegisterUpgradeHandlers() {
 	// The merge plan brings the sequencer module up from the genesis its plan
 	// carries.
 	app.UpgradeKeeper.SetUpgradeHandler(MergeUpgrade, app.mergeUpgradePlan)
+	app.UpgradeKeeper.SetUpgradeHandler(AnchorStoreDeleteUpgrade, func(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+		return app.mm.RunMigrations(ctx, app.configurator, fromVM)
+	})
 }
 
 // runXWebUpgrade runs the module migrations with xweb taken as present, so the
@@ -244,6 +264,10 @@ func (app *App) xwebInitialised(ctx sdk.Context) bool {
 // xweb upgrade is done, or the chain started with xweb in its module versions
 // and its genesis initialised it.
 func (app *App) xwebLive(ctx sdk.Context) bool {
+	// An upgrade marker cannot supply the genesis parameters consumers read.
+	if !app.xwebInitialised(ctx) {
+		return false
+	}
 	if app.UpgradeKeeper.GetDoneHeight(ctx, xwebUpgrade) > 0 {
 		return true
 	}
@@ -261,7 +285,7 @@ func (app *App) refreshXWebPrecompile(ctx sdk.Context) {
 
 // RefreshPrecompiles reselects the custom precompile set from the state of ctx.
 func (app *App) RefreshPrecompiles(ctx sdk.Context) {
-	app.v6120Live = app.v6120LiveInState(ctx)
+	app.setV6120Live(app.v6120LiveInState(ctx))
 	app.refreshXWebPrecompile(ctx)
 }
 
@@ -414,10 +438,19 @@ func v6120StoreUpgrades() storetypes.StoreUpgrades {
 }
 
 // mergeStoreUpgrades mounts the store of every module the merge plan adds to
-// a chain that applied the activation plan: the sequencer store.
+// a chain that applied the activation plan: the sequencer and merged stores.
 func mergeStoreUpgrades() storetypes.StoreUpgrades {
 	return storetypes.StoreUpgrades{
-		Added: []string{storekeys.SequencerStoreKey},
+		Added: []string{
+			storekeys.SequencerStoreKey,
+			storekeys.LayerXLedgerStoreKey,
+			storekeys.LayerXAuthStoreKey,
+			storekeys.LayerXPayStoreKey,
+			storekeys.LayerXChainsStoreKey,
+			storekeys.LayerXProgramsStoreKey,
+			storekeys.LayerXAgentStoreKey,
+			storekeys.LayerXHostStoreKey,
+		},
 	}
 }
 
@@ -425,15 +458,84 @@ func mergeStoreUpgrades() storetypes.StoreUpgrades {
 // from the module genesis the plan carries in its info: the pinned leader list
 // L, the receipt keys and lastSeq 0 with the zero lastSeqHash. It runs the
 // module migrations with the sequencer taken as present, so the migrations
-// never initialise it from its default genesis, and writes no account state.
+// never initialise it from its default genesis, then retires anchor and custody.
 // A plan whose info is not a valid sequencer genesis, carries no leader list,
-// carries a lastSeq other than 0 or pins no receipt key for H_act is refused,
+// carries a lastSeq other than 0 or pins no receipt key for H_act+1 is refused,
 // and the block that would apply it stops.
 func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	if err := app.validateMergePrecompiles(); err != nil {
+		return fromVM, err
+	}
+	return app.continueMergeUpgradePlan(ctx, plan, fromVM)
+}
+
+func (app *App) continueMergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
+	cached, write := ctx.CacheContext()
+	if plan.Name != MergeUpgrade || plan.Height != ctx.BlockHeight() {
+		return fromVM, fmt.Errorf("upgrade %s: plan %s at height %d is not running at height %d", MergeUpgrade, plan.Name, plan.Height, ctx.BlockHeight())
+	}
+	scheduled, found := app.UpgradeKeeper.GetUpgradePlan(cached)
+	if found && (scheduled.Name != plan.Name || scheduled.Height != plan.Height || scheduled.Info != plan.Info) {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan differs from scheduled plan", MergeUpgrade)
+	}
+	if err := app.UpgradeKeeper.ScheduleUpgrade(cached, plan); err != nil {
+		return fromVM, fmt.Errorf("upgrade %s: executing plan: %w", MergeUpgrade, err)
+	}
+	versions, err := app.migrateMergeState(cached, plan, fromVM)
+	if err != nil {
+		return versions, err
+	}
+	if !found {
+		app.UpgradeKeeper.ClearUpgradePlan(cached)
+	}
+	cached.KVStore(app.keys[LayerXHostStoreKey]).Set([]byte(hostedProgramsGuestABIKey), []byte{0, 5})
+	write()
+	app.refreshHostedKernelProgramsABI(ctx)
+	ctx.EventManager().EmitEvents(cached.EventManager().Events())
+	return versions, nil
+}
+
+func (app *App) migrateMergeState(ctx sdk.Context, plan upgradetypes.Plan, fromVM module.VersionMap) (module.VersionMap, error) {
 	sequencer := app.mm.Modules[seqtypes.ModuleName]
-	genesis := json.RawMessage(plan.Info)
-	if err := sequencer.ValidateGenesis(app.appCodec, nil, genesis); err != nil {
+	var state struct {
+		Leaders          [][]byte              `json:"leaders,omitempty"`
+		ReceiptKeys      seqkeeper.ReceiptKeys `json:"receipt_keys"`
+		LastSeq          uint64                `json:"last_seq,omitempty"`
+		LastSeqHash      []byte                `json:"last_seq_hash,omitempty"`
+		ActivationHeight uint64                `json:"activation_height,omitempty"`
+	}
+	if err := json.Unmarshal([]byte(plan.Info), &state); err != nil {
 		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	firstHeight := uint64(plan.Height) + 1 //nolint:gosec // the executing plan has a positive height
+	if state.ActivationHeight == 0 {
+		state.ActivationHeight = firstHeight
+	}
+	genesis, err := json.Marshal(state)
+	if err != nil {
+		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	covered := false
+	for _, key := range state.ReceiptKeys {
+		if key.FirstHeight <= firstHeight && firstHeight <= key.LastHeight {
+			covered = true
+			break
+		}
+	}
+	if err := sequencer.ValidateGenesis(app.appCodec, nil, genesis); err != nil {
+		if !covered {
+			return fromVM, fmt.Errorf("upgrade %s pins no receipt key for first sequenced height %d: sequencer genesis: %w", MergeUpgrade, firstHeight, err)
+		}
+		return fromVM, fmt.Errorf("upgrade %s: sequencer genesis: %w", MergeUpgrade, err)
+	}
+	if len(state.Leaders) == 0 {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries no leader list", MergeUpgrade)
+	}
+	if state.LastSeq != 0 {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries lastSeq %d, want 0", MergeUpgrade, state.LastSeq)
+	}
+	if !covered {
+		return fromVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for first sequenced height %d", MergeUpgrade, firstHeight)
 	}
 	versions := make(module.VersionMap, len(fromVM)+1)
 	for name, version := range fromVM {
@@ -444,43 +546,14 @@ func (app *App) mergeUpgradePlan(ctx sdk.Context, plan upgradetypes.Plan, fromVM
 	if err != nil {
 		return newVM, err
 	}
+	if _, err := app.LayerXAnchorKeeper.RetireAtMerge(ctx); err != nil {
+		return newVM, fmt.Errorf("upgrade %s: retire anchor: %w", MergeUpgrade, err)
+	}
 	sequencer.InitGenesis(ctx, app.appCodec, genesis)
-	state, err := app.SequencerKeeper.ExportGenesis(ctx)
-	if err != nil {
-		return newVM, fmt.Errorf("upgrade %s: %w", MergeUpgrade, err)
+	if err := app.LayerXCustodyKeeper.ReleaseRetired(ctx); err != nil {
+		return newVM, fmt.Errorf("upgrade %s: release custody: %w", MergeUpgrade, err)
 	}
-	if len(state.Leaders) == 0 {
-		return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries no leader list", MergeUpgrade)
-	}
-	if state.LastSeq != 0 {
-		return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s carries lastSeq %d, want 0", MergeUpgrade, state.LastSeq)
-	}
-	for _, key := range state.ReceiptKeys {
-		if key.Covers(uint64(ctx.BlockHeight())) { //nolint:gosec // block heights are positive
-			return newVM, nil
-		}
-	}
-	return newVM, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s pins no receipt key for height %d", MergeUpgrade, ctx.BlockHeight())
-}
-
-// sequencerPinnedLeader is the gate of the leader pin and of the
-// ProcessProposal order check. At heights at or above the height H_act at which
-// the merge plan brought the sequencer module up it returns L[r mod len(L)] from
-// the leader list in the module store and true; below H_act, and on a chain
-// that has not applied the plan, it returns false and the proposer rotation and
-// the mempool path run unchanged. It reads the module store, never node config.
-func (app *App) sequencerPinnedLeader(ctx sdk.Context, height int64, round int32) ([32]byte, bool, error) {
-	if !app.UpgradeKeeper.IsUpgradeActiveAtHeight(ctx, MergeUpgrade, height) {
-		return [32]byte{}, false, nil
-	}
-	leaders, err := app.SequencerKeeper.Leaders(ctx)
-	if err != nil {
-		return [32]byte{}, false, err
-	}
-	if len(leaders) == 0 {
-		return [32]byte{}, false, seqtypes.ErrInvalidGenesis.Wrapf("upgrade %s applied with no pinned leader list", MergeUpgrade)
-	}
-	return leaders[uint64(uint32(round))%uint64(len(leaders))], true, nil //nolint:gosec // the round is reduced modulo the list length
+	return newVM, nil
 }
 
 // activationModules lists the modules the activation plan initialises, in the
@@ -495,16 +568,16 @@ func activationModules() []string {
 
 // activationPrecompileGate declares the custom precompiles the activation plan
 // brings online and, for each, the fork module whose state it serves: the
-// stateless evidence precompile is gated with the anchor module whose batch
-// headers and receipts it verifies, and the fee-token precompile with the bridge
+// retained retirement interfaces depend on the live upgrade module, and the
+// fee-token precompile depends on the bridge
 // module that holds the Sidiora asset it prices.
 func activationPrecompileGate() evmkeeper.CustomPrecompileActivation {
 	return evmkeeper.CustomPrecompileActivation{
 		Upgrade: ActivationUpgrade,
 		Modules: map[common.Address][]string{
-			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {layerxanchortypes.ModuleName},
+			common.HexToAddress(verifyprecompile.LayerXVerifyAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxcustodytypes.CustodyAddress):    {layerxcustodytypes.ModuleName},
-			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {layerxanchortypes.ModuleName},
+			common.HexToAddress(anchorprecompile.LayerXAnchorAddress): {upgradetypes.ModuleName},
 			common.HexToAddress(layerxexchangetypes.ExchangeAddress):  {layerxexchangetypes.ModuleName},
 			common.HexToAddress(layerxbridgetypes.BridgeAddress):      {layerxbridgetypes.ModuleName},
 			common.HexToAddress(launchpadtypes.LaunchpadAddress):      {launchpadtypes.ModuleName},
@@ -523,25 +596,45 @@ func mergePrecompileGate() evmkeeper.CustomPrecompileActivation {
 		Upgrade: MergeUpgrade,
 		Modules: map[common.Address][]string{
 			common.HexToAddress("0x000000000000000000000000000000000000101A"): {layerxledgertypes.ModuleName},
-			common.HexToAddress("0x000000000000000000000000000000000000101B"): {"layerxpay"},
+			common.HexToAddress("0x000000000000000000000000000000000000101B"): {layerxpaytypes.ModuleName},
 			common.HexToAddress("0x000000000000000000000000000000000000101C"): {layerxauthtypes.ModuleName},
 			common.HexToAddress("0x000000000000000000000000000000000000101D"): {"layerxprograms"},
-			common.HexToAddress("0x0000000000000000000000000000000000000901"): {"layerxagent"},
-			common.HexToAddress("0x0000000000000000000000000000000000000902"): {"layerxagent"},
-			common.HexToAddress("0x0000000000000000000000000000000000000903"): {"layerxagent", layerxexchangetypes.ModuleName},
-			common.HexToAddress("0x0000000000000000000000000000000000000904"): {"layerxagent"},
-			common.HexToAddress("0x0000000000000000000000000000000000000905"): {"layerxagent"},
-			common.HexToAddress("0x0000000000000000000000000000000000000906"): {"layerxpay"},
-			common.HexToAddress("0x0000000000000000000000000000000000000907"): {"layerxagent"},
-			common.HexToAddress("0x0000000000000000000000000000000000000908"): {"layerxagent"},
+			common.HexToAddress("0x000000000000000000000000000000000000101E"): {layerxchainstypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000901"): {layerxagenttypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000902"): {layerxagenttypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000903"): {layerxagenttypes.ModuleName, layerxexchangetypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000904"): {layerxagenttypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000905"): {layerxagenttypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000906"): {layerxpaytypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000907"): {layerxagenttypes.ModuleName},
+			common.HexToAddress("0x0000000000000000000000000000000000000908"): {layerxagenttypes.ModuleName},
 		},
 	}
+}
+
+func (app *App) validateMergePrecompiles() error {
+	missing := make(map[common.Address]bool)
+	for _, entry := range precompiles.MissingMergeConstructors() {
+		missing[entry.Address] = true
+	}
+	for _, address := range app.EvmKeeper.ActivationAddressesWithoutPrecompile() {
+		missing[address] = true
+	}
+	if len(missing) == 0 {
+		return nil
+	}
+	addresses := make([]string, 0, len(missing))
+	for address := range missing {
+		addresses = append(addresses, address.Hex())
+	}
+	sort.Strings(addresses)
+	return fmt.Errorf("upgrade %s: missing merge constructors or activation precompiles: %s", MergeUpgrade, strings.Join(addresses, ", "))
 }
 
 // knownUpgradePlans names, in the order they apply, the plans the application
 // applies from the upgrade info file an operator leaves on disk.
 func knownUpgradePlans() []string {
-	return []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade}
+	return []string{ActivationUpgrade, V610Upgrade, V6120Upgrade, MergeUpgrade, AnchorStoreDeleteUpgrade}
 }
 
 // upgradePlanPending reports whether the named plan is one of those the
@@ -586,6 +679,7 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 	if ctx.IsTracing() {
 		return
 	}
+	app.refreshHostedKernelProgramsABI(ctx)
 	// The state reads come before the file, so a chain that has applied every plan
 	// the application knows reads no file in any of its blocks.
 	pending := false
@@ -613,9 +707,49 @@ func (app *App) applyNamedUpgrade(ctx sdk.Context) {
 		panic(fmt.Errorf("upgrade %s is due at height %d but the store loader did not add the %s stores %s: the upgrade info height must equal the last committed height plus one when the process starts",
 			info.Name, info.Height, stores, strings.Join(missing, ", ")))
 	}
-	plan := upgradetypes.Plan{Name: info.Name, Height: ctx.BlockHeight()}
+	plan, err := app.resolveNamedUpgradePlan(ctx, info.Name, info.Height)
+	if err != nil {
+		panic(err)
+	}
 	logger.Info("applying upgrade", "name", plan.Name, "at", plan.DueAt())
 	app.UpgradeKeeper.ApplyUpgrade(ctx, plan)
+}
+
+// resolveNamedUpgradePlan binds the store loader's disk identity to the governed
+// plan. Operator-only merge plans use the keeper writer's JSON format, including
+// a string-valued info field containing the sequencer activation genesis.
+func (app *App) resolveNamedUpgradePlan(ctx sdk.Context, name string, height int64) (upgradetypes.Plan, error) {
+	if scheduled, found := app.UpgradeKeeper.GetUpgradePlan(ctx); found {
+		if scheduled.Name != name || scheduled.Height != height {
+			return upgradetypes.Plan{}, fmt.Errorf("disk upgrade %s at %d differs from scheduled plan %s at %d", name, height, scheduled.Name, scheduled.Height)
+		}
+		return scheduled, nil
+	}
+	plan := upgradetypes.Plan{Name: name, Height: height}
+	if name != MergeUpgrade {
+		return plan, nil
+	}
+	path, err := app.UpgradeKeeper.GetUpgradeInfoPath()
+	if err != nil {
+		return plan, err
+	}
+	bz, err := os.ReadFile(path)
+	if err != nil {
+		return plan, err
+	}
+	var disk struct {
+		Name   string `json:"name"`
+		Height int64  `json:"height"`
+		Info   string `json:"info"`
+	}
+	if err := json.Unmarshal(bz, &disk); err != nil {
+		return plan, fmt.Errorf("merge upgrade info: %w", err)
+	}
+	if disk.Name != name || disk.Height != height || disk.Info == "" || !json.Valid([]byte(disk.Info)) {
+		return plan, fmt.Errorf("operator merge plan requires matching name, height and info containing sequencer genesis")
+	}
+	plan.Info = disk.Info
+	return plan, nil
 }
 
 // activationModulesPresent reports whether the module version map of ctx already
@@ -649,7 +783,7 @@ func (app *App) unmountedActivationStores() []string {
 // state-commitment store. Only a process that read the plan's upgrade info file
 // at one above its last committed height mounts them, through the upgrade store
 // loader the store-loader wiring installs for the plan's name. Only the
-// activation and v6.12.0 plans are judged; every other plan names none. A
+// activation, v6.12.0 and merge plans are judged; every other plan names none. A
 // commit multistore that cannot report pending stores is judged on the stores
 // it carries alone.
 func (app *App) unmountedPlanStores(name string) []string {
@@ -659,6 +793,8 @@ func (app *App) unmountedPlanStores(name string) []string {
 		upgrades = activationStoreUpgrades()
 	case V6120Upgrade:
 		upgrades = v6120StoreUpgrades()
+	case MergeUpgrade:
+		upgrades = mergeStoreUpgrades()
 	default:
 		return nil
 	}

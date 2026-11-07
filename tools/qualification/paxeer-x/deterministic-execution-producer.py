@@ -230,15 +230,15 @@ def build(args):
     if not only_matrix:
         native_dir = out / 'native-build'
         library = native_dir / 'liblayerx.a'
-        header = native_dir / 'generated/lxp_checkpoint_settlement.h'
+        generated = native_dir / 'generated'
         staticlib = target / 'debug/liblayerx_programs_sandbox.a'
         commands = [
             (['make', '--no-print-directory', '-j' + str(jobs),
               'BUILD_DIR=' + str(native_dir), 'LXP_REVISION=' + source['revision'],
-              str(library), str(header)], ROOT),
+              str(library)], ROOT),
             (cargo + ['build', '--locked', '-p', 'layerx-programs-sandbox',
                       '--features', 'host-ffi'], ROOT / 'programs'),
-            (['cc', '-Iinclude', '-I' + str(header.parent), '-std=c17', '-pedantic',
+            (['cc', '-Iinclude', '-I' + str(generated), '-std=c17', '-pedantic',
               '-Werror', '-Wall', '-Wextra', '-Wconversion', '-Wshadow', '-Wvla',
               '-fno-strict-aliasing', '-ffp-contract=off', '-O2',
               'tests/programs/test_metered_call.c', '-Wl,--start-group',

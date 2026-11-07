@@ -2,32 +2,24 @@
 
 from enum import Enum
 
-PROGRAMS_MODULE_ID: int
-PROGRAM_OUTCOME_TAGS: tuple[int, int, int, int]
+RECEIPT_VERSION_V2: int
+RECEIPT_VERSION_V3: int
+RECEIPT_DOMAIN: str
+SEQUENCE_DOMAIN: str
 
 class ReceiptFailureCode(str, Enum):
     DECODE: str
     CANONICAL_ENCODING: str
-    RECEIPT_SHAPE: str
-    MISSING_SIGNATURE: str
-    PROTOCOL_VERSION: str
-    RESULT_CODE: str
-    OPERATION: str
+    RECEIPT_VERSION: str
     ACTIVITY_ID: str
-    GLOBAL_SEQUENCE: str
-    MODULE_ID: str
-    MODULE_VERSION: str
-    TIMESTAMP: str
-    BATCH_ID: str
-    ASSET: str
-    PREVIOUS_STATE_ROOT: str
-    RESULTING_STATE_ROOT: str
-    DEBIT_BALANCE: str
-    CREDIT_BALANCE: str
-    PROGRAM_OUTCOME: str
-    SEQUENCER_SIGNATURE: str
-
-REQUIRED_NONZERO_CHECKS: tuple[ReceiptFailureCode, ...]
+    KEY_ID: str
+    KEY_HEIGHT: str
+    RAW_TRANSACTION: str
+    FIELDS: str
+    RETURN_DATA: str
+    LOGS: str
+    SEQUENCE_HASH: str
+    SIGNATURE: str
 
 PROGRAM_ABI_V1: int
 PROGRAM_ABI_V2: int

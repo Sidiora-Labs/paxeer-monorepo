@@ -1,7 +1,6 @@
 package receipt_test
 
 import (
-	"os"
 	"testing"
 	"time"
 
@@ -9,12 +8,8 @@ import (
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/testutil"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	dbutils "github.com/Sidiora-Labs/Paxeer-X-Network/storage/common/utils"
 	dbconfig "github.com/Sidiora-Labs/Paxeer-X-Network/storage/config"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/pebbledb/mvcc"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/ledger_db/receipt"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/proto"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/wal"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/eth/filters"
 	"github.com/stretchr/testify/require"
@@ -183,66 +178,17 @@ func TestFilterLogsRangeQueryNotSupported(t *testing.T) {
 }
 
 func TestRecoverReceiptStoreReplaysChangelog(t *testing.T) {
-	dir := t.TempDir()
-	changelogPath := dbutils.GetChangelogPath(dir)
-	require.NoError(t, os.MkdirAll(changelogPath, 0o750))
-
-	stream, err := wal.NewChangelogWAL(changelogPath, wal.Config{})
-	require.NoError(t, err)
-
-	txHash1 := common.HexToHash("0x20")
-	txHash2 := common.HexToHash("0x21")
-	receipt1 := makeReceipt(txHash1, common.HexToAddress("0x400"), []common.Hash{common.HexToHash("0x22")}, 0)
-	receipt2 := makeReceipt(txHash2, common.HexToAddress("0x401"), []common.Hash{common.HexToHash("0x23")}, 0)
-
-	entry1, err := makeChangeSetEntry(1, txHash1, receipt1)
-	require.NoError(t, err)
-	entry2, err := makeChangeSetEntry(2, txHash2, receipt2)
-	require.NoError(t, err)
-
-	require.NoError(t, stream.Write(entry1))
-	require.NoError(t, stream.Write(entry2))
-	require.NoError(t, stream.Close())
-
-	cfg := dbconfig.DefaultReceiptStoreConfig()
-	cfg.DBDirectory = dir
-	cfg.KeepRecent = 0
-	ssConfig := dbconfig.DefaultStateStoreConfig()
-	ssConfig.DBDirectory = cfg.DBDirectory
-	ssConfig.KeepRecent = cfg.KeepRecent
-	if cfg.PruneIntervalSeconds > 0 {
-		ssConfig.PruneIntervalSeconds = cfg.PruneIntervalSeconds
+	for _, tc := range []struct {
+		name         string
+		prefix, tail int
+	}{
+		{"unapplied_singleton", 0, 1},
+		{"singleton_after_applied_prefix", 1, 1},
+		{"multiple_unapplied_entries", 1, 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg, key, records := repairM1146CrashTail(t, tc.prefix, tc.tail)
+			repairM1146AssertReopens(t, cfg, key, records)
+		})
 	}
-	ssConfig.KeepLastVersion = false
-	ssConfig.Backend = "pebbledb"
-	db, err := mvcc.OpenDB(dir, ssConfig)
-	require.NoError(t, err)
-	t.Cleanup(func() { _ = db.Close() })
-
-	require.NoError(t, db.SetLatestVersion(1))
-	require.NoError(t, receipt.RecoverReceiptStore(changelogPath, db))
-	require.Equal(t, int64(2), db.GetLatestVersion())
-
-	bz, err := db.Get(types.ReceiptStoreKey, db.GetLatestVersion(), types.ReceiptKey(txHash2))
-	require.NoError(t, err)
-	require.NotNil(t, bz)
-}
-
-func makeChangeSetEntry(version int64, txHash common.Hash, receipt *types.Receipt) (proto.ChangelogEntry, error) {
-	marshalledReceipt, err := receipt.Marshal()
-	if err != nil {
-		return proto.ChangelogEntry{}, err
-	}
-	kvPair := &proto.KVPair{
-		Key:   types.ReceiptKey(txHash),
-		Value: marshalledReceipt,
-	}
-	ncs := &proto.NamedChangeSet{
-		Name:      types.ReceiptStoreKey,
-		Changeset: proto.ChangeSet{Pairs: []*proto.KVPair{kvPair}},
-	}
-	return proto.ChangelogEntry{
-		Version:    version,
-		Changesets: []*proto.NamedChangeSet{ncs},
-	}, nil
 }

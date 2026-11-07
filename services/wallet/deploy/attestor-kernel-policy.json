@@ -2,9 +2,7 @@
   "version": 1,
   "defaults": {
     "modules": {
-      "asset": [5, 7],
-      "budget": [2],
-      "programs": [5]
+      "asset": [5]
     },
     "caps": {
       "native": {

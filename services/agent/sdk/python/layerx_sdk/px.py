@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import base64
-import binascii
 import json
 import re
 import urllib.parse
@@ -17,16 +15,15 @@ from .agent_http import LayerXKeyCredential
 
 _MAX_RESPONSE_BYTES = 9 * 1024 * 1024
 _MAX_REQUEST_BYTES = 1024 * 1024
-_MAX_U128 = 340282366920938463463374607431768211455
 _MAX_U64 = 18446744073709551615
 _EVM_ADDRESS = re.compile(r"^0x[0-9a-f]{40}$")
 _HEX32 = re.compile(r"^[0-9a-f]{64}$")
 _DID = re.compile(r"^did:layerx:[0-9a-f]{64}$")
 _DECIMAL = re.compile(r"^(?:0|[1-9][0-9]*)$")
-_HEX_QUANTITY = re.compile(r"^0x[0-9a-f]{1,32}$")
+_HEX_QUANTITY = re.compile(r"^0x[0-9a-f]{1,64}$")
 
 _MAX_U256 = (1 << 256) - 1
-_ROW_ID = re.compile(r"^[1-9][0-9]*$")
+_ROW_ID = re.compile(r"^(?:explorer:)?[1-9][0-9]*$")
 _CURSOR = re.compile(r"^[0-9a-f]{32}$")
 _KIND = re.compile(r"^[a-z0-9_]{1,64}$")
 
@@ -130,14 +127,6 @@ class PxAssetTable:
 
 
 @dataclass(frozen=True)
-class PxAnchorHead:
-    latest_finalized_batch: int | None
-    status: int | None
-    status_name: str | None
-    status_ladder: Mapping[str, str] | None
-
-
-@dataclass(frozen=True)
 class PxPaxeerHead:
     chain_id: int
     latest_block: int
@@ -175,7 +164,7 @@ class HistoryAssetMetadata:
 
 @dataclass(frozen=True)
 class HistoryRow:
-    id: int
+    id: str
     height_or_seq: int
     chain: str
     kind: str
@@ -185,6 +174,7 @@ class HistoryRow:
     asset: str
     amount: int
     tx_id: str
+    tx_hash: str
     ordinal: int
     final: bool
     decoded: object
@@ -331,7 +321,7 @@ class PxClient:
 
     def call(
         self, method: str, params: list[object]
-    ) -> Mapping[str, object] | list[object]:
+    ) -> Mapping[str, object]:
         if method not in PX_METHODS or not isinstance(params, list):
             raise ValueError("invalid-px-method")
         self._id += 1
@@ -383,10 +373,6 @@ class PxClient:
                 raise ValueError("invalid-px-error")
             raise PxRpcError(error["code"], error["message"], error.get("data"))
         result = answer["result"]
-        if method == "px_getReceiptKeys":
-            if not isinstance(result, list):
-                raise ValueError("invalid-px-result")
-            return result
         if not isinstance(result, dict) or any(
             not isinstance(key, str) for key in result
         ):
@@ -409,7 +395,7 @@ def px_account_key(account: str) -> str:
 
 def px_quantity(value: object) -> int:
     if type(value) is int:
-        if value < 0 or value > _MAX_U128:
+        if value < 0 or value > _MAX_U256:
             raise ValueError("invalid-px-quantity")
         return value
     if not isinstance(value, str):
@@ -421,7 +407,7 @@ def px_quantity(value: object) -> int:
         parsed = int(text, 10)
     else:
         raise ValueError("invalid-px-quantity")
-    if parsed > _MAX_U128:
+    if parsed > _MAX_U256:
         raise ValueError("invalid-px-quantity")
     return parsed
 
@@ -562,29 +548,37 @@ def decode_px_asset_table(value: object) -> PxAssetTable:
 
 def decode_px_network_head(value: object) -> PxNetworkHead:
     document = _document(value)
-    _present(document, ("network_id", "paxeer", "layerx", "latest_committed_height"))
+    _present(document, ("network_id", "paxeer", "consensus"))
     if "anchor" in document:
         raise ValueError("invalid-px-finality")
+    if document["consensus"] is None:
+        raise ValueError("px-consensus-unavailable")
+    consensus = _document(document["consensus"])
+    _present(consensus, ("latest_height",))
     paxeer = _document(document["paxeer"])
     _present(paxeer, ("chain_id", "latest_block"))
     latest_block = _px_counted(paxeer["latest_block"])
-    latest_committed_height = _px_counted(document["latest_committed_height"])
+    latest_committed_height = _px_counted(consensus["latest_height"])
     if latest_committed_height > latest_block:
         raise ValueError("invalid-px-finality")
     return PxNetworkHead(
         _text(document["network_id"], 128),
         PxPaxeerHead(_px_counted(paxeer["chain_id"]), latest_block),
-        _document_or_none(document["layerx"]),
+        _document_or_none(document.get("layerx")),
         latest_committed_height,
     )
 
 
 def decode_px_receipt_keys(value: object) -> tuple[PxReceiptKeyEntry, ...]:
-    if not isinstance(value, list):
+    if (
+        not isinstance(value, dict)
+        or set(value) != {"keys"}
+        or not isinstance(value["keys"], list)
+    ):
         raise ValueError("invalid-px-receipt-keys")
     keys: list[PxReceiptKeyEntry] = []
     seen: set[str] = set()
-    for value in value:
+    for value in value["keys"]:
         entry = _document(value)
         _present(entry, ("keyId", "publicKey", "firstHeight", "lastHeight"))
         if len(entry) != 4:
@@ -603,38 +597,16 @@ def decode_px_receipt_keys(value: object) -> tuple[PxReceiptKeyEntry, ...]:
 
 
 def _receipt_key_bytes(value: object) -> str:
-    if not isinstance(value, str) or len(value) != 44:
+    if not isinstance(value, str) or re.fullmatch(r"0x[0-9a-fA-F]{64}", value) is None:
         raise ValueError("invalid-px-receipt-key-bytes")
-    try:
-        decoded = base64.b64decode(value, validate=True)
-    except (binascii.Error, ValueError) as error:
-        raise ValueError("invalid-px-receipt-key-bytes") from error
-    if len(decoded) != 32 or base64.b64encode(decoded).decode("ascii") != value:
-        raise ValueError("invalid-px-receipt-key-bytes")
-    return decoded.hex()
+    return value[2:].lower()
 
 
-def decode_px_anchor_head(value: object) -> PxAnchorHead:
-    anchor = _document(value)
-    _present(
-        anchor, ("latest_finalized_batch", "status", "status_name", "status_ladder")
-    )
-    ladder = anchor["status_ladder"]
-    status_ladder: Mapping[str, str] | None = None
-    if ladder is not None:
-        rungs = _document(ladder)
-        for rung in rungs.values():
-            if not isinstance(rung, str) or not 0 < len(rung) <= 64:
-                raise ValueError("invalid-px-anchor-ladder")
-        status_ladder = MappingProxyType(
-            {key: str(rung) for key, rung in rungs.items()}
-        )
-    return PxAnchorHead(
-        _px_optional_counted(anchor["latest_finalized_batch"]),
-        _px_optional_counted(anchor["status"]),
-        _optional_text(anchor["status_name"], 64),
-        status_ladder,
-    )
+def history_cursor(block_height: int, tx_index: int, log_index: int) -> str:
+    block_height = _history_position(block_height, _MAX_U64)
+    tx_index = _history_position(tx_index, 0xFFFFFFFF)
+    log_index = _history_position(log_index, 0xFFFFFFFF)
+    return f"{block_height:016x}{tx_index:08x}{log_index:08x}"
 
 
 def history_params(
@@ -662,7 +634,9 @@ def history_params(
 def history_account(account: str) -> str:
     """An EVM address or did:layerx DID, the forms px_getHistory and px_getUnifiedHistory take."""
     lowered = account.strip().lower() if isinstance(account, str) else ""
-    if _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None:
+    if lowered == "did:layerx:" + "0" * 64 or (
+        _EVM_ADDRESS.fullmatch(lowered) is None and _DID.fullmatch(lowered) is None
+    ):
         raise ValueError("invalid-account-identifier")
     return lowered
 
@@ -702,6 +676,12 @@ def decode_unified_history_page(
 
 def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     row = _document(value)
+    tx_hash = row.get("tx_hash")
+    if (
+        not isinstance(tx_hash, str)
+        or re.fullmatch(r"0x[0-9a-fA-F]{64}", tx_hash) is None
+    ):
+        raise ValueError("invalid-history-transaction-hash")
     _present(
         row,
         (
@@ -715,6 +695,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
             "asset",
             "amount",
             "tx_id",
+            "tx_hash",
             "ordinal",
             "final",
             "decoded",
@@ -733,14 +714,19 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
     kind = row["kind"]
     if not isinstance(kind, str) or _KIND.fullmatch(kind) is None:
         raise ValueError("invalid-history-kind")
-    if not isinstance(row["id"], str) or _ROW_ID.fullmatch(row["id"]) is None:
+    row_id = row["id"]
+    if (
+        not isinstance(row_id, str)
+        or _ROW_ID.fullmatch(row_id) is None
+        or int(row_id.removeprefix("explorer:")) > _MAX_U64
+    ):
         raise ValueError("invalid-history-row-id")
     if unified:
         _present(row, ("side",))
     asset = _text(row["asset"], 256)
     counterparty = row["counterparty"]
     return HistoryRow(
-        _history_decimal(row["id"], _MAX_U64),
+        row_id,
         _history_decimal(row["height_or_seq"], _MAX_U64),
         _history_chain(row["chain"]),
         kind,
@@ -750,6 +736,7 @@ def decode_history_row(value: object, unified: bool = False) -> HistoryRow:
         asset,
         _history_decimal(row["amount"], _MAX_U256),
         _text(row["tx_id"], 256),
+        tx_hash,
         _history_decimal(row["ordinal"], _MAX_U64),
         final,
         row["decoded"],
@@ -815,7 +802,7 @@ def _decode_history_page(
 
 
 def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow, ...]:
-    if not isinstance(value, list) or len(value) > limit:
+    if not isinstance(value, list):
         raise ValueError("invalid-history-page")
     items = tuple(decode_history_row(row, unified) for row in value)
     for before, after in zip(items, items[1:]):
@@ -825,6 +812,14 @@ def _history_rows(value: object, unified: bool, limit: int) -> tuple[HistoryRow,
             after.log_index,
         ):
             raise ValueError("unordered-history-page")
+    if len(items) > limit:
+        boundary = items[limit - 1]
+        if any(
+            (row.block_height, row.tx_index, row.log_index)
+            != (boundary.block_height, boundary.tx_index, boundary.log_index)
+            for row in items[limit:]
+        ):
+            raise ValueError("invalid-history-page")
     return items
 
 

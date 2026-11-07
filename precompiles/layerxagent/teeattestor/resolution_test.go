@@ -74,10 +74,13 @@ func TestResolutionRegistered(t *testing.T) {
 	set := precompiles.GetCustomPrecompiles(app.LatestUpgrade, keepers)
 	versions, found := set[address]
 	require.True(t, found)
-	require.Len(t, versions, 2)
+	plans := map[string]struct{}{precompiles.MergeUpgrade: {}, app.LatestUpgrade: {}}
+	require.Len(t, versions, len(plans))
 	served, ok := versions[precompiles.MergeUpgrade].(precompiles.IPrecompile)
 	require.True(t, ok)
-	require.Same(t, served, versions[app.LatestUpgrade])
+	for plan := range plans {
+		require.Same(t, served, versions[plan], plan)
+	}
 	require.Equal(t, address, served.Address())
 	require.Equal(t, "tee attestor", served.GetName())
 	require.EqualError(t, precompiles.RegisterMergeConstructor(address, teeattestor.NewMergePrecompile),
@@ -121,4 +124,15 @@ func TestResolutionRegistered(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "LXP_AGENT_NOT_ACTIVE: "+precompiles.MergeUpgrade+" not active at height 19", reason)
 	require.ErrorIs(t, db.GetPrecompileError(), agentcommon.ErrNotActive)
+}
+
+// A real application keeper bundle with no XWeb keeper must fail at wiring,
+// before any constructor can publish the TEE address.
+func TestResolutionMissingXWebKeeper(t *testing.T) {
+	testApp := app.Setup(t, false, true, false)
+	t.Cleanup(func() { require.NoError(t, testApp.Close()) })
+	p, err := teeattestor.NewMergePrecompile(&app.PrecompileKeepers{EVMKeeper: &testApp.EvmKeeper}, precompiles.MergeUpgrade)
+	require.Nil(t, p)
+	require.ErrorIs(t, err, agentcommon.ErrNoContext)
+	require.EqualError(t, err, "LXP_PRECOMPILE_NO_CONTEXT: xweb keeper is unavailable")
 }

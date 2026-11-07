@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { closeSync, existsSync, fsyncSync, openSync, readFileSync, writeSync } from 'node:fs';
 import type { Pool, PoolClient } from 'pg';
 
@@ -65,10 +66,20 @@ type Queryable = Pick<Pool, 'query'> | Pick<PoolClient, 'query'>;
 export async function readLegacyWallets(db: Queryable): Promise<LegacyWallet[]> {
   const { rows: cols } = await db.query<{ table_name: string; column_name: string }>(
     `select table_name, column_name from information_schema.columns
-      where table_schema = current_schema() and table_name in ('wallets', 'funded_accounts')`,
+      where table_schema = current_schema() and table_name in ('wallets', 'funded_accounts')`
   );
   const have = new Set(cols.map((c) => `${c.table_name}.${c.column_name}`));
-  for (const col of ['id', 'user_id', 'address', 'encrypted_private_key', 'key_version', 'chain_id', 'created_at', 'is_disabled', 'disabled_reason']) {
+  for (const col of [
+    'id',
+    'user_id',
+    'address',
+    'encrypted_private_key',
+    'key_version',
+    'chain_id',
+    'created_at',
+    'is_disabled',
+    'disabled_reason',
+  ]) {
     if (!have.has(`wallets.${col}`)) throw new Error(`legacy schema: wallets.${col} is missing`);
   }
   const kind = have.has('wallets.kind') ? `w.kind` : `'standard'`;
@@ -79,20 +90,38 @@ export async function readLegacyWallets(db: Queryable): Promise<LegacyWallet[]> 
     `select w.id::text as id, w.user_id::text as user_id, w.address, w.encrypted_private_key,
             w.key_version::int as key_version, w.chain_id::int as chain_id, ${kind} as kind, ${funded} as funded,
             w.is_disabled, w.disabled_reason, to_char(w.created_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') as created_at
-       from wallets w order by w.created_at, w.id`,
+       from wallets w order by w.created_at, w.id`
   );
   return rows;
 }
 
-export function planWallet(w: LegacyWallet, chainId: number, journal: ReadonlySet<string>): WalletPlan {
-  const refuse = (reason: string): WalletPlan => ({ wallet: w, action: 'refuse', reason, record: null });
-  if (journal.has(w.id)) return { wallet: w, action: 'already_imported', reason: 'wallet is in the import journal', record: null };
+export function planWallet(
+  w: LegacyWallet,
+  chainId: number,
+  journal: ReadonlySet<string>
+): WalletPlan {
+  const refuse = (reason: string): WalletPlan => ({
+    wallet: w,
+    action: 'refuse',
+    reason,
+    record: null,
+  });
+  if (journal.has(w.id))
+    return {
+      wallet: w,
+      action: 'already_imported',
+      reason: 'wallet is in the import journal',
+      record: null,
+    };
   if (!UUID.test(w.id) || !UUID.test(w.user_id)) return refuse('wallet or user id is not a uuid');
   if (!ADDRESS.test(w.address)) return refuse('address is not a 20-byte hex address');
-  if (w.chain_id !== chainId) return refuse(`chain ${w.chain_id} is not the target chain ${chainId}`);
+  if (w.chain_id !== chainId)
+    return refuse(`chain ${w.chain_id} is not the target chain ${chainId}`);
   if (w.kind !== 'standard' && w.kind !== 'funded') return refuse(`unknown wallet kind ${w.kind}`);
-  if (w.encrypted_private_key === null || w.encrypted_private_key.trim() === '') return refuse('no key ciphertext');
-  if (!Number.isInteger(w.key_version) || w.key_version < 1) return refuse('key version is not a positive integer');
+  if (w.encrypted_private_key === null || w.encrypted_private_key.trim() === '')
+    return refuse('no key ciphertext');
+  if (!Number.isInteger(w.key_version) || w.key_version < 1)
+    return refuse('key version is not a positive integer');
   const funded = w.funded || w.kind === 'funded';
   const record: CustodyRecord = {
     legacy_wallet_id: w.id,
@@ -110,17 +139,31 @@ export function planWallet(w: LegacyWallet, chainId: number, journal: ReadonlySe
     disabled_reason: w.disabled_reason,
     created_at: w.created_at,
   };
-  return { wallet: w, action: funded ? 'archive' : 'import', reason: funded ? 'funded wallet is archived out of the live path' : null, record };
+  return {
+    wallet: w,
+    action: funded ? 'archive' : 'import',
+    reason: funded ? 'funded wallet is archived out of the live path' : null,
+    record,
+  };
 }
 
-export function planAll(wallets: LegacyWallet[], chainId: number, journal: ReadonlySet<string>): WalletPlan[] {
+export function planAll(
+  wallets: LegacyWallet[],
+  chainId: number,
+  journal: ReadonlySet<string>
+): WalletPlan[] {
   const seen = new Map<string, string>();
   return wallets.map((w) => {
     const p = planWallet(w, chainId, journal);
     const key = `${w.address.toLowerCase()}:${w.kind}`;
     const prior = seen.get(key);
     if (p.record !== null && prior !== undefined) {
-      return { wallet: w, action: 'refuse', reason: `address already planned for wallet ${prior}`, record: null };
+      return {
+        wallet: w,
+        action: 'refuse',
+        reason: `address already planned for wallet ${prior}`,
+        record: null,
+      };
     }
     if (p.record !== null) seen.set(key, w.id);
     return p;
@@ -155,7 +198,8 @@ export class Journal {
     for (const line of readFileSync(path, 'utf8').split('\n')) {
       if (line.trim() === '') continue;
       const entry = JSON.parse(line) as { wallet_id?: unknown };
-      if (typeof entry.wallet_id !== 'string') throw new Error(`journal ${path} holds an entry without wallet_id`);
+      if (typeof entry.wallet_id !== 'string')
+        throw new Error(`journal ${path} holds an entry without wallet_id`);
       this.ids.add(entry.wallet_id);
     }
   }
@@ -163,7 +207,10 @@ export class Journal {
   record(walletId: string, outcome: ApplyOutcome): void {
     const fd = openSync(this.path, 'a', 0o600);
     try {
-      writeSync(fd, `${JSON.stringify({ wallet_id: walletId, outcome, at: new Date().toISOString() })}\n`);
+      writeSync(
+        fd,
+        `${JSON.stringify({ wallet_id: walletId, outcome, at: new Date().toISOString() })}\n`
+      );
       fsyncSync(fd);
     } finally {
       closeSync(fd);
@@ -177,17 +224,73 @@ export interface AdminClient {
   token: string;
 }
 
-export async function applyPlans(plans: WalletPlan[], admin: AdminClient, journal: Journal): Promise<WalletResult[]> {
+function verifiedImportReceipt(text: string, status: number, record: CustodyRecord): boolean {
+  let receipt: unknown;
+  try {
+    receipt = JSON.parse(text);
+  } catch {
+    return false;
+  }
+  if (typeof receipt !== 'object' || receipt === null) return false;
+  const recordHash = createHash('sha256')
+    .update(
+      JSON.stringify([
+        record.legacy_wallet_id,
+        record.user_id,
+        record.address,
+        record.kind,
+        record.chain_id,
+        record.key_version,
+        record.encrypted_private_key,
+        record.attestor_key_id,
+        record.identity_key_id,
+        record.binding_state,
+        record.custody,
+        record.is_disabled,
+        record.disabled_reason,
+        record.created_at,
+      ])
+    )
+    .digest('hex');
+  return (
+    'wallet_id' in receipt &&
+    receipt.wallet_id === record.legacy_wallet_id &&
+    'custody' in receipt &&
+    receipt.custody === record.custody &&
+    'record_sha256' in receipt &&
+    receipt.record_sha256 === recordHash &&
+    ((status === 201 && 'status' in receipt && receipt.status === 'inserted') ||
+      (status === 409 && 'error' in receipt && receipt.error === 'identical_replay'))
+  );
+}
+
+export async function applyPlans(
+  plans: WalletPlan[],
+  admin: AdminClient,
+  journal: Journal
+): Promise<WalletResult[]> {
   const endpoint = new URL(ADMIN_IMPORT_PATH, admin.url).toString();
   const results: WalletResult[] = [];
   for (const p of plans) {
-    const base = { wallet_id: p.wallet.id, address: p.wallet.address.toLowerCase(), kind: p.record?.kind ?? p.wallet.kind };
+    const base = {
+      wallet_id: p.wallet.id,
+      address: p.wallet.address.toLowerCase(),
+      kind: p.record?.kind ?? p.wallet.kind,
+    };
     if (journal.ids.has(p.wallet.id)) {
-      results.push({ ...base, outcome: 'already_imported', reason: 'wallet is in the import journal' });
+      results.push({
+        ...base,
+        outcome: 'already_imported',
+        reason: 'wallet is in the import journal',
+      });
       continue;
     }
     if (p.record === null) {
-      results.push({ ...base, outcome: p.action === 'already_imported' ? 'already_imported' : 'refused', reason: p.reason });
+      results.push({
+        ...base,
+        outcome: p.action === 'already_imported' ? 'already_imported' : 'refused',
+        reason: p.reason,
+      });
       continue;
     }
     let res: Response;
@@ -198,17 +301,38 @@ export async function applyPlans(plans: WalletPlan[], admin: AdminClient, journa
         body: JSON.stringify(p.record),
       });
     } catch (err) {
-      results.push({ ...base, outcome: 'failed', reason: `gateway unreachable: ${(err as Error).message}` });
+      results.push({
+        ...base,
+        outcome: 'failed',
+        reason: `gateway unreachable: ${(err as Error).message}`,
+      });
       continue;
     }
     const text = await res.text();
-    if (res.status === 409) {
+    const verified = verifiedImportReceipt(text, res.status, p.record);
+    if (res.status === 409 && verified) {
       journal.record(p.wallet.id, 'already_imported');
-      results.push({ ...base, outcome: 'already_imported', reason: 'gateway already holds this wallet' });
+      results.push({
+        ...base,
+        outcome: 'already_imported',
+        reason: 'gateway already holds this wallet',
+      });
       continue;
     }
     if (!res.ok) {
-      results.push({ ...base, outcome: 'failed', reason: `gateway answered ${res.status}: ${text.slice(0, 200)}` });
+      results.push({
+        ...base,
+        outcome: 'failed',
+        reason: `gateway answered ${res.status}: ${text.slice(0, 200)}`,
+      });
+      continue;
+    }
+    if (!verified) {
+      results.push({
+        ...base,
+        outcome: 'failed',
+        reason: `gateway answered ${res.status} without a verified import receipt`,
+      });
       continue;
     }
     const outcome: ApplyOutcome = p.record.custody === 'archived' ? 'archived' : 'imported';

@@ -132,17 +132,11 @@ typedef struct lxp_verified_receipt_authority_facts {
     uint16_t module_id;
     uint8_t operation;
     lxp_result result_code;
-    uint64_t batch_number;
-    uint64_t epoch;
-    uint64_t global_sequence;
-    uint64_t authorization_first_batch_number;
-    uint64_t authorization_last_batch_number;
+    uint64_t block_height;
     uint8_t receipt_digest[32];
     uint8_t activity_id[32];
     uint8_t previous_state_root[32];
     uint8_t resulting_state_root[32];
-    uint8_t sequencer_id[32];
-    uint8_t sequencer_public_key[32];
 } lxp_verified_receipt_authority_facts;
 
 typedef lxp_result (*lxp_verified_receipt_fallback_fn)(
@@ -156,6 +150,7 @@ typedef struct lxp_verified_receipt_index {
     void *fallback_context;
     lxp_verified_receipt_authority_facts authority_entries[LXP_VERIFIED_RECEIPT_INDEX_MAX];
     size_t authority_count;
+    uint32_t authority_network_id;
 } lxp_verified_receipt_index;
 
 enum {
@@ -232,6 +227,9 @@ lxp_result lxp_receipt_verify(const lxp_receipt *receipt,
                               const uint8_t public_key[32], lxp_arena *arena);
 lxp_result lxp_receipt_digest(const lxp_receipt *receipt, lxp_arena *arena,
                               uint8_t digest[32]);
+/* Validate both bounded indexes before borrowing or copying their entries. */
+lxp_result lxp_verified_receipt_index_validate(
+    const lxp_verified_receipt_index *index);
 lxp_result lxp_verified_receipt_index_init(lxp_verified_receipt_index *index);
 lxp_result lxp_verified_receipt_index_bind_fallback(
     lxp_verified_receipt_index *index,
@@ -242,11 +240,11 @@ lxp_result lxp_verified_receipt_index_add(
 lxp_result lxp_verified_receipt_index_lookup(
     const lxp_verified_receipt_index *index,
     const uint8_t receipt_digest[32], lxp_verified_receipt_facts *facts);
-lxp_result lxp_verified_receipt_index_add_authority(
+lxp_result lxp_verified_receipt_index_bind_authority_network(
+    lxp_verified_receipt_index *index, uint32_t network_id);
+lxp_result lxp_verified_receipt_index_add_height_authority(
     lxp_verified_receipt_index *index, lxp_byte_span canonical_receipt,
-    lxp_byte_span canonical_header, const uint8_t header_signature[64],
-    const lxp_merkle_proof *receipt_proof,
-    const lxp_sequencer_authorization *authorization, lxp_arena *arena);
+    uint64_t block_height, lxp_arena *arena);
 lxp_result lxp_verified_receipt_index_lookup_authority(
     const lxp_verified_receipt_index *index,
     const uint8_t receipt_digest[32], lxp_verified_receipt_authority_facts *facts);

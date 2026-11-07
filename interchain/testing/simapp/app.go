@@ -443,6 +443,7 @@ func NewSimApp(
 	}
 
 	app.SetAnteHandler(anteHandler)
+	app.SetProcessProposalHandler(newProcessProposalHandler(app.txDecoder, anteHandler))
 
 	app.SetFinalizeBlocker(app.FinalizeBlocker)
 

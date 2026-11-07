@@ -10,7 +10,7 @@ import {
   type AbiReadField,
   type AbiReadRecord,
 } from "./abi-read.ts";
-import { GatewayRpcError, ethBlockNumber, ethCall, ethGetLogs, type GatewayLog } from "./gateway.ts";
+import { GatewayRpcError, GatewayUnavailableError, ethBlockNumber, ethCall, ethGetLogs, type GatewayLog } from "./gateway.ts";
 import {
   BRIDGE_EVENTS,
   LAUNCHPAD_PRECOMPILE,
@@ -30,8 +30,8 @@ export const PRECOMPILE_LOG_WINDOW = 50_000n;
 
 const EVM_ADDRESS = /^0x[0-9a-fA-F]{40}$/u;
 
-async function view(to: string, data: string, outputs: readonly AbiReadField[]): Promise<AbiReadRecord> {
-  return decodeAbiResult(await ethCall({ to, data }), outputs);
+async function view(to: string, data: string, outputs: readonly AbiReadField[], block?: bigint): Promise<AbiReadRecord> {
+  return decodeAbiResult(await ethCall({ to, data }, block), outputs);
 }
 
 function addressTopic(address: string): string {
@@ -41,11 +41,7 @@ function addressTopic(address: string): string {
   return `0x${"00".repeat(12)}${address.slice(2).toLowerCase()}`;
 }
 
-async function recentLogs(address: string, topics: readonly (string | null)[]): Promise<readonly GatewayLog[]> {
-  const head = await ethBlockNumber();
-  const fromBlock = head > PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW : 0n;
-  return ethGetLogs({ address, topics, fromBlock });
-}
+export const PRECOMPILE_LOG_CHUNK = 100n;
 
 export interface ObservedEvent {
   readonly event: DecodedPrecompileEvent;
@@ -72,7 +68,9 @@ function newestFirst(events: readonly (ObservedEvent | undefined)[]): readonly O
     .filter((entry): entry is ObservedEvent => entry !== undefined)
     .sort((left, right) =>
       left.blockNumber === right.blockNumber
-        ? Number(right.logIndex - left.logIndex)
+        ? left.logIndex === right.logIndex
+          ? left.transactionHash.toLowerCase().localeCompare(right.transactionHash.toLowerCase())
+          : left.logIndex < right.logIndex ? 1 : -1
         : right.blockNumber > left.blockNumber
           ? 1
           : -1,
@@ -115,34 +113,51 @@ export interface LaunchpadMarket {
   readonly tokenReserve: bigint;
   readonly realQuoteBalance: bigint;
   readonly cumulativeVolume: bigint;
+  readonly currentFeeBps: bigint;
   readonly price: bigint;
 }
 
+export type LaunchpadMarketRow = LaunchpadMarket | Readonly<{ pool: string; unavailable: string }>;
+
+export const LAUNCHPAD_READ_CONCURRENCY = 8;
+
 export interface LaunchpadConfig {
-  readonly quoteDenom: string;
+  readonly quoteSymbol: string;
   readonly creationFee: bigint;
   readonly minFeeBps: bigint;
   readonly maxFeeBps: bigint;
   readonly baseFeeBps: bigint;
 }
 
-async function viewUint(to: string, name: string, types: readonly ("address" | "uint256")[] = [], values: readonly (string | bigint)[] = []): Promise<bigint> {
-  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "uint256" }]);
+async function viewUint(
+  to: string,
+  name: string,
+  types: readonly ("address" | "uint256")[] = [],
+  values: readonly (string | bigint)[] = [],
+  block?: bigint,
+): Promise<bigint> {
+  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "uint256" }], block);
   return readUint(result.value, name);
 }
 
-async function viewAddress(to: string, name: string, types: readonly "address"[] = [], values: readonly string[] = []): Promise<string> {
-  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "address" }]);
+async function viewAddress(
+  to: string,
+  name: string,
+  types: readonly "address"[] = [],
+  values: readonly string[] = [],
+  block?: bigint,
+): Promise<string> {
+  const result = await view(to, encodeAbiCall(name, types, values), [{ name: "value", type: "address" }], block);
   return readText(result.value, name);
 }
 
-async function viewString(to: string, name: string): Promise<string> {
-  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "string" }]);
+async function viewString(to: string, name: string, block?: bigint): Promise<string> {
+  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "string" }], block);
   return readText(result.value, name);
 }
 
-async function viewFlag(to: string, name: string): Promise<boolean> {
-  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "bool" }]);
+async function viewFlag(to: string, name: string, block?: bigint): Promise<boolean> {
+  const result = await view(to, encodeAbiCall(name, [], []), [{ name: "value", type: "bool" }], block);
   return readFlag(result.value, name);
 }
 
@@ -151,24 +166,31 @@ export async function launchpadMarketCount(): Promise<bigint> {
   return viewUint(LAUNCHPAD_PRECOMPILE, "getPoolCount");
 }
 
-async function launchpadMarket(pool: string, feeRights: string): Promise<LaunchpadMarket> {
-  const [statsResult, metadataResult, paused] = await Promise.all([
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getPoolStats", ["address"], [pool]), [
-      { name: "stats", type: { tuple: LAUNCHPAD_POOL_STATS } },
-    ]),
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getPoolMetadata", ["address"], [pool]), LAUNCHPAD_POOL_METADATA),
-    viewFlag(pool, "paused"),
-  ]);
+async function launchpadMarket(pool: string, feeRights: string, block: bigint): Promise<LaunchpadMarket> {
+  const statsResult = await view(
+    LAUNCHPAD_PRECOMPILE,
+    encodeAbiCall("getPoolStats", ["address"], [pool]),
+    [{ name: "stats", type: { tuple: LAUNCHPAD_POOL_STATS } }],
+    block,
+  );
+  const metadataResult = await view(
+    LAUNCHPAD_PRECOMPILE,
+    encodeAbiCall("getPoolMetadata", ["address"], [pool]),
+    LAUNCHPAD_POOL_METADATA,
+    block,
+  );
+  const paused = await viewFlag(pool, "paused", block);
   const stats = readRecord(statsResult.stats, "stats");
   const token = readText(metadataResult.token, "token");
-  const [name, symbol, totalSupply, feeStrategy] = await Promise.all([
-    viewString(token, "name"),
-    viewString(token, "symbol"),
-    viewUint(token, "totalSupply"),
-    view(feeRights, encodeAbiCall("getFeeStrategy", ["uint256"], [readUint(metadataResult.nftId, "nftId")]), [
-      { name: "strategy", type: "uint8" },
-    ]),
-  ]);
+  const name = await viewString(token, "name", block);
+  const symbol = await viewString(token, "symbol", block);
+  const totalSupply = await viewUint(token, "totalSupply", [], [], block);
+  const feeStrategy = await view(
+    feeRights,
+    encodeAbiCall("getFeeStrategy", ["uint256"], [readUint(metadataResult.nftId, "nftId")]),
+    [{ name: "strategy", type: "uint8" }],
+    block,
+  );
   return {
     pool,
     token,
@@ -181,20 +203,40 @@ async function launchpadMarket(pool: string, feeRights: string): Promise<Launchp
     tokenReserve: readUint(stats.tokenReserve, "tokenReserve"),
     realQuoteBalance: readUint(stats.realUsdl, "realUsdl"),
     cumulativeVolume: readUint(stats.cumulativeVolume, "cumulativeVolume"),
+    currentFeeBps: readUint(stats.currentFeeBps, "currentFeeBps"),
     price: readUint(stats.price, "price"),
   };
 }
 
 /** PoolRegistry `getAllPools(offset, limit)`, each pool read through the Quoter, its pool surface, its token and its fee right. */
-export async function launchpadMarkets(offset: bigint, limit: bigint): Promise<readonly LaunchpadMarket[]> {
+export async function launchpadMarkets(offset: bigint, limit: bigint): Promise<readonly LaunchpadMarketRow[]> {
+  const block = await ethBlockNumber();
   const [result, feeRights] = await Promise.all([
-    view(LAUNCHPAD_PRECOMPILE, encodeAbiCall("getAllPools", ["uint256", "uint256"], [offset, limit]), [
-      { name: "pools", type: { array: "address" } },
-    ]),
-    viewAddress(LAUNCHPAD_PRECOMPILE, "nftContract"),
+    view(
+      LAUNCHPAD_PRECOMPILE,
+      encodeAbiCall("getAllPools", ["uint256", "uint256"], [offset, limit]),
+      [{ name: "pools", type: { array: "address" } }],
+      block,
+    ),
+    viewAddress(LAUNCHPAD_PRECOMPILE, "nftContract", [], [], block),
   ]);
   const pools = readList(result.pools, "pools").map((pool) => readText(pool, "pool"));
-  return Promise.all(pools.map((pool) => launchpadMarket(pool, feeRights)));
+  const remaining = pools.entries();
+  const rows: LaunchpadMarketRow[] = [];
+  async function readPools(): Promise<void> {
+    for (const [index, pool] of remaining) {
+      try {
+        rows[index] = await launchpadMarket(pool, feeRights, block);
+      } catch (error) {
+        if (!(error instanceof GatewayUnavailableError || error instanceof GatewayRpcError)) {
+          throw error;
+        }
+        rows[index] = { pool, unavailable: error.message };
+      }
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(LAUNCHPAD_READ_CONCURRENCY, pools.length) }, readPools));
+  return rows;
 }
 
 /** The ProtocolConfig getters, with the quote asset named by the USDL token's symbol. */
@@ -206,7 +248,14 @@ export async function launchpadConfig(): Promise<LaunchpadConfig> {
     viewUint(LAUNCHPAD_PRECOMPILE, "maxFeeBps"),
     viewUint(LAUNCHPAD_PRECOMPILE, "baseFeeBps"),
   ]);
-  return { quoteDenom: await viewString(usdl, "symbol"), creationFee, minFeeBps, maxFeeBps, baseFeeBps };
+  return { quoteSymbol: await viewString(usdl, "symbol"), creationFee, minFeeBps, maxFeeBps, baseFeeBps };
+}
+
+export class NoLaunchpadPoolError extends RangeError {
+  constructor(token: string) {
+    super(`no launchpad pool trades ${token}`);
+    this.name = "NoLaunchpadPoolError";
+  }
 }
 
 export interface LaunchpadQuote {
@@ -219,7 +268,7 @@ export interface LaunchpadQuote {
 export async function launchpadQuote(token: string, side: "buy" | "sell", amountIn: bigint): Promise<LaunchpadQuote> {
   const pool = await viewAddress(LAUNCHPAD_PRECOMPILE, "getPoolByToken", ["address"], [token]);
   if (pool === ZERO_ADDRESS) {
-    throw new RangeError(`no launchpad pool trades ${token}`);
+    throw new NoLaunchpadPoolError(token);
   }
   const result = await view(
     LAUNCHPAD_PRECOMPILE,
@@ -337,19 +386,112 @@ function bridgeTopic(name: string): string {
   return abiEventTopic(precompileEventSignature(spec));
 }
 
-/** Inbound attestations credited to `recipient` and outbound requests paying `recipient`, newest first. */
+export interface BridgeActivityPage {
+  readonly items: readonly ObservedEvent[];
+  readonly nextCursor: string | null;
+  readonly status: "complete" | "partial" | "unavailable";
+  readonly detail: string | null;
+  readonly head: bigint;
+}
+
+interface BridgeLogPosition { head: bigint; floor: bigint; upper: bigint }
+
+function historyCursor(recipient: string, position: BridgeLogPosition): string {
+  return ["v1", recipient.toLowerCase(), position.head, position.floor, position.upper].join(":");
+}
+
+function logPosition(recipient: string, cursor: string): BridgeLogPosition {
+  const parts = cursor.split(":");
+  if (parts.length !== 5 || parts[0] !== "v1" || parts[1] !== recipient.toLowerCase() ||
+      !parts.slice(2).every((value) => /^(0|[1-9][0-9]{0,77})$/u.test(value))) {
+    throw new RangeError("invalid bridge history cursor");
+  }
+  const head = BigInt(parts[2]!);
+  const floor = BigInt(parts[3]!);
+  const upper = BigInt(parts[4]!);
+  const expectedFloor = head >= PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW + 1n : 0n;
+  if (head >= 1n << 256n || floor !== expectedFloor || upper < floor || upper > head ||
+      (head - upper) % PRECOMPILE_LOG_CHUNK !== 0n) throw new RangeError("invalid bridge history position");
+  return { head, floor, upper };
+}
+
+/** One bounded block window at a pinned head; retries retain the same coverage cursor. */
+export async function bridgeActivityPage(recipient: string, cursor?: string): Promise<BridgeActivityPage> {
+  const accountTopic = addressTopic(recipient);
+  let position: BridgeLogPosition;
+  if (cursor === undefined) {
+    const head = await ethBlockNumber();
+    position = { head, floor: head >= PRECOMPILE_LOG_WINDOW ? head - PRECOMPILE_LOG_WINDOW + 1n : 0n, upper: head };
+  } else {
+    position = logPosition(recipient, cursor);
+  }
+  const fromBlock = position.upper - position.floor + 1n > PRECOMPILE_LOG_CHUNK
+    ? position.upper - PRECOMPILE_LOG_CHUNK + 1n : position.floor;
+  const filters = [
+    [bridgeTopic("BridgeIn"), null, null, accountTopic],
+    [bridgeTopic("BridgeOut")],
+  ];
+  const answers = await Promise.allSettled(filters.map((topics) => ethGetLogs({
+    address: LAYERX_BRIDGE_PRECOMPILE, topics, fromBlock, toBlock: position.upper,
+  })));
+  const events = new Map<string, ObservedEvent>();
+  const failures: string[] = [];
+  for (const [index, answer] of answers.entries()) {
+    if (answer.status === "rejected") {
+      if (!(answer.reason instanceof GatewayUnavailableError || answer.reason instanceof GatewayRpcError)) throw answer.reason;
+      failures.push(answer.reason.message);
+      continue;
+    }
+    for (const log of answer.value) {
+      if (log.blockNumber < fromBlock || log.blockNumber > position.upper ||
+          log.address.toLowerCase() !== LAYERX_BRIDGE_PRECOMPILE || log.topics[0] !== filters[index]?.[0]) {
+        failures.push("bridge history answered outside the requested window or event filter");
+        continue;
+      }
+      const entry = observed(log, decodeBridgeEvent);
+      if (entry === undefined) {
+        failures.push("bridge history answered a malformed event");
+        continue;
+      }
+      if (entry.event.fields.recipient !== recipient.toLowerCase()) continue;
+      const key = `${entry.blockNumber}:${entry.transactionHash.toLowerCase()}:${entry.logIndex}`;
+      const previous = events.get(key);
+      if (previous !== undefined && (previous.event.event !== entry.event.event ||
+          JSON.stringify(previous.event.fields, (_, value: unknown) => typeof value === "bigint" ? value.toString() : value) !==
+          JSON.stringify(entry.event.fields, (_, value: unknown) => typeof value === "bigint" ? value.toString() : value))) {
+        failures.push("bridge history answered conflicting duplicate events");
+        continue;
+      }
+      events.set(key, entry);
+    }
+  }
+  const unavailable = failures.length > 0;
+  const nextCursor = unavailable ? historyCursor(recipient, position)
+    : fromBlock === position.floor ? null
+    : historyCursor(recipient, { ...position, upper: fromBlock - 1n });
+  return {
+    items: newestFirst([...events.values()]), nextCursor,
+    status: unavailable ? "unavailable" : nextCursor === null ? "complete" : "partial",
+    detail: unavailable ? failures.join("; ") : nextCursor === null ? null
+      : `Bridge history covers blocks ${fromBlock}–${position.upper}; older activity requires continuation.`,
+    head: position.head,
+  };
+}
+
+export class BridgeActivityIncompleteError extends GatewayUnavailableError {
+  readonly page: BridgeActivityPage;
+  constructor(page: BridgeActivityPage) {
+    super(page.detail ?? "Bridge history requires continuation");
+    this.name = "BridgeActivityIncompleteError";
+    this.page = page;
+  }
+}
+
+/** Compatibility reader refuses incomplete coverage so existing screens show their unavailable state. */
 export async function bridgeActivity(recipient: string): Promise<readonly ObservedEvent[]> {
-  const [inbound, outbound] = await Promise.all([
-    recentLogs(LAYERX_BRIDGE_PRECOMPILE, [bridgeTopic("BridgeIn"), null, null, addressTopic(recipient)]),
-    recentLogs(LAYERX_BRIDGE_PRECOMPILE, [bridgeTopic("BridgeOut")]),
-  ]);
-  const lowered = recipient.toLowerCase();
-  return newestFirst([
-    ...inbound.map((log) => observed(log, decodeBridgeEvent)),
-    ...outbound
-      .map((log) => observed(log, decodeBridgeEvent))
-      .filter((entry) => entry !== undefined && entry.event.fields.recipient === lowered),
-  ]);
+  const page = await bridgeActivityPage(recipient);
+  if (page.status !== "complete") throw new BridgeActivityIncompleteError(page);
+  return page.items;
 }
 
 /* Perps (0x1015) */

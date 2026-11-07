@@ -7,6 +7,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
@@ -27,10 +28,14 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/config"
+	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
+	seqkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/keeper"
 	app "github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/legacyabci"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/node/sequencer/wal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
+	evmrpcconfig "github.com/Sidiora-Labs/Paxeer-X-Network/rpc/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/crypto/keys/secp256k1"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -40,7 +45,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/holiman/uint256"
 	"github.com/stretchr/testify/require"
+	"go.opentelemetry.io/otel"
 )
 
 const (
@@ -95,15 +102,38 @@ type sendSeqReceipter struct {
 	receipts [][]byte
 }
 
-func (s *sendSeqReceipter) Accept(txBytes []byte) ([]byte, error) {
+func (s *sendSeqReceipter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
 	s.txBytes = append(s.txBytes, txBytes)
 	acc, signed, err := s.r.Accept(txBytes)
 	if err != nil {
-		return nil, err
+		return evmrpc.AcceptedSend{}, err
 	}
 	s.accepted = append(s.accepted, acc)
 	s.receipts = append(s.receipts, signed)
-	return signed, nil
+	exec, err := sendSeqExecutionReceipt(acc)
+	if err != nil {
+		return evmrpc.AcceptedSend{}, err
+	}
+	return evmrpc.AcceptedSend{Receipt: signed, Height: acc.Height, Exec: exec}, nil
+}
+
+// sendSeqExecutionReceipt reads the real execution output retained by the accepter.
+func sendSeqExecutionReceipt(acc *sequencer.Accepted) (*evmtypes.Receipt, error) {
+	for _, key := range acc.ReceiptContext.MultiStore().StoreKeys() {
+		if key.Name() != evmtypes.TransientStoreKey {
+			continue
+		}
+		encoded := acc.ReceiptContext.TransientStore(key).Get(evmtypes.NewTransientReceiptKey(uint64(acc.TxIndex), common.Hash(acc.ActivityID)))
+		if encoded == nil {
+			return nil, fmt.Errorf("execution receipt missing at height %d index %d", acc.Height, acc.TxIndex)
+		}
+		receipt := &evmtypes.Receipt{}
+		if err := receipt.Unmarshal(encoded); err != nil {
+			return nil, err
+		}
+		return receipt, nil
+	}
+	return nil, fmt.Errorf("execution receipt store missing")
 }
 
 type sendSeqHarness struct {
@@ -127,6 +157,9 @@ func newSendSeqHarness(t *testing.T, funded ...occutils.TestAcct) *sendSeqHarnes
 	valPub := secp256k1.GenPrivKey().PubKey()
 	tw := app.NewTestWrapper(t, tm, valPub, false)
 	a := tw.App
+	params := a.GetConsensusParams(tw.Ctx)
+	params.Block.MaxGasWanted = 50_000_000
+	a.StoreConsensusParams(tw.Ctx, params)
 	for _, acct := range funded {
 		a.EvmKeeper.SetAddressMapping(tw.Ctx, acct.AccountAddress, acct.EvmAddress)
 		tw.FundAcc(acct.AccountAddress, sdk.NewCoins(sdk.NewCoin("uhpx", sdk.NewInt(sendSeqFundingUhpx))))
@@ -218,12 +251,158 @@ func (h *sendSeqHarness) verifiedReceipt(t *testing.T, i int) *codec.Receipt {
 	t.Helper()
 	verified, err := verify.ReceiptSignature(h.accepter.receipts[i], h.key.PublicKey())
 	require.NoError(t, err)
+	require.Equal(t, h.accepter.accepted[i].Seq, verified.Receipt.GlobalSequence)
+	require.Equal(t, h.accepter.accepted[i].SeqHash, verified.Receipt.ResultingStateRoot)
 	return verified.Receipt
+}
+
+type sendSeqRecordedAccepter struct {
+	accepter *sequencer.Accepter
+	source   *sequencer.ReceiptSource
+	calls    int
+}
+
+func (s *sendSeqRecordedAccepter) Accept(txBytes []byte) (evmrpc.AcceptedSend, error) {
+	s.calls++
+	return s.accepter.Accept(txBytes)
+}
+
+func (s *sendSeqRecordedAccepter) SequencerSend(hash common.Hash) (*evmrpc.SequencerSend, error) {
+	return s.source.SequencerSend(hash)
+}
+
+func TestSendRawTransactionIdenticalResubmissionKeepsHashAndReceipt(t *testing.T) {
+	sender := occutils.NewSigner()
+	h := newSendSeqHarness(t, sender)
+	w, err := wal.OpenWAL(t.TempDir(), wal.DefaultConfig())
+	require.NoError(t, err)
+	t.Cleanup(w.Close)
+	replicator, err := sequencer.NewReplicator(sequencer.ReplicatorConfig{WAL: w, Standalone: true})
+	require.NoError(t, err)
+	t.Cleanup(replicator.Close)
+	_, err = replicator.Release(context.Background(), &wal.Open{
+		Height: uint64(sendSeqOpenHeight), OpenTimeMs: uint64(time.Now().UnixMilli()), BaseFee: uint256.NewInt(0),
+	})
+	require.NoError(t, err)
+	metrics, err := sequencer.NewMetrics(otel.Meter("send-identical-resubmission"))
+	require.NoError(t, err)
+	source := sequencer.NewReceiptSource(16)
+	accepter := &sendSeqRecordedAccepter{
+		accepter: sequencer.NewAccepter(h.accepter.r, replicator, source, metrics),
+		source:   source,
+	}
+	keyCtx := sdk.NewContext(h.app.CommitMultiStore().CacheMultiStore(), tmproto.Header{ChainID: sendSeqChainID, Height: sendSeqCommittedTip}, false)
+	publicKey := h.key.PublicKey()
+	keyID, err := h.key.KeyID(sendSeqOpenHeight)
+	require.NoError(t, err)
+	pins := seqkeeper.ReceiptKeys{{
+		KeyId: keyID[:], PublicKey: publicKey[:], FirstHeight: 1, LastHeight: 1000,
+	}}
+	require.NoError(t, h.app.SequencerKeeper.SetReceiptKeys(keyCtx, pins))
+	ctxProvider := func(int64) sdk.Context {
+		ctx, _ := keyCtx.CacheContext()
+		return ctx
+	}
+	cfg := evmrpcconfig.DefaultConfig
+	cfg.HTTPAddress = TestAddr
+	cfg.HTTPPort = seqReceiptFreePort9005(t)
+	server, err := evmrpc.NewEVMHTTPServer(cfg, h.client, &h.app.EvmKeeper, h.app.BeginBlockKeepers, h.app.BaseApp,
+		h.app.TracerAnteHandler, ctxProvider, func(int64) client.TxConfig { return h.app.GetTxConfig() }, "", nil,
+		evmrpc.NewSequencerOption(accepter, evmrpc.NewReceiptLogFeed(sendSeqCommittedTip)),
+		evmrpc.SequencerReceiptOption{Source: accepter, Keeper: &h.app.SequencerKeeper})
+	require.NoError(t, err)
+	require.NoError(t, server.Start())
+	t.Cleanup(server.Stop)
+
+	to := common.BytesToAddress(sendSeqLabel("identical resubmission recipient")[:20])
+	value := big.NewInt(1_000_000)
+	tx, raw := sendSeqTransfer(t, sender, 0, to, value, sendSeqTransferGas)
+	result, rpcErr := callSeqReceipt9005(t, cfg.HTTPPort, "eth_sendRawTransaction", raw)
+	require.Nil(t, rpcErr)
+	var hash common.Hash
+	require.NoError(t, json.Unmarshal(result, &hash))
+	require.Equal(t, tx.Hash(), hash)
+	_, before, beforeJSON := seqReceiptResult9005(t, cfg.HTTPPort, hash)
+	require.NotNil(t, before)
+	require.Equal(t, evmrpc.RungReceipted, before.Rung)
+	require.Equal(t, hash, before.TxHash)
+	require.Equal(t, hexutil.Uint64(0), before.Nonce)
+	require.Equal(t, hexutil.Uint64(1), before.Seq)
+	require.NoError(t, before.Verify(pins))
+	require.Equal(t, 1, accepter.calls)
+	snapshot, err := h.exec.Snapshot()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), h.app.EvmKeeper.GetNonce(snapshot, sender.EvmAddress))
+	balance := h.openBalance(t, sender.EvmAddress)
+
+	result, rpcErr = callSeqReceipt9005(t, cfg.HTTPPort, "eth_sendRawTransaction", raw)
+	require.Nil(t, rpcErr)
+	var resubmittedHash common.Hash
+	require.NoError(t, json.Unmarshal(result, &resubmittedHash))
+	require.Equal(t, hash, resubmittedHash)
+	_, after, afterJSON := seqReceiptResult9005(t, cfg.HTTPPort, hash)
+	require.NotNil(t, after)
+	require.Equal(t, beforeJSON, afterJSON)
+	require.Equal(t, 1, accepter.calls)
+	snapshot, err = h.exec.Snapshot()
+	require.NoError(t, err)
+	require.Equal(t, uint64(1), h.app.EvmKeeper.GetNonce(snapshot, sender.EvmAddress))
+	require.Equal(t, balance, h.openBalance(t, sender.EvmAddress))
+	require.Equal(t, value, h.openBalance(t, to))
+
+	distinct, distinctRaw := sendSeqTransfer(t, sender, 0, to, big.NewInt(2_000_000), sendSeqTransferGas)
+	require.NotEqual(t, hash, distinct.Hash())
+	_, rpcErr = callSeqReceipt9005(t, cfg.HTTPPort, "eth_sendRawTransaction", distinctRaw)
+	require.NotNil(t, rpcErr)
+	require.Equal(t, -32000, rpcErr.Code)
+	require.Equal(t, ": "+sdkerrors.ErrWrongSequence.Error(), rpcErr.Message)
+	require.Equal(t, 2, accepter.calls)
+	unknown, err := source.SequencerSend(distinct.Hash())
+	require.NoError(t, err)
+	require.Nil(t, unknown)
+	_, _, refusedJSON := seqReceiptResult9005(t, cfg.HTTPPort, hash)
+	require.Equal(t, beforeJSON, refusedJSON)
+
+	_, nextRaw := sendSeqTransfer(t, sender, 1, to, value, sendSeqTransferGas)
+	result, rpcErr = callSeqReceipt9005(t, cfg.HTTPPort, "eth_sendRawTransaction", nextRaw)
+	require.Nil(t, rpcErr)
+	require.Equal(t, 3, accepter.calls)
+	var nextHash common.Hash
+	require.NoError(t, json.Unmarshal(result, &nextHash))
+	_, next, _ := seqReceiptResult9005(t, cfg.HTTPPort, nextHash)
+	require.NotNil(t, next)
+	require.Equal(t, hexutil.Uint64(1), next.Nonce)
+	require.Equal(t, hexutil.Uint64(2), next.Seq)
+	require.NoError(t, next.Verify(pins))
+	snapshot, err = h.exec.Snapshot()
+	require.NoError(t, err)
+	require.Equal(t, uint64(2), h.app.EvmKeeper.GetNonce(snapshot, sender.EvmAddress))
+	require.Zero(t, h.client.broadcastCount())
 }
 
 func TestSendSequencerReturnsAfterReceipt(t *testing.T) {
 	sender := occutils.NewSigner()
 	h := newSendSeqHarness(t, sender)
+	watermarks := evmrpc.NewWatermarkManager(nil, nil, nil, nil)
+	watermarks.SetPendingSnapshot(h.exec)
+	watermarks.SetPendingOpenWait(50 * time.Millisecond)
+	h.api = evmrpc.NewSendAPI(
+		h.client,
+		func(int64) client.TxConfig { return h.app.GetTxConfig() },
+		&evmrpc.SendConfig{Sequencer: h.accepter},
+		&h.app.EvmKeeper,
+		legacyabci.BeginBlockKeepers{},
+		func(int64) sdk.Context { return h.app.GetContextForDeliverTx([]byte{}) },
+		"",
+		nil,
+		nil,
+		nil,
+		evmrpc.ConnectionTypeHTTP,
+		utils.None[time.Duration](),
+		evmrpc.NewBlockCache(1),
+		nil,
+		watermarks,
+	)
 	to := common.BytesToAddress(sendSeqLabel("send sequencer recipient")[:20])
 	value := big.NewInt(1_000_000)
 
@@ -259,13 +438,16 @@ func TestSendSequencerReturnsAfterReceipt(t *testing.T) {
 	require.Equal(t, uint64(2), h.verifiedReceipt(t, 1).GlobalSequence)
 	require.Equal(t, h.accepter.accepted[0].SeqHash, h.verifiedReceipt(t, 1).PreviousStateRoot)
 
-	// An error without an ABCI code reaches the client unchanged and no hash is receipted.
+	// A sealed layer waits for the next open block and refuses without a receipt if none opens.
 	_, err = h.exec.Seal(sendSeqOpenHeight)
 	require.NoError(t, err)
 	_, raw = sendSeqTransfer(t, sender, 2, to, value, sendSeqTransferGas)
 	_, err = h.api.SendRawTransaction(context.Background(), raw)
-	require.ErrorIs(t, err, sequencer.ErrLayerNotOpen)
-	require.EqualError(t, err, sequencer.ErrLayerNotOpen.Error())
+	require.ErrorIs(t, err, evmrpc.ErrPendingBlockClosed)
+	require.NotErrorIs(t, err, sequencer.ErrLayerNotOpen)
+	require.EqualError(t, err, "no block is open; retry")
+	require.Len(t, h.accepter.txBytes, 4)
+	require.Len(t, h.accepter.accepted, 2)
 	require.Len(t, h.accepter.receipts, 2)
 	require.Zero(t, h.client.broadcastCount())
 }

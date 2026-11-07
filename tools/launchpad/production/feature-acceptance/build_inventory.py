@@ -1,9 +1,28 @@
 """Reproducibly materialize declaration-only inventory from frozen specification."""
+import importlib.util
 import json
 import pathlib
-import tomllib
 ROOT = pathlib.Path(__file__).resolve().parents[4]
-SPEC = ROOT/'launchpad/spec/production-system/spec.kvx'
+SPEC = ROOT/'spec/layerx-merge/spec.kvx'
+
+
+def reference_policy():
+ module_spec = importlib.util.spec_from_file_location('feature_acceptance_references', pathlib.Path(__file__).with_name('spec_references.py'))
+ module = importlib.util.module_from_spec(module_spec)
+ module_spec.loader.exec_module(module)
+ return module
+
+
+def specification(spec_path=SPEC):
+ return reference_policy().load_spec(spec_path)
+
+
+def inventory_references(inventory):
+ s=specification(); helper=reference_policy()
+ sections=sorted({'req.'+rid for feature in inventory['features'] for rid in feature['requirements']} | {'coverage.'+feature['id'] for feature in inventory['features']})
+ return {'spec': 'spec/layerx-merge/spec.kvx', 'scope': 'declaration_only', 'references': [helper.reference(s, section) for section in sections]}
+
+
 # Explicit behavioral owners, not aggregate domain-coverage inference.
 OWNERS = {
 'PF01':[27,39,41], 'PF02':[27,20], 'PF03':[19,20,30], 'PF04':[21,37,38],
@@ -53,18 +72,37 @@ INHERITED = {
 'D05':('vendor','L40','Verify live media provider regions, retention/cost, voice semantics and staffed moderation together with L38'),
 }
 CONTRACT = {'PF01','PF02','PF05','PF06','PF07','PF11','PF15','PF18','PF19','PF20','PF22','OC01','OC02','OC03','OC04','OC05','OC06','OC09','OC13','OC20'}
-def build():
- s=tomllib.loads(SPEC.read_text()); features=[]
- refs={r['legacy_feature_id']:(k,r) for k,r in s['req'].items() if r.get('legacy_feature_id')}
+def build(spec_path=SPEC):
+ s=specification(spec_path); features=[]; helper=reference_policy()
+ legacy=json.loads((pathlib.Path(__file__).parent/'fixtures/retired-inventory.json').read_text())
+ legacy_sections={'req.'+rid for feature in legacy['features'] for rid in feature['requirements']} | {'coverage.'+feature['id'] for feature in legacy['features']}
+ if not any(section in s for section in legacy_sections) and not any(value.get('legacy_feature_id') for name,value in s.items() if name.startswith('req.')):
+  for section in sorted(legacy_sections):
+   if helper.reference(s,section)['class'] != 'retired-reference':
+    raise ValueError('expected explicit retired inventory reference: '+section)
+  if {feature['id'] for feature in legacy['features']} != set(OWNERS) or any(feature['state'] != 'unqualified' for feature in legacy['features']):
+   raise ValueError('retired inventory declarations changed identity or qualification state')
+  return legacy
+ refs={}
+ for name, requirement in s.items():
+  if name.startswith('req.') and requirement.get('legacy_feature_id'):
+   fid = requirement['legacy_feature_id']
+   if fid in refs:
+    raise ValueError('duplicate authoritative feature mapping: '+fid)
+   refs[fid]=(name.removeprefix('req.'),requirement)
+ missing=sorted(set(OWNERS)-set(refs))
+ missing_coverage=sorted(fid for fid in OWNERS if 'coverage.'+fid not in s)
+ if missing or missing_coverage:
+  raise ValueError('authoritative feature reconciliation required in '+str(SPEC)+': missing feature mappings '+','.join(missing)+'; missing coverage '+','.join(missing_coverage))
  for fid in sorted(OWNERS):
-  rid, req=refs[fid]; coverage=s['coverage'][fid]
+  rid, req=refs[fid]; coverage=s['coverage.'+fid]
   deps=[{'id':fid+':integrated_services','kind':'service','owner':f'L{OWNERS[fid][0]:02}', 'remediation':'Wire actual owned services and execute this feature end to end against the current candidate'}]
   if fid in CONTRACT:deps.append({'id':fid+':accepted_registry','kind':'contract','owner':'L03','remediation':'Accept current chain125 deployment/ABI/codehash registry including pending beacon acceptance; no live action is performed by this gate'})
   for inherited in coverage['inherited_dependency_ids']:
    kind,owner,remediation=INHERITED[inherited];deps.append(dict(id=fid+':'+inherited,kind=kind,owner=owner,remediation=remediation))
   for name,kind,owner,remediation in SPECIAL.get(fid,[]):deps.append(dict(id=fid+':'+name,kind=kind,owner=owner,remediation=remediation))
   requirements=sorted(set(coverage['requirement_ids']+[rid]))
-  requirement_owners=sorted({s['req'][r]['owner_lane'] for r in requirements})
+  requirement_owners=sorted({s['req.'+r]['owner_lane'] for r in requirements})
   features.append(dict(inherited_dependency_ids=coverage['inherited_dependency_ids'], requirement_owner_lanes=requirement_owners,id=fid,title=coverage['title'],requirements=sorted(set(coverage['requirement_ids']+[rid])),owner_lanes=[f'L{i:02}' for i in OWNERS[fid]],prerequisites=deps,state='unqualified',scenarios={
    'success':req['ac_1'],
    'authorization_denial':f'{fid}: exercise an unauthorized actor against the real feature; assert denial and no unauthorized durable effect',
@@ -73,4 +111,6 @@ def build():
   }))
  return {'version':1,'features':features}
 if __name__=='__main__':
- (pathlib.Path(__file__).parent/'inventory.json').write_text(json.dumps(build(),indent=2)+'\n')
+ inventory=build()
+ (pathlib.Path(__file__).parent/'inventory.json').write_text(json.dumps(inventory,indent=2)+'\n')
+ (pathlib.Path(__file__).parent/'inventory-spec-references.json').write_text(json.dumps(inventory_references(inventory),indent=2)+'\n')

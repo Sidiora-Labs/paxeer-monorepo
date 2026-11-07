@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -100,7 +101,7 @@ func NewRootCmd() (*cobra.Command, params.EncodingConfig) {
 				return nil
 			}
 
-			customAppTemplate, customAppConfig := initAppConfig()
+			customAppTemplate, customAppConfig := InitAppConfig()
 
 			return server.InterceptConfigsPreRunHandler(cmd, customAppTemplate, customAppConfig)
 		},
@@ -136,6 +137,9 @@ func initRootCmd(
 		genutilcli.ValidateGenesisCmd(app.ModuleBasics),
 		AddGenesisAccountCmd(app.DefaultNodeHome),
 		AddGenesisWasmMsgCmd(app.DefaultNodeHome),
+		SequencerCmd(),
+		AddGenesisReceiptKeyCmd(app.DefaultNodeHome),
+		AddGenesisSequencerLeaderCmd(app.DefaultNodeHome),
 		tmcli.NewCompletionCmd(rootCmd, true),
 		debugCmd,
 		config.Cmd(),
@@ -221,7 +225,32 @@ func txCommand() *cobra.Command {
 	return cmd
 }
 
-func addModuleInitFlags(_ *cobra.Command) {}
+func addModuleInitFlags(startCmd *cobra.Command) {
+	wasm.AddModuleInitFlags(startCmd)
+	sequencer.AddStartFlags(startCmd)
+	// Keep the command's default consistent with the generated app.toml.
+	queryGas := startCmd.Flags().Lookup("wasm.query_gas_limit")
+	queryGas.DefValue = fmt.Sprint(defaultNodeWasmQueryGasLimit)
+	if err := queryGas.Value.Set(queryGas.DefValue); err != nil {
+		panic(err)
+	}
+	preRun := startCmd.PreRunE
+	startCmd.PreRunE = func(cmd *cobra.Command, args []string) error {
+		if preRun != nil {
+			if err := preRun(cmd, args); err != nil {
+				return err
+			}
+		}
+		opts := server.GetServerContextFromCmd(cmd).Viper
+		if _, err := sequencer.ReadConfig(opts); err != nil {
+			return err
+		}
+		if _, err := wasm.ReadWasmConfig(opts); err != nil {
+			return fmt.Errorf("invalid wasm configuration: %w", err)
+		}
+		return nil
+	}
+}
 
 // newApp creates a new Cosmos SDK app
 func newApp(
@@ -246,7 +275,8 @@ func newApp(
 		panic(err)
 	}
 
-	if _, err := sequencer.ReadConfig(appOpts); err != nil {
+	seqCfg, err := sequencer.ReadConfig(appOpts)
+	if err != nil {
 		panic(err)
 	}
 
@@ -270,7 +300,7 @@ func newApp(
 	// This makes it such that the wasm VM gas converts to sdk gas at a 6.66x rate vs that of the previous multiplier
 	wasmGasRegisterConfig.GasMultiplier = 21_000_000
 
-	app := app.New(
+	a := app.New(
 		db,
 		traceStore,
 		true,
@@ -305,7 +335,31 @@ func newApp(
 		baseapp.SetOccEnabled(cast.ToBool(appOpts.Get(baseapp.FlagOccEnabled))),
 	)
 
-	return app
+	node, err := sequencer.NewNode(seqCfg, a)
+	if err != nil {
+		panic(err)
+	}
+	if node != nil {
+		if err := node.Start(context.Background()); err != nil {
+			panic(err)
+		}
+	}
+
+	return &sequencedApp{App: a, node: node}
+}
+
+type sequencedApp struct {
+	*app.App
+	node *sequencer.Node
+}
+
+func (a *sequencedApp) SequencerNode() *sequencer.Node {
+	return a.node
+}
+
+func (a *sequencedApp) Close() error {
+	stopErr := a.node.Stop()
+	return errors.Join(stopErr, a.App.Close())
 }
 
 // appExport creates a new simapp (optionally at a given height)
@@ -386,6 +440,11 @@ func getPrimeNums(lo int, hi int) []int {
 // return "", nil if no custom configuration is required for the application.
 // nolint: staticcheck
 func initAppConfig() (string, interface{}) {
+	return InitAppConfig()
+}
+
+// InitAppConfig returns the template and defaults used by the root command.
+func InitAppConfig() (string, CustomAppConfig) {
 	// Optionally allow the chain developer to overwrite the SDK's default
 	// server config.
 	srvCfg := serverconfig.DefaultConfig()
@@ -436,10 +495,9 @@ func initAppConfig() (string, interface{}) {
 
 [wasm]
 # This is the maximum sdk gas (wasm and storage) that we allow for any x/wasm "smart" queries
-query_gas_limit = 300000
-# This is the number of wasm vm instances we keep cached in memory for speed-up
-# Warning: this is currently unstable and may lead to crashes, best to keep for 0 unless testing locally
-lru_size = 0
+query_gas_limit = {{ .WASM.QueryGasLimit }}
+memory_cache_size = {{ .WASM.MemoryCacheSize }}
+simulation_gas_limit = "{{ .WASM.SimulationGasLimit }}"
 
 ###############################################################################
 ###                     ETH Replay Configuration (Auto-managed)             ###
@@ -449,7 +507,7 @@ lru_size = 0
 eth_replay_enabled = {{ .ETHReplay.Enabled }}
 eth_rpc = "{{ .ETHReplay.EthRPC }}"
 eth_data_dir = "{{ .ETHReplay.EthDataDir }}"
-eth_replay_contract_state_checks = {{ .ETHReplay.ContractStateChecks }}
+contract_state_checks = {{ .ETHReplay.ContractStateChecks }}
 
 ###############################################################################
 ###                   ETH Block Test Configuration (Auto-managed)           ###

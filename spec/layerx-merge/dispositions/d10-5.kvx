@@ -1,0 +1,39 @@
+[disposition.10.98.9.1]
+finding = "10.98.9.1"
+status = "resolved"
+evidence = "dd1dbbdd3e934d0357510507503a5a813a23e633 migrated the binding caller to sign_disclosed_call with a 65-byte signature and a SigningPreparation separating the EVM call from canonical authorization, before 2772a218fc769b6ab84eb314a19f0cf29eccaaf9 retired that caller."
+
+[disposition.10.98.9.2]
+finding = "10.98.9.2"
+status = "superseded"
+evidence = "2772a218fc769b6ab84eb314a19f0cf29eccaaf9 deleted services/human/crates/layerx-human-service/tests/binding.rs and the wallet payout binding module, so mark_executed and its obsolete agentd API calls no longer exist on main."
+
+[disposition.10.98.13.1]
+finding = "10.98.13.1"
+status = "superseded"
+evidence = "eea22dd24b9a976342b185e6d28b26d7e5a1f249 deleted services/human/crates/layerx-explorer-index/src/mirror.rs and its library export, retiring the explorer mirror report and its obsolete MirrorVerifier calls."
+
+[disposition.10.98.13.2]
+finding = "10.98.13.2"
+status = "resolved"
+evidence = "f56d914e65a7320f7651f2c4262528f933bbdb62 removed NativeOnboarding, NativeOnboardingConsent and NativeOwnerRotation references from compile.rs, tests/live_kinds.rs and the four human-service caller files, while services/human/crates/layerx-intents/src/compile.rs:140 retains NativeBudgetCreate and NativeAssetAccountOpen."
+
+[disposition.10.98.13.3]
+finding = "10.98.13.3"
+status = "resolved"
+evidence = "f56d914e65a7320f7651f2c4262528f933bbdb62 deleted all nine retired intent construction sites and their exclusive helpers from agents/create_native.rs, server/agent_creation_native.rs, server/production_onboarding.rs and server/production_rotation.rs, whose current main code contains no retired IntentKind variants."
+
+[disposition.10.98.15.1]
+finding = "10.98.15.1"
+status = "resolved"
+evidence = "b7220cd6e32cc4b26825acfc19fd648a34f88310 replaced the stale archive.rs evidence field and revocation variant with rung and GrantRevokedOnChain at services/human/crates/layerx-human-service/tests/archive.rs:101 and :288, while services/human/crates/layerx-human-service/tests/journey_faults.rs:330 now separates transaction and authorization in SigningPreparation and :394 signs the EVM call."
+
+[disposition.10.98.15.2]
+finding = "10.98.15.2"
+status = "resolved"
+evidence = "b7220cd6e32cc4b26825acfc19fd648a34f88310 replaced SessionKeyRevoked with GrantRevokedOnChain at services/human/crates/layerx-human-service/tests/session_rungs.rs:376, matching the current InvalidationReason enum at services/agent/crates/layerx-agentd/src/session_revocation.rs:217."
+
+[disposition.10.98.15.3]
+finding = "10.98.15.3"
+status = "resolved"
+evidence = "spec/layerx-merge/spec.kvx:169665 defines task 10.98.15 verification with a single --exact followed by both no_retired_layerx_client_module_paths and advertised_durable_submit_is_backed_by_authenticated_fdatasync_admission, eliminating the duplicate-option refusal."

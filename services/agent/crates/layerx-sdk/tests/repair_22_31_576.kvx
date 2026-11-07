@@ -1,0 +1,25 @@
+[repair.22.31.576]
+decision = "2695"
+gotcha = "3286, 3142, 2962"
+acceptance = "22998.1"
+base_revision = "3dd45b6c61b6b0de2ea941f3af4ca61a6d7fd6af"
+implementation = "Wallet::wait_for_signed refuses empty bytes, waits for transaction_hash(raw) through Wallet::wait_for and binds the exact signed bytes to the verified receipt. MCP execute uses that wait after its existing submission and Evidence hash check."
+build = "hf-build: cargo build --locked --manifest-path services/agent/crates/layerx-mcp/Cargo.toml --tests"
+verify = "hf-done: cg spec done 22.31.576 -f layerx-merge --root $TASK_ROOT; cargo test --locked --manifest-path services/agent/crates/layerx-sdk/Cargo.toml --test repair_22_31_576"
+evidence = "Private evidence reference: /out/run/gates.jsonl, entries for task 22.31.576. The hf-build/hf-done gate ledger records the exact candidate revision, command, exit code and log location. This record references those results without claiming an unrun gate or changing the candidate after qualification (gotcha 3142)."
+transport = "The repair_22_31_563 loopback peer, production wire receipt and Merkle constructors, signed SequenceBatch, pinned Comet authority and wallet helpers exercise real SDK HTTP submission and verification with an OS clock. No credentials, environment variables or live endpoints are required."
+
+[proof.bind_canonical_activity]
+criterion = "A payment prepared and signed by Wallet is submitted over loopback HTTP; wait_for_signed to Executed binds exactly the raw transaction bytes and protocol activity id transaction_hash(raw). wait_for_submitted to Batched retains those bytes, the same independently reverified batch evidence and the authenticated committed block, without resubmission."
+
+[proof.empty_signed_bytes_are_refused_before_rpc]
+criterion = "Empty raw bytes return InvalidRequest for each commitment without making an RPC request."
+
+[proof.hash_only_wait_has_no_canonical_activity]
+criterion = "Wallet::wait_for alone returns a verified receipt with no canonical activity, refused by wait_for_submitted; a subsequent signed wait binds the same receipt bytes without modifying the independent receipt."
+
+[gotcha.scope]
+observed = "The explicit task scope and runner publication rule override workflow requests to edit GOTCHA/spec files or commit and push; existing runner setup changes are preserved."
+
+[gotcha.graph]
+observed = "bind_canonical_activity is implemented in rpc_verification.rs outside task scope; the declared test bind_canonical_activity proves that binding through the public wait_for_signed API within task paths."

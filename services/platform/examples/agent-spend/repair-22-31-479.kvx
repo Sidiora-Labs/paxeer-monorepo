@@ -1,0 +1,33 @@
+[repair.22.31.479]
+acceptance = "22998.1"
+base_revision = "b664b08b724ec5b190920b99ba70b283c8a796c9"
+cause = "Audit repair 22.30.74 (ea2e88ad0a, task 22.33.1364) changed the workspace manifest without regenerating the root npm lock; root npm ci failed with EUSAGE (gotcha 2994)."
+removed_devDependencies = ["@supabase/supabase-js", "typescript"]
+removed_reason = "No example source imports either dependency, and the example runs JavaScript without a TypeScript compilation step. TypeScript remains locked for other workspace members that declare it."
+retained_dependencies = ["viem", "@sidiora/layerx-agent-integrations"]
+retained_reason = "services.mjs and wallet-review-transport.mjs import viem; index.mjs imports the agent integrations package."
+lock_generation = "npm install --package-lock-only --ignore-scripts"
+stale_lock_failed_gates = ["22.31.477", "22.33.612", "22.33.619", "22.33.1478", "22.33.1480"]
+
+[lock.added]
+entries = ["node_modules/@adraffy/ens-normalize", "node_modules/abitype", "node_modules/isows", "node_modules/ox", "node_modules/ox/node_modules/@noble/ciphers", "node_modules/ox/node_modules/@noble/curves", "node_modules/ox/node_modules/@noble/hashes", "node_modules/ox/node_modules/@scure/base", "node_modules/ox/node_modules/@scure/bip32", "node_modules/ox/node_modules/@scure/bip39", "node_modules/ox/node_modules/eventemitter3", "services/platform/examples/agent-spend/node_modules/@noble/curves", "services/platform/examples/agent-spend/node_modules/@noble/hashes", "services/platform/examples/agent-spend/node_modules/@scure/base", "services/platform/examples/agent-spend/node_modules/@scure/bip32", "services/platform/examples/agent-spend/node_modules/@scure/bip39", "services/platform/examples/agent-spend/node_modules/viem", "services/platform/examples/agent-spend/node_modules/ws"]
+viem_version = "2.57.16"
+workspace_entry = "services/platform/examples/agent-spend now records all four runtime dependencies and Node >=22.18.0; the integrations package already has a root workspace link."
+
+[proof.workspace_dependency_closure]
+test = "everyWorkspaceDependencyResolvesFromRootLock"
+criterion = "Read every member from the root workspaces list, compare dependency and devDependency declarations with its lock entry, and resolve every declared name through member or ancestor node_modules entries, including linked workspace targets."
+stale_lock_regression = "The base lock omits agent-spend's declared integrations and viem dependencies in its workspace entry and contains no viem package entry, so this assertion fails against the pre-repair lock. No baseline gate was rerun."
+
+[proof.imported_devDependencies]
+test = "agentSpendDevDependenciesAreImported"
+criterion = "Inspect the example's source imports, excluding installed packages and tests, require every devDependency to be imported, and retain the directly imported viem and integrations runtime dependencies."
+
+[qualification]
+build = "hf-build: npm ci --ignore-scripts"
+verify = "hf-done: cg spec done 22.31.479 -f layerx-merge --root /work/paxeer-monorepo"
+verify_cmd = "npm ci --ignore-scripts && node --test services/platform/examples/agent-spend/test/repair-22-31-479.test.mjs"
+verified_revision_record = "/out/run/gates.jsonl: the final hf-done row names the exact verified candidate revision, command, exit code and private log; its revision must match the passing hf-build row."
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+publication = "The runner publishes the unchanged qualified candidate; the agent does not commit or push."

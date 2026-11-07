@@ -9,13 +9,13 @@ use layerx_agent_api::budget::{
 use layerx_agent_api::error::RequestId;
 use layerx_agent_api::idempotency::Key;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef, TenantId};
-use layerx_agent_api::verify::{Level, VerificationStatus};
+use layerx_agent_api::verify::{ApiSuccess, Rung, VerificationStatus};
 use layerx_agent_api::{Amount, BudgetLimit};
 use serde_json::{json, Map, Value};
 
 use crate::agent_envelope::{AgentEnvelopeTransport, EnvelopeCredential, EnvelopeError};
 use crate::rpc::encode_hex;
-use crate::rpc_export::level_from_wire;
+use crate::rpc_export::rung_from_wire;
 use crate::rpc_history::lower_hex;
 use crate::rpc_projection::{bytes32, decimal_u128};
 use crate::rpc_subscription::{decimal, object, text, violation};
@@ -166,10 +166,10 @@ fn decode_authority(
 fn decode_protocol(
     record: &Map<String, Value>,
     budget_id: [u8; 32],
-    achieved_verification_level: Level,
+    achieved_rung: Rung,
     operation: Operation,
 ) -> Result<ProtocolBudgetView, EnvelopeError> {
-    if achieved_verification_level < Level::StateProven {
+    if achieved_rung < Rung::Committed {
         return Err(violation(operation));
     }
     Ok(ProtocolBudgetView {
@@ -201,7 +201,7 @@ fn decode_protocol(
             .map(|delegate| bytes32(delegate, operation))
             .collect::<Result<Vec<_>, _>>()?,
         source_account: optional_bytes32(&record["source_account"], operation)?,
-        achieved_verification_level,
+        achieved_rung,
     })
 }
 
@@ -250,7 +250,7 @@ fn decode_entry(
     }
     let record = match enforcement {
         BudgetEnforcement::ProtocolBudget => {
-            let level = level_from_wire(&record["achieved_verification_level"], operation)?;
+            let level = rung_from_wire(&record["achieved_verification_level"], operation)?;
             BudgetRecord::Protocol(decode_protocol(record, budget_id, level, operation)?)
         }
         BudgetEnforcement::DaemonLimit => {
@@ -530,42 +530,55 @@ impl AgentEnvelopeTransport {
             Some(credential),
             None,
         )?;
-        let response = object(&success.value, &["authority", "value"], operation)?;
-        let authority = decode_authority(
-            &response["authority"],
-            operation,
-            &request.tenant,
-            &request.agent_did,
-        )?;
-        let state = object(
-            &response["value"],
-            &["record", "balance", "proven_head", "activity_id"],
-            operation,
-        )?;
-        let record = decode_entry(&state["record"], operation, false)?;
-        let proven_head = decimal(&state["proven_head"], operation)?;
-        let activity_id = optional_bytes32(&state["activity_id"], operation)?;
-        let status_level = match &record.record {
-            BudgetRecord::Protocol(view) => view.achieved_verification_level,
-            BudgetRecord::Daemon(_) => Level::Unverified,
-        };
-        if success.verification_status != VerificationStatus::Achieved(status_level)
-            || encode_hex(record_budget_id(&record.record)) != request.budget_id.as_str()
-            || proven_head != record.head
-            || activity_id != record.activity_id
-        {
-            return Err(violation(operation));
-        }
-        Ok(AuthorityResponse {
-            authority,
-            value: BudgetState {
-                record,
-                balance: Amount(decimal_u128(&state["balance"], operation)?),
-                proven_head,
-                activity_id,
-            },
-        })
+        decode_budget_state_response(request, &success)
     }
+}
+
+/// Decodes the authority-wrapped response to `budget.state`.
+///
+/// # Errors
+/// Refuses malformed records or disagreement between the requested budget, record,
+/// snapshot coordinates and outer verification status.
+pub fn decode_budget_state_response(
+    request: &BudgetTarget,
+    success: &ApiSuccess<Value>,
+) -> Result<AuthorityResponse<BudgetState>, EnvelopeError> {
+    let operation = Operation::BudgetState;
+    let response = object(&success.value, &["authority", "value"], operation)?;
+    let authority = decode_authority(
+        &response["authority"],
+        operation,
+        &request.tenant,
+        &request.agent_did,
+    )?;
+    let state = object(
+        &response["value"],
+        &["record", "balance", "proven_head", "activity_id"],
+        operation,
+    )?;
+    let record = decode_entry(&state["record"], operation, false)?;
+    let proven_head = decimal(&state["proven_head"], operation)?;
+    let activity_id = optional_bytes32(&state["activity_id"], operation)?;
+    let status_rung = match &record.record {
+        BudgetRecord::Protocol(view) => view.achieved_rung,
+        BudgetRecord::Daemon(_) => Rung::Submitted,
+    };
+    if !matches!(success.verification_status, VerificationStatus::Achieved(rung) if rung == status_rung)
+        || encode_hex(record_budget_id(&record.record)) != request.budget_id.as_str()
+        || proven_head != record.head
+        || activity_id != record.activity_id
+    {
+        return Err(violation(operation));
+    }
+    Ok(AuthorityResponse {
+        authority,
+        value: BudgetState {
+            record,
+            balance: Amount(decimal_u128(&state["balance"], operation)?),
+            proven_head,
+            activity_id,
+        },
+    })
 }
 
 #[cfg(test)]

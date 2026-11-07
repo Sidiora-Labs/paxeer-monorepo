@@ -1,0 +1,25 @@
+[repair.22.31.137]
+audit = "22.30.73"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+criterion = "22998.1"
+evidence = "hf-build and hf-done private gate ledger records the exact candidate revision, command, exit and log; no deployment to a live cluster is claimed."
+baseline = "No baseline gate ran: Order 1 and 4 require implementation first and forbid a manual verify; the new Go tests did not exist at the base revision, so no pre-change failing test result is claimed."
+previous_attempt = "Seed revision 7d0a1abb0a4ad9ea362574145046a7255e7e5327 failed TestRepair_137_FlyStartupRestart because its local HTTPS endpoint used an IP address; the continuation uses localhost with a matching trusted certificate, preserving DNS, TLS and receipt-pin validation."
+qualification_repair = "Candidate 324ce0b5b7270b2be1f26e8eac1b482cb617570e: cg spec done 22.31.137 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log) with sequencer TLS unavailable; replace the test CA-as-server certificate with a distinct CA and signed localhost leaf."
+
+[finding.interop-kubernetes-startup]
+test = "TestRepair_137_KubernetesStartupRestart"
+repair = "Supply merged-node root RPC over TLS on 8545, independently provisioned receipt-key Secret, chain 125, eip155-125 network binding and 15000ms freshness; match node egress and ingress to 8545."
+
+[finding.interop-fly-startup]
+test = "TestRepair_137_FlyStartupRestart"
+repair = "Supply merged-node root RPC over TLS on 8545 and receipt-key JSON remounted from the durable INTEROP_RECEIPT_KEYS app secret on every machine start."
+
+[wiring.node]
+request = "services/platform/hosted/node/deployment.yaml and fly.toml (domain 8, fm-platform): expose the merged paxd root RPC through a TLS listener on 8545, forwarding to loopback HTTP RPC, publish Kubernetes Service port 8545 and provision the matching internal-CA certificate for each configured hostname."
+
+[wiring.pins]
+request = "services/platform/hosted/tests/beta-cluster.sh (domain 8, fm-platform): provision layerx-interop-receipt-keys/receipt-keys.json and Fly INTEROP_RECEIPT_KEYS from independently authenticated governance receipt keys, never by trusting px_getReceiptKeys from the deployment endpoint."
+
+[wiring.render]
+request = "services/interop/deploy/gateway/render.py (domain 11, fm-interop): render x402_supported network eip155:125 and signers from the same independent receipt pins, stage INTEROP_CONFIG and INTEROP_MODULE_REGISTRY, and preserve INTEROP_RECEIPT_KEYS across machine replacements."

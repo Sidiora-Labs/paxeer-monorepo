@@ -35,7 +35,7 @@ func (e *RoleError) Cause() error { return e.Err }
 func (e *RoleError) Revert() ([]byte, error) {
 	contractError, ok := types.ContractErrorOf(e.Err)
 	if !ok {
-		return nil, fmt.Errorf("%w: %s has no contract error", types.ErrInvalidParams, e.Err.Error())
+		return nil, types.ErrInvalidParams.Wrapf("%s has no contract error", e.Err.Error())
 	}
 	return contractError.Revert(e.Account, e.Role)
 }
@@ -123,10 +123,10 @@ func (k *Keeper) GovernanceRevoke(ctx sdk.Context, authority string, contract co
 func (k *Keeper) checkAdministration(ctx sdk.Context, authority string, contract common.Address, role [32]byte,
 	account common.Address) error {
 	if authority != k.authority {
-		return fmt.Errorf("%w: %s", types.ErrUnauthorized, authority)
+		return types.ErrUnauthorized.Wrapf("%s", authority)
 	}
 	if role == DefaultAdminRole {
-		return fmt.Errorf("%w: DEFAULT_ADMIN_ROLE is not administered", types.ErrInvalidParams)
+		return types.ErrInvalidParams.Wrap("DEFAULT_ADMIN_ROLE is not administered")
 	}
 	if account == (common.Address{}) {
 		return types.ErrInvalidRoleAccount
@@ -136,7 +136,7 @@ func (k *Keeper) checkAdministration(ctx sdk.Context, authority string, contract
 		return err
 	}
 	if !found || surface.Role == types.RolePool {
-		return fmt.Errorf("%w: %s is not a role surface", types.ErrInvalidParams, contract.Hex())
+		return types.ErrInvalidParams.Wrapf("%s is not a role surface", contract.Hex())
 	}
 	return nil
 }

@@ -1,0 +1,243 @@
+[reconcile.r11-172]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r11-172.1]
+interface = "interface.11.err-svc-provider-callback-refused"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2658
+symbol = "provider_callback_refused"
+evidence = "fiat emits Dispatch::error(400, refused, provider_callback_refused) when TokenReference::new fails; equivalent emission sites at 2661, 2664 and 2672 reject malformed or unverifiable provider evidence. Dispatch::body supplies the registered operation/error/trace envelope."
+
+[row.r11-172.2]
+interface = "interface.11.err-svc-receipt-verification-failed"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1697
+symbol = "receipt_verification_failed"
+evidence = "ap2_executed emits Dispatch::error(503, pending, receipt_verification_failed) when verify_sequencer_signature fails; line 1700 emits the same code when receipt.protocol() is absent. Both use Dispatch::body's operation/error/trace envelope."
+
+[row.r11-172.3]
+interface = "interface.11.err-svc-request-too-large"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 94
+symbol = "request_too_large"
+evidence = "authenticated emits failure(400, request_too_large, None) when request.body exceeds MAX_BODY; reserve_operation repeats it at 151 for continuation encoding failure. The failure helper at 3121 emits ok:false and error.code, without the registry signature's operation and trace fields."
+
+[row.r11-172.4]
+interface = "interface.11.err-svc-server-clock-unavailable"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2141
+symbol = "server_clock_unavailable"
+evidence = "visa emits Dispatch::error(503, pending, server_clock_unavailable) when now() fails before credential verification; fiat also emits it at 2687 before applying settled provider evidence. These are HTTP error definitions with the Dispatch::body envelope."
+
+[row.r11-172.5]
+interface = "interface.11.err-svc-settlement-unavailable"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1214
+symbol = "settlement_unavailable"
+evidence = "The facilitator verification match maps X402Error::Gateway(_) to Dispatch::error(503, pending, settlement_unavailable), matching the registered HTTP status and error code. Other settlement paths emit the same code; this line defines the response rather than merely referring to it."
+
+[row.r11-172.6]
+interface = "interface.11.err-svc-typed-intent-required"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1547
+symbol = "typed_intent_required"
+evidence = "ap2_authorize_and_execute emits Dispatch::error(400, refused, typed_intent_required) for an invalid currency length or empty activity; line 1550 repeats it for invalid activity hex. Earlier ok_or occurrences and later test expectations are not the HTTP response definition."
+
+[row.r11-172.7]
+interface = "interface.11.err-svc-ucp-order-invalid"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2075
+symbol = "ucp_order_invalid"
+evidence = "ucp maps UcpError::InvalidOrder directly to Dispatch::error(400, refused, ucp_order_invalid). Dispatch::body serializes the registered ok:false, operation, error.code and trace fields."
+
+[row.r11-172.8]
+interface = "interface.11.err-svc-ucp-profile-refused"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1953
+symbol = "ucp_profile_refused"
+evidence = "ucp emits Dispatch::error(400, refused, ucp_profile_refused) when ucp_client_profile(&body) fails, before capability negotiation. This emission defines the registered HTTP 400 error response."
+
+[row.r11-172.9]
+interface = "interface.11.err-svc-unsupported-x402-offer"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1212
+symbol = "unsupported_x402_offer"
+evidence = "The facilitator verification match emits Dispatch::error(400, refused, unsupported_x402_offer) for X402Error::UnsupportedOffer; settlement has the equivalent emission at 1417. Both match the registered HTTP 400 code and Dispatch::body envelope."
+
+[row.r11-172.10]
+interface = "interface.11.err-svc-untrusted-identity-header"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 75
+symbol = "untrusted_identity_header"
+evidence = "route emits failure(400, untrusted_identity_header, None) for x-layerx-principal or x-layerx-api-key headers before routing. The failure helper at 3121 emits ok:false and error.code, without the registry signature's operation and trace fields."
+
+[row.r11-172.11]
+interface = "interface.11.err-svc-visa-tap-refused"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2124
+symbol = "visa_tap_refused"
+evidence = "visa emits Dispatch::error(400, refused, visa_tap_refused) when TapRequest::parse fails. Equivalent HTTP 400 emissions at 2146, 2166, 2183 and 2212 cover credential, binding, expiry and trusted-intent refusals."
+
+[row.r11-172.12]
+interface = "interface.11.err-svc-visa-tap-replayed"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2208
+symbol = "visa_tap_replayed"
+evidence = "visa maps Err(TapError::Replay) from prepare_trusted_intent to Dispatch::error(409, refused, visa_tap_replayed), defining the registered HTTP 409 response with the Dispatch::body envelope."
+
+[row.r11-172.13]
+interface = "interface.11.err-svc-visa-tap-target-mismatch"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2135
+symbol = "visa_tap_target_mismatch"
+evidence = "visa emits Dispatch::error(400, refused, visa_tap_target_mismatch) when require_visa_target fails. The later Err literal at 2314 is the helper's internal result; line 2135 defines the registered HTTP response."
+
+[row.r11-172.14]
+interface = "interface.11.err-svc-visa-tap-target-unavailable"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 2132
+symbol = "visa_tap_target_unavailable"
+evidence = "visa emits Dispatch::error(400, refused, visa_tap_target_unavailable) when visa_targets contains no target for record.principal_digest. Dispatch::body supplies the registered error envelope."
+
+[row.r11-172.15]
+interface = "interface.11.err-svc-x402-buyer-refused"
+verdict = "served"
+path = "services/interop/crates/layerx-interop-service/src/server.rs"
+line = 1009
+symbol = "x402_buyer_refused"
+evidence = "x402_buyer maps buyer.build_payment failure to Dispatch::error(400, refused, x402_buyer_refused), matching the registered HTTP 400 status, error code and Dispatch::body envelope."
+
+[row.r11-172.16]
+interface = "interface.11.rs-mirror-archive"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 146
+symbol = "Archive"
+evidence = "pub struct Archive declares the verified node-bound archive with data, bytes, commitment and node_head fields. The following impl Archive and later parameter types are uses of this declaration."
+
+[row.r11-172.17]
+interface = "interface.11.rs-mirror-archive-bytes"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 217
+symbol = "bytes"
+evidence = "Within impl Archive, pub fn bytes(&self) -> &[u8] returns &self.bytes. This matches the registry signature; Writer::bytes and Reader::bytes have different parameters and return types, and the struct field is not the method declaration."
+
+[row.r11-172.18]
+interface = "interface.11.rs-mirror-archive-error"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 266
+symbol = "ArchiveError"
+evidence = "pub enum ArchiveError declares archive encoding and validation failures including ArchiveTooLarge, Length, Format, Version and TrailingBytes. Earlier result types and SourceError::Archive are references to this enum."
+
+[row.r11-172.19]
+interface = "interface.11.rs-mirror-archive-node-head"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 227
+symbol = "node_head"
+evidence = "Within impl Archive, pub const fn node_head(&self) -> NodeHead returns self.node_head, exactly matching the registered method. The field and constructor parameters named node_head are not this declaration."
+
+[row.r11-172.20]
+interface = "interface.11.rs-mirror-chain-failure"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 617
+symbol = "ChainFailure"
+evidence = "pub enum ChainFailure declares Unavailable(String), RateLimited(String), SubmissionRejected(String) and InvalidResponse(String). Earlier Ethereum and Solana client trait return types merely reference the enum."
+
+[row.r11-172.21]
+interface = "interface.11.rs-mirror-chain-position"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 690
+symbol = "ChainPosition"
+evidence = "pub enum ChainPosition declares Ethereum block coordinates with confirmations and Solana slot coordinates with rooted_slots. Later state fields and enum variant constructions use this declaration."
+
+[row.r11-172.22]
+interface = "interface.11.rs-mirror-chain-progress"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1409
+symbol = "ChainProgress"
+evidence = "pub struct ChainProgress declares verified and mirrored MirrorCursor fields plus refusal: Option<ReconcileRefusal>. The Publisher::progress return type and later ProgressGate constructions are references, not the declaration."
+
+[row.r11-172.23]
+interface = "interface.11.rs-mirror-config-error"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 477
+symbol = "ConfigError"
+evidence = "pub enum ConfigError declares the Ethereum and Solana variants. The preceding validate method return types, documentation links and Err expressions reference this public enum."
+
+[row.r11-172.24]
+interface = "interface.11.rs-mirror-durable-publication-report"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1262
+symbol = "DurablePublicationReport"
+evidence = "pub struct DurablePublicationReport declares commitment: ArchiveCommitment, ethereum: EthereumLaneState and solana: SolanaLaneState. Publisher::publish later returns and constructs this independently reported dual-chain status."
+
+[row.r11-172.25]
+interface = "interface.11.rs-mirror-ethereum-archive-write"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 484
+symbol = "EthereumArchiveWrite"
+evidence = "pub struct EthereumArchiveWrite<'a> declares the Ethereum append request, including chain_id, archive_contract, commitment, network_id, batch_number, checkpoint and borrowed archive bytes. Later trait parameters and request construction use this type."
+
+[row.r11-172.26]
+interface = "interface.11.rs-mirror-ethereum-config"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 423
+symbol = "EthereumConfig"
+evidence = "pub struct EthereumConfig declares chain_id: u64, archive_contract: [u8; 20] and required_confirmations: u64. Its following impl and the publisher configuration fields reference this declaration."
+
+[row.r11-172.27]
+interface = "interface.11.rs-mirror-ethereum-config-validate"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 435
+symbol = "validate"
+evidence = "impl EthereumConfig declares pub fn validate(self) -> Result<Self, ConfigError>, rejecting zero chain_id, archive_contract or required_confirmations with ConfigError::Ethereum. The identically named method at 463 belongs to SolanaConfig and does not serve this registry row."
+
+[row.r11-172.28]
+interface = "interface.11.rs-mirror-ethereum-lane-state"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 1230
+symbol = "EthereumLaneState"
+evidence = "pub enum EthereumLaneState declares Progress with publication stage, phase, transaction hash, position and freshness, and Degraded with EthereumError and freshness. The durable report field and later variant constructions reference this enum."
+
+[row.r11-172.29]
+interface = "interface.11.rs-mirror-ethereum-observation"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 521
+symbol = "EthereumObservation"
+evidence = "pub enum EthereumObservation declares Pending, Canonical with block_number/block_hash/confirmations, Reorged with former block coordinates, and Rejected. The observe trait method and later match arms use this declaration."
+
+[row.r11-172.30]
+interface = "interface.11.rs-mirror-ethereum-submission"
+verdict = "served"
+path = "services/interop/crates/layerx-mirror/src/publisher.rs"
+line = 509
+symbol = "EthereumSubmission"
+evidence = "pub struct EthereumSubmission declares transaction_hash: [u8; 32] for a successful Ethereum transaction submission. The client trait return type, publication map and verification parameter are subsequent uses."

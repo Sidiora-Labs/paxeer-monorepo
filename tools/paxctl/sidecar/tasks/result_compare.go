@@ -70,6 +70,10 @@ func (e *ResultExporter) newComparisonLoop(ctx context.Context, cfg ResultExport
 		return nil, fmt.Errorf("building S3 uploader: %w", err)
 	}
 
+	last, err := e.readCheckpoint(cfg)
+	if err != nil {
+		return nil, err
+	}
 	var compOpts []shadow.Option
 	if cfg.MigrationMode {
 		compOpts = append(compOpts, shadow.WithMigrationMode())
@@ -101,7 +105,6 @@ func (e *ResultExporter) newComparisonLoop(ctx context.Context, cfg ResultExport
 		compOpts = append(compOpts, shadow.WithLayer2(shadowState, canonicalState, keySource))
 	}
 
-	last := e.readExportState()
 	return &comparisonLoop{
 		exporter:     e,
 		comparator:   shadow.NewComparator(cfg.RPCEndpoint, cfg.CanonicalRPC, compOpts...),
@@ -170,7 +173,9 @@ func (l *comparisonLoop) flushFinalPage(ctx context.Context) error {
 	if err := flushComparePage(ctx, l.uploader, l.cfg.Bucket, l.prefix, l.pageBuf); err != nil {
 		return err
 	}
-	l.exporter.persistHeight(lastHeight)
+	if err := l.exporter.persistHeight(l.cfg, lastHeight); err != nil {
+		return err
+	}
 	l.pageBuf = l.pageBuf[:0]
 	return nil
 }
@@ -252,8 +257,7 @@ func (l *comparisonLoop) handleDivergence(ctx context.Context, result shadow.Com
 		return fmt.Errorf("flushing final comparison page: %w", err)
 	}
 
-	l.exporter.persistHeight(l.height)
-	return nil
+	return l.exporter.persistHeight(l.cfg, l.height)
 }
 
 // recordDivergence notes a divergent block under ContinueOnDivergence (survey
@@ -306,16 +310,18 @@ func (l *comparisonLoop) flushPageIfFull(ctx context.Context) error {
 		return fmt.Errorf("flushing comparison page: %w", err)
 	}
 
-	l.exporter.persistHeight(l.height)
+	if err := l.exporter.persistHeight(l.cfg, l.height); err != nil {
+		return err
+	}
 	l.pageBuf = l.pageBuf[:0]
 	return nil
 }
 
-// persistHeight saves the last exported height to disk, logging on failure.
-func (e *ResultExporter) persistHeight(height int64) {
-	if err := e.writeExportState(exportState{LastExportedHeight: height}); err != nil {
-		exportLog.Warn("failed to persist export state", "err", err)
+func (e *ResultExporter) persistHeight(cfg ResultExportRequest, height int64) error {
+	if err := e.writeExportState(exportState{Identity: e.exportIdentity(cfg), LastExportedHeight: height}); err != nil {
+		return exportFailure("checkpoint", err, true)
 	}
+	return nil
 }
 
 // --- S3 upload helpers ---

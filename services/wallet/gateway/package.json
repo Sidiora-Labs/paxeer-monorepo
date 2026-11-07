@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Paxeer Embedded Wallet API — Fastify backend signs and broadcasts on Paxeer. Zero runtime dependency on Supabase.",
+  "description": "Paxeer Embedded Wallet API \u2014 Fastify backend signs and broadcasts on Paxeer. Zero runtime dependency on Supabase.",
   "main": "dist/index.js",
   "exports": {
-    ".": "./dist/index.js"
+    ".": "./dist/index.js",
+    "./schemas/tx": {
+      "types": "./src/schemas/tx.ts",
+      "default": "./src/schemas/tx.ts"
+    }
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",
@@ -21,19 +25,22 @@
   "dependencies": {
     "@fastify/cors": "^10.0.1",
     "@fastify/sensible": "^6.0.1",
-    "@modelcontextprotocol/sdk": "^1.29.0",
-    "fastify": "^5.0.0",
+    "@modelcontextprotocol/sdk": "^1.32.0",
+    "fastify": "^5.12.6",
     "jose": "^5.9.6",
     "pg": "^8.13.1",
     "pino-pretty": "^11.2.2",
     "viem": "^2.21.19",
-    "zod": "^3.23.8"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.15",
+    "@electric-sql/pglite-socket": "0.2.18",
     "@types/node": "^22.7.5",
     "@types/pg": "^8.11.10",
+    "tinypool": "^2.1.2",
     "tsx": "^4.19.1",
     "typescript": "^5.6.3",
-    "vitest": "^2.1.2"
+    "vitest": "^4.1.12"
   }
 }

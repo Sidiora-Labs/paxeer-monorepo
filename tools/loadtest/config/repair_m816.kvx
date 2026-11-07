@@ -1,0 +1,27 @@
+[repair.22.33.816]
+audit = "22.30.179"
+findings = ["random-gas-overflow", "profile-proof-does-not-run-cli"]
+baseline = "No prior gate ledger or task source changes existed. No baseline verification was run: the explicit gate order prohibits tests before full implementation and running verify_cmd by hand; no pre-change test failures are claimed."
+wiring_requests = []
+evidence = "hf-build and hf-done record revision, command, exit and private log in the runner gate ledger; only that bounded evidence qualifies this task."
+
+[finding.random-gas-overflow]
+proof = "TestRepairM_816_RandomGasUint64Boundary"
+repair = "The full inclusive uint64 interval uses rand.Uint64 before width arithmetic; all other admitted intervals retain rand.Uint64N and existing invalid-range errors."
+path = "LoadConfig JSON -> scenario GasPicker decoding -> real transfer transaction options -> random sampler -> signer -> LoadTx RPC encoding -> transaction decoding and sender recovery."
+coverage = "Gas limit, fee cap and tip cap use full uint64, upper/lower endpoint pairs and the upper signed half; assertions check range preservation, inclusive endpoint pairs and invalid ranges without changing the transaction consumer's zero-gas refusal."
+
+[finding.profile-proof-does-not-run-cli]
+proof = ["TestRepairM_816_ProfileCLI", "TestRepairM_816_ConfigurationPrecisionAndPrecedence"]
+repair = "The historical caller-gap assertions remain and now invoke the production Cobra command on the shipped evm_transfer.json, collecting real dry-run transactions, writing final JSON, and verifying errors.Is(ErrPerformanceBounds) and process exit 1; explicit zero flags yield exit 0."
+path = "Shipped profile file -> production CLI loader and handler -> MergeBounds -> Viper -> real generator, sender and collector -> final report -> bounds error -> self test executable exit."
+precision = "Existing repeated-load, exact uint64, settings/flag precedence, explicit-zero, malformed-producer, JSON-key and duration-boundary assertions are preserved and executed by the declared gate."
+main_coverage = "TestProofPaxloadBoundsShippedProfileMainExit in main_test.go additionally drives the actual main function and shipped-profile regression/zero-flag process exits; the declared config-only gate does not execute package main tests."
+
+[gotcha.baseline-order]
+observed = "The inherited baseline-test step conflicts with the explicit implementation-first gate order and single verification budget."
+resolution = "Follow the explicit order; no baseline execution or baseline failure is claimed."
+
+[gotcha.profile-name]
+observed = "The shipped transfer profile is evm_transfer.json, not evm-transfer.json."
+resolution = "Read the committed filename and invoke that profile directly in the config gate."

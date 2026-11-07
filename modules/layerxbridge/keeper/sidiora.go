@@ -28,6 +28,9 @@ func SidioraMetadata() banktypes.Metadata {
 }
 
 func (k Keeper) EnsureSidioraDenom(ctx sdk.Context, chainID uint64) (string, error) {
+	if chainID != types.SidioraHomeChainID {
+		return "", types.ErrInvalidRequest.Wrap("Sidiora must be registered on its home chain")
+	}
 	if _, found := k.GetChain(ctx, chainID); !found {
 		return "", types.ErrUnknownChain.Wrapf("chain %d", chainID)
 	}

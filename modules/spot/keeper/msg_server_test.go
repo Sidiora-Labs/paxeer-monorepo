@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"bytes"
 	"math/big"
 	"testing"
 
@@ -10,6 +11,7 @@ import (
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
 	authtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/auth/types"
+	banktypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/bank/types"
 	govtypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/gov/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,6 +45,10 @@ func newSpotEnv(t *testing.T, gs types.GenesisState) (*keeper.Keeper, sdk.Contex
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	ctx = pricefeedtestutil.WithPriceFeedStore(ctx, key)
 	require.NoError(t, app.EvmKeeper.SetERC20NativePointer(ctx, syncDenom, syncPointer))
+	app.BankKeeper.SetDenomMetaData(ctx, banktypes.Metadata{
+		Base: syncDenom, Display: "spotsync", Name: "Spot Sync", Symbol: "SPOTSYNC",
+		DenomUnits: []*banktypes.DenomUnit{{Denom: syncDenom, Exponent: 0}, {Denom: "spotsync", Exponent: 6}},
+	})
 	k := keeper.NewKeeper(key, app.BankKeeper, &app.EvmKeeper, pricefeed)
 	k.InitGenesis(ctx, gs)
 	return k, ctx
@@ -58,7 +64,7 @@ func requireLog(t *testing.T, l *ethtypes.Log, address common.Address, topics []
 	for _, w := range words {
 		data = append(data, w...)
 	}
-	require.Equal(t, data, l.Data)
+	require.True(t, bytes.Equal(data, l.Data), "log data: expected %x, got %x", data, l.Data)
 }
 
 func logsSince(ctx sdk.Context, before int) []*ethtypes.Log {
@@ -75,6 +81,126 @@ func getParams(t *testing.T, k *keeper.Keeper, ctx sdk.Context) types.Params {
 func syncToken(capBps uint64, paused bool) types.TokenParams {
 	return types.TokenParams{Address: syncPointer, Kind: types.TokenKindNative, Decimals: 6, MarketID: 12,
 		Paused: paused, MaxUtilizationBps: capBps}
+}
+
+func TestUpdateParamsRegistersNewToken(t *testing.T) {
+	testUpdateParamsRegistersNewToken(t)
+}
+
+func testUpdateParamsRegistersNewToken(t *testing.T) {
+	t.Helper()
+	e := newRepair17Env(t)
+	k, ctx := e.a.SpotKeeper, e.ctx
+	server := keeper.NewMsgServerImpl(k)
+	params := getParams(t, k, ctx)
+	token := syncToken(9_000, true)
+	token.Address, token.MarketID = e.native, types.PAXMarketID
+	token.Decimals = 0
+	params.Tokens = []types.TokenParams{token}
+	params.SwapPaused = true
+	before := len(ctx.EVMEventManager().Events())
+	response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: params,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, response)
+	token.Decimals = 6
+	stored := getParams(t, k, ctx)
+	require.Equal(t, []types.TokenParams{token}, stored.Tokens)
+	require.True(t, stored.SwapPaused)
+	books := k.ExportGenesis(ctx).Books
+	require.Equal(t, []types.TokenBook{{Token: e.native, Reserves: sdk.ZeroInt(),
+		TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+		ShareDenom: k.ShareDenom(e.native)}}, books)
+	logs := logsSince(ctx, before)
+	require.Len(t, logs, 4)
+	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic},
+		common.LeftPadBytes(types.GovernanceEVMAddress().Bytes(), 32))
+	tokenTopic := common.BytesToHash(e.native.Bytes())
+	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
+	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := e.a.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(e.native))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
+
+	before = len(ctx.EVMEventManager().Events())
+	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: stored,
+	})
+	require.NoError(t, err)
+	require.Empty(t, logsSince(ctx, before))
+	require.Equal(t, books, k.ExportGenesis(ctx).Books)
+	require.Equal(t, stored, getParams(t, k, ctx))
+
+	// Unpause the governance-created pool before exercising the public vault.
+	stored.Tokens[0].Paused = false
+	_, err = server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: stored,
+	})
+	require.NoError(t, err)
+	repairM481PoolLifecycle(e, []common.Address{e.native})
+}
+
+func TestUpdateParamsRefusesUnknownMarket(t *testing.T) {
+	for _, existing := range []bool{false, true} {
+		name := "new token"
+		if existing {
+			name = "existing token"
+		}
+		t.Run(name, func(t *testing.T) {
+			gs := types.DefaultGenesis()
+			if existing {
+				gs.Params.Tokens = []types.TokenParams{syncToken(9_000, false)}
+				gs.Books = []types.TokenBook{{Token: syncPointer, Reserves: sdk.ZeroInt(),
+					TotalDeposited: sdk.ZeroInt(), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+					ShareDenom: "spot/share/" + syncPointer.Hex()}}
+			}
+			k, ctx := newSpotEnv(t, *gs)
+			server := keeper.NewMsgServerImpl(k)
+			beforeState := k.ExportGenesis(ctx)
+			params := getParams(t, k, ctx)
+			token := syncToken(9_000, false)
+			token.MarketID = ^uint64(0)
+			params.Tokens = []types.TokenParams{token}
+			params.SwapPaused = true
+			beforeLogs := len(ctx.EVMEventManager().Events())
+			beforeEvents := len(ctx.EventManager().Events())
+			response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+				Authority: governanceAuthority, Params: params,
+			})
+			require.ErrorIs(t, err, types.ErrInvalidOracle)
+			require.Nil(t, response)
+			require.Equal(t, beforeState, k.ExportGenesis(ctx))
+			require.Empty(t, logsSince(ctx, beforeLogs))
+			require.Len(t, ctx.EventManager().Events(), beforeEvents)
+		})
+	}
+}
+
+func TestUpdateParamsRefusesDelistWithReserves(t *testing.T) {
+	gs := types.DefaultGenesis()
+	gs.Params.Tokens = []types.TokenParams{syncToken(9_000, false)}
+	gs.Books = []types.TokenBook{{Token: syncPointer, Reserves: sdk.NewInt(1_000),
+		TotalDeposited: sdk.NewInt(1_000), TotalWithdrawn: sdk.ZeroInt(), Decimals: 6,
+		ShareDenom: "spot/share/" + syncPointer.Hex()}}
+	k, ctx := newSpotEnv(t, *gs)
+	server := keeper.NewMsgServerImpl(k)
+	beforeState := k.ExportGenesis(ctx)
+	params := getParams(t, k, ctx)
+	params.Tokens = nil
+	params.SwapPaused = true
+	beforeLogs := len(ctx.EVMEventManager().Events())
+	beforeEvents := len(ctx.EventManager().Events())
+	response, err := server.UpdateParams(sdk.WrapSDKContext(ctx), &types.MsgUpdateParams{
+		Authority: governanceAuthority, Params: params,
+	})
+	require.ErrorIs(t, err, types.ErrParamsInvalid)
+	require.ErrorContains(t, err, "token "+syncPointer.Hex()+" holds reserves")
+	require.Nil(t, response)
+	require.Equal(t, beforeState, k.ExportGenesis(ctx))
+	require.Empty(t, logsSince(ctx, beforeLogs))
+	require.Len(t, ctx.EventManager().Events(), beforeEvents)
 }
 
 func TestParamChangeEmitsPauseLogs(t *testing.T) {
@@ -103,9 +229,14 @@ func TestParamChangeEmitsPauseLogs(t *testing.T) {
 	params.Tokens = []types.TokenParams{syncToken(9_000, false)}
 	logs, err := update(params)
 	require.NoError(t, err)
-	require.Len(t, logs, 2)
+	require.Len(t, logs, 4)
 	requireLog(t, logs[0], pecor, []common.Hash{keeper.PausedTopic}, governance)
-	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	requireLog(t, logs[1], pecorVault, []common.Hash{keeper.TokenRegisteredTopic, tokenTopic}, word(6), word(0))
+	requireLog(t, logs[2], pecorVault, []common.Hash{keeper.UtilizationCapUpdatedTopic, tokenTopic}, word(9_000))
+	pointer, _, exists := testkeeper.EVMTestApp.EvmKeeper.GetERC20NativePointer(ctx, k.ShareDenom(syncPointer))
+	require.True(t, exists)
+	requireLog(t, logs[3], pecorVault, []common.Hash{crypto.Keccak256Hash([]byte("ShareTokenCreated(address,address)")),
+		tokenTopic, common.BytesToHash(pointer.Bytes())})
 	require.True(t, getParams(t, k, ctx).SwapPaused)
 
 	params.SwapPaused, params.OrdersPaused = false, true

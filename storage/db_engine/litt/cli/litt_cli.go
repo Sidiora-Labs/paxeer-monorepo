@@ -18,6 +18,12 @@ var (
 		Usage:    "Source paths where the DB data is found, at least one is required.",
 		Required: true,
 	}
+	dstFlag = &cli.StringSliceFlag{
+		Name:     "dst",
+		Aliases:  []string{"d"},
+		Usage:    "Remote destination paths, at least one is required.",
+		Required: true,
+	}
 	forceFlag = &cli.BoolFlag{
 		Name:    "force",
 		Aliases: []string{"f"},
@@ -34,6 +40,7 @@ var (
 
 // buildCliParser creates a command line parser for the LittDB CLI tool.
 func buildCLIParser(logger *slog.Logger) *cli.App {
+	pushDstFlag, syncDstFlag := *dstFlag, *dstFlag
 	app := &cli.App{
 		Name:  "litt",
 		Usage: "LittDB command line interface",
@@ -167,12 +174,7 @@ func buildCLIParser(logger *slog.Logger) *cli.App {
 						Usage:    "Source paths where the data is found, at least one is required.",
 						Required: true,
 					},
-					&cli.StringSliceFlag{
-						Name:     "dst",
-						Aliases:  []string{"d"},
-						Usage:    "Remote destination paths, at least one is required.",
-						Required: true,
-					},
+					&pushDstFlag,
 					&cli.Uint64Flag{
 						Name:    "port",
 						Aliases: []string{"p"},
@@ -228,12 +230,7 @@ func buildCLIParser(logger *slog.Logger) *cli.App {
 						Usage:    "Source paths where the data is found, at least one is required.",
 						Required: true,
 					},
-					&cli.StringSliceFlag{
-						Name:     "dst",
-						Aliases:  []string{"d"},
-						Usage:    "Remote destination paths, at least one is required.",
-						Required: true,
-					},
+					&syncDstFlag,
 					&cli.Uint64Flag{
 						Name:    "port",
 						Aliases: []string{"p"},

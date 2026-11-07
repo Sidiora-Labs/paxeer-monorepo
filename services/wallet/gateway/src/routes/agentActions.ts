@@ -1,8 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { requireAgent } from '../middleware/principal.js';
 import { requireSignedAgentRequest } from '../agent/verify.js';
-import { env } from '../env.js';
-import { AllowanceAndCallBody, ActionIdParam, LayerxDepositBody } from '../schemas/agent.js';
+import { AllowanceAndCallBody, ActionIdParam } from '../schemas/agent.js';
 import { ensureAgentWallet } from './agentExec.js';
 import {
   createOrGetAction,
@@ -11,12 +10,7 @@ import {
   updateAction,
   type ActionRow,
 } from '../db/actions.js';
-import {
-  buildAllowanceAndCallPlan,
-  buildLayerxDepositPlan,
-  PlanError,
-  type ActionPlan,
-} from '../agent/actions/plan.js';
+import { buildAllowanceAndCallPlan, PlanError, type ActionPlan } from '../agent/actions/plan.js';
 import { buildErrorEnvelope, type ErrorEnvelope } from '../agent/actions/errors.js';
 
 /**
@@ -26,8 +20,10 @@ import { buildErrorEnvelope, type ErrorEnvelope } from '../agent/actions/errors.
  * approve → confirm → call → confirm → verify sequence server-side via the
  * background worker (agent/actions/worker.ts). The agent polls GET
  * /v1/agent/actions/:id. Resubmitting the same idempotency_key returns the
- * SAME action — never a second nonce, never a repeated deposit.
+ * SAME action — never a second nonce, never a repeated call.
  */
+
+export const ALLOWANCE_AND_CALL_ROUTE = '/v1/agent/actions/allowance-and-call';
 
 const TERMINAL_SUCCESS = new Set(['confirmed']);
 const TERMINAL_FAILURE = new Set([
@@ -69,59 +65,41 @@ function serialize(row: ActionRow): Record<string, unknown> {
 }
 
 export async function agentActionRoutes(app: FastifyInstance): Promise<void> {
-  // ── LayerX deposit ─────────────────────────────────────────────────────────
-  app.post('/v1/agent/actions/layerx/deposit', { preHandler: requireSignedAgentRequest }, async (req, reply) => {
-    if (!env.LAYERX_VAULT_ADDRESS) {
-      return reply
-        .code(503)
-        .send({ error: 'layerx_disabled', message: 'LAYERX_VAULT_ADDRESS not configured' });
-    }
-    const parsed = LayerxDepositBody.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
-    }
-    const body = parsed.data;
-
-    return submit(app, req, reply, {
-      did: req.agent!.did,
-      kind: 'layerx_deposit',
-      idempotencyKey: body.idempotency_key,
-      request: { asset: body.asset, amount: body.amount, did_claim: body.did_claim },
-      buildPlan: () => buildLayerxDepositPlan({ amount: body.amount, didClaim: body.did_claim }),
-    });
-  });
-
   // ── Generic allowance-and-call ──────────────────────────────────────────────
-  app.post('/v1/agent/actions/allowance-and-call', { preHandler: requireSignedAgentRequest }, async (req, reply) => {
-    const parsed = AllowanceAndCallBody.safeParse(req.body);
-    if (!parsed.success) {
-      return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
-    }
-    const body = parsed.data;
+  app.post(
+    ALLOWANCE_AND_CALL_ROUTE,
+    { preHandler: requireSignedAgentRequest },
+    async (req, reply) => {
+      const parsed = AllowanceAndCallBody.safeParse(req.body);
+      if (!parsed.success) {
+        return reply.code(400).send({ error: 'invalid_body', issues: parsed.error.issues });
+      }
+      const body = parsed.data;
 
-    return submit(app, req, reply, {
-      did: req.agent!.did,
-      kind: 'allowance_and_call',
-      idempotencyKey: body.idempotency_key,
-      request: {
-        token: body.token,
-        amount: body.amount,
-        spender: body.spender,
-        contract: body.contract,
-        method: body.method,
-        args: body.args,
-      },
-      buildPlan: () =>
-        buildAllowanceAndCallPlan({
+      return submit(app, req, reply, {
+        did: req.agent!.did,
+        kind: 'allowance_and_call',
+        idempotencyKey: body.idempotency_key,
+        request: {
           token: body.token,
           amount: body.amount,
           spender: body.spender,
           contract: body.contract,
           method: body.method,
           args: body.args,
-        }),
-    });
-  });
+        },
+        buildPlan: () =>
+          buildAllowanceAndCallPlan({
+            token: body.token,
+            amount: body.amount,
+            spender: body.spender,
+            contract: body.contract,
+            method: body.method,
+            args: body.args,
+          }),
+      });
+    }
+  );
 
   // ── Poll ────────────────────────────────────────────────────────────────────
   app.get('/v1/agent/actions/:action_id', { preHandler: requireAgent }, async (req, reply) => {
@@ -130,7 +108,8 @@ export async function agentActionRoutes(app: FastifyInstance): Promise<void> {
       return reply.code(400).send({ error: 'invalid_action_id', issues: parsed.error.issues });
     }
     const row = await getActionForDid(parsed.data.action_id, req.agent!.did);
-    if (!row) return reply.code(404).send({ error: 'not_found', message: 'no such action for this agent' });
+    if (!row)
+      return reply.code(404).send({ error: 'not_found', message: 'no such action for this agent' });
     return reply.send(serialize(row));
   });
 }
@@ -147,11 +126,11 @@ async function submit(
   reply: FastifyReply,
   args: {
     did: string;
-    kind: 'layerx_deposit' | 'allowance_and_call';
+    kind: 'allowance_and_call';
     idempotencyKey: string;
     request: Record<string, unknown>;
     buildPlan: () => Promise<ActionPlan> | ActionPlan;
-  },
+  }
 ): Promise<unknown> {
   let walletId: string | null = null;
   let walletAddress: string | null = null;
@@ -178,7 +157,11 @@ async function submit(
   if (!created) {
     if (req.agent?.custody?.reauthorization && row.terminal_at === null) {
       try {
-        const authorized = await retainActionCustodyAuthorization(row.id, args.did, req.agent.custody);
+        const authorized = await retainActionCustodyAuthorization(
+          row.id,
+          args.did,
+          req.agent.custody
+        );
         return reply.code(200).send({ replay: true, ...serialize(authorized) });
       } catch {
         return reply.code(409).send({ error: 'action_authorization_mismatch' });

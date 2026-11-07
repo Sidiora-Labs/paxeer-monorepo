@@ -17,6 +17,11 @@ type RouteOptions struct {
 	Unsafe bool // include "unsafe" methods (default false)
 }
 
+// NewRPCFunc constructs a route using the JSON-RPC server's signature validation.
+func NewRPCFunc(f any) *rpc.RPCFunc {
+	return rpc.NewRPCFunc(f)
+}
+
 // NewRoutesMap constructs an RPC routing map for the given service
 // implementation. If svc implements RPCUnsafe and opts.Unsafe is true, the
 // "unsafe" methods will also be added to the map. The caller may also edit the
@@ -28,53 +33,53 @@ func NewRoutesMap(svc RPCService, opts *RouteOptions) RoutesMap {
 	out := RoutesMap{
 		// Event subscription. Note that subscribe, unsubscribe, and
 		// unsubscribe_all are only available via the websocket endpoint.
-		"events":          rpc.NewRPCFunc(svc.Events).Timeout(0),
+		"events":          NewRPCFunc(svc.Events).Timeout(0),
 		"subscribe":       rpc.NewWSRPCFunc(svc.Subscribe),
 		"unsubscribe":     rpc.NewWSRPCFunc(svc.Unsubscribe),
 		"unsubscribe_all": rpc.NewWSRPCFunc(svc.UnsubscribeAll),
 
 		// info API
-		"health":               rpc.NewRPCFunc(svc.Health),
-		"status":               rpc.NewRPCFunc(svc.Status),
-		"lag_status":           rpc.NewRPCFunc(svc.LagStatus),
-		"net_info":             rpc.NewRPCFunc(svc.NetInfo),
-		"blockchain":           rpc.NewRPCFunc(svc.BlockchainInfo),
-		"genesis":              rpc.NewRPCFunc(svc.Genesis),
-		"genesis_chunked":      rpc.NewRPCFunc(svc.GenesisChunked),
-		"header":               rpc.NewRPCFunc(svc.Header),
-		"header_by_hash":       rpc.NewRPCFunc(svc.HeaderByHash),
-		"block":                rpc.NewRPCFunc(svc.Block),
-		"block_by_hash":        rpc.NewRPCFunc(svc.BlockByHash),
-		"block_results":        rpc.NewRPCFunc(svc.BlockResults),
-		"commit":               rpc.NewRPCFunc(svc.Commit),
-		"check_tx":             rpc.NewRPCFunc(svc.CheckTx),
-		"tx":                   rpc.NewRPCFunc(svc.Tx),
-		"tx_search":            rpc.NewRPCFunc(svc.TxSearch),
-		"block_search":         rpc.NewRPCFunc(svc.BlockSearch),
-		"validators":           rpc.NewRPCFunc(svc.Validators),
-		"dump_consensus_state": rpc.NewRPCFunc(svc.DumpConsensusState),
-		"consensus_state":      rpc.NewRPCFunc(svc.GetConsensusState),
-		"consensus_params":     rpc.NewRPCFunc(svc.ConsensusParams),
-		"unconfirmed_txs":      rpc.NewRPCFunc(svc.UnconfirmedTxs),
-		"num_unconfirmed_txs":  rpc.NewRPCFunc(svc.NumUnconfirmedTxs),
+		"health":               NewRPCFunc(svc.Health),
+		"status":               NewRPCFunc(svc.Status),
+		"lag_status":           NewRPCFunc(svc.LagStatus),
+		"net_info":             NewRPCFunc(svc.NetInfo),
+		"blockchain":           NewRPCFunc(svc.BlockchainInfo),
+		"genesis":              NewRPCFunc(svc.Genesis),
+		"genesis_chunked":      NewRPCFunc(svc.GenesisChunked),
+		"header":               NewRPCFunc(svc.Header),
+		"header_by_hash":       NewRPCFunc(svc.HeaderByHash),
+		"block":                NewRPCFunc(svc.Block),
+		"block_by_hash":        NewRPCFunc(svc.BlockByHash),
+		"block_results":        NewRPCFunc(svc.BlockResults),
+		"commit":               NewRPCFunc(svc.Commit),
+		"check_tx":             NewRPCFunc(svc.CheckTx),
+		"tx":                   NewRPCFunc(svc.Tx),
+		"tx_search":            NewRPCFunc(svc.TxSearch),
+		"block_search":         NewRPCFunc(svc.BlockSearch),
+		"validators":           NewRPCFunc(svc.Validators),
+		"dump_consensus_state": NewRPCFunc(svc.DumpConsensusState),
+		"consensus_state":      NewRPCFunc(svc.GetConsensusState),
+		"consensus_params":     NewRPCFunc(svc.ConsensusParams),
+		"unconfirmed_txs":      NewRPCFunc(svc.UnconfirmedTxs),
+		"num_unconfirmed_txs":  NewRPCFunc(svc.NumUnconfirmedTxs),
 
 		// tx broadcast API
-		"broadcast_tx": rpc.NewRPCFunc(svc.BroadcastTx),
+		"broadcast_tx": NewRPCFunc(svc.BroadcastTx),
 		// TODO remove after 0.36
 		// deprecated broadcast tx methods:
-		"broadcast_tx_commit": rpc.NewRPCFunc(svc.BroadcastTxCommit),
-		"broadcast_tx_sync":   rpc.NewRPCFunc(svc.BroadcastTx),
-		"broadcast_tx_async":  rpc.NewRPCFunc(svc.BroadcastTxAsync),
+		"broadcast_tx_commit": NewRPCFunc(svc.BroadcastTxCommit),
+		"broadcast_tx_sync":   NewRPCFunc(svc.BroadcastTx),
+		"broadcast_tx_async":  NewRPCFunc(svc.BroadcastTxAsync),
 
 		// abci API
-		"abci_query": rpc.NewRPCFunc(svc.ABCIQuery),
-		"abci_info":  rpc.NewRPCFunc(svc.ABCIInfo),
+		"abci_query": NewRPCFunc(svc.ABCIQuery),
+		"abci_info":  NewRPCFunc(svc.ABCIInfo),
 
 		// evidence API
-		"broadcast_evidence": rpc.NewRPCFunc(svc.BroadcastEvidence),
+		"broadcast_evidence": NewRPCFunc(svc.BroadcastEvidence),
 	}
 	if u, ok := svc.(RPCUnsafe); ok && opts.Unsafe {
-		out["unsafe_flush_mempool"] = rpc.NewRPCFunc(u.UnsafeFlushMempool)
+		out["unsafe_flush_mempool"] = NewRPCFunc(u.UnsafeFlushMempool)
 	}
 	return out
 }

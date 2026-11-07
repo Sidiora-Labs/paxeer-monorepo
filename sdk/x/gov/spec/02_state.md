@@ -4,202 +4,168 @@ order: 2
 
 # State
 
+The local [governance protobuf](../../../proto/cosmos/gov/v1beta1/gov.proto)
+defines the persisted proposal, deposit, vote, and parameter messages. The
+[keeper](../keeper/keeper.go) accesses the module's `gov` KVStore and governance
+parameter subspace.
+
 ## Parameters and base types
 
-`Parameters` define the rules according to which votes are run. There can only
-be one active parameter set at any given time. If governance wants to change a
-parameter set, either to modify a value or add/remove a parameter field, a new
-parameter set has to be created and the previous one rendered inactive.
+The keeper reads and writes three parameter groups in its parameter subspace,
+using the keys in [types/params.go](../types/params.go). There is no versioned
+`GlobalParams` store in this implementation.
 
 ### DepositParams
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/gov.proto#L127-L145
+Stored under `depositparams`:
+
+- `min_deposit`: minimum coins required to activate regular voting.
+- `max_deposit_period`: duration from submission to the deposit deadline.
+- `min_expedited_deposit`: minimum coins required to activate expedited voting.
 
 ### VotingParams
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/gov.proto#L147-L156
+Stored under `votingparams`:
+
+- `voting_period`: regular voting duration.
+- `expedited_voting_period`: expedited voting duration.
 
 ### TallyParams
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/gov.proto#L158-L183
+Stored under `tallyparams`:
 
-Parameters are stored in a global `GlobalParams` KVStore.
+- `quorum` and `expedited_quorum`: minimum participation fractions.
+- `threshold` and `expedited_threshold`: approval fractions that must be exceeded.
+- `veto_threshold`: veto fraction that must be exceeded to trigger veto.
 
-Additionally, we introduce some basic types:
+These fractions are `sdk.Dec` values. The keeper selects regular or expedited
+values using the proposal's `IsExpedited` flag. See
+[Concepts](01_concepts.md#threshold) for denominators and boundary comparisons.
 
-```go
-type Vote byte
+### VoteOption
 
-const (
-    VoteYes         = 0x1
-    VoteNo          = 0x2
-    VoteNoWithVeto  = 0x3
-    VoteAbstain     = 0x4
-)
+| Go constant        | Protobuf enum                 | Value |
+| ------------------ | ----------------------------- | ----- |
+| OptionEmpty        | VOTE_OPTION_UNSPECIFIED       | 0     |
+| OptionYes          | VOTE_OPTION_YES               | 1     |
+| OptionAbstain      | VOTE_OPTION_ABSTAIN           | 2     |
+| OptionNo           | VOTE_OPTION_NO                | 3     |
+| OptionNoWithVeto   | VOTE_OPTION_NO_WITH_VETO      | 4     |
 
-type ProposalType  string
+Only values 1 through 4 are valid votes. A `WeightedVoteOption` pairs an option
+with an `sdk.Dec` weight, represented by a string in the protobuf schema.
 
-const (
-    ProposalTypePlainText       = "Text"
-    ProposalTypeSoftwareUpgrade = "SoftwareUpgrade"
-)
+### ProposalStatus
 
-type ProposalStatus byte
+| Go constant         | Value | Meaning                                      |
+| ------------------- | ----- | -------------------------------------------- |
+| StatusNil           | 0     | Unspecified                                  |
+| StatusDepositPeriod | 1     | Waiting for minimum deposit                  |
+| StatusVotingPeriod  | 2     | Voting is active                             |
+| StatusPassed        | 3     | Tally passed and content handler succeeded   |
+| StatusRejected      | 4     | Regular tally did not pass                   |
+| StatusFailed        | 5     | Tally passed but content handler failed      |
 
-
-const (
-	StatusNil           ProposalStatus = 0x00
-    StatusDepositPeriod ProposalStatus = 0x01  // Proposal is submitted. Participants can deposit on it but not vote
-    StatusVotingPeriod  ProposalStatus = 0x02  // MinDeposit is reached, participants can vote
-    StatusPassed        ProposalStatus = 0x03  // Proposal passed and successfully executed
-    StatusRejected      ProposalStatus = 0x04  // Proposal has been rejected
-    StatusFailed        ProposalStatus = 0x05  // Proposal passed but failed execution
-)
-```
+A proposal dropped for missing the deposit minimum is deleted, rather than
+retained with a terminal status.
 
 ## Deposit
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/gov.proto#L43-L53
+A `Deposit` stores `proposal_id`, the depositor's account address string, and
+`amount` (`sdk.Coins`). Contributions from the same account to the same proposal
+accumulate in one record. The coins are held by the `gov` module account.
+Refunding transfers the coins back and deletes the record; deleting deposits
+without refunding burns the coins. See [keeper/deposit.go](../keeper/deposit.go).
 
 ## ValidatorGovInfo
 
-This type is used in a temp map when tallying
-
-```go
-  type ValidatorGovInfo struct {
-    Minus     sdk.Dec
-    Vote      Vote
-  }
-```
+[ValidatorGovInfo](../types/tally.go) is a temporary tally record, not persisted
+state. Its fields are `Address` (`sdk.ValAddress`), `BondedTokens` (`sdk.Int`),
+`DelegatorShares` and `DelegatorDeductions` (`sdk.Dec`), and `Vote`
+(`WeightedVoteOptions`). The deductions remove power that delegators have voted
+themselves before the validator's remaining power is tallied.
 
 ## Proposals
 
-`Proposal` objects are used to account votes and generally track the proposal's state. They contain `Content` which denotes
-what this proposal is about, and other fields, which are the mutable state of
-the governance process.
+A `Proposal` contains:
 
-+++ https://github.com/cosmos/cosmos-sdk/blob/v0.40.0/proto/cosmos/gov/v1beta1/gov.proto#L55-L77
+| Protobuf field       | Stored value                                       |
+| -------------------- | -------------------------------------------------- |
+| proposal_id          | uint64 identifier                                  |
+| content              | Any containing a registered Content implementation |
+| status               | ProposalStatus                                     |
+| final_tally_result   | yes, abstain, no, and no_with_veto totals          |
+| submit_time          | Submission block time                              |
+| deposit_end_time     | Deposit deadline                                   |
+| total_deposit        | Aggregate sdk.Coins                                |
+| voting_start_time    | Time voting was activated                          |
+| voting_end_time      | Voting deadline                                    |
+| is_expedited         | Whether expedited rules currently apply            |
 
-```go
-type Content interface {
-	GetTitle() string
-	GetDescription() string
-	ProposalRoute() string
-	ProposalType() string
-	ValidateBasic() sdk.Error
-	String() string
-}
-```
+The Go field for the identifier is `ProposalId`. Title, description, and proposal
+type belong to the packed content, not to separate fields of `Proposal` or
+`MsgSubmitProposal`. A proposal also does not embed depositor lists, voter lists,
+or running vote counters.
 
-The `Content` on a proposal is an interface which contains the information about
-the `Proposal` such as the tile, description, and any notable changes. Also, this
-`Content` type can by implemented by any module. The `Content`'s `ProposalRoute`
-returns a string which must be used to route the `Content`'s `Handler` in the
-governance keeper. This allows the governance keeper to execute proposal logic
-implemented by any module. If a proposal passes, the handler is executed. Only
-if the handler is successful does the state get persisted and the proposal finally
-passes. Otherwise, the proposal is rejected.
+The [Content interface](../types/content.go) provides `GetTitle() string`,
+`GetDescription() string`, `ProposalRoute() string`, `ProposalType() string`,
+`ValidateBasic() error`, and `String() string`. A content handler has signature
+`func(ctx sdk.Context, content Content) error`. After a passing tally,
+`EndBlocker` invokes the handler in a cached context and commits its state only
+on success.
 
-```go
-type Handler func(ctx sdk.Context, content Content) sdk.Error
-```
+`final_tally_result` starts with zero totals and is written after each deadline
+tally, including an expedited tally that converts the proposal to regular voting.
+The tally uses decimal voting power internally and truncates each option total
+to `sdk.Int` for this stored result.
 
-The `Handler` is responsible for actually executing the proposal and processing
-any state changes specified by the proposal. It is executed only if a proposal
-passes during `EndBlock`.
+### Votes
 
-We also mention a method to update the tally for a given proposal:
-
-```go
-  func (proposal Proposal) updateTally(vote byte, amount sdk.Dec)
-```
+A `Vote` stores `proposal_id`, `voter`, and `options`, a list of weighted options.
+The keeper stores ordinary votes as one option of weight one. It clears the
+deprecated scalar `option` field in storage. Query helpers populate that legacy
+field only when there is exactly one option with weight one; otherwise it is
+`OptionEmpty`. A new vote overwrites the record at the same proposal/voter key.
 
 ## Stores
 
-_Stores are KVStores in the multi-store. The key to find the store is the first
-parameter in the list_`
+The key layout in [types/keys.go](../types/keys.go) is:
 
-We will use one KVStore `Governance` to store two mappings:
+| Key                                                   | Value                |
+| ----------------------------------------------------- | -------------------- |
+| 0x00 + proposalID                                     | Proposal protobuf    |
+| 0x01 + endTime + proposalID                           | Active proposal ID   |
+| 0x02 + endTime + proposalID                           | Inactive proposal ID |
+| 0x03                                                  | Next proposal ID     |
+| 0x10 + proposalID + length-prefixed depositor address | Deposit protobuf     |
+| 0x20 + proposalID + length-prefixed voter address     | Vote protobuf        |
 
-- A mapping from `proposalID|'proposal'` to `Proposal`.
-- A mapping from `proposalID|'addresses'|address` to `Vote`. This mapping allows
-  us to query all addresses that voted on the proposal along with their vote by
-  doing a range query on `proposalID:addresses`.
-
-For pseudocode purposes, here are the two function we will use to read or write in stores:
-
-- `load(StoreKey, Key)`: Retrieve item stored at key `Key` in store found at key `StoreKey` in the multistore
-- `store(StoreKey, Key, value)`: Write value `Value` at key `Key` in store found at key `StoreKey` in the multistore
+Proposal IDs use eight-byte big-endian encoding. Queue timestamps use
+`sdk.FormatTimeBytes`: UTC text in the fixed-width layout
+`2006-01-02T15:04:05.000000000`, without a trailing `Z`. For example, the fixture's
+expedited deadline is `2023-11-15T22:13:20.000000000`. Each queue value is the same
+eight-byte big-endian proposal ID used in its key, not a proposal protobuf.
+Address keys contain a one-byte length followed by the raw address bytes. Prefix
+iteration retrieves all deposits or votes for a proposal.
 
 ## Proposal Processing Queue
 
-**Store:**
+Two time-indexed queues drive [EndBlocker](../abci.go):
 
-- `ProposalProcessingQueue`: A queue `queue[proposalID]` containing all the
-  `ProposalIDs` of proposals that reached `MinDeposit`. During each `EndBlock`,
-  all the proposals that have reached the end of their voting period are processed.
-  To process a finished proposal, the application tallies the votes, computes the
-  votes of each validator and checks if every validator in the validator set has
-  voted. If the proposal is accepted, deposits are refunded. Finally, the proposal
-  content `Handler` is executed.
+- The **inactive queue** contains proposals in the deposit period, keyed by
+  deposit end time. At expiry the proposal and queue entry are deleted and its
+  deposits are burned.
+- The **active queue** contains proposals in voting status, keyed by voting end
+  time. Activation removes the inactive entry and adds the active entry.
 
-And the pseudocode for the `ProposalProcessingQueue`:
+For each due active proposal, the keeper tallies current bonded staking power
+and weighted votes. It removes the old active entry, settles deposits for a final
+outcome, and either executes passing content or records rejection. Execution
+failure records `StatusFailed` while discarding the handler's state changes.
 
-```go
-  in EndBlock do
-
-    for finishedProposalID in GetAllFinishedProposalIDs(block.Time)
-      proposal = load(Governance, <proposalID|'proposal'>) // proposal is a const key
-
-      validators = Keeper.getAllValidators()
-      tmpValMap := map(sdk.AccAddress)ValidatorGovInfo
-
-      // Initiate mapping at 0. This is the amount of shares of the validator's vote that will be overridden by their delegator's votes
-      for each validator in validators
-        tmpValMap(validator.OperatorAddr).Minus = 0
-
-      // Tally
-      voterIterator = rangeQuery(Governance, <proposalID|'addresses'>) //return all the addresses that voted on the proposal
-      for each (voterAddress, vote) in voterIterator
-        delegations = stakingKeeper.getDelegations(voterAddress) // get all delegations for current voter
-
-        for each delegation in delegations
-          // make sure delegation.Shares does NOT include shares being unbonded
-          tmpValMap(delegation.ValidatorAddr).Minus += delegation.Shares
-          proposal.updateTally(vote, delegation.Shares)
-
-        _, isVal = stakingKeeper.getValidator(voterAddress)
-        if (isVal)
-          tmpValMap(voterAddress).Vote = vote
-
-      tallyingParam = load(GlobalParams, 'TallyingParam')
-
-      // Update tally if validator voted they voted
-      for each validator in validators
-        if tmpValMap(validator).HasVoted
-          proposal.updateTally(tmpValMap(validator).Vote, (validator.TotalShares - tmpValMap(validator).Minus))
-
-
-
-      // Check if proposal is accepted or rejected
-      totalNonAbstain := proposal.YesVotes + proposal.NoVotes + proposal.NoWithVetoVotes
-      if (proposal.Votes.YesVotes/totalNonAbstain > tallyingParam.Threshold AND proposal.Votes.NoWithVetoVotes/totalNonAbstain  < tallyingParam.Veto)
-        //  proposal was accepted at the end of the voting period
-        //  refund deposits (non-voters already punished)
-        for each (amount, depositor) in proposal.Deposits
-          depositor.AtomBalance += amount
-
-        stateWriter, err := proposal.Handler()
-        if err != nil
-            // proposal passed but failed during state execution
-            proposal.CurrentStatus = ProposalStatusFailed
-         else
-            // proposal pass and state is persisted
-            proposal.CurrentStatus = ProposalStatusAccepted
-            stateWriter.save()
-      else
-        // proposal was rejected
-        proposal.CurrentStatus = ProposalStatusRejected
-
-      store(Governance, <proposalID|'proposal'>, proposal)
-```
+A failed expedited tally instead clears `IsExpedited`, preserves votes and
+deposits, and inserts an active entry at the original voting start time plus the
+regular voting period. The proposal stays in `StatusVotingPeriod`. Regular
+tallies delete vote records; an expedited tally deletes them only if it passes.
+See [the lifecycle](01_concepts.md#expedited-voting-period) and
+[result events](04_events.md#endblocker).

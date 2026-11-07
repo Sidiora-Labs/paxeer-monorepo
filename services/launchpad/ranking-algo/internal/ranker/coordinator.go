@@ -20,7 +20,15 @@ var ErrSuperseded = errors.New("ranking completion superseded")
 var hashGrammar = regexp.MustCompile(`^[0-9a-f]{64}$`)
 var uuidGrammar = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$`)
 
-var heavyCategories = [...]string{"trending", "breakout", "volume", "movers", "unusual"}
+var heavyCategories = func() []string {
+	categories := make([]string, 0, len(Categories)-1)
+	for _, category := range Categories {
+		if category != "new" {
+			categories = append(categories, category)
+		}
+	}
+	return categories
+}()
 
 type Provenance struct {
 	Watermark          v1.Watermark `json:"watermark"`

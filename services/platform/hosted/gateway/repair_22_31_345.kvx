@@ -1,0 +1,13 @@
+[repair]
+task = "22.31.345"
+finding = "gateway-rpc-egress"
+change = "Route root node RPC through the existing TLS paxeer-boundary Service on 9443, with explicit same-namespace paxeer pod egress; retain existing DNS and default isolation."
+policy_test = "gateway_rpc_egress_policy_admits_controlled_boundary"
+transport_test = "gateway_rpc_egress_real_tls_relay_reaches_node_root"
+proof = "Parsed deployment policy, Service port and pod selectors agree in both directions; the real gateway Client traverses the real Paxeer boundary TLS parser and node relay to an in-process node transcript."
+baseline = "Not run: the task's gate order forbids verification before implementation and requires hf-build before hf-done; no baseline failure or unchanged-tree qualification is claimed."
+revision_evidence = "The runner's private gates.jsonl and hf-done final JSON bind this record and its tests to the exact verified candidate revision."
+cluster_evidence = "UNRUN: no enforcing cluster CNI is available in the declared build and integration-test gates; policy evaluation is a source-level check, not cluster enforcement evidence."
+wiring_request = "services/platform/hosted/tests/beta-cluster.sh; owner domain 8 (platform): qualify gateway to paxeer-boundary root RPC under the deployment's enforcing NetworkPolicies at release; no out-of-scope file changed."
+gotcha = "Kubernetes NetworkPolicies are additive; gateway and event-producer egress rules must be evaluated as a union, with receiver ingress checked independently."
+repair_1 = "Initial verification reached the node but the adapter failed on client socket reset during boundary shutdown; the proof now uses the unchanged gateway TLS connector and HTTP exchange with orderly TLS shutdown, retaining the full server shutdown assertion and all response assertions."

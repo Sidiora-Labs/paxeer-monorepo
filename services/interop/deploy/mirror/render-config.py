@@ -20,6 +20,7 @@ import argparse
 import json
 import pathlib
 import sys
+from urllib.parse import urlsplit
 
 BASE58_ALPHABET = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
 
@@ -37,9 +38,7 @@ SIGNER_SOCKET = "/run/mirror-signer/signer.sock"
 ETHEREUM_KEY_HANDLE = "mirror/ethereum/beta"
 SOLANA_KEY_HANDLE = "mirror/solana/beta"
 POLL_INTERVAL_MS = 5000
-CHECKPOINT_FRESHNESS_BUDGET_BATCHES = 64
-ARCHIVE_BYTES = 67108864
-ARCHIVE_CHUNKS = 65536
+FRESHNESS_BUDGET_BLOCKS = 64
 
 
 def refuse(message):
@@ -100,6 +99,20 @@ def endpoints(values, field):
         url, backend, certificate, token = parts
         if not url.startswith("https://"):
             refuse("%s endpoint %r is not an https URL" % (field, url))
+        if field == "--paxeer-endpoint":
+            try:
+                endpoint = urlsplit(url)
+            except ValueError:
+                refuse("%s endpoint %r is not a root JSON-RPC URL" % (field, url))
+            if (
+                not endpoint.hostname
+                or endpoint.username is not None
+                or endpoint.password is not None
+                or endpoint.path not in ("", "/")
+                or endpoint.query
+                or endpoint.fragment
+            ):
+                refuse("%s endpoint %r must use the root JSON-RPC URL" % (field, url))
         if not backend or any(
             not (character.isalnum() or character in "-_.") for character in backend
         ):
@@ -147,17 +160,63 @@ def signer(key_handle, public_key, socket, field):
     }
 
 
+def checkpoint_policy(receipt_keys_file):
+    try:
+        with open(receipt_keys_file, encoding="utf-8") as handle:
+            keys = json.load(handle)
+    except (OSError, UnicodeError, ValueError) as error:
+        refuse("--receipt-keys-file could not be read as JSON: %s" % error)
+    if not isinstance(keys, list) or not keys:
+        refuse("--receipt-keys-file must contain a nonempty JSON array")
+    windows = []
+    receipt_keys = []
+    key_ids = set()
+    for index, key in enumerate(keys):
+        field = "--receipt-keys-file entry %d" % index
+        if not isinstance(key, dict) or set(key) != {
+            "keyId",
+            "publicKey",
+            "firstHeight",
+            "lastHeight",
+        }:
+            refuse("%s must contain keyId, publicKey, firstHeight and lastHeight" % field)
+        identities = {}
+        for name, target in (
+            ("keyId", "sequencer_id_hex"),
+            ("publicKey", "public_key_hex"),
+        ):
+            if not isinstance(key[name], str):
+                refuse("%s %s must be hexadecimal text" % (field, name))
+            identities[target] = hexadecimal(key[name], "%s %s" % (field, name), 32)
+        key_id = identities["sequencer_id_hex"]
+        if key_id in key_ids:
+            refuse("%s repeats keyId; receipt key identifiers must be unique" % field)
+        key_ids.add(key_id)
+        first, last = key["firstHeight"], key["lastHeight"]
+        if (
+            type(first) is not int
+            or type(last) is not int
+            or not 0 <= first <= last < 2**64
+        ):
+            refuse("%s must have an inclusive uint64 height range in order" % field)
+        windows.append((first, last))
+        receipt_keys.append({**identities, "first_height": first, "last_height": last})
+    ordered = sorted(windows)
+    if any(right[0] <= left[1] for left, right in zip(ordered, ordered[1:])):
+        refuse("--receipt-keys-file contains overlapping height ranges")
+    return receipt_keys
+
+
 def main(argv):
     parser = argparse.ArgumentParser(add_help=True)
     parser.add_argument("--output", required=True)
     parser.add_argument("--state-directory", required=True)
-    parser.add_argument("--first-batch-number", type=int, required=True)
+    parser.add_argument("--first-height", type=int, required=True)
     parser.add_argument("--status-listen", required=True)
     parser.add_argument("--paxeer-endpoint", action="append", default=[])
     parser.add_argument("--paxeer-chain-id", type=int, required=True)
     parser.add_argument("--paxeer-genesis-hash", required=True)
-    parser.add_argument("--paxeer-confirmations", type=int, required=True)
-    parser.add_argument("--sequencer-public-key", required=True)
+    parser.add_argument("--receipt-keys-file", required=True)
     parser.add_argument("--ethereum-endpoint", action="append", default=[])
     parser.add_argument("--ethereum-chain-id", type=int, required=True)
     parser.add_argument("--ethereum-genesis-hash", required=True)
@@ -177,13 +236,11 @@ def main(argv):
     parser.add_argument("--solana-signer-socket", default=SIGNER_SOCKET)
     arguments = parser.parse_args(argv)
 
-    if (
-        not 0 < arguments.paxeer_chain_id < 2**64
-        or not 0 < arguments.paxeer_confirmations < 2**64
-    ):
-        refuse("Paxeer chain identity and confirmations must be positive uint64 values")
-    if arguments.first_batch_number < 1:
-        refuse("--first-batch-number must be at least 1")
+    if not 0 < arguments.paxeer_chain_id < 2**32:
+        refuse("Paxeer chain identity must be a positive uint32 value")
+    if not 0 < arguments.first_height < 2**64:
+        refuse("--first-height must be a positive uint64 value")
+    receipt_keys = checkpoint_policy(arguments.receipt_keys_file)
 
     solana_inputs = {
         "--solana-endpoint": arguments.solana_endpoint,
@@ -230,25 +287,17 @@ def main(argv):
 
     config = {
         "state_directory": absolute(arguments.state_directory, "--state-directory"),
-        "first_batch_number": arguments.first_batch_number,
+        "first_height": arguments.first_height,
         "poll_interval_ms": POLL_INTERVAL_MS,
-        "checkpoint_freshness_budget_batches": CHECKPOINT_FRESHNESS_BUDGET_BATCHES,
+        "freshness_budget_blocks": FRESHNESS_BUDGET_BLOCKS,
         "status_listen": arguments.status_listen,
-        "node": {
-            "checkpoint_policy": {
-                "rpc": endpoints(arguments.paxeer_endpoint, "--paxeer-endpoint"),
-                "chain_id": arguments.paxeer_chain_id,
-                "genesis_hash_hex": hexadecimal(
-                    arguments.paxeer_genesis_hash, "--paxeer-genesis-hash", 32
-                ),
-                "sequencer_public_key_hex": hexadecimal(
-                    arguments.sequencer_public_key, "--sequencer-public-key", 32
-                ),
-                "confirmations": arguments.paxeer_confirmations,
-            },
-            "deadline_ms": 30000,
-            "maximum_archive_bytes": ARCHIVE_BYTES,
-            "maximum_archive_chunks": ARCHIVE_CHUNKS,
+        "paxeer": {
+            "rpc": endpoints(arguments.paxeer_endpoint, "--paxeer-endpoint"),
+            "chain_id": arguments.paxeer_chain_id,
+            "genesis_hash_hex": hexadecimal(
+                arguments.paxeer_genesis_hash, "--paxeer-genesis-hash", 32
+            ),
+            "receipt_keys": receipt_keys,
         },
         "ethereum": {
             "rpc": endpoints(arguments.ethereum_endpoint, "--ethereum-endpoint"),

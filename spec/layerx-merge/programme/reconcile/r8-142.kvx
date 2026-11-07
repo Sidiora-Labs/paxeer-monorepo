@@ -1,0 +1,243 @@
+[reconcile.r8-142]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r8-142.1]
+interface = "interface.8.go-sdkswift-platformclient-agentreadmodulestate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 541
+symbol = "agentReadModuleState"
+evidence = "PlatformClient extension declares func agentReadModuleState(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 541 (registered line 418); the signature is unchanged. Its body is try await read(.agentReadModuleState, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.2]
+interface = "interface.8.go-sdkswift-platformclient-agentreadproofbundle"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 544
+symbol = "agentReadProofBundle"
+evidence = "PlatformClient extension declares func agentReadProofBundle(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 544 (registered line 421); the signature is unchanged. Its body is try await read(.agentReadProofBundle, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.3]
+interface = "interface.8.go-sdkswift-platformclient-agentsessionclose"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 547
+symbol = "agentSessionClose"
+evidence = "PlatformClient extension declares func agentSessionClose(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 547 (registered line 424); the signature is unchanged. Its body is try await mutate(.agentSessionClose, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.4]
+interface = "interface.8.go-sdkswift-platformclient-agentsessionlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 550
+symbol = "agentSessionList"
+evidence = "PlatformClient extension declares func agentSessionList(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 550 (registered line 427); the signature is unchanged. Its body is try await read(.agentSessionList, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.5]
+interface = "interface.8.go-sdkswift-platformclient-agentsessionopen"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 553
+symbol = "agentSessionOpen"
+evidence = "PlatformClient extension declares func agentSessionOpen(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 553 (registered line 430); the signature is unchanged. Its body is try await mutate(.agentSessionOpen, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.6]
+interface = "interface.8.go-sdkswift-platformclient-agentsessionrefresh"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 556
+symbol = "agentSessionRefresh"
+evidence = "PlatformClient extension declares func agentSessionRefresh(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 556 (registered line 433); the signature is unchanged. Its body is try await mutate(.agentSessionRefresh, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.7]
+interface = "interface.8.go-sdkswift-platformclient-agentsign"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 559
+symbol = "agentSign"
+evidence = "PlatformClient extension declares func agentSign(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 559 (registered line 436); the signature is unchanged. Its body is try await mutate(.agentSign, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.8]
+interface = "interface.8.go-sdkswift-platformclient-agentsubmit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 562
+symbol = "agentSubmit"
+evidence = "PlatformClient extension declares func agentSubmit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 562 (registered line 439); the signature is unchanged. Its body is try await mutate(.agentSubmit, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.9]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptionacknowledge"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 565
+symbol = "agentSubscriptionAcknowledge"
+evidence = "PlatformClient extension declares func agentSubscriptionAcknowledge(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 565 (registered line 442); the signature is unchanged. Its body is try await mutate(.agentSubscriptionAcknowledge, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.10]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptioncreate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 568
+symbol = "agentSubscriptionCreate"
+evidence = "PlatformClient extension declares func agentSubscriptionCreate(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 568 (registered line 445); the signature is unchanged. Its body is try await mutate(.agentSubscriptionCreate, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.11]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptiondelete"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 571
+symbol = "agentSubscriptionDelete"
+evidence = "PlatformClient extension declares func agentSubscriptionDelete(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 571 (registered line 448); the signature is unchanged. Its body is try await mutate(.agentSubscriptionDelete, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.12]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptionhealth"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 574
+symbol = "agentSubscriptionHealth"
+evidence = "PlatformClient extension declares func agentSubscriptionHealth(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 574 (registered line 451); the signature is unchanged. Its body is try await read(.agentSubscriptionHealth, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.13]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptionlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 577
+symbol = "agentSubscriptionList"
+evidence = "PlatformClient extension declares func agentSubscriptionList(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 577 (registered line 454); the signature is unchanged. Its body is try await read(.agentSubscriptionList, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.14]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptionpause"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 580
+symbol = "agentSubscriptionPause"
+evidence = "PlatformClient extension declares func agentSubscriptionPause(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 580 (registered line 457); the signature is unchanged. Its body is try await mutate(.agentSubscriptionPause, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.15]
+interface = "interface.8.go-sdkswift-platformclient-agentsubscriptionresume"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 583
+symbol = "agentSubscriptionResume"
+evidence = "PlatformClient extension declares func agentSubscriptionResume(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 583 (registered line 460); the signature is unchanged. Its body is try await mutate(.agentSubscriptionResume, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.16]
+interface = "interface.8.go-sdkswift-platformclient-agenttenantreadiness"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 586
+symbol = "agentTenantReadiness"
+evidence = "PlatformClient extension declares func agentTenantReadiness(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 586 (registered line 463); the signature is unchanged. Its body is try await read(.agentTenantReadiness, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.17]
+interface = "interface.8.go-sdkswift-platformclient-agenttrack"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 589
+symbol = "agentTrack"
+evidence = "PlatformClient extension declares func agentTrack(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 589 (registered line 466); the signature is unchanged. Its body is try await read(.agentTrack, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.18]
+interface = "interface.8.go-sdkswift-platformclient-agentwait"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 592
+symbol = "agentWait"
+evidence = "PlatformClient extension declares func agentWait(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 592 (registered line 469); the signature is unchanged. Its body is try await read(.agentWait, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.19]
+interface = "interface.8.go-sdkswift-platformclient-humanaccountbalance"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 595
+symbol = "humanAccountBalance"
+evidence = "PlatformClient extension declares func humanAccountBalance(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 595 (registered line 472); the signature is unchanged. Its body is try await read(.humanAccountBalance, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.20]
+interface = "interface.8.go-sdkswift-platformclient-humanaccountcreate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 598
+symbol = "humanAccountCreate"
+evidence = "PlatformClient extension declares func humanAccountCreate(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 598 (registered line 475); the signature is unchanged. Its body is try await mutate(.humanAccountCreate, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.21]
+interface = "interface.8.go-sdkswift-platformclient-humanactivityentry"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 601
+symbol = "humanActivityEntry"
+evidence = "PlatformClient extension declares func humanActivityEntry(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 601 (registered line 478); the signature is unchanged. Its body is try await read(.humanActivityEntry, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.22]
+interface = "interface.8.go-sdkswift-platformclient-humanactivityexportevidence"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 604
+symbol = "humanActivityExportEvidence"
+evidence = "PlatformClient extension declares func humanActivityExportEvidence(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 604 (registered line 481); the signature is unchanged. Its body is try await mutate(.humanActivityExportEvidence, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.23]
+interface = "interface.8.go-sdkswift-platformclient-humanactivityexportstatement"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 607
+symbol = "humanActivityExportStatement"
+evidence = "PlatformClient extension declares func humanActivityExportStatement(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 607 (registered line 484); the signature is unchanged. Its body is try await mutate(.humanActivityExportStatement, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.24]
+interface = "interface.8.go-sdkswift-platformclient-humanactivityquery"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 610
+symbol = "humanActivityQuery"
+evidence = "PlatformClient extension declares func humanActivityQuery(_ request: JSONValue, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 610 (registered line 487); the signature is unchanged. Its body is try await read(.humanActivityQuery, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.25]
+interface = "interface.8.go-sdkswift-platformclient-humanagentarchive"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 613
+symbol = "humanAgentArchive"
+evidence = "PlatformClient extension declares func humanAgentArchive(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 613 (registered line 490); the signature is unchanged. Its body is try await mutate(.humanAgentArchive, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.26]
+interface = "interface.8.go-sdkswift-platformclient-humanagentcreate"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 616
+symbol = "humanAgentCreate"
+evidence = "PlatformClient extension declares func humanAgentCreate(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 616 (registered line 493); the signature is unchanged. Its body is try await mutate(.humanAgentCreate, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.27]
+interface = "interface.8.go-sdkswift-platformclient-humanagentget"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 619
+symbol = "humanAgentGet"
+evidence = "PlatformClient extension declares func humanAgentGet(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 619 (registered line 496); the signature is unchanged. Its body is try await read(.humanAgentGet, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.28]
+interface = "interface.8.go-sdkswift-platformclient-humanagentlimit"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 622
+symbol = "humanAgentLimit"
+evidence = "PlatformClient extension declares func humanAgentLimit(_ request: JSONValue, idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 622 (registered line 499); the signature is unchanged. Its body is try await mutate(.humanAgentLimit, request: request, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.29]
+interface = "interface.8.go-sdkswift-platformclient-humanagentlist"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 625
+symbol = "humanAgentList"
+evidence = "PlatformClient extension declares func humanAgentList(_ request: JSONValue = .object([:]), pathParameters: [String: String] = [:]) async throws -> JSONValue at line 625 (registered line 502); the signature is unchanged. Its body is try await read(.humanAgentList, request: request, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."
+
+[row.r8-142.30]
+interface = "interface.8.go-sdkswift-platformclient-humanagentpause"
+verdict = "served"
+path = "sdk/platform/swift/Sources/LayerXSDK/Generated/OperationCatalog.swift"
+line = 628
+symbol = "humanAgentPause"
+evidence = "PlatformClient extension declares func humanAgentPause(idempotencyKey: IdempotencyKey, pathParameters: [String: String] = [:]) async throws -> JSONValue at line 628 (registered line 505); the signature is unchanged. Its body is try await mutate(.humanAgentPause, request: .emptyObject, idempotencyKey: idempotencyKey, pathParameters: pathParameters). This is the method declaration, distinct from the PlatformOperation enum case and switch cases with the same name."

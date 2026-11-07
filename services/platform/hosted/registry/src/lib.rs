@@ -5,6 +5,7 @@
 
 mod auth;
 mod builder;
+pub mod committed_head_route;
 pub mod deployment;
 pub mod event_producer;
 pub mod head_attestation;
@@ -29,13 +30,16 @@ pub use journal::{
     WriteStep,
 };
 pub use mirror::{MirrorRefusal, MirroredSource, SourceMirror};
-pub use node_state::{HeadAuthority, NodeProgramStateSource, ProgramStateCursor, RegistryClientIdentity};
+pub use node_state::{
+    HeadAuthority, NodeProgramStateSource, ProgramStateCursor, RegistryClientIdentity,
+};
 pub use program_state::FileProgramStateJournal;
 pub use routes::{refusal, Registrar, Request, Response};
 pub use verified::{
     Admission, JournalRefusal, LeaseRefusal, Publication, Reconciled, VerificationJournal,
-    VerificationLease, VerificationRecord, VerificationState, VerifiedSource, VerifiedSourceStore,
-    MAX_VERIFICATION_RECORDS, VERIFICATION_RECORD_VERSION,
+    VerificationLease, VerificationRecord, VerificationState, VerifiedSource,
+    VerifiedSourceDeployment, VerifiedSourceStore, MAX_VERIFICATION_RECORDS,
+    VERIFICATION_RECORD_VERSION,
 };
 
 /// Declared configuration of the hosted registry service.

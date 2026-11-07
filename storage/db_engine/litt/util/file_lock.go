@@ -8,15 +8,18 @@ import (
 	"path"
 	"strconv"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 )
 
 // FileLock represents a file-based lock
 type FileLock struct {
+	mu     sync.Mutex
 	logger *slog.Logger
 	path   string
 	file   *os.File
+	guard  *os.File
 }
 
 // IsProcessAlive checks if a process with the given PID is still running
@@ -82,6 +85,24 @@ func NewFileLock(logger *slog.Logger, path string, fsync bool) (*FileLock, error
 	path, err := SanitizePath(path)
 	if err != nil {
 		return nil, fmt.Errorf("sanitize path failed: %v", err)
+	}
+
+	// This inode is permanent: unlinking an advisory lock would let contenders
+	// lock different inodes. Hold it through stale recovery and metadata removal.
+	guard, err := os.OpenFile(path+".guard", os.O_CREATE|os.O_RDWR|syscall.O_NOFOLLOW, 0600)
+	if err != nil {
+		return nil, fmt.Errorf("failed to open lock guard %s: %w", path, err)
+	}
+	keepGuard := false
+	defer func() {
+		if !keepGuard {
+			_ = guard.Close()
+		}
+	}()
+	if err := syscall.Flock(int(guard.Fd()), syscall.LOCK_EX|syscall.LOCK_NB); err != nil {
+		content, _ := os.ReadFile(path) //nolint:gosec // caller-supplied lock file path
+		return nil, fmt.Errorf("lock file already exists: %s (existing lock info: %s): %w",
+			path, strings.TrimSpace(string(content)), err)
 	}
 
 	// Try to create the lock file exclusively (O_EXCL ensures it fails if file exists)
@@ -159,35 +180,41 @@ func NewFileLock(logger *slog.Logger, path string, fsync bool) (*FileLock, error
 		}
 	}
 
+	keepGuard = true
 	return &FileLock{
 		logger: logger,
 		path:   path,
 		file:   file,
+		guard:  guard,
 	}, nil
 }
 
 // Release releases the file lock by closing and removing the lock file.
 // This is a no-op if the lock is already released.
 func (fl *FileLock) Release() {
+	fl.mu.Lock()
+	defer fl.mu.Unlock()
 	if fl.file == nil {
 		return
 	}
 
-	// Close the file first
-	err := fl.file.Close()
-	fl.file = nil
-
-	if err != nil {
+	// Remove only our metadata, while still holding the stable guard. A stale
+	// handle must never unlink a replacement installed at the same path.
+	owned, statErr := fl.file.Stat()
+	current, pathErr := os.Lstat(fl.path)
+	if statErr == nil && pathErr == nil && os.SameFile(owned, current) {
+		if err := os.Remove(fl.path); err != nil {
+			fl.logger.Error("failed to remove lock file", "path", fl.path, "error", err)
+		}
+	}
+	if err := fl.file.Close(); err != nil {
 		fl.logger.Error("failed to close lock file", "path", fl.path, "error", err)
-		return
 	}
-
-	// Remove the lock file
-	err = os.Remove(fl.path)
-	if err != nil {
-		fl.logger.Error("failed to remove lock file", "path", fl.path, "error", err)
-		return
+	fl.file = nil
+	if err := fl.guard.Close(); err != nil {
+		fl.logger.Error("failed to close lock guard", "path", fl.path, "error", err)
 	}
+	fl.guard = nil
 }
 
 // Path returns the path of the lock file

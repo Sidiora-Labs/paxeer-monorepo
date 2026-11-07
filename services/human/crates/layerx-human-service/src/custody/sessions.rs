@@ -1,7 +1,11 @@
 //! Managed-agent protocol sessions and primary-key rotation orchestration.
 
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 use std::fmt::{Debug, Display, Formatter};
+
+#[path = "session_state.rs"]
+mod durable;
 
 use layerx_crypto::local::LocalSigner;
 use layerx_crypto::session::{
@@ -16,7 +20,7 @@ use layerx_types::activity::TimestampBound;
 use layerx_types::ids::Did;
 use layerx_types::intent::{PublicKey, Sequence};
 use layerx_types::payload::{ActivityType, ModuleRegistry};
-use layerx_types::verify::VerificationLevel;
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 use zeroize::Zeroizing;
 
@@ -30,7 +34,7 @@ const REVOCATION_RECEIPT_DOMAIN: &[u8] = b"layerx-human/agent-session-revocation
 const ROTATION_RECEIPT_DOMAIN: &[u8] = b"layerx-human/key-rotation-receipt/v1";
 
 /// Declared policy for every managed-agent operating session.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SessionPolicy {
     lifetime_seconds: u64,
     renewal_lead_seconds: u64,
@@ -104,7 +108,7 @@ pub struct ProtocolIdentitySnapshot {
     pub revocation_sequence: u64,
     pub protocol_time: u64,
     pub core_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 /// A session seed that can only leave the Human service by being consumed by
@@ -227,7 +231,7 @@ pub struct ProvisionEvidence {
     pub daemon_session_id: [u8; 32],
     pub protocol_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -243,7 +247,7 @@ impl ProvisionEvidence {
                 &self.daemon_session_id,
                 &self.protocol_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -259,7 +263,7 @@ pub struct SessionTarget {
 }
 
 /// Why operating authority was removed.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RevocationReason {
     Paused,
     Archived,
@@ -310,7 +314,7 @@ pub struct RevocationEvidence {
     pub reason: RevocationReason,
     pub observed_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -324,7 +328,7 @@ impl RevocationEvidence {
                 &[self.reason.code()],
                 &self.observed_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -349,6 +353,7 @@ pub struct RotationSubmission {
 /// Proof-bearing receipt for the key-rotation announcement.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RotationEvidence {
+    pub tx_hash: [u8; 32],
     pub payload_hash: [u8; 32],
     pub pending_public_key: [u8; 32],
     pub effective_at: u64,
@@ -356,7 +361,7 @@ pub struct RotationEvidence {
     pub effective_sequence: u64,
     pub observed_sequence: u64,
     pub observed_at: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
     pub receipt_digest: [u8; 32],
 }
 
@@ -366,6 +371,7 @@ impl RotationEvidence {
         digest_fields(
             ROTATION_RECEIPT_DOMAIN,
             &[
+                &self.tx_hash,
                 &self.payload_hash,
                 &self.pending_public_key,
                 &self.effective_at.to_be_bytes(),
@@ -373,7 +379,7 @@ impl RotationEvidence {
                 &self.effective_sequence.to_be_bytes(),
                 &self.observed_sequence.to_be_bytes(),
                 &self.observed_at.to_be_bytes(),
-                &[self.verification_level.wire_rank()],
+                &[self.rung.wire_rank()],
             ],
         )
     }
@@ -382,6 +388,7 @@ impl RotationEvidence {
 /// State-proven identity rotation observation returned by the agent contract.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct RotationObservation {
+    pub tx_hash: [u8; 32],
     pub primary_public_key: [u8; 32],
     pub pending_public_key: Option<[u8; 32]>,
     pub superseded_public_key: Option<[u8; 32]>,
@@ -390,7 +397,7 @@ pub struct RotationObservation {
     pub effective_sequence: u64,
     pub observed_at: u64,
     pub observed_sequence: u64,
-    pub verification_level: VerificationLevel,
+    pub rung: Rung,
 }
 
 /// Stable errors at the versioned agent boundary.
@@ -413,7 +420,43 @@ impl std::error::Error for AgentContractError {}
 
 /// Versioned Human-to-agent contract. It deliberately exposes session-only
 /// material and public rotation intents, never a primary private key.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SessionAuthorityObservation {
+    pub provision: ProvisionEvidence,
+    pub daemon_suspended: bool,
+    pub revocation: Option<RevocationEvidence>,
+}
+
 pub trait AgentSessionContract {
+    /// Reads the exact daemon permission state and chain authority on reopen.
+    fn session_authority(
+        &mut self,
+        _target: &SessionTarget,
+    ) -> Result<SessionAuthorityObservation, AgentContractError> {
+        Err(AgentContractError::Unavailable)
+    }
+
+    /// Proves whether this exact previously attempted grant was installed.
+    /// Absence must be authoritative before replaying the identical installation.
+    fn recover_provision(
+        &mut self,
+        _principal: &PrincipalId,
+        _did: &Did,
+        _grant_id: [u8; 32],
+    ) -> Result<Option<ProvisionEvidence>, AgentContractError> {
+        Err(AgentContractError::Unavailable)
+    }
+
+    /// Recovers the receipt for an attempted announcement by its canonical payload.
+    fn recover_rotation(
+        &mut self,
+        _principal: &PrincipalId,
+        _did: &Did,
+        _payload_hash: [u8; 32],
+    ) -> Result<Option<RotationEvidence>, AgentContractError> {
+        Err(AgentContractError::Unavailable)
+    }
+
     /// Reads state-proven identity and revocation facts.
     ///
     /// # Errors
@@ -482,7 +525,7 @@ pub trait AgentSessionContract {
 }
 
 /// Human or managed-agent primary identity being rotated.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RotationSubject {
     Human,
     Agent,
@@ -498,7 +541,7 @@ impl RotationSubject {
 }
 
 /// An exact duration rendered without protocol terminology.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct PlainTime {
     seconds: u64,
     label: String,
@@ -538,13 +581,16 @@ impl Display for PlainTime {
 }
 
 /// Public, non-secret record of one live or retired agent session.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct SessionLease {
+    #[serde(with = "durable::principal")]
     pub principal: PrincipalId,
+    #[serde(with = "durable::did")]
     pub agent_did: Did,
     pub session_public_key: [u8; 32],
     pub grant_id: [u8; 32],
     pub daemon_session_id: [u8; 32],
+    #[serde(with = "durable::activities")]
     pub permitted_activity_types: Vec<ActivityType>,
     pub issued_at: u64,
     pub expires_at: u64,
@@ -554,7 +600,7 @@ pub struct SessionLease {
 }
 
 /// Honest lifecycle state for one issued session.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum SessionLeaseState {
     Active,
     SuspendedAwaitingProtocolRevocation {
@@ -572,7 +618,7 @@ pub enum SessionLeaseState {
 }
 
 /// Current managed-agent lifecycle at the Human boundary.
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum ManagedAgentState {
     Active,
     Paused,
@@ -601,12 +647,17 @@ pub struct RenewalOutcome {
 }
 
 /// Stored rotation journey with exact protocol windows and public key handles.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub struct RotationJourney {
+    pub tx_hash: [u8; 32],
+    #[serde(with = "durable::principal")]
     pub principal: PrincipalId,
     pub subject: RotationSubject,
+    #[serde(with = "durable::did")]
     pub did: Did,
+    #[serde(with = "durable::key_id")]
     pub current_key_id: KeyId,
+    #[serde(with = "durable::key_id")]
     pub pending_key_id: KeyId,
     pub current_public_key: [u8; 32],
     pub pending_public_key: [u8; 32],
@@ -620,7 +671,7 @@ pub struct RotationJourney {
 }
 
 /// Honest rotation state, including the exact superseded-key sequence window.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum RotationJourneyState {
     ChallengeOpen,
     ReadyToCommit,
@@ -729,6 +780,7 @@ impl From<AgentContractError> for SessionKeyError {
     }
 }
 
+#[derive(Clone, Serialize, Deserialize)]
 struct ManagedAgent {
     state: ManagedAgentState,
     current: SessionLease,
@@ -745,9 +797,18 @@ pub struct SessionKeyProvisioner<C: AgentSessionContract, E: SessionEntropySourc
     rotation_registry: ModuleRegistry,
     agents: BTreeMap<(PrincipalId, Did), ManagedAgent>,
     rotations: BTreeMap<(PrincipalId, Did), RotationJourney>,
+    rotation_history: Vec<RotationJourney>,
+    installations: BTreeMap<(PrincipalId, Did), durable::Installation>,
+    renewals: BTreeMap<(PrincipalId, Did), durable::Renewal>,
+    stops: BTreeMap<(PrincipalId, Did), durable::Stop>,
+    announcements: BTreeMap<(PrincipalId, Did), durable::Announcement>,
+    durable: Option<durable::StateFile>,
+    poisoned: bool,
 }
 
 impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, E> {
+    /// Constructs the development-only, non-durable helper. Production must use `open`
+    /// and `SessionLifecycleDriver` through component maintenance.
     /// Binds the versioned agent contract, declared authority policy, and
     /// core-negotiated registry used exclusively through `layerx-intents`.
     #[must_use]
@@ -764,7 +825,224 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             rotation_registry,
             agents: BTreeMap::new(),
             rotations: BTreeMap::new(),
+            rotation_history: Vec::new(),
+            installations: BTreeMap::new(),
+            renewals: BTreeMap::new(),
+            stops: BTreeMap::new(),
+            announcements: BTreeMap::new(),
+            durable: None,
+            poisoned: false,
         }
+    }
+
+    /// Opens the durable lifecycle journal and reconciles attempted external steps
+    /// before returning authority to the caller. An unavailable peer refuses startup.
+    pub fn open(
+        root: impl AsRef<std::path::Path>,
+        contract: C,
+        entropy: E,
+        policy: SessionPolicy,
+        registry: ModuleRegistry,
+    ) -> Result<Self, SessionKeyError> {
+        let (file, state) = durable::StateFile::open(root.as_ref())?;
+        let mut owner = Self::new(contract, entropy, policy, registry);
+        if let Some(state) = state {
+            state.restore(&mut owner)?;
+        }
+        owner.durable = Some(file);
+        owner.persist()?;
+        owner.recover_pending()?;
+        owner.reconcile_authority()?;
+        Ok(owner)
+    }
+
+    pub fn into_contract(self) -> C {
+        self.contract
+    }
+
+    #[must_use]
+    pub fn rotation_history(&self) -> &[RotationJourney] {
+        &self.rotation_history
+    }
+
+    fn healthy(&self) -> Result<(), SessionKeyError> {
+        if self.poisoned {
+            Err(SessionKeyError::InvalidEvidence)
+        } else {
+            Ok(())
+        }
+    }
+
+    fn persist(&mut self) -> Result<(), SessionKeyError> {
+        self.healthy()?;
+        if let Some(file) = &self.durable {
+            if let Err(error) = file.save(&durable::State::capture(self)) {
+                self.poisoned = true;
+                return Err(error);
+            }
+        }
+        Ok(())
+    }
+
+    fn reconcile_authority(&mut self) -> Result<(), SessionKeyError> {
+        let leases: Vec<_> = self
+            .agents
+            .values()
+            .flat_map(|agent| std::iter::once(agent.current.clone()).chain(agent.retired.clone()))
+            .collect();
+        for lease in leases {
+            let identity = self
+                .contract
+                .identity_snapshot(&lease.principal, &lease.agent_did)?;
+            verify_identity(&identity)?;
+            let observed = self.contract.session_authority(&target(&lease))?;
+            let provision = observed.provision;
+            if provision.grant_id != lease.grant_id
+                || provision.session_public_key != lease.session_public_key
+                || provision.daemon_session_id != lease.daemon_session_id
+                || provision.receipt_digest != lease.provision_receipt_digest
+                || provision.receipt_digest != provision.expected_digest()
+                || provision.rung < Rung::Receipted
+            {
+                return Err(SessionKeyError::InvalidEvidence);
+            }
+            match lease.state {
+                SessionLeaseState::Active
+                    if !observed.daemon_suspended && observed.revocation.is_none() =>
+                {
+                    ()
+                }
+                SessionLeaseState::Revoked {
+                    reason,
+                    revoked_at,
+                    revocation_receipt_digest,
+                    ..
+                } if observed.daemon_suspended => {
+                    let revocation = observed
+                        .revocation
+                        .ok_or(SessionKeyError::InvalidEvidence)?;
+                    if revocation.grant_id != lease.grant_id
+                        || revocation.reason != reason
+                        || revocation.observed_at != revoked_at
+                        || revocation.receipt_digest != revocation_receipt_digest
+                        || revocation.receipt_digest != revocation.expected_digest()
+                        || revocation.rung < Rung::Receipted
+                    {
+                        return Err(SessionKeyError::InvalidEvidence);
+                    }
+                }
+                _ => return Err(SessionKeyError::InvalidEvidence),
+            }
+        }
+        Ok(())
+    }
+
+    fn recover_pending(&mut self) -> Result<(), SessionKeyError> {
+        let renewals: Vec<_> = self.renewals.keys().cloned().collect();
+        for (principal, did) in renewals {
+            let transition = self.renewals[&(principal.clone(), did.clone())].clone();
+            self.renew_one(&principal, &did, transition.requested_at, transition.reason)?;
+        }
+        let stops: Vec<_> = self.stops.keys().cloned().collect();
+        for (principal, did) in stops {
+            let stop = self.stops[&(principal.clone(), did.clone())].clone();
+            self.stop_authority(&principal, &did, stop.requested_at, stop.reason)?;
+        }
+        let installations: Vec<_> = self.installations.keys().cloned().collect();
+        for (principal, did) in installations {
+            let activities = self.installations[&(principal.clone(), did.clone())]
+                .activities
+                .clone();
+            if self.agents.contains_key(&(principal.clone(), did.clone())) {
+                self.resume(&principal, &did)?;
+            } else {
+                self.provision(&principal, &did, activities)?;
+            }
+        }
+        let announcements: Vec<_> = self.announcements.keys().cloned().collect();
+        for key in announcements {
+            self.finish_announcement(&key)?;
+        }
+        let rotations: Vec<_> = self.rotations.keys().cloned().collect();
+        for (principal, did) in rotations {
+            self.reconcile_rotation(&principal, &did)?;
+        }
+        Ok(())
+    }
+
+    fn maintain_bounded(&mut self, maximum: usize, now: u64) -> Result<usize, SessionKeyError> {
+        self.healthy()?;
+        let mut completed = 0;
+        let stops: Vec<_> = self
+            .stops
+            .keys()
+            .filter(|key| !self.renewals.contains_key(*key))
+            .take(maximum)
+            .cloned()
+            .collect();
+        for key in stops {
+            let stop = self.stops[&key].clone();
+            self.stop_authority(&key.0, &key.1, stop.requested_at, stop.reason)?;
+            completed += 1;
+        }
+        let installations: Vec<_> = self
+            .installations
+            .keys()
+            .filter(|key| !self.renewals.contains_key(*key))
+            .take(maximum - completed)
+            .cloned()
+            .collect();
+        for key in installations {
+            let activities = self.installations[&key].activities.clone();
+            if self.agents.contains_key(&key) {
+                self.resume(&key.0, &key.1)?;
+            } else {
+                self.provision(&key.0, &key.1, activities)?;
+            }
+            completed += 1;
+        }
+        let due: Vec<_> = self
+            .agents
+            .iter()
+            .filter(|(key, agent)| {
+                self.renewals.contains_key(*key)
+                    || (agent.state == ManagedAgentState::Active
+                        && !self.stops.contains_key(*key)
+                        && agent.current.expires_at.saturating_sub(now)
+                            <= self.policy.renewal_lead_seconds)
+            })
+            .map(|(key, _)| key.clone())
+            .take(maximum - completed)
+            .collect();
+        for key in due {
+            let reason = self
+                .renewals
+                .get(&key)
+                .map_or(RevocationReason::Renewed, |pending| pending.reason);
+            self.renew_one(&key.0, &key.1, now, reason)?;
+            completed += 1;
+        }
+        let announcements: Vec<_> = self
+            .announcements
+            .keys()
+            .take(maximum - completed)
+            .cloned()
+            .collect();
+        for key in announcements {
+            self.finish_announcement(&key)?;
+            completed += 1;
+        }
+        let rotations: Vec<_> = self
+            .rotations
+            .keys()
+            .take(maximum - completed)
+            .cloned()
+            .collect();
+        for key in rotations {
+            self.reconcile_rotation(&key.0, &key.1)?;
+            completed += 1;
+        }
+        Ok(completed)
     }
 
     /// Borrows the contract for read-only qualification and status surfaces.
@@ -800,6 +1078,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         did: &Did,
         permitted_activity_types: Vec<ActivityType>,
     ) -> Result<SessionLease, SessionKeyError> {
+        self.healthy()?;
         let key = (principal.clone(), did.clone());
         if let Some(existing) = self.agents.get(&key) {
             return Err(match existing.state {
@@ -817,6 +1096,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
                 retired: Vec::new(),
             },
         );
+        self.installations.remove(&(principal.clone(), did.clone()));
+        self.persist()?;
         Ok(lease)
     }
 
@@ -861,6 +1142,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         principal: &PrincipalId,
         did: &Did,
     ) -> Result<SessionLease, SessionKeyError> {
+        self.healthy()?;
         let key = (principal.clone(), did.clone());
         let (state, activities) = self
             .agents
@@ -880,6 +1162,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         let previous = std::mem::replace(&mut agent.current, replacement.clone());
         agent.retired.push(previous);
         agent.state = ManagedAgentState::Active;
+        self.installations.remove(&key);
+        self.persist()?;
         Ok(replacement)
     }
 
@@ -922,8 +1206,9 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         challenge_delay_seconds: u64,
         effective_sequence: u64,
     ) -> Result<RotationJourney, SessionKeyError> {
+        self.healthy()?;
         let key = (principal.clone(), did.clone());
-        if self.rotations.contains_key(&key) {
+        if self.rotations.contains_key(&key) || self.announcements.contains_key(&key) {
             return Err(SessionKeyError::RotationAlreadyOpen);
         }
         let current = keystore.describe(principal, current_key_id)?;
@@ -954,33 +1239,10 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         )?;
         let intent = Intent::v1(IntentKind::KeyRotation(rotation));
         let compiled = compile(&intent, &self.rotation_registry)?;
-        let disclosure = DisclosureCheck::verify(&intent, &compiled)?;
+        compiled.verify_disclosure(&intent)?;
         let expected_payload_hash = compiled.payload_hash();
-        let evidence = self.contract.announce_rotation(RotationSubmission {
-            principal: principal.clone(),
-            subject,
-            did: did.clone(),
-            current_public_key: current.public_key,
-            pending_public_key: pending.public_key,
-            effective_at,
-            lapse_at,
-            effective_sequence,
-            intent,
-            compiled,
-            disclosure,
-        })?;
-        if evidence.payload_hash != expected_payload_hash
-            || evidence.pending_public_key != pending.public_key
-            || evidence.effective_at != effective_at
-            || evidence.lapse_at != lapse_at
-            || evidence.effective_sequence != effective_sequence
-            || evidence.observed_at < identity.protocol_time
-            || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
-            || evidence.receipt_digest != evidence.expected_digest()
-        {
-            return Err(SessionKeyError::InvalidEvidence);
-        }
         let journey = RotationJourney {
+            tx_hash: [0; 32],
             principal: principal.clone(),
             subject,
             did: did.clone(),
@@ -993,10 +1255,89 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             lapse_at,
             effective_sequence,
             challenge_delay,
-            announcement_receipt_digest: evidence.receipt_digest,
+            announcement_receipt_digest: [0; 32],
             state: RotationJourneyState::ChallengeOpen,
         };
-        self.rotations.insert(key, journey.clone());
+        self.announcements.insert(
+            key.clone(),
+            durable::Announcement {
+                journey,
+                payload_hash: expected_payload_hash,
+                attempted: false,
+            },
+        );
+        self.persist()?;
+        self.finish_announcement(&key)
+    }
+
+    fn finish_announcement(
+        &mut self,
+        key: &(PrincipalId, Did),
+    ) -> Result<RotationJourney, SessionKeyError> {
+        let pending = self
+            .announcements
+            .get(key)
+            .cloned()
+            .ok_or(SessionKeyError::RotationNotFound)?;
+        let mut journey = pending.journey;
+        let recovered = if pending.attempted {
+            self.contract
+                .recover_rotation(&key.0, &key.1, pending.payload_hash)?
+        } else {
+            None
+        };
+        let evidence = if let Some(evidence) = recovered {
+            evidence
+        } else {
+            let rotation = KeyRotation::new(
+                journey.did.clone(),
+                PublicKey::new(journey.pending_public_key),
+                TimestampBound::new(journey.effective_at, journey.lapse_at)
+                    .map_err(|_| SessionKeyError::InvalidRotationWindow)?,
+                Sequence::from_u64(journey.effective_sequence),
+            )?;
+            let intent = Intent::v1(IntentKind::KeyRotation(rotation));
+            let compiled = compile(&intent, &self.rotation_registry)?;
+            if compiled.payload_hash() != pending.payload_hash {
+                return Err(SessionKeyError::InvalidEvidence);
+            }
+            let disclosure = compiled.verify_disclosure(&intent)?;
+            self.announcements
+                .get_mut(key)
+                .ok_or(SessionKeyError::RotationNotFound)?
+                .attempted = true;
+            self.persist()?;
+            self.contract.announce_rotation(RotationSubmission {
+                principal: key.0.clone(),
+                subject: journey.subject,
+                did: key.1.clone(),
+                current_public_key: journey.current_public_key,
+                pending_public_key: journey.pending_public_key,
+                effective_at: journey.effective_at,
+                lapse_at: journey.lapse_at,
+                effective_sequence: journey.effective_sequence,
+                intent,
+                compiled,
+                disclosure,
+            })?
+        };
+        if evidence.tx_hash == [0; 32]
+            || evidence.payload_hash != pending.payload_hash
+            || evidence.pending_public_key != journey.pending_public_key
+            || evidence.effective_at != journey.effective_at
+            || evidence.lapse_at != journey.lapse_at
+            || evidence.effective_sequence != journey.effective_sequence
+            || evidence.observed_at < journey.announced_at
+            || evidence.rung < Rung::Receipted
+            || evidence.receipt_digest != evidence.expected_digest()
+        {
+            return Err(SessionKeyError::InvalidEvidence);
+        }
+        journey.tx_hash = evidence.tx_hash;
+        journey.announcement_receipt_digest = evidence.receipt_digest;
+        self.rotations.insert(key.clone(), journey.clone());
+        self.announcements.remove(key);
+        self.persist()?;
         Ok(journey)
     }
 
@@ -1013,14 +1354,24 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         principal: &PrincipalId,
         did: &Did,
     ) -> Result<(RotationJourney, Option<SessionLease>), SessionKeyError> {
+        self.healthy()?;
         let key = (principal.clone(), did.clone());
-        let tracked = self
-            .rotations
-            .get(&key)
-            .cloned()
-            .ok_or(SessionKeyError::RotationNotFound)?;
+        let tracked = match self.rotations.get(&key).cloned() {
+            Some(tracked) => tracked,
+            None => {
+                return self
+                    .rotation_history
+                    .iter()
+                    .rev()
+                    .find(|journey| journey.principal == *principal && journey.did == *did)
+                    .cloned()
+                    .map(|journey| (journey, None))
+                    .ok_or(SessionKeyError::RotationNotFound)
+            }
+        };
         let observed = self.contract.rotation_observation(principal, did)?;
-        if observed.verification_level < VerificationLevel::STATE_PROVEN
+        if observed.tx_hash != tracked.tx_hash
+            || observed.rung < Rung::Receipted
             || observed.effective_at != tracked.effective_at
             || observed.lapse_at != tracked.lapse_at
             || observed.effective_sequence != tracked.effective_sequence
@@ -1028,10 +1379,21 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         {
             return Err(SessionKeyError::InvalidEvidence);
         }
+        let pending = observed.primary_public_key == tracked.current_public_key
+            && (observed.pending_public_key == Some(tracked.pending_public_key)
+                || (observed.pending_public_key.is_none()
+                    && observed.observed_at > tracked.lapse_at));
+        let effective = observed.primary_public_key == tracked.pending_public_key
+            && observed.pending_public_key.is_none()
+            && observed.superseded_public_key == Some(tracked.current_public_key);
+        if !pending && !effective {
+            return Err(SessionKeyError::InvalidEvidence);
+        }
+        if observed.rung != Rung::Committed {
+            return Ok((tracked, None));
+        }
         let mut replacement = None;
-        let state = if observed.primary_public_key == tracked.current_public_key
-            && observed.pending_public_key == Some(tracked.pending_public_key)
-        {
+        let state = if pending {
             if observed.observed_at < tracked.effective_at {
                 RotationJourneyState::ChallengeOpen
             } else if observed.observed_at <= tracked.lapse_at {
@@ -1048,15 +1410,13 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             {
                 if let Some(agent) = self.agents.get(&key) {
                     if agent.state == ManagedAgentState::Active {
-                        let activities = agent.current.permitted_activity_types.clone();
-                        let lease = self.provision_new(principal, did, activities)?;
-                        let agent = self
-                            .agents
-                            .get_mut(&key)
-                            .ok_or(SessionKeyError::NotProvisioned)?;
-                        let previous = std::mem::replace(&mut agent.current, lease.clone());
-                        agent.retired.push(previous);
-                        replacement = Some(lease);
+                        let renewed = self.renew_one(
+                            principal,
+                            did,
+                            observed.observed_at,
+                            RevocationReason::PrimaryKeyRotated,
+                        )?;
+                        replacement = Some(renewed.replacement);
                     }
                 }
             }
@@ -1072,68 +1432,116 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             .get_mut(&key)
             .ok_or(SessionKeyError::RotationNotFound)?;
         journey.state = state;
-        Ok((journey.clone(), replacement))
+        let journey = journey.clone();
+        if matches!(
+            journey.state,
+            RotationJourneyState::Effective { .. } | RotationJourneyState::Lapsed
+        ) {
+            self.rotations.remove(&key);
+            self.rotation_history.push(journey.clone());
+        }
+        self.persist()?;
+        Ok((journey, replacement))
     }
 
     fn provision_new(
         &mut self,
         principal: &PrincipalId,
         did: &Did,
-        permitted_activity_types: Vec<ActivityType>,
+        activities: Vec<ActivityType>,
     ) -> Result<SessionLease, SessionKeyError> {
-        if permitted_activity_types.is_empty() {
+        self.healthy()?;
+        let key = (principal.clone(), did.clone());
+        if activities.is_empty() {
             return Err(SessionKeyError::InvalidActivityScope);
         }
-        let identity = self.contract.identity_snapshot(principal, did)?;
-        verify_identity(&identity)?;
-        let expires_at = identity
-            .protocol_time
-            .checked_add(self.policy.lifetime_seconds)
-            .ok_or(SessionKeyError::TimeOverflow)?;
-        let entropy = self.entropy.next_session_entropy()?;
-        let session_public_key = LocalSigner::new(*entropy.0).public_key();
-        let issued = issue_session_key(&SessionKeyRequest {
-            fee_budget: None,
-            purpose: layerx_crypto::session::SessionPurpose::Activity,
-            grantor: identity.protocol_identity,
-            session_public_key,
-            not_before: identity.protocol_time,
-            expires_at: Some(expires_at),
-            permitted_activity_types,
-            revocation_sequence: Some(identity.revocation_sequence),
-        })?;
-        let request = AgentSessionProvision {
-            principal: principal.clone(),
-            agent_did: did.clone(),
-            issued: issued.clone(),
-            daemon_scopes: self.policy.daemon_scopes.clone(),
-            daemon_policy_version: self.policy.policy_version.clone(),
-            secret: entropy.into_secret(),
+        if !self.installations.contains_key(&key) {
+            let identity = self.contract.identity_snapshot(principal, did)?;
+            verify_identity(&identity)?;
+            let expires_at = identity
+                .protocol_time
+                .checked_add(self.policy.lifetime_seconds)
+                .ok_or(SessionKeyError::TimeOverflow)?;
+            let entropy = self.entropy.next_session_entropy()?;
+            self.installations.insert(
+                key.clone(),
+                durable::Installation {
+                    principal: principal.clone(),
+                    did: did.clone(),
+                    seed: *entropy.0,
+                    grantor: identity.protocol_identity,
+                    revocation_sequence: identity.revocation_sequence,
+                    not_before: identity.protocol_time,
+                    expires_at,
+                    core_sequence: identity.core_sequence,
+                    activities,
+                    attempted: false,
+                    installed: None,
+                },
+            );
+            self.persist()?;
+        }
+        let pending = self
+            .installations
+            .get(&key)
+            .cloned()
+            .ok_or(SessionKeyError::NotProvisioned)?;
+        if let Some(lease) = &pending.installed {
+            return Ok(lease.clone());
+        }
+        let issued = pending.issue()?;
+        let recovered = if pending.attempted {
+            self.contract
+                .recover_provision(principal, did, issued.grant_id)?
+        } else {
+            None
         };
-        let evidence = self.contract.provision_session(request)?;
+        let evidence = if let Some(evidence) = recovered {
+            evidence
+        } else {
+            self.installations
+                .get_mut(&key)
+                .ok_or(SessionKeyError::NotProvisioned)?
+                .attempted = true;
+            self.persist()?;
+            self.contract.provision_session(AgentSessionProvision {
+                principal: principal.clone(),
+                agent_did: did.clone(),
+                issued: issued.clone(),
+                daemon_scopes: self.policy.daemon_scopes.clone(),
+                daemon_policy_version: self.policy.policy_version.clone(),
+                secret: AgentSessionSecret(Zeroizing::new(pending.seed)),
+            })?
+        };
         if evidence.grant_id != issued.grant_id
             || evidence.session_public_key != issued.session_public_key
             || evidence.daemon_session_id == [0; 32]
-            || evidence.protocol_sequence < identity.core_sequence
-            || evidence.observed_at < identity.protocol_time
-            || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+            || evidence.protocol_sequence < pending.core_sequence
+            || evidence.observed_at < pending.not_before
+            || evidence.rung < Rung::Receipted
             || evidence.receipt_digest != evidence.expected_digest()
         {
             return Err(SessionKeyError::InvalidEvidence);
         }
-        Ok(SessionLease {
+        let lease = SessionLease {
             principal: principal.clone(),
             agent_did: did.clone(),
-            session_public_key,
+            session_public_key: issued.session_public_key,
             grant_id: issued.grant_id,
             daemon_session_id: evidence.daemon_session_id,
             permitted_activity_types: issued.permitted_activity_types,
-            issued_at: identity.protocol_time,
+            issued_at: pending.not_before,
             expires_at: issued.expires_at,
             revocation_sequence: issued.revocation_sequence,
             provision_receipt_digest: evidence.receipt_digest,
             state: SessionLeaseState::Active,
-        })
+        };
+        self.installations
+            .get_mut(&key)
+            .ok_or(SessionKeyError::NotProvisioned)?
+            .installed = Some(lease.clone());
+        self.persist()?;
+        Ok(lease)
     }
 
     fn stop_authority(
@@ -1144,6 +1552,36 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         reason: RevocationReason,
     ) -> Result<RevocationOutcome, SessionKeyError> {
         let key = (principal.clone(), did.clone());
+        self.healthy()?;
+        if let Some(stop) = self.stops.get(&key) {
+            if stop.reason != reason {
+                return Err(SessionKeyError::InvalidEvidence);
+            }
+        } else {
+            let existing = self
+                .agents
+                .get(&key)
+                .ok_or(SessionKeyError::NotProvisioned)?;
+            if let SessionLeaseState::Revoked {
+                reason: completed,
+                suspended_at,
+                ..
+            } = existing.current.state
+            {
+                if completed != reason || requested_at > suspended_at {
+                    return Err(SessionKeyError::NotProvisioned);
+                }
+            }
+            self.stops.insert(
+                key.clone(),
+                durable::Stop {
+                    requested_at,
+                    reason,
+                },
+            );
+            self.persist()?;
+        }
+        let requested_at = self.stops[&key].requested_at;
         let lease = self
             .agents
             .get(&key)
@@ -1161,7 +1599,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
                 return Err(SessionKeyError::NotProvisioned);
             }
             let latency_seconds = revoked_at.saturating_sub(suspended_at);
-            return Ok(RevocationOutcome {
+            let outcome = RevocationOutcome {
                 reason,
                 requested_at,
                 suspended_at,
@@ -1171,7 +1609,10 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
                     <= self.policy.maximum_revocation_latency_seconds,
                 suspension_receipt_digest,
                 revocation_receipt_digest,
-            });
+            };
+            self.stops.remove(&key);
+            self.persist()?;
+            return Ok(outcome);
         }
         let target = target(&lease);
         let suspension = match lease.state {
@@ -1187,6 +1628,7 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
                         suspension_receipt_digest: evidence.receipt_digest,
                     };
                 }
+                self.persist()?;
                 evidence
             }
             SessionLeaseState::SuspendedAwaitingProtocolRevocation {
@@ -1225,6 +1667,8 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
             RevocationReason::Archived => ManagedAgentState::Archived,
             RevocationReason::Renewed | RevocationReason::PrimaryKeyRotated => agent.state,
         };
+        self.stops.remove(&key);
+        self.persist()?;
         Ok(outcome)
     }
 
@@ -1236,41 +1680,64 @@ impl<C: AgentSessionContract, E: SessionEntropySource> SessionKeyProvisioner<C, 
         reason: RevocationReason,
     ) -> Result<RenewalOutcome, SessionKeyError> {
         let key = (principal.clone(), did.clone());
-        let previous = self
-            .agents
+        self.healthy()?;
+        if !self.renewals.contains_key(&key) {
+            let previous = self
+                .agents
+                .get(&key)
+                .filter(|agent| agent.state == ManagedAgentState::Active)
+                .map(|agent| agent.current.clone())
+                .ok_or(SessionKeyError::NotProvisioned)?;
+            self.renewals.insert(
+                key.clone(),
+                durable::Renewal {
+                    previous,
+                    replacement: None,
+                    requested_at,
+                    reason,
+                },
+            );
+            self.persist()?;
+        }
+        if self
+            .stops
             .get(&key)
-            .filter(|agent| agent.state == ManagedAgentState::Active)
-            .map(|agent| agent.current.clone())
-            .ok_or(SessionKeyError::NotProvisioned)?;
-        let replacement =
-            self.provision_new(principal, did, previous.permitted_activity_types.clone())?;
-        let target = target(&previous);
-        let suspension = self
-            .contract
-            .suspend_permissions(&target, reason, requested_at)?;
-        validate_suspension(&suspension, &target, reason, requested_at)?;
-        let revocation = self
-            .contract
-            .revoke_protocol_session(&target, reason, requested_at)?;
-        validate_revocation(&revocation, &target, reason, suspension.observed_at)?;
-        let previous_revocation =
-            revocation_outcome(&self.policy, reason, requested_at, &suspension, &revocation);
-        let mut retired = previous.clone();
-        retired.state = SessionLeaseState::Revoked {
-            reason,
-            suspended_at: suspension.observed_at,
-            revoked_at: revocation.observed_at,
-            suspension_receipt_digest: suspension.receipt_digest,
-            revocation_receipt_digest: revocation.receipt_digest,
+            .is_some_and(|stop| stop.reason != reason)
+        {
+            return Err(SessionKeyError::InvalidEvidence);
+        }
+        let pending = self.renewals[&key].clone();
+        if pending.reason != reason {
+            return Err(SessionKeyError::InvalidEvidence);
+        }
+        let replacement = if let Some(replacement) = &pending.replacement {
+            replacement.clone()
+        } else {
+            let replacement = self.provision_new(
+                principal,
+                did,
+                pending.previous.permitted_activity_types.clone(),
+            )?;
+            self.renewals
+                .get_mut(&key)
+                .ok_or(SessionKeyError::NotProvisioned)?
+                .replacement = Some(replacement.clone());
+            self.persist()?;
+            replacement
         };
+        let previous_revocation =
+            self.stop_authority(principal, did, pending.requested_at, pending.reason)?;
         let agent = self
             .agents
             .get_mut(&key)
             .ok_or(SessionKeyError::NotProvisioned)?;
+        let retired = std::mem::replace(&mut agent.current, replacement.clone());
         agent.retired.push(retired);
-        agent.current = replacement.clone();
+        self.renewals.remove(&key);
+        self.installations.remove(&key);
+        self.persist()?;
         Ok(RenewalOutcome {
-            previous_grant_id: previous.grant_id,
+            previous_grant_id: pending.previous.grant_id,
             replacement,
             previous_revocation,
         })
@@ -1291,7 +1758,7 @@ fn verify_identity(identity: &ProtocolIdentitySnapshot) -> Result<(), SessionKey
         || identity.primary_public_key == [0; 32]
         || identity.revocation_sequence == 0
         || identity.protocol_time == 0
-        || identity.verification_level < VerificationLevel::STATE_PROVEN
+        || identity.rung != Rung::Committed
     {
         Err(SessionKeyError::InvalidIdentity)
     } else {
@@ -1326,7 +1793,7 @@ fn validate_revocation(
     if evidence.grant_id != target.grant_id
         || evidence.reason != reason
         || evidence.observed_at < suspended_at
-        || evidence.verification_level < VerificationLevel::BATCH_INCLUDED
+        || evidence.rung < Rung::Receipted
         || evidence.receipt_digest != evidence.expected_digest()
     {
         Err(SessionKeyError::InvalidEvidence)
@@ -1363,4 +1830,159 @@ fn digest_fields(domain: &[u8], fields: &[&[u8]]) -> [u8; 32] {
         hasher.update(field);
     }
     hasher.finalize().into()
+}
+
+/// Durable session lifecycle maintenance owner for the production component scheduler.
+/// Construction refuses the non-durable development helper.
+pub struct SessionLifecycleDriver<C: AgentSessionContract, E: SessionEntropySource> {
+    owner: std::sync::Mutex<SessionKeyProvisioner<C, E>>,
+    healthy: std::sync::atomic::AtomicBool,
+}
+impl<C: AgentSessionContract, E: SessionEntropySource> SessionLifecycleDriver<C, E> {
+    pub fn new(owner: SessionKeyProvisioner<C, E>) -> Result<Self, SessionKeyError> {
+        if owner.durable.is_none() || owner.poisoned {
+            return Err(SessionKeyError::InvalidPolicy);
+        }
+        Ok(Self {
+            owner: std::sync::Mutex::new(owner),
+            healthy: std::sync::atomic::AtomicBool::new(true),
+        })
+    }
+    pub fn healthy(&self) -> bool {
+        self.healthy.load(std::sync::atomic::Ordering::Acquire)
+    }
+    pub fn session(
+        &self,
+        principal: &PrincipalId,
+        did: &Did,
+    ) -> Result<Option<SessionLease>, SessionKeyError> {
+        let owner = self
+            .owner
+            .lock()
+            .map_err(|_| SessionKeyError::InvalidEvidence)?;
+        Ok(owner.session(principal, did).cloned())
+    }
+
+    pub fn into_provisioner(self) -> Result<SessionKeyProvisioner<C, E>, SessionKeyError> {
+        self.owner
+            .into_inner()
+            .map_err(|_| SessionKeyError::InvalidEvidence)
+    }
+}
+impl<C: AgentSessionContract + Send + 'static, E: SessionEntropySource + Send + 'static>
+    crate::server::ComponentMaintenance for SessionLifecycleDriver<C, E>
+{
+    fn maintain(
+        &self,
+        maximum_items: usize,
+        now: u64,
+    ) -> Result<usize, crate::server::backend::ApiFailure> {
+        use crate::server::backend::ApiFailure;
+        let mut owner = self
+            .owner
+            .lock()
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        owner
+            .healthy()
+            .map_err(|_| ApiFailure::upstream_degraded())?;
+        let count = match owner.maintain_bounded(maximum_items, now) {
+            Ok(count) => count,
+            Err(_) => {
+                self.healthy
+                    .store(false, std::sync::atomic::Ordering::Release);
+                return Err(ApiFailure::upstream_degraded());
+            }
+        };
+        self.healthy
+            .store(true, std::sync::atomic::Ordering::Release);
+        Ok(count)
+    }
+    fn set_maintenance_health(&self, healthy: bool) {
+        self.healthy
+            .store(healthy, std::sync::atomic::Ordering::Release);
+    }
+}
+
+/// Composes the durable session owner with the real Human component scheduler.
+/// Product operations remain owned by the supplied production component graph.
+pub struct SessionMaintainedComponents<B, C: AgentSessionContract, E: SessionEntropySource> {
+    backend: std::sync::Arc<B>,
+    sessions: SessionLifecycleDriver<C, E>,
+}
+impl<B, C: AgentSessionContract, E: SessionEntropySource> SessionMaintainedComponents<B, C, E> {
+    pub fn new(backend: std::sync::Arc<B>, sessions: SessionLifecycleDriver<C, E>) -> Self {
+        Self { backend, sessions }
+    }
+    pub fn sessions(&self) -> &SessionLifecycleDriver<C, E> {
+        &self.sessions
+    }
+    pub fn into_sessions(self) -> SessionLifecycleDriver<C, E> {
+        self.sessions
+    }
+}
+impl<
+        B: crate::server::backend::HumanApiComponents,
+        C: AgentSessionContract + Send + 'static,
+        E: SessionEntropySource + Send + 'static,
+    > crate::server::ComponentMaintenance for SessionMaintainedComponents<B, C, E>
+{
+    fn maintain(
+        &self,
+        maximum_items: usize,
+        now: u64,
+    ) -> Result<usize, crate::server::backend::ApiFailure> {
+        crate::server::ComponentMaintenance::maintain(&self.sessions, maximum_items, now)
+    }
+    fn set_maintenance_health(&self, healthy: bool) {
+        crate::server::ComponentMaintenance::set_maintenance_health(&self.sessions, healthy);
+    }
+}
+impl<
+        B: crate::server::backend::HumanApiComponents,
+        C: AgentSessionContract + Send + 'static,
+        E: SessionEntropySource + Send + 'static,
+    > crate::server::backend::HumanApiComponents for SessionMaintainedComponents<B, C, E>
+{
+    fn authorize(
+        &self,
+        operation: &crate::server::schema::Operation,
+        credentials: crate::server::backend::SessionCredentials<'_>,
+        trace: &str,
+    ) -> Result<crate::server::backend::PrincipalContext, crate::server::backend::ApiFailure> {
+        self.backend.authorize(operation, credentials, trace)
+    }
+    fn admit_bearer_assertion(
+        &self,
+        operation: &crate::server::schema::Operation,
+        credentials: crate::server::backend::BearerCredentials<'_>,
+        trace: &str,
+    ) -> Result<crate::server::backend::PrincipalContext, crate::server::backend::ApiFailure> {
+        self.backend
+            .admit_bearer_assertion(operation, credentials, trace)
+    }
+    fn execute(
+        &self,
+        request: crate::server::backend::ScopedRequest<'_>,
+    ) -> Result<crate::server::backend::BackendResponse, crate::server::backend::ApiFailure> {
+        self.backend.execute(request)
+    }
+    fn stream(
+        &self,
+        request: crate::server::backend::ScopedRequest<'_>,
+        maximum_bytes: usize,
+        emit: &mut dyn FnMut(serde_json::Value) -> Result<(), crate::server::backend::ApiFailure>,
+        cancelled: &dyn Fn() -> bool,
+    ) -> Result<(), crate::server::backend::ApiFailure> {
+        self.backend.stream(request, maximum_bytes, emit, cancelled)
+    }
+    fn readiness(
+        &self,
+        trace: &str,
+    ) -> Result<crate::server::backend::Readiness, crate::server::backend::ApiFailure> {
+        let mut readiness = self.backend.readiness(trace)?;
+        if !self.sessions.healthy() {
+            readiness.human_service = crate::server::backend::ComponentState::Unavailable;
+        }
+        Ok(readiness)
+    }
 }

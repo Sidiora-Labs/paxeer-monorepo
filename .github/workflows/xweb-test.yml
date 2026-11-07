@@ -17,19 +17,15 @@ on:
       - 'contracts/test/CW1155ERC1155PointerTest.t.sol'
       - 'contracts/test/CW721ERC721PointerTest.t.sol'
       - 'Makefile'
-      - 'include/layerx/lx_web.h'
-      - 'include/layerx/lx_batch.h'
+      - 'chain.mk'
+      - 'go.mod'
+      - 'go.sum'
+      - 'foundry.paxeer.toml'
+      - 'services/wallet/attestor/**'
+      - 'services/interop/crates/layerx-interop-gateway/**'
+      - 'precompiles/common/**'
+      - 'precompiles/utils/**'
       - 'include/layerx/programs.h'
-      - 'src/modules/web/**'
-      - 'src/modules/programs/call.c'
-      - 'src/network/lx_web_adapter.c'
-      - 'src/sequencer/lx_web_root.c'
-      - 'tests/modules/**'
-      - 'tests/sequencer/**'
-      - 'tests/network/**'
-      - 'tests/fixtures/web/**'
-      - 'tests/test_programs_web_read.c'
-      - 'tests/test_web_program_path.c'
       - 'programs/crates/layerx-programs-runtime/**'
       - 'programs/sdk/rust/**'
       - 'services/agent/sdk/typescript/src/web-search.ts'
@@ -57,19 +53,15 @@ on:
       - 'contracts/test/CW1155ERC1155PointerTest.t.sol'
       - 'contracts/test/CW721ERC721PointerTest.t.sol'
       - 'Makefile'
-      - 'include/layerx/lx_web.h'
-      - 'include/layerx/lx_batch.h'
+      - 'chain.mk'
+      - 'go.mod'
+      - 'go.sum'
+      - 'foundry.paxeer.toml'
+      - 'services/wallet/attestor/**'
+      - 'services/interop/crates/layerx-interop-gateway/**'
+      - 'precompiles/common/**'
+      - 'precompiles/utils/**'
       - 'include/layerx/programs.h'
-      - 'src/modules/web/**'
-      - 'src/modules/programs/call.c'
-      - 'src/network/lx_web_adapter.c'
-      - 'src/sequencer/lx_web_root.c'
-      - 'tests/modules/**'
-      - 'tests/sequencer/**'
-      - 'tests/network/**'
-      - 'tests/fixtures/web/**'
-      - 'tests/test_programs_web_read.c'
-      - 'tests/test_web_program_path.c'
       - 'programs/crates/layerx-programs-runtime/**'
       - 'programs/sdk/rust/**'
       - 'services/agent/sdk/typescript/src/web-search.ts'
@@ -128,7 +120,7 @@ jobs:
       - name: Install the pinned Go toolchain
         uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
         with:
-          go-version: '1.25.6'
+          go-version: '1.25.8'
 
       - name: Install native dependencies
         run: sudo apt-get update && sudo apt-get install --yes build-essential libssl-dev
@@ -162,30 +154,6 @@ jobs:
 
       - name: Run forge test for contracts/test/XWebConsumer.t.sol
         run: FOUNDRY_CONFIG=foundry.paxeer.toml forge test --evm-version=prague --match-path contracts/test/XWebConsumer.t.sol
-
-  kernel-web:
-    name: make for the kernel web targets and cargo test for the runtime web_read test
-    runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
-    timeout-minutes: 45
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-
-      - name: Install native dependencies
-        run: >-
-          sudo apt-get update && sudo apt-get install --yes
-          build-essential clang libssl-dev libsqlite3-dev ripgrep
-
-      - name: Install the pinned Rust toolchain with the wasm target
-        run: rustup toolchain install 1.91.1 --profile minimal --no-self-update --target wasm32-unknown-unknown
-
-      - name: Run make for the kernel web activity and web_read targets
-        run: make test-web-intake test-web-root test-web-adapter test-programs-web-read test-web-program-path
-
-      - name: Run cargo test for the layerx-programs-runtime web_read test
-        run: cargo test --locked --manifest-path programs/Cargo.toml -p layerx-programs-runtime --test web_read
 
   agent-clients:
     name: cargo test, npm and pytest for the MCP, TypeScript and Python web clients

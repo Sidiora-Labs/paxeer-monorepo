@@ -8,17 +8,11 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+	"math"
 	"strconv"
 	"time"
 )
-
-// MarketIDs maps the eighteen symbols of the application feed list
-// (Hyperpax:src/core/feeds.ts:4) to their market ids (contracts/perps-markets.md
-// section 2).
-var MarketIDs = map[string]int64{
-	"BTC": 0, "ETH": 1, "SOL": 2, "AVAX": 3, "LINK": 4, "TSLA": 5, "NVDA": 6, "NAS100": 7, "XAU": 8,
-	"SPX500": 9, "GOOGL": 10, "PAX": 11, "SID": 12, "HYPE": 13, "XRP": 14, "ASTER": 15, "TRUMP": 16, "BNB": 17,
-}
 
 // SpotTokenRank is the position of a spot token among the registered
 // non-stablecoin tokens of 0x1025, which InitV6120 registers as USDL, PAX, SID
@@ -47,12 +41,13 @@ const (
 	ISOMillis = "2006-01-02T15:04:05.000Z"
 )
 
-// ErrUnknownSymbol reports a symbol outside MarketIDs.
+// ErrUnknownSymbol reports a symbol outside perps.markets.
 var ErrUnknownSymbol = errors.New("records: unknown symbol")
 
 // Symbol reads the symbol bodies from schema perps.
 type Symbol struct {
-	db *sql.DB
+	db      *sql.DB
+	markets *MarketSet
 }
 
 // NewSymbol returns the symbol reader of db.
@@ -60,7 +55,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 	if db == nil {
 		return nil, errors.New("records: nil database")
 	}
-	return &Symbol{db: db}, nil
+	return &Symbol{db: db, markets: NewMarketSet(db, 30*time.Second)}, nil
 }
 
 // MarketRecord is one record of the markets table (Hyperpax:data_api.md:424-461,
@@ -70,6 +65,7 @@ func NewSymbol(db *sql.DB) (*Symbol, error) {
 // null before the first one: last_funding_rate_hourly and perp_funding_rate
 // are the settled hourly rate, funding_8h is eight times it.
 type MarketRecord struct {
+	MarketID              string   `json:"market_id"`
 	Symbol                string   `json:"symbol"`
 	SymbolFull            string   `json:"symbol_full"`
 	Price                 *float64 `json:"price"`
@@ -115,6 +111,12 @@ type Price struct {
 	Low       *float64 `json:"low"`
 }
 
+// Stats is the shared REST /stats, /perp_stats and socket stats body.
+// Volume24h and OpenInterest are USD notionals. LastFundingRateHourly is
+// the exact signed fraction per hour from the latest FundingSettled (null
+// before the first settlement); LastFundingRate is its nullable float copy.
+// Reference estimates and the frontend's volume_24h_usd/oi_usd aliases are
+// not fields of this wire record; see docs/perps/data-api.md, Symbol Service.
 type Stats struct {
 	Symbol                string   `json:"symbol"`
 	Volume24h             float64  `json:"volume_24h"`
@@ -219,7 +221,7 @@ type latestMark struct {
 	at                 *time.Time
 }
 
-func (s *Symbol) latestMark(ctx context.Context, market int64) (latestMark, error) {
+func (s *Symbol) latestMark(ctx context.Context, market string) (latestMark, error) {
 	var (
 		mark, index, basis sql.NullString
 		at                 time.Time
@@ -250,7 +252,7 @@ type fillWindow struct {
 	volume, liqVolume float64
 }
 
-func (s *Symbol) fillWindow(ctx context.Context, market int64) (fillWindow, error) {
+func (s *Symbol) fillWindow(ctx context.Context, market string) (fillWindow, error) {
 	var (
 		open, high, low, volume, liqVolume sql.NullString
 		out                                fillWindow
@@ -284,7 +286,7 @@ type marketState struct {
 	lastRate        *float64
 }
 
-func (s *Symbol) marketState(ctx context.Context, market int64) (marketState, error) {
+func (s *Symbol) marketState(ctx context.Context, market string) (marketState, error) {
 	var (
 		raw [4]sql.NullString
 		out marketState
@@ -311,7 +313,10 @@ func (s *Symbol) marketState(ctx context.Context, market int64) (marketState, er
 }
 
 func (s *Symbol) Price(ctx context.Context, symbol string) (Price, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Price{}, err
+	}
 	if !ok {
 		return Price{}, ErrUnknownSymbol
 	}
@@ -351,7 +356,10 @@ func statsFrom(symbol string, window fillWindow, state marketState) Stats {
 }
 
 func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Stats{}, err
+	}
 	if !ok {
 		return Stats{}, ErrUnknownSymbol
 	}
@@ -367,7 +375,10 @@ func (s *Symbol) Stats(ctx context.Context, symbol string) (Stats, error) {
 }
 
 func (s *Symbol) PerpStats(ctx context.Context, symbol string) (PerpStats, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return PerpStats{}, err
+	}
 	if !ok {
 		return PerpStats{}, ErrUnknownSymbol
 	}
@@ -448,7 +459,11 @@ SELECT block, log_index, block_time, buy, price, size FROM trades
 ORDER BY block DESC, tx_index DESC, log_index DESC, sub DESC LIMIT $2`
 
 func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[SpotTrade], error) {
-	if _, ok := MarketIDs[symbol]; !ok {
+	_, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Trades[SpotTrade]{}, err
+	}
+	if !ok {
 		return Trades[SpotTrade]{}, ErrUnknownSymbol
 	}
 	body := Trades[SpotTrade]{Symbol: symbol, Trades: []SpotTrade{}}
@@ -457,7 +472,7 @@ func (s *Symbol) Trades(ctx context.Context, symbol string, limit int) (Trades[S
 		return body, nil
 	}
 	var token []byte
-	err := s.db.QueryRowContext(ctx, spotTokenSQL, rank).Scan(&token)
+	err = s.db.QueryRowContext(ctx, spotTokenSQL, rank).Scan(&token)
 	if errors.Is(err, sql.ErrNoRows) {
 		return body, nil
 	}
@@ -502,7 +517,10 @@ const perpTradesSQL = `SELECT f.block, f.log_index, f.block_time, f.taker_is_lon
 	ORDER BY f.block DESC, f.tx_index DESC, f.log_index DESC, f.sub DESC LIMIT $2`
 
 func (s *Symbol) PerpTrades(ctx context.Context, symbol string, limit int) (Trades[PerpTrade], error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Trades[PerpTrade]{}, err
+	}
 	if !ok {
 		return Trades[PerpTrade]{}, ErrUnknownSymbol
 	}
@@ -549,7 +567,10 @@ const healthSQL = `SELECT
 	EXISTS (SELECT 1 FROM perps.cursors WHERE name = 'head')`
 
 func (s *Symbol) Health(ctx context.Context, symbol string) (Health, error) {
-	market, ok := MarketIDs[symbol]
+	market, ok, err := s.markets.ID(ctx, symbol)
+	if err != nil {
+		return Health{}, err
+	}
 	if !ok {
 		return Health{}, ErrUnknownSymbol
 	}
@@ -582,6 +603,8 @@ func side(buy bool) string {
 	return "SELL"
 }
 
+// Decimal decodes a nullable database decimal into a finite JSON number.
+// Non-finite values must fail here rather than reaching a response encoder.
 func Decimal(raw sql.NullString) (*float64, error) {
 	if !raw.Valid {
 		return nil, nil
@@ -589,6 +612,9 @@ func Decimal(raw sql.NullString) (*float64, error) {
 	v, err := strconv.ParseFloat(raw.String, 64)
 	if err != nil {
 		return nil, err
+	}
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return nil, fmt.Errorf("records: non-finite decimal %q", raw.String)
 	}
 	return &v, nil
 }

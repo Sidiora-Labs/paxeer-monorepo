@@ -1,0 +1,49 @@
+[repair.22.33.137]
+audit = "22.30.115"
+mode = "BUILD"
+criterion = "22998.1"
+verification = "hf-build followed by hf-done; the runner records the exact candidate revision, command, exit code and private log in /out/run/gates.jsonl."
+baseline = "Not run: the explicit order prohibits tests before complete implementation and running verify_cmd by hand; these bounded-gate instructions take precedence over the conflicting baseline request in step 9. No pre-change failure is claimed."
+layout = "Cards preview native PAX and the first three filtered holdings; for portfolios above three tokens, the grid intentionally repeats native PAX and all filtered holdings for the full list. Both receive the same filtered array; filter controls remain available at every size."
+recovery = "The producer persists chainId:sender:hash records through the registered session repository. Reconciliation deadlines remain durable after application; reopening never reapplies an already scheduled transaction. Loading and account changes cancel only the current timer and reschedule from its original deadline when the owner returns. Failed reads retain records and retry."
+
+[finding.portfolio-zero-decimals]
+test = "portfolio_zero_decimals_all_layouts_and_unknown_precision"
+proof = "Loopback indexer token producer through the production HTTP facade into the real grid's first, wide and trailing cards; explicit zero displays whole raw units and invalid or unknown precision remains visible as unavailable."
+
+[finding.portfolio-filters-not-applied-to-cards]
+test = "portfolio_filters_apply_to_cards_grid_and_small_portfolio_after_restart"
+proof = "Production wallet provider, HTTP portfolio queries, persistent filters and rendered controls hide the same holdings in real cards and grid, then close/reopen with a fresh cache and a two-token portfolio and restore visibility through the controls."
+
+[finding.pending-send-account-scope]
+test = "pending_send_account_chain_hash_survive_restart_without_cross_account_delta"
+proof = "Real send form and wallet sign/broadcast native and token transfers on root and virtual chains; the real repository retains all three identities across consumer restarts and account/network changes and only applies root sends to their root sender."
+
+[finding.pending-zero-decimals]
+test = "pending_zero_decimals_real_signed_send_updates_raw_units_and_recovers"
+additional_test = "pending_unknown_or_mismatched_precision_never_converts"
+proof = "Production token producer, send form, injected signing peer, serialized repository and mounted pending hook preserve one zero-decimal unit from signed calldata to cached 7-to-6 delta and warm/cold restarts; conflicting or invalid holding precision cannot trigger conversion."
+
+[finding.pending-send-reconcile-cancelled]
+test = "pending_reconcile_survives_loading_account_change_and_reopen"
+additional_test = "pending_failed_reconcile_remains_durable_and_retries"
+proof = "Real timers and loopback HTTP reads prove reconciliation survives loading changes, an account switch and unmount/reopen without a second delta; a recorded HTTP failure remains durable and retries successfully on the next real deadline."
+
+[wiring.network-portfolio]
+request = "Domain 12: apps/wallet/src/lib/queries/keys.ts, apps/wallet/src/lib/queries/portfolio.ts and apps/wallet/src/lib/data/facades/wallet.ts must accept and key the original chain before virtual sends can reconcile; this repair retains virtual records and refuses to mutate or reconcile them through the root-only API."
+
+[wiring.precision-producer]
+request = "Domain 12: apps/wallet/src/lib/data/facades/wallet.ts must preserve absent/null token precision instead of defaulting to 18; scoped consumers reject unknown precision that reaches their boundary."
+
+[wiring.legacy-pending-interface]
+request = "Domain 12: apps/wallet/src/lib/optimistic.ts, apps/wallet/src/platform/storage/repositories.ts and apps/wallet/src/widgets/send/repair-22-33-136.test.ts should retire the unscoped pending interface and update its historical producer assertion to the scoped repository; this repair neither infers legacy send ownership nor dual-writes unsafe unscoped events."
+
+[gotcha.working-directory]
+observed = "An edit script used repository-relative paths while its command ran from apps/wallet; it failed before writing files and was rerun from the repository root."
+
+[qualification.build1]
+revision = "cef3024801cece518e8ebb420f5642656a37d13c"
+command = "pnpm --dir apps/wallet exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The registered repository inferred the empty fallback as {} instead of the parser's record type; set its explicit validated generic type."

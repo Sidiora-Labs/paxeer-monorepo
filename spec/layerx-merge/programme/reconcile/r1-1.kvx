@@ -1,0 +1,589 @@
+[reconcile.r1-1]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r1-1.1]
+interface = "interface.1.c-lx-asset-runtime"
+verdict = "served"
+path = "include/layerx/lx_asset.h"
+line = 121
+symbol = "lx_asset_runtime"
+evidence = "The declaration typedef struct lx_asset_runtime now ends with bool binding_authority at include/layerx/lx_asset.h:129, after protocol_version. This field is absent from the registered signature; the planned runtime extension has landed."
+
+[row.r1-1.2]
+interface = "interface.1.c-lx-asset-payer-grant-read"
+verdict = "retired"
+path = "include/layerx/lx_asset.h"
+line = 276
+symbol = "lx_asset_payer_grant_read"
+evidence = "The payer-grant read declaration is removed from lx_asset.h and its old registry implementation no longer defines it. References include weak absence probes in tests/codec/lxp_test_receive_retired.c, a legacy binding test, and retirement checks; these are not a replacement implementation. Word-boundary repository search excluding spec/ and docs/ found 4 remaining files, recorded below."
+remaining_refs = 4
+remaining = ["tests/ci/test_kernel_suite_retired_uses.py:33", "tests/codec/lxp_test_binding_authority_receive.c:277", "tests/codec/lxp_test_receive_retired.c:35", "tests/proof/lxp_proof_lx_asset_h.c:6"]
+
+[row.r1-1.3]
+interface = "interface.1.c-lx-asset-state-root"
+verdict = "served"
+path = "include/layerx/lx_asset.h"
+line = 284
+symbol = "lx_asset_state_root"
+evidence = "Signature unchanged: lxp_result lx_asset_state_root(const lx_asset_registry *assets, const lx_account_registry *accounts, uint8_t root[32]). Decision override.J21.5 changes behavior rather than parameters: src/modules/asset/lx_asset_state.c:18 compares keys without pointer ordering and :177-180 refuses duplicate keys with LXP_ERR_SEQUENCE_REUSED."
+
+[row.r1-1.4]
+interface = "interface.1.c-lx-asset-receive-execute"
+verdict = "retired"
+path = "include/layerx/lx_asset.h"
+line = 286
+symbol = "lx_asset_receive_execute"
+evidence = "The receive executor is absent from lx_asset.h and the asset transfer implementation. Its sole remaining file is tests/codec/lxp_test_receive_retired.c, which declares a weak symbol and checks that it is NULL. Word-boundary repository search excluding spec/ and docs/ found 1 remaining files, recorded below."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_receive_retired.c:33"]
+
+[row.r1-1.5]
+interface = "interface.1.c-enum-lx-oracle-leaf-bytes"
+verdict = "retired"
+path = "include/layerx/lx_batch.h"
+line = 10
+symbol = "LX_ORACLE_LEAF_BYTES"
+evidence = "include/layerx/lx_batch.h is deleted, removing the oracle leaf-size enum. The remaining mention is a retired symbol entry in tests/codec/lxp_test_kernel_complete.c. Word-boundary repository search excluding spec/ and docs/ found 1 remaining files, recorded below."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:20"]
+
+[row.r1-1.6]
+interface = "interface.1.c-lx-batch-header"
+verdict = "retired"
+path = "include/layerx/lx_batch.h"
+line = 12
+symbol = "lx_batch_header"
+evidence = "include/layerx/lx_batch.h is deleted, removing the lx_batch_header type. Remaining mentions are retirement checks and the kernel-complete retired-symbol list, not a moved type declaration. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["tests/ci/test_retired_protocol_cases.py:29", "tests/ci/test_retired_state_withdraw_web.py:28", "tests/codec/lxp_test_kernel_complete.c:62"]
+
+[row.r1-1.7]
+interface = "interface.1.c-lx-oracle-availability-bundle"
+verdict = "retired"
+path = "include/layerx/lx_batch.h"
+line = 31
+symbol = "lx_oracle_availability_bundle"
+evidence = "include/layerx/lx_batch.h is deleted, removing the oracle availability bundle. Remaining mentions are the oracle retirement check and kernel-complete retired-symbol list. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_oracle.py:19", "tests/codec/lxp_test_kernel_complete.c:83"]
+
+[row.r1-1.8]
+interface = "interface.1.c-lx-budget-pull-request"
+verdict = "retired"
+path = "include/layerx/lx_budget.h"
+line = 126
+symbol = "lx_budget_pull_request"
+evidence = "lx_budget.h no longer declares the pull request with grant_state and grantor. The remaining mention is a negative source assertion in tests/ci/test_disposition_budget_pull_removed.py. Word-boundary repository search excluding spec/ and docs/ found 1 remaining files, recorded below."
+remaining_refs = 1
+remaining = ["tests/ci/test_disposition_budget_pull_removed.py:21"]
+
+[row.r1-1.9]
+interface = "interface.1.c-lx-budget-pull-payload"
+verdict = "retired"
+path = "include/layerx/lx_budget.h"
+line = 195
+symbol = "lx_budget_pull_payload"
+evidence = "lx_budget.h no longer declares the pull payload containing lxp_payer_grant; the budget codec has no replacement declaration or use of this identifier. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.10]
+interface = "interface.1.c-lx-budget-pull-decode"
+verdict = "retired"
+path = "include/layerx/lx_budget.h"
+line = 244
+symbol = "lx_budget_pull_decode"
+evidence = "lx_budget.h and the budget codec no longer declare or define the pull decoder; the retired grant-bearing payload is absent as well. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.11]
+interface = "interface.1.c-lx-budget-pull-execute"
+verdict = "retired"
+path = "include/layerx/lx_budget.h"
+line = 295
+symbol = "lx_budget_pull_execute"
+evidence = "lx_budget.h no longer declares the pull executor and the budget delegate implementation no longer defines it. The remaining mention is a negative source assertion in tests/ci/test_disposition_budget_pull_removed.py. Word-boundary repository search excluding spec/ and docs/ found 1 remaining files, recorded below."
+remaining_refs = 1
+remaining = ["tests/ci/test_disposition_budget_pull_removed.py:21"]
+
+[row.r1-1.12]
+interface = "interface.1.c-lx-oracle-poll-fn"
+verdict = "retired"
+path = "include/layerx/lx_oracle.h"
+line = 33
+symbol = "lx_oracle_poll_fn"
+evidence = "lx_oracle.h no longer declares the observation poll callback type; the retained observation codec does not use or redeclare it. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.13]
+interface = "interface.1.c-lx-oracle-submit-fn"
+verdict = "retired"
+path = "include/layerx/lx_oracle.h"
+line = 36
+symbol = "lx_oracle_submit_fn"
+evidence = "lx_oracle.h no longer declares the activity submit callback type; the retained observation codec does not use or redeclare it. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.14]
+interface = "interface.1.c-lx-oracle-observation-encode"
+verdict = "kept"
+path = "include/layerx/lx_oracle.h"
+line = 88
+symbol = "lx_oracle_observation_encode"
+evidence = "Decision override.J22.71 keeps lx_oracle_observation_encode for perps intake. Its header signature still takes observation, bytes, capacity and length; the implementation moved from the retired adapter to src/network/lx_oracle_codec.c:15, and src/modules/perps/lx_oracle_intake.c:55 still calls it."
+
+[row.r1-1.15]
+interface = "interface.1.c-lx-oracle-observation-sign"
+verdict = "kept"
+path = "include/layerx/lx_oracle.h"
+line = 91
+symbol = "lx_oracle_observation_sign"
+evidence = "Decision override.J22.72 keeps lx_oracle_observation_sign for the signed perps command path. Its observation and private_key[32] signature remains declared here; the implementation moved to src/network/lx_oracle_codec.c:37 and src/modules/perps/lx_perps_command.c:132 still calls it."
+
+[row.r1-1.16]
+interface = "interface.1.c-lx-service-deliverable-check"
+verdict = "served"
+path = "include/layerx/lx_service.h"
+line = 424
+symbol = "lx_service_deliverable_check"
+evidence = "Signature unchanged: lxp_result lx_service_deliverable_check(lxp_module_ctx *ctx, const lx_service_agreement *agreement, const lx_service_delivery *delivery). Decision override.J21.2 changes the refusal, not the parameters: src/modules/service/lx_service_deliver.c:28-30 now returns LXP_ERR_NON_CANONICAL for zero artifact size or availability reference."
+
+[row.r1-1.17]
+interface = "interface.1.c-lx-service-dispute-open-execute"
+verdict = "served"
+path = "include/layerx/lx_service.h"
+line = 442
+symbol = "lx_service_dispute_open_execute"
+evidence = "Signature unchanged: lxp_result lx_service_dispute_open_execute(lxp_module_ctx *ctx, const lx_service_dispute_request *request, lx_service_dispute *result). The registered change note is stale: src/modules/service/lx_service_dispute.c:64-68 checks request->escrow_link and returns LXP_ERR_ARBITER_REQUIRED when the arbiter is zero."
+
+[row.r1-1.18]
+interface = "interface.1.c-lx-service-dispute-resolve-execute"
+verdict = "served"
+path = "include/layerx/lx_service.h"
+line = 445
+symbol = "lx_service_dispute_resolve_execute"
+evidence = "Signature unchanged: lxp_result lx_service_dispute_resolve_execute(lxp_module_ctx *ctx, const lx_service_dispute_request *request, lx_service_dispute *result). The registered behavioral change has landed at src/modules/service/lx_service_dispute.c:111-116: resolution checks the escrow link and matches its arbiter to authority->principal rather than calling agreement_party."
+
+[row.r1-1.19]
+interface = "interface.1.c-lxp-batch-body"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 85
+symbol = "lxp_batch_body"
+evidence = "lxp_batch.h retains the header, root inputs and codec declarations but has no lxp_batch_body. Remaining mentions are the historical gotcha ledger and retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:14211", "tests/ci/test_retired_replay_support.py:39", "tests/codec/lxp_test_kernel_complete.c:251"]
+
+[row.r1-1.20]
+interface = "interface.1.c-lxp-batch-replica-target"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 97
+symbol = "lxp_batch_replica_target"
+evidence = "lxp_batch.h has no replica target structure after batch publication retirement. Remaining mentions are retirement assertions and the kernel-complete retired-symbol list. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_batch_publication.py:12", "tests/codec/lxp_test_kernel_complete.c:281"]
+
+[row.r1-1.21]
+interface = "interface.1.c-lxp-batch-eligibility-state"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 103
+symbol = "lxp_batch_eligibility_state"
+evidence = "lxp_batch.h has no eligibility state structure after batch publication retirement. Remaining mentions are retirement assertions and the kernel-complete retired-symbol list. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/ci/test_retired_batch_publication.py:13", "tests/codec/lxp_test_kernel_complete.c:272"]
+
+[row.r1-1.22]
+interface = "interface.1.c-lxp-batch-chunk-send-fn"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 112
+symbol = "lxp_batch_chunk_send_fn"
+evidence = "lxp_batch.h has no chunk-send callback after batch publication retirement. Its remaining mention is the kernel-complete retired-symbol list. Word-boundary repository search excluding spec/ and docs/ found 1 remaining files, recorded below."
+remaining_refs = 1
+remaining = ["tests/codec/lxp_test_kernel_complete.c:260"]
+
+[row.r1-1.23]
+interface = "interface.1.c-lxp-batch-timestamp-select"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 124
+symbol = "lxp_batch_timestamp_select"
+evidence = "lxp_batch.h no longer declares timestamp selection, and src/sequencer/lxp_batch_time.c is deleted. Remaining mentions are the historical gotcha ledger and retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:14211", "modules/lxphost/retired_batch_time_test.go:10", "tests/codec/lxp_test_kernel_complete.c:293"]
+
+[row.r1-1.24]
+interface = "interface.1.c-lxp-batch-timestamp-validate"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 126
+symbol = "lxp_batch_timestamp_validate"
+evidence = "lxp_batch.h no longer declares timestamp validation, and src/sequencer/lxp_batch_time.c is deleted. Remaining mentions are the historical gotcha ledger and retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["GOTCHA.kvx:14211", "modules/lxphost/retired_batch_time_test.go:11", "tests/codec/lxp_test_kernel_complete.c:296"]
+
+[row.r1-1.25]
+interface = "interface.1.c-lxp-batch-eligibility-init"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 157
+symbol = "lxp_batch_eligibility_init"
+evidence = "lxp_batch.h no longer declares eligibility initialization and src/sequencer/lxp_eligibility.c is deleted. Remaining mentions are retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_batch_eligibility_test.go:13", "tests/ci/test_retired_batch_publication.py:16", "tests/codec/lxp_test_kernel_complete.c:266"]
+
+[row.r1-1.26]
+interface = "interface.1.c-lxp-batch-eligibility-reset"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 160
+symbol = "lxp_batch_eligibility_reset"
+evidence = "lxp_batch.h no longer declares eligibility reset and src/sequencer/lxp_eligibility.c is deleted. Remaining mentions are retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["modules/lxphost/retired_batch_eligibility_test.go:14", "tests/codec/lxp_test_kernel_complete.c:269"]
+
+[row.r1-1.27]
+interface = "interface.1.c-lxp-batch-eligibility"
+verdict = "retired"
+path = "include/layerx/lxp_batch.h"
+line = 164
+symbol = "lxp_batch_eligibility"
+evidence = "lxp_batch.h no longer declares eligibility evaluation and src/sequencer/lxp_eligibility.c is deleted. Remaining mentions are retirement assertions. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["modules/lxphost/retired_batch_eligibility_test.go:16", "tests/ci/test_retired_batch_publication.py:17", "tests/codec/lxp_test_kernel_complete.c:263"]
+
+[row.r1-1.28]
+interface = "interface.1.c-lxp-withdrawal-claim"
+verdict = "retired"
+path = "include/layerx/lxp_bridge.h"
+line = 34
+symbol = "lxp_withdrawal_claim"
+evidence = "lxp_bridge.h no longer declares the guarantor-backed withdrawal claim. The test-only opaque typedef in tests/codec/lxp_test_bridge_claims_retired.c supports weak absence probes; a proof-file comment also mentions it. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_bridge_claims_retired.c:14", "tests/proof/lxp_proof_lxp_bridge_h.c:18"]
+
+[row.r1-1.29]
+interface = "interface.1.c-lxp-exit-claim"
+verdict = "retired"
+path = "include/layerx/lxp_bridge.h"
+line = 63
+symbol = "lxp_exit_claim"
+evidence = "lxp_bridge.h no longer declares the guarantor-backed exit claim. The test-only opaque typedef in tests/codec/lxp_test_bridge_claims_retired.c supports weak absence probes; a proof-file comment also mentions it. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/codec/lxp_test_bridge_claims_retired.c:15", "tests/proof/lxp_proof_lxp_bridge_h.c:17"]
+
+[row.r1-1.30]
+interface = "interface.1.c-lxp-bridge-withdraw-finalize"
+verdict = "retired"
+path = "include/layerx/lxp_bridge.h"
+line = 97
+symbol = "lxp_bridge_withdraw_finalize"
+evidence = "lxp_bridge.h no longer declares withdrawal finalization. The remaining extern in tests/codec/lxp_test_bridge_claims_retired.c is weak and asserted NULL; the other mention is a negative source check. Word-boundary repository search excluding spec/ and docs/ found 2 remaining files, recorded below."
+remaining_refs = 2
+remaining = ["tests/ci/test_claims_and_replay_removed.py:24", "tests/codec/lxp_test_bridge_claims_retired.c:19"]
+
+[row.r1-1.31]
+interface = "interface.1.c-lxp-exit-claim-build"
+verdict = "retired"
+path = "include/layerx/lxp_bridge.h"
+line = 109
+symbol = "lxp_exit_claim_build"
+evidence = "lxp_bridge.h no longer declares the guarantor-backed exit claim builder. Remaining mentions are a weak NULL probe, a negative source check and a proof-file retirement comment, not a replacement implementation. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["tests/ci/test_claims_and_replay_removed.py:23", "tests/codec/lxp_test_bridge_claims_retired.c:23", "tests/proof/lxp_proof_lxp_bridge_h.c:16"]
+
+[row.r1-1.32]
+interface = "interface.1.c-lxp-exit-verify-balance-proof"
+verdict = "retired"
+path = "include/layerx/lxp_bridge.h"
+line = 116
+symbol = "lxp_exit_verify_balance_proof"
+evidence = "lxp_bridge.h no longer declares guarantor-backed exit balance verification. Remaining mentions are a weak NULL probe, a negative source check and a proof-file retirement comment, not a replacement implementation. Word-boundary repository search excluding spec/ and docs/ found 3 remaining files, recorded below."
+remaining_refs = 3
+remaining = ["tests/ci/test_claims_and_replay_removed.py:23", "tests/codec/lxp_test_bridge_claims_retired.c:27", "tests/proof/lxp_proof_lxp_bridge_h.c:16"]
+
+[row.r1-1.33]
+interface = "interface.1.c-lxp-daemon-process"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 21
+symbol = "lxp_daemon_process"
+evidence = "include/layerx/lxp_daemon.h and cmd/layerxd/lxp_daemon_process.c are deleted. Remaining matches mention the former source filename in retirement checks, a completion gate, a script, a legacy startup test and the historical gotcha ledger; none declares the process type. Word-boundary repository search excluding spec/ and docs/ found 6 remaining files, recorded below."
+remaining_refs = 6
+remaining = ["GOTCHA.kvx:5228", "cmd/retirement/test_kernel_symbol_consumers_retired.py:58", "cmd/retirement/test_layerxd_core.py:11", "node/sequencer/completion_gate_test.go:91", "scripts/ci/xweb-workflow-check.sh:71", "tests/daemon/test_serve_startup_without_anchor_bind.py:16"]
+
+[row.r1-1.34]
+interface = "interface.1.c-enum-lxp-daemon-max-workers"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 25
+symbol = "LXP_DAEMON_MAX_WORKERS"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered LXP_DAEMON_MAX_WORKERS declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.35]
+interface = "interface.1.c-lxp-daemon-finality-contents-verify"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 64
+symbol = "lxp_daemon_finality_contents_verify"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_finality_contents_verify declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.36]
+interface = "interface.1.c-lxp-daemon-signed-header-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 97
+symbol = "lxp_daemon_signed_header_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_signed_header_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.37]
+interface = "interface.1.c-lxp-daemon-module-evidence-wire-encode"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 103
+symbol = "lxp_daemon_module_evidence_wire_encode"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_module_evidence_wire_encode declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.38]
+interface = "interface.1.c-lxp-daemon-account-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 111
+symbol = "lxp_daemon_account_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.39]
+interface = "interface.1.c-lxp-daemon-activity-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 131
+symbol = "lxp_daemon_activity_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_activity_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.40]
+interface = "interface.1.c-lxp-daemon-finality-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 143
+symbol = "lxp_daemon_finality_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_finality_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.41]
+interface = "interface.1.c-lxp-daemon-settlement-registration-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 154
+symbol = "lxp_daemon_settlement_registration_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_settlement_registration_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.42]
+interface = "interface.1.c-lxp-daemon-account-evidence-build"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 179
+symbol = "lxp_daemon_account_evidence_build"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_build declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.43]
+interface = "interface.1.c-lxp-daemon-account-evidence-publish"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 188
+symbol = "lxp_daemon_account_evidence_publish"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_publish declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.44]
+interface = "interface.1.c-lxp-daemon-account-evidence-publish-batch"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 192
+symbol = "lxp_daemon_account_evidence_publish_batch"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_publish_batch declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.45]
+interface = "interface.1.c-lxp-daemon-account-evidence-publish-batch-maintenance"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 199
+symbol = "lxp_daemon_account_evidence_publish_batch_maintenance"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_publish_batch_maintenance declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.46]
+interface = "interface.1.c-lxp-daemon-account-evidence-lookup"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 206
+symbol = "lxp_daemon_account_evidence_lookup"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_lookup declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.47]
+interface = "interface.1.c-lxp-daemon-account-evidence-lookup-batch"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 210
+symbol = "lxp_daemon_account_evidence_lookup_batch"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_lookup_batch declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.48]
+interface = "interface.1.c-lxp-daemon-account-evidence-wire-encode"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 214
+symbol = "lxp_daemon_account_evidence_wire_encode"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_account_evidence_wire_encode declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.49]
+interface = "interface.1.c-lxp-daemon-activity-evidence-publish"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 223
+symbol = "lxp_daemon_activity_evidence_publish"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_activity_evidence_publish declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.50]
+interface = "interface.1.c-lxp-daemon-activity-evidence-lookup"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 231
+symbol = "lxp_daemon_activity_evidence_lookup"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_activity_evidence_lookup declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.51]
+interface = "interface.1.c-lxp-daemon-execution-prestate-consumer"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 238
+symbol = "lxp_daemon_execution_prestate_consumer"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_execution_prestate_consumer declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.52]
+interface = "interface.1.c-lxp-daemon-activity-evidence-recover-batch"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 283
+symbol = "lxp_daemon_activity_evidence_recover_batch"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_activity_evidence_recover_batch declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.53]
+interface = "interface.1.c-lxp-daemon-activity-evidence-wire-encode"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 289
+symbol = "lxp_daemon_activity_evidence_wire_encode"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_activity_evidence_wire_encode declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.54]
+interface = "interface.1.c-lxp-daemon-finality-evidence-register"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 293
+symbol = "lxp_daemon_finality_evidence_register"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_finality_evidence_register declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.55]
+interface = "interface.1.c-lxp-daemon-finality-evidence-encode"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 297
+symbol = "lxp_daemon_finality_evidence_encode"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_finality_evidence_encode declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.56]
+interface = "interface.1.c-lxp-daemon-finality-evidence-lookup"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 305
+symbol = "lxp_daemon_finality_evidence_lookup"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_finality_evidence_lookup declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.57]
+interface = "interface.1.c-lxp-daemon-receipt-evidence"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 336
+symbol = "lxp_daemon_receipt_evidence"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_receipt_evidence declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.58]
+interface = "interface.1.c-lxp-daemon-pending-receipt"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 350
+symbol = "lxp_daemon_pending_receipt"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_pending_receipt declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.59]
+interface = "interface.1.c-lxp-daemon-protocol-owner"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 364
+symbol = "lxp_daemon_protocol_owner"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_protocol_owner declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []
+
+[row.r1-1.60]
+interface = "interface.1.c-lxp-daemon-protocol-response"
+verdict = "retired"
+path = "include/layerx/lxp_daemon.h"
+line = 403
+symbol = "lxp_daemon_protocol_response"
+evidence = "include/layerx/lxp_daemon.h is deleted; its registered lxp_daemon_protocol_response declaration is gone with the standalone daemon interfaces. Word-boundary repository search excluding spec/ and docs/ found 0 remaining files, recorded below."
+remaining_refs = 0
+remaining = []

@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"github.com/Sidiora-Technologies/KindleLaunch/media/social/internal/safety"
+	"github.com/Sidiora-Technologies/KindleLaunch/media/social/migrations"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
+	"strings"
 	"testing"
 	"time"
 )
@@ -74,13 +76,18 @@ func fixture(t *testing.T) (*Control, context.Context) {
 		}
 		admin.Close()
 	})
-	ddl, e := os.ReadFile("../../../../../launchpad/spec/production-system/handoffs/L38/schema-proposal.sql")
+	raw, e := migrations.FS.ReadFile("00003_safety.sql")
 	if e != nil {
 		t.Fatal(e)
 	}
-	if _, e = db.Exec(ctx, string(ddl)); e != nil {
+	up, _, ok := strings.Cut(string(raw), "-- +goose Down")
+	if !ok {
+		t.Fatal("safety migration has no Down section")
+	}
+	if _, e = db.Exec(ctx, strings.ReplaceAll(up, "chat.", ident+".")); e != nil {
 		t.Fatal(e)
 	}
+
 	c := &Control{DB: db, Pools: knownPools{}, Policy: allowPolicy{}}
 	ctx = safety.WithPrincipal(ctx, safety.Principal{Wallet: host, SessionID: "voice-fixture", Expires: time.Now().Add(time.Hour)})
 	return c, ctx

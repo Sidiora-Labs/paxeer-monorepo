@@ -1,0 +1,61 @@
+[task.22.33.312]
+base_revision = "cfe99ca0f6e389c490375eed57c49af7d14b30b8"
+repair = "Preserve the existing default-enabled PrecompileSource, TOML example and deployment override. Replace the stale four-file inventory description with the real versioned/merge/historical manifest and regeneration path; document complete local event metadata and the current coverage-aware unavailable-source outcome. Regenerate the in-scope embedded inventory using its production generator to match the documented producer provenance; four pointer functions change stateMutability from payable to nonpayable, with no selector, event layout or source behavior changes."
+source_proof = "The Python gate executes the production generate_precompiles.generate function in-process against real node registries, served Go ABI constants and committed ABI files; it compares the entire generated inventory and ABI array with the embedded file and independently reconstructs the ABI union from every declared origin. It parses the documented TOML and real base config, cross-checks defaults and source construction, and checks documented event layouts, coverage outcomes and service error mapping against production Rust source."
+runtime_limits = "Rust integration cases are registered in the existing sig-provider-server manifest and exercise new_service, real adapters, generated HTTP routes and producer-encoded calldata/logs with loopback transcript peers. They are not executed by this Python-only gate; no Rust compile or runtime success is claimed. The gate executes the real Python producer path and source/documentation assertions only; it does not certify native service execution, restart recovery or external endpoint availability. This is a doc-drift finding, with no restart or interface behavior change."
+baseline = "No pre-change verification was run: the baseline clause conflicts with the explicit implementation-first order, hf-build-before-hf-done requirement and ban on running verify_cmd by hand. No baseline failures are claimed. At inspection both scoped qualification files and the planned Rust test were absent, gate.json showed zero builds and verifications, and gates.jsonl was absent. Runner-prepared .cgignore and spec task-start changes are preserved."
+planned_paths = "The requested tests/repair_22_33_312.rs is registered as a test of the existing sig-provider-server package via a relative manifest path; the root remains a virtual workspace. Cargo.lock already exists and needs no dependency change."
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_312.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_312.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "Acceptance 22998.1 uses the final hf-done JSON and private evidence ledger, which name the exact verified candidate revision, command, exit code and log location. Build and verification must pass on the same candidate revision. This record is finalized before qualification; embedding its own content-derived revision would change that revision. The runner retains the verified revision and publishes the result. No source edit follows a passing hf-done."
+wiring_requests = []
+
+[finding.sig-provider-precompile-doc]
+audit = "22.30.135"
+file = "services/explorer/services/sig-provider/README.md"
+line = 8
+class = "doc-drift"
+severity = "medium"
+owner_domain = 14
+observed = "The audit omitted the default-enabled local source; the current prerequisite README already documents that switch but still describes only four historical ABI files, signature-only local events and silently omitted remote errors."
+expected = "Document PrecompileSource, its default and override, revisioned producer ABI provenance, complete local event layouts and the difference between an unknown selector and unavailable capable sources."
+tests = ["test_precompile_documented_default_and_deployment_override", "test_precompile_documented_provenance_matches_real_generator", "test_precompile_complete_event_documentation_matches_consumer", "test_precompile_unknown_and_unavailable_documented_outcomes", "test_precompile_real_rust_integration_is_registered", "test_precompile_repair_record_maps_finding_and_evidence"]
+rust_tests = ["documented_precompile_switch_controls_real_http_decoding", "documented_unknown_selector_differs_from_unavailable_source", "documented_complete_event_layout_survives_http"]
+out_of_path_steps = "None: all proposal edits, the proving Python test, task record and registered Rust integration cases are inside the authorized paths."
+
+[gotcha.1]
+observed = "The baseline-before-change clause contradicts the explicit implementation-first, wrapper-only gate order."
+resolution = "Follow the explicit order and claim no pre-change failures; record task notes here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "A Python doc-drift gate cannot execute Rust integration tests without the prohibited subprocess toolchain."
+resolution = "Execute the real Python inventory generator in-process, cross-check Rust source and register real Rust HTTP cases in the member manifest; explicitly distinguish gate evidence from unexecuted runtime cases."
+
+[gotcha.3]
+observed = "The inherited README's four-file inventory, signature-only local event description and error-omission text lag the implemented prerequisites."
+resolution = "Use the actual embedded manifest, production generator, complete source implementation, aggregator coverage and current service mapping as documentation authority."
+
+[gotcha.4]
+observed = "Broad audit and Codify survey output exceeded tool limits, and a guessed precompiles/signatures/registry.json path did not exist."
+resolution = "Use bounded finding and task sections and the existing generate_precompiles.py source to locate precompiles/setup.go and node/app.go; make no registry changes."
+
+[format]
+policy = "Use rustfmt on the new Rust test only; no Python, TOML, Markdown or KVX formatter is configured for these paths. Apply repository .editorconfig newline and whitespace conventions to touched files after implementation."
+
+[qualification.1]
+revision = "b0b9723989b7bb7d82f297dffe6715df1b02764d"
+command = "cg spec done 22.33.312 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; test_precompile_documented_provenance_matches_real_generator failed because the production generator's ABI array differs from precompiles.json, although its inventory manifest matches."
+assumption = "This is inherited inventory drift: generator, embedded ABI and producer inputs are unchanged by this doc-drift task; repairing their disagreement exceeds the proposal, so both production files and the full equality assertion remain intact and the recorded failure is not rerun."
+
+[continuation]
+prior_attempt = "Attempt 1 is retained, including its failing verification evidence above. The current user instruction explicitly asks to finish and qualify that work, preserving every assertion."
+inventory_repair = "The earlier scope assumption is superseded: precompiles.json is inside the authorized service path and the documented producer-to-embedded equality requires regeneration. The production generator changes only four stateMutability values for addCW1155Pointer, addCW20Pointer, addCW721Pointer and addNativePointer; its manifest and all 875 ABI records remain present. Producer files and the full equality assertion are unchanged."
+qualification = "Use only hf-build followed by hf-done on the unchanged candidate; exact revision, command, exit and private log are retained in evidence_ledger and the final gate JSON. The new run has no prior gate ledger and starts with zero builds and verifications."
+
+[gotcha.5]
+observed = "The retained equality failure comes from four stale embedded pointer mutability fields, not a missing ABI or a different manifest."
+resolution = "Refresh only the scoped generated inventory with the real generator; retain the strict whole-inventory equality and independent producer-union checks."

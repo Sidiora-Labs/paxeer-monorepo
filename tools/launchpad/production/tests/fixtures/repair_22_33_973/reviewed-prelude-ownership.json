@@ -1,0 +1,1573 @@
+{
+  "base_ownership_sha256": "3d4f3ccd3ba8c1c4cc34d52ea1be1155d30a89003b9c442ce26ec36b04caf01e",
+  "kind": "immutable_exact_serial_path_ownership",
+  "path_count": 387,
+  "paths": [
+    {
+      "owner": "root-published-integration",
+      "path": ".cgignore"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": ".dockerignore"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": ".github/workflows/ci.yml"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "GOTCHA.kvx"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "client/apps/mobile/android/gradle/wrapper/gradle-wrapper.jar"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "client/apps/mobile/android/gradlew.bat"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "client/apps/mobile/ios/.xcode.env"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/apps/mobile/package.json"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/apps/web/package.json"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "client/apps/web/src/app/tokens/[tokenAddress]/metadata/page.tsx"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "client/apps/web/src/core/clients/livestream-api.ts"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "client/apps/web/src/core/clients/metadata.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/apps/web/src/core/wagmi-config.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/apps/web/src/core/wallet-sdk/auth.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/apps/web/src/core/wallet-sdk/client.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/apps/web/src/core/wallet-sdk/session.ts"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "client/apps/web/src/features/metadata-media/editor.tsx"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "client/apps/web/src/features/metadata-media/frozen-adapter.ts"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "client/apps/web/src/page-modules/home/index.tsx"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/apps/web/src/shell/wallet-connect-modal.tsx"
+    },
+    {
+      "owner": "S09-public-accounting",
+      "path": "client/apps/web/src/widgets/trading/udf-datafeed.ts"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/packages/production-contracts-v2/package.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "client/packages/production-contracts-v2/src/schemas.gen.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "client/packages/production-contracts-v2/src/types.gen.ts"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/packages/sdk-v2/package.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "client/packages/sdk-v2/src/schemas.gen.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "client/packages/sdk-v2/src/types.gen.ts"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/packages/sdk/package.json"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "client/packages/sdk/scripts/generate.py"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/packages/sdk/src/browser-stream.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/packages/sdk/src/stream.ts"
+    },
+    {
+      "owner": "S12-browser-wallet",
+      "path": "client/packages/sdk/src/transport.ts"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "client/pnpm-lock.yaml"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/api/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/api/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/api/internal/app/app.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/broker.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/broker_test.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/cursor.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/durable.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/durable_test.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/frozen_stream_fixtures_test.json"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/frozen_stream_schemas.json"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/integration_test.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/postgres_stream.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/postgres_stream_test.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/schema.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/schema_test.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/subscription.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/broker/transform.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/api/internal/config/config.go"
+    },
+    {
+      "owner": "S09-public-accounting",
+      "path": "core/api/internal/rest/accounting_v2.go"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "core/api/internal/rest/primitives.go"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "core/api/internal/rest/reads.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/api/internal/rest/rest.go"
+    },
+    {
+      "owner": "S09-public-accounting",
+      "path": "core/api/internal/store/accounting_readmodel.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/ws/ws.go"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "core/api/internal/ws/ws_test.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/discovery/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/indexer/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/indexer/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/indexer/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/indexer/internal/config/config.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/processor/accounting_test.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/processor/canonical.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/processor/creation.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/processor/processor.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/publisher/durable.go"
+    },
+    {
+      "owner": "S04-qualified-receipt",
+      "path": "core/indexer/internal/receipt/qualified.go"
+    },
+    {
+      "owner": "S04-qualified-receipt",
+      "path": "core/indexer/internal/receipt/qualified_test.go"
+    },
+    {
+      "owner": "S04-qualified-receipt",
+      "path": "core/indexer/internal/receipt/rpc.go"
+    },
+    {
+      "owner": "S04-qualified-receipt",
+      "path": "core/indexer/internal/receipt/rpc_test.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/store/canonical.go"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "core/indexer/internal/store/creation.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/notifications/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/pnl-tracker/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/pnl-tracker/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/pnl-tracker/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/pnl-tracker/internal/config/config.go"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "core/pnl-tracker/internal/production/l16/baseline.go"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "core/pnl-tracker/internal/production/l16/baseline_test.go"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "core/pnl-tracker/internal/production/l16/consumer.go"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "core/pnl-tracker/internal/production/l16/consumer_test.go"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "core/pnl-tracker/internal/production/l16/ledger.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/ranking-algo/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/ranking-algo/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/ranking-algo/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/ranking-algo/internal/config/config.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/stats-workers/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/stats-workers/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/stats-workers/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/stats-workers/internal/config/config.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/consumer/accounting.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/consumer/accounting_test.go"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "core/stats-workers/internal/httpapi/search.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/authority.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/authority_test.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/domain.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/domain_test.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/postgres.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/postgres_test.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/query.go"
+    },
+    {
+      "owner": "S07-stats-consumer",
+      "path": "core/stats-workers/internal/projectionstats/snapshot.go"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "core/stats-workers/internal/search/filters.go"
+    },
+    {
+      "owner": "S16-search-errors",
+      "path": "core/stats-workers/internal/search/model.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/trading-charts/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "core/trading-charts/go.sum"
+    },
+    {
+      "owner": "S06-real-negative-boundaries",
+      "path": "core/trading-charts/integration/qualify.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/trading-charts/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "core/trading-charts/internal/config/config.go"
+    },
+    {
+      "owner": "S06-candles-consumer",
+      "path": "core/trading-charts/internal/consumer/accounting_test.go"
+    },
+    {
+      "owner": "S06-candles-consumer",
+      "path": "core/trading-charts/internal/consumer/swap_consumer.go"
+    },
+    {
+      "owner": "S06-candles-consumer",
+      "path": "core/trading-charts/internal/engine/exact_transaction.go"
+    },
+    {
+      "owner": "S09-public-accounting",
+      "path": "core/trading-charts/internal/httpapi/history.go"
+    },
+    {
+      "owner": "S09-public-accounting",
+      "path": "core/trading-charts/internal/httpapi/history_contract_test.go"
+    },
+    {
+      "owner": "S06-candles-consumer",
+      "path": "core/trading-charts/internal/store/transactional.go"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "deploy/Dockerfile.svc"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/docker-compose.strangler.yml"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/production/bootstrap/compose.yml"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/production/bootstrap/start.py"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/config-v2.json"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/config.json"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/contracts_v2.py"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/grafana-dashboard.json"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/otel-collector.yaml"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/prometheus-rules.json"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "deploy/production/observability/test_contracts_v2.py"
+    },
+    {
+      "owner": "S22-recovery-fencing",
+      "path": "deploy/production/recovery/epoch.sql"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/production/topology/fixtures/synthetic-config.json"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/production/topology/production-input.template.json"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "deploy/production/topology/topology.py"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "go.work"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "go.work.sum"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/gateway/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/gateway/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/gateway/internal/app/app.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/auth.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/auth_test.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_decode.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_models.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_reauth.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_store.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_test.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_tokens.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_tokens_test.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_transport.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/identity_wire.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/jwt.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "media/gateway/internal/auth/jwt_test.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/gateway/internal/config/config.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/livestream/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/livestream/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/livestream/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/livestream/internal/config/config.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/frozen_adapter.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/frozen_adapter_test.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/handlers.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/ids.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/lifecycle.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/lifecycle_test.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/provision_failure.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/provision_failure_test.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/viewer_counter.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/viewer_counter_test.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/viewers.go"
+    },
+    {
+      "owner": "S15-livestream-v2",
+      "path": "media/livestream/internal/streams/webhook_auth.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/metadata/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/metadata/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/metadata/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/metadata/internal/config/config.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/assets.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/assets_production_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/canonical.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/handlers.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/handlers_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/helpers.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/helpers_internal_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/legacy_production_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/production.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/production_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/qualify_v2.py"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/qualify_wire.py"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/scanner_production_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/v2.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/v2_production_test.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/wire.go"
+    },
+    {
+      "owner": "S13-metadata-v2",
+      "path": "media/metadata/internal/metadata/wire_production_test.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/social/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/social/go.sum"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/social/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/social/internal/config/config.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/user/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "media/user/go.sum"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/account_test.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/endpoint_proof.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/http.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/http_test.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/models.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/privacy.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/store.go"
+    },
+    {
+      "owner": "S14-account-contract",
+      "path": "media/user/internal/account/wire.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/user/internal/app/app.go"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "media/user/internal/config/config.go"
+    },
+    {
+      "owner": "S00-approved-upload-fixtures",
+      "path": "media/user/internal/user/handlers_test.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "security/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "security/go.sum"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "security/supplychain/build.py"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "security/supplychain/ci_tools.py"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "security/supplychain/policy.py"
+    },
+    {
+      "owner": "S01-accounting-wire",
+      "path": "shared/accounting/validate.go"
+    },
+    {
+      "owner": "S01-accounting-wire",
+      "path": "shared/accounting/wire.go"
+    },
+    {
+      "owner": "S01-accounting-wire",
+      "path": "shared/accounting/wire_test.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "shared/auth/contract.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "shared/auth/ledger.go"
+    },
+    {
+      "owner": "S10-identity-authority",
+      "path": "shared/auth/operation.go"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "shared/config/env.go"
+    },
+    {
+      "owner": "S20-db-budget",
+      "path": "shared/db/client.go"
+    },
+    {
+      "owner": "S20-db-budget",
+      "path": "shared/db/production/allocation.go"
+    },
+    {
+      "owner": "S20-db-budget",
+      "path": "shared/db/production/allocation_test.go"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "shared/db/production/migrations.go"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "shared/db/production/roles.go"
+    },
+    {
+      "owner": "S03-real-nats-driver",
+      "path": "shared/delivery/natsdriver/driver.go"
+    },
+    {
+      "owner": "S03-real-nats-driver",
+      "path": "shared/delivery/natsdriver/driver_test.go"
+    },
+    {
+      "owner": "S22-recovery-fencing",
+      "path": "shared/delivery/natsdriver/epoch.go"
+    },
+    {
+      "owner": "S22-recovery-fencing",
+      "path": "shared/delivery/natsdriver/epoch_test.go"
+    },
+    {
+      "owner": "S02-ordered-delivery",
+      "path": "shared/delivery/ordered_test.go"
+    },
+    {
+      "owner": "S02-ordered-delivery",
+      "path": "shared/delivery/partition.go"
+    },
+    {
+      "owner": "S02-ordered-delivery",
+      "path": "shared/delivery/partition.sql"
+    },
+    {
+      "owner": "S02-ordered-delivery",
+      "path": "shared/delivery/relay.go"
+    },
+    {
+      "owner": "S02-ordered-delivery",
+      "path": "shared/delivery/store.go"
+    },
+    {
+      "owner": "S11-snapshot-replay",
+      "path": "shared/delivery/stream.go"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "shared/go.mod"
+    },
+    {
+      "owner": "S23-module-locks",
+      "path": "shared/go.sum"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "shared/http/health.go"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "shared/interfaces/v2/types.gen.go"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "shared/interfaces/v2/validators.gen.go"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "shared/process/lifecycle.go"
+    },
+    {
+      "owner": "S22-recovery-fencing",
+      "path": "shared/queue/queue.go"
+    },
+    {
+      "owner": "S21-lifecycle-telemetry",
+      "path": "shared/telemetry/metrics.go"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "spec/production-system/integration/build.py"
+    },
+    {
+      "owner": "S26-joined-verification",
+      "path": "spec/production-system/integration/chain-accounting.cjs"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/asyncapi.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/capabilities.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/catalog-map.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/catalog.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/codegen-manifest.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/compatibility.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/examples.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/migration-register.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/openapi.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schema-definitions.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ACCOUNT_JOB.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ALERT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ASSET.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ASSET_REF.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_AUTHCHALLENGE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_AUTOMATION_CAMPAIGN.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_BOUNTY.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_BOUNTYSUBMISSION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CALLOUT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CANDLE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CHAINPOSITION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_COMMENT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CONVENTIONS.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CONVERSATION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_CURSOR.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ERROR.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_FUNDING_INTENT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_FUNDING_RAIL.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_HEALTH_SNAPSHOT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_LEADERBOARD.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_MESSAGE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_MODERATIONACTION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_NARRATIVE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_NOTIFICATION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_OFFCHAINMETADATA.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_OPERATOR_JOB.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_ORDER.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_POOL.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_POOLSTATS.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIOPOSITION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIOSUMMARY.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PORTFOLIO_UPDATE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PREFERENCES.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PRICE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PRICE_SOURCE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PROFILE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_PUSH_DEVICE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_QUOTE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_RANKINGENTRY.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_RANKING_SNAPSHOT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_RATIO.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_REPORT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_RESPONSE_ENVELOPE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_RESUME_CURSOR.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_REWARD.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_SESSION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_SQUAD.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_STREAM.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_STREAMOPERATION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_STREAM_CONTROL.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_STREAM_EVENT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_SUBSCRIBE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_TOKEN.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_TOPIC_SNAPSHOT.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_TRADE.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_VOICE_ROOM.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_WALLET_LINK.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_WALLET_PROOF.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_WATCHLISTENTRY.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_WATERMARK.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/schemas/IF_WITHDRAWAL_PREPARATION.json"
+    },
+    {
+      "owner": "S18-v2-generated-output",
+      "path": "spec/production-system/integration/contracts/v2/supplementary.json"
+    },
+    {
+      "owner": "S26-joined-verification",
+      "path": "spec/production-system/integration/identity-browser.cjs"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/100000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/130000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/140000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/150000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/150001.sql"
+    },
+    {
+      "owner": "S11-stream-authority",
+      "path": "spec/production-system/integration/migrations/150002.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/160000.sql"
+    },
+    {
+      "owner": "S08-pnl-consumer",
+      "path": "spec/production-system/integration/migrations/160001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/180000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/190000.sql"
+    },
+    {
+      "owner": "S05-canonical-producer",
+      "path": "spec/production-system/integration/migrations/190001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/200000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/330000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/330001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/340000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/340001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/340002.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/340003.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/350000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/360000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/370000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/380000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/390000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/400000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/440000.sql"
+    },
+    {
+      "owner": "S22-broker-fence",
+      "path": "spec/production-system/integration/migrations/440001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/470000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/60000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80000.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80001.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80002.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80003.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80004.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80005.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80006.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80007.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/80008.sql"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/grants.json"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/legacy-history-aliases.json"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/readiness.json"
+    },
+    {
+      "owner": "S19-migration-registry",
+      "path": "spec/production-system/integration/migrations/registry.json"
+    },
+    {
+      "owner": "S26-joined-verification",
+      "path": "spec/production-system/integration/postgres-contracts.go"
+    },
+    {
+      "owner": "S26-joined-verification",
+      "path": "spec/production-system/integration/runtime-manifest.json"
+    },
+    {
+      "owner": "S24-final-runtime-composition",
+      "path": "spec/production-system/integration/runtime/adapters.py"
+    },
+    {
+      "owner": "S26-joined-verification",
+      "path": "spec/production-system/integration/verify.py"
+    },
+    {
+      "owner": "root-qualification-record",
+      "path": "spec/production-system/qualification.kvx"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "spec/production-system/tasks.md"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/bootstrap/runner_tests.py"
+    },
+    {
+      "owner": "S25-clean-build-recipe",
+      "path": "tools/production/bootstrap/toolchain/versions.txt"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/evidence.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/patches.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/qualification.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/qualification_cli.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/qualification_fixture.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/source_policy.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_evidence.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_failure_diagnostics.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_graph.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_owned_leaf_artifacts.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_qualification_fixture.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_source_policy.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/dispatcher/tests/test_tap_proof.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/accounting_check.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/capability_check.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/codegen.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/examples_check.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/materialize.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/persistence_check.py"
+    },
+    {
+      "owner": "S17-version-generators",
+      "path": "tools/production/interfaces/validator.go.txt"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/qualify.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/serial_execution.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/tests/test_gradle_source_policy.py"
+    },
+    {
+      "owner": "root-published-integration",
+      "path": "tools/production/tests/test_serial_execution.py"
+    }
+  ],
+  "root_exclusive_control_paths": [
+    "tools/production/serial_gate.py",
+    "tools/production/tests/test_serial_gate.py"
+  ],
+  "schema_version": 1,
+  "stage_prelude": {
+    "after": {
+      "mode": 420,
+      "sha256": "7c8f6789c043693bccf91d8d9a8bddc065546c27bc3fc1a42a7b98f3b5ffd4e4"
+    },
+    "before": {
+      "mode": 420,
+      "sha256": "baf05d3a0149c0b0aebf2bf87d96ef3937c473fd074f1878c94b54c4a098b133"
+    },
+    "blob_sha256": "7c8f6789c043693bccf91d8d9a8bddc065546c27bc3fc1a42a7b98f3b5ffd4e4",
+    "path": "media/user/internal/user/handlers_test.go"
+  },
+  "task": "1.99"
+}

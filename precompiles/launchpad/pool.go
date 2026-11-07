@@ -31,6 +31,7 @@ var (
 )
 
 // PoolKeeper is the launchpad keeper surface the SidioraPool role drives.
+// The concrete keeper is checked here so servePool cannot defer a mismatch to a call.
 type PoolKeeper interface {
 	GetParams(ctx sdk.Context) types.Params
 	GetMarket(ctx sdk.Context, denom string) (types.Market, bool)
@@ -48,6 +49,8 @@ type PoolKeeper interface {
 	TransferGuardian(ctx sdk.Context, caller sdk.AccAddress, denom string, next sdk.AccAddress) error
 	AcceptGuardian(ctx sdk.Context, caller sdk.AccAddress, denom string) error
 }
+
+var _ PoolKeeper = (*launchpadkeeper.Keeper)(nil)
 
 // poolCall is one call to a SidioraPool surface as Run resolves it: the
 // SidioraPool method and its arguments, the original EVM caller, the market

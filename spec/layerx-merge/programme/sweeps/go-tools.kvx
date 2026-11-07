@@ -1,0 +1,117 @@
+[sweep.go-tools]
+revision = "aad55ff559a3c54df2a7c39827bc1793129e3e6f"
+command = "CGO_ENABLED=1 go vet ./TARGET/ && CGO_ENABLED=1 go test -count=1 ./TARGET/"
+targets_total = 21
+targets_passed = 20
+targets_failed = 1
+targets_not_run = 0
+enumeration_command = "CGO_ENABLED=1 go list ./tools/..."
+native_libraries_command = "make paxd-native-libs"
+native_libraries_exit_code = 0
+
+[target.go-tools.1]
+target = "tools/benchmark"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.2]
+target = "tools/benchmark/loadtest"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.3]
+target = "tools/benchmark/loadtest/contracts/evm/bindings/erc20"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.4]
+target = "tools/benchmark/loadtest/contracts/evm/bindings/erc721"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.5]
+target = "tools/chain"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.6]
+target = "tools/chain/upgrade-replay"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.7]
+target = "tools/flyci/controller"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.8]
+target = "tools/launchpad/production/charts-engine"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.9]
+target = "tools/paxeer-x/commitfixture"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.10]
+target = "tools/pnsdns"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.11]
+target = "tools/qualification/localnode"
+result = "failed"
+exit_code = 1
+observed = "runLocalNodeTests at tools/qualification/localnode/main_test.go:23 aborts the suite because PERPS_DATA_TEST_DATABASE_URL must name a disposable loopback Postgres database."
+assumption = "This is an environmental failure: PERPS_DATA_TEST_DATABASE_URL is unset, so the repaired suite cannot start its disposable node and gateway without the required PostgreSQL database."
+
+[target.go-tools.12]
+target = "tools/release/upgradeinfo"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.13]
+target = "tools/repotest"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.14]
+target = "tools/specgen"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.15]
+target = "tools/tx-scanner/client"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.16]
+target = "tools/tx-scanner/cmd"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.17]
+target = "tools/tx-scanner/query"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.18]
+target = "tools/tx-scanner/state"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.19]
+target = "tools/utils"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.20]
+target = "tools/v6120-halt-export"
+result = "passed"
+exit_code = 0
+
+[target.go-tools.21]
+target = "tools/v6120-holders-scan"
+result = "passed"
+exit_code = 0

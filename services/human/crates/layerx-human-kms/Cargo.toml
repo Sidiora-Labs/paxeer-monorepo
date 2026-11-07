@@ -25,6 +25,7 @@ base64.workspace = true
 ureq = { version = "=3.4.0", default-features = false, features = ["rustls-no-provider", "_ring"] }
 
 [dev-dependencies]
+layerx-wire.workspace = true
 layerx-intents = { workspace = true, features = ["test-vectors"] }
 layerx-human-service = { path = "../layerx-human-service" }
 p256 = { version = "=0.13.2", default-features = false, features = ["ecdsa", "std"] }

@@ -1,5 +1,17 @@
-import { type AuthorizedReceiptBatch, type ProtocolSelection, type ReceiptVerification } from "@sidiora/layerx-sdk";
-import { MiddlewareError, verifyPaymentReceipt, paymentCommitment, type PaymentRequirements, type PaymentCommitmentResolver } from "./index.js";
+import { decodeRawEip1559, keccak256, verifySequencerReceipt, type SequencerReceiptKey } from "@sidiora/layerx-sdk";
+import {
+  MiddlewareError,
+  importPortableNodeReceipt,
+  verifyPaymentReceipt,
+  type PaymentRequirements,
+  type PaymentReceiptVerification,
+  type PortableNodeReceiptV2,
+} from "./index.js";
+import {
+  paymentCommitment,
+  type PaymentCommitment,
+  type PaymentCommitmentResolver,
+} from "./commitment.js";
 
 export function rpcObject(value: unknown): Record<string, unknown> {
   if (value === null || typeof value !== "object" || Array.isArray(value)) throw new Error("invalid-rpc-object");
@@ -7,25 +19,48 @@ export function rpcObject(value: unknown): Record<string, unknown> {
 }
 
 export function rpcHex(value: unknown, size?: number): Uint8Array {
-  if (typeof value !== "string" || value.length === 0 || value.length > 2_097_152
-    || !/^(?:[0-9a-f]{2})+$/u.test(value) || (size !== undefined && value.length !== size * 2)) throw new Error("invalid-rpc-hex");
-  return Uint8Array.from(value.match(/../gu)!, (pair) => Number.parseInt(pair, 16));
+  if (typeof value !== "string") throw new Error("invalid-rpc-hex");
+  const prefixed = value.startsWith("0x");
+  let hex = prefixed ? value.slice(2) : value;
+  if (hex.length > 2_097_152 || /[^0-9a-f]/u.test(hex)
+    || (!prefixed && (hex.length === 0 || hex.length % 2 !== 0))
+    || (size !== undefined && hex.length !== size * 2)) throw new Error("invalid-rpc-hex");
+  if (hex.length % 2 !== 0) hex = `0${hex}`;
+  return Uint8Array.from(hex.match(/../gu) ?? [], (pair) => Number.parseInt(pair, 16));
+}
+
+function rawTransactionBytes(value: string): Uint8Array {
+  if (!value.startsWith("0x") || value.length % 2 !== 0) throw new Error("invalid-rpc-submit");
+  const raw = rpcHex(value);
+  if (raw.length > 524_288) throw new Error("invalid-rpc-submit");
+  decodeRawEip1559(raw);
+  return raw;
+}
+
+function transactionHash(value: string): string {
+  if (!value.startsWith("0x")) throw new Error("invalid-rpc-transaction-hash");
+  rpcHex(value, 32);
+  return value;
+}
+
+function hexString(value: Uint8Array): string {
+  return `0x${Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("")}`;
 }
 
 export class PaymentRpcError extends Error {
   public constructor(public readonly code: number, public readonly data: unknown) { super(`JSON-RPC error ${code}`); }
 }
 
-export class PaymentRpc {
+class BoundedRpc {
   #id = 0;
   readonly #url: URL;
-  public constructor(endpoint: string, private readonly headers: Readonly<Record<string, string>> = {}) {
+  public constructor(endpoint: string, private readonly headers: Readonly<Record<string, string>>, path: "/" | "/rpc") {
     this.#url = new URL(endpoint);
     if (this.#url.username || this.#url.password || this.#url.hash || this.#url.search
-      || this.#url.pathname !== "/rpc"
+      || this.#url.pathname !== path
       || (this.#url.protocol !== "https:" && !(this.#url.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(this.#url.hostname)))) throw new Error("invalid-rpc-endpoint");
   }
-  public async call(method: string, params: readonly unknown[]): Promise<Record<string, unknown>> {
+  public async call(method: string, params: readonly unknown[]): Promise<unknown> {
     const id = ++this.#id;
     const response = await fetch(this.#url, { method: "POST", redirect: "error", signal: AbortSignal.timeout(30_000),
       headers: { ...this.headers, "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id, method, params }) });
@@ -48,47 +83,85 @@ export class PaymentRpc {
       if (!Number.isInteger(error["code"]) || typeof error["message"] !== "string") throw new Error("invalid-rpc-error");
       throw new PaymentRpcError(error["code"] as number, error["data"]);
     }
-    return rpcObject(body["result"]);
+    return body["result"];
   }
-  public async send(canonicalHex: string, commitment: "executed" | "batched" | "finalised"): Promise<Record<string, unknown>> {
-    rpcHex(canonicalHex);
-    if (canonicalHex.length > 1_048_576 || !["executed", "batched", "finalised"].includes(commitment)) throw new Error("invalid-rpc-submit");
-    return this.call("lx_sendActivity", [canonicalHex, commitment]);
+}
+
+export class HostedGatewayRpc extends BoundedRpc {
+  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/rpc"); }
+  public override call(method: string, params: readonly unknown[]): Promise<unknown> {
+    if (!/^px_[A-Za-z0-9_]+$/u.test(method)) throw new Error("invalid-gateway-method");
+    return super.call(method, params);
   }
-  public receipt(activityId: string): Promise<Record<string, unknown>> { rpcHex(activityId, 32); return this.call("lx_getReceipt", [activityId]); }
-  public status(activityId: string): Promise<Record<string, unknown>> { rpcHex(activityId, 32); return this.call("lx_getActivityStatus", [activityId]); }
+}
+
+export class PaymentRpc extends BoundedRpc {
+  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/"); }
+  public override call(method: string, params: readonly unknown[]): Promise<unknown> {
+    if (!/^(?:eth|pax)_[A-Za-z0-9_]+$/u.test(method)) throw new Error("invalid-node-method");
+    return super.call(method, params);
+  }
+  public async send(rawTransaction: string, commitment: PaymentCommitment = "receipted"): Promise<string> {
+    rawTransactionBytes(rawTransaction);
+    if (!["receipted", "committed"].includes(commitment)) throw new Error("invalid-rpc-submit");
+    const result = await this.call("eth_sendRawTransaction", [rawTransaction]);
+    if (typeof result !== "string" || result.length !== 66) throw new Error("invalid-rpc-transaction-hash");
+    return transactionHash(result);
+  }
+  public async receipt(txHash: string): Promise<Record<string, unknown> | null> {
+    const result = await this.call("pax_sequencerReceipt", [transactionHash(txHash)]);
+    if (result === null) return null;
+    const receipt = rpcObject(result);
+    if ((receipt["rung"] !== "submitted" && receipt["rung"] !== "receipted" && receipt["rung"] !== "committed")
+      || receipt["txHash"] !== txHash) throw new Error("invalid-rpc-receipt");
+    return receipt;
+  }
+  public async status(txHash: string): Promise<Record<string, unknown> | null> {
+    const result = await this.call("eth_getTransactionReceipt", [transactionHash(txHash)]);
+    if (result === null) return null;
+    const receipt = rpcObject(result);
+    if (receipt["transactionHash"] !== txHash) throw new Error("invalid-rpc-receipt");
+    if (receipt["blockNumber"] === null || receipt["blockNumber"] === undefined) return null;
+    rpcHex(receipt["blockNumber"]);
+    return receipt;
+  }
 }
 
 export async function verifyRpcPayment(
-  result: Record<string, unknown>, expectedActivity: string, expectedPayer: string,
-  requirements: PaymentRequirements, authorizedBatch: AuthorizedReceiptBatch,
-  commitments?: PaymentCommitmentResolver, selection?: ProtocolSelection,
-): Promise<{ readonly kind: "pending" } | { readonly kind: "verified"; readonly canonicalReceipt: Uint8Array; readonly authorizedBatch: AuthorizedReceiptBatch; readonly verification: ReceiptVerification }> {
-  rpcHex(expectedActivity, 32); rpcHex(expectedPayer, 32);
-  if (result["activity_id"] !== expectedActivity) throw new MiddlewareError("verification-failure");
-  if (result["state"] === "pending") return { kind: "pending" };
-  if (result["state"] !== undefined && result["state"] !== "completed") throw new MiddlewareError("payment-refused");
-  const canonicalReceipt = rpcHex(result["receipt"]);
+  result: Record<string, unknown>, rawTransaction: string, expectedPayer: string,
+  requirements: PaymentRequirements, receiptKeys: readonly SequencerReceiptKey[],
+  commitments?: PaymentCommitmentResolver,
+): Promise<{ readonly kind: "pending" } | (PortableNodeReceiptV2 & { readonly kind: "verified"; readonly verification: PaymentReceiptVerification })> {
+  const expectedHash = hexString(keccak256(rawTransactionBytes(rawTransaction)));
+  const payer = rpcHex(expectedPayer, 32);
+  if (result["txHash"] !== expectedHash) throw new MiddlewareError("verification-failure");
+  if (result["rung"] === "submitted") return { kind: "pending" };
+  if (result["rung"] !== "receipted" && result["rung"] !== "committed") throw new MiddlewareError("payment-refused");
+  const signedReceipt = rpcHex(result["receipt"]);
   const commitment = paymentCommitment(requirements.extra);
-  if (result["commitment"] !== undefined && result["commitment"] !== commitment) throw new MiddlewareError("verification-failure");
-  const verification = await verifyPaymentReceipt({ canonicalReceipt, authorizedBatch }, requirements, commitments, selection);
-  const hex = (value: Uint8Array) => Array.from(value, (byte) => byte.toString(16).padStart(2, "0")).join("");
-  if (hex(verification.receipt.activityId) !== expectedActivity || hex(verification.receipt.from) !== expectedPayer) throw new MiddlewareError("verification-failure");
-  return { kind: "verified", canonicalReceipt, authorizedBatch, verification };
-}
-
-export function rpcBatchEvidence(result: Record<string, unknown>, activityId: string, receipt: Uint8Array,
-  trusted: Pick<import("./commitment.js").PaymentCommitmentEvidence, "networkId" | "authorization">): import("./commitment.js").PaymentCommitmentEvidence {
-  const bundle = rpcObject(result["batch_evidence"]);
-  const signed = rpcObject(bundle["signed_header"]);
-  const proof = rpcObject(bundle["proof"]);
-  const same = (left: Uint8Array, right: Uint8Array) => left.length === right.length && left.every((b, i) => b === right[i]);
-  if (bundle["kind"] !== "receipt" || bundle["activity_id"] !== activityId
-    || !same(rpcHex(bundle["canonical_value"]), receipt)
-    || !same(rpcHex(signed["public_key"], 32), trusted.authorization.publicKey)
-    || !same(rpcHex(signed["sequencer_id"], 32), trusted.authorization.sequencerId)
-    || !Number.isSafeInteger(proof["leaf_index"]) || !Number.isSafeInteger(proof["leaf_count"])
-    || !Array.isArray(proof["siblings"]) || proof["siblings"].length > 64) throw new MiddlewareError("verification-failure");
-  return { ...trusted, canonicalHeader: rpcHex(signed["canonical_header"]), headerSignature: rpcHex(signed["signature"], 64),
-    proof: { leafIndex: proof["leaf_index"] as number, leafCount: proof["leaf_count"] as number, siblings: proof["siblings"].map(value => rpcHex(value, 32)) } };
+  if (commitment === "committed" && result["rung"] !== "committed") throw new MiddlewareError("verification-failure");
+  if (typeof result["height"] !== "string" || !/^0x(?:0|[1-9a-f][0-9a-f]{0,15})$/u.test(result["height"])) {
+    throw new MiddlewareError("verification-failure");
+  }
+  const height = BigInt(result["height"]);
+  const key = receiptKeys.find((pin) => hexString(pin.keyId) === result["keyId"]
+    && pin.first_height <= height && height <= pin.last_height);
+  if (key === undefined) throw new MiddlewareError("verification-failure");
+  let verified;
+  try {
+    verified = await verifySequencerReceipt(signedReceipt, rawTransactionBytes(rawTransaction), [key]);
+  } catch {
+    throw new MiddlewareError("verification-failure");
+  }
+  const evidence = importPortableNodeReceipt({
+    format: "layerx-receipt-proof-v2", verificationLevel: result["rung"], rawTransaction,
+    signedReceipt: hexString(signedReceipt), receiptDigest: hexString(verified.receiptDigest),
+    receiptKey: { keyId: hexString(key.keyId), publicKey: hexString(key.publicKey),
+      firstHeight: `0x${key.first_height.toString(16)}`, lastHeight: `0x${key.last_height.toString(16)}` },
+    receiptJson: result,
+  });
+  const verification = await verifyPaymentReceipt(evidence, requirements, receiptKeys, commitments);
+  if (verification.height !== height || verification.txHash !== expectedHash
+    || hexString(verification.receipt.from) !== hexString(payer)) throw new MiddlewareError("verification-failure");
+  return { kind: "verified", ...evidence, verification };
 }

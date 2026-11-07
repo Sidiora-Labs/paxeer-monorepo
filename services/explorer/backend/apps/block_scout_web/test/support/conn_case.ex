@@ -37,7 +37,12 @@ defmodule BlockScoutWeb.ConnCase do
   end
 
   @dialyzer {:nowarn_function, __ex_unit_setup_0: 1}
+  @doc false
+  def setup_cache_fixture, do: BlockScoutWeb.CacheFixture.checkout!()
+
   setup tags do
+    :ok = setup_cache_fixture()
+
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo)
     :ok = Ecto.Adapters.SQL.Sandbox.checkout(Explorer.Repo.Account)
 
@@ -45,11 +50,6 @@ defmodule BlockScoutWeb.ConnCase do
       Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo, {:shared, self()})
       Ecto.Adapters.SQL.Sandbox.mode(Explorer.Repo.Account, {:shared, self()})
     end
-
-    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Transactions.child_id())
-    Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Transactions.child_id())
-    Supervisor.terminate_child(Explorer.Supervisor, Explorer.Chain.Cache.Accounts.child_id())
-    Supervisor.restart_child(Explorer.Supervisor, Explorer.Chain.Cache.Accounts.child_id())
 
     {:ok, conn: Phoenix.ConnTest.build_conn()}
   end

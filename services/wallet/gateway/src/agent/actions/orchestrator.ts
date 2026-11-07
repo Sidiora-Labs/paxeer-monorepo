@@ -1,23 +1,35 @@
 import { keccak256, parseTransaction, recoverTransactionAddress, type Hex } from 'viem';
 import { env } from '../../env.js';
 import {
-  getErc20Allowance,
-  getErc20Balance,
-  getNativeBalance,
-  publicClient,
-  isTxKnown,
-  resolveGas,
-  simulate,
-  waitForReceipt,
+  getErc20Allowance as getErc20AllowanceOperation,
+  getErc20Balance as getErc20BalanceOperation,
+  getNativeBalance as getNativeBalanceOperation,
+  isTxKnown as isTxKnownOperation,
+  resolveGas as resolveGasOperation,
+  simulate as simulateOperation,
+  waitForReceipt as waitForReceiptOperation,
 } from '../../chainReads.js';
-import { findPrincipal, getPolicy, listRules } from '../../db/agents.js';
+import {
+  findPrincipal as findPrincipalOperation,
+  getPolicy as getPolicyOperation,
+  listRules as listRulesOperation,
+} from '../../db/agents.js';
 import { evaluateAgent } from '../../policy/agent.js';
-import { findWalletByAddress, getMigrationAwareSigningAccountForRow, type WalletRow } from '../../db/wallets.js';
-import { getDepositByTx, layerxEnabled } from '../../layerx/db.js';
-import { AttestorError, AttestorReauthorizationRequired, type AgentOriginalRequest, type AgentReauthorization } from '../../attestor/client.js';
+import {
+  findWalletByAddress as findWalletByAddressOperation,
+  getMigrationAwareSigningAccountForRow as getMigrationAwareSigningAccountForRowOperation,
+  type WalletRow,
+} from '../../db/wallets.js';
+import {
+  AttestorError,
+  AttestorReauthorizationRequired,
+  type AgentOriginalRequest,
+  type AgentReauthorization,
+} from '../../attestor/client.js';
 import { CustodyAuthorityError } from '../authority.js';
 import { withDistributedWalletLock } from './nonceLock.js';
 import { broadcastReserved, type NonceLease } from '../../nonce/store.js';
+import { sharedRpcPool } from '../../rpc/pool.js';
 import {
   buildErrorEnvelope,
   terminalStatusFor,
@@ -25,7 +37,49 @@ import {
   type ActionPhase,
 } from './errors.js';
 import { actionLegIntent, approvalCalldata, type ActionPlan } from './plan.js';
-import { actionLegExecution, getAction, releaseActionBudget, releaseActionNonce, releaseUnsignedActionNonce, reserveActionBudget, retainActionTransactionDraft, retainActionSignedTransaction, updateAction, type ActionLeg, type ActionSignedTransaction, type ActionRow, type ActionStatus } from '../../db/actions.js';
+import {
+  actionLegExecution,
+  getAction as getActionOperation,
+  releaseActionBudget as releaseActionBudgetOperation,
+  releaseActionNonce as releaseActionNonceOperation,
+  releaseUnsignedActionNonce as releaseUnsignedActionNonceOperation,
+  reserveActionBudget as reserveActionBudgetOperation,
+  retainActionTransactionDraft as retainActionTransactionDraftOperation,
+  retainActionSignedTransaction as retainActionSignedTransactionOperation,
+  updateAction as updateActionOperation,
+  type ActionLeg,
+  type ActionSignedTransaction,
+  type ActionRow,
+  type ActionStatus,
+} from '../../db/actions.js';
+
+import { actionOperation, assertActionActive } from './execution.js';
+
+const getErc20Allowance = actionOperation(getErc20AllowanceOperation);
+const getErc20Balance = actionOperation(getErc20BalanceOperation);
+const getNativeBalance = actionOperation(getNativeBalanceOperation);
+const isTxKnown = actionOperation(isTxKnownOperation);
+const resolveGas = actionOperation(resolveGasOperation);
+const simulate = actionOperation(simulateOperation);
+const waitForReceipt = actionOperation(waitForReceiptOperation);
+const findPrincipal = actionOperation(findPrincipalOperation);
+const getPolicy = actionOperation(getPolicyOperation);
+const listRules = actionOperation(listRulesOperation);
+const findWalletByAddress = actionOperation(findWalletByAddressOperation);
+const getMigrationAwareSigningAccountForRow = actionOperation(
+  getMigrationAwareSigningAccountForRowOperation
+);
+const getAction = actionOperation(getActionOperation);
+const releaseActionBudget = actionOperation(releaseActionBudgetOperation, false);
+const releaseActionNonce = actionOperation(releaseActionNonceOperation, false);
+const releaseUnsignedActionNonce = actionOperation(releaseUnsignedActionNonceOperation, false);
+const reserveActionBudget = actionOperation(reserveActionBudgetOperation, false);
+const retainActionTransactionDraft = actionOperation(retainActionTransactionDraftOperation, false);
+const retainActionSignedTransaction = actionOperation(
+  retainActionSignedTransactionOperation,
+  false
+);
+const updateAction = actionOperation(updateActionOperation, false);
 
 /**
  * The durable-action orchestrator: it advances ONE action by exactly one
@@ -49,7 +103,7 @@ const CONFIRMATIONS = env.ACTION_CONFIRMATIONS;
 /** Number of receipt-wait timeouts on a leg before the wallet replaces the tx. */
 const REPLACE_AFTER_ATTEMPTS = 3;
 
-/** Advance a leased action by one transition. Never throws. */
+/** Advance one transition. Lost ownership/deadlines propagate without writing an action error. */
 export async function advanceAction(row: ActionRow): Promise<void> {
   if (row.error_code === 'AGENT_REAUTHORIZATION_REQUIRED') return;
   try {
@@ -79,35 +133,74 @@ export async function advanceAction(row: ActionRow): Promise<void> {
         return;
     }
   } catch (err) {
-    if (err instanceof AttestorError && (err.code === 'inventory_mismatch' || err.code === 'key_invalid_share')) {
-      await fail(row, (row.phase ?? 'reconciliation') as ActionPhase, 'CUSTODY_AUTHORITY_REQUIRED', err.message,
-        { detail: err.code }, false);
+    assertActionActive();
+    if (
+      err instanceof AttestorError &&
+      (err.code === 'inventory_mismatch' || err.code === 'key_invalid_share')
+    ) {
+      await fail(
+        row,
+        (row.phase ?? 'reconciliation') as ActionPhase,
+        'CUSTODY_AUTHORITY_REQUIRED',
+        err.message,
+        { detail: err.code },
+        false
+      );
       return;
     }
     if (err instanceof CustodyAuthorityError) {
-      await fail(row, (row.phase ?? 'reconciliation') as ActionPhase, 'CUSTODY_AUTHORITY_REQUIRED', err.message,
-        { detail: err.code, replication_pending: err.replicationPending }, false);
+      await fail(
+        row,
+        (row.phase ?? 'reconciliation') as ActionPhase,
+        'CUSTODY_AUTHORITY_REQUIRED',
+        err.message,
+        { detail: err.code, replication_pending: err.replicationPending },
+        false
+      );
       return;
     }
     if (err instanceof AttestorReauthorizationRequired) {
-      await fail(row, (row.phase ?? 'reconciliation') as ActionPhase, 'AGENT_REAUTHORIZATION_REQUIRED', err.message, {
-        method: '/v1/sign', key_id: err.keyId, signing_request: err.request,
-        digest_domain: 'PXW:AGENT-REQUEST:v1', authorization_header: 'x-agent-attestor-authorization',
-        authorization_endpoint: '/v1/agent/signing-authorizations', authorization_id_header: 'x-agent-attestor-authorization-id',
-      }, false);
+      await fail(
+        row,
+        (row.phase ?? 'reconciliation') as ActionPhase,
+        'AGENT_REAUTHORIZATION_REQUIRED',
+        err.message,
+        {
+          method: '/v1/sign',
+          key_id: err.keyId,
+          signing_request: err.request,
+          digest_domain: 'PXW:AGENT-REQUEST:v1',
+          authorization_header: 'x-agent-attestor-authorization',
+          authorization_endpoint: '/v1/agent/signing-authorizations',
+          authorization_id_header: 'x-agent-attestor-authorization-id',
+        },
+        false
+      );
       return;
     }
     if (err instanceof AttestorError && err.category === 'token') {
       const current = await getAction(row.id);
-      const custody = current?.request._custody as { reauthorization?: AgentReauthorization } | undefined;
+      const custody = current?.request._custody as
+        | { reauthorization?: AgentReauthorization }
+        | undefined;
       if (custody?.reauthorization) {
         const wire = JSON.parse(custody.reauthorization.body) as { key_id?: string };
-        await fail(current!, (current!.phase ?? 'reconciliation') as ActionPhase,
-          'AGENT_REAUTHORIZATION_REQUIRED', err.message, {
-            method: '/v1/sign', key_id: wire.key_id, signing_request: custody.reauthorization.body,
-            digest_domain: 'PXW:AGENT-REQUEST:v1', authorization_header: 'x-agent-attestor-authorization',
-        authorization_endpoint: '/v1/agent/signing-authorizations', authorization_id_header: 'x-agent-attestor-authorization-id',
-          }, false);
+        await fail(
+          current!,
+          (current!.phase ?? 'reconciliation') as ActionPhase,
+          'AGENT_REAUTHORIZATION_REQUIRED',
+          err.message,
+          {
+            method: '/v1/sign',
+            key_id: wire.key_id,
+            signing_request: custody.reauthorization.body,
+            digest_domain: 'PXW:AGENT-REQUEST:v1',
+            authorization_header: 'x-agent-attestor-authorization',
+            authorization_endpoint: '/v1/agent/signing-authorizations',
+            authorization_id_header: 'x-agent-attestor-authorization-id',
+          },
+          false
+        );
         return;
       }
     }
@@ -170,7 +263,13 @@ async function validate(row: ActionRow): Promise<void> {
   });
 
   for (const intent of [approveIntent, callIntent]) {
-    const decision = await evaluateAgent({ principal, policy, rules, intent, reserveBudget: (args) => reserveActionBudget(row.id, args) });
+    const decision = await evaluateAgent({
+      principal,
+      policy,
+      rules,
+      intent,
+      reserveBudget: (args) => reserveActionBudget(row.id, args),
+    });
     if (!decision.allow) {
       const code: ActionErrorCode =
         decision.code === 'APPROVE_CAP' ? 'APPROVAL_CAP_EXCEEDED' : 'POLICY_DENIED';
@@ -188,14 +287,21 @@ async function validate(row: ActionRow): Promise<void> {
       'INSUFFICIENT_BALANCE',
       'token balance is below the requested amount',
       { balance: balance.toString(), required: amountWei.toString(), token: plan.token },
-      true,
+      true
     );
     return;
   }
   // Gas: the wallet needs some native PAX to broadcast at all.
   const native = await getNativeBalance(wallet.address).catch(() => 0n);
   if (native === 0n) {
-    await fail(row, 'balance_check', 'INSUFFICIENT_GAS', 'wallet holds no native PAX for gas', {}, true);
+    await fail(
+      row,
+      'balance_check',
+      'INSUFFICIENT_GAS',
+      'wallet holds no native PAX for gas',
+      {},
+      true
+    );
     return;
   }
 
@@ -280,7 +386,7 @@ async function simulateAndBroadcastCall(row: ActionRow): Promise<void> {
       'SIMULATION_REVERTED',
       sim.error ?? 'call reverted in simulation',
       { detail: sim.error },
-      true,
+      true
     );
     return;
   }
@@ -323,9 +429,14 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
 
   if (outcome.state === 'confirmed') {
     if (leg === 'approval') {
-      await updateAction(row.id, { status: 'approval_confirmed', phase: 'call_simulation', error_code: null, error: null });
+      await updateAction(row.id, {
+        status: 'approval_confirmed',
+        phase: 'call_simulation',
+        error_code: null,
+        error: null,
+      });
     } else {
-      await finalizeCall(row, plan, outcome.receipt.tx_hash);
+      await finalizeCall(row);
     }
     return;
   }
@@ -333,7 +444,14 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
   if (outcome.state === 'reverted') {
     // A mined-but-reverted tx DID consume the nonce; never resend. Terminal.
     const code: ActionErrorCode = 'TRANSACTION_REVERTED';
-    await fail(row, phase, code, `${leg} transaction reverted on-chain`, { tx_hash: hash, nonce }, false);
+    await fail(
+      row,
+      phase,
+      code,
+      `${leg} transaction reverted on-chain`,
+      { tx_hash: hash, nonce },
+      false
+    );
     return;
   }
 
@@ -367,39 +485,8 @@ async function confirmLeg(row: ActionRow, leg: 'approval' | 'call'): Promise<voi
   });
 }
 
-/** On-chain call success → attempt bounded credit verification, then terminal. */
-async function finalizeCall(row: ActionRow, plan: ActionPlan, txHash: string): Promise<void> {
-  if (plan.verify.type === 'layerx_credit' && layerxEnabled()) {
-    const deposit = await getDepositByTx(txHash).catch(() => null);
-    if (deposit) {
-      await updateAction(row.id, {
-        status: 'confirmed',
-        phase: 'credit_verification',
-        credit_verified: true,
-        credit: {
-          did: deposit.did,
-          amount_usdx: deposit.amount_usdx,
-          deposit_tx: deposit.deposit_tx,
-          credited_at: deposit.created_at,
-        },
-        error_code: null,
-        error: null,
-      });
-      return;
-    }
-    // On-chain deposit succeeded; the sequencer credit is eventual. Mark the
-    // action confirmed (the deposit tx IS success) with credit_verified=false;
-    // the LayerX sync worker backfills the credit when the row lands.
-    await updateAction(row.id, {
-      status: 'confirmed',
-      phase: 'credit_verification',
-      credit_verified: false,
-      credit: { status: 'awaiting_sequencer', deposit_tx: txHash },
-      error_code: null,
-      error: null,
-    });
-    return;
-  }
+/** On-chain call success completes the action. */
+async function finalizeCall(row: ActionRow): Promise<void> {
   await updateAction(row.id, {
     status: 'confirmed',
     phase: 'call_confirmation',
@@ -444,19 +531,44 @@ export function legNonce(lease: NonceLease, opts?: { nonce?: number }): Promise<
   return opts?.nonce !== undefined ? Promise.resolve(opts.nonce) : lease.next();
 }
 
+function activeNonceLease(lease: NonceLease): NonceLease {
+  return {
+    address: lease.address,
+    next: actionOperation(() => lease.next(), false),
+    peek: actionOperation(() => lease.peek()),
+    release: actionOperation((nonce: number) => lease.release(nonce), false),
+    track: actionOperation(
+      (nonce: number, hash: Hex, member: string | null) => lease.track(nonce, hash, member),
+      false
+    ),
+    checkClientNonce: actionOperation((nonce: number) => lease.checkClientNonce(nonce)),
+    reserveClientNonce: actionOperation((nonce: number) => lease.reserveClientNonce(nonce), false),
+  };
+}
+
 /**
  * Broadcast a retained leg at its nonce. A failed send is returned, not thrown, so the wallet lock
  * commits the nonce store's record of the broadcast and the next allocation reconciles it.
  */
-async function submitRetained(row: ActionRow, signed: ActionSignedTransaction, lease: NonceLease): Promise<unknown> {
-  if (keccak256(signed.raw) !== signed.hash) throw new Error('retained transaction integrity failure');
+export async function submitRetained(
+  row: ActionRow,
+  signed: ActionSignedTransaction,
+  lease: NonceLease
+): Promise<unknown> {
+  assertActionActive();
+  lease = activeNonceLease(lease);
+  if (keccak256(signed.raw) !== signed.hash)
+    throw new Error('retained transaction integrity failure');
   if (await isTxKnown(signed.hash)) {
     await lease.track(signed.draft.nonce, signed.hash, null);
   } else {
     const sent = await broadcastReserved(lease, signed.draft.nonce, signed.raw, async (raw) => {
-      const hash = await publicClient().sendRawTransaction({ serializedTransaction: raw });
-      if (hash.toLowerCase() !== signed.hash.toLowerCase()) throw new Error('RPC transaction hash differs from retained bytes');
-      return { hash, member: env.HYPERPAXEER_RPC_URL };
+      const { hash, member } = await actionOperation(() =>
+        sharedRpcPool().sendRawTransactionVia(raw)
+      )();
+      if (hash.toLowerCase() !== signed.hash.toLowerCase())
+        throw new Error('RPC transaction hash differs from retained bytes');
+      return { hash, member };
     });
     if (sent.error !== null && !(await isTxKnown(signed.hash))) return sent.error;
   }
@@ -466,12 +578,19 @@ async function submitRetained(row: ActionRow, signed: ActionSignedTransaction, l
 
 async function recoverRetainedBroadcast(row: ActionRow, leg: ActionLeg): Promise<void> {
   if (!row.wallet_address) throw new Error('action wallet missing');
-  const failure = await withDistributedWalletLock(row.wallet_address, async (lease) => {
-    const current = await getAction(row.id);
-    if (!current || current.terminal_at) return null;
-    const signed = actionLegExecution(current, leg).current;
-    return signed ? submitRetained(current, signed, lease) : null;
-  }, undefined, row.id);
+  const failure = await withDistributedWalletLock(
+    row.wallet_address,
+    async (unfencedLease) => {
+      assertActionActive();
+      const lease = activeNonceLease(unfencedLease);
+      const current = await getAction(row.id);
+      if (!current || current.terminal_at) return null;
+      const signed = actionLegExecution(current, leg).current;
+      return signed ? submitRetained(current, signed, lease) : null;
+    },
+    undefined,
+    row.id
+  );
   if (failure !== null) throw failure;
 }
 
@@ -480,78 +599,135 @@ async function broadcastLeg(
   wallet: WalletRow,
   leg: ActionLeg,
   tx: LegTx,
-  opts?: { nonce?: number; feeBumpPercent?: number },
+  opts?: { nonce?: number; feeBumpPercent?: number }
 ): Promise<{ hash: Hex; nonce: number }> {
-  const sent = await withDistributedWalletLock(wallet.address, async (lease) => {
-    const current = await getAction(row.id);
-    if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
-    const state = actionLegExecution(current, leg);
-    const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
-    if (state.current && (!opts || state.current.hash !== expectedHash)) {
-      const error = await submitRetained(current, state.current, lease);
-      return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
-    }
-    const principal = await findPrincipal(current.did);
-    if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
-    const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
-    const plan = current.plan as unknown as ActionPlan;
-    const decision = await evaluateAgent({
-      principal, policy, rules,
-      intent: actionLegIntent(plan, leg, tx),
-      reserveBudget: (args) => reserveActionBudget(current.id, args),
-    });
-    if (!decision.allow) {
-      await fail(current, leg === 'approval' ? 'approval_broadcast' : 'call_broadcast',
-        'POLICY_DENIED', decision.message, { policy_code: decision.code }, true);
-      throw new AttestorError('policy', 'policy_denied', decision.message);
-    }
-    let draft = state.draft;
-    if (!draft) {
-      const nonce = await legNonce(lease, opts);
-      const gas = await resolveGas({ from: wallet.address, to: tx.to, data: tx.data, value: tx.value });
-      let { maxFeePerGas, maxPriorityFeePerGas } = gas;
-      if (opts?.feeBumpPercent) {
-        const mult = BigInt(100 + opts.feeBumpPercent);
-        const previous = state.current?.draft;
-        maxFeePerGas = ((previous && BigInt(previous.maxFeePerGas) > maxFeePerGas
-          ? BigInt(previous.maxFeePerGas) : maxFeePerGas) * mult + 99n) / 100n;
-        maxPriorityFeePerGas = ((previous && BigInt(previous.maxPriorityFeePerGas) > maxPriorityFeePerGas
-          ? BigInt(previous.maxPriorityFeePerGas) : maxPriorityFeePerGas) * mult + 99n) / 100n;
+  const sent = await withDistributedWalletLock(
+    wallet.address,
+    async (unfencedLease) => {
+      assertActionActive();
+      const lease = activeNonceLease(unfencedLease);
+      const current = await getAction(row.id);
+      if (!current || current.terminal_at) throw new Error('action is no longer advanceable');
+      const state = actionLegExecution(current, leg);
+      const expectedHash = leg === 'approval' ? row.approval_tx_hash : row.call_tx_hash;
+      if (state.current && (!opts || state.current.hash !== expectedHash)) {
+        const error = await submitRetained(current, state.current, lease);
+        return { hash: state.current.hash, nonce: state.current.draft.nonce, error };
       }
-      draft = await retainActionTransactionDraft(current.id, leg, {
-        chainId: env.HYPERPAXEER_CHAIN_ID, to: tx.to, data: tx.data, value: tx.value.toString(),
-        nonce, gas: gas.gas.toString(), maxFeePerGas: maxFeePerGas.toString(),
-        maxPriorityFeePerGas: maxPriorityFeePerGas.toString(), replaces: expectedHash as Hex | null,
+      const principal = await findPrincipal(current.did);
+      if (!principal || principal.is_frozen) throw new Error('agent principal is unavailable');
+      const [policy, rules] = await Promise.all([getPolicy(current.did), listRules(current.did)]);
+      const plan = current.plan as unknown as ActionPlan;
+      const decision = await evaluateAgent({
+        principal,
+        policy,
+        rules,
+        intent: actionLegIntent(plan, leg, tx),
+        reserveBudget: (args) => reserveActionBudget(current.id, args),
       });
-    }
-    if (draft.to.toLowerCase() !== tx.to.toLowerCase() || draft.data !== tx.data
-      || draft.value !== tx.value.toString() || draft.chainId !== env.HYPERPAXEER_CHAIN_ID
-      || (opts?.nonce !== undefined && draft.nonce !== opts.nonce)) {
-      throw new Error('retained transaction differs from the action plan');
-    }
-    const custody = current.request._custody as { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization } | undefined;
-    if (custody && custody.origin.did !== current.did) throw new Error('durable request authority differs');
-    const account = await getMigrationAwareSigningAccountForRow(wallet, custody ? {
-      scheme: 'agent_request', publicKey: principal.public_key, ...custody,
-    } : undefined, undefined, undefined, { subject: current.did, route: '/v1/agent/actions', requestHash: `action:${current.id}` });
-    const raw = await account.signTransaction({
-      type: 'eip1559', chainId: draft.chainId, to: draft.to, data: draft.data,
-      value: BigInt(draft.value), nonce: draft.nonce, gas: BigInt(draft.gas),
-      maxFeePerGas: BigInt(draft.maxFeePerGas), maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
-    });
-    if(!isSerializedEip1559(raw))throw new Error('signer returned a non-EIP1559 serialized transaction');
-    const parsed = parseTransaction(raw);
-    if ((await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !== wallet.address.toLowerCase()
-      || parsed.nonce !== draft.nonce || parsed.chainId !== draft.chainId
-      || parsed.to?.toLowerCase() !== draft.to.toLowerCase() || (parsed.data ?? '0x') !== draft.data
-      || (parsed.value ?? 0n) !== BigInt(draft.value) || parsed.gas !== BigInt(draft.gas)
-      || parsed.maxFeePerGas !== BigInt(draft.maxFeePerGas) || parsed.maxPriorityFeePerGas !== BigInt(draft.maxPriorityFeePerGas)) {
-      throw new Error('signed transaction differs from the exact authorized draft');
-    }
-    const retained = await retainActionSignedTransaction(current.id, leg, { draft, raw, hash: keccak256(raw) });
-    const error = await submitRetained(current, retained, lease);
-    return { hash: retained.hash, nonce: retained.draft.nonce, error };
-  }, undefined, row.id);
+      if (!decision.allow) {
+        await fail(
+          current,
+          leg === 'approval' ? 'approval_broadcast' : 'call_broadcast',
+          'POLICY_DENIED',
+          decision.message,
+          { policy_code: decision.code },
+          true
+        );
+        throw new AttestorError('policy', 'policy_denied', decision.message);
+      }
+      let draft = state.draft;
+      if (!draft) {
+        const nonce = await legNonce(lease, opts);
+        const gas = await resolveGas({
+          from: wallet.address,
+          to: tx.to,
+          data: tx.data,
+          value: tx.value,
+        });
+        let { maxFeePerGas, maxPriorityFeePerGas } = gas;
+        if (opts?.feeBumpPercent) {
+          const mult = BigInt(100 + opts.feeBumpPercent);
+          const previous = state.current?.draft;
+          maxFeePerGas =
+            ((previous && BigInt(previous.maxFeePerGas) > maxFeePerGas
+              ? BigInt(previous.maxFeePerGas)
+              : maxFeePerGas) *
+              mult +
+              99n) /
+            100n;
+          maxPriorityFeePerGas =
+            ((previous && BigInt(previous.maxPriorityFeePerGas) > maxPriorityFeePerGas
+              ? BigInt(previous.maxPriorityFeePerGas)
+              : maxPriorityFeePerGas) *
+              mult +
+              99n) /
+            100n;
+        }
+        draft = await retainActionTransactionDraft(current.id, leg, {
+          chainId: env.HYPERPAXEER_CHAIN_ID,
+          to: tx.to,
+          data: tx.data,
+          value: tx.value.toString(),
+          nonce,
+          gas: gas.gas.toString(),
+          maxFeePerGas: maxFeePerGas.toString(),
+          maxPriorityFeePerGas: maxPriorityFeePerGas.toString(),
+          replaces: expectedHash as Hex | null,
+        });
+      }
+      if (
+        draft.to.toLowerCase() !== tx.to.toLowerCase() ||
+        draft.data !== tx.data ||
+        draft.value !== tx.value.toString() ||
+        draft.chainId !== env.HYPERPAXEER_CHAIN_ID ||
+        (opts?.nonce !== undefined && draft.nonce !== opts.nonce)
+      ) {
+        throw new Error('retained transaction differs from the action plan');
+      }
+      const custody = current.request._custody as
+        | { origin: AgentOriginalRequest; reauthorization?: AgentReauthorization }
+        | undefined;
+      if (custody && custody.origin.did !== current.did)
+        throw new Error('durable request authority differs');
+      const account = await getMigrationAwareSigningAccountForRow(
+        wallet,
+        custody
+          ? {
+              scheme: 'agent_request',
+              publicKey: principal.public_key,
+              ...custody,
+            }
+          : undefined,
+        undefined,
+        undefined,
+        { subject: current.did, route: '/v1/agent/actions', requestHash: `action:${current.id}` }
+      );
+      const raw = await actionOperation(() =>
+        account.signTransaction({
+          type: 'eip1559',
+          chainId: draft.chainId,
+          to: draft.to,
+          data: draft.data,
+          value: BigInt(draft.value),
+          nonce: draft.nonce,
+          gas: BigInt(draft.gas),
+          maxFeePerGas: BigInt(draft.maxFeePerGas),
+          maxPriorityFeePerGas: BigInt(draft.maxPriorityFeePerGas),
+        })
+      )();
+      await assertSignedActionTransaction(raw, wallet.address, draft);
+      const retained = await retainActionSignedTransaction(current.id, leg, {
+        draft,
+        raw,
+        hash: keccak256(raw),
+      });
+      const error = await submitRetained(current, retained, lease);
+      return { hash: retained.hash, nonce: retained.draft.nonce, error };
+    },
+    undefined,
+    row.id
+  );
   if (sent.error !== null) throw sent.error;
   return { hash: sent.hash, nonce: sent.nonce };
 }
@@ -562,7 +738,7 @@ async function replaceLeg(
   wallet: WalletRow,
   leg: 'approval' | 'call',
   nonce: number,
-  plan: ActionPlan,
+  plan: ActionPlan
 ): Promise<void> {
   const tx: LegTx =
     leg === 'approval'
@@ -578,7 +754,7 @@ async function replaceLeg(
     row.id,
     leg === 'approval'
       ? { status: 'approval_pending', approval_tx_hash: sent.hash, error_code: null, error: null }
-      : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null },
+      : { status: 'call_pending', call_tx_hash: sent.hash, error_code: null, error: null }
   );
 }
 
@@ -607,7 +783,7 @@ async function fail(
   code: ActionErrorCode,
   message: string,
   cause: Record<string, unknown>,
-  mayReleaseBudget: boolean,
+  mayReleaseBudget: boolean
 ): Promise<void> {
   const envelope = buildErrorEnvelope({ actionId: row.id, phase, code, message, cause });
   const terminal = terminalStatusFor(code) as ActionStatus | null;
@@ -634,7 +810,45 @@ export async function advanceById(id: string): Promise<ActionRow | null> {
   return getAction(id);
 }
 
-function isSerializedEip1559(value:Hex):value is `0x02${string}` {
-  if(!/^0x02(?:[0-9a-fA-F]{2})+$/u.test(value))return false;
-  try{return parseTransaction(value).type==='eip1559';}catch{return false;}
+function isSerializedEip1559(value: Hex): value is `0x02${string}` {
+  if (!/^0x02(?:[0-9a-fA-F]{2})+$/u.test(value)) return false;
+  try {
+    return parseTransaction(value).type === 'eip1559';
+  } catch {
+    return false;
+  }
+}
+
+/** Verify the attestor result before retaining bytes or committing a nonce. */
+export async function assertSignedActionTransaction(
+  raw: Hex,
+  address: string,
+  draft: {
+    nonce: number;
+    chainId: number;
+    to: string;
+    data: string;
+    value: string;
+    gas: string;
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
+  }
+): Promise<void> {
+  if (!isSerializedEip1559(raw))
+    throw new Error('signer returned a non-EIP1559 serialized transaction');
+  const parsed = parseTransaction(raw);
+  if (
+    (await recoverTransactionAddress({ serializedTransaction: raw })).toLowerCase() !==
+      address.toLowerCase() ||
+    parsed.nonce !== draft.nonce ||
+    parsed.chainId !== draft.chainId ||
+    parsed.to?.toLowerCase() !== draft.to.toLowerCase() ||
+    (parsed.data ?? '0x') !== draft.data ||
+    (parsed.value ?? 0n) !== BigInt(draft.value) ||
+    parsed.gas !== BigInt(draft.gas) ||
+    parsed.maxFeePerGas !== BigInt(draft.maxFeePerGas) ||
+    parsed.maxPriorityFeePerGas !== BigInt(draft.maxPriorityFeePerGas)
+  ) {
+    throw new Error('signed transaction differs from the exact authorized draft');
+  }
 }

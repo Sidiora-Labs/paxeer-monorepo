@@ -13,6 +13,8 @@ path = "src/main.rs"
 base64.workspace = true
 ed25519-dalek.workspace = true
 layerx-ap2 = { path = "../layerx-ap2" }
+layerx-client.workspace = true
+layerx-crypto.workspace = true
 layerx-fiat = { path = "../layerx-fiat" }
 layerx-interop-gateway.workspace = true
 layerx-migrate = { path = "../layerx-migrate" }

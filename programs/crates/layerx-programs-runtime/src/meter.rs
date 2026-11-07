@@ -1191,6 +1191,11 @@ impl Meter {
         Ok(())
     }
 
+    pub(crate) fn check_cpu(&mut self, fuel: u64) -> Result<(), MeterRefusal> {
+        let attempted = self.counter_add(ResourceKind::Cpu, self.cpu_fuel, fuel)?;
+        self.admit(ResourceKind::Cpu, self.budget.cpu_fuel, attempted)
+    }
+
     pub(crate) fn mark_cpu_exhausted(&mut self) {
         let attempted = if self.is_activity() {
             self.budget.cpu_fuel.checked_add(1)

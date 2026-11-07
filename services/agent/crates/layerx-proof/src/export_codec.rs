@@ -5,8 +5,6 @@ use std::collections::BTreeSet;
 use layerx_wire::hash::batch_header_digest;
 use layerx_wire::receipt::{decode_batch_header, encode_batch_header};
 
-use crate::availability::{AvailabilityClass, Chunk};
-use crate::checkpoint::{Attestation, Certificate, Checkpoint, GuarantorKey};
 use crate::merkle::{decode_proof, encode_proof, MerkleError, Proof, MAX_DEPTH};
 use crate::receipt::AuthorizedBatch;
 
@@ -18,22 +16,12 @@ pub const MAX_FACT_REFS: usize = 16;
 pub const MAX_FACT_REF_BYTES: usize = 135;
 /// Maximum byte length of one encoded record.
 pub const MAX_RECORD_BYTES: usize = 1_048_576;
-/// Maximum number of availability chunks carried by one checkpoint record.
-pub const MAX_AVAILABILITY_CHUNKS: usize = 4096;
-/// Maximum number of checkpoint guarantors or attestations.
-pub const MAX_CHECKPOINT_GUARANTORS: usize = 32;
-
 const RECEIPT_MAGIC: [u8; 4] = *b"LXRF";
 const HEADER_MAGIC: [u8; 4] = *b"LXHD";
 const INCLUSION_MAGIC: [u8; 4] = *b"LXIP";
 const ACCOUNT_STATE_MAGIC: [u8; 4] = *b"LXAS";
-const CHECKPOINT_MAGIC: [u8; 4] = *b"LXCP";
 const MAX_HEADER_BYTES: usize = 4096;
-const MAX_VALIDITY_PROOF_BYTES: usize = 1_048_576;
-const MAX_SETTLEMENT_REFERENCE_BYTES: usize = 1024;
-const MAX_CHUNK_BYTES: usize = 65_536;
 const MAX_PROOF_BYTES: usize = 10 + 32 * MAX_DEPTH;
-const ATTESTATION_STATEMENT_BYTES: usize = 189;
 
 /// One parsed fact reference. Every kind carries the activity that anchors
 /// tenant ownership.
@@ -41,17 +29,10 @@ const ATTESTATION_STATEMENT_BYTES: usize = 189;
 pub enum FactSelector {
     /// `receipt:<activity_id>`.
     Receipt { activity_id: [u8; 32] },
-    /// `activity:<activity_id>`.
-    Activity { activity_id: [u8; 32] },
     /// `state:<activity_id>:<account_id>`.
     State {
         activity_id: [u8; 32],
         account_id: [u8; 32],
-    },
-    /// `checkpoint:<activity_id>:<batch_number>`.
-    Checkpoint {
-        activity_id: [u8; 32],
-        batch_number: u64,
     },
 }
 
@@ -68,16 +49,12 @@ pub enum FactRefError {
     Empty,
     /// The reference exceeds [`MAX_FACT_REF_BYTES`].
     TooLong { length: usize },
-    /// The kind token is not one of the four kinds.
+    /// The kind token is not receipt or state.
     UnknownKind,
     /// Field count, hex length or hex alphabet is not canonical.
     Malformed,
     /// An identifier is all zero.
     ZeroIdentifier,
-    /// The batch decimal is not canonical or overflows `u64`.
-    Decimal,
-    /// Batch zero has no signed checkpoint header.
-    ZeroBatch,
 }
 
 impl FactSelector {
@@ -86,7 +63,7 @@ impl FactSelector {
     /// # Errors
     ///
     /// Refuses empty, oversized, unknown, non-canonical, zero-identifier and
-    /// zero-batch references.
+    /// malformed references.
     pub fn parse(text: &str) -> Result<Self, FactRefError> {
         if text.is_empty() {
             return Err(FactRefError::Empty);
@@ -101,25 +78,11 @@ impl FactSelector {
             ("receipt", [activity]) => Ok(Self::Receipt {
                 activity_id: hex32(activity)?,
             }),
-            ("activity", [activity]) => Ok(Self::Activity {
-                activity_id: hex32(activity)?,
-            }),
             ("state", [activity, account]) => Ok(Self::State {
                 activity_id: hex32(activity)?,
                 account_id: hex32(account)?,
             }),
-            ("checkpoint", [activity, batch]) => {
-                let activity_id = hex32(activity)?;
-                let batch_number = decimal(batch)?;
-                if batch_number == 0 {
-                    return Err(FactRefError::ZeroBatch);
-                }
-                Ok(Self::Checkpoint {
-                    activity_id,
-                    batch_number,
-                })
-            }
-            ("receipt" | "activity" | "state" | "checkpoint", _) => Err(FactRefError::Malformed),
+            ("receipt" | "state", _) => Err(FactRefError::Malformed),
             _ => Err(FactRefError::UnknownKind),
         }
     }
@@ -129,15 +92,10 @@ impl FactSelector {
     pub fn canonical_text(&self) -> String {
         match self {
             Self::Receipt { activity_id } => format!("receipt:{}", hex(activity_id)),
-            Self::Activity { activity_id } => format!("activity:{}", hex(activity_id)),
             Self::State {
                 activity_id,
                 account_id,
             } => format!("state:{}:{}", hex(activity_id), hex(account_id)),
-            Self::Checkpoint {
-                activity_id,
-                batch_number,
-            } => format!("checkpoint:{}:{batch_number}", hex(activity_id)),
         }
     }
 
@@ -145,10 +103,7 @@ impl FactSelector {
     #[must_use]
     pub const fn activity_id(&self) -> [u8; 32] {
         match self {
-            Self::Receipt { activity_id }
-            | Self::Activity { activity_id }
-            | Self::State { activity_id, .. }
-            | Self::Checkpoint { activity_id, .. } => *activity_id,
+            Self::Receipt { activity_id } | Self::State { activity_id, .. } => *activity_id,
         }
     }
 }
@@ -213,22 +168,6 @@ const fn nibble(byte: u8) -> Result<u8, FactRefError> {
         b'a'..=b'f' => Ok(byte - b'a' + 10),
         _ => Err(FactRefError::Malformed),
     }
-}
-
-fn decimal(text: &str) -> Result<u64, FactRefError> {
-    let bytes = text.as_bytes();
-    if bytes.is_empty()
-        || !bytes.iter().all(u8::is_ascii_digit)
-        || (bytes.len() > 1 && bytes[0] == b'0')
-    {
-        return Err(FactRefError::Decimal);
-    }
-    bytes.iter().try_fold(0_u64, |value, digit| {
-        value
-            .checked_mul(10)
-            .and_then(|value| value.checked_add(u64::from(digit - b'0')))
-            .ok_or(FactRefError::Decimal)
-    })
 }
 
 fn hex(bytes: &[u8]) -> String {
@@ -313,14 +252,6 @@ impl<'a> Reader<'a> {
         Ok(u64::from_be_bytes(self.array()?))
     }
 
-    fn boolean(&mut self) -> Result<bool, ExportCodecError> {
-        match self.u8()? {
-            0 => Ok(false),
-            1 => Ok(true),
-            _ => Err(ExportCodecError::Tag),
-        }
-    }
-
     fn length_prefixed(&mut self, maximum: usize) -> Result<&'a [u8], ExportCodecError> {
         let length = usize::try_from(self.u32()?).map_err(|_| ExportCodecError::Bound)?;
         if length > maximum {
@@ -346,14 +277,6 @@ impl<'a> Reader<'a> {
         let text = core::str::from_utf8(bytes)
             .map_err(|_| ExportCodecError::Reference(FactRefError::Malformed))?;
         FactSelector::parse(text).map_err(ExportCodecError::Reference)
-    }
-
-    fn option_bytes(&mut self, maximum: usize) -> Result<Option<Vec<u8>>, ExportCodecError> {
-        if self.boolean()? {
-            Ok(Some(self.nonempty(maximum)?))
-        } else {
-            Ok(None)
-        }
     }
 
     fn preamble(&mut self, magic: [u8; 4]) -> Result<(), ExportCodecError> {
@@ -427,23 +350,6 @@ impl Writer {
 
     fn reference(&mut self, reference: &FactSelector) -> Result<(), ExportCodecError> {
         self.length_prefixed(reference.canonical_text().as_bytes(), MAX_FACT_REF_BYTES)
-    }
-
-    fn option_bytes(
-        &mut self,
-        value: Option<&[u8]>,
-        maximum: usize,
-    ) -> Result<(), ExportCodecError> {
-        match value {
-            None => {
-                self.u8(0);
-                Ok(())
-            }
-            Some(bytes) => {
-                self.u8(1);
-                self.nonempty(bytes, maximum)
-            }
-        }
     }
 
     fn finish(self) -> Result<Vec<u8>, ExportCodecError> {
@@ -608,8 +514,6 @@ impl HeaderRecord {
 #[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
 #[repr(u8)]
 pub enum InclusionRecordKind {
-    /// Canonical signed activity under the header activity root.
-    Activity = 1,
     /// Canonical receipt under the header receipt root.
     Receipt = 2,
 }
@@ -627,8 +531,7 @@ pub struct InclusionRecord {
 impl InclusionRecord {
     fn check_kind(&self) -> Result<(), ExportCodecError> {
         match (self.kind, self.reference) {
-            (InclusionRecordKind::Activity, FactSelector::Activity { .. })
-            | (InclusionRecordKind::Receipt, FactSelector::Receipt { .. }) => Ok(()),
+            (InclusionRecordKind::Receipt, FactSelector::Receipt { .. }) => Ok(()),
             _ => Err(ExportCodecError::ReferenceKind),
         }
     }
@@ -660,7 +563,6 @@ impl InclusionRecord {
             |reader| {
                 reader.preamble(INCLUSION_MAGIC)?;
                 let kind = match reader.u8()? {
-                    1 => InclusionRecordKind::Activity,
                     2 => InclusionRecordKind::Receipt,
                     _ => return Err(ExportCodecError::Tag),
                 };
@@ -802,255 +704,6 @@ impl AccountStateRecord {
     }
 }
 
-/// `LXCP` v1: one checkpoint certificate, its checkpoint-relative bonded set
-/// and every availability chunk of the certified batch.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CheckpointRecord {
-    pub reference: FactSelector,
-    pub certificate: Certificate,
-    pub set_version: u64,
-    pub bonded_set: Vec<GuarantorKey>,
-    pub checkpoint_id: [u8; 32],
-    pub registered_settlement_reference: Option<Vec<u8>>,
-    pub availability: Vec<(Chunk, Proof)>,
-}
-
-impl CheckpointRecord {
-    /// Encodes the canonical record.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a wrong reference kind, empty or oversized sets, non-contiguous
-    /// chunk indices and bound overflow.
-    pub fn encode(&self) -> Result<Vec<u8>, ExportCodecError> {
-        if !matches!(self.reference, FactSelector::Checkpoint { .. }) {
-            return Err(ExportCodecError::ReferenceKind);
-        }
-        if self.set_version == 0
-            || self.bonded_set.is_empty()
-            || self.bonded_set.len() > MAX_CHECKPOINT_GUARANTORS
-            || self.availability.is_empty()
-            || self.availability.len() > MAX_AVAILABILITY_CHUNKS
-        {
-            return Err(ExportCodecError::Bound);
-        }
-        let mut writer = Writer::new(CHECKPOINT_MAGIC);
-        writer.reference(&self.reference)?;
-        writer.nonempty(&encode_certificate(&self.certificate)?, MAX_RECORD_BYTES)?;
-        writer.u64(self.set_version);
-        writer.u16(u16::try_from(self.bonded_set.len()).map_err(|_| ExportCodecError::Bound)?);
-        for key in &self.bonded_set {
-            writer.raw(&key.guarantor_id());
-            writer.raw(&key.public_key());
-            writer.u8(u8::from(key.bonded()));
-        }
-        writer.raw(&self.checkpoint_id);
-        writer.option_bytes(
-            self.registered_settlement_reference.as_deref(),
-            MAX_SETTLEMENT_REFERENCE_BYTES,
-        )?;
-        writer.u16(u16::try_from(self.availability.len()).map_err(|_| ExportCodecError::Bound)?);
-        for (position, (chunk, proof)) in self.availability.iter().enumerate() {
-            if usize::try_from(chunk.index) != Ok(position) {
-                return Err(ExportCodecError::Bound);
-            }
-            writer.u64(chunk.batch_number);
-            writer.u32(chunk.index);
-            writer.u8(chunk.class as u8);
-            writer.u64(chunk.class_offset);
-            writer.length_prefixed(&chunk.bytes, MAX_CHUNK_BYTES)?;
-            writer.raw(&chunk.claimed_hash);
-            writer.proof(proof)?;
-        }
-        writer.finish()
-    }
-
-    /// Decodes one canonical record.
-    ///
-    /// # Errors
-    ///
-    /// Refuses any non-canonical, truncated, trailing or out-of-bound input.
-    pub fn decode(bytes: &[u8]) -> Result<Self, ExportCodecError> {
-        canonical(
-            bytes,
-            |reader| {
-                reader.preamble(CHECKPOINT_MAGIC)?;
-                let reference = reader.reference()?;
-                if !matches!(reference, FactSelector::Checkpoint { .. }) {
-                    return Err(ExportCodecError::ReferenceKind);
-                }
-                let certificate = decode_certificate(reader.length_prefixed(MAX_RECORD_BYTES)?)?;
-                let set_version = reader.u64()?;
-                let key_count = usize::from(reader.u16()?);
-                if set_version == 0 || key_count == 0 || key_count > MAX_CHECKPOINT_GUARANTORS {
-                    return Err(ExportCodecError::Bound);
-                }
-                let mut bonded_set = Vec::with_capacity(key_count);
-                for _ in 0..key_count {
-                    bonded_set.push(GuarantorKey::new(
-                        reader.array()?,
-                        reader.array()?,
-                        reader.boolean()?,
-                    ));
-                }
-                let checkpoint_id = reader.array()?;
-                let registered_settlement_reference =
-                    reader.option_bytes(MAX_SETTLEMENT_REFERENCE_BYTES)?;
-                let chunk_count = usize::from(reader.u16()?);
-                if chunk_count == 0 || chunk_count > MAX_AVAILABILITY_CHUNKS {
-                    return Err(ExportCodecError::Bound);
-                }
-                let mut availability = Vec::with_capacity(chunk_count);
-                for position in 0..chunk_count {
-                    let batch_number = reader.u64()?;
-                    let index = reader.u32()?;
-                    if usize::try_from(index) != Ok(position) {
-                        return Err(ExportCodecError::Bound);
-                    }
-                    let class = match reader.u8()? {
-                        1 => AvailabilityClass::Activities,
-                        2 => AvailabilityClass::Receipts,
-                        3 => AvailabilityClass::Oracle,
-                        4 => AvailabilityClass::StateDiff,
-                        5 => AvailabilityClass::Recovery,
-                        _ => return Err(ExportCodecError::Tag),
-                    };
-                    let class_offset = reader.u64()?;
-                    let chunk_bytes = reader.length_prefixed(MAX_CHUNK_BYTES)?.to_vec();
-                    let claimed_hash = reader.array()?;
-                    let proof = reader.proof()?;
-                    availability.push((
-                        Chunk {
-                            batch_number,
-                            index,
-                            class,
-                            class_offset,
-                            bytes: chunk_bytes,
-                            claimed_hash,
-                        },
-                        proof,
-                    ));
-                }
-                Ok(Self {
-                    reference,
-                    certificate,
-                    set_version,
-                    bonded_set,
-                    checkpoint_id,
-                    registered_settlement_reference,
-                    availability,
-                })
-            },
-            Self::encode,
-        )
-    }
-}
-
-fn encode_certificate(certificate: &Certificate) -> Result<Vec<u8>, ExportCodecError> {
-    let attestations = certificate.attestations();
-    if attestations.is_empty()
-        || attestations.len() > MAX_CHECKPOINT_GUARANTORS
-        || certificate.threshold() == 0
-        || certificate.threshold() > attestations.len()
-        || attestations
-            .windows(2)
-            .any(|pair| pair[0].guarantor_id() >= pair[1].guarantor_id())
-    {
-        return Err(ExportCodecError::Bound);
-    }
-    let mut writer = Writer(Vec::new());
-    writer.nonempty(certificate.checkpoint().header_bytes(), MAX_HEADER_BYTES)?;
-    writer.length_prefixed(
-        certificate.checkpoint().validity_proof(),
-        MAX_VALIDITY_PROOF_BYTES,
-    )?;
-    writer.u8(u8::try_from(certificate.threshold()).map_err(|_| ExportCodecError::Bound)?);
-    writer.u8(u8::try_from(attestations.len()).map_err(|_| ExportCodecError::Bound)?);
-    for attestation in attestations {
-        writer.raw(&attestation.canonical_statement());
-        writer.raw(&attestation.signer());
-        writer.raw(&attestation.signature());
-        writer.u8(attestation.signature_v());
-    }
-    writer.option_bytes(
-        certificate.settlement_reference(),
-        MAX_SETTLEMENT_REFERENCE_BYTES,
-    )?;
-    writer.finish()
-}
-
-fn decode_certificate(bytes: &[u8]) -> Result<Certificate, ExportCodecError> {
-    let mut reader = Reader::new(bytes);
-    let header = reader.nonempty(MAX_HEADER_BYTES)?;
-    let validity = reader.length_prefixed(MAX_VALIDITY_PROOF_BYTES)?.to_vec();
-    let threshold = usize::from(reader.u8()?);
-    let count = usize::from(reader.u8()?);
-    if count == 0 || count > MAX_CHECKPOINT_GUARANTORS || threshold == 0 || threshold > count {
-        return Err(ExportCodecError::Bound);
-    }
-    let mut attestations = Vec::with_capacity(count);
-    for _ in 0..count {
-        let statement: [u8; ATTESTATION_STATEMENT_BYTES] = reader.array()?;
-        attestations.push(decode_attestation(
-            &statement,
-            reader.array()?,
-            reader.array()?,
-            reader.u8()?,
-        )?);
-    }
-    if attestations
-        .windows(2)
-        .any(|pair| pair[0].guarantor_id() >= pair[1].guarantor_id())
-    {
-        return Err(ExportCodecError::Bound);
-    }
-    let settlement_reference = reader.option_bytes(MAX_SETTLEMENT_REFERENCE_BYTES)?;
-    reader.finish()?;
-    let certificate = Certificate::new(
-        Checkpoint::new(header, validity),
-        attestations,
-        threshold,
-        settlement_reference,
-    );
-    if encode_certificate(&certificate)? != bytes {
-        return Err(ExportCodecError::NonCanonical);
-    }
-    Ok(certificate)
-}
-
-fn decode_attestation(
-    statement: &[u8; ATTESTATION_STATEMENT_BYTES],
-    signer: [u8; 20],
-    signature: [u8; 64],
-    signature_v: u8,
-) -> Result<Attestation, ExportCodecError> {
-    let mut reader = Reader::new(statement);
-    let attestation = Attestation::new(
-        reader.u16()?,
-        reader.u32()?,
-        reader.u64()?,
-        reader.array()?,
-        reader.u64()?,
-        reader.array()?,
-        reader.array()?,
-        reader.array()?,
-        reader.u64()?,
-        reader.array()?,
-        reader.boolean()?,
-        reader.boolean()?,
-        reader.u8()?,
-        reader.u64()?,
-        signer,
-        signature,
-        signature_v,
-    );
-    reader.finish()?;
-    if attestation.canonical_statement() != *statement {
-        return Err(ExportCodecError::NonCanonical);
-    }
-    Ok(attestation)
-}
-
 /// One element of the proofs bucket.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ProofRecord {
@@ -1096,7 +749,6 @@ pub struct CompleteOfflineArtifact {
     pub facts: Vec<FactSelector>,
     pub receipts: Vec<ReceiptRecord>,
     pub proofs: Vec<ProofRecord>,
-    pub certificates: Vec<CheckpointRecord>,
     pub headers: Vec<HeaderRecord>,
 }
 
@@ -1161,6 +813,9 @@ fn encode_bucket<T>(
 
 impl CompleteOfflineArtifact {
     /// Decodes every bucket with the strict grammar and canonical record codecs.
+    /// The certificate bucket is retained only to refuse historical artifacts:
+    /// every nonempty bucket returns a `certificates` record error with `Tag`.
+    /// Receipt and state records carry no checkpoint or availability-chunk codec.
     ///
     /// # Errors
     ///
@@ -1172,11 +827,17 @@ impl CompleteOfflineArtifact {
         certificates: &[B],
         headers: &[B],
     ) -> Result<Self, ArtifactDecodeError> {
+        if !certificates.is_empty() {
+            return Err(ArtifactDecodeError::Record {
+                bucket: "certificates",
+                index: 0,
+                error: ExportCodecError::Tag,
+            });
+        }
         Ok(Self {
             facts: parse_fact_set(facts).map_err(ArtifactDecodeError::Facts)?,
             receipts: decode_bucket("receipts", receipts, ReceiptRecord::decode)?,
             proofs: decode_bucket("proofs", proofs, ProofRecord::decode)?,
-            certificates: decode_bucket("certificates", certificates, CheckpointRecord::decode)?,
             headers: decode_bucket("headers", headers, HeaderRecord::decode)?,
         })
     }
@@ -1196,11 +857,7 @@ impl CompleteOfflineArtifact {
                 .collect(),
             receipts: encode_bucket("receipts", &self.receipts, ReceiptRecord::encode)?,
             proofs: encode_bucket("proofs", &self.proofs, ProofRecord::encode)?,
-            certificates: encode_bucket(
-                "certificates",
-                &self.certificates,
-                CheckpointRecord::encode,
-            )?,
+            certificates: Vec::new(),
             headers: encode_bucket("headers", &self.headers, HeaderRecord::encode)?,
         })
     }
@@ -1214,12 +871,7 @@ mod tests {
     fn fact_grammar_is_strict_and_round_trips() {
         let id = "01".repeat(32);
         let account = "ab".repeat(32);
-        for text in [
-            format!("receipt:{id}"),
-            format!("activity:{id}"),
-            format!("state:{id}:{account}"),
-            format!("checkpoint:{id}:18446744073709551615"),
-        ] {
+        for text in [format!("receipt:{id}"), format!("state:{id}:{account}")] {
             let parsed = FactSelector::parse(&text);
             assert_eq!(parsed.map(|fact| fact.canonical_text()), Ok(text));
         }
@@ -1234,6 +886,7 @@ mod tests {
         let zero = "00".repeat(32);
         let upper = "AB".repeat(32);
         for (text, error) in [
+            (format!("activity:{id}"), FactRefError::UnknownKind),
             (String::new(), FactRefError::Empty),
             (format!("receipt:{zero}"), FactRefError::ZeroIdentifier),
             (format!("receipt:{upper}"), FactRefError::Malformed),
@@ -1241,12 +894,12 @@ mod tests {
             (format!("receipt:{id}:1"), FactRefError::Malformed),
             (format!("receipt: {id}"), FactRefError::Malformed),
             (format!("proof:{id}"), FactRefError::UnknownKind),
-            (format!("checkpoint:{id}:0"), FactRefError::ZeroBatch),
-            (format!("checkpoint:{id}:01"), FactRefError::Decimal),
-            (format!("checkpoint:{id}:+1"), FactRefError::Decimal),
+            (format!("checkpoint:{id}:0"), FactRefError::UnknownKind),
+            (format!("checkpoint:{id}:01"), FactRefError::UnknownKind),
+            (format!("checkpoint:{id}:+1"), FactRefError::UnknownKind),
             (
                 format!("checkpoint:{id}:18446744073709551616"),
-                FactRefError::Decimal,
+                FactRefError::UnknownKind,
             ),
         ] {
             assert_eq!(FactSelector::parse(&text), Err(error), "{text}");

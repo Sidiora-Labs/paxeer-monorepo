@@ -112,8 +112,13 @@ func TestDenomPauseAdminOnly(t *testing.T) {
 	require.False(t, s.App.TokenFactoryKeeper.IsDenomPaused(s.Ctx, s.defaultDenom))
 	require.Empty(t, denomPauseEvents(s))
 
-	_, err = s.msgServer.SetDenomPaused(sdk.WrapSDKContext(s.Ctx), types.NewMsgSetDenomPaused(admin, "factory/"+admin+"/missing", true))
-	require.ErrorIs(t, err, types.ErrUnauthorized)
+	missingDenom := "factory/" + admin + "/missing"
+	response, err := s.msgServer.SetDenomPaused(sdk.WrapSDKContext(s.Ctx), types.NewMsgSetDenomPaused(admin, missingDenom, true))
+	require.ErrorIs(t, err, types.ErrDenomDoesNotExist)
+	require.Contains(t, err.Error(), "denom: "+missingDenom)
+	require.Nil(t, response)
+	require.False(t, s.App.TokenFactoryKeeper.IsDenomPaused(s.Ctx, missingDenom))
+	require.Empty(t, denomPauseEvents(s))
 
 	require.NoError(t, denomPauseSet(s, admin, true))
 	require.True(t, s.App.TokenFactoryKeeper.IsDenomPaused(s.Ctx, s.defaultDenom))
@@ -146,13 +151,13 @@ func TestDenomPauseMintBurn(t *testing.T) {
 
 	err := denomPauseMint(s, 10)
 	require.ErrorIs(t, err, types.ErrDenomPaused)
-	require.Equal(t, "LXP_ASSET_PAUSED: denom is paused", err.Error())
+	require.Equal(t, types.DenomPausedReason, err.Error())
 	require.Equal(t, int64(100), denomPauseBalance(s))
 	require.Equal(t, int64(100), denomPauseSupply(s))
 
 	err = denomPauseBurn(s, 10)
 	require.ErrorIs(t, err, types.ErrDenomPaused)
-	require.Equal(t, "LXP_ASSET_PAUSED: denom is paused", err.Error())
+	require.Equal(t, types.DenomPausedReason, err.Error())
 	require.Equal(t, int64(100), denomPauseBalance(s))
 	require.Equal(t, int64(100), denomPauseSupply(s))
 

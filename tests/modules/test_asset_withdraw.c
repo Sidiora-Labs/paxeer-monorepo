@@ -1,3 +1,9 @@
+#define ASSET_NATIVE_HARNESS_ONLY
+#include "test_asset_withdraw_activity.c"
+#undef ASSET_NATIVE_HARNESS_ONLY
+
+#include "test_asset_retirement.h"
+
 #include "layerx/lx_asset.h"
 #include "layerx/lxp_kernel.h"
 #include "layerx/lxp_receipt.h"
@@ -28,34 +34,21 @@ typedef struct withdraw_fixture {
     lxp_arena arena;
     uint8_t arena_bytes[4096];
     lxp_receipt receipt;
+    lxp_effect_buffer effects;
     uint64_t global_sequence;
 } withdraw_fixture;
 
 static withdraw_fixture fixture;
 
-static lxp_result apply_capability(lxp_kernel *kernel,
-                                   const lxp_transfer_set *set,
-                                   lxp_receipt *receipt)
-{
-    lxp_transfer_set_result result;
-    lxp_transfer_context context = set->context;
-    lxp_result status;
-    (void)kernel;
-    status = lxp_apply_transfer_set((lxp_transfer_leg *)set->legs,
-                                    set->leg_count, &context, &result);
-    if (status == LXP_OK)
-        (void)memcpy(receipt->transfer_set_root, result.transfer_set_root, 32U);
-    return status;
-}
-
 static int fresh_ctx(withdraw_fixture *f)
 {
     ++f->global_sequence;
-    if (lxp_arena_init(&f->arena, f->arena_bytes, sizeof(f->arena_bytes)) !=
-            LXP_OK ||
-        lxp_module_ctx_init(&f->ctx, &f->kernel, LXP_MODULE_ASSET, 10U, 0U,
-                            f->global_sequence, 1000U, &f->arena, true) !=
-            LXP_OK)
+    if (!TEST_EQ(lxp_arena_init(&f->arena, f->arena_bytes, sizeof(f->arena_bytes)), LXP_OK) ||
+        !TEST_EQ(lxp_module_ctx_init(&f->ctx, &f->kernel, LXP_MODULE_ASSET, 10U, 0U,
+                            f->global_sequence, 1000U, &f->arena, true), LXP_OK))
+        return 1;
+    if (!TEST_EQ(lxp_effect_buffer_init(&f->effects), LXP_OK) ||
+        !TEST_EQ(lxp_module_ctx_bind_effects(&f->ctx, &f->effects), LXP_OK))
         return 1;
     return 0;
 }
@@ -65,27 +58,27 @@ static int open_ledger(withdraw_fixture *f, const lx_asset_record *asset,
                        lx_account **agent, lx_account **withdrawals,
                        lx_account **reserve)
 {
-    if (lx_account_registry_init(accounts) != LXP_OK ||
-        lx_asset_account_open(&f->assets, accounts, asset->asset_id,
+    if (!TEST_EQ(lx_account_registry_init(accounts), LXP_OK) ||
+        !TEST_EQ(lx_asset_account_open(&f->assets, accounts, asset->asset_id,
             (const uint8_t *)agent_name, strlen(agent_name), 1U,
-            LX_ACCOUNT_OPEN_CREDIT, NULL, agent) != LXP_OK ||
-        lx_asset_account_open(&f->assets, accounts, asset->asset_id,
+            LX_ACCOUNT_OPEN_CREDIT, NULL, agent), LXP_OK) ||
+        !TEST_EQ(lx_asset_account_open(&f->assets, accounts, asset->asset_id,
             (const uint8_t *)"system:paxeer-withdrawals", 25U, 1U,
-            LX_ACCOUNT_OPEN_GENESIS, NULL, withdrawals) != LXP_OK ||
-        lx_asset_account_open(&f->assets, accounts, asset->asset_id,
+            LX_ACCOUNT_OPEN_GENESIS, NULL, withdrawals), LXP_OK) ||
+        !TEST_EQ(lx_asset_account_open(&f->assets, accounts, asset->asset_id,
             (const uint8_t *)"system:paxeer-reserve", 21U, 1U,
-            LX_ACCOUNT_OPEN_GENESIS, NULL, reserve) != LXP_OK ||
-        lxp_ledger_bootstrap_balance(*agent, asset->asset_id,
-            (lxp_u128){ 0U, 100U }, 0U) != LXP_OK)
+            LX_ACCOUNT_OPEN_GENESIS, NULL, reserve), LXP_OK) ||
+        !TEST_EQ(lxp_ledger_bootstrap_balance(*agent, asset->asset_id,
+            (lxp_u128){ 0U, 100U }, 0U), LXP_OK))
         return 1;
     return 0;
 }
 
 static int roots(const withdraw_fixture *f, uint8_t out[96])
 {
-    if (lxp_state_root(&f->kernel, out) != LXP_OK ||
-        lx_asset_state_root(&f->assets, &f->accounts_a, out + 32) != LXP_OK ||
-        lx_asset_state_root(&f->assets, &f->accounts_b, out + 64) != LXP_OK)
+    if (!TEST_EQ(lxp_state_root(&f->kernel, out), LXP_OK) ||
+        !TEST_EQ(lx_asset_state_root(&f->assets, &f->accounts_a, out + 32), LXP_OK) ||
+        !TEST_EQ(lx_asset_state_root(&f->assets, &f->accounts_b, out + 64), LXP_OK))
         return 1;
     return 0;
 }
@@ -104,70 +97,8 @@ static int same_balances(const lxp_u128 left[6], const lxp_u128 right[6])
 {
     size_t i;
     for (i = 0U; i < 6U; ++i)
-        if (lxp_u128_cmp(left[i], right[i]) != 0) return 1;
-    return 0;
-}
-
-static int withdrawal_totals(const lx_withdrawal_store *store,
-                             const uint8_t asset_id[32],
-                             lxp_u128 *outstanding, lxp_u128 *settled)
-{
-    size_t i;
-    *outstanding = (lxp_u128){ 0U, 0U };
-    *settled = (lxp_u128){ 0U, 0U };
-    for (i = 0U; i < store->count; ++i) {
-        const lx_withdrawal_record *record = &store->records[i];
-        lxp_u128 *bucket = record->settled ? settled : outstanding;
-        if (memcmp(record->request.asset_id, asset_id, 32U) != 0) continue;
-        if (lxp_u128_add(*bucket, record->request.amount, bucket) != LXP_OK)
-            return 1;
-    }
-    return 0;
-}
-
-static int conserved(withdraw_fixture *f, const lx_account_registry *accounts,
-                     const lx_account *agent, const uint8_t asset_id[32],
-                     uint64_t outstanding_expected, uint64_t settled_expected)
-{
-    lx_asset_custody_attestation attestation;
-    lx_asset_reserve_report_record report;
-    lxp_u128 outstanding;
-    lxp_u128 settled;
-    lxp_u128 total;
-    lxp_u128 custody;
-    if (withdrawal_totals(&f->store, asset_id, &outstanding, &settled) != 0 ||
-        outstanding.hi != 0U || outstanding.lo != outstanding_expected ||
-        settled.hi != 0U || settled.lo != settled_expected)
-        return 1;
-    (void)memset(&attestation, 0, sizeof(attestation));
-    (void)memcpy(attestation.asset_id, asset_id, 32U);
-    attestation.custody_amount = (lxp_u128){ 0U, 100U };
-    attestation.settled_out = settled;
-    attestation.checkpoint_id[0] = 3U;
-    attestation.state_root[0] = 5U;
-    attestation.finalized = true;
-    if (lx_asset_reserve_reconcile(accounts, &attestation, &report) != LXP_OK ||
-        lx_asset_total_units(&f->assets, accounts, asset_id, &total) != LXP_OK ||
-        total.hi != 0U || total.lo != 100U ||
-        lxp_u128_cmp(report.raw_total, total) != 0 ||
-        lxp_u128_cmp(report.withdrawals, outstanding) != 0 ||
-        lxp_u128_cmp(report.reserve, settled) != 0 ||
-        lxp_u128_add(agent->balance, outstanding, &custody) != LXP_OK ||
-        lxp_u128_add(custody, settled, &custody) != LXP_OK ||
-        lxp_u128_cmp(custody, total) != 0)
-        return 1;
-    return 0;
-}
-
-static int conserved_both(withdraw_fixture *f, uint64_t outstanding_a,
-                          uint64_t settled_a, uint64_t outstanding_b,
-                          uint64_t settled_b)
-{
-    if (conserved(f, &f->accounts_a, f->agent_a, f->asset_a.asset_id,
-                  outstanding_a, settled_a) != 0 ||
-        conserved(f, &f->accounts_b, f->agent_b, f->asset_b.asset_id,
-                  outstanding_b, settled_b) != 0)
-        return 1;
+        if (!TEST_EQ(left[i].hi, right[i].hi) ||
+            !TEST_EQ(left[i].lo, right[i].lo)) return 1;
     return 0;
 }
 
@@ -212,273 +143,229 @@ static void settlement_context(const withdraw_fixture *f,
     context->source_authority_count = 1U;
 }
 
-static int refused_settle(withdraw_fixture *f, lx_account *withdrawals,
-                          lx_account *reserve, const lx_asset_record *asset,
-                          const lx_finalized_checkpoint *checkpoint,
-                          const uint8_t nullifier[32], size_t record_index,
-                          uint64_t outstanding_a, uint64_t settled_a,
-                          uint64_t outstanding_b, uint64_t settled_b)
+static int native_conserved_both(withdraw_fixture *f)
 {
-    uint8_t before[96];
-    uint8_t after[96];
-    lxp_u128 balances_before[6];
-    lxp_u128 balances_after[6];
-    lxp_transfer_source_authority authority;
-    lxp_transfer_context context;
-    if (fresh_ctx(f) != 0 || roots(f, before) != 0) return 1;
-    balances(f, balances_before);
-    settlement_context(f, withdrawals, &authority, &context);
-    if (lx_asset_withdraw_settle(&f->ctx, withdrawals, reserve, asset,
-                                 checkpoint, nullifier, &f->store, context,
-                                 &f->receipt) != LXP_ERR_WITHDRAWAL_ASSET_MISMATCH ||
-        f->ctx.transfer_applied ||
-        f->store.records[record_index].settled ||
-        memcmp(f->store.records[record_index].nullifier, nullifier, 32U) != 0 ||
-        !lx_asset_nullifier_seen(&f->store, nullifier) ||
-        roots(f, after) != 0 || memcmp(before, after, sizeof(before)) != 0)
-        return 1;
-    balances(f, balances_after);
-    if (same_balances(balances_before, balances_after) != 0 ||
-        conserved_both(f, outstanding_a, settled_a, outstanding_b, settled_b) != 0)
-        return 1;
+    lx_asset_native_supply_report report;
+    if (!TEST_EQ(lx_asset_native_reconcile(&f->asset_a, &f->accounts_a, &report), LXP_OK) ||
+        !TEST_EQ(report.bank_units.hi, 0U) || !TEST_EQ(report.bank_units.lo, 100U) ||
+        !TEST_EQ(lx_asset_native_reconcile(&f->asset_b, &f->accounts_b, &report), LXP_OK) ||
+        !TEST_EQ(report.bank_units.hi, 0U) || !TEST_EQ(report.bank_units.lo, 100U)) return 1;
     return 0;
 }
 
-static int matched_settle(withdraw_fixture *f, lx_account *withdrawals,
-                          lx_account *reserve, const lx_asset_record *asset,
-                          const lx_finalized_checkpoint *checkpoint,
-                          const uint8_t nullifier[32], size_t record_index,
-                          uint64_t amount, uint64_t outstanding_a,
-                          uint64_t settled_a, uint64_t outstanding_b,
-                          uint64_t settled_b)
+static void historical_request(const lx_account *agent,
+    const lx_asset_record *asset, uint64_t amount, uint8_t marker,
+    lx_withdrawal_request *request)
 {
-    uint8_t before[96];
-    uint8_t after[96];
+    memset(request, 0, sizeof(*request));
+    request->network_id = 7U;
+    request->withdrawal_id[0] = marker;
+    memcpy(request->account_id, agent->id, 32U);
+    memcpy(request->asset_id, asset->asset_id, 32U);
+    request->amount.lo = amount;
+    request->payout_recipient[12] = 9U;
+    request->checkpoint_id[0] = 3U;
+}
+
+static int test_retired_custody_execution(withdraw_fixture *f)
+{
+    lx_asset_transfer_request transfer;
+    lx_withdrawal_request request, crossed;
+    lx_finalized_checkpoint checkpoint = {0};
     lxp_transfer_source_authority authority;
     lxp_transfer_context context;
-    if (fresh_ctx(f) != 0 || roots(f, before) != 0) return 1;
-    settlement_context(f, withdrawals, &authority, &context);
-    if (lx_asset_withdraw_settle(&f->ctx, withdrawals, reserve, asset,
-                                 checkpoint, nullifier, &f->store, context,
-                                 &f->receipt) != LXP_OK ||
-        !f->ctx.transfer_applied ||
-        !f->store.records[record_index].settled ||
-        withdrawals->balance.hi != 0U || withdrawals->balance.lo != 0U ||
-        reserve->balance.hi != 0U || reserve->balance.lo != amount ||
-        roots(f, after) != 0 || memcmp(before, after, sizeof(before)) == 0 ||
-        conserved_both(f, outstanding_a, settled_a, outstanding_b, settled_b) != 0)
-        return 1;
-    if (fresh_ctx(f) != 0) return 1;
-    settlement_context(f, withdrawals, &authority, &context);
-    if (lx_asset_withdraw_settle(&f->ctx, withdrawals, reserve, asset,
-                                 checkpoint, nullifier, &f->store, context,
-                                 &f->receipt) != LXP_ERR_WITHDRAWAL_ALREADY_SETTLED ||
-        f->ctx.transfer_applied || reserve->balance.lo != amount ||
-        conserved_both(f, outstanding_a, settled_a, outstanding_b, settled_b) != 0)
-        return 1;
+    uint8_t nullifier[32], before[96], after[96];
+    lxp_u128 balances_before[6], balances_after[6];
+    lx_withdrawal_store *saved = malloc(sizeof(*saved));
+    if (!TEST_NE(saved, NULL)) return 1;
+    checkpoint.checkpoint_id[0] = 3U;
+    checkpoint.state_root[0] = 5U;
+    checkpoint.finalized = true;
+    historical_request(f->agent_a, &f->asset_a, 40U, 2U, &request);
+    if (!TEST_EQ(lx_withdrawal_nullifier(&request, nullifier), LXP_OK)) return 1;
+    /* Empty, outstanding, settled, full and corrupt legacy stores all refuse. */
+    for (unsigned mode = 0U; mode < 5U; ++mode) {
+        memset(&f->store, 0, sizeof(f->store));
+        if (mode != 0U) {
+            f->store.count = mode == 3U ? LX_DEPOSIT_NULLIFIER_CAPACITY :
+                mode == 4U ? LX_DEPOSIT_NULLIFIER_CAPACITY + 1U : 1U;
+            f->store.records[0].request = request;
+            memcpy(f->store.records[0].nullifier, nullifier, 32U);
+            f->store.records[0].settled = mode == 2U;
+        }
+        *saved = f->store;
+        request_context(f, f->agent_a, f->withdrawals_a, &f->asset_a,
+                        40U, &authority, &transfer);
+        for (unsigned attempt = 0U; attempt < 5U; ++attempt) {
+            crossed = request;
+            if (attempt == 1U) memcpy(crossed.asset_id, f->asset_b.asset_id, 32U);
+            if (attempt == 2U) { transfer.amount.lo = 101U; crossed.amount.lo = 101U; }
+            if (attempt == 3U) { transfer.amount.lo = 0U; crossed.amount.lo = 0U; }
+            if (attempt == 4U) crossed.withdrawal_id[0] ^= 1U;
+            if (!TEST_EQ(fresh_ctx(f), 0) || !TEST_EQ(roots(f, before), 0)) return 1;
+            balances(f, balances_before);
+            memset(&f->receipt, 0x5a, sizeof(f->receipt));
+            lxp_receipt receipt_before = f->receipt;
+            if (!TEST_EQ(lx_asset_withdraw_request(&f->ctx, &transfer, &crossed,
+                    &f->store, &f->receipt), LXP_ERR_UNKNOWN_ACTIVITY) ||
+                !TEST_EQ(f->ctx.transfer_applied, false) ||
+                !TEST_EQ(f->effects.count, 0U) ||
+                !TEST_EQ(f->ctx.ledger_receipt_present, false) ||
+                !TEST_EQ(memcmp(saved, &f->store, sizeof(*saved)), 0) ||
+                !TEST_EQ(memcmp(&receipt_before, &f->receipt, sizeof(f->receipt)), 0) ||
+                !TEST_EQ(roots(f, after), 0) ||
+                !TEST_EQ(memcmp(before, after, sizeof(before)), 0)) return 1;
+            balances(f, balances_after);
+            if (!TEST_EQ(same_balances(balances_before, balances_after), 0) ||
+                !TEST_EQ(native_conserved_both(f), 0)) return 1;
+        }
+        /* Both matching assets, seven crossed combinations and both replays. */
+        lx_account *withdrawals[] = {f->withdrawals_a, f->withdrawals_b};
+        lx_account *reserves[] = {f->reserve_a, f->reserve_b};
+        const lx_asset_record *assets[] = {&f->asset_a, &f->asset_b};
+        for (unsigned w = 0U; w < 2U; ++w)
+            for (unsigned r = 0U; r < 2U; ++r)
+                for (unsigned a = 0U; a < 2U; ++a)
+                    for (unsigned replay = 0U; replay < 2U; ++replay) {
+                        if (!TEST_EQ(fresh_ctx(f), 0) || !TEST_EQ(roots(f, before), 0)) return 1;
+                        balances(f, balances_before);
+                        settlement_context(f, withdrawals[w], &authority, &context);
+                        if (!TEST_EQ(lx_asset_withdraw_settle(&f->ctx, withdrawals[w],
+                                reserves[r], assets[a], &checkpoint, nullifier,
+                                &f->store, context, &f->receipt), LXP_ERR_UNKNOWN_ACTIVITY) ||
+                            !TEST_EQ(f->ctx.transfer_applied, false) ||
+                            !TEST_EQ(f->effects.count, 0U) ||
+                            !TEST_EQ(memcmp(saved, &f->store, sizeof(*saved)), 0) ||
+                            !TEST_EQ(roots(f, after), 0) ||
+                            !TEST_EQ(memcmp(before, after, sizeof(before)), 0)) return 1;
+                        balances(f, balances_after);
+                        if (!TEST_EQ(same_balances(balances_before, balances_after), 0) ||
+                            !TEST_EQ(native_conserved_both(f), 0)) return 1;
+                    }
+    }
+    if (!TEST_EQ(lx_asset_nullifier_seen(&f->store, nullifier), true)) return 1;
+    free(saved);
+    memset(&f->store, 0, sizeof(f->store));
     return 0;
+}
+
+static int test_historical_withdrawal_v2_reopen(withdraw_fixture *f,
+    const void *parameters)
+{
+    lx_withdrawal_request request;
+    lx_withdrawal_record decoded, saved;
+    uint8_t key[LX_WITHDRAWAL_STATE_KEY_BYTES];
+    uint8_t value[LX_WITHDRAWAL_STATE_VALUE_BYTES];
+    uint8_t nullifier[32], old_nullifier[32];
+    uint8_t before[32], after[32];
+    uint8_t account_ids[3][32];
+    memcpy(account_ids[0], f->agent_a->id, 32U);
+    memcpy(account_ids[1], f->withdrawals_a->id, 32U);
+    memcpy(account_ids[2], f->reserve_a->id, 32U);
+    historical_request(f->agent_a, &f->asset_a, 40U, 2U, &request);
+    if (!TEST_EQ(lx_asset_historical_withdrawal_nullifier_v1(&request, nullifier), LXP_OK) ||
+        !TEST_EQ(lx_withdrawal_nullifier(&request, old_nullifier), LXP_OK) ||
+        !TEST_EQ(memcmp(nullifier, old_nullifier, 32U), 0) ||
+        !TEST_EQ(lx_asset_historical_withdrawal_encode_v2(&request, key, value), LXP_OK) ||
+        !TEST_EQ(lx_asset_historical_withdrawal_decode_v2(key, sizeof(key), value,
+            sizeof(value), &decoded), LXP_OK) ||
+        !TEST_EQ(memcmp(decoded.nullifier, nullifier, 32U), 0) ||
+        !TEST_EQ(decoded.settled, false)) return 1;
+    saved = decoded;
+    for (size_t n = 0U; n < sizeof(value); ++n)
+        if (!TEST_EQ(lx_asset_historical_withdrawal_decode_v2(key, sizeof(key),
+                value, n, &decoded), LXP_ERR_NON_CANONICAL) ||
+            !TEST_EQ(memcmp(&decoded, &saved, sizeof(saved)), 0)) return 1;
+    for (size_t n = 0U; n < sizeof(key); ++n)
+        if (!TEST_EQ(lx_withdrawal_state_decode(key, n, value, sizeof(value),
+                &decoded), LXP_ERR_NON_CANONICAL) ||
+            !TEST_EQ(memcmp(&decoded, &saved, sizeof(saved)), 0)) return 1;
+    value[1] = 1U;
+    if (!TEST_EQ(lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value),
+            &decoded), LXP_ERR_NON_CANONICAL)) return 1;
+    value[1] = 2U;
+    key[11] ^= 1U;
+    if (!TEST_EQ(lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value),
+            &decoded), LXP_ERR_NON_CANONICAL)) return 1;
+    key[11] ^= 1U;
+    value[102] ^= 1U;
+    if (!TEST_EQ(lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value),
+            &decoded), LXP_ERR_NON_CANONICAL)) return 1;
+    value[102] ^= 1U;
+    if (!TEST_EQ(memcmp(&decoded, &saved, sizeof(saved)), 0) ||
+        !TEST_EQ(fresh_ctx(f), 0)) return 1;
+    f->ctx.global_sequence = f->state.next_sequence;
+    if (!TEST_EQ(lxp_state_journal_open(&f->state, f->ctx.global_sequence, &f->journal), LXP_OK) ||
+        !TEST_EQ(lxp_ctx_kv_put(&f->ctx, key, sizeof(key), value, sizeof(value)), LXP_OK) ||
+        !TEST_EQ(lxp_state_journal_commit(&f->journal), LXP_OK) ||
+        !TEST_EQ(lxp_module_ctx_commit(&f->ctx), LXP_OK) ||
+        !TEST_EQ(asset_history_proof(&f->kernel, &request, 0), 0) ||
+        !TEST_EQ(lxp_state_root(&f->kernel, before), LXP_OK) ||
+        !TEST_EQ(asset_history_reopen(&f->kernel, &f->state, &f->journal,
+            &f->accounts_a, parameters, f->state.next_sequence - 1U), 0) ||
+        !TEST_EQ(asset_history_proof(&f->kernel, &request, 0), 0) ||
+        !TEST_EQ(lxp_state_root(&f->kernel, after), LXP_OK) ||
+        !TEST_EQ(memcmp(before, after, 32U), 0)) return 1;
+    /* Recovery preserves native balances; archived withdrawals cannot settle. */
+    size_t slots[3];
+    for (size_t i = 0U; i < 3U; ++i)
+        if (!TEST_EQ(lx_account_registry_index_lookup(&f->accounts_a,
+                account_ids[i], &slots[i]), LXP_OK)) return 1;
+    f->agent_a = &f->accounts_a.accounts[slots[0]];
+    f->withdrawals_a = &f->accounts_a.accounts[slots[1]];
+    f->reserve_a = &f->accounts_a.accounts[slots[2]];
+    if (!TEST_EQ(native_conserved_both(f), 0) ||
+        !TEST_EQ(f->agent_a->balance.lo, 100U) ||
+        !TEST_EQ(f->withdrawals_a->balance.lo, 0U) ||
+        !TEST_EQ(f->reserve_a->balance.lo, 0U) ||
+        !TEST_EQ(test_retired_custody_execution(f), 0)) return 1;
+    return 0;
+}
+
+static int test_native_withdraw_replacement(void)
+{
+    return native_transfer_cases();
 }
 
 int main(void)
 {
+    if (test_native_withdraw_replacement() != 0) return 1;
     withdraw_fixture *f = &fixture;
-    lx_asset_transfer_request transfer;
-    lxp_transfer_source_authority authority;
-    lx_withdrawal_request withdrawal_a;
-    lx_withdrawal_request withdrawal_b;
-    lx_withdrawal_request crossed;
-    lx_finalized_checkpoint checkpoint;
-    uint8_t nullifier_a[32];
-    uint8_t nullifier_b[32];
-    uint8_t before[96];
-    uint8_t after[96];
     uint64_t parameters = 1U;
-    lxp_u128 total;
-
-    (void)memset(f, 0, sizeof(*f));
+    memset(f, 0, sizeof(*f));
     f->asset_a.asset_id[0] = 1U;
-    (void)memcpy(f->asset_a.symbol, "A", 2U); f->asset_a.symbol_length = 1U;
-    f->asset_a.name[0] = (uint8_t)'A'; f->asset_a.name_length = 1U;
-    f->asset_a.issuer_kind = 2U; f->asset_a.issuer_did32[0] = 1U;
+    memcpy(f->asset_a.symbol, "A", 2U);
+    f->asset_a.symbol_length = 1U;
+    f->asset_a.name[0] = 'A';
+    f->asset_a.name_length = 1U;
+    f->asset_a.issuer_kind = 2U;
+    f->asset_a.issuer_did32[0] = 1U;
     f->asset_a.custody_kind = LX_ASSET_CUSTODY_PAXEER;
-    f->asset_a.custody_reference[0] = 1U; f->asset_a.custody_reference_length = 1U;
+    f->asset_a.custody_reference[0] = 1U;
+    f->asset_a.custody_reference_length = 1U;
+    f->asset_a.total_units.lo = 100U;
     f->asset_b = f->asset_a;
     f->asset_b.asset_id[0] = 2U;
-    (void)memcpy(f->asset_b.symbol, "B", 2U);
+    memcpy(f->asset_b.symbol, "B", 2U);
     f->asset_b.custody_reference[0] = 2U;
-    if (lx_asset_registry_init(&f->assets, 0U) != LXP_OK ||
-        lx_asset_register(&f->assets, &f->asset_a, 0U, (lxp_u128){ 0U, 0U }) !=
-            LXP_OK ||
-        lx_asset_register(&f->assets, &f->asset_b, 1U, (lxp_u128){ 0U, 0U }) !=
-            LXP_OK ||
-        open_ledger(f, &f->asset_a, &f->accounts_a, "agent:did:key:a:main",
-                    &f->agent_a, &f->withdrawals_a, &f->reserve_a) != 0 ||
-        open_ledger(f, &f->asset_b, &f->accounts_b, "agent:did:key:b:main",
-                    &f->agent_b, &f->withdrawals_b, &f->reserve_b) != 0 ||
-        lx_asset_transfer_state(&f->asset_a, &f->asset_states[0]) != LXP_OK ||
-        lx_asset_transfer_state(&f->asset_b, &f->asset_states[1]) != LXP_OK ||
-        lxp_state_store_init(&f->state, 0U) != LXP_OK ||
-        lxp_state_store_bind_accounts(&f->state, &f->accounts_a) != LXP_OK ||
-        lxp_state_store_require_account_root(&f->state) != LXP_OK ||
-        lxp_kernel_create(&f->kernel, &f->state, &f->journal, &parameters, 0U) !=
-            LXP_OK ||
-        lxp_kernel_register_module(&f->kernel, lx_asset_module_iface()) != LXP_OK ||
-        lxp_kernel_set_capabilities(&f->kernel, NULL, apply_capability) != LXP_OK ||
-        fresh_ctx(f) != 0 || roots(f, before) != 0 ||
-        conserved_both(f, 0U, 0U, 0U, 0U) != 0) return 1;
-
-    request_context(f, f->agent_a, f->withdrawals_a, &f->asset_a, 40U,
-                    &authority, &transfer);
-    (void)memset(&withdrawal_a, 0, sizeof(withdrawal_a));
-    withdrawal_a.network_id = 7U; withdrawal_a.withdrawal_id[0] = 2U;
-    (void)memcpy(withdrawal_a.account_id, f->agent_a->id, 32U);
-    (void)memcpy(withdrawal_a.asset_id, f->asset_a.asset_id, 32U);
-    withdrawal_a.amount = transfer.amount; withdrawal_a.checkpoint_id[0] = 3U;
-    if (lx_withdrawal_nullifier(&withdrawal_a, nullifier_a) != LXP_OK ||
-        lx_asset_withdraw_request(&f->ctx, &transfer, &withdrawal_a, &f->store,
-                                  &f->receipt) != LXP_OK ||
-        f->agent_a->balance.lo != 60U || f->withdrawals_a->balance.lo != 40U ||
-        f->reserve_a->balance.lo != 0U || f->store.count != 1U ||
-        !lx_asset_nullifier_seen(&f->store, nullifier_a) ||
-        lx_asset_total_units(&f->assets, &f->accounts_a, f->asset_a.asset_id,
-                             &total) != LXP_OK || total.lo != 100U ||
-        roots(f, after) != 0 || memcmp(before, after, 32U) == 0 ||
-        memcmp(before + 32, after + 32, 32U) == 0 ||
-        memcmp(before + 64, after + 64, 32U) != 0 ||
-        conserved_both(f, 40U, 0U, 0U, 0U) != 0) return 1;
-
-    {
-        uint8_t key[LX_WITHDRAWAL_STATE_KEY_BYTES];
-        uint8_t value[LX_WITHDRAWAL_STATE_VALUE_BYTES];
-        lx_withdrawal_record decoded;
-        lxp_state_witness *proof = malloc(sizeof(*proof));
-        uint8_t committed[32];
-        if (proof == NULL ||
-            lx_withdrawal_state_encode(&withdrawal_a, key, value) != LXP_OK ||
-            lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value), &decoded) != LXP_OK ||
-            memcmp(decoded.nullifier, nullifier_a, 32U) != 0 || decoded.settled ||
-            lxp_module_ctx_commit(&f->ctx) != LXP_OK ||
-            lxp_state_root(&f->kernel, committed) != LXP_OK ||
-            lxp_state_proof_build(&f->kernel, LXP_MODULE_ASSET,
-                (lxp_byte_span){key, sizeof(key)}, proof) != LXP_OK ||
-            lxp_state_proof_verify(proof, committed) != LXP_OK ||
-            memcmp(proof->value, value, sizeof(value)) != 0) return 1;
-        for (size_t n = 0U; n < sizeof(value); ++n)
-            if (lx_withdrawal_state_decode(key, sizeof(key), value, n, &decoded) == LXP_OK) return 1;
-        value[1] = 1U;
-        if (lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value), &decoded) == LXP_OK) return 1;
-        value[1] = 2U;
-        key[11] ^= 1U;
-        if (lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value), &decoded) == LXP_OK) return 1;
-        key[11] ^= 1U;
-        value[102] ^= 1U;
-        if (lx_withdrawal_state_decode(key, sizeof(key), value, sizeof(value), &decoded) == LXP_OK) return 1;
-        free(proof);
-    }
-
-    crossed = withdrawal_a;
-    crossed.withdrawal_id[0] = 9U;
-    (void)memcpy(crossed.asset_id, f->asset_b.asset_id, 32U);
-    if (fresh_ctx(f) != 0 || roots(f, before) != 0 ||
-        lx_asset_withdraw_request(&f->ctx, &transfer, &crossed, &f->store,
-                                  &f->receipt) != LXP_ERR_GRANT_SCOPE_VIOLATION ||
-        f->ctx.transfer_applied || f->store.count != 1U ||
-        f->agent_a->balance.lo != 60U || f->withdrawals_a->balance.lo != 40U ||
-        roots(f, after) != 0 || memcmp(before, after, sizeof(before)) != 0 ||
-        conserved_both(f, 40U, 0U, 0U, 0U) != 0) return 1;
-
-    if (fresh_ctx(f) != 0 ||
-        lx_asset_withdraw_request(&f->ctx, &transfer, &withdrawal_a, &f->store,
-                                  &f->receipt) !=
-            LXP_ERR_WITHDRAWAL_ALREADY_SETTLED || f->agent_a->balance.lo != 60U)
-        return 1;
-    withdrawal_a.withdrawal_id[0] = 4U;
-    transfer.amount = (lxp_u128){ 0U, 70U };
-    withdrawal_a.amount = transfer.amount;
-    transfer.context.actor_sequence = 1U;
-    if (fresh_ctx(f) != 0 ||
-        lx_asset_withdraw_request(&f->ctx, &transfer, &withdrawal_a, &f->store,
-                                  &f->receipt) != LXP_ERR_INSUFFICIENT_BALANCE ||
-        f->agent_a->balance.lo != 60U || f->withdrawals_a->balance.lo != 40U ||
-        f->store.count != 1U || conserved_both(f, 40U, 0U, 0U, 0U) != 0)
-        return 1;
-
-    {
-        lx_asset_transfer_request transfer_b;
-        lxp_transfer_source_authority authority_b;
-        request_context(f, f->agent_b, f->withdrawals_b, &f->asset_b, 30U,
-                        &authority_b, &transfer_b);
-        (void)memset(&withdrawal_b, 0, sizeof(withdrawal_b));
-        withdrawal_b.network_id = 7U; withdrawal_b.withdrawal_id[0] = 5U;
-        (void)memcpy(withdrawal_b.account_id, f->agent_b->id, 32U);
-        (void)memcpy(withdrawal_b.asset_id, f->asset_b.asset_id, 32U);
-        withdrawal_b.amount = transfer_b.amount;
-        withdrawal_b.checkpoint_id[0] = 3U;
-        if (lx_withdrawal_nullifier(&withdrawal_b, nullifier_b) != LXP_OK ||
-            fresh_ctx(f) != 0 || roots(f, before) != 0 ||
-            lx_asset_withdraw_request(&f->ctx, &transfer_b, &withdrawal_b,
-                                      &f->store, &f->receipt) != LXP_OK ||
-            f->agent_b->balance.lo != 70U || f->withdrawals_b->balance.lo != 30U ||
-            f->reserve_b->balance.lo != 0U || f->store.count != 2U ||
-            f->agent_a->balance.lo != 60U || f->withdrawals_a->balance.lo != 40U ||
-            !lx_asset_nullifier_seen(&f->store, nullifier_b) ||
-            memcmp(f->store.records[1].nullifier, nullifier_b, 32U) != 0 ||
-            roots(f, after) != 0 || memcmp(before, after, 32U) != 0 ||
-            memcmp(before + 32, after + 32, 32U) != 0 ||
-            memcmp(before + 64, after + 64, 32U) == 0 ||
-            conserved_both(f, 40U, 0U, 30U, 0U) != 0) return 1;
-    }
-
-    (void)memset(&checkpoint, 0, sizeof(checkpoint));
-    checkpoint.checkpoint_id[0] = 3U; checkpoint.state_root[0] = 5U;
-    checkpoint.finalized = true;
-    if (refused_settle(f, f->withdrawals_b, f->reserve_b, &f->asset_b,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_a, f->reserve_a, &f->asset_b,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_b, f->reserve_b, &f->asset_a,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_b, f->reserve_a, &f->asset_a,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_a, f->reserve_b, &f->asset_a,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_a, f->reserve_a, &f->asset_a,
-                       &checkpoint, nullifier_b, 1U, 40U, 0U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_a, f->reserve_a, &f->asset_b,
-                       &checkpoint, nullifier_b, 1U, 40U, 0U, 30U, 0U) != 0)
-        return 1;
-
-    if (matched_settle(f, f->withdrawals_a, f->reserve_a, &f->asset_a,
-                       &checkpoint, nullifier_a, 0U, 40U, 0U, 40U, 30U, 0U) != 0 ||
-        f->withdrawals_b->balance.lo != 30U || f->reserve_b->balance.lo != 0U ||
-        refused_settle(f, f->withdrawals_a, f->reserve_a, &f->asset_a,
-                       &checkpoint, nullifier_b, 1U, 0U, 40U, 30U, 0U) != 0 ||
-        refused_settle(f, f->withdrawals_b, f->reserve_b, &f->asset_a,
-                       &checkpoint, nullifier_b, 1U, 0U, 40U, 30U, 0U) != 0 ||
-        matched_settle(f, f->withdrawals_b, f->reserve_b, &f->asset_b,
-                       &checkpoint, nullifier_b, 1U, 30U, 0U, 40U, 0U, 30U) != 0 ||
-        f->reserve_a->balance.lo != 40U || f->withdrawals_a->balance.lo != 0U ||
-        lx_asset_total_units(&f->assets, &f->accounts_a, f->asset_a.asset_id,
-                             &total) != LXP_OK || total.lo != 100U ||
-        lx_asset_total_units(&f->assets, &f->accounts_b, f->asset_b.asset_id,
-                             &total) != LXP_OK || total.lo != 100U)
-        return 1;
-
-    f->store.count = LX_DEPOSIT_NULLIFIER_CAPACITY + 1U;
-    if (fresh_ctx(f) != 0 ||
-        !lx_asset_nullifier_seen(&f->store, nullifier_a) ||
-        lx_asset_withdraw_request(&f->ctx, &transfer, &withdrawal_a, &f->store,
-                                  &f->receipt) != LXP_ERR_NON_CANONICAL)
-        return 1;
-    {
-        lxp_transfer_context settlement = { 0 };
-        if (fresh_ctx(f) != 0 ||
-            lx_asset_withdraw_settle(&f->ctx, f->withdrawals_a, f->reserve_a,
-                                     &f->asset_a, &checkpoint, nullifier_a,
-                                     &f->store, settlement, &f->receipt) !=
-            LXP_ERR_NON_CANONICAL)
-            return 1;
-    }
-    if (lxp_state_store_destroy(&f->state) != LXP_OK) return 1;
+    if (!TEST_EQ(lx_asset_registry_init(&f->assets, 0U), LXP_OK) ||
+        !TEST_EQ(lx_asset_register(&f->assets, &f->asset_a, 0U, (lxp_u128){0U, 0U}), LXP_OK) ||
+        !TEST_EQ(lx_asset_register(&f->assets, &f->asset_b, 1U, (lxp_u128){0U, 0U}), LXP_OK) ||
+        !TEST_EQ(open_ledger(f, &f->asset_a, &f->accounts_a, "agent:did:key:a:main",
+            &f->agent_a, &f->withdrawals_a, &f->reserve_a), 0) ||
+        !TEST_EQ(open_ledger(f, &f->asset_b, &f->accounts_b, "agent:did:key:b:main",
+            &f->agent_b, &f->withdrawals_b, &f->reserve_b), 0) ||
+        !TEST_EQ(lx_asset_transfer_state(&f->asset_a, &f->asset_states[0]), LXP_OK) ||
+        !TEST_EQ(lx_asset_transfer_state(&f->asset_b, &f->asset_states[1]), LXP_OK) ||
+        !TEST_EQ(lxp_state_store_init(&f->state, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_state_store_bind_accounts(&f->state, &f->accounts_a), LXP_OK) ||
+        !TEST_EQ(lxp_state_store_require_account_root(&f->state), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_create(&f->kernel, &f->state, &f->journal, &parameters, 0U), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_register_module(&f->kernel, lx_asset_module_iface()), LXP_OK) ||
+        !TEST_EQ(lxp_kernel_set_capabilities(&f->kernel, NULL,
+            lxp_kernel_canonical_ledger_apply), LXP_OK) ||
+        !TEST_EQ(test_retired_custody_execution(f), 0) ||
+        !TEST_EQ(test_historical_withdrawal_v2_reopen(f, &parameters), 0) ||
+        !TEST_EQ(lxp_state_store_destroy(&f->state), LXP_OK)) return 1;
     return 0;
 }

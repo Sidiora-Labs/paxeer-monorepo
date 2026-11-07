@@ -1,0 +1,56 @@
+[repair.22.33.139]
+audit = "22.30.115"
+base_revision = "2b502183a86af3a2498748de6572b1bde20e4768"
+mode = "BUILD"
+verification = "hf-build then hf-done; exact candidate revision, command, exit and private log are emitted to /out/run/gates.jsonl and the final evidence line. No qualification is claimed before that result."
+baseline = "Not run: the controlling ordered instructions prohibit pre-implementation testing and manual verify_cmd execution, conflicting with audit step 10. No pre-change test failure is claimed."
+tooling = "Tests use real React hooks, TanStack Query, metadata repositories, the explorer HTTP client and portfolio facade, the SDK quote ABI and aggregator, and a loopback HTTP/JSON-RPC transcript server. The provider is configured internally to that server before imports; no external environment variable, endpoint, credential, native artifact or binary is required."
+
+[finding.swap-two-quote-authorities]
+tests = ["swap_two_quote_authorities_share_and_freeze_the_displayed_approval"]
+repair = "SwapWidget owns useSwapQuoteSelection; PaxSwapModal receives its quote/refresh state and has no quote fetcher. Approval snapshots the displayed quote, amount, tokens, recipient, slippage and expiry; both views and execution consume that snapshot. Refresh is paused during approval; expiry or input identity changes invalidate it."
+
+[finding.held-zero-decimals]
+tests = ["held_zero_decimals_preserves_producer_units"]
+repair = "Portfolio holdings retain explicit zero precision. Null, absent, fractional, negative and unsupported precision cannot become selectable SwapTokens. Real explorer zero-decimal data crosses the portfolio facade, query store and hook into max display and raw input conversion unchanged."
+
+[finding.swap-output-cache-shape]
+tests = ["swap_output_cache_shape_reopens_merged_list_with_original_freshness"]
+repair = "Both network and persisted launchpad initialData use one merge including native PAX and standard tokens, with address deduplication and supported precision validation. The persisted timestamp remains the query dataUpdatedAt across unmount and fresh-query-client reopen."
+
+[finding.swap-balance-zero-decimals]
+tests = ["swap_balance_zero_decimals_displays_actual_units_and_blocks_unknown_spending"]
+repair = "Display uses validated actual holding precision, including zero. Unknown precision produces null display/raw spendability; a stale selected token whose precision differs from the holding cannot fund a swap."
+
+[finding.swap-stale-quote-after-clear]
+tests = ["swap_stale_quote_after_clear_rejects_inflight_and_debounced_results", "swap_stale_quote_after_invalid_input_and_identity_change_never_resurrects"]
+repair = "Input effects invalidate generations before all early returns; clear and cleanup invalidate requests and cancel pending debounce work. Async results require the same generation and full token/amount/slippage/recipient identity; invalid input immediately hides old data."
+
+[finding.catalogue-zero-decimals]
+tests = ["catalogue_zero_decimals_survives_http_codec_and_conversion"]
+repair = "Catalogue conversion returns null for unknown/invalid precision, preserving explicit zero. Both query loading and token search filter these unavailable records. Amount conversion rejects unsupported precision and nonzero fractional amounts beyond the token precision rather than silently changing units. Ethers codecs support integer precision 0 through 80."
+
+[wiring.portfolio-metadata]
+request = "apps/wallet/src/lib/data/facades/wallet.ts — owner domain 12 (wallet data): preserve unknown/null token precision instead of defaulting it to 18 in portfolio/holdings/catalogue producers; in-scope consumers reject explicit unknown precision but cannot recover metadata already replaced upstream."
+
+[wiring.launchpad-metadata]
+request = "apps/wallet/src/lib/swap/hlpmm-v2.ts — owner domain 12 (wallet swap discovery): retain unknown precision before constructing or caching SwapToken records instead of defaulting absent metadata to 18; in-scope merge validates supplied precision but cannot identify an upstream invented value."
+
+[gotcha.scope]
+observed = "Initial .cgignore and spec task-status changes belong to runner setup and remain untouched; all implementation and the repair record stay inside the authorized swap directory."
+
+[gotcha.vitest-registration]
+observed = "Vitest accepts a function as a test name but still needs a handler argument; each named test function is supplied as both name and handler so every assertion executes."
+
+[gotcha.formatter-directory]
+observed = "A preparatory edit used repository-relative paths from the wallet formatter directory and failed before changing anything; the edit was reapplied with an absolute path."
+
+[qualification.first-verify]
+revision = "533a3efec09671a405d7cce057235066bb764e52"
+command = "cg spec done 22.33.139 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the cache fixture supplied an undefined optional property to JSON storage and the SSR fixture initialized browser animation projection."
+
+[gotcha.fixture-boundaries]
+observed = "Persisted cache fixtures must cross the actual JSON serialization boundary before repository validation; static server rendering uses MotionConfig isStatic to avoid browser-only animation projection. All seven test assertions remain intact."

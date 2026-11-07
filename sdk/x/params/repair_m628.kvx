@@ -1,0 +1,9 @@
+[repair.22.33.628]
+audit = "22.30.163"
+finding = "045"
+implementation = "The existing exact-key documentation is retained and extended with an explicit ExampleParameterChild registration example and the distinction between proposal admission and execution. No production behavior changes."
+tests = ["TestRepairM_628_ExactRegisteredKeys", "TestRepairM_628_IndependentAttributes"]
+proof = "Amino-produced values and protobuf interface-encoded governance proposals drive the production handler, keeper and in-memory stores; unregistered suffixes, delimited keys, case variants and prefixes are refused, while separately registered keys use independent types and validators. The documentation example is asserted alongside this path."
+baseline = "No prior gate ledger or repair tests existed. Not run: the explicit gate order requires full implementation before hf-build and hf-done and forbids running verify_cmd by hand; no baseline test failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and log; this record makes no independent qualification claim."

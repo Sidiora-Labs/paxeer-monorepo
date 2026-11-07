@@ -9,6 +9,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/state"
 	evmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/evm/types/ethtx"
+	chainstypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxchains/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/node/antedecorators"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	sdkerrors "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/errors"
@@ -21,9 +22,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 )
 
+type ChainsFeeReader interface {
+	NextBaseFee(sdk.Context, uint32) sdk.Dec
+}
+
 type EVMFeeCheckDecorator struct {
-	evmKeeper     *evmkeeper.Keeper
-	upgradeKeeper *upgradekeeper.Keeper
+	ChainsFeeReader ChainsFeeReader
+	evmKeeper       *evmkeeper.Keeper
+	upgradeKeeper   *upgradekeeper.Keeper
 }
 
 func NewEVMFeeCheckDecorator(evmKeeper *evmkeeper.Keeper, upgradeKeeper *upgradekeeper.Keeper) *EVMFeeCheckDecorator {
@@ -50,7 +56,17 @@ func (fc EVMFeeCheckDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate b
 
 	ver := msg.Derived.Version
 
-	if ethereumData.GetGasFeeCap().Cmp(fc.getBaseFee(ctx)) < 0 {
+	var baseFee *big.Int
+	_, isDomain := chainstypes.DomainFrom(ctx)
+	if id, ok := chainstypes.DomainFrom(ctx); ok {
+		if fc.ChainsFeeReader == nil {
+			return ctx, sdkerrors.Wrap(sdkerrors.ErrLogic, "chains fee reader is required for domain transactions")
+		}
+		baseFee = fc.ChainsFeeReader.NextBaseFee(ctx, id).TruncateInt().BigInt()
+	} else {
+		baseFee = fc.getBaseFee(ctx)
+	}
+	if ethereumData.GetGasFeeCap().Cmp(baseFee) < 0 {
 		return ctx, sdkerrors.ErrInsufficientFee
 	}
 	if ethereumData.GetGasFeeCap().Cmp(fc.getMinimumFee(ctx)) < 0 {
@@ -79,11 +95,17 @@ func (fc EVMFeeCheckDecorator) AnteHandle(ctx sdk.Context, tx sdk.Tx, simulate b
 	// check if the sender has enough balance to cover fees
 	etx, _ := msg.AsTransaction()
 	emsg := fc.evmKeeper.GetEVMMessage(ctx, etx, msg.Derived.SenderEVMAddr)
+	if isDomain {
+		emsg.GasPrice = ethereumData.EffectiveGasPrice(baseFee)
+	}
 	stateDB := state.NewDBImpl(ctx, fc.evmKeeper, false)
 	gp := fc.evmKeeper.GetGasPool()
 	blockCtx, err := fc.evmKeeper.GetVMBlockContext(ctx, gp)
 	if err != nil {
 		return ctx, err
+	}
+	if isDomain {
+		blockCtx.BaseFee = baseFee
 	}
 	if charge != nil {
 		fee := new(big.Int).Mul(new(big.Int).SetUint64(emsg.GasLimit), emsg.GasPrice)

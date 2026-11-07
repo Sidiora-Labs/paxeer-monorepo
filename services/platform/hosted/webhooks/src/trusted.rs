@@ -18,8 +18,8 @@ use crate::boundary::{Client, ClientIdentity, Endpoint, OutboundRequest};
 use crate::encoding::{fixed_hex, hex_decode, hex_encode};
 use crate::error::WebhookError;
 use crate::events::{
-    settled_payment, EventDraft, EventId, EventKind, PaymentDraft, Principal, ProtocolEvent,
-    ProtocolFact, SubjectId, Verification,
+    EventDraft, EventId, EventKind, PaymentDraft, Principal, ProtocolEvent, ProtocolFact,
+    SubjectId, Verification,
 };
 
 const MAX_SOURCE_FACTS: usize = 32;
@@ -101,7 +101,16 @@ impl IngressRole {
 pub struct TrustedEvent(ProtocolEvent);
 
 impl TrustedEvent {
-    pub(crate) fn event(&self) -> &ProtocolEvent {
+    pub(crate) fn from_market(event: ProtocolEvent) -> Result<Self, WebhookError> {
+        event.validate()?;
+        if event.kind() != EventKind::Program
+            || event.verification() != Verification::BlockCommitted
+        {
+            return Err(WebhookError::VerificationRequired);
+        }
+        Ok(Self(event))
+    }
+    pub fn event(&self) -> &ProtocolEvent {
         &self.0
     }
 }
@@ -111,7 +120,7 @@ struct Source {
     token: Zeroizing<String>,
 }
 
-struct ReceiptVerifier {
+pub struct AuthorityReceiptVerifier {
     client: Client,
     component: Endpoint,
     component_token: Zeroizing<String>,
@@ -120,6 +129,7 @@ struct ReceiptVerifier {
     sequencer_authorization: layerx_platform_gateway::SequencerAuthorization,
     network_id: String,
     wire_version: String,
+    protocol_network_id: u32,
 }
 
 pub struct TrustedSources {
@@ -182,6 +192,8 @@ struct ComponentReceipt {
 #[serde(deny_unknown_fields)]
 struct AuthorityResponse {
     activity_id: String,
+    receipt: String,
+    protocol_network_id: u32,
     batch_id: String,
     asset: String,
     previous_state_root: String,
@@ -237,35 +249,7 @@ impl TrustedSources {
                 },
             );
         }
-        let trusted = read_secret("LAYERX_WEBHOOKS_SEQUENCER_PUBLIC_KEY_FILE")?;
-        let wire_version = bounded_env("LAYERX_WEBHOOKS_LXP_WIRE_VERSION", 32)?;
-        if wire_version.parse::<u16>().ok()
-            != Some(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-        {
-            return Err("webhook LXP wire version is not the current beta protocol".to_owned());
-        }
-        let verifier = ReceiptVerifier {
-            client: Client::trusted(client_identity.clone()),
-            component: Endpoint::parse(
-                &env::var("LAYERX_WEBHOOKS_COMPONENT_URL")
-                    .map_err(|_| "LAYERX_WEBHOOKS_COMPONENT_URL is required")?,
-            )?,
-            component_token: read_secret("LAYERX_WEBHOOKS_COMPONENT_TOKEN_FILE")?,
-            authority: Endpoint::parse(
-                &env::var("LAYERX_WEBHOOKS_AUTHORITY_URL")
-                    .map_err(|_| "LAYERX_WEBHOOKS_AUTHORITY_URL is required")?,
-            )?,
-            authority_token: read_secret("LAYERX_WEBHOOKS_AUTHORITY_TOKEN_FILE")?,
-            sequencer_authorization: layerx_platform_gateway::configured_sequencer(
-                read_secret("LAYERX_WEBHOOKS_SEQUENCER_ID_FILE")?.as_str(),
-                trusted.as_str(),
-                read_secret("LAYERX_WEBHOOKS_SEQUENCER_FIRST_BATCH_FILE")?.as_str(),
-                read_secret("LAYERX_WEBHOOKS_SEQUENCER_LAST_BATCH_FILE")?.as_str(),
-            )
-            .map_err(|field| format!("invalid webhooks {field}"))?,
-            network_id: bounded_env("LAYERX_WEBHOOKS_NETWORK_ID", 64)?,
-            wire_version,
-        };
+        let verifier = ReceiptVerifier::from_environment(client_identity.clone())?;
         Ok(Self {
             client: Client::trusted(client_identity),
             sources,
@@ -412,25 +396,27 @@ impl TrustedSources {
                 .ok_or(WebhookError::VerificationRequired)?;
             let amount = record.amount.ok_or(WebhookError::InvalidRequest)?;
             let asset = record.asset.ok_or(WebhookError::InvalidRequest)?;
-            return settled_payment(PaymentDraft {
-                id,
-                principal,
-                subject,
-                subject_sequence: record.subject_sequence,
-                occurred_at: record.occurred_at,
-                operation,
-                amount,
-                asset,
-            });
+            return crate::events::settled_payment_at(
+                PaymentDraft {
+                    id,
+                    principal,
+                    subject,
+                    subject_sequence: record.subject_sequence,
+                    occurred_at: record.occurred_at,
+                    operation: &operation.operation,
+                    amount,
+                    asset,
+                },
+                operation.verification,
+            );
         }
         let mut facts = Vec::with_capacity(record.facts.len().saturating_add(2));
         for fact in record.facts {
             facts.push(ProtocolFact::unverified(fact.name, fact.value)?);
         }
         if let Some(operation) = operation.as_ref() {
-            let verification = Verification::parse(
-                layerx_platform_gateway::VerifiedOperation::verification_level(operation),
-            )?;
+            let verification = operation.verification;
+            let operation = &operation.operation;
             let receipt = hex_encode(&operation.receipt_digest());
             facts.push(ProtocolFact::verified(
                 "activity_id",
@@ -619,7 +605,35 @@ impl SourceTrigger {
     }
 }
 
-impl ReceiptVerifier {
+impl AuthorityReceiptVerifier {
+    pub fn new(
+        component_url: &str,
+        authority_url: &str,
+        component_token: String,
+        authority_token: String,
+        ca_der: &[u8],
+        identity: Identity,
+        authorization: layerx_platform_gateway::SequencerAuthorization,
+        network_id: String,
+        wire_version: String,
+        protocol_network_id: u32,
+    ) -> Result<Self, String> {
+        Ok(Self {
+            client: Client::trusted(ClientIdentity::new(
+                Certificate::from_der(ca_der).map_err(|e| e.to_string())?,
+                Some(identity),
+            )),
+            component: Endpoint::parse(component_url)?,
+            component_token: Zeroizing::new(component_token),
+            authority: Endpoint::parse(authority_url)?,
+            authority_token: Zeroizing::new(authority_token),
+            sequencer_authorization: authorization,
+            network_id,
+            wire_version,
+            protocol_network_id,
+        })
+    }
+
     fn ready_until(&self, deadline: Instant) -> bool {
         [
             (&self.component, self.component_token.as_str()),
@@ -642,8 +656,8 @@ impl ReceiptVerifier {
         })
     }
 
-    fn verify(&self, activity: &str) -> Result<VerifiedOperation, WebhookError> {
-        let expected = fixed_hex::<32>(activity)?;
+    pub fn verify(&self, activity: &str) -> Result<VerifiedOperation, WebhookError> {
+        fixed_hex::<32>(activity)?;
         let receipt_path = format!("/internal/v1/receipts/{activity}");
         let authority_path = format!("/internal/v1/activities/{activity}/authority");
         let receipt_response = self
@@ -681,14 +695,47 @@ impl ReceiptVerifier {
         {
             return Err(WebhookError::VerificationRequired);
         }
-        let receipt: ComponentReceipt = serde_json::from_slice(&receipt_response.body)
+        self.verify_documents(activity, &receipt_response.body, &authority_response.body)
+    }
+
+    pub fn verify_documents(
+        &self,
+        activity: &str,
+        receipt_body: &[u8],
+        authority_body: &[u8],
+    ) -> Result<VerifiedOperation, WebhookError> {
+        let expected = fixed_hex::<32>(activity)?;
+        let receipt: ComponentReceipt =
+            serde_json::from_slice(receipt_body).map_err(|_| WebhookError::VerificationRequired)?;
+        let authority: AuthorityResponse = serde_json::from_slice(authority_body)
             .map_err(|_| WebhookError::VerificationRequired)?;
-        let authority: AuthorityResponse = serde_json::from_slice(&authority_response.body)
+        let raw: serde_json::Value = serde_json::from_slice(authority_body)
             .map_err(|_| WebhookError::VerificationRequired)?;
+        if let Some(header) = raw
+            .get("batch_evidence")
+            .and_then(|v| v.get("header_hex"))
+            .and_then(serde_json::Value::as_str)
+        {
+            let bytes = hex_decode(header)?;
+            let signature = raw["batch_evidence"]["header_signature"]
+                .as_str()
+                .ok_or(WebhookError::VerificationRequired)?;
+            let header = layerx_proof::inclusion::verify_header(
+                &bytes,
+                &fixed_hex::<64>(signature)?,
+                &self.sequencer_authorization,
+            )
+            .map_err(|_| WebhookError::VerificationRequired)?;
+            if header.header().network_id() != self.protocol_network_id {
+                return Err(WebhookError::VerificationRequired);
+            }
+        }
         if receipt.activity_id != activity
             || authority.activity_id != activity
             || authority.network_id != self.network_id
             || authority.wire_version != self.wire_version
+            || authority.protocol_network_id != self.protocol_network_id
+            || hex_decode(&authority.receipt)? != hex_decode(&receipt.receipt)?
         {
             return Err(WebhookError::VerificationRequired);
         }
@@ -784,29 +831,14 @@ fn session_cookie(header: &str) -> Result<&str, WebhookError> {
 }
 
 #[cfg(test)]
+#[path = "repair_22_33_1328_authority.rs"]
+mod authority_path_support;
+
+#[cfg(test)]
 mod authority_shape_tests {
-    use super::*;
     #[test]
     fn real_authority_shape_selects_attachment_without_null_or_unknown_fallback() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../gateway/tests/fixtures/maintained-authority.json");
-        let bytes = std::fs::read(path).unwrap_or_else(|error| panic!("{error}"));
-        let capture: serde_json::Value =
-            serde_json::from_slice(&bytes).unwrap_or_else(|error| panic!("{error}"));
-        let document = capture["authority"].clone();
-        assert!(serde_json::from_value::<AuthorityResponse>(document.clone()).is_ok());
-        let mut historical = document.clone();
-        historical
-            .as_object_mut()
-            .unwrap_or_else(|| panic!("object"))
-            .remove("batch_evidence");
-        assert!(serde_json::from_value::<AuthorityResponse>(historical).is_ok());
-        let mut null = document.clone();
-        null["batch_evidence"] = serde_json::Value::Null;
-        assert!(serde_json::from_value::<AuthorityResponse>(null).is_err());
-        let mut unknown = document;
-        unknown["unexpected"] = serde_json::json!(true);
-        assert!(serde_json::from_value::<AuthorityResponse>(unknown).is_err());
+        super::authority_path_support::authority_path();
     }
 }
 
@@ -862,5 +894,253 @@ mod credential_tests {
         assert!(read_secret_file(&path, "component").is_err());
         fs::remove_dir_all(&root).unwrap_or_else(|error| panic!("cleanup: {error}"));
         assert!(read_secret_file(&path, "component").is_err());
+    }
+}
+
+/// The live source uses node receipts and authenticated governance/commit evidence.
+pub struct ReceiptVerifier {
+    client: Client,
+    node: Endpoint,
+    comet: Endpoint,
+    token: Zeroizing<String>,
+    policy: crate::chain::ChainPolicy,
+}
+pub struct VerifiedSourceOperation {
+    operation: VerifiedOperation,
+    verification: Verification,
+}
+impl VerifiedSourceOperation {
+    pub fn operation(&self) -> &VerifiedOperation {
+        &self.operation
+    }
+    pub fn verification(&self) -> Verification {
+        self.verification
+    }
+}
+impl ReceiptVerifier {
+    fn from_environment(identity: ClientIdentity) -> Result<Self, String> {
+        let policy = fs::read(
+            env::var("LAYERX_WEBHOOKS_CHAIN_POLICY_FILE")
+                .map_err(|_| "LAYERX_WEBHOOKS_CHAIN_POLICY_FILE is required")?,
+        )
+        .map_err(|e| e.to_string())?;
+        let policy: crate::chain::ChainPolicy =
+            serde_json::from_slice(&policy).map_err(|e| e.to_string())?;
+        policy.validate().map_err(|e| e.to_string())?;
+        Ok(Self {
+            client: Client::trusted(identity),
+            node: Endpoint::parse(
+                &env::var("LAYERX_WEBHOOKS_NODE_URL")
+                    .map_err(|_| "LAYERX_WEBHOOKS_NODE_URL is required")?,
+            )?,
+            comet: Endpoint::parse(
+                &env::var("LAYERX_WEBHOOKS_COMET_URL")
+                    .map_err(|_| "LAYERX_WEBHOOKS_COMET_URL is required")?,
+            )?,
+            token: read_secret("LAYERX_WEBHOOKS_NODE_TOKEN_FILE")?,
+            policy,
+        })
+    }
+    pub fn new(
+        url: &str,
+        comet_url: &str,
+        token: String,
+        ca_der: &[u8],
+        identity: Identity,
+        policy: crate::chain::ChainPolicy,
+    ) -> Result<Self, String> {
+        policy.validate().map_err(|e| e.to_string())?;
+        Ok(Self {
+            client: Client::trusted(ClientIdentity::new(
+                Certificate::from_der(ca_der).map_err(|e| e.to_string())?,
+                Some(identity),
+            )),
+            node: Endpoint::parse(url)?,
+            comet: Endpoint::parse(comet_url)?,
+            token: Zeroizing::new(token),
+            policy,
+        })
+    }
+    fn ready_until(&self, deadline: Instant) -> bool {
+        [(&self.node, "eth_chainId"), (&self.comet, "status")]
+            .into_iter()
+            .all(|(endpoint, method)| {
+                let body =
+                    serde_json::json!({"jsonrpc":"2.0", "id":1, "method":method, "params":[]})
+                        .to_string();
+                self.client
+                    .request_until(
+                        &OutboundRequest {
+                            endpoint,
+                            method: "POST",
+                            path: "/",
+                            bearer: Some(self.token.as_str()),
+                            idempotency: None,
+                            headers: &[],
+                            body: body.as_bytes(),
+                        },
+                        deadline,
+                    )
+                    .is_ok_and(|r| {
+                        r.status == 200
+                            && serde_json::from_slice::<serde_json::Value>(&r.body).is_ok_and(|v| {
+                                v["jsonrpc"] == "2.0"
+                                    && v["id"] == 1
+                                    && v.get("error").is_none()
+                                    && !v["result"].is_null()
+                                    && (method != "status"
+                                        || v["result"]["node_info"]["network"]
+                                            == self.policy.chain_id)
+                            })
+                    })
+            })
+    }
+    fn rpc(
+        &self,
+        endpoint: &Endpoint,
+        method: &str,
+        params: serde_json::Value,
+    ) -> Result<serde_json::Value, WebhookError> {
+        let body = serde_json::to_vec(
+            &serde_json::json!({"jsonrpc":"2.0", "id":1, "method":method, "params":params}),
+        )
+        .map_err(|_| WebhookError::InvalidRequest)?;
+        let response = self
+            .client
+            .request(&OutboundRequest {
+                endpoint,
+                method: "POST",
+                path: "/",
+                bearer: Some(self.token.as_str()),
+                idempotency: None,
+                headers: &[],
+                body: &body,
+            })
+            .map_err(|_| WebhookError::Unavailable)?;
+        if response.status != 200 || !response.content_type.starts_with("application/json") {
+            return Err(WebhookError::Unavailable);
+        }
+        let mut value: serde_json::Value = serde_json::from_slice(&response.body)
+            .map_err(|_| WebhookError::VerificationRequired)?;
+        if value["jsonrpc"] != "2.0" || value["id"] != 1 || value.get("error").is_some() {
+            return Err(WebhookError::VerificationRequired);
+        }
+        value
+            .as_object_mut()
+            .and_then(|v| v.remove("result"))
+            .filter(|v| !v.is_null())
+            .ok_or(WebhookError::VerificationRequired)
+    }
+    pub fn verify(&self, activity: &str) -> Result<VerifiedSourceOperation, WebhookError> {
+        let expected = fixed_hex::<32>(activity)?;
+        let receipt_json = self.rpc(
+            &self.node,
+            "pax_sequencerReceipt",
+            serde_json::json!([format!("0x{activity}")]),
+        )?;
+        if receipt_json["rung"] != "committed" {
+            return Err(WebhookError::VerificationRequired);
+        }
+        let receipt = hex_decode(
+            receipt_json["receipt"]
+                .as_str()
+                .and_then(|v| v.strip_prefix("0x"))
+                .ok_or(WebhookError::VerificationRequired)?,
+        )?;
+        // The node's height selects evidence to fetch; only the signed receipt
+        // and authenticated commit can establish that height below.
+        let height = u64::from_str_radix(
+            receipt_json["height"]
+                .as_str()
+                .and_then(|value| value.strip_prefix("0x"))
+                .ok_or(WebhookError::VerificationRequired)?,
+            16,
+        )
+        .map_err(|_| WebhookError::VerificationRequired)?;
+        if height <= 1 {
+            return Err(WebhookError::VerificationRequired);
+        }
+        let commit_json = self.rpc(
+            &self.comet,
+            "commit",
+            serde_json::json!({"height":height.to_string()}),
+        )?;
+        let commit = crate::chain::CommitCertificate::from_comet(&commit_json)?;
+        if commit.height()? != height {
+            return Err(WebhookError::VerificationRequired);
+        }
+        let block = self.rpc(
+            &self.comet,
+            "block",
+            serde_json::json!({"height":height.to_string()}),
+        )?;
+        let transactions = block["block"]["data"]["txs"]
+            .as_array()
+            .ok_or(WebhookError::VerificationRequired)?
+            .iter()
+            .map(|v| {
+                crate::encoding::base64_decode(
+                    v.as_str().ok_or(WebhookError::VerificationRequired)?,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        let ethereum = self.rpc(
+            &self.node,
+            "eth_getBlockByNumber",
+            serde_json::json!([format!("0x{height:x}"), false]),
+        )?;
+        let activity_ids = ethereum["transactions"]
+            .as_array()
+            .ok_or(WebhookError::VerificationRequired)?
+            .iter()
+            .map(|v| {
+                fixed_hex(
+                    v.as_str()
+                        .and_then(|v| v.strip_prefix("0x"))
+                        .ok_or(WebhookError::VerificationRequired)?,
+                )
+            })
+            .collect::<Result<Vec<[u8; 32]>, _>>()?;
+        let proof = self.rpc(&self.comet, "abci_query", serde_json::json!({"path":"/store/sequencer/key", "data":"0x03", "height":(height-1).to_string(), "prove":true}))?;
+        let response = &proof["response"];
+        if response["height"]
+            .as_str()
+            .and_then(|v| v.parse::<u64>().ok())
+            != Some(height - 1)
+        {
+            return Err(WebhookError::VerificationRequired);
+        }
+        let governed_keys = crate::chain::Membership::from_abci(response)?;
+        let document = crate::chain::NodeReceiptEvidence {
+            receipt,
+            commit,
+            governed_keys,
+            transactions,
+            activity_ids,
+        };
+        let served_hash = receipt_json["blockHash"]
+            .as_str()
+            .and_then(|v| v.strip_prefix("0x"))
+            .ok_or(WebhookError::VerificationRequired)?;
+        self.verify_evidence(&document, expected, fixed_hex::<32>(served_hash)?)
+    }
+    /// Verifies transported node evidence before granting a committed source label.
+    pub fn verify_evidence(
+        &self,
+        document: &crate::chain::NodeReceiptEvidence,
+        activity: [u8; 32],
+        served_hash: [u8; 32],
+    ) -> Result<VerifiedSourceOperation, WebhookError> {
+        let operation = document.verify(&self.policy, activity)?;
+        let committed = document
+            .commit
+            .verify(&self.policy, &document.governed_keys.proof)?;
+        if served_hash != committed.block_hash {
+            return Err(WebhookError::VerificationRequired);
+        }
+        Ok(VerifiedSourceOperation {
+            operation,
+            verification: Verification::BlockCommitted,
+        })
     }
 }

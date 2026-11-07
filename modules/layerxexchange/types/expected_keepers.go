@@ -24,3 +24,11 @@ type CustodyKeeper interface {
 type EVMKeeper interface {
 	ChainID(ctx sdk.Context) *big.Int
 }
+
+// UpgradeKeeper reads completed upgrades, not scheduled plans. The exchange
+// queries it on every retirement check so the result follows the supplied
+// height and the current done record, including when replaying older blocks.
+type UpgradeKeeper interface {
+	IsUpgradeActiveAtHeight(ctx sdk.Context, name string, height int64) bool
+	GetDoneHeight(ctx sdk.Context, name string) int64
+}

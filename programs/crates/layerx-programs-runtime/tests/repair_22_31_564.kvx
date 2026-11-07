@@ -1,0 +1,15 @@
+[repair.22.31.564]
+mode = "BUILD"
+base_revision = "304b9064b65843c134de8b2bd906d7097e697317"
+decisions = ["2649"]
+gotchas = ["3223", "3142", "2962"]
+evidence = "The build and verification results, exact verified candidate revision, command, exit code and private log are recorded by reference to /out/run/gates.jsonl; the final response copies the last gate evidence. No file is amended after qualification."
+baseline = "No baseline gate was run: implementation precedes the single bounded hf-build and hf-done gates."
+implementation = "BoundaryCapture owns a checked replay fuel meter bounded by the existing byte and boundary limits. Captured records recompute the sum using the unchanged pricing functions and compare it with the capture meter before publication. Calls without a capture retain their existing metering."
+record_layout = "ProgramReplayRecord retains replay_fuel as a derived field. The v1 canonical record already commits each boundary's two fuel fields; portable decoding reconstructs and checks the total rather than trusting an additional uncommitted total or changing the native transport."
+cpu_parity = "profiled_call_preserves_guest_cpu_and_meters_replay_separately executes the same real budgeted guest with and without a replay profile under 1000000 CPU, asserts identical complete usage and outcome, and proves replay work alone exceeds that cap."
+replay_verification = "The production portable decoder reconstructs the record and each boundary; assert_replay_fuel recomputes both frozen per-boundary prices and their exact sum for successful and trapped guests."
+profile_bounds = "replay_capture_still_refuses_byte_and_boundary_profile_limits asserts the existing exact executor errors for both independent limits."
+unprofiled_fuel = "unprofiled_empty_call_keeps_the_frozen_39_cpu_fuel pins 39, the exact minimum CALL usage asserted by activity_budget::protocol_minimum_executes_the_smallest_valid_empty_call, under the 1000000 CPU cap."
+environment = "The repair gate uses in-process admitted Wasm guests, actual budget admission, execution, capture and portable decoding; no credentials, environment variables, endpoints or subprocess toolchain are required."
+qualification_note = "The first verification exposed an incorrect expected byte-bound error in the new test: wasmi refresh_execution_supplement deliberately maps every callback refusal, including SnapshotLimitExceeded, to SupplementRejected. The repair preserves the exact 512-byte bound and exact external-error assertion; no production error mapping or bound changes. The runner ledger retains both attempts."

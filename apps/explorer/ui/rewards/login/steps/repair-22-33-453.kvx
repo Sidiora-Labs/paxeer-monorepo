@@ -1,0 +1,9 @@
+[repair.22.33.453]
+finding = "wallet-address-case"
+implementation = "LoginStepContent uses useLoginAddressMismatch to validate both 20-byte hexadecimal addresses and compare them with viem isAddressEqual, independently of hexadecimal casing."
+tests = ["walletAddressCaseAcceptsLowercaseProfileAndChecksumConnector", "walletAddressCaseRefusesDifferentWallet", "walletAddressCaseRechecksUpdatedProfile", "walletAddressCaseRejectsMalformedProfile", "walletAddressCaseValidatesBothInputsBeforeComparing"]
+coverage = "A loopback account server sends the UserInfo response through real HTTP, useProfileQuery and React Query; the production login comparison hook consumes that profile and the address from a real Wagmi provider reading an in-memory connected connector session. Tests assert equality, refusal, validation and recomputation after profile changes."
+baseline = "Not executed: the mandatory implementation-first hf-build/hf-done order prohibits running the unchanged-tree verify. The base case-sensitive inequality rejects the lowercase/checksum equality asserted by walletAddressCaseAcceptsLowercaseProfileAndChecksumConnector and walletAddressCaseRechecksUpdatedProfile."
+wiring_requests = []
+qualification = "The runner gate ledger records the exact candidate revision, command, exit code and private log location; this source record makes no independent gate-pass claim."
+repair_cycle_1 = "The initial verify timed out during the full UI-module import before assertions ran. The production comparison hook now lives in useLoginAddressMismatch.ts, shared by LoginStepContent and its real-provider tests; every assertion and the setup timeout remain unchanged."

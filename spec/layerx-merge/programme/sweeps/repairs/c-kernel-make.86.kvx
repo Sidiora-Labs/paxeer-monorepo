@@ -1,0 +1,6 @@
+[repair.c-kernel-make.86]
+target = "test-contracts"
+command = "make -s test-contracts"
+revision = "22f083233ad46e67abff0d0139d18aa543e26b77"
+result = "repaired"
+change = "The state-surface prerequisite has real SidioraProxyTimelock schedule, execute and cancel tests. The test-contracts recipe sets FOUNDRY_TEST to tests/solidity so the default profile discovers and executes the governance and names suites instead of the absent default test directory, and uses static test linking so contract construction does not require filesystem reads of build artifacts; all existing tests, assertions, filesystem permissions and compiler pins are preserved."

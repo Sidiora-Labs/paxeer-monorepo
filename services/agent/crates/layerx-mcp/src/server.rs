@@ -20,7 +20,7 @@ use layerx_types::ids::Did;
 use serde_json::{json, Value};
 use sha2::{Digest, Sha256};
 
-use crate::approval::ApprovalPolicy;
+use crate::approval::{ApprovalError, ApprovalPolicy};
 use crate::boundary::{BoundaryRefusal, ToolBoundary};
 use crate::catalogue::{self, WEB_TOOLS};
 pub use crate::readonly::ReadOnly;
@@ -60,13 +60,28 @@ pub struct ToolDefinition {
     pub evidence: &'static str,
 }
 
+impl ToolDefinition {
+    /// Installation metadata consumed by the platform CLI.
+    #[must_use]
+    pub fn descriptor(self, arguments: Value) -> Value {
+        json!({
+            "name": self.name,
+            "kind": match self.kind { ToolKind::Read => "read", ToolKind::Write => "write" },
+            "scope": self.required_scope,
+            "mutation": self.mutation,
+            "evidence": self.evidence,
+            "arguments": arguments,
+        })
+    }
+}
+
 /// The one faucet tool definition every `LayerX` MCP surface serves.
 pub const FAUCET_REQUEST: ToolDefinition = ToolDefinition {
     name: "faucet.request",
     kind: ToolKind::Write,
     required_scope: "write:faucet:claim",
-    mutation: "one bounded testnet faucet grant through the hosted gateway",
-    evidence: "the faucet claim the gateway confirmed as funded, or an honest refusal",
+    mutation: "one testnet funding request through the node's px_requestFunds",
+    evidence: "the funding tx_hash returned by px_requestFunds, or an honest refusal",
 };
 
 const TOOL_CATALOGUE: [ToolDefinition; 22] = [
@@ -124,35 +139,35 @@ const TOOL_CATALOGUE: [ToolDefinition; 22] = [
         kind: ToolKind::Write,
         required_scope: "write:prepare",
         mutation: "daemon-local preparation only",
-        evidence: "canonical bytes and bound disclosure",
+        evidence: "canonical bytes and bound disclosure; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.disclose",
         kind: ToolKind::Write,
         required_scope: "write:disclose",
         mutation: "none",
-        evidence: "disclosure decoded from canonical bytes",
+        evidence: "disclosure decoded from canonical bytes; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.sign",
         kind: ToolKind::Write,
         required_scope: "write:sign",
         mutation: "daemon-local signed preparation",
-        evidence: "signature binding evidence",
+        evidence: "signature binding evidence; tx_hash and rung after submission",
     },
     ToolDefinition {
         name: "activity.submit",
         kind: ToolKind::Write,
         required_scope: "write:submit",
         mutation: "core submission through the ordinary daemon path",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     ToolDefinition {
         name: "activity.track",
         kind: ToolKind::Write,
         required_scope: "write:track",
         mutation: "daemon-local receipt resolution state",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     ToolDefinition {
         name: "wallet.accounts",
@@ -215,7 +230,7 @@ const TOOL_CATALOGUE: [ToolDefinition; 22] = [
         kind: ToolKind::Write,
         required_scope: "write:activity:wait",
         mutation: "daemon-local receipt resolution state",
-        evidence: "verified receipt or honest non-terminal state",
+        evidence: "tx_hash and daemon rung, verified receipt or honest non-terminal state",
     },
     FAUCET_REQUEST,
 ];
@@ -510,6 +525,7 @@ impl Server {
         let tools = TOOL_CATALOGUE
             .iter()
             .chain(WEB_TOOLS.iter())
+            .chain(catalogue::SESSION_TOOLS.iter())
             .filter(|tool| {
                 binding.scopes.contains(tool.required_scope)
                     && (mode == DeploymentMode::Full || tool.kind == ToolKind::Read)
@@ -710,6 +726,9 @@ impl Server {
     where
         F: FnOnce(&DaemonInvocation) -> (T, InvocationOutcome),
     {
+        if name == FAUCET_REQUEST.name {
+            return self.execute_faucet(core_sequence, arguments, executor);
+        }
         if self
             .tool(name)
             .is_some_and(|tool| tool.kind != ToolKind::Write)
@@ -721,6 +740,86 @@ impl Server {
         let (result, outcome) = permit
             .commit(&control, || Ok(executor(&invocation)))
             .map_err(map_control)?;
+        self.complete(&invocation, outcome)?;
+        Ok(result)
+    }
+
+    fn execute_faucet<T>(
+        &mut self,
+        core_sequence: u64,
+        arguments: Vec<u8>,
+        executor: impl FnOnce(&DaemonInvocation) -> (T, InvocationOutcome),
+    ) -> Result<T, ServerError> {
+        if self.tool(FAUCET_REQUEST.name).is_none() {
+            return Err(ServerError::ToolAbsent);
+        }
+        if arguments.len() > MAX_ARGUMENT_BYTES {
+            return Err(ServerError::InvalidInvocation);
+        }
+        let registry_handle = self.control.registry();
+        let registry = registry_handle
+            .read()
+            .map_err(|_| ServerError::AuthorizationUnavailable)?;
+        let token = registry
+            .authenticate(&self.credential)
+            .map_err(|error| map_session(&error))?;
+        let authorization = (|| {
+            token
+                .authorize(
+                    &registry,
+                    self.binding.tenant(),
+                    self.binding.agent(),
+                    FAUCET_REQUEST.required_scope,
+                    core_sequence,
+                )
+                .map_err(|error| map_session(&error))?;
+            let session = registry
+                .get(self.binding.tenant(), self.binding.session_id())
+                .ok_or(ServerError::MissingSession)?;
+            let store_handle = self.control.store();
+            let store = store_handle
+                .lock()
+                .map_err(|_| ServerError::AuthorizationUnavailable)?;
+            let capability = Capability::restore(
+                &store,
+                self.binding.tenant.clone(),
+                self.binding.capability_id,
+            )
+            .map_err(ServerError::Capability)?
+            .ok_or(ServerError::MissingCapability)?;
+            let binding = ScopeBinding::derive(session, &capability, core_sequence)?;
+            if binding != self.binding {
+                return Err(ServerError::CapabilityMismatch);
+            }
+            Ok(())
+        })();
+        let arguments_digest = Sha256::digest(&arguments).into();
+        let attempt = invocation_audit(
+            self.binding_digest,
+            self.next_invocation_id,
+            FAUCET_REQUEST.name,
+            arguments_digest,
+            if authorization.is_ok() { 1 } else { 3 },
+            0,
+        )?;
+        self.audit
+            .before_operation(&attempt, || ())
+            .map_err(ServerError::Audit)?;
+        authorization?;
+        let invocation = DaemonInvocation {
+            server_binding: self.binding_digest,
+            invocation_id: self.next_invocation_id,
+            tool: FAUCET_REQUEST,
+            arguments,
+            arguments_digest,
+            gates: REQUIRED_DAEMON_GATES,
+        };
+        self.next_invocation_id = self
+            .next_invocation_id
+            .checked_add(1)
+            .ok_or(ServerError::Arithmetic)?;
+        let (result, outcome) = executor(&invocation);
+        drop(registry);
         self.complete(&invocation, outcome)?;
         Ok(result)
     }
@@ -753,6 +852,10 @@ impl Server {
         Ok(WebBoundary {
             inner,
             context: ApprovalContext {
+                actor_address: route
+                    .config
+                    .payer_address()
+                    .ok_or(ServerError::CapabilityMismatch)?,
                 tenant: self.binding.tenant.clone(),
                 agent: self.binding.agent.clone(),
                 session: self.binding.session_id,
@@ -814,7 +917,7 @@ pub fn tool_operation(name: &str) -> Option<Operation> {
             Some(Operation::Submit)
         }
         "activity.track" => Some(Operation::Track),
-        "faucet.request" => Some(Operation::FaucetClaim),
+        "faucet.request" => None,
         "activity.wait" => Some(Operation::Wait),
         _ => None,
     }
@@ -982,6 +1085,9 @@ impl Server {
         catalogue::validate(name, arguments).map_err(|_| ServerError::InvalidInvocation)?;
         let encoded = serde_json::to_vec(arguments).map_err(|_| ServerError::InvalidInvocation)?;
         let (invocation, permit) = self.route(core_sequence, name, encoded)?;
+        // Sample local prerequisites before opening the durable invocation. Retained
+        // results and reconciliation still take precedence over a new preflight result.
+        let preflight = boundary.preflight(invocation.tool);
         let start = permit
             .mcp_begin(&self.control, identity)
             .map_err(ServerError::DurableInvocation)?;
@@ -1037,7 +1143,10 @@ impl Server {
                 permit
                     .mcp_start_effect(&self.control, &handle)
                     .map_err(ServerError::DurableInvocation)?;
-                let value = boundary.execute(invocation.tool, arguments);
+                let (value, effect_attempted) = match preflight {
+                    Ok(()) => (boundary.execute(invocation.tool, arguments), true),
+                    Err(refusal) => (Err(refusal), false),
+                };
                 if name == "activity.prepare" {
                     if let Ok(result) = &value {
                         if let Some(id) =
@@ -1052,7 +1161,7 @@ impl Server {
                 }
                 let outcome = match &value {
                     Ok(_) => InvocationOutcome::Completed,
-                    Err(error) if error.unknown() => InvocationOutcome::Unknown,
+                    Err(error) if effect_attempted && error.unknown() => InvocationOutcome::Unknown,
                     Err(_) => InvocationOutcome::Refused,
                 };
                 self.complete(&invocation, outcome)?;
@@ -1219,6 +1328,7 @@ fn decode_mcp_outcome(bytes: &[u8]) -> Result<Result<Value, BoundaryRefusal>, Se
 /// The configured x-websearch sidecar, the payer's signing boundary and the approval registry
 /// and threshold every web spend passes through.
 pub struct WebRoute {
+    clock: Arc<dyn layerx_types::clock::Clock>,
     config: WebConfig,
     approvals: Arc<ApprovalRegistry>,
     policy: ApprovalPolicy,
@@ -1232,8 +1342,10 @@ impl WebRoute {
         approvals: Arc<ApprovalRegistry>,
         policy: ApprovalPolicy,
         payer: Box<dyn WebPayer + Send>,
+        clock: Arc<dyn layerx_types::clock::Clock>,
     ) -> Self {
         Self {
+            clock,
             config,
             approvals,
             policy,
@@ -1252,6 +1364,11 @@ pub struct WebBoundary<B: ToolBoundary> {
 }
 
 impl<B: ToolBoundary> WebBoundary<B> {
+    pub(crate) fn with_observed_sequence(mut self, sequence: u64) -> Self {
+        self.observed = Some(sequence);
+        self
+    }
+
     fn web(&mut self, tool: ToolDefinition, arguments: &Value) -> Result<Value, BoundaryRefusal> {
         let call = WebCall::from_arguments(tool.name, arguments)
             .map_err(|error| BoundaryRefusal::Malformed(error.detail()))?;
@@ -1259,6 +1376,7 @@ impl<B: ToolBoundary> WebBoundary<B> {
             BoundaryRefusal::Malformed("no core sequence was observed for the web spend".to_owned())
         })?;
         let WebRoute {
+            clock,
             config,
             approvals,
             policy,
@@ -1269,6 +1387,7 @@ impl<B: ToolBoundary> WebBoundary<B> {
             policy: *policy,
             context: self.context.clone(),
             current_sequence,
+            clock: clock.as_ref(),
         };
         let outcome = web_tool(config, &call, &approval, payer.as_mut())
             .map_err(|error| web_refusal(&error))?;
@@ -1281,6 +1400,18 @@ impl<B: ToolBoundary> WebBoundary<B> {
 }
 
 impl<B: ToolBoundary> ToolBoundary for WebBoundary<B> {
+    fn preflight(&mut self, tool: ToolDefinition) -> Result<(), BoundaryRefusal> {
+        if catalogue::untrusted_output(tool.name) {
+            crate::approval::decision_time(self.route.clock.as_ref())
+                .map(|_| ())
+                .map_err(|_| {
+                    BoundaryRefusal::Unavailable("the approval clock is unavailable".to_owned())
+                })
+        } else {
+            self.inner.preflight(tool)
+        }
+    }
+
     fn execute(
         &mut self,
         tool: ToolDefinition,
@@ -1345,6 +1476,11 @@ fn web_refusal(error: &WebToolError) -> BoundaryRefusal {
         }
         WebToolError::ApprovalChanged => {
             refused("the web spend differs from the disclosure under approval".to_owned())
+        }
+        WebToolError::Approval(ApprovalError::Daemon(
+            layerx_agentd::policy::approval::ApprovalError::Unavailable,
+        )) => {
+            BoundaryRefusal::Unavailable("the approval clock or registry is unavailable".to_owned())
         }
         WebToolError::Approval(_) => {
             refused("the approval boundary refused the web spend".to_owned())

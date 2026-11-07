@@ -1,7 +1,9 @@
 using System.Net.Security;
+using System.Reflection;
 using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using LayerX.Sdk;
 using Xunit;
 using Xunit.Abstractions;
@@ -154,6 +156,53 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
         Assert.IsNotType<JsonValue.NullValue>(result.Value);
     }
 
+    private static async Task AssertOwnerlessDaemonRefusal(AgentEnvelopeTransport transport, TransportCall call)
+    {
+        const string requestId = "1368";
+        var encode = typeof(AgentEnvelopeTransport).GetMethod("EnvelopeRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
+        using var request = Assert.IsType<HttpRequestMessage>(encode.Invoke(transport, [call.Operation.Descriptor(), call, requestId]));
+        var body = JsonNode.Parse(await request.Content!.ReadAsByteArrayAsync())!.AsObject();
+        body["credential"] = null;
+        request.Content.Dispose();
+        request.Content = new ByteArrayContent(JsonSerializer.SerializeToUtf8Bytes(body));
+        request.Content.Headers.ContentType = new("application/json");
+        var http = Assert.IsType<HttpClient>(typeof(AgentEnvelopeTransport).GetField("_httpClient", BindingFlags.Instance | BindingFlags.NonPublic)!.GetValue(transport));
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        using var reply = await http.SendAsync(request, timeout.Token);
+        Assert.Equal(400, (int)reply.StatusCode);
+        var bytes = await reply.Content.ReadAsByteArrayAsync(timeout.Token);
+        using var parsed = JsonDocument.Parse(bytes);
+        Assert.Equal("envelope.credential", parsed.RootElement.GetProperty("reason").GetString());
+        var decode = typeof(AgentEnvelopeTransport).GetMethod("DecodeResponse", BindingFlags.Static | BindingFlags.NonPublic)!
+            .CreateDelegate<Func<int, byte[], string, AgentEnvelopeResult>>();
+        var error = Assert.Throws<PlatformSdkException>(() => decode((int)reply.StatusCode, bytes, requestId));
+        Assert.Equal(SdkErrorCode.ProtocolIncompatibility, error.Code);
+        Assert.Equal(RetryClass.Never, error.Retry);
+        Assert.Equal(requestId, error.RequestId);
+    }
+
+    private static void AssertPrepared(CaseFile input, string caseId, AgentEnvelopeResult result)
+    {
+        var response = Assert.IsType<JsonValue.ObjectValue>(result.Value).Value;
+        Assert.Equal(new[] { "authority", "value" }, response.Keys.OrderBy(value => value, StringComparer.Ordinal));
+        var authority = Assert.IsType<JsonValue.ObjectValue>(response["authority"]).Value;
+        Assert.Equal(JsonValue.String(input.Tenant), authority["tenant"]);
+        var prepared = Assert.IsType<JsonValue.ObjectValue>(response["value"]).Value;
+        string[] fields = ["chain_id", "nonce", "max_priority_fee_per_gas", "max_fee_per_gas", "gas_limit", "to", "value", "data", "signing_hash", "observed_head_height"];
+        Assert.Equal(fields.OrderBy(value => value, StringComparer.Ordinal), prepared.Keys.OrderBy(value => value, StringComparer.Ordinal));
+        var entry = input.Requests.GetProperty(caseId);
+        var expected = entry.GetProperty("expected_preparation");
+        Assert.Equal(fields.OrderBy(value => value, StringComparer.Ordinal), expected.EnumerateObject().Select(property => property.Name).OrderBy(value => value, StringComparer.Ordinal));
+        foreach (var field in fields)
+            Assert.Equal(expected.GetProperty(field).GetString(), Assert.IsType<JsonValue.StringValue>(prepared[field]).Value);
+        Assert.Equal(JsonValue.String("125"), prepared["chain_id"]);
+        Assert.Equal(JsonValue.String("0"), prepared["value"]);
+        Assert.Equal(JsonValue.String(new string('0', 36) + (caseId == "agent_register" ? "1004" : "101c")), prepared["to"]);
+        Assert.StartsWith(caseId == "agent_register" ? "dd9aa628" : "1107b49e", Assert.IsType<JsonValue.StringValue>(prepared["data"]).Value);
+        Assert.Equal(64, Assert.IsType<JsonValue.StringValue>(prepared["signing_hash"]).Value.Length);
+        Assert.True(ulong.Parse(Assert.IsType<JsonValue.StringValue>(prepared["gas_limit"]).Value, System.Globalization.CultureInfo.InvariantCulture) > 0);
+    }
+
     private void Emit(string line)
     {
         Console.Out.WriteLine(line);
@@ -166,9 +215,9 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
     {
         using var input = Load();
         Assert.Equal("read", input.Phase);
-        string[] expected = ["read", "program_read", "approval_list"];
+        string[] expected = ["read", "program_read", "approval_list", "agent_register", "session_open"];
         Assert.Equal(expected, input.Cases);
-        string[] operations = ["read.account", "program.interface", "approval.list"];
+        string[] operations = ["read.account", "program.interface", "approval.list", "agent.register", "session.open"];
         using var key = new LayerXKeyCredential(input.KeyId, input.KeySecret);
         using var credential = Credential(input, input.Generation);
         using var transport = Transport(input, credential, key);
@@ -188,6 +237,16 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
                     JsonSerializer.SerializeToUtf8Bytes(record));
             }
             AssertSuccess(result);
+            if (caseId is "agent_register" or "session_open")
+            {
+                Assert.NotNull(call.IdempotencyKey);
+                AssertPrepared(input, caseId, result);
+                using var ownerless = Transport(input, null, key);
+                var refusal = await Assert.ThrowsAsync<PlatformSdkException>(() => ownerless.SendEnvelopeAsync(call));
+                Assert.Equal(SdkErrorCode.CapabilityRefusal, refusal.Code);
+                Assert.Equal(RetryClass.Never, refusal.Retry);
+                await AssertOwnerlessDaemonRefusal(transport, call);
+            }
             passed++;
             Emit($"PAXEER_X_AGENT_ENVELOPE_CASE {caseId} passed");
         }
@@ -196,17 +255,24 @@ public sealed class AgentOperationEnvelopeTests(ITestOutputHelper output)
     }
 
     [Fact]
-    public async Task RetiredFaucetClaimReturnsTerminalUnavailableCapability()
+    public async Task UnverifiedRungIsPreservedFromTheDaemon()
     {
         using var input = Load();
         using var key = new LayerXKeyCredential(input.KeyId, input.KeySecret);
         using var credential = Credential(input, input.Generation);
         using var transport = Transport(input, credential, key);
-        var error = await Assert.ThrowsAsync<PlatformSdkException>(() =>
-            transport.SendEnvelopeAsync(new TransportCall(PlatformOperation.AgentFaucetClaim, JsonValue.EmptyObject, NoPathParameters, null)));
-        Assert.Equal(SdkErrorCode.UnavailableCapability, error.Code);
-        Assert.Equal(RetryClass.Never, error.Retry);
-        Assert.False(string.IsNullOrEmpty(error.RequestId));
+        var call = Call(input, "read_unverified");
+        Assert.False(call.Operation.Descriptor().RequiresIdempotency);
+        Assert.Null(call.IdempotencyKey);
+        var result = await transport.SendEnvelopeAsync(call);
+        AssertSuccess(result);
+        var verification = Assert.IsType<JsonValue.ObjectValue>(result.VerificationStatus).Value;
+        Assert.Equal(new[] { "achieved", "reason", "requested", "state" }, verification.Keys.OrderBy(value => value, StringComparer.Ordinal));
+        Assert.Equal(JsonValue.String("unverified"), verification["state"]);
+        Assert.Equal(JsonValue.String("receipted"), verification["requested"]);
+        Assert.Equal(JsonValue.String("submitted"), verification["achieved"]);
+        Assert.Equal(input.Requests.GetProperty("read_unverified").GetProperty("expected_reason").GetString(),
+            Assert.IsType<JsonValue.StringValue>(verification["reason"]).Value);
     }
 
     [Fact]

@@ -127,7 +127,7 @@ export async function resolvePoolSnapshot(input: string, deps: ResolverDeps, sig
       }),
     optional('IF_METADATA_GET', async () => {
       const response = await deps.operations.call('IF_METADATA_GET', { path: { tokenAddress: token } }, { signal });
-      if (response.quality === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
+      if (response.quality === 'quarantined' || response.watermark?.integrity === 'quarantined' || marketAddress(response.data.token.address) !== token) throw new Error('Metadata identity disagreement or integrity quarantine');
       return response;
     }),
   ]);

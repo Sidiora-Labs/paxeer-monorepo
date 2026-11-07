@@ -2,7 +2,7 @@
 //! discovery from a finalized capture of a really opened market, the pinned TLS transport and
 //! the worker binary.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::{
         acknowledgment_digest, admit, decode_acknowledgment, decode_service, encode_service,
@@ -910,7 +910,7 @@ fn capture(state: &[u8], at: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
         native_state_root: Digest32::new(ROOT)?,
         observed_sequence: 77,
         execution_height: at,
-        batch_id: Digest32::new([0xBB; 32])?,
+        block_hash: Digest32::new([0xBB; 32])?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -974,8 +974,10 @@ impl View {
         let (_, owner, _) = identities()?;
         let finality = FinalityEvidence {
             native_state_root: Digest32::new(ROOT)?,
-            checkpoint: Digest32::new([0xC1; 32])?,
-            settlement: Presence::Present(Digest32::new([0xD3; 32])?),
+            block_height: self.at,
+            block_hash: Digest32::new([0xBB; 32])?,
+            app_hash: Digest32::new([0xC1; 32])?,
+            store_proof_digest: Digest32::new([0xD3; 32])?,
             rank: knobs.rank,
         };
         FinalizedAuthority::bind(
@@ -983,10 +985,14 @@ impl View {
                 state: &self.bytes,
                 facts: &self.facts,
                 finality: &finality,
-                head: Head {
-                    chain_sequence: 77,
-                    sealed_batch: knobs.sealed,
-                    finalised_checkpoint: [0xC1; 32],
+                head: PxNetworkHead {
+                    network_id: "paxeer".to_owned(),
+                    paxeer: PxPaxeerHead {
+                        chain_id: 125,
+                        latest_block: knobs.sealed,
+                    },
+                    layerx: None,
+                    latest_committed_height: knobs.sealed,
                 },
                 owner: IdentityEvidence {
                     principal: owner,
@@ -1301,6 +1307,20 @@ fn worker_config(name: &str, pki: &Pki, signed: &[u8], port: u16) -> Checked<Pat
     config.insert("market".into(), text(hex(market.as_bytes())));
     config.insert("worker".into(), text(hex(worker.as_bytes())));
     config.insert("owner".into(), text(hex(owner.as_bytes())));
+    config.insert("state_dir".into(), path("state"));
+    config.insert("input_dir".into(), path("inputs"));
+    config.insert(
+        "runner".into(),
+        text(env!("CARGO_BIN_EXE_layerx-paxai-runner").to_owned()),
+    );
+    config.insert("authority_reader".into(), path("authority-reader"));
+    config.insert("sponsored_sender".into(), path("sponsored-sender"));
+    config.insert("chain_config".into(), path("chain.json"));
+    config.insert("capabilities".into(), serde_json::json!([1, 2]));
+    config.insert("access_declaration".into(), serde_json::json!([3, 4]));
+    config.insert("response_capacity".into(), serde_json::json!(16384));
+    config.insert("budget".into(), serde_json::json!([1, 2, 3, 4, 5, 6, 7]));
+    config.insert("fee_limit".into(), serde_json::json!(100));
     let config_path = file("worker.json");
     fs::write(&config_path, serde_json::to_string(&Value::Object(config))?)?;
     Ok(config_path)
@@ -1336,7 +1356,7 @@ fn start(config: &Path) -> Checked<Running> {
 }
 
 #[test]
-fn service_error_space_and_bodies() -> Checked {
+fn transport_identity_service_error_space_and_bodies() -> Checked {
     assert_eq!(SERVICE_ERRORS.len(), 29);
     let id = RequestId::new([0x42; 32])?;
     for (index, error) in SERVICE_ERRORS.iter().enumerate() {
@@ -1367,7 +1387,7 @@ fn service_error_space_and_bodies() -> Checked {
 }
 
 #[test]
-fn service_envelope_layout_and_route_binding() -> Checked {
+fn transport_identity_service_envelope_layout_and_route_binding() -> Checked {
     let fixture = admitting()?;
     let submit = &fixture.submit;
     let payload = submit.request.encode()?;
@@ -1447,7 +1467,7 @@ fn service_envelope_layout_and_route_binding() -> Checked {
 }
 
 #[test]
-fn service_operations_are_not_native_selectors() -> Checked {
+fn transport_identity_service_operations_are_not_native_selectors() -> Checked {
     let fixture = admitting()?;
     let result = encode_service(
         ServiceOperation::JobResult,
@@ -1471,7 +1491,7 @@ fn service_operations_are_not_native_selectors() -> Checked {
 }
 
 #[test]
-fn a03_metadata_window_lifetime_and_revision_overflow() -> Checked {
+fn transport_identity_a03_metadata_window_lifetime_and_revision_overflow() -> Checked {
     let base = manifest(
         1,
         vec![capability(0x31)],
@@ -1518,7 +1538,7 @@ fn a03_metadata_window_lifetime_and_revision_overflow() -> Checked {
 }
 
 #[test]
-fn a13_manifest_grammar_refusals() -> Checked {
+fn transport_identity_a13_manifest_grammar_refusals() -> Checked {
     let base = manifest(
         1,
         vec![capability(0x31)],
@@ -1586,7 +1606,7 @@ fn a13_manifest_grammar_refusals() -> Checked {
 /// 276-byte URIs, so the largest canonical manifest is 2366 bytes; padding to the 8192-byte
 /// cap is trailing data and one byte more is over capacity.
 #[test]
-fn a13_manifest_size_bound() -> Checked {
+fn transport_identity_a13_manifest_size_bound() -> Checked {
     let host = format!(
         "{}.{}.{}.{}",
         "a".repeat(63),
@@ -1636,7 +1656,7 @@ fn a13_manifest_size_bound() -> Checked {
 }
 
 #[test]
-fn a13_signed_metadata_binds_delegate_owner_and_worker() -> Checked {
+fn transport_identity_a13_signed_metadata_binds_delegate_owner_and_worker() -> Checked {
     let base = manifest(
         1,
         vec![capability(0x31)],
@@ -1711,7 +1731,7 @@ fn a13_signed_metadata_binds_delegate_owner_and_worker() -> Checked {
 }
 
 #[test]
-fn discovery_binds_a_finalized_capture_of_the_opened_market() -> Checked {
+fn transport_identity_discovery_binds_a_finalized_capture_of_the_opened_market() -> Checked {
     let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
     let authority = authority_at(&market, HEIGHT)?;
     let (market_id, owner, worker) = identities()?;
@@ -1777,7 +1797,7 @@ fn discovery_binds_a_finalized_capture_of_the_opened_market() -> Checked {
 }
 
 #[test]
-fn finality_freshness_and_roster_evidence_refusals() -> Checked {
+fn transport_identity_finality_freshness_and_roster_evidence_refusals() -> Checked {
     let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
     let view = view(&market.world.bytes, &market.roster, HEIGHT)?;
     let knobs = view.knobs()?;
@@ -1852,7 +1872,7 @@ fn finality_freshness_and_roster_evidence_refusals() -> Checked {
 }
 
 #[test]
-fn a03_admission_gate_follows_the_metadata_window() -> Checked {
+fn transport_identity_a03_admission_gate_follows_the_metadata_window() -> Checked {
     let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
     assert_eq!(
         authority_at(&market, VALID_FROM - 1)?.admission_gate(),
@@ -1880,7 +1900,7 @@ fn a03_admission_gate_follows_the_metadata_window() -> Checked {
 }
 
 #[test]
-fn a12_owner_freeze_and_suspension_block_new_admission() -> Checked {
+fn transport_identity_a12_owner_freeze_and_suspension_block_new_admission() -> Checked {
     let mut market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
     let current = view(&market.world.bytes, &market.roster, HEIGHT)?;
     let frozen = current.bind(Knobs {
@@ -1910,7 +1930,7 @@ fn a12_owner_freeze_and_suspension_block_new_admission() -> Checked {
 }
 
 #[test]
-fn a07_admission_binds_the_request_and_acknowledgment() -> Checked {
+fn transport_identity_a07_admission_binds_the_request_and_acknowledgment() -> Checked {
     let fixture = admitting()?;
     let submit = &fixture.submit;
     let admission =
@@ -2007,7 +2027,7 @@ fn a07_admission_binds_the_request_and_acknowledgment() -> Checked {
 }
 
 #[test]
-fn a07_admission_refuses_request_rebinding() -> Checked {
+fn transport_identity_a07_admission_refuses_request_rebinding() -> Checked {
     let fixture = admitting()?;
     let base = &fixture.submit;
     let stranger = WorkerId::new([0x99; 32])?;
@@ -2101,7 +2121,7 @@ fn a07_admission_refuses_request_rebinding() -> Checked {
 }
 
 #[test]
-fn a07_admission_refuses_context_rebinding() -> Checked {
+fn transport_identity_a07_admission_refuses_context_rebinding() -> Checked {
     let fixture = admitting()?;
     let base = &fixture.submit;
     let other_chain = ChainDomain::new([0x55; 32])?;
@@ -2150,7 +2170,7 @@ fn a07_admission_refuses_context_rebinding() -> Checked {
 }
 
 #[test]
-fn a12_query_and_cancel_authorization() -> Checked {
+fn transport_identity_a12_query_and_cancel_authorization() -> Checked {
     let fixture = admitting()?;
     let admission =
         fixture
@@ -2228,7 +2248,7 @@ fn a12_query_and_cancel_authorization() -> Checked {
 }
 
 #[test]
-fn a15_later_metadata_cannot_relabel_admitted_work() -> Checked {
+fn transport_identity_a15_later_metadata_cannot_relabel_admitted_work() -> Checked {
     let fixture = admitting()?;
     let admission =
         fixture
@@ -2308,7 +2328,7 @@ fn a15_later_metadata_cannot_relabel_admitted_work() -> Checked {
 }
 
 #[test]
-fn readiness_observations_expire() {
+fn transport_identity_readiness_observations_expire() {
     let observation = ReadinessObservation {
         state: Readiness::VerifiedTransport,
         observed_ms: 1_000,
@@ -2326,7 +2346,7 @@ fn readiness_observations_expire() {
 }
 
 #[test]
-fn network_profiles_refuse_loopback_and_cloud_metadata() {
+fn transport_identity_network_profiles_refuse_loopback_and_cloud_metadata() {
     let loopback = IpAddr::V4(Ipv4Addr::LOCALHOST);
     let cloud = Ipv4Addr::new(169, 254, 169, 254);
     let public = NetworkProfile::Public;
@@ -2351,7 +2371,7 @@ fn network_profiles_refuse_loopback_and_cloud_metadata() {
 }
 
 #[test]
-fn a06_pinned_tls_refuses_before_any_request_byte() -> Checked {
+fn transport_identity_a06_pinned_tls_refuses_before_any_request_byte() -> Checked {
     let pki = pki()?;
     let pin = spki_sha256(&pki.leaf)?;
     let expected: [u8; 32] = Sha256::digest(&pki.spki).into();
@@ -2383,7 +2403,7 @@ fn a06_pinned_tls_refuses_before_any_request_byte() -> Checked {
 }
 
 #[test]
-fn a06_resolution_outside_the_profile_never_connects() -> Checked {
+fn transport_identity_a06_resolution_outside_the_profile_never_connects() -> Checked {
     let pki = pki()?;
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0))?;
     listener.set_nonblocking(true)?;
@@ -2431,7 +2451,7 @@ fn a06_resolution_outside_the_profile_never_connects() -> Checked {
 }
 
 #[test]
-fn worker_binary_serves_signed_status_and_refuses_jobs() -> Checked {
+fn transport_identity_worker_binary_serves_signed_status_and_refuses_jobs() -> Checked {
     let pki = pki()?;
     let port = free_port()?;
     let market = opened(vec![endpoint_at(port, spki_sha256(&pki.leaf)?)])?;
@@ -2508,7 +2528,7 @@ fn worker_binary_serves_signed_status_and_refuses_jobs() -> Checked {
 }
 
 #[test]
-fn worker_binary_refuses_an_unpinned_leaf() -> Checked {
+fn transport_identity_worker_binary_refuses_an_unpinned_leaf() -> Checked {
     let pki = pki()?;
     let market = opened(vec![endpoint(DEFAULT_URI, [0xE1; 32])])?;
     let config = worker_config("unpinned", &pki, &market.signed, free_port()?)?;

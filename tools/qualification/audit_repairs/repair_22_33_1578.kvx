@@ -1,0 +1,37 @@
+[task.22.33.1578]
+base_revision = "76c050242a1edcad6212aa52fac15670ecb5612d"
+inspected_revision = "5506238e4ca599b57d62cd363852d1d3e0e1bcc2"
+readme_revision = "38801bb427090ac96d47c86a026a63ec05e67315"
+readme_owner_task = "22.31.470"
+repair = "Decision 2525 assigns the shared root README rewrite to 22.31.470. Its committed README already supplies root-readme-topology's expected facts. This task preserves README.md and creates only this record and its focused pytest module, asserting the real documentation and production source references without importing another repair's tests. Closure is conditional on the declared hf-done gate passing."
+source_proof = "The module proves README source facts: one paxd BFT network with its embedded kernel, EVM chain 125, committed-block finality, the api1 through api14 HTTPS root JSON-RPC range and parsed chainId curl payload, native EVM/precompile transaction submission, submitted/receipted/committed receipt progression, matching topology and receipt diagrams, retired custody and checkpoint executors, and linked paxd build/start commands. It checks the real producer/transport/consumer source connections: node host and consensus wiring, RPC root dispatch, local acceptance or proposer forwarding, durable WAL acknowledgement before receipt release, signature checking and sequence/state-root coverage before reporting a committed block. It parses the native precompile registry and Makefile/chain.mk prerequisites and recipes, checks retirement guards and resolves local README source links. Shell examples are parsed with shlex and JSON without executing them. No shell script, unit file or manifest is being repaired."
+review_only = "Native Go/C/Rust builds, node startup, transaction execution, live endpoint availability, cryptographic verification, BFT commitment and WAL restart/recovery are not executed by this documentation gate. Source connections are not runtime certification. This doc-drift finding changes no production interface or persistent component, so no interface-mismatch or restart-recovery proof is claimed. Operator deployment and endpoint operation require review and operational qualification. The pytest module needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit implementation-first order and exclusive hf-done verification gate supersede the older step 5 baseline clause. No baseline test failures are claimed. Initial status/diff contained only runner-prepared .cgignore and spec/layerx-merge/spec.kvx changes; both scoped files were absent, gate.json showed zero builds and verifies, and no /out/run/gates.jsonl existed. The prerequisite README rewrite is already committed at readme_revision and remains unchanged."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1578.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private /out/run/gates.jsonl record the exact verified candidate revision, command, exit code and log path; hf-build and hf-done must pass on the same candidate revision. This record is finalized before qualification because embedding the content-derived candidate hash into itself changes that hash. The final response copies the gate evidence; the runner retains the private evidence and publishes the candidate. No manual commit, push or spec edit is performed."
+missing_readme_facts = []
+wiring_requests = ["README.md: domain 9, owning task 22.31.470, owns the proposed topology and merge/build rewrite outside this task's paths; fulfilled by 38801bb427090ac96d47c86a026a63ec05e67315, with all required facts present and no additional README edit requested."]
+
+[finding.root-readme-topology]
+audit = "22.30.99"
+file = "README.md"
+line = 45
+class = "doc-drift"
+severity = "medium"
+owner_domain = 9
+expected = "The current network is one paxd BFT chain, chain id 125, with committed blocks final and root node RPC; integrators must use native EVM/precompile paths."
+resolution = "The owning task 22.31.470 rewrote README.md. The eight tests below prove this finding's expected source facts against that committed result, including removal of separate layerxd/checkpoint deployment guidance. No missing README fact was found during implementation review. Qualification requires the declared hf-done evidence for the built candidate."
+tests = ["test_single_paxd_network_embeds_kernel_and_commits_receipts", "test_public_rpc_range_and_chain_probe_use_https_root_urls", "test_transaction_receipt_path_matches_acceptance_wal_and_commit_consumer", "test_architecture_and_receipt_diagrams_preserve_the_same_network_flow", "test_live_features_match_registry_and_retired_executors_are_historical", "test_operator_commands_build_linked_paxd_and_start_that_binary", "test_maintained_architecture_source_and_cited_paths_are_current", "test_repair_record_maps_the_finding_to_all_proofs_and_private_evidence"]
+
+[format]
+policy = "No Python or KVX formatter is configured for these paths. After complete implementation, apply the repository .editorconfig UTF-8, LF, final-newline and trimmed-trailing-whitespace conventions to the two touched files."
+
+[gotcha.1]
+observed = "The older audit instruction requests pre-change verification while the explicit gate order forbids it."
+resolution = "Follow the explicit implementation-first order, run verification only through hf-done, and claim no baseline failures. GOTCHA.kvx and spec files are outside scope, so task notes are recorded here."
+
+[gotcha.2]
+observed = "The checked-out revision includes the prerequisite README rewrite beyond the prompt's base, and broad combined reads exceeded output limits."
+resolution = "Use actual Git status/history and bounded relevant source reads, preserve inherited runner changes, and retain exact qualification evidence in the private gate ledger."

@@ -1,0 +1,493 @@
+[reconcile.r9-58]
+revision = "d6c341e59603faf9a28756df9aff6d45927fe392"
+rows = 60
+
+[row.r9-58.1]
+interface = "interface.9.err-reason-mcp-native-submit-observation"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/write.rs"
+line = 545
+symbol = "mcp.native_submit_observation"
+evidence = "The unavailable refusal literal mcp.native_submit_observation is at line 545, one line after the registry location; it rejects a submit observation without submission_ref."
+
+[row.r9-58.2]
+interface = "interface.9.err-reason-mcp-native-intent-mismatch"
+verdict = "served"
+path = "services/agent/crates/layerx-mcp/src/tools/write.rs"
+line = 557
+symbol = "mcp.native_intent_mismatch"
+evidence = "The malformed refusal literal mcp.native_intent_mismatch is at line 557, one line after the registry location; verify_native_intent uses it for intent mismatches."
+
+[row.r9-58.3]
+interface = "interface.9.rs-proof-checkpoint-checkpoint"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 21
+symbol = "Checkpoint"
+evidence = "Checkpoint remains declared as pub struct Checkpoint { at line 21; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.4]
+interface = "interface.9.rs-proof-checkpoint-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 29
+symbol = "new"
+evidence = "Checkpoint::new remains declared as pub fn new(header_bytes: Vec<u8>, validity_proof: Vec<u8>) -> Self { at line 29; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.5]
+interface = "interface.9.rs-proof-checkpoint-header-bytes-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 38
+symbol = "header_bytes"
+evidence = "Checkpoint::header_bytes remains declared as pub fn header_bytes(&self) -> &[u8] { at line 38; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.6]
+interface = "interface.9.rs-proof-checkpoint-validity-proof-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 45
+symbol = "validity_proof"
+evidence = "Checkpoint::validity_proof remains declared as pub fn validity_proof(&self) -> &[u8] { at line 45; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.7]
+interface = "interface.9.rs-proof-checkpoint-attestation"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 52
+symbol = "Attestation"
+evidence = "Attestation remains declared as pub struct Attestation { at line 52; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.8]
+interface = "interface.9.rs-proof-attestation-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 76
+symbol = "new"
+evidence = "Attestation::new remains a pub const fn constructor returning Self with protocol, network, settlement, checkpoint, guarantor and signature arguments; its declaration starts at line 76 despite the retirement planned by task 9.27.4."
+
+[row.r9-58.9]
+interface = "interface.9.rs-proof-attestation-guarantor-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 117
+symbol = "guarantor_id"
+evidence = "Attestation::guarantor_id remains declared as pub const fn guarantor_id(&self) -> [u8; 32] { at line 117; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.10]
+interface = "interface.9.rs-proof-attestation-signature-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 122
+symbol = "signature"
+evidence = "Attestation::signature remains declared as pub const fn signature(&self) -> [u8; 64] { at line 122; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.11]
+interface = "interface.9.rs-proof-attestation-signer-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 127
+symbol = "signer"
+evidence = "Attestation::signer remains declared as pub const fn signer(&self) -> [u8; 20] { at line 127; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.12]
+interface = "interface.9.rs-proof-attestation-attested-at-ms-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 137
+symbol = "attested_at_ms"
+evidence = "Attestation::attested_at_ms remains declared as pub const fn attested_at_ms(&self) -> u64 { at line 137; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.13]
+interface = "interface.9.rs-proof-attestation-canonical-statement-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 143
+symbol = "canonical_statement"
+evidence = "Attestation::canonical_statement remains declared as pub fn canonical_statement(&self) -> [u8; ATTESTATION_BYTES] { at line 143; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.14]
+interface = "interface.9.rs-proof-checkpoint-guarantorkey"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 169
+symbol = "GuarantorKey"
+evidence = "GuarantorKey remains declared as pub struct GuarantorKey { at line 169; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.15]
+interface = "interface.9.rs-proof-checkpoint-settlementdomain"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 177
+symbol = "SettlementDomain"
+evidence = "SettlementDomain remains declared as pub struct SettlementDomain { at line 177; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.16]
+interface = "interface.9.rs-proof-settlementdomain-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 186
+symbol = "new"
+evidence = "SettlementDomain::new remains declared as pub const fn new(paxeer_chain_id: u64, settlement_contract: [u8; 20]) -> Self { at line 186; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.17]
+interface = "interface.9.rs-proof-settlementdomain-paxeer-chain-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 194
+symbol = "paxeer_chain_id"
+evidence = "SettlementDomain::paxeer_chain_id remains declared as pub const fn paxeer_chain_id(self) -> u64 { at line 194; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.18]
+interface = "interface.9.rs-proof-settlementdomain-settlement-contract-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 199
+symbol = "settlement_contract"
+evidence = "SettlementDomain::settlement_contract remains declared as pub const fn settlement_contract(self) -> [u8; 20] { at line 199; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.19]
+interface = "interface.9.rs-proof-guarantorkey-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 207
+symbol = "new"
+evidence = "GuarantorKey::new remains declared as pub const fn new(guarantor_id: [u8; 32], public_key: [u8; 33], bonded: bool) -> Self { at line 207; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.20]
+interface = "interface.9.rs-proof-guarantorkey-guarantor-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 216
+symbol = "guarantor_id"
+evidence = "GuarantorKey::guarantor_id remains declared as pub const fn guarantor_id(&self) -> [u8; 32] { at line 216; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.21]
+interface = "interface.9.rs-proof-guarantorkey-public-key-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 221
+symbol = "public_key"
+evidence = "GuarantorKey::public_key remains declared as pub const fn public_key(&self) -> [u8; 33] { at line 221; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.22]
+interface = "interface.9.rs-proof-checkpoint-certificate"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 233
+symbol = "Certificate"
+evidence = "Certificate remains declared as pub struct Certificate { at line 233; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.23]
+interface = "interface.9.rs-proof-certificate-new-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 243
+symbol = "new"
+evidence = "Certificate::new remains pub fn new(checkpoint: Checkpoint, attestations: Vec<Attestation>, threshold: usize, settlement_reference: Option<Vec<u8>>) -> Self at line 243; task 9.27.4 has not removed this constructor."
+
+[row.r9-58.24]
+interface = "interface.9.rs-proof-certificate-attestations-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 263
+symbol = "attestations"
+evidence = "Certificate::attestations remains declared as pub fn attestations(&self) -> &[Attestation] { at line 263; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.25]
+interface = "interface.9.rs-proof-certificate-threshold-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 268
+symbol = "threshold"
+evidence = "Certificate::threshold remains declared as pub const fn threshold(&self) -> usize { at line 268; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.26]
+interface = "interface.9.rs-proof-certificate-settlement-reference-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 273
+symbol = "settlement_reference"
+evidence = "Certificate::settlement_reference remains declared as pub fn settlement_reference(&self) -> Option<&[u8]> { at line 273; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.27]
+interface = "interface.9.rs-proof-checkpoint-thresholdreport"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 280
+symbol = "ThresholdReport"
+evidence = "ThresholdReport remains declared as pub struct ThresholdReport { at line 280; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.28]
+interface = "interface.9.rs-proof-thresholdreport-level-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 299
+symbol = "level"
+evidence = "ThresholdReport::level remains declared as pub const fn level(&self) -> layerx_types::verify::VerificationLevel { at line 299; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.29]
+interface = "interface.9.rs-proof-thresholdreport-evidence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 305
+symbol = "evidence"
+evidence = "ThresholdReport::evidence remains declared as pub const fn evidence(&self) -> &Evidence { at line 305; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.30]
+interface = "interface.9.rs-proof-thresholdreport-protocol-version-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 311
+symbol = "protocol_version"
+evidence = "ThresholdReport::protocol_version remains declared as pub const fn protocol_version(&self) -> u16 { at line 311; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.31]
+interface = "interface.9.rs-proof-thresholdreport-network-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 317
+symbol = "network_id"
+evidence = "ThresholdReport::network_id remains declared as pub const fn network_id(&self) -> u32 { at line 317; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.32]
+interface = "interface.9.rs-proof-thresholdreport-batch-number-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 323
+symbol = "batch_number"
+evidence = "ThresholdReport::batch_number remains declared as pub const fn batch_number(&self) -> u64 { at line 323; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.33]
+interface = "interface.9.rs-proof-thresholdreport-first-sequence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 329
+symbol = "first_sequence"
+evidence = "ThresholdReport::first_sequence remains declared as pub const fn first_sequence(&self) -> u64 { at line 329; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.34]
+interface = "interface.9.rs-proof-thresholdreport-last-sequence-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 335
+symbol = "last_sequence"
+evidence = "ThresholdReport::last_sequence remains declared as pub const fn last_sequence(&self) -> u64 { at line 335; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.35]
+interface = "interface.9.rs-proof-thresholdreport-data-availability-root-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 341
+symbol = "data_availability_root"
+evidence = "ThresholdReport::data_availability_root remains declared as pub const fn data_availability_root(&self) -> [u8; 32] { at line 341; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.36]
+interface = "interface.9.rs-proof-thresholdreport-record-roots-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 347
+symbol = "record_roots"
+evidence = "ThresholdReport::record_roots remains declared as pub const fn record_roots(&self) -> RootCommitments { at line 347; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.37]
+interface = "interface.9.rs-proof-thresholdreport-resulting-state-root-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 353
+symbol = "resulting_state_root"
+evidence = "ThresholdReport::resulting_state_root remains declared as pub const fn resulting_state_root(&self) -> [u8; 32] { at line 353; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.38]
+interface = "interface.9.rs-proof-checkpoint-checkpointerror"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 360
+symbol = "CheckpointError"
+evidence = "CheckpointError remains declared as pub enum CheckpointError { at line 360; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.39]
+interface = "interface.9.rs-proof-checkpoint-checkpoint-id"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 398
+symbol = "checkpoint_id"
+evidence = "checkpoint_id remains declared as pub fn checkpoint_id(checkpoint: &Checkpoint) -> Result<[u8; 32], CheckpointError> { at line 398; the retirement planned by task 9.27.4 has not removed this API."
+
+[row.r9-58.40]
+interface = "interface.9.rs-proof-checkpoint-verify-certificate"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 462
+symbol = "verify_certificate"
+evidence = "pub fn verify_certificate remains at line 462, taking certificate, bonded_set, registered_checkpoint_id, expected_settlement_domain and registered_settlement_reference and returning Result<ThresholdReport, CheckpointError>; planned task 9.27.4 retirement has not removed it."
+
+[row.r9-58.41]
+interface = "interface.9.rs-proof-checkpoint-verify-declared-certificate"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/checkpoint.rs"
+line = 572
+symbol = "verify_declared_certificate"
+evidence = "pub fn verify_declared_certificate remains at line 572, taking certificate, domain_name, registered_checkpoint_id and registered_settlement_reference and returning Result<ThresholdReport, CheckpointError>; planned task 9.27.4 retirement has not removed it."
+
+[row.r9-58.42]
+interface = "interface.9.rs-proof-evidence-evidence-j44"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/evidence.rs"
+line = 9
+symbol = "Evidence"
+evidence = "pub struct Evidence remains declared and now exposes pub const fn rung(&self) -> Rung at line 87 alongside level() -> VerificationLevel; checkpoint_id and settlement_reference fields remain."
+
+[row.r9-58.43]
+interface = "interface.9.rs-proof-evidence-level-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/evidence.rs"
+line = 82
+symbol = "level"
+evidence = "pub const fn level(&self) -> VerificationLevel retains its registered signature and delegates to achieved.level(); the planned rung API is a separate pub const fn rung(&self) -> Rung at line 87."
+
+[row.r9-58.44]
+interface = "interface.9.rs-proof-evidence-checkpoint-id-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/evidence.rs"
+line = 109
+symbol = "checkpoint_id"
+evidence = "pub const fn checkpoint_id(&self) -> Option<[u8; 32]> retains its registered signature at line 109 and returns the stored identifier; the removal planned by task 9.27.4 has not occurred here."
+
+[row.r9-58.45]
+interface = "interface.9.rs-proof-evidence-settlement-reference-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/evidence.rs"
+line = 117
+symbol = "settlement_reference"
+evidence = "pub fn settlement_reference(&self) -> Option<&[u8]> still borrows the matched registration reference using as_deref(); retirement planned by task 9.27.4 has not removed this method."
+
+[row.r9-58.46]
+interface = "interface.9.rs-proof-export-checkpointfact"
+verdict = "retired"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 60
+symbol = "CheckpointFact"
+evidence = "CheckpointFact is absent from export.rs; OfflineExport now contains only receipts, inclusions and derived_aggregates. Repository-wide identifier search excluding spec and docs found no remaining files mentioning CheckpointFact."
+remaining_refs = 0
+remaining = []
+
+[row.r9-58.47]
+interface = "interface.9.rs-proof-export-offlineexport"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 62
+symbol = "OfflineExport"
+evidence = "pub struct OfflineExport now has receipts, inclusions and derived_aggregates only; the checkpoints field described by override.J44.44 has been removed as planned by task 9.27.3."
+
+[row.r9-58.48]
+interface = "interface.9.rs-proof-export-verificationreport"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 69
+symbol = "VerificationReport"
+evidence = "pub struct VerificationReport has no verified_checkpoints field now; it retains verified_receipts, verified_inclusions, receipt_digests and achieved_levels: Vec<VerificationLevel>, matching the removal in override.J44.45."
+
+[row.r9-58.49]
+interface = "interface.9.rs-proof-export-verify"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 94
+symbol = "verify"
+evidence = "pub fn verify(export: &OfflineExport) -> Result<VerificationReport, ExportVerificationError> now takes only the export; the registered expected_settlement_domain: SettlementDomain argument and checkpoint verification are removed."
+
+[row.r9-58.50]
+interface = "interface.9.rs-proof-export-trustedcheckpointmembership"
+verdict = "retired"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 289
+symbol = "TrustedCheckpointMembership"
+evidence = "TrustedCheckpointMembership is absent from export.rs; IndependentOfflineTrust now owns a ModuleRegistry and SignedAuthorityHistory. Repository-wide identifier search excluding spec and docs found no remaining files mentioning TrustedCheckpointMembership."
+remaining_refs = 0
+remaining = []
+
+[row.r9-58.51]
+interface = "interface.9.rs-proof-trustedcheckpointmembership-from-declared-j70"
+verdict = "retired"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 331
+symbol = "from_declared"
+evidence = "TrustedCheckpointMembership::from_declared is absent from export.rs along with its enclosing type. Repository-wide identifier search excluding spec and docs found no remaining files mentioning from_declared; this constructor has not moved."
+remaining_refs = 0
+remaining = []
+
+[row.r9-58.52]
+interface = "interface.9.rs-proof-export-independentofflinetrust"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 173
+symbol = "IndependentOfflineTrust"
+evidence = "pub struct IndependentOfflineTrust now stores _registry: ModuleRegistry and authority: SignedAuthorityHistory; checkpoint membership and settlement domain described in override.J44.43 are gone, and new() accepts independently verified trust."
+
+[row.r9-58.53]
+interface = "interface.9.rs-proof-independentofflinetrust-from-declared-domain-j70"
+verdict = "retired"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 410
+symbol = "from_declared_domain"
+evidence = "IndependentOfflineTrust::from_declared_domain is absent from export.rs; IndependentOfflineTrust::new(registry, authority) now constructs verifier-owned trust. Repository-wide identifier search excluding spec and docs found no remaining files mentioning from_declared_domain."
+remaining_refs = 0
+remaining = []
+
+[row.r9-58.54]
+interface = "interface.9.rs-proof-export-completeverificationreport"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 232
+symbol = "CompleteVerificationReport"
+evidence = "pub struct CompleteVerificationReport now stores facts: Vec<FactVerification> and achieved: Rung; facts() exposes individual results and achieved() returns their minimum Rung, replacing the VerificationLevel report described in override.J44.30."
+
+[row.r9-58.55]
+interface = "interface.9.rs-proof-completeverificationreport-achieved-j70"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 246
+symbol = "achieved"
+evidence = "CompleteVerificationReport declares pub const fn achieved(&self) -> Rung at line 246; its registered VerificationLevel return type is replaced by Rung, and the value is the minimum achieved rung across requested facts."
+
+[row.r9-58.56]
+interface = "interface.9.rs-proof-export-completeexporterror"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 253
+symbol = "CompleteExportError"
+evidence = "pub enum CompleteExportError now has RungNotAchieved { fact: usize, achieved: Rung, requested: Rung }; SettlementAnchoringUnavailable and LevelNotAchieved described in override.J44.31 are removed."
+
+[row.r9-58.57]
+interface = "interface.9.rs-proof-export-verify-complete"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export.rs"
+line = 595
+symbol = "verify_complete"
+evidence = "pub fn verify_complete(artifact: &CompleteOfflineArtifact, trust: &IndependentOfflineTrust, requested: Rung) -> Result<CompleteVerificationReport, CompleteExportError> replaces the registered requested: VerificationLevel parameter with Rung."
+
+[row.r9-58.58]
+interface = "interface.9.rs-proof-export-codec-max-availability-chunks"
+verdict = "retired"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 22
+symbol = "MAX_AVAILABILITY_CHUNKS"
+evidence = "MAX_AVAILABILITY_CHUNKS is absent from export_codec.rs, whose current limits cover fact references, records, headers and proofs. Repository-wide identifier search excluding spec and docs found no remaining files mentioning MAX_AVAILABILITY_CHUNKS."
+remaining_refs = 0
+remaining = []
+
+[row.r9-58.59]
+interface = "interface.9.rs-proof-export-codec-factselector"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 29
+symbol = "FactSelector"
+evidence = "pub enum FactSelector now contains Receipt { activity_id } and State { activity_id, account_id }; the Activity and Checkpoint variants described in override.J44.48 are removed, and parse() accepts only receipt and state references."
+
+[row.r9-58.60]
+interface = "interface.9.rs-proof-export-codec-inclusionrecordkind"
+verdict = "served"
+path = "services/agent/crates/layerx-proof/src/export_codec.rs"
+line = 516
+symbol = "InclusionRecordKind"
+evidence = "pub enum InclusionRecordKind now contains only Receipt = 2 under repr(u8); the Activity kind described in override.J44.49 is removed from this record format."

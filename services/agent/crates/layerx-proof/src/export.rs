@@ -3,20 +3,16 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use layerx_types::payload::ModuleRegistry;
+use layerx_types::rung::Rung;
 use layerx_types::verify::VerificationLevel;
-use layerx_wire::activity::{decode_signed, encode_signed};
 use layerx_wire::batch_maintenance::decode_maintenance;
 use layerx_wire::handover::sequencer_id;
-use layerx_wire::hash::{activity_id as hash_activity_id, receipt_execution_batch_id};
+use layerx_wire::hash::receipt_execution_batch_id;
 use layerx_wire::receipt::decode as decode_receipt;
 
-use crate::availability::{reassemble, verify_chunk, AvailabilityFailure, Chunk, RootCommitments};
-use crate::checkpoint::{
-    verify_certificate, Certificate, CheckpointError, GuarantorKey, SettlementDomain,
-};
 use crate::export_codec::{
     check_fact_selectors, AccountStateVariant, CompleteOfflineArtifact, FactRefError, FactSelector,
-    InclusionRecord, InclusionRecordKind, ProofRecord, MAX_CHECKPOINT_GUARANTORS,
+    InclusionRecord, InclusionRecordKind, ProofRecord,
 };
 use crate::inclusion::{
     verify_activity, verify_receipt, verify_state, InclusionError, SequencerAuthorization,
@@ -24,7 +20,6 @@ use crate::inclusion::{
 };
 use crate::merkle::Proof;
 use crate::receipt::{verify_outcome, AuthorizedBatch, ReceiptCheck};
-use crate::settlement::DeclaredDomain;
 use crate::signed_authority::SignedAuthorityHistory;
 use crate::state::{
     verify_nested_account, verify_nested_account_maintenance, AccountProofError, NestedAccountProof,
@@ -57,17 +52,6 @@ pub struct InclusionFact {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct CheckpointFact {
-    pub statement: String,
-    pub certificate: Certificate,
-    pub bonded_set: Vec<GuarantorKey>,
-    pub registered_checkpoint_id: [u8; 32],
-    pub registered_settlement_reference: Option<Vec<u8>>,
-    pub availability_obtained: bool,
-    pub availability: Vec<(Chunk, Proof)>,
-}
-
-#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct DerivedAggregate {
     pub label: String,
     pub rendered_value: String,
@@ -78,7 +62,6 @@ pub struct DerivedAggregate {
 pub struct OfflineExport {
     pub receipts: Vec<ReceiptFact>,
     pub inclusions: Vec<InclusionFact>,
-    pub checkpoints: Vec<CheckpointFact>,
     pub derived_aggregates: Vec<DerivedAggregate>,
 }
 
@@ -86,7 +69,6 @@ pub struct OfflineExport {
 pub struct VerificationReport {
     pub verified_receipts: usize,
     pub verified_inclusions: usize,
-    pub verified_checkpoints: usize,
     pub receipt_digests: Vec<[u8; 32]>,
     pub achieved_levels: Vec<VerificationLevel>,
     pub derived_aggregates_are_protocol_facts: bool,
@@ -95,50 +77,23 @@ pub struct VerificationReport {
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum ExportVerificationError {
     EmptyStatement,
-    Receipt {
-        index: usize,
-        check: ReceiptCheck,
-    },
-    ReceiptDigest {
-        index: usize,
-    },
-    Inclusion {
-        index: usize,
-        error: InclusionError,
-    },
-    InclusionRoot {
-        index: usize,
-    },
-    CheckpointUnavailable {
-        index: usize,
-    },
-    Availability {
-        index: usize,
-        error: Box<AvailabilityFailure>,
-    },
-    Checkpoint {
-        index: usize,
-        error: CheckpointError,
-    },
-    UnknownAggregateContributor {
-        aggregate: usize,
-        digest: [u8; 32],
-    },
-    AggregateWithoutContributors {
-        aggregate: usize,
-    },
+    Receipt { index: usize, check: ReceiptCheck },
+    ReceiptDigest { index: usize },
+    Inclusion { index: usize, error: InclusionError },
+    InclusionRoot { index: usize },
+    UnknownAggregateContributor { aggregate: usize, digest: [u8; 32] },
+    AggregateWithoutContributors { aggregate: usize },
 }
 
 /// Re-runs every proof using only the export object and `layerx-proof`.
+/// Receipt and inclusion verification requires no settlement-domain argument.
+/// For per-fact [`Rung`] results and independent authority, use [`verify_complete`].
 ///
 /// # Errors
 ///
 /// Returns the first malformed statement, failed receipt, inclusion,
-/// checkpoint, or aggregate-consistency check.
-pub fn verify(
-    export: &OfflineExport,
-    expected_settlement_domain: SettlementDomain,
-) -> Result<VerificationReport, ExportVerificationError> {
+/// or aggregate-consistency check.
+pub fn verify(export: &OfflineExport) -> Result<VerificationReport, ExportVerificationError> {
     let mut receipt_digests = Vec::with_capacity(export.receipts.len());
     let mut achieved_levels = Vec::new();
     for (index, fact) in export.receipts.iter().enumerate() {
@@ -184,22 +139,6 @@ pub fn verify(
         }
         achieved_levels.push(evidence.level());
     }
-    for (index, fact) in export.checkpoints.iter().enumerate() {
-        require_statement(&fact.statement)?;
-        if !fact.availability_obtained {
-            return Err(ExportVerificationError::CheckpointUnavailable { index });
-        }
-        let report = verify_certificate(
-            &fact.certificate,
-            &fact.bonded_set,
-            &fact.registered_checkpoint_id,
-            expected_settlement_domain,
-            fact.registered_settlement_reference.as_deref(),
-        )
-        .map_err(|error| ExportVerificationError::Checkpoint { index, error })?;
-        verify_availability(fact, index)?;
-        achieved_levels.push(report.level());
-    }
     let known: BTreeSet<_> = receipt_digests.iter().copied().collect();
     for (aggregate, view) in export.derived_aggregates.iter().enumerate() {
         if view.contributing_receipt_digests.is_empty() {
@@ -217,63 +156,10 @@ pub fn verify(
     Ok(VerificationReport {
         verified_receipts: export.receipts.len(),
         verified_inclusions: export.inclusions.len(),
-        verified_checkpoints: export.checkpoints.len(),
         receipt_digests,
         achieved_levels,
         derived_aggregates_are_protocol_facts: false,
     })
-}
-
-fn verify_availability(fact: &CheckpointFact, index: usize) -> Result<(), ExportVerificationError> {
-    verify_certified_availability(&fact.certificate, &fact.availability).map_err(
-        |error| match error {
-            CertifiedAvailabilityError::Incomplete => {
-                ExportVerificationError::CheckpointUnavailable { index }
-            }
-            CertifiedAvailabilityError::Failure(error) => {
-                ExportVerificationError::Availability { index, error }
-            }
-        },
-    )
-}
-
-enum CertifiedAvailabilityError {
-    Incomplete,
-    Failure(Box<AvailabilityFailure>),
-}
-
-fn verify_certified_availability(
-    certificate: &Certificate,
-    availability: &[(Chunk, Proof)],
-) -> Result<(), CertifiedAvailabilityError> {
-    let header = layerx_wire::receipt::decode_batch_header(certificate.checkpoint().header_bytes())
-        .map_err(|_| CertifiedAvailabilityError::Incomplete)?;
-    if availability.is_empty() || availability.len() > 4096 {
-        return Err(CertifiedAvailabilityError::Incomplete);
-    }
-    let chunks = availability
-        .iter()
-        .map(|(chunk, proof)| {
-            verify_chunk(
-                chunk.clone(),
-                proof,
-                header.batch_number(),
-                &header.data_availability_root(),
-            )
-            .map_err(|error| CertifiedAvailabilityError::Failure(Box::new(error)))
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-    reassemble(
-        &chunks,
-        RootCommitments {
-            activity: header.activity_merkle_root(),
-            receipt: header.receipt_merkle_root(),
-            event: header.event_merkle_root(),
-            oracle: header.oracle_root(),
-        },
-    )
-    .map_err(|error| CertifiedAvailabilityError::Failure(Box::new(error)))?;
-    Ok(())
 }
 
 fn require_statement(statement: &str) -> Result<(), ExportVerificationError> {
@@ -284,69 +170,11 @@ fn require_statement(statement: &str) -> Result<(), ExportVerificationError> {
     }
 }
 
-/// One checkpoint-relative guarantor membership trusted independently of any export.
-#[derive(Clone, Debug, Eq, PartialEq)]
-pub struct TrustedCheckpointMembership {
-    set_version: u64,
-    keys: Vec<GuarantorKey>,
-    threshold: usize,
-}
-
-impl TrustedCheckpointMembership {
-    /// Pins one exact bonded set version, its ordered keys and minimum threshold.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a zero version, an empty, oversized or duplicated key set, and a
-    /// threshold outside `1..=keys`.
-    pub fn new(
-        set_version: u64,
-        keys: Vec<GuarantorKey>,
-        threshold: usize,
-    ) -> Result<Self, OfflineTrustError> {
-        let distinct: BTreeSet<_> = keys.iter().map(GuarantorKey::guarantor_id).collect();
-        if set_version == 0
-            || keys.is_empty()
-            || keys.len() > MAX_CHECKPOINT_GUARANTORS
-            || distinct.len() != keys.len()
-        {
-            return Err(OfflineTrustError::Membership);
-        }
-        if threshold == 0 || threshold > keys.len() {
-            return Err(OfflineTrustError::Threshold);
-        }
-        Ok(Self {
-            set_version,
-            keys,
-            threshold,
-        })
-    }
-
-    /// Pins the declared guarantor set and threshold of one explicitly selected
-    /// declared domain as the membership of `set_version`.
-    ///
-    /// # Errors
-    ///
-    /// Returns what [`TrustedCheckpointMembership::new`] returns.
-    pub fn from_declared(
-        domain: &DeclaredDomain,
-        set_version: u64,
-    ) -> Result<Self, OfflineTrustError> {
-        Self::new(
-            set_version,
-            domain.guarantor_set().to_vec(),
-            domain.certificate_threshold(),
-        )
-    }
-}
-
 /// Verifier-owned trust selected independently of the artifact under test.
 #[derive(Clone, Debug)]
 pub struct IndependentOfflineTrust {
-    registry: ModuleRegistry,
+    _registry: ModuleRegistry,
     authority: SignedAuthorityHistory,
-    settlement: SettlementDomain,
-    memberships: Vec<TrustedCheckpointMembership>,
 }
 
 /// Refusal to construct an [`IndependentOfflineTrust`].
@@ -354,75 +182,26 @@ pub struct IndependentOfflineTrust {
 pub enum OfflineTrustError {
     /// The authority history has no verified signed interval.
     NoAuthority,
-    /// The settlement chain or contract is zero.
-    SettlementDomain,
-    /// A membership is empty, oversized or has duplicate guarantors, or none was supplied.
-    Membership,
-    /// A membership threshold lies outside `1..=keys`.
-    Threshold,
-    /// Two memberships pin the same set version.
-    DuplicateSetVersion,
-    /// The declared domain commits to another network than the authority history.
-    NetworkId,
 }
 
 impl IndependentOfflineTrust {
-    /// Combines independently obtained module registry, genesis-anchored signed
-    /// authority history, settlement domain and checkpoint memberships.
+    /// Combines an independently obtained module registry and genesis-anchored
+    /// signed authority history.
     ///
     /// # Errors
     ///
-    /// Refuses an unverified authority history, a zero settlement domain, no
-    /// membership, and duplicate membership versions.
+    /// Refuses an unverified authority history.
     pub fn new(
         registry: ModuleRegistry,
         authority: SignedAuthorityHistory,
-        settlement: SettlementDomain,
-        memberships: Vec<TrustedCheckpointMembership>,
     ) -> Result<Self, OfflineTrustError> {
         if authority.intervals().is_empty() || authority.verified_head().is_none() {
             return Err(OfflineTrustError::NoAuthority);
         }
-        if settlement.paxeer_chain_id() == 0 || settlement.settlement_contract() == [0; 20] {
-            return Err(OfflineTrustError::SettlementDomain);
-        }
-        if memberships.is_empty() {
-            return Err(OfflineTrustError::Membership);
-        }
-        let versions: BTreeSet<_> = memberships.iter().map(|entry| entry.set_version).collect();
-        if versions.len() != memberships.len() {
-            return Err(OfflineTrustError::DuplicateSetVersion);
-        }
         Ok(Self {
-            registry,
+            _registry: registry,
             authority,
-            settlement,
-            memberships,
         })
-    }
-
-    /// Uses one explicitly selected declared domain for settlement and membership.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a domain whose network differs from the authority history and
-    /// everything [`IndependentOfflineTrust::new`] refuses.
-    pub fn from_declared_domain(
-        registry: ModuleRegistry,
-        authority: SignedAuthorityHistory,
-        domain: &DeclaredDomain,
-        set_version: u64,
-    ) -> Result<Self, OfflineTrustError> {
-        if domain.network_id() != authority.network_id() {
-            return Err(OfflineTrustError::NetworkId);
-        }
-        let membership = TrustedCheckpointMembership::from_declared(domain, set_version)?;
-        Self::new(registry, authority, domain.settlement(), vec![membership])
-    }
-
-    #[must_use]
-    pub const fn settlement(&self) -> SettlementDomain {
-        self.settlement
     }
 
     #[must_use]
@@ -431,11 +210,11 @@ impl IndependentOfflineTrust {
     }
 }
 
-/// The level one requested fact achieved.
+/// The rung one requested fact achieved.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct FactVerification {
     fact: FactSelector,
-    achieved: VerificationLevel,
+    achieved: Rung,
 }
 
 impl FactVerification {
@@ -445,16 +224,16 @@ impl FactVerification {
     }
 
     #[must_use]
-    pub const fn achieved(&self) -> VerificationLevel {
+    pub const fn achieved(&self) -> Rung {
         self.achieved
     }
 }
 
-/// Successful complete verification: per-fact levels and their minimum.
+/// Successful complete verification: per-fact rungs and their minimum.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct CompleteVerificationReport {
     facts: Vec<FactVerification>,
-    achieved: VerificationLevel,
+    achieved: Rung,
 }
 
 impl CompleteVerificationReport {
@@ -464,9 +243,9 @@ impl CompleteVerificationReport {
         &self.facts
     }
 
-    /// Minimum achieved level over the requested facts.
+    /// Minimum achieved rung over the requested facts.
     #[must_use]
-    pub const fn achieved(&self) -> VerificationLevel {
+    pub const fn achieved(&self) -> Rung {
         self.achieved
     }
 }
@@ -474,9 +253,6 @@ impl CompleteVerificationReport {
 /// Exact refusal of a complete export; `fact` is the request position.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum CompleteExportError {
-    /// Settlement anchoring was requested; no authenticated offline Paxeer
-    /// finality proof exists, so it can never be established offline.
-    SettlementAnchoringUnavailable,
     Facts(FactRefError),
     DuplicateRecord,
     OrphanRecord,
@@ -498,9 +274,6 @@ pub enum CompleteExportError {
     ReceiptBinding {
         fact: usize,
     },
-    Activity {
-        fact: usize,
-    },
     AccountState {
         fact: usize,
         error: AccountProofError,
@@ -508,27 +281,10 @@ pub enum CompleteExportError {
     MaintenanceLink {
         fact: usize,
     },
-    Checkpoint {
+    RungNotAchieved {
         fact: usize,
-        error: CheckpointError,
-    },
-    CheckpointBinding {
-        fact: usize,
-    },
-    Membership {
-        fact: usize,
-    },
-    AvailabilityIncomplete {
-        fact: usize,
-    },
-    Availability {
-        fact: usize,
-        error: Box<AvailabilityFailure>,
-    },
-    LevelNotAchieved {
-        fact: usize,
-        achieved: VerificationLevel,
-        requested: VerificationLevel,
+        achieved: Rung,
+        requested: Rung,
     },
 }
 
@@ -551,11 +307,9 @@ struct CompleteVerifier<'a> {
     receipts: BTreeMap<FactSelector, usize>,
     inclusions: BTreeMap<(InclusionRecordKind, FactSelector), usize>,
     states: BTreeMap<FactSelector, usize>,
-    certificates: BTreeMap<FactSelector, usize>,
     headers: BTreeMap<[u8; 32], usize>,
     used_receipts: BTreeSet<usize>,
     used_proofs: BTreeSet<usize>,
-    used_certificates: BTreeSet<usize>,
     used_headers: BTreeSet<usize>,
 }
 
@@ -582,11 +336,9 @@ impl<'a> CompleteVerifier<'a> {
             receipts: BTreeMap::new(),
             inclusions: BTreeMap::new(),
             states: BTreeMap::new(),
-            certificates: BTreeMap::new(),
             headers: BTreeMap::new(),
             used_receipts: BTreeSet::new(),
             used_proofs: BTreeSet::new(),
-            used_certificates: BTreeSet::new(),
             used_headers: BTreeSet::new(),
         };
         for (index, record) in artifact.receipts.iter().enumerate() {
@@ -605,9 +357,6 @@ impl<'a> CompleteVerifier<'a> {
                     unique(&mut verifier.states, record.reference, index)?;
                 }
             }
-        }
-        for (index, record) in artifact.certificates.iter().enumerate() {
-            unique(&mut verifier.certificates, record.reference, index)?;
         }
         for (index, record) in artifact.headers.iter().enumerate() {
             let digest = record
@@ -752,43 +501,12 @@ impl<'a> CompleteVerifier<'a> {
         })
     }
 
-    fn activity(
-        &mut self,
-        activity_id: [u8; 32],
-        fact: usize,
-    ) -> Result<(VerificationLevel, Vec<u8>), CompleteExportError> {
-        let inclusion = self.inclusion(
-            InclusionRecordKind::Activity,
-            FactSelector::Activity { activity_id },
-            fact,
-        )?;
-        let header = self.header(inclusion.header_digest, fact)?;
-        let activity = decode_signed(&inclusion.canonical_leaf, &self.trust.registry)
-            .map_err(|_| CompleteExportError::Activity { fact })?;
-        if encode_signed(&activity).map_err(|_| CompleteExportError::Activity { fact })?
-            != inclusion.canonical_leaf
-            || hash_activity_id(&activity).map_err(|_| CompleteExportError::Activity { fact })?
-                != activity_id
-        {
-            return Err(CompleteExportError::Activity { fact });
-        }
-        let evidence = verify_activity(
-            &inclusion.canonical_leaf,
-            &inclusion.proof,
-            header.verified.canonical_bytes(),
-            &header.signature,
-            &header.authorization,
-        )
-        .map_err(|error| CompleteExportError::Inclusion { fact, error })?;
-        Ok((evidence.level(), header.verified.canonical_bytes().to_vec()))
-    }
-
     fn state(
         &mut self,
         activity_id: [u8; 32],
         account_id: [u8; 32],
         fact: usize,
-    ) -> Result<(VerificationLevel, Vec<u8>), CompleteExportError> {
+    ) -> Result<VerificationLevel, CompleteExportError> {
         let reference = FactSelector::State {
             activity_id,
             account_id,
@@ -863,136 +581,56 @@ impl<'a> CompleteVerifier<'a> {
                 }
             }
         }
-        Ok((
-            VerificationLevel::STATE_PROVEN,
-            header.verified.canonical_bytes().to_vec(),
-        ))
-    }
-
-    fn checkpoint(
-        &mut self,
-        activity_id: [u8; 32],
-        batch_number: u64,
-        fact: usize,
-    ) -> Result<(VerificationLevel, Vec<u8>), CompleteExportError> {
-        let reference = FactSelector::Checkpoint {
-            activity_id,
-            batch_number,
-        };
-        let index = *self
-            .certificates
-            .get(&reference)
-            .ok_or(CompleteExportError::MissingRecord { fact })?;
-        self.used_certificates.insert(index);
-        let record = &self.artifact.certificates[index];
-        let link = self.receipt_link(activity_id, fact)?;
-        let certified = link.header.verified.canonical_bytes();
-        if link.header.verified.header().batch_number() != batch_number
-            || record.certificate.checkpoint().header_bytes() != certified
-        {
-            return Err(CompleteExportError::CheckpointBinding { fact });
-        }
-        let membership = self
-            .trust
-            .memberships
-            .iter()
-            .find(|membership| membership.set_version == record.set_version)
-            .ok_or(CompleteExportError::Membership { fact })?;
-        if membership.keys != record.bonded_set
-            || record.certificate.threshold() < membership.threshold
-        {
-            return Err(CompleteExportError::Membership { fact });
-        }
-        let report = verify_certificate(
-            &record.certificate,
-            &membership.keys,
-            &record.checkpoint_id,
-            self.trust.settlement,
-            record.registered_settlement_reference.as_deref(),
-        )
-        .map_err(|error| CompleteExportError::Checkpoint { fact, error })?;
-        verify_certified_availability(&record.certificate, &record.availability).map_err(
-            |error| match error {
-                CertifiedAvailabilityError::Incomplete => {
-                    CompleteExportError::AvailabilityIncomplete { fact }
-                }
-                CertifiedAvailabilityError::Failure(error) => {
-                    CompleteExportError::Availability { fact, error }
-                }
-            },
-        )?;
-        Ok((report.level(), certified.to_vec()))
+        Ok(VerificationLevel::STATE_PROVEN)
     }
 }
 
 /// Verifies every requested fact of a complete artifact against independent trust.
 ///
-/// Each fact's level comes only from its own bound evidence; a receipt,
-/// activity or state fact reaches checkpoint finality only when a requested
-/// checkpoint fact certifies its exact signed header. The aggregate is the
-/// minimum over the requested facts. Every record must be consumed.
+/// Each fact's rung comes only from its own bound receipt or state evidence.
+/// The aggregate is the minimum over the requested facts. Every record must be consumed.
+/// The retained receipt and state paths establish at most [`Rung::Receipted`];
+/// requesting [`Rung::Committed`] therefore returns `RungNotAchieved`.
 ///
 /// # Errors
 ///
-/// Refuses settlement anchoring, any missing, duplicate, orphan or failing
-/// record, and any fact whose achieved level is below `requested`.
+/// Refuses any missing, duplicate, orphan or failing record, and any fact
+/// whose achieved rung is below `requested`.
 pub fn verify_complete(
     artifact: &CompleteOfflineArtifact,
     trust: &IndependentOfflineTrust,
-    requested: VerificationLevel,
+    requested: Rung,
 ) -> Result<CompleteVerificationReport, CompleteExportError> {
-    if requested == VerificationLevel::SETTLEMENT_ANCHORED {
-        return Err(CompleteExportError::SettlementAnchoringUnavailable);
-    }
     check_fact_selectors(&artifact.facts).map_err(CompleteExportError::Facts)?;
     let mut verifier = CompleteVerifier::index(artifact, trust)?;
-    let mut outcomes: Vec<Option<(VerificationLevel, Vec<u8>)>> = vec![None; artifact.facts.len()];
-    let mut certified = BTreeSet::new();
-    for (fact, selector) in artifact.facts.iter().enumerate() {
-        if let FactSelector::Checkpoint {
-            activity_id,
-            batch_number,
-        } = *selector
-        {
-            let outcome = verifier.checkpoint(activity_id, batch_number, fact)?;
-            certified.insert(outcome.1.clone());
-            outcomes[fact] = Some(outcome);
-        }
-    }
+    let mut outcomes = Vec::with_capacity(artifact.facts.len());
     for (fact, selector) in artifact.facts.iter().enumerate() {
         let outcome = match *selector {
             FactSelector::Receipt { activity_id } => {
-                let link = verifier.receipt_link(activity_id, fact)?;
-                (
-                    VerificationLevel::BATCH_INCLUDED,
-                    link.header.verified.canonical_bytes().to_vec(),
-                )
+                verifier.receipt_link(activity_id, fact)?;
+                VerificationLevel::BATCH_INCLUDED
             }
-            FactSelector::Activity { activity_id } => verifier.activity(activity_id, fact)?,
             FactSelector::State {
                 activity_id,
                 account_id,
             } => verifier.state(activity_id, account_id, fact)?,
-            FactSelector::Checkpoint { .. } => continue,
         };
-        outcomes[fact] = Some(outcome);
+        outcomes.push(outcome);
     }
     if verifier.used_receipts.len() != artifact.receipts.len()
         || verifier.used_proofs.len() != artifact.proofs.len()
-        || verifier.used_certificates.len() != artifact.certificates.len()
         || verifier.used_headers.len() != artifact.headers.len()
     {
         return Err(CompleteExportError::OrphanRecord);
     }
     let mut facts = Vec::with_capacity(artifact.facts.len());
-    let mut minimum = VerificationLevel::SETTLEMENT_ANCHORED;
+    let mut minimum = Rung::Committed;
     for (fact, (selector, outcome)) in artifact.facts.iter().zip(outcomes).enumerate() {
-        let (mut achieved, header) = outcome.ok_or(CompleteExportError::MissingRecord { fact })?;
-        if achieved < VerificationLevel::CHECKPOINT_FINALISED && certified.contains(&header) {
-            achieved = VerificationLevel::CHECKPOINT_FINALISED;
-        }
+        let achieved = outcome
+            .rung()
+            .expect("complete verification cannot produce settlement anchoring");
         if achieved < requested {
-            return Err(CompleteExportError::LevelNotAchieved {
+            return Err(CompleteExportError::RungNotAchieved {
                 fact,
                 achieved,
                 requested,

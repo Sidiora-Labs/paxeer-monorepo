@@ -1,0 +1,50 @@
+[manifest]
+task = "22.32.98"
+domain = 11
+owner_role = "fm-interop"
+pages = 6
+
+[page.1]
+path = "docs/site/docs/concepts/receipts.md"
+status = "misleading"
+bytes = 2681
+source_1 = "record 22.30.112 [doc.06] (stale): Read the complete page. Drift at line 23: The receipt concept page presents executed, batched and checkpoint-finalised progression as the current finality model and line 46 directs portable verification through AuthorizedBatch."
+source_2 = "record 22.30.126 [doc.9] (stale): Read in full; lines 23-33 retain checkpoint/guarantor finality and the old evidence ladder."
+source_3 = "record 22.30.56 [doc.7] (stale): Read in full. Covering checkpoints, guarantor certificates and settlement finality describe the former separate network; see receipts-retired-finality."
+source_4 = "record 22.30.84 [doc.05] (stale): Read the whole lifecycle/evidence page. Lines 23-26 require separate checkpoint acceptance and guarantor certification; see receipts-checkpoint-finality."
+source_5 = "record 22.30.98 [doc.008] (misleading): Lines 7-10 and 23-33 retain activity ingress, guarantor certificates, settlement references and old finality labels. Replace with transaction identity, pinned receipt keys and submitted/receipted/committed."
+
+[page.2]
+path = "docs/site/docs/interop/ap2.md"
+status = "stale"
+bytes = 1944
+source_1 = "record 22.30.110 [doc.001] (stale): Lines 29-35 omit already-mounted AP2 routes and contradict the wiki inventory; library conformance-suite description is accurate."
+
+[page.3]
+path = "docs/site/docs/interop/index.md"
+status = "stale"
+bytes = 2040
+source_1 = "record 22.30.111 [doc.1] (stale): Lines 3-5 and 14 retain old balance-writer and batch/checkpoint framing; rewrite for the native ledger and committed network."
+source_2 = "record 22.30.112 [doc.01] (stale): Read the complete page. Drift at line 3: The overview separates LayerX execution and its balance writer from Paxeer custody and describes batch-oriented boundaries as the current network."
+
+[page.4]
+path = "docs/site/docs/interop/mirrors.md"
+status = "misleading"
+bytes = 1626
+source_1 = "record 22.30.111 [doc.5] (misleading): Line 8 promises state verification not exposed by the CLI; lines 29-31 retain checkpoint freshness instead of committed-block semantics."
+
+[page.5]
+path = "docs/site/docs/interop/portable-receipts.md"
+status = "misleading"
+bytes = 20794
+source_1 = "record 22.30.112 [doc.08] (misleading): Read the complete page. Drift at line 3: Most of the portable receipt guide specifies v1 base64url fields and AuthorizedBatch verification even though current code exports v2 hex fields, receipt-key windows and receipted verification. Its old coverage narrative also omits the real current independent Python verification path."
+source_2 = "record 22.30.156 [doc.11] (stale): Lines 23-42 and 84-103 depend on historical AuthorizedBatch and deleted layerx-wire. The sequencer-signed limitation is sound but current portable evidence migration guidance is missing."
+source_3 = "record 22.30.73 [doc.09] (stale): Lines 3-57 specify v1, sequencer-signed, base64url and AuthorizedBatch; current receipt.rs exports v2, receipted, 0x hex/quantities and independently pinned receipt keys."
+
+[page.6]
+path = "docs/site/docs/interop/ramps.md"
+status = "stale"
+bytes = 2796
+source_1 = "record 22.30.112 [doc.09] (stale): Read the complete page. Drift at line 9: The ramp guide describes separate LayerX balances and Paxeer custody and historical beta platform state as the current deployment boundary. The useful distinction between verified provider evidence and receipt-backed execution does not require that split."
+source_2 = "record 22.30.135 [doc.005] (stale): Line 9 presents Paxeer as a separate LayerX custody and guaranteed-withdrawal boundary. Keep the external payout/reversal distinctions, but describe ordinary accounts and committed receipts on the merged network."
+source_3 = "record 22.30.88 [doc.008] (stale): Read in full. Lines 15-18 describe retired activity-based ramp payments, and 49-52 describe already implemented atomic callback behavior as future repair; external-custody separation remains appropriate."

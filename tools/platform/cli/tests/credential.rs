@@ -30,6 +30,9 @@ fn expected_public_key() -> String {
 
 #[test]
 fn imported_seed_is_never_written_to_configuration() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let output = cli.run_with_stdin(&["--json", "key", "import", "alpha"], SEED_HEX);
     assert!(
@@ -80,6 +83,9 @@ fn imported_seed_is_never_written_to_configuration() {
 #[cfg(unix)]
 #[test]
 fn configuration_file_is_owner_only() {
+    if !common::credential_environment() {
+        return;
+    }
     use std::os::unix::fs::PermissionsExt as _;
 
     let cli = Cli::new();
@@ -99,6 +105,9 @@ fn configuration_file_is_owner_only() {
 
 #[test]
 fn created_key_reports_its_secret_storage_and_hides_the_secret() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     let created = cli.run(&["--json", "key", "create", "alpha"]);
     assert!(created.status.success());
@@ -121,6 +130,9 @@ fn created_key_reports_its_secret_storage_and_hides_the_secret() {
 
 #[test]
 fn api_token_is_never_written_to_configuration() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     // Materialise a configuration file first so the assertion inspects a real file.
     assert!(cli
@@ -153,6 +165,9 @@ fn api_token_is_never_written_to_configuration() {
 
 #[test]
 fn duplicate_key_names_are_refused_with_a_machine_readable_error() {
+    if !common::credential_environment() {
+        return;
+    }
     let cli = Cli::new();
     assert!(cli
         .run(&["--json", "key", "create", "alpha"])
@@ -167,4 +182,179 @@ fn duplicate_key_names_are_refused_with_a_machine_readable_error() {
         value.pointer("/error/code").and_then(Value::as_str),
         Some("command_failed")
     );
+}
+
+#[test]
+fn missing_dbus_prints_the_named_skip_reason() {
+    let directory = tempfile::tempdir().expect("empty executable search directory");
+    for test in [
+        "imported_seed_is_never_written_to_configuration",
+        #[cfg(unix)]
+        "configuration_file_is_owner_only",
+        "created_key_reports_its_secret_storage_and_hides_the_secret",
+        "api_token_is_never_written_to_configuration",
+        "duplicate_key_names_are_refused_with_a_machine_readable_error",
+    ] {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", test, "--nocapture"])
+            .env("PATH", directory.path())
+            .env_remove("LAYERX_CLI_TESTS_REQUIRE_DBUS")
+            .output()
+            .expect("credential test subprocess starts");
+        assert!(output.status.success(), "{test}: {output:?}");
+        assert!(
+            String::from_utf8_lossy(&output.stderr)
+                .contains("skipped: dbus-daemon is not installed"),
+            "{test}: {output:?}"
+        );
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 passed"));
+    }
+}
+
+#[test]
+fn required_dbus_preserves_the_missing_daemon_panic() {
+    let directory = tempfile::tempdir().expect("empty executable search directory");
+    for required in ["", "1"] {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "imported_seed_is_never_written_to_configuration",
+                "--nocapture",
+            ])
+            .env("PATH", directory.path())
+            .env("LAYERX_CLI_TESTS_REQUIRE_DBUS", required)
+            .output()
+            .expect("credential test subprocess starts");
+        assert_eq!(output.status.code(), Some(101), "{output:?}");
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(
+            stderr.contains("dbus-daemon must be installed for real credential tests"),
+            "{stderr}"
+        );
+        assert!(!stderr.contains("skipped: dbus-daemon is not installed"));
+        assert!(String::from_utf8_lossy(&output.stdout).contains("1 failed"));
+    }
+}
+
+#[path = "common/credential_environment.rs"]
+mod profile_credentials;
+
+fn scratch(label: &str) -> std::path::PathBuf {
+    let mut suffix = [0; 16];
+    getrandom::fill(&mut suffix).expect("isolated credential profile entropy");
+    std::env::temp_dir().join(format!("layerx-{label}-{}", hex(&suffix)))
+}
+
+struct ProfileEnvironment(Vec<(&'static str, Option<std::ffi::OsString>)>);
+impl Drop for ProfileEnvironment {
+    fn drop(&mut self) {
+        for (name, value) in &self.0 {
+            match value {
+                Some(value) => std::env::set_var(name, value),
+                None => std::env::remove_var(name),
+            }
+        }
+    }
+}
+
+#[test]
+fn same_alias_profiles_preserve_os_seeds_and_failed_publication() {
+    use layerx_platform_cli::{config::Configuration, credential};
+    let service = profile_credentials::CredentialEnvironment::new();
+    let _restore = ProfileEnvironment(
+        [
+            "DBUS_SESSION_BUS_ADDRESS",
+            "LAYERX_CONFIG",
+            "LAYERX_CREDENTIAL_STORE",
+        ]
+        .into_iter()
+        .map(|name| (name, std::env::var_os(name)))
+        .collect(),
+    );
+    let probe = service.command("dbus-send");
+    let address = probe
+        .get_envs()
+        .find(|(name, _)| *name == "DBUS_SESSION_BUS_ADDRESS")
+        .and_then(|(_, value)| value)
+        .expect("owned bus address")
+        .to_owned();
+    std::env::set_var("DBUS_SESSION_BUS_ADDRESS", address);
+    std::env::set_var("LAYERX_CREDENTIAL_STORE", "os");
+    assert!(keyring::Entry::store_status().is_ok());
+    let fixture = keyring_core::Entry::new("dev.layerx.cli", "key:same").expect("fixture entry");
+    fixture
+        .set_password(&"22".repeat(32))
+        .expect("fixture value");
+    let a = service.root().join("profile-a.json");
+    let b = service.root().join("profile-b.json");
+    std::env::set_var("LAYERX_CONFIG", &a);
+    let mut ca = Configuration::default();
+    let ma = credential::create_key(&mut ca, "same", None).expect("first profile");
+    let seed_a = credential::key_seed("same").expect("first OS seed");
+    std::env::set_var("LAYERX_CONFIG", &b);
+    let mut cb = Configuration::default();
+    let mb = credential::create_key(&mut cb, "same", None).expect("second profile");
+    let seed_b = credential::key_seed("same").expect("second OS seed");
+    assert_eq!(
+        credential::store_label(),
+        "operating-system-credential-store"
+    );
+    assert_ne!(ma.public_key, mb.public_key);
+    assert_ne!(*seed_a, *seed_b);
+    assert!(credential::create_key(&mut Configuration::default(), "same", None).is_err());
+    assert_eq!(
+        *credential::key_seed("same").expect("unchanged orphan"),
+        *seed_b
+    );
+    let failed = service.root().join("metadata-save-fails.json");
+    std::fs::create_dir(&failed).expect("make publication fail");
+    std::env::set_var("LAYERX_CONFIG", &failed);
+    let mut bad = Configuration::default();
+    assert!(credential::create_key(&mut bad, "same", None).is_err());
+    assert!(bad.keys.is_empty());
+    let rolled_back = keyring_core::Entry::new(
+        "dev.layerx.cli",
+        &credential::key_entry_identity(&failed, "same").expect("failed profile identity"),
+    )
+    .expect("failed profile entry");
+    assert!(matches!(
+        rolled_back.get_password(),
+        Err(keyring_core::Error::NoEntry)
+    ));
+    for (path, metadata, seed) in [(&a, &ma, &seed_a), (&b, &mb, &seed_b)] {
+        std::env::set_var("LAYERX_CONFIG", path);
+        assert_eq!(
+            Configuration::load().expect("reopen profile").keys["same"].public_key,
+            metadata.public_key
+        );
+        assert_eq!(
+            *credential::key_seed("same").expect("preserved OS seed"),
+            **seed
+        );
+    }
+    std::env::set_var("LAYERX_CONFIG", &a);
+    credential::delete_key(&mut ca, "same").expect("delete first profile");
+    assert!(credential::key_seed("same").is_err());
+    std::env::set_var("LAYERX_CONFIG", &b);
+    assert_eq!(
+        Configuration::load()
+            .expect("second profile survives deletion")
+            .keys["same"]
+            .public_key,
+        mb.public_key
+    );
+    assert_eq!(
+        *credential::key_seed("same").expect("second seed survives deletion"),
+        *seed_b
+    );
+    assert_eq!(
+        fixture.get_password().expect("legacy fixture survives"),
+        "22".repeat(32)
+    );
+    credential::delete_key(&mut cb, "same").expect("delete second profile");
+    assert_eq!(
+        fixture.get_password().expect("fixture unchanged"),
+        "22".repeat(32)
+    );
+    fixture.delete_credential().expect("remove fixture");
 }

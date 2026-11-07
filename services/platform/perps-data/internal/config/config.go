@@ -5,18 +5,25 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"os"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/ratelimit"
 )
 
 // Service names one perps data binary.
 type Service string
+
+// Prefix is the standard network prefix used by the trusted proxy contract.
+type Prefix = netip.Prefix
 
 const (
 	Indexer  Service = "indexer"
@@ -28,28 +35,30 @@ const (
 )
 
 const (
-	envChainID       = "PERPS_CHAIN_ID"
-	envRPCURLs       = "PERPS_RPC_URLS"
-	envCometURLs     = "PERPS_COMET_URLS"
-	envDatabaseURL   = "DATABASE_URL"
-	envNATSURL       = "NATS_URL"
-	envPort          = "PORT"
-	envAuthSecret    = "PERPS_AUTH_SECRET"
-	envExplorerTx    = "PERPS_EXPLORER_TX_BASE"
-	envGatewayURL    = "PERPS_GATEWAY_URL"
-	envStartHeight   = "PERPS_START_HEIGHT"
-	minAuthSecretLen = 32
-	redacted         = "redacted"
+	envChainID        = "PERPS_CHAIN_ID"
+	envRPCURLs        = "PERPS_RPC_URLS"
+	envCometURLs      = "PERPS_COMET_URLS"
+	envDatabaseURL    = "DATABASE_URL"
+	envNATSURL        = "NATS_URL"
+	envPort           = "PORT"
+	envAuthSecret     = "PERPS_AUTH_SECRET"
+	envExplorerTx     = "PERPS_EXPLORER_TX_BASE"
+	envGatewayURL     = "PERPS_GATEWAY_URL"
+	envStartHeight    = "PERPS_START_HEIGHT"
+	envTrustedProxies = "PERPS_TRUSTED_PROXY_CIDRS"
+	minAuthSecretLen  = 32
+	redacted          = "redacted"
 )
 
 type uses struct {
 	rpc, comet, database, nats, port, auth, explorerTx, gatewayURL, startHeight bool
+	trustedProxies                                                              bool
 }
 
 var services = map[Service]uses{
 	Indexer:  {rpc: true, comet: true, database: true, nats: true, port: true, startHeight: true},
-	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true},
-	Explorer: {database: true, port: true, explorerTx: true},
+	Gateway:  {rpc: true, database: true, nats: true, port: true, auth: true, trustedProxies: true},
+	Explorer: {database: true, port: true, explorerTx: true, trustedProxies: true},
 	Portal:   {port: true, explorerTx: true, gatewayURL: true},
 	Replay:   {rpc: true, comet: true, database: true},
 	Loadtest: {gatewayURL: true},
@@ -69,6 +78,17 @@ type Config struct {
 	ExplorerTxBase string
 	GatewayURL     string
 	StartHeight    int64
+	TrustedProxies []Prefix
+}
+
+// Load is the command startup boundary. It reads fresh configuration on every
+// call and identifies the service whose configuration was refused.
+func (s Service) Load() (*Config, error) {
+	cfg, err := Load(s)
+	if err != nil {
+		return nil, fmt.Errorf("%s config: %w", s, err)
+	}
+	return cfg, nil
 }
 
 // Load reads the variables the named service uses and returns the validated
@@ -130,6 +150,13 @@ func Load(service Service) (*Config, error) {
 		}
 		cfg.StartHeight = n
 	}
+	if u.trustedProxies {
+		trusted, err := ratelimit.ParseTrustedProxies(os.Getenv(envTrustedProxies))
+		if err != nil {
+			return nil, err
+		}
+		cfg.TrustedProxies = trusted
+	}
 	if err := cfg.Validate(); err != nil {
 		return nil, err
 	}
@@ -144,6 +171,9 @@ func (c *Config) Validate() error {
 	}
 	if c.ChainID == 0 {
 		return errors.New(envChainID + " is required")
+	}
+	if c.ChainID != 125 {
+		return errors.New(envChainID + " must be 125 (the only supported network)")
 	}
 	if u.rpc {
 		if err := validateList(envRPCURLs, c.RPCURLs); err != nil {
@@ -167,6 +197,9 @@ func (c *Config) Validate() error {
 	if u.auth && len(c.AuthSecret) < minAuthSecretLen {
 		return fmt.Errorf("%s must be at least %d bytes", envAuthSecret, minAuthSecretLen)
 	}
+	if c.Service == Portal && c.ExplorerTxBase == "" {
+		return errors.New(envExplorerTx + " is required for portal")
+	}
 	if u.explorerTx && c.ExplorerTxBase != "" && !validURL(c.ExplorerTxBase, "http", "https") {
 		return errors.New(envExplorerTx + " needs http or https")
 	}
@@ -174,7 +207,10 @@ func (c *Config) Validate() error {
 		if c.GatewayURL == "" {
 			return errors.New(envGatewayURL + " is required")
 		}
-		if !validURL(c.GatewayURL, "http", "https", "ws", "wss") {
+		if c.Service == Portal && !validURL(c.GatewayURL, "http", "https") {
+			return errors.New(envGatewayURL + " needs http or https for portal")
+		}
+		if c.Service == Loadtest && !validURL(c.GatewayURL, "http", "https", "ws", "wss") {
 			return errors.New(envGatewayURL + " needs http, https, ws or wss")
 		}
 	}
@@ -184,10 +220,10 @@ func (c *Config) Validate() error {
 	return nil
 }
 
-// String prints the Config with DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET
-// redacted.
+// String redacts service secrets and endpoint credentials.
 func (c Config) String() string {
-	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d",
+	c = c.safeEndpoints()
+	return fmt.Sprintf("service=%s %s=%d %s=%s %s=%s %s=%s %s=%s %s=%d %s=%s %s=%s %s=%s %s=%d %s=%v",
 		c.Service,
 		envChainID, c.ChainID,
 		envRPCURLs, strings.Join(c.RPCURLs, ","),
@@ -199,6 +235,7 @@ func (c Config) String() string {
 		envExplorerTx, c.ExplorerTxBase,
 		envGatewayURL, c.GatewayURL,
 		envStartHeight, c.StartHeight,
+		envTrustedProxies, c.TrustedProxies,
 	)
 }
 
@@ -207,6 +244,44 @@ func (c Config) GoString() string { return c.String() }
 
 // LogValue keeps structured log lines redacted.
 func (c Config) LogValue() slog.Value { return slog.StringValue(c.String()) }
+
+// MarshalJSON uses the same endpoint rendering as the logging representations.
+func (c Config) MarshalJSON() ([]byte, error) {
+	type plain Config
+	return json.Marshal(plain(c.safeEndpoints()))
+}
+
+func (c Config) safeEndpoints() Config {
+	c.RPCURLs = safeEndpointList(c.RPCURLs)
+	c.CometURLs = safeEndpointList(c.CometURLs)
+	c.GatewayURL = safeEndpoint(c.GatewayURL)
+	c.ExplorerTxBase = safeEndpoint(c.ExplorerTxBase)
+	return c
+}
+
+func safeEndpointList(endpoints []string) []string {
+	out := slices.Clone(endpoints)
+	for i, endpoint := range out {
+		out[i] = safeEndpoint(endpoint)
+	}
+	return out
+}
+
+func safeEndpoint(endpoint string) string {
+	if endpoint == "" {
+		return ""
+	}
+	u, err := url.Parse(endpoint)
+	if err != nil || u.Host == "" {
+		return redacted
+	}
+	// Query keys are provider-defined, so no allowlist can identify every
+	// secret. Omit the complete query and fragment from diagnostic output.
+	u.User = nil
+	u.RawQuery, u.Fragment, u.RawFragment = "", "", ""
+	u.ForceQuery = false
+	return u.String()
+}
 
 func redact(s string) string {
 	if s == "" {

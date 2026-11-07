@@ -1,10 +1,14 @@
 package sequencer
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"errors"
 	"fmt"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/multiversion"
+	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	"math"
+	"sort"
 	"sync"
 	"time"
 
@@ -45,9 +49,10 @@ type MicroBatchOptions struct {
 
 type microBatch struct {
 	*sequential
-	batchHost BatchHost
-	window    time.Duration
-	maxCount  int
+	batchHost  BatchHost
+	window     time.Duration
+	maxCount   int
+	groupSizes []int
 
 	// gmu guards pending and last.
 	gmu     sync.Mutex
@@ -117,11 +122,30 @@ func NewMicroBatch(host BatchHost, opts Options, mb MicroBatchOptions) (Executor
 
 func (m *microBatch) Mode() Mode { return ModeMicroBatch }
 
+func (m *microBatch) Fence() error {
+	if err := m.sequential.Fence(); err != nil {
+		return err
+	}
+	m.gmu.Lock()
+	if m.pending != nil {
+		close(m.pending.full)
+		m.pending = nil
+	}
+	m.gmu.Unlock()
+	return nil
+}
+
 // Accept joins txBytes to the forming group in arrival order. The first
 // transaction of a group leads it: it waits for the window or the maximum
 // count, then executes the group after the group formed before it.
 func (m *microBatch) Accept(txBytes []byte) (*Accepted, error) {
+	m.mu.Lock()
+	if m.fenced {
+		m.mu.Unlock()
+		return nil, ErrLeaseFenced
+	}
 	g, i, leader := m.join(txBytes)
+	m.mu.Unlock()
 	if leader {
 		timer := time.NewTimer(m.window)
 		select {
@@ -172,6 +196,12 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	out := make([]microOutcome, len(txs))
+	if s.fenced {
+		for i := range out {
+			out[i].err = ErrLeaseFenced
+		}
+		return out
+	}
 	if s.open == nil {
 		for i := range out {
 			out[i].err = ErrLayerNotOpen
@@ -198,8 +228,26 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 		if limit == 0 {
 			limit = microRunnable(queue, math.MaxUint64-s.lastSeq)
 		}
-		results, branch, err := m.deliverBatch(queue[:limit])
+		// Reserve exactly the runnable prefix in arrival order. A refused
+		// execution rolls back these reservations before retrying its prefix.
+		beforeAdmission := s.open.ctx
+		for j := 0; j < limit; j++ {
+			if err := s.admit(queue[j].tx, queue[j].bytes); err != nil {
+				if j == 0 {
+					out[queue[0].pos].err = err
+					queue = queue[1:]
+				}
+				limit = j
+				break
+			}
+		}
+		if limit == 0 {
+			s.open.ctx = beforeAdmission
+			continue
+		}
+		results, writes, err := m.deliverBatch(queue[:limit])
 		if err != nil {
+			s.open.ctx = beforeAdmission
 			if limit > 1 {
 				limit = 1
 				continue
@@ -214,15 +262,21 @@ func (m *microBatch) execute(txs [][]byte) []microOutcome {
 		}
 		switch k {
 		case limit:
-			branch.Write()
 			for j := 0; j < limit; j++ {
-				out[queue[j].pos].acc = s.microRecord(queue[j], results[j])
+				pre := s.receiptContextLocked()
+				writes[j].apply(s.open.ctx)
+				acc := s.microRecord(queue[j], results[j])
+				acc.BeforeContext = pre
+				acc.ReceiptContext = s.receiptContextLocked()
+				out[queue[j].pos].acc = acc
 			}
 			queue, limit = queue[limit:], 0
 		case 0:
+			s.open.ctx = beforeAdmission
 			out[queue[0].pos].err = sdkerrors.ABCIError(results[0].Codespace, results[0].Code, results[0].Log)
 			queue, limit = queue[1:], 0
 		default:
+			s.open.ctx = beforeAdmission
 			limit = k
 		}
 	}
@@ -257,24 +311,36 @@ func microRunnable(queue []microEntry, room uint64) int {
 // deliverBatch runs entries over DeliverTxBatch on a fresh branch of the open
 // layer, at the block positions they take if all are accepted. A panic raised
 // by the scheduler is recovered into ErrPanic and the branch is discarded.
-func (m *microBatch) deliverBatch(entries []microEntry) (res []abci.ResponseDeliverTx, branch sdk.CacheMultiStore, err error) {
+func (m *microBatch) deliverBatch(entries []microEntry) (res []abci.ResponseDeliverTx, writes []*microWrites, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			res, branch = nil, nil
+			res, writes = nil, nil
 			err = sdkerrors.Wrapf(sdkerrors.ErrPanic, "recovered: %v", r)
 		}
 	}()
 	open := m.open
-	branch = open.ctx.MultiStore().CacheMultiStore()
+	branch := open.ctx.MultiStore().CacheMultiStore()
+	writes = make([]*microWrites, len(entries))
 	base := len(open.txs) + 1
 	req := sdk.DeliverTxBatchRequest{TxEntries: make([]*sdk.DeliverTxEntry, len(entries))}
 	for j, e := range entries {
-		req.TxEntries[j] = &sdk.DeliverTxEntry{
-			Request:       abci.RequestDeliverTxV2{Tx: e.bytes},
-			SdkTx:         e.tx,
-			Checksum:      e.checksum,
-			AbsoluteIndex: base + j,
+		ctx, err := SetTxPosition(open.ctx, base+j)
+		if err != nil {
+			return nil, nil, err
 		}
+		writes[j] = &microWrites{}
+		req.TxEntries[j] = &sdk.DeliverTxEntry{
+			TxTracer: writes[j],
+			Request:  abci.RequestDeliverTxV2{Tx: e.bytes},
+			SdkTx:    e.tx,
+			Checksum: e.checksum,
+			// The OCC scheduler places each entry's context at AbsoluteIndex.
+			AbsoluteIndex: ctx.TxIndex(),
+		}
+	}
+	m.groupSizes = append(m.groupSizes, len(entries))
+	if len(m.groupSizes) > 128 {
+		m.groupSizes = m.groupSizes[len(m.groupSizes)-128:]
 	}
 	resp := m.batchHost.DeliverTxBatch(open.ctx.WithMultiStore(branch), req)
 	if len(resp.Results) != len(entries) {
@@ -287,7 +353,7 @@ func (m *microBatch) deliverBatch(entries []microEntry) (res []abci.ResponseDeli
 		}
 		res[j] = r.Response
 	}
-	return res, branch, nil
+	return res, writes, nil
 }
 
 // microRecord appends one receipted transaction to the open layer and takes the
@@ -330,4 +396,52 @@ func (s *sequential) microRecord(e microEntry, res abci.ResponseDeliverTx) *Acce
 		TimestampMs: s.open.timestampMs,
 		Result:      result,
 	}
+}
+
+// microWrites retains the scheduler's final validated incarnation. Applying these
+// writes individually preserves the exact state at each receipt boundary.
+type microWrites struct {
+	ctx    sdk.Context
+	stores map[storetypes.StoreKey]map[string][]byte
+}
+
+func (w *microWrites) InjectInContext(ctx sdk.Context) sdk.Context { w.ctx = ctx; return ctx }
+func (w *microWrites) Reset()                                      { w.ctx = sdk.Context{}; w.stores = nil }
+func (w *microWrites) Commit() {
+	w.stores = make(map[storetypes.StoreKey]map[string][]byte)
+	for _, key := range w.ctx.MultiStore().StoreKeys() {
+		store, ok := w.ctx.MultiStore().GetKVStore(key).(*multiversion.VersionIndexedStore)
+		if !ok {
+			panic("sequencer: scheduler did not expose validated version writes")
+		}
+		dst := make(map[string][]byte)
+		for k, v := range store.GetWriteset() {
+			dst[k] = bytes.Clone(v)
+		}
+		w.stores[key] = dst
+	}
+}
+func (w *microWrites) apply(ctx sdk.Context) {
+	for _, key := range ctx.MultiStore().StoreKeys() {
+		store := ctx.MultiStore().GetKVStore(key)
+		keys := make([]string, 0, len(w.stores[key]))
+		for k := range w.stores[key] {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			v := w.stores[key][k]
+			if v == nil {
+				store.Delete([]byte(k))
+			} else {
+				store.Set([]byte(k), v)
+			}
+		}
+	}
+}
+
+func (m *microBatch) GroupSizes() []int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]int(nil), m.groupSizes...)
 }

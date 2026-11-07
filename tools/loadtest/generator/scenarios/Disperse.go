@@ -1,6 +1,10 @@
 package scenarios
 
 import (
+	"context"
+	"fmt"
+	"math/big"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -13,20 +17,32 @@ import (
 
 const Disperse = "disperse"
 
+const DisperseBatchSize = 4
+
+// A fresh recipient costs 25000 for account creation, 9000 for value transfer,
+// plus cold access and loop/calldata overhead. Reserve intrinsic gas separately.
+const disperseRecipientGas = 38000
+const disperseBaseGas = 30000
+
 // DisperseScenario implements the TxGenerator interface for Disperse contract operations
 type DisperseScenario struct {
 	*ContractScenarioBase[bindings.Disperse]
-	contract *bindings.Disperse
-	pool     types.AccountPool
+	contract         *bindings.Disperse
+	pool             types.AccountPool
+	fixedEtherAmount *big.Int
 }
 
 // NewDisperseScenario creates a new Disperse scenario
 func NewDisperseScenario(cfg config.Scenario) TxGenerator {
-	scenario := &DisperseScenario{}
+	scenario := &DisperseScenario{fixedEtherAmount: new(big.Int).Set(bigOne)}
 	scenario.ContractScenarioBase = NewContractScenarioBase[bindings.Disperse](scenario, cfg)
-	scenario.pool = types.NewAccountPool(&types.AccountConfig{
+	var err error
+	scenario.pool, err = types.NewAccountPool(&types.AccountConfig{
 		NewAccountRate: 1.0,
 	})
+	if err != nil {
+		panic(err)
+	} // The fresh-only pool above is a constant valid configuration.
 	return scenario
 }
 
@@ -51,32 +67,33 @@ func (s *DisperseScenario) SetContract(contract *bindings.Disperse) {
 	s.contract = contract
 }
 
-// Attach implements TxGenerator interface - attaches to an existing contract
-func (s *DisperseScenario) Attach(config *config.LoadConfig, address common.Address) error {
-	// Call base Attach to set deployed flag and config
-	if err := s.ContractScenarioBase.Attach(config, address); err != nil {
+func (s *DisperseScenario) InitializeContract(ctx context.Context) error {
+	amount, err := s.contract.FixedEtherAmount(&bind.CallOpts{Context: ctx})
+	if err != nil {
 		return err
 	}
-
-	var client *ethclient.Client
-	var err error
-	if !config.MockDeploy {
-		client, err = ethclient.Dial(config.Endpoints[0])
-		if err != nil {
-			return err
-		}
+	if amount.Sign() <= 0 {
+		return fmt.Errorf("disperse fixed ether amount must be positive")
 	}
+	s.fixedEtherAmount = new(big.Int).Set(amount)
+	return nil
+}
 
-	s.contract, err = bindings.NewDisperse(address, client)
-	return err
+// Attach implements TxGenerator interface - attaches to an existing contract
+func (s *DisperseScenario) Attach(config *config.LoadConfig, address common.Address) error {
+	return s.ContractScenarioBase.Attach(config, address)
 }
 
 // CreateContractTransaction implements ContractDeployer interface - creates Disperse transaction
 func (s *DisperseScenario) CreateContractTransaction(auth *bind.TransactOpts, scenario *types.TxScenario) (*ethtypes.Transaction, error) {
-	// create new accounts so that it auto-creates the accounts.
-	targets := make([]common.Address, 0, 100)
-	for range 100 {
+	if auth.GasLimit < disperseBaseGas+disperseRecipientGas {
+		return nil, fmt.Errorf("disperse gas limit %d cannot fund one recipient (minimum %d)", auth.GasLimit, disperseBaseGas+disperseRecipientGas)
+	}
+	batchSize := min(uint64(DisperseBatchSize), (auth.GasLimit-disperseBaseGas)/disperseRecipientGas)
+	targets := make([]common.Address, 0, batchSize)
+	for range batchSize {
 		targets = append(targets, s.pool.NextAccount().Address)
 	}
+	auth.Value = new(big.Int).Mul(s.fixedEtherAmount, new(big.Int).SetUint64(batchSize))
 	return s.contract.DisperseEtherFixed(auth, targets)
 }

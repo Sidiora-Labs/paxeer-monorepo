@@ -1,6 +1,7 @@
 import { reportBackgroundFailure } from '@/platform/status/background-failures';
-import { defineStorageRepository } from './registry';
+import { defineStorageRepository, type StorageMigration, type StorageReader } from './registry';
 import { migrateLocale, type Locale } from '@/lib/locale';
+import { isVirtualChainId, type Network } from '@/lib/networks';
 
 const ADDRESS = /^0x[0-9a-fA-F]{40}$/;
 const HASH = /^0x[0-9a-fA-F]{64}$/;
@@ -15,6 +16,15 @@ const PROHIBITED = [
   'authentication credential',
 ] as const;
 
+function collectLegacyValue(
+  storage: StorageReader,
+  key: string,
+  decode: (raw: string) => unknown = (raw) => raw
+): StorageMigration | undefined {
+  const raw = storage.getItem(key);
+  return raw === null ? undefined : { value: decode(raw), sourceKeys: [key] };
+}
+
 function record(input: unknown): Record<string, unknown> {
   if (typeof input !== 'object' || input === null || Array.isArray(input)) {
     throw new TypeError('Expected an object');
@@ -22,36 +32,21 @@ function record(input: unknown): Record<string, unknown> {
   return input as Record<string, unknown>;
 }
 
-function stringValue(
-  input: unknown,
-  minimum: number,
-  maximum: number,
-): string {
-  if (
-    typeof input !== 'string' ||
-    input.length < minimum ||
-    input.length > maximum
-  ) {
+function stringValue(input: unknown, minimum: number, maximum: number): string {
+  if (typeof input !== 'string' || input.length < minimum || input.length > maximum) {
     throw new TypeError('String is outside allowed bounds');
   }
   return input;
 }
 
 function integer(input: unknown, minimum = 0): number {
-  if (
-    typeof input !== 'number' ||
-    !Number.isSafeInteger(input) ||
-    input < minimum
-  ) {
+  if (typeof input !== 'number' || !Number.isSafeInteger(input) || input < minimum) {
     throw new TypeError('Integer is invalid');
   }
   return input;
 }
 
-function exactKeys(
-  input: Record<string, unknown>,
-  allowed: readonly string[],
-): void {
+function exactKeys(input: Record<string, unknown>, allowed: readonly string[]): void {
   if (Object.keys(input).some((key) => !allowed.includes(key))) {
     throw new TypeError('Record contains unknown fields');
   }
@@ -59,7 +54,7 @@ function exactKeys(
 
 function parseJsonValue(
   input: unknown,
-  depth = 0,
+  depth = 0
 ): string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue } {
   if (depth > 6) throw new TypeError('Cached metadata is too deeply nested');
   if (
@@ -82,17 +77,12 @@ function parseJsonValue(
     Object.entries(source).map(([key, value]) => [
       stringValue(key, 1, 128),
       parseJsonValue(value, depth + 1),
-    ]),
+    ])
   );
 }
 
 export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+  string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
 
 export type CustodyChoice = 'embedded' | 'injected';
 
@@ -121,7 +111,7 @@ export const custodyChoiceRepository = defineStorageRepository({
   fallback: () => null,
   parse: parseCustodyChoice,
   legacyKeys: ['paxeer:wallet-kind'],
-  migrateLegacy: (storage) => storage.getItem('paxeer:wallet-kind') ?? undefined,
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer:wallet-kind'),
 });
 
 export interface ContactRecord {
@@ -142,8 +132,7 @@ function parseContact(input: unknown): ContactRecord {
     id: stringValue(value.id, 1, 80),
     name: stringValue(value.name, 1, 80),
     address,
-    note:
-      value.note === undefined ? undefined : stringValue(value.note, 1, 280),
+    note: value.note === undefined ? undefined : stringValue(value.note, 1, 280),
     createdAt: integer(value.createdAt),
     updatedAt: integer(value.updatedAt),
   };
@@ -184,10 +173,7 @@ export const contactsRepository = defineStorageRepository({
   fallback: () => [],
   parse: parseContacts,
   legacyKeys: ['paxeer_contacts'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_contacts');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_contacts', JSON.parse),
 });
 
 export interface RecentRecipientRecord {
@@ -207,10 +193,7 @@ function parseRecentRecipients(input: unknown): RecentRecipientRecord[] {
     if (!ADDRESS.test(address)) throw new TypeError('Recipient address is invalid');
     return {
       address,
-      label:
-        value.label === undefined
-          ? undefined
-          : stringValue(value.label, 1, 80),
+      label: value.label === undefined ? undefined : stringValue(value.label, 1, 80),
       timestamp: integer(value.timestamp),
     };
   });
@@ -233,16 +216,15 @@ export const recentRecipientsRepository = defineStorageRepository({
   fallback: () => [],
   parse: parseRecentRecipients,
   legacyKeys: ['paxeer_recent_recipients'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_recent_recipients');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_recent_recipients', JSON.parse),
 });
 
 export interface AppPreferences {
   currency: string;
   language: Locale;
   customRpc: string | null;
+  networks: Network[];
+  activeChainId: number | null;
   customNonce: number | null;
   feeMode: 'auto' | 'economy' | 'priority' | 'custom';
   customMaxFeeGwei: string | null;
@@ -260,12 +242,40 @@ const DEFAULT_NOTIFICATIONS = {
   news: true,
 };
 
+function parseNetwork(input: unknown): Network {
+  const value = record(input);
+  exactKeys(value, ['chainId', 'name', 'rpcUrl', 'explorerUrl', 'kind']);
+  const chainId = integer(value.chainId);
+  if (!isVirtualChainId(chainId) || value.kind !== 'virtual') {
+    throw new TypeError('Saved network must be a virtual network');
+  }
+  const parseUrl = (input: unknown): string => {
+    const value = stringValue(input, 8, 512);
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.username || url.password) {
+      throw new TypeError('Network URLs must use HTTPS without credentials');
+    }
+    return value;
+  };
+  const name = stringValue(value.name, 1, 80);
+  if (!name.trim()) throw new TypeError('Network name is invalid');
+  return {
+    chainId,
+    name,
+    rpcUrl: parseUrl(value.rpcUrl),
+    explorerUrl: parseUrl(value.explorerUrl),
+    kind: 'virtual',
+  };
+}
+
 function parsePreferences(input: unknown): AppPreferences {
   const value = record(input);
   exactKeys(value, [
     'currency',
     'language',
     'customRpc',
+    'networks',
+    'activeChainId',
     'customNonce',
     'feeMode',
     'customMaxFeeGwei',
@@ -274,37 +284,46 @@ function parsePreferences(input: unknown): AppPreferences {
     'showHexData',
     'notifications',
   ]);
+  const savedNetworks = value.networks === undefined ? [] : value.networks;
+  if (!Array.isArray(savedNetworks) || savedNetworks.length > 32) {
+    throw new TypeError('Saved networks are invalid');
+  }
+  const networks = savedNetworks.map(parseNetwork);
+  if (new Set(networks.map((network) => network.chainId)).size !== networks.length) {
+    throw new TypeError('Saved networks contain duplicate chain ids');
+  }
+  const activeChainId =
+    value.activeChainId === undefined || value.activeChainId === null
+      ? null
+      : integer(value.activeChainId, 1);
   const notifications = record(value.notifications);
   if (
     Object.keys(notifications).length > 32 ||
     Object.entries(notifications).some(
-      ([key, enabled]) => !/^[a-z0-9_-]{1,40}$/.test(key) || typeof enabled !== 'boolean',
+      ([key, enabled]) => !/^[a-z0-9_-]{1,40}$/.test(key) || typeof enabled !== 'boolean'
     )
   ) {
     throw new TypeError('Notification preferences are invalid');
   }
-  const customRpc =
-    value.customRpc === null ? null : stringValue(value.customRpc, 8, 512);
+  const customRpc = value.customRpc === null ? null : stringValue(value.customRpc, 8, 512);
   if (customRpc !== null && !HTTPS_URL.test(customRpc)) {
     throw new TypeError('Custom RPC URL is invalid');
   }
-  if (
-    typeof value.developerMode !== 'boolean' ||
-    typeof value.showHexData !== 'boolean'
-  ) {
+  if (typeof value.developerMode !== 'boolean' || typeof value.showHexData !== 'boolean') {
     throw new TypeError('Developer preferences are invalid');
   }
   let customNonce: number | null = null;
   if (value.customNonce !== null && value.customNonce !== undefined) {
-    if (typeof value.customNonce !== 'number' || !Number.isInteger(value.customNonce) || value.customNonce < 0) {
+    if (
+      typeof value.customNonce !== 'number' ||
+      !Number.isInteger(value.customNonce) ||
+      value.customNonce < 0
+    ) {
       throw new TypeError('Custom nonce must be a non-negative integer');
     }
     customNonce = value.customNonce;
   }
-  const feeMode =
-    value.feeMode === undefined
-      ? 'auto'
-      : value.feeMode;
+  const feeMode = value.feeMode === undefined ? 'auto' : value.feeMode;
   if (
     feeMode !== 'auto' &&
     feeMode !== 'economy' &&
@@ -325,6 +344,8 @@ function parsePreferences(input: unknown): AppPreferences {
     currency: stringValue(value.currency, 3, 8),
     language: migrateLocale(stringValue(value.language, 2, 32)),
     customRpc,
+    networks,
+    activeChainId,
     customNonce,
     feeMode,
     customMaxFeeGwei: parseOptionalDecimal(value.customMaxFeeGwei),
@@ -332,7 +353,7 @@ function parsePreferences(input: unknown): AppPreferences {
     developerMode: value.developerMode,
     showHexData: value.showHexData,
     notifications: Object.fromEntries(
-      Object.entries(notifications).map(([key, enabled]) => [key, enabled as boolean]),
+      Object.entries(notifications).map(([key, enabled]) => [key, enabled as boolean])
     ),
   };
 }
@@ -341,6 +362,8 @@ const defaultPreferences = (): AppPreferences => ({
   currency: 'USD',
   language: 'en',
   customRpc: null,
+  networks: [],
+  activeChainId: null,
   customNonce: null,
   feeMode: 'auto',
   customMaxFeeGwei: null,
@@ -387,15 +410,16 @@ export const preferencesRepository = defineStorageRepository({
     const defaults = defaultPreferences();
     const rawNotifications = storage.getItem('paxeer_notif_prefs');
     return {
-      currency: storage.getItem('paxeer_currency') ?? defaults.currency,
-      language: storage.getItem('paxeer_language') ?? defaults.language,
-      customRpc: storage.getItem('paxeer_custom_rpc'),
-      developerMode: storage.getItem('paxeer_dev_mode') === 'true',
-      showHexData: storage.getItem('paxeer_hex_data') === 'true',
-      notifications:
-        rawNotifications === null
-          ? defaults.notifications
-          : JSON.parse(rawNotifications),
+      sourceKeys: keys,
+      value: {
+        currency: storage.getItem('paxeer_currency') ?? defaults.currency,
+        language: storage.getItem('paxeer_language') ?? defaults.language,
+        customRpc: storage.getItem('paxeer_custom_rpc'),
+        developerMode: storage.getItem('paxeer_dev_mode') === 'true',
+        showHexData: storage.getItem('paxeer_hex_data') === 'true',
+        notifications:
+          rawNotifications === null ? defaults.notifications : JSON.parse(rawNotifications),
+      },
     };
   },
 });
@@ -415,19 +439,14 @@ function parseCurrencyRates(input: unknown): CurrencyRatesRecord {
     Object.keys(rates).length > 32 ||
     Object.entries(rates).some(
       ([code, rate]) =>
-        !/^[A-Z]{3}$/.test(code) ||
-        typeof rate !== 'number' ||
-        !Number.isFinite(rate) ||
-        rate <= 0,
+        !/^[A-Z]{3}$/.test(code) || typeof rate !== 'number' || !Number.isFinite(rate) || rate <= 0
     )
   ) {
     throw new TypeError('Currency rates are invalid');
   }
   return {
     base: 'USD',
-    rates: Object.fromEntries(
-      Object.entries(rates).map(([code, rate]) => [code, rate as number]),
-    ),
+    rates: Object.fromEntries(Object.entries(rates).map(([code, rate]) => [code, rate as number])),
     fetchedAt: integer(value.fetchedAt),
   };
 }
@@ -499,8 +518,11 @@ export const portfolioFiltersRepository = defineStorageRepository({
     const hidden = storage.getItem('paxeer_hidden_tokens');
     if (dust === null && hidden === null) return undefined;
     return {
-      hideDust: dust === 'true',
-      hiddenTokens: hidden === null ? [] : JSON.parse(hidden),
+      sourceKeys: ['paxeer_hide_dust', 'paxeer_hidden_tokens'],
+      value: {
+        hideDust: dust === 'true',
+        hiddenTokens: hidden === null ? [] : JSON.parse(hidden),
+      },
     };
   },
 });
@@ -515,8 +537,7 @@ function parsePwaDismissals(input: unknown): PwaDismissals {
   exactKeys(value, ['installAt', 'notificationAt']);
   return {
     installAt: value.installAt === null ? null : integer(value.installAt),
-    notificationAt:
-      value.notificationAt === null ? null : integer(value.notificationAt),
+    notificationAt: value.notificationAt === null ? null : integer(value.notificationAt),
   };
 }
 
@@ -542,8 +563,11 @@ export const pwaDismissalsRepository = defineStorageRepository({
     const notification = storage.getItem('pwa-notif-dismissed');
     if (install === null && notification === null) return undefined;
     return {
-      installAt: install === null ? null : Number(install),
-      notificationAt: notification === null ? null : Number(notification),
+      sourceKeys: ['pwa-install-dismissed', 'pwa-notif-dismissed'],
+      value: {
+        installAt: install === null ? null : Number(install),
+        notificationAt: notification === null ? null : Number(notification),
+      },
     };
   },
 });
@@ -558,8 +582,7 @@ function parseNotificationState(input: unknown): NotificationTriggerState {
   const value = record(input);
   exactKeys(value, ['lastTxCount', 'lastActive', 'seenFeatures']);
   return {
-    lastTxCount:
-      value.lastTxCount === null ? null : integer(value.lastTxCount),
+    lastTxCount: value.lastTxCount === null ? null : integer(value.lastTxCount),
     lastActive: value.lastActive === null ? null : integer(value.lastActive),
     seenFeatures: integer(value.seenFeatures),
   };
@@ -592,9 +615,16 @@ export const notificationStateRepository = defineStorageRepository({
     const features = storage.getItem('paxeer_notif_seen_features');
     if (tx === null && active === null && features === null) return undefined;
     return {
-      lastTxCount: tx === null ? null : Number(tx),
-      lastActive: active === null ? null : Number(active),
-      seenFeatures: features === null ? 0 : Number(features),
+      sourceKeys: [
+        'paxeer_notif_last_tx_count',
+        'paxeer_notif_last_active',
+        'paxeer_notif_seen_features',
+      ],
+      value: {
+        lastTxCount: tx === null ? null : Number(tx),
+        lastActive: active === null ? null : Number(active),
+        seenFeatures: features === null ? 0 : Number(features),
+      },
     };
   },
 });
@@ -617,7 +647,7 @@ function parseMetadataCache(input: unknown): MetadataCache {
         stringValue(key, 1, 160),
         { ts: integer(source.ts), data: parseJsonValue(source.data) },
       ];
-    }),
+    })
   );
 }
 
@@ -638,19 +668,37 @@ export const metadataCacheRepository = defineStorageRepository<MetadataCache>({
   fallback: () => ({}),
   parse: parseMetadataCache,
   migrateLegacy: (storage) => {
-    const migrated: MetadataCache = {};
+    const migrated: [string, MetadataCacheEntry][] = [];
     const keys: string[] = [];
     for (let index = 0; index < storage.length; index += 1) {
       const key = storage.key(index);
       if (key?.startsWith('pax:meta:')) keys.push(key);
     }
     if (keys.length === 0) return undefined;
-    for (const key of keys.slice(0, 200)) {
+    const sourceKeys = keys.slice(0, 200);
+    let skipped = 0;
+    for (const key of sourceKeys) {
       const raw = storage.getItem(key);
-      if (raw !== null) migrated[key.slice('pax:meta:'.length)] = JSON.parse(raw);
-      storage.removeItem(key);
+      if (raw === null) continue;
+      try {
+        const entry = parseMetadataCache(
+          Object.fromEntries([[key.slice('pax:meta:'.length), JSON.parse(raw)]])
+        );
+        migrated.push(...Object.entries(entry));
+      } catch {
+        skipped += 1;
+      }
     }
-    return migrated;
+    if (skipped > 0) {
+      reportBackgroundFailure({
+        domain: 'storage',
+        kind: 'corrupt',
+        code: 'STORAGE_LEGACY_ENTRY_SKIPPED',
+        message: `${skipped} saved metadata entries could not be read and were skipped.`,
+        retryable: false,
+      });
+    }
+    return { value: Object.fromEntries(migrated), sourceKeys };
   },
 });
 
@@ -677,9 +725,7 @@ function parsePendingSend(input: unknown): PendingSendRecord | null {
     'timestamp',
   ]);
   const tokenAddress =
-    value.tokenAddress === undefined
-      ? undefined
-      : stringValue(value.tokenAddress, 42, 42);
+    value.tokenAddress === undefined ? undefined : stringValue(value.tokenAddress, 42, 42);
   const recipient = stringValue(value.recipient, 42, 42);
   const txHash = stringValue(value.txHash, 66, 66);
   if (
@@ -719,10 +765,7 @@ export const pendingSendRepository = defineStorageRepository({
   fallback: () => null,
   parse: parsePendingSend,
   legacyKeys: ['paxeer_pending_send'],
-  migrateLegacy: (storage) => {
-    const raw = storage.getItem('paxeer_pending_send');
-    return raw === null ? undefined : JSON.parse(raw);
-  },
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_pending_send', JSON.parse),
 });
 
 function parseAnnouncementVersion(input: unknown): string | null {
@@ -751,7 +794,7 @@ export const announcementRepository = defineStorageRepository({
   fallback: () => null,
   parse: parseAnnouncementVersion,
   legacyKeys: ['paxeer_whats_new_seen'],
-  migrateLegacy: (storage) => storage.getItem('paxeer_whats_new_seen') ?? undefined,
+  migrateLegacy: (storage) => collectLegacyValue(storage, 'paxeer_whats_new_seen'),
 });
 
 export type TransferRecords = Record<string, JsonValue>;
@@ -760,14 +803,14 @@ function parseTransferRecords(input: unknown): TransferRecords {
   const value = record(input);
   if (Object.keys(value).length > 100) throw new TypeError('Transfer records are too many');
   return Object.fromEntries(
-    Object.entries(value).map(([key, entry]) => [
-      stringValue(key, 1, 160),
-      parseJsonValue(entry),
-    ]),
+    Object.entries(value).map(([key, entry]) => [stringValue(key, 1, 160), parseJsonValue(entry)])
   );
 }
 
-function collectLegacyTransferRecords(storage: Storage, prefix: string): TransferRecords | undefined {
+function collectLegacyTransferRecords(
+  storage: StorageReader,
+  prefix: string
+): StorageMigration | undefined {
   const keys: string[] = [];
   for (let index = 0; index < storage.length; index += 1) {
     const key = storage.key(index);
@@ -780,18 +823,25 @@ function collectLegacyTransferRecords(storage: Storage, prefix: string): Transfe
     const raw = storage.getItem(key);
     if (raw === null) continue;
     try {
-      parsed.push([stringValue(key.slice(prefix.length), 1, 160), parseJsonValue(JSON.parse(raw) as unknown)]);
+      parsed.push([
+        stringValue(key.slice(prefix.length), 1, 160),
+        parseJsonValue(JSON.parse(raw) as unknown),
+      ]);
     } catch {
       skipped += 1;
     }
   }
   // Oldest first by mined block; an entry without a block number has not been seen mined and counts as newest.
   const age = ([, value]: [string, JsonValue]): number => {
-    const block = value !== null && typeof value === 'object' && !Array.isArray(value) ? value.blockNumber : undefined;
+    const block =
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? value.blockNumber
+        : undefined;
     return typeof block === 'number' ? block : Number.POSITIVE_INFINITY;
   };
-  const migrated: TransferRecords = Object.fromEntries(parsed.sort((x, y) => age(x) - age(y) || 0).slice(-100));
-  for (const key of keys) storage.removeItem(key);
+  const migrated: TransferRecords = Object.fromEntries(
+    parsed.sort((x, y) => age(x) - age(y) || 0).slice(-100)
+  );
   if (skipped > 0) {
     reportBackgroundFailure({
       domain: 'storage',
@@ -801,10 +851,14 @@ function collectLegacyTransferRecords(storage: Storage, prefix: string): Transfe
       retryable: false,
     });
   }
-  return migrated;
+  return { value: migrated, sourceKeys: keys };
 }
 
-export function putTransferRecord(records: TransferRecords, key: string, value: JsonValue): TransferRecords {
+export function putTransferRecord(
+  records: TransferRecords,
+  key: string,
+  value: JsonValue
+): TransferRecords {
   const next = { ...records };
   delete next[key];
   next[key] = value;
@@ -829,7 +883,8 @@ export const submittedTransfersRepository = defineStorageRepository<TransferReco
   prohibitedData: PROHIBITED,
   fallback: () => ({}),
   parse: parseTransferRecords,
-  migrateLegacy: (storage) => collectLegacyTransferRecords(storage, 'paxeer.wallet.submittedTransfer:'),
+  migrateLegacy: (storage) =>
+    collectLegacyTransferRecords(storage, 'paxeer.wallet.submittedTransfer:'),
 });
 
 export const transferObservationsRepository = defineStorageRepository<TransferRecords>({
@@ -848,5 +903,6 @@ export const transferObservationsRepository = defineStorageRepository<TransferRe
   prohibitedData: PROHIBITED,
   fallback: () => ({}),
   parse: parseTransferRecords,
-  migrateLegacy: (storage) => collectLegacyTransferRecords(storage, 'paxeer.wallet.transferObservation:'),
+  migrateLegacy: (storage) =>
+    collectLegacyTransferRecords(storage, 'paxeer.wallet.transferObservation:'),
 });

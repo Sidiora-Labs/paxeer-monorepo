@@ -1,0 +1,7 @@
+[repair.rust-test-interop.15]
+target = "x-websearch"
+command = "cargo test --locked --manifest-path services/interop/Cargo.toml -p x-websearch --no-fail-fast"
+revision = "c56bf8dab2a36860f56543433ebe85802b492d14"
+result = "repaired"
+change = "Updated x-websearch src/payment.rs and tests/payment.rs to report verified receipt evidence without unproved commitment claims (decision 1104), tests/binary.rs and tests/fixtures/binary/config.json for settlement-backed startup, tests/config.rs and tests/fixtures/config/*.json for receipt-key configuration, tests/content.rs and tests/search.rs with tests/support/gateway.rs for recorded ledger accounts, tests/sequencer_vectors.rs for all twelve shared cases, and tests/submit.rs and tests/fixtures/evm/*.json for journalled broadcast transitions under decisions 1123 and 1124."
+producer_input_tests = ["tests/attest.rs::xweb_0x1019_application_proof: stdin JSON from precompiles/xweb TestProofXweb0x1019 supplying the application EVM RPC endpoint and emitted program request fields program_id, sequence, request_id, kind and payload (decision 2496)."]

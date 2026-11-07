@@ -582,7 +582,7 @@ mod tests {
     use serde_json::Value;
 
     use super::{
-        derive_from_mnemonic, derive_from_wallet_signature, hexadecimal,
+        checksum_address, derive_from_mnemonic, derive_from_wallet_signature, hexadecimal,
         normalize_wallet_signature, slip10_ed25519, DerivationError, KeyDerivationRequest,
         LAYERX_COIN_TYPE,
     };
@@ -665,7 +665,14 @@ mod tests {
                     text(vector, "passphrase")?,
                     index,
                 )?;
-                assert_eq!(derived.evm_address_text(), text(account, "evm_address")?);
+                // Fixtures use lowercase hex; SDK address text is canonically EIP-55 checksummed.
+                let expected_address =
+                    <[u8; 20]>::try_from(bytes(text(account, "evm_address")?)?.as_slice())?;
+                assert_eq!(derived.evm_address(), expected_address);
+                assert_eq!(
+                    derived.evm_address_text(),
+                    checksum_address(&expected_address)
+                );
                 assert_eq!(
                     hexadecimal(&derived.layerx_public_key()),
                     text(account, "layerx_public_key")?

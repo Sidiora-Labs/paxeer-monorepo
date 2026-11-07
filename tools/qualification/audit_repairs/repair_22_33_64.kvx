@@ -1,0 +1,32 @@
+[task.22.33.64]
+base_revision = "716e8dfe1518af0033ed3d0e2b7b4f34fa81f0aa"
+repair = "Publish root-only RPC paths and distinct public node and operator-provided hosted gateway location metadata from the production gateway catalogue producer; omit the already-refused retired /rpc subtree from published routes. Describe EVM/DID selectors as aliases in the merged chain-125 network. Preserve all other OpenRPC content, including exact bank uint256 amounts, lookup selectors, asset limits and consensus-head schemas."
+source_proof = "The Python-only module proves source facts: parse production route-locations.json and OpenRPC, assert exact location equality and root-only paths; trace the real Rust catalogue include/merge/filter through authenticated HTTP discovery and JSON-RPC dispatch, readiness injection and JSON serialization; check the ingress root registration and retired-subtree refusal. Assert the unchanged selector, bank and consensus contracts against their real production paths, and fingerprint the entire base OpenRPC document except the two deliberately changed portions."
+review_only = "Rust compilation and execution, TLS/network transport, actual authentication, dependency readiness and deployment availability are not executed by this gate. Producer, transport and consumer links are source assertions for a documentation-drift finding, not runtime interface or recovery certification. Hosted gateway coordinates and credentials remain operator-provided; no gateway deployment at public node URLs is inferred. No shell script, unit file, manifest or build file changes, and no restart-recovery or interface-mismatch finding applies. The gate needs no environment variable, credential, live endpoint, external binary, subprocess toolchain, native artifact or device."
+baseline = "No pre-change verification was run: the explicit task order requires complete implementation before any formatting/build/test, hf-build before hf-done, and forbids running verify_cmd by hand. No baseline failures are claimed. Initial gate.json reported zero builds and verifications, and no private gates.jsonl existed. Initial Git changes were only runner-prepared .cgignore and spec task-start bookkeeping, preserved unchanged."
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_64.py"
+evidence_ledger = "/out/run/gates.jsonl"
+evidence = "The final hf-done JSON and private gate ledger name the exact verified content-derived candidate revision, command, exit code and log path. Build and verify must pass on the same candidate revision. This record is finalized before qualification; the runner retains revision evidence and commits the result. Embedding the content-derived candidate revision into its own source record would change that revision."
+wiring_request = "tools/paxeer-x/route-catalogue.json and docs/system/routes.md via tools/docs/gen-system-docs.sh; owner domain 8 (platform): carry the gateway's root-node/explicit hosted location metadata and retired /rpc subtree omission into the shared catalogue and generated route guide; preserve other domains' route repairs. These paths are outside scope and were not changed here."
+
+[finding.openrpc-retired-route-discovery]
+audit = "22.30.107"
+file = "services/platform/hosted/gateway/openrpc.json"
+class = "doc-drift"
+tests = ["test_route_locations_match_openrpc_and_real_catalogue_producer", "test_retired_rpc_subtree_is_omitted_and_refused_by_production_ingress", "test_catalogue_source_path_preserves_authentication_readiness_and_json_transport", "test_account_alias_wording_preserves_exact_lookup_selectors_and_refusals", "test_exact_bank_amount_asset_limit_and_consensus_head_schemas_are_preserved", "test_all_unrelated_openrpc_contracts_match_the_recorded_base", "test_repair_record_maps_finding_proofs_scope_limits_and_revision_evidence"]
+
+[gotcha.1]
+observed = "The unchanged-tree baseline clause conflicts with the explicit implementation-first and wrapper-only gate order."
+resolution = "Follow the explicit order and state that no baseline was run or failure claimed. GOTCHA.kvx and spec records are outside scope, so task notes stay here."
+
+[gotcha.2]
+observed = "Codify brief/survey reports stale unrelated tasks and changes, and unbounded repository reads exceed the output limit."
+resolution = "Use the exact task block, Git status/diff and private gate ledger as task authority, and bounded source reads for the repair."
+
+[gotcha.3]
+observed = "The compiled shared catalogue still includes /rpc and a /rpc/evm/ws row even though production ingress refuses the whole /rpc subtree."
+resolution = "Overlay current location metadata and omit the refused subtree inside the in-scope production producer; request the shared-source/generated-doc update from domain 8."
+
+[format]
+policy = "After implementation, format only the touched Rust file with rustfmt using the workspace edition and skip_children; JSON follows the repository two-space convention. No Python or KVX formatter is configured for these paths; apply .editorconfig UTF-8, LF, trailing-whitespace and final-newline conventions to touched files only."

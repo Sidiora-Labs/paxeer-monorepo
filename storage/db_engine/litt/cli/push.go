@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"path"
 	"strings"
-	"sync/atomic"
+	"sync"
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/storage/db_engine/litt/disktable"
@@ -34,7 +34,7 @@ func pushCommand(ctx *cli.Context) error {
 		}
 	}
 
-	destinations := ctx.StringSlice("dest")
+	destinations := ctx.StringSlice(dstFlag.Name)
 	if len(destinations) == 0 {
 		return fmt.Errorf("no destinations provided")
 	}
@@ -120,6 +120,12 @@ func push(
 	if err != nil {
 		return fmt.Errorf("failed to create SSH session to %s@%s port %d: %w", user, host, port, err)
 	}
+
+	defer func() {
+		if err := connection.Close(); err != nil {
+			logger.Error("Failed to close SSH session", "error", err)
+		}
+	}()
 
 	tables, err := lsPaths(logger, sources, false, fsync)
 	if err != nil {
@@ -242,7 +248,10 @@ func pushTable(
 				tableName, sources[0], err)
 		}
 
-		if boundaryFile.IsDefined() {
+		if !boundaryFile.IsDefined() {
+			return nil
+		}
+		if boundaryFile.BoundaryIndex() < highestSegmentIndex {
 			highestSegmentIndex = boundaryFile.BoundaryIndex()
 		}
 	} else if deleteAfterTransfer {
@@ -259,61 +268,63 @@ func pushTable(
 		}
 	}
 
-	// Used to limit rsync concurrency.
-	rsyncLimiter := make(chan struct{}, threads)
-
-	rsyncsInProgress := atomic.Int64{}
-
-	// Transfer the files.
-	for i := lowestSegmentIndex; i <= highestSegmentIndex; i++ {
-		seg := segments[i]
-		filesToTransfer := seg.GetFilePaths()
-
-		for _, filePath := range filesToTransfer {
+	type transfer struct {
+		source string
+		target string
+	}
+	var transfers []transfer
+	publishedSegments := make(map[uint32]*segment.Segment)
+	for index := uint64(lowestSegmentIndex); index <= uint64(highestSegmentIndex); index++ {
+		i := uint32(index)
+		seg, exists := segments[i]
+		if !exists {
+			return fmt.Errorf("missing published segment %d", i)
+		}
+		for _, filePath := range seg.GetFilePaths() {
 			fileName := path.Base(filePath)
-
-			destination := ""
-			if existingDest, exists := existingFilesMap[fileName]; exists {
-				destination = existingDest
-			} else {
+			destination, exists := existingFilesMap[fileName]
+			if !exists {
 				destination, err = determineDestination(fileName, destinations)
 				if err != nil {
 					return fmt.Errorf("failed to determine destination for file %s: %w", fileName, err)
 				}
 			}
-
-			targetLocation := path.Join(destination, tableName, segment.SegmentDirectory, fileName)
-
-			rsyncLimiter <- struct{}{}
-			rsyncsInProgress.Add(1)
-
-			boundFilePath := filePath
-			go func() {
-				err = connection.Rsync(boundFilePath, targetLocation, throttleMB)
-				if err != nil {
-					errorMonitor.Panic(err)
-				}
-				<-rsyncLimiter
-				rsyncsInProgress.Add(-1)
-			}()
+			transfers = append(transfers, transfer{
+				source: filePath,
+				target: path.Join(destination, tableName, segment.SegmentDirectory, fileName),
+			})
 		}
+		publishedSegments[i] = seg
 	}
 
-	// Wait for all rsyncs to complete.
-	for rsyncsInProgress.Load() > 0 {
-		time.Sleep(100 * time.Millisecond)
+	rsyncLimiter := make(chan struct{}, threads)
+	var rsyncs sync.WaitGroup
+	defer rsyncs.Wait()
+	for _, file := range transfers {
+		rsyncLimiter <- struct{}{}
+		rsyncs.Add(1)
+		go func(file transfer) {
+			defer rsyncs.Done()
+			defer func() { <-rsyncLimiter }()
+			if transferErr := connection.Rsync(file.source, file.target, throttleMB); transferErr != nil {
+				errorMonitor.Panic(transferErr)
+			}
+		}(file)
 	}
+	rsyncs.Wait()
 
-	// Check if there were any errors during the transfer.
 	if ok, err := errorMonitor.IsOk(); !ok {
 		return fmt.Errorf("error detected during transfer: %w", err)
 	}
+	// Every file in this set has now been acknowledged by rsync. Segments
+	// observed beyond the captured publication boundary remain publisher-owned.
+	acknowledgedSegments := publishedSegments
 
 	// Now that we have transferred the files, we can delete them if requested.
 	if deleteAfterTransfer {
 		util.True(isSnapshot, "we should have already returned an error if this is a non-snapshot table")
 
-		err = deleteLocalSegments(segments, tableName, true, sources, highestSegmentIndex)
+		err = deleteLocalSegments(acknowledgedSegments, tableName, true, sources, lowestSegmentIndex)
 		if err != nil {
 			return fmt.Errorf("failed to delete segments after transfer: %w", err)
 		}
@@ -328,31 +339,43 @@ func deleteLocalSegments(
 	tableName string,
 	isSnapshot bool,
 	sources []string,
-	highestSegmentIndex uint32) error {
+	lowestSegmentIndex uint32) error {
 
-	// Delete the segments.
-	for _, seg := range segments {
-		seg.Release()
-	}
-	// Wait for deletion to complete.
-	for _, seg := range segments {
-		err := seg.BlockUntilFullyDeleted()
-		if err != nil {
-			return fmt.Errorf("failed to delete segment %d for table %s: %w",
-				seg.SegmentIndex(), tableName, err)
-		}
-	}
-
+	var boundaryFile *disktable.BoundaryFile
+	first := uint64(lowestSegmentIndex)
 	if isSnapshot {
-		// If we are dealing with a snapshot, update the lower bound file.
-		boundaryFile, err := disktable.LoadBoundaryFile(disktable.LowerBound, path.Join(sources[0], tableName))
+		var err error
+		boundaryFile, err = disktable.LoadBoundaryFile(disktable.LowerBound, path.Join(sources[0], tableName))
 		if err != nil {
 			return fmt.Errorf("failed to load boundary file for table %s at path %s: %w",
 				tableName, sources[0], err)
 		}
+		if boundaryFile.IsDefined() {
+			first = uint64(boundaryFile.BoundaryIndex()) + 1
+		}
+	}
 
-		err = boundaryFile.Update(highestSegmentIndex)
-		if err != nil {
+	// Reclaim only the contiguous acknowledged prefix. Keeping later segments
+	// preserves the unacknowledged gap for the next consumer invocation.
+	var prefix []*segment.Segment
+	for index := first; index <= uint64(^uint32(0)); index++ {
+		seg, exists := segments[uint32(index)]
+		if !exists {
+			break
+		}
+		prefix = append(prefix, seg)
+	}
+	for _, seg := range prefix {
+		seg.Release()
+	}
+	for _, seg := range prefix {
+		if err := seg.BlockUntilFullyDeleted(); err != nil {
+			return fmt.Errorf("failed to delete segment %d for table %s: %w", seg.SegmentIndex(), tableName, err)
+		}
+	}
+
+	if isSnapshot && len(prefix) > 0 {
+		if err := boundaryFile.Update(prefix[len(prefix)-1].SegmentIndex()); err != nil {
 			return fmt.Errorf("failed to update boundary file for table %s at path %s: %w",
 				tableName, sources[0], err)
 		}

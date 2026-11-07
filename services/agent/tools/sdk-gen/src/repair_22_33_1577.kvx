@@ -1,0 +1,10 @@
+[repair.22.33.1577]
+finding = "generator-retired-lifecycle"
+tests = ["generator_retired_lifecycle_generates_current_evm_metadata", "generator_retired_lifecycle_does_not_require_retired_ingress", "generator_retired_lifecycle_rejects_transaction_and_rung_drift", "generator_retired_lifecycle_generated_request_reaches_101d_transport"]
+producer = "sdk/platform/go/testdata/repair141/native-deprecate.json: recorded signed EIP-1559 deprecate calldata for chain 125 and 0x101D"
+transport = "Production generator emits TypeScript and Python JSON-RPC wire templates; the integration test sends both emitted envelopes through a loopback HTTP transcript peer and checks exact signed bytes and the recorded transaction hash."
+verification = "Submission, receipt and commit evidence requirements remain distinct; the transcript peer establishes transport only, not cryptographic receipt or commit verification."
+baseline = "No baseline verify ran: the task's ordered implementation-first and hf-done-only instructions override do_5's conflicting baseline request; no pre-change test result is claimed."
+wiring_schema = "Domain 9 (fm-agent): remove retired lifecycle method/path/content_type declarations in services/agent/schema/agent-api/programs.kvx and its golden/programs.kvx mirror; retain the canonical typed signed EIP-1559 request and response contract consumed by this generator."
+wiring_bindings = "Domain 9 (fm-agent): regenerate services/agent/sdk/typescript/src/generated/client.ts, services/agent/sdk/python/layerx_sdk/generated/client.py and client.pyi with the repaired generator; those artifacts are outside this task's scope."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit and private log; no prequalification success is declared here."

@@ -1,0 +1,23 @@
+[task]
+id = "22.33.268"
+finding = "registry-transfer-step"
+base_revision = "081dc08ced37d64df4d676e4b2a2d07ef444115a"
+status = "consumer-proof-added; external-registry-wiring-required"
+observation = "The existing TransferStep union and DepositStatus already support submitted, confirming, attesting, ready, credited and failed; the audited mismatch is in the out-of-scope registry and contract snapshot."
+implementation = "Preserve the correct production consumer and prove the real ledger -> phaseOf -> stepOf -> TransferStatusItem props -> DepositStatus -> TransferSteps path for deposits and withdrawals."
+proof = "repair-22-33-268.spec.ts: registryTransferStepDisplaysEveryProducedPhase, registryTransferStepFailureShowsWhereProgressStopped, registryTransferStepRejectsAnUnknownConsumerState"
+baseline = "NOT RUN: the ordered instructions require implementation, hf-build, then hf-done and forbid running verify_cmd by hand; no pre-change test failure or red-to-green behavior repair is claimed."
+evidence = "The verified candidate revision, exact command, exit and private log location are recorded by hf-done in /out/run/gates.jsonl and copied verbatim in the final response."
+qualification_repair = "Vitest 4 interpreted test(function) as TODO without executing assertions; register each declared function with test(function.name, function) so every proof executes."
+
+[contract]
+interface = "14.ts-bridge-components-trading-deposit-status-transferstep"
+signature = "export type TransferStep = 'submitted' | 'confirming' | 'attesting' | 'ready' | 'credited' | 'failed';"
+phase_mapping = "confirming -> confirming; attesting -> attesting; ready -> ready; settling -> submitted; settled -> credited; failed -> failed"
+consumer = "submitted, confirming, attesting and ready group as pending; credited groups as completed (Credited for deposits, Sent for withdrawals); failed groups as failed at submitted with zero confirmations or confirming with positive confirmations."
+
+[wiring.registry]
+request = "Domain 14 (bridge-client): update spec/layerx-merge/interfaces.kvx interface.14.ts-bridge-components-trading-deposit-status-transferstep to the six-state signature above and reconcile its callers with apps/bridge/src/lib/bridge/phase.ts."
+
+[wiring.contract]
+request = "Domain 14 (bridge-client): reconcile spec/layerx-merge/contracts/bridge-client.md#components with the six-state signature and phase mapping above while preserving its explicit historical-snapshot provenance."

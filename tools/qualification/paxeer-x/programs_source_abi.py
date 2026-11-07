@@ -13,6 +13,7 @@ All authority material and builder quota mounts must be provisioned separately.
 import argparse
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -249,6 +250,27 @@ def source_input(path):
     return {'uri': uri, 'archive': archive, 'plan': plan, 'module': module, 'fields': fields}
 
 
+def chain_configuration(environment):
+    spec = importlib.util.spec_from_file_location('source_abi_merged_chain', Path(__file__).with_name('fixtures') / 'merged_chain.py')
+    chain = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(chain)
+    raw = environment.get('LAYERX_REGISTRY_CHAIN_RPC_URL')
+    require(isinstance(raw, str) and raw, 'missing production configuration: LAYERX_REGISTRY_CHAIN_RPC_URL')
+    chain.endpoint(raw)
+    return chain, raw
+
+
+def program_binding(node, program, abi, code_hash, version):
+    require(isinstance(program, str) and re.fullmatch('[0-9a-f]{64}', program), 'canonical program ID required')
+    result = node.program_read('getProgram', [bytes.fromhex(program)])
+    require(isinstance(result, str) and re.fullmatch('0x[0-9a-f]{384}', result), 'merged Programs metadata framing invalid')
+    raw = bytes.fromhex(result[2:])
+    require(raw[64:96].hex() == code_hash and int.from_bytes(raw[96:128], 'big') == abi
+            and int.from_bytes(raw[128:160], 'big') == version and int.from_bytes(raw[160:], 'big') == 1,
+            'merged Programs source/ABI binding differs from committed metadata')
+    return result
+
+
 class Gate:
     def __init__(self, directory, record_value):
         self.root = Path(tempfile.mkdtemp(prefix='source-abi-', dir=directory))
@@ -288,16 +310,14 @@ class Gate:
                             if key.startswith(('LAYERX_REGISTRY_', 'LAYERX_EVENTS_'))}
         for name in ('BUILDER_ENVIRONMENT_ROOT', 'BUILDER_ENTRYPOINT', 'BUILDER_IMAGE_DIGEST',
                      'BUILDER_ISOLATION_RUNTIME', 'BUILDER_ISOLATION_RUNTIME_DIGEST',
-                     'NODE_ENDPOINT', 'NODE_AUTHORIZATION', 'RECEIPT_AUTHORITY_ENDPOINT',
-                     'RECEIPT_AUTHORITY_AUTHORIZATION', 'RECEIPT_AUTHORITY_REPLICA_ID',
-                     'SEQUENCER_TRUST_HISTORY', 'TLS_CERT_DER', 'TLS_KEY_DER',
+                     'CHAIN_RPC_URL', 'TLS_CERT_DER', 'TLS_KEY_DER',
                      'CLIENT_CA_DER', 'OUTBOUND_CA_DER', 'CLIENT_IDENTITY_PKCS12',
                      'CLIENT_IDENTITY_PASSWORD_FILE', 'REQUEST_TOKEN_FILE',
                      'PUBLICATION_TOKEN_FILE', 'IDENTITY_URL'):
             require(self.environment.get('LAYERX_REGISTRY_' + name),
                     'missing production configuration: LAYERX_REGISTRY_' + name)
-        require('LAYERX_REGISTRY_LNI_SOCKET' not in self.environment,
-                'use provisioned HTTPS node evidence boundary for this gate')
+        chain, chain_url = chain_configuration(self.environment)
+        self.chain = chain.Node(chain_url, load_private(Path(setting('CHAIN_RECEIPT_KEYS'))))
         for name in ('PROGRAM', 'WEBHOOKS'):
             require(self.environment.get('LAYERX_EVENTS_' + name + '_UPSTREAM_URL'),
                     'real event upstream configuration required')
@@ -487,6 +507,8 @@ class Gate:
                     'missing genuine deployment evidence identity')
         require(provenance['observed_sequence'] > 0 and provenance['observed_at'] > 0,
                 'missing deployment freshness evidence')
+        program_binding(self.chain, program, abi, digest(module), document['version'])
+        self.chain.committed('0x' + provenance['activity_id'])
         if before is not None:
             require(provenance == before['deployment_provenance'], 'deployment provenance changed on retry')
             for field in ('source_uri', 'source_digest', 'environment_digest'):

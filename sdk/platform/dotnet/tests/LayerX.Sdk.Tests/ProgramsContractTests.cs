@@ -14,61 +14,133 @@ namespace LayerX.Sdk.Tests;
 
 public sealed class ProgramsContractTests
 {
-    private sealed class ProgramTransport(JsonValue response) : IPlatformTransport
-    {
-        public Task<JsonValue> SendAsync(TransportCall call, CancellationToken cancellationToken = default) =>
-            Task.FromException<JsonValue>(new PlatformSdkException(SdkErrorCode.UnavailableCapability, RetryClass.Never));
-        public Task<JsonValue> SendProgramAsync(ProgramTransportCall call, CancellationToken cancellationToken = default) =>
-            Task.FromResult(response);
-    }
-
     [Fact]
     public void ProgramsClientRequiresIndependentNonzeroSequencerPin()
     {
-        var client = new PlatformClient(new ProgramTransport(JsonValue.EmptyObject));
-        Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, new byte[32]));
-        _ = new ProgramsClient(client, Enumerable.Repeat((byte)1, 32).ToArray());
+        var client = new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:1/")));
+        using var rpc = new Programs(new Uri("http://127.0.0.1:1/"));
+        Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, rpc, new byte[32]));
+        _ = new ProgramsClient(client, rpc, Enumerable.Repeat((byte)1, 32).ToArray());
+        var error = Assert.Throws<PlatformSdkException>(() => new ProgramsClient(client, Enumerable.Repeat((byte)1, 32).ToArray()));
+        Assert.Equal(SdkErrorCode.UnavailableCapability, error.Code);
+        Assert.Equal(RetryClass.Never, error.Retry);
     }
 
     [Fact]
     public async Task PendingReceiptMayOmitRetainedBytesButMustBindExpectedActivity()
     {
-        var key = new string('a', 64); var activity = Enumerable.Repeat((byte)0x11, 32).ToArray();
-        var value = JsonValue.Object(new Dictionary<string, JsonValue>
+        using var producer = RepairM1369Native.RecordedVector();
+        var vector = RepairM1369Native.ProgramsVector(producer);
+        var raw = RepairM1369Native.Hex(vector, "rawTransaction");
+        var activity = Programs.TransactionHash(raw);
+        var key = Convert.ToHexString(activity).ToLowerInvariant();
+        await using var server = new RepairM1368Http();
+        using var rpc = new Programs(server.Endpoint);
+        var programs = new ProgramsClient(rpc);
+        var pendingTask = programs.ReceiptAsync(new IdempotencyKey(key), activity, "receipted");
+        await server.Exchange(request =>
         {
-            ["state"] = JsonValue.String("unknown"),
-            ["activity_id"] = JsonValue.String(Convert.ToHexString(activity).ToLowerInvariant()),
-            ["idempotency_key"] = JsonValue.String(key),
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            Assert.Equal("0x" + Convert.ToHexString(activity).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
+            return (200, JsonSerializer.SerializeToUtf8Bytes(new { jsonrpc = "2.0", id = request.GetProperty("id"), result = (object?)null }));
         });
-        var programs = new ProgramsClient(new PlatformClient(new ProgramTransport(value)),
-            Enumerable.Repeat((byte)1, 32).ToArray());
-        var pending = await programs.ReceiptAsync(new IdempotencyKey(key), activity, "sequencer-signed");
-        Assert.True(pending.IsUnknown); Assert.Null(pending.RetainedSignedActivity);
-        var error = await Assert.ThrowsAsync<PlatformSdkException>(() => programs.ReceiptAsync(new IdempotencyKey(key),
-            Enumerable.Repeat((byte)0x12, 32).ToArray(), "sequencer-signed"));
+        var pending = await pendingTask;
+        Assert.True(pending.IsUnknown);
+        Assert.Equal(activity, pending.ActivityId);
+        Assert.Equal(key, pending.IdempotencyKey);
+        Assert.Null(pending.RetainedSignedActivity);
+        var mismatch = programs.ReceiptAsync(new IdempotencyKey(key), Enumerable.Repeat((byte)0x12, 32).ToArray(), "receipted");
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            return (200, JsonSerializer.SerializeToUtf8Bytes(new { jsonrpc = "2.0", id = request.GetProperty("id"),
+                result = new { hash = "0x" + Convert.ToHexString(activity).ToLowerInvariant() } }));
+        });
+        var error = await Assert.ThrowsAsync<PlatformSdkException>(() => mismatch);
         Assert.Equal(SdkErrorCode.VerificationFailure, error.Code);
+        var wrongRaw = programs.ActivityAsync(activity, "receipted");
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            return RepairM1369Native.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
+        });
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getRawTransactionByHash", request.GetProperty("method").GetString());
+            var altered = raw.ToArray(); altered[^1] ^= 1;
+            return RepairM1369Native.Reply(request, "0x" + Convert.ToHexString(altered).ToLowerInvariant());
+        });
+        var rawError = await Assert.ThrowsAsync<PlatformSdkException>(() => wrongRaw);
+        Assert.Equal(SdkErrorCode.VerificationFailure, rawError.Code);
+    }
+
+    [Fact]
+    public async Task RecordedProgramsSubmissionAuthenticatesReceiptAndRetainedTransaction()
+    {
+        using var producer = RepairM1369Native.RecordedVector();
+        var vector = RepairM1369Native.ProgramsVector(producer);
+        var raw = RepairM1369Native.Hex(vector, "rawTransaction");
+        var expected = RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "txHash");
+        var (native, fee) = RepairM1369Native.RecordedCall();
+        var call = new ProgramCall(native, fee, raw);
+        Assert.Equal(expected, call.TransactionHash);
+        var key = new IdempotencyKey(Convert.ToHexString(expected).ToLowerInvariant());
+        await using var server = new RepairM1368Http();
+        using var rpc = new Programs(server.Endpoint);
+        var programs = new ProgramsClient(rpc, RepairM1369Native.Keys(vector));
+        var submission = programs.SubmitAsync(call, key);
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_sendRawTransaction", request.GetProperty("method").GetString());
+            Assert.Equal(vector.GetProperty("rawTransaction").GetString(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson").GetProperty("txHash").GetString());
+        });
+        await server.Exchange(request =>
+        {
+            Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
+            Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson"));
+        });
+        AssertSubmission(await submission);
+        var recovered = programs.ReceiptAsync(key, expected, "receipted");
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getTransactionByHash", request.GetProperty("method").GetString());
+            Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, new { hash = vector.GetProperty("receiptJson").GetProperty("txHash").GetString() });
+        });
+        await server.Exchange(request =>
+        {
+            Assert.Equal("eth_getRawTransactionByHash", request.GetProperty("method").GetString());
+            Assert.Equal(vector.GetProperty("receiptJson").GetProperty("txHash").GetString(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, vector.GetProperty("rawTransaction").GetString());
+        });
+        await server.Exchange(request =>
+        {
+            Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
+            return RepairM1369Native.Reply(request, vector.GetProperty("receiptJson"));
+        });
+        AssertSubmission(await recovered);
+
+        void AssertSubmission(ProgramSubmission result)
+        {
+            Assert.Equal("executed", result.State);
+            Assert.False(result.IsUnknown);
+            Assert.Equal(expected, result.ActivityId);
+            Assert.Equal(key.Value, result.IdempotencyKey);
+            Assert.Equal(raw, result.RetainedSignedTransaction);
+            var receipt = Assert.IsType<SequencerReceiptVerification>(result.SequencerReceipt);
+            Assert.Equal("receipted", receipt.Rung);
+            Assert.Equal(RepairM1369Native.Hex(vector, "signedReceipt"), receipt.CanonicalBytes);
+            Assert.Equal(RepairM1369Native.Hex(vector, "receiptDigest"), receipt.ReceiptDigest);
+            Assert.Equal(RepairM1369Native.Hex(vector.GetProperty("receiptJson"), "returnData"), receipt.ReturnData);
+        }
     }
 
     [Fact]
     public async Task DiscoveryClientReturnsBoundedTypedResponseWithHonestVerificationLevel()
     {
-        var program = new string('1', 64); var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
-        var value = JsonValue.Object(new Dictionary<string, JsonValue>
-        {
-            ["program_id"] = JsonValue.String(program), ["lifecycle"] = JsonValue.String("active"),
-            ["version"] = JsonValue.Integer(7), ["code_hash"] = JsonValue.String(new string('2', 64)),
-            ["abi_version"] = JsonValue.Integer(2), ["receipt_digest"] = JsonValue.String(new string('3', 64)),
-            ["state_root"] = JsonValue.String(new string('4', 64)), ["observed_sequence"] = JsonValue.String("9"),
-            ["observed_at"] = JsonValue.String(now.ToString()), ["valid_through"] = JsonValue.String((now + 60_000).ToString()),
-            ["verification"] = JsonValue.String("registry-receipt-and-current-head-verified"),
-        });
-        var programs = new ProgramsClient(new PlatformClient(new ProgramTransport(value)),
-            Enumerable.Repeat((byte)1, 32).ToArray());
-
-        var discovered = await programs.DiscoverAsync(Convert.FromHexString(program), "sequencer-signed");
-        Assert.Equal(ProgramLifecycle.Active, discovered.Lifecycle);
-        Assert.Equal((uint)7, discovered.Version); Assert.Equal((ulong)9, discovered.ObservedSequence);
-        Assert.Equal("server-side-receipt-verification-only", discovered.Verification);
+        await new ProgramsEvmTests().ProgramDiscoverReadsWindDownLifecycle();
     }
 
     [Fact]
@@ -132,41 +204,59 @@ public sealed class ProgramsContractTests
     [Theory]
     [InlineData("native-program-call-v3.json")]
     [InlineData("native-program-call-v4.json")]
-    public async Task NativeSignedFixturesUseCanonicalBinaryGatewayTransport(string name)
+    public async Task NativeSignedFixturesPreserveCanonicalCallBindings(string name)
     {
         using var document = Fixture(name);
         var vector = document.RootElement;
         var payload = FixtureBytes(vector, "payload_hex");
-        var signed = FixtureBytes(vector, "signed_activity_hex");
         var native = NativeProgramCall.Decode(payload);
-        var call = new ProgramCall(native, new ProtocolAmount(vector.GetProperty("fee_limit").GetString()!), signed);
-        var encoded = Assert.IsType<JsonValue.ObjectValue>(Invoke("Encode", call));
-        var key = vector.GetProperty("idempotency_key_hex").GetString()!;
-        using var token = new AccessToken(Encoding.ASCII.GetBytes("fixture-bearer"));
-        var transport = new AgentHttpTransport(new Uri("http://127.0.0.1:8080"), accessToken: token);
-        var build = typeof(AgentHttpTransport).GetMethod("ProgramRequest", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        foreach (var operation in new[] { "program.call", "program.simulate" })
+        Assert.Equal(payload, native.Encode());
+        var fee = new ProtocolAmount(vector.GetProperty("fee_limit").GetString()!);
+        var unsigned = new ProgramCall(native, fee).BuildTransaction(RepairM1369Native.Sender, 7, 150000, 100, 2);
+        var signed = RepairM1369Native.Sign(unsigned);
+        var call = new ProgramCall(native, fee, signed);
+        Assert.Equal(vector.GetProperty("evm").GetProperty("calldata").GetString(),
+            "0x" + Convert.ToHexString(call.EncodeCalldata()).ToLowerInvariant());
+        Assert.Equal(Programs.TransactionHash(signed), call.TransactionHash);
+        Assert.Equal(signed, call.SignedTransaction);
+        using var producer = RepairM1369Native.RecordedVector();
+        var pins = RepairM1369Native.Keys(RepairM1369Native.ProgramsVector(producer));
+        await using var server = new RepairM1368Http();
+        using var rpc = new Programs(server.Endpoint);
+        var programs = new ProgramsClient(rpc, pins);
+        var key = new IdempotencyKey(Convert.ToHexString(call.TransactionHash).ToLowerInvariant());
+        var submission = programs.SubmitAsync(call, key);
+        await server.Exchange(request =>
         {
-            var request = new ProgramTransportCall(operation, encoded, new Dictionary<string, string>(),
-                operation == "program.call" ? new IdempotencyKey(key) : null);
-            using var http = Assert.IsType<HttpRequestMessage>(build.Invoke(transport, [request]));
-            Assert.Equal(operation == "program.call" ? "/v1/programs/call" : "/v1/programs/simulate", http.RequestUri!.AbsolutePath);
-            Assert.Equal(HttpMethod.Post, http.Method);
-            Assert.Equal("application/octet-stream", http.Content!.Headers.ContentType!.MediaType);
-            Assert.Equal(signed, await http.Content.ReadAsByteArrayAsync());
-            if (operation == "program.call") Assert.Equal(key, Assert.Single(http.Headers.GetValues("Idempotency-Key")));
-            else Assert.False(http.Headers.Contains("Idempotency-Key"));
-            var changed = native with { ResponseCapacity = native.ResponseCapacity + 1 };
-            var changedCall = new ProgramCall(changed, call.Budget.FeeLimit, signed);
-            Assert.Throws<TargetInvocationException>(() => Invoke("DecodeSignedCall", changedCall));
-        }
+            Assert.Equal("eth_sendRawTransaction", request.GetProperty("method").GetString());
+            Assert.Equal("0x" + Convert.ToHexString(signed).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, "0x" + Convert.ToHexString(call.TransactionHash).ToLowerInvariant());
+        });
+        await server.Exchange(request =>
+        {
+            Assert.Equal("pax_sequencerReceipt", request.GetProperty("method").GetString());
+            Assert.Equal("0x" + Convert.ToHexString(call.TransactionHash).ToLowerInvariant(), request.GetProperty("params")[0].GetString());
+            return RepairM1369Native.Reply(request, null);
+        });
+        var pending = await submission;
+        Assert.Equal("pending", pending.State);
+        Assert.Equal(call.TransactionHash, pending.ActivityId);
+        Assert.Equal(key.Value, pending.IdempotencyKey);
+        Assert.Equal(signed, pending.RetainedSignedActivity);
+        Assert.Null(pending.SequencerReceipt);
+        await Assert.ThrowsAsync<ArgumentException>(() => programs.SubmitAsync(
+            new ProgramCall(native with { ResponseCapacity = native.ResponseCapacity + 1 }, fee, signed), key));
+        await Assert.ThrowsAsync<ArgumentException>(() => programs.SubmitAsync(
+            new ProgramCall(native, new ProtocolAmount((fee.Value + 1).ToString()), signed), key));
+        await Assert.ThrowsAsync<ArgumentException>(() => programs.SubmitAsync(
+            new ProgramCall(native, fee, FixtureBytes(vector, "signed_activity_hex")), key));
         foreach (var abi in new ushort[] { 0, 6, ushort.MaxValue })
             Assert.Throws<ArgumentException>(() => (native with { GuestAbi = abi }).Encode());
         foreach (var abi in new ushort[] { 3, 4 })
         {
             var changed = native with { GuestAbi = abi };
             Assert.Equal(abi, NativeProgramCall.Decode(changed.Encode()).GuestAbi);
-            Assert.Throws<TargetInvocationException>(() => Invoke("DecodeSignedCall", new ProgramCall(changed, call.Budget.FeeLimit, signed)));
+            await Assert.ThrowsAsync<ArgumentException>(() => programs.SubmitAsync(new ProgramCall(changed, fee, signed), key));
         }
     }
 
@@ -181,14 +271,18 @@ public sealed class ProgramsContractTests
         INativeProgramLifecycle operation = ordinal == 1 ? NativeProgramDeploy.Decode(payload) : NativeProgramUpgrade.Decode(payload);
         Assert.Equal((ushort)2, BinaryPrimitives.ReadUInt16BigEndian(payload.AsSpan(32)));
         Assert.Equal(payload, operation.Encode());
-        var request = new NativeProgramLifecycleRequest(operation, FixtureBytes(vector, "signed_activity_hex"));
-        Assert.Equal(FixtureBytes(vector, "activity_id_hex"), request.ActivityId);
+        var unsigned = new NativeProgramLifecycleRequest(operation).BuildTransaction(RepairM1369Native.Sender, 7, 250000, 100, 2);
+        var signed = RepairM1369Native.Sign(unsigned);
+        var request = new NativeProgramLifecycleRequest(operation, signed);
+        Assert.Equal(Programs.TransactionHash(signed), request.ActivityId);
+        Assert.Equal(unsigned.Data, request.Payload);
+        Assert.Throws<ArgumentException>(() => new NativeProgramLifecycleRequest(operation, FixtureBytes(vector, "signed_activity_hex")));
         foreach (var abi in new ushort[] { 3, 4 })
         {
             var changed = payload.ToArray(); BinaryPrimitives.WriteUInt16BigEndian(changed.AsSpan(32), abi);
             INativeProgramLifecycle updated = ordinal == 1 ? NativeProgramDeploy.Decode(changed) : NativeProgramUpgrade.Decode(changed);
             Assert.Equal(changed, updated.Encode());
-            Assert.Throws<ArgumentException>(() => new NativeProgramLifecycleRequest(updated, FixtureBytes(vector, "signed_activity_hex")));
+            Assert.Throws<ArgumentException>(() => new NativeProgramLifecycleRequest(updated, signed));
         }
         foreach (var abi in new ushort[] { 0, 6, ushort.MaxValue })
         {
@@ -202,7 +296,8 @@ public sealed class ProgramsContractTests
     {
         var signer = new Ed25519PrivateKeyParameters(Enumerable.Repeat((byte)0x42, 32).ToArray(), 0);
         var pin = signer.GeneratePublicKey().GetEncoded();
-        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))), pin);
+        using var rpc = new Programs(new Uri("http://127.0.0.1:1/"));
+        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:1/"))), rpc, pin);
         var verify = typeof(ProgramsClient).GetMethod("VerifyDiscovery", BindingFlags.Instance | BindingFlags.NonPublic)!;
         foreach (var abi in new ushort[] { 1, 2, 3, 4 })
         {
@@ -243,31 +338,6 @@ public sealed class ProgramsContractTests
     }
 
     [Fact]
-    public async Task ExecutedNativeReceiptVerifiesLocallyAndRefusesChangedBindings()
-    {
-        using var document = Fixture("receipt-programs-executed-v4.json");
-        var vector = document.RootElement; var batch = vector.GetProperty("authorized_batch");
-        var authority = new AuthorizedReceiptBatch(FixtureBytes(batch, "batch_id_hex"), FixtureBytes(batch, "asset_hex"),
-            FixtureBytes(batch, "previous_state_root_hex"), FixtureBytes(batch, "resulting_state_root_hex"), FixtureBytes(batch, "sequencer_public_key_hex"));
-        var receipt = FixtureBytes(vector, "canonical_receipt_hex"); var terminal = FixtureBytes(vector, "terminal_payload_hex");
-        var graph = FixtureBytes(vector, "call_graph_hex");
-        var activity = SHA256.HashData(Encoding.UTF8.GetBytes("LXP/v1/activity-id\0").Concat(FixtureBytes(vector, "signed_activity_hex")).ToArray());
-        var verified = await ProgramsClient.VerifyReceiptAsync(receipt, authority, activity, 2, terminal, graph, protocolVersion: 3);
-        Assert.Equal(FixtureBytes(vector, "receipt_digest_hex"), verified.ReceiptDigest);
-        Assert.Equal("sequencer-signed", verified.Level);
-        foreach (var target in new[] { "receipt", "terminal", "graph", "activity", "pin" })
-        {
-            byte[] Changed(byte[] bytes) { var changed = bytes.ToArray(); changed[^1] ^= 1; return changed; }
-            await Assert.ThrowsAsync<PlatformSdkException>(async () => await ProgramsClient.VerifyReceiptAsync(
-                target == "receipt" ? Changed(receipt) : receipt,
-                target == "pin" ? authority with { SequencerPublicKey = Changed(authority.SequencerPublicKey) } : authority,
-                target == "activity" ? Changed(activity) : activity, 2,
-                target == "terminal" ? Changed(terminal) : terminal,
-                target == "graph" ? Changed(graph) : graph, protocolVersion: 3));
-        }
-    }
-
-    [Fact]
     public void NativeDeploymentInterfaceHeaderBindsTheActualCodeAndAbi()
     {
         using var document = Fixture("native-program-deploy-v3.json");
@@ -283,125 +353,6 @@ public sealed class ProgramsContractTests
             Assert.False((bool)Invoke("InterfaceHeaderBound", encoded[..size], codeHash, abi)!);
         var changed = encoded.ToArray(); changed[0] ^= 1;
         Assert.False((bool)Invoke("InterfaceHeaderBound", changed, codeHash, abi)!);
-    }
-
-    [Fact]
-    public async Task GenuineTerminalV5CorpusVerifiesEveryOutcomeAndRetainsLegacyRefusals()
-    {
-        var path = Environment.GetEnvironmentVariable("PAXEER_X_PROGRAM_TERMINAL_V5_CORPUS");
-        Assert.False(string.IsNullOrEmpty(path), "genuine native ABI3/4 terminal-v5 corpus required");
-        var file = new FileInfo(path!);
-        Assert.True(file.Exists && file.LinkTarget is null && file.Length is > 0 and <= 16_777_216);
-        using var corpus = JsonDocument.Parse(File.ReadAllText(path!));
-        var root = corpus.RootElement;
-        var revision = Environment.GetEnvironmentVariable("PAXEER_X_MAINLINE");
-        Assert.False(string.IsNullOrEmpty(revision), "published candidate revision required");
-        Assert.Equal(revision, root.GetProperty("source_revision").GetString());
-        var pin = FixtureBytes(root, "trusted_sequencer_public_key_hex");
-        Assert.Equal(32, pin.Length); Assert.Contains(pin, value => value != 0);
-        Assert.Equal(Convert.FromHexString("b4f05aee172965774743f4cd7de4c3621c9e36fd77af7139aafec25eb3fb3360"), pin);
-        var programs = new ProgramsClient(new PlatformClient(new AgentHttpTransport(new Uri("http://127.0.0.1:8080"))), pin, protocolVersion: 3);
-        var method = typeof(ProgramsClient).GetMethod("VerifyExecutionAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
-        var expected = new HashSet<string>(new[] { 3, 4 }.SelectMany(abi =>
-            new[] { "success", "failure", "resource", "callback", "settlement" }.Select(kind => $"{abi}:{kind}")));
-        var present = new HashSet<string>();
-        foreach (var row in root.GetProperty("cases").EnumerateArray())
-        {
-            var abi = row.GetProperty("guest_abi").GetUInt16(); var kind = row.GetProperty("outcome").GetString();
-            var selector = $"{abi}:{kind}";
-            Assert.Contains(selector, expected); Assert.True(present.Add(selector), "duplicate native corpus case");
-            Assert.Equal(pin, FixtureBytes(row, "sequencer_public_key_hex"));
-            var signed = FixtureBytes(row, "signed_activity_hex");
-            var call = NativeCallFromSignedActivity(signed);
-            var native = Assert.IsType<NativeProgramCall>(call.NativeCall);
-            Assert.Equal(abi, native.GuestAbi);
-            Assert.Equal(FixtureBytes(row, "native_call_payload_hex"), native.Encode());
-            Assert.Equal(FixtureBytes(row, "program_id_hex"), call.ProgramId);
-            var binding = Invoke("DecodeSignedCall", call)!;
-            var activity = Property<byte[]>(binding, "ActivityId");
-            var program = call.ProgramId;
-            var map = await ProjectVerifiedNativeExecution(row, pin, activity, program, abi, Property<byte[]>(binding, "IdempotencyKey"));
-            var rawKind = (byte)(kind == "success" ? 1 : kind == "resource" ? 3 : 2);
-            Task<VerifiedProgramExecution> Check(IReadOnlyDictionary<string, JsonValue> value, byte[]? wantedActivity = null) =>
-                Assert.IsAssignableFrom<Task<VerifiedProgramExecution>>(method.Invoke(programs,
-                    [value, kind == "success" ? "executed" : "refused", value.ContainsKey("idempotency_key"), program,
-                        wantedActivity ?? activity, null, CancellationToken.None]));
-            var verified = await Check(map);
-            Assert.Equal(abi, verified.Receipt.Receipt.ProgramOutcome!.AbiVersion);
-            Assert.Equal(rawKind, verified.Receipt.Receipt.ProgramOutcome!.TerminalKind);
-            Assert.Equal("sequencer-signed", verified.Receipt.Level);
-            if (kind is "callback" or "settlement")
-            {
-                var unwrapped = Assert.IsType<byte[]>(Invoke("UnwrapAppliedTerminal", verified.TerminalPayload, verified.Receipt.Receipt.ProgramOutcome!));
-                var inner = Property<byte[]>(Invoke("UnwrapTerminal", unwrapped)!, "Inner");
-                Assert.True(inner.AsSpan().StartsWith(Encoding.UTF8.GetBytes($"LXP/programs/{kind}-failure/v1\0")));
-            }
-            _ = Invoke("VerifyRequestedAbi", call, verified);
-            var crossedCall = new ProgramCall(native with { GuestAbi = (ushort)(abi == 3 ? 4 : 3) }, call.Budget.FeeLimit, signed);
-            Assert.IsType<PlatformSdkException>(Assert.Throws<TargetInvocationException>(() => Invoke("VerifyRequestedAbi", crossedCall, verified)).InnerException);
-            Assert.Equal(FixtureBytes(row, "canonical_receipt_hex"), Convert.FromHexString(Assert.IsType<JsonValue.StringValue>(map["receipt"]).Value));
-            Assert.Equal(FixtureBytes(row, "terminal_payload_hex"), verified.TerminalPayload);
-            Assert.Equal(FixtureBytes(row, "call_graph_hex"), verified.CallGraph);
-            foreach (var wrongAbi in new ushort[] { 0, 1, 2, 5, ushort.MaxValue, (ushort)(abi == 3 ? 4 : 3) })
-                await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { ["guest_abi_version"] = JsonValue.Integer(wrongAbi) }));
-            foreach (var field in new[] { "receipt", "terminal_payload", "call_graph", "activity_id", "receipt_digest", "state_root" })
-            {
-                var bytes = Convert.FromHexString(Assert.IsType<JsonValue.StringValue>(map[field]).Value);
-                bytes[^1] ^= 1;
-                await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { [field] = JsonValue.String(Convert.ToHexString(bytes).ToLowerInvariant()) }));
-            }
-            var usage = new Dictionary<string, JsonValue>(Assert.IsType<JsonValue.ObjectValue>(map["usage"]).Value);
-            foreach (var field in new[] { "cpu_fuel", "memory_bytes", "storage_read_bytes", "storage_write_bytes", "output_bytes", "fee_units" })
-            {
-                var changed = new Dictionary<string, JsonValue>(usage) { [field] = JsonValue.String((BigInteger.Parse(Assert.IsType<JsonValue.StringValue>(usage[field]).Value) + 1).ToString()) };
-                await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { ["usage"] = JsonValue.Object(changed) }));
-            }
-            var authority = Assert.IsType<JsonValue.ObjectValue>(map["authority"]).Value;
-            foreach (var field in new[] { "batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key" })
-            {
-                var bytes = Convert.FromHexString(Assert.IsType<JsonValue.StringValue>(authority[field]).Value); bytes[0] ^= 1;
-                var changed = new Dictionary<string, JsonValue>(authority) { [field] = JsonValue.String(Convert.ToHexString(bytes).ToLowerInvariant()) };
-                await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { ["authority"] = JsonValue.Object(changed) }));
-            }
-            var wrongActivity = activity.ToArray(); wrongActivity[0] ^= 1;
-            await Assert.ThrowsAsync<PlatformSdkException>(() => Check(map, wrongActivity));
-            foreach (var length in new[] { 0, 1, verified.TerminalPayload.Length - 1 })
-                await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { ["terminal_payload"] = JsonValue.String(Convert.ToHexString(verified.TerminalPayload[..length]).ToLowerInvariant()) }));
-            await Assert.ThrowsAsync<PlatformSdkException>(() => Check(new Dictionary<string, JsonValue>(map) { ["terminal_payload"] = JsonValue.String(Convert.ToHexString(verified.TerminalPayload).ToLowerInvariant() + "00") }));
-            if (kind is "success" or "failure" or "resource")
-            {
-                var terminal = verified.TerminalPayload;
-                var domain = Encoding.UTF8.GetBytes("LXP/program-execution/v5\0");
-                var offset = terminal.AsSpan().IndexOf(domain); Assert.True(offset >= 0);
-                var outcome = Assert.IsType<JsonValue.ObjectValue>(map["outcome"]).Value;
-                void RefuseTerminal(byte[] changed, ProgramReceiptOutcome receipt) => Assert.IsType<PlatformSdkException>(
-                    Assert.Throws<TargetInvocationException>(() => Invoke("VerifyTerminal", changed, verified.CallGraph, program, outcome,
-                        (ushort)3, receipt with { TerminalPayloadRoot = SHA256.HashData(changed) })).InnerException);
-                var historical = terminal.ToArray(); historical[offset + domain.Length - 2] = (byte)'4';
-                RefuseTerminal(historical, verified.Receipt.Receipt.ProgramOutcome!);
-                var wrongProfile = terminal.ToArray(); wrongProfile[offset + domain.Length - 2] = (byte)'6';
-                RefuseTerminal(wrongProfile, verified.Receipt.Receipt.ProgramOutcome!);
-                foreach (var receiptAbi in new ushort[] { 0, 1, 2, 5, ushort.MaxValue, (ushort)(abi == 3 ? 4 : 3) })
-                    RefuseTerminal(terminal, verified.Receipt.Receipt.ProgramOutcome! with { AbiVersion = receiptAbi });
-                var abiOffset = CandidateTerminalAbiOffset(terminal, offset + domain.Length);
-                foreach (var embeddedAbi in new ushort[] { 0, 1, 2, 5, ushort.MaxValue })
-                {
-                    var changed = terminal.ToArray(); BinaryPrimitives.WriteUInt16BigEndian(changed.AsSpan(abiOffset), embeddedAbi);
-                    RefuseTerminal(changed, verified.Receipt.Receipt.ProgramOutcome! with { AbiVersion = embeddedAbi });
-                }
-                foreach (var index in new[] { offset + domain.Length + 5, abiOffset - 32 })
-                {
-                    var changed = terminal.ToArray(); changed[index] ^= 1;
-                    RefuseTerminal(changed, verified.Receipt.Receipt.ProgramOutcome!);
-                }
-                foreach (var index in new[] { 0, terminal.Length - 1 })
-                {
-                    var changed = terminal.ToArray(); changed[index] ^= 1;
-                    RefuseTerminal(changed, verified.Receipt.Receipt.ProgramOutcome!);
-                }
-            }
-        }
-        Assert.True(expected.SetEquals(present), "all ten genuine native ABI3/4 outcomes required");
     }
 
     private static ProgramCall NativeCallFromSignedActivity(byte[] signed)
@@ -420,50 +371,6 @@ public sealed class ProgramsContractTests
         }
         Assert.Equal(signed.Length, offset);
         return new ProgramCall(NativeProgramCall.Decode(payload!), new ProtocolAmount(fee.ToString()), signed);
-    }
-
-    private static AuthorizedReceiptBatch NativeBatch(JsonElement row, byte[] pin)
-    {
-        var batch = row.GetProperty("authorized_batch");
-        Assert.Equal(pin, FixtureBytes(batch, "sequencer_public_key_hex"));
-        return new(FixtureBytes(batch, "batch_id_hex"), FixtureBytes(batch, "asset_hex"),
-            FixtureBytes(batch, "previous_state_root_hex"), FixtureBytes(batch, "resulting_state_root_hex"), pin);
-    }
-
-    private static async Task<IReadOnlyDictionary<string, JsonValue>> ProjectVerifiedNativeExecution(JsonElement row,
-        byte[] pin, byte[] activity, byte[] program, ushort abi, byte[] idempotency)
-    {
-        var canonical = FixtureBytes(row, "canonical_receipt_hex");
-        var terminal = FixtureBytes(row, "terminal_payload_hex"); var graph = FixtureBytes(row, "call_graph_hex");
-        var batch = NativeBatch(row, pin);
-        var verified = await ProgramsClient.VerifyReceiptAsync(canonical, batch, activity, abi, terminal, graph, protocolVersion: 3);
-        var receipt = verified.Receipt; var outcome = receipt.ProgramOutcome!;
-        JsonValue Hex(byte[] bytes) => JsonValue.String(Convert.ToHexString(bytes).ToLowerInvariant());
-        JsonValue Number(ulong value) => JsonValue.String(value.ToString(System.Globalization.CultureInfo.InvariantCulture));
-        var fee = ((new BigInteger(outcome.FeeUnits.High) << 64) + outcome.FeeUnits.Low).ToString(System.Globalization.CultureInfo.InvariantCulture);
-        return new Dictionary<string, JsonValue>
-        {
-            ["state"] = JsonValue.String(outcome.TerminalKind == 1 ? "executed" : "refused"),
-            ["activity_id"] = Hex(receipt.ActivityId), ["program_id"] = Hex(program),
-            ["guest_abi_version"] = JsonValue.Integer(outcome.AbiVersion), ["module_version"] = JsonValue.Integer(receipt.ModuleVersion),
-            ["batch_id"] = Hex(receipt.BatchId), ["global_sequence"] = Number(receipt.GlobalSequence),
-            ["result_code"] = JsonValue.Integer(receipt.ResultCode), ["state_root"] = Hex(receipt.ResultingStateRoot),
-            ["receipt"] = Hex(verified.CanonicalBytes), ["receipt_digest"] = Hex(verified.ReceiptDigest),
-            ["terminal_payload"] = Hex(terminal), ["call_graph"] = Hex(graph), ["idempotency_key"] = Hex(idempotency),
-            ["authority"] = JsonValue.Object(new Dictionary<string, JsonValue>
-            {
-                ["batch_id"] = Hex(batch.BatchId), ["asset"] = Hex(batch.Asset), ["previous_state_root"] = Hex(batch.PreviousStateRoot),
-                ["resulting_state_root"] = Hex(batch.ResultingStateRoot), ["sequencer_public_key"] = Hex(pin),
-            }),
-            ["usage"] = JsonValue.Object(new Dictionary<string, JsonValue>
-            {
-                ["cpu_fuel"] = Number(outcome.CpuFuel), ["memory_bytes"] = Number(outcome.MemoryBytes),
-                ["storage_read_bytes"] = Number(outcome.StorageReadBytes), ["storage_write_bytes"] = Number(outcome.StorageWriteBytes),
-                ["output_values"] = JsonValue.Integer(outcome.OutputValues), ["output_bytes"] = Number(outcome.OutputBytes), ["fee_units"] = JsonValue.String(fee),
-            }),
-            ["outcome"] = NativeTerminalOutcome(terminal, outcome),
-            ["verification"] = JsonValue.String("receipt-terminal-and-call-graph-verified"),
-        };
     }
 
     private static JsonValue NativeTerminalOutcome(byte[] terminal, ProgramReceiptOutcome receipt)

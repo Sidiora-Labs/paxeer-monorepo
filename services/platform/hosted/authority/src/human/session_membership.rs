@@ -1,6 +1,7 @@
 use super::{
-    decode, hex, native_checkpoint, native_complete_suffix, native_identity_state, native_u64,
-    unavailable, Authority, Identity, PrincipalPolicy, Response, Verified,
+    current_identity_state, decode, hex, native_checkpoint, native_complete_suffix,
+    native_identity_state, native_u64, unavailable, Authority, Identity, PrincipalPolicy, Response,
+    Verified,
 };
 use layerx_crypto::session::{decode_session_key, IssuedSessionKey};
 use layerx_wire::receipt::ProtocolReceipt;
@@ -9,6 +10,7 @@ use std::collections::{BTreeMap, BTreeSet};
 struct Registration {
     grant: IssuedSessionKey,
     expiry_sequence: u64,
+    summary: Vec<u8>,
 }
 
 impl Registration {
@@ -57,6 +59,7 @@ impl Registration {
         Ok(Self {
             grant,
             expiry_sequence,
+            summary: summary.to_vec(),
         })
     }
 
@@ -235,6 +238,9 @@ pub(super) fn current(
         )?;
         state = next;
     }
+    if current_identity_state(identity, evidence)? != state {
+        return Err(refused());
+    }
     let revision = native_u64(&state, 69)?;
     let mut authorities = vec![Authority {
         kind: "primary_key".to_owned(),
@@ -242,6 +248,17 @@ pub(super) fn current(
     }];
     for (id, registration) in registered {
         if registration.active(revision, latest.last_sequence, now) {
+            let mut key = vec![0x15];
+            key.extend_from_slice(&id);
+            native_checkpoint(latest)?
+                .finality
+                .prove(7, &key, &registration.summary)
+                .map_err(|()| refused())?;
+            key[0] = 5;
+            native_checkpoint(latest)?
+                .finality
+                .prove(7, &key, &registration.grant.registration_payload)
+                .map_err(|()| refused())?;
             authorities.push(Authority {
                 kind: "session_key".to_owned(),
                 id: hex::encode(&id),

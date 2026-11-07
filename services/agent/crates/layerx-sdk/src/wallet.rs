@@ -1,14 +1,13 @@
 use std::time::Duration;
 
+use layerx_crypto::disclosure::call::{bind_call, encode_payment_call};
 use layerx_crypto::disclosure::Disclosure;
+use layerx_crypto::evm_transaction::{assemble, recover_sender, transaction_hash, Eip1559Call};
 pub use layerx_crypto::payments::{Grant, Payment, Registration};
 pub use layerx_crypto::send::SendDebit;
-use layerx_crypto::send::{encode_payment_envelope, EnvelopeOptions};
-use layerx_crypto::signer::{sign_disclosed, Signer};
-use layerx_types::activity::{Signature, UnsignedEnvelope};
-use layerx_types::payload::{ModuleId, ModuleRegistry};
-use layerx_wire::activity::{decode_signed, encode_signed_envelope};
-use layerx_wire::hash::activity_id;
+use layerx_crypto::send::{ledger_payment_call, CallOptions};
+use layerx_crypto::signer::{sign_disclosed_call, SignError, Signer};
+use layerx_types::payload::ModuleId;
 use serde_json::Value;
 
 use crate::rpc::{BalancesSnapshot, Commitment, RpcClient, RpcError};
@@ -32,8 +31,8 @@ pub struct Wallet<'a> {
 }
 
 pub struct PreparedPayment {
-    envelope: UnsignedEnvelope,
-    registry: ModuleRegistry,
+    call: Eip1559Call,
+    from: [u8; 20],
     canonical: Vec<u8>,
     disclosure: Disclosure,
 }
@@ -49,7 +48,7 @@ impl PreparedPayment {
     }
 }
 
-impl Wallet<'_> {
+impl<'Wallet> Wallet<'Wallet> {
     #[must_use]
     pub const fn token(&self) -> &Self {
         self
@@ -76,7 +75,10 @@ impl Wallet<'_> {
         options: &PaymentOptions,
     ) -> Result<VerifiedRpcReceipt, RpcError> {
         let prepared = self.prepare_payload(ModuleId::Asset, 5, canonical_send_payload, options)?;
-        self.execute(prepared, options).await
+        let (hash, raw) = self.execute_signed(prepared, options).await?;
+        let mut receipt = self.wait_for(hash, options.commitment, options.wait_timeout)?;
+        receipt.bind_canonical_activity(raw);
+        Ok(receipt)
     }
     /// # Errors
     /// Refuses scope mismatches, stale account state, signer refusal or missing receipt evidence.
@@ -187,6 +189,10 @@ impl Wallet<'_> {
     }
     /// # Errors
     /// Returns pending or refuses any missing or invalid commitment evidence.
+    /// Uses the RPC client's injected clock and bounded deadline for the entire wait;
+    /// an unavailable or regressing clock is an error, including during polling.
+    /// Committed waits fetch the covering sequence batch at that receipt's block height
+    /// under the RPC client's independently pinned node commit authority.
     pub fn wait_for(
         &self,
         activity: [u8; 32],
@@ -195,6 +201,70 @@ impl Wallet<'_> {
     ) -> Result<VerifiedRpcReceipt, RpcError> {
         self.rpc
             .wait_for(activity, commitment, self.policy, timeout)
+    }
+
+    /// Waits for a signed transaction while retaining its exact canonical activity.
+    ///
+    /// # Errors
+    /// Refuses empty signed bytes and preserves RPC verification errors.
+    pub fn wait_for_signed(
+        &self,
+        raw: &[u8],
+        commitment: Commitment,
+        timeout: Duration,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        if raw.is_empty() {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut receipt = self.wait_for(transaction_hash(raw), commitment, timeout)?;
+        receipt.bind_canonical_activity(raw.to_vec());
+        Ok(receipt)
+    }
+
+    pub fn wait_for_with_commit(
+        &self,
+        activity: [u8; 32],
+        timeout: Duration,
+        evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        self.rpc
+            .wait_for_with_commit(activity, self.policy, timeout, evidence)
+    }
+
+    /// Waits for a submitted receipt while retaining its exact signed activity.
+    ///
+    /// # Errors
+    /// Refuses receipts without canonical activity and preserves RPC verification errors.
+    pub fn wait_for_submitted(
+        &self,
+        receipt: &VerifiedRpcReceipt,
+        commitment: Commitment,
+        timeout: Duration,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        let (activity, canonical) = receipt.submitted_activity()?;
+        let mut waited = self
+            .rpc
+            .wait_for(activity, commitment, self.policy, timeout)?;
+        waited.bind_canonical_activity(canonical.to_vec());
+        Ok(waited)
+    }
+
+    /// Waits for finality under caller-pinned commit evidence, retaining the signed activity.
+    ///
+    /// # Errors
+    /// Refuses receipts without canonical activity and preserves commit verification errors.
+    pub fn wait_for_submitted_with_commit(
+        &self,
+        receipt: &VerifiedRpcReceipt,
+        timeout: Duration,
+        evidence: &layerx_client::rpc::receipt_commit::ReceiptCommitEvidence<'_>,
+    ) -> Result<VerifiedRpcReceipt, RpcError> {
+        let (activity, canonical) = receipt.submitted_activity()?;
+        let mut waited = self
+            .rpc
+            .wait_for_with_commit(activity, self.policy, timeout, evidence)?;
+        waited.bind_canonical_activity(canonical.to_vec());
+        Ok(waited)
     }
 
     /// # Errors
@@ -209,7 +279,10 @@ impl Wallet<'_> {
             .encode(options.actor.as_bytes())
             .map_err(|_| RpcError::InvalidRequest)?;
         let prepared = self.prepare_payload(module, ordinal, &payload, options)?;
-        self.execute(prepared, options).await
+        let (hash, raw) = self.execute_signed(prepared, options).await?;
+        let mut receipt = self.wait_for(hash, options.commitment, options.wait_timeout)?;
+        receipt.bind_canonical_activity(raw);
+        Ok(receipt)
     }
 
     /// # Errors
@@ -221,42 +294,69 @@ impl Wallet<'_> {
         payload: &[u8],
         options: &PaymentOptions,
     ) -> Result<PreparedPayment, RpcError> {
-        if options.wait_timeout > Duration::from_secs(300) {
+        if payload.len() > crate::rpc::MAX_TRANSACTION_CALLDATA_BYTES
+            || options.wait_timeout > Duration::from_secs(300)
+        {
             return Err(RpcError::InvalidRequest);
         }
-        if options.commitment == Commitment::Finalised
-            && self.policy.trusted_checkpoint_context_digest.is_none()
-        {
-            return Err(RpcError::MissingFinalityTrust);
-        }
+        let from = self
+            .signer
+            .evm_address()
+            .ok_or(RpcError::Signing(SignError::EvmKeyUnavailable))?;
         let sequence = self
             .rpc
-            .get_identity_sequence(&options.actor)?
-            .next_sequence;
-        let prepared = prepare_payload(
+            .get_identity_sequence(&format!("0x{}", crate::rpc::encode_hex(&from)))?;
+        let (chain_id, max_priority_fee_per_gas, max_fee_per_gas) =
+            self.rpc.eip1559_parameters()?;
+        let gas_limit = u64::try_from(options.fee_limit / max_fee_per_gas)
+            .map_err(|_| RpcError::InvalidRequest)?;
+        if gas_limit == 0 {
+            return Err(RpcError::InvalidRequest);
+        }
+        let mut prepared = prepare_payload(
             module,
             ordinal,
             payload,
             options,
-            self.policy,
-            self.signer.public_key(),
-            sequence,
+            &CallOptions {
+                from,
+                chain_id,
+                nonce: sequence,
+                max_priority_fee_per_gas,
+                max_fee_per_gas,
+                gas_limit,
+            },
         )?;
+        let gas = self.rpc.estimate_fee_from(&prepared.call, from)?;
+        if gas == 0 || gas > gas_limit {
+            return Err(RpcError::InvalidRequest);
+        }
+        prepared.call.gas_limit = gas;
+        prepared.disclosure =
+            bind_call(&prepared.call, from).map_err(|_| RpcError::Verification)?;
         if let Some(payload_sequence) = prepared
             .disclosure
             .payload_sequence()
             .map_err(|_| RpcError::Verification)?
         {
-            let source = if let Some(Payment::Receive { to, .. }) = &prepared.disclosure.payment {
-                *to
-            } else {
-                prepared
+            let source =
+                if let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerDraw {
+                    recipient,
+                    ..
+                }) = prepared
                     .disclosure
-                    .counterparties
-                    .first()
-                    .ok_or(RpcError::InvalidRequest)?
-                    .account
-            };
+                    .construct_method()
+                    .map_err(|_| RpcError::Verification)?
+                {
+                    recipient
+                } else {
+                    prepared
+                        .disclosure
+                        .counterparties
+                        .first()
+                        .ok_or(RpcError::InvalidRequest)?
+                        .account
+                };
             if source_sequence(self.rpc, source)? != payload_sequence {
                 return Err(RpcError::StaleSourceSequence);
             }
@@ -269,42 +369,38 @@ impl Wallet<'_> {
     pub async fn execute(
         &self,
         prepared: PreparedPayment,
-        options: &PaymentOptions,
-    ) -> Result<VerifiedRpcReceipt, RpcError> {
-        self.rpc
-            .clock()?
-            .sample(Duration::from_secs(1))
-            .map_err(RpcError::Clock)?;
-        let signature = sign_disclosed(
+        _options: &PaymentOptions,
+    ) -> Result<[u8; 32], RpcError> {
+        self.execute_signed(prepared, _options)
+            .await
+            .map(|(hash, _)| hash)
+    }
+
+    /// Submits once and retains the exact signed transaction for receipt binding.
+    async fn execute_signed(
+        &self,
+        prepared: PreparedPayment,
+        _options: &PaymentOptions,
+    ) -> Result<([u8; 32], Vec<u8>), RpcError> {
+        let signature = sign_disclosed_call(
             self.signer,
-            &prepared.canonical,
+            &prepared.call,
             &prepared.disclosure,
-            &prepared.registry,
+            prepared.from,
         )
         .await
         .map_err(RpcError::Signing)?;
-        let signed = prepared.envelope.attach_signature(
-            Signature::new(signature.as_bytes()).map_err(|_| RpcError::InvalidRequest)?,
-        );
-        let canonical = encode_signed_envelope(&signed).map_err(|_| RpcError::InvalidRequest)?;
-        let decoded =
-            decode_signed(&canonical, &prepared.registry).map_err(|_| RpcError::Verification)?;
-        let id = activity_id(&decoded).map_err(|_| RpcError::Verification)?;
-        match self.rpc.send_activity(&canonical, options.commitment) {
-            Ok(_)
-            | Err(
-                RpcError::Transport
-                | RpcError::InvalidResponse
-                | RpcError::Remote {
-                    code: -32001 | -32005,
-                    ..
-                },
-            ) => {}
-            Err(error) => return Err(error),
+        if recover_sender(&prepared.call, &signature).map_err(|_| RpcError::Verification)?
+            != prepared.from
+        {
+            return Err(RpcError::Signing(SignError::ReturnedSignatureInvalid));
         }
-        let mut receipt = self.wait_for(id, options.commitment, options.wait_timeout)?;
-        receipt.bind_canonical_activity(canonical);
-        Ok(receipt)
+        let raw = assemble(&prepared.call, &signature);
+        let hash = self.rpc.send_raw_transaction(&raw)?;
+        if hash != transaction_hash(&raw) {
+            return Err(RpcError::InvalidResponse);
+        }
+        Ok((hash, raw))
     }
 
     /// Issues a grant whose purpose is the textual `label`. The grant is signed over the
@@ -377,46 +473,52 @@ fn prepare_payload(
     ordinal: u16,
     payload: &[u8],
     options: &PaymentOptions,
-    policy: &ReceiptPolicy,
-    public_key: [u8; 32],
-    identity_sequence: u64,
+    call_options: &CallOptions,
 ) -> Result<PreparedPayment, RpcError> {
-    let encoded = encode_payment_envelope(
-        module,
-        ordinal,
-        payload,
-        &EnvelopeOptions {
-            actor: &options.actor,
-            public_key,
-            protocol_version: policy.protocol_version,
-            network_id: policy.network_id,
-            identity_sequence,
-            idempotency_key: options.idempotency_key,
-            fee_limit: options.fee_limit,
-            not_before: options.not_before,
-            not_after: options.not_after,
-        },
-    )
-    .map_err(|_| RpcError::Verification)?;
+    let (call, disclosure) = if module == ModuleId::Asset && ordinal == 5 {
+        let disclosed =
+            ledger_payment_call(payload, call_options).map_err(|_| RpcError::InvalidRequest)?;
+        (disclosed.call, disclosed.disclosure)
+    } else {
+        let payment = Payment::decode(module, ordinal, payload, options.actor.as_bytes())
+            .map_err(|_| RpcError::InvalidRequest)?;
+        let data = encode_payment_call(&payment, options.actor.as_bytes())
+            .map_err(|_| RpcError::InvalidRequest)?;
+        let mut to = [0; 20];
+        to[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+        let call = Eip1559Call {
+            chain_id: call_options.chain_id,
+            nonce: call_options.nonce,
+            max_priority_fee_per_gas: call_options.max_priority_fee_per_gas,
+            max_fee_per_gas: call_options.max_fee_per_gas,
+            gas_limit: call_options.gas_limit,
+            to,
+            data,
+        };
+        let disclosure = bind_call(&call, call_options.from).map_err(|_| RpcError::Verification)?;
+        (call, disclosure)
+    };
+    let canonical = call.data.clone();
     Ok(PreparedPayment {
-        envelope: encoded.envelope,
-        registry: encoded.registry,
-        canonical: encoded.canonical,
-        disclosure: encoded.disclosure,
+        call,
+        from: call_options.from,
+        canonical,
+        disclosure,
     })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use layerx_proof::inclusion::SequencerAuthorization;
     #[test]
     fn prepared_receive_retains_independent_identity_and_source_domains() -> Result<(), RpcError> {
-        let policy = ReceiptPolicy {
-            protocol_version: 3,
-            network_id: 17,
-            sequencer: SequencerAuthorization::new([1; 32], [2; 32], 1, 10),
-            trusted_checkpoint_context_digest: None,
+        let mut call_options = CallOptions {
+            from: [9; 20],
+            chain_id: 17,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
         };
         let options = PaymentOptions {
             actor: "did:layerx:alice".into(),
@@ -437,8 +539,7 @@ mod tests {
                     u8::from_str_radix(text, 16).map_err(|_| RpcError::InvalidRequest)
                 })
                 .collect::<Result<Vec<_>, _>>()?;
-        let prepared =
-            prepare_payload(ModuleId::Asset, 6, &payload, &options, &policy, [9; 32], 7)?;
+        let prepared = prepare_payload(ModuleId::Asset, 6, &payload, &options, &call_options)?;
         assert_eq!(prepared.disclosure().envelope_sequence(), 7);
         assert_eq!(
             prepared
@@ -447,13 +548,7 @@ mod tests {
                 .map_err(|_| RpcError::Verification)?,
             Some(23)
         );
-        assert_eq!(
-            prepared
-                .disclosure()
-                .reencode()
-                .map_err(|_| RpcError::Verification)?,
-            prepared.canonical_bytes()
-        );
+        assert_eq!(prepared.call.data, prepared.canonical_bytes());
         let mint = Payment::Mint {
             asset: [3; 32],
             to: [2; 32],
@@ -461,8 +556,8 @@ mod tests {
         }
         .encode(options.actor.as_bytes())
         .map_err(|_| RpcError::InvalidRequest)?;
-        let prepared_mint =
-            prepare_payload(ModuleId::Asset, 10, &mint, &options, &policy, [9; 32], 8)?;
+        call_options.nonce = 8;
+        let prepared_mint = prepare_payload(ModuleId::Asset, 10, &mint, &options, &call_options)?;
         assert_eq!(prepared_mint.disclosure().envelope_sequence(), 8);
         assert_eq!(
             prepared_mint

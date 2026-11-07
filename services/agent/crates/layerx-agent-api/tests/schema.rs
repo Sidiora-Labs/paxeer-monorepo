@@ -17,52 +17,6 @@ const WRITE_BASELINE: &str = include_str!("../../../schema/agent-api/golden/writ
 const ERRORS_SOURCE: &str = include_str!("../../../schema/agent-api/errors.kvx");
 const ERRORS_BASELINE: &str = include_str!("../../../schema/agent-api/golden/errors.kvx");
 
-const CUSTODY_CLAIM_TAGS: &[(&str, &str)] = &[
-    (
-        "write.kvx",
-        "type.SubmissionState.Executed.settlement_domain",
-    ),
-    (
-        "stream.kvx",
-        "type.ReceiptReference.Verified.settlement_domain",
-    ),
-    ("read.kvx", "operation.export.offline.settlement_domain"),
-];
-
-fn settlement_domain_gate(
-    root: &BTreeMap<String, String>,
-    modules: &[(&str, &BTreeMap<String, String>)],
-) -> Result<(), String> {
-    let variants = root
-        .get("type.SettlementDomain.variants")
-        .ok_or_else(|| "missing the type.SettlementDomain claim vocabulary".to_owned())?;
-    if !variants.starts_with("[\"Paxeer\"") {
-        return Err(format!(
-            "Paxeer must be the first settlement domain variant, got {variants}"
-        ));
-    }
-    for (module, entries) in modules {
-        for (key, value) in *entries {
-            if key.ends_with(".settlement_domain") && value != "\"Paxeer\"" {
-                return Err(format!(
-                    "{module} names a foreign settlement domain at {key}: {value}"
-                ));
-            }
-        }
-    }
-    for (module, key) in CUSTODY_CLAIM_TAGS {
-        let tagged = modules.iter().any(|(name, entries)| {
-            name == module && entries.get(*key).map(String::as_str) == Some("\"Paxeer\"")
-        });
-        if !tagged {
-            return Err(format!(
-                "untagged custody claim: {module} must declare {key} = \"Paxeer\""
-            ));
-        }
-    }
-    Ok(())
-}
-
 fn declarations(source: &str) -> BTreeMap<String, String> {
     let mut section = String::new();
     let mut values = BTreeMap::new();
@@ -153,6 +107,90 @@ fn generated_contract_is_pinned_to_the_schema() {
 }
 
 #[test]
+fn native_send_v2_records_declare_the_canonical_consent_contract() {
+    use layerx_agent_api::identity::NativeSendPurposeV2;
+
+    for source in [AGENT_API_V1_SOURCE, BASELINE] {
+        let schema = declarations(source);
+        for record in ["NativeSendPurposeV2", "SignedNativeSendPurposeV2"] {
+            assert_eq!(
+                schema[&format!("record.{record}.rust")],
+                format!("\"layerx_agent_api::identity::{record}\"")
+            );
+            assert_eq!(
+                schema[&format!("record.{record}.wire_type")],
+                format!("\"{record}Wire\"")
+            );
+        }
+        let fields: Vec<_> = schema["record.NativeSendPurposeV2.fields"]
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .split(',')
+            .map(|field| field.trim().trim_matches('"'))
+            .collect();
+        assert_eq!(
+            fields,
+            [
+                "tenant:utf8",
+                "agent_did:utf8",
+                "owner_did:utf8",
+                "consent_public_key:hex32",
+                "evm_sender:hex20",
+                "session_id:hex32",
+                "generation:decimal_string",
+                "expires_at_ms:decimal_string",
+                "capability_id:hex32",
+                "transaction_type:decimal_string",
+                "chain_id:decimal_string",
+                "activity:NativeActivityV1",
+                "preparation_id:hex32",
+                "canonical_digest:hex32",
+                "economic_action:hex32",
+                "idempotency_key:hex32",
+                "commitment:hex32",
+            ]
+        );
+        assert_eq!(
+            schema["record.NativeSendPurposeV2.domain"],
+            "\"LayerX/native/send-purpose/v2\""
+        );
+        let domain = std::str::from_utf8(NativeSendPurposeV2::DOMAIN).unwrap();
+        assert_eq!(
+            schema["record.NativeSendPurposeV2.domain"],
+            format!("\"{}\"", domain.trim_end_matches('\0'))
+        );
+        for (key, value, actual) in [
+            ("version", "2", NativeSendPurposeV2::VERSION.to_string()),
+            (
+                "transaction_type",
+                "2",
+                NativeSendPurposeV2::TRANSACTION_TYPE.to_string(),
+            ),
+            ("chain_id", "125", NativeSendPurposeV2::CHAIN_ID.to_string()),
+        ] {
+            assert_eq!(schema[&format!("record.NativeSendPurposeV2.{key}")], value);
+            assert_eq!(actual, value);
+        }
+        assert_eq!(
+            schema["record.SignedNativeSendPurposeV2.fields"],
+            "[\"purpose:NativeSendPurposeV2\", \"signature:hex64\"]"
+        );
+        assert_eq!(
+            schema["record.SignedNativeSendPurposeV2.signature_digest"],
+            "\"SHA256 of the exact NativeSendPurposeV2 canonical bytes, signed with Ed25519 by the current consent key and verified against purpose.consent_public_key.\""
+        );
+        assert!(
+            schema["record.SignedNativeSendPurposeV2.validation"].contains(
+                "sender recovered from the type-2 transaction must equal purpose.evm_sender"
+            )
+        );
+        for required in ["check_current_owner", "check_prepared_transaction"] {
+            assert!(schema["record.NativeSendPurposeV2.authority"].contains(required));
+        }
+    }
+}
+
+#[test]
 fn major_two_refuses_major_one() {
     let contract = agent_api_schema_v1();
     assert_eq!(contract.version, ContractVersion { major: 2, minor: 0 });
@@ -228,6 +266,11 @@ fn write_and_error_goldens_match_major_two_schema() {
         "\"idempotent_replay\""
     );
     assert_eq!(
+        errors["error.LXP_IDEMPOTENT_REPLAY.original_result"],
+        "\"Read the first result from the sequencer receipt of the retained signed transaction that the first submit returned; never resubmit at a new nonce.\""
+    );
+    assert!(!ERRORS_SOURCE.contains("resultByIdempotency"));
+    assert_eq!(
         errors["error.receipt_key_unknown.class"],
         "\"VerificationFailure\""
     );
@@ -246,7 +289,11 @@ fn write_and_error_goldens_match_major_two_schema() {
     let root = declarations(AGENT_API_V1_SOURCE);
     assert_eq!(
         root["record.AgentHttpSuccess.verification_status"],
-        "\"Either {state:\\\"achieved\\\",rung:R} or {state:\\\"unverified\\\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested; R is one of submitted, receipted, committed. An unverified status that violates the ordering is refused as VerificationFailure verification.inconsistent.\""
+        "\"The four shapes and ordering requirements defined by [record.VerificationStatus].\""
+    );
+    assert_eq!(
+        root["record.VerificationStatus.verification_status"],
+        "\"Either {state:\\\"achieved\\\",rung:R}, {state:\\\"unverified\\\",requested:R,achieved:R,reason:ReasonCode} with achieved strictly below requested, {state:\\\"pending\\\",requested:R,achieved:R} with achieved strictly below requested for a submitted-but-unreceipted lookup, or {state:\\\"absent\\\",requested:R} when no submission is known; R is one of submitted, receipted, committed. An unverified or pending status that violates the ordering is refused as VerificationFailure verification.inconsistent.\""
     );
 }
 
@@ -273,7 +320,15 @@ fn programs_contract_is_included_with_receipt_resolution_and_call_idempotency() 
     );
     assert_eq!(
         programs["operation.program.call.unknown_outcome"],
-        "\"retain_signed_activity_and_resolve_by_receipt\""
+        "\"retain_exact_signed_EIP1559_transaction_and_resolve_by_hash\""
+    );
+    assert_eq!(
+        programs["operation.program.call.request_profiles"],
+        "[\"retained_legacy_call\",\"native-v1\"]"
+    );
+    assert_eq!(
+        programs["type.NativeProgramCallRequest.signed_activity"],
+        "\"canonical_lowercase_signed_EIP1559_transaction_hex_at_most_1048576_bytes\""
     );
 }
 
@@ -365,95 +420,55 @@ fn compatibility_gate_accepts_additions_and_rejects_mutation_or_removal() {
 }
 
 #[test]
-fn custody_receipt_shapes_name_the_paxeer_settlement_domain() {
-    let root = declarations(AGENT_API_V1_SOURCE);
-    assert_eq!(
-        root["type.SettlementDomain.variants"], "[\"Paxeer\"]",
-        "Paxeer is the sole valid settlement domain in this contract version"
-    );
+fn custody_receipt_shapes_preserve_their_required_fields() {
     let write = declarations(WRITE_SOURCE);
     let read = declarations(READ_SOURCE);
     let stream = declarations(STREAM_SOURCE);
-    let modules = [
-        ("v1.kvx", &root),
-        ("write.kvx", &write),
-        ("read.kvx", &read),
-        ("stream.kvx", &stream),
-    ];
-    assert_eq!(settlement_domain_gate(&root, &modules), Ok(()));
-}
-
-#[test]
-fn untagged_or_foreign_custody_claims_are_rejected() {
-    let root = declarations(AGENT_API_V1_SOURCE);
-    let read = declarations(READ_SOURCE);
-    let stream = declarations(STREAM_SOURCE);
-
-    let stripped_source = WRITE_SOURCE.replace("Executed.settlement_domain = \"Paxeer\"\n", "");
-    assert!(stripped_source.len() < WRITE_SOURCE.len());
-    let stripped = declarations(&stripped_source);
-    let untagged = settlement_domain_gate(
-        &root,
-        &[
-            ("v1.kvx", &root),
-            ("write.kvx", &stripped),
-            ("read.kvx", &read),
-            ("stream.kvx", &stream),
-        ],
-    );
-    assert!(untagged.is_err_and(|error| error.contains("untagged custody claim")));
-
-    let foreign_source = WRITE_SOURCE.replace(
-        "Executed.settlement_domain = \"Paxeer\"",
-        "Executed.settlement_domain = \"Ethereum\"",
-    );
-    let foreign = declarations(&foreign_source);
-    let mistagged = settlement_domain_gate(
-        &root,
-        &[
-            ("v1.kvx", &root),
-            ("write.kvx", &foreign),
-            ("read.kvx", &read),
-            ("stream.kvx", &stream),
-        ],
-    );
-    assert!(mistagged.is_err_and(|error| error.contains("foreign settlement domain")));
-
-    let no_vocabulary = declarations(
-        &AGENT_API_V1_SOURCE.replace("variants = [\"Paxeer\"]", "variants = [\"paxeer\"]"),
-    );
-    assert!(settlement_domain_gate(&no_vocabulary, &[]).is_err());
-}
-
-#[test]
-fn adding_a_settlement_domain_is_additive_by_construction() {
-    let previous = [(
-        "type.SubmissionState.Executed.settlement_domain",
-        "\"Paxeer\"",
-    )];
-    let with_second_domain = [
-        (
-            "type.SubmissionState.Executed.settlement_domain",
-            "\"Paxeer\"",
-        ),
-        ("type.SettlementDomain.variants", "[\"Paxeer\",\"Solana\"]"),
-    ];
     assert_eq!(
-        agent_api_compat_gate(1, 1, &previous, &with_second_domain),
-        Ok(())
+        write["type.SubmissionState.Executed.required"],
+        "[\"receipt_ref\"]"
     );
-    assert!(agent_api_compat_gate(
-        1,
-        1,
-        &previous,
-        &[(
-            "type.SubmissionState.Executed.settlement_domain",
-            "\"Solana\""
-        )]
-    )
-    .is_err());
-    let baseline = declarations(BASELINE);
-    assert_eq!(baseline["type.SettlementDomain.variants"], "[\"Paxeer\"]");
+    assert_eq!(
+        stream["type.ReceiptReference.Verified.required"],
+        "[\"receipt_ref\",\"verification_level\"]"
+    );
+    assert_eq!(
+        read["operation.export.offline.response_required"],
+        "[\"facts\",\"bundles\",\"height\"]"
+    );
+}
+
+#[test]
+fn custody_receipt_shapes_exclude_retired_domain_tags() {
+    for source in [
+        AGENT_API_V1_SOURCE,
+        WRITE_SOURCE,
+        READ_SOURCE,
+        STREAM_SOURCE,
+    ] {
+        for key in declarations(source).keys() {
+            assert!(
+                !key.contains("settlement_domain"),
+                "retired declaration: {key}"
+            );
+            assert!(
+                !key.contains("SettlementDomain"),
+                "retired declaration: {key}"
+            );
+        }
+    }
+}
+
+#[test]
+fn submission_state_retains_all_nine_variants() {
+    let expected = "[\"Prepared\",\"Signed\",\"Queued\",\"Submitted\",\"Unknown\",\"Executed\",\"Committed\",\"Failed\",\"Expired\"]";
+    for source in [WRITE_SOURCE, WRITE_BASELINE] {
+        assert_eq!(
+            declarations(source)["type.SubmissionState.variants"],
+            expected
+        );
+    }
+    assert_eq!(declarations(BASELINE), declarations(AGENT_API_V1_SOURCE));
 }
 
 #[test]

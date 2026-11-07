@@ -16,6 +16,7 @@ const paxeerXFeedFeature = config.features.paxeerXFeed;
 interface ReturnType {
   mainNavItems: Array<NavItem | NavGroupItem>;
   accountNavItems: Array<NavItem>;
+  shellNavItems: Array<NavGroupItem>;
 }
 
 export function isGroupItem(item: NavItem | NavGroupItem): item is NavGroupItem {
@@ -441,7 +442,7 @@ export default function useNavItems(): ReturnType {
         subItems: tokensNavItems,
       },
       paxeerXNavItems.length > 0 ? {
-        text: 'Kernel',
+        text: 'Kernel archive',
         icon: 'navigation/blockchain',
         isActive: paxeerXNavItems.some(item => isInternalItem(item) && item.isActive),
         subItems: paxeerXNavItems,
@@ -462,6 +463,85 @@ export default function useNavItems(): ReturnType {
       },
     ].filter(Boolean);
 
-    return { mainNavItems, accountNavItems };
+    const shellLink = (item: NavItem): NavItem => {
+      const titles: Record<string, string> = {
+        'Top accounts': 'Accounts',
+        'Chain stats': 'Network stats',
+        API: 'API docs',
+        'Verify contract': 'Contract verification',
+      };
+      return { ...item, text: titles[item.text] || item.text };
+    };
+    const statsItems = statsNavItem?.subItems.flat() || [];
+    const networkItems = [
+      ...statsItems.filter((item) => item.text === 'Chain stats'),
+      validators,
+      epochs,
+      ...statsItems.filter((item) => item.text === 'Gas tracker'),
+      ...statsItems.filter((item) => ![ 'Chain stats', 'Gas tracker' ].includes(item.text)),
+    ].filter(Boolean);
+    const exploreItems = [
+      blocks,
+      txs,
+      tokensNavItems[0],
+      topAccounts,
+      verifiedContracts,
+      ...blockchainNavItems.flat().filter((item) => ![
+        blocks, txs, topAccounts, verifiedContracts, validators, epochs,
+      ].some((primaryItem) => primaryItem === item)),
+      ...tokensNavItems.slice(1),
+      ...paxeerXNavItems,
+      marketplaceFeature.isEnabled ? {
+        text: marketplaceFeature.titles.menu_item,
+        nextRoute: { pathname: '/apps' as const },
+        icon: 'navigation/apps' as const,
+        isActive: pathname.startsWith('/app') || pathname.startsWith('/essential-dapps'),
+      } : null,
+    ].filter(Boolean).filter((item) => !isInternalItem(item) || ![
+      '/paxeer-x/anchors', '/paxeer-x/receipts',
+    ].includes(item.nextRoute.pathname));
+    const developerItems = [
+      apiNavItem,
+      otherNavItems.find((item) => item.text === 'Verify contract'),
+      config.features.stats.isEnabled ? {
+        text: 'Charts',
+        nextRoute: { pathname: '/stats' as const },
+        icon: 'navigation/stats' as const,
+        isActive: pathname.startsWith('/stats'),
+      } : null,
+      ...otherNavItems.filter((item) => item.text !== 'Verify contract'),
+    ].filter(Boolean);
+
+    const groups: Array<NavGroupItem> = [
+      { text: 'Explore', icon: 'navigation/blockchain', subItems: exploreItems },
+      { text: 'Network', icon: 'navigation/stats', subItems: networkItems },
+      { text: 'Developers', icon: 'navigation/api_docs', subItems: developerItems },
+    ];
+    const shellNavItems = groups.map((item) => ({
+      ...item,
+      subItems: item.subItems.flat().map(shellLink),
+      isActive: item.subItems.flat().some((link) => isInternalItem(link) && link.isActive),
+    }));
+
+    return { mainNavItems, accountNavItems, shellNavItems };
   }, [ pathname, tab, hasPriceFeed ]);
+}
+
+export function getNavItemDescription(item: NavItem): string {
+  const descriptions: Record<string, string> = {
+    Blocks: 'Browse the latest blocks and finality',
+    Transactions: 'Follow activity across the network',
+    Tokens: 'Discover tokens and their holders',
+    Accounts: 'Explore addresses and balances',
+    'Verified contracts': 'Inspect published contract source code',
+    'Network stats': 'See network activity and performance',
+    Validators: 'View validators and stake',
+    Epochs: 'Browse network epochs',
+    'Gas tracker': 'Check current network fees',
+    'API docs': 'Build with the explorer API',
+    'Contract verification': 'Publish and verify contract source',
+    Charts: 'Explore historical network metrics',
+  };
+
+  return descriptions[item.text] || `Open ${ item.text.toLowerCase() }`;
 }

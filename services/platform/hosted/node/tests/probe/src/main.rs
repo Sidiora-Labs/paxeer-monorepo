@@ -1,5 +1,5 @@
-//! Real-process probe for the beta node: performs the LNI handshake with
-//! `layerx-client`, reads an account balance, and talks to the supervisor
+//! Real-process probe for the beta node: reads the network head and account
+//! balance through `layerx-client` RPC endpoints, and talks to the supervisor
 //! socket. Every result is printed as one JSON line on stdout.
 
 use std::collections::BTreeMap;
@@ -11,24 +11,17 @@ use std::path::PathBuf;
 use std::process::ExitCode;
 use std::time::Duration;
 
-use layerx_client::batch::{self, BatchHeaderError, SignedBatchHeader};
-use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-use layerx_client::evidence::RootSelector;
-use layerx_client::head::HeadTracker;
-use layerx_client::lni::handshake::{perform, HandshakeConfig};
-use layerx_client::lni::schema::{Capability, Version};
-use layerx_client::lni::transport::{ConnectionGate, Limits, Uds};
-use layerx_client::read::{ReadContext, ReadError, Requested};
-use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_client::px::{PxEndpoint, PxNetworkHead};
+use layerx_client::rpc::account::{self as rpc_account, ReadContext, Requested};
+use layerx_client::rpc::history;
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_types::account::AccountId;
 use layerx_types::ids::Did;
-use layerx_types::verify::VerificationLevel;
-
-const FRAME_BYTES: usize = 1_212_416;
+use layerx_types::rung::Rung;
 
 fn usage() -> ExitCode {
     eprintln!(
-        "usage: layerx-node-probe handshake --socket PATH --network-id N\n       layerx-node-probe balance --socket PATH --network-id N --account NAME --asset HEX64\n       layerx-node-probe did-accounts --socket PATH --network-id N --did DID\n       layerx-node-probe supervisor --socket PATH --request reset|status\n       layerx-node-probe custody-asset-profile --socket PATH --network-id N --asset HEX64 [--source-did DID --destination-did DID --profile-output ABS]\n       layerx-node-probe write-asset-send --socket PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH [--source-did DID --amount N]"
+        "usage: layerx-node-probe handshake --rpc URL --trust-anchor PATH --network-id N\n       layerx-node-probe balance --rpc URL --trust-anchor PATH --network-id N --account NAME --asset HEX64\n       layerx-node-probe did-accounts --rpc URL --trust-anchor PATH --network-id N --did DID\n       layerx-node-probe supervisor --socket PATH --request reset|status\n       layerx-node-probe write-send --rpc URL --trust-anchor PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH\n       layerx-node-probe custody-asset-profile --rpc URL --trust-anchor PATH --network-id N --asset HEX64 [--source-did DID --destination-did DID --profile-output ABS]\n       layerx-node-probe write-asset-send --rpc URL --trust-anchor PATH --network-id N --seed-file PATH --destination-did DID --asset HEX64 --output PATH [--source-did DID --amount N]"
     );
     ExitCode::from(2)
 }
@@ -77,197 +70,92 @@ fn hex32(text: &str) -> Result<[u8; 32], String> {
     Ok(out)
 }
 
-fn limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: FRAME_BYTES,
-        maximum_connections: 4,
-        maximum_streams: 32,
-        maximum_queued_bytes: 4 * FRAME_BYTES,
-        deadline: Duration::from_secs(5),
+fn rpc_session(
+    parsed: &BTreeMap<String, String>,
+) -> Result<(SequencerEndpoint, PxEndpoint, PxNetworkHead), String> {
+    let url = required(parsed, "rpc")?;
+    let anchor = parsed
+        .get("trust-anchor")
+        .map(std::fs::read)
+        .transpose()
+        .map_err(|error| format!("trust anchor: {error}"))?;
+    let anchors: Vec<&[u8]> = anchor.iter().map(Vec::as_slice).collect();
+    let endpoint = SequencerEndpoint::new(url, &anchors)
+        .map_err(|error| format!("sequencer endpoint: {error:?}"))?;
+    let px = PxEndpoint::new(url, &anchors).map_err(|error| format!("px endpoint: {error:?}"))?;
+    let network = px
+        .network()
+        .map_err(|error| format!("network: {error:?}"))?;
+    let expected_chain_id = required(parsed, "network-id")?
+        .parse::<u64>()
+        .map_err(|error| format!("--network-id: {error}"))?;
+    let chain_id = endpoint
+        .chain_id()
+        .map_err(|error| format!("chain id: {error:?}"))?;
+    if chain_id != expected_chain_id || network.paxeer.chain_id != chain_id {
+        return Err("network id mismatch".to_owned());
     }
-}
-
-fn handshake_config(built: Version, network_id: u32) -> HandshakeConfig {
-    HandshakeConfig {
-        built_interface_version: built,
-        expected_protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-        expected_network_id: network_id,
-    }
-}
-
-fn connect(socket: &str, network_id: u32) -> Result<Client, String> {
-    Client::connect(ClientConfig {
-        endpoint: PathBuf::from(socket),
-        handshake: handshake_config(Version::V1_3, network_id),
-        limits: limits(),
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 3,
-            base_delay: Duration::from_millis(50),
-            maximum_delay: Duration::from_millis(500),
-            jitter_percent: 10,
-        },
-    })
-    .map_err(|error| format!("lni connect failed: {error:?}"))
+    Ok((endpoint, px, network))
 }
 
 fn handshake(parsed: &BTreeMap<String, String>) -> Result<String, String> {
-    let socket = required(parsed, "socket")?;
-    let network_id: u32 = required(parsed, "network-id")?
-        .parse()
-        .map_err(|error| format!("--network-id: {error}"))?;
-    let client = connect(socket, network_id)?;
-    let node = client.handshake().node();
-    let capabilities: Vec<String> = client
-        .handshake()
-        .capabilities()
-        .available()
-        .iter()
-        .map(|capability| format!("{capability:?}"))
-        .collect();
+    let (_, _, network) = rpc_session(parsed)?;
     Ok(format!(
-        "{{\"network_id\":{},\"protocol_version\":{},\"interface_version\":\"{}.{}\",\"role\":\"{:?}\",\"chain_head_sequence\":{},\"latest_sealed_batch\":{},\"sequencer_public_key\":\"{}\",\"capabilities\":[{}]}}",
-        node.network_id,
-        node.protocol_version,
-        node.interface_version.major,
-        node.interface_version.minor,
-        node.role,
-        node.chain_head_sequence,
-        node.latest_sealed_batch,
-        hex(&node.authorised_sequencer_key),
-        capabilities
-            .iter()
-            .map(|name| format!("\"{name}\""))
-            .collect::<Vec<_>>()
-            .join(",")
-    ))
-}
-
-// Read evidence is bound to the signing terms of the latest sealed batch header, so they are
-// taken from that header; before the first seal no state can be answered with evidence.
-fn sealed_authorization(
-    sequencer_key: [u8; 32],
-    sealed: u64,
-    header: impl FnOnce(u64) -> Result<SignedBatchHeader, BatchHeaderError>,
-) -> Result<SequencerAuthorization, String> {
-    if sealed == 0 {
-        return Ok(SequencerAuthorization::new(
-            sequencer_key,
-            sequencer_key,
-            1,
-            1,
-        ));
-    }
-    let header = header(sealed).map_err(|error| format!("batch header {sealed}: {error:?}"))?;
-    Ok(SequencerAuthorization::new(
-        header.sequencer_id,
-        sequencer_key,
-        header.first_batch_number,
-        header.last_batch_number,
+        "{{\"network_id\":{},\"chain_id\":{},\"latest_committed_height\":{}}}",
+        public_json_string(&network.network_id),
+        network.paxeer.chain_id,
+        network.latest_committed_height,
     ))
 }
 
 fn balance(parsed: &BTreeMap<String, String>) -> Result<String, String> {
-    let socket = required(parsed, "socket")?;
-    let network_id: u32 = required(parsed, "network-id")?
-        .parse()
-        .map_err(|error| format!("--network-id: {error}"))?;
     let account = AccountId::parse(required(parsed, "account")?)
         .map_err(|error| format!("--account: {error:?}"))?;
     let asset = hex32(required(parsed, "asset")?)?;
-    let mut client = connect(socket, network_id)?;
-    let node = client.handshake().node();
-    let account_id = layerx_wire::hash::account_id_for_protocol(&account, node.protocol_version)
-        .map_err(|error| format!("account id: {error:?}"))?;
-    let sequencer_key = node.authorised_sequencer_key;
-    let sealed = node.latest_sealed_batch;
-    let authorization =
-        sealed_authorization(sequencer_key, sealed, |batch| client.batch_header(batch, 2))?;
-    let read = match client.balance(
+    let (endpoint, _, network) = rpc_session(parsed)?;
+    let account_id = layerx_wire::hash::account_id_for_protocol(
+        &account,
+        layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    )
+    .map_err(|error| format!("account id: {error:?}"))?;
+    let requested =
+        Requested::new(Rung::Committed).map_err(|error| format!("balance rung: {error:?}"))?;
+    let amount = rpc_account::balance(
+        &endpoint,
         account_id,
         asset,
-        VerificationLevel::UNVERIFIED,
-        1,
-        authorization,
-    ) {
-        Ok(read) => read,
-        Err(ReadError::CoreRefusal { class, result }) => {
-            return Ok(format!(
-                "{{\"account\":\"{}\",\"account_id\":\"{}\",\"asset\":\"{}\",\"refused\":{{\"class\":{class},\"result\":{}}}}}",
-                account.canonical(),
-                hex(&account_id),
-                hex(&asset),
-                result.raw()
-            ));
-        }
-        Err(error) => return Err(format!("balance read failed: {error:?}")),
-    };
+        ReadContext {
+            committed_height: network.latest_committed_height,
+            requested,
+        },
+    )
+    .map_err(|error| format!("balance read failed: {error:?}"))?;
     Ok(format!(
-        "{{\"account\":\"{}\",\"account_id\":\"{}\",\"asset\":\"{}\",\"balance\":\"{}\",\"achieved\":\"{:?}\",\"global_sequence\":{}}}",
-        account.canonical(),
-        hex(&read.account),
-        hex(&read.asset),
-        read.amount.value(),
-        read.achieved(),
-        read.freshness().global_sequence
+        "{{\"account\":{},\"account_id\":\"{}\",\"asset\":\"{}\",\"balance\":\"{}\",\"achieved\":\"{}\",\"global_sequence\":{}}}",
+        public_json_string(account.canonical()),
+        hex(&account_id),
+        hex(&asset),
+        amount.value(),
+        requested.level().name(),
+        network.latest_committed_height,
     ))
 }
 
-fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
-    let socket = required(parsed, "socket")?;
-    let network_id: u32 = required(parsed, "network-id")?
-        .parse()
-        .map_err(|error| format!("--network-id: {error}"))?;
+/// List native bound accounts as JSON, following `did-accounts.schema.json`.
+/// Empty and unbound listings have `count: 0` and `accounts: []`; unavailable
+/// reads remain errors rather than being reported as empty listings.
+pub fn did_accounts(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let did = required(parsed, "did")?;
-    let did_value = Did::new(did.as_bytes()).map_err(|error| format!("--did: {error:?}"))?;
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&PathBuf::from(socket), &gate, limits())
-        .map_err(|error| format!("lni connect failed: {error:?}"))?;
-    let handshake = perform(
-        &mut transport,
-        &handshake_config(Version::V1_6, network_id),
-        None,
-    )
-    .map_err(|error| format!("lni handshake failed: {error:?}"))?;
-    let node = handshake.node();
-    let sequencer_key = node.authorised_sequencer_key;
-    let sequencer_authorization =
-        sealed_authorization(sequencer_key, node.latest_sealed_batch, |sealed| {
-            batch::lookup(
-                &mut transport,
-                node.interface_version,
-                sealed,
-                2,
-                sequencer_key,
-            )
-        })?;
-    let context = ReadContext {
-        interface_version: node.interface_version,
-        correlation_id: 1,
-        expected_protocol_version: node.protocol_version,
-        expected_network_id: network_id,
-        requested: Requested::new(VerificationLevel::UNVERIFIED),
-        head: HeadTracker::new(node).current(),
-        sequencer_authorization,
-        handshake_sequencer_key: sequencer_key,
-        root_selector: RootSelector::Latest,
-    };
-    let values = layerx_client::read::did_accounts(&mut transport, &did_value, context)
+    Did::new(did.as_bytes()).map_err(|error| format!("--did: {error:?}"))?;
+    let (_, px, _) = rpc_session(parsed)?;
+    let values = history::did_accounts(&px, did)
         .map_err(|error| format!("did account listing failed: {error:?}"))?;
-    let mut names = Vec::with_capacity(values.len());
-    for value in &values {
-        let bytes = value.canonical_bytes();
-        let name = bytes
-            .get(..2)
-            .map(|v| usize::from(u16::from_be_bytes([v[0], v[1]])))
-            .and_then(|length| bytes.get(2..2 + length))
-            .and_then(|name| std::str::from_utf8(name).ok())
-            .ok_or_else(|| "malformed account name in listing".to_owned())?;
-        names.push(format!("\"{name}\""));
-    }
+    let accounts: Vec<String> = values.iter().map(ToString::to_string).collect();
     Ok(format!(
-        "{{\"did\":\"{did}\",\"count\":{},\"accounts\":[{}]}}",
+        "{{\"did\":{},\"count\":{},\"accounts\":[{}]}}",
+        public_json_string(did),
         values.len(),
-        names.join(",")
+        accounts.join(","),
     ))
 }
 
@@ -318,12 +206,18 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
         .try_into()
         .map_err(|_| "test seed must be 32 bytes".to_owned())?;
     let source_did = layerx_platform_core::treasury_did(&seed);
-    let actor = layerx_types::ids::Did::new(source_did.as_bytes())
-        .map_err(|error| format!("actor: {error:?}"))?;
-    let mut client = connect(required(parsed, "socket")?, network_id)?;
-    let state = client
-        .preparation_state(&actor, 1)
-        .map_err(|error| format!("preparation: {error:?}"))?;
+    let (endpoint, px, network) = rpc_session(parsed)?;
+    let address = layerx_platform_core::custody_source_address(&px, &source_did)?;
+    let nonce = endpoint
+        .nonce_at(&address, network.latest_committed_height)
+        .map_err(|error| format!("preparation account: {error:?}"))?;
+    let timestamp = endpoint
+        .block_by_number(network.latest_committed_height)
+        .map_err(|error| format!("preparation block: {error:?}"))?
+        .ok_or("preparation committed block unavailable")?
+        .timestamp
+        .checked_mul(1000)
+        .ok_or("timestamp exhausted")?;
     let signed = layerx_platform_core::build_send(
         &seed,
         &layerx_platform_core::SendRequest {
@@ -332,14 +226,10 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
             destination_did: required(parsed, "destination-did")?.to_owned(),
             asset: hex32(required(parsed, "asset")?)?,
             amount: 1,
-            account_sequence: state
-                .account_sequence
-                .checked_add(1)
-                .ok_or("sequence exhausted")?,
+            account_sequence: nonce.checked_add(1).ok_or("sequence exhausted")?,
             idempotency_key: [0x61; 32],
-            not_before_ms: state.protocol_timestamp,
-            expires_at_ms: state
-                .protocol_timestamp
+            not_before_ms: timestamp,
+            expires_at_ms: timestamp
                 .checked_add(300_000)
                 .ok_or("timestamp exhausted")?,
             fee_limit: 1000,
@@ -359,117 +249,81 @@ fn write_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
 }
 
 struct CustodySession {
-    transport: Uds,
-    context: ReadContext,
-    state_root: [u8; 32],
-    capabilities: layerx_client::lni::Capabilities,
+    sequencer: SequencerEndpoint,
+    network: PxEndpoint,
+    network_id: u32,
+    committed_height: u64,
 }
 
 fn custody_session(parsed: &BTreeMap<String, String>) -> Result<CustodySession, String> {
     let network_id = required(parsed, "network-id")?
         .parse::<u32>()
         .map_err(|error| error.to_string())?;
-    let gate = ConnectionGate::new(1);
-    let mut transport = Uds::connect(&PathBuf::from(required(parsed, "socket")?), &gate, limits())
-        .map_err(|error| format!("custody lni connect: {error:?}"))?;
-    let handshake = perform(&mut transport, &handshake_config(Version::V1_8, network_id), None)
-        .map_err(|error| format!("custody lni handshake: {error:?}"))?;
-    for capability in [Capability::AccountRead, Capability::BatchHeader, Capability::PreparationState, Capability::CapsDiscovery] {
-        if !handshake.capabilities().contains(capability) {
-            return Err(format!("custody unavailable capability: {capability:?}"));
-        }
+    let url = required(parsed, "rpc")?;
+    let mut der = Vec::new();
+    std::fs::File::open(required(parsed, "trust-anchor")?)
+        .and_then(|file| file.take(1_048_577).read_to_end(&mut der))
+        .map_err(|error| format!("custody trust anchor: {error}"))?;
+    if der.is_empty() || der.len() > 1_048_576 {
+        return Err("invalid custody trust anchor DER".to_owned());
     }
-    let node = handshake.node();
-    if node.interface_version.minor < 8 || node.latest_sealed_batch == 0 {
-        return Err("custody requires interface 1.8 and a sealed state-proven head".to_owned());
+    let sequencer = SequencerEndpoint::new(url, &[&der])
+        .map_err(|error| format!("custody sequencer endpoint: {error:?}"))?;
+    let network = PxEndpoint::new(url, &[&der])
+        .map_err(|error| format!("custody network endpoint: {error:?}"))?;
+    let head = network
+        .network()
+        .map_err(|error| format!("custody committed height: {error:?}"))?;
+    let chain_id = sequencer
+        .chain_id()
+        .map_err(|error| format!("custody chain id: {error:?}"))?;
+    if chain_id != u64::from(network_id) || head.paxeer.chain_id != chain_id {
+        return Err("network id mismatch".to_owned());
     }
-    let signed = batch::lookup(
-        &mut transport, node.interface_version, node.latest_sealed_batch, 2,
-        node.authorised_sequencer_key,
-    ).map_err(|error| format!("custody batch header: {error:?}"))?;
-    if signed.header.network_id() != network_id
-        || signed.header.protocol_version() != node.protocol_version
-        || signed.header.last_sequence() != node.chain_head_sequence
-    {
-        return Err("custody sealed head mismatch".to_owned());
-    }
-    let context = ReadContext {
-        interface_version: node.interface_version,
-        correlation_id: 10,
-        expected_protocol_version: node.protocol_version,
-        expected_network_id: network_id,
-        requested: Requested::new(VerificationLevel::STATE_PROVEN),
-        head: HeadTracker::new(node).current(),
-        sequencer_authorization: SequencerAuthorization::new(
-            signed.sequencer_id, node.authorised_sequencer_key,
-            signed.first_batch_number, signed.last_batch_number,
-        ),
-        handshake_sequencer_key: node.authorised_sequencer_key,
-        root_selector: RootSelector::Latest,
-    };
-    Ok(CustodySession { transport, context, state_root: signed.header.resulting_state_root(), capabilities: handshake.capabilities().clone() })
+    let committed_height = head.latest_committed_height;
+    Ok(CustodySession {
+        sequencer,
+        network,
+        network_id,
+        committed_height,
+    })
 }
 
-fn custody_effective_asset(
-    session: &mut CustodySession,
-    source_did: &str,
-    asset: [u8; 32],
-) -> Result<layerx_client::evidence::VerifiedEffectiveAsset, String> {
-    let did = Did::new(source_did.as_bytes()).map_err(|error| format!("custody DID: {error:?}"))?;
-    let did_id = layerx_wire::hash::did_id_for_protocol(&did, session.context.expected_protocol_version)
-        .map_err(|error| format!("custody DID id: {error:?}"))?;
-    let page_bytes = FRAME_BYTES.checked_sub(layerx_client::caps::CAPS_RESPONSE_HEADER_BYTES + 22)
-        .ok_or("custody caps frame bound")?.min(layerx_client::caps::MAX_CAPS_PAGE_BYTES);
-    let mut context = session.context;
-    context.correlation_id = 4;
-    let mut discovery = layerx_client::caps::CapsDiscovery::begin(
-        &mut session.transport, &session.capabilities, context, did_id,
-        u32::try_from(page_bytes).map_err(|error| error.to_string())?, Duration::from_secs(5), None,
-    ).map_err(|error| format!("custody caps discovery: {error:?}"))?;
-    let caps = loop {
-        match discovery.advance() {
-            layerx_client::caps::CapsProgress::Incomplete { .. } => {}
-            layerx_client::caps::CapsProgress::Complete(caps)
-            | layerx_client::caps::CapsProgress::Empty(caps) => break caps,
-            layerx_client::caps::CapsProgress::Refused(error) => return Err(format!("custody caps refused: {error:?}")),
-            layerx_client::caps::CapsProgress::Unavailable => return Err("custody caps unavailable".to_owned()),
-        }
-    };
-    if caps.state_root() != session.state_root
-        || caps.level() < VerificationLevel::STATE_PROVEN
-        || caps.freshness().global_sequence != session.context.head.chain_sequence
-        || caps.freshness().batch_number != session.context.head.sealed_batch
-    {
-        return Err("custody caps do not match the authenticated sealed head".to_owned());
-    }
-    let effective = caps.effective_asset(asset)
-        .map_err(|error| format!("custody effective asset: {error:?}"))?;
-    if effective.state_root() != session.state_root || effective.level() < VerificationLevel::STATE_PROVEN {
-        return Err("custody effective asset is not state proven at the sealed head".to_owned());
-    }
-    Ok(effective)
+#[derive(Eq, PartialEq)]
+struct CustodyPreparation {
+    height: u64,
+    nonce: u64,
+    address: [u8; 20],
+    block: layerx_client::sequencer::SequencerBlock,
+    state_root: [u8; 32],
 }
 
 fn custody_preparation(
-    session: &mut CustodySession,
-    actor: &Did,
-    correlation_id: u64,
-) -> Result<layerx_client::lni::PreparationState, String> {
-    let state = layerx_client::lni::preparation::preparation_state(
-        &mut session.transport, actor,
-        layerx_client::lni::preparation::PreparationStateContext {
-            interface_version: session.context.interface_version,
-            expected_network_id: session.context.expected_network_id,
-            minimum_observed_head: session.context.head.chain_sequence,
-            correlation_id,
-        },
-    ).map_err(|error| format!("custody preparation: {error:?}"))?;
-    if state.observed_head_sequence != session.context.head.chain_sequence
-        || state.observed_state_root != session.state_root
-    {
-        return Err("custody preparation is not the authenticated sealed head; refresh required".to_owned());
+    session: &CustodySession,
+    actor: &str,
+) -> Result<CustodyPreparation, String> {
+    let height = session
+        .network
+        .network()
+        .map_err(|error| format!("custody committed height: {error:?}"))?
+        .latest_committed_height;
+    if height != session.committed_height {
+        return Err("custody committed height changed; refresh required".to_owned());
     }
-    Ok(state)
+    let address = layerx_platform_core::custody_source_address(&session.network, actor)?;
+    let nonce = session
+        .sequencer
+        .pending_nonce(&address)
+        .map_err(|error| format!("custody pending nonce: {error:?}"))?;
+    let (block, state_root) =
+        layerx_platform_core::native_committed_state(&session.sequencer, height)?;
+    Ok(CustodyPreparation {
+        height,
+        nonce,
+        address,
+        block,
+        state_root,
+    })
 }
 
 fn public_json_string(value: &str) -> String {
@@ -478,7 +332,9 @@ fn public_json_string(value: &str) -> String {
         match character {
             '\\' => output.push_str("\\\\"),
             '"' => output.push_str("\\\""),
-            control if control <= '\u{001f}' => { let _ = write!(output, "\\u{:04x}", u32::from(control)); }
+            control if control <= '\u{001f}' => {
+                let _ = write!(output, "\\u{:04x}", u32::from(control));
+            }
             other => output.push(other),
         }
     }
@@ -486,24 +342,60 @@ fn public_json_string(value: &str) -> String {
     output
 }
 
-fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, String> {
-    let mut session = custody_session(parsed)?;
+pub fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+    let session = custody_session(parsed)?;
     let asset = hex32(required(parsed, "asset")?)?;
-    let effective = custody_effective_asset(&mut session, required(parsed, "source-did")?, asset)?;
+    let actors: Vec<_> = ["source-did", "destination-did"]
+        .iter()
+        .filter_map(|role| parsed.get(*role))
+        .collect();
+    let before = actors
+        .iter()
+        .map(|did| custody_preparation(&session, did))
+        .collect::<Result<Vec<_>, _>>()?;
+    let snapshot_before =
+        layerx_platform_core::native_committed_state(&session.sequencer, session.committed_height)?;
     let selected = layerx_platform_core::read_custody_profile(
-        &mut session.transport, session.context, asset, &effective,
+        &session.sequencer,
+        session.network_id,
+        session.committed_height,
+        asset,
     )?;
+    let after = actors
+        .iter()
+        .map(|did| custody_preparation(&session, did))
+        .collect::<Result<Vec<_>, _>>()?;
+    let height_after = session
+        .network
+        .network()
+        .map_err(|error| format!("custody committed height: {error:?}"))?
+        .latest_committed_height;
+    if before != after || height_after != session.committed_height {
+        return Err(
+            "custody preparation changed during profile reads; refresh required".to_owned(),
+        );
+    }
+    let snapshot_after =
+        layerx_platform_core::native_committed_state(&session.sequencer, height_after)?;
+    if snapshot_before != snapshot_after || selected.trusted_height() != session.committed_height {
+        return Err(
+            "custody preparation changed during profile reads; refresh required".to_owned(),
+        );
+    }
     let mut accounts = String::new();
     for role in ["source", "destination"] {
         if let Some(did) = parsed.get(&format!("{role}-did")) {
             let name = selected.account_name(did)?;
             let account = AccountId::parse(&name)
                 .map_err(|error| format!("custody {role} account: {error:?}"))?;
-            let id = layerx_wire::hash::account_id_for_protocol(
-                &account, session.context.expected_protocol_version,
-            ).map_err(|error| format!("custody {role} account id: {error:?}"))?;
-            let _ = write!(accounts, ",\"{role}_account\":{},\"{role}_account_id\":\"{}\"",
-                public_json_string(&name), hex(&id));
+            let id = layerx_wire::hash::account_id_for_protocol(&account, 3)
+                .map_err(|error| format!("custody {role} account id: {error:?}"))?;
+            let _ = write!(
+                accounts,
+                ",\"{role}_account\":{},\"{role}_account_id\":\"{}\"",
+                public_json_string(&name),
+                hex(&id)
+            );
         }
     }
     if let Some(profile_output) = parsed.get("profile-output") {
@@ -512,75 +404,115 @@ fn custody_asset_profile(parsed: &BTreeMap<String, String>) -> Result<String, St
             return Err("--profile-output must be absolute".to_owned());
         }
         let mut output = std::fs::OpenOptions::new()
-            .write(true).create_new(true).mode(0o600)
+            .write(true)
+            .create_new(true)
+            .mode(0o600)
             .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(&path).map_err(|error| format!("custody profile output: {error}"))?;
-        output.write_all(selected.profile()).map_err(|error| error.to_string())?;
+            .open(&path)
+            .map_err(|error| format!("custody profile output: {error}"))?;
+        output
+            .write_all(selected.profile())
+            .map_err(|error| error.to_string())?;
         output.sync_all().map_err(|error| error.to_string())?;
-        let _ = write!(accounts, ",\"profile_path\":{}", public_json_string(profile_output));
+        let _ = write!(
+            accounts,
+            ",\"profile_path\":{}",
+            public_json_string(profile_output)
+        );
     }
     Ok(format!(
-        "{{\"asset\":\"{}\",\"profile_sha256\":\"{}\",\"profile_hex\":\"{}\",\"trusted_height\":{},\"trust_source\":\"authenticated_initial_profile\",\"head_sequence\":{},\"global_sequence\":{},\"batch_number\":{},\"achieved\":\"STATE_PROVEN\"{accounts}}}",
+        "{{\"asset\":\"{}\",\"profile_sha256\":\"{}\",\"profile_hex\":\"{}\",\"trusted_height\":{},\"trust_source\":\"authenticated_native_bank_pointer\",\"head_sequence\":{},\"global_sequence\":{},\"committed_height\":{},\"block_hash\":\"{}\",\"app_hash\":\"{}\",\"achieved\":\"COMMITTED\"{accounts}}}",
         hex(&selected.asset()), hex(&selected.profile_hash()),
         hex(selected.profile()), selected.trusted_height(),
-        session.context.head.chain_sequence, session.context.head.chain_sequence, session.context.head.sealed_batch,
+        session.committed_height, session.committed_height, selected.trusted_height(),
+        hex(&snapshot_after.0.hash), hex(&snapshot_after.1),
     ))
 }
 
-fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
+pub fn write_asset_send(parsed: &BTreeMap<String, String>) -> Result<String, String> {
     let seed_file = std::fs::OpenOptions::new()
-        .read(true).custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
-        .open(required(parsed, "seed-file")?).map_err(|error| error.to_string())?;
+        .read(true)
+        .custom_flags(libc::O_NONBLOCK | libc::O_NOFOLLOW)
+        .open(required(parsed, "seed-file")?)
+        .map_err(|error| error.to_string())?;
     let metadata = seed_file.metadata().map_err(|error| error.to_string())?;
     if !metadata.is_file() || metadata.len() != 32 {
         return Err("test seed must be a 32-byte regular file".to_owned());
     }
     let mut seed_bytes = Vec::new();
-    seed_file.take(33).read_to_end(&mut seed_bytes).map_err(|error| error.to_string())?;
-    let seed: [u8; 32] = seed_bytes.try_into().map_err(|_| "test seed must be 32 bytes".to_owned())?;
+    seed_file
+        .take(33)
+        .read_to_end(&mut seed_bytes)
+        .map_err(|error| error.to_string())?;
+    let seed: [u8; 32] = seed_bytes
+        .try_into()
+        .map_err(|_| "test seed must be 32 bytes".to_owned())?;
     let source_did = layerx_platform_core::treasury_did(&seed);
-    if parsed.get("source-did").is_some_and(|supplied| supplied != &source_did) {
+    if parsed
+        .get("source-did")
+        .is_some_and(|supplied| supplied != &source_did)
+    {
         return Err("source DID does not match the seed owner".to_owned());
     }
-    let actor = Did::new(source_did.as_bytes()).map_err(|error| format!("actor: {error:?}"))?;
-    let mut session = custody_session(parsed)?;
-    let before = custody_preparation(&mut session, &actor, 3)?;
+    let session = custody_session(parsed)?;
+    let before = custody_preparation(&session, &source_did)?;
     let asset = hex32(required(parsed, "asset")?)?;
-    let effective = custody_effective_asset(&mut session, &source_did, asset)?;
     let selected = layerx_platform_core::read_custody_asset(
-        &mut session.transport, session.context, asset, &source_did, &effective,
+        &session.sequencer,
+        &session.network,
+        session.network_id,
+        session.committed_height,
+        asset,
+        &source_did,
     )?;
-    if selected.state_root() != session.state_root {
-        return Err("custody account and preparation roots differ".to_owned());
+    let after = custody_preparation(&session, &source_did)?;
+    if before != after
+        || selected.account_sequence() != before.nonce
+        || selected.trusted_height() != before.height
+        || selected.state_root() != before.state_root
+    {
+        return Err(
+            "custody preparation changed during asset proof reads; refresh required".to_owned(),
+        );
     }
-    let after = custody_preparation(&mut session, &actor, 100)?;
-    if before != after {
-        return Err("custody preparation changed during asset proof reads; refresh required".to_owned());
-    }
-    let amount = parsed.get("amount").map_or(Ok(1), |value| value.parse::<u128>())
+    let amount = parsed
+        .get("amount")
+        .map_or(Ok(1), |value| value.parse::<u128>())
         .map_err(|error| format!("--amount: {error}"))?;
+    let timestamp = before
+        .block
+        .timestamp
+        .checked_mul(1000)
+        .ok_or("timestamp exhausted")?;
     let signed = layerx_platform_core::build_asset_send_with_identity_sequence(
         &seed,
-        before.account_sequence,
+        before.nonce,
         &layerx_platform_core::SendRequest {
-            network_id: session.context.expected_network_id,
+            network_id: session.network_id,
             source_did,
             destination_did: required(parsed, "destination-did")?.to_owned(),
             asset,
             amount,
             account_sequence: selected.account_sequence(),
             idempotency_key: [0x62; 32],
-            not_before_ms: before.protocol_timestamp,
-            expires_at_ms: before.protocol_timestamp.checked_add(300_000).ok_or("timestamp exhausted")?,
+            not_before_ms: timestamp,
+            expires_at_ms: timestamp
+                .checked_add(300_000)
+                .ok_or("timestamp exhausted")?,
             fee_limit: 1000,
         },
         &selected,
     )?;
     let mut output = std::fs::OpenOptions::new()
-        .write(true).create_new(true).mode(0o600)
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(required(parsed, "output")?).map_err(|error| error.to_string())?;
-    output.write_all(&signed.canonical).map_err(|error| error.to_string())?;
+        .open(required(parsed, "output")?)
+        .map_err(|error| error.to_string())?;
+    output
+        .write_all(&signed.canonical)
+        .map_err(|error| error.to_string())?;
     output.sync_all().map_err(|error| error.to_string())?;
     Ok(hex(&signed.activity_id))
 }

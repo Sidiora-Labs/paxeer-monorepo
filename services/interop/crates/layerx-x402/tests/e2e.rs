@@ -1,6 +1,7 @@
-//! End-to-end integration tests for seller and buyer roles working together
-//! against real service types and independent x402 v2 implementations. Tests
-//! complete payment flows, evidence verification, and interoperability.
+//! Local buyer and seller adapter integration with committed plane transcripts.
+//! Pending and validation tests exercise their local boundaries. The native
+//! settlement case reaches buyer capture through the production wire codecs;
+//! it does not claim qualification against an independent x402 implementation.
 
 use std::collections::BTreeMap;
 
@@ -13,7 +14,7 @@ use layerx_interop_gateway::GatewayCore;
 use layerx_x402::buyer::{Buyer, BuyerPaymentPlane, PaymentBuildRequest, SupportedKind};
 use layerx_x402::model::{
     account_identifiers, AtomicAmount, PaymentPayload, PaymentRequired, PaymentRequirements,
-    ResourceInfo, X402Error, X402_VERSION,
+    ResourceInfo, X402Error, LAYERX_NETWORK, X402_VERSION,
 };
 use layerx_x402::seller::{
     LayerXPaymentRequest, PaymentPlane, PlanePaymentOutcome, Seller, SellerOutcome,
@@ -43,7 +44,7 @@ fn pay_to(account: &str, derivation: usize) -> String {
 }
 
 fn layerx_terms(account: &str) -> Value {
-    json!({"layerx": {"commitment": "executed", "account": account, "currency": CURRENCY}})
+    json!({"layerx": {"commitment": "receipted", "account": account, "currency": CURRENCY}})
 }
 
 struct MockBuyerPlane {
@@ -68,7 +69,9 @@ impl PaymentPlane for MockSellerPlane {
     ) -> Result<PlanePaymentOutcome, X402Error> {
         Ok(std::mem::replace(
             &mut self.outcome,
-            PlanePaymentOutcome::Pending,
+            PlanePaymentOutcome::Pending {
+                transaction_hash: [0x61; 32],
+            },
         ))
     }
 }
@@ -101,7 +104,7 @@ fn create_payment_required() -> PaymentRequired {
         accepts: vec![
             PaymentRequirements {
                 scheme: "exact".to_owned(),
-                network: "layerx:beta".to_owned(),
+                network: LAYERX_NETWORK.to_owned(),
                 amount: AtomicAmount::from_u128(1000),
                 asset: "0x".to_owned() + &"aa".repeat(32),
                 pay_to: pay_to(TESTNET_ACCOUNT, 0),
@@ -110,7 +113,7 @@ fn create_payment_required() -> PaymentRequired {
             },
             PaymentRequirements {
                 scheme: "402lxp".to_owned(),
-                network: "layerx:mainnet".to_owned(),
+                network: LAYERX_NETWORK.to_owned(),
                 amount: AtomicAmount::from_u128(950),
                 asset: "0x".to_owned() + &"cc".repeat(32),
                 pay_to: pay_to(MAINNET_ACCOUNT, 1),
@@ -136,11 +139,11 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
     let buyer = Buyer::new(vec![
         SupportedKind {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
         },
         SupportedKind {
             scheme: "402lxp".to_owned(),
-            network: "layerx:mainnet".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
         },
     ])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
@@ -169,14 +172,16 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
 
     assert_eq!(payment.payload.x402_version, X402_VERSION);
     assert_eq!(payment.payload.accepted.scheme, "exact");
-    assert_eq!(payment.payload.accepted.network, "layerx:beta");
+    assert_eq!(payment.payload.accepted.network, LAYERX_NETWORK);
     assert_eq!(payment.idempotency_key, [5; 32]);
 
     let mut gateway = registered_gateway();
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut seller_plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
 
     let outcome = seller
@@ -190,7 +195,7 @@ fn buyer_and_seller_complete_payment_flow_over_http() {
         )
         .unwrap_or_else(|error| panic!("settlement processed: {error:?}"));
 
-    assert!(matches!(outcome, SellerOutcome::Pending));
+    assert!(matches!(outcome, SellerOutcome::Pending { .. }));
 }
 
 #[test]
@@ -199,7 +204,7 @@ fn buyer_selects_first_supported_scheme_from_seller_accepts() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "402lxp".to_owned(),
-        network: "layerx:mainnet".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -216,7 +221,7 @@ fn buyer_selects_first_supported_scheme_from_seller_accepts() {
         .unwrap_or_else(|error| panic!("payment built: {error:?}"));
 
     assert_eq!(payment.payload.accepted.scheme, "402lxp");
-    assert_eq!(payment.payload.accepted.network, "layerx:mainnet");
+    assert_eq!(payment.payload.accepted.network, LAYERX_NETWORK);
     assert_eq!(payment.payload.accepted.amount.value(), 950);
 }
 
@@ -232,7 +237,7 @@ fn seller_validates_buyer_payment_matches_issued_requirements() {
         payload: json!({"scheme": "exact"}),
         accepted: PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(9999),
             asset: "0x".to_owned() + &"aa".repeat(32),
             pay_to: pay_to(TESTNET_ACCOUNT, 0),
@@ -250,7 +255,9 @@ fn seller_validates_buyer_payment_matches_issued_requirements() {
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let trace = TraceId::mint([0xab; 16]);
 
@@ -278,7 +285,7 @@ fn payment_flow_preserves_extensions_end_to_end() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -317,7 +324,7 @@ fn seller_refuses_payment_when_extension_missing() {
         payload: json!({"scheme": "exact"}),
         accepted: PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(1000),
             asset: "0x".to_owned() + &"aa".repeat(32),
             pay_to: pay_to(TESTNET_ACCOUNT, 0),
@@ -335,7 +342,9 @@ fn seller_refuses_payment_when_extension_missing() {
     let principal =
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
     let mut plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let trace = TraceId::mint([0xab; 16]);
 
@@ -362,7 +371,7 @@ fn transport_independent_payment_flow_over_mcp() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -402,7 +411,7 @@ fn seller_refuses_payment_before_plane_execution_when_validation_fails() {
         payload: json!({"scheme": "exact"}),
         accepted: PaymentRequirements {
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: LAYERX_NETWORK.to_owned(),
             amount: AtomicAmount::from_u128(1000),
             asset: "0x".to_owned() + &"aa".repeat(32),
             pay_to: pay_to(TESTNET_ACCOUNT, 0),
@@ -434,7 +443,7 @@ fn buyer_constructs_payment_with_correct_idempotency_semantics() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -470,7 +479,7 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -491,7 +500,9 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
         PrincipalId::new("test-merchant").unwrap_or_else(|error| panic!("test input: {error:?}"));
 
     let mut pending_plane = MockSellerPlane {
-        outcome: PlanePaymentOutcome::Pending,
+        outcome: PlanePaymentOutcome::Pending {
+            transaction_hash: [0x61; 32],
+        },
     };
     let pending_outcome = seller
         .settle(
@@ -503,7 +514,7 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
             0,
         )
         .unwrap_or_else(|error| panic!("pending processed: {error:?}"));
-    assert!(matches!(pending_outcome, SellerOutcome::Pending));
+    assert!(matches!(pending_outcome, SellerOutcome::Pending { .. }));
 
     let mut refused_plane = MockSellerPlane {
         outcome: PlanePaymentOutcome::Refused {
@@ -527,7 +538,7 @@ fn seller_outcome_types_distinguish_pending_refused_and_settled() {
 fn payment_requirements_layerx_facts_extraction() {
     let requirements = PaymentRequirements {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
         amount: AtomicAmount::from_u128(1000),
         asset: "0x".to_owned() + &"ab".repeat(32),
         pay_to: pay_to(TESTNET_ACCOUNT, 0),
@@ -566,7 +577,7 @@ fn resource_info_with_all_fields_is_preserved() {
 
     let buyer = Buyer::new(vec![SupportedKind {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: LAYERX_NETWORK.to_owned(),
     }])
     .unwrap_or_else(|error| panic!("buyer created: {error:?}"));
 
@@ -591,4 +602,12 @@ fn resource_info_with_all_fields_is_preserved() {
     assert_eq!(resource.mime_type, required.resource.mime_type);
     assert_eq!(resource.service_name, required.resource.service_name);
     assert_eq!(resource.tags, required.resource.tags);
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn native_receipt_build_submit_settle_transport_and_capture() {
+    repair_path::end_to_end_native_settlement();
 }

@@ -1,0 +1,70 @@
+[repair.22.33.408]
+base = "de8ab245609a7e0707cc32c502b6dcbe17ce3aca"
+acceptance = "22998.1"
+test_file = "apps/explorer/ui/home/repair-22-33-408.spec.ts"
+proof = "Production configuration loaders, useApiQuery/useFetch, Chakra/color-mode providers, Next router and rendered homepage components consume committed fixtures over a test-owned loopback HTTP server; no live services or credentials."
+baseline = "No baseline gate ran: the ordered task instructions forbid tests before implementation is complete and prohibit invoking verify_cmd outside hf-done; the starting tree had no repair test or gate ledger. No before-change failures are claimed."
+evidence = "The runner's hf-build/hf-done ledger records the candidate revision, exact command, exit code and private log; completion requires hf-done success."
+
+[finding.hero-container-config]
+tests = ["heroContainerConfigLight", "heroCustomizationDark"]
+repair = "Apply configured background, border and title/container color in both modes, reusing the light value for a single-mode setting."
+
+[finding.hero-customization-test]
+tests = ["heroContainerConfigLight", "heroCustomizationDark"]
+repair = "HeroBanner.pw.tsx checks configured light/dark background, title color and border before retaining the screenshot."
+
+[finding.highlights-config-disconnected]
+tests = ["highlightsConfiguredHomepageEntry", "highlightsTwoAndThreeAdaptiveBanners"]
+repair = "HeroBanner mounts the dedicated PromotionalBanners parent, which loads the configured external asset using the production fetch hook alongside the unchanged statistics Highlights."
+
+[finding.highlights-empty-screenshot]
+tests = ["highlightsConfiguredHomepageEntry", "highlightsTwoAndThreeAdaptiveBanners", "highlightsStatisticsRemainSeparate"]
+repair = "Highlights.pw.tsx mounts PromotionalBanners and checks two/three banner counts, titles, descriptions, destinations and adaptive images before screenshots."
+
+[finding.nullable-utilization-crash]
+tests = ["nullableUtilizationAndNumericBehavior"]
+repair = "Only numeric utilization produces a label and a load/color calculation; null omits the unavailable note, while zero, medium and high numeric loads retain their values and colors."
+wiring_request = "Domain 14: apps/explorer/types/api/stats.ts HomeStats.network_utilization_percentage must be number | null to match the backend Stats.Response schema; this shared type is outside the authorized paths."
+
+[finding.stats-widget-selection]
+tests = ["statsWidgetSelectionAndProducerValues", "statsDisabledWidgetsAndMissingGas", "statsCoinSelectionAndEmptySelection", "statsDefaultBackendWidgets", "statsOptimisticStateBatch"]
+repair = "Restore configured default and supplemental widget ids in configured order with microservice precedence, backend fallback, nullable gas handling, and the existing typed rollup endpoints; coin values follow the accepted homepage chart selections."
+
+[finding.stats-widget-test]
+tests = ["statsWidgetSelectionAndProducerValues", "statsDisabledWidgetsAndMissingGas", "statsDefaultBackendWidgets", "statsOptimisticStateBatch"]
+repair = "Stats.pw.tsx asserts requested widget identities and producer values, explicit disabled selections and absent gas before screenshots, using deterministic blocks and supported configuration."
+
+[gotcha.package-manager]
+observed = "The sandbox pnpm launcher rejects the app's Yarn packageManager; pnpm 10 then cannot parse the existing Yarn resolutions selector."
+action = "Install the unchanged app dependencies with its declared Yarn version; execute the declared pnpm gates through pnpm 10 with package-manager switching disabled."
+
+[gotcha.config-response-fixture]
+observed = "playwright/fixtures/mockConfigResponse.ts concatenates config.app.baseUrl ending in /explorer with an asset path already starting in /explorer."
+action = "The in-scope banner scenarios route the actual loader asset path explicitly; domain 14 owns correcting path joining in apps/explorer/playwright/fixtures/mockConfigResponse.ts."
+
+[gotcha.install-linking]
+observed = "A formatter executable can appear before Yarn finishes copying its dependent files; the first formatting attempt exited 2 on missing ESLint lazy-loading-rule-map."
+action = "Wait for dependency installation to exit before rerunning the touched-file formatter; no build or verify gate was consumed."
+
+[qualification.browser-coverage]
+release_gate_request = "Domain 14: regenerate apps/explorer/ui/home/__screenshots__ for HeroBanner, Highlights and Stats at the authorized browser release gate after their restored configured content; this task retains screenshot assertions but permits only hf-build and hf-done."
+
+[qualification.formatter-contract]
+observed = "The repository ESLint formatter applies layout fixes but its Vitest plugin rejects test(namedFunction), the registration explicitly required by this task."
+assumption = "Retain the mandated named-function registrations and their assertions; do not disable the plugin or alter any checks; TypeScript and focused Vitest remain the declared qualification gates."
+
+[gotcha.formatter-root]
+observed = "The explorer ESLint formatter is installed under apps/explorer/node_modules, not the repository root; a root-relative invocation exited before formatting."
+action = "Run the formatter with apps/explorer as its working directory."
+
+[qualification.build-repair-1]
+revision = "a4baf21a6a3d64df9439378e04ae9e70a363554f"
+command = "pnpm --dir apps/explorer exec tsc --noEmit -p tsconfig.json"
+exit = 2
+log = "/out/logs/build-1.log"
+observed = "The real Next Router constructor requires its own AppProps contract, which differs from next/app AppProps; import the constructor's declared type for the fixture app."
+
+[gotcha.vitest-registration]
+observed = "Vitest 4 formats a function passed as a test name but requires a separate handler; test(fn) alone creates a todo rather than executing fn."
+action = "The local named-function registration adapter forwards proof.name and proof into the real Vitest test collector, preserving the mandated test(proof) call sites while executing every assertion."

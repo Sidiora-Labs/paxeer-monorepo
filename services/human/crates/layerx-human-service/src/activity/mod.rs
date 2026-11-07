@@ -5,16 +5,17 @@ mod export;
 
 pub use detail::EntryDetail;
 pub use export::{
-    verification_status, BundleReport, EvidenceBundle, EvidenceEntry, EvidenceExport, ExportError,
-    ReceiptAuthority, StatementExport, UnverifiedReason, VerificationStatus, VerifyError,
+    verification_status, verify_receipt_export, verify_receipt_export_with_consensus, BundleReport,
+    CommittedReceiptEvidence, ConsensusAuthority, EvidenceBundle, EvidenceEntry, EvidenceExport,
+    ExportError, ReceiptExport, ReceiptFact, ReceiptHeaderBinding, StatementExport,
+    UnverifiedReason, VerificationStatus, VerifyError,
 };
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::{Display, Formatter, Write as _};
 
-use layerx_agent_api::subscription::{EventDelivery, ReceiptReference};
+use layerx_agent_api::subscription::{Cursor as AgentCursor, EventDelivery, ReceiptReference};
 use layerx_agent_api::track::SubmissionState;
-use layerx_agent_api::verify::Level;
 use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
@@ -26,7 +27,7 @@ use crate::notify::ActivityEntryId;
 use crate::store::{PrincipalScope, RowKey, StoreError, Table};
 
 const STATE_KEY: &str = "activity-feed";
-const STATE_VERSION: u8 = 1;
+const STATE_VERSION: u8 = 2;
 const CURSOR_VERSION: u8 = 1;
 const MAXIMUM_PAGE_SIZE: usize = 100;
 const MAXIMUM_REVISIONS: usize = 100_000;
@@ -217,11 +218,11 @@ impl AgentActivity {
     }
 }
 
-/// Receipt reference retained with the achieved verification level.
+/// Receipt reference retained with the achieved rung.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct ReceiptEvidence {
     reference: String,
-    level: Level,
+    rung: Rung,
     canonical: Option<Vec<u8>>,
     authority: Option<layerx_proof::receipt::AuthorizedBatch>,
 }
@@ -233,14 +234,27 @@ impl ReceiptEvidence {
     }
 
     #[must_use]
-    pub const fn level(&self) -> Level {
-        self.level
+    pub const fn rung(&self) -> Rung {
+        self.rung
     }
 
     #[must_use]
     pub fn canonical(&self) -> Option<&[u8]> {
         self.canonical.as_deref()
     }
+    pub fn export_fact(&self, entry_id: &ActivityEntryId) -> Result<ReceiptFact, VerifyError> {
+        let canonical = self.canonical().ok_or_else(|| {
+            VerifyError::Unavailable(ExportError::EvidenceUnavailable {
+                reference: self.reference.clone(),
+            })
+        })?;
+        let fact = EvidenceBundle::receipt_fact(entry_id, canonical.to_vec(), self.rung)?;
+        if hex(fact.receipt_hash) != self.reference {
+            return Err(VerifyError::Unverified(UnverifiedReason::DigestMismatch));
+        }
+        Ok(fact)
+    }
+
     #[must_use]
     pub const fn authority(&self) -> Option<&layerx_proof::receipt::AuthorizedBatch> {
         self.authority.as_ref()
@@ -551,7 +565,16 @@ impl Feed {
     ///
     /// Returns errors for corrupt or unavailable principal activity projections.
     pub fn projected_agent_head(scope: &PrincipalScope<'_>) -> Result<u64, FeedError> {
-        Ok(load_state(scope)?.last_agent_cursor.unwrap_or(0))
+        Ok(Self::projected_agent_cursor(scope)?.map_or(0, |cursor| cursor.block_height))
+    }
+
+    /// Returns the full producer position to resume after. Legacy height-only
+    /// state replays its last block from the preceding block's end; event
+    /// identities make that replay idempotent without guessing lost indices.
+    pub fn projected_agent_cursor(
+        scope: &PrincipalScope<'_>,
+    ) -> Result<Option<AgentCursor>, FeedError> {
+        Ok(load_state(scope)?.last_agent_cursor.map(Into::into))
     }
 
     /// Applies a draft atomically. Until this call, changes to the draft have
@@ -591,8 +614,8 @@ impl Feed {
         delivery: &EventDelivery,
         projected_at: u64,
     ) -> Result<ActivityEntry, FeedError> {
-        let cursor = delivery.cursor.0 .0;
-        if cursor == 0
+        let cursor = delivery.cursor;
+        if cursor.block_height == 0
             || delivery.event_bytes.is_empty()
             || delivery.deduplication_id.as_bytes()
                 != layerx_agent_api::subscription::DeduplicationId::from_event_identity(
@@ -604,11 +627,9 @@ impl Feed {
         }
         let (status, receipts) = match &delivery.receipt_reference {
             ReceiptReference::None => (activity.pending.status()?, Vec::new()),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => {
-                if *verification_level == Level::Unverified {
+            ReceiptReference::Verified { receipt_ref, rung } => {
+                let rung = *rung;
+                if rung == Rung::Submitted {
                     return Err(FeedError::UnverifiedReceipt);
                 }
                 let status = match activity.verified {
@@ -616,7 +637,7 @@ impl Feed {
                     VerifiedStatus::WithdrawalPaidOut => {
                         ActivityStatus::Withdrawal(WithdrawalStage::PaidOut)
                     }
-                    VerifiedStatus::Done if *verification_level >= Level::CheckpointFinalised => {
+                    VerifiedStatus::Done if rung == Rung::Committed => {
                         ActivityStatus::DoneFinalised
                     }
                     VerifiedStatus::Done => ActivityStatus::Done,
@@ -625,7 +646,7 @@ impl Feed {
                     status,
                     vec![StoredReceipt {
                         reference: receipt_ref.as_str().to_owned(),
-                        level: level_code(*verification_level),
+                        level: rung_code(rung),
                         canonical: None,
                         authority: None,
                     }],
@@ -634,13 +655,10 @@ impl Feed {
         };
         let receipt_source_digest = match &delivery.receipt_reference {
             ReceiptReference::None => source_id(&[b"no-receipt"]),
-            ReceiptReference::Verified {
-                receipt_ref,
-                verification_level,
-            } => source_id(&[
+            ReceiptReference::Verified { receipt_ref, rung } => source_id(&[
                 b"verified-receipt".as_slice(),
                 receipt_ref.as_str().as_bytes(),
-                &[level_code(*verification_level)],
+                &[rung_code(*rung)],
             ]),
         };
         let candidate = Candidate {
@@ -654,10 +672,12 @@ impl Feed {
             source_digest: source_id(&[
                 b"agent-delivery",
                 &delivery.event_bytes,
-                &delivery.cursor.0 .0.to_be_bytes(),
+                &cursor.block_height.to_be_bytes(),
+                &delivery.cursor.tx_index.to_be_bytes(),
+                &delivery.cursor.log_index.to_be_bytes(),
                 &receipt_source_digest,
             ]),
-            agent_cursor: Some(cursor),
+            agent_cursor: Some(cursor.into()),
         };
         append(scope, candidate, projected_at)
     }
@@ -695,14 +715,22 @@ impl Feed {
             .iter()
             .zip(status.receipt_material())
             .zip(status.receipt_authorities())
-            .filter_map(|((digest, material), authority)| {
-                digest.map(|digest| StoredReceipt {
-                    reference: hex(digest),
-                    level: level_code(Level::SequencerSigned),
-                    canonical: material.clone(),
-                    authority: authority.as_ref().map(StoredReceiptAuthority::from_public),
-                })
+            .zip(status.receipt_rungs())
+            .map(|(((digest, material), authority), rung)| {
+                digest
+                    .map(|digest| {
+                        Ok(StoredReceipt {
+                            reference: hex(digest),
+                            level: rung_code(rung.ok_or(FeedError::UnverifiedReceipt)?),
+                            canonical: material.clone(),
+                            authority: authority.as_ref().map(StoredReceiptAuthority::from_public),
+                        })
+                    })
+                    .transpose()
             })
+            .collect::<Result<Vec<_>, FeedError>>()?
+            .into_iter()
+            .flatten()
             .collect();
         let activity_status = journey_status(kind, status, refusal)?;
         validate_completion(activity_status, &receipts)?;
@@ -769,7 +797,7 @@ impl Feed {
                     } else {
                         receipts.push(StoredReceipt {
                             reference: receipt_ref.as_str().to_owned(),
-                            level: level_code(rung_level(tracking.rung)),
+                            level: rung_code(tracking.rung),
                             canonical: None,
                             authority: None,
                         });
@@ -883,7 +911,7 @@ impl Feed {
         };
         if state
             .last_agent_cursor
-            .is_some_and(|cursor| cursor > observed_agent_head)
+            .is_some_and(|cursor| cursor.block_height > observed_agent_head)
         {
             return Err(FeedError::SourceHeadRegressed);
         }
@@ -926,7 +954,11 @@ impl Feed {
         let age_seconds = state
             .last_projected_at
             .map(|projected_at| now.saturating_sub(projected_at));
-        let agent_lag = observed_agent_head.saturating_sub(state.last_agent_cursor.unwrap_or(0));
+        let agent_lag = observed_agent_head.saturating_sub(
+            state
+                .last_agent_cursor
+                .map_or(0, |cursor| cursor.block_height),
+        );
         let current =
             agent_lag == 0 && age_seconds.is_none_or(|age| age <= self.freshness_bound_seconds);
         Ok(FeedPage {
@@ -937,7 +969,7 @@ impl Feed {
                 projected_at: state.last_projected_at,
                 age_seconds,
                 freshness_bound_seconds: self.freshness_bound_seconds,
-                agent_cursor: state.last_agent_cursor,
+                agent_cursor: state.last_agent_cursor.map(|cursor| cursor.block_height),
                 observed_agent_head,
                 agent_lag,
                 current,
@@ -946,12 +978,39 @@ impl Feed {
     }
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Ord, PartialEq, PartialOrd, Serialize)]
+struct StoredAgentCursor {
+    block_height: u64,
+    tx_index: u32,
+    log_index: u32,
+}
+
+impl From<AgentCursor> for StoredAgentCursor {
+    fn from(cursor: AgentCursor) -> Self {
+        Self {
+            block_height: cursor.block_height,
+            tx_index: cursor.tx_index,
+            log_index: cursor.log_index,
+        }
+    }
+}
+
+impl From<StoredAgentCursor> for AgentCursor {
+    fn from(cursor: StoredAgentCursor) -> Self {
+        Self {
+            block_height: cursor.block_height,
+            tx_index: cursor.tx_index,
+            log_index: cursor.log_index,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize)]
 struct FeedState {
     version: u8,
     next_revision: u64,
     last_projected_at: Option<u64>,
-    last_agent_cursor: Option<u64>,
+    last_agent_cursor: Option<StoredAgentCursor>,
     revisions: Vec<StoredRevision>,
 }
 
@@ -1019,7 +1078,7 @@ struct Candidate {
     receipts: Vec<StoredReceipt>,
     source_id: [u8; 32],
     source_digest: [u8; 32],
-    agent_cursor: Option<u64>,
+    agent_cursor: Option<StoredAgentCursor>,
 }
 
 fn append(
@@ -1028,12 +1087,6 @@ fn append(
     projected_at: u64,
 ) -> Result<ActivityEntry, FeedError> {
     let mut state = load_state(scope)?;
-    if state
-        .last_projected_at
-        .is_some_and(|previous| projected_at < previous)
-    {
-        return Err(FeedError::TimeRegressed);
-    }
     if let Some(existing) = state
         .revisions
         .iter()
@@ -1052,11 +1105,14 @@ fn append(
             .ok_or(FeedError::CorruptState)?;
         return activity_entry(current);
     }
+    if state
+        .last_projected_at
+        .is_some_and(|previous| projected_at < previous)
+    {
+        return Err(FeedError::TimeRegressed);
+    }
     if let Some(cursor) = candidate.agent_cursor {
-        if state
-            .last_agent_cursor
-            .is_some_and(|last| cursor != last.saturating_add(1))
-        {
+        if state.last_agent_cursor.is_some_and(|last| cursor <= last) {
             return Err(FeedError::AgentEventGap);
         }
         state.last_agent_cursor = Some(cursor);
@@ -1099,8 +1155,28 @@ fn load_state(scope: &PrincipalScope<'_>) -> Result<FeedState, FeedError> {
     let Some(row) = scope.get(Table::Journeys, &key) else {
         return Ok(FeedState::default());
     };
-    let state: FeedState =
+    let mut value: serde_json::Value =
         serde_json::from_slice(row.bytes()).map_err(|_| FeedError::CorruptState)?;
+    if value["version"] == 1 {
+        let cursor = match &value["last_agent_cursor"] {
+            serde_json::Value::Null => None,
+            height => {
+                let height = height
+                    .as_u64()
+                    .filter(|height| *height > 0)
+                    .ok_or(FeedError::CorruptState)?;
+                Some(StoredAgentCursor {
+                    block_height: height - 1,
+                    tx_index: u32::MAX,
+                    log_index: u32::MAX,
+                })
+            }
+        };
+        value["last_agent_cursor"] =
+            serde_json::to_value(cursor).map_err(|_| FeedError::CorruptState)?;
+        value["version"] = STATE_VERSION.into();
+    }
+    let state: FeedState = serde_json::from_value(value).map_err(|_| FeedError::CorruptState)?;
     validate_state(&state)?;
     Ok(state)
 }
@@ -1127,7 +1203,7 @@ fn validate_revision(revision: &StoredRevision) -> Result<(), FeedError> {
         || revision
             .receipts
             .iter()
-            .any(|receipt| receipt.reference.is_empty() || level(receipt.level).is_none())
+            .any(|receipt| receipt.reference.is_empty() || rung(receipt.level).is_none())
     {
         return Err(FeedError::CorruptState);
     }
@@ -1142,7 +1218,7 @@ fn validate_completion(
         && (receipts.is_empty()
             || receipts
                 .iter()
-                .any(|receipt| receipt.level == level_code(Level::Unverified)))
+                .any(|receipt| receipt.level == rung_code(Rung::Submitted)))
     {
         Err(FeedError::CompletionWithoutReceipt)
     } else {
@@ -1157,7 +1233,7 @@ fn activity_entry(revision: &StoredRevision) -> Result<ActivityEntry, FeedError>
         .map(|receipt| {
             Ok(ReceiptEvidence {
                 reference: receipt.reference.clone(),
-                level: level(receipt.level).ok_or(FeedError::CorruptState)?,
+                rung: rung(receipt.level).ok_or(FeedError::CorruptState)?,
                 canonical: receipt.canonical.clone(),
                 authority: receipt.authority.as_ref().map(|value| {
                     layerx_proof::receipt::AuthorizedBatch::new(
@@ -1356,33 +1432,19 @@ fn decode_cursor(bytes: &[u8]) -> Result<CursorFields, FeedError> {
     })
 }
 
-const fn level_code(level: Level) -> u8 {
-    match level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    }
-}
-
-const fn rung_level(rung: Rung) -> Level {
+const fn rung_code(rung: Rung) -> u8 {
     match rung {
-        Rung::Submitted => Level::Unverified,
-        Rung::Receipted => Level::SequencerSigned,
-        Rung::Committed => Level::CheckpointFinalised,
+        Rung::Submitted => 0,
+        Rung::Receipted => 1,
+        Rung::Committed => 2,
     }
 }
 
-const fn level(code: u8) -> Option<Level> {
+const fn rung(code: u8) -> Option<Rung> {
     match code {
-        0 => Some(Level::Unverified),
-        1 => Some(Level::SequencerSigned),
-        2 => Some(Level::BatchIncluded),
-        3 => Some(Level::StateProven),
-        4 => Some(Level::CheckpointFinalised),
-        5 => Some(Level::SettlementAnchored),
+        0 => Some(Rung::Submitted),
+        1 => Some(Rung::Receipted),
+        2 => Some(Rung::Committed),
         _ => None,
     }
 }

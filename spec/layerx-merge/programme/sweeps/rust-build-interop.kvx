@@ -1,0 +1,82 @@
+[sweep.rust-build-interop]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cargo build --locked --manifest-path services/interop/Cargo.toml -p TARGET --all-targets"
+targets_total = 15
+targets_passed = 15
+targets_failed = 0
+targets_not_run = 0
+
+[target.rust-build-interop.1]
+target = "layerx-ap2"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.2]
+target = "layerx-bridge-relayer"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.3]
+target = "layerx-committed-proof"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.4]
+target = "layerx-fiat"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.5]
+target = "layerx-gas-station"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.6]
+target = "layerx-interop-gateway"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.7]
+target = "layerx-interop-service"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.8]
+target = "layerx-migrate"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.9]
+target = "layerx-mirror"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.10]
+target = "layerx-mirror-signer"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.11]
+target = "layerx-portable"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.12]
+target = "layerx-ucp"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.13]
+target = "layerx-visa-tap"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.14]
+target = "layerx-x402"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-interop.15]
+target = "x-websearch"
+result = "passed"
+exit_code = 0

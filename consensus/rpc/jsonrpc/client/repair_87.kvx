@@ -1,0 +1,9 @@
+[repair.22.31.87]
+audit = "22.30.46"
+finding = "15"
+tests = ["TestRepair_87_ReorderedReplies", "TestRepair_87_DuplicateReplies", "TestRepair_87_ExactIDSet", "TestRepair_87_MixedSuccessesAndRefusals"]
+implementation = "Validate the complete one-to-one ID set before writing results, decode in request order by ID, and return all per-request RPC errors with their IDs while decoding successful responses."
+proof = "Real registered RPC handler and response codec through HTTP into RequestBatch.Send; delivery adapter reorders, duplicates, removes or changes IDs only after the handler emits responses."
+baseline = "Not run: the explicit task order forbids tests before complete implementation and permits verification only through hf-done after hf-build; no prior gate ledger existed. No baseline failures are claimed."
+wiring_requests = []
+evidence = "The runner's private hf-build/hf-done ledger records the exact candidate revision, command, exit code and evidence log; final response copies the last gate record."

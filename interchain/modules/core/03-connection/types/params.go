@@ -32,23 +32,23 @@ func DefaultParams() Params {
 
 // Validate ensures MaxExpectedTimePerBlock is non-zero
 func (p Params) Validate() error {
-	if p.MaxExpectedTimePerBlock == 0 {
-		return fmt.Errorf("MaxExpectedTimePerBlock cannot be zero")
-	}
-	return nil
+	return validateParams(p.MaxExpectedTimePerBlock)
 }
 
 // ParamSetPairs implements params.ParamSet
 func (p *Params) ParamSetPairs() paramtypes.ParamSetPairs {
 	return paramtypes.ParamSetPairs{
-		paramtypes.NewParamSetPair(KeyMaxExpectedTimePerBlock, p.MaxExpectedTimePerBlock, validateParams),
+		paramtypes.NewParamSetPair(KeyMaxExpectedTimePerBlock, &p.MaxExpectedTimePerBlock, validateParams),
 	}
 }
 
 func validateParams(i interface{}) error {
-	_, ok := i.(uint64)
+	timePerBlock, ok := i.(uint64)
 	if !ok {
 		return fmt.Errorf("invalid parameter. expected %T, got type: %T", uint64(1), i)
+	}
+	if timePerBlock == 0 {
+		return fmt.Errorf("MaxExpectedTimePerBlock cannot be zero")
 	}
 	return nil
 }

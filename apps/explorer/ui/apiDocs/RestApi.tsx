@@ -1,32 +1,27 @@
+import { useQuery } from '@tanstack/react-query';
 import React from 'react';
 
 import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
-import useApiQuery from 'lib/api/useApiQuery';
 import { AccordionItem, AccordionItemContent, AccordionItemTrigger, AccordionRoot, useAccordion } from 'toolkit/chakra/accordion';
 import { ContentLoader } from 'toolkit/components/loaders/ContentLoader';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
 
 import SwaggerUI from './SwaggerUI';
-import { REST_API_SECTIONS } from './utils';
+import { getCoreApiSpecCandidates, resolveCoreApiSpecUrl, REST_API_SECTIONS } from './utils';
 
 const RestApi = () => {
 
-  const configQuery = useApiQuery('general:config_backend', {
-    queryOptions: {
-      refetchOnMount: false,
-      enabled: config.features.apiDocs.isEnabled,
-    },
-  });
-  const configVersionQuery = useApiQuery('general:config_backend_version', {
-    queryOptions: {
-      refetchOnMount: false,
-      enabled: config.features.apiDocs.isEnabled,
-    },
+  const coreApiSpecQuery = useQuery({
+    queryKey: [ 'api-docs', 'core-api-spec-url', getCoreApiSpecCandidates() ],
+    queryFn: () => resolveCoreApiSpecUrl(getCoreApiSpecCandidates()),
+    enabled: config.features.apiDocs.isEnabled && Boolean(config.apis.general),
+    refetchOnMount: false,
+    staleTime: Infinity,
   });
 
-  const isLoading = config.features.apiDocs.isEnabled ? configQuery.isPending || configVersionQuery.isPending : false;
+  const isLoading = config.features.apiDocs.isEnabled && Boolean(config.apis.general) ? coreApiSpecQuery.isPending : false;
 
   const { value, onValueChange, scrollToItemFromUrl } = useAccordion(REST_API_SECTIONS);
 
@@ -38,21 +33,7 @@ const RestApi = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ isLoading ]);
 
-  const coreApiSwaggerUrl = React.useMemo(() => {
-    if (isLoading || !config.features.apiDocs.isEnabled) {
-      return;
-    }
-
-    // v[release_number]+commit.[commit_hash]
-    // v10.0.0-alpha.17 or v9.3.2+commit.a7ab3460
-    const version = configVersionQuery.data?.backend_version;
-    const releaseNumber = version?.match(/^v(\d+\.\d+\.\d+)/)?.[1];
-    const folderName = configQuery.data?.openapi_spec_folder_name;
-
-    if (releaseNumber && folderName) {
-      return `https://raw.githubusercontent.com/blockscout/swaggers/master/blockscout/${ releaseNumber }/${ folderName }/swagger.yaml`;
-    }
-  }, [ configQuery.data?.openapi_spec_folder_name, configVersionQuery.data?.backend_version, isLoading ]);
+  const coreApiSwaggerUrl = coreApiSpecQuery.data;
 
   const sections = React.useMemo(() => {
     if (!coreApiSwaggerUrl) {

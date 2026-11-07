@@ -1,0 +1,26 @@
+[repair.22.33.989]
+audit = "22.30.32"
+base_revision = "0e1d5eb94cabe89e2260279a849b7154911ef8ee"
+scope = "services/launchpad/gateway/internal/proxy"
+baseline = "Not run: the explicit ordered gates prohibit testing before implementation and running verify_cmd by hand; no pre-change test failures are claimed."
+qualification = "Exact candidate revision, command, exit code and private evidence location are emitted by hf-build and hf-done and retained in /out/run/gates.jsonl; this record does not claim a gate before it runs."
+
+[finding.recording_truncation]
+tests = ["TestRepairM_989_recording_complete", "TestRepairM_989_recording_transfer_failure", "TestRepairM_989_recording_invalid_content"]
+repair = "Relay the entire accepted audio/ogg object with bounded streaming memory and no independent size ceiling, matching the current social producer/storage contract; preserve known Content-Length and abort the downstream HTTP response on copy failure, including unknown-length chunked transfers."
+proof = "An Ogg Opus silence fixture produces a recording larger than 65 MiB; a mounted Connected handler authenticates through the shared pinned mTLS identity client and relays the actual loopback producer over mTLS into an HTTP consumer that checks exact length and SHA-256. Both declared-length and chunked transfers are covered, including producer disconnection beyond the old 64 MiB cutoff and invalid content refusal."
+wiring_request = "services/launchpad/social/internal/voice/recording.go and services/launchpad/social/internal/social/moderation.go — social owner (domain 4): retain the complete-object/no-independent-size-ceiling contract across storage and delivery, and abort the producer response on storage copy errors rather than discarding them; the gateway cannot detect a producer that reports clean completion for an unknown-length incomplete object."
+
+[finding.owner_path_proof]
+tests = ["TestRepairM_989_owner_mounted_transport", "TestRepairM_989_owner_recovery_refusals", "TestRepairM_989_owner_existing_assertions"]
+disposition = "Gateway transport coverage added; full durable user-authority lifecycle proof remains open pending the owning-domain wiring request."
+proof = "Actual mounted Connected.ServeHTTP, shared pinned mTLS identity client, shared account-audience assertion verifier, capability forwarding only to the download route, owner bearer/cookie preservation, untrusted actor-header stripping, malformed/duplicate capability refusal and both recovery-version admission refusals; every existing owner-route assertion is retained and invoked by the focused gate. Loopback peers are fixtures, not the real durable user authority, and no authority lifecycle or restart closure is claimed."
+wiring_request = "services/launchpad/user/internal/account/preferences_http.go, store.go and jobs_http.go — user owner (domain 4): expose an importable in-process real GatewayHandler fixture and a real store usable without PostgreSQL, then prove export issuance/redemption, signed deletion with session revocation, receipt-only status after stopping/reopening the authority and MAC/wrong-job/replay refusal through the mounted gateway; Go internal import boundaries and Store.DB's concrete pgxpool.Pool prevent that proof inside this task's paths and dependency-free gate."
+
+[gotcha.1]
+observed = "Task step 6 requests an unchanged-tree verify while the explicit ordered gate instructions prohibit it."
+resolution = "Follow the explicit order and record that no baseline was run; do not invent pre-change failures."
+
+[gotcha.2]
+observed = "The earlier owner proof builds a sibling authority executable and requires PostgreSQL, which the current gate explicitly forbids."
+resolution = "Retain all existing assertions, add honest mounted gateway coverage with loopback peers, and request the owning-domain real authority/store seam without copying or mocking the authority."

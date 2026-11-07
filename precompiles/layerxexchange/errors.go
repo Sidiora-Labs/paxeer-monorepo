@@ -9,6 +9,9 @@ import (
 )
 
 func KernelCodeText(code lxphost.Code) string {
+	if code == -804 {
+		return "LXP_DA_MISSING"
+	}
 	return pcommon.LXPCodeName(int32(code))
 }
 
@@ -23,6 +26,9 @@ func RevertError(err error) error {
 			return err
 		}
 		code = KernelCodeText(result)
+		if code == "" {
+			return err
+		}
 	}
 	return revertError{cause: err, code: code}
 }

@@ -10,7 +10,7 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizer do
   require Logger
 
   import Ecto.Query
-  import EthereumJSONRPC, only: [id_to_params: 1, integer_to_quantity: 1, json_rpc: 2, quantity_to_integer: 1]
+  import EthereumJSONRPC, only: [id_to_params: 1, json_rpc: 2]
 
   alias EthereumJSONRPC.Block.ByNumber
   alias EthereumJSONRPC.Blocks
@@ -87,16 +87,16 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizer do
     unprocessed_empty_blocks_list = unprocessed_empty_blocks_list_query(limit())
 
     if !Enum.empty?(unprocessed_empty_blocks_list) do
+      requested_blocks = id_to_params(unprocessed_empty_blocks_list)
+
       blocks_response =
-        unprocessed_empty_blocks_list
-        |> Enum.map(fn %{number: block_number} -> %{number: integer_to_quantity(block_number)} end)
-        |> id_to_params()
-        |> Blocks.requests(&ByNumber.request(&1, false, false))
+        requested_blocks
+        |> Blocks.requests(&ByNumber.request(&1, false))
         |> json_rpc(json_rpc_named_arguments)
 
       case blocks_response do
         {:ok, result} ->
-          {non_empty_blocks, empty_blocks} = classify_blocks_from_result(result)
+          {non_empty_blocks, empty_blocks} = classify_blocks_from_result(result, requested_blocks)
           process_non_empty_blocks(non_empty_blocks)
           process_empty_blocks(empty_blocks)
 
@@ -113,24 +113,53 @@ defmodule Indexer.Fetcher.EmptyBlocksSanitizer do
     end
   end
 
-  defp classify_blocks_from_result(result) do
+  defp classify_blocks_from_result(result, requested_blocks) do
     result
-    |> Enum.reduce({[], []}, fn %{id: _id, result: block}, {non_empty_blocks, empty_blocks} ->
-      if Enum.empty?(block["transactions"]) do
-        {non_empty_blocks, [block_fields(block) | empty_blocks]}
-      else
-        {[block_fields(block) | non_empty_blocks], empty_blocks}
-      end
+    |> Enum.group_by(&Map.get(&1, :id))
+    |> Enum.reduce({[], []}, fn
+      {id, [%{result: block} = response]}, {non_empty_blocks, empty_blocks} = classified ->
+        with false <- Map.has_key?(response, :error),
+             {:ok, candidate} <- Map.fetch(requested_blocks, id),
+             {:ok, fields} <- block_fields(block, candidate) do
+          if fields.transactions_count == 0 do
+            {non_empty_blocks, [fields | empty_blocks]}
+          else
+            {[fields | non_empty_blocks], empty_blocks}
+          end
+        else
+          _ -> classified
+        end
+
+      _, classified ->
+        classified
     end)
   end
 
-  defp block_fields(block) do
-    %{
-      number: quantity_to_integer(block["number"]),
-      hash: block["hash"],
-      transactions_count: Enum.count(block["transactions"])
-    }
+  defp block_fields(
+         %{"number" => "0x" <> digits, "hash" => hash, "transactions" => transactions},
+         %{number: expected_number, hash: expected_hash}
+       )
+       when is_binary(hash) and is_list(transactions) do
+    with true <- Regex.match?(~r/\A[0-9a-fA-F]+\z/, digits),
+         {^expected_number, ""} <- Integer.parse(digits, 16),
+         {:ok, ^expected_hash} <- Hash.Full.cast(hash),
+         true <- Enum.all?(transactions, &valid_transaction_hash?/1) do
+      {:ok, %{number: expected_number, hash: expected_hash, transactions_count: length(transactions)}}
+    else
+      _ -> :error
+    end
   end
+
+  defp block_fields(_, _), do: :error
+
+  defp valid_transaction_hash?(hash) when is_binary(hash) do
+    case Hash.Full.cast(hash) do
+      {:ok, _} -> true
+      :error -> false
+    end
+  end
+
+  defp valid_transaction_hash?(_), do: false
 
   defp process_non_empty_blocks([]),
     do:

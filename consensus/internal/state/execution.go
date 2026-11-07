@@ -34,7 +34,8 @@ var (
 	// MsgSequenceBatch for tx 0.
 	ErrSequenceBatchMissing = errors.New("sealed block has no sequence batch")
 	// ErrOpenTimeMissing is returned when a sealed block carries no open time.
-	ErrOpenTimeMissing = errors.New("sealed block has no open time")
+	ErrOpenTimeMissing           = errors.New("sealed block has no open time")
+	ErrOpenTimeNotAfterLastBlock = errors.New("sealed block open time is not after the last block time")
 	// ErrSealedBlockTooLarge is returned when the sequence batch and the sealed
 	// slice do not fit the block data bytes.
 	ErrSealedBlockTooLarge = errors.New("sealed block exceeds the block data bytes")
@@ -109,7 +110,7 @@ type BlockExecutor struct {
 
 // AsyncPruner prunes the block store and the state store below the retain
 // height Commit returns, off the ApplyBlock path. Retain heights are pruned in
-// ascending order: a request at or below the block store base is a no-op. The
+// ascending order: a request at or below the completed retained base is a no-op. The
 // retained base advances only after both stores finish a prune, and a prune
 // failure is reported through Err and never fails block application.
 type AsyncPruner struct {
@@ -127,6 +128,11 @@ func newAsyncPruner(blockStore BlockStore, store Store, metrics *Metrics) *Async
 	p.worker = newPruneWorker(p.prune, func(d time.Duration) {
 		metrics.PruneBlockLatency.Observe(float64(d.Milliseconds()))
 	})
+	// The durable block base may have advanced before state pruning finished.
+	// Replaying that boundary is safe even if both stores had finished.
+	if base := blockStore.Base(); base > 1 {
+		p.Request(base)
+	}
 	return p
 }
 
@@ -155,6 +161,7 @@ func (p *AsyncPruner) stop() {
 }
 
 func (p *AsyncPruner) prune(retainHeight int64) (uint64, error) {
+	retainHeight = max(retainHeight, p.blockStore.Base())
 	pruned, err := p.pruneStores(retainHeight)
 	p.mtx.Lock()
 	defer p.mtx.Unlock()
@@ -170,12 +177,16 @@ func (p *AsyncPruner) prune(retainHeight int64) (uint64, error) {
 }
 
 func (p *AsyncPruner) pruneStores(retainHeight int64) (uint64, error) {
-	if retainHeight <= p.blockStore.Base() {
+	if retainHeight <= p.RetainedBase() {
 		return 0, nil
 	}
-	pruned, err := p.blockStore.PruneBlocks(retainHeight)
-	if err != nil {
-		return 0, fmt.Errorf("failed to prune block store: %w", err)
+	var pruned uint64
+	if retainHeight > p.blockStore.Base() {
+		var err error
+		pruned, err = p.blockStore.PruneBlocks(retainHeight)
+		if err != nil {
+			return 0, fmt.Errorf("failed to prune block store: %w", err)
+		}
 	}
 	if err := p.store.PruneStates(retainHeight); err != nil {
 		return 0, fmt.Errorf("failed to prune state store: %w", err)
@@ -232,8 +243,9 @@ func (blockExec *BlockExecutor) SetSequencerSource(src SequencerSource) {
 
 // CreateProposalBlock calls state.MakeBlock with evidence from the evpool
 // and txs from the mempool, or, at a height the sequencer source sequences,
-// with the sealed slice behind its sequence batch and the open time as the
-// header time. The max bytes must be big enough to fit the commit.
+// by reaping and admitting mempool transactions, then sealing the slice behind
+// its sequence batch with the open time as the header time. The max bytes must
+// be big enough to fit the commit.
 // Up to 1/10th of the block space is allcoated for maximum sized evidence.
 // The rest is given to txs, up to the max gas.
 //
@@ -264,6 +276,13 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 	maxDataBytes := types.MaxDataBytes(maxBytes, evSize, state.Validators.Size())
 
 	if blockExec.sequencer != nil && blockExec.sequencer.Sequenced(height) {
+		if err := blockExec.admitProposalTransactions(ctx, height, mempool.ReapLimits{
+			MaxBytes:        utils.Some(maxDataBytes),
+			MaxGasWanted:    utils.Some(maxGasWanted),
+			MaxGasEstimated: utils.Some(maxGas),
+		}); err != nil {
+			return nil, fmt.Errorf("admit height %d: %w", height, err)
+		}
 		sealed, err := blockExec.sequencer.Seal(ctx, height)
 		if err != nil {
 			return nil, fmt.Errorf("seal height %d: %w", height, err)
@@ -271,6 +290,9 @@ func (blockExec *BlockExecutor) CreateProposalBlock(
 		txs, err := InjectSequenceBatch(sealed, maxDataBytes)
 		if err != nil {
 			return nil, fmt.Errorf("sealed block at height %d: %w", height, err)
+		}
+		if !sealed.OpenTime.After(state.LastBlockTime) {
+			return nil, fmt.Errorf("%w: open %v, last %v", ErrOpenTimeNotAfterLastBlock, sealed.OpenTime, state.LastBlockTime)
 		}
 		return state.MakeBlockAt(height, txs, lastCommit, evidence, proposerAddr, sealed.OpenTime), nil
 	}
@@ -341,6 +363,17 @@ func (blockExec *BlockExecutor) ValidateBlock(ctx context.Context, state State, 
 
 	blockExec.cache[hash.String()] = struct{}{}
 	return nil
+}
+
+// TxResultsHash is the canonical LastResultsHash commitment shared by execution
+// and light RPC verification. Only deterministic transaction results are leaves;
+// FinalizeBlock events are not committed by this network.
+func TxResultsHash(results []*abci.ExecTxResult) ([]byte, error) {
+	rs, err := abci.MarshalTxResults(results)
+	if err != nil {
+		return nil, fmt.Errorf("marshaling TxResults: %w", err)
+	}
+	return merkle.HashFromByteSlices(rs), nil
 }
 
 // ApplyBlock validates the block against the state, executes it against the app,
@@ -438,11 +471,10 @@ func (blockExec *BlockExecutor) ApplyBlock(ctx context.Context, state State, blo
 		_, updateStateSpan = tracer.Start(ctx, "cs.state.ApplyBlock.UpdateState")
 		defer updateStateSpan.End()
 	}
-	rs, err := abci.MarshalTxResults(fBlockRes.TxResults)
+	h, err := TxResultsHash(fBlockRes.TxResults)
 	if err != nil {
-		return state, fmt.Errorf("marshaling TxResults: %w", err)
+		return state, err
 	}
-	h := merkle.HashFromByteSlices(rs)
 
 	// Log LastResultsHash computation details for debugging consensus issues
 	if len(fBlockRes.TxResults) > 0 {
@@ -728,14 +760,14 @@ func (state State) Update(
 	nextParams := state.ConsensusParams
 	lastHeightParamsChanged := state.LastHeightConsensusParamsChanged
 	if consensusParamUpdates != nil {
+		// Validate activation against the previous parameters: zero means disabled,
+		// so first enablement can still be scheduled for a future height.
+		if err := state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height); err != nil {
+			return state, fmt.Errorf("updating consensus params: %w", err)
+		}
 		// NOTE: must not mutate state.ConsensusParams
 		nextParams = state.ConsensusParams.UpdateConsensusParams(consensusParamUpdates)
 		err := nextParams.ValidateConsensusParams()
-		if err != nil {
-			return state, fmt.Errorf("updating consensus params: %w", err)
-		}
-
-		err = state.ConsensusParams.ValidateUpdate(consensusParamUpdates, header.Height)
 		if err != nil {
 			return state, fmt.Errorf("updating consensus params: %w", err)
 		}

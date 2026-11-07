@@ -2,9 +2,11 @@ package policy
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -68,6 +70,10 @@ func DecodeMutationSchema(r *http.Request, dst any, schema MutationSchema) error
 	return decodeDestination(decoder, dst)
 }
 func MutationStatus(err error) int {
+	var timeout net.Error
+	if errors.Is(err, context.DeadlineExceeded) || errors.As(err, &timeout) && timeout.Timeout() {
+		return http.StatusRequestTimeout
+	}
 	var tooLarge *http.MaxBytesError
 	if errors.As(err, &tooLarge) {
 		return http.StatusRequestEntityTooLarge
@@ -90,9 +96,32 @@ func RequestBounds(next http.Handler) http.Handler {
 			http.Error(w, "headers_too_large", 431)
 			return
 		}
-		next.ServeHTTP(w, r)
+		if r.Method == http.MethodGet || r.Method == http.MethodHead || r.Method == http.MethodOptions {
+			// Read streams use their own heartbeat and cancellation policy.
+			next.ServeHTTP(w, r)
+			return
+		}
+		deadline := time.Now().Add(MutationRequestTimeout)
+		controller := http.NewResponseController(w)
+		if err := controller.SetReadDeadline(deadline); err != nil {
+			http.Error(w, "request_deadline_unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		if err := controller.SetWriteDeadline(deadline.Add(time.Second)); err != nil {
+			http.Error(w, "response_deadline_unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		defer controller.SetReadDeadline(time.Time{})
+		defer controller.SetWriteDeadline(time.Time{})
+		defer r.Body.Close()
+		ctx, cancel := context.WithDeadline(r.Context(), deadline)
+		defer cancel()
+		http.TimeoutHandler(next, MutationRequestTimeout, "request_timeout").ServeHTTP(w, r.WithContext(ctx))
 	})
 }
+
+const MutationRequestTimeout = 10 * time.Second
+
 func ProductionServer(address string, handler http.Handler) *http.Server {
 	return &http.Server{Addr: address, Handler: RequestBounds(handler), ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 16384}
 }

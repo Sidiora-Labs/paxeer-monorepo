@@ -14,6 +14,7 @@ const surfaceRuntimeHash = "0x6302ff80f4168c2af23afbf3117c613edd66d288d120eee825
 
 func TestReceiptOptionsBindPrecompile(t *testing.T) {
 	in := realInputs(t)
+	in.Manifest = deployment.Current()
 	in.PoolRuntimeHash = common.HexToHash(surfaceRuntimeHash)
 	in.Anchor = receipt.BlockAnchor{Height: in.Manifest.ActivationHeight, Hash: realAnchor.Hash}
 	o, catalog, err := ReceiptOptions(in)

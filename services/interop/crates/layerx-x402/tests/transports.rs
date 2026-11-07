@@ -2,8 +2,8 @@
 //! are the first-party suites under `services/interop/specs/conformance/transport-*`,
 //! which the gateway deployment pins by digest; every record is a wire document
 //! that this harness runs through the production encode and decode paths. The
-//! fault-injected settlement cases below drive a live sequencer signer and a
-//! canonical receipt encoder, so they stay in Rust and are not vectors.
+//! fault-injected settlement cases below sign sequencer receipts and drive the
+//! real gateway checks, so they stay in Rust and are not vectors.
 
 use std::collections::BTreeMap;
 
@@ -13,14 +13,15 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_interop_gateway::adapter::{
     AdapterDescriptor, AdapterId, ConformanceSuite, PinnedSpec, SpecVersion,
 };
+use layerx_interop_gateway::evidence::{
+    canonical_receipt_digest, SequencerEvidence, SettlementRung,
+};
 use layerx_interop_gateway::gateway::TranslationStatus;
 use layerx_interop_gateway::principal::PrincipalId;
 use layerx_interop_gateway::trace::TraceId;
 use layerx_interop_gateway::GatewayCore;
-use layerx_proof::receipt::AuthorizedBatch;
-use layerx_wire::encode::Encoder;
-use layerx_wire::hash::receipt_digest;
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_proof::inclusion::SequencerAuthorization;
+use layerx_proof::sequencer_logs::SequencerLog;
 use layerx_x402::facilitator::{
     Facilitator, FacilitatorKind, FacilitatorPaymentRequest, FacilitatorPlane, FacilitatorRequest,
     FacilitatorSettlementOutcome, PlaneVerifyOutcome, SettlementIdentity, SettlementStep,
@@ -31,7 +32,6 @@ use layerx_x402::model::{
     SettlementResponse, X402Error, PAYMENT_REQUIRED_HEADER, PAYMENT_RESPONSE_HEADER,
     PAYMENT_SIGNATURE_HEADER, X402_VERSION,
 };
-use layerx_x402::seller::ExecutedPayment;
 use layerx_x402::transport::{
     decode_facilitator_request, decode_facilitator_settlement, decode_payment_payload,
     decode_payment_required, decode_settlement, decode_supported_response, decode_verify_response,
@@ -39,7 +39,8 @@ use layerx_x402::transport::{
     encode_payment_required, encode_settlement, encode_supported_response, encode_verify_response,
     TransportKind, TransportValue, TRANSPORT_MATRIX,
 };
-use serde_json::json;
+use serde_json::{json, Value};
+use sha2::{Digest as _, Sha256};
 
 const TRANSPORTS: [TransportKind; 3] =
     [TransportKind::Http, TransportKind::Mcp, TransportKind::A2a];
@@ -61,12 +62,55 @@ const ROLES: [&str; 7] = [
     "supported-response",
 ];
 
-const MERCHANT_ACCOUNT: &str = "agent:did:layerx:merchant:main";
+const MERCHANT_ACCOUNT: &str = "agent:did:layerx:payee:main";
 const CURRENCY: &str = "LXP";
+
+fn pay_exact_words(raw: &[u8]) -> [[u8; 32]; 6] {
+    fn take<'a>(input: &mut &'a [u8]) -> &'a [u8] {
+        let prefix = input[0];
+        let (offset, length) = match prefix {
+            0x00..=0x7f => (0, 1),
+            0x80..=0xb7 => (1, usize::from(prefix - 0x80)),
+            0xb8..=0xbf | 0xf8..=0xff => {
+                let width = usize::from(if prefix < 0xc0 {
+                    prefix - 0xb7
+                } else {
+                    prefix - 0xf7
+                });
+                let length = input[1..1 + width]
+                    .iter()
+                    .fold(0_usize, |length, byte| (length << 8) | usize::from(*byte));
+                (1 + width, length)
+            }
+            0xc0..=0xf7 => (1, usize::from(prefix - 0xc0)),
+        };
+        let value = &input[offset..offset + length];
+        *input = &input[offset + length..];
+        value
+    }
+    let (mut envelope, data_index) = match raw[0] {
+        0x02 => (&raw[1..], 7),
+        0xc0..=0xff => (raw, 5),
+        _ => panic!("unsupported recorded transaction envelope"),
+    };
+    let mut fields = take(&mut envelope);
+    assert!(envelope.is_empty());
+    for _ in 0..data_index {
+        take(&mut fields);
+    }
+    let calldata = take(&mut fields);
+    assert_eq!(calldata.len(), 4 + 6 * 32);
+    assert_eq!(&calldata[..4], &[0x78, 0xea, 0x11, 0xdb]);
+    std::array::from_fn(|index| {
+        calldata[4 + index * 32..4 + (index + 1) * 32]
+            .try_into()
+            .unwrap()
+    })
+}
 
 fn account_id(account: &str) -> [u8; 32] {
     account_identifiers(account)
-        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[0]
+        .unwrap_or_else(|error| panic!("{account} has account identifiers: {error}"))[1]
 }
 
 fn pay_to(account: &str) -> String {
@@ -82,7 +126,7 @@ fn pay_to(account: &str) -> String {
 fn requirements() -> PaymentRequirements {
     PaymentRequirements {
         scheme: "exact".to_owned(),
-        network: "layerx:beta".to_owned(),
+        network: "eip155:125".to_owned(),
         amount: AtomicAmount::from_u128(25),
         asset: "05".repeat(32),
         pay_to: pay_to(MERCHANT_ACCOUNT),
@@ -101,7 +145,7 @@ fn payload() -> PaymentPayload {
     PaymentPayload {
         x402_version: X402_VERSION,
         resource: None,
-        payload: json!({"authorization": "opaque-signed-payment"}),
+        payload: json!({"transaction": format!("0x{}", hex(&PRIMARY_ACTIVITY))}),
         accepted: requirements(),
         extensions: BTreeMap::new(),
     }
@@ -402,12 +446,12 @@ fn supported() -> SupportedResponse {
         kinds: vec![FacilitatorKind {
             x402_version: X402_VERSION,
             scheme: "exact".to_owned(),
-            network: "layerx:beta".to_owned(),
+            network: "eip155:125".to_owned(),
             extra: None,
         }],
         extensions: Vec::new(),
         signers: BTreeMap::from([(
-            "layerx:*".to_owned(),
+            "eip155:*".to_owned(),
             vec!["did:layerx:facilitator".to_owned()],
         )]),
     }
@@ -431,101 +475,98 @@ fn register_x402(gateway: &mut GatewayCore, trace: &TraceId) {
         .unwrap_or_else(|error| panic!("register x402 adapter: {error}"));
 }
 
-#[derive(Clone)]
-struct ReceiptFields {
-    activity_id: [u8; 32],
-    previous_state_root: [u8; 32],
-    resulting_state_root: [u8; 32],
-    batch_id: [u8; 32],
-    asset: [u8; 32],
-    amount: u128,
-    from: [u8; 32],
-    from_before: u128,
-    from_after: u128,
-    to: [u8; 32],
-    to_before: u128,
-    to_after: u128,
+fn fixture_bytes(value: &Value) -> Vec<u8> {
+    let digits = value
+        .as_str()
+        .and_then(|value| value.strip_prefix("0x"))
+        .unwrap_or_else(|| panic!("fixture hex string"));
+    assert_eq!(digits.len() % 2, 0);
+    (0..digits.len())
+        .step_by(2)
+        .map(|index| {
+            u8::from_str_radix(&digits[index..index + 2], 16)
+                .unwrap_or_else(|error| panic!("fixture hex: {error}"))
+        })
+        .collect()
 }
 
-fn receipt_fields(activity_id: [u8; 32]) -> ReceiptFields {
-    ReceiptFields {
-        activity_id,
-        previous_state_root: [2; 32],
-        resulting_state_root: [3; 32],
-        batch_id: [4; 32],
-        asset: [5; 32],
-        amount: 25,
-        from: [6; 32],
-        from_before: 100,
-        from_after: 75,
-        to: account_id(MERCHANT_ACCOUNT),
-        to_before: 10,
-        to_after: 35,
-    }
+fn replace(receipt: &mut [u8], old: &[u8], new: &[u8]) {
+    assert_eq!(old.len(), new.len());
+    let positions: Vec<_> = receipt
+        .windows(old.len())
+        .enumerate()
+        .filter_map(|(index, value)| (value == old).then_some(index))
+        .collect();
+    assert_eq!(positions.len(), 1);
+    receipt[positions[0]..positions[0] + old.len()].copy_from_slice(new);
 }
 
-fn encode_fields(fields: &ReceiptFields, signature: Option<[u8; 64]>) -> Vec<u8> {
-    let mut encoder = Encoder::new(4096);
-    assert_eq!(
-        encoder.structure_header_version(0x5201, PROTOCOL_VERSION),
-        Ok(())
+fn sequencer_evidence(
+    signing_key: &SigningKey,
+    transaction_hash: [u8; 32],
+    idempotency_key: [u8; 32],
+) -> SequencerEvidence {
+    // Sign the sequencer layout with the requested payment facts and key;
+    // the facilitator and gateway run their real signature and log checks.
+    let fixture: Value = serde_json::from_str(include_str!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    )))
+    .unwrap_or_else(|error| panic!("fixture: {error}"));
+    let case = fixture["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("fixture cases"))
+        .iter()
+        .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+        .unwrap_or_else(|| panic!("PaymentExact fixture"));
+    let mut receipt = fixture_bytes(&case["signedReceipt"]);
+    let log = &case["receiptJson"]["logs"][0];
+    let mut topics: Vec<[u8; 32]> = log["topics"]
+        .as_array()
+        .unwrap_or_else(|| panic!("topics"))
+        .iter()
+        .map(|topic| {
+            fixture_bytes(topic)
+                .try_into()
+                .unwrap_or_else(|_| panic!("topic"))
+        })
+        .collect();
+    let payee = account_id(MERCHANT_ACCOUNT);
+    let recorded_topics = topics.concat();
+    let words = pay_exact_words(&fixture_bytes(&case["rawTransaction"]));
+    topics[1..].copy_from_slice(&[words[5], words[0], words[1]]);
+    topics[1] = idempotency_key;
+    topics[3] = payee;
+    replace(&mut receipt, &recorded_topics, &topics.concat());
+    let mut data = vec![5; 32];
+    data.extend_from_slice(&[0; 16]);
+    data.extend_from_slice(&25_u128.to_be_bytes());
+    replace(
+        &mut receipt,
+        &Sha256::digest(fixture_bytes(&log["data"])),
+        &Sha256::digest(&data),
     );
-    assert_eq!(encoder.u16(PROTOCOL_VERSION), Ok(()));
-    assert_eq!(encoder.bytes(&fields.activity_id, 32), Ok(()));
-    assert_eq!(encoder.u64(9), Ok(()));
-    assert_eq!(encoder.bytes(&fields.previous_state_root, 32), Ok(()));
-    assert_eq!(encoder.bytes(&fields.resulting_state_root, 32), Ok(()));
-    assert_eq!(encoder.bytes(&[8; 32], 32), Ok(()));
-    assert_eq!(encoder.i32(0), Ok(()));
-    assert_eq!(encoder.sequence_length(0, 512), Ok(()));
-    assert_eq!(encoder.u128(1), Ok(()));
-    assert_eq!(encoder.bytes(&fields.batch_id, 32), Ok(()));
-    assert_eq!(encoder.u16(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u32(1), Ok(()));
-    assert_eq!(encoder.u8(1), Ok(()));
-    assert_eq!(encoder.bytes(&fields.asset, 32), Ok(()));
-    assert_eq!(encoder.u128(fields.amount), Ok(()));
-    assert_eq!(encoder.bytes(&fields.from, 32), Ok(()));
-    assert_eq!(encoder.u128(fields.from_before), Ok(()));
-    assert_eq!(encoder.u128(fields.from_after), Ok(()));
-    assert_eq!(encoder.u64(1), Ok(()));
-    assert_eq!(encoder.bytes(&fields.to, 32), Ok(()));
-    assert_eq!(encoder.u128(fields.to_before), Ok(()));
-    assert_eq!(encoder.u128(fields.to_after), Ok(()));
-    assert_eq!(encoder.bytes(&[9; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[10; 32], 32), Ok(()));
-    assert_eq!(encoder.bytes(&[11; 32], 32), Ok(()));
-    assert_eq!(encoder.u64(1_000), Ok(()));
-    assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
-    if let Some(value) = signature {
-        assert_eq!(encoder.bytes(&value, 64), Ok(()));
-    }
-    encoder.finish()
-}
-
-fn sign(fields: &ReceiptFields, signing_key: &SigningKey) -> Vec<u8> {
-    let unsigned = encode_fields(fields, None);
-    let digest = receipt_digest(&unsigned)
-        .unwrap_or_else(|error| panic!("receipt hashing failed: {error:?}"));
-    encode_fields(fields, Some(signing_key.sign(&digest).to_bytes()))
-}
-
-fn authorised(fields: &ReceiptFields, signing_key: &SigningKey) -> AuthorizedBatch {
-    AuthorizedBatch::new(
-        fields.batch_id,
-        fields.asset,
-        fields.previous_state_root,
-        fields.resulting_state_root,
-        signing_key.verifying_key().to_bytes(),
-    )
-}
-
-fn executed(signing_key: &SigningKey, activity_id: [u8; 32]) -> ExecutedPayment {
-    let fields = receipt_fields(activity_id);
-    ExecutedPayment {
-        canonical_receipt: sign(&fields, signing_key),
-        authorised_batch: authorised(&fields, signing_key),
+    replace(
+        &mut receipt,
+        &fixture_bytes(&case["receiptJson"]["txHash"]),
+        &transaction_hash,
+    );
+    let digest = canonical_receipt_digest(&receipt)
+        .unwrap_or_else(|error| panic!("receipt digest: {error}"));
+    let signature_start = receipt.len() - 64;
+    receipt[signature_start..].copy_from_slice(&signing_key.sign(&digest).to_bytes());
+    SequencerEvidence {
+        transaction_hash,
+        signed_receipt: receipt,
+        logs: vec![SequencerLog::new(
+            fixture_bytes(&log["address"])
+                .try_into()
+                .unwrap_or_else(|_| panic!("log address")),
+            topics,
+            data,
+            0,
+        )],
+        rung: SettlementRung::Receipted,
     }
 }
 
@@ -546,6 +587,7 @@ enum Planned {
 
 struct FaultInjectingPlane {
     signing_key: SigningKey,
+    receipt_keys: Vec<SequencerAuthorization>,
     script: Vec<Planned>,
     cursor: usize,
     settle_calls: usize,
@@ -555,6 +597,14 @@ impl FaultInjectingPlane {
     fn new(script: Vec<Planned>) -> Self {
         Self {
             signing_key: SigningKey::from_bytes(&SEQUENCER_SEED),
+            receipt_keys: vec![SequencerAuthorization::new(
+                [0x6b; 32],
+                SigningKey::from_bytes(&SEQUENCER_SEED)
+                    .verifying_key()
+                    .to_bytes(),
+                1000,
+                1999,
+            )],
             script,
             cursor: 0,
             settle_calls: 0,
@@ -563,6 +613,10 @@ impl FaultInjectingPlane {
 }
 
 impl FacilitatorPlane for FaultInjectingPlane {
+    fn receipt_keys(&self) -> &[SequencerAuthorization] {
+        &self.receipt_keys
+    }
+
     fn verify(
         &mut self,
         _request: &FacilitatorPaymentRequest,
@@ -576,7 +630,7 @@ impl FacilitatorPlane for FaultInjectingPlane {
 
     fn settle(
         &mut self,
-        _request: FacilitatorPaymentRequest,
+        request: FacilitatorPaymentRequest,
         _trace: &TraceId,
     ) -> Result<FacilitatorSettlementOutcome, X402Error> {
         self.settle_calls += 1;
@@ -588,17 +642,21 @@ impl FacilitatorPlane for FaultInjectingPlane {
         self.cursor += 1;
         match planned {
             Planned::Pending => Ok(FacilitatorSettlementOutcome::Pending {
-                transaction: "pending:settlement-in-flight".to_owned(),
+                transaction: format!("0x{}", hex(&PRIMARY_ACTIVITY)),
             }),
             Planned::Transient => Err(X402Error::Decode),
-            Planned::Execute => Ok(FacilitatorSettlementOutcome::Executed(executed(
+            Planned::Execute => Ok(FacilitatorSettlementOutcome::Executed(sequencer_evidence(
                 &self.signing_key,
                 PRIMARY_ACTIVITY,
+                request.idempotency_key,
             ))),
-            Planned::ExecuteAlternate => Ok(FacilitatorSettlementOutcome::Executed(executed(
-                &self.signing_key,
-                ALTERNATE_ACTIVITY,
-            ))),
+            Planned::ExecuteAlternate => {
+                Ok(FacilitatorSettlementOutcome::Executed(sequencer_evidence(
+                    &self.signing_key,
+                    ALTERNATE_ACTIVITY,
+                    request.idempotency_key,
+                )))
+            }
         }
     }
 }
@@ -642,10 +700,17 @@ fn confirmed_settlement_records_exactly_one_receipt_verified_effect() {
         .unwrap_or_else(|error| panic!("settle: {error}"));
 
     assert!(response.success);
-    assert!(response.transaction.starts_with("lxp:"));
+    assert_eq!(
+        response.extensions["layerx"]["verificationLevel"],
+        "receipted"
+    );
     assert_eq!(response.amount, Some(AtomicAmount::from_u128(25)));
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
-    assert_eq!(response.transaction, format!("lxp:{}", hex(&digest)));
+    assert_eq!(
+        response.transaction,
+        format!("0x{}", hex(&PRIMARY_ACTIVITY))
+    );
+    assert_eq!(response.extensions["layerx"]["receiptDigest"], hex(&digest));
     assert_eq!(plane.settle_calls, 1);
 }
 
@@ -690,10 +755,19 @@ fn duplicate_delivery_of_the_same_settlement_does_not_double_charge() {
 
     assert_eq!(plane.settle_calls, 3);
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
+    let expected = sequencer_evidence(
+        &plane.signing_key,
+        PRIMARY_ACTIVITY,
+        identity.idempotency_key,
+    );
+    assert_eq!(
+        canonical_receipt_digest(&expected.signed_receipt),
+        Ok(digest)
+    );
     assert_eq!(
         transaction,
-        Some(format!("lxp:{}", hex(&digest))),
-        "every redelivery resolves to one receipt digest"
+        Some(format!("0x{}", hex(&PRIMARY_ACTIVITY))),
+        "every redelivery resolves to one transaction hash"
     );
 }
 
@@ -739,12 +813,21 @@ fn transport_independent_identity_settles_once_across_http_mcp_and_a2a() {
     }
 
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
-    assert_eq!(settled, Some(format!("lxp:{}", hex(&digest))));
+    let expected = sequencer_evidence(
+        &plane.signing_key,
+        PRIMARY_ACTIVITY,
+        identity.idempotency_key,
+    );
+    assert_eq!(
+        canonical_receipt_digest(&expected.signed_receipt),
+        Ok(digest)
+    );
+    assert_eq!(settled, Some(format!("0x{}", hex(&PRIMARY_ACTIVITY))));
     assert_eq!(plane.settle_calls, 3);
 }
 
 #[test]
-fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
+fn settlement_retries_transient_plane_errors_under_one_local_identity() {
     let facilitator = facilitator();
     let mut gateway = GatewayCore::new();
     let trace = trace();
@@ -756,8 +839,8 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     let identity = SettlementIdentity::derive(&principal, &request, stable, step)
         .unwrap_or_else(|error| panic!("identity: {error}"));
 
-    // Attempt 1: delayed confirmation, then attempt 2 crashes, then attempt 3
-    // confirms, then attempt 4 is a post-success duplicate.
+    // Local in-memory plane retry coverage: pending, transient refusal,
+    // confirmation, duplicate. This does not model a durable service restart.
     let mut plane = FaultInjectingPlane::new(vec![
         Planned::Pending,
         Planned::Transient,
@@ -765,7 +848,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         Planned::Execute,
     ]);
 
-    // Delayed confirmation: no economic effect yet.
+    // Delayed confirmation leaves the gateway translation pending.
     let pending = facilitator
         .settle(
             &mut gateway,
@@ -780,12 +863,17 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         .unwrap_or_else(|error| panic!("pending settle: {error}"));
     assert!(!pending.success);
     assert_eq!(pending.error_reason.as_deref(), Some("settlement_pending"));
+    assert_eq!(pending.transaction, format!("0x{}", hex(&PRIMARY_ACTIVITY)));
+    assert_eq!(
+        pending.extensions["layerx"]["verificationLevel"],
+        "submitted"
+    );
     assert_eq!(
         gateway.translation(&principal, identity.idempotency_key),
         Some(TranslationStatus::Pending)
     );
 
-    // Crash mid-settlement: still no economic effect, translation stays open.
+    // A transient plane error leaves the in-memory translation open.
     let crashed = facilitator.settle(
         &mut gateway,
         &principal,
@@ -802,7 +890,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
         Some(TranslationStatus::Pending)
     );
 
-    // Recovery: the retry confirms exactly one receipt-verified effect.
+    // The retry records the verified receipt under the same local identity.
     let confirmed = facilitator
         .settle(
             &mut gateway,
@@ -818,7 +906,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     assert!(confirmed.success);
     let digest = settled_digest(&gateway, &principal, identity.idempotency_key);
 
-    // Post-success duplicate: idempotent, no new effect, same digest.
+    // A duplicate retains the same local receipt digest.
     let duplicate = facilitator
         .settle(
             &mut gateway,
@@ -836,7 +924,7 @@ fn settlement_recovers_after_a_crash_without_a_second_economic_effect() {
     assert_eq!(
         settled_digest(&gateway, &principal, identity.idempotency_key),
         digest,
-        "the recorded economic effect is unchanged by the duplicate"
+        "the recorded receipt identity is unchanged by the duplicate"
     );
     assert_eq!(plane.settle_calls, 4);
 }
@@ -903,4 +991,12 @@ fn hex(bytes: &[u8; 32]) -> String {
         output.push(char::from(DIGITS[usize::from(byte & 0x0f)]));
     }
     output
+}
+
+#[path = "support/repair_22_33_105.rs"]
+mod repair_path;
+
+#[test]
+fn reopened_transcript_peer_preserves_settlement_identity() {
+    repair_path::reopened_transport_consumer();
 }

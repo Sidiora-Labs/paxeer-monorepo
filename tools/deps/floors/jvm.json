@@ -1,0 +1,18 @@
+{
+  "manifests": {
+    "sdk/integrations/spring/pom.xml": {
+      "com.fasterxml.jackson.core:jackson-databind": "2.18.9",
+      "org.springframework.boot:spring-boot": "3.3.11",
+      "org.springframework:spring-context": "6.1.20",
+      "org.springframework:spring-web": "6.1.21"
+    },
+    "sdk/platform/jvm/pom.xml": {
+      "com.fasterxml.jackson.core:jackson-databind": "2.18.9",
+      "org.bouncycastle:bcprov-jdk18on": "1.85"
+    },
+    "sdk/integrations/android/pom.xml": {
+      "com.fasterxml.jackson.core:jackson-databind": "2.18.9",
+      "org.bouncycastle:bcprov-jdk18on": "1.85"
+    }
+  }
+}

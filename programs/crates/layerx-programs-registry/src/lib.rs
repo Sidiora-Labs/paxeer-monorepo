@@ -3,6 +3,10 @@
 mod account_state;
 mod archive;
 mod authority;
+mod chain_accounts;
+pub mod chain_evidence;
+pub mod chain_proof;
+pub mod deployment_envelope;
 mod deprecate;
 mod hash;
 pub mod hex;
@@ -13,6 +17,7 @@ pub mod naming;
 mod pipeline;
 mod protocol_evidence;
 mod resolver;
+pub mod state_record;
 pub mod swap;
 
 pub use account_state::{
@@ -22,12 +27,22 @@ pub use account_state::{
     AccountStateJournal, AssetPresence, AuthorityKeyPresence, CanonicalAccountLeaf,
     JournalAccountStateAuthority, OpenReference, ProgramValueAccountBinding, ProvenAccountLeaf,
     ProvenProgramBinding, StateProof, ValueAccount, VerifiedAccountSnapshot,
-    MAX_PROGRAM_VALUE_ACCOUNTS,
+    VerifiedChainAccountSnapshot, MAX_PROGRAM_VALUE_ACCOUNTS,
 };
 pub use archive::{ArchiveError, SourceArchive, SourceFile};
 pub use authority::{
-    DeploymentJournal, DeploymentRecord, JournalReadAuthority, MigrationExecutionEvidence,
-    ObservedHead,
+    DeploymentJournal, DeploymentJournalEntry, DeploymentProvenance, DeploymentRecord,
+    DeploymentTransactionId, JournalReadAuthority, MigrationExecutionEvidence, ObservedHead,
+    ReplayDeployment,
+};
+pub use chain_accounts::{
+    ChainAccountStateAuthority, ChainProgramAccountProof, VerifiedChainProgramAccounts,
+};
+pub use chain_proof::{
+    results::verify_tx_result,
+    state::{verify_absent, verify_state},
+    tx::verify_tx,
+    ChainProofVerifier,
 };
 pub use deprecate::{
     AuthorizedExit, Deprecation, DeprecationRefusal, DeprecationRequest, ExitRoute,
@@ -40,11 +55,11 @@ pub use interface::{
 };
 pub use pipeline::{BuildAttempt, BuildPlan, BuildRefusal, BuildRunner, SourceVerifier};
 pub use protocol_evidence::{
-    DeploymentMaintenanceProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
+    DeploymentExecutionProof, DeploymentProof, ProgramBundleError, ProgramHeadKind,
     ProgramLifecycleProof, ProgramStateBundle, ProgramStateProof, ProtocolDeploymentVerifier,
-    ProtocolEvidenceError, ProtocolHeadMaintenanceProof, ProtocolHeadProof, ReceiptEvidenceDigest,
-    StateLeafWitness, VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedMaintenanceHead,
-    VerifiedProgramBundle, VerifiedProgramHead, VerifiedProtocolHead,
+    ProtocolEvidenceError, ProtocolHeadProof, ReceiptEvidenceDigest, StateLeafWitness,
+    VerifiedChainHead, VerifiedDeploymentEvidence, VerifiedProgramBundle, VerifiedProgramHead,
+    VerifiedProtocolHead,
 };
 pub use resolver::{ExecutableAdmissionError, VerifiedProgramCatalog};
 
@@ -222,6 +237,7 @@ pub struct RegistryVersion {
     pub code_hash: [u8; 32],
     pub abi_version: u16,
     pub deployment_receipt_digest: [u8; 32],
+    pub deployment_provenance: DeploymentProvenance,
     pub source: SourceStatus,
 }
 
@@ -448,7 +464,7 @@ impl Registry {
             },
             version,
             policy,
-            receipt_digest,
+            DeploymentProvenance::RuntimeReceipt(receipt_digest),
         )
     }
 
@@ -463,6 +479,7 @@ impl Registry {
         evidence: &VerifiedDeploymentEvidence,
     ) -> Result<(), RegistryError> {
         let record = evidence.record();
+        record.validate()?;
         self.record_deployment_version(
             DeploymentIdentity {
                 program: record.program,
@@ -472,7 +489,53 @@ impl Registry {
             },
             &record.program_version(),
             record.upgrade_policy,
-            evidence.receipt_digest(),
+            DeploymentProvenance::from_evidence(evidence),
+        )
+    }
+
+    pub fn record_verified_upgrade(
+        &mut self,
+        predecessor: &VerifiedDeploymentEvidence,
+        evidence: &VerifiedDeploymentEvidence,
+    ) -> Result<(), RegistryError> {
+        let prior = predecessor.record();
+        let record = evidence.record();
+        let prior_header = chain_proof::header::ChainHeader::decode(
+            &predecessor.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        let header = chain_proof::header::ChainHeader::decode(
+            &evidence.proof().state.commitment.signed_header,
+        )
+        .map_err(|_| RegistryError::VersionHistoryMismatch)?;
+        if prior.program != record.program
+            || prior.version.checked_add(1) != Some(record.version)
+            || record.old_code_hash != Some(prior.new_code_hash)
+            || prior_header.chain_id != header.chain_id
+            || prior_header.height >= header.height
+            || self
+                .entries
+                .get(&record.program)
+                .and_then(|entry| entry.versions.last())
+                .map(|version| (version.code_hash, version.deployment_provenance))
+                != Some((
+                    prior.new_code_hash,
+                    DeploymentProvenance::from_evidence(predecessor),
+                ))
+        {
+            return Err(RegistryError::VersionHistoryMismatch);
+        }
+        record.validate()?;
+        self.record_deployment_version(
+            DeploymentIdentity {
+                program: record.program,
+                number: record.version,
+                old_code_hash: record.old_code_hash,
+                new_code_hash: record.new_code_hash,
+            },
+            &record.program_version(),
+            record.upgrade_policy,
+            DeploymentProvenance::from_evidence(evidence),
         )
     }
 
@@ -481,8 +544,9 @@ impl Registry {
         identity: DeploymentIdentity,
         version: &ProgramVersion,
         policy: UpgradePolicy,
-        receipt_digest: [u8; 32],
+        provenance: DeploymentProvenance,
     ) -> Result<(), RegistryError> {
+        let receipt_digest = provenance.identity_bytes();
         let DeploymentIdentity {
             program,
             number,
@@ -498,10 +562,11 @@ impl Registry {
         if receipt_digest == [0; 32] || new_code_hash != version.code_hash || number == 0 {
             return Err(RegistryError::DeploymentMismatch);
         }
-        let entry = self
+        let mut candidate = self
             .entries
-            .entry(program)
-            .or_insert_with(|| RegistryEntry {
+            .get(&program)
+            .cloned()
+            .unwrap_or_else(|| RegistryEntry {
                 program,
                 upgrade_policy: policy,
                 lifecycle: ProgramLifecycle::Active,
@@ -510,6 +575,7 @@ impl Registry {
                 value_accounts: Vec::new(),
                 exit_routes: Vec::new(),
             });
+        let entry = &mut candidate;
         if entry.upgrade_policy != policy
             || usize::try_from(number).ok() != Some(entry.versions.len() + 1)
             || old_code_hash != entry.versions.last().map(|prior| prior.code_hash)
@@ -528,8 +594,10 @@ impl Registry {
             code_hash: version.code_hash,
             abi_version: version.abi_version,
             deployment_receipt_digest: receipt_digest,
+            deployment_provenance: provenance,
             source: SourceStatus::Unpublished,
         });
+        self.entries.insert(program, candidate);
         Ok(())
     }
 
@@ -540,10 +608,17 @@ impl Registry {
     ///
     /// Refuses corrupt records, code that does not hash to its recorded code
     /// hash, and non-contiguous version history.
-    pub fn replay_journal(&mut self, records: &[DeploymentRecord]) -> Result<(), RegistryError> {
-        let mut ordered: Vec<&DeploymentRecord> = records.iter().collect();
-        ordered.sort_by_key(|record| (record.program.bytes(), record.version));
-        for record in ordered {
+    pub fn replay_journal<R: ReplayDeployment>(
+        &mut self,
+        records: &[R],
+    ) -> Result<(), RegistryError> {
+        let mut ordered: Vec<&R> = records.iter().collect();
+        ordered.sort_by_key(|entry| {
+            let record = entry.deployment_record();
+            (record.program.bytes(), record.version)
+        });
+        for entry in ordered {
+            let record = entry.deployment_record();
             record.validate()?;
             self.record_deployment_version(
                 DeploymentIdentity {
@@ -554,7 +629,7 @@ impl Registry {
                 },
                 &record.program_version(),
                 record.upgrade_policy,
-                record.digest(),
+                entry.deployment_identity(),
             )?;
         }
         Ok(())
@@ -660,7 +735,7 @@ impl Registry {
             .ok_or(RegistryError::UnknownVersion)?;
         if expected.code_hash != evidence.code_hash()
             || expected.abi_version != evidence.abi_version()
-            || expected.deployment_receipt_digest != evidence.receipt_digest()
+            || expected.deployment_provenance != DeploymentProvenance::from_evidence(&evidence)
             || entry.upgrade_policy != evidence.record().upgrade_policy
             || entry.lifecycle != ProgramLifecycle::Active
         {
@@ -1060,6 +1135,36 @@ impl Registry {
             receipt_digest: snapshot.receipt_digest,
             state_root: snapshot.state_root,
             freshness: snapshot.freshness,
+        })
+    }
+
+    /// Reads the complete chain primary range and standalone host accounts.
+    pub fn read_value_accounts_chain(
+        &self,
+        program: ProgramId,
+        snapshot: &VerifiedChainProgramAccounts,
+        authority: &ChainAccountStateAuthority<'_>,
+    ) -> Result<VerifiedProgramBalanceRead, AccountStateError> {
+        let entry = self
+            .entries
+            .get(&program)
+            .ok_or(AccountStateError::UnknownProgram)?;
+        if !entry
+            .versions
+            .last()
+            .is_some_and(|v| snapshot.admits_abi(v.abi_version))
+        {
+            return Err(AccountStateError::LegacyProtocol);
+        }
+        let value_accounts = snapshot.resolve_program(program, &entry.value_accounts, authority)?;
+        Ok(VerifiedProgramBalanceRead {
+            program,
+            lifecycle: entry.lifecycle,
+            bindings: snapshot.bindings().to_vec(),
+            value_accounts,
+            receipt_digest: snapshot.chain_head().header_hash(),
+            state_root: snapshot.chain_head().app_hash(),
+            freshness: snapshot.freshness(),
         })
     }
 

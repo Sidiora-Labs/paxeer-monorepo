@@ -3,15 +3,17 @@
 use layerx_program_sdk::{
     call,
     crypto::U256,
-    lxt20::Request,
-    payments::{PaymentGrant, PreparedProgramAccount, ProgramPaymentCapabilities},
+    payments::PreparedProgramAccount,
     storage::{
         shared::{self, SharedStorageKey},
         StorageValue,
     },
-    transfer as settlement, AccountId, Amount, AssetId, Bytes, CallInput, CallResult, Capability,
-    Context, Field, GrantedCapabilities, Principal, ProgramError, ProgramId, Reason,
+    transfer as settlement, AccountId, Amount, AssetId, Bytes, CallInput, CallResult, Context,
+    Field, GrantedCapabilities, Principal, ProgramError, ProgramId, Reason,
 };
+
+mod token_call;
+use token_call::TokenCall;
 
 layerx_program_sdk::trap_on_panic!();
 
@@ -198,38 +200,13 @@ fn share_key(account: AccountId) -> Result<Bytes<50>, ProgramError> {
     Ok(out)
 }
 
-fn token_account(token: Token, seed: &[u8]) -> Result<AccountId, ProgramError> {
-    Ok(PreparedProgramAccount::new(
-        ProgramId::new(token.program)?,
-        seed,
-        AssetId::new(token.asset)?,
-    )?
-    .account())
-}
-
-fn call_token(
-    token: Token,
-    request: Request,
-    source_seed: &[u8],
-    to: AccountId,
-    amount: Amount,
-) -> Result<(), ProgramError> {
-    let program = ProgramId::new(token.program)?;
-    let source = PreparedProgramAccount::new(program, source_seed, AssetId::new(token.asset)?)?;
-    let mut grants = ProgramPaymentCapabilities::<3>::empty();
-    grants.insert(PaymentGrant::Basic(Capability::SharedStorageRead))?;
-    grants.insert(PaymentGrant::Basic(Capability::SharedStorageWrite))?;
-    grants.insert(PaymentGrant::ProgramSpend {
-        account: source,
-        to,
-        maximum: amount,
-    })?;
+fn call_token(request: TokenCall) -> Result<(), ProgramError> {
+    let grants = request.capabilities()?;
     let mut scratch = [0; 256];
     let written = grants.encode_into(&mut scratch)?;
-    let input = request.encode()?;
     let code = call::invoke(
-        program,
-        CallInput::new(input.as_slice())?,
+        request.program(),
+        CallInput::new(request.input())?,
         GrantedCapabilities::new(scratch.get(..written).ok_or_else(denied)?)?,
     )?;
     if code == 0 {
@@ -240,23 +217,23 @@ fn call_token(
 }
 
 fn pull(token: Token, owner: Principal, amount: Amount) -> Result<(), ProgramError> {
-    let pool = Context::executing_program()?.bytes();
-    let to = token_account(token, &pool)?;
-    let seed = owner.bytes();
-    call_token(
-        token,
-        Request::TransferFrom { owner, to, amount },
-        &seed,
-        to,
+    call_token(TokenCall::pull(
+        ProgramId::new(token.program)?,
+        AssetId::new(token.asset)?,
+        Context::executing_program()?,
+        owner,
         amount,
-    )
+    )?)
 }
 
 fn push(token: Token, owner: Principal, amount: Amount) -> Result<(), ProgramError> {
-    let pool = Context::executing_program()?.bytes();
-    let seed = owner.bytes();
-    let to = token_account(token, &seed)?;
-    call_token(token, Request::Transfer { to, amount }, &pool, to, amount)
+    call_token(TokenCall::push(
+        ProgramId::new(token.program)?,
+        AssetId::new(token.asset)?,
+        Context::executing_program()?,
+        owner,
+        amount,
+    )?)
 }
 
 fn move_shares(seed: &[u8], to: AccountId, amount: Amount) -> Result<(), ProgramError> {

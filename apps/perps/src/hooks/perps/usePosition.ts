@@ -25,7 +25,12 @@ import {
 import { getConnectedAddress } from "@/core/viem/clients";
 import { SPOT_NATIVE_TOKENS } from "@/hooks/spot/useSpotApprovals";
 import { getAllowance } from "./useAccount";
-import { readContract, writeContract, waitForTx, type WaitForTxResult } from "./useContract";
+import {
+  readContract,
+  writeContract,
+  waitForTx,
+  type WaitForTxResult,
+} from "./useContract";
 import { useQuoter } from "./useQuoter";
 
 const USDL: Address = COLLATERAL_TOKENS.usdl.address;
@@ -47,7 +52,9 @@ export async function sendPlan(plan: WritePlan): Promise<WaitForTxResult> {
   let receipt: WaitForTxResult | undefined;
   for (const step of plan) {
     const hash =
-      step.functionName === "approve" ? await writeContract({ ...step, abi: erc20Abi }) : await writeContract(step);
+      step.functionName === "approve"
+        ? await writeContract({ ...step, abi: erc20Abi })
+        : await writeContract(step);
     receipt = await waitForTx(hash);
   }
   if (!receipt) throw new Error("perpetuals plan sent no transaction");
@@ -61,7 +68,9 @@ export function usePosition() {
     return (await readContract(buildGetPosition(positionId))) as PositionTuple;
   }
 
-  async function getPositionRecord(positionId: bigint): Promise<PositionRecord> {
+  async function getPositionRecord(
+    positionId: bigint,
+  ): Promise<PositionRecord> {
     return positionFromTuple(await getPosition(positionId));
   }
 
@@ -70,8 +79,12 @@ export function usePosition() {
     return readContract(buildGetPositionDetails(positionId));
   }
 
-  async function getUserPositionIds(account: Address): Promise<readonly bigint[]> {
-    return (await readContract(buildGetUserPositionIds(account))) as readonly bigint[];
+  async function getUserPositionIds(
+    account: Address,
+  ): Promise<readonly bigint[]> {
+    return (await readContract(
+      buildGetUserPositionIds(account),
+    )) as readonly bigint[];
   }
 
   async function getOpenInterest(marketId: bigint) {
@@ -83,41 +96,71 @@ export function usePosition() {
     });
   }
 
-  async function getPositionCollateralToken(positionId: bigint): Promise<Address> {
+  async function getPositionCollateralToken(
+    positionId: bigint,
+  ): Promise<Address> {
     return (await getPositionRecord(positionId)).collateralToken;
   }
 
   async function openPosition(input: OpenPositionInput) {
-    return sendPlan(await planOpen(input, perpsAllowanceSource()));
+    return sendPlan(await planOpen(input));
   }
 
   /** Close the whole position at the quoteClosePosition exit price bound. */
-  async function closePosition(positionId: bigint) {
+  async function getClosePlan(positionId: bigint) {
     const position = await getPositionRecord(positionId);
+    if (!position.active) throw new Error(`Inactive position: ${positionId}`);
     const { exitPrice } = await quoter.quoteClosePosition(positionId);
-    return sendPlan(planClose({ positionId, isLong: position.isLong, exitPrice }));
+    return planClose({ positionId, isLong: position.isLong, exitPrice });
+  }
+
+  async function closePosition(positionId: bigint) {
+    return sendPlan(await getClosePlan(positionId));
   }
 
   /** Close `closeSizeUsd` (18 decimals) at the quotePartialClose exit price bound. */
   async function partialClose(positionId: bigint, closeSizeUsd: bigint) {
     const position = await getPositionRecord(positionId);
-    const { exitPrice } = await quoter.quotePartialClose(positionId, closeSizeUsd);
-    return sendPlan(planPartialClose({ positionId, isLong: position.isLong, closeSizeUsd, exitPrice }));
+    const { exitPrice } = await quoter.quotePartialClose(
+      positionId,
+      closeSizeUsd,
+    );
+    return sendPlan(
+      planPartialClose({
+        positionId,
+        isLong: position.isLong,
+        closeSizeUsd,
+        exitPrice,
+      }),
+    );
   }
 
   /** `amount` in USDL base units. */
   async function addCollateral(positionId: bigint, amount: bigint) {
-    return sendPlan(await planCollateral({ action: "add", positionId, amount }, perpsAllowanceSource()));
+    return sendPlan(
+      await planCollateral(
+        { action: "add", positionId, amount },
+        perpsAllowanceSource(),
+      ),
+    );
   }
 
   /** `amount` in USDL base units. */
   async function removeCollateral(positionId: bigint, amount: bigint) {
-    return sendPlan(await planCollateral({ action: "remove", positionId, amount }, perpsAllowanceSource()));
+    return sendPlan(
+      await planCollateral(
+        { action: "remove", positionId, amount },
+        perpsAllowanceSource(),
+      ),
+    );
   }
 
   /** Grow the position on its market and side; `additionalCollateral` in USDL base units, leverage at 18 decimals. */
-  async function addSize(positionId: bigint, additionalCollateral: bigint, leverage: bigint) {
-    const source = perpsAllowanceSource();
+  async function addSize(
+    positionId: bigint,
+    additionalCollateral: bigint,
+    leverage: bigint,
+  ) {
     const position = await getPositionRecord(positionId);
     const quote = await quoter.quoteOpenPosition({
       marketId: position.marketId,
@@ -127,16 +170,19 @@ export function usePosition() {
       isLong: position.isLong,
     });
     return sendPlan(
-      await planAddSize(
-        { position: { marketId: position.marketId, isLong: position.isLong }, additionalCollateral, leverage, quote },
-        source,
-      ),
+      await planAddSize({
+        position: { marketId: position.marketId, isLong: position.isLong },
+        additionalCollateral,
+        leverage,
+        quote,
+      }),
     );
   }
 
   return {
     getPosition,
     getPositionRecord,
+    getClosePlan,
     getPositionDetails,
     getUserPositionIds,
     getOpenInterest,

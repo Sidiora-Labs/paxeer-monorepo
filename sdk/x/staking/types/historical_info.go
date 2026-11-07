@@ -42,14 +42,16 @@ func UnmarshalHistoricalInfo(cdc codec.BinaryCodec, value []byte) (hi Historical
 	return hi, err
 }
 
-// ValidateBasic will ensure HistoricalInfo is not nil and sorted
-func ValidateBasic(hi HistoricalInfo) error {
+// ValidateBasic checks the consensus ordering using the producer's power reduction.
+func ValidateBasic(hi HistoricalInfo, powerReduction sdk.Int) error {
 	if len(hi.Valset) == 0 {
 		return sdkerrors.Wrap(ErrInvalidHistoricalInfo, "validator set is empty")
 	}
 
-	if !sort.IsSorted(Validators(hi.Valset)) {
-		return sdkerrors.Wrap(ErrInvalidHistoricalInfo, "validator set is not sorted by address")
+	if !sort.SliceIsSorted(hi.Valset, func(i, j int) bool {
+		return ValidatorsByVotingPower(hi.Valset).Less(i, j, powerReduction)
+	}) {
+		return sdkerrors.Wrap(ErrInvalidHistoricalInfo, "validator set is not sorted by consensus voting power and address")
 	}
 
 	return nil

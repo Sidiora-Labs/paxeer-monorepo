@@ -1,7 +1,7 @@
 import { Flex, Text } from '@chakra-ui/react';
 import React from 'react';
 
-import type { PaxeerXAnchorsItem } from 'types/api/paxeerXLists';
+import type { PaxeerXArchiveAnchor } from 'types/api/paxeerXArchive';
 
 import { Skeleton } from 'toolkit/chakra/skeleton';
 import CopyToClipboard from 'ui/shared/CopyToClipboard';
@@ -14,7 +14,7 @@ import TimeWithTooltip from 'ui/shared/time/TimeWithTooltip';
 import { ANCHOR_SETTLEMENT_RUNG } from './PaxeerXAnchorsTableItem';
 
 interface Props {
-  item: PaxeerXAnchorsItem;
+  item: PaxeerXArchiveAnchor;
   isLoading?: boolean;
 }
 

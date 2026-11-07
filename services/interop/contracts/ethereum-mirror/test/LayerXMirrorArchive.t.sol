@@ -3,6 +3,18 @@ pragma solidity 0.8.30;
 
 import {LayerXMirrorArchive} from "../LayerXMirrorArchive.sol";
 
+interface ArchiveVm {
+    struct Log {
+        bytes32[] topics;
+        bytes data;
+        address emitter;
+    }
+
+    function load(address target, bytes32 slot) external view returns (bytes32);
+    function recordLogs() external;
+    function getRecordedLogs() external returns (Log[] memory);
+}
+
 contract MirrorUnauthorizedCaller {
     function begin(LayerXMirrorArchive archive) external {
         archive.begin(
@@ -19,16 +31,22 @@ contract MirrorUnauthorizedCaller {
 }
 
 contract LayerXMirrorArchiveTest {
+    ArchiveVm private constant vm = ArchiveVm(address(uint160(uint256(keccak256("hevm cheat code")))));
+
     function payloadOfLength(uint256 length) private pure returns (bytes memory payload) {
         payload = new bytes(length);
-        for (uint256 i = 0; i < length; ++i) payload[i] = bytes1(uint8(i));
+        for (uint256 i = 0; i < length; ++i) {
+            payload[i] = bytes1(uint8(i));
+        }
     }
 
     function chunkOf(bytes memory payload, uint256 offset, uint256 size) private pure returns (bytes memory chunk) {
         uint256 length = payload.length - offset;
         if (length > size) length = size;
         chunk = new bytes(length);
-        for (uint256 i = 0; i < length; ++i) chunk[i] = payload[offset + i];
+        for (uint256 i = 0; i < length; ++i) {
+            chunk[i] = payload[offset + i];
+        }
     }
 
     function openAndAppend(
@@ -44,7 +62,7 @@ contract LayerXMirrorArchiveTest {
             bytes memory chunk = chunkOf(payload, uint256(i) * chunkBytes, chunkBytes);
             chain = keccak256(abi.encodePacked(chain, i, sha256(chunk), uint32(chunk.length)));
         }
-        archive.begin(commitment, 1, 7, bytes32(0), uint64(payload.length), count, digest, chain);
+        archive.begin(commitment, 1, 7, keccak256("block"), uint64(payload.length), count, digest, chain);
         for (uint32 i = 0; i < count; ++i) {
             bytes memory chunk = chunkOf(payload, uint256(i) * chunkBytes, chunkBytes);
             uint256 remainingGas = gasleft();
@@ -52,7 +70,7 @@ contract LayerXMirrorArchiveTest {
             require(remainingGas - gasleft() < 29_000_000, "append exceeds normal transaction budget");
             archive.append(commitment, i, chunk);
             require(keccak256(archive.chunk(commitment, i)) == keccak256(chunk), "stored chunk differs");
-            archive.begin(commitment, 1, 7, bytes32(0), uint64(payload.length), count, digest, chain);
+            archive.begin(commitment, 1, 7, keccak256("block"), uint64(payload.length), count, digest, chain);
         }
     }
 
@@ -73,7 +91,7 @@ contract LayerXMirrorArchiveTest {
         openAndAppend(archive, commitment, payload, 63, wrongDigest);
         (bool success, bytes memory reason) = address(archive).call(abi.encodeCall(archive.finalize, (commitment)));
         requireRefusal(success, reason, LayerXMirrorArchive.ArchiveDigestMismatch.selector);
-        (, , bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        (,, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
         require(storedDigest == wrongDigest && !finalized, "invalid archive finalized");
         (success, reason) = address(archive).call(abi.encodeCall(archive.finalize, (commitment)));
         requireRefusal(success, reason, LayerXMirrorArchive.ArchiveDigestMismatch.selector);
@@ -88,7 +106,7 @@ contract LayerXMirrorArchiveTest {
             openAndAppend(archive, commitment, payload, 31, sha256(payload));
             archive.finalize(commitment);
             archive.finalize(commitment);
-            (, , bytes32 digest, bool finalized) = archive.manifest(commitment);
+            (,, bytes32 digest, bool finalized) = archive.manifest(commitment);
             require(digest == sha256(payload) && finalized, "SHA256 padding mismatch");
         }
     }
@@ -99,7 +117,7 @@ contract LayerXMirrorArchiveTest {
         bytes32 commitment = keccak256("maximum-chunk");
         openAndAppend(archive, commitment, payload, archive.MAX_CHUNK_BYTES(), sha256(payload));
         archive.finalize(commitment);
-        (, , bytes32 digest, bool finalized) = archive.manifest(commitment);
+        (,, bytes32 digest, bool finalized) = archive.manifest(commitment);
         require(digest == sha256(payload) && finalized, "maximum chunk digest mismatch");
     }
 
@@ -111,10 +129,12 @@ contract LayerXMirrorArchiveTest {
         bytes32 commitment = keccak256("failed-append");
         bytes32 chain = keccak256(abi.encodePacked(bytes32(0), uint32(0), sha256(first), uint32(first.length)));
         chain = keccak256(abi.encodePacked(chain, uint32(1), sha256(second), uint32(second.length)));
-        archive.begin(commitment, 1, 7, bytes32(0), uint64(payload.length), 2, sha256(payload), chain);
-        (bool emptySuccess, bytes memory emptyReason) = address(archive).call(abi.encodeCall(archive.append, (commitment, 0, bytes(""))));
+        archive.begin(commitment, 1, 7, keccak256("block"), uint64(payload.length), 2, sha256(payload), chain);
+        (bool emptySuccess, bytes memory emptyReason) =
+            address(archive).call(abi.encodeCall(archive.append, (commitment, 0, bytes(""))));
         requireRefusal(emptySuccess, emptyReason, LayerXMirrorArchive.InvalidManifest.selector);
-        (bool success, bytes memory reason) = address(archive).call(abi.encodeCall(archive.append, (commitment, 1, second)));
+        (bool success, bytes memory reason) =
+            address(archive).call(abi.encodeCall(archive.append, (commitment, 1, second)));
         requireRefusal(success, reason, LayerXMirrorArchive.ChunkOrder.selector);
         archive.append(commitment, 0, first);
         (success, reason) = address(archive).call(abi.encodeCall(archive.append, (commitment, 0, second)));
@@ -127,7 +147,7 @@ contract LayerXMirrorArchiveTest {
         archive.append(commitment, 0, first);
         archive.append(commitment, 1, second);
         archive.finalize(commitment);
-        (, , bytes32 digest, bool finalized) = archive.manifest(commitment);
+        (,, bytes32 digest, bool finalized) = archive.manifest(commitment);
         require(digest == sha256(payload) && finalized, "refusal advanced digest");
     }
 
@@ -137,13 +157,13 @@ contract LayerXMirrorArchiveTest {
         bytes32 commitment = keccak256("creation-failure");
         bytes32 digest = sha256(payload);
         bytes32 chain = keccak256(abi.encodePacked(bytes32(0), uint32(0), digest, uint32(payload.length)));
-        archive.begin(commitment, 1, 7, bytes32(0), uint64(payload.length), 1, digest, chain);
+        archive.begin(commitment, 1, 7, keccak256("block"), uint64(payload.length), 1, digest, chain);
         (bool success,) = address(archive).call{gas: 100_000}(abi.encodeCall(archive.append, (commitment, 0, payload)));
         require(!success, "underfunded chunk creation succeeded");
         require(archive.chunk(commitment, 0).length == 0, "failed creation published a chunk");
         archive.append(commitment, 0, payload);
         archive.finalize(commitment);
-        (, , bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        (,, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
         require(storedDigest == digest && finalized, "failed creation advanced archive hash");
         require(keccak256(archive.chunk(commitment, 0)) == keccak256(payload), "split chunk retrieval mismatch");
     }
@@ -181,6 +201,108 @@ contract LayerXMirrorArchiveTest {
             selector := mload(add(reason, 32))
         }
         require(selector == LayerXMirrorArchive.InvalidPublisher.selector, "wrong refusal");
+    }
+
+    function testBeginRecordsCommittedHeightAndBlockHash() public {
+        LayerXMirrorArchive archive = new LayerXMirrorArchive(address(this));
+        bytes32 commitment = keccak256("committed-height-and-hash");
+        uint64 height = type(uint64).max - 42;
+        bytes32 blockHash = keccak256("committed-block");
+        bytes memory payload = hex"0102030405";
+        bytes32 digest = sha256(payload);
+        bytes32 chain = keccak256(abi.encodePacked(bytes32(0), uint32(0), digest, uint32(payload.length)));
+        require(
+            archive.begin.selector
+                == bytes4(keccak256("begin(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32,bytes32)")),
+            "begin selector changed"
+        );
+        (bool success, bytes memory reason) =
+            address(archive).call(abi.encodeCall(archive.append, (commitment, 0, payload)));
+        requireRefusal(success, reason, LayerXMirrorArchive.InvalidManifest.selector);
+
+        vm.recordLogs();
+        archive.begin(commitment, 125, height, blockHash, uint64(payload.length), 1, digest, chain);
+        ArchiveVm.Log[] memory logs = vm.getRecordedLogs();
+        require(logs.length == 1, "manifest event count");
+        require(logs[0].emitter == address(archive), "manifest event emitter");
+        require(logs[0].topics.length == 2, "manifest event topics");
+        require(
+            logs[0].topics[0] == keccak256("ManifestOpened(bytes32,uint32,uint64,bytes32,uint64,uint32,bytes32)"),
+            "manifest event signature"
+        );
+        require(logs[0].topics[1] == commitment, "manifest event commitment");
+        require(
+            keccak256(logs[0].data)
+                == keccak256(abi.encode(uint32(125), height, blockHash, uint64(payload.length), uint32(1), digest)),
+            "manifest event fields"
+        );
+        bytes32 manifestSlot = keccak256(abi.encode(commitment, uint256(0)));
+        uint256 coordinates = uint256(vm.load(address(archive), manifestSlot));
+        require(uint32(coordinates) == 125, "stored network");
+        require(uint64(coordinates >> 32) == height, "stored committed height");
+        require(vm.load(address(archive), bytes32(uint256(manifestSlot) + 1)) == blockHash, "stored block hash");
+
+        archive.begin(commitment, 125, height, blockHash, uint64(payload.length), 1, digest, chain);
+        archive.append(commitment, 0, payload);
+        require(keccak256(archive.chunk(commitment, 0)) == keccak256(payload), "committed chunk mismatch");
+        archive.finalize(commitment);
+        (uint64 totalBytes, uint32 totalChunks, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        require(totalBytes == payload.length && totalChunks == 1, "manifest bounds");
+        require(storedDigest == digest && finalized, "committed archive not finalized");
+    }
+
+    function testBeginRejectsZeroBlockHash() public {
+        LayerXMirrorArchive archive = new LayerXMirrorArchive(address(this));
+        bytes32 commitment = keccak256("zero-block-hash");
+        bytes memory payload = hex"0102030405";
+        bytes32 digest = sha256(payload);
+        bytes32 chain = keccak256(abi.encodePacked(bytes32(0), uint32(0), digest, uint32(payload.length)));
+        (bool success, bytes memory reason) = address(archive)
+            .call(
+                abi.encodeCall(
+                    archive.begin, (commitment, 125, 7, bytes32(0), uint64(payload.length), 1, digest, chain)
+                )
+            );
+        requireRefusal(success, reason, LayerXMirrorArchive.InvalidManifest.selector);
+        (uint64 totalBytes, uint32 totalChunks, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        require(
+            totalBytes == 0 && totalChunks == 0 && storedDigest == bytes32(0) && !finalized, "invalid manifest stored"
+        );
+        (success, reason) = address(archive).call(abi.encodeCall(archive.append, (commitment, 0, payload)));
+        requireRefusal(success, reason, LayerXMirrorArchive.InvalidManifest.selector);
+        require(archive.chunk(commitment, 0).length == 0, "uncommitted chunk stored");
+    }
+
+    function testBeginRejectsDifferentBlockHashOnReopen() public {
+        LayerXMirrorArchive archive = new LayerXMirrorArchive(address(this));
+        bytes32 commitment = keccak256("reopen-block-hash");
+        bytes32 blockHash = keccak256("committed-block");
+        bytes memory payload = hex"0102030405";
+        bytes32 digest = sha256(payload);
+        bytes32 chain = keccak256(abi.encodePacked(bytes32(0), uint32(0), digest, uint32(payload.length)));
+        archive.begin(commitment, 125, 7, blockHash, uint64(payload.length), 1, digest, chain);
+        (bool success, bytes memory reason) = address(archive)
+            .call(
+                abi.encodeCall(
+                    archive.begin,
+                    (commitment, 125, 7, keccak256("different-block"), uint64(payload.length), 1, digest, chain)
+                )
+            );
+        requireRefusal(success, reason, LayerXMirrorArchive.ManifestConflict.selector);
+        (success, reason) = address(archive)
+            .call(
+                abi.encodeCall(archive.begin, (commitment, 125, 8, blockHash, uint64(payload.length), 1, digest, chain))
+            );
+        requireRefusal(success, reason, LayerXMirrorArchive.ManifestConflict.selector);
+        archive.begin(commitment, 125, 7, blockHash, uint64(payload.length), 1, digest, chain);
+        archive.append(commitment, 0, payload);
+        archive.finalize(commitment);
+        (,, bytes32 storedDigest, bool finalized) = archive.manifest(commitment);
+        require(storedDigest == digest && finalized, "conflict changed committed manifest");
+        bytes32 manifestSlot = keccak256(abi.encode(commitment, uint256(0)));
+        require(
+            vm.load(address(archive), bytes32(uint256(manifestSlot) + 1)) == blockHash, "conflict changed block hash"
+        );
     }
 
     function testMirrorRejectsValue() public {

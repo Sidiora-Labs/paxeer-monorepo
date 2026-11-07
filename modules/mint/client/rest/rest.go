@@ -10,16 +10,12 @@ import (
 	"github.com/gorilla/mux"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client"
-	clientrest "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/client/tx"
 	typesrest "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/rest"
 )
 
-// RegisterRoutes registers minting module REST handlers on the provided router.
-func RegisterRoutes(clientCtx client.Context, rtr *mux.Router) {
-	r := clientrest.WithHTTPDeprecationHeaders(rtr)
-	registerQueryRoutes(clientCtx, r)
-}
+// RegisterRoutes registers no legacy REST routes for the mint module.
+func RegisterRoutes(_ client.Context, _ *mux.Router) {}
 
 // PlanRequest defines a proposal for a new upgrade plan.
 type UpdateMinterRequest struct {

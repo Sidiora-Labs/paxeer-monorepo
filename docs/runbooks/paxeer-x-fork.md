@@ -1,380 +1,491 @@
 # Paxeer X fork validator runbook
 
-Upgrades mainnet `hyperpax_125-1` (EVM chain id 125) to the Paxeer X binary through the
-`$UPGRADE_NAME` upgrade plan (`v6.6` in `node/tags`, registered by `node/upgrades.go`). At that height the store loader
-(`node/app.go` `SetStoreUpgradeHandlers`) adds the LayerX stores (`layerxcustody`, `layerxanchor`,
-and the exchange, bridge and launchpad stores), the handler registered from `node/tags`
-(`node/upgrades.go`) runs module migrations, and the precompiles 0x1013 custody, 0x1014 anchor,
-0x1015 exchange, 0x1016 bridge and 0x1017 launchpad come live.
+This is the `v7.0` merged-network upgrade and recovery procedure for mainnet-beta
+`hyperpax_125-1`, EVM chain ID `125` (`0x7d`). Its rehearsed starting point is
+`v6.12.0`. Confirm the starting chain state and release revision before scheduling it;
+a network that has already applied `v7.0` must not schedule it again.
 
-The target wall-clock time `$T_HALT_UTC` is set locally (see "Local values" below). The halt is
-scheduled **by height only**. Block timestamps can drift from wall clock, so never use `halt-time`,
-and never use `halt-height` either: only the upgrade plan makes the old binary write
-`data/upgrade-info.json`, and the new binary reads that file to add the new stores. A node stopped
-any other way comes up on the new binary without the stores.
+Paxeer is one BFT network running `paxd`. The kernel runs inside the node and
+participates in block proposal; a transaction receipt is final when its block is
+committed. Sub-chains are tenant domains in the database and require no additional
+node infrastructure. Use the public node JSON-RPC at the root HTTPS path:
+`https://api1.mainnet-beta.paxeer.network` through
+`https://api14.mainnet-beta.paxeer.network`, or
+`https://api-mainnet-beta.paxeer.network`. Compare heights across nodes before
+selecting a reference. `node.hyperpaxeer.com` is only the hpx library mirror, not an RPC endpoint.
+The hosted gateway's `px_` methods have their own contract in
+[openrpc.json](../../services/platform/hosted/gateway/openrpc.json).
 
-This runbook assumes a manual binary swap under systemd (no cosmovisor). Operators running
-cosmovisor adapt steps 5–6 of section 6 to its `upgrades/$UPGRADE_NAME/bin` layout.
+The implementation authority is [node/upgrades.go](../../node/upgrades.go),
+[node/app.go](../../node/app.go) and
+[the precompile registration](../../precompiles/setup.go). `MergeUpgrade` is
+registered explicitly as `v7.0`; the last entry in `node/tags` does not select it.
+At H, the store loader adds `sequencer`, `layerxledger`, `layerxauth`, `layerxpay`,
+`layerxchains`, `layerxprograms`, `layerxagent` and `lxphost`. The merge handler
+validates the required precompiles, runs migrations, initializes the sequencing
+state, retires anchor activity, returns guarantor bonds and releases remaining
+custody balances to the custody authority. Check these balance changes against
+the rehearsal evidence; they are migration effects, not a continuing finality mechanism.
+
+The halt is scheduled **by height**, using the governance upgrade plan. Wall-clock
+time is an estimate. Do not substitute `halt-time` or `halt-height`: the old
+binary's upgrade handler must write `data/upgrade-info.json`, which
+`SetStoreUpgradeHandlers` reads when the replacement binary starts.
+
+This procedure assumes a manual binary swap under systemd. Cosmovisor operators
+must rehearse their binary layout and provisioning separately: the merge plan's
+`info` is module genesis, not the historical binaries-only download document.
 
 ## Local values
 
-Every concrete value (hosts, homes, units, ports, target time, hashes) lives in an untracked
-`.env`-style file, for example `.env.paxeer-fork` at the repository root (`.env.*` is ignored by
-git). Load it with `set -a; . ./.env.paxeer-fork; set +a` before running the commands below.
-Expected keys:
+Keep hosts, units, paths, hashes, proposal IDs and operational evidence in a
+private inventory. Load a reviewed local environment file before using the
+examples. Examples contain placeholders and are operator instructions, not
+commands to run against production during documentation qualification.
 
 | Key | Meaning |
-|---|---|
-| `UPGRADE_NAME` | upgrade plan name (`v6.6`) |
+| --- | --- |
+| `UPGRADE_NAME` | `v7.0` for the merge; the later deletion plan is a separate operation |
 | `COSMOS_CHAIN_ID` | `hyperpax_125-1` |
 | `EVM_CHAIN_ID` | `125` |
-| `PAXD_BIN` | path of the running `paxd` on the host |
-| `PAXD_HOME` | node home directory on the host |
-| `PAXD_HOMES` | every node home on the host, space-separated (section 0 discovery) |
-| `PAXD_UNIT` | systemd unit that runs `PAXD_HOME` |
-| `COMET_RPC_PORT` | local CometBFT RPC port of that home |
-| `EVM_RPC_PORT` | local EVM JSON-RPC port of that home |
-| `EVM_PUBLIC_TLS_PORT` | public TLS port of the reverse proxy in front of the EVM RPC, if any |
-| `T_HALT_UTC` | target halt time, ISO 8601 UTC (`YYYY-MM-DDTHH:MM:SSZ`) |
-| `HALT_HEIGHT` | the computed H from section 1 |
-| `SNAPSHOT_SERVER_RPC` | CometBFT RPC URL of the snapshot server (section 8) |
-| `STATESYNC_RPC_SERVERS` | comma-separated CometBFT RPC URLs for state sync (section 8) |
+| `PAXD_BIN` | Absolute path of the installed `paxd` |
+| `PAXD_HOME` | Absolute node home for this operation |
+| `PAXD_HOMES` | Space-separated node homes for discovery; use paths without spaces |
+| `PAXD_UNIT` | systemd unit for this home |
+| `COMET_RPC_PORT` | This home's local CometBFT RPC port |
+| `COMET_RPC_URL` | Synced reference CometBFT URL for CLI queries, e.g. `tcp://127.0.0.1:<port>` |
+| `EVM_RPC_URL` | This node's root JSON-RPC URL, e.g. `http://127.0.0.1:<port>` |
+| `T_HALT_UTC` | Estimated target time in ISO 8601 UTC |
+| `HALT_HEIGHT` | Agreed height H, calculated in section 1 |
+| `PLAN_INFO_FILE` | Reviewed JSON file containing the merge genesis described in section 2 |
+| `OPERATOR_KEY` | Local keyring name used for governance transactions |
+| `DEPOSIT` / `FEES` | Coin strings selected from live parameters and fee policy |
+| `PROPOSAL_ID` | Confirmed on-chain proposal ID |
+| `BACKUP_ROOT` | Private backup directory outside the node home |
+| `STATESYNC_RPC_SERVERS` | At least two trusted CometBFT HTTP URLs for recovery |
+| `TRUST_HEIGHT` / `TRUST_HASH` | Independently verified recent block height and hash for state sync |
 
-On a host with more than one home, keep one file per home or override `PAXD_HOME`, `PAXD_UNIT`,
-`COMET_RPC_PORT` and `EVM_RPC_PORT` per command.
+Use one inventory row per home. On a multi-home host, override the unit, home and
+endpoint values together before each operation. Protect key backups as carefully
+as the live keys; do not publish inventory or raw qualification logs.
 
 ## 0. Facts to confirm first
 
-Before anything else, map every consensus key of the active set to a host and home. Read the set
-from any synced RPC:
+Map every active validator consensus key to a host, home, signer and unit. Query
+`/validators` from a synced CometBFT node, following pagination until the returned
+validator count equals `total`:
 
 ```sh
-curl -s "localhost:$COMET_RPC_PORT/validators" | jq -r '(.result // .).validators[] | "\(.address) \(.voting_power)"'
+curl --fail --silent --show-error \
+  "http://127.0.0.1:$COMET_RPC_PORT/validators?page=1&per_page=100" | jq .result
 ```
 
-On every validator host run, for every home present:
+For each local home, inspect its public validator address and unit configuration:
 
 ```sh
-for home in $PAXD_HOMES; do
-  [ -f "$home/config/priv_validator_key.json" ] || continue
-  echo "$(hostname) $home $(jq -r .address "$home/config/priv_validator_key.json")"
+for node_home in $PAXD_HOMES; do
+  [ -f "$node_home/config/priv_validator_key.json" ] || continue
+  jq -r .address "$node_home/config/priv_validator_key.json"
 done
-for unit in $(systemctl list-unit-files --no-legend 'paxd*.service' | awk '{print $1}'); do
-  echo "$unit: $(systemctl show -p ExecStart --value "$unit" | grep -o 'argv\[\]=[^;]*')"
-done
-for home in $PAXD_HOMES; do grep -E '^laddr' "$home/config/config.toml"; done   # rpc port per home
+systemctl show -p ExecStart --value "$PAXD_UNIT"
 ```
 
-Fill in the table locally (never commit the filled copy) and have a second person check it. Do not
-continue until there is one row per validator in the active set, every row is filled, and no key
-appears in two homes (a key running twice double-signs).
+Never print private key fields. For remote signers, map the remote key and its
+persistent signing state too. Have a second operator check the completed table.
 
-| Validator key | Host | Home | systemd unit | RPC port |
-|---|---|---|---|---|
-| `<validator-1>` | | | | |
-| `<validator-2>` | | | | |
-| `<validator-n>` | | | | |
+| Validator address | Voting power | Host | Home | Unit / signer | CometBFT / EVM endpoints |
+| --- | --- | --- | --- | --- | --- |
+| `<validator>` | | | | | |
+
+Do not continue with duplicate signing identities or an unmapped active key.
+Record current height, app hash, chain ID and `catching_up` from `/status`.
+Confirm the chain has applied the prerequisite release plans, including
+`v6.12.0`, using `paxd q upgrade applied <plan-name>`. A binary's version alone
+does not prove a plan was applied.
+
+### PaxDB and persistent state
+
+[SetupPaxDB](../../node/paxdb.go) requires `[state-commit] sc-enable = true` in
+`config/app.toml`; disabling it panics because the IAVL backend is deprecated.
+Preserve the deployed backend and storage configuration across the binary swap.
+Inventory `state-commit.sc-directory`, `state-store.ss-db-directory` and
+`state-store.evm-ss-db-directory`, including external paths and mount points.
+A backup of `data/` alone is insufficient when storage lives elsewhere.
+
+State-sync snapshot settings are in `[state-sync]` in `app.toml`:
+`snapshot-interval` and `snapshot-keep-recent`. With snapshots enabled,
+`[state-store] ss-enable` must also be true. These exported snapshots are distinct
+from internal state-commit snapshots. Keep the node's configured sequencing WAL,
+receipt key, consensus key and signing high-water mark in the recovery inventory.
 
 ## 1. Halt height
 
-Measure the block rate on a synced node for five minutes (run on the node, or point at any synced RPC):
+Measure a synced node's height progression over a representative interval.
+Record both samples and UTC epoch times; reject samples with no height increase
+or a node that is catching up. Calculate:
 
-```sh
-rpc=http://127.0.0.1:$COMET_RPC_PORT
-h() { curl -s "$rpc/status" | jq -r '(.result // .).sync_info.latest_block_height'; }
-h1=$(h); t1=$(date -u +%s); sleep 300; h2=$(h); t2=$(date -u +%s)
-echo "h1=$h1 h2=$h2 seconds_per_block=$(echo "scale=6; ($t2-$t1)/($h2-$h1)" | bc)"
+```text
+seconds_per_block = (t2 - t1) / (h2 - h1)
+H = h2 + round((target_utc_epoch - t2) / seconds_per_block)
 ```
 
-Formula:
-
-```
-H = current_height + round((T_halt_utc - now_utc) / measured_seconds_per_block)
-T_halt_utc = $(date -u -d "$T_HALT_UTC" +%s)
-```
-
-```sh
-target=$(date -u -d "$T_HALT_UTC" +%s)
-spb=<seconds_per_block>
-HALT_HEIGHT=$(echo "$h2 + ($target - $t2) / $spb + 0.5" | bc | cut -d. -f1)
-echo "H=$HALT_HEIGHT"
-```
-
-Worked slot (fill in locally from the measurement):
-
-| Field | Value |
-|---|---|
-| Measured at (UTC) | |
-| h1 / h2 | |
-| seconds_per_block | |
-| current_height at computation | |
-| now_utc (epoch) | |
-| T_halt_utc (epoch) | |
-| **H** | |
-
-Re-measure 24 h before the target. If the projected time of H has drifted more than 30 minutes the
-plan must be cancelled (`paxd tx gov submit-proposal cancel-software-upgrade`) and re-proposed;
-never edit the height on nodes.
+Read live governance parameters before choosing H. Allow the full deposit and
+voting windows, staging time, and a cancellation voting window with margin.
+Record the agreed H and expected time in the private inventory. Re-measure before
+submission and during staging. If the target drifts outside the agreed window,
+cancel by governance and propose a new height; never edit H on individual nodes.
 
 ## 2. Proposal
 
-Both governance steps are scripted; every mutating step needs `--execute`, otherwise the scripts
-print the exact `paxd` commands. `<rpc>` is a synced node's CometBFT RPC, `<operator>` the key
-name of a validator operator in the local keyring (never written down here).
+The former hosted/paxeer governance scripts are retired. Use the registered
+`paxd` governance CLI from
+[sdk/x/upgrade/client/cli](../../sdk/x/upgrade/client/cli/tx.go).
+Read current values rather than copying historical mainnet deposits or periods:
 
 ```sh
-services/platform/hosted/paxeer/gov-upgrade.sh --rpc <rpc> --key <operator> --target-utc "$T_HALT_UTC" \
-  --upgrade-info '{"binaries":{"linux/amd64":"<release URL>?checksum=sha256:<SHA256>"}}' \
-  --voter <operator-1> --voter <operator-2> --voter <operator-n>          # dry run
-services/platform/hosted/paxeer/gov-upgrade.sh ... --execute                        # submit, vote, wait, confirm
-services/platform/hosted/paxeer/gov-upgrade.sh ... --proposal-id <id> --execute     # resume after a disconnect
+"$PAXD_BIN" q gov params --node "$COMET_RPC_URL" -o json
+"$PAXD_BIN" q upgrade plan --node "$COMET_RPC_URL" -o json
 ```
 
-The script measures the block rate against wall clock (`--measure-seconds`, default 120 s, or
-`--seconds-per-block` from the section 1 measurement), prints the timestamp-based and the
-wall-clock-based halt height, submits the `$UPGRADE_NAME` software-upgrade proposal at the
-wall-clock height with the chain's minimum deposit, prints one `tx gov vote` per bonded validator,
-polls the proposal until `PROPOSAL_STATUS_PASSED` and then polls `paxd q upgrade plan` (the
-`current_plan` query) until it shows `$UPGRADE_NAME` at H. The plan name is `v6.6`; `v6.5` is
-already applied by the running binary and the script refuses it.
+### Merge plan info
 
-### Timeline (live parameters, read with `paxd q gov params`)
+`mergeUpgradePlan` consumes `plan.info` as JSON module genesis. Prepare and review
+`PLAN_INFO_FILE` using the exact encoding in
+[the merge rehearsal](../../node/merge_rehearsal_test.go) and
+[ReceiptKeyEntry](../../modules/sequencer/keeper/receipt_keys.go):
 
-| Parameter | Mainnet value | Effect |
-|---|---|---|
-| `max_deposit_period` | 172800 s (48 h) | not consumed: the script submits with the full min deposit, so voting starts in the submission block |
-| `min_deposit` / `min_expedited_deposit` | 10000000 uhpx / 20000000 uhpx | initial deposit of the standard / expedited proposal |
-| `voting_period` | 172800 s (48 h) | standard path; voting ends 48 h after submission |
-| `expedited_voting_period` | 86400 s (24 h) | expedited path (`--expedited`) |
-| `quorum` / `threshold` / `veto_threshold` | 0.334 / 0.5 / 0.334 | standard tally: 33.4 % of bonded power must vote, more than 50 % of the non-abstain votes yes, under 33.4 % veto |
-| `expedited_quorum` / `expedited_threshold` | 0.667 / 0.667 | expedited tally |
+| Field | Required content |
+| --- | --- |
+| `leaders` | Non-empty ordered list of distinct, nonzero 32-byte consensus public keys; primary first; each byte string encoded as base64 |
+| `receipt_keys` | Non-empty array of objects with `key_id`, `public_key`, `first_height`, `last_height` |
+| `key_id` / `public_key` | Base64-encoded 32-byte values; key ID nonzero and unique, public key a canonical Ed25519 key |
+| `first_height` / `last_height` | Positive inclusive numeric height range, not inverted; at least one key covers H+1 |
+| `activation_height` | Set to H+1 for this procedure; omitted or zero defaults to H+1 |
+| `last_seq` | Zero, or omitted |
+| `last_seq_hash` | Zero 32-byte hash encoded as base64, or omitted |
 
-Votes must be counted before H, otherwise the plan is never scheduled and the old binary runs
-through the target. With a margin `m` (`--margin-seconds`, default 1800 s) the latest submission
-times are
+Use real, reviewed public keys; never copy the deterministic keys from tests.
+Keep receipt signing seeds out of the proposal. A receipt key is separate from
+the consensus signing key. Invalid genesis, missing leaders, a nonzero initial
+sequence, or missing H+1 key coverage makes activation fail.
 
-```
-standard:  T_submit <= T_halt - 172800 s - m     (T_halt - 48 h 30 min)
-expedited: T_submit <= T_halt - 86400 s - m      (T_halt - 24 h 30 min)
-```
-
-The script prints both and exits 2 without submitting when the chosen path no longer fits; when
-the standard window is missed but the expedited one is open it says so. With four validators of
-equal power (section 0) every operator must vote yes: three of four give 75 % turnout and 100 %
-yes, which passes both tallies; two of four (50 %) pass the standard tally but miss the expedited
-quorum. Do not rely on the fourth vote arriving late; submit within the standard window whenever
-the calendar allows. Confirm after the tally:
+Do not replace this JSON with `{"binaries": ...}`. Record release URLs, source
+revision and binary checksums separately in section 3. Schedule only the reviewed
+merge plan, using the live deposit and fee values:
 
 ```sh
-paxd q gov proposal <proposal_id> --node <rpc> -o json | jq '{status, voting_end_time, final_tally_result}'
-paxd q upgrade plan --node <rpc> -o json        # name $UPGRADE_NAME, height H
-curl -s <rest>/cosmos/upgrade/v1beta1/current_plan
+"$PAXD_BIN" tx gov submit-proposal software-upgrade "$UPGRADE_NAME" \
+  --upgrade-height "$HALT_HEIGHT" --upgrade-info "$(cat "$PLAN_INFO_FILE")" \
+  --title "Paxeer merge $UPGRADE_NAME" --description "<reviewed release and plan details>" \
+  --deposit "$DEPOSIT" --fees "$FEES" --from "$OPERATOR_KEY" \
+  --home "$PAXD_HOME" --chain-id "$COSMOS_CHAIN_ID" --node "$COMET_RPC_URL"
 ```
+
+Confirm transaction inclusion and a successful application result before taking
+the proposal ID from its events. Each voter submits and confirms its own vote:
+
+```sh
+"$PAXD_BIN" tx gov vote "$PROPOSAL_ID" yes --from "$OPERATOR_KEY" \
+  --home "$PAXD_HOME" --chain-id "$COSMOS_CHAIN_ID" \
+  --node "$COMET_RPC_URL" --fees "$FEES"
+"$PAXD_BIN" q gov proposal "$PROPOSAL_ID" --node "$COMET_RPC_URL" -o json
+"$PAXD_BIN" q upgrade plan --node "$COMET_RPC_URL" -o json
+```
+
+Require a passed proposal and exact agreement on plan name, H and decoded `info`.
+Compute quorum and tally requirements from live voting power and governance
+parameters; do not assume four equal validators or a fixed voting period.
+The v6.10 handler writes one-hour standard and twenty-minute expedited periods,
+but governance may have changed them since. The expedited CLI flag is
+`--is-expedited`; it requires its own deposit and tally checks.
 
 ### Consensus timeouts
 
-Consensus timeouts are on-chain consensus params (`paxd`'s params module, subspace `baseapp`, key
-`TimeoutParams`), so they change by a `param-change` proposal with the same vote and confirm flow.
-Pass the values the latency benchmark proved; the other timeout fields are copied from the live
-`/consensus_params` (today: propose 1 s, propose_delta 500 ms, vote 50 ms, vote_delta 500 ms,
-commit 50 ms, bypass off):
-
-```sh
-services/platform/hosted/paxeer/gov-consensus-params.sh --rpc <rpc> --key <operator> \
-  --timeout-commit <benchmarked commit> --bypass-commit-timeout true --timeout-vote <benchmarked vote> \
-  --target-utc "$T_HALT_UTC" --seconds-per-block <seconds_per_block>   # dry run: writes the proposal JSON
-services/platform/hosted/paxeer/gov-consensus-params.sh ... --execute
-curl -s <rpc>/consensus_params | jq '(.result // .).consensus_params.timeout'   # confirm
-```
-
-A param change applies in the block that ends its voting period, so it must not be pending across
-H: with `--target-utc` the script applies the same submission deadlines as the upgrade proposal and
-refuses when voting would end after H. Submit it in the same window as the upgrade proposal, or
-after the new binary has produced blocks past H (then without `--target-utc`).
+Keep the rehearsed consensus parameters during the merge. Inspect live
+`/consensus_params` and record the values. A timeout change is a separate
+parameter-change proposal with its own qualification and governance timeline;
+do not include an unqualified change in the binary swap.
 
 ### Abort
 
-If a validator is not staged (section 3 checks fail on any host, or an operator is unreachable at
-T−2 h) the plan must be removed before H; a validator that reaches H without the new binary stops
-with the rest of the network and the upgrade cannot be undone by height alone.
-
-```sh
-paxd tx gov submit-proposal cancel-software-upgrade --title "Cancel $UPGRADE_NAME" \
-  --description "<reason>" --deposit 20000000uhpx --is-expedited \
-  --from <operator> --chain-id "$COSMOS_CHAIN_ID" --node <rpc> --fees <fees>uhpx -b sync -y
-paxd tx gov vote <cancel_proposal_id> yes --from <operator> ...     # every operator, within 24 h
-paxd q upgrade plan --node <rpc>                                    # "no upgrade scheduled" once it passes
-```
-
-The cancellation needs its own voting period: expedited (24 h, two-thirds quorum) is the only path
-that fits once H is under 48 h away, so the abort decision is due no later than `T_halt - 24 h -
-m`. Past that point the network can only go through H with every validator staged, or every
-validator must skip the plan together with `--unsafe-skip-upgrades H` (section 7). After a
-cancellation, re-run section 1 and section 2 for a new target; never reuse H.
+Make the no-go decision while cancellation can still pass **before H**. Submit
+`tx gov submit-proposal cancel-software-upgrade` with a reviewed title,
+description, live deposit, fees, chain ID and operator key, then vote and confirm
+that `q upgrade plan` reports no scheduled plan. Cancelling is a governance
+transaction, not an immediate local action. A T−2 h check is too late if the
+remaining voting window is longer. If cancellation cannot finish, coordinate
+the network halt and recovery; do not independently skip the upgrade.
 
 ## 3. Binary
 
-Fill in locally:
-
-| Field | Value |
-|---|---|
-| Source commit | |
-| Release URL | |
-| `paxd` sha256 | |
-| `libwasmvm*.so` sha256 (only if the release changes it) | |
-
-On every host, stage and verify before the height (never overwrite the running binary early):
+Record privately the source revision, release URL, binary SHA-256, dependent
+shared-library hashes, reviewed plan-info hash and the per-host storage layout.
+Stage the exact rehearsed binary on every validator and full node without
+replacing the running executable:
 
 ```sh
 install -m 0755 "paxd-$UPGRADE_NAME" "$PAXD_BIN.$UPGRADE_NAME"
-sha256sum "$PAXD_BIN.$UPGRADE_NAME"                # must equal the table
+sha256sum "$PAXD_BIN.$UPGRADE_NAME"
 cp -p "$PAXD_BIN" "$PAXD_BIN.pre-$UPGRADE_NAME"
-ldd "$PAXD_BIN.$UPGRADE_NAME" | grep -i wasmvm     # compare with ldd "$PAXD_BIN"
-"$PAXD_BIN.$UPGRADE_NAME" version --long | head -n 5
+"$PAXD_BIN.$UPGRADE_NAME" version --long
+ldd "$PAXD_BIN.$UPGRADE_NAME"
 ```
 
-If `ldd` shows a libwasmvm that is not already on the host, install it next to the existing one
-(`/usr/local/lib` or the path the current binary resolves), record its sha256 above, and run
-`ldconfig`. Do not remove the old library: rollback needs it.
+Compare the checksum and reported revision with the release record. Resolve
+shared-library requirements, including libwasmvm when dynamically linked, before
+H; keep old dependencies available for recovery.
+
+Review the embedded node runtime configuration against
+[node/sequencer/config.go](../../node/sequencer/config.go). Under `[sequencer]`,
+`enable`, `role`, `wal-dir`, `receipt-key-file`, `standby-address` and
+`replication-timeout` must match the rehearsed primary/standby roles. Enabled
+nodes need positive `nonce-queue-max-per-sender`, `nonce-queue-max-total` and
+`lease-duration` (or the supported derivation from replication timeout).
+Receipt seeds must have mode `0600`; retain the WAL at its configured path.
+Use `mode = "sequential"` unless microbatch configuration was separately qualified.
+Ordinary nodes keep `enable = false`; review `receipt-forward-url` only when
+receipt forwarding is required. These are settings inside `paxd`.
 
 ## 4. Rehearsal (must pass before go)
 
-Run on a spare machine against a copy of a synced full node's data taken while that node was
-stopped. The script takes every path from flags or from the env file (`--env-file`, see
-`fork-rehearsal.sh --help` for the keys); it never contacts a remote host:
+Release qualification must already have run the programme rehearsal on the
+exact candidate source revision. The release gate is:
 
 ```sh
-services/platform/hosted/paxeer/fork-rehearsal.sh --check
-services/platform/hosted/paxeer/fork-rehearsal.sh \
-  --source-data <snapshot-dir>/data --source-genesis <snapshot-dir>/config/genesis.json \
-  --old-bin "$PAXD_BIN.pre-$UPGRADE_NAME" --new-bin "$PAXD_BIN.$UPGRADE_NAME" \
-  --work <rehearsal-dir> --upgrade-height-offset 120 \
-  --view 0x0000000000000000000000000000000000001015=<exchange view calldata> \
-  --view 0x0000000000000000000000000000000000001016=<bridge view calldata> \
-  --view 0x0000000000000000000000000000000000001017=<launchpad view calldata>
+python3 -m pytest spec/layerx-merge/programme/tests/test_rehearsal_run.py::test_rehearsal_passes_on_merged_revision -q
 ```
 
-It exports state with the old binary, rewrites it to one disposable validator with the same chain
-id, passes a `$UPGRADE_NAME` plan, requires the old binary to halt with
-`UPGRADE "$UPGRADE_NAME" NEEDED at height: …`, resumes on the new binary, and checks: height
-advances, `paxd q upgrade applied $UPGRADE_NAME` equals the plan height, every added module is in
-the version map, and a view on each of 0x1013–0x1017 returns without revert. It writes
-`<rehearsal-dir>/rehearsal-result.env` with both binary hashes; the new hash must match section 3.
+This is release evidence, not an additional gate for a documentation rewrite.
+The test drives the four ordered steps in
+[rehearsal.kvx](../../spec/layerx-merge/programme/data/rehearsal.kvx):
+
+1. Apply `v7.0` on the `v6.12.0` starting state and seal the first sequenced block:
+   `node/merge_rehearsal_test.go::TestMergeRehearsalFirstSequencedBlock`.
+2. Export and re-import with sequencing state preserved:
+   `node/upgrade_export_test.go::TestExportAfterMergeKeepsSequencerState`.
+3. Activate the gated precompiles:
+   `node/upgrades_merge_activation_test.go::TestMergePlanActivatesGatedPrecompiles`.
+4. Apply the later `v7.0-anchor-store-delete` plan:
+   `node/store_delete_test.go::TestAnchorStoreDeletedAtStep`.
+
+All four steps must pass. A missing step or a nonzero exit is a no-go. Keep exact
+revision, command, exit code and private log location for each step. Retain
+additional release evidence for bond return, custody release, retired-method
+refusals, receipt order matching block order, and restart recovery with the
+configured storage and signing identities. No source change after qualification
+is covered by the earlier evidence.
+
+### Later anchor-store deletion
+
+`v7.0` retains the `layerxanchor` store. Only the separately scheduled
+`v7.0-anchor-store-delete` loader deletes it. Apply that plan at an agreed later
+height after merge acceptance, with its own proposal, halt, backup and release
+evidence. Do not substitute it for the merge plan or schedule it before the merge.
+The anchor address remains registered after deletion and all its methods refuse.
 
 ## 5. Announcement
 
-> **Paxeer mainnet upgrade: Paxeer X (<UPGRADE_NAME>)**
-> Mainnet `hyperpax_125-1` halts for the <UPGRADE_NAME> upgrade at block **H = <H>**, expected
-> around **<T_HALT_UTC> (<local time>)**. The height is authoritative; the time is an estimate.
-> Node operators: install paxd <UPGRADE_NAME> (sha256 `<SHA256>`) only after your node logs
-> `UPGRADE "<UPGRADE_NAME>" NEEDED at height: <H>`, then restart. Do not stop your node early and do
-> not use halt-height. RPC and the EVM endpoint will be unavailable from block <H> until validators
-> holding two thirds of the power are back, expected within 30 minutes. Status updates: <channel>.
+> **Paxeer mainnet-beta upgrade: v7.0**
+> Chain `hyperpax_125-1` (EVM 125) upgrades at block **H = <height>**, expected
+> near **<UTC estimate>**. Height is authoritative. Operators stage release
+> **<revision>**, SHA-256 **<hash>**, and swap binaries only after the upgrade
+> halt and upgrade-info file are confirmed. Public RPC availability may be
+> interrupted until more than two thirds of voting power resumes. Status:
+> **<operator channel>**. Anchor-store deletion is a later operation.
 
-Post it when the proposal enters voting, again at T−24 h and at T−1 h.
+Announce when voting starts and repeat before the cancellation deadline and H.
+Publish the agreed height and binary identity; keep private host and signer
+inventories out of the announcement.
 
 ## 6. Per-validator procedure (at height H)
 
-Order: follow the table in section 0. Consensus resumes once validators holding more than two
-thirds of the voting power are up, so bring back, as fast as possible, the smallest group of
-validators that crosses two thirds (compute it from the voting powers read in section 0); the rest
-follow.
+Follow the section 0 inventory. Coordinate validators holding **more than two
+thirds** of voting power, plus margin, to restart promptly; remaining validators
+and full nodes follow. Never run one consensus identity in two places.
 
-For each validator operator (`$PAXD_UNIT`, `$PAXD_HOME` and `$COMET_RPC_PORT` from its section 0 row):
+1. Observe the old binary's `UPGRADE "v7.0" NEEDED at height: H` halt. Confirm
+   the last committed height is H−1 and inspect the upgrade file:
 
-1. Watch for the halt, do not act before it:
    ```sh
-   journalctl -u "$PAXD_UNIT" -f | grep -m1 "UPGRADE \"$UPGRADE_NAME\" NEEDED at height: $HALT_HEIGHT"
+   journalctl -u "$PAXD_UNIT" -n 200 --no-pager
+   jq '{name, height}' "$PAXD_HOME/data/upgrade-info.json"
    ```
-2. Verify the halt and the upgrade file:
-   ```sh
-   curl -s "localhost:$COMET_RPC_PORT/status" | jq -r '(.result // .).sync_info.latest_block_height'   # H-1
-   jq . "$PAXD_HOME/data/upgrade-info.json"        # {"name":"$UPGRADE_NAME","height":H}
-   ```
-3. Stop the unit: `systemctl stop "$PAXD_UNIT"`; confirm `systemctl is-active "$PAXD_UNIT"` prints `inactive`.
-4. Snapshot data for rollback (local disk, while stopped):
-   `cp -a --reflink=auto "$PAXD_HOME/data" "$PAXD_HOME/data.pre-$UPGRADE_NAME"` (or an LVM/ZFS snapshot).
-5. Replace the binary (units on one host that share `$PAXD_BIN` are swapped once per host, before
-   the first of its units restarts):
+
+   Require the agreed name and height. Do not fabricate this file if missing.
+2. Stop the unit, prevent automatic restarts and confirm the process and signer
+   have stopped. Capture the latest signing high-water mark from
+   `data/priv_validator_state.json` or the external signer. A key may have signed
+   at H even when H has not committed.
+3. Take a consistent stopped-node backup under `BACKUP_ROOT`: configuration,
+   genesis, upgrade-info, consensus/node/receipt keys, signing state, all PaxDB
+   directories and the sequencing WAL, including paths outside the home.
+   Record the backup height and hashes. Never copy a live database as a backup.
+4. Verify the staged checksum again and install the replacement binary:
+
    ```sh
    install -m 0755 "$PAXD_BIN.$UPGRADE_NAME" "$PAXD_BIN"
-   sha256sum "$PAXD_BIN"   # must equal section 3
+   sha256sum "$PAXD_BIN"
    ```
-   plus the libwasmvm from section 3 if the release requires it.
-6. Start: `systemctl start "$PAXD_UNIT"`.
-7. Verify:
-   ```sh
-   journalctl -u "$PAXD_UNIT" -n 200 --no-pager | grep -E "applying upgrade \"$UPGRADE_NAME\"|$UPGRADE_NAME"
-   curl -s "localhost:$COMET_RPC_PORT/status" | jq -r '(.result // .).sync_info.latest_block_height'   # > H once two thirds of the power is up
-   paxd q upgrade applied "$UPGRADE_NAME" --node "tcp://127.0.0.1:$COMET_RPC_PORT" -o json | jq -r .header.height   # H
-   ```
-   Then from the EVM endpoint of that host, one view per new precompile must return without revert:
-   ```sh
-   curl -s -H 'content-type: application/json' "localhost:$EVM_RPC_PORT" \
-     --data '{"jsonrpc":"2.0","id":1,"method":"eth_call","params":[{"to":"0x0000000000000000000000000000000000001013","data":"0x2dfdf0b5"},"latest"]}'
-   ```
-   (0x1014 with `0x42cde4e8`; 0x1015–0x1017 with the calldata used in the rehearsal.)
 
-Record per validator, locally: halt log seen (Y/N), upgrade-info.json OK, sha256 OK, restarted at
-(UTC), first signed height after H.
+   Coordinate every unit sharing that executable before replacing it. Use the
+   libraries and runtime configuration reviewed in section 3.
+5. Start the unit and inspect startup/migration logs:
+
+   ```sh
+   systemctl start "$PAXD_UNIT"
+   journalctl -u "$PAXD_UNIT" -n 200 --no-pager
+   curl --fail --silent --show-error \
+     "http://127.0.0.1:$COMET_RPC_PORT/status" | jq .result.sync_info
+   "$PAXD_BIN" q upgrade applied "$UPGRADE_NAME" --node "$COMET_RPC_URL" -o json
+   "$PAXD_BIN" q upgrade module_versions sequencer --node "$COMET_RPC_URL" -o json
+   ```
+
+   Require applied height H, advancing committed blocks beyond H, eventual
+   `catching_up: false`, and matching block/app hashes against trusted peers.
+   H+1 is the first sequenced height in this procedure. Use the local node as
+   `COMET_RPC_URL` for these checks; a remote node cannot establish local health.
+6. Check the local root JSON-RPC:
+
+   ```sh
+   curl --fail --silent --show-error "$EVM_RPC_URL" \
+     -H 'content-type: application/json' \
+     --data '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+   curl --fail --silent --show-error "$EVM_RPC_URL" \
+     -H 'content-type: application/json' \
+     --data '{"jsonrpc":"2.0","id":2,"method":"eth_blockNumber","params":[]}'
+   ```
+
+   Require `result: "0x7d"` and an advancing hexadecimal height above H. HTTP
+   success alone is insufficient: inspect each JSON-RPC result or error.
+7. Apply the version-specific acceptance checks below, then record halt seen,
+   upgrade-info identity, checksum, backup location, restart UTC, first signed
+   and first committed heights. Before restoring traffic, perform a controlled
+   restart and confirm the same applied-plan and committed-state checks persist.
+
+### Merge acceptance and retired precompiles
+
+Use ABI-encoded calls at a recorded committed block height, with calldata from
+that release's checked-in ABI. Decode revert data as Solidity `Error(string)`;
+a generic transport error or empty-account success does not prove retirement.
+The addresses stay registered. Keep actual request and response evidence.
+
+| Surface | Expected after `v7.0` | Expected after anchor-store deletion |
+| --- | --- | --- |
+| `0x1012` (`layerxVerify`) | Retired methods revert with `LXP_MODULE_DISABLED` and `layerxVerify retired` | Same |
+| `0x1013` (`layerxCustody`) | All methods, including `depositCount()`, revert with `LXP_MODULE_DISABLED` and `layerxCustody retired` | Same |
+| `0x1014` (`layerxAnchor`) writes | Revert with `LXP_MODULE_DISABLED` and `layerxAnchor retired` | Same |
+| `0x1014` reads, including `latestFinalized()` | Historical reads remain served; no new finality is derived from them | Revert with `LXP_MODULE_DISABLED` and `layerxAnchor retired` |
+
+The ABI sources are [custody](../../precompiles/layerxcustody/abi.json),
+[anchor](../../precompiles/layerxanchor/abi.json) and
+[verify](../../precompiles/layerxverify/abi.json). Do not require successful old
+custody/anchor calls as merge activation checks. A successful historical anchor
+read between plans is compatible with retirement of anchor writes.
+
+Require the release's merge activation evidence for native ledger, pay, auth,
+programs and agent functions; arbitrary no-argument calls do not prove those
+interfaces work. Compare a known transaction's committed receipt and block order
+with the release evidence, and verify the expected bond and custody balance
+changes. Preserve the export/import and restart evidence with the plan record.
 
 ## 7. Rollback
 
-Only if the new binary cannot produce blocks past H after every validator ran it and the fix is
-not available within the agreed window (default 2 h). All validators must roll back together.
+The default response to an activation failure is to keep affected nodes stopped,
+preserve logs, databases, WAL and signing state, and coordinate a release repair.
+Do not delete data, reset signing history, independently use
+`--unsafe-skip-upgrades`, or restart the old binary against migrated stores.
 
-1. `systemctl stop "$PAXD_UNIT"` on every validator and full node.
-2. Restore data: `rm -rf "$PAXD_HOME/data" && mv "$PAXD_HOME/data.pre-$UPGRADE_NAME" "$PAXD_HOME/data"` (keep
-   `priv_validator_state.json` from the snapshot; never move it backwards past a height this key
-   signed on the new binary — if any validator signed H on the new binary, the snapshot's state file
-   is behind and double-signing is possible: stop and coordinate before continuing).
-3. Restore the binary: `install -m 0755 "$PAXD_BIN.pre-$UPGRADE_NAME" "$PAXD_BIN"` (and the
-   old libwasmvm if it was replaced).
-4. Start the old binary past the plan with the skip flag, added to the unit's `ExecStart` through a
-   drop-in: `paxd start --home "$PAXD_HOME" --unsafe-skip-upgrades "$HALT_HEIGHT"`. Every validator
-   must use the same H.
-5. Once blocks advance, cancel the plan by governance (`cancel-software-upgrade`) and remove the
-   drop-in after the cancellation passes.
+Before H, a staged binary can be withdrawn after governance cancellation is
+confirmed. At or after H, restoring a pre-upgrade snapshot is a network-wide
+recovery decision requiring an agreed canonical state and evidence of every
+validator's signing high-water mark. If any key signed H or later, restoring its
+H−1 signing-state file can permit double signing even if H never committed.
+Preserve the newest signing state, including an external signer's state.
+
+If H committed, continue from that committed state with a compatible repair
+binary or an explicitly coordinated recovery plan. A local snapshot restore
+cannot undo a network commit. Retain old binaries and consistent snapshots as
+recovery inputs; they are not permission to roll the chain back.
 
 ## 8. Full nodes and RPC fleet
 
-Synced full nodes (`<full-node-1>` … `<full-node-n>`, listed locally) follow the section 6 steps
-1–7 at H, after the validators. A TLS reverse proxy in front of the EVM RPC
-(`$EVM_PUBLIC_TLS_PORT` → `$EVM_RPC_PORT`) needs no change; during the swap put each host's
-upstream in maintenance (for nginx: mark it `down` and `nginx -s reload`) and restore it once
-`eth_blockNumber` returns a height above H.
+Synced full nodes follow section 6 with their own homes and endpoints. Withdraw
+an upgrading upstream from the TLS proxy, then restore it only after local
+chain ID, committed height, peer hash and restart checks pass. Root-path
+JSON-RPC forwarding remains the client entry point.
 
-Lagging or stalled nodes are not upgraded in place:
+For lagging nodes, first determine whether the home has ever held a signing
+identity. A validator follows the identity-preserving procedure below even when
+it is currently inactive in the validator set.
 
-- Before H: pick one synced node (`<snapshot-server>`, `$SNAPSHOT_SERVER_RPC`) as snapshot server:
-  `app.toml` `snapshot-interval = 1000`, `snapshot-keep-recent = 2`; restart it once, early.
-- After H, once that node serves a snapshot above H: stop each lagging node, install the
-  `$UPGRADE_NAME` binary, back up its `priv_validator_key.json`/`node_key.json`, clear `data/` (keep
-  `priv_validator_state.json` as `{"height":"0","round":0,"step":0}`), and enable state sync in
-  `config.toml`:
-  ```toml
-  [statesync]
-  enable = true
-  rpc-servers = "<STATESYNC_RPC_SERVERS>"   # at least two, e.g. <full-node-rpc-1>,<full-node-rpc-2>
-  trust-height = <recent height above H, multiple of the snapshot interval>
-  trust-hash = "<curl -s $SNAPSHOT_SERVER_RPC/block?height=<trust-height> | jq -r '(.result // .).block_id.hash'>"
-  ```
-  Start, wait for `catching_up: false`, then set `enable = false`.
-- Fallback when state sync fails: stop a synced node after H, copy its `data/` (without
-  `priv_validator_state.json`) to the lagging node with rsync, start both.
-- A lagging node that is still below H on the old binary halts at H with the same log line; swap its
-  binary then, as in section 6.
+### Non-signing full-node recovery
 
-## 9. Go / no-go (T−2 h, and again at H−100)
+1. Use a trusted upgraded node as snapshot server. In its `app.toml`, configure
+   `[state-sync] snapshot-interval` and `snapshot-keep-recent`, and ensure
+   `[state-store] ss-enable = true`. Stage and restart this configuration early.
+2. Wait for an available exported snapshot after H (and after the deletion
+   height if recovering the post-deletion state). Independently verify a recent
+   trust block hash against trusted peers within the configured trust period.
+   Trust height need not equal the snapshot height or be an interval multiple.
+3. Stop the recovering node and back up its home and external database paths.
+   Prepare an empty recovery home using the same chain genesis, reviewed
+   configuration and compatible binary. Keep its own `node_key.json`; never
+   copy a donor's validator key, signing-state file or receipt seed.
+4. Set the actual CometBFT keys in `config/config.toml`:
 
-- [ ] Section 0 table complete and checked by a second person; no key in two homes.
-- [ ] Proposal passed; `paxd q upgrade plan` shows `$UPGRADE_NAME` at the height announced.
-- [ ] Rehearsal passed on the release binary (`rehearsal-result.env` new_bin_sha256 equals section 3).
-- [ ] `sha256sum "$PAXD_BIN.$UPGRADE_NAME"` matches section 3 on every validator and full node host.
-- [ ] Validators holding more than two thirds of the voting power, plus margin, confirmed with the
-      new binary staged and operators on call before H.
-- [ ] Data snapshot space available on every validator host (`df -h` ≥ size of `data/`).
-- [ ] Snapshot server configured for the lagging-node resync.
-- [ ] Rollback binary (`$PAXD_BIN.pre-$UPGRADE_NAME`) present on every host.
+   ```toml
+   [statesync]
+   enable = true
+   rpc-servers = "<trusted CometBFT HTTP URL 1>,<trusted CometBFT HTTP URL 2>"
+   trust-height = <verified recent block height>
+   trust-hash = "<verified block ID hash>"
+   ```
 
-No-go on any unchecked item: cancel the plan by governance before H and re-announce.
+   Ensure P2P connectivity to snapshot providers. Public EVM JSON-RPC URLs
+   cannot replace the CometBFT state-sync servers.
+5. Start, wait for `catching_up: false`, compare committed hashes, applied plans
+   and JSON-RPC results, then set `enable = false` for subsequent starts.
+   Prove restart recovery before returning the node to the RPC pool.
+
+If state sync fails, preserve the error and use a verified, consistent stopped
+full-node snapshot of **all** configured databases. Copying only a donor's
+`data/` may omit external PaxDB state; copying a running database is unsafe.
+
+### Validator recovery
+
+Stop and fence the original signer before preparing any replacement. Securely
+preserve the validator's own key and **latest** signing high-water mark together;
+never reset `priv_validator_state.json` to height zero or replace it with a
+donor's file. Preserve receipt identity and sequencing WAL where applicable.
+Recover chain state as a non-signing node first. Before enabling the original
+signer, verify the canonical recovered height is beyond the highest signed
+height, hashes agree with trusted peers, and the old signer cannot restart.
+If these conditions cannot be established, keep signing disabled and coordinate
+recovery. A replacement machine must never create a second active copy of a key.
+
+## 9. Go / no-go (before cancellation deadline, T−2 h and H−100)
+
+- [ ] Section 0 inventory checked; each consensus identity has exactly one active signer.
+- [ ] Starting state is the rehearsed `v6.12.0` state; `v7.0` has not already applied.
+- [ ] Proposal passed; scheduled name, H and decoded genesis exactly match the reviewed plan.
+- [ ] Receipt-key pins cover H+1 and match staged public keys; runtime roles and WAL paths are ready.
+- [ ] All four rehearsal steps and migration/refusal/recovery evidence passed on the release revision.
+- [ ] Binary and shared-library checksums agree on every validator and RPC host.
+- [ ] More than two thirds of voting power, with margin, is staged and operators are available.
+- [ ] Consistent backups cover all databases and signing state, with sufficient disk space.
+- [ ] Snapshot recovery is ready; RPC upstream withdrawal and restoration are coordinated.
+- [ ] Anchor-store deletion has its own later height and acceptance record.
+
+Before the cancellation deadline, any unchecked item is a no-go: cancel and
+re-announce. Later failures require coordinated halt/recovery decisions.
+After restart, close the upgrade only when section 6 acceptance holds and exact
+release revision, commands, exits and private evidence locations are recorded.
+
+## Historical activation notes
+
+`v6.6` added the original custody, anchor, exchange, bridge and launchpad stores;
+`v6.9` was a separate activation plan, and `v6.12.0` introduced the later venue
+stores. Those historical store additions and successful custody/anchor smoke
+calls are retired operating guidance. They must not be replayed as the current
+merge procedure. The `v7.0` merge and later anchor-store deletion have distinct
+handlers and acceptance checks described above.

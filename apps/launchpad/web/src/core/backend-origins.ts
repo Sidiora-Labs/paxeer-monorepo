@@ -14,13 +14,13 @@
  * unset or malformed value is a configuration problem that the root layout
  * renders as a user-facing error state (ui/shared/backend-configuration-error.tsx)
  * and the server logs at startup (instrumentation.ts). A local checkout sets
- * them in client/apps/web/.env.local (gitignored).
+ * them in apps/launchpad/web/.env.local (gitignored).
  *
  * Edge-safe: no Node-only imports (src/middleware.ts runs on the edge runtime).
  * Every read is a literal `process.env.NEXT_PUBLIC_*` expression so Next inlines
  * the build-time value into the client bundle, the server and the middleware.
  */
-import { getPaxeerRpcUrls } from './rpc';
+import { getPaxeerRpcUrls, RpcConfigurationError } from './rpc';
 
 /** Paxeer chain explorer API (Blockscout v2), used when NEXT_PUBLIC_EXPLORER_API is unset. */
 export const PAXSCAN_EXPLORER_API = 'https://api.paxscan.io/api/v2';
@@ -31,23 +31,34 @@ export const PAXPORT_WALLET_API = 'https://connect.paxportwallet.com';
 export class BackendOriginError extends Error {
   readonly variable: string;
   constructor(name: string, value: string | undefined, reason: string) {
-    super(value === undefined || value === ''
-      ? `${name} is not set: ${reason}`
-      : `${name}=${JSON.stringify(value)} is not a usable backend origin: ${reason}`);
+    super(
+      value === undefined || value === ''
+        ? `${name} is not set: ${reason}`
+        : `${name}=${JSON.stringify(value)} is not a usable backend origin: ${reason}`,
+    );
     this.name = 'BackendOriginError';
     this.variable = name;
   }
 }
 
-function production(): boolean { return process.env.NODE_ENV === 'production'; }
+function production(): boolean {
+  return process.env.NODE_ENV === 'production';
+}
 
 /** Parses a configured base URL: http(s) only (wss/ws for stream origins), no credentials, query or fragment. Keeps a path prefix if present. */
 function checked(name: string, value: string, schemes: readonly string[]): string {
   let url: URL;
-  try { url = new URL(value); } catch { throw new BackendOriginError(name, value, 'not an absolute URL'); }
-  if (!schemes.includes(url.protocol)) throw new BackendOriginError(name, value, `scheme must be one of ${schemes.join(', ')}`);
-  if (production() && (url.protocol === 'http:' || url.protocol === 'ws:')) throw new BackendOriginError(name, value, 'production builds require https/wss');
-  if (url.username || url.password || url.search || url.hash) throw new BackendOriginError(name, value, 'credentials, query and fragment are not allowed');
+  try {
+    url = new URL(value);
+  } catch {
+    throw new BackendOriginError(name, value, 'not an absolute URL');
+  }
+  if (!schemes.includes(url.protocol))
+    throw new BackendOriginError(name, value, `scheme must be one of ${schemes.join(', ')}`);
+  if (production() && (url.protocol === 'http:' || url.protocol === 'ws:'))
+    throw new BackendOriginError(name, value, 'production builds require https/wss');
+  if (url.username || url.password || url.search || url.hash)
+    throw new BackendOriginError(name, value, 'credentials, query and fragment are not allowed');
   return value.replace(/\/+$/, '');
 }
 
@@ -58,7 +69,18 @@ function required(name: string, value: string | undefined): string {
   if (value) return checked(name, value, HTTP);
   throw new BackendOriginError(name, value, 'it is required (there is no fallback host)');
 }
-const optional = (name: string, value: string | undefined) => value ? checked(name, value, HTTP) : null;
+const optional = (name: string, value: string | undefined) =>
+  value ? checked(name, value, HTTP) : null;
+/** The SDK accepts origins only; reject prefixes before any consumer can drop them. */
+function sdkBackendOrigin(name: string, value: string | undefined, requiredValue = true): string | null {
+  if (!value) return requiredValue ? required(name, value) : null;
+  const base = checked(name, value, HTTP);
+  const url = new URL(base);
+  if (url.pathname !== '/')
+    throw new BackendOriginError(name, value, 'SDK backends require an origin without a path prefix');
+  return url.origin;
+}
+
 const originOf = (url: string) => new URL(url).origin;
 const wsFormOf = (origin: string) => origin.replace(/^http/, 'ws');
 
@@ -91,26 +113,66 @@ export interface BackendConfiguration {
 export function backendConfiguration(): BackendConfiguration {
   const problems: BackendOriginError[] = [];
   const attempt = <T>(resolve: () => T): T | undefined => {
-    try { return resolve(); } catch (error) {
-      if (error instanceof BackendOriginError) { problems.push(error); return undefined; }
+    try {
+      return resolve();
+    } catch (error) {
+      if (error instanceof BackendOriginError) {
+        problems.push(error);
+        return undefined;
+      }
       throw error;
     }
   };
-  const data = attempt(() => required('NEXT_PUBLIC_DATA_API_URL', process.env.NEXT_PUBLIC_DATA_API_URL));
-  const gateway = attempt(() => required('NEXT_PUBLIC_GATEWAY_URL', process.env.NEXT_PUBLIC_GATEWAY_URL));
-  const metadata = attempt(() => required('NEXT_PUBLIC_METADATA_API_URL', process.env.NEXT_PUBLIC_METADATA_API_URL));
-  const pnl = attempt(() => required('NEXT_PUBLIC_PNL_API_URL', process.env.NEXT_PUBLIC_PNL_API_URL));
-  const stats = attempt(() => optional('NEXT_PUBLIC_STATS_API_URL', process.env.NEXT_PUBLIC_STATS_API_URL));
-  const livestream = attempt(() => optional('NEXT_PUBLIC_LIVESTREAM_API_URL', process.env.NEXT_PUBLIC_LIVESTREAM_API_URL));
+  const data = attempt(() =>
+    sdkBackendOrigin('NEXT_PUBLIC_DATA_API_URL', process.env.NEXT_PUBLIC_DATA_API_URL),
+  );
+  const gateway = attempt(() =>
+    sdkBackendOrigin('NEXT_PUBLIC_GATEWAY_URL', process.env.NEXT_PUBLIC_GATEWAY_URL),
+  );
+  const metadata = attempt(() =>
+    sdkBackendOrigin('NEXT_PUBLIC_METADATA_API_URL', process.env.NEXT_PUBLIC_METADATA_API_URL),
+  );
+  const pnl = attempt(() =>
+    required('NEXT_PUBLIC_PNL_API_URL', process.env.NEXT_PUBLIC_PNL_API_URL),
+  );
+  const stats = attempt(() =>
+    sdkBackendOrigin('NEXT_PUBLIC_STATS_API_URL', process.env.NEXT_PUBLIC_STATS_API_URL, false),
+  );
+  const livestream = attempt(() =>
+    optional('NEXT_PUBLIC_LIVESTREAM_API_URL', process.env.NEXT_PUBLIC_LIVESTREAM_API_URL),
+  );
   const streamValue = process.env.NEXT_PUBLIC_STREAM_ORIGIN;
-  const stream = streamValue ? attempt(() => originOf(checked('NEXT_PUBLIC_STREAM_ORIGIN', streamValue, WS))) : data && wsFormOf(originOf(data));
+  const stream = streamValue
+    ? attempt(() => originOf(checked('NEXT_PUBLIC_STREAM_ORIGIN', streamValue, WS)))
+    : data && wsFormOf(originOf(data));
   const privateApiValue = process.env.NEXT_PUBLIC_PRIVATE_API_ORIGIN;
-  const privateApi = privateApiValue ? attempt(() => originOf(checked('NEXT_PUBLIC_PRIVATE_API_ORIGIN', privateApiValue, HTTP))) : null;
+  const privateApi = privateApiValue
+    ? attempt(() => originOf(checked('NEXT_PUBLIC_PRIVATE_API_ORIGIN', privateApiValue, HTTP)))
+    : null;
   const privateStreamValue = process.env.NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN;
-  const privateStream = privateStreamValue ? attempt(() => originOf(checked('NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN', privateStreamValue, WS))) : null;
+  const privateStream = privateStreamValue
+    ? attempt(() => originOf(checked('NEXT_PUBLIC_PRIVATE_STREAM_ORIGIN', privateStreamValue, WS)))
+    : null;
+  attempt(walletParentOrigins);
+  try {
+    getPaxeerRpcUrls();
+  } catch (error) {
+    if (!(error instanceof RpcConfigurationError)) throw error;
+    problems.push(new BackendOriginError(error.variable, undefined, error.message));
+  }
   if (problems.length) return { origins: null, problems };
   return {
-    origins: { data: data!, gateway: gateway!, metadata: metadata!, pnl: pnl!, stats: stats ?? null, livestream: livestream ?? null, stream: stream!, privateApi: privateApi ?? null, privateStream: privateStream ?? null },
+    origins: {
+      data: data!,
+      gateway: gateway!,
+      metadata: metadata!,
+      pnl: pnl!,
+      stats: stats ?? null,
+      livestream: livestream ?? null,
+      stream: stream!,
+      privateApi: privateApi ?? null,
+      privateStream: privateStream ?? null,
+    },
     problems,
   };
 }
@@ -129,7 +191,11 @@ export function backendConfigurationProblems(): BackendOriginError[] {
 
 /** media/livestream base URL, or null when not configured or unusable (calls then answer as not served). */
 export function livestreamApiBase(): string | null {
-  try { return optional('NEXT_PUBLIC_LIVESTREAM_API_URL', process.env.NEXT_PUBLIC_LIVESTREAM_API_URL); } catch { return null; }
+  try {
+    return optional('NEXT_PUBLIC_LIVESTREAM_API_URL', process.env.NEXT_PUBLIC_LIVESTREAM_API_URL);
+  } catch {
+    return null;
+  }
 }
 
 /** Explorer REST base (core/clients/explorer-api.ts): NEXT_PUBLIC_EXPLORER_API, else the Paxeer explorer. */
@@ -138,7 +204,11 @@ export function explorerApiBase(): string {
   return value ? checked('NEXT_PUBLIC_EXPLORER_API', value, HTTP) : PAXSCAN_EXPLORER_API;
 }
 
-export interface EmbeddedWalletEndpoints { apiUrl: string; supabaseUrl: string; supabaseAnonKey: string }
+export interface EmbeddedWalletEndpoints {
+  apiUrl: string;
+  supabaseUrl: string;
+  supabaseAnonKey: string;
+}
 
 /**
  * Embedded wallet endpoints, or null when the feature is off. The SDK needs
@@ -150,7 +220,11 @@ export function embeddedWalletEndpoints(): EmbeddedWalletEndpoints | null {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
   if (!supabaseUrl || !supabaseAnonKey) return null;
   return {
-    apiUrl: checked('NEXT_PUBLIC_PAXEER_WALLET_API', process.env.NEXT_PUBLIC_PAXEER_WALLET_API || PAXPORT_WALLET_API, HTTP),
+    apiUrl: checked(
+      'NEXT_PUBLIC_PAXEER_WALLET_API',
+      process.env.NEXT_PUBLIC_PAXEER_WALLET_API || PAXPORT_WALLET_API,
+      HTTP,
+    ),
     supabaseUrl: checked('NEXT_PUBLIC_SUPABASE_URL', supabaseUrl, HTTP),
     supabaseAnonKey,
   };
@@ -162,9 +236,13 @@ export function embeddedWalletEndpoints(): EmbeddedWalletEndpoints | null {
  * telemetry, attestation and the wallet registry.
  */
 export const WALLETCONNECT_ORIGINS = Object.freeze([
-  'wss://relay.walletconnect.org', 'wss://relay.walletconnect.com',
-  'https://rpc.walletconnect.org', 'https://rpc.walletconnect.com',
-  'https://pulse.walletconnect.org', 'https://verify.walletconnect.org', 'https://verify.walletconnect.com',
+  'wss://relay.walletconnect.org',
+  'wss://relay.walletconnect.com',
+  'https://rpc.walletconnect.org',
+  'https://rpc.walletconnect.com',
+  'https://pulse.walletconnect.org',
+  'https://verify.walletconnect.org',
+  'https://verify.walletconnect.com',
   'https://api.web3modal.org',
 ]);
 
@@ -179,13 +257,25 @@ export function walletConnectProjectId(): string | null {
  * embeddable and the bridge is not installed.
  */
 export function walletParentOrigins(): string[] {
+  const configured = process.env.NEXT_PUBLIC_WALLET_IFRAME_ORIGIN;
+  if (configured === undefined || configured === '') return [];
   const out: string[] = [];
-  for (const value of (process.env.NEXT_PUBLIC_WALLET_IFRAME_ORIGIN ?? '').split(',')) {
+  for (const value of configured.split(',')) {
     const trimmed = value.trim();
-    if (!trimmed) continue;
-    try { const origin = new URL(trimmed).origin; if (origin !== 'null' && !out.includes(origin)) out.push(origin); } catch {}
+    const origin = checkedWalletParentOrigin(trimmed);
+    if (!out.includes(origin)) out.push(origin);
   }
   return out;
+}
+
+export function checkedWalletParentOrigin(value: string): string {
+  const name = 'NEXT_PUBLIC_WALLET_IFRAME_ORIGIN';
+  checked(name, value, HTTP);
+  const url = new URL(value);
+  if (value !== url.origin && value !== `${url.origin}/`) {
+    throw new BackendOriginError(name, value, 'an origin without a path is required');
+  }
+  return url.origin;
 }
 
 /**
@@ -200,19 +290,36 @@ export function walletParentOrigins(): string[] {
  */
 export function browserConnectOrigins(): string[] {
   const out = new Set<string>();
-  const add = (url: string | null | undefined) => { if (url) out.add(originOf(url)); };
+  const add = (url: string | null | undefined) => {
+    if (url) out.add(originOf(url));
+  };
   const { origins } = backendConfiguration();
   if (origins) {
-    for (const url of [origins.data, origins.gateway, origins.metadata, origins.pnl, origins.stats, origins.livestream, origins.privateApi]) add(url);
+    for (const url of [
+      origins.data,
+      origins.gateway,
+      origins.metadata,
+      origins.pnl,
+      origins.stats,
+      origins.livestream,
+      origins.privateApi,
+    ])
+      add(url);
     add(origins.stream);
     add(wsFormOf(originOf(origins.gateway)));
     add(origins.privateStream);
   }
   for (const url of getPaxeerRpcUrls()) add(url);
-  try { add(explorerApiBase()); } catch {}
+  try {
+    add(explorerApiBase());
+  } catch {}
   try {
     const wallet = embeddedWalletEndpoints();
-    if (wallet) { add(wallet.apiUrl); add(wallet.supabaseUrl); add(wsFormOf(originOf(wallet.supabaseUrl))); }
+    if (wallet) {
+      add(wallet.apiUrl);
+      add(wallet.supabaseUrl);
+      add(wsFormOf(originOf(wallet.supabaseUrl)));
+    }
   } catch {}
   if (walletConnectProjectId()) for (const origin of WALLETCONNECT_ORIGINS) out.add(origin);
   return [...out];
@@ -227,6 +334,15 @@ export function browserImageOrigins(): string[] {
   const { origins } = backendConfiguration();
   if (!origins) return [];
   const out = new Set<string>();
-  for (const url of [origins.data, origins.gateway, origins.metadata, origins.pnl, origins.stats, origins.livestream, origins.privateApi]) if (url) out.add(originOf(url));
+  for (const url of [
+    origins.data,
+    origins.gateway,
+    origins.metadata,
+    origins.pnl,
+    origins.stats,
+    origins.livestream,
+    origins.privateApi,
+  ])
+    if (url) out.add(originOf(url));
   return [...out];
 }

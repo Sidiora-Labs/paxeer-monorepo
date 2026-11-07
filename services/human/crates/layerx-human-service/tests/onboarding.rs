@@ -6,8 +6,8 @@ use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agent_api::agent_api_schema_v1;
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
 use layerx_agent_api::track::{EvidenceRef as AgentEvidenceRef, ReceiptRef, SubmissionRef};
-use layerx_agent_api::verify::Level;
 use layerx_agent_api::{SubmissionState, SubmissionState as AgentSubmissionState};
+use layerx_client::sequencer::ReceiptKeyEntry;
 use layerx_human_service::audit::{verify_export, AuditChain, IdentityEvent};
 use layerx_human_service::custody::{EnvelopeKms, Keystore};
 use layerx_human_service::onboarding::{
@@ -18,11 +18,11 @@ use layerx_human_service::onboarding::{
 use layerx_human_service::store::{PrincipalStore, TenancyDigest};
 use layerx_human_service::trace::TraceId;
 use layerx_intents::IntentKind;
-use layerx_proof::receipt::AuthorizedBatch;
 use layerx_sdk::{Client as AgentClient, Operation};
 use layerx_types::ids::Did;
 use layerx_types::intent::{ApprovalThreshold, RecoveryRoot};
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
+use layerx_types::rung::Rung;
 use sha2::{Digest as _, Sha256};
 
 use support::{directory, install_and_open, principal, retention_uniform, tenancy};
@@ -109,6 +109,7 @@ fn context(sequence: u64, timestamp: u64) -> AgentPreparationContext {
         AuthorityRef::new("custody:human-primary")
             .unwrap_or_else(|error| panic!("authority: {error:?}")),
         sequence,
+        sequence,
         timestamp,
         timestamp.saturating_add(30),
         10,
@@ -129,16 +130,19 @@ struct ReceiptFields {
 
 struct ReceiptFixture {
     bytes: Vec<u8>,
-    authorised: AuthorizedBatch,
+    receipt_key: ReceiptKeyEntry,
     activity_id: [u8; 32],
 }
 
 fn receipt(stage: ProtocolStage, marker: u8) -> ReceiptFixture {
+    let height = u64::from(marker);
+    let mut batch_id = [0; 32];
+    batch_id[24..].copy_from_slice(&height.to_be_bytes());
     let fields = ReceiptFields {
         activity_id: [marker; 32],
         previous_state_root: [marker.saturating_add(1); 32],
         resulting_state_root: [marker.saturating_add(2); 32],
-        batch_id: [marker.saturating_add(3); 32],
+        batch_id,
         asset: [0x71; 32],
         operation: match stage {
             ProtocolStage::DidRegistration => 1,
@@ -155,13 +159,12 @@ fn receipt(stage: ProtocolStage, marker: u8) -> ReceiptFixture {
     let bytes = encode_receipt(&fields, Some(signature.to_bytes()));
     ReceiptFixture {
         bytes,
-        authorised: AuthorizedBatch::new(
-            fields.batch_id,
-            fields.asset,
-            fields.previous_state_root,
-            fields.resulting_state_root,
-            signer.verifying_key().to_bytes(),
-        ),
+        receipt_key: ReceiptKeyEntry {
+            key_id: [0x94; 32],
+            public_key: signer.verifying_key().to_bytes(),
+            first_height: height,
+            last_height: height,
+        },
         activity_id: fields.activity_id,
     }
 }
@@ -234,9 +237,9 @@ fn tracked(
         Vec::new()
     };
     let rung = if evidence.is_empty() {
-        layerx_types::rung::Rung::Submitted
+        Rung::Submitted
     } else {
-        layerx_types::rung::Rung::Receipted
+        Rung::Receipted
     };
     layerx_agent_api::track::TrackedSubmission {
         submission_ref: SubmissionRef::new(submission)
@@ -293,7 +296,9 @@ fn complete_stage(
                     submission: &submission,
                     activity_id: receipt.activity_id,
                     receipt_bytes: &receipt.bytes,
-                    authorised_batch: &receipt.authorised,
+                    tx_hash: receipt.activity_id,
+                    rung: submission.rung,
+                    receipt_key: &receipt.receipt_key,
                 },
             },
             now,
@@ -555,7 +560,9 @@ fn tampered_or_wrong_operation_receipt_never_activates_account() {
                     submission: &submission,
                     activity_id: wrong.activity_id,
                     receipt_bytes: &wrong.bytes,
-                    authorised_batch: &wrong.authorised,
+                    tx_hash: wrong.activity_id,
+                    rung: submission.rung,
+                    receipt_key: &wrong.receipt_key,
                 },
             },
             203,
@@ -577,7 +584,9 @@ fn tampered_or_wrong_operation_receipt_never_activates_account() {
                     submission: &submission,
                     activity_id: tampered.activity_id,
                     receipt_bytes: &tampered.bytes,
-                    authorised_batch: &tampered.authorised,
+                    tx_hash: tampered.activity_id,
+                    rung: submission.rung,
+                    receipt_key: &tampered.receipt_key,
                 },
             },
             204,

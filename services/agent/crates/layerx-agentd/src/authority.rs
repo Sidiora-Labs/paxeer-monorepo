@@ -29,9 +29,71 @@ pub trait AuthorityResolver {
 }
 
 /// Bounded cache keyed by protocol authority.
-#[derive(Default)]
 pub struct AuthorityCache {
     entries: BTreeMap<Vec<u8>, AuthorityState>,
+    capacity: usize,
+}
+
+/// Default retention bound; callers may choose a smaller or larger explicit bound.
+pub const DEFAULT_AUTHORITY_CACHE_CAPACITY: usize = 1_024;
+
+impl Default for AuthorityCache {
+    fn default() -> Self {
+        Self::new(DEFAULT_AUTHORITY_CACHE_CAPACITY)
+    }
+}
+
+impl AuthorityCache {
+    /// Configures the maximum retained authorities. Zero disables retention.
+    #[must_use]
+    pub fn new(capacity: usize) -> Self {
+        Self {
+            entries: BTreeMap::new(),
+            capacity,
+        }
+    }
+
+    #[must_use]
+    pub const fn capacity(&self) -> usize {
+        self.capacity
+    }
+
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
+    fn prune(&mut self, core_sequence: u64, maximum_cache_age: u64) {
+        self.entries.retain(|_, state| {
+            !state.revoked
+                && state.valid_through_sequence >= core_sequence
+                && state.observed_sequence <= core_sequence
+                && core_sequence - state.observed_sequence <= maximum_cache_age
+        });
+    }
+
+    fn insert(&mut self, key: Vec<u8>, state: AuthorityState) {
+        if self.capacity == 0 || state.revoked {
+            return;
+        }
+        if self.entries.len() == self.capacity && !self.entries.contains_key(&key) {
+            // Oldest observation first; authority bytes break ties independently of access order.
+            let oldest = self
+                .entries
+                .iter()
+                .min_by_key(|(key, state)| (state.observed_sequence, *key))
+                .map(|(key, _)| key.clone());
+            if let Some(oldest) = oldest {
+                self.entries.remove(&oldest);
+            }
+        }
+        self.entries.insert(key, state);
+    }
 }
 
 /// Successful check returned with the exact protocol authority used.
@@ -69,17 +131,20 @@ pub fn resolve(
     maximum_cache_age: u64,
 ) -> Result<AuthorityState, AuthorityError> {
     let key = authority_key(authority);
-    if let Some(cached) = cache.entries.get(&key).cloned() {
+    if let Some(cached) = cache.entries.get(&key) {
         if cached.observed_sequence > core_sequence {
+            let observed = cached.observed_sequence;
             cache.entries.remove(&key);
+            cache.prune(core_sequence, maximum_cache_age);
             return Err(AuthorityError::SequenceRegression {
                 current: core_sequence,
-                observed: cached.observed_sequence,
+                observed,
             });
         }
-        if core_sequence - cached.observed_sequence <= maximum_cache_age {
-            return Ok(cached);
-        }
+    }
+    cache.prune(core_sequence, maximum_cache_age);
+    if let Some(cached) = cache.entries.get(&key) {
+        return Ok(cached.clone());
     }
     let current = resolver
         .authority_state(authority)?
@@ -91,7 +156,12 @@ pub fn resolve(
             observed: current.observed_sequence,
         });
     }
-    cache.entries.insert(key, current.clone());
+    if current.authority == *authority
+        && current.valid_through_sequence >= core_sequence
+        && core_sequence - current.observed_sequence <= maximum_cache_age
+    {
+        cache.insert(key, current.clone());
+    }
     Ok(current)
 }
 

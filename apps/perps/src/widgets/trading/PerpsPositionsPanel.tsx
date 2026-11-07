@@ -1,4 +1,14 @@
-import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { buildGetMarginTiers } from "@/core/perps/calls";
+import { getPublicClient } from "@/core/viem/clients";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  useMemo,
+  useSyncExternalStore,
+} from "react";
 import { cn } from "@/ui/utils/cn";
 import { Tabs, TabsContent } from "@/ui/atoms/tabs";
 import {
@@ -13,27 +23,45 @@ import { usePosition } from "@/hooks/perps/usePosition";
 import { usePerpsOrders } from "@/hooks/perps/usePerpsOrders";
 import { useQuoter } from "@/hooks/perps/useQuoter";
 import { writeContract, waitForTx } from "@/hooks/perps/useContract";
-import { PARTIAL_CLOSE_BPS, partialCloseAction, unitsFromIndexed } from "@/core/perps/positionActions";
-import { computePositionPnl, WAD, formatWadFixed, markPriceWad, parsePositionRow, wadToDecimal } from "@/core/perps/pnlHelpers";
 import {
-  subgraphQuery,
-  CLOSED_POSITIONS_QUERY,
-  ORDERS_QUERY,
-  ALL_ORDERS_V2_QUERY,
-  TRADES_QUERY,
-  LIQUIDATIONS_QUERY,
-  TPSL_ORDERS_QUERY,
-} from "@/hooks/perps/useSubgraph";
-import { PERPS_MARKETS, EXPLORER_URL, coinLogoUrl, ORDER_TYPE_LABELS, ORDER_TYPE_COLORS, COLLATERAL_TOKENS, POSITION_ACTION_COPY } from "@/core/perps/config";
+  PARTIAL_CLOSE_BPS,
+  partialCloseAction,
+  unitsFromIndexed,
+} from "@/core/perps/positionActions";
+import {
+  computePositionPnl,
+  WAD,
+  formatWadFixed,
+  markPriceWad,
+  parsePositionRow,
+  wadToDecimal,
+  type PositionRowInput,
+} from "@/core/perps/pnlHelpers";
+import {
+  EXPLORER_URL,
+  coinLogoUrl,
+  ORDER_TYPE_LABELS,
+  ORDER_TYPE_COLORS,
+  COLLATERAL_TOKENS,
+  POSITION_ACTION_COPY,
+} from "@/core/perps/config";
 import { ExternalLink, MoreHorizontal } from "lucide-react";
 import { IcoExclamation, IcoShare } from "@/ui/atoms/custom-icon";
 import { PnlShareCard, type PnlCardData } from "./PnlShareCard";
 import { PriceFlash } from "@/ui/atoms/PriceFlash";
-import { fmtUsdCompact as formatUsd, fmtDate as formatDate, fmtPrice as formatPrice, parse18, weiToNumber } from "@/ui/utils/format";
+import {
+  fmtUsdCompact as formatUsd,
+  fmtDate as formatDate,
+  fmtPrice as formatPrice,
+  parse18,
+  weiToNumber,
+} from "@/ui/utils/format";
 import { SetTpSlModal } from "./modals/SetTpSlModal";
 import { AdjustCollateralModal } from "./modals/AdjustCollateralModal";
 import { TopUpPositionModal } from "./modals/TopUpPositionModal";
 import { toastError } from "@/widgets/errors";
+import { marketLabel } from "@/core/perps/marketLabel";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import {
   usePortfolioStats,
@@ -44,8 +72,65 @@ import {
 import { subscribeStream } from "@/core/graphql/client";
 import { onStreamResync } from "@/core/net/realtime";
 import { INDEXER_GRAPHQL } from "@/core/perps/config";
+import { PositionsPanelData } from "./positionsPanelData";
 
-type TabKey = "positions" | "pending" | "tpsl" | "filled" | "pos-history" | "order-history" | "liquidation";
+export interface PositionTpSlTarget {
+  positionId: string;
+  entryPrice: number;
+  isLong: boolean;
+  markPrice: number;
+  size: number;
+}
+
+export function PositionTpSlModal({
+  target,
+  onClose,
+  onSuccess,
+}: {
+  target: PositionTpSlTarget | null;
+  onClose: () => void;
+  onSuccess: () => void;
+}) {
+  return target ? (
+    <SetTpSlModal
+      positionId={target.positionId}
+      currentSize={target.size}
+      currentEntryPrice={target.entryPrice}
+      isLong={target.isLong}
+      markPrice={target.markPrice}
+      onClose={onClose}
+      onSuccess={onSuccess}
+    />
+  ) : null;
+}
+
+export function PanelDataFailure({
+  label,
+  error,
+  onRetry,
+}: {
+  label: string;
+  error?: string;
+  onRetry: () => void;
+}) {
+  return error ? (
+    <div role="alert" className="p-3 text-sm">
+      {label} unavailable. Previously loaded rows may be stale. {error}{" "}
+      <button type="button" onClick={onRetry}>
+        Retry
+      </button>
+    </div>
+  ) : null;
+}
+
+type TabKey =
+  | "positions"
+  | "pending"
+  | "tpsl"
+  | "filled"
+  | "pos-history"
+  | "order-history"
+  | "liquidation";
 
 // ── Paxeer style tokens (shared across rows/cards/headers) ─────────────
 const PX_META_LABEL: React.CSSProperties = {
@@ -61,10 +146,6 @@ const PX_MONO: React.CSSProperties = {
   color: "var(--fg)",
   fontVariantNumeric: "tabular-nums",
 };
-
-function getMarketSymbol(marketId: number): string {
-  return PERPS_MARKETS.find((m) => m.marketId === marketId)?.symbol ?? `MKT-${marketId}`;
-}
 
 function EmptyState({ text }: { text: string }) {
   return (
@@ -84,18 +165,68 @@ function EmptyState({ text }: { text: string }) {
 }
 
 function tokenSymbol(addr: string): string {
-  const t = Object.values(COLLATERAL_TOKENS).find((c) => c.address.toLowerCase() === addr?.toLowerCase());
+  const t = Object.values(COLLATERAL_TOKENS).find(
+    (c) => c.address.toLowerCase() === addr?.toLowerCase(),
+  );
   return t?.symbol ?? "USD";
 }
 
-const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPrice, tpsl, onClose, isClosing }: {
-  pos: any; markPrice: number; tpsl?: { tp?: string; sl?: string };
-  onClose: (id: string) => void; isClosing: boolean;
-}) {
+interface MobilePositionCardProps {
+  getMarketSymbol: (marketId: number) => string;
+  pos: PositionRowInput & { positionId: string; marketId: number; openedAt: string };
+  markPrice: number;
+  tpsl?: { tp?: string; sl?: string };
+  onClose: (id: string) => void;
+  onSetTpsl: (target: PositionTpSlTarget) => void;
+  isClosing: boolean;
+}
+
+const MobilePositionCard = React.memo(function MobilePositionCard(
+  props: MobilePositionCardProps,
+) {
+  const { pos, markPrice, getMarketSymbol } = props;
   const symbol = getMarketSymbol(pos.marketId);
   const parsed = parsePositionRow(pos, symbol);
-  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice));
-  const pnlColor = pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () =>
+      getPublicClient().readContract(
+        buildGetMarginTiers(BigInt(parsed.marketId)),
+      ),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <div role={tiersError || tiers ? "alert" : "status"}>
+        {tiersError || tiers
+          ? "Market margin tiers unavailable. Please try again."
+          : "Loading market margin tiers…"}
+      </div>
+    );
+  }
+  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice), tiers);
+  return (
+    <MobilePositionCardContent {...props} parsed={parsed} pnlData={pnlData} />
+  );
+});
+
+export function MobilePositionCardContent({
+  pos,
+  markPrice,
+  tpsl,
+  onClose,
+  onSetTpsl,
+  isClosing,
+  getMarketSymbol,
+  parsed,
+  pnlData,
+}: MobilePositionCardProps & {
+  parsed: ReturnType<typeof parsePositionRow>;
+  pnlData: ReturnType<typeof computePositionPnl>;
+}) {
+  const symbol = getMarketSymbol(pos.marketId);
+  const pnlColor =
+    pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
 
   // Liquidation safety: 0 = dead, 1 = safe (bigint bps, display ratio only).
   const safety = Number(pnlData.liqSafetyBps) / 10_000;
@@ -120,13 +251,24 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
           style={{ width: 36, height: 36, borderRadius: 10, flexShrink: 0 }}
         />
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--fg)" }}>{symbol}/USD</span>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              flexWrap: "wrap",
+            }}
+          >
+            <span style={{ fontSize: 15, fontWeight: 500, color: "var(--fg)" }}>
+              {symbol}/USD
+            </span>
             <span
               style={{
                 padding: "2px 7px",
                 borderRadius: 4,
-                background: pos.isLong ? "rgba(5, 193, 104, 0.16)" : "rgba(255, 90, 101, 0.16)",
+                background: pos.isLong
+                  ? "rgba(5, 193, 104, 0.16)"
+                  : "rgba(255, 90, 101, 0.16)",
                 color: pos.isLong ? "var(--success)" : "var(--danger)",
                 fontFamily: "var(--font-mono)",
                 fontSize: 9,
@@ -134,7 +276,8 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
                 textTransform: "uppercase",
               }}
             >
-              {pos.isLong ? "Long" : "Short"} · {formatWadFixed(parsed.leverage, 0)}×
+              {pos.isLong ? "Long" : "Short"} ·{" "}
+              {formatWadFixed(parsed.leverage, 0)}×
             </span>
           </div>
           <div
@@ -146,7 +289,8 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
               letterSpacing: "0.04em",
             }}
           >
-            {formatUsd(wadToDecimal(parsed.sizeUsd))} · {formatDate(pos.openedAt)}
+            {formatUsd(wadToDecimal(parsed.sizeUsd))} ·{" "}
+            {formatDate(pos.openedAt)}
           </div>
         </div>
         <div style={{ textAlign: "right" }}>
@@ -172,7 +316,8 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
               fontVariantNumeric: "tabular-nums",
             }}
           >
-            {pnlData.roe >= 0n ? "▲" : "▼"} {formatWadFixed(pnlData.roe < 0n ? -pnlData.roe : pnlData.roe, 2)}%
+            {pnlData.roe >= 0n ? "▲" : "▼"}{" "}
+            {formatWadFixed(pnlData.roe < 0n ? -pnlData.roe : pnlData.roe, 2)}%
           </div>
         </div>
       </div>
@@ -183,7 +328,12 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
           className="flex justify-between"
           style={{ ...PX_META_LABEL, fontSize: 9, marginBottom: 6 }}
         >
-          <span>Liq {pnlData.liqPrice > 0n ? `$${formatPrice(weiToNumber(pnlData.liqPrice))}` : "—"}</span>
+          <span>
+            Liq{" "}
+            {pnlData.liqPrice > 0n
+              ? `$${formatPrice(weiToNumber(pnlData.liqPrice))}`
+              : "—"}
+          </span>
           <span>safety · {(safety * 100).toFixed(0)}%</span>
           <span>Mark {markPrice > 0 ? `$${formatPrice(markPrice)}` : "—"}</span>
         </div>
@@ -207,8 +357,8 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
                 safety > 0.6
                   ? "linear-gradient(90deg, var(--danger), var(--warning), var(--success))"
                   : safety > 0.3
-                  ? "linear-gradient(90deg, var(--danger), var(--warning))"
-                  : "var(--danger)",
+                    ? "linear-gradient(90deg, var(--danger), var(--warning))"
+                    : "var(--danger)",
               transition: "width 400ms",
             }}
           />
@@ -228,18 +378,31 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
       </div>
 
       {/* Metrics grid — Entry, Net value, Collateral */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, paddingTop: 4 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(3, 1fr)",
+          gap: 8,
+          paddingTop: 4,
+        }}
+      >
         <div>
           <div style={PX_META_LABEL}>Entry</div>
-          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>${formatPrice(weiToNumber(parsed.entryPrice))}</div>
+          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>
+            ${formatPrice(weiToNumber(parsed.entryPrice))}
+          </div>
         </div>
         <div>
           <div style={PX_META_LABEL}>Net value</div>
-          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>{formatUsd(wadToDecimal(pnlData.netValue))}</div>
+          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>
+            {formatUsd(wadToDecimal(pnlData.netValue))}
+          </div>
         </div>
         <div>
           <div style={PX_META_LABEL}>Collateral</div>
-          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>{formatUsd(wadToDecimal(pnlData.initialCollateral))}</div>
+          <div style={{ ...PX_MONO, fontSize: 12, marginTop: 3 }}>
+            {formatUsd(wadToDecimal(pnlData.initialCollateral))}
+          </div>
         </div>
       </div>
 
@@ -257,15 +420,31 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
             letterSpacing: "0.04em",
           }}
         >
-          {tpsl.tp && <span style={{ color: "var(--success)" }}>TP {formatUsd(parse18(tpsl.tp))}</span>}
-          {tpsl.sl && <span style={{ color: "var(--danger)" }}>SL {formatUsd(parse18(tpsl.sl))}</span>}
+          {tpsl.tp && (
+            <span style={{ color: "var(--success)" }}>
+              TP {formatUsd(parse18(tpsl.tp))}
+            </span>
+          )}
+          {tpsl.sl && (
+            <span style={{ color: "var(--danger)" }}>
+              SL {formatUsd(parse18(tpsl.sl))}
+            </span>
+          )}
         </div>
       )}
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 6 }}>
         <button
-          onClick={() => {}}
+          onClick={() =>
+            onSetTpsl({
+              positionId: pos.positionId,
+              entryPrice: weiToNumber(parsed.entryPrice),
+              isLong: pos.isLong,
+              markPrice,
+              size: weiToNumber(parsed.sizeUsd),
+            })
+          }
           style={{
             flex: 1,
             padding: 8,
@@ -303,28 +482,63 @@ const MobilePositionCard = React.memo(function MobilePositionCard({ pos, markPri
       </div>
     </div>
   );
-});
+}
 
 /* ── Desktop position row (memoized; only re-renders on its own props) ── */
 interface DesktopPositionRowProps {
+  getMarketSymbol: (marketId: number) => string;
   pos: any;
   markPrice: number;
   tpsl?: { tp?: string; sl?: string };
   closingId: string | null;
   onShare: (data: PnlCardData) => void;
-  onSetTpsl: (t: { positionId: string; entryPrice: number; isLong: boolean; markPrice: number; size: number }) => void;
-  onAdjust: (t: { positionId: string; mode: "add" | "remove" | "addSize"; collateral: number; size: number; leverage: number }) => void;
+  onSetTpsl: (target: PositionTpSlTarget) => void;
+  onAdjust: (t: {
+    positionId: string;
+    mode: "add" | "remove" | "addSize";
+    collateral: number;
+    size: number;
+    leverage: number;
+  }) => void;
   onTopUp: (positionId: string) => void;
   onClose: (positionId: string) => void;
   onPartialClose: (positionId: string, bps: number) => void;
 }
 const DesktopPositionRow = React.memo(function DesktopPositionRow({
-  pos, markPrice, tpsl, closingId,
-  onShare, onSetTpsl, onAdjust, onTopUp, onClose, onPartialClose,
+  pos,
+  markPrice,
+  tpsl,
+  closingId,
+  getMarketSymbol,
+  onShare,
+  onSetTpsl,
+  onAdjust,
+  onTopUp,
+  onClose,
+  onPartialClose,
 }: DesktopPositionRowProps) {
   const symbol = getMarketSymbol(pos.marketId);
   const parsed = parsePositionRow(pos, symbol);
-  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice));
+  const { data: tiers, isError: tiersError } = useQuery({
+    queryKey: ["perps", "marginTiers", parsed.marketId],
+    queryFn: () =>
+      getPublicClient().readContract(
+        buildGetMarginTiers(BigInt(parsed.marketId)),
+      ),
+    staleTime: 60_000,
+  });
+  if (!tiers?.length) {
+    return (
+      <tr>
+        <td colSpan={13} role={tiersError || tiers ? "alert" : "status"}>
+          {tiersError || tiers
+            ? "Market margin tiers unavailable. Please try again."
+            : "Loading market margin tiers…"}
+        </td>
+      </tr>
+    );
+  }
+  const pnlData = computePositionPnl(parsed, markPriceWad(markPrice), tiers);
   const marginPct = pnlData.marginPct;
   // The TP/SL and adjust modals take display numbers; the PnL math above stays in bigint.
   const entryPrice = weiToNumber(parsed.entryPrice);
@@ -333,10 +547,15 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
   const collateralUsd = weiToNumber(parsed.collateralUsd);
 
   const sideColor = pos.isLong ? "var(--success)" : "var(--danger)";
-  const pnlColor = pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
+  const pnlColor =
+    pnlData.unrealizedPnl >= 0n ? "var(--success)" : "var(--danger)";
   const roeColor = pnlData.roe >= 0n ? "var(--success)" : "var(--danger)";
   const marginColor =
-    marginPct > 10n * WAD ? "var(--success)" : marginPct > 5n * WAD ? "var(--warning)" : "var(--danger)";
+    marginPct > 10n * WAD
+      ? "var(--success)"
+      : marginPct > 5n * WAD
+        ? "var(--warning)"
+        : "var(--danger)";
 
   const cellBase: React.CSSProperties = {
     padding: "8px 12px",
@@ -368,35 +587,73 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
     >
       <td style={cellBase}>
         <div className="flex items-center gap-1.5">
-          <img src={coinLogoUrl(symbol)} alt={symbol} className="w-4 h-4 rounded-full" />
-          <span style={{ color: "var(--fg)", fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500 }}>
+          <img
+            src={coinLogoUrl(symbol)}
+            alt={symbol}
+            className="w-4 h-4 rounded-full"
+          />
+          <span
+            style={{
+              color: "var(--fg)",
+              fontFamily: "var(--font-body)",
+              fontSize: 12,
+              fontWeight: 500,
+            }}
+          >
             {symbol}/USD
           </span>
-          <span style={{ color: "var(--fg-subtle)", fontSize: 9, letterSpacing: "0.04em" }}>
+          <span
+            style={{
+              color: "var(--fg-subtle)",
+              fontSize: 9,
+              letterSpacing: "0.04em",
+            }}
+          >
             {formatWadFixed(parsed.leverage, 0)}×
           </span>
         </div>
       </td>
-      <td style={{ ...cellBase, color: sideColor, textTransform: "uppercase", letterSpacing: "0.08em", fontWeight: 600, fontSize: 10 }}>
+      <td
+        style={{
+          ...cellBase,
+          color: sideColor,
+          textTransform: "uppercase",
+          letterSpacing: "0.08em",
+          fontWeight: 600,
+          fontSize: 10,
+        }}
+      >
         {pos.isLong ? "Long" : "Short"}
       </td>
       <td style={cellRight}>{formatUsd(wadToDecimal(parsed.sizeUsd))}</td>
       <td style={cellRight}>
         <div>{formatUsd(wadToDecimal(pnlData.initialCollateral))}</div>
-        <div style={{ fontSize: 9, color: "var(--fg-subtle)", letterSpacing: "0.04em" }}>
+        <div
+          style={{
+            fontSize: 9,
+            color: "var(--fg-subtle)",
+            letterSpacing: "0.04em",
+          }}
+        >
           {tokenSymbol(pos.collateralToken)}
         </div>
       </td>
       <td style={cellRight}>${formatPrice(weiToNumber(parsed.entryPrice))}</td>
       <td style={cellRight}>
         {markPrice > 0 ? (
-          <PriceFlash value={markPrice}>{`$${formatPrice(markPrice)}`}</PriceFlash>
+          <PriceFlash
+            value={markPrice}
+          >{`$${formatPrice(markPrice)}`}</PriceFlash>
         ) : (
-          <span className="animate-pulse" style={{ color: "var(--fg-subtle)" }}>…</span>
+          <span className="animate-pulse" style={{ color: "var(--fg-subtle)" }}>
+            …
+          </span>
         )}
       </td>
       <td style={{ ...cellRight, color: "var(--danger)" }}>
-        {pnlData.liqPrice > 0n ? `$${formatPrice(weiToNumber(pnlData.liqPrice))}` : "—"}
+        {pnlData.liqPrice > 0n
+          ? `$${formatPrice(weiToNumber(pnlData.liqPrice))}`
+          : "—"}
       </td>
       <td style={{ ...cellRight, color: pnlColor, fontWeight: 600 }}>
         {pnlData.unrealizedPnl >= 0n ? "+" : ""}
@@ -407,21 +664,38 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
         {formatWadFixed(pnlData.roe, 2)}%
       </td>
       <td style={cellRight}>{formatUsd(wadToDecimal(pnlData.netValue))}</td>
-      <td style={{ ...cellRight, color: marginColor }}>{formatWadFixed(marginPct, 2)}%</td>
+      <td style={{ ...cellRight, color: marginColor }}>
+        {formatWadFixed(marginPct, 2)}%
+      </td>
       <td style={{ ...cellBase, textAlign: "center" }}>
         {tpsl ? (
           <div
             className="flex flex-col items-center"
-            style={{ gap: 2, fontFamily: "var(--font-mono)", fontSize: 9, letterSpacing: "0.04em" }}
+            style={{
+              gap: 2,
+              fontFamily: "var(--font-mono)",
+              fontSize: 9,
+              letterSpacing: "0.04em",
+            }}
           >
-            {tpsl.tp && <span style={{ color: "var(--success)" }}>TP {formatUsd(parse18(tpsl.tp))}</span>}
-            {tpsl.sl && <span style={{ color: "var(--danger)" }}>SL {formatUsd(parse18(tpsl.sl))}</span>}
+            {tpsl.tp && (
+              <span style={{ color: "var(--success)" }}>
+                TP {formatUsd(parse18(tpsl.tp))}
+              </span>
+            )}
+            {tpsl.sl && (
+              <span style={{ color: "var(--danger)" }}>
+                SL {formatUsd(parse18(tpsl.sl))}
+              </span>
+            )}
           </div>
         ) : (
           <span style={{ color: "var(--fg-subtle)" }}>—</span>
         )}
       </td>
-      <td style={{ ...cellRight, color: "var(--fg-subtle)" }}>{formatDate(pos.openedAt)}</td>
+      <td style={{ ...cellRight, color: "var(--fg-subtle)" }}>
+        {formatDate(pos.openedAt)}
+      </td>
       <td style={cellRight}>
         <div className="flex items-center justify-end gap-1">
           <button
@@ -462,13 +736,43 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onAdjust({ positionId: pos.positionId, mode: "add", collateral: collateralUsd, size: sizeUsd, leverage })}>
+              <DropdownMenuItem
+                onClick={() =>
+                  onAdjust({
+                    positionId: pos.positionId,
+                    mode: "add",
+                    collateral: collateralUsd,
+                    size: sizeUsd,
+                    leverage,
+                  })
+                }
+              >
                 {POSITION_ACTION_COPY.addCollateral}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAdjust({ positionId: pos.positionId, mode: "remove", collateral: collateralUsd, size: sizeUsd, leverage })}>
+              <DropdownMenuItem
+                onClick={() =>
+                  onAdjust({
+                    positionId: pos.positionId,
+                    mode: "remove",
+                    collateral: collateralUsd,
+                    size: sizeUsd,
+                    leverage,
+                  })
+                }
+              >
                 {POSITION_ACTION_COPY.removeCollateral}
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => onAdjust({ positionId: pos.positionId, mode: "addSize", collateral: collateralUsd, size: sizeUsd, leverage })}>
+              <DropdownMenuItem
+                onClick={() =>
+                  onAdjust({
+                    positionId: pos.positionId,
+                    mode: "addSize",
+                    collateral: collateralUsd,
+                    size: sizeUsd,
+                    leverage,
+                  })
+                }
+              >
                 {POSITION_ACTION_COPY.addSize}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onTopUp(pos.positionId)}>
@@ -506,6 +810,7 @@ const DesktopPositionRow = React.memo(function DesktopPositionRow({
 
 /* ── Shared order table (extracted so memoization actually works) ── */
 interface OrderTableProps {
+  getMarketSymbol: (marketId: number) => string;
   orders: any[];
   showCancel?: boolean;
   cancellingId: string | null;
@@ -528,7 +833,13 @@ const PX_TD_BASE: React.CSSProperties = {
 };
 const PX_TD_RIGHT: React.CSSProperties = { ...PX_TD_BASE, textAlign: "right" };
 
-const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancellingId, onCancelOrder }: OrderTableProps) {
+const OrderTable = React.memo(function OrderTable({
+  orders,
+  showCancel,
+  cancellingId,
+  onCancelOrder,
+  getMarketSymbol,
+}: OrderTableProps) {
   const smallBtn: React.CSSProperties = {
     padding: "3px 8px",
     borderRadius: 6,
@@ -558,25 +869,30 @@ const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancelli
         <tbody>
           {orders.map((order: any) => {
             const symbol = getMarketSymbol(order.marketId);
-            const typeLabel = order.orderTypeName || ORDER_TYPE_LABELS[order.orderType] || `Type ${order.orderType}`;
+            const typeLabel =
+              order.orderTypeName ||
+              ORDER_TYPE_LABELS[order.orderType] ||
+              `Type ${order.orderType}`;
             const typeColor = ORDER_TYPE_COLORS[order.orderType] || "";
-            const isActive = order.status === "pending" || order.status === "active";
+            const isActive =
+              order.status === "pending" || order.status === "active";
             const sideColor = order.isLong ? "var(--success)" : "var(--danger)";
-            const statusFilled = order.status === "filled" || order.status === "executed";
+            const statusFilled =
+              order.status === "filled" || order.status === "executed";
             const statusBg = statusFilled
               ? "rgba(5, 193, 104, 0.1)"
               : order.status === "failed"
-              ? "rgba(255, 90, 101, 0.1)"
-              : order.status === "cancelled"
-              ? "var(--bg-subtle)"
-              : "rgba(255, 158, 44, 0.1)";
+                ? "rgba(255, 90, 101, 0.1)"
+                : order.status === "cancelled"
+                  ? "var(--bg-subtle)"
+                  : "rgba(255, 158, 44, 0.1)";
             const statusFg = statusFilled
               ? "var(--success)"
               : order.status === "failed"
-              ? "var(--danger)"
-              : order.status === "cancelled"
-              ? "var(--fg-subtle)"
-              : "var(--warning)";
+                ? "var(--danger)"
+                : order.status === "cancelled"
+                  ? "var(--fg-subtle)"
+                  : "var(--warning)";
             return (
               <tr
                 key={order.orderId}
@@ -585,11 +901,30 @@ const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancelli
               >
                 <td style={PX_TD_BASE}>
                   <div className="flex items-center gap-1.5">
-                    <img src={coinLogoUrl(symbol)} alt={symbol} className="w-4 h-4 rounded-full" />
-                    <span style={{ fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500 }}>{symbol}/USD</span>
+                    <img
+                      src={coinLogoUrl(symbol)}
+                      alt={symbol}
+                      className="w-4 h-4 rounded-full"
+                    />
+                    <span
+                      style={{
+                        fontFamily: "var(--font-body)",
+                        fontSize: 12,
+                        fontWeight: 500,
+                      }}
+                    >
+                      {symbol}/USD
+                    </span>
                   </div>
                 </td>
-                <td className={cn(typeColor)} style={{ ...PX_TD_BASE, fontFamily: "var(--font-body)", fontSize: 12 }}>
+                <td
+                  className={cn(typeColor)}
+                  style={{
+                    ...PX_TD_BASE,
+                    fontFamily: "var(--font-body)",
+                    fontSize: 12,
+                  }}
+                >
                   {typeLabel}
                 </td>
                 <td
@@ -604,7 +939,9 @@ const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancelli
                 >
                   {order.isLong ? "Long" : "Short"}
                 </td>
-                <td style={PX_TD_RIGHT}>{formatUsd(parse18(order.triggerPrice))}</td>
+                <td style={PX_TD_RIGHT}>
+                  {formatUsd(parse18(order.triggerPrice))}
+                </td>
                 <td style={PX_TD_RIGHT}>{formatUsd(parse18(order.sizeUsd))}</td>
                 <td style={PX_TD_BASE}>
                   <div className="flex items-center gap-1">
@@ -642,7 +979,10 @@ const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancelli
                         color: "var(--danger)",
                         borderColor: "rgba(255, 90, 101, 0.3)",
                         opacity: cancellingId === order.orderId ? 0.5 : 1,
-                        cursor: cancellingId === order.orderId ? "not-allowed" : "pointer",
+                        cursor:
+                          cancellingId === order.orderId
+                            ? "not-allowed"
+                            : "pointer",
                       }}
                     >
                       {cancellingId === order.orderId ? "…" : "Cancel"}
@@ -667,8 +1007,51 @@ const OrderTable = React.memo(function OrderTable({ orders, showCancel, cancelli
   );
 });
 
+export function positionMarketLabels(
+  catalog: ReturnType<typeof usePerpsMarkets>["catalog"],
+) {
+  return catalog.map((market) => ({
+    ...market,
+    marketId: BigInt(market.marketId),
+  }));
+}
+
+export async function quotePanelPartialClose(
+  input: Parameters<typeof partialCloseAction>[0],
+  quoter = useQuoter(),
+) {
+  const action = partialCloseAction(input);
+  const quote = await quoter.quotePartialClose(
+    input.positionId,
+    action.closeSizeUsd,
+  );
+  return action.call(quote.exitPrice);
+}
+
 export function PerpsPositionsPanel() {
   const { address, isConnected } = usePerpsWallet();
+  return (
+    <WalletPositionsPanel
+      key={isConnected ? address?.toLowerCase() : "disconnected"}
+      address={isConnected ? address ?? undefined : undefined}
+      isConnected={isConnected}
+    />
+  );
+}
+
+function WalletPositionsPanel({
+  address,
+  isConnected,
+}: {
+  address: `0x${string}` | undefined;
+  isConnected: boolean;
+}) {
+  const { catalog } = usePerpsMarkets();
+  const labels = useMemo(() => positionMarketLabels(catalog), [catalog]);
+  const getMarketSymbol = useCallback(
+    (marketId: number) => marketLabel(BigInt(marketId), labels),
+    [labels],
+  );
   const isMobile = useIsMobile();
   const positionHook = usePosition();
   const ordersHook = usePerpsOrders();
@@ -682,13 +1065,25 @@ export function PerpsPositionsPanel() {
 
   const portfolioStats = usePortfolioStats();
   const [tab, setTab] = useState<TabKey>("positions");
-  const [allOrders, setAllOrders] = useState<any[]>([]);
-  const [closedPositions, setClosedPositions] = useState<any[]>([]);
-  const [trades, setTrades] = useState<any[]>([]);
-  const [liquidations, setLiquidations] = useState<any[]>([]);
-  const [tpslMap, setTpslMap] = useState<Record<string, { tp?: string; sl?: string }>>({});
+  const [data] = useState(() => new PositionsPanelData(address));
+  const {
+    allOrders,
+    closedPositions,
+    liquidations,
+    tpslMap,
+    errors,
+    loading,
+  } = useSyncExternalStore(data.subscribe, data.getSnapshot, data.getSnapshot);
   const { tickers } = useRealtimePrices();
-  const [loading, setLoading] = useState(false);
+  const active = useRef(false);
+  useEffect(() => {
+    active.current = true;
+    data.open();
+    return () => {
+      active.current = false;
+      data.close();
+    };
+  }, [data]);
   const [closingId, setClosingId] = useState<string | null>(null);
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [shareCard, setShareCard] = useState<PnlCardData | null>(null);
@@ -696,65 +1091,33 @@ export function PerpsPositionsPanel() {
   // (Closed-position optimism lives in the usePortfolioStats singleton so it
   // persists across page navigations and hard reloads — see
   // markPositionLocallyClosed in @/hooks/perps/usePortfolioStats.)
-  const [optimisticCancelled, setOptimisticCancelled] = useState<Set<string>>(() => new Set());
+  const [optimisticCancelled, setOptimisticCancelled] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   // Modal state for position actions
-  const [tpslTarget, setTpslTarget] = useState<{ positionId: string; entryPrice: number; isLong: boolean; markPrice: number; size: number } | null>(null);
-  const [adjustTarget, setAdjustTarget] = useState<{ positionId: string; mode: "add" | "remove" | "addSize"; collateral: number; size: number; leverage: number } | null>(null);
+  const [tpslTarget, setTpslTarget] = useState<PositionTpSlTarget | null>(null);
+  const [adjustTarget, setAdjustTarget] = useState<{
+    positionId: string;
+    mode: "add" | "remove" | "addSize";
+    collateral: number;
+    size: number;
+    leverage: number;
+  } | null>(null);
   const [topUpTarget, setTopUpTarget] = useState<string | null>(null);
 
-  // Fetch live subgraph data: pending orders + TP/SL only (10 s)
-  // Open positions come from usePortfolioStats singleton (already polling at 5 s)
-  const fetchData = useCallback(async () => {
-    if (!address) return;
-    setLoading(true);
-    try {
-      const [ordData, tpslData] = await Promise.allSettled([
-        subgraphQuery<{ orders: any[] }>(ALL_ORDERS_V2_QUERY, { userAddress: address, limit: 100 }),
-        subgraphQuery<{ takeProfits: any[]; stopLosses: any[] }>(TPSL_ORDERS_QUERY, { userAddress: address }),
-      ]);
-      if (ordData.status === "fulfilled") setAllOrders(ordData.value.orders ?? []);
-      if (tpslData.status === "fulfilled") {
-        const map: Record<string, { tp?: string; sl?: string }> = {};
-        for (const tp of tpslData.value.takeProfits ?? []) {
-          if (tp.positionId) {
-            if (!map[tp.positionId]) map[tp.positionId] = {};
-            map[tp.positionId].tp = tp.triggerPrice;
-          }
-        }
-        for (const sl of tpslData.value.stopLosses ?? []) {
-          if (sl.positionId) {
-            if (!map[sl.positionId]) map[sl.positionId] = {};
-            map[sl.positionId].sl = sl.triggerPrice;
-          }
-        }
-        setTpslMap(map);
-      }
-    } catch (err) {
-      console.error("Failed to fetch positions data:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [address]);
-
-  // Fetch historical data once on mount (closed positions, trades, liquidations)
-  const fetchHistoryData = useCallback(async () => {
-    if (!address) return;
-    try {
-      const [histData, tradesData, liqData] = await Promise.allSettled([
-        subgraphQuery<{ positions: any[] }>(CLOSED_POSITIONS_QUERY, { userAddress: address, limit: 50 }),
-        subgraphQuery<{ trades: any[] }>(TRADES_QUERY, { userAddress: address, limit: 50 }),
-        subgraphQuery<{ liquidations: any[] }>(LIQUIDATIONS_QUERY, { userAddress: address, limit: 50 }),
-      ]);
-      if (histData.status === "fulfilled") setClosedPositions(histData.value.positions ?? []);
-      if (tradesData.status === "fulfilled") setTrades(tradesData.value.trades ?? []);
-      if (liqData.status === "fulfilled") setLiquidations(liqData.value.liquidations ?? []);
-    } catch {}
-  }, [address]);
+  const fetchData = data.refreshLive;
+  const fetchHistoryData = data.refreshHistory;
 
   // Live orders: fetch once on address change, then re-fetch on every
   // orderChanged push from the indexer subscription instead of polling.
-  useEffect(() => onStreamResync(url => { if (url === INDEXER_GRAPHQL.wsUrl && address) void fetchData(); }), [address, fetchData]);
+  useEffect(
+    () =>
+      onStreamResync((url) => {
+        if (url === INDEXER_GRAPHQL.wsUrl && address) void fetchData();
+      }),
+    [address, fetchData],
+  );
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -765,7 +1128,10 @@ export function PerpsPositionsPanel() {
       endpoint: INDEXER_GRAPHQL,
       query: /* GraphQL */ `
         subscription OrderChanged($userAddress: String!) {
-          orderChanged(userAddress: $userAddress) { orderId status }
+          orderChanged(userAddress: $userAddress) {
+            orderId
+            status
+          }
         }
       `,
       variables: { userAddress: address },
@@ -781,21 +1147,36 @@ export function PerpsPositionsPanel() {
   // so consume them directly here.
   const visiblePositions = portfolioStats.positions;
 
-  const pendingOrders = useMemo(() => allOrders.filter((o: any) =>
-    (o.status === "pending" || o.status === "active")
-    && o.orderType !== 2 && o.orderType !== 3
-    && !optimisticCancelled.has(o.orderId)
-  ), [allOrders, optimisticCancelled]);
+  const pendingOrders = useMemo(
+    () =>
+      allOrders.filter(
+        (o: any) =>
+          (o.status === "pending" || o.status === "active") &&
+          o.orderType !== 2 &&
+          o.orderType !== 3 &&
+          !optimisticCancelled.has(o.orderId),
+      ),
+    [allOrders, optimisticCancelled],
+  );
 
-  const tpslOrders = useMemo(() => allOrders.filter((o: any) =>
-    (o.status === "pending" || o.status === "active")
-    && (o.orderType === 2 || o.orderType === 3)
-    && !optimisticCancelled.has(o.orderId)
-  ), [allOrders, optimisticCancelled]);
+  const tpslOrders = useMemo(
+    () =>
+      allOrders.filter(
+        (o: any) =>
+          (o.status === "pending" || o.status === "active") &&
+          (o.orderType === 2 || o.orderType === 3) &&
+          !optimisticCancelled.has(o.orderId),
+      ),
+    [allOrders, optimisticCancelled],
+  );
 
-  const filledOrders = useMemo(() => allOrders.filter((o: any) =>
-    o.status === "filled" || o.status === "executed"
-  ), [allOrders]);
+  const filledOrders = useMemo(
+    () =>
+      allOrders.filter(
+        (o: any) => o.status === "filled" || o.status === "executed",
+      ),
+    [allOrders],
+  );
 
   // Reconciliation for locally-closed positions is now handled inside the
   // usePortfolioStats singleton (see _reconcileLocallyClosed). The
@@ -804,13 +1185,15 @@ export function PerpsPositionsPanel() {
     if (optimisticCancelled.size === 0) return;
     // Treat an order as "still pending" only if its status is pending/active.
     const stillPending = new Set(
-      allOrders.filter((o: any) => o.status === "pending" || o.status === "active")
-        .map((o: any) => o.orderId)
+      allOrders
+        .filter((o: any) => o.status === "pending" || o.status === "active")
+        .map((o: any) => o.orderId),
     );
     let changed = false;
     const next = new Set<string>();
     optimisticCancelled.forEach((id) => {
-      if (stillPending.has(id)) next.add(id); else changed = true;
+      if (stillPending.has(id)) next.add(id);
+      else changed = true;
     });
     if (changed) setOptimisticCancelled(next);
   }, [allOrders, optimisticCancelled]);
@@ -819,78 +1202,106 @@ export function PerpsPositionsPanel() {
   // list to refetch (with backoff retries) so closed/changed rows disappear
   // immediately instead of waiting for the WS positionChanged push.
   const refreshAll = useCallback(() => {
+    if (!active.current) return;
     fetchData();
     refreshPositions();
   }, [fetchData]);
 
-  const handleClose = useCallback(async (positionId: string) => {
-    setClosingId(positionId);
-    // Optimistically hide the row globally (perps + portfolio panels). The
-    // singleton persists this across page navigations and reloads until the
-    // indexer drops the position from its result.
-    markPositionLocallyClosed(positionId);
-    try {
-      await positionRef.current.closePosition(BigInt(positionId));
-      refreshAll();
-    } catch (err) {
-      // Roll back: surface the row again so the user can retry.
-      unmarkPositionLocallyClosed(positionId);
-      toastError(err, {
-        context: "position/close",
-        titleOverride: "Failed to close position",
-        onRetry: () => { void handleClose(positionId); },
-      });
-    } finally {
-      setClosingId(null);
-    }
-  }, [refreshAll]);
+  const handleClose = useCallback(
+    async (positionId: string) => {
+      setClosingId(positionId);
+      // Optimistically hide the row globally (perps + portfolio panels). The
+      // singleton persists this across page navigations and reloads until the
+      // indexer drops the position from its result.
+      markPositionLocallyClosed(positionId);
+      try {
+        await positionRef.current.closePosition(BigInt(positionId));
+        refreshAll();
+      } catch (err) {
+        if (!active.current) return;
+        // Roll back: surface the row again so the user can retry.
+        unmarkPositionLocallyClosed(positionId);
+        toastError(err, {
+          context: "position/close",
+          titleOverride: "Failed to close position",
+          onRetry: () => {
+            void handleClose(positionId);
+          },
+        });
+      } finally {
+        setClosingId(null);
+      }
+    },
+    [refreshAll],
+  );
 
-  const handlePartialClose = useCallback(async (positionId: string, bps: number) => {
-    const pos = portfolioStats.positions.find((p: any) => p.positionId === positionId);
-    if (!pos) return;
-    setClosingId(positionId);
-    try {
-      const action = partialCloseAction({
-        positionId: BigInt(positionId),
-        isLong: pos.isLong,
-        sizeUsd: unitsFromIndexed(pos.sizeUsd),
-        bps,
-      });
-      const quote = await quoterRef.current.quotePartialClose(BigInt(positionId), action.closeSizeUsd);
-      await waitForTx(await writeContract(action.call(quote.exitPrice)));
-      refreshAll();
-    } catch (err) {
-      toastError(err, {
-        context: "position/partial-close",
-        titleOverride: "Failed to partially close position",
-        onRetry: () => { void handlePartialClose(positionId, bps); },
-      });
-    } finally {
-      setClosingId(null);
-    }
-  }, [portfolioStats.positions, refreshAll]);
+  const handlePartialClose = useCallback(
+    async (positionId: string, bps: number) => {
+      const pos = portfolioStats.positions.find(
+        (p: any) => p.positionId === positionId,
+      );
+      if (!pos) return;
+      setClosingId(positionId);
+      try {
+        const call = await quotePanelPartialClose(
+          {
+            positionId: BigInt(positionId),
+            isLong: pos.isLong,
+            sizeUsd: unitsFromIndexed(pos.sizeUsd),
+            bps,
+          },
+          quoterRef.current,
+        );
+        if (!active.current) return;
+        await waitForTx(await writeContract(call));
+        refreshAll();
+      } catch (err) {
+        if (!active.current) return;
+        toastError(err, {
+          context: "position/partial-close",
+          titleOverride: "Failed to partially close position",
+          onRetry: () => {
+            void handlePartialClose(positionId, bps);
+          },
+        });
+      } finally {
+        setClosingId(null);
+      }
+    },
+    [portfolioStats.positions, refreshAll],
+  );
 
-  const handleCancelOrder = useCallback(async (orderId: string) => {
-    setCancellingId(orderId);
-    setOptimisticCancelled((prev) => {
-      const n = new Set(prev); n.add(orderId); return n;
-    });
-    try {
-      await ordersRef.current.cancelOrder(BigInt(orderId));
-      refreshAll();
-    } catch (err) {
+  const handleCancelOrder = useCallback(
+    async (orderId: string) => {
+      setCancellingId(orderId);
       setOptimisticCancelled((prev) => {
-        const n = new Set(prev); n.delete(orderId); return n;
+        const n = new Set(prev);
+        n.add(orderId);
+        return n;
       });
-      toastError(err, {
-        context: "order/cancel",
-        titleOverride: "Failed to cancel order",
-        onRetry: () => { void handleCancelOrder(orderId); },
-      });
-    } finally {
-      setCancellingId(null);
-    }
-  }, [refreshAll]);
+      try {
+        await ordersRef.current.cancelOrder(BigInt(orderId));
+        refreshAll();
+      } catch (err) {
+        if (!active.current) return;
+        setOptimisticCancelled((prev) => {
+          const n = new Set(prev);
+          n.delete(orderId);
+          return n;
+        });
+        toastError(err, {
+          context: "order/cancel",
+          titleOverride: "Failed to cancel order",
+          onRetry: () => {
+            void handleCancelOrder(orderId);
+          },
+        });
+      } finally {
+        setCancellingId(null);
+      }
+    },
+    [refreshAll],
+  );
 
   if (!isConnected) {
     return (
@@ -920,15 +1331,25 @@ export function PerpsPositionsPanel() {
             paddingLeft: 4,
           }}
         >
-          {([
-            { value: "positions", label: "Positions", count: visiblePositions.length },
-            { value: "pending", label: "Pending", count: pendingOrders.length },
-            { value: "tpsl", label: "TP/SL", count: tpslOrders.length },
-            { value: "filled", label: "Filled", count: filledOrders.length },
-            { value: "pos-history", label: "Position History" },
-            { value: "order-history", label: "Order History" },
-            { value: "liquidation", label: "Liquidation" },
-          ] as { value: TabKey; label: string; count?: number }[]).map((t) => {
+          {(
+            [
+              {
+                value: "positions",
+                label: "Positions",
+                count: visiblePositions.length,
+              },
+              {
+                value: "pending",
+                label: "Pending",
+                count: pendingOrders.length,
+              },
+              { value: "tpsl", label: "TP/SL", count: tpslOrders.length },
+              { value: "filled", label: "Filled", count: filledOrders.length },
+              { value: "pos-history", label: "Position History" },
+              { value: "order-history", label: "Order History" },
+              { value: "liquidation", label: "Liquidation" },
+            ] as { value: TabKey; label: string; count?: number }[]
+          ).map((t) => {
             const active = tab === t.value;
             return (
               <button
@@ -961,7 +1382,9 @@ export function PerpsPositionsPanel() {
                         background: active
                           ? "rgba(var(--accent-solid-rgb), 0.18)"
                           : "var(--bg-subtle)",
-                        color: active ? "var(--color-blue-200)" : "var(--fg-muted)",
+                        color: active
+                          ? "var(--color-blue-200)"
+                          : "var(--fg-muted)",
                         fontFamily: "var(--font-mono)",
                         fontSize: 9,
                         fontVariantNumeric: "tabular-nums",
@@ -996,15 +1419,26 @@ export function PerpsPositionsPanel() {
 
         {/* ── Positions ── */}
         <TabsContent value="positions" className="mt-0">
-          {visiblePositions.length === 0 ? <EmptyState text="No open positions" /> : isMobile ? (
+          <PanelDataFailure
+            label="TP/SL"
+            error={errors.tpsl}
+            onRetry={() => { void fetchData(); }}
+          />
+          {visiblePositions.length === 0 ? (
+            <EmptyState text="No open positions" />
+          ) : isMobile ? (
             <div className="p-3 space-y-3">
               {visiblePositions.map((pos: any) => (
                 <MobilePositionCard
+                  getMarketSymbol={getMarketSymbol}
                   key={pos.positionId}
                   pos={pos}
-                  markPrice={tickers[getMarketSymbol(pos.marketId)]?.mark_price ?? 0}
+                  markPrice={
+                    tickers[getMarketSymbol(pos.marketId)]?.mark_price ?? 0
+                  }
                   tpsl={tpslMap[pos.positionId]}
                   onClose={handleClose}
+                  onSetTpsl={setTpslTarget}
                   isClosing={closingId === pos.positionId}
                 />
               ))}
@@ -1016,26 +1450,51 @@ export function PerpsPositionsPanel() {
                   <tr>
                     <th style={PX_THEAD_STYLE}>Market</th>
                     <th style={PX_THEAD_STYLE}>Side</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Size</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Collateral</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Entry</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Mark</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Liq. Price</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>PnL</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>ROE</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Net Value</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Margin</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "center" }}>TP / SL</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Opened</th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Size
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Collateral
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Entry
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Mark
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Liq. Price
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      PnL
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      ROE
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Net Value
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Margin
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "center" }}>
+                      TP / SL
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Opened
+                    </th>
                     <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}></th>
                   </tr>
                 </thead>
                 <tbody>
                   {visiblePositions.map((pos: any) => (
                     <DesktopPositionRow
+                      getMarketSymbol={getMarketSymbol}
                       key={pos.positionId}
                       pos={pos}
-                      markPrice={tickers[getMarketSymbol(pos.marketId)]?.mark_price ?? 0}
+                      markPrice={
+                        tickers[getMarketSymbol(pos.marketId)]?.mark_price ?? 0
+                      }
                       tpsl={tpslMap[pos.positionId]}
                       closingId={closingId}
                       onShare={setShareCard}
@@ -1054,48 +1513,129 @@ export function PerpsPositionsPanel() {
 
         {/* ── Pending ── */}
         <TabsContent value="pending" className="mt-0">
-          {pendingOrders.length === 0 ? <EmptyState text="No pending orders" /> : <OrderTable orders={pendingOrders} showCancel cancellingId={cancellingId} onCancelOrder={handleCancelOrder} />}
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          {pendingOrders.length === 0 ? (
+            <EmptyState text="No pending orders" />
+          ) : (
+            <OrderTable
+              getMarketSymbol={getMarketSymbol}
+              orders={pendingOrders}
+              showCancel
+              cancellingId={cancellingId}
+              onCancelOrder={handleCancelOrder}
+            />
+          )}
         </TabsContent>
 
         {/* ── TP/SL ── */}
         <TabsContent value="tpsl" className="mt-0">
-          {tpslOrders.length === 0 ? <EmptyState text="No TP/SL orders" /> : <OrderTable orders={tpslOrders} showCancel cancellingId={cancellingId} onCancelOrder={handleCancelOrder} />}
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          <PanelDataFailure
+            label="TP/SL"
+            error={errors.tpsl}
+            onRetry={() => { void fetchData(); }}
+          />
+          {tpslOrders.length === 0 ? (
+            <EmptyState text="No TP/SL orders" />
+          ) : (
+            <OrderTable
+              getMarketSymbol={getMarketSymbol}
+              orders={tpslOrders}
+              showCancel
+              cancellingId={cancellingId}
+              onCancelOrder={handleCancelOrder}
+            />
+          )}
         </TabsContent>
 
         {/* ── Filled ── */}
         <TabsContent value="filled" className="mt-0">
-          {filledOrders.length === 0 ? <EmptyState text="No filled orders" /> : <OrderTable orders={filledOrders} cancellingId={cancellingId} onCancelOrder={handleCancelOrder} />}
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          <PanelDataFailure
+            label="Trades"
+            error={errors.trades}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
+          {filledOrders.length === 0 ? (
+            <EmptyState text="No filled orders" />
+          ) : (
+            <OrderTable
+              getMarketSymbol={getMarketSymbol}
+              orders={filledOrders}
+              cancellingId={cancellingId}
+              onCancelOrder={handleCancelOrder}
+            />
+          )}
         </TabsContent>
 
         {/* ── Position History ── */}
         <TabsContent value="pos-history" className="mt-0">
-          {closedPositions.length === 0 ? <EmptyState text="No position history" /> : (
+          <PanelDataFailure
+            label="Position history"
+            error={errors.positions}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
+          {closedPositions.length === 0 ? (
+            <EmptyState text="No position history" />
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full" style={{ borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={PX_THEAD_STYLE}>Market</th>
                     <th style={PX_THEAD_STYLE}>Side</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Size</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Entry</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Exit</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>PnL</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Closed</th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Size
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Entry
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Exit
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      PnL
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Closed
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {closedPositions.map((pos: any) => {
                     const symbol = getMarketSymbol(pos.marketId);
                     const pnl = parse18(pos.realizedPnl);
-                    const sideColor = pos.isLong ? "var(--success)" : "var(--danger)";
-                    const pnlColor = pnl >= 0 ? "var(--success)" : "var(--danger)";
+                    const sideColor = pos.isLong
+                      ? "var(--success)"
+                      : "var(--danger)";
+                    const pnlColor =
+                      pnl >= 0 ? "var(--success)" : "var(--danger)";
                     return (
                       <tr
                         key={pos.positionId}
                         className="hover:bg-white/[0.03]"
                         style={{ borderBottom: "1px solid var(--border-soft)" }}
                       >
-                        <td style={{ ...PX_TD_BASE, fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500 }}>
+                        <td
+                          style={{
+                            ...PX_TD_BASE,
+                            fontFamily: "var(--font-body)",
+                            fontSize: 12,
+                            fontWeight: 500,
+                          }}
+                        >
                           {symbol}/USD
                         </td>
                         <td
@@ -1110,13 +1650,28 @@ export function PerpsPositionsPanel() {
                         >
                           {pos.isLong ? "Long" : "Short"}
                         </td>
-                        <td style={PX_TD_RIGHT}>{formatUsd(parse18(pos.sizeUsd))}</td>
-                        <td style={PX_TD_RIGHT}>{formatUsd(parse18(pos.entryPrice))}</td>
-                        <td style={PX_TD_RIGHT}>{formatUsd(parse18(pos.exitPrice))}</td>
-                        <td style={{ ...PX_TD_RIGHT, color: pnlColor, fontWeight: 600 }}>
-                          {pnl >= 0 ? "+" : ""}{formatUsd(pnl)}
+                        <td style={PX_TD_RIGHT}>
+                          {formatUsd(parse18(pos.sizeUsd))}
                         </td>
-                        <td style={{ ...PX_TD_RIGHT, color: "var(--fg-subtle)" }}>
+                        <td style={PX_TD_RIGHT}>
+                          {formatUsd(parse18(pos.entryPrice))}
+                        </td>
+                        <td style={PX_TD_RIGHT}>
+                          {formatUsd(parse18(pos.exitPrice))}
+                        </td>
+                        <td
+                          style={{
+                            ...PX_TD_RIGHT,
+                            color: pnlColor,
+                            fontWeight: 600,
+                          }}
+                        >
+                          {pnl >= 0 ? "+" : ""}
+                          {formatUsd(pnl)}
+                        </td>
+                        <td
+                          style={{ ...PX_TD_RIGHT, color: "var(--fg-subtle)" }}
+                        >
                           {formatDate(pos.closedAt)}
                         </td>
                       </tr>
@@ -1130,20 +1685,47 @@ export function PerpsPositionsPanel() {
 
         {/* ── Order History ── */}
         <TabsContent value="order-history" className="mt-0">
-          {allOrders.length === 0 ? <EmptyState text="No order history" /> : <OrderTable orders={allOrders} cancellingId={cancellingId} onCancelOrder={handleCancelOrder} />}
+          <PanelDataFailure
+            label="Orders"
+            error={errors.orders}
+            onRetry={() => { void fetchData(); }}
+          />
+          {allOrders.length === 0 ? (
+            <EmptyState text="No order history" />
+          ) : (
+            <OrderTable
+              getMarketSymbol={getMarketSymbol}
+              orders={allOrders}
+              cancellingId={cancellingId}
+              onCancelOrder={handleCancelOrder}
+            />
+          )}
         </TabsContent>
 
         {/* ── Liquidation ── */}
         <TabsContent value="liquidation" className="mt-0">
-          {liquidations.length === 0 ? <EmptyState text="No liquidations" /> : (
+          <PanelDataFailure
+            label="Liquidations"
+            error={errors.liquidations}
+            onRetry={() => { void fetchHistoryData(); }}
+          />
+          {liquidations.length === 0 ? (
+            <EmptyState text="No liquidations" />
+          ) : (
             <div className="overflow-x-auto">
               <table className="w-full" style={{ borderCollapse: "collapse" }}>
                 <thead>
                   <tr>
                     <th style={PX_THEAD_STYLE}>Market</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Price</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Penalty</th>
-                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>Time</th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Price
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Penalty
+                    </th>
+                    <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}>
+                      Time
+                    </th>
                     <th style={{ ...PX_THEAD_STYLE, textAlign: "right" }}></th>
                   </tr>
                 </thead>
@@ -1154,10 +1736,19 @@ export function PerpsPositionsPanel() {
                       className="hover:bg-white/[0.03]"
                       style={{ borderBottom: "1px solid var(--border-soft)" }}
                     >
-                      <td style={{ ...PX_TD_BASE, fontFamily: "var(--font-body)", fontSize: 12, fontWeight: 500 }}>
+                      <td
+                        style={{
+                          ...PX_TD_BASE,
+                          fontFamily: "var(--font-body)",
+                          fontSize: 12,
+                          fontWeight: 500,
+                        }}
+                      >
                         {getMarketSymbol(liq.marketId)}/USD
                       </td>
-                      <td style={PX_TD_RIGHT}>{formatUsd(parse18(liq.price))}</td>
+                      <td style={PX_TD_RIGHT}>
+                        {formatUsd(parse18(liq.price))}
+                      </td>
                       <td style={{ ...PX_TD_RIGHT, color: "var(--danger)" }}>
                         {formatUsd(parse18(liq.penalty))}
                       </td>
@@ -1188,17 +1779,11 @@ export function PerpsPositionsPanel() {
       )}
 
       {/* Position action modals */}
-      {tpslTarget && (
-        <SetTpSlModal
-          positionId={tpslTarget.positionId}
-          currentSize={tpslTarget.size}
-          currentEntryPrice={tpslTarget.entryPrice}
-          isLong={tpslTarget.isLong}
-          markPrice={tpslTarget.markPrice}
-          onClose={() => setTpslTarget(null)}
-          onSuccess={refreshAll}
-        />
-      )}
+      <PositionTpSlModal
+        target={tpslTarget}
+        onClose={() => setTpslTarget(null)}
+        onSuccess={refreshAll}
+      />
       {adjustTarget && (
         <AdjustCollateralModal
           positionId={adjustTarget.positionId}

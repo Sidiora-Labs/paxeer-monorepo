@@ -60,14 +60,14 @@ describe('Tokens', () => {
   it('counts the token contracts found in the card header', async() => {
     const { container } = await renderList();
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('A total of 3 token contracts found');
   });
 
   it('notes how many of them the reputation keeps', async() => {
     const { container } = await renderList();
 
-    expect(container.querySelector('[data-scan-table-card] [data-note]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-note]')?.textContent)
       .toBe('Showing 2 tokens with an ok or a neutral reputation');
   });
 
@@ -80,17 +80,17 @@ describe('Tokens', () => {
 
     const { container } = await renderList();
 
-    expect(container.querySelector('[data-scan-table-card] [data-title]')?.textContent)
+    expect(container.querySelector('[data-list-page] [data-title]')?.textContent)
       .toBe('More than 3 token contracts found');
   });
 
   it('puts the actions and the pagination in the header and the row selector in the footer', async() => {
     const { container } = await renderList();
 
-    expect(container.querySelector('[data-scan-table-card] [data-actions] [data-test-actions]')).not.toBeNull();
-    expect(container.querySelector('[data-scan-table-card] [data-actions] [data-test-pagination]')).not.toBeNull();
-    expect(container.querySelector('[data-scan-table-card] [data-footer-rows] [data-test-show-rows]')).not.toBeNull();
-    expect(container.querySelector('[data-scan-table-card] [data-footer-pagination] [data-test-pagination]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-actions] [data-test-actions]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-actions] [data-test-pagination]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-footer-rows] [data-test-show-rows]')).not.toBeNull();
+    expect(container.querySelector('[data-list-page] [data-footer-pagination] [data-test-pagination]')).not.toBeNull();
   });
 
   it('shows only as many rows as the row selector asks for', async() => {

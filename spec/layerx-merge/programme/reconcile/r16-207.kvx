@@ -1,0 +1,243 @@
+[reconcile.r16-207]
+revision = "751d6ff8dbcfeaec3fbdee7c8c9aac3813e83488"
+rows = 30
+
+[row.r16-207.1]
+interface = "interface.16.mk-paxd-native-libs"
+verdict = "served"
+path = "Makefile"
+line = 2432
+symbol = "paxd-native-libs"
+evidence = "Makefile:2432 declares paxd-native-libs: $(LIBRARY) programs-release-build. The registered $(CHECKPOINT_SETTLEMENT_HEADER) prerequisite is no longer present; the .PHONY entry and dependent targets are references, not this declaration."
+
+[row.r16-207.2]
+interface = "interface.16.mk-paxd-release"
+verdict = "served"
+path = "Makefile"
+line = 1030
+symbol = "paxd-release"
+evidence = "Makefile:1030 declares paxd-release: with no prerequisites and invokes tools/release/build-paxd.sh. The preceding .PHONY entry is not the target definition."
+
+[row.r16-207.3]
+interface = "interface.16.mk-paxd-version-check"
+verdict = "served"
+path = "Makefile"
+line = 2445
+symbol = "paxd-version-check"
+evidence = "Makefile:2445 declares paxd-version-check: with no prerequisites; its recipe compares build/paxd version with tools/release/version.json. The .PHONY entry and diagnostic strings are other occurrences."
+
+[row.r16-207.4]
+interface = "interface.16.mk-paxeer-build"
+verdict = "served"
+path = "Makefile"
+line = 2428
+symbol = "paxeer-build"
+evidence = "Makefile:2428 declares paxeer-build: with no prerequisites and invokes GOPROXY=off $(PAXEER_MAKE) build. Other occurrences are the .PHONY entry, a recursive make call and a workspace dependency."
+
+[row.r16-207.5]
+interface = "interface.16.mk-paxeer-ci"
+verdict = "served"
+path = "Makefile"
+line = 2460
+symbol = "paxeer-ci"
+evidence = "Makefile:2460 declares paxeer-ci: paxeer-tools-install, adding paxeer-tools-install to the registered prerequisite-free signature. Its recipe invokes the Paxeer ci target with GOLANGCI_LINT configured."
+
+[row.r16-207.6]
+interface = "interface.16.mk-paxeer-hardhat-compilers-ready"
+verdict = "served"
+path = "Makefile"
+line = 2481
+symbol = "paxeer-hardhat-compilers-ready"
+evidence = "Makefile:2481 declares paxeer-hardhat-compilers-ready: paxeer-npm-dependencies-ready, matching the registered prerequisites, and runs scripts/workspace/check-hardhat-compilers.mjs. The npm-build prerequisite is a use."
+
+[row.r16-207.7]
+interface = "interface.16.mk-paxeer-lint"
+verdict = "served"
+path = "Makefile"
+line = 2454
+symbol = "paxeer-lint"
+evidence = "Makefile:2454 declares paxeer-lint: paxeer-tools-install, adding paxeer-tools-install to the registered prerequisite-free signature. Its recipe invokes the Paxeer lint target with GOLANGCI_LINT configured."
+
+[row.r16-207.8]
+interface = "interface.16.mk-paxeer-manifest-build"
+verdict = "served"
+path = "Makefile"
+line = 2515
+symbol = "paxeer-manifest-build"
+evidence = "Makefile:2515 declares paxeer-manifest-build: workspace-inventory-check paxeer-npm-build, matching the registered signature. Its recipe builds Foundry, Rust and nested Go projects; the workspace-build entry is a dependency use."
+
+[row.r16-207.9]
+interface = "interface.16.mk-paxeer-manifest-install"
+verdict = "served"
+path = "Makefile"
+line = 2511
+symbol = "paxeer-manifest-install"
+evidence = "Makefile:2511 declares paxeer-manifest-install: workspace-inventory-check paxeer-npm-install paxeer-tools-install. The prerequisites match the registry; the recipe fetches locked Rust dependencies and downloads nested Go modules."
+
+[row.r16-207.10]
+interface = "interface.16.mk-paxeer-manifest-lint"
+verdict = "served"
+path = "Makefile"
+line = 2529
+symbol = "paxeer-manifest-lint"
+evidence = "Makefile:2529 declares paxeer-manifest-lint: workspace-inventory-check paxeer-npm-static-test, matching the registry. The recipe checks Foundry formatting, Rust clippy and Go formatting/lint; the .PHONY entry is not the declaration."
+
+[row.r16-207.11]
+interface = "interface.16.mk-paxeer-manifest-test"
+verdict = "served"
+path = "Makefile"
+line = 2522
+symbol = "paxeer-manifest-test"
+evidence = "Makefile:2522 declares paxeer-manifest-test: workspace-inventory-check paxeer-npm-static-test, matching the registry. The recipe runs Foundry, locked Rust and nested Go tests; workspace-test lists a dependency use."
+
+[row.r16-207.12]
+interface = "interface.16.mk-paxeer-node-preflight"
+verdict = "served"
+path = "Makefile"
+line = 2468
+symbol = "paxeer-node-preflight"
+evidence = "Makefile:2468 declares paxeer-node-preflight: with no prerequisites. The Node recipe rejects major versions below 20; the .PHONY entry and paxeer-npm-install prerequisite are references."
+
+[row.r16-207.13]
+interface = "interface.16.mk-paxeer-npm-build"
+verdict = "served"
+path = "Makefile"
+line = 2484
+symbol = "paxeer-npm-build"
+evidence = "Makefile:2484 declares paxeer-npm-build: paxeer-hardhat-compilers-ready, matching the registry. Its recipe compiles contracts and integration projects; paxeer-manifest-build names it as a prerequisite."
+
+[row.r16-207.14]
+interface = "interface.16.mk-paxeer-npm-dependencies-ready"
+verdict = "served"
+path = "Makefile"
+line = 2476
+symbol = "paxeer-npm-dependencies-ready"
+evidence = "Makefile:2476 declares paxeer-npm-dependencies-ready: with no prerequisites and checks three node_modules directories. The hardhat compiler and static-test prerequisites refer to this definition."
+
+[row.r16-207.15]
+interface = "interface.16.mk-paxeer-npm-install"
+verdict = "served"
+path = "Makefile"
+line = 2471
+symbol = "paxeer-npm-install"
+evidence = "Makefile:2471 declares paxeer-npm-install: paxeer-node-preflight, matching the registered signature. Its recipe runs npm ci for contracts and both integration projects; the manifest-install prerequisite is a use."
+
+[row.r16-207.16]
+interface = "interface.16.mk-paxeer-npm-static-test"
+verdict = "served"
+path = "Makefile"
+line = 2489
+symbol = "paxeer-npm-static-test"
+evidence = "Makefile:2489 declares paxeer-npm-static-test: paxeer-npm-dependencies-ready, matching the registry. Its recipe runs TypeScript and JavaScript checks; manifest-test and manifest-lint refer to it as a prerequisite."
+
+[row.r16-207.17]
+interface = "interface.16.mk-paxeer-test"
+verdict = "served"
+path = "Makefile"
+line = 2457
+symbol = "paxeer-test"
+evidence = "Makefile:2457 declares paxeer-test: with no prerequisites and invokes GOPROXY=off $(PAXEER_MAKE) test. The .PHONY entry and workspace-test prerequisite are references rather than the definition."
+
+[row.r16-207.18]
+interface = "interface.16.mk-paxeer-tools-install"
+verdict = "served"
+path = "Makefile"
+line = 2494
+symbol = "paxeer-tools-install"
+evidence = "Makefile:2494 declares paxeer-tools-install: with no prerequisites. Its recipe validates the reviewed golangci-lint module checksum; the lint, ci and manifest-install prerequisites and diagnostic strings are other occurrences."
+
+[row.r16-207.19]
+interface = "interface.16.mk-platform-qualify"
+verdict = "served"
+path = "Makefile"
+line = 1837
+symbol = "platform-qualify"
+evidence = "Makefile:1837 declares platform-qualify: with no prerequisites and invokes python3 tools/qualification/release_runner.py $@. The earlier continued .PHONY list is a declaration of phony status, not the target rule."
+
+[row.r16-207.20]
+interface = "interface.16.mk-programs-abi-drift"
+verdict = "served"
+path = "Makefile"
+line = 2749
+symbol = "programs-abi-drift"
+evidence = "Makefile:2749 declares programs-abi-drift: with no prerequisites. Its recipe runs tests/programs/check-abi-drift.sh and the runtime abi_linker test; .PHONY and programs-test contain references."
+
+[row.r16-207.21]
+interface = "interface.16.mk-programs-adversarial"
+verdict = "served"
+path = "Makefile"
+line = 2968
+symbol = "programs-adversarial"
+evidence = "Makefile:2968 declares programs-adversarial: with no prerequisites and runs locked runtime isolation, composition and monetary_law tests. The .PHONY entry and programs-test prerequisite are references."
+
+[row.r16-207.22]
+interface = "interface.16.mk-programs-bench"
+verdict = "served"
+path = "Makefile"
+line = 2994
+symbol = "programs-bench"
+evidence = "Makefile:2994 declares programs-bench: programs-interpreter-bench, matching the registered signature. This dependency-only target delegates to the following interpreter benchmark rule; its earlier .PHONY entry is not the definition."
+
+[row.r16-207.23]
+interface = "interface.16.mk-programs-build"
+verdict = "served"
+path = "Makefile"
+line = 2733
+symbol = "programs-build"
+evidence = "Makefile:2733 declares programs-build: with no prerequisites and runs a locked workspace build with layerx-programs-sandbox/host-ffi. Numerous order-only prerequisites, the .PHONY list and recursive make instructions are uses."
+
+[row.r16-207.24]
+interface = "interface.16.mk-programs-check-capability-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2760
+symbol = "programs-check-capability-fixture"
+evidence = "Makefile:2760 declares programs-check-capability-fixture: with no prerequisites. Its recipe emits capability_fixture into a temporary file and compares native-program-capabilities-v2.json; the preceding .PHONY occurrence is not the rule."
+
+[row.r16-207.25]
+interface = "interface.16.mk-programs-check-executed-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2863
+symbol = "programs-check-executed-fixture"
+evidence = "Makefile:2863 declares programs-check-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity, matching the registry. Its recipe runs generate_executed_program_fixture.py with --encoder $< --check; the .PHONY entry is separate."
+
+[row.r16-207.26]
+interface = "interface.16.mk-programs-check-executed-v4-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2855
+symbol = "programs-check-executed-v4-fixture"
+evidence = "Makefile:2855 declares programs-check-executed-v4-fixture: programs-build, matching the registry. Its recipe builds programs_call_activity and invokes generate_executed_program_v4_fixture.py with --check; the .PHONY list is not the definition."
+
+[row.r16-207.27]
+interface = "interface.16.mk-programs-check-native-lifecycle-fixtures"
+verdict = "served"
+path = "Makefile"
+line = 2847
+symbol = "programs-check-native-lifecycle-fixtures"
+evidence = "Makefile:2847 declares programs-check-native-lifecycle-fixtures: $(BUILD_DIR)/tests/programs_call_activity, matching the registry. Its recipe invokes generate_native_lifecycle_fixtures.py with --encoder $< --check, below the .PHONY entry."
+
+[row.r16-207.28]
+interface = "interface.16.mk-programs-conservation"
+verdict = "served"
+path = "Makefile"
+line = 2971
+symbol = "programs-conservation"
+evidence = "Makefile:2971 declares programs-conservation: with no prerequisites and invokes programs/tests/conservation/run.sh. The earlier .PHONY list mentions the target but does not define its recipe."
+
+[row.r16-207.29]
+interface = "interface.16.mk-programs-executed-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2860
+symbol = "programs-executed-fixture"
+evidence = "Makefile:2860 declares programs-executed-fixture: $(BUILD_DIR)/tests/programs_call_activity, matching the registry. Its recipe invokes generate_executed_program_fixture.py with --encoder $<; the adjacent check target adds --check."
+
+[row.r16-207.30]
+interface = "interface.16.mk-programs-executed-v4-fixture"
+verdict = "served"
+path = "Makefile"
+line = 2851
+symbol = "programs-executed-v4-fixture"
+evidence = "Makefile:2851 declares programs-executed-v4-fixture: programs-build, matching the registry. Its recipe builds programs_call_activity and invokes generate_executed_program_v4_fixture.py; the .PHONY entry and adjacent check target are distinct."

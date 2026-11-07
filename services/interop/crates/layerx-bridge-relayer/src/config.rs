@@ -12,7 +12,7 @@ use layerx_mirror::rpc::{RpcCluster, RpcQuorumConfig};
 use layerx_mirror::signer::{
     RemoteChainSigner, RemoteSignerConfig, SignerEndpoint, SigningAlgorithm,
 };
-use layerx_paxeer_verifier::{EndpointConfig, EndpointTransport};
+use layerx_proof::inclusion::SequencerAuthorization;
 use serde::Deserialize;
 
 use crate::cosign::CosignDirectory;
@@ -22,11 +22,12 @@ use crate::relayer::{
     ChainLink, ChainSettings, GasPolicy, PaxeerLink, PaxeerSettings, RelayerAssembly, RelayerError,
     RelayerParts, RelayerSetup, SolanaLink, SolanaRelease,
 };
-use crate::rpc::PaxeerRpc;
+use crate::rpc::{normalized_authority, validate_backend_identities, PaxeerRpc};
 use crate::signer::{Attestor, FeePayer, Submitter, ALGORITHM, FEE_PAYER_ALGORITHM};
 use crate::solana::observe::SolanaSettings;
 use crate::solana::rpc::{Commitment, SolanaRpc};
 use crate::solana::{base58_fixed, SOLANA_CHAIN_ID};
+use crate::transport::PaxeerEndpoint;
 
 const MAX_CONFIG_BYTES: u64 = 1024 * 1024;
 
@@ -89,6 +90,9 @@ impl From<GasConfig> for GasPolicy {
 #[serde(deny_unknown_fields)]
 pub struct PaxeerEndpointConfig {
     pub url: String,
+    /// Operator-declared independent backend. Required for multi-endpoint reads.
+    #[serde(default)]
+    pub independent_backend: Option<String>,
     /// DER trust anchor of a TLS endpoint. Absent only with `local_emulator`.
     #[serde(default)]
     pub trust_anchor_der: Option<PathBuf>,
@@ -102,11 +106,23 @@ pub struct PaxeerEndpointConfig {
 pub struct PaxeerConfig {
     pub chain_id: u64,
     pub endpoints: Vec<PaxeerEndpointConfig>,
+    pub receipt_keys: Vec<ReceiptKeyConfig>,
     pub finality_depth: u64,
     pub start_block: u64,
     pub max_block_range: u64,
     pub submitter: KeyHandleConfig,
     pub gas: GasConfig,
+}
+
+#[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
+#[serde(deny_unknown_fields)]
+pub struct ReceiptKeyConfig {
+    #[serde(with = "hex::fixed_serde")]
+    pub sequencer_id: [u8; 32],
+    #[serde(with = "hex::fixed_serde")]
+    pub public_key: [u8; 32],
+    pub first_height: u64,
+    pub last_height: u64,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq)]
@@ -305,6 +321,70 @@ pub struct RelayerConfig {
     /// The approved attestor set; absent, the relayer runs a single attestor.
     #[serde(default)]
     pub attestor_set: Option<AttestorSetConfig>,
+    /// Optional attestation socket. Omission disables the HTTP server; port zero
+    /// asks the operating system to select a free port.
+    #[serde(default, deserialize_with = "deserialize_attestation_listen")]
+    pub attestation_listen: Option<SocketAddr>,
+    /// Exact origins reflected in CORS responses, including scheme and port.
+    /// An empty list grants no browser origin access.
+    #[serde(default)]
+    pub attestation_allowed_origins: Vec<String>,
+}
+
+fn valid_attestation_origin(origin: &str) -> bool {
+    let Some((scheme, authority)) = origin.split_once("://") else {
+        return false;
+    };
+    if !scheme.starts_with(|character: char| character.is_ascii_alphabetic())
+        || !scheme
+            .bytes()
+            .all(|byte| byte.is_ascii_alphanumeric() || b"+.-".contains(&byte))
+    {
+        return false;
+    }
+    let (valid_host, port) = if let Some(ipv6) = authority.strip_prefix('[') {
+        let Some((host, suffix)) = ipv6.split_once(']') else {
+            return false;
+        };
+        let port = if suffix.is_empty() {
+            None
+        } else if let Some(port) = suffix.strip_prefix(':') {
+            Some(port)
+        } else {
+            return false;
+        };
+        (host.parse::<std::net::Ipv6Addr>().is_ok(), port)
+    } else {
+        let (host, port) = authority
+            .split_once(':')
+            .map_or((authority, None), |(host, port)| (host, Some(port)));
+        let host = host.strip_suffix('.').unwrap_or(host);
+        let valid = !host.is_empty()
+            && host.len() <= 253
+            && host.split('.').all(|label| {
+                !label.is_empty()
+                    && label.len() <= 63
+                    && !label.starts_with('-')
+                    && !label.ends_with('-')
+                    && label
+                        .bytes()
+                        .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-')
+            });
+        (valid, port)
+    };
+    valid_host
+        && port.is_none_or(|port| {
+            !port.is_empty()
+                && port.bytes().all(|byte| byte.is_ascii_digit())
+                && port.parse::<u16>().is_ok()
+        })
+}
+
+fn deserialize_attestation_listen<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<Option<SocketAddr>, D::Error> {
+    Option::<SocketAddr>::deserialize(deserializer)
+        .map_err(|error| serde::de::Error::custom(format!("attestation_listen: {error}")))
 }
 
 fn invalid(detail: impl Into<String>) -> RelayerError {
@@ -335,6 +415,15 @@ impl RelayerConfig {
     ///
     /// Names the first inconsistency.
     pub fn validate(&self) -> Result<(), RelayerError> {
+        if self
+            .attestation_allowed_origins
+            .iter()
+            .any(|origin| !valid_attestation_origin(origin))
+        {
+            return Err(invalid(
+                "attestation_allowed_origins entries must be scheme://host[:port]",
+            ));
+        }
         if self.poll_interval_ms == 0 || self.max_submissions == 0 {
             return Err(invalid(
                 "poll interval and submission budget must be positive",
@@ -343,9 +432,7 @@ impl RelayerConfig {
         if self.signer.timeout_ms == 0 {
             return Err(invalid("signer timeout must be positive"));
         }
-        if self.paxeer.endpoints.is_empty() {
-            return Err(invalid("paxeer needs at least one endpoint"));
-        }
+        self.validate_paxeer_backends()?;
         for endpoint in &self.paxeer.endpoints {
             if endpoint.request_timeout_ms == 0
                 || endpoint.local_emulator == endpoint.trust_anchor_der.is_some()
@@ -356,6 +443,7 @@ impl RelayerConfig {
                 )));
             }
         }
+        self.receipt_keys()?;
         if self.chains.is_empty() {
             return Err(invalid("at least one chain is required"));
         }
@@ -424,26 +512,118 @@ impl RelayerConfig {
         .map_err(|error| invalid(format!("signer handle {}: {error:?}", key.handle)))
     }
 
-    fn paxeer_endpoints(&self) -> Result<Vec<EndpointConfig>, RelayerError> {
+    fn validate_paxeer_backends(&self) -> Result<(), RelayerError> {
+        let endpoints = &self.paxeer.endpoints;
+        if endpoints.is_empty() || endpoints.len() > 8 {
+            return Err(invalid("paxeer needs between one and eight endpoints"));
+        }
+        let mut authorities = std::collections::BTreeSet::new();
+        for endpoint in endpoints {
+            let authority =
+                normalized_authority(&endpoint.url).map_err(|error| invalid(error.to_string()))?;
+            if !authorities.insert(authority) {
+                return Err(invalid("paxeer endpoints repeat an authority"));
+            }
+        }
+        if endpoints.len() > 1
+            && endpoints
+                .iter()
+                .any(|endpoint| endpoint.independent_backend.is_none())
+        {
+            return Err(invalid(
+                "multiple paxeer endpoints require explicit independent backend identities",
+            ));
+        }
+        validate_backend_identities(
+            endpoints
+                .iter()
+                .filter_map(|endpoint| endpoint.independent_backend.as_deref()),
+        )
+        .map_err(|error| invalid(error.to_string()))
+    }
+
+    pub fn paxeer_rpc(&self) -> Result<PaxeerRpc, RelayerError> {
+        let endpoints = self.paxeer_endpoints()?;
+        if endpoints.len() == 1 {
+            return PaxeerRpc::new(endpoints).map_err(Into::into);
+        }
+        let backends = self
+            .paxeer
+            .endpoints
+            .iter()
+            .zip(endpoints)
+            .map(|(config, endpoint)| {
+                config
+                    .independent_backend
+                    .clone()
+                    .map(|identity| (identity, endpoint))
+                    .ok_or_else(|| invalid("missing independent backend identity"))
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        PaxeerRpc::with_backends(backends).map_err(Into::into)
+    }
+
+    pub fn paxeer_endpoints(&self) -> Result<Vec<PaxeerEndpoint>, RelayerError> {
+        self.validate_paxeer_backends()?;
         self.paxeer
             .endpoints
             .iter()
             .map(|endpoint| {
-                let transport = match &endpoint.trust_anchor_der {
-                    Some(path) => EndpointTransport::PinnedTls {
-                        trust_anchor_der: std::fs::read(path)
-                            .map_err(|error| invalid(format!("{}: {error}", path.display())))?,
-                    },
-                    None => EndpointTransport::LocalEmulator,
-                };
-                Ok(EndpointConfig {
-                    url: endpoint.url.clone(),
-                    request_timeout: Duration::from_millis(endpoint.request_timeout_ms),
-                    transport,
-                    expected_chain_id: self.paxeer.chain_id,
-                })
+                if endpoint.local_emulator == endpoint.trust_anchor_der.is_some() {
+                    return Err(invalid(format!(
+                        "paxeer endpoint {} needs exactly one of a trust anchor or local_emulator",
+                        endpoint.url
+                    )));
+                }
+                let trust_anchor_der = endpoint
+                    .trust_anchor_der
+                    .as_ref()
+                    .map(|path| {
+                        std::fs::read(path)
+                            .map_err(|error| invalid(format!("{}: {error}", path.display())))
+                    })
+                    .transpose()?;
+                PaxeerEndpoint::new(
+                    endpoint.url.clone(),
+                    Duration::from_millis(endpoint.request_timeout_ms),
+                    trust_anchor_der,
+                    self.paxeer.chain_id,
+                    endpoint.local_emulator,
+                )
+                .map_err(|error| invalid(format!("Paxeer endpoint {}: {error}", endpoint.url)))
             })
             .collect()
+    }
+
+    pub fn receipt_keys(&self) -> Result<Vec<SequencerAuthorization>, RelayerError> {
+        let keys = &self.paxeer.receipt_keys;
+        if keys.is_empty() {
+            return Err(invalid("paxeer needs at least one receipt key"));
+        }
+        if keys.iter().any(|key| key.first_height > key.last_height) {
+            return Err(invalid(
+                "receipt key first_height must not exceed last_height",
+            ));
+        }
+        if keys
+            .windows(2)
+            .any(|pair| pair[1].first_height <= pair[0].last_height)
+        {
+            return Err(invalid(
+                "receipt key windows must be ordered and non-overlapping",
+            ));
+        }
+        Ok(keys
+            .iter()
+            .map(|key| {
+                SequencerAuthorization::new(
+                    key.sequencer_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect())
     }
 
     /// Opens the journal and connects every transport and key handle, the
@@ -458,6 +638,7 @@ impl RelayerConfig {
         let attestor = Attestor::new(self.remote_signer(&self.attestor)?)
             .map_err(|error| invalid(format!("attestor: {error:?}")))?;
         let paxeer = PaxeerLink {
+            receipt_keys: self.receipt_keys()?,
             settings: PaxeerSettings {
                 chain_id: self.paxeer.chain_id,
                 finality_depth: self.paxeer.finality_depth,
@@ -465,7 +646,7 @@ impl RelayerConfig {
                 max_block_range: self.paxeer.max_block_range,
                 gas: self.paxeer.gas.into(),
             },
-            rpc: Box::new(PaxeerRpc::new(self.paxeer_endpoints()?)?),
+            rpc: Box::new(self.paxeer_rpc()?),
             submitter: Submitter::paxeer(self.remote_signer(&self.paxeer.submitter)?)
                 .map_err(|error| invalid(format!("paxeer submitter: {error:?}")))?,
         };
@@ -539,6 +720,11 @@ mod tests {
         "paxeer": {
             "chain_id": 229,
             "endpoints": [{"url": "http://127.0.0.1:8545", "local_emulator": true, "request_timeout_ms": 3000}],
+            "receipt_keys": [{
+                "sequencer_id": "0x1111111111111111111111111111111111111111111111111111111111111111",
+                "public_key": "0x2222222222222222222222222222222222222222222222222222222222222222",
+                "first_height": 0, "last_height": 18446744073709551615
+            }],
             "finality_depth": 2, "start_block": 0, "max_block_range": 500,
             "submitter": {"handle": "bridge-paxeer-fees", "public_key": "0x02bb"},
             "gas": {"gas_limit": 1000000, "max_fee_per_gas": 100000000000, "max_priority_fee_per_gas": 2000000000}

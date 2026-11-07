@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -33,61 +34,50 @@ func (e *EVMInterpreter) Run(callOpCode vm.OpCode, contract *vm.Contract, input 
 	if err := e.validateHostContext(); err != nil {
 		return nil, err
 	}
+	if _, err := e.hostContext.getEVMRevision(); err != nil {
+		return nil, err
+	}
+	root := e.evm.Depth == 0
+	if root {
+		snapshot := e.hostContext.beginTransaction()
+		defer e.hostContext.endTransaction(snapshot)
+	}
 	// Increment the call depth which is restricted to 1024
 	e.evm.Depth++
 	defer func() { e.evm.Depth-- }()
 	depth := e.evm.Depth
 
-	// For CREATE/CREATE2, the initcode is in contract.Code, not in input.
-	// For regular calls, input contains the call data.
-	codeToExecute := input
-	if callOpCode == vm.CREATE || callOpCode == vm.CREATE2 {
-		codeToExecute = contract.Code
-	}
-
 	// Make sure the readOnly is only set if we aren't in readOnly yet.
 	// This also makes sure that the readOnly flag isn't removed for child calls.
-	if readOnly && !e.readOnly {
+	if (readOnly || callOpCode == vm.STATICCALL) && !e.readOnly {
 		e.readOnly = true
 		defer func() { e.readOnly = false }()
 	}
 
-	var static bool
-	if callOpCode == vm.STATICCALL {
-		static = true
+	message, err := e.executionMessage(callOpCode, contract, input)
+	if err != nil {
+		return nil, err
 	}
-
-	var callKind evmc.CallKind
-	switch callOpCode {
-	case vm.STATICCALL:
-		fallthrough
-	case vm.CALL:
-		callKind = evmc.Call
-	case vm.DELEGATECALL:
-		callKind = evmc.DelegateCall
-	case vm.CREATE2:
-		callKind = evmc.Create2
-	case vm.CREATE:
-		callKind = evmc.Create
-	case vm.CALLCODE:
-		callKind = evmc.CallCode
-	default:
-		return nil, fmt.Errorf("unsupported evmone call opcode %s", callOpCode)
-	}
-
-	// todo(pdrobnjak): sender and recipient might not be correctly propagated in case of DELEGATECALL
-	sender := evmc.Address(contract.Caller())
-	recipient := evmc.Address(contract.Address())
 
 	// Keep adjustment state scoped to this invocation. Nested EVM calls receive
 	// their own frame so a child cannot erase or duplicate its parent's charge.
 	e.hostContext.BeginSstoreGasAdjustment()
 
 	//nolint:gosec // gosec: safe gas conversion
-	output, gasLeft, gasRefund, _, err := e.hostContext.Execute(callKind, recipient, sender, contract.Value().Bytes32(), codeToExecute,
-		int64(contract.Gas), depth, static)
+	output, gasLeft, gasRefund, _, err := e.hostContext.Execute(message.kind, message.recipient, message.sender, message.value, message.input, message.code,
+		int64(contract.Gas), depth, message.static)
 	sstoreAdjustment, sstoreOverflow := e.hostContext.EndSstoreGasAdjustment()
-	if err != nil {
+	return e.applyExecutionResult(contract, output, gasLeft, gasRefund, sstoreAdjustment, sstoreOverflow, err)
+}
+
+func (e *EVMInterpreter) applyExecutionResult(contract *vm.Contract, output []byte, gasLeft, gasRefund, sstoreAdjustment int64, sstoreOverflow bool, err error) ([]byte, error) {
+	if e.hostContext.abortErr != nil {
+		return nil, e.hostContext.abortErr
+	}
+	if errors.Is(err, evmc.Revert) {
+		err = vm.ErrExecutionReverted
+	}
+	if err != nil && !errors.Is(err, vm.ErrExecutionReverted) {
 		return nil, err
 	}
 	if gasLeft < 0 || gasLeft > int64(contract.Gas) {
@@ -124,9 +114,11 @@ func (e *EVMInterpreter) Run(callOpCode vm.OpCode, contract *vm.Contract, input 
 
 	// Apply gas refund to the EVM's refund counter
 	//nolint:gosec // safe conversion
-	e.evm.StateDB.AddRefund(uint64(gasRefund))
+	if err == nil {
+		e.evm.StateDB.AddRefund(uint64(gasRefund))
+	}
 
-	return output, nil
+	return output, err
 }
 
 func (e *EVMInterpreter) validateHostContext() error {
@@ -165,4 +157,44 @@ func validateUnsignedWord(name string, value *big.Int) error {
 
 func (e *EVMInterpreter) ReadOnly() bool {
 	return e.readOnly
+}
+
+func (e *EVMInterpreter) callMode(op vm.OpCode) (evmc.CallKind, bool, error) {
+	static := e.readOnly || op == vm.STATICCALL
+	switch op {
+	case vm.CALL, vm.STATICCALL:
+		return evmc.Call, static, nil
+	case vm.DELEGATECALL:
+		return evmc.DelegateCall, static, nil
+	case vm.CALLCODE:
+		return evmc.CallCode, static, nil
+	case vm.CREATE:
+		return evmc.Create, static, nil
+	case vm.CREATE2:
+		return evmc.Create2, static, nil
+	default:
+		return 0, false, fmt.Errorf("unsupported evmone call opcode %s", op)
+	}
+}
+
+type evmcExecutionMessage struct {
+	kind      evmc.CallKind
+	static    bool
+	recipient evmc.Address
+	sender    evmc.Address
+	value     evmc.Hash
+	input     []byte
+	code      []byte
+}
+
+func (e *EVMInterpreter) executionMessage(op vm.OpCode, contract *vm.Contract, input []byte) (evmcExecutionMessage, error) {
+	kind, static, err := e.callMode(op)
+	if err != nil {
+		return evmcExecutionMessage{}, err
+	}
+	return evmcExecutionMessage{
+		kind: kind, static: static,
+		recipient: evmc.Address(contract.Address()), sender: evmc.Address(contract.Caller()),
+		value: contract.Value().Bytes32(), input: input, code: contract.Code,
+	}, nil
 }

@@ -4,18 +4,6 @@ on:
   push:
     branches: [main]
   pull_request:
-    paths:
-      - 'node/**'
-      - 'modules/**'
-      - 'precompiles/**'
-      - 'engine/**'
-      - 'sdk/**'
-      - 'daemon/**'
-      - 'src/**'
-      - 'include/**'
-      - 'programs/**'
-      - 'Makefile'
-      - 'chain.mk'
 
 permissions:
   contents: read
@@ -76,6 +64,8 @@ jobs:
         run: make paxd-build
       - name: Check paxd version
         run: make paxd-version-check
+      - name: Check paxd native digest
+        run: make -f chain.mk paxd-native-digest-check
 
   lxphost:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -120,10 +110,10 @@ jobs:
         run: rustup toolchain install 1.91.1 --profile minimal
       - name: Build native libraries
         run: make paxd-native-libs
-      - name: Test node and custody packages
+      - name: Test node packages
         env:
           CGO_ENABLED: '1'
-        run: go test ./node/... ./modules/layerxcustody/...
+        run: go test ./node/...
 
   node-build-gate:
     if: always()

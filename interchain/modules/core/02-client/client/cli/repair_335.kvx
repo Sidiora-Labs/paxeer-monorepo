@@ -1,0 +1,8 @@
+[repair.22.31.335]
+audit = "22.30.58"
+base_revision = "9281fc5367df30f54e8f83e9b7bedc920d9382db"
+misbehaviour-file-decode = "TestRepair_335_MisbehaviourFileDecode: signed registered solo-machine evidence through inline JSON and a real file, CLI-generated JSON and protobuf transactions, and signature verification/freezing; malformed files rejected."
+upgrade-cli-proof-encoding = "TestRepair_335_UpgradeProofEncoding: upgrade keeper writes to committed MemIAVL store, ABCI proof query and protobuf encoding, JSON base64 value through argv and generated transaction, Tendermint upgrade membership verification and metadata; malformed/noncanonical encodings rejected for both proofs."
+baseline = "Not run: the explicit task order requires full implementation before gates and forbids running verify_cmd manually; no prior gate ledger existed."
+wiring_requests = []
+evidence = "The runner hf-build/hf-done private gate ledger records the exact candidate revision, command, exit code and log; no gate is claimed here before it runs."

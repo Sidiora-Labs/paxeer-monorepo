@@ -3,7 +3,7 @@ import React from 'react';
 
 import type { TxsSocketType } from './socket/types';
 import type { AddressFromToFilter } from 'types/api/address';
-import type { Transaction, TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
+import type { TransactionsSortingField, TransactionsSortingValue } from 'types/api/transaction';
 import type { PaginationParams } from 'ui/shared/pagination/types';
 
 import useApiQuery from 'lib/api/useApiQuery';
@@ -13,12 +13,14 @@ import { HOMEPAGE_STATS } from 'stubs/stats';
 import AddressCsvExportLink from 'ui/address/AddressCsvExportLink';
 import { ACTION_BAR_HEIGHT_DESKTOP } from 'ui/shared/ActionBar';
 import DataListDisplay from 'ui/shared/DataListDisplay';
+import ListPage from 'ui/shared/Page/ListPage';
 import Pagination from 'ui/shared/pagination/Pagination';
-import { formatScanTableCount, ScanTableCard } from 'ui/shared/scan';
+import { formatScanTableCount } from 'ui/shared/scan';
 import getNextSortValue from 'ui/shared/sort/getNextSortValue';
 import TableViewToggleButton from 'ui/shared/TableViewToggleButton';
 
 import useDescribeTxs from './noves/useDescribeTxs';
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import TxsHeaderMobile from './TxsHeaderMobile';
 import TxsList from './TxsList';
 import TxsTable from './TxsTable';
@@ -40,7 +42,7 @@ type Props = {
   filterValue?: AddressFromToFilter;
   enableTimeIncrement?: boolean;
   top?: number;
-  items?: Array<Transaction>;
+  items?: Array<TransactionFeedItem>;
   isPlaceholderData: boolean;
   isError: boolean;
   setSorting?: (value: TransactionsSortingValue) => void;
@@ -160,6 +162,10 @@ const TxsContent = ({
       return 'Transactions';
     }
 
+    if (socketType === 'txs_pending') {
+      return `Pending transactions on this page: ${ items.length.toLocaleString() }`;
+    }
+
     if (isChainWideList && Number.isFinite(totalTxs) && totalTxs >= items.length) {
       return formatScanTableCount({ kind: 'latest', value: totalTxs, shownValue: items.length, itemsName: ITEMS_NAME });
     }
@@ -195,14 +201,14 @@ const TxsContent = ({
       }}
     >
       { content && (isInsideTableCard ? content : (
-        <ScanTableCard
+        <ListPage
           title={ countLine }
           note={ note }
           actions={ isMobile ? null : csvExportLink }
           pagination={ paginationNode }
         >
           { content }
-        </ScanTableCard>
+        </ListPage>
       )) }
     </DataListDisplay>
   );

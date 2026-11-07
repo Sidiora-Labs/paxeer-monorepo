@@ -1,0 +1,70 @@
+[repair.22.31.531]
+requirement = "22998.1"
+gotcha = "3119"
+decision = "2583"
+removed_refusal = "Configuration(metered_receiver_approval) for an existing standing or offered grant; approval_call validates the existing grant, reads nextSequence through WebPayer::view, decodes the sequence and prepares the receiver draw."
+stored_spend = "Existing-grant draws retain the canonical PrecompileCall ABI bytes, boundary actor address, SHA-256 byte digest and domain-separated SHA-256 signing hash over layerx-web-receiver-draw-v1, the spend commitment and the draw bytes; fee limit is zero. This is a receiver-executed draw disclosure, not an unsigned payer transaction. The existing durable StoredSpend schema, save, reservation, approval decision reference and recovery remain in use."
+bindings = "Reopen checks canonical draw encoding, digest and signing hash; retry binds the spend commitment, actor, amount, receiver, asset and activity type. Metered validation compares the draw target, selector, grant ID, recipient, amount, idempotency key, purpose hash and reserved word with the terms. The retained receiver sequence word is not revalidated against pending state."
+changed_grant = "Before a held draw can resume, validate_existing_grant reads the grant again and checks ID, payer account, recipient, asset, purpose, per-draw maximum and allowance. The changed-grant proof replaces the prior RPC observation with the committed, authentically signed lowLimit grant (maximum 3113 below amount 3114); changing signed grant terms also changes its grant ID."
+approved_spend = "After the unchanged durable grant decision and reservation checks, receiver draws carry the retained approved grant ID through WebPlane::authorise's standing-grant settlement path without rediscovering or replacing it; no prepare_transaction, new grant, submit or submit_transaction is called. Exact payments and new-grant metered payments retain unsigned EIP-1559 preparation and submission. A payer without approval_resources remains unavailable."
+producer_path = "Authenticated Server -> stdio Session tools/call -> WebRoute -> approval_state -> durable ApprovalRegistry and budget -> ApprovalService -> WebRoute retry -> standing-grant payload -> committed seller settlement -> real receipt signature and ledger log verification. SequencerEndpoint owns pending ledger view request encoding and response decoding."
+recordings = "tests/support/web_hold.rs replays client-exchange.json search entries 0/1 and gateway/metered.json ledger RPC observations; RecordedNodePayer's optional standing-grant mode selects the committed grant for the requested asset. Existing exact-payment recording assertions remain enforced. No credential or live endpoint is used."
+cases = ["above_threshold_standing_grant_search_is_held_on_its_disclosure", "standing_grant_hold_survives_server_restart_and_is_pending", "approval_after_restart_settles_under_the_standing_grant_without_a_payer_transaction", "rejection_refuses_the_standing_grant_draw_without_payment", "a_grant_changed_below_the_draw_amount_is_refused_as_changed", "standing_grant_payer_without_approval_resources_is_unavailable"]
+regression = "The first three cases must create the metered hold through the real approval_state path; the previous Configuration(metered_receiver_approval) refusal prevents each from reaching its first ticket assertion. No pre-repair gate was run, as the task explicitly requires implementation before qualification."
+restart = "Drop the served server, registry and all original approval resources; reopen the same store; replay the original hold and budget reservation; assert the preparation is byte-exact and the served retry is pending; approve and settle through the restarted server."
+
+[qualification]
+build_gate = "hf-build"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+verify_gate = "hf-done"
+verify_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --lib --test repair_22_31_531 --test repair_22_33_1551 --test repair_22_31_527"
+evidence_command = "cg spec done 22.31.531 -f layerx-merge --root /work/paxeer-monorepo"
+results = "The gate-written /out/run/gates.jsonl build and verify rows record exact candidate revision, command, exit code and private log. The final response copies the last hf-done row, or hf-build if verification never ran. This source record is finalized before the gates so build and verify qualify the same candidate, without a self-referential revision."
+private_build_log = "/out/logs/build-1.log"
+private_verify_log = "/out/logs/verify-1.log"
+result_policy = "No unrun gate is claimed as passed; stop on hf-done success or the bounded repair/deadline result. No spec edit, commit or push is performed by the worker."
+
+[qualification.build_1]
+revision = "1d38ef451ebdb4f14bb90d48d65675ec0caffc04"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-mcp --tests"
+exit = 0
+log = "/out/logs/build-1.log"
+observed = "All MCP test targets, including repair_22_31_531, compile successfully."
+
+[qualification.verify_1]
+revision = "1d38ef451ebdb4f14bb90d48d65675ec0caffc04"
+command = "cg spec done 22.31.531 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The library test standing_grant_settles_metered_offer_without_issue fails in unchanged StandingPayer::view: accountId selector 3f050cbc is refused by its getPayerGrant-only assertion expecting 423fe4b2, before web_tool reaches the changed approval code."
+assumption = "This pre-existing fixture failure is recorded without repair or rerun under task instruction 7; cargo stops at --lib, so none of the three declared integration binaries execute and task 22.31.531 is not qualified."
+
+[qualification.dependents_1]
+revision = "1d38ef451ebdb4f14bb90d48d65675ec0caffc04"
+command = "hf-done internal dependent crate check"
+exit = 0
+log = "/out/logs/dependents-1.log"
+observed = "The wrapper's dependent layerx-agentd-host check passes."
+
+[qualification.continuation_2]
+gotcha = "3127"
+ruling = "The attempt-1 product implementation and integration assertions stand. StandingPayer::view now answers accountId from the recorded exchange, retains the getPayerGrant ID assertion and recorded grant response, and answers nextSequence from its committed RPC observation. Every view increments the counter."
+view_counts = "The direct below-threshold web_tool path issues two payer views: accountId to resolve the payer account and getPayerGrant to validate or refuse the standing grant; it never requests nextSequence. The isolated authorise_metered_offer helper still issues only getPayerGrant. Issues, draws and submissions remain zero."
+gate_results = "For this continuation, /out/run/gates.jsonl records the exact revision, command, exit and private log from hf-build and hf-done. The final response copies the last gate's evidence verbatim; this record is finalized before qualification to preserve the same build and verify candidate. Historical qualification.*_1 sections above refer only to attempt 1."
+
+[qualification.continuation_2_initial_verify]
+revision = "d312f996d3b1e2c6fae70339c3c60fdc1ad8d4dc"
+command = "cg spec done 22.31.531 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Three library cases passed; the standing-grant case stalled in replay.join because the replay expected four HTTP connections after the payer fixture had answered the views directly. The stalled library process was terminated with SIGTERM; Cargo returned 101. The build and dependent check had passed on this revision."
+repair = "Align replay connection counts with the direct path: two HTTP search requests on settlement, one challenge on refusal. The new-grant subcase uses the same recorded account view through IssuingPayer so its existing grant and submission assertions remain reachable. No product code or behavioral assertion changes. The bounded hf-build and hf-done reruns record the repaired revision in /out/run/gates.jsonl and private build-2.log/verify-2.log."
+
+[qualification.continuation_3]
+gotcha = "3133"
+decision = "2592"
+receiver_sequence = "GrantTerms now carries receiver_did_key: [u8; 32]. Both WebPlane::authorise and approval_state::grant_terms decode exactly 32 hex bytes after did:layerx: in facts.receiver_did, derived from the offer's layerx account; a malformed DID key refuses OfferMismatch(account). next_sequence_call encodes nextSequence(receiver_did_key, asset), shared by WebPayer's default draw and held-draw approval_call. The recipient ledger account remains the draw recipient."
+recording_key = "The committed gateway/metered.json ledger.receiverDidKey is 2b27bb5b10d6cfcb98524e5ac08f3a2b1a050515cf0084677ea09c18eab471c8. Both the served recording and StandingPayer assert that the first nextSequence argument equals that DID key before matching the recorded response. Every production GrantTerms construction in the task scope supplies the receiver key; the ABI proof asserts it differs from the recipient account."
+cleanup = "Recording cleanup reports a refused wake connection and any worker join error without panicking, preserving the original case failure when an unrecorded ledger view terminates the worker."
+cases = ["above_threshold_standing_grant_search_is_held_on_its_disclosure", "standing_grant_hold_survives_server_restart_and_is_pending", "approval_after_restart_settles_under_the_standing_grant_without_a_payer_transaction", "rejection_refuses_the_standing_grant_draw_without_payment", "a_grant_changed_below_the_draw_amount_is_refused_as_changed", "standing_grant_payer_without_approval_resources_is_unavailable"]
+gate_results = "For attempt 3, hf-build and hf-done write the exact candidate revision, command, exit and private log to /out/run/gates.jsonl. Those rows and the final response identify the verified revision. This record is finalized before qualification so build and verify use the same candidate; historical qualification entries above refer to previous attempts."

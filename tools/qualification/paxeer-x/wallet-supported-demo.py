@@ -2,6 +2,7 @@
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import signal
 import socket
@@ -81,7 +82,7 @@ for (const [method,args] of [['listFundedTiers',[]],['getFundedSelf',[]],['provi
   await assert.rejects(sdk.PaxeerWallet.prototype[method](...args), error =>
     error instanceof sdk.FundedUnsupportedError && error.code === 'FUNDED_UNSUPPORTED' && error.status === 410);
 }
-for (const name of ['PaxeerProvider','WalletInterface','discoverProviders','HumanClient','KernelAvailability','decodeCustodyAuthorization']) {
+for (const name of ['PaxeerProvider','WalletInterface','discoverProviders','HumanClient','KernelAvailability','EndpointClient','KernelClient','readSequencerReceipt','waitForSequencerReceipt']) {
   assert.equal(typeof sdk[name], 'function');
 }
 console.log('Six retired API calls refused locally; supported production exports present.');
@@ -93,6 +94,7 @@ import fs from 'node:fs';
 import {pathToFileURL} from 'node:url';
 const fixture=JSON.parse(fs.readFileSync(process.env.SUPPORTED_DEMO_FIXTURE,'utf8'));
 const {chromium}=await import(pathToFileURL(process.env.SUPPORTED_PLAYWRIGHT).href);
+const sdk=await import(pathToFileURL(process.env.SUPPORTED_SDK_INDEX).href);
 const browser=await chromium.connectOverCDP(fixture.browser_cdp_url);
 const context=browser.contexts()[fixture.browser_context_index];
 assert(context, 'Dedicated real extension browser context required');
@@ -100,6 +102,20 @@ const page=await context.newPage();
 const requests=[];
 page.on('request',request=>requests.push(request.url()));
 const result=()=>page.locator('[data-wallet-result]');
+async function rpc(method,params) {
+  const response=await fetch(fixture.unified_origin+'/',{method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({jsonrpc:'2.0',id:1,method,params})});
+  assert.equal(response.status,200);
+  const answer=await response.json();
+  assert.equal(answer.jsonrpc,'2.0');assert.equal(answer.id,1);assert(!answer.error);
+  return answer.result;
+}
+async function committed(hash) {
+  const receipt=await sdk.waitForSequencerReceipt(rpc,hash,{rung:'committed'});
+  assert.equal(receipt.txHash,hash);assert.equal(receipt.rung,'committed');assert.equal(receipt.status,'0x1');
+  return receipt;
+}
 async function answer(selector) {
   await page.locator(selector).click();
   if (fixture.injected_confirmation) {
@@ -163,28 +179,36 @@ try {
   assert(/^0x[0-9a-fA-F]{40}$/.test(embedded),'Real provisioned account required');
   await page.getByLabel('Transaction recipient',{exact:true}).fill(fixture.transaction.to);
   await page.getByLabel('Amount in wei',{exact:true}).fill(fixture.transaction.value);
-  assert(/^0x[0-9a-fA-F]{64}$/.test(await answer('[data-wallet-send]')),'Actual transaction hash required');
+  await page.getByLabel('Canonical calldata',{exact:true}).fill('0x');
+  const nativeHash=await answer('[data-wallet-send]');
+  assert(/^0x[0-9a-fA-F]{64}$/.test(nativeHash),'Actual native transaction hash required');
+  await page.evaluate(hash=>localStorage.setItem('qualification:native-send:125',hash),nativeHash);
+  const beforeReload=await sdk.readSequencerReceipt(rpc,nativeHash);
+  assert(beforeReload===null||['submitted','receipted','committed'].includes(beforeReload.rung));
+  const sends=requests.filter(url=>new URL(url).pathname==='/v1/wallet/send').length;
+  await page.reload({waitUntil:'networkidle'});
+  await page.locator('[data-wallet-connect]').first().click();
+  await page.locator('[data-wallet-embedded]').click();
+  assert.equal(await answer('[data-wallet-accounts]'),embedded);
+  const retained=await page.evaluate(()=>localStorage.getItem('qualification:native-send:125'));
+  assert.equal(retained,nativeHash,'Reload must preserve the original native transaction identity');
+  await committed(retained);
+  assert.equal(requests.filter(url=>new URL(url).pathname==='/v1/wallet/send').length,sends,
+    'Reload recovery must poll the original send without resubmitting');
+  const evm=fixture.evm_transaction;
+  assert(evm&&/^0x(?:[0-9a-fA-F]{2})+$/.test(evm.data),'Real EVM calldata fixture required');
+  await page.getByLabel('Transaction recipient',{exact:true}).fill(evm.to);
+  await page.getByLabel('Amount in wei',{exact:true}).fill(evm.value);
+  await page.getByLabel('Canonical calldata',{exact:true}).fill(evm.data);
+  const evmHash=await answer('[data-wallet-send]');
+  assert(/^0x[0-9a-fA-F]{64}$/.test(evmHash),'Actual EVM transaction hash required');
+  await committed(evmHash);
   await page.getByLabel('Typed data JSON',{exact:true}).fill(JSON.stringify(fixture.typed_data));
   assert(/^0x[0-9a-fA-F]{130}$/.test(await answer('[data-wallet-typed]')),'Actual typed-data signature required');
   const changed=structuredClone(fixture.typed_data);changed.domain.chainId=126;
   await page.getByLabel('Typed data JSON',{exact:true}).fill(JSON.stringify(changed));
   await page.locator('[data-wallet-typed]').click();
   await page.waitForFunction(()=>document.querySelector('[data-wallet-result]')?.getAttribute('role')==='alert');
-  await page.getByLabel('Amount in wei',{exact:true}).fill(fixture.custody.value);
-  await page.getByLabel('Canonical calldata',{exact:true}).fill(fixture.custody.data);
-  await answer('[data-custody-prepare]');
-  const retained=await page.locator('[data-retained-custody]').innerText();
-  assert(/^0x[0-9a-fA-F]+$/.test(retained));
-  assert(/^0x[0-9a-fA-F]{130}$/.test(await answer('[data-custody-sign]')),'Actual custody approval required');
-  await page.reload({waitUntil:'networkidle'});
-  await page.locator('[data-wallet-connect]').first().click();
-  await page.locator('[data-wallet-embedded]').click();
-  await answer('[data-wallet-accounts]');
-  assert.equal(await page.locator('[data-retained-custody]').innerText(),retained,'Reload must preserve exact custody bytes');
-  await answer('[data-custody-recover]');
-  assert(/^0x[0-9a-fA-F]{64}$/.test(await answer('[data-custody-send]')));
-  const status=JSON.parse(await answer('[data-custody-status]'));
-  assert(['pending','confirmed','reverted'].includes(status.status));
   await page.getByLabel('Kernel intent JSON',{exact:true}).fill(JSON.stringify(fixture.plan));
   const planned=JSON.parse(await answer('[data-kernel-plan]'));
   assert(planned.plan_digest&&Array.isArray(planned.legs)&&planned.legs.length,'Actual kernel plan required; unavailable does not qualify');
@@ -193,16 +217,52 @@ try {
   assert.equal(await injected.count(),1,'Actual EIP-6963 extension provider required');
   await injected.click();
   await answer('[data-wallet-accounts]');
-  assert.equal(await page.locator('[data-custody-sign]').count(),0,'Injected custody must remain unavailable');
   await page.getByLabel('Transaction recipient',{exact:true}).fill(fixture.transaction.to);
   await page.getByLabel('Amount in wei',{exact:true}).fill(fixture.transaction.value);
-  assert(/^0x[0-9a-fA-F]{64}$/.test(await answer('[data-wallet-send]')));
+  await page.getByLabel('Canonical calldata',{exact:true}).fill('0x');
+  const injectedHash=await answer('[data-wallet-send]');
+  assert(/^0x[0-9a-fA-F]{64}$/.test(injectedHash));
+  await committed(injectedHash);
   await page.getByLabel('Typed data JSON',{exact:true}).fill(JSON.stringify(fixture.typed_data));
   assert(/^0x[0-9a-fA-F]{130}$/.test(await answer('[data-wallet-typed]')));
   await absentFunded();
-  console.log('Actual sign-in, provisioning, embedded/injected transactions and typed data, custody approval/reload/recovery, kernel plan and removed-route refusals passed.');
+  console.log('Actual sign-in, provisioning, native/EVM sends, reload receipt recovery, embedded/injected typed data, wrong-chain refusals, current intent planning and removed-route refusals passed.');
 } finally {await page.close();await browser.close();}
 '''
+
+
+def validate_supported_surface(root=ROOT):
+    demo = root / 'services/wallet/demo/src'
+    source = '\n'.join(path.read_text() for path in demo.rglob('*.tsx'))
+    selectors = set(re.findall(r'\[(data-[a-z-]+)', BROWSER))
+    require(selectors and all(name in source for name in selectors),
+            'browser driver must use current supported demo controls')
+    panel = (demo / 'components/FundedAccountPanel.tsx').read_text()
+    require('wallet.sendTransaction(' in panel and 'human.planIntent(' in panel
+            and 'chain !== 125' in panel, 'supported send, planning and wrong-chain controls required')
+    modules = root / 'sdk/wallet/src'
+    exports = ('PaxeerProvider', 'WalletInterface', 'discoverProviders', 'HumanClient',
+               'KernelAvailability', 'EndpointClient', 'KernelClient',
+               'readSequencerReceipt', 'waitForSequencerReceipt')
+    sdk_source = '\n'.join(path.read_text() for path in modules.rglob('*.ts'))
+    for name in exports:
+        require(re.search(r'export\s+(?:async\s+)?(?:class|function)\s+' + name + r'\b', sdk_source),
+                'supported SDK export missing: ' + name)
+    require('decodeCustodyAuthorization' not in CONTRACT and 'data-custody-' not in BROWSER,
+            'retired custody surface must not be qualified')
+    return {'selectors': sorted(selectors), 'exports': list(exports)}
+
+
+def emit_programs(directory):
+    paths = []
+    for name, program in (('exported-contract.mjs', CONTRACT), ('supported-demo-browser.mjs', BROWSER)):
+        path = Path(directory) / name
+        descriptor = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+        with os.fdopen(descriptor, 'w') as output:
+            os.fchmod(output.fileno(), 0o600)
+            output.write(program)
+        paths.append(path)
+    return tuple(paths)
 
 
 def main():
@@ -229,6 +289,7 @@ def main():
         MANIFEST.chmod(0o600)
         return 0
     require(not sys.argv[1:], 'only --build or the declared verification command is supported')
+    validate_supported_surface()
     binding = protected(MANIFEST)
     require(binding['sources'] == sources() and binding['artifacts'] == artifacts(), 'whole current source and actual prebuilt artifacts must match')
     for name in ('WalletModal.tsx', 'ConnectButton.tsx', 'FundedAccountPanel.tsx'):
@@ -244,8 +305,7 @@ def main():
         text = path.read_text()
         for name in ('SUPABASE_SERVICE_ROLE_KEY', 'AGENT_JWT_SECRET', 'ATTESTOR_SHARED_SECRET', 'API_ENCRYPTION_KEY'):
             require(name not in text, 'server credential reference must not enter the demo bundle')
-    contract = EVIDENCE / 'exported-contract.mjs'
-    contract.write_text(CONTRACT)
+    contract, browser = emit_programs(EVIDENCE)
     environment['SUPPORTED_SDK_INDEX'] = str(SDK / 'dist/index.js')
     code = run([str(NODE), str(contract)], 'exported-contract.log', 60, environment=environment)
     if code:
@@ -274,8 +334,6 @@ def main():
     protected(fixture['delivered_magic_link_file'])
     playwright = ROOT / 'apps/wallet/node_modules/@playwright/test/index.mjs'
     require(playwright.is_file(), 'preinstalled actual Playwright production-browser tooling required')
-    browser = EVIDENCE / 'supported-demo-browser.mjs'
-    browser.write_text(BROWSER)
     environment['SUPPORTED_DEMO_FIXTURE'] = str(Path(supplied).resolve())
     environment['SUPPORTED_PLAYWRIGHT'] = str(playwright)
     with (EVIDENCE / 'demo-process.log').open('wb') as output:

@@ -14,8 +14,8 @@ struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Self {
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
-        let path = std::env::temp_dir()
-            .join(format!("layerx-human-boundary-{}-{id}", std::process::id()));
+        let path =
+            std::env::temp_dir().join(format!("layerx-human-boundary-{}-{id}", std::process::id()));
         fs::create_dir_all(path.join("sample/src"))
             .unwrap_or_else(|error| panic!("create fixture: {error}"));
         fs::write(
@@ -73,6 +73,35 @@ fn node_private_paths_are_rejected() {
 }
 
 #[test]
+fn identifier_containing_a_private_path_token_passes() {
+    let fixture = Fixture::new();
+    for source in [
+        "let tenant = state.snapshot.binding_tenant.clone();",
+        "prefixsnapshot.bin snapshot.bin_suffix",
+        "Asnapshot.bin snapshot.binZ 0snapshot.bin snapshot.bin9 _snapshot.bin snapshot.bin_",
+    ] {
+        fixture.write("sample/src/lib.rs", source);
+        assert_eq!(human_boundary_policy(fixture.path()), Ok(()), "{source}");
+    }
+
+    for source in [
+        "'snapshot.bin'",
+        "'state/snapshots/'",
+        "snapshot.bin",
+        "ésnapshot.biné",
+        "state.snapshot.binding_tenant.clone(); 'snapshot.bin'",
+    ] {
+        fixture.write("sample/src/lib.rs", source);
+        let violations = human_boundary_policy(fixture.path())
+            .err()
+            .unwrap_or_else(|| panic!("private path token must be caught: {source}"));
+        assert!(violations
+            .iter()
+            .any(|violation| violation.rule == "node-private-path"));
+    }
+}
+
+#[test]
 fn ambient_clock_reads_are_rejected() {
     let fixture = Fixture::new();
     fixture.write(
@@ -83,28 +112,33 @@ fn ambient_clock_reads_are_rejected() {
 }
 
 #[test]
-fn service_crate_wire_dependency_is_rejected() {
+fn service_crate_wire_dependency_is_allowed_while_encoding_is_caught() {
     let fixture = Fixture::new();
-    fixture.write(
-        "layerx-human-service/Cargo.toml",
-        "[package]\nname = \"layerx-human-service\"\n[dependencies]\nlayerx-wire = { path = \"../wire\" }\n",
-    );
-    let violations = human_payload_authority_gate(fixture.path())
-        .err()
-        .unwrap_or_else(|| panic!("wire dependency in a service crate must be caught"));
-    assert!(violations
-        .iter()
-        .any(|violation| violation.rule == "payload-authority-dependency"));
-}
-
-#[test]
-fn workspace_inherited_wire_dependency_is_rejected() {
-    let fixture = Fixture::new();
-    fixture.write(
-        "layerx-explorer-index/Cargo.toml",
-        "[dependencies]\nlayerx-wire.workspace = true\n",
-    );
-    assert!(human_payload_authority_gate(fixture.path()).is_err());
+    for dependency in [
+        "layerx-wire = { path = \"../wire\" }",
+        "layerx-wire.workspace = true",
+    ] {
+        fixture.write(
+            "layerx-human-service/Cargo.toml",
+            &format!("[package]\nname = \"layerx-human-service\"\n[dependencies]\n{dependency}\n"),
+        );
+        assert_eq!(human_payload_authority_gate(fixture.path()), Ok(()));
+        for source in [
+            "layerx-human-service/src/lib.rs",
+            "layerx-human-service/tests/receipt.rs",
+        ] {
+            fixture.write(source, "use layerx_wire::encode::Encoder;\n");
+            let violations = human_payload_authority_gate(fixture.path())
+                .err()
+                .unwrap_or_else(|| {
+                    panic!("encode entry point in a service source or test must be caught")
+                });
+            assert_eq!(violations.len(), 1);
+            assert_eq!(violations[0].path, fixture.path().join(source));
+            assert_eq!(violations[0].rule, "payload-encoding-entry-point");
+            fixture.write(source, "");
+        }
+    }
 }
 
 #[test]

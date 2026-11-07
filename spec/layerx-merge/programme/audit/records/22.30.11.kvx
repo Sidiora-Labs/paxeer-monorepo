@@ -1,0 +1,1833 @@
+# Pre-upgrade source audit: current producers, transports, consumers and operator documentation.
+# Verdicts concern the reviewed source revision; gate evidence is retained by the bounded task runner.
+
+[audit.22.30.11]
+task = "22.30.11"
+revision = "6d2c32a65a1c7989a6a37abf5965929de9769ae4"
+files_reviewed = 206
+findings = 47
+docs_reviewed = 19
+upgrade_ready = false
+blocking = ["personal-sign-bytes", "eth-sign-digest", "session-account-cache", "signer-chain-consent", "iframe-account-event", "negative-epoch-duration"]
+
+[file.001]
+path = "api/pricefeed/query.proto"
+lines = 97
+verdict = "clean"
+note = "Reviewed full proto service, request/response fields and HTTP annotations; Params, Price, Prices, FeedKey, ValidatorByFeedAccount and Observation agree with the read-only query surface in requirement 3016.3."
+
+[file.002]
+path = "api/pricefeed/tx.proto"
+lines = 81
+verdict = "clean"
+note = "Reviewed the complete SubmitPrices and authority-only SetParams message contracts, observation decimal strings and millisecond timestamps. Feed key registration/revocation are deliberately precompile-only; the Query service is read-only, while this Msg service carries authenticated writes."
+
+[file.003]
+path = "apps/perps/renovate.json"
+lines = 6
+verdict = "clean"
+note = "Reviewed package-update configuration as configuration data; no retired runtime endpoint or unsupported signing option is declared."
+
+[file.004]
+path = "apps/perps/src/core/chain.ts"
+lines = 33
+verdict = "clean"
+note = "Reviewed chain 125, PAX metadata and chain/RPC wiring to wagmi and viem clients."
+
+[file.005]
+path = "apps/perps/src/core/datafeed/perps.ts"
+lines = 297
+verdict = "issues"
+note = "Full source review; findings: chart-resolution-cache."
+
+[file.006]
+path = "apps/perps/src/core/errors/catalog.ts"
+lines = 431
+verdict = "clean"
+note = "Read the complete catalog.ts error catalog/type/export/global-handler surface and actual reporting consumers; classifier and lazy-reporter issues are recorded on their originating implementations."
+
+[file.007]
+path = "apps/perps/src/core/errors/classify.ts"
+lines = 549
+verdict = "issues"
+note = "Full source review; findings: fetch-error-classification, perps-refusal-guidance."
+
+[file.008]
+path = "apps/perps/src/core/errors/global.ts"
+lines = 80
+verdict = "clean"
+note = "Read the complete global.ts error catalog/type/export/global-handler surface and actual reporting consumers; classifier and lazy-reporter issues are recorded on their originating implementations."
+
+[file.009]
+path = "apps/perps/src/core/errors/index.ts"
+lines = 29
+verdict = "clean"
+note = "Read the complete index.ts error catalog/type/export/global-handler surface and actual reporting consumers; classifier and lazy-reporter issues are recorded on their originating implementations."
+
+[file.010]
+path = "apps/perps/src/core/errors/report.ts"
+lines = 130
+verdict = "issues"
+note = "Full source review; findings: sentry-initialization-race."
+
+[file.011]
+path = "apps/perps/src/core/errors/types.ts"
+lines = 154
+verdict = "clean"
+note = "Read the complete types.ts error catalog/type/export/global-handler surface and actual reporting consumers; classifier and lazy-reporter issues are recorded on their originating implementations."
+
+[file.012]
+path = "apps/perps/src/core/feeds.ts"
+lines = 14
+verdict = "issues"
+note = "Full source review; findings: dynamic-candle-symbols."
+
+[file.013]
+path = "apps/perps/src/core/graphql/client.ts"
+lines = 505
+verdict = "issues"
+note = "Full source review; findings: graphql-auth-cache, graphql-mutation-dedup."
+
+[file.014]
+path = "apps/perps/src/core/index.ts"
+lines = 3
+verdict = "clean"
+note = "Read the entire index.ts file and its exports/imported consumer boundaries against the package requirements, current interface declarations and merged-network brief; no additional disagreement identified."
+
+[file.015]
+path = "apps/perps/src/core/log/logger.ts"
+lines = 73
+verdict = "clean"
+note = "Read the entire logger.ts file and its exports/imported consumer boundaries against the package requirements, current interface declarations and merged-network brief; no additional disagreement identified."
+
+[file.016]
+path = "apps/perps/src/core/nav.ts"
+lines = 101
+verdict = "clean"
+note = "Read the entire nav.ts file and its exports/imported consumer boundaries against the package requirements, current interface declarations and merged-network brief; no additional disagreement identified."
+
+[file.017]
+path = "apps/perps/src/core/net/fetch.ts"
+lines = 114
+verdict = "clean"
+note = "Reviewed bounded fetch retries, idempotency, cancellation and stream cleanup; emitted error kinds are coherent here, with the consuming classifier defect recorded separately."
+
+[file.018]
+path = "apps/perps/src/core/net/realtime.ts"
+lines = 107
+verdict = "clean"
+note = "Reviewed shared realtime connection lifetime, reconnect/backoff, wakeups and cleanup against the live feed transport."
+
+[file.019]
+path = "apps/perps/src/core/net/venueStream.ts"
+lines = 435
+verdict = "clean"
+note = "Reviewed frame parsing, symbol normalization/atomic registration, snapshots, sequence-gap resync, reconnect and subscription cleanup; catalog registration satisfies requirement 3516.1."
+
+[file.020]
+path = "apps/perps/src/core/network/abi/IERC20.js"
+lines = 201
+verdict = "generated"
+note = "Generated/copied standard ERC20 ABI artifact; all nine entries agree across the JS, TS and JSON forms. No handwritten business implementation is claimed for this artifact."
+
+[file.021]
+path = "apps/perps/src/core/network/abi/IERC20.json"
+lines = 198
+verdict = "generated"
+note = "Generated/copied standard ERC20 ABI artifact; all nine entries agree across the JS, TS and JSON forms. No handwritten business implementation is claimed for this artifact."
+
+[file.022]
+path = "apps/perps/src/core/network/abi/IERC20.ts"
+lines = 199
+verdict = "generated"
+note = "Generated/copied standard ERC20 ABI artifact; all nine entries agree across the JS, TS and JSON forms. No handwritten business implementation is claimed for this artifact."
+
+[file.023]
+path = "apps/perps/src/core/network/abi/PerpsPrecompile.ts"
+lines = 3463
+verdict = "generated"
+note = "Generated/copied perps ABI: all 141 function/event/error entries equal precompiles/perps/abi/abi.json; OrderType and TimeInForce enums reviewed against the native values."
+
+[file.024]
+path = "apps/perps/src/core/network/abi/index.js"
+lines = 10
+verdict = "clean"
+note = "Reviewed CommonJS barrel exports; source requires the corresponding ABI modules and is not the application's typed producer implementation."
+
+[file.025]
+path = "apps/perps/src/core/network/abi/index.ts"
+lines = 3
+verdict = "clean"
+note = "Reviewed typed barrel exports against the current perps ABI enums and ERC20 artifact."
+
+[file.026]
+path = "apps/perps/src/core/network/approvals.ts"
+lines = 70
+verdict = "clean"
+note = "Reviewed allowance planning, native-token bypass and exact-amount approval behavior; placeOrder plans do not invoke the collateral-deposit approval path."
+
+[file.027]
+path = "apps/perps/src/core/network/gas.ts"
+lines = 3
+verdict = "clean"
+note = "Reviewed gas amount handling and fee transport behavior against current transaction request quantities."
+
+[file.028]
+path = "apps/perps/src/core/network/gateway.ts"
+lines = 46
+verdict = "clean"
+note = "Reviewed actual perps gateway origin configuration and REST/GraphQL/WebSocket URL construction, distinct from the retired network-wide router."
+
+[file.029]
+path = "apps/perps/src/core/network/precompiles.ts"
+lines = 50
+verdict = "clean"
+note = "Reviewed address and override resolution: perps 0x1015, launchpad 0x1017 and distinct PECOR endpoints 0x1021-0x1025."
+
+[file.030]
+path = "apps/perps/src/core/network/spot_abi/PECOR.ts"
+lines = 1255
+verdict = "generated"
+note = "Generated/copied PECOR ABI artifact; function/event/error shapes agree with the corresponding precompiles/spot/abi JSON, including tuple components and endpoint-specific use."
+
+[file.031]
+path = "apps/perps/src/core/network/spot_abi/PECOROrders.ts"
+lines = 1110
+verdict = "generated"
+note = "Generated/copied PECOR ABI artifact; function/event/error shapes agree with the corresponding precompiles/spot/abi JSON, including tuple components and endpoint-specific use."
+
+[file.032]
+path = "apps/perps/src/core/network/spot_abi/PECORQuoter.ts"
+lines = 1281
+verdict = "generated"
+note = "Generated/copied PECOR ABI artifact; function/event/error shapes agree with the corresponding precompiles/spot/abi JSON, including tuple components and endpoint-specific use."
+
+[file.033]
+path = "apps/perps/src/core/network/spot_abi/PECORStopOrders.ts"
+lines = 1460
+verdict = "generated"
+note = "Generated/copied PECOR ABI artifact; function/event/error shapes agree with the corresponding precompiles/spot/abi JSON, including tuple components and endpoint-specific use."
+
+[file.034]
+path = "apps/perps/src/core/network/spot_abi/PECORVault.ts"
+lines = 1210
+verdict = "generated"
+note = "Generated/copied PECOR ABI artifact; function/event/error shapes agree with the corresponding precompiles/spot/abi JSON, including tuple components and endpoint-specific use."
+
+[file.035]
+path = "apps/perps/src/core/network/spot_abi/index.ts"
+lines = 7
+verdict = "clean"
+note = "Reviewed exports of all five current spot ABIs and their associated enum/type names."
+
+[file.036]
+path = "apps/perps/src/core/paxscan/api/buildUrl.ts"
+lines = 79
+verdict = "clean"
+note = "Read the complete buildUrl.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.037]
+path = "apps/perps/src/core/paxscan/api/fetch.ts"
+lines = 37
+verdict = "clean"
+note = "Read the complete fetch.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.038]
+path = "apps/perps/src/core/paxscan/api/index.ts"
+lines = 19
+verdict = "clean"
+note = "Read the complete index.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.039]
+path = "apps/perps/src/core/paxscan/api/resources.ts"
+lines = 274
+verdict = "clean"
+note = "Read the complete resources.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.040]
+path = "apps/perps/src/core/paxscan/config.ts"
+lines = 27
+verdict = "clean"
+note = "Read the complete config.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.041]
+path = "apps/perps/src/core/paxscan/socket/context.tsx"
+lines = 106
+verdict = "clean"
+note = "Read the complete context.tsx implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.042]
+path = "apps/perps/src/core/paxscan/socket/index.ts"
+lines = 4
+verdict = "clean"
+note = "Read the complete index.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.043]
+path = "apps/perps/src/core/paxscan/socket/types.ts"
+lines = 89
+verdict = "clean"
+note = "Read the complete types.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.044]
+path = "apps/perps/src/core/paxscan/socket/useSocketChannel.tsx"
+lines = 90
+verdict = "issues"
+note = "Full source review; findings: shared-channel-leave, channel-join-params."
+
+[file.045]
+path = "apps/perps/src/core/paxscan/socket/useSocketMessage.tsx"
+lines = 22
+verdict = "clean"
+note = "Read the complete useSocketMessage.tsx implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.046]
+path = "apps/perps/src/core/paxscan/urls.ts"
+lines = 7
+verdict = "clean"
+note = "Read the complete urls.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.047]
+path = "apps/perps/src/core/perfdb/client.ts"
+lines = 123
+verdict = "clean"
+note = "Reviewed authenticated and unauthenticated REST/GraphQL callers, persisted token expiry and mutable auth callback. Cross-session sharing is recorded on the shared GraphQL cache owner."
+
+[file.048]
+path = "apps/perps/src/core/perps/accountView.ts"
+lines = 42
+verdict = "clean"
+note = "Reviewed getAccount cross-margin quantities and USDL decimal boundary into collateral selection and account view."
+
+[file.049]
+path = "apps/perps/src/core/perps/amounts.ts"
+lines = 66
+verdict = "clean"
+note = "Reviewed integer scaling, decimal validation and implied collateral rounding against order call builders."
+
+[file.050]
+path = "apps/perps/src/core/perps/bookLevels.ts"
+lines = 45
+verdict = "clean"
+note = "Reviewed bid/ask decoding, price/size scaling and book-level construction against the gateway/chain order book."
+
+[file.051]
+path = "apps/perps/src/core/perps/calls.ts"
+lines = 450
+verdict = "clean"
+note = "Reviewed all exported ABI descriptors and write builders, order enums, identifiers, amount units, slippage/deadline bounds and live position/order consumers."
+
+[file.052]
+path = "apps/perps/src/core/perps/collateralInputs.ts"
+lines = 6
+verdict = "clean"
+note = "Reviewed collateral input parsing and USDL base-unit bounds before the position action/planner boundary."
+
+[file.053]
+path = "apps/perps/src/core/perps/config.ts"
+lines = 299
+verdict = "issues"
+note = "Full source review; findings: retired-margin-copy."
+
+[file.054]
+path = "apps/perps/src/core/perps/feeTier.ts"
+lines = 22
+verdict = "clean"
+note = "Reviewed getFeeTier tuple decoding and signed ppm-to-bps conversion, including maker rebates and volume window."
+
+[file.055]
+path = "apps/perps/src/core/perps/fundingRate.ts"
+lines = 147
+verdict = "clean"
+note = "Reviewed funding decimal/period conversion against the producer fields and display boundary."
+
+[file.056]
+path = "apps/perps/src/core/perps/markStatus.ts"
+lines = 11
+verdict = "clean"
+note = "Reviewed fresh/enabled precedence and stale/disabled/open states against current mark details."
+
+[file.057]
+path = "apps/perps/src/core/perps/marketCatalog.ts"
+lines = 76
+verdict = "clean"
+note = "Reviewed dynamic gateway market decoding, identifier/symbol normalization, ordering/category and refused malformed rows; new markets are not limited to the fallback list."
+
+[file.058]
+path = "apps/perps/src/core/perps/marketConfig.ts"
+lines = 64
+verdict = "clean"
+note = "Reviewed all config/tier tuple fields, uint validation, tier selection, leverage and maintenance arithmetic against the current ABI and chain tiers."
+
+[file.059]
+path = "apps/perps/src/core/perps/marketLabel.ts"
+lines = 6
+verdict = "clean"
+note = "Reviewed catalog-based labels and the numeric unknown-market fallback without silently selecting another market."
+
+[file.060]
+path = "apps/perps/src/core/perps/orderPlan.ts"
+lines = 374
+verdict = "issues"
+note = "Full source review; findings: scaled-order-protection."
+
+[file.061]
+path = "apps/perps/src/core/perps/pnlHelpers.ts"
+lines = 264
+verdict = "issues"
+note = "Full source review; findings: cross-margin-health."
+
+[file.062]
+path = "apps/perps/src/core/perps/portfolio.ts"
+lines = 51
+verdict = "clean"
+note = "Reviewed portfolio amount aggregation and consumer-facing shape against indexed position/account quantities."
+
+[file.063]
+path = "apps/perps/src/core/perps/positionActions.ts"
+lines = 98
+verdict = "clean"
+note = "Reviewed current cross-margin action set, exact indexed integer parsing, partial-close bounds and TP/SL call construction."
+
+[file.064]
+path = "apps/perps/src/core/perps/positionWrites.ts"
+lines = 110
+verdict = "clean"
+note = "Reviewed live ABI output-name decoding and write planning: placeOrder open/add-size/order plans use deposited collateral; approval remains only on collateral-transfer paths as required by 18760.1."
+
+[file.065]
+path = "apps/perps/src/core/perps/quoteFallback.ts"
+lines = 86
+verdict = "clean"
+note = "Reviewed quote fallback arithmetic and refusal conditions against the current quote response fields."
+
+[file.066]
+path = "apps/perps/src/core/rpc.ts"
+lines = 106
+verdict = "issues"
+note = "Full source review; findings: public-rpc-defaults."
+
+[file.067]
+path = "apps/perps/src/core/spot/addresses.ts"
+lines = 111
+verdict = "clean"
+note = "Reviewed current PECOR address selection and environment overrides against the distinct native endpoint mapping."
+
+[file.068]
+path = "apps/perps/src/core/spot/api.ts"
+lines = 382
+verdict = "clean"
+note = "Reviewed REST producer field names, nullable fields, encodings, cursor parameters and public market-data request paths against swagger_spot.json."
+
+[file.069]
+path = "apps/perps/src/core/spot/calls.ts"
+lines = 352
+verdict = "clean"
+note = "Reviewed live PECOR operation descriptors and token/amount/order parameters against the corresponding chain ABIs."
+
+[file.070]
+path = "apps/perps/src/core/spot/config.ts"
+lines = 105
+verdict = "clean"
+note = "Reviewed active spot configuration without the retired Diamond batch-mode surface."
+
+[file.071]
+path = "apps/perps/src/core/spot/quoterCalls.ts"
+lines = 67
+verdict = "clean"
+note = "Reviewed quote descriptors and exact-input/output argument units against the PECOR quoter ABI."
+
+[file.072]
+path = "apps/perps/src/core/spot/slippage.ts"
+lines = 246
+verdict = "clean"
+note = "Reviewed basis-point slippage bounds, integer rounding and native/token trade limits."
+
+[file.073]
+path = "apps/perps/src/core/spot/stableSelector.ts"
+lines = 103
+verdict = "clean"
+note = "Reviewed registered-stable selection and supported token behavior against current vault metadata."
+
+[file.074]
+path = "apps/perps/src/core/spot/tokenState.ts"
+lines = 17
+verdict = "clean"
+note = "Reviewed current vault token-info/pause reads and tradeability refusal, including TokenPaused."
+
+[file.075]
+path = "apps/perps/src/core/spot/trade-history.ts"
+lines = 89
+verdict = "clean"
+note = "Reviewed transaction/trade history projection against current spot REST fields and decimal encodings."
+
+[file.076]
+path = "apps/perps/src/core/viem/clients.ts"
+lines = 65
+verdict = "clean"
+note = "Reviewed public/wallet client transport selection and chain identity against the exported chain configuration."
+
+[file.077]
+path = "apps/perps/src/core/wagmi.ts"
+lines = 64
+verdict = "clean"
+note = "Reviewed registered embedded/injected connector wiring and chain/RPC selection against application startup."
+
+[file.078]
+path = "apps/perps/src/core/wallet/embedded/PaxeerProvider.tsx"
+lines = 228
+verdict = "clean"
+note = "Reviewed session hydration, authentication callbacks, wallet refresh and asynchronous effect cleanup across reload and sign-out."
+
+[file.079]
+path = "apps/perps/src/core/wallet/embedded/client.ts"
+lines = 84
+verdict = "clean"
+note = "Reviewed singleton/session persistence configuration, PKCE callback URL, public configuration keys and chain/RPC resolution; template drift is recorded on the deployment page."
+
+[file.080]
+path = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+lines = 323
+verdict = "issues"
+note = "Full source review; findings: personal-sign-bytes, eth-sign-digest, session-account-cache, signer-chain-consent, transaction-quantity-validation, rpc-error-data, embedded-rpc-liveness, typed-data-provider-drift."
+
+[file.081]
+path = "apps/perps/src/core/wallet/embedded/index.ts"
+lines = 50
+verdict = "issues"
+note = "Full source review; findings: iframe-removal-comment."
+
+[file.082]
+path = "apps/perps/src/core/wallet/embedded/paxeerConnector.ts"
+lines = 157
+verdict = "clean"
+note = "Reviewed provider creation/destruction, reconnect/account lookup and wagmi event forwarding. The originating stale identity/signing issues are recorded on the embedded provider."
+
+[file.083]
+path = "apps/perps/src/core/wallet/embedded/sdk/index.ts"
+lines = 187
+verdict = "vendored"
+note = "Explicitly vendored @paxeer/wallet v0.1.0 SDK file. Its Supabase REST contracts and persisted session flow were traced; application adaptation defects and version/capability drift are recorded on the first-party EIP-1193 adapter."
+
+[file.084]
+path = "apps/perps/src/core/wallet/embedded/sdk/react.ts"
+lines = 103
+verdict = "vendored"
+note = "Explicitly vendored @paxeer/wallet v0.1.0 SDK file. Its Supabase REST contracts and persisted session flow were traced; application adaptation defects and version/capability drift are recorded on the first-party EIP-1193 adapter."
+
+[file.085]
+path = "apps/perps/src/core/wallet/embedded/sdk/types.ts"
+lines = 75
+verdict = "vendored"
+note = "Explicitly vendored @paxeer/wallet v0.1.0 SDK file. Its Supabase REST contracts and persisted session flow were traced; application adaptation defects and version/capability drift are recorded on the first-party EIP-1193 adapter."
+
+[file.086]
+path = "apps/perps/src/core/wallet/postMessageEip1193.ts"
+lines = 157
+verdict = "issues"
+note = "Full source review; findings: iframe-account-event, iframe-pending-requests, iframe-peer-binding."
+
+[file.087]
+path = "apps/perps/src/lib/paxscan/index.ts"
+lines = 9
+verdict = "clean"
+note = "Read the complete index.ts implementation against Paxscan resource names, URL/query construction and API/socket consumer contracts; shared-channel lifecycle findings are assigned to useSocketChannel.tsx."
+
+[file.088]
+path = "apps/perps/src/types/index.ts"
+lines = 8
+verdict = "clean"
+note = "Read the entire index.ts file and its exports/imported consumer boundaries against the package requirements, current interface declarations and merged-network brief; no additional disagreement identified."
+
+[file.089]
+path = "apps/perps/src/types/paxscan/api/address.ts"
+lines = 310
+verdict = "clean"
+note = "Read the complete address.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.090]
+path = "apps/perps/src/types/paxscan/api/addressMetadata.ts"
+lines = 55
+verdict = "clean"
+note = "Read the complete addressMetadata.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.091]
+path = "apps/perps/src/types/paxscan/api/addressParams.ts"
+lines = 68
+verdict = "clean"
+note = "Read the complete addressParams.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.092]
+path = "apps/perps/src/types/paxscan/api/addresses.ts"
+lines = 23
+verdict = "clean"
+note = "Read the complete addresses.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.093]
+path = "apps/perps/src/types/paxscan/api/block.ts"
+lines = 152
+verdict = "clean"
+note = "Read the complete block.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.094]
+path = "apps/perps/src/types/paxscan/api/decodedInput.ts"
+lines = 12
+verdict = "clean"
+note = "Read the complete decodedInput.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.095]
+path = "apps/perps/src/types/paxscan/api/ens.ts"
+lines = 27
+verdict = "clean"
+note = "Read the complete ens.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.096]
+path = "apps/perps/src/types/paxscan/api/fee.ts"
+lines = 4
+verdict = "clean"
+note = "Read the complete fee.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.097]
+path = "apps/perps/src/types/paxscan/api/index.ts"
+lines = 21
+verdict = "clean"
+note = "Read the complete index.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.098]
+path = "apps/perps/src/types/paxscan/api/indexingStatus.ts"
+lines = 6
+verdict = "clean"
+note = "Read the complete indexingStatus.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.099]
+path = "apps/perps/src/types/paxscan/api/internalTransaction.ts"
+lines = 40
+verdict = "clean"
+note = "Read the complete internalTransaction.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.100]
+path = "apps/perps/src/types/paxscan/api/log.ts"
+lines = 31
+verdict = "clean"
+note = "Read the complete log.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.101]
+path = "apps/perps/src/types/paxscan/api/rawTrace.ts"
+lines = 20
+verdict = "clean"
+note = "Read the complete rawTrace.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.102]
+path = "apps/perps/src/types/paxscan/api/reward.ts"
+lines = 4
+verdict = "clean"
+note = "Read the complete reward.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.103]
+path = "apps/perps/src/types/paxscan/api/search.ts"
+lines = 177
+verdict = "clean"
+note = "Read the complete search.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.104]
+path = "apps/perps/src/types/paxscan/api/stats.ts"
+lines = 40
+verdict = "clean"
+note = "Read the complete stats.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.105]
+path = "apps/perps/src/types/paxscan/api/token.ts"
+lines = 98
+verdict = "clean"
+note = "Read the complete token.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.106]
+path = "apps/perps/src/types/paxscan/api/tokenTransfer.ts"
+lines = 77
+verdict = "clean"
+note = "Read the complete tokenTransfer.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.107]
+path = "apps/perps/src/types/paxscan/api/tokens.ts"
+lines = 37
+verdict = "clean"
+note = "Read the complete tokens.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.108]
+path = "apps/perps/src/types/paxscan/api/transaction.ts"
+lines = 188
+verdict = "clean"
+note = "Read the complete transaction.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.109]
+path = "apps/perps/src/types/paxscan/api/txAction.ts"
+lines = 26
+verdict = "clean"
+note = "Read the complete txAction.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.110]
+path = "apps/perps/src/types/paxscan/api/txStateChanges.ts"
+lines = 57
+verdict = "clean"
+note = "Read the complete txStateChanges.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.111]
+path = "apps/perps/src/types/paxscan/index.ts"
+lines = 1
+verdict = "clean"
+note = "Read the complete index.ts type declaration/export surface against the Paxscan API resources and socket consumers, including nullable/optional fields and wire encodings."
+
+[file.112]
+path = "apps/perps/src/types/perps.ts"
+lines = 525
+verdict = "issues"
+note = "Full source review; findings: retired-spot-type-surface, retired-isolated-types."
+
+[file.113]
+path = "apps/perps/src/ui/atoms/HyperPaxWordmark.tsx"
+lines = 75
+verdict = "clean"
+note = "Read the complete HyperPaxWordmark.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.114]
+path = "apps/perps/src/ui/atoms/PaxSpinner.tsx"
+lines = 88
+verdict = "clean"
+note = "Read the complete PaxSpinner.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.115]
+path = "apps/perps/src/ui/atoms/PaxscanLink.tsx"
+lines = 91
+verdict = "clean"
+note = "Read the complete PaxscanLink.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.116]
+path = "apps/perps/src/ui/atoms/PriceFlash.tsx"
+lines = 45
+verdict = "clean"
+note = "Read the complete PriceFlash.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.117]
+path = "apps/perps/src/ui/atoms/SquiCircleFilter.tsx"
+lines = 362
+verdict = "clean"
+note = "Read the complete SquiCircleFilter.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.118]
+path = "apps/perps/src/ui/atoms/alert.tsx"
+lines = 59
+verdict = "clean"
+note = "Read the complete alert.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.119]
+path = "apps/perps/src/ui/atoms/animated-input.tsx"
+lines = 82
+verdict = "clean"
+note = "Read the complete animated-input.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.120]
+path = "apps/perps/src/ui/atoms/badge.tsx"
+lines = 35
+verdict = "clean"
+note = "Read the complete badge.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.121]
+path = "apps/perps/src/ui/atoms/button.tsx"
+lines = 57
+verdict = "clean"
+note = "Read the complete button.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.122]
+path = "apps/perps/src/ui/atoms/card.tsx"
+lines = 76
+verdict = "clean"
+note = "Read the complete card.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.123]
+path = "apps/perps/src/ui/atoms/checkbox.tsx"
+lines = 25
+verdict = "clean"
+note = "Read the complete checkbox.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.124]
+path = "apps/perps/src/ui/atoms/collapsible.tsx"
+lines = 9
+verdict = "clean"
+note = "Read the complete collapsible.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.125]
+path = "apps/perps/src/ui/atoms/custom-icon.tsx"
+lines = 80
+verdict = "clean"
+note = "Read the complete custom-icon.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.126]
+path = "apps/perps/src/ui/atoms/custom-leverage-slider.tsx"
+lines = 276
+verdict = "issues"
+note = "Full source review; findings: leverage-slider-bounds, leverage-slider-step."
+
+[file.127]
+path = "apps/perps/src/ui/atoms/custom-slider.tsx"
+lines = 182
+verdict = "issues"
+note = "Full source review; findings: custom-slider-step."
+
+[file.128]
+path = "apps/perps/src/ui/atoms/dialog.tsx"
+lines = 127
+verdict = "clean"
+note = "Read the complete dialog.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.129]
+path = "apps/perps/src/ui/atoms/dropdown-menu.tsx"
+lines = 198
+verdict = "clean"
+note = "Read the complete dropdown-menu.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.130]
+path = "apps/perps/src/ui/atoms/glass-surface.tsx"
+lines = 36
+verdict = "clean"
+note = "Read the complete glass-surface.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.131]
+path = "apps/perps/src/ui/atoms/input.tsx"
+lines = 35
+verdict = "clean"
+note = "Read the complete input.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.132]
+path = "apps/perps/src/ui/atoms/label.tsx"
+lines = 24
+verdict = "clean"
+note = "Read the complete label.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.133]
+path = "apps/perps/src/ui/atoms/popover.tsx"
+lines = 31
+verdict = "clean"
+note = "Read the complete popover.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.134]
+path = "apps/perps/src/ui/atoms/resize-handle.tsx"
+lines = 193
+verdict = "issues"
+note = "Full source review; findings: resize-unmount-state."
+
+[file.135]
+path = "apps/perps/src/ui/atoms/segmented-control.tsx"
+lines = 73
+verdict = "clean"
+note = "Read the complete segmented-control.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.136]
+path = "apps/perps/src/ui/atoms/select.tsx"
+lines = 162
+verdict = "clean"
+note = "Read the complete select.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.137]
+path = "apps/perps/src/ui/atoms/separator.tsx"
+lines = 31
+verdict = "clean"
+note = "Read the complete separator.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.138]
+path = "apps/perps/src/ui/atoms/sheet.tsx"
+lines = 137
+verdict = "clean"
+note = "Read the complete sheet.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.139]
+path = "apps/perps/src/ui/atoms/sidebar.tsx"
+lines = 760
+verdict = "clean"
+note = "Read the complete sidebar.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.140]
+path = "apps/perps/src/ui/atoms/skeleton-panel.tsx"
+lines = 111
+verdict = "clean"
+note = "Read the complete skeleton-panel.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.141]
+path = "apps/perps/src/ui/atoms/skeleton.tsx"
+lines = 15
+verdict = "clean"
+note = "Read the complete skeleton.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.142]
+path = "apps/perps/src/ui/atoms/slider.tsx"
+lines = 39
+verdict = "issues"
+note = "Full source review; findings: uncontrolled-slider-range."
+
+[file.143]
+path = "apps/perps/src/ui/atoms/switch.tsx"
+lines = 27
+verdict = "clean"
+note = "Read the complete switch.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.144]
+path = "apps/perps/src/ui/atoms/table.tsx"
+lines = 120
+verdict = "clean"
+note = "Read the complete table.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.145]
+path = "apps/perps/src/ui/atoms/tabs.tsx"
+lines = 53
+verdict = "clean"
+note = "Read the complete tabs.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.146]
+path = "apps/perps/src/ui/atoms/toast.tsx"
+lines = 107
+verdict = "clean"
+note = "Read the complete toast.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.147]
+path = "apps/perps/src/ui/atoms/toaster.tsx"
+lines = 33
+verdict = "clean"
+note = "Read the complete toaster.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.148]
+path = "apps/perps/src/ui/atoms/tooltip.tsx"
+lines = 30
+verdict = "clean"
+note = "Read the complete tooltip.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.149]
+path = "apps/perps/src/ui/atoms/use-toast.tsx"
+lines = 191
+verdict = "clean"
+note = "Read the complete use-toast.tsx component, its exported props/ref/event surface and render/cleanup behavior; no network authority or durable state is introduced by this primitive."
+
+[file.150]
+path = "apps/perps/src/ui/hooks/useAnimatedNumber.ts"
+lines = 48
+verdict = "clean"
+note = "Reviewed animation start/update/cancellation and render lifetime; no transaction quantity is derived from animation state."
+
+[file.151]
+path = "apps/perps/src/ui/index.ts"
+lines = 3
+verdict = "clean"
+note = "Read the entire index.ts file and its exports/imported consumer boundaries against the package requirements, current interface declarations and merged-network brief; no additional disagreement identified."
+
+[file.152]
+path = "apps/perps/src/ui/tokens/GasWeather.tsx"
+lines = 255
+verdict = "clean"
+note = "Read the complete GasWeather.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.153]
+path = "apps/perps/src/ui/tokens/Icon.tsx"
+lines = 134
+verdict = "clean"
+note = "Read the complete Icon.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.154]
+path = "apps/perps/src/ui/tokens/LiquidStat.tsx"
+lines = 160
+verdict = "clean"
+note = "Read the complete LiquidStat.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.155]
+path = "apps/perps/src/ui/tokens/Overview.tsx"
+lines = 148
+verdict = "clean"
+note = "Read the complete Overview.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.156]
+path = "apps/perps/src/ui/tokens/Performance.tsx"
+lines = 205
+verdict = "clean"
+note = "Read the complete Performance.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.157]
+path = "apps/perps/src/ui/tokens/TokenBadge.tsx"
+lines = 48
+verdict = "clean"
+note = "Read the complete TokenBadge.tsx presentation component against its token/statistic inputs and render lifecycle; display values do not authorize transactions."
+
+[file.158]
+path = "apps/perps/src/ui/utils/cn.ts"
+lines = 6
+verdict = "clean"
+note = "Reviewed class-name composition; no runtime network, account or persistent state boundary."
+
+[file.159]
+path = "apps/perps/src/ui/utils/format.ts"
+lines = 183
+verdict = "clean"
+note = "Reviewed number/decimal/scientific input handling, wei parsing and display rounding as a presentation boundary rather than a transaction serializer."
+
+[file.160]
+path = "apps/perps/swagger_spot.json"
+lines = 2717
+verdict = "issues"
+note = "Full source review; findings: spot-openapi-dialect."
+
+[file.161]
+path = "modules/epoch/README.md"
+lines = 100
+verdict = "issues"
+note = "Full source review; findings: epoch-boundary-documentation."
+
+[file.162]
+path = "modules/epoch/client/cli/query.go"
+lines = 33
+verdict = "clean"
+note = "Read the entire client/cli/query.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.163]
+path = "modules/epoch/client/cli/query_epoch.go"
+lines = 34
+verdict = "clean"
+note = "Read the entire client/cli/query_epoch.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.164]
+path = "modules/epoch/client/cli/query_params.go"
+lines = 34
+verdict = "clean"
+note = "Read the entire client/cli/query_params.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.165]
+path = "modules/epoch/client/cli/tx.go"
+lines = 31
+verdict = "clean"
+note = "Read the entire client/cli/tx.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.166]
+path = "modules/epoch/client/wasm/bindings/queries.go"
+lines = 8
+verdict = "clean"
+note = "Read the entire client/wasm/bindings/queries.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.167]
+path = "modules/epoch/client/wasm/query.go"
+lines = 22
+verdict = "clean"
+note = "Read the entire client/wasm/query.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.168]
+path = "modules/epoch/genesis.go"
+lines = 33
+verdict = "clean"
+note = "Read the entire genesis.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.169]
+path = "modules/epoch/genesis_test.go"
+lines = 55
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.170]
+path = "modules/epoch/handler.go"
+lines = 18
+verdict = "clean"
+note = "Read the entire handler.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.171]
+path = "modules/epoch/handler_test.go"
+lines = 28
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.172]
+path = "modules/epoch/keeper/abci.go"
+lines = 51
+verdict = "clean"
+note = "Read the entire keeper/abci.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.173]
+path = "modules/epoch/keeper/abci_catchup_test.go"
+lines = 36
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.174]
+path = "modules/epoch/keeper/epoch.go"
+lines = 25
+verdict = "clean"
+note = "Read the entire keeper/epoch.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.175]
+path = "modules/epoch/keeper/epoch_test.go"
+lines = 40
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.176]
+path = "modules/epoch/keeper/grpc_query.go"
+lines = 7
+verdict = "clean"
+note = "Read the entire keeper/grpc_query.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.177]
+path = "modules/epoch/keeper/grpc_query_epoch.go"
+lines = 15
+verdict = "clean"
+note = "Read the entire keeper/grpc_query_epoch.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.178]
+path = "modules/epoch/keeper/grpc_query_epoch_test.go"
+lines = 21
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.179]
+path = "modules/epoch/keeper/grpc_query_params.go"
+lines = 19
+verdict = "clean"
+note = "Read the entire keeper/grpc_query_params.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.180]
+path = "modules/epoch/keeper/grpc_query_params_test.go"
+lines = 24
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.181]
+path = "modules/epoch/keeper/hooks.go"
+lines = 20
+verdict = "clean"
+note = "Read the entire keeper/hooks.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.182]
+path = "modules/epoch/keeper/hooks_test.go"
+lines = 57
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.183]
+path = "modules/epoch/keeper/keeper.go"
+lines = 46
+verdict = "clean"
+note = "Read the entire keeper/keeper.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.184]
+path = "modules/epoch/keeper/metrics.go"
+lines = 39
+verdict = "clean"
+note = "Read the entire keeper/metrics.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.185]
+path = "modules/epoch/keeper/msg_server.go"
+lines = 17
+verdict = "clean"
+note = "Read the entire keeper/msg_server.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.186]
+path = "modules/epoch/keeper/msg_server_test.go"
+lines = 15
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.187]
+path = "modules/epoch/keeper/params.go"
+lines = 16
+verdict = "clean"
+note = "Read the entire keeper/params.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.188]
+path = "modules/epoch/keeper/params_test.go"
+lines = 18
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.189]
+path = "modules/epoch/module.go"
+lines = 188
+verdict = "clean"
+note = "Read the entire module.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.190]
+path = "modules/epoch/module_simulation.go"
+lines = 62
+verdict = "clean"
+note = "Read the entire module_simulation.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.191]
+path = "modules/epoch/module_test.go"
+lines = 138
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.192]
+path = "modules/epoch/simulation/simap.go"
+lines = 15
+verdict = "clean"
+note = "Read the entire simulation/simap.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.193]
+path = "modules/epoch/simulation/simap_test.go"
+lines = 37
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.194]
+path = "modules/epoch/spec/README.md"
+lines = 7
+verdict = "clean"
+note = "Read the entire spec/README.md implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.195]
+path = "modules/epoch/types/codec.go"
+lines = 25
+verdict = "clean"
+note = "Read the entire types/codec.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.196]
+path = "modules/epoch/types/epoch.go"
+lines = 33
+verdict = "issues"
+note = "Full source review; findings: negative-epoch-duration."
+
+[file.197]
+path = "modules/epoch/types/errors.go"
+lines = 15
+verdict = "clean"
+note = "Read the entire types/errors.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.198]
+path = "modules/epoch/types/events.go"
+lines = 9
+verdict = "clean"
+note = "Read the entire types/events.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.199]
+path = "modules/epoch/types/expected_keepers.go"
+lines = 18
+verdict = "clean"
+note = "Read the entire types/expected_keepers.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.200]
+path = "modules/epoch/types/genesis.go"
+lines = 39
+verdict = "clean"
+note = "Read the entire types/genesis.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.201]
+path = "modules/epoch/types/genesis_test.go"
+lines = 45
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.202]
+path = "modules/epoch/types/hooks.go"
+lines = 53
+verdict = "issues"
+note = "Full source review; findings: epoch-hook-timing-comment."
+
+[file.203]
+path = "modules/epoch/types/hooks_test.go"
+lines = 136
+verdict = "clean"
+note = "Read the entire test file and its actual epoch/module/keeper producer path; assertions agree with the implemented positive-duration state, hook, query or registration behavior. No gate execution is claimed by this source review."
+
+[file.204]
+path = "modules/epoch/types/keys.go"
+lines = 22
+verdict = "clean"
+note = "Read the entire types/keys.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.205]
+path = "modules/epoch/types/params.go"
+lines = 45
+verdict = "clean"
+note = "Read the entire types/params.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[file.206]
+path = "modules/epoch/types/types.go"
+lines = 1
+verdict = "clean"
+note = "Read the entire types/types.go implementation against stored epoch state, registered module/CLI/query contracts and hook lifecycle; negative-duration validation and documentation findings are assigned to their originating files."
+
+[finding.personal-sign-bytes]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 154
+class = "interface-mismatch"
+severity = "high"
+observed = "decodeMessage decodes hex with nonfatal UTF-8 and allocates bytes.length / 2 without rejecting odd hex. personal_sign then passes the resulting text to the vendored signMessage and /v1/wallet/sign-message. For 0xff the signer receives replacement-character UTF-8 rather than the requested byte; an odd trailing nibble is discarded."
+expected = "The personal_sign request must preserve the message being authorized. The registered wallet provider in sdk/wallet/src/provider.ts decodes supported text with fatal UTF-8 and refuses unsupported bytes instead of authorizing a different message."
+proposal = "In apps/perps/src/core/wallet/embedded/eip1193.ts validate complete even-length hex and refuse non-UTF-8 input before the text-only signing route, or introduce an explicitly byte-preserving route with domain 12. Prove the actual signer and recovered signature for valid text, invalid UTF-8 and odd hex."
+owner_domain = 3
+interface = "12.rpc-sdk-provider-personal-sign"
+
+[finding.eth-sign-digest]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 261
+class = "interface-mismatch"
+severity = "high"
+observed = "eth_sign ignores the construction argument and sends decodeMessage(args[1]) to wallet.signMessage, which posts /v1/wallet/sign-message and applies EIP-191 text signing. It therefore cannot return the digest signature expected by sponsored consent and EIP-7702 callers."
+expected = "Registry row 12.rpc-sdk-provider-eth-sign resolves to sdk/wallet/src/provider.ts ethSign: require account, 32-byte digest and complete construction, recompute that construction, post /v1/wallet/sign-digest, and verify the returned signer and unchanged session."
+proposal = "Replace the eth_sign alias in apps/perps/src/core/wallet/embedded/eip1193.ts with the canonical construction-aware provider path in coordination with sdk/wallet and services/wallet/gateway. Refuse unsupported constructions and prove the digest, server response and recovered account through that path."
+owner_domain = 3
+interface = "12.rpc-sdk-provider-eth-sign"
+
+[finding.session-account-cache]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 81
+class = "interface-mismatch"
+severity = "high"
+observed = "getAddress returns cachedAddress for any non-null session. onAuthStateChange clears it only for a null session. Replacing signed-in user A with user B without an intervening null session leaves eth_accounts and wagmi on A, while sdk/index.ts callJson obtains B's current bearer token for signing and broadcasting."
+expected = "The account shown by eth_accounts, emitted through accountsChanged and used by the wallet signing route must identify the same authenticated wallet across sign-in, token refresh, account replacement and reload. A late lookup from a prior session must not repopulate the new account cache."
+proposal = "Bind cachedAddress to session.user.id and an authentication generation in apps/perps/src/core/wallet/embedded/eip1193.ts. Invalidate on identity changes, discard stale lookup results, and check the session again around signing. Prove an A-to-B transition and a delayed A lookup against the real wallet routes."
+owner_domain = 3
+interface = "12.rpc-sdk-provider-eth-accounts"
+
+[finding.signer-chain-consent]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 224
+class = "security"
+severity = "high"
+observed = "eth_sendTransaction and eth_signTransaction ignore tx.from and overwrite an explicitly supplied tx.chainId with the configured chainId; personal_sign also ignores its address argument. A request naming another account or chain can be signed by the current session on chain 125 rather than refused."
+expected = "The canonical SDK provider checks from and signing address against the connected account and refuses an explicit chain mismatch. Signing must authorize the account and network requested by the application, including during an authentication transition."
+proposal = "Validate from, personal_sign address and any supplied transaction chainId in apps/perps/src/core/wallet/embedded/eip1193.ts before the SDK call; verify address and chain_id in signing responses as sdk/wallet/src/provider.ts does. Coordinate domain 12 gateway contracts and prove mismatches cause no signing or broadcast."
+owner_domain = 3
+interface = "12.rpc-sdk-provider-eth-send-transaction"
+
+[finding.transaction-quantity-validation]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 105
+class = "runtime-risk"
+severity = "medium"
+observed = "toBigIntOrUndef silently turns malformed quantity strings into undefined, so an explicit invalid value can disappear before serialize and become the server default. toIntOrUndef converts an arbitrary bigint nonce to Number without a safe-integer check, allowing loss of the requested nonce."
+expected = "An explicitly supplied transaction quantity must either retain its exact non-negative integer value or be refused. Omitted fields and invalid fields are different inputs; the canonical SDK uses uintField and safeInteger before posting transaction requests."
+proposal = "Make apps/perps/src/core/wallet/embedded/eip1193.ts reject malformed, negative, fractional and unsafe integer quantities with a specific invalid-params error. Keep absent fields optional and prove boundary values through the wallet request serializer and actual gateway validation."
+owner_domain = 3
+interface = "12.rpc-sdk-provider-eth-send-transaction"
+
+[finding.rpc-error-data]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 141
+class = "runtime-risk"
+severity = "medium"
+observed = "rpcCall reconstructs a JSON-RPC error from only message and code, dropping error.data. Perps custom-revert selectors from eth_call or estimation consequently never reach errors/classify.ts even though that classifier decodes the current PerpsPrecompile and PECOR error ABIs."
+expected = "The read-RPC adapter must preserve JSON-RPC error data so the same contract refusal produces the same precision, margin, pause and retry guidance through embedded and injected providers; requirements 3515.1 and 3515.2 depend on those revert bytes."
+proposal = "Preserve error.data and validate the JSON-RPC error envelope in apps/perps/src/core/wallet/embedded/eip1193.ts. Exercise actual encoded perps and spot refusals from the node through the embedded RPC adapter into classifyError and its user-facing consumer."
+owner_domain = 3
+
+[finding.embedded-rpc-liveness]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 134
+class = "runtime-risk"
+severity = "medium"
+observed = "rpcCall uses bare fetch without a deadline or cancellation, never checks HTTP status, and accepts any decoded object as a successful result without matching jsonrpc or id. A stalled upstream leaves wallet reads pending indefinitely; an HTTP JSON error can become undefined success."
+expected = "Embedded-wallet reads need a bounded failure and the same valid JSON-RPC result/error distinction as other RPC clients. A network failure or invalid response must not masquerade as an absent on-chain value."
+proposal = "Add bounded request cancellation, HTTP handling and JSON-RPC version/id/result validation to apps/perps/src/core/wallet/embedded/eip1193.ts, retaining revert data. Prove a stalled request, wrong response id and HTTP failure through the actual read transport."
+owner_domain = 3
+
+[finding.typed-data-provider-drift]
+file = "apps/perps/src/core/wallet/embedded/eip1193.ts"
+line = 268
+class = "wiring-gap"
+severity = "medium"
+observed = "All eth_signTypedData variants unconditionally return code 4200 and say the Embedded Wallet API lacks EIP-712. The current sdk/wallet/src/provider.ts has a typedData signing path, while this app still wraps the earlier vendored REST client and cannot expose that wallet capability."
+expected = "A perps user selecting the first-party wallet needs an accurate capability boundary. The app adapter and the supported SDK/gateway must agree on which signing operations are available, rather than reporting an API-wide absence after the canonical provider gained support."
+proposal = "Align apps/perps/src/core/wallet/embedded with the supported domain 12 provider and its actual gateway capabilities. Expose EIP-712 only through the validated canonical path and update the refusal wording for deployments where that path is unavailable."
+owner_domain = 3
+
+[finding.iframe-account-event]
+file = "apps/perps/src/core/wallet/postMessageEip1193.ts"
+line = 105
+class = "interface-mismatch"
+severity = "high"
+observed = "emit spreads any array payload into separate listener arguments. A standard accountsChanged payload [address] arrives as address, and an empty account list arrives as no argument. The bridge is installed by pages/_app.tsx when NEXT_PUBLIC_WALLET_IFRAME_ORIGIN is set, so injected-wallet consumers can receive the wrong event shape."
+expected = "Registry row 12.evt-sdk-provider-accounts-changed declares one Hex[] event argument. Account consumers must receive the entire array, including an empty array on disconnect; spreading the contents changes the declared EIP-1193 event interface."
+proposal = "Deliver one payload argument for accountsChanged in apps/perps/src/core/wallet/postMessageEip1193.ts and define the parent event envelope explicitly. Prove a real parent-window event reaches the injected connector as Hex[] for one, several and zero accounts."
+owner_domain = 3
+interface = "12.evt-sdk-provider-accounts-changed"
+
+[finding.iframe-pending-requests]
+file = "apps/perps/src/core/wallet/postMessageEip1193.ts"
+line = 89
+class = "runtime-risk"
+severity = "medium"
+observed = "request inserts every request into pending without a timeout or cancellation. Entries are removed only on a matching response or unmount. If the parent reloads, refuses the origin or never answers, wallet operations remain pending and repeated requests accumulate until the page is torn down."
+expected = "The iframe transport must bound response waiting and release pending operations when its peer is unavailable. Reload and recovery must provide a visible retryable error rather than leave the trading interface indefinitely waiting for a wallet response."
+proposal = "Add per-request deadlines and peer lifecycle cleanup in apps/perps/src/core/wallet/postMessageEip1193.ts. Reconcile pending promises on parent reconnect/unmount and prove lost-response and parent-reload recovery through actual window messages."
+owner_domain = 3
+
+[finding.iframe-peer-binding]
+file = "apps/perps/src/core/wallet/postMessageEip1193.ts"
+line = 119
+class = "security"
+severity = "medium"
+observed = "handleMessage verifies event.origin but not event.source. Any other same-origin window with a reference to the trading frame can emit SIDIORA_EIP1193_EVENT, and an observed request id can be answered by that window although requests are sent only to window.parent."
+expected = "Wallet responses and account-change events must be accepted from the intended parent browsing context as well as the configured origin. Sharing an origin does not make a sibling or auxiliary window the authorized wallet peer."
+proposal = "Check event.source === window.parent and validate the response/event shape in apps/perps/src/core/wallet/postMessageEip1193.ts. Prove the actual parent is accepted and an equally originated sibling cannot alter account events or settle requests."
+owner_domain = 3
+
+[finding.iframe-removal-comment]
+file = "apps/perps/src/core/wallet/embedded/index.ts"
+line = 5
+class = "doc-drift"
+severity = "low"
+observed = "The public integration comment says the old iframe/postMessage bridge is gone, but pages/_app.tsx imports and installs installPostMessageEip1193Provider. The bridge remains reachable in an iframe with NEXT_PUBLIC_WALLET_IFRAME_ORIGIN configured."
+expected = "The wallet integration description must name the signing paths that are actually enabled. A maintainer reviewing security and configuration must be able to distinguish the embedded Supabase provider and the optional parent-window provider."
+proposal = "Correct apps/perps/src/core/wallet/embedded/index.ts documentation and the application wallet integration guide to describe the conditional iframe installation, or retire it through a separately scoped migration that updates its consumers and configuration."
+owner_domain = 3
+
+[finding.graphql-auth-cache]
+file = "apps/perps/src/core/graphql/client.ts"
+line = 78
+class = "security"
+severity = "medium"
+observed = "makeKey includes only URL, query and variables. inFlight and pollers share that key across endpoint objects and authentication changes; subscribeQuery can replay the existing cached snapshot immediately. PERFDB_GRAPHQL supplies mutable getAuthHeaders, so a new principal can inherit an in-flight or cached result produced with another bearer."
+expected = "Authentication identity is part of the result boundary for protected GraphQL data. Cached snapshots, request deduplication and subscription lifetimes must be invalidated or isolated when the session changes, without retaining raw credentials as public cache keys."
+proposal = "Add an explicit non-secret authentication generation to GraphQLEndpoint and scope caches/connections to it in apps/perps/src/core/graphql/client.ts. Clear prior snapshots and restart protected requests on identity changes; prove two sessions requesting the same query cannot receive one another's cached result."
+owner_domain = 3
+interface = "3.ts-perps-core-graphql-client-subscribequery"
+
+[finding.graphql-mutation-dedup]
+file = "apps/perps/src/core/graphql/client.ts"
+line = 118
+class = "runtime-risk"
+severity = "low"
+observed = "gqlQuery deduplicates every document by URL/query/variables although rawFetch separately recognizes mutations as non-idempotent. Concurrent identical mutation documents therefore execute once and return the same promise twice. Current market reads are queries, but the exported generic helper does not refuse mutations."
+expected = "Non-idempotent GraphQL operations must not be coalesced merely because their text and variables match. Either the exported one-shot helper is query-only and refuses mutations, or each mutation is transported independently with its explicit idempotency contract."
+proposal = "Restrict apps/perps/src/core/graphql/client.ts gqlQuery to read documents or bypass deduplication for mutations. Keep retries disabled for non-idempotent operations and add a real transport assertion that two accepted mutations remain two operations."
+owner_domain = 3
+interface = "3.ts-perps-core-graphql-client-gqlquery"
+
+[finding.dynamic-candle-symbols]
+file = "apps/perps/src/core/feeds.ts"
+line = 10
+class = "wiring-gap"
+severity = "medium"
+observed = "candleFeedUrl refuses every symbol outside the fixed eighteen-element FEED_SYMBOLS list. The market catalog and venueStream registration accept new chain markets such as DOGE under requirements 3511 and 3516, but their chart history path still throws Unsupported feed symbol before any request."
+expected = "A newly listed market needs a consistent feed capability across catalog selection, snapshots and candle history. Dynamic catalog registration must either supply the supported history route or explicitly report that this market has no candle feed."
+proposal = "Drive history-feed capability and routing in apps/perps/src/core/feeds.ts from the validated market catalog/feed metadata, coordinated with the gateway producer. Preserve route validation and show explicit unavailability when the producer has no feed; prove a newly listed market through the chart consumer."
+owner_domain = 3
+interface = "3.ts-perps-core-feeds-candlefeedurl"
+
+[finding.chart-resolution-cache]
+file = "apps/perps/src/core/datafeed/perps.ts"
+line = 192
+class = "runtime-risk"
+severity = "medium"
+observed = "getBars and subscribeBars key lastBarCache only by symbol, while pushBar drops any candle older than that shared cached timestamp. Two chart resolutions for one symbol overwrite each other; a recent one-minute bar can suppress the current hourly bar, and historical pagination can replace a newer cache with an older bar."
+expected = "Candle continuity belongs to a symbol and resolution, with monotonic updates within that series. One chart interval or a historical backfill must not change another live series's watermark or suppress valid updates."
+proposal = "Key lastBarCache by normalized symbol plus resolution in apps/perps/src/core/datafeed/perps.ts, preserve the latest watermark on backfill, and clear the matching series on resync. Prove simultaneous one-minute/hourly subscriptions and an older history response through the real chart datafeed."
+owner_domain = 3
+
+[finding.fetch-error-classification]
+file = "apps/perps/src/core/errors/classify.ts"
+line = 199
+class = "runtime-risk"
+severity = "medium"
+observed = "fetchWithPolicy emits FetchPolicyError with kind timeout/abort/network and messages Request timed out, Request cancelled and Network unavailable. The classifier instead looks for request timeout, AbortError and TypeError failed to fetch, ignoring kind, so these normal core failures fall through to UNKNOWN."
+expected = "The shared fetch producer and error consumer must preserve actionable timeout, cancellation and offline categories. Cancellation should not become a reportable unknown failure, and a timeout should present the bounded retry guidance already available in the catalog."
+proposal = "Teach apps/perps/src/core/errors/classify.ts to consume the exported FetchPolicyError.kind contract from core/net/fetch.ts before message matching. Prove real timeout, caller cancellation and transport failure objects reach the appropriate catalog entries."
+owner_domain = 3
+interface = "3.ts-perps-core-net-fetch-fetchpolicyerror"
+
+[finding.perps-refusal-guidance]
+file = "apps/perps/src/core/errors/classify.ts"
+line = 335
+class = "runtime-risk"
+severity = "medium"
+observed = "PRECOMPILE_ERROR_CODES maps PerpsDeadlineExpired to SLIPPAGE and PerpsNoLiquidity to generic REVERT despite the file defining dedicated DEADLINE and LIQUIDITY entries. An expired order therefore advises changing slippage, while an empty book loses its specific explanation."
+expected = "Current ABI refusal names should retain their distinct user action: expired deadlines require a fresh request, and insufficient book liquidity requires a different size or available liquidity. Raising slippage cannot repair an expired deadline."
+proposal = "Map these two selectors to their existing specific entries in apps/perps/src/core/errors/classify.ts and verify actual ABI-encoded refusals through classifyError and the alerts/trading message consumer, preserving the node error code and revert bytes."
+owner_domain = 3
+
+[finding.sentry-initialization-race]
+file = "apps/perps/src/core/errors/report.ts"
+line = 20
+class = "runtime-risk"
+severity = "medium"
+observed = "getSentry marks sentryReady true before awaiting the dynamic import. A second reportError or leaveBreadcrumb during that import returns the still-null sentryModule and drops the remote report. A rejected initial import also makes the null result permanent for the page lifetime."
+expected = "Concurrent first-use error reports should wait for the same initialization result rather than silently skip reporting. Initialization state must distinguish a pending import from an initialized module and an explicitly unavailable reporter."
+proposal = "Cache the initialization promise in apps/perps/src/core/errors/report.ts so concurrent reporting waits on one import; define the intended retry policy after import failure. Prove simultaneous first reports reach the initialized reporter without losing either event."
+owner_domain = 3
+
+[finding.scaled-order-protection]
+file = "apps/perps/src/core/perps/orderPlan.ts"
+line = 235
+class = "runtime-risk"
+severity = "medium"
+observed = "planCalls parses takeProfitPrice and stopLossPrice whenever tpslEnabled is true and forwards them for market, limit and stop-limit orders. The scaled branch omits both fields from every buildPlaceLimitOrder call, whose defaults clear them, although PerpsOrderForm exposes the same protection inputs."
+expected = "An accepted scaled order must preserve the protective prices selected by the trader or visibly refuse unsupported protection before submission. Silently submitting unprotected rungs after accepting TP/SL inputs changes the trading instruction."
+proposal = "Pass validated TP/SL prices to each scaled rung in apps/perps/src/core/perps/orderPlan.ts when supported, or refuse the combination and explain it in the form. Prove the actual placeOrder calldata from a protected ladder retains both prices on every rung."
+owner_domain = 3
+interface = "3.ts-perps-core-perps-orderplan-buildorderplan"
+
+[finding.cross-margin-health]
+file = "apps/perps/src/core/perps/pnlHelpers.ts"
+line = 155
+class = "runtime-risk"
+severity = "medium"
+observed = "computePositionPnl estimates remainingCollateral and liqPrice from sizeUsd/leverage, per-position funding and fees alone. It never consumes getAccount equity or other positions. The real venue liquidates cross-margin accounts using modules/perps/keeper/margin.go AccountMargin, and views.go getPosition apportions current account equity instead of isolating the original margin."
+expected = "Position return estimates must not be presented as the live account liquidation boundary. Deposits, withdrawals, other positions and unsettled funding change account equity even when this position's size, leverage and entry remain fixed."
+proposal = "Feed the account-level margin/equity view into risk displays using apps/perps/src/core/perps/accountView.ts and the portfolio/trading consumers. Keep any per-position estimate clearly identified and avoid treating it as an account liquidation price; prove another position and a collateral change affect the displayed account risk."
+owner_domain = 3
+interface = "3.ts-perps-core-perps-pnlhelpers-computepositionpnl"
+
+[finding.retired-margin-copy]
+file = "apps/perps/src/core/perps/config.ts"
+line = 271
+class = "retired-reference"
+severity = "low"
+observed = "MARGIN_MODE_TOGGLE_COPY still exports Isolated and Switch Margin Mode wording. The actual positionActions surface says cross only, and the keeper SetMarginMode refuses every nonzero mode with ErrCrossMarginOnly; no active caller of this copy was found."
+expected = "The app's exported product vocabulary should describe the supported cross-margin venue. An unused isolated-mode switch description should not imply that an integrator can enable a feature the producer explicitly refuses."
+proposal = "Remove the unused isolated-switch copy from apps/perps/src/core/perps/config.ts after confirming its imports, and keep cross-margin account risk terminology in the active position and collateral panels."
+owner_domain = 3
+
+[finding.retired-spot-type-surface]
+file = "apps/perps/src/types/perps.ts"
+line = 226
+class = "retired-reference"
+severity = "low"
+observed = "The shared type surface retains SpotMarketRegistryFacet/SpotOrderBookFacet structures, PLVScore, PLVQuote, PoFQScore and the V4 Diamond SgSpotBatchClearing/epoch/fast-settlement/PLV/keeper-cycle types. These have no matching active PECOR REST or precompile producer and their retired subgraph operations were removed under 3527/3530."
+expected = "Current shared market types should identify the live perps gateway and PECOR producer shapes. Retired Diamond and spot batch-settlement exports should not remain an apparently supported alternative schema for new application code."
+proposal = "Retire the unused legacy exports in apps/perps/src/types/perps.ts and migrate any remaining caller to the current core/spot/api.ts and PECOR types. Preserve historical data only in an explicitly versioned compatibility model with a real reader and producer contract."
+owner_domain = 3
+
+[finding.retired-isolated-types]
+file = "apps/perps/src/types/perps.ts"
+line = 322
+class = "retired-reference"
+severity = "low"
+observed = "MarginMode.Isolated and TransferMarginArgs remain exported beside the live position types. The venue supports only cross margin and positionActions intentionally excludes margin-mode and transfer-margin actions; these exports describe unsupported legacy operations."
+expected = "The app type surface should expose the supported cross-margin operations and make any retained compatibility representation explicit. A numeric Isolated member must not suggest an accepted write to the current keeper."
+proposal = "Remove or explicitly quarantine the unused isolated and transfer-margin types in apps/perps/src/types/perps.ts, coordinating any type-only import migrations with the active position action module and account view."
+owner_domain = 3
+
+[finding.shared-channel-leave]
+file = "apps/perps/src/core/paxscan/socket/useSocketChannel.tsx"
+line = 44
+class = "runtime-risk"
+severity = "medium"
+observed = "When one hook becomes disabled, its separate effect calls channel.leave unconditionally. The subscription cleanup below correctly decrements a shared registry subscriber count, but the earlier unconditional leave can close the Phoenix channel while another enabled subscriber still owns it."
+expected = "A shared topic must remain joined until its last subscriber leaves. Disabling a single panel must not interrupt address, transaction or block updates consumed by another mounted panel on the same topic."
+proposal = "Make registry ownership the single channel-leave path in apps/perps/src/core/paxscan/socket/useSocketChannel.tsx and remove the per-consumer unconditional leave. Prove two consumers share one real topic and disabling the first preserves delivery to the second."
+owner_domain = 3
+interface = "3.ts-perps-core-paxscan-socket-usesocketchannel-usepaxscansocketchannel"
+
+[finding.channel-join-params]
+file = "apps/perps/src/core/paxscan/socket/useSocketChannel.tsx"
+line = 62
+class = "wiring-gap"
+severity = "medium"
+observed = "usePaxscanSocketChannel accepts params and treats it as a subscription dependency, but joins with socket.channel(topic) and never transports params. Registry reuse is also keyed only by topic, so differently parameterized joins collapse into one channel."
+expected = "Declared join parameters must reach the Phoenix producer or be explicitly unsupported. Parameter-dependent authorization or filtering must not silently disappear, and incompatible joins must not share a registry entry."
+proposal = "Pass validated join params to socket.channel and define topic/parameter identity in apps/perps/src/core/paxscan/socket/useSocketChannel.tsx, or remove the unsupported argument from the contract and migrate callers. Prove actual join payloads and distinct parameter sets against the channel transport."
+owner_domain = 3
+interface = "3.ts-perps-core-paxscan-socket-usesocketchannel-usepaxscansocketchannel"
+
+[finding.public-rpc-defaults]
+file = "apps/perps/src/core/rpc.ts"
+line = 21
+class = "config-drift"
+severity = "medium"
+observed = "DEFAULT_PAXEER_RPCS generates api1 through api16.mainnet-beta.paxeer.network and omits api-mainnet-beta.paxeer.network. getPaxeerRpcUrls feeds those defaults to viem/wagmi and selects the first URL for the embedded-wallet read transport."
+expected = "Audit brief network fact 3 defines api1 through api14 plus api-mainnet-beta at the root path for chain 125. Default client routing should use that declared set, rather than treating two additional numbered hosts as supported public endpoints."
+proposal = "Update the default set in apps/perps/src/core/rpc.ts and the associated configuration documentation to the fourteen numbered nodes plus the public alias, preserving explicit operator overrides and legacy-host filtering. Verify the configured set without inferring availability from live probes."
+owner_domain = 3
+interface = "3.ts-perps-core-rpc-getpaxeerrpcurls"
+
+[finding.resize-unmount-state]
+file = "apps/perps/src/ui/atoms/resize-handle.tsx"
+line = 149
+class = "runtime-risk"
+severity = "medium"
+observed = "startDrag changes document.body cursor and selection styles and disables pointer events on every iframe. Effect cleanup removes the endDrag listeners and animation frame without restoring those styles if the component unmounts during a drag. Both live trading pages mount this resize handle."
+expected = "Navigating or changing layout during a drag must restore the page and chart interaction state. Global drag styles must be released on every lifecycle exit, including unmount, and prior inline iframe styles must be preserved."
+proposal = "Centralize drag cleanup in apps/perps/src/ui/atoms/resize-handle.tsx, retain prior styles and invoke restoration on unmount as well as mouse/touch end. Prove navigation during a drag leaves body selection and chart iframe interaction usable."
+owner_domain = 3
+interface = "3.ts-perps-ui-atoms-resize-handle-resizehandle"
+
+[finding.leverage-slider-bounds]
+file = "apps/perps/src/ui/atoms/custom-leverage-slider.tsx"
+line = 51
+class = "runtime-risk"
+severity = "low"
+observed = "generateNiceKeyLevels adds 5 for every max <= 10 and other fixed midpoints without checking min/max. handleTickValueClick forwards the label unchanged, so min=1,max=3 renders a clickable 5x that emits a value above max. No live import of this custom slider was found."
+expected = "The exported slider must keep every emitted value inside its declared range, including clickable labels and small chain leverage limits. A dormant reusable component should not introduce an out-of-range order value when mounted later."
+proposal = "Filter generated labels to the declared range and clamp all label/click/drag paths in apps/perps/src/ui/atoms/custom-leverage-slider.tsx, or retire the unused primitive in favor of the live slider. Cover small and nonzero-minimum ranges."
+owner_domain = 3
+interface = "3.ts-perps-ui-atoms-custom-leverage-slider-default"
+
+[finding.leverage-slider-step]
+file = "apps/perps/src/ui/atoms/custom-leverage-slider.tsx"
+line = 20
+class = "runtime-risk"
+severity = "low"
+observed = "CustomLeverageSlider accepts a step prop but every pointer path rounds to a whole integer and label clicks bypass step alignment entirely. A fractional or multi-unit step therefore does not describe the values the exported component emits; no current caller was found."
+expected = "A slider advertising min/max/step must emit values on that grid or refuse unsupported step values. Input precision must be explicit before this primitive can be used with chain-derived leverage constraints."
+proposal = "Implement step alignment relative to min consistently in apps/perps/src/ui/atoms/custom-leverage-slider.tsx, including labels and touch input, or remove the unused primitive and its misleading prop contract."
+owner_domain = 3
+interface = "3.ts-perps-ui-atoms-custom-leverage-slider-default"
+
+[finding.custom-slider-step]
+file = "apps/perps/src/ui/atoms/custom-slider.tsx"
+line = 59
+class = "runtime-risk"
+severity = "low"
+observed = "CustomSlider declares step but rounds pointer positions to fixed five-percent buckets and then integer values, ignoring the step argument. For min=0,max=1,step=0.1 most of the intended grid cannot be selected. No live import of this primitive was found."
+expected = "The exported range/step contract should determine selectable values. A reusable amount slider should neither advertise unsupported fractional precision nor silently replace a caller's step with a visual percentage interval."
+proposal = "Apply the supplied step relative to min in apps/perps/src/ui/atoms/custom-slider.tsx on every interaction path, separating tick decoration from value precision, or retire this unused primitive in favor of the maintained Radix wrapper."
+owner_domain = 3
+interface = "3.ts-perps-ui-atoms-custom-slider-default"
+
+[finding.uncontrolled-slider-range]
+file = "apps/perps/src/ui/atoms/slider.tsx"
+line = 10
+class = "runtime-risk"
+severity = "low"
+observed = "The wrapper accepts all Radix Root props, including defaultValue, but computes its range width only from props.value || [0]. An uncontrolled defaultValue or subsequent internal drag changes the Radix thumb while the inline range width remains based on zero. Current order-form use is controlled."
+expected = "Every supported controlled or uncontrolled value mode should show a range matching its thumb. Accepting the Radix prop surface must not produce a contradictory amount indicator for legitimate defaultValue callers."
+proposal = "Track uncontrolled value changes or delegate range geometry to Radix in apps/perps/src/ui/atoms/slider.tsx; preserve controlled behavior. Verify initial defaultValue and an uncontrolled drag display the same selected amount as the thumb."
+owner_domain = 3
+
+[finding.negative-epoch-duration]
+file = "modules/epoch/types/epoch.go"
+line = 20
+class = "runtime-risk"
+severity = "high"
+observed = "Epoch.Validate refuses duration.Seconds() == 0 but accepts a negative duration. GenesisState.Validate delegates to it, so such genesis/import state is accepted. keeper.BeginBlock then compares positive elapsed time to a negative duration, advances every block and moves CurrentEpochStartTime backwards with Add(duration), firing consensus epoch hooks on an invalid schedule."
+expected = "Epoch duration must be strictly positive before genesis/import state is admitted. Epoch numbers and start times must advance on the configured forward schedule; invalid persisted epoch timing must never drive mint or other module hooks."
+proposal = "Require EpochDuration > 0 in modules/epoch/types/epoch.go and cover negative durations in types/genesis_test.go plus real genesis-to-BeginBlock tests. Prove invalid state is refused before hooks can execute and preserve the existing bounded positive-duration catch-up behavior."
+owner_domain = 3
+interface = "3.go-epoch-types-epoch-validate-j64"
+
+[finding.epoch-hook-timing-comment]
+file = "modules/epoch/types/hooks.go"
+line = 12
+class = "doc-drift"
+severity = "low"
+observed = "The EpochHooks comment says BeforeEpochStart runs on the next block after epoch EndBlock. keeper.BeginBlock actually calls AfterEpochEnd, stores the next Epoch and calls BeforeEpochStart immediately on the same context and block."
+expected = "Hook implementers need the actual same-block order and failure semantics. Both callbacks execute within one BeginBlock transition, and a hook panic aborts rather than being silently skipped; they are not separated by a committed block."
+proposal = "Correct the BeforeEpochStart contract comment in modules/epoch/types/hooks.go and the module hook documentation to state same-block end/store/start order and transactional failure handling. Retain the existing event re-emission and panic propagation behavior."
+owner_domain = 3
+
+[finding.epoch-boundary-documentation]
+file = "modules/epoch/README.md"
+line = 39
+class = "doc-drift"
+severity = "low"
+observed = "The README describes callbacks at the start/end of each epoch without stating that BeginBlock requires elapsed > duration and advances at most one elapsed period per block. modules/epoch/spec/README.md says at each epoch boundary, while abci_catchup_test.go intentionally asserts bounded multi-block catch-up."
+expected = "Operators and hook implementers need the strict-after boundary and bounded catch-up schedule, especially after a downtime interval. The documentation should explain the implemented timing rather than imply callbacks occur exactly at every wall-clock boundary."
+proposal = "Clarify the strict comparison and one-period-per-block recovery in modules/epoch/README.md and modules/epoch/spec/README.md, with the callback order and preserved elapsed start times. Align examples with the existing positive-duration catch-up test."
+owner_domain = 3
+
+[finding.spot-openapi-dialect]
+file = "apps/perps/swagger_spot.json"
+line = 161
+class = "doc-drift"
+severity = "medium"
+observed = "The document declares openapi 3.0.3 at line 2 but uses type:null and type arrays such as [null,string] throughout its schemas, including trade statistics. Those are JSON Schema/OpenAPI 3.1 forms, not valid OpenAPI 3.0 Schema Object types; 3.0 tooling can reject the declared client contract."
+expected = "The published spot schema must use the dialect named by its openapi version so generators and validators interpret optional and nullable fields consistently with the REST producer."
+proposal = "Regenerate apps/perps/swagger_spot.json in a supported dialect: use OpenAPI 3.0 nullable schemas or declare and validate an actual OpenAPI 3.1 contract. Preserve every required field and producer nullability rather than weakening the schema for generation."
+owner_domain = 3
+
+[finding.readme-merged-network]
+file = "README.md"
+line = 44
+class = "doc-drift"
+severity = "medium"
+observed = "README lines 44-47 describe two execution domains and a separately running cmd/layerxd daemon whose checkpoints settle through layerxAnchor; lines 79 and 181 call the merge a draft and the separate kernel current. Those instructions describe the retired deployment model."
+expected = "The finished network is one BFT paxd process with the kernel in the node and receipts final at committed blocks. The root entry point should direct operators and integrators to that supported build and runtime model."
+proposal = "Rewrite README.md architecture, build guidance and current-status paragraphs around merged paxd, chain 125 and block-commit finality. Label any retained historical daemon material as pre-upgrade and link the active operator workflow."
+owner_domain = 17
+
+[finding.network-guide-two-domains]
+file = "docs/paxeer-network.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-20 describe Paxeer as a separate settlement/custody layer next to LayerX, ordinary activity staying on another sequencer, and distinct trust/release boundaries. This conflicts with the same page's useful tenant-namespace description and the finished single-network brief."
+expected = "The network guide should describe a single BFT chain with the integrated kernel, native state and tenant namespaces. Mirrors are archives; checkpoint settlement and a separate sequencer are not the post-upgrade execution boundary."
+proposal = "Rewrite docs/paxeer-network.md opening architecture and settlement references for the merged network, preserving the accurate tenant-namespace guidance and explicitly dating historical compatibility material."
+owner_domain = 17
+
+[finding.fork-runbook-upgrade-plan]
+file = "docs/runbooks/paxeer-x-fork.md"
+line = 4
+class = "doc-drift"
+severity = "medium"
+observed = "The introduction, upgrade table and plan check at lines 4, 28 and 138 still prescribe v6.6 LayerX activation, while the rehearsal at line 252 applies v7.0 on v6.12.0. Line 318 probes the retired 0x1014 anchor and the former totalMarkets selector at 0x1015, now the perps address."
+expected = "One upgrade runbook must name one supported source/target plan and post-upgrade native probes. The merged rehearsal, activation instructions and completion checklist cannot disagree on which release or endpoint behavior is being qualified."
+proposal = "Reconcile docs/runbooks/paxeer-x-fork.md around the v7.0 merge and follow-up store deletion, replace retired anchor/exchange probes with committed-header and current perps checks, and identify any older v6.6 procedure as historical."
+owner_domain = 17
+
+[finding.checkpoint-concept-finality]
+file = "docs/site/docs/concepts/checkpoints.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 3-6 require exactly one Paxeer checkpoint registration per epoch, contradicting settlement-evidence.md line 103 allowing multiple consecutive batches in an authority epoch. Lines 33-37 also present the old accepted/sealed/attested/settled finality ladder as the product model."
+expected = "Post-upgrade receipt finality comes from the committed block, not an additional checkpoint registration. Historical epoch/batch encoding must be described consistently and separated from current consensus finality."
+proposal = "Rewrite docs/site/docs/concepts/checkpoints.md around committed block/header evidence and label retained protocol-2 checkpoint material historical. Reconcile the epoch/batch relationship with the archival evidence page instead of retaining the one-registration-per-epoch claim."
+owner_domain = 17
+
+[finding.retired-settlement-publication]
+file = "docs/site/docs/operators/settlement-evidence.md"
+line = 7
+class = "doc-drift"
+severity = "medium"
+observed = "The page instructs operators to register checkpoints, publish checkpoint witnesses and configure deposit-root authority, then fetch publication proofs before payout. It presents that as current network operation, although the retirement inventory removes anchor settlement and deposit-root publication after the merge plan."
+expected = "Retired component.anchor and component.custody-claims replace these operations with committed-header/state proofs and native bank or ledger moves. Legacy witness encodings may remain reference material but cannot be the post-upgrade funding or finality workflow."
+proposal = "Mark the legacy publication procedure historical in docs/site/docs/operators/settlement-evidence.md and add the merged block-commit proof and native movement path, coordinated with domain 6. Preserve the precise old codecs for archived evidence without directing new operators to retired writes."
+owner_domain = 17
+
+[finding.agent-finality-documentation]
+file = "docs/site/docs/agents/agentd.md"
+line = 470
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 470-481 describe checkpoint augmentation and a separate live-chain settlement verifier as later finality levels. The page omits the retired checkpoint-evidence disposition, which removes SettlementAnchored and defines CheckpointFinalised as verification of the block header and commit."
+expected = "Agent API consumers should treat a verified committed block as finality and use the major-2 evidence vocabulary. A second settlement anchor is not a post-upgrade condition for final receipts or retention decisions."
+proposal = "Update docs/site/docs/agents/agentd.md finality and recovery sections with domain 9 to document block/header commit verification, the removed settlement level and migration of stored metadata; distinguish retained historical receipt bytes from current finality semantics."
+owner_domain = 17
+
+[finding.hosted-unified-router-documentation]
+file = "docs/site/docs/platform/hosted-gateway.md"
+line = 39
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 39-52 describe a unified router serving eth_*, lx_* and px_* plus sixteen EVM node names and POST /rpc, GET /rpc/schema and GET /rpc/ws. The route table at lines 198-200 and the closing RPC section repeat those retired public endpoints."
+expected = "The public node JSON-RPC is at the root of api1 through api14 and api-mainnet-beta, with node namespaces debug, echo, eth, net, pax, test and txpool. Hosted px_ methods belong to the hosted gateway contract; no unified router or separate LayerX RPC surface remains."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md topology and route tables to distinguish current hosted px_ capabilities from native node RPC. Remove the unified router and retired /rpc instructions, coordinating the published contract and deployment guidance with domains 8 and 9."
+owner_domain = 17
+
+[finding.owner-registration-retired-custody]
+file = "docs/site/docs/human/owner-registration-details.md"
+line = 57
+class = "doc-drift"
+severity = "medium"
+observed = "Lines 57-75 direct owner admission through a protocol-3 daemon and funding through layerxcustody at 0x1013 plus custody_credit.py attestation; line 82 calls the peer LNI, and line 102 requires a guarantor checkpoint certificate. These remain presented as the current owner bootstrap path."
+expected = "The retirement inventory replaces LNI, custody-deposit and checkpoint-evidence paths with node transaction execution, native bank funding and committed-header evidence. The useful guardian key separation/recovery policy must be distinguished from this retired bootstrap topology."
+proposal = "Rewrite docs/site/docs/human/owner-registration-details.md admission, funding and recovery evidence with domain 10 for the merged node. Preserve guardian custody protections, but replace retired daemon/LNI, custody deposit and guarantor finality prerequisites with their native equivalents."
+owner_domain = 17
+
+[finding.environment-template-drift]
+file = "apps/perps/src/env/.env.template"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The template advertises RPC_URL as the network setting and omits NEXT_PUBLIC_PAXEER_RPC_URLS/NEXT_PUBLIC_PAXEER_RPC_URL and the embedded wallet's NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Copying it does not configure the actual RPC resolver and leaves the first-party wallet disabled without explaining why."
+expected = "The application deployment template should list the literal keys the Next.js code reads, distinguish browser-safe configuration from server secrets, and document required versus optional values and the supported default network."
+proposal = "Align apps/perps/src/env/.env.template with core/rpc.ts, core/wallet/embedded/client.ts and the deployment environment. Explain the required public Supabase key and wallet/API overrides and replace the generic framework-prefix guidance with this app's actual key names."
+owner_domain = 3
+
+[finding.published-planner-signatures]
+file = "spec/layerx-merge/contracts/perps-client.md"
+line = 471
+class = "doc-drift"
+severity = "medium"
+observed = "The generated contract table publishes buildOrderPlan(state, quote) at line 471 and computePositionPnl(pos, markPrice) at line 491. The source now requires OrderLimits for the planner, and PnL needs usable MarginTier input to avoid No margin tier; the listed two-argument contracts are insufficient for current consumers."
+expected = "Published source contracts and registry row signatures must describe the chain-limit and tier inputs required by the implemented call path. A documented minimal invocation should not fail because it omits the new chain configuration dependency."
+proposal = "Refresh the interface declarations/overrides and regenerate spec/layerx-merge/contracts/perps-client.md for buildOrderPlan and computePositionPnl, documenting required OrderLimits and MarginTier loading/refusal behavior. Preserve the runtime checks and their current callers."
+owner_domain = 3
+interface = "3.ts-perps-core-perps-orderplan-buildorderplan"
+
+[doc.01]
+path = "docs/system/precompiles.md"
+status = "accurate"
+notes = "Generated source ABI inventory, reviewed as a source catalog rather than an activation promise. The perps ABI and five PECOR app ABIs match their chain definitions; spot addresses are explicitly package-wide and share-token pointers are dynamic."
+
+[doc.02]
+path = "docs/system/chain-modules.md"
+status = "accurate"
+notes = "Generated source inventory agrees with the reviewed pricefeed query routes, epoch state/query surfaces and no-message/no-parameter epoch behavior. Inventory rows are not a deployment activation certificate."
+
+[doc.03]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-47, 79 and 181 retain the separate daemon/checkpoint settlement model; finding readme-merged-network proposes the single-node architecture rewrite."
+
+[doc.04]
+path = "docs/paxeer-network.md"
+status = "misleading"
+notes = "Lines 3-20 describe two operational domains and sequencer settlement; finding network-guide-two-domains preserves the useful tenant-namespace section while replacing that architecture."
+
+[doc.05]
+path = "docs/runbooks/paxeer-x-fork.md"
+status = "stale"
+notes = "Lines 4, 28, 138 and 318 conflict with the merged rehearsal at line 252 and current precompile behavior; finding fork-runbook-upgrade-plan identifies the required plan/probe reconciliation."
+
+[doc.06]
+path = "docs/site/docs/concepts/checkpoints.md"
+status = "stale"
+notes = "Lines 3-6 and 33-37 retain one checkpoint per epoch and the old finality ladder; finding checkpoint-concept-finality proposes committed-block semantics and consistent archival encoding context."
+
+[doc.07]
+path = "docs/site/docs/operators/settlement-evidence.md"
+status = "stale"
+notes = "Lines 7-39 prescribe retired checkpoint and deposit-root publication; finding retired-settlement-publication requests a historical boundary and the merged native movement/proof workflow."
+
+[doc.08]
+path = "docs/site/docs/operators/porting.md"
+status = "accurate"
+notes = "The ABI-2 porting-kit descriptions and explicit guest release/lint qualification distinguish supported semantics and refusal limits. This slice does not register a guest or change the host/guest ABI."
+
+[doc.09]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 470-481 retain a separate settlement-verifier finality ladder; finding agent-finality-documentation maps current API evidence to block commit and preserves historical receipt bytes."
+
+[doc.10]
+path = "docs/site/docs/platform/identity.md"
+status = "accurate"
+notes = "Hosted principal/session authentication and persisted identity storage are described separately from the app embedded wallet Supabase client. No claim equating those token formats is made; the reviewed identity lifecycle remains a distinct hosted contract."
+
+[doc.11]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-52, 198-200 and 609 describe the retired unified router and /rpc routes; finding hosted-unified-router-documentation requests separate native node and hosted px_ documentation."
+
+[doc.12]
+path = "docs/site/docs/human/owner-registration-details.md"
+status = "stale"
+notes = "Guardian custody separation is useful, but lines 57-82 and 102 prescribe retired daemon, LNI, custody and checkpoint-evidence paths; finding owner-registration-retired-custody proposes their merged replacements."
+
+[doc.13]
+path = "modules/epoch/README.md"
+status = "stale"
+notes = "The state/query/events and verification-history descriptions agree with source; hook timing omits strict-after-boundary and one-period-per-block catch-up, addressed by epoch-boundary-documentation."
+
+[doc.14]
+path = "modules/epoch/spec/README.md"
+status = "stale"
+notes = "The abstract says at each epoch boundary without the strict-after and bounded catch-up details. Read with keeper/abci.go and abci_catchup_test.go; epoch-boundary-documentation proposes the clarification."
+
+[doc.15]
+path = "apps/perps/src/env/.env.template"
+status = "stale"
+notes = "Literal RPC and wallet key coverage differs from the application readers; environment-template-drift names missing settings and proposes an application-specific deployment template."
+
+[doc.16]
+path = "spec/layerx-merge/contracts/perps-client.md"
+status = "stale"
+notes = "Generated interface catalog consulted for the source/core, environment and UI surfaces. Lines 471 and 491 omit the implemented planner limits and usable PnL tiers; published-planner-signatures requests a registry/catalog refresh."
+
+[doc.17]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Normative audit context: one BFT network, chain 125, root node RPC, hosted px_ separation, tenant namespaces and finality at block commit; applied to the member/interface/documentation review."
+
+[doc.18]
+path = "spec/layerx-merge/programme/data/retired.kvx"
+status = "stale"
+notes = "Retirement dispositions consulted for anchor/custody, LNI, checkpoint evidence, wire/authority and wallet transitions. Finding retirement-router-wording records the historical router wording in the layerxctl-port replacement; the merged-network brief supplies the current direct node RPC contract."
+
+[finding.retirement-router-wording]
+file = "spec/layerx-merge/programme/data/retired.kvx"
+line = 247
+class = "doc-drift"
+severity = "medium"
+observed = "component.layerxctl-port directs the retained CLI to talk to the chain over EVM JSON-RPC through the router. That replacement text carries a retired deployment dependency into the migration inventory even though the audit brief explicitly removes the router."
+expected = "The retained CLI reaches the single network through direct node JSON-RPC at the root path. Migration dispositions should point implementers to the current interface rather than preserve an intermediate topology as the target."
+proposal = "Update the component.layerxctl-port replacement in spec/layerx-merge/programme/data/retired.kvx to direct node RPC, coordinate the layerxctl transport contract with domain 16 and regenerate any migration documentation that repeats the retired routing instruction."
+owner_domain = 16
+
+[doc.19]
+path = "apps/perps/swagger_spot.json"
+status = "misleading"
+notes = "Reviewed the complete public spot path and schema contract against core/spot/api.ts, including user trade statistics. spot-openapi-dialect records the OpenAPI 3.0.3 declaration with unsupported null/type-array forms; preserve producer fields while correcting the published dialect."

@@ -21,18 +21,16 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/evm"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 	tssecdsa "github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/ecdsa"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/eddsa"
 )
 
 const (
-	KindCustody         = "custody"
 	KindEVMTransaction  = "evm_tx"
 	KindTypedData       = "eip712"
 	KindPersonalMessage = "personal_message"
 	KindEthSignDigest   = "eth_sign_digest"
-	KindLXActivity      = "lx_activity"
 	KindLXBind          = "lx_bind"
 	KindLXGrant         = "lx_grant"
 	KindLXSendAuth      = "lx_send_authorization"
@@ -44,19 +42,17 @@ const (
 )
 
 var kindCurves = map[string]dealer.Curve{
-	KindCustody:         dealer.Secp256k1,
 	KindEVMTransaction:  dealer.Secp256k1,
 	KindTypedData:       dealer.Secp256k1,
 	KindPersonalMessage: dealer.Secp256k1,
 	KindEthSignDigest:   dealer.Secp256k1,
-	KindLXActivity:      dealer.Ed25519,
 	KindLXBind:          dealer.Ed25519,
 	KindLXGrant:         dealer.Ed25519,
 	KindLXSendAuth:      dealer.Ed25519,
 }
 
 func SignKinds() []string {
-	return []string{KindCustody, KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXActivity, KindLXBind, KindLXGrant, KindLXSendAuth}
+	return []string{KindEVMTransaction, KindTypedData, KindPersonalMessage, KindEthSignDigest, KindLXBind, KindLXGrant, KindLXSendAuth}
 }
 
 type GrantJSON struct {
@@ -74,14 +70,8 @@ type GrantJSON struct {
 	RevocationSequence uint64 `json:"revocation_sequence"`
 }
 
-type CustodyProofJSON struct {
-	Bytes     string `json:"bytes"`
-	Signature string `json:"signature"`
-}
-
 type SignRequest struct {
 	ClockProfile string                 `json:"clock_profile,omitempty"`
-	Custody      *CustodyProofJSON      `json:"custody,omitempty"`
 	Origin       *agent.OriginalRequest `json:"origin,omitempty"`
 	SessionID    string                 `json:"session_id"`
 	KeyID        string                 `json:"key_id"`
@@ -383,6 +373,10 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 	if !ok {
 		return SignResponse{}, newError(CodeSessionKind, "kind %q is not supported", req.Kind)
 	}
+	unlockSession := s.lockKey("sign\x00" + requestID(req.KeyID, req.SessionID))
+	defer unlockSession()
+	unlock := s.readKey(req.KeyID)
+	defer unlock()
 	rec, payload, e := s.loadShare(req.KeyID)
 	if e != nil {
 		return SignResponse{}, e
@@ -427,7 +421,8 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 		return refuse(newError(CodeQuorumSelfMissing, "this node is not among the signers"))
 	}
 
-	if requestCarriesVerification(req) {
+	digest, digestError := hex32("digest", req.Digest)
+	if requestCarriesVerification(req) || (digestError == nil && s.signsVerification(req.KeyID, rec.PublicKey, digest[:], nil)) {
 		return refuse(policyError(policy.CodeVerificationIsolated, "the verification message is signed only under "+KindOperatorVerification))
 	}
 	signed, view, policyKind, e := s.prepare(req, rec.PublicKey, subject)
@@ -437,6 +432,17 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 	if s.signsVerification(req.KeyID, rec.PublicKey, signed, view) {
 		return refuse(policyError(policy.CodeVerificationIsolated, "the verification message is signed only under "+KindOperatorVerification))
 	}
+	intent := signingIntent(req, rec.Epoch, signed)
+	state, e := s.bindSignIntent(intent)
+	if e != nil {
+		return refuse(e)
+	}
+	if state.Response != nil {
+		if e := s.validateSignResult(rec, intent, signed, *state.Response); e != nil {
+			return refuse(e)
+		}
+		return *state.Response, nil
+	}
 	if strings.HasPrefix(payload.Owner, "agent:") || r.Header.Get(HeaderAgentKey) != "" {
 		if s.opts.Authority == nil {
 			return refuse(newError(CodeTokenUnavailable, "custody authority is not configured"))
@@ -445,25 +451,13 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return refuse(policyError(policy.CodeDestinationDenied, "replicated agent policy refused the decoded request"))
 		}
 	}
-	ledgerSession := req.SessionID
-	if req.Kind == KindCustody || req.Custody != nil {
-		rawText := req.Message
-		if req.Custody != nil {
-			rawText = req.Custody.Bytes
-		}
-		raw, err := hex.DecodeString(strings.TrimPrefix(rawText, "0x"))
-		if err != nil {
-			return refuse(newError(CodeSessionBadRequest, "invalid custody bytes"))
-		}
-		ledgerSession = "custody-" + hex.EncodeToString(gethcrypto.Keccak256(raw))
-	}
 	unlockAccount := s.lockKey("ledger\x00" + policy.AccountKey(payload.Account))
-	decision := s.evaluate(payload.Account, policyKind, view, s.spends.ForRequest(requestID(req.KeyID, ledgerSession)))
+	decision := s.evaluate(payload.Account, policyKind, view, s.spends.ForRequest(requestID(req.KeyID, req.SessionID)))
 	unlockAccount()
 	if !decision.Allowed {
 		return refuse(policyError(decision.Code, decision.Reason))
 	}
-	if acked, silent := s.Announce(r.Context(), req.KeyID, ledgerSession, payload.Account, rec.Participants, decision.Spends); acked < int(dealer.Threshold) {
+	if acked, silent := s.Announce(r.Context(), req.KeyID, req.SessionID, payload.Account, rec.Participants, decision.Spends); acked < int(dealer.Threshold) {
 		if _, ae := s.audit("sign."+req.Kind, req.KeyID, subject, "denied", "announcement not acknowledged by a quorum", req.SessionID); ae != nil {
 			return SignResponse{}, ae
 		}
@@ -487,7 +481,7 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return SignResponse{}, newError(CodeKeyNotRefreshed, "key %q needs a refresh before it can sign", req.KeyID)
 		}
 		var sig tssecdsa.EthereumSignature
-		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignSecp, epochBinding(rec.Epoch), signers, func(ctx context.Context, ps *peerSession) error {
+		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignSecp, append(epochBinding(rec.Epoch), []byte(intent.Digest)...), signers, func(ctx context.Context, ps *peerSession) error {
 			var err error
 			sig, err = tssecdsa.Sign(ctx, share, ecdsaNet{ps}, signers, signed)
 			return err
@@ -503,7 +497,7 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 			return SignResponse{}, newError(CodeKeyInvalidShare, "%v", err)
 		}
 		var sig [64]byte
-		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignEd, epochBinding(rec.Epoch), signers, func(ctx context.Context, ps *peerSession) error {
+		e = s.runBoundSession(r.Context(), req.SessionID, "sign", protocolSignEd, append(epochBinding(rec.Epoch), []byte(intent.Digest)...), signers, func(ctx context.Context, ps *peerSession) error {
 			var err error
 			sig, err = eddsa.Sign(ctx, k, eddsaNet{ps}, signers, signed)
 			return err
@@ -513,13 +507,17 @@ func (s *Server) doSign(r *http.Request, body []byte) (SignResponse, *Error) {
 		}
 		resp.Signature = hex.EncodeToString(sig[:])
 	}
+	if e := s.validateSignResult(rec, intent, signed, resp); e != nil {
+		return refuse(e)
+	}
+	if e := s.saveSignResult(intent, resp); e != nil {
+		return refuse(e)
+	}
 	return resp, nil
 }
 
 func (s *Server) evaluate(account, policyKind string, view any, ledger policy.Ledger) policy.Decision {
 	switch v := view.(type) {
-	case *lx.ActivityRequest:
-		return s.opts.Kernel.EvaluateActivity(common.HexToAddress(account), v, ledger)
 	case *lx.SendAuthorizationRequest:
 		return s.opts.Kernel.EvaluateSendAuthorization(common.HexToAddress(account), v, ledger)
 	case *lx.BindRequest:
@@ -528,7 +526,7 @@ func (s *Server) evaluate(account, policyKind string, view any, ledger policy.Le
 		return s.opts.Kernel.EvaluateGrant(common.HexToAddress(account), v, ledger)
 	}
 	switch policyKind {
-	case policy.KindLXActivity, policy.KindLXBind, policy.KindLXGrant:
+	case policy.KindLXSendAuth, policy.KindLXBind, policy.KindLXGrant:
 		return policy.Decision{Allowed: false, Code: policy.CodeDecodeError, Reason: "kernel request has no kernel view"}
 	}
 	return s.opts.Policy.Evaluate(account, policy.Request{Kind: policyKind, View: view}, ledger)
@@ -579,37 +577,21 @@ func approved(req SignRequest, subject string, a *lxwire.Activity, digest [32]by
 
 func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]byte, any, string, *Error) {
 	if req.ClockProfile != "" && (req.ClockProfile != lx.NativeClockProfileV1 ||
-		(req.Kind != KindLXActivity && req.Kind != KindLXSendAuth && req.Kind != KindLXGrant)) {
+		(req.Kind != KindLXSendAuth && req.Kind != KindLXGrant)) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "native clock profile is confined to native LayerX signing")
 	}
-	if req.Kind != KindLXActivity && req.Kind != KindLXSendAuth && (req.Disclosure != nil || req.Approval != nil) {
-		return nil, nil, "", newError(CodeSessionBadRequest, "disclosure and approval belong only to %s and %s", KindLXActivity, KindLXSendAuth)
-	}
-	if req.Kind == KindCustody && (req.Transaction != "" || req.TypedData != "" || req.Digest != "" || req.Activity != "" || req.Grant != nil || req.Construction != nil) {
-		return nil, nil, "", newError(CodeSessionBadRequest, "custody signs only its complete canonical bytes")
+	if req.Kind != KindLXSendAuth && (req.Disclosure != nil || req.Approval != nil) {
+		return nil, nil, "", newError(CodeSessionBadRequest, "disclosure and approval belong only to %s", KindLXSendAuth)
 	}
 	if req.Kind == KindEthSignDigest && (req.Transaction != "" || req.TypedData != "" || req.Message != "" || req.Activity != "" || req.Grant != nil) {
 		return nil, nil, "", newError(CodeSessionBadRequest, "digest signs only its complete construction")
 	}
-	if req.Custody != nil && req.Kind != KindEVMTransaction {
-		return nil, nil, "", newError(CodeSessionBadRequest, "custody proof belongs only to its EVM transaction")
-	}
 	public, err := gethcrypto.UnmarshalPubkey(pubBytes)
-	var custodyOwner common.Address
+	var signingOwner common.Address
 	if err == nil {
-		custodyOwner = gethcrypto.PubkeyToAddress(*public)
+		signingOwner = gethcrypto.PubkeyToAddress(*public)
 	}
 	switch req.Kind {
-	case KindCustody:
-		raw, e := decodeHex("message", req.Message)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		consent, err := evm.DecodeCustody(raw, new(big.Int).SetUint64(s.opts.ChainID), custodyOwner, uint64(time.Now().Unix()))
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, "invalid canonical custody consent")
-		}
-		return evm.PersonalDigest(raw).Bytes(), consent.Transaction, policy.KindEVMTransaction, nil
 	case KindEVMTransaction:
 		raw, e := decodeHex("transaction", req.Transaction)
 		if e != nil {
@@ -618,27 +600,6 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		tx, err := evm.DecodeTransaction(raw, new(big.Int).SetUint64(s.opts.ChainID))
 		if err != nil {
 			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		if req.Custody != nil {
-			raw, e := decodeHex("custody.bytes", req.Custody.Bytes)
-			if e != nil {
-				return nil, nil, "", e
-			}
-			consent, err := evm.DecodeCustody(raw, new(big.Int).SetUint64(s.opts.ChainID), custodyOwner, uint64(time.Now().Unix()))
-			if err != nil || !consent.Matches(tx) {
-				return nil, nil, "", policyError(policy.CodeDecodeError, "custody consent differs from actual transaction")
-			}
-			signature, e := decodeHex("custody.signature", req.Custody.Signature)
-			if e != nil || len(signature) != 65 {
-				return nil, nil, "", newError(CodeSessionBadRequest, "invalid custody signature")
-			}
-			if signature[64] >= 27 {
-				signature[64] -= 27
-			}
-			recovered, err := gethcrypto.SigToPub(evm.PersonalDigest(raw).Bytes(), signature)
-			if err != nil || gethcrypto.PubkeyToAddress(*recovered) != custodyOwner {
-				return nil, nil, "", policyError(policy.CodeDecodeError, "custody approval signer differs from original wallet")
-			}
 		}
 		return tx.SigningDigest.Bytes(), tx, policy.KindEVMTransaction, nil
 	case KindTypedData:
@@ -674,7 +635,7 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		}
 		switch claim := view.(type) {
 		case *evm.SponsoredBatchClaim:
-			if claim.Batch.Account != custodyOwner || claim.Batch.Quote.Deadline.Cmp(big.NewInt(time.Now().Unix())) < 0 || claim.Batch.Quote.TokenAmount.Cmp(claim.Batch.Quote.MaxTokenAmount) > 0 {
+			if claim.Batch.Account != signingOwner || claim.Batch.Quote.Deadline.Cmp(big.NewInt(time.Now().Unix())) < 0 || claim.Batch.Quote.TokenAmount.Cmp(claim.Batch.Quote.MaxTokenAmount) > 0 {
 				return nil, nil, "", policyError(policy.CodeDecodeError, "sponsored consent owner, expiry or maximum differs")
 			}
 			if _, err := claim.Verify(); err != nil {
@@ -686,30 +647,6 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 			}
 		}
 		return d[:], view, policyKind, nil
-	case KindLXActivity:
-		raw, e := decodeHex("activity", req.Activity)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		a, err := lxwire.DecodeUnsignedActivity(raw, s.opts.Activities)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		pre, err := lxwire.SignaturePreimage(a)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		effect, err := lx.DecodeEffect(a)
-		if err != nil {
-			return nil, nil, "", policyError(policy.CodeDecodeError, err.Error())
-		}
-		disclosure, e := approved(req, subject, a, pre, effect)
-		if e != nil {
-			return nil, nil, "", e
-		}
-		var pub [32]byte
-		copy(pub[:], pubBytes)
-		return pre[:], &lx.ActivityRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: pre, PublicKey: pub, Disclosure: disclosure}, policy.KindLXActivity, nil
 	case KindLXSendAuth:
 		raw, e := decodeHex("activity", req.Activity)
 		if e != nil {
@@ -736,7 +673,7 @@ func (s *Server) prepare(req SignRequest, pubBytes []byte, subject string) ([]by
 		}
 		var pub [32]byte
 		copy(pub[:], pubBytes)
-		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXActivity, nil
+		return digest[:], &lx.SendAuthorizationRequest{ClockProfile: req.ClockProfile, Envelope: raw, Digest: digest, PublicKey: pub, Disclosure: disclosure}, policy.KindLXSendAuth, nil
 	case KindLXBind:
 		raw, e := decodeHex("message", req.Message)
 		if e != nil {
@@ -818,10 +755,10 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 		return LXReviewResponse{}, newError(CodeSessionBadRequest, "unknown native clock profile")
 	}
 	if req.Kind == "" {
-		req.Kind = KindLXActivity
+		req.Kind = KindLXSendAuth
 	}
-	if req.Kind != KindLXActivity && req.Kind != KindLXSendAuth {
-		return LXReviewResponse{}, newError(CodeSessionKind, "review supports only lx_activity or lx_send_authorization")
+	if req.Kind != KindLXSendAuth {
+		return LXReviewResponse{}, newError(CodeSessionKind, "review supports only lx_send_authorization")
 	}
 	if e := requireIDs(req.SessionID, req.KeyID); e != nil {
 		return LXReviewResponse{}, e
@@ -855,6 +792,7 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 	if s.opts.Inventory == nil {
 		return refuse(newError(CodeTokenUnavailable, "owner-approved wallet inventory is unavailable"))
 	}
+	// Review must enforce the same current inventory as signing, including retirement.
 	if err := s.opts.Inventory.Check(req.KeyID, "sign", payload.Owner, rec.Curve, &rec); err != nil {
 		return refuse(newError(CodeKeyInvalidShare, "owner-approved wallet inventory differs from held share"))
 	}
@@ -880,9 +818,9 @@ func (s *Server) doLXReview(r *http.Request, body []byte) (LXReviewResponse, *Er
 	var review *lx.ActivityReview
 	var err error
 	if req.ClockProfile == "" {
-		review, err = s.opts.Kernel.ReviewActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, s.spends, req.Kind == KindLXSendAuth)
+		review, err = s.opts.Kernel.ReviewActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, policy.ReadOnlyLedger(s.spends), true)
 	} else {
-		review, err = s.opts.Kernel.ReviewNativeActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, s.spends, req.Kind == KindLXSendAuth)
+		review, err = s.opts.Kernel.ReviewNativeActivity(policy.Context{ChainID: new(big.Int).SetUint64(s.opts.ChainID), Account: common.HexToAddress(payload.Account)}, raw, pub, policy.ReadOnlyLedger(s.spends), true)
 	}
 	unlockAccount()
 	if err != nil {

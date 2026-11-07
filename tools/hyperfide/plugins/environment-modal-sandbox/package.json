@@ -1,0 +1,54 @@
+{
+  "name": "hyperfide-plugin-environment-modal-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Run hyperfide-platform threads in on-demand, isolated sandboxes",
+  "engines": {
+    "hyperfide": ">=0.0",
+    "hyperfidePluginSdk": ">=0.4.102"
+  },
+  "hyperfide": {
+    "name": "Modal Sandbox [Experimental]",
+    "description": "Run hyperfide-platform threads in on-demand, isolated sandboxes",
+    "branding": {
+      "icon": "./modal-logo.svg"
+    },
+    "server": "./server.ts",
+    "skills": [
+      "skills"
+    ],
+    "app": "./app.tsx"
+  },
+  "keywords": [
+    "hyperfide-plugin"
+  ],
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "typecheck": "tsrs --noEmit",
+    "lint": "oxlint --ignore-pattern node_modules --ignore-pattern dist .",
+    "prepare:bundled": "hyperfide-plugin-build prepare-bundled"
+  },
+  "dependencies": {
+    "@hyperfide/shared-ui": "workspace:*",
+    "modal": "0.10.0",
+    "nice-grpc-common": "^2.0.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@hyperfide/plugin-build": "workspace:*",
+    "@hyperfide/plugin-sdk": "workspace:*",
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "better-sqlite3": "12.10.0",
+    "cron-parser": "^5.5.0",
+    "hono": "4.11.9",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
+    "typescript": "npm:@typescript/typescript6@^6.0.2",
+    "vitest": "^4.1.1"
+  }
+}

@@ -1,0 +1,125 @@
+[disposition.18.923.1.1]
+finding = "18.923.1.1"
+status = "resolved"
+evidence = "Commit f63f53fd6 changed both pending sponsored-submission expectations to unconfirmed, as retained at apps/web/e2e/gas-station.test.ts:284 and :286."
+
+[disposition.18.941.1.1]
+finding = "18.941.1.1"
+status = "environment"
+evidence = "The dry-run qualification lacked built native archives required by the guard at chain.mk:90, while the loadtest target at chain.mk:178 now declares paxd-native-libs through commit 8418d303b."
+
+[disposition.18.944.1.1]
+finding = "18.944.1.1"
+status = "resolved"
+evidence = "Commit d564a4ce1 arranged the pre-merge version map explicitly, and node/upgrades_merge_gate_test.go:27 removes layerxagent before checking its absence."
+
+[disposition.18.944.1.2]
+finding = "18.944.1.2"
+status = "resolved"
+evidence = "Commit d564a4ce1 deletes layerxagent from the correctly prefixed upgrade version store at node/upgrades_merge_gate_test.go:29 before rereading and asserting the keeper map."
+
+[disposition.18.944.1.3]
+finding = "18.944.1.3"
+status = "resolved"
+evidence = "Commit d564a4ce1 separated module-dependent expectations before SetDone from the active-plan rule, and node/upgrades_merge_gate_test.go:90 expects every merge address to be served at and after activation."
+
+[disposition.18.946.1.1]
+finding = "18.946.1.1"
+status = "environment"
+evidence = "The missing qualification PostgreSQL server is an external prerequisite enforced at services/launchpad/stats-workers/internal/internaltest/containers.go:60 through STATS_TEST_POSTGRES_DSN rather than a repository defect."
+
+[disposition.18.948.1.1]
+finding = "18.948.1.1"
+status = "resolved"
+evidence = "Commit f9b026ea9 supplied durable ceremony identities in e2e_test.go, durability_test.go and server_test.go refreshes, including services/wallet/attestor/internal/server/e2e_test.go:985, while retaining the production identity refusal."
+
+[disposition.18.961.1.1]
+finding = "18.961.1.1"
+status = "resolved"
+evidence = "Commit 5dc22c799 added superseded and blocked to the task status vocabulary in spec/workflow.kvx."
+
+[disposition.18.964.1.1]
+finding = "18.964.1.1"
+status = "resolved"
+evidence = "Commit 62f92df93 replaced the Current-only receipt qualification guard with deployment.Approved at services/launchpad/indexer/internal/receipt/rpc.go:533, retaining full manifest and activation-window validation."
+
+[disposition.18.964.1.2]
+finding = "18.964.1.2"
+status = "resolved"
+evidence = "Commit c02cd9ef8 changed realInputs to deployment.Approved(32226215) at services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:54 so the recorded market uses its historical deployment rather than Current."
+
+[disposition.18.964.1.3]
+finding = "18.964.1.3"
+status = "resolved"
+evidence = "Commit c02cd9ef8 loads the manifest from shared deployment history through Approved at services/launchpad/indexer/internal/runtimedocs/paxeer_test.go:54 without creating a runtimedocs testdata copy."
+
+[disposition.18.974.1.1]
+finding = "18.974.1.1"
+status = "superseded"
+evidence = "Commit 9d425c24b retired rung_level and the kernel Level evidence surface, and services/human/crates/layerx-human-service/src/activity/detail.rs:292 now carries finality.rung() directly."
+
+[disposition.18.974.1.2]
+finding = "18.974.1.2"
+status = "superseded"
+evidence = "Commit 9d425c24b removed the rung-to-Level conversion and EvidenceLink.level, replacing the disputed mapping with the Rung field at services/human/crates/layerx-human-service/src/activity/detail.rs:191."
+
+[disposition.18.983.1.1]
+finding = "18.983.1.1"
+status = "resolved"
+evidence = "Commit 886bdaf0f repaired reclaim journey preparation and EIP-1559 signing in journey_faults.rs, and fa0404efe added stored-leg nonce assertions to services/human/crates/layerx-human-service/tests/reclaim.rs after that repair."
+
+[disposition.18.987.1.1]
+finding = "18.987.1.1"
+status = "resolved"
+evidence = "Commit 36d2956e5 aligned the regression with the canonical checker rule, and services/human/tools/schema-check/tests/compatibility_rows.rs:100 expects exactly one missing-row violation for schema 1.8."
+
+[disposition.18.987.1.2]
+finding = "18.987.1.2"
+status = "resolved"
+evidence = "Commit 36d2956e5 preserved the first-missing-minor checker and asserts one unrecorded head-version violation at services/human/tools/schema-check/tests/compatibility_rows.rs:110 in addition to the single schema-1.8 violation."
+
+[disposition.18.990.1.1]
+finding = "18.990.1.1"
+status = "resolved"
+evidence = "Commit d7aaaa756 changed the 0x1014 activation row to modules = [upgrade], retained at spec/layerx-merge/programme/data/precompile-activation.kvx:19."
+
+[disposition.18.997.1.1]
+finding = "18.997.1.1"
+status = "resolved"
+evidence = "Commit 6c1851b54 added signingKey to all eleven served receipt answers in the shared conformance vectors, including sdk/platform/conformance/fixtures/sequencer-receipt-v1.json:38."
+
+[disposition.18.1001.1.1]
+finding = "18.1001.1.1"
+status = "resolved"
+evidence = "Commit 3ac8ecf71 wired the generated custody authority public key into spawned attestors through ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE, retained at services/wallet/gateway/test/e2e/attestors.ts:308."
+
+[disposition.18.1001.1.2]
+finding = "18.1001.1.2"
+status = "resolved"
+evidence = "Commit f16b7ef6a landed the gateway test change after the authority harness repair, and services/wallet/gateway/test/e2e/gateway.e2e.test.ts:112 records forwarded pax_sequencerReceipt answers from the existing TestChain handler."
+
+[disposition.18.1001.1.3]
+finding = "18.1001.1.3"
+status = "resolved"
+evidence = "Commit 3f6f585a0 repaired the native-transfer evm_review_invalid cause by admitting an empty method only with empty calldata at services/wallet/gateway/src/attestor/client.ts:1188, and f16b7ef6a retained the successful review and receipt assertions."
+
+[disposition.18.1001.1.4]
+finding = "18.1001.1.4"
+status = "resolved"
+evidence = "Commit 3f6f585a0 changed parseEvmReview so services/wallet/gateway/src/attestor/client.ts:1188 accepts an empty method for data 0x while still requiring a nonempty method for nonempty calldata."
+
+[disposition.18.1039.1.1]
+finding = "18.1039.1.1"
+status = "resolved"
+evidence = "Commit f6a8daf80 replaced both deleted ProtocolFeesKey calls with fresh ProtocolFeesPrefix-based keys at modules/launchpad/keeper/fees_test.go:172 and modules/launchpad/simulation/decoder_test.go:55 without restoring the removed builders."
+
+[disposition.18.1043.1.1]
+finding = "18.1043.1.1"
+status = "open"
+evidence = "Root go.mod:290 still pins pax-geth v1.15.7-pax.17 rather than the nested implementation repaired and tested by f18697d75, so the root-module behavior awaits publication and adoption of a release containing that change."
+follow_up = "18.1043.2"
+
+[disposition.18.1048.1.1]
+finding = "18.1048.1.1"
+status = "resolved"
+evidence = "Commit 646a1205d repaired the bridge type errors, raised apps/bridge/tsconfig.json:3 to ES2020 and made apps/bridge/package.json:12 generate Next route types before tsc."

@@ -7,9 +7,9 @@ PLATFORM_BETA_CLUSTER_ENV ?= build/beta-cluster/env
 .PHONY: platform-js-install platform-build platform-build-all platform-lint platform-test platform-sdk-check \
 	platform-sdk-generate platform-receipt-fixture platform-verify-sdks platform-test-sdks platform-release-check platform-release-plan platform-release-test \
 	platform-test-tooling platform-emulator-conformance platform-test-middleware \
-	platform-test-cli-production-credential-refusal platform-test-registry platform-test-node \
+	platform-test-cli-production-credential-refusal platform-test-registry \
 	platform-test-core platform-test-authority platform-test-agent-boundary platform-test-identity platform-test-paxeer-boundary \
-	platform-test-trusted-boundary platform-test-plain-listeners \
+	platform-test-trusted-boundary \
 	platform-test-reference-apps platform-test-mobile-artifacts \
 	platform-test-android-artifact platform-test-ios-artifact \
 	platform-real-agent-integration \
@@ -38,10 +38,10 @@ platform-sample-preflight:
 platform-sample-install: platform-sample-preflight
 	python3 -m venv $(PLATFORM_PYTHON_ENV)
 	$(PLATFORM_PYTHON_ENV)/bin/python -m pip install --no-index --no-deps --no-build-isolation \
-		$(CURDIR)/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
+		$(CURDIR)/services/agent/sdk/python $(CURDIR)/sdk/integrations/fastapi
 	cd sdk/platform/go && go mod download
-	cd services/platform/docs/samples/first-payment-go && go mod download
-	cargo fetch --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --locked
+	cd services/platform/examples/samples/first-payment-go && go mod download
+	cargo fetch --manifest-path services/platform/examples/samples/verify-receipt-rust/Cargo.toml --locked
 	cargo fetch --manifest-path services/platform/examples/marketplace/program/Cargo.toml --locked
 	$(MAKE) platform-jvm-dependencies-install
 	@set -eu; \
@@ -53,12 +53,12 @@ platform-sample-install: platform-sample-preflight
 		test "$$(sha256sum sdk/integrations/ios/Package.resolved | awk '{print $$1}')" = "$$ios_lock"
 	dotnet restore sdk/platform/dotnet/LayerX.Sdk.csproj --nologo
 	dotnet restore sdk/platform/dotnet/tests/LayerX.Sdk.Tests/LayerX.Sdk.Tests.csproj --nologo
-	dotnet restore services/platform/docs/samples/first-payment-csharp/FirstPayment.csproj --nologo
+	dotnet restore services/platform/examples/samples/first-payment-csharp/FirstPayment.csproj --nologo
 
 platform-sample-dependencies-ready:
 	@test -x $(PLATFORM_PYTHON_ENV)/bin/python || { echo "run make platform-sample-install first" >&2; exit 1; }
 	@$(PLATFORM_PYTHON_ENV)/bin/python -c 'import importlib.metadata as m; assert m.version("layerx-sdk") == "0.1.0"; assert m.version("layerx-fastapi") == "0.1.0"'
-	@test -s services/platform/docs/samples/verify-receipt-rust/Cargo.lock
+	@test -s services/platform/examples/samples/verify-receipt-rust/Cargo.lock
 	@command -v mvn >/dev/null || { echo "Maven is required for Platform samples" >&2; exit 1; }
 	@command -v swift >/dev/null || { echo "Swift is required for Platform SDK and samples" >&2; exit 1; }
 	@command -v dotnet >/dev/null || { echo "dotnet is required for the C sharp sample" >&2; exit 1; }
@@ -75,8 +75,8 @@ platform-jvm-dependencies-install:
 	$(MAKE) platform-install-local-artifacts PLATFORM_MAVEN_OFFLINE=
 	@set -eu; for pom in sdk/platform/jvm/pom.xml sdk/integrations/spring/pom.xml sdk/integrations/android/pom.xml \
 		sdk/integrations/spring/example/pom.xml \
-		services/platform/docs/samples/first-payment-jvm/pom.xml services/platform/docs/samples/paid-endpoint-spring/pom.xml \
-		services/platform/docs/samples/mobile-payment-android/pom.xml; do \
+		services/platform/examples/samples/first-payment-jvm/pom.xml services/platform/examples/samples/paid-endpoint-spring/pom.xml \
+		services/platform/examples/samples/mobile-payment-android/pom.xml; do \
 		mvn -q -Dmaven.repo.local="$(PLATFORM_MAVEN_REPOSITORY)" -f "$$pom" -Pconformance verify dependency:go-offline; \
 	done
 
@@ -152,15 +152,6 @@ platform-test-cli-production-credential-refusal:
 platform-test-registry:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-registry
 
-.PHONY: platform-build-node-artifacts platform-test-node-runtime
-platform-build-node-artifacts:
-	PLATFORM_CARGO="$(PLATFORM_CARGO)" $(BRIDGE_PYTHON) services/platform/hosted/node/tests/node-artifacts.py build --output "$(PAXEER_X_NODE_ARTIFACT_MANIFEST)" --image "$(LAYERX_NODE_IMAGE)"
-
-platform-test-node: platform-test-node-runtime
-
-platform-test-node-runtime:
-	BRIDGE_PYTHON="$(BRIDGE_PYTHON)" $(BRIDGE_PYTHON) services/platform/hosted/node/tests/node-artifacts.py run
-
 platform-test-core:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-core
 
@@ -173,12 +164,12 @@ platform-test-agent-boundary:
 platform-test-identity:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-identity
 
-platform-test-plain-listeners: $(BUILD_DIR)/bin/layerxd $(BUILD_DIR)/bin/layerx-genesis-build $(BUILD_DIR)/bin/layerx-archive-codec
+.PHONY: platform-test-plain-listeners
+platform-test-plain-listeners:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-dashboard --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-webhooks --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-reference-ramp --test plain_listener
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh cargo test --offline --manifest-path services/interop/Cargo.toml --locked -p layerx-interop-service --test plain_listener
-	$(BRIDGE_PYTHON) tests/relay-archive/plain_listener.py $(BUILD_DIR)
 
 platform-test-paxeer-boundary:
 	sh $(CURDIR)/tools/runtime/run-with-clock.sh $(PLATFORM_CARGO) test --offline --manifest-path $(PLATFORM_MANIFEST) --locked -p layerx-platform-paxeer-boundary
@@ -243,9 +234,12 @@ platform-sdk-check:
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check
 	$(PLATFORM_CARGO) run --offline --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --check-paxai
 
-platform-sdk-generate:
+.PHONY: platform-human-api-generate
+platform-human-api-generate:
+	$(HUMAN_API_GEN) "$(HUMAN_API_SCHEMA_DIR)" "$(HUMAN_API_OUT_DIR)"
+
+platform-sdk-generate: platform-human-api-generate
 	cargo run --manifest-path services/agent/tools/sdk-gen/Cargo.toml --locked -- --write
-	cargo run --manifest-path services/human/tools/api-gen/Cargo.toml --locked -- services/human/schema/human-api apps/web/src/api/generated
 	python3 sdk/platform/generators/generate_portable.py $(CURDIR)
 	python3 sdk/platform/generators/generate_jvm.py $(CURDIR)
 	$(PLATFORM_CARGO) run --manifest-path $(PLATFORM_SDKGEN_MANIFEST) --locked -p layerx-platform-sdkgen -- --write
@@ -414,12 +408,12 @@ platform-real-android-integration: platform-sample-dependencies-ready
 platform-test-docs: platform-test-reference-apps platform-sample-dependencies-ready
 	sh services/platform/tools/docs-gate $(CURDIR)
 	command -v node >/dev/null
-	$(PLATFORM_PYTHON_ENV)/bin/python -m compileall -q services/platform/docs/samples/first-payment-python services/platform/docs/samples/paid-endpoint-fastapi
-	cd services/platform/docs/samples/first-payment-go && GOPROXY=off go build ./...
-	cargo build --offline --locked --manifest-path services/platform/docs/samples/verify-receipt-rust/Cargo.toml --release
-	mvn -o -q -f services/platform/docs/samples/first-payment-jvm/pom.xml package
-	mvn -o -q -f services/platform/docs/samples/paid-endpoint-spring/pom.xml package
-	mvn -o -q -f services/platform/docs/samples/mobile-payment-android/pom.xml package
-	swift build --disable-automatic-resolution --package-path services/platform/docs/samples/first-payment-swift
-	swift build --disable-automatic-resolution --package-path services/platform/docs/samples/mobile-payment-ios
-	dotnet build services/platform/docs/samples/first-payment-csharp/FirstPayment.csproj --no-restore --configuration Release --nologo
+	$(PLATFORM_PYTHON_ENV)/bin/python -m compileall -q services/platform/examples/samples/first-payment-python services/platform/examples/samples/paid-endpoint-fastapi
+	cd services/platform/examples/samples/first-payment-go && GOPROXY=off go build ./...
+	cargo build --offline --locked --manifest-path services/platform/examples/samples/verify-receipt-rust/Cargo.toml --release
+	mvn -o -q -f services/platform/examples/samples/first-payment-jvm/pom.xml package
+	mvn -o -q -f services/platform/examples/samples/paid-endpoint-spring/pom.xml package
+	mvn -o -q -f services/platform/examples/samples/mobile-payment-android/pom.xml package
+	swift build --disable-automatic-resolution --package-path services/platform/examples/samples/first-payment-swift
+	swift build --disable-automatic-resolution --package-path services/platform/examples/samples/mobile-payment-ios
+	dotnet build services/platform/examples/samples/first-payment-csharp/FirstPayment.csproj --no-restore --configuration Release --nologo

@@ -83,7 +83,7 @@ impl Fixture {
             &RevocationEvent {
                 did: self.agent.clone(),
                 authority: Some(ProtocolAuthority::SessionKey([authority; 32])),
-                reason: InvalidationReason::SessionKeyRevoked,
+                reason: InvalidationReason::GrantRevokedOnChain,
                 observed_sequence,
             },
         )
@@ -161,8 +161,8 @@ fn request(surface: Surface, owner: ObjectOwner) -> RequestContext {
         surface,
         operation: Operation::ReadBalance,
         core_sequence: 20,
-        supplied_header_tenant: Some(tenant_id("spoof-header")),
-        supplied_body_tenant: Some(tenant_id("spoof-body")),
+        supplied_header_tenant: Some(tenant_id("tenant-a")),
+        supplied_body_tenant: Some(tenant_id("tenant-a")),
         target_owner: Some(owner),
     }
 }
@@ -183,8 +183,8 @@ fn operation_request(
         surface,
         operation,
         core_sequence: 20,
-        supplied_header_tenant: Some(tenant_id("spoof-header")),
-        supplied_body_tenant: Some(tenant_id("spoof-body")),
+        supplied_header_tenant: Some(tenant_id("tenant-a")),
+        supplied_body_tenant: Some(tenant_id("tenant-a")),
         target_owner: Some(owner),
     }
 }
@@ -205,6 +205,7 @@ fn spoofed_request_tenants_are_ignored_on_every_surface() {
     let mut fixture = fixture(&root);
     let token = fixture.open(1, 4);
     let mut observability = TenantObservability::default();
+    let mut spoofed_observability = TenantObservability::default();
     for surface in Surface::ALL {
         let resolved = resolve(
             &token,
@@ -217,6 +218,28 @@ fn spoofed_request_tenants_are_ignored_on_every_surface() {
         assert_eq!(resolved.agent, fixture.agent);
         assert_eq!(resolved.session_id, SessionId([1; 32]));
         assert_eq!(resolved.surface, surface);
+        let mut spoofed_header = request(surface, fixture.owner());
+        spoofed_header.supplied_header_tenant = Some(tenant_id("spoof-header"));
+        assert_eq!(
+            resolve(
+                &token,
+                &fixture.registry,
+                &spoofed_header,
+                &mut spoofed_observability,
+            ),
+            Err(AuthorizationError::NotAuthorized)
+        );
+        let mut spoofed_body = request(surface, fixture.owner());
+        spoofed_body.supplied_body_tenant = Some(tenant_id("spoof-body"));
+        assert_eq!(
+            resolve(
+                &token,
+                &fixture.registry,
+                &spoofed_body,
+                &mut spoofed_observability,
+            ),
+            Err(AuthorizationError::NotAuthorized)
+        );
     }
     assert_eq!(observability.audit().len(), Surface::ALL.len());
     assert_eq!(observability.traces().len(), Surface::ALL.len());
@@ -242,6 +265,10 @@ fn spoofed_request_tenants_are_ignored_on_every_surface() {
         .metrics()
         .keys()
         .all(|metric| metric.tenant == fixture.tenant));
+    assert_eq!(spoofed_observability.audit().len(), 2 * Surface::ALL.len());
+    assert!(spoofed_observability.audit().iter().all(|entry| {
+        entry.tenant == fixture.tenant && entry.outcome == AuthorizationOutcome::NotAuthorized
+    }));
     let _ = fs::remove_dir_all(root);
 }
 
@@ -366,12 +393,16 @@ fn every_generated_token_gated_operation_refuses_closed_revoked_and_restarted_se
     let root = directory("entry-points");
     let mut fixture = fixture(&root);
     let operations = gated_operations();
-    assert_eq!(operations.len(), Operation::ALL.len() - 2);
+    assert_eq!(operations.len(), Operation::ALL.len() - 1);
+    assert_eq!(OperationClass::for_operation(Operation::McpInvoke), None);
     assert_eq!(
         OperationClass::for_operation(Operation::AgentRegister),
-        None
+        Some(OperationClass::Prepare)
     );
-    assert_eq!(OperationClass::for_operation(Operation::SessionOpen), None);
+    assert_eq!(
+        OperationClass::for_operation(Operation::SessionOpen),
+        Some(OperationClass::Prepare)
+    );
     for class in OperationClass::ALL {
         assert!(operations.iter().any(|(_, actual)| *actual == class));
     }
@@ -447,12 +478,12 @@ fn every_generated_token_gated_operation_refuses_closed_revoked_and_restarted_se
 }
 
 #[test]
-fn bootstrap_operations_are_explicitly_outside_the_existing_token_gate() {
+fn only_mcp_invoke_is_outside_the_token_gate() {
     let root = directory("bootstrap-operations");
     let mut fixture = fixture(&root);
     let token = fixture.open(1, 4);
     let mut observability = TenantObservability::default();
-    for operation in [Operation::AgentRegister, Operation::SessionOpen] {
+    for operation in [Operation::McpInvoke] {
         assert_eq!(OperationClass::for_operation(operation), None);
         let mut context = request(Surface::RustSdk, fixture.owner());
         context.operation = operation;
@@ -461,11 +492,24 @@ fn bootstrap_operations_are_explicitly_outside_the_existing_token_gate() {
             Err(AuthorizationError::InvalidRequest)
         );
     }
-    assert_eq!(observability.audit().len(), 2);
+    assert_eq!(observability.audit().len(), 1);
     assert!(observability
         .audit()
         .iter()
         .all(|entry| entry.outcome == AuthorizationOutcome::InvalidRequest));
+    let mut admitted = TenantObservability::default();
+    for operation in [Operation::AgentRegister, Operation::SessionOpen] {
+        let mut context = request(Surface::RustSdk, fixture.owner());
+        context.operation = operation;
+        let resolved = resolve(&token, &fixture.registry, &context, &mut admitted)
+            .unwrap_or_else(|error| panic!("resolve {operation:?}: {error:?}"));
+        assert_eq!(resolved.session_id, SessionId([1; 32]));
+    }
+    assert_eq!(admitted.audit().len(), 2);
+    assert!(admitted
+        .audit()
+        .iter()
+        .all(|entry| entry.outcome == AuthorizationOutcome::Allowed));
     let _ = fs::remove_dir_all(root);
 }
 

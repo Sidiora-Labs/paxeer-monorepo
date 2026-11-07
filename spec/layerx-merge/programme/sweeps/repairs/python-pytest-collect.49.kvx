@@ -1,0 +1,9 @@
+[repair.python-pytest-collect.49]
+target = "tests/agent/sdk/python"
+command = "python3 -m pytest -q --collect-only tests/agent/sdk/python"
+revision = "941a534da2c8216895b0b3b873a44e5f013021bc"
+result = "repaired"
+change = "tests/agent/sdk/python/conftest.py selects the local SDK, program_receipt_evidence.py supplies signed conformance evidence to test_native_capabilities.py, test_program_executed_v3.py, test_program_pre_runtime.py and test_program_response_code.py through the retained verifier, and test_web_search.py derives its untrusted key from the buyer fixture key."
+retirement_decisions = ["824", "926"]
+retired_assertions = "Decisions 824 and 926, implemented by task 22.9.11, retire kernel protocol-to-module selection and kernel terminal, usage, call-graph, guest response and pre-runtime receipt authentication; retained signed-call codec checks remain and sequencer receipt, metadata and response bindings use the retained API from task 9.98.3."
+producer_input_tests = []

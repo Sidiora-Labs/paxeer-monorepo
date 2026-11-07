@@ -18,9 +18,17 @@
     "chain_id": 125,
     "endpoints": [
       {
-        "url": "https://paxeer.example.invalid/rpc",
+        "url": "https://paxeer.example.invalid/",
         "trust_anchor_der": "/EXAMPLE_ONLY/operator-a/paxeer-ca.der",
         "request_timeout_ms": 5000
+      }
+    ],
+    "receipt_keys": [
+      {
+        "sequencer_id": "0x4558414d504c455f4f4e4c595f524543454950545f53455155454e4345525f31",
+        "public_key": "0x8146640f02493af4fbc54fe33388e75dc2c937ae0b7727cc2b2afb1b75199a3e",
+        "first_height": 1,
+        "last_height": 18446744073709551615
       }
     ],
     "finality_depth": 12,

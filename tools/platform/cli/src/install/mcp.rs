@@ -1,5 +1,7 @@
 use std::collections::BTreeMap;
 use std::env;
+use std::fs::Metadata;
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 use layerx_mcp::binding::Binding;
@@ -9,6 +11,7 @@ use serde_json::{json, Value};
 use crate::config;
 use crate::toolset;
 
+use super::binding_shape::{BindingDocument, MAX_DOCUMENT_BYTES};
 use super::{apply, executable, hosts, report, FileTransaction, Registration, SERVER_NAME};
 
 pub struct Request {
@@ -39,39 +42,68 @@ pub fn platform_install_mcp(request: &Request) -> Result<(String, Value), String
         Some(explicit) => absolute_binding_path(explicit)?,
         None => daemon_binding_path()?,
     };
-    let mut binding = Binding::open(&daemon_binding).map_err(|error| {
+    let (binding, declaration) = open_binding(&daemon_binding).map_err(|error| {
         format!(
             "the daemon binding document at {} could not be used: {}; agent-daemon enrolment writes it before the MCP server is installed",
             daemon_binding.display(),
-            error.detail()
+            error
         )
     })?;
     let declared_mode = binding.mode();
-    if request.read_only {
-        binding.restrict_to_read_only();
-    }
-    let mode = binding.mode();
-    let mut session = binding.open_daemon_client().map_err(|_| {
-        "the authenticated agent daemon did not admit this installation binding".to_owned()
-    })?;
+    let mode = if request.read_only {
+        DeploymentMode::ReadOnly
+    } else {
+        declared_mode
+    };
+    let mut session =
+        crate::mcp::InstalledSession::open(&binding, request.read_only).map_err(|error| {
+            format!(
+                "the authenticated agent daemon did not admit this installation binding: {error}"
+            )
+        })?;
     let description = session
         .handle(r#"{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}"#)
         .ok_or_else(|| "the authenticated daemon returned no tool catalogue".to_owned())?;
-    let listings = description.pointer("/result/tools").and_then(Value::as_array)
+    let listings = description
+        .pointer("/result/tools")
+        .and_then(Value::as_array)
         .ok_or_else(|| "the authenticated daemon refused its tool catalogue".to_owned())?;
     let mut definitions = toolset::daemon_surface(mode)?;
-    definitions.extend(layerx_mcp::catalogue::web_surface().into_iter()
-        .filter(|tool| mode == DeploymentMode::Full || tool.kind == ToolKind::Read));
-    let tools = listings.iter().map(|listing| {
-        let name = listing.get("name").and_then(Value::as_str)
-            .ok_or_else(|| "the daemon catalogue omitted a tool name".to_owned())?;
-        definitions.iter().find(|tool| tool.name == name).copied()
-            .ok_or_else(|| "the daemon returned a tool outside its installation catalogue".to_owned())
-    }).collect::<Result<Vec<_>, String>>()?;
-    if mode == DeploymentMode::Full &&
-        ["activity.prepare", "activity.disclose", "activity.sign", "activity.submit", "activity.track"]
-            .iter().any(|name| !tools.iter().any(|tool| tool.name == *name)) {
-        return Err("the authenticated daemon has not admitted the complete payment journey".to_owned());
+    definitions.extend(
+        layerx_mcp::catalogue::web_surface()
+            .into_iter()
+            .filter(|tool| mode == DeploymentMode::Full || tool.kind == ToolKind::Read),
+    );
+    let tools = listings
+        .iter()
+        .map(|listing| {
+            let name = listing
+                .get("name")
+                .and_then(Value::as_str)
+                .ok_or_else(|| "the daemon catalogue omitted a tool name".to_owned())?;
+            definitions
+                .iter()
+                .find(|tool| tool.name == name)
+                .copied()
+                .ok_or_else(|| {
+                    "the daemon returned a tool outside its installation catalogue".to_owned()
+                })
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    if mode == DeploymentMode::Full
+        && [
+            "activity.prepare",
+            "activity.disclose",
+            "activity.sign",
+            "activity.submit",
+            "activity.track",
+        ]
+        .iter()
+        .any(|name| !tools.iter().any(|tool| tool.name == *name))
+    {
+        return Err(
+            "the authenticated daemon has not admitted the complete payment journey".to_owned(),
+        );
     }
     let command = executable()?;
     let variables: BTreeMap<String, String> = BTreeMap::new();
@@ -109,6 +141,8 @@ pub fn platform_install_mcp(request: &Request) -> Result<(String, Value), String
             "agent_endpoint": &agent_endpoint,
             "store": path_text(binding.store())?,
             "session_generation": binding.session_generation(),
+            "core_height": binding.core_height(),
+            "readiness": declaration.agent.readiness,
         },
         "server": {
             "name": SERVER_NAME,
@@ -123,6 +157,58 @@ pub fn platform_install_mcp(request: &Request) -> Result<(String, Value), String
         "idempotent": true,
     });
     Ok((agent_endpoint, document))
+}
+
+fn open_binding(path: &Path) -> Result<(Binding, BindingDocument), String> {
+    let canonical = std::fs::canonicalize(path).map_err(|error| error.to_string())?;
+    if canonical != path {
+        return Err("the binding document path is not canonical".to_owned());
+    }
+    let before = super::private_file_metadata(path)?;
+    let (mut file, opened) = super::open_stable_installation_file(path)?
+        .ok_or_else(|| "the binding document is absent".to_owned())?;
+    let file_before = file.metadata().map_err(|error| error.to_string())?;
+    if !same_binding_snapshot(&before, &opened) || !same_binding_snapshot(&opened, &file_before) {
+        return Err("the binding document changed while opening it".to_owned());
+    }
+    let mut source = String::new();
+    file.by_ref()
+        .take(MAX_DOCUMENT_BYTES as u64 + 1)
+        .read_to_string(&mut source)
+        .map_err(|error| format!("could not read the binding document: {error}"))?;
+    let file_after = file.metadata().map_err(|error| error.to_string())?;
+    let after = super::private_file_metadata(path)?;
+    if std::fs::canonicalize(path).map_err(|error| error.to_string())? != path
+        || !same_binding_snapshot(&file_before, &file_after)
+        || !same_binding_snapshot(&file_after, &after)
+        || source.len() > MAX_DOCUMENT_BYTES
+    {
+        return Err("the binding document changed or exceeded its bound".to_owned());
+    }
+    let declaration = serde_json::from_str::<BindingDocument>(&source)
+        .map_err(|error| format!("the enrolment shape is invalid: {error}"))?;
+    let binding = Binding::parse(&source).map_err(|error| error.detail())?;
+    Ok((binding, declaration))
+}
+
+#[cfg(unix)]
+fn same_binding_snapshot(left: &Metadata, right: &Metadata) -> bool {
+    use std::os::unix::fs::MetadataExt as _;
+    super::stable_installation_metadata(left, right)
+        && left.gid() == right.gid()
+        && left.nlink() == right.nlink()
+        && left.size() == right.size()
+        && left.mtime() == right.mtime()
+        && left.mtime_nsec() == right.mtime_nsec()
+        && left.ctime() == right.ctime()
+        && left.ctime_nsec() == right.ctime_nsec()
+}
+
+#[cfg(not(unix))]
+fn same_binding_snapshot(left: &Metadata, right: &Metadata) -> bool {
+    super::stable_installation_metadata(left, right)
+        && left.len() == right.len()
+        && left.modified().ok() == right.modified().ok()
 }
 
 fn publish_registrations(

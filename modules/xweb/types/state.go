@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"math"
 
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -46,13 +47,22 @@ func unmarshalFixedHex(raw []byte, out []byte) error {
 
 // Request kinds. KindApi carries an api payload (api.go).
 const (
-	KindFetch  uint8 = 1
-	KindSearch uint8 = 2
-	KindApi    uint8 = 3
+	KindFetch          uint8 = 1
+	KindSearch         uint8 = 2
+	KindApi            uint8 = 3
+	KindStorageReceipt uint8 = 4
 )
 
 // KnownKind reports whether kind is a request kind the module accepts.
-func KnownKind(kind uint8) bool { return kind == KindFetch || kind == KindSearch || kind == KindApi }
+func KnownKind(kind uint8) bool {
+	return kind == KindFetch || kind == KindSearch || kind == KindApi || kind == KindStorageReceipt
+}
+
+// ProgramKind reports whether origin-2 requests support kind. Origin-1 API
+// and storage-receipt requests have no program-origin lifecycle.
+func ProgramKind(kind uint8) bool {
+	return kind == KindFetch || kind == KindSearch
+}
 
 // Attestation levels. Under LevelMajority a fulfilment needs the threshold of
 // attestor signatures; under LevelSingle, open to the api kind only, it needs
@@ -71,8 +81,9 @@ const (
 
 	// PayloadBytesLimit and CallbackGasLimit bound what governance may set
 	// the payload and callback caps to.
-	PayloadBytesLimit = uint32(16384)
-	CallbackGasLimit  = uint64(5_000_000)
+	PayloadBytesLimit  = uint32(16384)
+	CallbackGasLimit   = uint64(5_000_000)
+	TimeoutBlocksLimit = uint64(math.MaxInt64)
 )
 
 // DefaultFee is one PAX in base units.
@@ -141,8 +152,8 @@ func ValidateSettings(fee sdk.Int, maxPayloadBytes uint32, maxCallbackGas, timeo
 	if maxCallbackGas == 0 || maxCallbackGas > CallbackGasLimit {
 		return ErrInvalidParams.Wrapf("callback cap %d outside 1..%d", maxCallbackGas, CallbackGasLimit)
 	}
-	if timeoutBlocks == 0 {
-		return ErrInvalidParams.Wrap("timeout is zero")
+	if timeoutBlocks == 0 || timeoutBlocks > TimeoutBlocksLimit {
+		return ErrInvalidParams.Wrapf("timeout %d outside 1..%d", timeoutBlocks, TimeoutBlocksLimit)
 	}
 	return nil
 }

@@ -33,6 +33,8 @@ use crate::store::{AgentTenantId, PrincipalId, PrincipalStore, StoreError};
 const MAGIC: &[u8; 4] = b"LXAI";
 const FILE: &str = "authentication.index";
 const TEMP: &str = "authentication.index.tmp";
+pub const AUTH_INDEX_TRANSIENT_LIMIT: usize = 4_096;
+pub const AUTH_INDEX_ACCOUNT_LIMIT: usize = 4_096;
 const DOMAIN: &[u8] = b"layerx-human-execution-capability/v1";
 const PROVIDER_MAGIC: &[u8; 4] = b"LXSP";
 
@@ -71,6 +73,7 @@ struct StoredCapability {
 }
 #[derive(Clone, Default)]
 struct State {
+    observed_at: u64,
     discoveries: BTreeMap<String, Discovery>,
     capabilities: BTreeMap<[u8; 32], StoredCapability>,
 }
@@ -80,6 +83,7 @@ pub struct AuthDiscoveryIndex {
     root: PathBuf,
     key: IndexAuthenticationKey,
     state: Mutex<State>,
+    _lock: fs::File,
 }
 impl AuthDiscoveryIndex {
     /// # Errors
@@ -95,12 +99,23 @@ impl AuthDiscoveryIndex {
         if !metadata.is_dir() || metadata.file_type().is_symlink() || metadata.mode() & 0o022 != 0 {
             return Err(ProductionAuthError::InvalidConfiguration);
         }
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(root.join("authentication.index.lock"))?;
+        rustix::fs::flock(&lock, rustix::fs::FlockOperation::NonBlockingLockExclusive)
+            .map_err(|_| ProductionAuthError::Unavailable)?;
         reclaim_temp(&root)?;
         let state = load(&root, &key)?;
         Ok(Self {
             root,
             key,
             state: Mutex::new(state),
+            _lock: lock,
         })
     }
     /// # Errors
@@ -200,6 +215,7 @@ impl AuthDiscoveryIndex {
         &self,
         now: u64,
     ) -> Result<Vec<PrincipalId>, ProductionAuthError> {
+        self.compact(now)?;
         let state = self
             .state
             .lock()
@@ -236,6 +252,51 @@ impl AuthDiscoveryIndex {
         material.zeroize();
         Ok(seed)
     }
+    pub fn bind_registration_at(
+        &self,
+        id: &str,
+        principal: &PrincipalId,
+        expires_at: u64,
+        now: u64,
+    ) -> Result<(), ProductionAuthError> {
+        self.compact(now)?;
+        self.bind_registration(id, principal, expires_at)
+    }
+    pub fn bind_assertion_at(
+        &self,
+        id: &str,
+        principal: &PrincipalId,
+        expires_at: u64,
+        now: u64,
+    ) -> Result<(), ProductionAuthError> {
+        self.compact(now)?;
+        self.bind_assertion(id, principal, expires_at)
+    }
+    pub fn bind_step_up_at(
+        &self,
+        id: &str,
+        principal: &PrincipalId,
+        expires_at: u64,
+        now: u64,
+    ) -> Result<(), ProductionAuthError> {
+        self.compact(now)?;
+        self.bind_step_up(id, principal, expires_at)
+    }
+
+    /// Compacts expired transient bindings and abandoned capabilities atomically.
+    pub fn compact(&self, now: u64) -> Result<(), ProductionAuthError> {
+        let mut state = self
+            .state
+            .lock()
+            .map_err(|_| ProductionAuthError::Unavailable)?;
+        let mut next = state.clone();
+        compact_state(&mut next, now)?;
+        persist(&self.root, &self.key, &next)?;
+        *state = next;
+        fs::File::open(&self.root)?.sync_all()?;
+        Ok(())
+    }
+
     fn bind(
         &self,
         kind: Kind,
@@ -254,6 +315,27 @@ impl AuthDiscoveryIndex {
             }
         }
         let mut next = s.clone();
+        compact_state(&mut next, s.observed_at)?;
+        if !next.discoveries.contains_key(id) {
+            let durable = expires_at == u64::MAX;
+            let count = next
+                .discoveries
+                .values()
+                .filter(|v| (v.expires_at == u64::MAX) == durable)
+                .count();
+            if count
+                >= if durable {
+                    AUTH_INDEX_ACCOUNT_LIMIT
+                } else {
+                    AUTH_INDEX_TRANSIENT_LIMIT
+                }
+            {
+                return Err(ProductionAuthError::Unavailable);
+            }
+        }
+        if expires_at != u64::MAX && expires_at < next.observed_at {
+            return Err(ProductionAuthError::Unauthenticated);
+        }
         next.discoveries.insert(
             id.into(),
             Discovery {
@@ -264,10 +346,12 @@ impl AuthDiscoveryIndex {
         );
         persist(&self.root, &self.key, &next)?;
         *s = next;
+        fs::File::open(&self.root)?.sync_all()?;
         Ok(())
     }
     fn resolve(&self, kind: Kind, id: &str, now: u64) -> Result<PrincipalId, ProductionAuthError> {
         valid_id(id)?;
+        self.compact(now)?;
         let s = self
             .state
             .lock()
@@ -287,6 +371,10 @@ impl AuthDiscoveryIndex {
         issued_at: u64,
         expires_at: u64,
     ) -> Result<[u8; 32], ProductionAuthError> {
+        if expires_at < issued_at || expires_at.saturating_sub(issued_at) > 60 {
+            return Err(ProductionAuthError::InvalidDisclosure);
+        }
+        self.compact(issued_at)?;
         let mut nonce = [0; 32];
         random_fill(&mut nonce).map_err(|_| ProductionAuthError::Entropy)?;
         let mut s = self
@@ -295,6 +383,9 @@ impl AuthDiscoveryIndex {
             .map_err(|_| ProductionAuthError::Unavailable)?;
         if s.capabilities.contains_key(&nonce) {
             return Err(ProductionAuthError::Entropy);
+        }
+        if s.capabilities.len() >= AUTH_INDEX_TRANSIENT_LIMIT {
+            return Err(ProductionAuthError::Unavailable);
         }
         let mut next = s.clone();
         next.capabilities.insert(
@@ -307,6 +398,7 @@ impl AuthDiscoveryIndex {
         );
         persist(&self.root, &self.key, &next)?;
         *s = next;
+        fs::File::open(&self.root)?.sync_all()?;
         Ok(nonce)
     }
     fn consume(
@@ -315,6 +407,7 @@ impl AuthDiscoveryIndex {
         digest: OperationDigest,
         now: u64,
     ) -> Result<(), ProductionAuthError> {
+        self.compact(now)?;
         let mut s = self
             .state
             .lock()
@@ -334,6 +427,7 @@ impl AuthDiscoveryIndex {
         next.capabilities.remove(&nonce);
         persist(&self.root, &self.key, &next)?;
         *s = next;
+        fs::File::open(&self.root)?.sync_all()?;
         Ok(())
     }
 }
@@ -866,6 +960,19 @@ pub(super) fn step_up_digest(
     body: &Value,
     idempotency_key: Option<&str>,
 ) -> Result<OperationDigest, ProductionAuthError> {
+    if matches!(
+        operation.name.as_str(),
+        "security.key-export.begin" | "security.key-export.finish"
+    ) {
+        // The key-export schema binds the fresh ceremony to principal + export action.
+        // The execution capability separately binds the full destination and request body.
+        return crate::security::security_action_digest(
+            principal,
+            crate::security::SecurityAction::ExportPrimaryKey,
+            None,
+        )
+        .map_err(|_| ProductionAuthError::InvalidDisclosure);
+    }
     let mut disclosed = body.clone();
     if let Some(object) = disclosed.as_object_mut() {
         object.remove("step_up");
@@ -1196,26 +1303,59 @@ fn authenticated_index_length(
     Ok(cut)
 }
 
+fn compact_state(state: &mut State, now: u64) -> Result<(), ProductionAuthError> {
+    if now != 0 && now < state.observed_at {
+        return Err(ProductionAuthError::CapabilityRefused);
+    }
+    state.observed_at = state.observed_at.max(now);
+    let cutoff = state.observed_at;
+    state.discoveries.retain(|_, v| v.expires_at >= cutoff);
+    state
+        .capabilities
+        .retain(|_, v| v.expires_at >= cutoff && cutoff.saturating_sub(v.issued_at) <= 60);
+    Ok(())
+}
+
 fn load(root: &Path, key: &IndexAuthenticationKey) -> Result<State, ProductionAuthError> {
     let path = root.join(FILE);
     if !path.exists() {
         return Ok(State::default());
     }
-    let bytes = fs::read(path)?;
+    let file = OpenOptions::new()
+        .read(true)
+        .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+        .open(path)?;
+    const MAX_INDEX_BYTES: u64 = 64 * 1024 * 1024;
+    if !file.metadata()?.is_file() || file.metadata()?.len() > MAX_INDEX_BYTES {
+        return Err(ProductionAuthError::IndexAuthentication);
+    }
+    let mut bytes = Vec::new();
+    file.take(MAX_INDEX_BYTES + 1).read_to_end(&mut bytes)?;
+    if bytes.len() as u64 > MAX_INDEX_BYTES {
+        return Err(ProductionAuthError::IndexAuthentication);
+    }
     let cut = authenticated_index_length(&bytes, key)?;
     let mut cursor = Cursor::new(&bytes[..cut]);
     if cursor
         .take(4)
         .map_err(|_| ProductionAuthError::IndexAuthentication)?
         != MAGIC
-        || cursor
-            .byte()
-            .map_err(|_| ProductionAuthError::IndexAuthentication)?
-            != 1
     {
         return Err(ProductionAuthError::IndexAuthentication);
     }
+    let version = cursor
+        .byte()
+        .map_err(|_| ProductionAuthError::IndexAuthentication)?;
     let mut state = State::default();
+    match version {
+        1 => (),
+        2 => {
+            state.observed_at = cursor
+                .u64()
+                .map_err(|_| ProductionAuthError::IndexAuthentication)?
+        }
+        _ => return Err(ProductionAuthError::IndexAuthentication),
+    }
     for _ in 0..cursor
         .u32()
         .map_err(|_| ProductionAuthError::IndexAuthentication)?
@@ -1300,7 +1440,8 @@ fn persist(
 ) -> Result<(), ProductionAuthError> {
     let mut b = Vec::new();
     b.extend_from_slice(MAGIC);
-    b.push(1);
+    b.push(2);
+    b.extend_from_slice(&s.observed_at.to_be_bytes());
     push_u32(&mut b, s.discoveries.len())?;
     for (id, v) in &s.discoveries {
         b.push(v.kind as u8);
@@ -1327,7 +1468,6 @@ fn persist(
         f.sync_all()?;
         drop(f);
         fs::rename(&tmp, root.join(FILE))?;
-        fs::File::open(root)?.sync_all()?;
         Ok::<(), ProductionAuthError>(())
     })();
     if result.is_err() {
@@ -1336,7 +1476,7 @@ fn persist(
     b.zeroize();
     result
 }
-fn hmac(key: &[u8; 32], message: &[u8]) -> [u8; 32] {
+pub(super) fn hmac(key: &[u8; 32], message: &[u8]) -> [u8; 32] {
     let mut inner_pad = [0x36; 64];
     let mut outer_pad = [0x5c; 64];
     for offset in 0..32 {

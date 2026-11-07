@@ -14,9 +14,4 @@ const (
 	QuerierRoute = ModuleName
 )
 
-var (
-	ParamsKey = []byte{0x01}
-	// KernelKVPrefix holds the kernel module-kv entries the shim persists for
-	// the asset and ledger kernel modules.
-	KernelKVPrefix = []byte{0x02}
-)
+var ParamsKey = []byte{0x01}

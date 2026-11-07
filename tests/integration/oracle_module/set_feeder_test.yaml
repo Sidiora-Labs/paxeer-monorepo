@@ -17,12 +17,29 @@
     # set feeder
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin oracle set-feeder $NEW_FEEDER_ADDR --fees 2000uhpx
       env: SET_FEEDER_ERROR_CODE
-    # do a vote and ensure code 0
-    - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait $NEW_FEEDER_ADDR oracle aggregate-vote 1.5ueth $ADMIN_VAL_ADDR --gas 0
+    # Prove that the committed delegation changed before voting.
+    - cmd: set -euo pipefail; feeder=$(paxd q oracle feeder "$ADMIN_VAL_ADDR" --output json | jq -er .feeder_addr); test "$feeder" = "$NEW_FEEDER_ADDR"; printf "%s\n" "$feeder"
+      env: COMMITTED_FEEDER_ADDR
+    - cmd: set -euo pipefail; paxd status | jq -er ".SyncInfo.latest_block_height | select(test(\"^[1-9][0-9]*$\"))"
+      env: VOTE_START_HEIGHT
+    # Retain the exact vote hash and prove its execution without the tx indexer.
+    - cmd: printf "12345678\n" | paxd tx oracle aggregate-vote 1.5ueth "$ADMIN_VAL_ADDR" --from "$NEW_FEEDER_ADDR" --gas 0 -y --chain-id=pax --broadcast-mode=sync --output=json
+      env: NEW_FEEDER_VOTE_RESPONSE
+    - cmd: bash tests/integration/oracle_module/verify_committed_vote.sh "$NEW_FEEDER_VOTE_RESPONSE" "$VOTE_START_HEIGHT" "$ADMIN_VAL_ADDR" "$NEW_FEEDER_ADDR" 1.5ueth
       env: NEW_FEEDER_VOTE_ERROR_CODE
     # set old feeder addr again
     - cmd: paxdbin=paxd; chainid=pax; source tests/integration/utils/_tx_helpers.sh && submit_tx_and_wait node_admin oracle set-feeder $OLD_FEEDER_ADDR --fees 2000uhpx
+      env: RESTORE_FEEDER_ERROR_CODE
+    - cmd: set -euo pipefail; feeder=$(paxd q oracle feeder "$ADMIN_VAL_ADDR" --output json | jq -er .feeder_addr); test "$feeder" = "$OLD_FEEDER_ADDR"; printf "%s\n" "$feeder"
+      env: RESTORED_FEEDER_ADDR
   verifiers:
-    # verify that error code == 0 for setting feeder AND oracle vote
     - type: eval
-      expr: SET_FEEDER_ERROR_CODE == 0 and NEW_FEEDER_VOTE_ERROR_CODE == 0
+      expr: SET_FEEDER_ERROR_CODE == 0
+    - type: eval
+      expr: COMMITTED_FEEDER_ADDR == NEW_FEEDER_ADDR
+    - type: eval
+      expr: NEW_FEEDER_VOTE_ERROR_CODE == 0
+    - type: eval
+      expr: RESTORE_FEEDER_ERROR_CODE == 0
+    - type: eval
+      expr: RESTORED_FEEDER_ADDR == OLD_FEEDER_ADDR

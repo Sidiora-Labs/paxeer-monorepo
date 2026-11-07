@@ -2,21 +2,17 @@
 
 use layerx_crypto::ed25519;
 use layerx_programs_runtime::RUNTIME_VERSION;
-use layerx_types::{guest_abi, programs_module_abi};
+use layerx_types::{guest_abi, programs_module_abi, rung::Rung};
 use layerx_wire::hash::receipt_digest;
 use layerx_wire::limits::protocol_version_uses_occupancy;
 use layerx_wire::receipt::{decode, encode, encode_unsigned, Receipt};
+use sha2::{Digest as _, Sha256};
 
 use crate::evidence::Evidence;
 use crate::level::achieved;
 
 mod native_credit;
-mod owner_module;
 pub mod withdrawal;
-
-pub use owner_module::{
-    verify_native_owner_outcome, NativeOwnerOutcomeContext, NativeOwnerOutcomeFailure,
-};
 
 const PROGRAMS_MODULE_ID: u32 = 9;
 const PROGRAMS_STATE_OPERATION: u16 = 0;
@@ -96,6 +92,7 @@ pub struct AuthorizedBatch {
     previous_state_root: [u8; 32],
     resulting_state_root: [u8; 32],
     sequencer_public_key: [u8; 32],
+    pinned: bool,
 }
 
 impl AuthorizedBatch {
@@ -114,7 +111,33 @@ impl AuthorizedBatch {
             previous_state_root,
             resulting_state_root,
             sequencer_public_key,
+            pinned: false,
         }
+    }
+
+    pub fn from_receipt_keys<'a>(
+        receipt_bytes: &[u8],
+        receipt_keys: impl Into<ReceiptKeys<'a>>,
+        asset: [u8; 32],
+        previous_state_root: [u8; 32],
+        resulting_state_root: [u8; 32],
+    ) -> Result<Self, VerificationFailure> {
+        let receipt_keys = receipt_keys.into();
+        if !matches!(receipt_keys, ReceiptKeys::HeightRanges(_)) {
+            return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
+        }
+        let receipt = verify_sequencer_signature(receipt_bytes, receipt_keys)?;
+        let protocol = receipt
+            .protocol()
+            .ok_or_else(|| VerificationFailure::at(ReceiptCheck::ReceiptShape))?;
+        Ok(Self {
+            batch_id: protocol.batch_id(),
+            asset,
+            previous_state_root,
+            resulting_state_root,
+            sequencer_public_key: select_receipt_key(protocol, receipt_keys)?,
+            pinned: true,
+        })
     }
 
     #[must_use]
@@ -172,7 +195,7 @@ pub enum ReceiptCheck {
     PreviousStateRoot,
     /// The resulting state root did not match the supplied chain successor.
     ResultingStateRoot,
-    /// The debit balance did not decrease by exactly the amount.
+    /// The debit balance did not decrease by the amount and any fee in the same asset.
     DebitBalance,
     /// The credit balance did not increase by exactly the amount.
     CreditBalance,
@@ -238,6 +261,18 @@ impl ProtocolReceiptFacts {
 }
 
 impl VerifiedReceipt {
+    fn with_batch_authorization(mut self, authorised: &AuthorizedBatch) -> Self {
+        if authorised.pinned {
+            self.evidence = self.evidence.with_pinned_receipt_keys();
+        }
+        self
+    }
+
+    #[must_use]
+    pub const fn rung(&self) -> Rung {
+        self.evidence.rung()
+    }
+
     /// Borrows the decoded core receipt.
     #[must_use]
     pub const fn receipt(&self) -> &Receipt {
@@ -310,10 +345,12 @@ pub fn verify_outcome(
         return Err(VerificationFailure::at(ReceiptCheck::ProtocolVersion));
     }
     if protocol.module_id() == 8 && protocol.operation() == 0 {
-        return native_credit::verify(receipt_bytes, authorised);
+        return native_credit::verify(receipt_bytes, authorised)
+            .map(|verified| verified.with_batch_authorization(authorised));
     }
     if protocol.module_id() == 1 && protocol.operation() == 9 {
-        return withdrawal::verify_effects(receipt_bytes, authorised);
+        return withdrawal::verify_effects(receipt_bytes, authorised)
+            .map(|verified| verified.with_batch_authorization(authorised));
     }
     if u32::from(protocol.module_id()) == PROGRAMS_MODULE_ID && protocol.operation() == 0 {
         return verify_program_state_outcome(receipt_bytes, authorised);
@@ -323,7 +360,10 @@ pub fn verify_outcome(
     {
         return verify_program_outcome(receipt_bytes, authorised);
     }
-    if protocol.operation() == 0 {
+    let native_owner = (2..=7).contains(&protocol.module_id()) && protocol.operation() == 0;
+    if native_owner {
+        verify_owner_projection(protocol)?;
+    } else if protocol.operation() == 0 {
         return Err(VerificationFailure::at(ReceiptCheck::Operation));
     }
     if protocol.activity_id() == [0; 32] {
@@ -332,7 +372,7 @@ pub fn verify_outcome(
     if protocol.batch_id() != authorised.batch_id {
         return Err(VerificationFailure::at(ReceiptCheck::BatchId));
     }
-    if protocol.asset() != authorised.asset || protocol.asset() == [0; 32] {
+    if protocol.asset() != authorised.asset || (!native_owner && protocol.asset() == [0; 32]) {
         return Err(VerificationFailure::at(ReceiptCheck::Asset));
     }
     if protocol.previous_state_root() != authorised.previous_state_root {
@@ -342,9 +382,26 @@ pub fn verify_outcome(
         return Err(VerificationFailure::at(ReceiptCheck::ResultingStateRoot));
     }
     if protocol.result_code() == 0 {
+        let fee_in_receipt_asset = protocol
+            .effects()
+            .first()
+            .and_then(|effect| {
+                let body = effect.body();
+                let denomination_len = usize::from(*body.get(108)?);
+                body.get(109..109 + denomination_len)
+            })
+            .is_some_and(|denomination| {
+                <[u8; 32]>::from(Sha256::digest(denomination)) == protocol.asset()
+            });
+        let debit_fee = if fee_in_receipt_asset {
+            protocol.fee_charged()
+        } else {
+            0
+        };
         if protocol
             .debit_balance_before()
             .checked_sub(protocol.amount())
+            .and_then(|balance| balance.checked_sub(debit_fee))
             != Some(protocol.debit_balance_after())
         {
             return Err(VerificationFailure::at(ReceiptCheck::DebitBalance));
@@ -370,7 +427,44 @@ pub fn verify_outcome(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
+}
+
+fn verify_owner_projection(
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
+) -> Result<(), VerificationFailure> {
+    if protocol.protocol_version() != 3 {
+        return Err(VerificationFailure::at(ReceiptCheck::ProtocolVersion));
+    }
+    if !(2..=7).contains(&protocol.module_id()) || protocol.module_version() != 1 {
+        return Err(VerificationFailure::at(ReceiptCheck::Module));
+    }
+    if protocol.global_sequence() == 0
+        || protocol.timestamp() == 0
+        || protocol.operation() != 0
+        || protocol.asset() != [0; 32]
+        || protocol.amount() != 0
+        || protocol.from() != [0; 32]
+        || protocol.to() != [0; 32]
+        || protocol.debit_sequence() != 0
+        || protocol.debit_balance_before() != 0
+        || protocol.debit_balance_after() != 0
+        || protocol.credit_balance_before() != 0
+        || protocol.credit_balance_after() != 0
+        || protocol.transfer_set_root() != [0; 32]
+        || protocol.authorization_hash() != [0; 32]
+        || protocol.context_hash() != [0; 32]
+        || protocol.program_outcome().is_some()
+        || protocol.total_units().is_some()
+        || protocol
+            .effects()
+            .iter()
+            .any(layerx_wire::receipt::Effect::monetary)
+    {
+        return Err(VerificationFailure::at(ReceiptCheck::ReceiptShape));
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -581,13 +675,12 @@ fn maintained_activity_batch_inner(
     {
         return Err(Failure(ReceiptCheck::ResultingStateRoot));
     }
-    Ok(AuthorizedBatch::new(
-        expected,
-        authorised.asset,
-        protocol.previous_state_root(),
-        protocol.resulting_state_root(),
-        authorised.sequencer_public_key,
-    ))
+    Ok(AuthorizedBatch {
+        batch_id: expected,
+        previous_state_root: protocol.previous_state_root(),
+        resulting_state_root: protocol.resulting_state_root(),
+        ..*authorised
+    })
 }
 
 fn verify_maintained_chain(
@@ -686,7 +779,21 @@ pub fn verify_sequencer_signature<'a>(
     let signature = protocol
         .sequencer_signature()
         .ok_or_else(|| VerificationFailure::at(ReceiptCheck::MissingSignature))?;
-    let sequencer_public_key = match receipt_keys.into() {
+    let sequencer_public_key = select_receipt_key(protocol, receipt_keys.into())?;
+    let unsigned = encode_unsigned(&receipt)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
+    let digest = receipt_digest(&unsigned)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
+    ed25519::verify_digest(&sequencer_public_key, &signature, &digest)
+        .map_err(|_| VerificationFailure::at(ReceiptCheck::SequencerSignature))?;
+    Ok(receipt)
+}
+
+fn select_receipt_key(
+    protocol: &layerx_wire::receipt::ProtocolReceipt,
+    receipt_keys: ReceiptKeys<'_>,
+) -> Result<[u8; 32], VerificationFailure> {
+    match receipt_keys {
         ReceiptKeys::HeightRanges(keys) => {
             let batch_id = protocol.batch_id();
             if batch_id[..24] != [0; 24] {
@@ -709,22 +816,15 @@ pub fn verify_sequencer_signature<'a>(
             {
                 return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
             }
-            key.public_key()
+            Ok(key.public_key())
         }
         ReceiptKeys::HistoricalKernel(key) => {
             if protocol.module_id() == 0 || protocol.module_id() > KERNEL_MODULE_COUNT {
                 return Err(VerificationFailure::at(ReceiptCheck::SequencerSignature));
             }
-            key
+            Ok(key)
         }
-    };
-    let unsigned = encode_unsigned(&receipt)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
-    let digest = receipt_digest(&unsigned)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::CanonicalEncoding))?;
-    ed25519::verify_digest(&sequencer_public_key, &signature, &digest)
-        .map_err(|_| VerificationFailure::at(ReceiptCheck::SequencerSignature))?;
-    Ok(receipt)
+    }
 }
 
 /// Verifies one successful ABI-two Programs state receipt without imposing
@@ -804,7 +904,8 @@ fn verify_program_state_outcome(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 /// Verifies a sequencer-signed Programs execution receipt, preserving both
@@ -902,7 +1003,8 @@ pub fn verify_program_preexecution_rejection(
         receipt,
         canonical_bytes: receipt_bytes.to_vec(),
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 pub fn verify_program_preexecution_rejection_maintained_chain(
@@ -996,7 +1098,8 @@ fn verify_program_outcome_selected(
         receipt,
         canonical_bytes: reproduced,
         evidence: Evidence::sequencer(digest),
-    })
+    }
+    .with_batch_authorization(authorised))
 }
 
 /// Verifies a Programs call against a separately pinned sequencer and prior
@@ -1064,39 +1167,9 @@ mod programs_version_contract {
     use super::{
         guest_abi, programs_module_abi, programs_version_for_protocol, supported_program_guest_abi,
         supported_programs_module_version, supported_protocol_version,
-        supports_program_account_state, PROGRAMS_CALL_OPERATION, PROGRAMS_MODULE_ID,
-        RUNTIME_VERSION,
+        supports_program_account_state,
     };
-    use layerx_wire::limits::{LEGACY_PROTOCOL_VERSION, STATE_COMMITMENT_PROTOCOL_VERSION};
-
-    const POSITIVE_V1: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v1.json"
-    );
-    const POSITIVE_V2: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v2.json"
-    );
-    const POSITIVE_V3: &str = include_str!(
-        "../../../../../sdk/platform/conformance/fixtures/receipt-programs-positive-v3.json"
-    );
-
-    fn expected_block<'a>(document: &'a str, name: &str) -> &'a str {
-        document
-            .split_once("\"expected\": {")
-            .unwrap_or_else(|| panic!("{name} records no expected block"))
-            .1
-    }
-
-    fn number(block: &str, field: &str, name: &str) -> u64 {
-        let marker = format!("\"{field}\": ");
-        let tail = block
-            .split_once(marker.as_str())
-            .unwrap_or_else(|| panic!("{name} records no {field}"))
-            .1;
-        let digits: String = tail.chars().take_while(char::is_ascii_digit).collect();
-        digits
-            .parse()
-            .unwrap_or_else(|error| panic!("{name} {field}: {error}"))
-    }
+    use layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION;
 
     #[test]
     fn module_and_guest_versions_are_independent() {
@@ -1168,46 +1241,6 @@ mod programs_version_contract {
             programs_module_abi::SANDBOX_DESTROY,
             true
         ));
-    }
-
-    #[test]
-    fn every_recorded_programs_call_receipt_carries_an_accepted_version_set() {
-        for (name, document) in [
-            ("receipt-programs-positive-v1", POSITIVE_V1),
-            ("receipt-programs-positive-v2", POSITIVE_V2),
-            ("receipt-programs-positive-v3", POSITIVE_V3),
-        ] {
-            let expected = expected_block(document, name);
-            assert_eq!(
-                number(expected, "module_id", name),
-                u64::from(PROGRAMS_MODULE_ID),
-                "{name}"
-            );
-            assert_eq!(
-                number(expected, "operation", name),
-                u64::from(PROGRAMS_CALL_OPERATION),
-                "{name}"
-            );
-            let protocol = u16::try_from(number(expected, "protocol_version", name))
-                .unwrap_or_else(|error| panic!("{name} protocol version: {error}"));
-            let module = u32::try_from(number(expected, "module_version", name))
-                .unwrap_or_else(|error| panic!("{name} module version: {error}"));
-            let abi = u16::try_from(number(expected, "program_outcome_abi_version", name))
-                .unwrap_or_else(|error| panic!("{name} guest ABI: {error}"));
-            let runtime = u16::try_from(number(expected, "program_outcome_runtime_version", name))
-                .unwrap_or_else(|error| panic!("{name} runtime version: {error}"));
-            assert!(supported_program_guest_abi(abi), "{name}");
-            assert_eq!(runtime, RUNTIME_VERSION, "{name}");
-            assert!(
-                programs_version_for_protocol(protocol, module, false),
-                "{name}"
-            );
-            assert_eq!(
-                supported_protocol_version(protocol),
-                protocol != LEGACY_PROTOCOL_VERSION,
-                "{name}"
-            );
-        }
     }
 
     #[test]

@@ -35,13 +35,13 @@ _Note:_ In the command output, format all URLs as clickable Markdown links: `[Li
 
 ### 3. Write the PR description
 
-- Use the template from `./docs/PULL_REQUEST_TEMPLATE.md` as the base. Read it and fill in each section.
+- Use the template from `../../docs/explorer/PULL_REQUEST_TEMPLATE.md` as the base. Read it and fill in each section.
 - **Issue number from branch name:** If the branch name matches the pattern `issue-\d+` (e.g. `issue-123`), extract the number (e.g. `git branch --show-current | grep -oE 'issue-[0-9]+' | grep -oE '[0-9]+'`), then:
   - Fetch the issue: `gh issue view <ISSUE_NUMBER>`.
   - At the very beginning of the **"Description and Related Issue(s)"** section, include: `Resolves #<ISSUE_NUMBER>`.
 - **Summary of changes:** Summarize the changes clearly and concisely in no more than two paragraphs. Use bullet points if needed. Be precise; keep the description short.
 - **Environment variable changes:** If any env vars were added, changed, or documented:
-  - Compare or read `./docs/ENVS.md` (and the validator/ENVS docs if relevant) to list what changed.
+  - Compare or read `../../docs/explorer/ENVS.md` (and the validator/ENVS docs if relevant) to list what changed.
   - Add a separate section listing each variable change and the **purpose** of each (why it was added/changed).
     - **Bad:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` environment variable to the documentation."
     - **Good:** "Added `NEXT_PUBLIC_VIEWS_TX_GROUPED_FEES` to group transaction fees into one section on the transaction page."
@@ -56,7 +56,7 @@ _Note:_ In the command output, format all URLs as clickable Markdown links: `[Li
   - `gh pr create --title "Your descriptive title" --body-file /path/to/body.md` (and add `--draft` if draft).
   - Or paste the body inline if preferred; ensure the filled template is used.
 - Add labels:
-  - If anything was added or changed in `./docs/ENVS.md`, add the **"ENVs"** label: `gh pr edit <PR_NUMBER> --add-label "ENVs"` (or add labels during `gh pr create` if your `gh` version supports it).
+  - If anything was added or changed in `../../docs/explorer/ENVS.md`, add the **"ENVs"** label: `gh pr edit <PR_NUMBER> --add-label "ENVs"` (or add labels during `gh pr create` if your `gh` version supports it).
   - If `package.json` has changed (check with `git diff origin/main -- package.json`), add the **"dependencies"** label.
   - If the branch name contained an issue number (pattern `issue-\d+`), copy all labels from that issue onto the PR: get labels with `gh issue view <ISSUE_NUMBER> --json labels -q '.labels[].name'`, then add each: `gh pr edit <PR_NUMBER> --add-label "<LABEL>"`.
 - Include a clickable link to the created PR in the command output (e.g. from `gh pr view --web` or the URL printed by `gh pr create`).

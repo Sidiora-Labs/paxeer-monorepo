@@ -1,0 +1,17 @@
+[task.22.31.111]
+audit = "22.30.53"
+base_revision = "9b3c0edb83db2c918d37d3910bad522f5b067ca3"
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, commands, exits and private logs."
+baseline = "Not run: the ordered gate contract requires complete implementation before qualification and forbids a separate manual verify invocation; no baseline failure is claimed."
+
+[finding.segment-capacity-rollover]
+tests = ["TestRepair_111_SegmentCapacityRollover", "TestRepair_111_SelectedShardRollover", "TestRepair_111_GroupRolloverWithRemainingCapacity", "TestRepair_111_CapacityPreflight"]
+repair = "Preflight the next round-robin shard and all primary/secondary address ranges without mutating state, seal and rotate before overflow, then submit the unchanged group once to the new segment; rejected Segment.Write calls preserve the shard cursor."
+proof = "Real Table.Put and PutBatch produce groups in sparse real shard files near MaxUint32; exact-fit and empty values remain legal, the selected shard controls rotation, primary and secondary records stay together, the real keymap and disk reader resolve every key, and close/reopen rebuilds the keymap and preserves values."
+fixture = "After draining the real writer, sparse padding and matching private byte cursors position the real files near the limit without gigabyte allocations; no key records, addresses, messages or component doubles are fabricated."
+
+[wiring]
+request = "None: the table preflight, segment capacity check and proving tests are all within storage/db_engine/litt/disktable."
+
+[notes]
+gate_order = "The unchanged-tree verification step conflicts with the explicit implementation-first order and bounded gates; the explicit order is followed."

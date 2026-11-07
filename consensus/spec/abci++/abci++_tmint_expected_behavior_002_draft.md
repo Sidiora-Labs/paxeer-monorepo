@@ -5,214 +5,179 @@ title: Tendermint's expected behavior
 
 # Tendermint's expected behavior
 
+This page describes the application calls implemented by this fork. It replaces
+an upstream ABCI++ draft whose callback grammar does not match the current API.
+Paxeer is one network: the kernel runs inside the network and participates in
+block proposal. A transaction receipt is final when its block is committed.
+Application execution and persistence below are stages of that same chain.
+
+The authoritative API is the Go
+[`Application` interface](../../abci/types/application.go), called in process
+through [`Proxy`](../../internal/proxy/proxy.go). The neighboring upstream
+[basic concepts](abci++_basic_concepts_002_draft.md) and
+[method draft](abci++_methods_002_draft.md) are historical background; their
+method lists and response fields must be checked against the Go interface and
+[current request and response types](../../abci/types/plain_types.go).
+
 ## Valid method call sequences
 
-This section describes what the Application can expect from Tendermint.
+The application exposes `Info`, `Query`, `GetValidators`, `CheckTx`,
+`GetTxPriorityHint`, `EvmNonce`, `EvmBalance`, `InitChain`, `ProcessProposal`,
+`FinalizeBlock`, `Commit`, and four snapshot methods. It does not expose
+`PrepareProposal`, `VerifyHeader`, `ExtendVote`, `VerifyVoteExtension`, `Echo`,
+`Flush`, `BeginBlock`, `DeliverTx`, or `EndBlock` as consensus callbacks.
+Legacy message types remaining in the tree do not add methods to this interface.
 
-The Tendermint consensus algorithm is designed to protect safety under any network conditions, as long as
-less than 1/3 of validators' voting power is byzantine. Most of the time, though, the network will behave
-synchronously and there will be no byzantine process. In these frequent, benign conditions:
+There is no promise of exactly one proposal callback per height, of a decision
+in round zero, or of a `ProcessProposal` call before every `FinalizeBlock`.
+Rounds can fail, nodes can catch up without voting, and startup can replay
+committed blocks. The useful lifecycle distinction is between inspecting a
+candidate, applying a decided block, and committing application state.
 
-* Tendermint will decide in round 0;
-* `PrepareProposal` will be called exactly once at the proposer process of round 0, height _h_;
-* `ProcessProposal` will be called exactly once at all processes except the proposer of round 0, and
-  will return _accept_ in its `Response*`;
-* `ExtendVote` will be called exactly once at all processes
-* `VerifyVoteExtension` will be called _n-1_ times at each validator process, where _n_ is the number of validators; and
-* `FinalizeBlock` will be finally called at all processes at the end of height _h_, conveying the same prepared
-  block that all calls to `PrepareProposal` and `ProcessProposal` had previously reported for height _h_.
+### Applicability by consensus mode
 
-However, the Application logic must be ready to cope with any possible run of Tendermint for a given
-height, including bad periods (byzantine proposers, network being asynchronous).
-In these cases, the sequence of calls to ABCI++ methods may not be so straighforward, but
-the Application should still be able to handle them, e.g., without crashing.
-The purpose of this section is to define what these sequences look like an a precise way.
+[`node.go`](../../node/node.go) selects the Autobahn path when
+`AutobahnConfigFile` is non-empty. The serialized configuration key is
+`autobahn-config-file` in [`config/toml.go`](../../config/toml.go).
 
-As mentioned in the [Basic Concepts](abci++_basic_concepts_002_draft.md) section, Tendermint
-acts as a client of ABCI++ and the Application acts as a server. Thus, it is up to Tendermint to
-determine when and in which order the different ABCI++ methods will be called. A well-written
-Application design should consider _any_ of these possible sequences.
+| Behavior | Classic consensus | Autobahn |
+| --- | --- | --- |
+| Proposal construction | `BlockExecutor.CreateProposalBlock` | Lane producer and certificate-based ordering |
+| Application proposal check | `BlockExecutor.ProcessProposal` before a block prevote | No `ProcessProposal` call in the global-block execution loop |
+| Application execution | `BlockExecutor.ApplyBlock` calls `FinalizeBlock`, then `Commit` | `GigaRouter.executeBlock` calls `FinalizeBlock`, then `Commit` |
+| Startup and recovery | `Handshaker` reconciles application, block store and state store | `runExecute` resumes from `Info.LastBlockHeight`; Autobahn restores its own persisted data and consensus state |
 
-The following grammar, written in case-sensitive Augmented Backus–Naur form (ABNF, specified
-in [IETF rfc7405](https://datatracker.ietf.org/doc/html/rfc7405)), specifies all possible
-sequences of calls to ABCI++, taken by a correct process, across all heights from the genesis block,
-including recovery runs, from the point of view of the Application.
+The classic round, lock, prevote and precommit terminology in the
+[versioned design references](#historical-design-variants) applies to the
+classic algorithm. It does not specify Autobahn block identity, certificates,
+voting, or recovery.
 
-```abnf
-start               = clean-start / recovery
+### Classic proposal processing
 
-clean-start         = init-chain [state-sync] consensus-exec
-state-sync          = *state-sync-attempt success-sync info
-state-sync-attempt  = offer-snapshot *apply-chunk
-success-sync        = offer-snapshot 1*apply-chunk
+The proposer builds a block through `BlockExecutor.CreateProposalBlock` in
+[`state/execution.go`](../../internal/state/execution.go). That method handles
+transaction selection and, when configured, a sealed sequence batch; it does
+not call an application `PrepareProposal` hook.
 
-recovery            = info *consensus-replay consensus-exec
-consensus-replay    = decide
+In [`State.defaultDoPrevote`](../../internal/consensus/state.go), a missing,
+untimely or invalid proposal can lead to a nil prevote before any application
+call. For a candidate that passes these checks, the engine calls
+`BlockExecutor.ProcessProposal` synchronously, including on the local proposer
+when it follows this prevote path. The request contains `Txs`,
+`ProposedLastCommit`, `ByzantineValidators`, `Hash`, and `Header`.
 
-consensus-exec      = (inf)consensus-height
-consensus-height    = *consensus-round decide
-consensus-round     = proposer / non-proposer
+The verdict is `ResponseProcessProposal.Status`, with `ACCEPT`, `REJECT`, and
+`UNKNOWN` values. It is not the draft's Boolean `accept`. A rejection causes a
+nil prevote. `UNKNOWN` causes a panic in the block executor; an application
+error is wrapped as `ErrInvalidBlock` and the classic prevote caller panics.
+There is no draft `evidence_list` result or application vote-extension callback.
+Application acceptance must be deterministic for the same candidate and state.
 
-proposer            = prepare-proposal extend-proposer
-extend-proposer     = *got-vote [extend-vote] *got-vote
+### Applying and committing a decided block
 
-non-proposer        = *got-vote [extend-non-proposer] *got-vote
-extend-non-proposer = process-proposal *got-vote [extend-vote]
+In the classic path, `BlockExecutor.ApplyBlock` validates the block and calls
+`FinalizeBlock` with its transactions, `DecidedLastCommit`, misbehavior, hash
+and header. It saves the finalization response before committing the
+application, processes validator and consensus-parameter updates, calls
+`Commit`, updates the mempool, and saves the new consensus state.
 
-init-chain          = %s"<InitChain>"
-offer-snapshot      = %s"<OfferSnapshot>"
-apply-chunk         = %s"<ApplySnapshotChunk>"
-info                = %s"<Info>"
-prepare-proposal    = %s"<PrepareProposal>"
-process-proposal    = %s"<ProcessProposal>"
-extend-vote         = %s"<ExtendVote>"
-got-vote            = %s"<VerifyVoteExtension>"
-decide              = %s"<FinalizeBlock>"
-```
+[`ResponseFinalizeBlock`](../../proto/tendermint/abci/types.proto) carries
+`TxResults`, `Events`, `ValidatorUpdates`, `ConsensusParamUpdates`, and
+`AppHash` in Go. `ResponseCommit` carries `RetainHeight`; it does not return the
+application hash. Thus `FinalizeBlock` does not replace the separate `Commit`
+call. The engine uses the finalization response's `AppHash` for the resulting
+state. `TxResultsHash` commits deterministic transaction results, excluding
+finalization events.
 
->**TODO** Still hesitating... introduce _n_ as total number of validators, so that we can bound the occurrences of
->`got-vote` in a round.
+The actual node handlers are `ProcessProposalHandler` and `FinalizeBlocker` in
+[`node/app.go`](../../../node/app.go), with persistence in
+[`App.Commit`](../../../node/abci.go). `FinalizeBlocker` can reuse eligible
+optimistic results or execute the block through `ProcessBlock`. Candidate work
+alone is not a committed result, and finalization must work without a prior
+proposal check, including during recovery.
 
-We have kept some of the ABCI++ methods out of the grammar, in order to keep it as clear and concise as possible.
-A common reason for keeping all these methods out is that they all can be called at any point in a sequence defined
-by the grammar above. Other reasons depend on the method in question:
+### Classic startup, replay and snapshots
 
-* `Echo` and `Flush` are only used for debugging purposes. Further, their handling by the Application should be trivial.
-* `CheckTx` is detached from the main method call sequence that drives block execution.
-* `Query` provides read-only access to the current Application state, so handling it should also be independent from
-  block execution.
-* Similarly, `ListSnapshots` and `LoadSnapshotChunk` provide read-only access to the Application's previously created
-  snapshots (if any), and help populate the parameters of `OfferSnapshot` and `ApplySnapshotChunk` at a process performing
-  state-sync while bootstrapping. Unlike `ListSnapshots` and `LoadSnapshotChunk`, both `OfferSnapshot`
-  and `ApplySnapshotChunk` _are_ included in the grammar.
+[`Handshaker.Handshake`](../../internal/consensus/replay.go) starts with `Info`
+and reads `LastBlockHeight` and `LastBlockAppHash`. At application height zero,
+`ReplayBlocks` calls `InitChain` using genesis data. It compares the application,
+block-store and consensus-state heights to determine whether replay is needed.
+A fresh consensus height comes from genesis and persisted state, rather than a
+hard-coded zero in research pseudocode.
 
-Finally, method `Info` is a special case. The method's purpose is three-fold, it can be used
+When the application is behind, replay executes stored blocks using
+`ExecCommitBlock` or `ApplyBlock`, with `FinalizeBlock` followed by `Commit`.
+If the application has committed the last stored block but the consensus state
+has not been saved, recovery uses the saved finalization response to rebuild
+that state without executing the same block against the real application
+again. Height and application-hash checks are part of this reconciliation.
+Recovery is therefore more than repeated calls to `FinalizeBlock` alone.
 
-1. as part of handling an RPC call from an external client,
-2. as a handshake between Tendermint and the Application upon recovery to check whether any blocks need
-   to be replayed, and
-3. at the end of _state-sync_ to verify that the correct state has been reached.
+The snapshot methods are `ListSnapshots`, `LoadSnapshotChunk`, `OfferSnapshot`,
+and `ApplySnapshotChunk`. The classic
+[`state-sync implementation`](../../internal/statesync/syncer.go) can retry or
+reject snapshots and chunks and verifies restored application state with
+`Info`. These methods' presence in the interface does not imply that Autobahn
+uses the classic snapshot startup sequence.
 
-We have left `Info`'s first purpose out of the grammar for the same reasons as all the others: it can happen
-at any time, and has nothing to do with the block execution sequence. The second and third purposes, on the other
-hand, are present in the grammar.
+### Autobahn execution and restart
 
-Let us now examine the grammar line by line, providing further details.
+[`GigaRouter.runExecute`](../../internal/p2p/giga_router.go) owns application
+startup in Autobahn mode; the classic handshaker is skipped. It calls `Info`.
+At application height zero it calls `InitChain` and begins at the genesis
+initial height. Otherwise it publishes the last committed application hash to
+the data layer and starts execution at `LastBlockHeight + 1`.
 
-* When a process starts, it may do so for the first time or after a crash (it is recovering).
+For each global block, `executeBlock` supplies the global payload's transactions
+and the Autobahn header hash to `FinalizeBlock`. Its application header carries
+the chain ID, global height and timestamp. `DecidedLastCommit` is empty on this
+path; it must not be interpreted as a set of absent classic validator votes.
+The method saves the finalization response, calls `Commit`, and then reports
+the response's application hash through `PushAppHash`.
 
->```abnf
->start               = clean-start / recovery
->```
+Application progress is distinct from the consensus recovery state. The
+[`data layer`](../../internal/autobahn/data/state.go) retains global blocks and
+commit certificates in its WALs; `PushAppHash` waits for the block and its
+certificate to be durably persisted. The
+[`consensus state`](../../internal/autobahn/consensus/inner.go) persists votes
+and view justifications when persistence is configured, using the
+[A/B persistence implementation](../../internal/autobahn/consensus/persist/persist.go).
+Those mechanisms, rather than classic round pseudocode, govern restart.
 
-* If the process is starting from scratch, Tendermint first calls `InitChain`, then it may optionally
-  start a _state-sync_ mechanism to catch up with other processes. Finally, it enters normal
-  consensus execution.
+### Other application calls
 
->```abnf
->clean-start         = init-chain [state-sync] consensus-exec
->```
-
-* In _state-sync_ mode, Tendermint makes one or more attempts at synchronizing the Application's state.
-  At the beginning of each attempt, it offers the Application a snapshot found at another process.
-  If the Application accepts the snapshop, at sequence of calls to `ApplySnapshotChunk` method follow
-  to provide the Application with all the snapshots needed, in order to reconstruct the state locally.
-  A successful attempt must provide at least one chunk via `ApplySnapshotChunk`.
-  At the end of a successful attempt, Tendermint calls `Info` to make sure the recontructed state's
-  _AppHash_ matches the one in the block header at the corresponding height.
-
->```abnf
->state-sync          = *state-sync-attempt success-sync info
->state-sync-attempt  = offer-snapshot *apply-chunk
->success-sync        = offer-snapshot 1*apply-chunk
->```
-
-* In recovery mode, Tendermint first calls `Info` to know from which height it needs to replay decisions
-  to the Application. To replay a decision, Tendermint simply calls `FinalizeBlock` with the decided
-  block at that height. After this, Tendermint enters nomal consensus execution.
-
->```abnf
->recovery            = info *consensus-replay consensus-exec
->consensus-replay    = decide
->```
-
-* The non-terminal `consensus-exec` is a key point in this grammar. It is an infinite sequence of
-  consensus heights. The grammar is thus an
-  [omega-grammar](https://dl.acm.org/doi/10.5555/2361476.2361481), since it produces infinite
-  sequences of terminals (i.e., the API calls).
-
->```abnf
->consensus-exec      = (inf)consensus-height
->```
-
-* A consensus height consists of zero or more rounds before deciding via a call to `FinalizeBlock`.
-  In each round, the sequence of method calls depends on whether the local process is the proposer or not.
-
->```abnf
->consensus-height    = *consensus-round decide
->consensus-round     = proposer / non-proposer
->```
-
-* If the local process is the proposer of the current round, Tendermint starts by calling `PrepareProposal`.
-  No calls to methods related to vote extensions (`ExtendVote`, `VerifyVoteExtension`) can be called
-  in the present round before `PrepareProposal`. Once `PrepareProposal` is called, calls to
-  `ExtendVote` and `VerifyVoteExtension` can come in any order, although the former will be called
-  at most once in this round.
-
->```abnf
->proposer            = prepare-proposal extend-proposer
->extend-proposer     = *got-vote [extend-vote] *got-vote
->```
-
-* If the local process is not the proposer of the current round, Tendermint will call `ProcessProposal`
-  at most once. At most one call to `ExtendVote` can occur only after `ProcessProposal` is called.
-  A number of calls to `VerifyVoteExtension` can occur in any order with respect to `ProcessProposal`
-  and `ExtendVote` throughout the round.
-
->```abnf
->non-proposer        = *got-vote [extend-non-proposer] *got-vote
->extend-non-proposer = process-proposal *got-vote [extend-vote]
->```
-
-* Finally, the grammar describes all its terminal symbols, which denote the different ABCI++ method calls that
-  may appear in a sequence.
-
->```abnf
->init-chain          = %s"<InitChain>"
->offer-snapshot      = %s"<OfferSnapshot>"
->apply-chunk         = %s"<ApplySnapshotChunk>"
->info                = %s"<Info>"
->prepare-proposal    = %s"<PrepareProposal>"
->process-proposal    = %s"<ProcessProposal>"
->extend-vote         = %s"<ExtendVote>"
->got-vote            = %s"<VerifyVoteExtension>"
->decide              = %s"<FinalizeBlock>"
->```
+`CheckTx` uses `RequestCheckTxV2` and returns `*ResponseCheckTxV2` directly.
+The proxy's `CheckTxSafe` converts a panic or invalid response into an error.
+Admission checks, priority hints, account nonce and balance reads, queries and
+snapshot serving have separate callers; the consensus sequence above is not a
+global serialization or concurrency guarantee for every application method.
+`Info` can also be called outside startup.
 
 ## Adapting existing Applications that use ABCI
 
-In some cases, an existing Application using the legacy ABCI may need to be adapted to work with ABCI++
-with as minimal changes as possible. In this case, of course, ABCI++ will not provide any advange with respect
-to the existing implementation, but will keep the same guarantees already provided by ABCI.
-Here is how ABCI++ methods should be implemented.
+Implement the current Go interface and its actual types. A legacy application's
+begin-block, per-transaction execution and end-block logic can inform its
+`FinalizeBlock` implementation, which must produce the ordered transaction
+results and resulting application hash. Keep durable persistence in `Commit`
+and return the committed height and hash from `Info` for restart.
 
-First of all, all the methods that did not change from ABCI to ABCI++, namely `Echo`, `Flush`, `Info`, `InitChain`,
-`Query`, `CheckTx`, `ListSnapshots`, `LoadSnapshotChunk`, `OfferSnapshot`, and `ApplySnapshotChunk`, do not need
-to undergo any changes in their implementation.
+Do not copy the old draft's `TxRecord`/`UNMODIFIED` preparation adapter, Boolean
+proposal verdicts, empty vote-extension handlers, or its instruction to fold
+`Commit` into `FinalizeBlock`. Those hooks and shapes are absent from the
+current interface. `BaseApplication` illustrates the method signatures but its
+default acceptance behavior is not the network application's validation policy.
 
-As for the new methods:
+## Historical design variants
 
-* `PrepareProposal` must create a list of [TxRecord](./abci++_methods_002_draft.md#txrecord) each containing a
-  transaction passed in `RequestPrepareProposal.txs`, in the same other. The field `action` must be set to `UNMODIFIED`
-  for all [TxRecord](./abci++_methods_002_draft.md#txrecord) elements in the list.
-  The Application must check whether the size of all transactions exceeds the byte limit
-  (`RequestPrepareProposal.max_tx_bytes`). If so, the Application must remove transactions at the end of the list
-  until the total byte size is at or below the limit.
-* `ProcessProposal` must set `ResponseProcessProposal.accept` to _true_ and return.
-* `ExtendVote` is to set `ResponseExtendVote.extension` to an empty byte array and return.
-* `VerifyVoteExtension` must set `ResponseVerifyVoteExtension.accept` to _true_ if the extension is an empty byte array
-  and _false_ otherwise, then return.
-* `FinalizeBlock` is to coalesce the implementation of methods `BeginBlock`, `DeliverTx`, `EndBlock`, and `Commit`.
-  Legacy applications looking to reuse old code that implemented `DeliverTx` should wrap the legacy
-  `DeliverTx` logic in a loop that executes one transaction iteration per
-  transaction in `RequestFinalizeBlock.tx`.
+The filenames below identify stages of an upstream design exercise, not node
+releases, selectable application versions or Autobahn conformance levels.
+Their pseudocode is retained as historical material with a current-code map on
+each page.
+
+| Reference | Historical subject |
+| --- | --- |
+| [v0](v0.md) | Classic round and locking algorithm without application hooks |
+| [v1](v1.md) | Legacy begin-block, transaction delivery and end-block integration |
+| [v2](v2.md) | Synchronous proposal processing and proposed vote-extension hooks |
+| [v3](v3.md) | Proposed split between application header and proposal checks |
+| [v4](v4.md) | Proposed fork/join proposal processing before precommit |

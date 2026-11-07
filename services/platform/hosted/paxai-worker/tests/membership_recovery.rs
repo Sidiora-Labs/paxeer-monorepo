@@ -2,7 +2,7 @@
 //! `OpenEpoch` openings, captured through the chunked read path and bound to finality
 //! evidence before the worker treats any membership fact as current.
 use ed25519_dalek::{Signer, SigningKey};
-use layerx_client::head::Head;
+use layerx_client::px::{PxNetworkHead, PxPaxeerHead};
 use layerx_paxai_worker::{
     auth::ServiceError,
     discovery::{AuthorityEvidence, IdentityEvidence, MAX_FINALITY_LAG},
@@ -958,7 +958,7 @@ fn capture(state: &[u8], at: u64) -> Checked<(Vec<u8>, CaptureFacts)> {
         native_state_root: Digest32::new(ROOT)?,
         observed_sequence: 77,
         execution_height: at,
-        batch_id: Digest32::new([0xBB; 32])?,
+        block_hash: Digest32::new([0xBB; 32])?,
     };
     let mut out = vec![0; CHUNK_RESPONSE_MAX];
     let n = read_state_chunk(state, &chunk_payload(0, None, 0), &mut out)?;
@@ -995,8 +995,10 @@ fn view(world: &World, roster: Option<&[u8]>, at: u64, owner: PrincipalId) -> Ch
         facts,
         finality: FinalityEvidence {
             native_state_root: Digest32::new(ROOT)?,
-            checkpoint: Digest32::new([0xC1; 32])?,
-            settlement: Presence::Present(Digest32::new([0xD3; 32])?),
+            block_height: at,
+            block_hash: Digest32::new([0xBB; 32])?,
+            app_hash: Digest32::new([0xC1; 32])?,
+            store_proof_digest: Digest32::new([0xD3; 32])?,
             rank: 4,
         },
         sealed: at + MAX_FINALITY_LAG,
@@ -1015,10 +1017,14 @@ impl View {
             state: &self.bytes,
             facts: &self.facts,
             finality: &self.finality,
-            head: Head {
-                chain_sequence: 77,
-                sealed_batch: self.sealed,
-                finalised_checkpoint: [0xC1; 32],
+            head: PxNetworkHead {
+                network_id: "paxeer".to_owned(),
+                paxeer: PxPaxeerHead {
+                    chain_id: 125,
+                    latest_block: self.sealed,
+                },
+                layerx: None,
+                latest_committed_height: self.sealed,
             },
             owner: self.owner,
             roster: self.roster.as_deref(),

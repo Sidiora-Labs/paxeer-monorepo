@@ -11,7 +11,7 @@ on:
         required: true
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.inputs.tag || github.ref_name }}
@@ -19,6 +19,8 @@ concurrency:
 
 jobs:
   releaser:
+    permissions:
+      contents: write
     name: Build and publish Paxeer release
     runs-on: ubuntu-latest
     env:
@@ -80,8 +82,6 @@ jobs:
       - name: Install pinned Rust toolchain
         run: rustup toolchain install 1.91.1 --profile minimal --no-self-update
       - name: Build release binaries
-        env:
-          PAXD_RELEASE_LAYERXD: '1'
         run: tools/release/build-paxd.sh
       - name: Generate release notes
         run: |

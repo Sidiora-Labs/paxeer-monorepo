@@ -1,29 +1,50 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
-import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer as createHttpServer, type Server as HttpServer } from 'node:http';
-import { createServer as createHttpsServer, type Server as HttpsServer } from 'node:https';
-import type { AddressInfo } from 'node:net';
+import {
+  Agent,
+  request,
+  createServer as createHttpsServer,
+  type Server as HttpsServer,
+} from 'node:https';
+import { connect, createServer as createNetServer, type AddressInfo, type Socket } from 'node:net';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { randomUUID } from 'node:crypto';
+import {
+  createHash,
+  createPublicKey,
+  generateKeyPairSync,
+  randomBytes,
+  randomUUID,
+  sign,
+  verify,
+  X509Certificate,
+} from 'node:crypto';
 import type { FastifyInstance } from 'fastify';
 import { SignJWT, exportJWK, generateKeyPair, type KeyLike } from 'jose';
 import {
   keccak256,
   parseTransaction,
+  recoverAddress,
   recoverMessageAddress,
+  recoverPublicKey,
   recoverTransactionAddress,
   recoverTypedDataAddress,
+  serializeTransaction,
   type Hex,
   type TypedDataDefinition,
 } from 'viem';
 import { startPostgres, type EphemeralPostgres } from './support/postgres.js';
+import type { EvmReviewResult } from '../src/attestor/client.js';
+import type { WalletInventory } from '../src/agent/authority.js';
+import { buildAttestor, makePki } from './e2e/attestors.js';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const fixtureDir = join(here, 'fixtures', 'attestor');
-const fixture = <T>(name: string): T => JSON.parse(readFileSync(join(fixtureDir, name), 'utf8')) as T;
+const fixture = <T>(name: string): T =>
+  JSON.parse(readFileSync(join(fixtureDir, name), 'utf8')) as T;
 
 interface RecordedRequest {
   key_id: string;
@@ -48,12 +69,21 @@ interface WireRequest extends RecordedRequest {
 interface Received {
   path: string;
   authorization: string | undefined;
+  custodySequence?: string;
   body: WireRequest;
 }
 
-const walletFixture = fixture<{ key_id: string; address: `0x${string}`; chain_id: number }>('wallet.json');
+const walletFixture = fixture<{ key_id: string; address: `0x${string}`; chain_id: number }>(
+  'wallet.json'
+);
 const routeInputs = fixture<{
-  tx: { to: string; value: string; gas: string; maxFeePerGas: string; maxPriorityFeePerGas: string };
+  tx: {
+    to: string;
+    value: string;
+    gas: string;
+    maxFeePerGas: string;
+    maxPriorityFeePerGas: string;
+  };
   nonce: number;
   message: string;
   typed_data: TypedDataDefinition;
@@ -78,10 +108,19 @@ interface AttestorNode {
   refuse: 'policy' | 'token' | null;
   truncate: boolean;
   received: Received[];
+  requestCount: number;
+  authoritySequence: string | null;
+  evmReviewOverrides: Partial<EvmReviewResult>;
 }
 
 let tlsDir: string;
-let tls: { caCert: string; serverCert: string; serverKey: string; clientCert: string; clientKey: string };
+let tls: {
+  caCert: string;
+  serverCert: string;
+  serverKey: string;
+  clientCert: string;
+  clientKey: string;
+};
 const attestorNodes: AttestorNode[] = [];
 let expectedToken = '';
 
@@ -92,23 +131,52 @@ function makeCertificates(): void {
     execFileSync('openssl', args, { stdio: 'pipe' });
   };
   const ec = ['-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes'];
-  ossl(['req', '-x509', ...ec, '-keyout', p('ca.key'), '-out', p('ca.crt'), '-days', '1', '-subj', '/CN=attestor-test-ca']);
+  ossl([
+    'req',
+    '-x509',
+    ...ec,
+    '-keyout',
+    p('ca.key'),
+    '-out',
+    p('ca.crt'),
+    '-days',
+    '1',
+    '-subj',
+    '/CN=attestor-test-ca',
+  ]);
   writeFileSync(p('server.ext'), 'subjectAltName=IP:127.0.0.1\nextendedKeyUsage=serverAuth\n');
   writeFileSync(p('client.ext'), 'extendedKeyUsage=clientAuth\n');
   for (const [name, subj] of [
-    ['server', '/CN=attestor'],
+    ['server-1', '/CN=attestor-1'],
+    ['server-2', '/CN=attestor-2'],
+    ['server-3', '/CN=attestor-3'],
+    ['server-4', '/CN=attestor-4'],
+    ['server-5', '/CN=attestor-5'],
     ['client', '/CN=wallet-gateway'],
   ] as const) {
     ossl(['req', ...ec, '-keyout', p(`${name}.key`), '-out', p(`${name}.csr`), '-subj', subj]);
     ossl([
-      'x509', '-req', '-in', p(`${name}.csr`), '-CA', p('ca.crt'), '-CAkey', p('ca.key'), '-CAcreateserial',
-      '-out', p(`${name}.crt`), '-days', '1', '-extfile', p(`${name}.ext`),
+      'x509',
+      '-req',
+      '-in',
+      p(`${name}.csr`),
+      '-CA',
+      p('ca.crt'),
+      '-CAkey',
+      p('ca.key'),
+      '-CAcreateserial',
+      '-out',
+      p(`${name}.crt`),
+      '-days',
+      '1',
+      '-extfile',
+      p(name === 'client' ? 'client.ext' : 'server.ext'),
     ]);
   }
   tls = {
     caCert: readFileSync(p('ca.crt'), 'utf8'),
-    serverCert: readFileSync(p('server.crt'), 'utf8'),
-    serverKey: readFileSync(p('server.key'), 'utf8'),
+    serverCert: readFileSync(p('server-1.crt'), 'utf8'),
+    serverKey: readFileSync(p('server-1.key'), 'utf8'),
     clientCert: readFileSync(p('client.crt'), 'utf8'),
     clientKey: readFileSync(p('client.key'), 'utf8'),
   };
@@ -130,10 +198,20 @@ function startAttestor(index: number): Promise<AttestorNode> {
     refuse: null,
     truncate: false,
     received: [],
+    requestCount: 0,
+    authoritySequence: null,
+    evmReviewOverrides: {},
   };
   node.server = createHttpsServer(
-    { key: tls.serverKey, cert: tls.serverCert, ca: tls.caCert, requestCert: true, rejectUnauthorized: true },
+    {
+      key: readFileSync(join(tlsDir, `server-${index}.key`)),
+      cert: readFileSync(join(tlsDir, `server-${index}.crt`)),
+      ca: tls.caCert,
+      requestCert: true,
+      rejectUnauthorized: true,
+    },
     (req, res) => {
+      node.requestCount++;
       const chunks: Buffer[] = [];
       req.on('data', (c: Buffer) => chunks.push(c));
       req.on('end', () => {
@@ -142,8 +220,79 @@ function startAttestor(index: number): Promise<AttestorNode> {
           res.end(JSON.stringify(body));
         };
         const peers = Object.fromEntries(
-          [1, 2, 3, 4, 5].filter((i) => i !== index).map((i) => [`attestor-${i}`, { reachable: true, rtt_ns: 1000 }]),
+          [1, 2, 3, 4, 5]
+            .filter((i) => i !== index)
+            .map((i) => [`attestor-${i}`, { reachable: true, rtt_ns: 1000 }])
         );
+        if (req.method === 'POST' && req.url === '/v1/authority') {
+          const { token } = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { token: string };
+          const [header, payload, signature] = token.split('.');
+          if (
+            !header ||
+            !payload ||
+            !signature ||
+            !verify(
+              'sha256',
+              Buffer.from(`${header}.${payload}`),
+              { key: createPublicKey(tls.clientCert), dsaEncoding: 'ieee-p1363' },
+              Buffer.from(signature, 'base64url')
+            )
+          ) {
+            send(401, fixture('refusal-token.response.json'));
+            return;
+          }
+          const authority = JSON.parse(Buffer.from(payload, 'base64url').toString('utf8')) as {
+            sequence: string;
+          };
+          node.authoritySequence = authority.sequence;
+          send(200, { node_id: node.nodeId, sequence: authority.sequence });
+          return;
+        }
+        if (req.method === 'POST' && req.url === '/v1/evm/review') {
+          const wire = JSON.parse(Buffer.concat(chunks).toString('utf8')) as WireRequest;
+          const custodySequence = req.headers['x-custody-sequence'] as string | undefined;
+          node.received.push({
+            path: req.url,
+            authorization: req.headers.authorization,
+            custodySequence,
+            body: wire,
+          });
+          if (
+            req.headers.authorization !== `Bearer ${expectedToken}` ||
+            !node.authoritySequence ||
+            custodySequence !== node.authoritySequence
+          ) {
+            send(401, fixture('refusal-token.response.json'));
+            return;
+          }
+          const tx = parseTransaction(`0x${wire.transaction!.replace(/^0x/, '')}`);
+          const unsigned = serializeTransaction({
+            type: 'eip1559',
+            chainId: tx.chainId!,
+            nonce: tx.nonce!,
+            to: tx.to!,
+            value: tx.value!,
+            gas: tx.gas!,
+            maxFeePerGas: tx.maxFeePerGas!,
+            maxPriorityFeePerGas: tx.maxPriorityFeePerGas!,
+            data: tx.data ?? '0x',
+          });
+          send(200, {
+            node_id: node.nodeId,
+            key_id: wire.key_id,
+            to: tx.to,
+            value: tx.value!.toString(),
+            data: tx.data ?? '0x',
+            method: 'native_transfer',
+            destination: tx.to,
+            signing_hash: keccak256(unsigned),
+            chain_id: tx.chainId,
+            decision: 'allowed',
+            audit_sequence: index,
+            ...node.evmReviewOverrides,
+          });
+          return;
+        }
         if (req.method === 'GET' && req.url === '/health') {
           setTimeout(
             () =>
@@ -156,48 +305,75 @@ function startAttestor(index: number): Promise<AttestorNode> {
                 ready: node.ready,
                 ...(node.ready ? {} : { readiness_error: 'share store locked' }),
               }),
-            node.healthDelayMs,
+            node.healthDelayMs
           );
           return;
         }
         if (req.method === 'POST' && (req.url === '/v1/sign' || req.url === '/v1/keys/generate')) {
           const wire = JSON.parse(Buffer.concat(chunks).toString('utf8')) as WireRequest;
-          node.received.push({ path: req.url, authorization: req.headers.authorization, body: wire });
+          node.received.push({
+            path: req.url,
+            authorization: req.headers.authorization,
+            body: wire,
+          });
           if (req.url === '/v1/keys/generate') {
-            send(200, { ...keyTemplate, node_id: node.nodeId, key_id: wire.key_id, audit_sequence: index });
+            send(200, {
+              ...keyTemplate,
+              node_id: node.nodeId,
+              key_id: wire.key_id,
+              audit_sequence: index,
+            });
             return;
           }
           if (node.refuse) {
-            send(node.refuse === 'policy' ? 403 : 401, fixture(`refusal-${node.refuse}.response.json`));
+            send(
+              node.refuse === 'policy' ? 403 : 401,
+              fixture(`refusal-${node.refuse}.response.json`)
+            );
             return;
           }
-          if (req.headers.authorization !== `Bearer ${expectedToken}` || !wire.signers.includes(node.nodeId)) {
+          if (
+            req.headers.authorization !== `Bearer ${expectedToken}` ||
+            !wire.signers.includes(node.nodeId)
+          ) {
             send(401, fixture('refusal-token.response.json'));
             return;
           }
-          const match = recorded.find((r) => JSON.stringify(r.request) === JSON.stringify(strip(wire)));
+          const match = recorded.find(
+            (r) => JSON.stringify(r.request) === JSON.stringify(strip(wire))
+          );
           if (!match) {
-            send(400, { error: { category: 'session', code: 'session_bad_request', message: 'request does not match a recorded fixture' } });
+            send(400, {
+              error: {
+                category: 'session',
+                code: 'session_bad_request',
+                message: 'request does not match a recorded fixture',
+              },
+            });
             return;
           }
           send(200, {
             ...match.response,
             node_id: node.nodeId,
-            signature: node.truncate ? match.response.signature.slice(0, 128) : match.response.signature,
+            signature: node.truncate
+              ? match.response.signature.slice(0, 128)
+              : match.response.signature,
             audit_sequence: match.response.audit_sequence + index,
           });
           return;
         }
-        send(404, { error: { category: 'session', code: 'session_bad_request', message: 'unknown route' } });
+        send(404, {
+          error: { category: 'session', code: 'session_bad_request', message: 'unknown route' },
+        });
       });
-    },
+    }
   );
   return new Promise((r) =>
     node.server.listen(0, '127.0.0.1', () => {
       node.url = `https://127.0.0.1:${(node.server.address() as AddressInfo).port}`;
       attestorNodes.push(node);
       r(node);
-    }),
+    })
   );
 }
 
@@ -244,7 +420,11 @@ function startRpc(): Promise<void> {
     const chunks: Buffer[] = [];
     req.on('data', (c: Buffer) => chunks.push(c));
     req.on('end', () => {
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as { id: number; method: string; params: unknown[] };
+      const body = JSON.parse(Buffer.concat(chunks).toString('utf8')) as {
+        id: number;
+        method: string;
+        params: unknown[];
+      };
       const reply = (payload: Record<string, unknown>): void => {
         res.writeHead(200, { 'content-type': 'application/json' });
         res.end(JSON.stringify({ jsonrpc: '2.0', id: body.id, ...payload }));
@@ -258,7 +438,8 @@ function startRpc(): Promise<void> {
           return reply({ result: '0x5208' });
         case 'eth_getTransactionCount':
           nonceTags.push(String(body.params[1]));
-          if (body.params[1] === 'pending') return reply({ error: { code: -32000, message: 'pending block is not available' } });
+          if (body.params[1] === 'pending')
+            return reply({ error: { code: -32000, message: 'pending block is not available' } });
           return reply({ result: `0x${routeInputs.nonce.toString(16)}` });
         case 'eth_sendRawTransaction': {
           const raw = body.params[0] as Hex;
@@ -274,7 +455,7 @@ function startRpc(): Promise<void> {
     rpcServer.listen(0, '127.0.0.1', () => {
       rpcUrl = `http://127.0.0.1:${(rpcServer.address() as AddressInfo).port}`;
       r();
-    }),
+    })
   );
 }
 
@@ -283,6 +464,85 @@ type QuorumModule = typeof import('../src/attestor/quorum.js');
 let clientMod: ClientModule;
 let quorumMod: QuorumModule;
 let pgServer: EphemeralPostgres;
+
+const reviewOwner = 'review-owner';
+const ed25519ReviewKey = 'ed25519-review-key';
+
+let reviewInventorySequence = 0n;
+
+async function configureReviewInventory(owner = reviewOwner): Promise<void> {
+  const now = Math.floor(Date.now() / 1000);
+  const secp = await recoverPublicKey({
+    hash: `0x${recorded[1]!.response.signed_bytes}`,
+    signature: `0x${recorded[1]!.response.signature}`,
+  });
+  expect((await import('viem/accounts')).publicKeyToAddress(secp)).toBe(walletFixture.address);
+  const ed = generateKeyPairSync('ed25519').publicKey.export({ format: 'jwk' });
+  const inventory = {
+    version: 1,
+    iss: `${supabaseUrl}/auth/v1`,
+    aud: 'wallet-custody-inventory',
+    tenant: 'attestor-review-tests',
+    sequence: String(++reviewInventorySequence),
+    iat: now,
+    exp: now + 600,
+    protocol: 'wallet',
+    threshold: 3,
+    members: attestorNodes.map((node) => ({
+      id: node.nodeId,
+      spki_sha256: createHash('sha256')
+        .update(
+          new X509Certificate(
+            readFileSync(join(tlsDir, `server-${node.index}.crt`))
+          ).publicKey.export({ type: 'spki', format: 'der' })
+        )
+        .digest('hex'),
+    })),
+    keys: [
+      {
+        key_id: walletFixture.key_id,
+        epoch: 1,
+        curve: 'secp256k1',
+        owner,
+        operations: ['sign'],
+        public_key: secp.slice(2).toLowerCase(),
+      },
+      {
+        key_id: ed25519ReviewKey,
+        epoch: 1,
+        curve: 'ed25519',
+        owner: reviewOwner,
+        operations: ['sign'],
+        public_key: Buffer.from(ed.x!, 'base64url').toString('hex'),
+      },
+    ],
+  };
+  const header = Buffer.from(
+    JSON.stringify({ alg: 'ES256', typ: 'wallet-custody-inventory+jwt' })
+  ).toString('base64url');
+  const payload = Buffer.from(JSON.stringify(inventory)).toString('base64url');
+  const signature = sign('sha256', Buffer.from(`${header}.${payload}`), {
+    key: tls.clientKey,
+    dsaEncoding: 'ieee-p1363',
+  });
+  const inventoryFile = join(tlsDir, 'inventory.jwt');
+  const publicKeyFile = join(tlsDir, 'inventory.pub');
+  writeFileSync(inventoryFile, `${header}.${payload}.${signature.toString('base64url')}`);
+  writeFileSync(
+    publicKeyFile,
+    createPublicKey(tls.clientKey).export({ type: 'spki', format: 'pem' })
+  );
+  process.env.WALLET_CUSTODY_INVENTORY_FILE = inventoryFile;
+  process.env.WALLET_CUSTODY_INVENTORY_PUBLIC_KEY_FILE = publicKeyFile;
+  process.env.WALLET_IDENTITY_BINDING_PRIVATE_KEY_FILE = join(tlsDir, 'client.key');
+  process.env.WALLET_IDENTITY_BINDING_TENANT = inventory.tenant;
+  process.env.ATTESTOR_ENDPOINTS = attestorNodes.map((node) => node.url).join(',');
+  process.env.ATTESTOR_QUORUM = '3';
+  process.env.ATTESTOR_CLIENT_CERT_FILE = join(tlsDir, 'client.crt');
+  process.env.ATTESTOR_CLIENT_KEY_FILE = join(tlsDir, 'client.key');
+  process.env.ATTESTOR_CA_FILE = join(tlsDir, 'ca.crt');
+  process.env.WALLET_AUTHORIZATION_DELEGATES = ` , ${walletFixture.address}, `;
+}
 
 function newClient(): InstanceType<ClientModule['AttestorClient']> {
   return new clientMod.AttestorClient({
@@ -300,6 +560,7 @@ beforeAll(async () => {
   await startJwks();
   await startRpc();
   process.env.SUPABASE_URL = supabaseUrl;
+  await configureReviewInventory();
   pgServer = await startPostgres();
   clientMod = await import('../src/attestor/client.js');
   quorumMod = await import('../src/attestor/quorum.js');
@@ -322,6 +583,9 @@ beforeEach(() => {
     n.refuse = null;
     n.truncate = false;
     n.received = [];
+    n.requestCount = 0;
+    n.authoritySequence = null;
+    n.evmReviewOverrides = {};
   }
 });
 
@@ -349,20 +613,155 @@ describe('selectQuorum', () => {
 
   it('picks the three lowest-latency healthy nodes', () => {
     const picked = quorumMod.selectQuorum(
-      [node('a', 40), node('b', 5), node('c', null), node('d', 12, false), node('e', 20), node('f', 30, true, 1)],
-      3,
+      [
+        node('a', 40),
+        node('b', 5),
+        node('c', null),
+        node('d', 12, false),
+        node('e', 20),
+        node('f', 30, true, 1),
+      ],
+      3
     );
     expect(picked.map((m) => m.nodeId)).toEqual(['b', 'e', 'a']);
   });
 
   it('refuses when fewer than three healthy nodes remain', () => {
-    expect(() => quorumMod.selectQuorum([node('a', 1), node('b', 2), node('c', 3, false)], 3)).toThrow(
-      quorumMod.QuorumUnavailableError,
-    );
+    expect(() =>
+      quorumMod.selectQuorum([node('a', 1), node('b', 2), node('c', 3, false)], 3)
+    ).toThrow(quorumMod.QuorumUnavailableError);
   });
 });
 
 describe('AttestorClient over mutual TLS', () => {
+  async function reviewEvmTransactionRequiresQuorumAgreement(): Promise<void> {
+    attestorNodes[3]!.ready = false;
+    attestorNodes[4]!.ready = false;
+    expectedToken = await mintToken(reviewOwner);
+    const client = newClient();
+    const input = {
+      keyId: walletFixture.key_id,
+      sessionId: randomUUID(),
+      transaction: recorded[0]!.request.transaction!,
+      owner: reviewOwner,
+      token: expectedToken,
+    };
+    try {
+      const result = await client.reviewEvmTransaction(input);
+      expect(result.participants.slice().sort()).toEqual([
+        'attestor-1',
+        'attestor-2',
+        'attestor-3',
+      ]);
+      expect(result.audit.slice().sort((a, b) => a.audit_sequence - b.audit_sequence)).toEqual([
+        { node_id: 'attestor-1', audit_sequence: 1 },
+        { node_id: 'attestor-2', audit_sequence: 2 },
+        { node_id: 'attestor-3', audit_sequence: 3 },
+      ]);
+      expect(result).toMatchObject({
+        to: routeInputs.tx.to.toLowerCase(),
+        value: routeInputs.tx.value,
+        data: '0x',
+        method: 'native_transfer',
+        destination: routeInputs.tx.to.toLowerCase(),
+        chain_id: walletFixture.chain_id,
+      });
+      expect(result.signing_hash).toMatch(/^0x[0-9a-f]{64}$/);
+      expect(attestorNodes.flatMap((node) => node.received)).toHaveLength(3);
+      for (const node of attestorNodes.slice(0, 3)) {
+        expect(node.received[0]).toEqual({
+          path: '/v1/evm/review',
+          authorization: `Bearer ${expectedToken}`,
+          custodySequence: node.authoritySequence,
+          body: {
+            session_id: input.sessionId,
+            key_id: input.keyId,
+            transaction: input.transaction,
+          },
+        });
+        expect(node.authoritySequence).toMatch(/^[1-9][0-9]*$/);
+      }
+      const disagreements = [
+        { signing_hash: `0x${'ff'.repeat(32)}` },
+        { to: `0x${'11'.repeat(20)}` },
+        { value: '1001' },
+        { data: '0x01' },
+        { method: 'transfer' },
+        { destination: `0x${'22'.repeat(20)}` },
+        { chain_id: 1 },
+      ];
+      for (const disagreement of disagreements) {
+        attestorNodes[1]!.evmReviewOverrides = disagreement;
+        const error = await client
+          .reviewEvmTransaction({ ...input, sessionId: randomUUID() })
+          .catch((reason: unknown) => reason);
+        expect(error).toBeInstanceOf(clientMod.AttestorSessionError);
+        expect(error).toMatchObject({ code: 'evm_review_disagreement' });
+      }
+    } finally {
+      client.stop();
+    }
+  }
+  it(reviewEvmTransactionRequiresQuorumAgreement);
+
+  async function parseEvmReviewAdmitsNativeTransferWithoutMethod(): Promise<void> {
+    attestorNodes[3]!.ready = false;
+    attestorNodes[4]!.ready = false;
+    expectedToken = await mintToken(reviewOwner);
+    const client = newClient();
+    const input = {
+      keyId: walletFixture.key_id,
+      sessionId: randomUUID(),
+      transaction: recorded[0]!.request.transaction!,
+      owner: reviewOwner,
+      token: expectedToken,
+    };
+    try {
+      for (const node of attestorNodes) {
+        node.evmReviewOverrides = { data: '0x', method: '', destination: '' };
+      }
+      await expect(client.reviewEvmTransaction(input)).resolves.toMatchObject({
+        data: '0x',
+        method: '',
+        destination: '',
+      });
+
+      for (const node of attestorNodes) {
+        node.evmReviewOverrides = { data: '0xa9059cbb', method: '' };
+      }
+      await expect(
+        client.reviewEvmTransaction({ ...input, sessionId: randomUUID() })
+      ).rejects.toMatchObject({
+        code: 'evm_review_invalid',
+      });
+    } finally {
+      client.stop();
+    }
+  }
+  it(parseEvmReviewAdmitsNativeTransferWithoutMethod);
+
+  async function reviewEvmTransactionRefusesEd25519Key(): Promise<void> {
+    const client = newClient();
+    try {
+      const error = await client
+        .reviewEvmTransaction({
+          keyId: ed25519ReviewKey,
+          sessionId: randomUUID(),
+          transaction: recorded[0]!.request.transaction!,
+          owner: reviewOwner,
+          token: 'unused-token',
+        })
+        .catch((reason: unknown) => reason);
+      expect(error).toBeInstanceOf(clientMod.AttestorKeyError);
+      expect(error).toMatchObject({ code: 'key_curve_mismatch' });
+      expect(attestorNodes.map((node) => node.requestCount)).toEqual([0, 0, 0, 0, 0]);
+      expect(attestorNodes.flatMap((node) => node.received)).toEqual([]);
+    } finally {
+      client.stop();
+    }
+  }
+  it(reviewEvmTransactionRefusesEd25519Key);
+
   it('selects a quorum by health and latency with one unhealthy node', async () => {
     attestorNodes[1]!.ready = false;
     attestorNodes[4]!.healthDelayMs = 300;
@@ -374,7 +773,11 @@ describe('AttestorClient over mutual TLS', () => {
       expect(health[1]!.lastError).toBe('share store locked');
       expect(health.filter((h) => h.healthy)).toHaveLength(4);
       const quorum = client.selectQuorum();
-      expect(quorum.map((m) => m.nodeId).sort()).toEqual(['attestor-1', 'attestor-3', 'attestor-4']);
+      expect(quorum.map((m) => m.nodeId).sort()).toEqual([
+        'attestor-1',
+        'attestor-3',
+        'attestor-4',
+      ]);
     } finally {
       client.stop();
     }
@@ -396,11 +799,15 @@ describe('AttestorClient over mutual TLS', () => {
       const hit = attestorNodes.filter((n) => n.received.length > 0);
       expect(hit.map((n) => n.nodeId).sort()).toEqual(['attestor-1', 'attestor-3', 'attestor-4']);
       expect(hit.every((n) => n.received[0]!.path === '/v1/sign')).toBe(true);
-      expect(hit.every((n) => n.received[0]!.authorization === `Bearer ${expectedToken}`)).toBe(true);
+      expect(hit.every((n) => n.received[0]!.authorization === `Bearer ${expectedToken}`)).toBe(
+        true
+      );
       const bodies = hit.map((n) => n.received[0]!.body);
       expect(new Set(bodies.map((b) => b.session_id)).size).toBe(1);
       expect(new Set(bodies.map((b) => JSON.stringify(b))).size).toBe(1);
-      const goldenKeys = Object.keys(golden<Record<string, unknown>>('sign.request.json')).filter((k) => k !== 'transaction');
+      const goldenKeys = Object.keys(golden<Record<string, unknown>>('sign.request.json')).filter(
+        (k) => k !== 'transaction'
+      );
       expect(Object.keys(bodies[0]!).sort()).toEqual([...goldenKeys, 'message'].sort());
       expect(bodies[0]!.session_id).toBe(result.sessionId);
       expect(bodies[0]!.signers).toEqual(result.participants);
@@ -423,7 +830,10 @@ describe('AttestorClient over mutual TLS', () => {
     const client = newClient();
     const input = {
       keyId: recorded[1]!.request.key_id,
-      payload: { kind: 'personal_message' as const, message: `0x${recorded[1]!.request.message!}` as Hex },
+      payload: {
+        kind: 'personal_message' as const,
+        message: `0x${recorded[1]!.request.message!}` as Hex,
+      },
       authorisation: { scheme: 'supabase_jwt' as const, token: expectedToken },
     };
     try {
@@ -431,21 +841,37 @@ describe('AttestorClient over mutual TLS', () => {
       for (const n of attestorNodes) n.refuse = 'policy';
       const policy = await client.sign(input).catch((e: unknown) => e);
       expect(policy).toBeInstanceOf(clientMod.AttestorPolicyError);
-      const policyGolden = golden<{ error: { code: string; policy_code: string } }>('error.policy.json');
-      expect((policy as InstanceType<ClientModule['AttestorPolicyError']>).code).toBe(policyGolden.error.code);
-      expect((policy as InstanceType<ClientModule['AttestorPolicyError']>).policyCode).toBe(policyGolden.error.policy_code);
-      expect(clientMod.attestorErrorStatus(policy as InstanceType<ClientModule['AttestorError']>)).toBe(403);
+      const policyGolden = golden<{ error: { code: string; policy_code: string } }>(
+        'error.policy.json'
+      );
+      expect((policy as InstanceType<ClientModule['AttestorPolicyError']>).code).toBe(
+        policyGolden.error.code
+      );
+      expect((policy as InstanceType<ClientModule['AttestorPolicyError']>).policyCode).toBe(
+        policyGolden.error.policy_code
+      );
+      expect(
+        clientMod.attestorErrorStatus(policy as InstanceType<ClientModule['AttestorError']>)
+      ).toBe(403);
 
       for (const n of attestorNodes) n.refuse = null;
-      const token = await client.sign({ ...input, authorisation: { scheme: 'supabase_jwt', token: 'forged' } }).catch((e: unknown) => e);
+      const token = await client
+        .sign({ ...input, authorisation: { scheme: 'supabase_jwt', token: 'forged' } })
+        .catch((e: unknown) => e);
       expect(token).toBeInstanceOf(clientMod.AttestorTokenError);
-      expect((token as InstanceType<ClientModule['AttestorTokenError']>).code).toBe('token_missing');
-      expect(clientMod.attestorErrorStatus(token as InstanceType<ClientModule['AttestorError']>)).toBe(401);
+      expect((token as InstanceType<ClientModule['AttestorTokenError']>).code).toBe(
+        'token_missing'
+      );
+      expect(
+        clientMod.attestorErrorStatus(token as InstanceType<ClientModule['AttestorError']>)
+      ).toBe(401);
 
       for (const n of attestorNodes) n.truncate = true;
       const truncated = await client.sign(input).catch((e: unknown) => e);
       expect(truncated).toBeInstanceOf(clientMod.AttestorSessionError);
-      expect((truncated as InstanceType<ClientModule['AttestorSessionError']>).code).toBe('bad_signature_length');
+      expect((truncated as InstanceType<ClientModule['AttestorSessionError']>).code).toBe(
+        'bad_signature_length'
+      );
       for (const n of attestorNodes) n.truncate = false;
 
       attestorNodes[0]!.ready = false;
@@ -454,8 +880,12 @@ describe('AttestorClient over mutual TLS', () => {
       await client.refreshHealth();
       const quorum = await client.sign(input).catch((e: unknown) => e);
       expect(quorum).toBeInstanceOf(clientMod.AttestorQuorumError);
-      expect((quorum as InstanceType<ClientModule['AttestorQuorumError']>).code).toBe('quorum_unavailable');
-      expect(clientMod.attestorErrorStatus(quorum as InstanceType<ClientModule['AttestorError']>)).toBe(503);
+      expect((quorum as InstanceType<ClientModule['AttestorQuorumError']>).code).toBe(
+        'quorum_unavailable'
+      );
+      expect(
+        clientMod.attestorErrorStatus(quorum as InstanceType<ClientModule['AttestorError']>)
+      ).toBe(503);
     } finally {
       client.stop();
     }
@@ -465,11 +895,17 @@ describe('AttestorClient over mutual TLS', () => {
     const client = newClient();
     try {
       await client.refreshHealth();
-      const key = await client.generateKey({ keyId: 'key-evm', curve: 'secp256k1', owner: 'user-0001' });
+      const key = await client.generateKey({
+        keyId: 'key-evm',
+        curve: 'secp256k1',
+        owner: 'user-0001',
+      });
       const bodies = attestorNodes.map((n) => n.received[0]!);
       expect(bodies.every((b) => b.path === '/v1/keys/generate')).toBe(true);
       expect(new Set(bodies.map((b) => JSON.stringify(b.body))).size).toBe(1);
-      const goldenKeys = Object.keys(golden<Record<string, unknown>>('keys.generate.request.json')).filter((k) => k !== 'account');
+      const goldenKeys = Object.keys(
+        golden<Record<string, unknown>>('keys.generate.request.json')
+      ).filter((k) => k !== 'account');
       expect(Object.keys(bodies[0]!.body).sort()).toEqual(goldenKeys.sort());
       expect(bodies[0]!.body.session_id).toBe(key.sessionId);
       expect(key.publicKey).toBe(`0x${keyTemplate.public_key as string}`);
@@ -497,7 +933,7 @@ describe('AttestorClient over mutual TLS', () => {
           keyId: recorded[1]!.request.key_id,
           payload: { kind: 'personal_message', message: `0x${recorded[1]!.request.message!}` },
           authorisation: { scheme: 'supabase_jwt', token: 'session-token' },
-        }),
+        })
       ).rejects.toBeInstanceOf(clientMod.AttestorQuorumError);
       expect(attestorNodes.every((n) => n.received.length === 0)).toBe(true);
     } finally {
@@ -514,25 +950,34 @@ describe('signing routes', () => {
   let walletsMod: Wallets;
   let auditMod: Audit;
   let getPool: () => import('pg').Pool;
-  let rpc: InstanceType<typeof import('../src/rpc/pool.js')['RpcPool']>;
-  let nonces: InstanceType<typeof import('../src/nonce/store.js')['NonceStore']>;
+  let rpc: InstanceType<(typeof import('../src/rpc/pool.js'))['RpcPool']>;
+  let nonces: InstanceType<(typeof import('../src/nonce/store.js'))['NonceStore']>;
   let client: InstanceType<ClientModule['AttestorClient']>;
 
-  async function buildApp(limits: { client: number; account: number }): Promise<FastifyInstance> {
+  async function buildApp(
+    limits: { client: number; account: number },
+    attestors = client
+  ): Promise<FastifyInstance> {
     const Fastify = (await import('fastify')).default;
     const app = Fastify({ logger: false });
     await app.register(signMod.signRoutes, {
       pool: getPool(),
-      attestors: client,
+      attestors,
       rpc,
       nonces,
-      limiter: new auditMod.RateLimiter({ pool: getPool(), clientPerMinute: limits.client, accountPerMinute: limits.account }),
+      limiter: new auditMod.RateLimiter({
+        pool: getPool(),
+        clientPerMinute: limits.client,
+        accountPerMinute: limits.account,
+      }),
     });
     await app.ready();
     return app;
   }
 
-  async function provision(migrated: boolean): Promise<{ userId: string; token: string; address: `0x${string}` }> {
+  async function provision(
+    migrated: boolean
+  ): Promise<{ userId: string; token: string; address: `0x${string}` }> {
     const userId = randomUUID();
     const { row } = await walletsMod.provisionWalletForUser(userId, 'standard');
     if (migrated) await migrate(userId);
@@ -541,9 +986,10 @@ describe('signing routes', () => {
   }
 
   async function migrate(userId: string): Promise<void> {
+    await configureReviewInventory(userId);
     await getPool().query(
       `update wallets set address = $2, migrated_at = now(), attestor_key_id = $3 where user_id = $1 and kind = 'standard'`,
-      [userId, walletFixture.address, walletFixture.key_id],
+      [userId, walletFixture.address, walletFixture.key_id]
     );
   }
 
@@ -558,9 +1004,20 @@ describe('signing routes', () => {
     getPool = (await import('../src/db/pool.js')).getPool;
     const { RpcPool } = await import('../src/rpc/pool.js');
     const { NonceStore } = await import('../src/nonce/store.js');
-    rpc = new RpcPool({ urls: [rpcUrl], chainId: 125, lagThresholdBlocks: 20, timeoutMs: 5_000, healthIntervalMs: 60_000 });
-    nonces = new NonceStore({ pool: getPool(), chainId: 125, pendingCount: (a) => rpc.getTransactionCount(a, 'latest'),
-      lookupTransaction: (h, m) => rpc.lookupTransaction(h, m) });
+    rpc = new RpcPool({
+      urls: [rpcUrl],
+      sequencerUrl: rpcUrl,
+      chainId: 125,
+      lagThresholdBlocks: 20,
+      timeoutMs: 5_000,
+      healthIntervalMs: 60_000,
+    });
+    nonces = new NonceStore({
+      pool: getPool(),
+      chainId: 125,
+      pendingCount: (a) => rpc.getTransactionCount(a, 'latest'),
+      lookupTransaction: (h, m) => rpc.lookupTransaction(h, m),
+    });
     client = newClient();
   });
 
@@ -574,9 +1031,11 @@ describe('signing routes', () => {
           set migrated_at = null, attestor_key_id = null,
               address = '0x' || substr(md5(random()::text) || md5(random()::text), 1, 40)
         where address = $1`,
-      [walletFixture.address],
+      [walletFixture.address]
     );
-    await getPool().query('delete from nonce_allocations where address = $1', [walletFixture.address.toLowerCase()]);
+    await getPool().query('delete from nonce_allocations where address = $1', [
+      walletFixture.address.toLowerCase(),
+    ]);
     await client.refreshHealth();
     broadcasts.length = 0;
     nonceTags.length = 0;
@@ -589,31 +1048,54 @@ describe('signing routes', () => {
       expectedToken = user.token;
       const headers = { authorization: `Bearer ${user.token}` };
 
-      const envelope = await app.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload: { message: routeInputs.message } });
+      const envelope = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload: { message: routeInputs.message },
+      });
       expect(envelope.statusCode).toBe(200);
       const envSig = envelope.json<{ signature: Hex; address: string }>();
       expect(envSig.address).toBe(user.address);
-      expect(await recoverMessageAddress({ message: routeInputs.message, signature: envSig.signature })).toBe(user.address);
+      expect(
+        await recoverMessageAddress({ message: routeInputs.message, signature: envSig.signature })
+      ).toBe(user.address);
       expect(attestorNodes.every((n) => n.received.length === 0)).toBe(true);
       const envAudit = await auditFor(envelope.headers['x-request-id'] as string);
       expect(envAudit).toHaveLength(1);
-      expect(envAudit[0]).toMatchObject({ path: 'envelope', decision: 'signed', kind: 'message', attestor_audit: [] });
+      expect(envAudit[0]).toMatchObject({
+        path: 'envelope',
+        decision: 'signed',
+        kind: 'message',
+        attestor_audit: [],
+      });
 
       await migrate(user.userId);
 
-      const threshold = await app.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload: { message: routeInputs.message } });
+      const threshold = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload: { message: routeInputs.message },
+      });
       expect(threshold.statusCode).toBe(200);
       const thSig = threshold.json<{ signature: Hex; address: string }>();
       expect(thSig.address).toBe(walletFixture.address);
-      expect(await recoverMessageAddress({ message: routeInputs.message, signature: thSig.signature })).toBe(walletFixture.address);
+      expect(
+        await recoverMessageAddress({ message: routeInputs.message, signature: thSig.signature })
+      ).toBe(walletFixture.address);
       expect(attestorNodes.filter((n) => n.received.length === 1)).toHaveLength(3);
       const thAudit = await auditFor(threshold.headers['x-request-id'] as string);
       expect(thAudit).toHaveLength(1);
       expect(thAudit[0]!.path).toBe('attestor');
       expect(thAudit[0]!.decision).toBe('signed');
-      expect(thAudit[0]!.session_id).toBe(attestorNodes.find((n) => n.received.length === 1)!.received[0]!.body.session_id);
+      expect(thAudit[0]!.session_id).toBe(
+        attestorNodes.find((n) => n.received.length === 1)!.received[0]!.body.session_id
+      );
       expect(thAudit[0]!.attestor_audit).toHaveLength(3);
-      expect(thAudit[0]!.attestor_audit.every((a) => a.audit_sequence > 200 && a.audit_sequence <= 205)).toBe(true);
+      expect(
+        thAudit[0]!.attestor_audit.every((a) => a.audit_sequence > 200 && a.audit_sequence <= 205)
+      ).toBe(true);
     } finally {
       await app.close();
     }
@@ -634,20 +1116,32 @@ describe('signing routes', () => {
       });
       expect(signed.statusCode).toBe(200);
       const signedTx = signed.json<{ signed_tx: Hex; chain_id: number }>().signed_tx;
-      expect(await recoverTransactionAddress({ serializedTransaction: signedTx as never })).toBe(walletFixture.address);
+      expect(await recoverTransactionAddress({ serializedTransaction: signedTx as never })).toBe(
+        walletFixture.address
+      );
       const parsed = parseTransaction(signedTx);
       expect(parsed.nonce).toBe(routeInputs.nonce);
       expect(parsed.chainId).toBe(125);
 
-      const sent = await app.inject({ method: 'POST', url: '/v1/wallet/send', headers, payload: { tx: routeInputs.tx } });
+      const sent = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/send',
+        headers,
+        payload: { tx: routeInputs.tx },
+      });
       expect(sent.statusCode).toBe(200);
       expect(broadcasts).toEqual([signedTx]);
       expect(sent.json<{ tx_hash: Hex }>().tx_hash).toBe(keccak256(signedTx));
       const sendAudit = await auditFor(sent.headers['x-request-id'] as string);
-      expect(sendAudit[0]).toMatchObject({ path: 'attestor', decision: 'broadcast', nonce: String(routeInputs.nonce), tx_hash: keccak256(signedTx) });
+      expect(sendAudit[0]).toMatchObject({
+        path: 'attestor',
+        decision: 'broadcast',
+        nonce: String(routeInputs.nonce),
+        tx_hash: keccak256(signedTx),
+      });
       const { rows } = await getPool().query<{ next_nonce: string }>(
         'select next_nonce::text from nonce_allocations where address = $1',
-        [walletFixture.address.toLowerCase()],
+        [walletFixture.address.toLowerCase()]
       );
       expect(rows[0]?.next_nonce).toBe(String(routeInputs.nonce + 1));
       expect(nonceTags).toEqual(['latest']);
@@ -660,7 +1154,9 @@ describe('signing routes', () => {
       });
       expect(typed.statusCode).toBe(200);
       const typedSig = typed.json<{ signature: Hex }>().signature;
-      expect(await recoverTypedDataAddress({ ...routeInputs.typed_data, signature: typedSig } as never)).toBe(walletFixture.address);
+      expect(
+        await recoverTypedDataAddress({ ...routeInputs.typed_data, signature: typedSig } as never)
+      ).toBe(walletFixture.address);
     } finally {
       await app.close();
     }
@@ -695,6 +1191,410 @@ describe('signing routes', () => {
     }
   });
 
+  async function refusesUnlistedEip7702DelegateBeforeSigningAndSignsListedOne(): Promise<void> {
+    const { WALLET_AUTHORIZATION_DELEGATES, env } = await import('../src/env.js');
+    expect(WALLET_AUTHORIZATION_DELEGATES.parse(undefined)).toEqual([]);
+    expect(WALLET_AUTHORIZATION_DELEGATES.safeParse('0x1234').success).toBe(false);
+    expect(env.WALLET_AUTHORIZATION_DELEGATES).toEqual([walletFixture.address.toLowerCase()]);
+    const ids = attestorNodes.map((node) => node.nodeId);
+    const pki = makePki(ids);
+    const work = mkdtempSync(join(tmpdir(), 'gateway-authorization-'));
+    const children: ChildProcess[] = [];
+    const proxies: ReturnType<typeof createNetServer>[] = [];
+    const sockets = new Set<Socket>();
+    const traffic = ids.map(() => 0);
+    const logs: string[][] = ids.map(() => []);
+    const inventoryFile = process.env.WALLET_CUSTODY_INVENTORY_FILE!;
+    const originalInventory = readFileSync(inventoryFile, 'utf8');
+    const originalPayload = JSON.parse(
+      Buffer.from(originalInventory.split('.')[1]!, 'base64url').toString('utf8')
+    ) as WalletInventory;
+    let sequence = BigInt(originalPayload.sequence);
+    const publishInventory = (payload: WalletInventory): void => {
+      const header = originalInventory.split('.')[0]!;
+      const body = Buffer.from(
+        JSON.stringify({ ...payload, sequence: String(++sequence) })
+      ).toString('base64url');
+      const signature = sign('sha256', Buffer.from(`${header}.${body}`), {
+        key: tls.clientKey,
+        dsaEncoding: 'ieee-p1363',
+      });
+      writeFileSync(inventoryFile, `${header}.${body}.${signature.toString('base64url')}`);
+    };
+    const operator = new Agent({
+      ca: readFileSync(pki.caFile),
+      cert: readFileSync(pki.operatorCert),
+      key: readFileSync(pki.operatorKey),
+    });
+    const gateway = new Agent({
+      ca: readFileSync(pki.caFile),
+      cert: readFileSync(pki.clientCert),
+      key: readFileSync(pki.clientKey),
+    });
+    async function call<T>(
+      agent: Agent,
+      url: string,
+      body?: unknown
+    ): Promise<{ status: number; body: T }> {
+      return new Promise((resolve, reject) => {
+        const req = request(
+          url,
+          {
+            agent,
+            method: body === undefined ? 'GET' : 'POST',
+            timeout: 180_000,
+            headers: { 'content-type': 'application/json' },
+          },
+          (res) => {
+            const chunks: Buffer[] = [];
+            res.on('data', (chunk: Buffer) => chunks.push(chunk));
+            res.on('error', reject);
+            res.on('end', () => {
+              try {
+                resolve({
+                  status: res.statusCode!,
+                  body: JSON.parse(Buffer.concat(chunks).toString('utf8')) as T,
+                });
+              } catch (error) {
+                reject(error);
+              }
+            });
+          }
+        );
+        req.on('error', reject);
+        req.on('timeout', () => req.destroy(new Error('authorization attestor request timed out')));
+        req.end(body === undefined ? undefined : JSON.stringify(body));
+      });
+    }
+    let realClient: InstanceType<ClientModule['AttestorClient']> | undefined;
+    let app: FastifyInstance | undefined;
+    try {
+      const userId = randomUUID();
+      const keyId = `wallet:${userId}:standard:secp256k1:0`;
+      const members = ids.map((id) => ({ id, spki_sha256: pki.node(id).pin }));
+      publishInventory({
+        ...originalPayload,
+        members,
+        keys: [
+          {
+            key_id: keyId,
+            owner: userId,
+            curve: 'secp256k1',
+            epoch: 0,
+            public_key: '',
+            operations: ['generate'],
+          },
+        ],
+      });
+      const policyFile = join(work, 'policy.json');
+      writeFileSync(
+        policyFile,
+        JSON.stringify({
+          version: 1,
+          defaults: {
+            chain_id: 125,
+            kinds: ['eth_sign_digest', 'eip7702_authorization'],
+            rate_per_minute: 600,
+            caps: { native: { per_transaction: '1000000', daily: '10000000' } },
+            authorization_delegates: [walletFixture.address],
+          },
+        })
+      );
+      const authorityPublic = join(work, 'authority.pub');
+      writeFileSync(
+        authorityPublic,
+        createPublicKey(tls.clientKey).export({ format: 'pem', type: 'spki' })
+      );
+      const reservations = await Promise.all(
+        Array.from({ length: ids.length * 2 }, async () => {
+          const server = createNetServer();
+          await new Promise<void>((resolve, reject) => {
+            server.once('error', reject);
+            server.listen(0, '127.0.0.1', resolve);
+          });
+          return server;
+        })
+      );
+      const ports = reservations.map((server) => (server.address() as AddressInfo).port);
+      await Promise.all(
+        reservations.map((server) => new Promise<void>((resolve) => server.close(() => resolve())))
+      );
+      const bin = buildAttestor(work);
+      for (const [i, id] of ids.entries()) {
+        const nodeKey = join(work, `${id}.key`);
+        const dataDir = join(work, id);
+        mkdirSync(dataDir);
+        writeFileSync(nodeKey, randomBytes(32).toString('hex'), { mode: 0o600 });
+        const others = ids.filter((peer) => peer !== id);
+        const child = spawn(bin, [], {
+          env: {
+            PATH: process.env.PATH,
+            HOME: process.env.HOME,
+            ATTESTOR_NODE_ID: id,
+            ATTESTOR_REGION: `region-${i + 1}`,
+            ATTESTOR_LISTEN_ADDR: `127.0.0.1:${ports[i * 2]}`,
+            ATTESTOR_PEER_LISTEN_ADDR: `127.0.0.1:${ports[i * 2 + 1]}`,
+            ATTESTOR_PEERS: others
+              .map((peer) => `${peer}=127.0.0.1:${ports[ids.indexOf(peer) * 2 + 1]}`)
+              .join(','),
+            ATTESTOR_PEER_PINS: others.map((peer) => `${peer}=${pki.node(peer).pin}`).join(','),
+            ATTESTOR_NODE_KEY_FILE: nodeKey,
+            ATTESTOR_DATA_DIR: dataDir,
+            ATTESTOR_CHAIN_ID: '125',
+            ATTESTOR_JWKS_URL: `${supabaseUrl}/auth/v1/.well-known/jwks.json`,
+            ATTESTOR_JWT_ISSUER: `${supabaseUrl}/auth/v1`,
+            ATTESTOR_JWT_AUDIENCE: 'authenticated',
+            ATTESTOR_POLICY_FILE: policyFile,
+            ATTESTOR_RPC_URL: rpcUrl,
+            ATTESTOR_TLS_CERT_FILE: pki.node(id).cert,
+            ATTESTOR_TLS_KEY_FILE: pki.node(id).key,
+            ATTESTOR_TLS_CA_FILE: pki.caFile,
+            ATTESTOR_OPERATOR_CA_FILE: pki.operatorCaFile,
+            ATTESTOR_AUTHORITY_PUBLIC_KEY_FILE: authorityPublic,
+            ATTESTOR_AUTHORITY_ISSUER: `${supabaseUrl}/auth/v1`,
+            ATTESTOR_AUTHORITY_TENANT: originalPayload.tenant,
+            ATTESTOR_INVENTORY_PUBLIC_KEY_FILE: authorityPublic,
+            ATTESTOR_INVENTORY_FILE: inventoryFile,
+          },
+          stdio: ['ignore', 'pipe', 'pipe'],
+        });
+        children.push(child);
+        child.stdout!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+        child.stderr!.on('data', (chunk: Buffer) => logs[i]!.push(chunk.toString('utf8')));
+        const proxy = createNetServer((socket) => {
+          const upstream = connect(ports[i * 2]!, '127.0.0.1');
+          for (const connection of [socket, upstream]) {
+            sockets.add(connection);
+            connection.on('close', () => sockets.delete(connection));
+            connection.on('error', () => {
+              socket.destroy();
+              upstream.destroy();
+            });
+          }
+          socket.on('data', (chunk: Buffer) => {
+            traffic[i]! += chunk.length;
+          });
+          socket.pipe(upstream).pipe(socket);
+        });
+        proxies.push(proxy);
+        await new Promise<void>((resolve, reject) => {
+          proxy.once('error', reject);
+          proxy.listen(0, '127.0.0.1', resolve);
+        });
+      }
+      const endpoints = proxies.map(
+        (proxy) => `https://127.0.0.1:${(proxy.address() as AddressInfo).port}`
+      );
+      const deadline = Date.now() + 60_000;
+      for (const [i, endpoint] of endpoints.entries()) {
+        for (;;) {
+          if (children[i]!.exitCode !== null) throw new Error(logs[i]!.join(''));
+          const health = await call<{ reachable_peers: number }>(
+            gateway,
+            `${endpoint}/health`
+          ).catch(() => null);
+          if (health?.body.reachable_peers === 4) break;
+          if (Date.now() >= deadline)
+            throw new Error(`authorization attestor not ready: ${logs[i]!.join('')}`);
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        }
+      }
+      const sessionId = randomUUID();
+      const generated = await Promise.all(
+        endpoints.map((endpoint) =>
+          call<{ address: Hex; public_key: string; epoch: number; refreshed: boolean }>(
+            gateway,
+            `${endpoint}/v1/keys/generate`,
+            { session_id: sessionId, key_id: keyId, owner: userId, curve: 'secp256k1' }
+          )
+        )
+      );
+      expect(generated.map((answer) => answer.status)).toEqual(ids.map(() => 200));
+      const key = generated[0]!.body;
+      expect(
+        generated.every(
+          (answer) =>
+            answer.body.public_key === key.public_key &&
+            answer.body.address === key.address &&
+            answer.body.epoch === key.epoch
+        )
+      ).toBe(true);
+      publishInventory({
+        ...originalPayload,
+        members,
+        keys: [
+          {
+            key_id: keyId,
+            owner: userId,
+            curve: 'secp256k1',
+            epoch: key.epoch,
+            public_key: key.public_key,
+            operations: ['sign', 'refresh'],
+          },
+        ],
+      });
+      if (generated.some((answer) => !answer.body.refreshed)) {
+        const refreshId = randomUUID();
+        const refreshed = await Promise.all(
+          endpoints.map((endpoint) =>
+            call<{ public_key: string; epoch: number; refreshed: boolean }>(
+              operator,
+              `${endpoint}/v1/keys/refresh`,
+              { session_id: refreshId, key_id: keyId }
+            )
+          )
+        );
+        expect(refreshed.every((answer) => answer.status === 200 && answer.body.refreshed)).toBe(
+          true
+        );
+        expect(
+          refreshed.every(
+            (answer) =>
+              answer.body.public_key === key.public_key && answer.body.epoch === key.epoch + 1
+          )
+        ).toBe(true);
+        publishInventory({
+          ...originalPayload,
+          members,
+          keys: [
+            {
+              key_id: keyId,
+              owner: userId,
+              curve: 'secp256k1',
+              epoch: refreshed[0]!.body.epoch,
+              public_key: key.public_key,
+              operations: ['sign', 'refresh'],
+            },
+          ],
+        });
+      }
+      await getPool().query(
+        `insert into wallets(user_id,address,chain_id,attestor_key_id,migrated_at)
+        values($1,$2,125,$3,now())`,
+        [userId, key.address, keyId]
+      );
+      realClient = new clientMod.AttestorClient({
+        endpoints,
+        tls: {
+          ca: readFileSync(pki.caFile),
+          cert: readFileSync(pki.clientCert),
+          key: readFileSync(pki.clientKey),
+        },
+        quorum: 3,
+        healthIntervalMs: 60_000,
+        timeoutMs: 30_000,
+      });
+      await realClient.refreshHealth();
+      app = await buildApp({ client: 100, account: 100 }, realClient);
+      const headers = { authorization: `Bearer ${await mintToken(userId)}` };
+      const construction = {
+        kind: 'eip7702_authorization' as const,
+        chainId: '125',
+        nonce: String(routeInputs.nonce),
+        address: walletFixture.address,
+      };
+      const before = [...traffic];
+      const refused = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-digest',
+        headers,
+        payload: {
+          construction: { ...construction, address: '0x1111111111111111111111111111111111111111' },
+        },
+      });
+      expect(refused.statusCode, refused.body).toBe(403);
+      expect(refused.json()).toMatchObject({ error: 'delegate_not_allowed' });
+      expect(traffic).toEqual(before);
+      expect(attestorNodes.every((node) => node.received.length === 0)).toBe(true);
+      const signed = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-digest',
+        headers,
+        payload: { construction },
+      });
+      expect(signed.statusCode, signed.body).toBe(200);
+      const signature = signed.json<{ signature: Hex; address: string }>();
+      expect(signature.signature).toMatch(/^0x[0-9a-f]{130}$/i);
+      expect(signature.address).toBe(key.address);
+      expect(
+        await recoverAddress({
+          hash: clientMod.constructionDigest(construction),
+          signature: signature.signature,
+        })
+      ).toBe(key.address);
+      expect(traffic.some((bytes, i) => bytes > before[i]!)).toBe(true);
+      const signingKey = {
+        key_id: keyId,
+        owner: userId,
+        curve: 'secp256k1' as const,
+        epoch: generated.some((answer) => !answer.body.refreshed) ? key.epoch + 1 : key.epoch,
+        public_key: key.public_key,
+        operations: ['sign' as const, 'refresh' as const],
+      };
+      for (const mismatch of [
+        { ...signingKey, owner: randomUUID() },
+        {
+          ...signingKey,
+          public_key: (
+            await recoverPublicKey({
+              hash: `0x${recorded[1]!.response.signed_bytes}`,
+              signature: `0x${recorded[1]!.response.signature}`,
+            })
+          )
+            .slice(2)
+            .toLowerCase(),
+        },
+      ]) {
+        publishInventory({ ...originalPayload, members, keys: [mismatch] });
+        const refused = await call<{ error: { category: string; code: string; message: string } }>(
+          gateway,
+          `${endpoints[0]}/v1/sign`,
+          {
+            key_id: keyId,
+            session_id: randomUUID(),
+            kind: 'eth_sign_digest',
+            signers: ids.slice(0, 3),
+            construction,
+          }
+        );
+        expect(refused.status, JSON.stringify(refused.body)).toBe(409);
+        expect(refused.body.error).toMatchObject({ category: 'key', code: 'key_invalid_share' });
+        expect(refused.body.error.message).toContain(
+          'owner-approved wallet inventory differs from held share'
+        );
+      }
+      publishInventory({ ...originalPayload, members, keys: [signingKey] });
+    } finally {
+      await app?.close();
+      realClient?.stop();
+      gateway.destroy();
+      operator.destroy();
+      for (const socket of sockets) socket.destroy();
+      await Promise.all(
+        proxies.map((proxy) => new Promise<void>((resolve) => proxy.close(() => resolve())))
+      );
+      await Promise.all(
+        children.map(async (child) => {
+          if (child.exitCode !== null || child.signalCode !== null) return;
+          const exited = new Promise<void>((resolve) => child.once('exit', () => resolve()));
+          child.kill('SIGTERM');
+          const timer = setTimeout(() => child.kill('SIGKILL'), 10_000);
+          await exited;
+          clearTimeout(timer);
+        })
+      );
+      publishInventory(originalPayload);
+      reviewInventorySequence = sequence;
+      rmSync(work, { recursive: true, force: true });
+      rmSync(pki.dir, { recursive: true, force: true });
+    }
+  }
+  it(
+    'refuses an unlisted EIP-7702 delegate before signing and signs a listed one',
+    refusesUnlistedEip7702DelegateBeforeSigningAndSignsListedOne,
+    600_000
+  );
+
   it('maps attestor refusals to typed HTTP responses and audits them', async () => {
     const app = await buildApp({ client: 100, account: 100 });
     try {
@@ -704,7 +1604,12 @@ describe('signing routes', () => {
       const headers = { authorization: `Bearer ${user.token}` };
 
       for (const n of attestorNodes) n.refuse = 'policy';
-      const policy = await app.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload: { message: routeInputs.message } });
+      const policy = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload: { message: routeInputs.message },
+      });
       expect(policy.statusCode).toBe(403);
       expect(policy.json()).toMatchObject({
         error: 'attestor_policy_refused',
@@ -713,11 +1618,20 @@ describe('signing routes', () => {
         policy_code: 'value_cap',
       });
       const policyAudit = await auditFor(policy.json<{ request_id: string }>().request_id);
-      expect(policyAudit[0]).toMatchObject({ decision: 'refused', path: 'attestor', reason_code: 'policy:policy_denied' });
+      expect(policyAudit[0]).toMatchObject({
+        decision: 'refused',
+        path: 'attestor',
+        reason_code: 'policy:policy_denied',
+      });
 
       for (const n of attestorNodes) n.refuse = null;
       expectedToken = 'a-different-token';
-      const token = await app.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload: { message: routeInputs.message } });
+      const token = await app.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload: { message: routeInputs.message },
+      });
       expect(token.statusCode).toBe(401);
       expect(token.json()).toMatchObject({ category: 'token', code: 'token_missing' });
     } finally {
@@ -731,14 +1645,47 @@ describe('signing routes', () => {
       const user = await provision(false);
       const headers = { authorization: `Bearer ${user.token}` };
       const payload = { message: routeInputs.message };
-      expect((await perClient.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload })).statusCode).toBe(200);
-      expect((await perClient.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload })).statusCode).toBe(200);
-      const limited = await perClient.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload });
+      expect(
+        (
+          await perClient.inject({
+            method: 'POST',
+            url: '/v1/wallet/sign-message',
+            headers,
+            payload,
+          })
+        ).statusCode
+      ).toBe(200);
+      expect(
+        (
+          await perClient.inject({
+            method: 'POST',
+            url: '/v1/wallet/sign-message',
+            headers,
+            payload,
+          })
+        ).statusCode
+      ).toBe(200);
+      const limited = await perClient.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload,
+      });
       expect(limited.statusCode).toBe(429);
-      expect(limited.json()).toMatchObject({ error: 'rate_limited', scope: 'client', limit_per_minute: 2 });
+      expect(limited.json()).toMatchObject({
+        error: 'rate_limited',
+        scope: 'client',
+        limit_per_minute: 2,
+      });
+      expect(limited.json().request_id).toMatch(/^[0-9a-f-]{36}$/);
       expect(Number(limited.headers['retry-after'])).toBeGreaterThanOrEqual(1);
       const rows = await auditFor(limited.json<{ request_id: string }>().request_id);
-      expect(rows[0]).toMatchObject({ decision: 'refused', path: 'none', reason_code: 'rate_limited_client', client_subject: user.userId });
+      expect(rows[0]).toMatchObject({
+        decision: 'refused',
+        path: 'none',
+        reason_code: 'rate_limited_client',
+        client_subject: user.userId,
+      });
     } finally {
       await perClient.close();
     }
@@ -748,10 +1695,28 @@ describe('signing routes', () => {
       const user = await provision(false);
       const headers = { authorization: `Bearer ${user.token}` };
       const payload = { message: routeInputs.message };
-      expect((await perAccount.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload })).statusCode).toBe(200);
-      const limited = await perAccount.inject({ method: 'POST', url: '/v1/wallet/sign-message', headers, payload });
+      expect(
+        (
+          await perAccount.inject({
+            method: 'POST',
+            url: '/v1/wallet/sign-message',
+            headers,
+            payload,
+          })
+        ).statusCode
+      ).toBe(200);
+      const limited = await perAccount.inject({
+        method: 'POST',
+        url: '/v1/wallet/sign-message',
+        headers,
+        payload,
+      });
       expect(limited.statusCode).toBe(429);
-      expect(limited.json()).toMatchObject({ error: 'rate_limited', scope: 'account', limit_per_minute: 1 });
+      expect(limited.json()).toMatchObject({
+        error: 'rate_limited',
+        scope: 'account',
+        limit_per_minute: 1,
+      });
       const rows = await auditFor(limited.json<{ request_id: string }>().request_id);
       expect(rows[0]).toMatchObject({
         decision: 'refused',

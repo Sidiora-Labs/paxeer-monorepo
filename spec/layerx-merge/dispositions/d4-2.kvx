@@ -1,0 +1,119 @@
+[disposition.4.22.6.1]
+finding = "4.22.6.1"
+status = "resolved"
+evidence = "Commit c9de04ec8 hoists FrozenConnectedSurface for catalog coverage and explicitly identifies the publication and recording templates in services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go:83 and services/launchpad/gateway/internal/proxy/frozen_media_catalog_test.go:120."
+
+[disposition.4.23.3]
+finding = "4.23.3"
+status = "resolved"
+evidence = "Commit f39dbcaa9 replaces the missing L35 schema read with embedded goose migrations in services/launchpad/user/internal/account/account_test.go:65, backed by tracked account DDL in services/launchpad/user/migrations/00002_account_store.sql:2."
+
+[disposition.4.23.3.2]
+finding = "4.23.3.2"
+status = "resolved"
+evidence = "Commit f39dbcaa9 supplies the embedded account and api_stream DDL and switches their fixtures to goose, while commit 01d2bf319 imports the previously absent integration migration set including registry.json and grants.json."
+
+[disposition.4.23.4]
+finding = "4.23.4"
+status = "environment"
+evidence = "The recorded failure lacked an external PostgreSQL DSN rather than route code; services/launchpad/user/internal/account/account_test.go:32 now requires USER_TEST_DATABASE_URL after commit f39dbcaa9 replaced the historical L35_TEST_POSTGRES name."
+
+[disposition.4.23.5.1]
+finding = "4.23.5.1"
+status = "resolved"
+evidence = "Commit 4963cd484 selects the profile and batch operations by exact path in services/launchpad/user/internal/account/v2_catalog_test.go:39 and applies prefix selection only when exact is false at services/launchpad/user/internal/account/v2_catalog_test.go:51."
+
+[disposition.4.24.3]
+finding = "4.24.3"
+status = "environment"
+evidence = "services/launchpad/api/internal/internaltest/containers.go:211 still requires an externally running PostgreSQL through CORE_API_TEST_POSTGRES_URL and fails explicitly when that DSN is absent, matching the recorded qualification environment failure."
+
+[disposition.4.24.3.1]
+finding = "4.24.3.1"
+status = "resolved"
+evidence = "Commit f39dbcaa9 replaces productionReadsFixture reads of the absent loose migration with embedded goose migrations at services/launchpad/api/internal/rest/production_integration_test.go:47, and commit 01d2bf319 supplies the integration migration directory and its registry and grants for other consumers."
+
+[disposition.4.24.3.2]
+finding = "4.24.3.2"
+status = "resolved"
+evidence = "Commit 01d2bf319 imports the reviewed integration migrations, whose api_stream DDL is present at launchpad/spec/production-system/integration/migrations/150002.sql:1, while services/launchpad/api/internal/rest/production_integration_test.go:47 now uses embedded migrations."
+
+[disposition.4.26.2]
+finding = "4.26.2"
+status = "environment"
+evidence = "services/launchpad/discovery/phase2_test.go:17 reads DISCOVERY_TEST_DATABASE_URL and explicitly rejects its absence before opening PostgreSQL, so the recorded failure concerns the missing external fixture rather than the squad operations landed in commit 11ace3b2f."
+
+[disposition.4.27.4]
+finding = "4.27.4"
+status = "resolved"
+evidence = "Commit 44b1f0714 generates UUIDv7-shaped identifiers in services/launchpad/notifications/schema.sql:17 and validates X-Actor-Wallet before assigning it to each response item in services/launchpad/notifications/http.go:137 and services/launchpad/notifications/http.go:162."
+
+[disposition.4.27.4.2]
+finding = "4.27.4.2"
+status = "resolved"
+evidence = "Commit 44b1f0714 replaces the md5-only generated column with timestamp, version-7 and UUID-variant components at services/launchpad/notifications/schema.sql:17 and populates Wallet from the validated actor header at services/launchpad/notifications/http.go:162."
+
+[disposition.4.41.4]
+finding = "4.41.4"
+status = "superseded"
+evidence = "Commit 098a31854 retires apps/launchpad/web/ecosystem.config.mjs and the telegram-bot workspace scripts, so the deleted PM2 template no longer exists on the supplied main revision."
+
+[disposition.4.44.2]
+finding = "4.44.2"
+status = "resolved"
+evidence = "Commit c98debee4 removes mediaApiUrl while retaining gatewayUrl at apps/launchpad/web/src/core/sdk-config.ts:72, and task 4.44.2 now declares gatewayUrl and sdkConfigExportsNoMediaApiUrl instead of the deleted alias."
+
+[disposition.4.46.1]
+finding = "4.46.1"
+status = "resolved"
+evidence = "Commit cd0729db0 makes the mobile harness import Operations and SdkClient through the built @kindle/sdk package at apps/launchpad/mobile/test/vitest/harness.test.ts:2, avoiding the unresolved generated modules of the source entry."
+
+[disposition.4.46.1.1]
+finding = "4.46.1.1"
+status = "resolved"
+evidence = "The validator runtime files remain build outputs, but commit cd0729db0 removes the harness source-entry import at apps/launchpad/mobile/test/vitest/harness.test.ts:2 and commit fd78a7119 aliases the three generated module specifiers to dist at apps/launchpad/mobile/vitest.config.ts:8."
+
+[disposition.4.46.1.2]
+finding = "4.46.1.2"
+status = "resolved"
+evidence = "Commit cd0729db0 lands the implementation change requested by the revised task, with apps/launchpad/mobile/test/vitest/harness.test.ts:2 importing Operations and SdkClient from @kindle/sdk."
+
+[disposition.4.46.2]
+finding = "4.46.2"
+status = "resolved"
+evidence = "Commit fd78a7119 repairs the missing closing brace in the Token screen JSX, and the current component is present at apps/launchpad/mobile/src/screens/token.tsx:20 with its repaired return beginning at apps/launchpad/mobile/src/screens/token.tsx:59."
+
+[disposition.4.46.2.1]
+finding = "4.46.2.1"
+status = "resolved"
+evidence = "Commit fd78a7119 adds skipLibCheck while retaining strict source checking in apps/launchpad/mobile/tsconfig.json:3, returns a definite record from WalletProtocolStorage.load, and repairs the 204 return cast now at apps/launchpad/mobile/src/runtime/service-client.ts:390."
+
+[disposition.4.46.2.2]
+finding = "4.46.2.2"
+status = "resolved"
+evidence = "Commit fd78a7119 retains the default library and src/test inclusion while adding skipLibCheck at apps/launchpad/mobile/tsconfig.json:4, and the rejected ES2022-only tsconfig.test.json is absent from the supplied main tree."
+
+[disposition.4.46.2.3]
+finding = "4.46.2.3"
+status = "resolved"
+evidence = "Commit fd78a7119 maps all three validators-*.gen.js source specifiers to built SDK modules at apps/launchpad/mobile/vitest.config.ts:8 and prefixes the task build with the sdk-v2 and sdk builds."
+
+[disposition.4.48.5]
+finding = "4.48.5"
+status = "superseded"
+evidence = "Commit 75af045e9 retires sdk/launchpad/packages/sdk/test/run-phase2.py together with the other four phase runner and configuration files and removes their package scripts, so the obsolete qualification surface is absent from the supplied main tree."
+
+[disposition.4.48.5.1]
+finding = "4.48.5.1"
+status = "superseded"
+evidence = "Commit 75af045e9 lands the five phase-script deletions including sdk/launchpad/packages/sdk/test/run-phase4.py and the package.json cleanup, leaving no retired runner file to qualify on the supplied main tree."
+
+[disposition.4.53.2]
+finding = "4.53.2"
+status = "resolved"
+evidence = "Commit 12c3d4881 normalizes internalType whitespace recursively in sdk/launchpad/protocol/bootstrap/abi_baseline.py:23, and sdk/launchpad/protocol/bootstrap/test_abi_baseline.py:51 explicitly proves the spaced role ABI and compact abigen metadata compare equally while retaining the changed_schemas assertion."
+
+[disposition.4.54.1]
+finding = "4.54.1"
+status = "resolved"
+evidence = "Commit 9bb0b381e sets the OpticalRegistry test root to four parent segments followed by contracts/launchpad at sdk/launchpad/protocol/catalog/registry_input_test.go:66, correcting the artifact lookup depth."

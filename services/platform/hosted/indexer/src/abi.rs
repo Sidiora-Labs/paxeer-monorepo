@@ -1,6 +1,7 @@
 //! Generic Solidity event ABI loading and log decoding.
 //!
-//! [`AbiRegistry::load_dir`] reads every `<name>/abi.json` below a directory.
+//! [`AbiRegistry::load_dir`] reads every `<name>/abi.json` below a directory
+//! and the known nested precompile ABI paths.
 //! A precompile's emitter address comes from an `address` file next to its
 //! `abi.json` when present, otherwise from the known native precompile table;
 //! an ABI with neither is registered unbound and decodes a matching topic from
@@ -19,7 +20,7 @@ use crate::codec::{be_decimal, be_signed_decimal, hex, hex0x, is_zero, unhex_fix
 use crate::IndexError;
 
 /// The native precompile addresses by ABI directory name.
-pub const KNOWN_PRECOMPILES: [(&str, u16); 19] = [
+pub const KNOWN_PRECOMPILES: [(&str, u16); 20] = [
     ("bank", 0x1001),
     ("wasmd", 0x1002),
     ("json", 0x1003),
@@ -33,12 +34,23 @@ pub const KNOWN_PRECOMPILES: [(&str, u16); 19] = [
     ("pointer", 0x100B),
     ("solo", 0x100C),
     ("p256", 0x1011),
-    ("layerxverify", 0x1012),
-    ("layerxcustody", 0x1013),
-    ("layerxanchor", 0x1014),
-    ("layerxexchange", 0x1015),
+    ("perps", 0x1015),
     ("layerxbridge", 0x1016),
     ("launchpad", 0x1017),
+    ("feetoken", 0x1018),
+    ("xweb", 0x1019),
+    ("layerxpay", 0x101B),
+    ("layerxprograms", 0x101D),
+];
+
+/// Native precompile ABIs stored below nested paths, with their addresses.
+pub const NESTED_PRECOMPILES: [(&str, &str, u16); 6] = [
+    ("perps", "perps/abi/abi.json", 0x1015),
+    ("pricefeed", "pricefeed/abi/abi.json", 0x1020),
+    ("pecor", "spot/abi/pecor.json", 0x1021),
+    ("orders", "spot/abi/orders.json", 0x1022),
+    ("stoporders", "spot/abi/stoporders.json", 0x1023),
+    ("vault", "spot/abi/vault.json", 0x1025),
 ];
 
 /// The 20-byte address of a native precompile numbered `number`.
@@ -63,6 +75,7 @@ pub enum AbiType {
     Uint(usize),
     Int(usize),
     FixedBytes(usize),
+    Function,
     Bytes,
     String,
     Array(Box<AbiType>),
@@ -116,7 +129,7 @@ impl AbiType {
             "bool" => Self::Bool,
             "bytes" => Self::Bytes,
             "string" => Self::String,
-            "function" => Self::FixedBytes(24),
+            "function" => Self::Function,
             "tuple" => {
                 let list = components
                     .and_then(Value::as_array)
@@ -149,7 +162,7 @@ impl AbiType {
             Self::Bool => "bool".to_owned(),
             Self::Uint(bits) => format!("uint{bits}"),
             Self::Int(bits) => format!("int{bits}"),
-            Self::FixedBytes(24) => "function".to_owned(),
+            Self::Function => "function".to_owned(),
             Self::FixedBytes(size) => format!("bytes{size}"),
             Self::Bytes => "bytes".to_owned(),
             Self::String => "string".to_owned(),
@@ -322,7 +335,7 @@ impl AbiRegistry {
         self.abis.push(abi);
     }
 
-    /// Loads every `<name>/abi.json` directly below `root`.
+    /// Loads every `<name>/abi.json` directly below `root` and known nested ABIs.
     ///
     /// # Errors
     /// Refuses an unreadable directory, malformed JSON or a malformed
@@ -342,6 +355,12 @@ impl AbiRegistry {
                 .and_then(|name| name.to_str())
                 .ok_or_else(|| IndexError::Config("ABI directory name is not UTF-8".to_owned()))?
                 .to_owned();
+            if matches!(
+                contract.as_str(),
+                "layerxverify" | "layerxcustody" | "layerxanchor"
+            ) {
+                continue;
+            }
             let text = fs::read_to_string(directory.join("abi.json"))
                 .map_err(|error| IndexError::Config(format!("{contract}/abi.json: {error}")))?;
             let document: Value = serde_json::from_str(&text)
@@ -363,6 +382,22 @@ impl AbiRegistry {
             registry.insert(LoadedAbi {
                 contract,
                 address,
+                events,
+            });
+        }
+        for (contract, relative_path, number) in NESTED_PRECOMPILES {
+            let path = root.join(relative_path);
+            if !path.is_file() {
+                continue;
+            }
+            let text = fs::read_to_string(&path)
+                .map_err(|error| IndexError::Config(format!("{relative_path}: {error}")))?;
+            let document: Value = serde_json::from_str(&text)
+                .map_err(|error| IndexError::Config(format!("{relative_path}: {error}")))?;
+            let events = Self::parse_events(contract, &document)?;
+            registry.insert(LoadedAbi {
+                contract: contract.to_owned(),
+                address: Some(precompile_address(number)),
                 events,
             });
         }
@@ -549,14 +584,18 @@ fn decode_value(data: &[u8], position: usize, kind: &AbiType) -> Result<Value, I
             }
             Value::String(be_signed_decimal(bytes))
         }
-        AbiType::FixedBytes(size) => {
+        AbiType::FixedBytes(_) | AbiType::Function => {
+            let size = match kind {
+                AbiType::FixedBytes(size) => *size,
+                _ => 24,
+            };
             let bytes = word(data, position)?;
-            if !is_zero(&bytes[*size..]) {
+            if !is_zero(&bytes[size..]) {
                 return Err(IndexError::Decode(
                     "fixed bytes have trailing bits".to_owned(),
                 ));
             }
-            Value::String(hex0x(&bytes[..*size]))
+            Value::String(hex0x(&bytes[..size]))
         }
         AbiType::Bytes | AbiType::String => {
             let length = bounded_count(data, position, 1)?;
@@ -698,6 +737,185 @@ mod tests {
     }
 
     #[test]
+    fn retired_kernel_precompiles_have_no_address() {
+        let registry = repository_precompiles();
+        assert!(!registry.abis().is_empty());
+        for (contract, number) in [
+            ("layerxverify", 0x1012),
+            ("layerxcustody", 0x1013),
+            ("layerxanchor", 0x1014),
+        ] {
+            assert!(!KNOWN_PRECOMPILES
+                .iter()
+                .any(|(name, address)| *name == contract || *address == number));
+            assert!(!registry.abis().iter().any(|abi| {
+                abi.contract == contract || abi.address == Some(precompile_address(number))
+            }));
+        }
+        let deposit = keccak(b"CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)");
+        assert!(registry
+            .lookup(precompile_address(0x1013), deposit)
+            .is_none());
+    }
+
+    #[test]
+    fn merged_construct_precompiles_are_known() {
+        let registry = repository_precompiles();
+        for (contract, number) in [
+            ("feetoken", 0x1018),
+            ("xweb", 0x1019),
+            ("layerxpay", 0x101B),
+            ("layerxprograms", 0x101D),
+        ] {
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(
+                abi.address,
+                Some(precompile_address(number)),
+                "{contract} has the wrong precompile address"
+            );
+        }
+    }
+
+    #[test]
+    fn perps_and_pricefeed_abis_load_at_their_addresses() {
+        let registry = repository_precompiles();
+        for (contract, number, name, signature) in [
+            (
+                "perps",
+                0x1015,
+                "CollateralDeposited",
+                "CollateralDeposited(address,uint256,uint256)",
+            ),
+            (
+                "pricefeed",
+                0x1020,
+                "FeedKeyRegistered",
+                "FeedKeyRegistered(address,address,bytes,address)",
+            ),
+        ] {
+            let address = precompile_address(number);
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(abi.address, Some(address));
+            assert!(abi.events.iter().any(|event| event.name == name));
+            let event = registry
+                .lookup(address, keccak(signature.as_bytes()))
+                .unwrap_or_else(|| panic!("{contract}.{name} not registered at {number:#x}"));
+            assert_eq!(event.contract, contract);
+            assert_eq!(event.name, name);
+            assert_eq!(event.signature, signature);
+        }
+        assert!(!registry.abis().iter().any(|abi| {
+            abi.contract == "layerxexchange" && abi.address == Some(precompile_address(0x1015))
+        }));
+    }
+
+    #[test]
+    fn spot_contract_events_decode_at_their_addresses() {
+        let registry = repository_precompiles();
+        let abi_word = |value: u64| {
+            let mut word = [0_u8; 32];
+            word[24..].copy_from_slice(&value.to_be_bytes());
+            word
+        };
+        let user = address_text(precompile_address(0x2001));
+        let stablecoin = address_text(precompile_address(0x2002));
+        let token = address_text(precompile_address(0x2003));
+        for (contract, number, name, signature, indexed, body, expected) in [
+            (
+                "pecor",
+                0x1021,
+                "MarketOrderExecuted",
+                "MarketOrderExecuted(address,address,address,uint256,uint256,bool)",
+                &[0x2001, 0x2002, 0x2003][..],
+                &[100, 200, 1][..],
+                serde_json::json!({
+                    "user": user, "stablecoin": stablecoin, "token": token,
+                    "stablecoinAmount": "100", "tokenAmount": "200", "isBuy": true
+                }),
+            ),
+            (
+                "orders",
+                0x1022,
+                "LimitOrderCreated",
+                "LimitOrderCreated(uint256,address,uint8,uint256,uint256)",
+                &[42, 0x2001][..],
+                &[1, 200, 300][..],
+                serde_json::json!({
+                    "orderId": "42", "user": user, "orderType": "1",
+                    "amount": "200", "targetPrice": "300"
+                }),
+            ),
+            (
+                "stoporders",
+                0x1023,
+                "StopLimitOrderCreated",
+                "StopLimitOrderCreated(uint256,address,uint8,uint256,uint256,uint256)",
+                &[43, 0x2001][..],
+                &[1, 200, 300, 400][..],
+                serde_json::json!({
+                    "orderId": "43", "user": user, "orderType": "1",
+                    "amount": "200", "stopPrice": "300", "limitPrice": "400"
+                }),
+            ),
+            (
+                "vault",
+                0x1025,
+                "Deposit",
+                "Deposit(address,address,uint256,uint256)",
+                &[0x2003, 0x2001][..],
+                &[200, 500][..],
+                serde_json::json!({
+                    "token": token, "depositor": user,
+                    "amount": "200", "newReserve": "500"
+                }),
+            ),
+        ] {
+            let address = precompile_address(number);
+            let abi = registry
+                .abis()
+                .iter()
+                .find(|abi| abi.contract == contract)
+                .unwrap_or_else(|| panic!("{contract} ABI not loaded"));
+            assert_eq!(abi.address, Some(address));
+            let topic = keccak(signature.as_bytes());
+            let mut topics = vec![topic];
+            topics.extend(indexed.iter().copied().map(abi_word));
+            let data: Vec<u8> = body.iter().copied().flat_map(abi_word).collect();
+            let (event, decoded) = registry
+                .decode_log(address, &topics, &data)
+                .unwrap_or_else(|error| panic!("{contract}.{name}: {error}"))
+                .unwrap_or_else(|| panic!("{contract}.{name} not registered at {number:#x}"));
+            assert_eq!(event.contract, contract);
+            assert_eq!(event.name, name);
+            assert_eq!(event.signature, signature);
+            assert_eq!(decoded.contract, contract);
+            assert_eq!(decoded.name, name);
+            assert_eq!(decoded.signature, signature);
+            assert_eq!(Value::Object(decoded.args), expected);
+            for other in [0x1021, 0x1022, 0x1023, 0x1024, 0x1025] {
+                if other != number {
+                    assert!(
+                        registry.lookup(precompile_address(other), topic).is_none(),
+                        "{contract}.{name} resolved at {other:#x}"
+                    );
+                }
+            }
+        }
+        assert!(!registry
+            .abis()
+            .iter()
+            .any(|abi| matches!(abi.contract.as_str(), "quoter" | "share")));
+    }
+
+    #[test]
     fn signatures_and_topics_match_solidity() {
         let registry = registry_from(
             r#"[{"type":"event","name":"Transfer","anonymous":false,"inputs":[
@@ -808,27 +1026,18 @@ mod tests {
             .iter()
             .map(|abi| abi.contract.as_str())
             .collect();
-        for expected in [
-            "addr",
-            "bank",
-            "ibc",
-            "layerxanchor",
-            "layerxcustody",
-            "launchpad",
-            "layerxverify",
-            "oracle",
-            "pointer",
-        ] {
+        for expected in ["addr", "bank", "ibc", "launchpad", "oracle", "pointer"] {
             assert!(
                 names.contains(&expected),
                 "{expected} missing from {names:?}"
             );
         }
-        let deposit = keccak(b"CustodyDeposit(bytes32,bytes32,address,bytes32,uint256,uint64)");
+        let deposit = keccak(b"CollateralDeposited(address,uint256,uint256)");
         let found = registry
-            .lookup(precompile_address(0x1013), deposit)
-            .unwrap_or_else(|| panic!("custody deposit not registered"));
-        assert_eq!(found.contract, "layerxcustody");
+            .lookup(precompile_address(0x1015), deposit)
+            .unwrap_or_else(|| panic!("perps collateral deposit not registered"));
+        assert_eq!(found.contract, "perps");
+        assert_eq!(found.name, "CollateralDeposited");
         assert!(registry
             .lookup(precompile_address(0x1014), deposit)
             .is_none());

@@ -1,0 +1,7 @@
+[issue.1544]
+number = 1544
+title = "[Coherence] The commit claims to install the programs fee record in the delegated-scope authority test, but it changes no test code"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "already-fixed"
+evidence = "Although 943fd1e4a0ba7d2182d901d3067da4ed143d10d2 changed only GOTCHA.kvx and spec/layerx-merge/spec.kvx, b42f9fa5046d09a4c27311c260386e715af013e5 added the missing fixture call and ea039363eee9b135bcc504e4c82802cd930c0c8a moved it before host creation: modules/lxphost/authority_test.go:30 now calls seedProgramsFeeRecord(t, chain, actor.id), which writes the active and historical fee records at modules/lxphost/host_test.go:117 and modules/lxphost/host_test.go:118, before the registry activity at modules/lxphost/authority_test.go:53 and its success assertion at modules/lxphost/authority_test.go:54."
+close_comment = "TestHostAuthorityDelegatedScope now installs the active programs fee record and its history row before creating the host and executing the programs registry activity. The missing-fixture defect has been fixed, and the test retains its successful-result assertion."

@@ -1,0 +1,8 @@
+[repair.22.33.1032]
+audit = "22.30.39"
+base_revision = "caa8b41ee668274ee1e5c1df6691288455c46278"
+finding_15 = "TestRepairM_1032_ConcurrentFoldStaysWithinHistoryWatermark: both history handlers capture positions, source cursor and replay in one read-only repeatable-read transaction; an interleaved real Store.FoldTrade is excluded until the next request."
+finding_14 = "TestRepairM_1032_LatePoolMetadataChangesSnapshotIdentity: real folded inventory initially lacks pool metadata; inserting metadata changes the projected token and snapshot ID without a new trade; token replacement and cursor progress also change identity."
+baseline = "Not executed: step 6 requests an unchanged-tree run, but the explicit ordered gate instructions prohibit testing before complete implementation and require hf-build then hf-done without a manual verify run; no baseline failures are claimed."
+wiring_requests = "None: both proposals are implemented within the declared devreads scope."
+evidence = "The runner's hf-build/hf-done ledger records the exact candidate revision, command, exit code and private log; the final response copies the terminating gate record."

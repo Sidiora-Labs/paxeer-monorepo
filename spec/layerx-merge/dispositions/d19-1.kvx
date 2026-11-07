@@ -1,0 +1,4 @@
+[disposition.19.5.2.1]
+finding = "19.5.2.1"
+status = "resolved"
+evidence = "Commit a2e03e8414ee033b20fd29603dcd0e0cd9f9362c added --ignore-workspace to task 19.5.2's sdk/names install command, retained on main, so the standalone install no longer resolves the root workspace's unpublished @sidiora/layerx-sdk dependency."

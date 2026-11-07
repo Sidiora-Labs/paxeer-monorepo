@@ -211,10 +211,8 @@ func (tx SetCodeTx) Validate() error {
 		return fmt.Errorf("amount cannot be negative %s", amount)
 	}
 
-	if tx.To != "" {
-		if err := ValidateAddress(tx.To); err != nil {
-			return errors.New("invalid to address")
-		}
+	if err := ValidateAddress(tx.To); err != nil {
+		return errors.New("invalid to address")
 	}
 
 	if err := validateAccessList(tx.Accesses); err != nil {

@@ -5,7 +5,7 @@ edition = "2021"
 license = "Apache-2.0"
 
 [workspace]
-members = ["admin"]
+members = ["admin", "vendor/agave-precompiles", "vendor/agave-syscalls"]
 
 [lib]
 crate-type = ["cdylib", "lib"]
@@ -15,18 +15,22 @@ custom-heap = []
 custom-panic = []
 
 [dependencies]
-solana-program = "=2.3.0"
-solana-system-interface = { version = "=1.0.0", features = ["bincode"] }
-solana-sdk-ids = "=2.2.1"
-spl-token = { version = "=7.0.0", default-features = false, features = ["no-entrypoint"] }
+solana-program = "=3.0.0"
+solana-system-interface = { version = "=2.0.0", features = ["bincode"] }
+solana-sdk-ids = "=3.0.0"
+spl-token = { version = "=9.0.0", default-features = false, features = ["no-entrypoint"] }
 
 [dev-dependencies]
-libsecp256k1 = { version = "=0.6.0", default-features = false, features = ["std", "static-context", "hmac"] }
-solana-loader-v3-interface = { version = "=5.0.0", features = ["serde"] }
-solana-program-test = "=2.3.13"
-solana-sdk = "=2.3.1"
+libsecp256k1 = { version = "=0.7.2", default-features = false, features = ["std", "static-context", "hmac"] }
+solana-loader-v3-interface = { version = "=6.1.0", features = ["serde"] }
+solana-program-test = "=3.1.12"
+solana-sdk = "=3.0.0"
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [lints.rust]
 unsafe_code = "deny"
 unexpected_cfgs = { level = "deny", check-cfg = ['cfg(target_os, values("solana"))'] }
+
+[patch.crates-io]
+agave-precompiles = { path = "vendor/agave-precompiles" }
+agave-syscalls = { path = "vendor/agave-syscalls" }

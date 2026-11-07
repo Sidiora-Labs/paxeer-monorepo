@@ -1,12 +1,10 @@
-import { Box, chakra, Flex, Text } from '@chakra-ui/react';
+import { Box, chakra, Text } from '@chakra-ui/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { upperFirst } from 'es-toolkit';
 import React from 'react';
 
 import type { SocketMessage } from 'lib/socket/types';
 import type { Block } from 'types/api/block';
-
-import { route } from 'nextjs-routes';
 
 import config from 'configs/app';
 import useApiQuery, { getResourceKey } from 'lib/api/useApiQuery';
@@ -18,16 +16,16 @@ import useSocketChannel from 'lib/socket/useSocketChannel';
 import useSocketMessage from 'lib/socket/useSocketMessage';
 import { BLOCK } from 'stubs/block';
 import { HOMEPAGE_STATS } from 'stubs/stats';
-import { Link } from 'toolkit/chakra/link';
 import { Skeleton } from 'toolkit/chakra/skeleton';
+import { TableBody } from 'toolkit/chakra/table';
 import { Tooltip } from 'toolkit/chakra/tooltip';
 import { nbsp } from 'toolkit/utils/htmlEntities';
 import FallbackRpcIcon from 'ui/shared/fallbacks/FallbackRpcIcon';
-import IconSvg from 'ui/shared/IconSvg';
-import { ScanTableCard } from 'ui/shared/scan';
 
 import LatestBlocksDegraded from './fallbacks/LatestBlocksDegraded';
 import { useHomeRpcDataContext } from './fallbacks/rpcDataContext';
+import HomeTable from './HomeTable';
+import HomeTableSection from './HomeTableSection';
 import LatestBlocksItem from './LatestBlocksItem';
 
 const BLOCKS_MAX_COUNT_DESKTOP = 6;
@@ -73,22 +71,33 @@ const LatestBlocks = () => {
   const rpcDataContext = useHomeRpcDataContext();
   const isRpcData = rpcDataContext.isEnabled && !rpcDataContext.isLoading && !rpcDataContext.isError && rpcDataContext.subscriptions.includes('latest-blocks');
 
+  // A block arrives before its price updates are indexed and is sent again once they are stored,
+  // with transactions_count and price_update_count updated; the second message replaces the row.
   const handleFlush = React.useCallback((blocks: Array<Block>) => {
     queryClient.setQueryData(getResourceKey('general:homepage_blocks'), (prevData: Array<Block> | undefined) => {
-      const prevLength = prevData?.length ?? 0;
       const nextData = prevData ? [ ...prevData ] : [];
-      const heights = new Set(nextData.map((block) => block.height));
+      let changed = false;
 
       blocks.forEach((block) => {
-        if (heights.has(block.height)) {
+        const index = nextData.findIndex((item) => item.height === block.height);
+
+        if (index === -1) {
+          nextData.push(block);
+          changed = true;
           return;
         }
 
-        heights.add(block.height);
-        nextData.push(block);
+        const current = nextData[index];
+        if (
+          current.transactions_count !== block.transactions_count ||
+          current.price_update_count !== block.price_update_count
+        ) {
+          nextData[index] = block;
+          changed = true;
+        }
       });
 
-      if (nextData.length === prevLength) {
+      if (!changed) {
         return prevData;
       }
 
@@ -118,18 +127,19 @@ const LatestBlocks = () => {
   const dataToShow = React.useMemo(() => data?.slice(0, blocksMaxCount) ?? [], [ data, blocksMaxCount ]);
   const durations = React.useMemo(() => isPlaceholderData ? [] : getBlockDurations(dataToShow), [ dataToShow, isPlaceholderData ]);
 
-  const networkUtilization = getNetworkUtilizationParams(statsQueryResult.data?.network_utilization_percentage ?? 0);
+  const utilization = statsQueryResult.data?.network_utilization_percentage;
+  const networkUtilization = typeof utilization === 'number' ? getNetworkUtilizationParams(utilization) : undefined;
 
   const note = (
     <>
-      { statsQueryResult.data?.network_utilization_percentage !== undefined && (
+      { typeof utilization === 'number' && networkUtilization && (
         <Skeleton loading={ statsQueryResult.isPlaceholderData } display="inline-block" textStyle="xs">
           <Text as="span" color="text.muted">
             Network utilization:{ nbsp }
           </Text>
           <Tooltip content={ `${ upperFirst(networkUtilization.load) } load` }>
             <Text as="span" color={ networkUtilization.color } fontWeight="700">
-              { statsQueryResult.data?.network_utilization_percentage.toFixed(2) }%
+              { utilization.toFixed(2) }%
             </Text>
           </Tooltip>
         </Skeleton>
@@ -150,30 +160,39 @@ const LatestBlocks = () => {
 
     if (dataToShow.length > 0) {
       return (
-        <>
-          <Box data-label="latest-blocks-rows" { ...hoverProps }>
-            { dataToShow.map(((block, index) => (
-              <LatestBlocksItem
-                key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
-                block={ block }
-                duration={ durations[index] }
-                isLoading={ isPlaceholderData }
-              />
-            ))) }
-          </Box>
-          <Flex data-label="view-all-blocks" justifyContent="center" px={ 4 } py={ 3 } borderTopWidth="1px" borderStyle="solid" borderColor="border.divider">
-            <Link
-              textStyle="xs"
-              fontWeight="600"
-              textTransform="uppercase"
-              letterSpacing="wide"
-              href={ route({ pathname: '/blocks' }) }
-              loading={ isPlaceholderData }
-            >
-              View all blocks<IconSvg name="arrows/east-mini" boxSize={ 4 } ml={ 1 }/>
-            </Link>
-          </Flex>
-        </>
+        <Box data-label="latest-blocks-rows" { ...hoverProps }>
+          { isMobile ? (
+            <Box>
+              { dataToShow.map((block, index) => (
+                <LatestBlocksItem
+                  key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
+                  block={ block }
+                  duration={ durations[index] }
+                  isLoading={ isPlaceholderData }
+                />
+              )) }
+            </Box>
+          ) : (
+            <Box>
+              <HomeTable
+                label="Latest blocks"
+                columns={ [ { label: 'Block', width: '28%' }, { label: 'Hash / Transactions' }, { label: 'Reward', numeric: true, width: '25%' } ] }
+              >
+                <TableBody data-label="latest-blocks-table-rows">
+                  { dataToShow.map((block, index) => (
+                    <LatestBlocksItem
+                      key={ String(block.height) + (isPlaceholderData ? String(index) : '') }
+                      block={ block }
+                      duration={ durations[index] }
+                      isLoading={ isPlaceholderData }
+                      view="table"
+                    />
+                  )) }
+                </TableBody>
+              </HomeTable>
+            </Box>
+          ) }
+        </Box>
       );
     }
 
@@ -181,13 +200,14 @@ const LatestBlocks = () => {
   })();
 
   return (
-    <ScanTableCard
+    <HomeTableSection
       title="Latest blocks"
+      href={{ pathname: '/blocks' }}
       note={ note }
       actions={ isRpcData ? <FallbackRpcIcon/> : undefined }
     >
       { content }
-    </ScanTableCard>
+    </HomeTableSection>
   );
 };
 

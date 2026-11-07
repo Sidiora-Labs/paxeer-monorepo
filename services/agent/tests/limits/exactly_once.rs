@@ -7,6 +7,7 @@ use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::task::{Context, Poll, Wake, Waker};
 
+use ed25519_dalek::{Signer as _, SigningKey};
 use layerx_agentd::budget::{
     release, reserve, BudgetLimiter, LimitConfig as BudgetLimitConfig, LimitId as BudgetLimitId,
     LimitScope as BudgetLimitScope, ReleaseKind, ReservationRequest,
@@ -22,22 +23,23 @@ use layerx_agentd::limits::{
     cancel, shed, CounterLedger, LimitConfig, LimitId, LimitScope, Quota, RateLimiter, RateRequest,
     Refusal,
 };
-use layerx_agentd::outbox::{Outbox, SubmissionState};
+use layerx_agentd::outbox::{Outbox, OutboxError, SubmissionState};
 use layerx_agentd::prepare::{
-    prepare_activity, CorePreparationBoundary, CorePreparationState, CoreStateError,
-    PreparationDefaults, PrepareRequest,
+    prepare_bound, EvmPreparationDefaults, EvmPreparationState, EvmPrepareRequest, PrecompileCall,
 };
-use layerx_agentd::protocol_evidence::VerifiedReceiptEvidence;
-use layerx_agentd::sign::{attach_external_signature, verify_before_submit, VerifiedSubmission};
-use layerx_agentd::store::{Store, TenantId};
+use layerx_agentd::protocol_evidence::{
+    EvidenceAuthority, RawReceiptEvidence, VerifiedReceiptEvidence,
+};
+use layerx_agentd::sign::{
+    attach_external_signature, verify_before_submit, SigningPreparation, VerifiedSubmission,
+};
+use layerx_agentd::store::{ObjectKind, Store, TenantId};
+use layerx_crypto::account_derivation::derive_from_seed;
+use layerx_crypto::evm_transaction::{decode_signed, transaction_hash};
 use layerx_crypto::local::LocalSigner;
-use layerx_crypto::signer::{sign_disclosed, Signer};
-use layerx_types::activity::{Authority, TimestampBound};
-use layerx_types::amount::Amount;
-use layerx_types::ids::{Did, IdempotencyKey};
-use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_wire::encode::Encoder;
-use layerx_wire::limits::PROTOCOL_VERSION;
+use layerx_crypto::send::{encode_send_envelope, send_context_hash, EnvelopeOptions, SendDebit};
+use layerx_crypto::signer::Signer;
+use layerx_types::payload::ModuleRegistry;
 
 static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(1);
 const INTENT: [u8; 32] = [0x17; 32];
@@ -80,14 +82,6 @@ struct NoopWake;
 
 impl Wake for NoopWake {
     fn wake(self: Arc<Self>) {}
-}
-
-struct PreparationState(CorePreparationState);
-
-impl CorePreparationBoundary for PreparationState {
-    fn preparation_state(&mut self, _actor: &Did) -> Result<CorePreparationState, CoreStateError> {
-        Ok(self.0.clone())
-    }
 }
 
 struct Workspace {
@@ -135,6 +129,7 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
     let tenant = tenant("tenant-a")?;
     let verified = verified_submission()?;
     let exact_signed_bytes = verified.exact_bytes().to_vec();
+    let tx_hash = transaction_hash(&exact_signed_bytes);
     let mut history = vec![format!(
         "prepared and signature-verified intent {} bytes={}",
         hex_id(INTENT),
@@ -144,17 +139,28 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
     let outbox_root = workspace.path("outbox");
     let mut durable = step(Store::open(&outbox_root), "open outbox store", &history)?;
     let mut outbox = Outbox::default();
-    step(
-        outbox.enqueue(&mut durable, tenant.clone(), INTENT, verified),
+    let queued_hash = step(
+        outbox.enqueue(&mut durable, tenant.clone(), verified.into_exact_bytes()),
         "durably enqueue verified submission",
         &history,
     )?;
-    history.extend(status_history(&outbox, INTENT));
+    ensure(
+        queued_hash == tx_hash,
+        "outbox transaction hash changed",
+        &history,
+    )?;
+    history.extend(status_history(&outbox, tx_hash));
 
     let (budget, budget_id) = configure_reservation(&history)?;
     let mut tracker = RequestTracker::default();
     track_write_to_transmission(&mut tracker, &history)?;
-    record_indeterminate_transmission(&mut outbox, &mut durable, &mut tracker, &mut history)?;
+    record_indeterminate_transmission(
+        &mut outbox,
+        &mut durable,
+        tx_hash,
+        &mut tracker,
+        &mut history,
+    )?;
 
     let idempotency_root = workspace.path("idempotency");
     let retention = step(
@@ -185,15 +191,15 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
     drop(quota_store);
     history.push("simulated daemon process loss after refusal and shedding".to_owned());
 
-    let (mut durable, mut outbox, idempotency) =
-        restore_after_process_loss(&workspace, &tenant, retention, &quota, &limiter, &history)?;
+    let (mut durable, mut outbox, idempotency) = restore_after_process_loss(
+        &workspace, &tenant, retention, &quota, &limiter, tx_hash, &history,
+    )?;
     let activity_id = outbox
-        .status(INTENT)
+        .status(tx_hash)
         .map(|status| status.activity_id)
         .ok_or_else(|| failure("authoritative outbox activity is missing", &history))?;
-    let receipt = agentd_support::evidence_verifier()
-        .verify_receipt(&agentd_support::raw_receipt(activity_id, 0, 25))
-        .map_err(|error| failure(format!("receipt verification: {error:?}"), &history))?;
+    let receipt = authoritative_receipt(activity_id)
+        .map_err(|error| failure(format!("receipt verification: {error}"), &history))?;
     let receipt_ref = receipt.receipt_ref();
 
     let economic_effects = Arc::new(AtomicUsize::new(0));
@@ -206,7 +212,7 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
         &history,
     )?;
 
-    settle_from_authoritative_receipt(&mut outbox, &mut durable, receipt, &mut history)?;
+    settle_from_authoritative_receipt(&mut outbox, &mut durable, tx_hash, receipt, &mut history)?;
 
     drop(idempotency);
     refuse_post_restart_duplicate(
@@ -220,7 +226,7 @@ pub fn agent_limits_exactly_once_suite() -> Result<SuiteReport, SuiteFailure> {
     converge_reservation_accounting(&budget, budget_id, &mut tracker, &history)?;
 
     let final_state = outbox
-        .status(INTENT)
+        .status(tx_hash)
         .map(|status| status.state)
         .ok_or_else(|| failure("final outbox status is missing", &history))?;
     ensure(
@@ -303,13 +309,14 @@ fn track_write_to_transmission(
 fn record_indeterminate_transmission(
     outbox: &mut Outbox,
     durable: &mut Store,
+    tx_hash: [u8; 32],
     tracker: &mut RequestTracker,
     history: &mut Vec<String>,
 ) -> Result<(), SuiteFailure> {
     step(
         outbox.transition(
             durable,
-            INTENT,
+            tx_hash,
             SubmissionState::Submitted,
             "first exact-byte transmission began",
             None,
@@ -320,7 +327,7 @@ fn record_indeterminate_transmission(
     step(
         outbox.transition(
             durable,
-            INTENT,
+            tx_hash,
             SubmissionState::Unknown,
             "transport response was indeterminate",
             None,
@@ -333,7 +340,7 @@ fn record_indeterminate_transmission(
         "transfer disconnected submission to resolver",
         history,
     )?;
-    history.extend(status_history(outbox, INTENT));
+    history.extend(status_history(outbox, tx_hash));
     Ok(())
 }
 
@@ -377,7 +384,10 @@ fn refuse_duplicate_in_same_window(
         history,
     )?;
     ensure(
-        outbox.status(INTENT).map(|status| status.state) == Some(SubmissionState::Unknown),
+        outbox
+            .status(transaction_hash(exact_signed_bytes))
+            .map(|status| status.state)
+            == Some(SubmissionState::Unknown),
         "rate refusal changed the unknown outbox state",
         history,
     )?;
@@ -487,6 +497,7 @@ fn restore_after_process_loss(
     retention: RetentionPolicy,
     quota: &Quota,
     limiter: &RateLimiter,
+    tx_hash: [u8; 32],
     history: &[String],
 ) -> Result<(Store, Outbox, Arc<IdempotencyStore>), SuiteFailure> {
     let durable = step(
@@ -496,7 +507,7 @@ fn restore_after_process_loss(
     )?;
     let mut outbox = Outbox::default();
     step(
-        outbox.restore(&durable, tenant.clone(), INTENT),
+        outbox.restore(&durable, tenant.clone(), tx_hash),
         "restore unknown outbox",
         history,
     )?;
@@ -615,21 +626,16 @@ fn converge_concurrent_duplicates(
 fn settle_from_authoritative_receipt(
     outbox: &mut Outbox,
     durable: &mut Store,
+    tx_hash: [u8; 32],
     evidence: VerifiedReceiptEvidence,
     history: &mut Vec<String>,
 ) -> Result<(), SuiteFailure> {
     step(
-        outbox.transition(
-            durable,
-            INTENT,
-            SubmissionState::Executed,
-            "verified receipt returned for original idempotency key",
-            Some(evidence),
-        ),
+        outbox.record_execution(durable, tx_hash, evidence, 7, 0),
         "settle outbox from authoritative receipt",
         history,
     )?;
-    history.extend(status_history(outbox, INTENT));
+    history.extend(status_history(outbox, tx_hash));
     Ok(())
 }
 
@@ -720,6 +726,92 @@ fn limits_restarts_and_duplicates_converge_on_one_economic_effect() {
         }
         Err(error) => panic!("{error}"),
     }
+}
+
+#[test]
+fn limits_identical_raw_transaction_keeps_one_hash() {
+    let workspace = Workspace::new();
+    let tenant = tenant("tenant-a").unwrap_or_else(|error| panic!("{error}"));
+    let raw = verified_submission()
+        .unwrap_or_else(|error| panic!("{error}"))
+        .into_exact_bytes();
+    let tx_hash = transaction_hash(&raw);
+    let root = workspace.path("outbox");
+    let mut durable = Store::open(&root).expect("open outbox");
+    let mut outbox = Outbox::default();
+    assert_eq!(
+        outbox
+            .enqueue(&mut durable, tenant.clone(), raw.clone())
+            .expect("enqueue signed raw transaction"),
+        tx_hash
+    );
+    outbox
+        .transition(
+            &mut durable,
+            tx_hash,
+            SubmissionState::Submitted,
+            "first raw submission",
+            None,
+        )
+        .expect("record transmission");
+    outbox
+        .transition(
+            &mut durable,
+            tx_hash,
+            SubmissionState::Unknown,
+            "response lost before restart",
+            None,
+        )
+        .expect("record indeterminate response");
+    let original_status = outbox.status(tx_hash).expect("queued hash").clone();
+    drop(outbox);
+    drop(durable);
+
+    let mut durable = Store::open(&root).expect("reopen outbox after restart");
+    let mut outbox = Outbox::default();
+    assert!(matches!(
+        outbox.enqueue(&mut durable, tenant.clone(), raw.clone()),
+        Err(OutboxError::Duplicate)
+    ));
+    outbox
+        .restore(&durable, tenant.clone(), tx_hash)
+        .expect("restore original raw transaction");
+    assert_eq!(
+        outbox.exact_signed_bytes(tx_hash).expect("retained bytes"),
+        raw
+    );
+    assert!(matches!(
+        outbox.enqueue(&mut durable, tenant.clone(), raw.clone()),
+        Err(OutboxError::Duplicate)
+    ));
+    assert_eq!(outbox.status(tx_hash), Some(&original_status));
+    assert_eq!(original_status.submission_id, tx_hash);
+    assert_eq!(original_status.activity_id, tx_hash);
+    for kind in [ObjectKind::Outbox, ObjectKind::PreparedActivity] {
+        assert_eq!(
+            durable.list_object_ids(&tenant, kind),
+            vec![tx_hash.to_vec()]
+        );
+    }
+    drop(outbox);
+    drop(durable);
+
+    let durable = Store::open(&root).expect("reopen after duplicate submission");
+    let mut outbox = Outbox::default();
+    outbox
+        .restore(&durable, tenant.clone(), tx_hash)
+        .expect("restore unique hash");
+    assert_eq!(
+        durable.list_object_ids(&tenant, ObjectKind::Outbox),
+        vec![tx_hash.to_vec()]
+    );
+    assert_eq!(outbox.status(tx_hash), Some(&original_status));
+    assert_eq!(
+        outbox
+            .exact_signed_bytes(tx_hash)
+            .expect("unchanged raw bytes"),
+        raw
+    );
 }
 
 fn rate_limiter(history: &[String]) -> Result<RateLimiter, SuiteFailure> {
@@ -846,111 +938,796 @@ fn ready<F: Future>(future: F) -> F::Output {
 }
 
 fn verified_submission() -> Result<VerifiedSubmission, SuiteFailure> {
-    let activity_type = ActivityType::new(ModuleId::Asset, 5)
-        .map_err(|error| failure(format!("activity type: {error:?}"), &[]))?;
-    let registry =
-        ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[activity_type])
-            .map_err(|error| failure(format!("module registration: {error:?}"), &[]))?])
-        .map_err(|error| failure(format!("module registry: {error:?}"), &[]))?;
-    let mut boundary = PreparationState(CorePreparationState {
-        network_id: 17,
-        account_sequence: 5,
-        protocol_timestamp: 1_000,
-        observed_head_sequence: 88,
-        module_registry: registry.clone(),
-    });
-    let prepared = prepare_activity(
-        &mut boundary,
-        PreparationDefaults {
-            timestamp_span: 30,
-            fee_limit: Amount::from_u128(12),
-            maximum_payload_bytes: 1_024,
-        },
-        PrepareRequest {
-            actor: Did::new(b"did:layerx:limits-exactly-once")
-                .map_err(|error| failure(format!("actor DID: {error:?}"), &[]))?,
-            authority: Authority::owner(b"external-authority")
-                .map_err(|error| failure(format!("authority: {error:?}"), &[]))?,
-            activity_type,
-            expected_account_sequence: Some(5),
-            timestamp_bound: Some(
-                TimestampBound::new(995, 1_010)
-                    .map_err(|error| failure(format!("timestamp: {error:?}"), &[]))?,
-            ),
-            fee_limit: Some(Amount::from_u128(7)),
-            idempotency_key: IdempotencyKey::new(INTENT),
-            payload: send_payload()?,
-            declared_payload_limit: 1_024,
-        },
-    )
-    .map_err(|error| failure(format!("prepare: {error:?}"), &[]))?;
-    let signer = LocalSigner::new([0xa5; 32]);
-    let signature = ready(sign_disclosed(
-        &signer,
-        &prepared.canonical_bytes,
-        &prepared.disclosure,
-        &registry,
-    ))
-    .map_err(|error| failure(format!("sign: {error:?}"), &[]))?;
-    let signed_bytes = attach_external_signature(&prepared, *signature.as_bytes())
-        .map_err(|error| failure(format!("attach signature: {error:?}"), &[]))?;
-    verify_before_submit(&signed_bytes, &prepared, &signer.public_key(), &registry)
-        .map_err(|error| failure(format!("verify signature: {error:?}"), &[]))
+    let (prepared, registry, signer) = send_payload()?;
+    let signature = step(
+        ready(signer.sign_transaction(&prepared.transaction.call)),
+        "sign EIP-1559 transfer",
+        &[],
+    )?;
+    ensure(
+        signature.as_bytes().len() == 65,
+        "EVM signature width changed",
+        &[],
+    )?;
+    let signed_bytes = step(
+        attach_external_signature(&prepared, *signature.as_bytes()),
+        "attach EVM signature",
+        &[],
+    )?;
+    let verified = step(
+        verify_before_submit(&signed_bytes, &prepared, &prepared.actor_address, &registry),
+        "verify EVM signature",
+        &[],
+    )?;
+    let (call, signature) = step(
+        decode_signed(verified.exact_bytes()),
+        "decode raw transaction",
+        &[],
+    )?;
+    ensure(
+        verified.exact_bytes().first() == Some(&0x02)
+            && call == prepared.transaction.call
+            && signature.as_bytes().len() == 65
+            && verified.activity_id() == transaction_hash(verified.exact_bytes())
+            && verified.idempotency_key() == INTENT,
+        "verified submission is not the exact prepared EIP-1559 transfer",
+        &[],
+    )?;
+    Ok(verified)
 }
 
-fn send_payload() -> Result<Vec<u8>, SuiteFailure> {
-    let mut encoder = Encoder::new(512);
-    encoder
-        .u16(0x5301)
-        .map_err(|error| failure(format!("payload tag: {error:?}"), &[]))?;
-    encoder
-        .u16(10)
-        .map_err(|error| failure(format!("payload field count: {error:?}"), &[]))?;
-    for fixed in [[0x11; 32], [0x22; 32], [0x33; 32]] {
-        encoder
-            .fixed(&fixed)
-            .map_err(|error| failure(format!("payload fixed field: {error:?}"), &[]))?;
-    }
-    encoder
-        .u128(25)
-        .map_err(|error| failure(format!("payload amount: {error:?}"), &[]))?;
-    encoder
-        .u64(5)
-        .map_err(|error| failure(format!("payload sequence: {error:?}"), &[]))?;
-    encoder
-        .fixed(&INTENT)
-        .map_err(|error| failure(format!("payload idempotency: {error:?}"), &[]))?;
-    encoder
-        .u64(1_010)
-        .map_err(|error| failure(format!("payload expiry: {error:?}"), &[]))?;
-    encoder
-        .fixed(&[0x55; 32])
-        .map_err(|error| failure(format!("payload context: {error:?}"), &[]))?;
-    encoder
-        .u8(0)
-        .map_err(|error| failure(format!("payload conditions: {error:?}"), &[]))?;
-    encoder
-        .u8(1)
-        .map_err(|error| failure(format!("payload authority: {error:?}"), &[]))?;
-    encoder
-        .fixed(&[0x11; 32])
-        .map_err(|error| failure(format!("payload controller: {error:?}"), &[]))?;
-    encoder
-        .fixed(&[0x66; 32])
-        .map_err(|error| failure(format!("payload key: {error:?}"), &[]))?;
-    encoder
-        .fixed(&[0x77; 64])
-        .map_err(|error| failure(format!("payload signature: {error:?}"), &[]))?;
-    encoder
-        .fixed(&[0x55; 32])
-        .map_err(|error| failure(format!("payload signed context: {error:?}"), &[]))?;
-    encoder
-        .u32(17)
-        .map_err(|error| failure(format!("payload network: {error:?}"), &[]))?;
-    encoder
-        .u16(PROTOCOL_VERSION)
-        .map_err(|error| failure(format!("payload version: {error:?}"), &[]))?;
-    Ok(agentd_support::send_authorization::sign(encoder.finish()))
+fn send_payload() -> Result<(SigningPreparation, ModuleRegistry, LocalSigner), SuiteFailure> {
+    let account = step(
+        derive_from_seed(&[0xa5; 32], 0),
+        "derive signing account",
+        &[],
+    )?;
+    let signer = LocalSigner::from_derived_account(&account);
+    let debit = SendDebit {
+        from: [0x11; 32],
+        to: [0x22; 32],
+        asset: [0x33; 32],
+        amount: 25,
+        source_sequence: 5,
+        idempotency_key: INTENT,
+        expires_at: 1_010,
+        context_hash: send_context_hash(&[0x11; 32], &[0x22; 32], &[0x33; 32], 25, &INTENT),
+        conditions: Vec::new(),
+        authorization_kind: 1,
+        network_id: 17,
+        protocol_version: 2,
+    };
+    let payload = step(
+        ready(debit.sign(&signer)),
+        "sign native debit authorization",
+        &[],
+    )?;
+    let disclosed = step(
+        encode_send_envelope(
+            &payload,
+            &EnvelopeOptions {
+                actor: "did:layerx:limits-exactly-once",
+                public_key: signer.public_key(),
+                protocol_version: 2,
+                network_id: 17,
+                identity_sequence: 5,
+                idempotency_key: INTENT,
+                fee_limit: 7,
+                not_before: 995,
+                not_after: 1_010,
+            },
+        ),
+        "disclose transfer authorization",
+        &[],
+    )?;
+    let transaction = step(
+        prepare_bound(
+            EvmPreparationState {
+                chain_id: 17,
+                pending_nonce: 5,
+                base_fee_per_gas: 3,
+                head_height: 88,
+            },
+            EvmPreparationDefaults {
+                max_priority_fee_per_gas: 1,
+                max_fee_per_gas: 7,
+                maximum_payload_bytes: 1_024,
+            },
+            EvmPrepareRequest {
+                from: account.evm_address(),
+                call: PrecompileCall::ledger_transfer(payload),
+                expected_nonce: Some(5),
+                max_priority_fee_per_gas: Some(1),
+                max_fee_per_gas: Some(7),
+                declared_payload_limit: 1_024,
+            },
+            100_000,
+        ),
+        "prepare EIP-1559 transfer",
+        &[],
+    )?;
+    Ok((
+        SigningPreparation {
+            transaction,
+            actor_address: account.evm_address(),
+        },
+        disclosed.registry,
+        signer,
+    ))
 }
-#[path = "../../crates/layerx-agentd/tests/support/mod.rs"]
-mod agentd_support;
+
+fn authoritative_receipt(activity_id: [u8; 32]) -> Result<VerifiedReceiptEvidence, SuiteFailure> {
+    let key = SigningKey::from_bytes(&[0x3a; 32]);
+    let protocol_version = layerx_wire::limits::PROTOCOL_VERSION;
+    let previous_state_root = [0x21; 32];
+    let resulting_state_root = [0x22; 32];
+    let global_sequence = 9_u64;
+    let batch_number = 7_u64;
+    let batch_id = step(
+        layerx_wire::hash::program_execution_batch_id(
+            previous_state_root,
+            [0x25; 32],
+            global_sequence,
+            global_sequence,
+            batch_number,
+        ),
+        "derive receipt execution batch",
+        &[],
+    )?;
+    let encode = |signature: Option<[u8; 64]>| {
+        let mut encoder = layerx_wire::encode::Encoder::new(4096);
+        assert_eq!(
+            encoder.structure_header_version(0x5201, protocol_version),
+            Ok(())
+        );
+        assert_eq!(encoder.u16(protocol_version), Ok(()));
+        assert_eq!(encoder.bytes(&activity_id, 32), Ok(()));
+        assert_eq!(encoder.u64(global_sequence), Ok(()));
+        assert_eq!(encoder.bytes(&previous_state_root, 32), Ok(()));
+        assert_eq!(encoder.bytes(&resulting_state_root, 32), Ok(()));
+        assert_eq!(encoder.bytes(&[0x25; 32], 32), Ok(()));
+        assert_eq!(encoder.i32(0), Ok(()));
+        assert_eq!(encoder.sequence_length(0, 512), Ok(()));
+        assert_eq!(encoder.u128(1), Ok(()));
+        assert_eq!(encoder.bytes(&batch_id, 32), Ok(()));
+        assert_eq!(encoder.u16(1), Ok(()));
+        assert_eq!(encoder.u32(1), Ok(()));
+        assert_eq!(encoder.u32(1), Ok(()));
+        assert_eq!(encoder.u8(1), Ok(()));
+        assert_eq!(encoder.bytes(&[0x24; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(25), Ok(()));
+        assert_eq!(encoder.bytes(&[0x26; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(1_025), Ok(()));
+        assert_eq!(encoder.u128(1_000), Ok(()));
+        assert_eq!(encoder.u64(1), Ok(()));
+        assert_eq!(encoder.bytes(&[0x27; 32], 32), Ok(()));
+        assert_eq!(encoder.u128(10), Ok(()));
+        assert_eq!(encoder.u128(35), Ok(()));
+        for value in [[0x28; 32], [0x29; 32], [0x2a; 32]] {
+            assert_eq!(encoder.bytes(&value, 32), Ok(()));
+        }
+        assert_eq!(encoder.u64(1_000), Ok(()));
+        assert_eq!(encoder.u8(u8::from(signature.is_some())), Ok(()));
+        if let Some(signature) = signature {
+            assert_eq!(encoder.bytes(&signature, 64), Ok(()));
+        }
+        encoder.finish()
+    };
+    let digest = step(
+        layerx_wire::hash::receipt_digest(&encode(None)),
+        "hash unsigned receipt",
+        &[],
+    )?;
+    let canonical_receipt = encode(Some(key.sign(&digest).to_bytes()));
+    let (proof, receipt_root) = step(
+        layerx_proof::merkle::build_proof(&[canonical_receipt.as_slice()], 0),
+        "prove receipt inclusion",
+        &[],
+    )?;
+    let sequencer_id = key.verifying_key().to_bytes();
+    let mut encoder = layerx_wire::encode::Encoder::new(354);
+    assert_eq!(
+        encoder.structure_header_version(0x1701, protocol_version),
+        Ok(())
+    );
+    assert_eq!(encoder.u8(15), Ok(()));
+    assert_eq!(encoder.tag(1, 15), Ok(()));
+    assert_eq!(encoder.u16(protocol_version), Ok(()));
+    assert_eq!(encoder.tag(2, 15), Ok(()));
+    assert_eq!(encoder.u32(17), Ok(()));
+    for (field, value) in [
+        (3, 2),
+        (4, batch_number),
+        (5, global_sequence),
+        (6, global_sequence),
+    ] {
+        assert_eq!(encoder.tag(field, 15), Ok(()));
+        assert_eq!(encoder.u64(value), Ok(()));
+    }
+    for (field, value) in [
+        (7, previous_state_root),
+        (8, resulting_state_root),
+        (9, [0x25; 32]),
+        (10, receipt_root),
+        (11, [0x34; 32]),
+        (12, [0x35; 32]),
+        (13, [0x36; 32]),
+    ] {
+        assert_eq!(encoder.tag(field, 15), Ok(()));
+        assert_eq!(encoder.bytes(&value, 32), Ok(()));
+    }
+    assert_eq!(encoder.tag(14, 15), Ok(()));
+    assert_eq!(encoder.u64(1_000), Ok(()));
+    assert_eq!(encoder.tag(15, 15), Ok(()));
+    assert_eq!(encoder.bytes(&sequencer_id, 32), Ok(()));
+    let header = encoder.finish();
+    let header_digest = step(
+        layerx_wire::hash::batch_header_digest(&header),
+        "hash receipt batch header",
+        &[],
+    )?;
+    let raw = RawReceiptEvidence::new(
+        canonical_receipt,
+        proof,
+        header,
+        key.sign(&header_digest).to_bytes(),
+    );
+    let authority = step(
+        EvidenceAuthority::pinned_to_handshake(protocol_version, 17, sequencer_id),
+        "pin receipt signing authority",
+        &[],
+    )?;
+    step(authority.verify_receipt(&raw), "verify signed receipt", &[])
+}
+
+mod node_recovery {
+    use super::{tenant, Workspace};
+    use layerx_agentd::budget::{
+        create_daemon_limit, daemon_limit_id, daemon_limits, load_daemon_limits, BudgetLimiter,
+        CoreTimestampMs, DaemonLimitRecord, ReleaseKind, ReservationRequest,
+    };
+    use layerx_agentd::human_runtime::{lookup_human_receipt_by_outbox_hash, submit_raw_write};
+    use layerx_agentd::node_rpc::{NodeRpc, NodeRpcConfig};
+    use layerx_agentd::outbox::{
+        resolve_unknown, Outbox, OutboxError, ResendObservation, ResolutionObservation,
+        SubmissionState,
+    };
+    use layerx_agentd::prepare::{DurablePreparation, LifecycleState, PreparationLifecycle};
+    use layerx_agentd::receipt;
+    use layerx_agentd::session::SessionRegistry;
+    use layerx_agentd::session_control::SessionControl;
+    use layerx_agentd::store::{ObjectKind, Store};
+    use layerx_client::rpc::receipt::{AuthenticatedReceipt, Lookup};
+    use layerx_client::sequencer::SequencerEndpoint;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    use serde_json::{json, Value};
+    use std::collections::BTreeMap;
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::{Arc, Mutex};
+    use std::thread::{self, JoinHandle};
+    use std::time::{Duration, Instant};
+
+    fn must<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
+        result.unwrap_or_else(|error| panic!("node recovery: {error:?}"))
+    }
+
+    fn bytes(value: &Value) -> Vec<u8> {
+        must(hex::decode(
+            value
+                .as_str()
+                .expect("recorded hex")
+                .trim_start_matches("0x"),
+        ))
+    }
+
+    fn recording() -> Value {
+        let corpus: Value = must(serde_json::from_str(include_str!(concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+        ))));
+        assert_eq!(
+            corpus["provenance"]["generator"],
+            "rpc/sequencer_receipt_vectors_test.go"
+        );
+        assert_eq!(corpus["chainId"], 125);
+        corpus["cases"]
+            .as_array()
+            .expect("producer cases")
+            .iter()
+            .find(|case| case["id"] == "V1-layerxledger-pay-exact")
+            .expect("recorded successful payment")
+            .clone()
+    }
+
+    // A bounded transcript peer: it never executes, signs, edits or counts an effect.
+    // Each response is the committed production node's receipt or transport framing.
+    type Exchange = (&'static str, Value, Option<Value>);
+
+    fn peer(exchanges: Vec<Exchange>) -> (NodeRpc, SequencerEndpoint, JoinHandle<()>) {
+        let listener = must(TcpListener::bind("127.0.0.1:0"));
+        must(listener.set_nonblocking(true));
+        let url = format!("http://{}/", must(listener.local_addr()));
+        let server = thread::spawn(move || {
+            for (method, params, result) in exchanges {
+                let expires = Instant::now() + Duration::from_secs(5);
+                let stream = loop {
+                    match listener.accept() {
+                        Ok((stream, _)) => break stream,
+                        Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                            assert!(Instant::now() < expires, "missing {method}");
+                            thread::sleep(Duration::from_millis(1));
+                        }
+                        Err(error) => panic!("transcript accept: {error}"),
+                    }
+                };
+                must(stream.set_read_timeout(Some(Duration::from_secs(3))));
+                must(stream.set_write_timeout(Some(Duration::from_secs(3))));
+                let mut reader = BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(must(reader.read_line(&mut line)), 0);
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(must(value.trim().parse::<usize>()));
+                    }
+                }
+                let length = length.expect("request content length");
+                assert!(length <= 64 * 1024);
+                let mut body = vec![0; length];
+                must(reader.read_exact(&mut body));
+                let request: Value = must(serde_json::from_slice(&body));
+                assert_eq!(request["jsonrpc"], "2.0");
+                assert_eq!(request["method"], method);
+                assert_eq!(request["params"], params);
+                if let Some(result) = result {
+                    let answer =
+                        json!({"jsonrpc":"2.0", "id":request["id"], "result":result}).to_string();
+                    let mut stream = reader.into_inner();
+                    must(write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len()));
+                    must(stream.flush());
+                }
+                // None deliberately loses the accepted send's response at the transport boundary.
+            }
+        });
+        let endpoint = must(SequencerEndpoint::new(&url, &[]));
+        let node = must(NodeRpc::connect(&NodeRpcConfig {
+            url,
+            chain_id: 125,
+            deadline: Duration::from_secs(3),
+        }));
+        (node, endpoint, server)
+    }
+
+    fn lookup_exchanges(case: &Value) -> Vec<Exchange> {
+        let hash = json!([case["receiptJson"]["txHash"]]);
+        vec![
+            (
+                "px_getReceiptKeys",
+                json!([]),
+                Some(json!({"keys":[case["pinnedKey"].clone()]})),
+            ),
+            (
+                "pax_sequencerReceipt",
+                hash.clone(),
+                Some(case["receiptJson"].clone()),
+            ),
+            (
+                "pax_sequencerReceipt",
+                hash.clone(),
+                Some(case["receiptJson"].clone()),
+            ),
+            ("eth_getTransactionReceipt", hash, Some(Value::Null)),
+        ]
+    }
+
+    fn authenticated(
+        node: &NodeRpc,
+        endpoint: &SequencerEndpoint,
+        outbox: &Outbox,
+        hash: [u8; 32],
+    ) -> AuthenticatedReceipt {
+        let (lookup, _) = must(lookup_human_receipt_by_outbox_hash(
+            node, endpoint, outbox, hash, hash,
+        ));
+        let Lookup::Verified(receipt) = lookup else {
+            panic!("authenticated production receipt required")
+        };
+        receipt
+    }
+
+    fn controller(store: Store) -> (SessionControl, Arc<BudgetLimiter>) {
+        let budget = Arc::new(must(BudgetLimiter::new(Vec::new())));
+        assert_eq!(must(load_daemon_limits(&store, &budget)).len(), 1);
+        let control = SessionControl::new(
+            Arc::new(Mutex::new(store)),
+            SessionRegistry::default(),
+            Arc::new(PreparationLifecycle::default()),
+            Arc::clone(&budget),
+        );
+        (control, budget)
+    }
+
+    fn assert_effect(receipt: &AuthenticatedReceipt, case: &Value) -> (u128, u128, u128, u128) {
+        assert_eq!(receipt.canonical_bytes(), bytes(&case["signedReceipt"]));
+        assert_eq!(receipt.result_code().raw(), 0);
+        assert!(receipt.execution().success);
+        let decoded = must(layerx_wire::receipt::decode(receipt.canonical_bytes()));
+        let summary = decoded.protocol().expect("signed node balance summary");
+        assert_eq!(summary.activity_id(), receipt.activity_id());
+        assert_eq!(summary.debit_sequence(), 2);
+        assert_eq!(summary.amount(), 0); // Native value is zero; payExact moves its ledger asset.
+        assert!(summary.fee_charged() > 0);
+        assert_eq!(
+            summary.debit_balance_before() - summary.debit_balance_after(),
+            summary.fee_charged()
+        );
+        assert_eq!(
+            summary.credit_balance_after(),
+            summary.credit_balance_before()
+        );
+        let logs = &receipt.execution().logs;
+        assert_eq!(logs.len(), 1);
+        assert_eq!(
+            logs[0].address,
+            layerx_agentd::prepare::PrecompileTarget::Ledger.address()
+        );
+        assert_eq!(
+            logs[0].topics[0],
+            transaction_hash(b"PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")
+        );
+        let (call, _) = must(decode_signed(&bytes(&case["rawTransaction"])));
+        assert_eq!(call.data.len(), 196);
+        assert_eq!(
+            call.data[..4],
+            transaction_hash(b"payExact(bytes32,bytes32,bytes32,uint128,uint64,bytes32)")[..4]
+        );
+        assert_eq!(logs[0].topics.len(), 4);
+        assert_eq!(logs[0].topics[1].as_slice(), &call.data[164..196]);
+        assert_eq!(logs[0].topics[2].as_slice(), &call.data[4..36]);
+        assert_eq!(logs[0].topics[3].as_slice(), &call.data[36..68]);
+        assert_eq!(logs[0].data, call.data[68..132]);
+        assert_eq!(&logs[0].data[48..64], &1_000_000_u128.to_be_bytes());
+        (
+            summary.debit_balance_before(),
+            summary.debit_balance_after(),
+            summary.credit_balance_before(),
+            summary.credit_balance_after(),
+        )
+    }
+
+    fn recover(persist_receipt_before_restart: bool) {
+        let case = recording();
+        let raw = bytes(&case["rawTransaction"]);
+        let hash = transaction_hash(&raw);
+        assert_eq!(hash.as_slice(), bytes(&case["receiptJson"]["txHash"]));
+        let (call, signature) = must(decode_signed(&raw));
+        assert_eq!(
+            must(recover_sender(&call, &signature)).as_slice(),
+            bytes(&case["receiptJson"]["from"])
+        );
+        let decoded = must(layerx_wire::receipt::decode(&bytes(&case["signedReceipt"])));
+        let summary = decoded.protocol().expect("recorded native balance effects");
+        let charge = summary.fee_charged();
+        let workspace = Workspace::new();
+        let root = workspace.path("node-and-budget");
+        let tenant = must(tenant("tenant-node-recovery"));
+        let budget_id = [0x71; 32];
+        let limit = daemon_limit_id(budget_id);
+        {
+            let mut store = must(Store::open(&root));
+            let budget = must(BudgetLimiter::new(Vec::new()));
+            must(create_daemon_limit(
+                &mut store,
+                &budget,
+                DaemonLimitRecord {
+                    tenant: tenant.clone(),
+                    budget_id,
+                    limit_id: limit,
+                    agent_digest: [0x72; 32],
+                    asset: summary.asset(),
+                    ceiling: charge * 2,
+                    consumed: 0,
+                    expiry_ms: u64::MAX,
+                    revoked: false,
+                    mutation_key: [0x73; 32],
+                    body_digest: [0x74; 32],
+                    revoke_key: [0; 32],
+                },
+                CoreTimestampMs(1),
+            ));
+            let reservation = must(layerx_agentd::budget::reserve(
+                &budget,
+                &ReservationRequest {
+                    id: hash,
+                    amount: charge,
+                    expiry_sequence: u64::MAX,
+                    current_sequence: 1,
+                    applicable_limits: vec![limit],
+                },
+            ));
+            let preparation = DurablePreparation {
+                tenant: tenant.clone(),
+                preparation_id: hash,
+                session_id: [0x75; 32],
+                generation: 1,
+                not_after: u64::MAX,
+                payload_hash: transaction_hash(&call.data),
+                state: LifecycleState::Unknown,
+                activity_id: Some(hash),
+                holds: reservation
+                    .durable
+                    .into_iter()
+                    .map(|hold| (hold, None))
+                    .collect(),
+                extensions: BTreeMap::from([(4, raw.clone())]),
+            };
+            must(store.put_local(
+                must(DurablePreparation::store_key(&tenant, hash)),
+                must(preparation.encode()),
+            ));
+            let mut outbox = Outbox::default();
+            let (node, _, server) = peer(vec![
+                ("eth_chainId", json!([]), Some(json!("0x7d"))),
+                (
+                    "eth_sendRawTransaction",
+                    json!([case["rawTransaction"]]),
+                    None,
+                ),
+            ]);
+            must(submit_raw_write(
+                &mut outbox,
+                &mut store,
+                tenant.clone(),
+                raw.clone(),
+                &node,
+            ));
+            must(server.join());
+            assert_eq!(
+                outbox.status(hash).expect("unknown send").state,
+                SubmissionState::Unknown
+            );
+            assert_eq!(budget.held_reservations(), Ok(1));
+            assert_eq!(budget.consumed(limit), Ok(0));
+        }
+
+        let mut first_balances = None;
+        for restart in 0..2 {
+            let (control, budget) = controller(must(Store::open(&root)));
+            assert_eq!(must(control.restore_writes()), usize::from(restart == 0));
+            assert_eq!(budget.held_reservations(), Ok(usize::from(restart == 0)));
+            assert_eq!(
+                budget.consumed(limit),
+                Ok(if restart == 0 { 0 } else { charge })
+            );
+            let store_handle = control.store();
+            let mut store = must(store_handle.lock());
+            let mut outbox = Outbox::default();
+            must(outbox.restore(&store, tenant.clone(), hash));
+            assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+            if restart == 1 {
+                let recovered = must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                    .expect("receipt must survive without refetching or rewriting");
+                assert_eq!(recovered.canonical_receipt, bytes(&case["signedReceipt"]));
+                assert_eq!(recovered.metadata.transaction_hash, hash);
+                assert!(recovered.metadata.status);
+                assert_eq!(must(daemon_limits(&store, &tenant))[0].consumed, charge);
+            }
+            assert!(matches!(
+                outbox.enqueue(&mut store, tenant.clone(), raw.clone()),
+                Err(OutboxError::Duplicate)
+            ));
+            let mut exchanges = vec![("eth_chainId", json!([]), Some(json!("0x7d")))];
+            if restart == 0 {
+                exchanges.push((
+                    "px_getReceiptKeys",
+                    json!([]),
+                    Some(json!({"keys":[case["pinnedKey"].clone()]})),
+                ));
+                if !persist_receipt_before_restart {
+                    exchanges.extend([
+                        (
+                            "pax_sequencerReceipt",
+                            json!([case["receiptJson"]["txHash"]]),
+                            Some(Value::Null),
+                        ),
+                        (
+                            "eth_getTransactionCount",
+                            json!([case["receiptJson"]["from"], "pending"]),
+                            Some(json!(format!("0x{:x}", call.nonce))),
+                        ),
+                        (
+                            "eth_sendRawTransaction",
+                            json!([case["rawTransaction"]]),
+                            Some(case["receiptJson"]["txHash"].clone()),
+                        ),
+                    ]);
+                }
+                exchanges.extend([
+                    (
+                        "pax_sequencerReceipt",
+                        json!([case["receiptJson"]["txHash"]]),
+                        Some(case["receiptJson"].clone()),
+                    ),
+                    (
+                        "eth_getTransactionReceipt",
+                        json!([case["receiptJson"]["txHash"]]),
+                        Some(Value::Null),
+                    ),
+                ]);
+            }
+            exchanges.extend(lookup_exchanges(&case));
+            let (node, mut endpoint, server) = peer(exchanges);
+            if restart == 0 {
+                assert_eq!(
+                    outbox.status(hash).expect("restored send").state,
+                    SubmissionState::Unknown
+                );
+                let keys = must(endpoint.receipt_keys());
+                if !persist_receipt_before_restart {
+                    let missing = must(resolve_unknown(
+                        &mut outbox,
+                        &mut store,
+                        hash,
+                        1_000,
+                        &keys,
+                        &mut endpoint,
+                    ));
+                    assert_eq!(missing.state, SubmissionState::Unknown);
+                    assert_eq!(missing.observation, ResolutionObservation::ReceiptMissing);
+                    assert_eq!(missing.resend, ResendObservation::Sent);
+                    assert_eq!(missing.age.attempt_count, 1);
+                    assert_eq!(must(outbox.exact_signed_bytes(hash)), raw);
+                    assert_eq!(budget.held_reservations(), Ok(1));
+                    assert_eq!(budget.consumed(limit), Ok(0));
+                    let deferred = must(resolve_unknown(
+                        &mut outbox,
+                        &mut store,
+                        hash,
+                        1_001,
+                        &keys,
+                        &mut endpoint,
+                    ));
+                    assert_eq!(deferred.state, SubmissionState::Unknown);
+                    assert_eq!(deferred.observation, ResolutionObservation::Backoff);
+                    assert_eq!(deferred.resend, ResendObservation::NotWarranted);
+                    assert_eq!(deferred.age.attempt_count, missing.age.attempt_count);
+                    assert_eq!(
+                        deferred.age.next_attempt_at_ms,
+                        missing.age.next_attempt_at_ms
+                    );
+                }
+                let found = must(resolve_unknown(
+                    &mut outbox,
+                    &mut store,
+                    hash,
+                    10_000,
+                    &keys,
+                    &mut endpoint,
+                ));
+                assert_eq!(found.state, SubmissionState::Executed);
+                assert_eq!(found.observation, ResolutionObservation::ExecutedReceipt);
+                assert_eq!(found.resend, ResendObservation::NotWarranted);
+                assert_eq!(
+                    found.age.attempt_count,
+                    if persist_receipt_before_restart { 1 } else { 2 }
+                );
+                assert_eq!(budget.held_reservations(), Ok(1));
+                assert_eq!(budget.consumed(limit), Ok(0));
+            }
+            assert_eq!(
+                outbox.status(hash).expect("resolved send").state,
+                SubmissionState::Executed
+            );
+            let verified = authenticated(&node, &endpoint, &outbox, hash);
+            must(server.join());
+            let balances = assert_effect(&verified, &case);
+            if let Some(previous) = first_balances {
+                assert_eq!(balances, previous);
+            }
+            first_balances = Some(balances);
+            let stored = must(receipt::store_verified_if_absent(
+                &mut store,
+                tenant.clone(),
+                hash,
+                verified.canonical_bytes(),
+                &verified,
+            ));
+            assert_eq!(
+                must(receipt::store_verified_if_absent(
+                    &mut store,
+                    tenant.clone(),
+                    hash,
+                    verified.canonical_bytes(),
+                    &verified
+                )),
+                stored
+            );
+            assert_eq!(
+                store.list_object_ids(&tenant, ObjectKind::Outbox),
+                vec![hash.to_vec()]
+            );
+            let inventory = must(receipt::evidence_inventory(&store, &tenant));
+            assert_eq!(inventory.without_evidence.len(), 1);
+            assert!(inventory.with_evidence.is_empty());
+            assert_eq!(
+                must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                    .expect("durable node receipt")
+                    .canonical_receipt,
+                bytes(&case["signedReceipt"])
+            );
+            drop(store);
+            drop(store_handle);
+            if restart == 0 && persist_receipt_before_restart {
+                drop(control);
+                drop(budget);
+                let (reopened, restored_budget) = controller(must(Store::open(&root)));
+                assert_eq!(must(reopened.restore_writes()), 1);
+                assert_eq!(restored_budget.consumed(limit), Ok(0));
+                assert_eq!(restored_budget.held_reservations(), Ok(1));
+                {
+                    let store = reopened.store();
+                    let store = must(store.lock());
+                    assert_eq!(
+                        must(receipt::serve_evidence(&store, tenant.clone(), hash))
+                            .expect("receipt persisted before settlement crash")
+                            .canonical_receipt,
+                        verified.canonical_bytes()
+                    );
+                }
+                assert!(must(reopened.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert!(!must(reopened.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert_eq!(restored_budget.consumed(limit), Ok(charge));
+                assert_eq!(restored_budget.held_reservations(), Ok(0));
+            } else {
+                assert_eq!(
+                    must(control.settle_write(
+                        &tenant,
+                        hash,
+                        ReleaseKind::Executed,
+                        verified.global_sequence()
+                    )),
+                    restart == 0
+                );
+                assert!(!must(control.settle_write(
+                    &tenant,
+                    hash,
+                    ReleaseKind::Executed,
+                    verified.global_sequence()
+                )));
+                assert_eq!(budget.consumed(limit), Ok(charge));
+                assert_eq!(budget.held_reservations(), Ok(0));
+            }
+        }
+        let store = must(Store::open(&root));
+        let records = must(daemon_limits(&store, &tenant));
+        assert_eq!(records.len(), 1);
+        assert_eq!(records[0].consumed, charge);
+        let preparation = must(DurablePreparation::load_all(&store, &tenant));
+        assert_eq!(preparation.len(), 1);
+        assert_eq!(preparation[0].state, LifecycleState::Executed);
+    }
+
+    #[test]
+    fn lost_response_recovers_receipt_balances_and_budget_once() {
+        recover(false);
+    }
+
+    #[test]
+    fn persisted_receipt_recovers_unsettled_budget_once() {
+        recover(true);
+    }
+}

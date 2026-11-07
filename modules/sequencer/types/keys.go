@@ -1,5 +1,10 @@
 package types
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 const (
 	// ModuleName is the sequencer module, mounted by the activation store
 	// upgrade.
@@ -16,6 +21,15 @@ var (
 	ReceiptKeysKey = []byte{0x03}
 	// LeaderListKey holds the pinned leader list.
 	LeaderListKey = []byte{0x04}
-	// StoredVotesKey holds the decided votes fed to the next BeginBlock.
+	// StoredVotesKey is a prefix only; decided vote entries live under StoredVotesKeyAt.
 	StoredVotesKey = []byte{0x05}
+	// ActivationHeightKey holds the first sequenced height S, u64 big-endian.
+	ActivationHeightKey = []byte{0x07}
 )
+
+// StoredVotesKeyAt returns the decided-votes key for the given height.
+func StoredVotesKeyAt(height int64) []byte {
+	var encoded [8]byte
+	binary.BigEndian.PutUint64(encoded[:], uint64(height))
+	return append(bytes.Clone(StoredVotesKey), encoded[:]...)
+}

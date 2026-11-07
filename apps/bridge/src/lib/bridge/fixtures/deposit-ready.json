@@ -1,0 +1,14 @@
+{
+  "chainId": "1",
+  "vault": "0x1111111111111111111111111111111111111111",
+  "asset": "0x3333333333333333333333333333333333333333",
+  "amount": "100",
+  "txHash": "0xaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "logIndex": "7",
+  "recipient": "0x0000000000000000000000002222222222222222222222222222222222222222",
+  "digest": "0x4dc57d40cd07d78073e4b25b1e50ad90f0b519762ca8a709fb54ba14406736bc",
+  "signatures": [
+    "0x91506af337a3415077aa642346d14f6fbdb1987323d6c44144e9fbf8ba295f14048f98ece138e21bf79d10c4b0408f0910d9cc6abff2d8fd334f45aa7207b69b1b"
+  ],
+  "status": "ready"
+}

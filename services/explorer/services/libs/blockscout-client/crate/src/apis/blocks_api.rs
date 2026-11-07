@@ -26,6 +26,9 @@ use std::sync::Arc;
 #[cfg_attr(feature = "mockall", automock)]
 #[async_trait]
 pub trait BlocksApi: Send + Sync {
+    /// Scope subsequent paginated calls to the producer's validated next-page cursor.
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn BlocksApi>;
+
     /// GET /api/v2/blocks/{block_number_or_hash}
     ///
     ///
@@ -61,11 +64,15 @@ pub trait BlocksApi: Send + Sync {
 
 pub struct BlocksApiClient {
     configuration: Arc<configuration::Configuration>,
+    cursor: Option<super::pagination::PageCursor>,
 }
 
 impl BlocksApiClient {
     pub fn new(configuration: Arc<configuration::Configuration>) -> Self {
-        Self { configuration }
+        Self {
+            configuration,
+            cursor: None,
+        }
     }
 }
 
@@ -102,6 +109,13 @@ pub struct GetBlocksParams {
 
 #[async_trait]
 impl BlocksApi for BlocksApiClient {
+    fn with_cursor(&self, cursor: super::pagination::PageCursor) -> Box<dyn BlocksApi> {
+        Box::new(Self {
+            configuration: self.configuration.clone(),
+            cursor: Some(cursor),
+        })
+    }
+
     async fn get_block(
         &self,
         params: GetBlockParams,
@@ -116,7 +130,7 @@ impl BlocksApi for BlocksApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/blocks/{block_number_or_hash}",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             block_number_or_hash = crate::apis::urlencode(block_number_or_hash)
         );
         let mut local_var_req_builder =
@@ -127,11 +141,14 @@ impl BlocksApi for BlocksApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetBlockSuccess> =
@@ -168,7 +185,7 @@ impl BlocksApi for BlocksApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/blocks/{block_number_or_hash}/transactions",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             block_number_or_hash = crate::apis::urlencode(block_number_or_hash)
         );
         let mut local_var_req_builder =
@@ -179,11 +196,17 @@ impl BlocksApi for BlocksApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetBlockTxsSuccess> =
@@ -220,7 +243,7 @@ impl BlocksApi for BlocksApiClient {
 
         let local_var_uri_str = format!(
             "{}/api/v2/blocks/{block_number_or_hash}/withdrawals",
-            local_var_configuration.base_path,
+            local_var_configuration.rest_origin()?,
             block_number_or_hash = crate::apis::urlencode(block_number_or_hash)
         );
         let mut local_var_req_builder =
@@ -231,11 +254,17 @@ impl BlocksApi for BlocksApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetBlockWithdrawalsSuccess> =
@@ -268,7 +297,7 @@ impl BlocksApi for BlocksApiClient {
 
         let local_var_client = &local_var_configuration.client;
 
-        let local_var_uri_str = format!("{}/api/v2/blocks", local_var_configuration.base_path);
+        let local_var_uri_str = format!("{}/api/v2/blocks", local_var_configuration.rest_origin()?);
         let mut local_var_req_builder =
             local_var_client.request(reqwest::Method::GET, local_var_uri_str.as_str());
 
@@ -282,11 +311,17 @@ impl BlocksApi for BlocksApiClient {
                 .header(reqwest::header::USER_AGENT, local_var_user_agent.clone());
         }
 
-        let local_var_req = local_var_req_builder.build()?;
+        let mut local_var_req = local_var_req_builder
+            .timeout(local_var_configuration.request_timeout)
+            .build()?;
+        if let Some(cursor) = &self.cursor {
+            cursor.apply(&mut local_var_req)?;
+        }
         let local_var_resp = local_var_client.execute(local_var_req).await?;
 
         let local_var_status = local_var_resp.status();
-        let local_var_content = local_var_resp.text().await?;
+        let local_var_content =
+            super::read_bounded(local_var_resp, local_var_configuration.max_response_bytes).await?;
 
         if !local_var_status.is_client_error() && !local_var_status.is_server_error() {
             let local_var_entity: Option<GetBlocksSuccess> =

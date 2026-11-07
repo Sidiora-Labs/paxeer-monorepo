@@ -1,0 +1,8 @@
+[repair.22.33.624]
+audit = "22.30.163"
+finding_035 = "TestRepairM_624_GlobalLabelValidation; TestRepairM_624_ValidGlobalLabelPair"
+finding_036 = "TestRepairM_624_EnableServiceLabel"
+baseline = "Not run: the ordered gate instructions prohibit verification before full implementation and require hf-build before hf-done; no baseline test failure is claimed."
+proof = "Production New -> telemetry counter/gauge wrappers -> go-metrics fanout -> real Prometheus registry -> Metrics.Gather -> Prometheus text parser; malformed rows also preserve the previously published metrics and labels."
+revision_evidence = "The hf-done receipt records the exact verified candidate revision, command, exit and private log; no verification is claimed by this source record."
+wiring_requests = "None; both finding proposals are entirely within sdk/telemetry."

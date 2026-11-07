@@ -186,13 +186,23 @@ pub fn derive(
     disclosure: &Disclosure,
     verified: &VerifiedInputs,
 ) -> Result<SemanticPlan, EffectsError> {
-    if matches!(disclosure.native_operation,
-        Some(DisclosedNativeOperation::ProgramDeploy(_)
-            | DisclosedNativeOperation::ProgramUpgrade(_)
-            | DisclosedNativeOperation::ProgramCall(_)
-            | DisclosedNativeOperation::ProgramWindDown(_)
-            | DisclosedNativeOperation::LegacyProgramCall(_))) {
-        disclosure.reencode().map_err(|_| EffectsError::InvalidProgramDisclosure)?;
+    if matches!(
+        disclosure.native_operation,
+        Some(
+            DisclosedNativeOperation::ProgramDeploy(_)
+                | DisclosedNativeOperation::ProgramUpgrade(_)
+                | DisclosedNativeOperation::ProgramCall(_)
+                | DisclosedNativeOperation::ProgramWindDown(_)
+                | DisclosedNativeOperation::LegacyProgramCall(_)
+        )
+    ) {
+        disclosure
+            .reencode()
+            .map_err(|_| EffectsError::InvalidProgramDisclosure)?;
+    } else {
+        disclosure
+            .validate()
+            .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
     }
     if disclosure.payment.is_none() && disclosure.native_operation.is_none() {
         return Err(EffectsError::Unsupported(untyped_kind(disclosure)));
@@ -213,28 +223,58 @@ pub fn derive_native_effects(
     if disclosure.activity_type.module() == ModuleId::Programs {
         return Err(EffectsError::Unsupported("Programs"));
     }
-    disclosure.reencode().map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    if (disclosure.activity_type.module(), disclosure.activity_type.ordinal()) != (ModuleId::Asset, 5) {
+    disclosure
+        .reencode()
+        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    if (
+        disclosure.activity_type.module(),
+        disclosure.activity_type.ordinal(),
+    ) != (ModuleId::Asset, 5)
+    {
         return derive(disclosure, verified);
     }
-    if verified.revoke_balance.is_some() { return Err(EffectsError::UnexpectedRevokeBalance); }
-    if disclosure.payment.is_some() || disclosure.native_operation.is_some()
-        || disclosure.counterparties.len() != 2 || disclosure.amounts.len() != 1
-        || disclosure.amounts[0].role != AmountRole::Transfer || disclosure.amounts[0].value == 0
+    if verified.revoke_balance.is_some() {
+        return Err(EffectsError::UnexpectedRevokeBalance);
+    }
+    if disclosure.payment.is_some()
+        || disclosure.native_operation.is_some()
+        || disclosure.counterparties.len() != 2
+        || disclosure.amounts.len() != 1
+        || disclosure.amounts[0].role != AmountRole::Transfer
+        || disclosure.amounts[0].value == 0
         || disclosure.asset == [0; 32]
     {
         return Err(EffectsError::Unsupported("Send"));
     }
-    let mut payers = disclosure.counterparties.iter().filter(|party| party.role == CounterpartyRole::Payer);
-    let mut recipients = disclosure.counterparties.iter().filter(|party| party.role == CounterpartyRole::Recipient);
-    let (Some(payer), None, Some(recipient), None) =
-        (payers.next(), payers.next(), recipients.next(), recipients.next())
-    else { return Err(EffectsError::Unsupported("Send")); };
-    if payer.account == [0; 32] || recipient.account == [0; 32] || payer.account == recipient.account {
+    let mut payers = disclosure
+        .counterparties
+        .iter()
+        .filter(|party| party.role == CounterpartyRole::Payer);
+    let mut recipients = disclosure
+        .counterparties
+        .iter()
+        .filter(|party| party.role == CounterpartyRole::Recipient);
+    let (Some(payer), None, Some(recipient), None) = (
+        payers.next(),
+        payers.next(),
+        recipients.next(),
+        recipients.next(),
+    ) else {
+        return Err(EffectsError::Unsupported("Send"));
+    };
+    if payer.account == [0; 32]
+        || recipient.account == [0; 32]
+        || payer.account == recipient.account
+    {
         return Err(EffectsError::Unsupported("Send"));
     }
     let mut plan = SemanticPlan::write();
-    plan.transfer(payer.account, recipient.account, disclosure.asset, disclosure.amounts[0].value)?;
+    plan.transfer(
+        payer.account,
+        recipient.account,
+        disclosure.asset,
+        disclosure.amounts[0].value,
+    )?;
     Ok(plan)
 }
 
@@ -260,7 +300,10 @@ pub fn native_grant_draw_covers(
     else {
         return false;
     };
-    (disclosure.activity_type.module(), disclosure.activity_type.ordinal()) == (ModuleId::Asset, 6)
+    (
+        disclosure.activity_type.module(),
+        disclosure.activity_type.ordinal(),
+    ) == (ModuleId::Asset, 6)
         && (*paid_from, *paid_to, *paid_asset, *paid_amount) == (from, to, asset, amount)
         && to == drawer
         && from != drawer
@@ -278,7 +321,9 @@ pub const NATIVE_REGISTRATION_PROFILE: &str = "native-registration-v1";
 pub enum NativeAdmissionProfile {
     #[default]
     Effect,
-    Registration { fee_asset: [u8; 32] },
+    Registration {
+        fee_asset: [u8; 32],
+    },
 }
 
 impl NativeAdmissionProfile {
@@ -298,93 +343,140 @@ pub fn derive_native_profile_effects(
     profile: NativeAdmissionProfile,
 ) -> Result<SemanticPlan, EffectsError> {
     match profile {
-        NativeAdmissionProfile::Effect => derive_native_effects(disclosure, &VerifiedInputs::default()),
+        NativeAdmissionProfile::Effect => {
+            derive_native_effects(disclosure, &VerifiedInputs::default())
+        }
         NativeAdmissionProfile::Registration { fee_asset } => {
             derive_native_registration(disclosure, fee_asset)
         }
     }
 }
 
-fn native_registration_terms(
-    disclosure: &Disclosure,
-) -> Result<([u8; 32], &layerx_crypto::payments::Registration), EffectsError> {
+/// Registration requires a ledger lookup tied to the verified EVM preparation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct NativeRegistrationContext {
+    principal: Option<super::VerifiedLedgerPrincipal>,
+    fee_asset: [u8; 32],
+}
+
+impl NativeRegistrationContext {
+    pub const fn new(principal: super::VerifiedLedgerPrincipal, fee_asset: [u8; 32]) -> Self {
+        Self {
+            principal: Some(principal),
+            fee_asset,
+        }
+    }
+}
+
+// Existing callers carrying only a fee asset cannot establish economic ownership.
+impl From<[u8; 32]> for NativeRegistrationContext {
+    fn from(fee_asset: [u8; 32]) -> Self {
+        Self {
+            principal: None,
+            fee_asset,
+        }
+    }
+}
+
+fn native_registration_terms<'a>(
+    disclosure: &'a Disclosure,
+    context: &NativeRegistrationContext,
+) -> Result<
+    (
+        super::VerifiedLedgerPrincipal,
+        &'a layerx_crypto::payments::Registration,
+    ),
+    EffectsError,
+> {
+    use layerx_crypto::disclosure::call::ConstructMethod;
     use layerx_types::payload::ModuleId;
-    disclosure.reencode().map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    disclosure
+        .reencode()
+        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    let principal = context
+        .principal
+        .ok_or(EffectsError::Unsupported("Register"))?;
     let Some(Payment::Register(registration)) = &disclosure.payment else {
         return Err(EffectsError::Unsupported("Register"));
     };
-    if (disclosure.activity_type.module(), disclosure.activity_type.ordinal()) != (ModuleId::Asset, 1)
+    if !matches!(
+        disclosure.construct_method(),
+        Ok(Some(ConstructMethod::LedgerRegister { .. }))
+    ) || disclosure.actor != principal.sender
+        || disclosure
+            .signing_digest()
+            .map_err(|_| EffectsError::InvalidNativeDisclosure)?
+            != principal.signing_hash
+        || (
+            disclosure.activity_type.module(),
+            disclosure.activity_type.ordinal(),
+        ) != (ModuleId::Asset, 1)
         || disclosure.native_operation.is_some()
         || registration.issuer_kind != 1
         || !registration.custody_ref.is_empty()
         || registration.supply_cap == 0
         || registration.supply_cap == u128::MAX
         || disclosure.asset != registration.asset
+        || context.fee_asset == [0; 32]
     {
         return Err(EffectsError::Unsupported("Register"));
     }
-    let actor = layerx_types::ids::Did::new(&disclosure.actor)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let issuer = layerx_wire::hash::did_id_for_protocol(&actor, 3)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    if registration.asset != layerx_crypto::payments::asset_id(&issuer, &registration.salt) {
+    if registration.asset
+        != layerx_crypto::payments::asset_id(&principal.issuer, &registration.salt)
+    {
         return Err(EffectsError::Unsupported("Register"));
     }
-    Ok((issuer, registration))
+    Ok((principal, registration))
 }
 
-/// Derives the supply-cap authorization of one ordinary-issuer registration admitted by the
-/// `native-registration-v1` profile. Registration issues no balance.
-///
-/// # Errors
-/// Returns `Unsupported("Register")` for any registration outside the profile.
+/// Derives supply authority from the EVM signer's live ledger owner and gas fee account.
 pub fn derive_native_registration(
     disclosure: &Disclosure,
-    fee_asset: [u8; 32],
+    context: impl Into<NativeRegistrationContext>,
 ) -> Result<SemanticPlan, EffectsError> {
-    let (_, registration) = native_registration_terms(disclosure)?;
-    if fee_asset == [0; 32] {
-        return Err(EffectsError::Unsupported("Register"));
-    }
-    let actor = core::str::from_utf8(&disclosure.actor)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let account = layerx_types::account::AccountId::for_asset(actor, fee_asset, fee_asset)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
-    let principal = layerx_wire::hash::account_id_for_protocol(&account, 3)
-        .map_err(|_| EffectsError::InvalidNativeDisclosure)?;
+    let context = context.into();
+    let (principal, registration) = native_registration_terms(disclosure, &context)?;
     let mut plan = SemanticPlan::write();
     plan.authorize(
         AuthorizationKind::SupplyCap,
-        principal,
+        principal.fee_account,
         Some(registration.asset),
         registration.supply_cap,
     );
     Ok(plan)
 }
 
-/// # Errors
-/// Returns `Unsupported("Register")` for a registration outside the profile or a missing network,
-/// protocol or fee asset.
 pub fn native_registration_commitment(
     disclosure: &Disclosure,
     protocol_version: u16,
     network_id: u32,
     canonical_digest: [u8; 32],
-    fee_asset: [u8; 32],
+    context: impl Into<NativeRegistrationContext>,
 ) -> Result<[u8; 32], EffectsError> {
     use sha2::{Digest as _, Sha256};
-    let (issuer, registration) = native_registration_terms(disclosure)?;
-    if protocol_version != 3 || network_id == 0 || fee_asset == [0; 32] {
+    let context = context.into();
+    let (principal, registration) = native_registration_terms(disclosure, &context)?;
+    if protocol_version != 3
+        || network_id != 125
+        || canonical_digest
+            != <[u8; 32]>::from(Sha256::digest(
+                disclosure
+                    .reencode()
+                    .map_err(|_| EffectsError::InvalidNativeDisclosure)?,
+            ))
+    {
         return Err(EffectsError::Unsupported("Register"));
     }
     let mut hasher = Sha256::new();
-    hasher.update(b"LayerX/native/asset-registration/v1\0");
+    hasher.update(b"LayerX/native/asset-registration/evm/v1\0");
     hasher.update(protocol_version.to_be_bytes());
     hasher.update(network_id.to_be_bytes());
     hasher.update(canonical_digest);
-    hasher.update(issuer);
+    hasher.update(principal.sender);
+    hasher.update(principal.issuer);
+    hasher.update(principal.fee_account);
     hasher.update(registration.asset);
-    hasher.update(fee_asset);
+    hasher.update(context.fee_asset);
     Ok(hasher.finalize().into())
 }
 
@@ -488,36 +580,52 @@ fn native_effects(
         | DisclosedNativeOperation::ProgramUpgrade(_) => {}
         DisclosedNativeOperation::ProgramCall(call) => program_call_effects(plan, call)?,
         DisclosedNativeOperation::LegacyProgramCall(call) => {
-            if call.capabilities().as_slice().iter().any(|capability| matches!(capability,
-                layerx_types::intent::CapabilityRequest::Transfer
-                | layerx_types::intent::CapabilityRequest::Compose)) {
+            if call.capabilities().as_slice().iter().any(|capability| {
+                matches!(
+                    capability,
+                    layerx_types::intent::CapabilityRequest::Transfer
+                        | layerx_types::intent::CapabilityRequest::Compose
+                )
+            }) {
                 return Err(EffectsError::UnboundedLegacyProgramCall);
             }
         }
         DisclosedNativeOperation::ProgramWindDown(value) => {
             use layerx_crypto::disclosure::DisclosedProgramWindDownOperation;
             match &value.operation {
-                DisclosedProgramWindDownOperation::Route { account, asset, destination, seed } => {
+                DisclosedProgramWindDownOperation::Route {
+                    account,
+                    asset,
+                    destination,
+                    seed,
+                } => {
                     let program = layerx_programs_runtime::ProgramId::new(value.program_id.bytes())
                         .map_err(|_| EffectsError::InvalidProgramDisclosure)?;
                     if !layerx_programs_runtime::accounts::derive_program_account(program, seed)
-                        .is_ok_and(|derived| derived.matches(account)) {
+                        .is_ok_and(|derived| derived.matches(account))
+                    {
                         return Err(EffectsError::InvalidProgramDisclosure);
                     }
                     plan.participants.insert(*account);
-                    plan.authorize(AuthorizationKind::ProgramExitRoute, *destination, Some(*asset), 0);
+                    plan.authorize(
+                        AuthorizationKind::ProgramExitRoute,
+                        *destination,
+                        Some(*asset),
+                        0,
+                    );
                 }
                 DisclosedProgramWindDownOperation::Deprecate { .. }
                 | DisclosedProgramWindDownOperation::Tombstone => {}
-                DisclosedProgramWindDownOperation::Exit { .. } =>
-                    return Err(EffectsError::UnboundedProgramExit),
-                DisclosedProgramWindDownOperation::BoundedExit { .. } =>
-                    return Err(EffectsError::ProgramExitContextRequired),
+                DisclosedProgramWindDownOperation::Exit { .. } => {
+                    return Err(EffectsError::UnboundedProgramExit)
+                }
+                DisclosedProgramWindDownOperation::BoundedExit { .. } => {
+                    return Err(EffectsError::ProgramExitContextRequired)
+                }
             }
         }
         DisclosedNativeOperation::IdentityRegistration(_)
-        | DisclosedNativeOperation::RecoveryPolicy(_)
-        | DisclosedNativeOperation::OwnerRotation(_) => {}
+        | DisclosedNativeOperation::RecoveryPolicy(_) => {}
         DisclosedNativeOperation::BudgetCreate(budget) => {
             plan.transfer(
                 budget.source_account,
@@ -569,32 +677,66 @@ fn program_call_effects(
     use layerx_programs_runtime::abi::{Capability, CapabilitySet};
     use layerx_programs_runtime::abi_policy::{capability_encoding, CapabilityEncoding};
     let grants = match capability_encoding(call.guest_abi)
-        .map_err(|_| EffectsError::InvalidProgramCapabilities)? {
+        .map_err(|_| EffectsError::InvalidProgramCapabilities)?
+    {
         CapabilityEncoding::V1 => CapabilitySet::decode_canonical(&call.capabilities),
         CapabilityEncoding::V2 => CapabilitySet::decode_v2_canonical(&call.capabilities),
-    }.map_err(|_| EffectsError::InvalidProgramCapabilities)?;
+    }
+    .map_err(|_| EffectsError::InvalidProgramCapabilities)?;
     for grant in grants {
         let bound = match grant {
-            Capability::Transfer402 { asset, to, maximum_amount } => {
-                plan.authorize(AuthorizationKind::ProgramTransferMaximum, to, Some(asset), maximum_amount);
+            Capability::Transfer402 {
+                asset,
+                to,
+                maximum_amount,
+            } => {
+                plan.authorize(
+                    AuthorizationKind::ProgramTransferMaximum,
+                    to,
+                    Some(asset),
+                    maximum_amount,
+                );
                 ProgramSpendBound {
-                    source: ProgramValueSource::Principal, asset, destination: to, maximum_amount,
+                    source: ProgramValueSource::Principal,
+                    asset,
+                    destination: to,
+                    maximum_amount,
                 }
             }
-            Capability::ProgramSpend { owner_program, seed, source_account, asset, to, maximum_amount } => {
+            Capability::ProgramSpend {
+                owner_program,
+                seed,
+                source_account,
+                asset,
+                to,
+                maximum_amount,
+            } => {
                 plan.participants.insert(source_account);
-                plan.authorize(AuthorizationKind::ProgramSpendMaximum, to, Some(asset), maximum_amount);
+                plan.authorize(
+                    AuthorizationKind::ProgramSpendMaximum,
+                    to,
+                    Some(asset),
+                    maximum_amount,
+                );
                 ProgramSpendBound {
                     source: ProgramValueSource::Program {
-                        owner_program: owner_program.bytes(), seed, source_account,
+                        owner_program: owner_program.bytes(),
+                        seed,
+                        source_account,
                     },
-                    asset, destination: to, maximum_amount,
+                    asset,
+                    destination: to,
+                    maximum_amount,
                 }
             }
-            Capability::StorageRead | Capability::StorageWrite
-            | Capability::SharedStorageRead | Capability::SharedStorageWrite
-            | Capability::EmitEvent | Capability::Call { .. }
-            | Capability::ReceiptRead { .. } | Capability::BalanceView { .. } => continue,
+            Capability::StorageRead
+            | Capability::StorageWrite
+            | Capability::SharedStorageRead
+            | Capability::SharedStorageWrite
+            | Capability::EmitEvent
+            | Capability::Call { .. }
+            | Capability::ReceiptRead { .. }
+            | Capability::BalanceView { .. } => continue,
         };
         plan.gross(bound.asset, bound.maximum_amount)?;
         plan.program_spend_bounds.push(bound);
@@ -630,48 +772,107 @@ mod tests {
         use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
         let signer = SigningKey::from_bytes(&[42; 32]);
         let debit = SendDebit {
-            from: PAYER, to: PAYEE, asset: ASSET, amount: 40,
-            source_sequence: 7, idempotency_key: [4; 32], expires_at: 100,
-            context_hash: layerx_crypto::send::send_context_hash(&PAYER, &PAYEE, &ASSET, 40, &[4; 32]),
-            conditions: Vec::new(), authorization_kind: 1, network_id: 17, protocol_version: 3,
+            from: PAYER,
+            to: PAYEE,
+            asset: ASSET,
+            amount: 40,
+            source_sequence: 7,
+            idempotency_key: [4; 32],
+            expires_at: 100,
+            context_hash: layerx_crypto::send::send_context_hash(
+                &PAYER, &PAYEE, &ASSET, 40, &[4; 32],
+            ),
+            conditions: Vec::new(),
+            authorization_kind: 1,
+            network_id: 17,
+            protocol_version: 3,
         };
         let canonical = must(debit.authorization_message());
         let message = must(layerx_crypto::SignatureMessage::new(
-            layerx_wire::hash::Domain::SignaturePreimage, 3, 17, &canonical));
+            layerx_wire::hash::Domain::SignaturePreimage,
+            3,
+            17,
+            &canonical,
+        ));
         let public_key = signer.verifying_key().to_bytes();
-        let payload = must(debit.encode_signed(public_key, signer.sign(&message.digest()).to_bytes()));
-        must(encode_send_envelope(&payload, &EnvelopeOptions {
-            actor: "did:layerx:alice", public_key, network_id: 17, protocol_version: 3,
-            identity_sequence: 19, idempotency_key: [4; 32], fee_limit: 20,
-            not_before: 10, not_after: 100,
-        })).disclosure
+        let payload =
+            must(debit.encode_signed(public_key, signer.sign(&message.digest()).to_bytes()));
+        must(encode_send_envelope(
+            &payload,
+            &EnvelopeOptions {
+                actor: "did:layerx:alice",
+                public_key,
+                network_id: 17,
+                protocol_version: 3,
+                identity_sequence: 19,
+                idempotency_key: [4; 32],
+                fee_limit: 20,
+                not_before: 10,
+                not_after: 100,
+            },
+        ))
+        .disclosure
     }
 
     #[test]
     fn native_effect_send_uses_real_signed_disclosure_and_preserves_legacy_refusal() {
         let disclosure = signed_native_send();
-        assert_eq!(derive(&disclosure, &none()), Err(EffectsError::Unsupported("Send")));
+        assert_eq!(
+            derive(&disclosure, &none()),
+            Err(EffectsError::Unsupported("Send"))
+        );
         let plan = must(derive_native_effects(&disclosure, &none()));
-        assert_eq!(plan.effects(), &[Effect::Transfer { from: PAYER, to: PAYEE, asset: ASSET, amount: 40 }]);
+        assert_eq!(
+            plan.effects(),
+            &[Effect::Transfer {
+                from: PAYER,
+                to: PAYEE,
+                asset: ASSET,
+                amount: 40
+            }]
+        );
         assert_eq!(plan.gross_per_asset(), &BTreeMap::from([(ASSET, 40)]));
         assert_eq!(plan.participants(), &BTreeSet::from([PAYER, PAYEE]));
         assert_eq!(plan.rate_actions(), 1);
         assert!(plan.program_spend_bounds().is_empty());
-        assert_eq!(derive_native_effects(&disclosure, &VerifiedInputs { revoke_balance: Some(40) }),
-            Err(EffectsError::UnexpectedRevokeBalance));
+        assert_eq!(
+            derive_native_effects(
+                &disclosure,
+                &VerifiedInputs {
+                    revoke_balance: Some(40)
+                }
+            ),
+            Err(EffectsError::UnexpectedRevokeBalance)
+        );
     }
 
     #[test]
     fn native_effect_send_refuses_changed_canonical_semantics() {
         let original = signed_native_send();
-        let mut changed = original.clone(); changed.amounts[0].value += 1;
-        assert_eq!(derive_native_effects(&changed, &none()), Err(EffectsError::InvalidNativeDisclosure));
-        let mut changed = original.clone(); changed.counterparties[0].account[0] ^= 1;
-        assert_eq!(derive_native_effects(&changed, &none()), Err(EffectsError::InvalidNativeDisclosure));
-        let mut changed = original.clone(); changed.counterparties.push(changed.counterparties[0]);
-        assert_eq!(derive_native_effects(&changed, &none()), Err(EffectsError::InvalidNativeDisclosure));
-        let mut changed = original; changed.asset[0] ^= 1;
-        assert_eq!(derive_native_effects(&changed, &none()), Err(EffectsError::InvalidNativeDisclosure));
+        let mut changed = original.clone();
+        changed.amounts[0].value += 1;
+        assert_eq!(
+            derive_native_effects(&changed, &none()),
+            Err(EffectsError::InvalidNativeDisclosure)
+        );
+        let mut changed = original.clone();
+        changed.counterparties[0].account[0] ^= 1;
+        assert_eq!(
+            derive_native_effects(&changed, &none()),
+            Err(EffectsError::InvalidNativeDisclosure)
+        );
+        let mut changed = original.clone();
+        changed.counterparties.push(changed.counterparties[0]);
+        assert_eq!(
+            derive_native_effects(&changed, &none()),
+            Err(EffectsError::InvalidNativeDisclosure)
+        );
+        let mut changed = original;
+        changed.asset[0] ^= 1;
+        assert_eq!(
+            derive_native_effects(&changed, &none()),
+            Err(EffectsError::InvalidNativeDisclosure)
+        );
     }
 
     fn grant() -> Grant {
@@ -930,7 +1131,6 @@ mod tests {
 
         let fee_asset = [9; 32];
         let ordinary = registration(1_000);
-        let asset = ordinary.asset;
         let disclosure = registration_disclosure(ordinary);
         assert_eq!(
             derive_native_effects(&disclosure, &none()),
@@ -940,27 +1140,17 @@ mod tests {
             derive_native_profile_effects(&disclosure, NativeAdmissionProfile::Effect),
             Err(EffectsError::Unsupported("Register"))
         );
-        let account = must(layerx_types::account::AccountId::for_asset(
-            "did:layerx:alice",
-            fee_asset,
-            fee_asset,
-        ));
-        let principal = must(layerx_wire::hash::account_id_for_protocol(&account, 3));
-        let admitted = must(derive_native_profile_effects(
-            &disclosure,
-            NativeAdmissionProfile::Registration { fee_asset },
-        ));
         assert_eq!(
-            admitted.effects(),
-            [Effect::Authorization {
-                kind: AuthorizationKind::SupplyCap,
-                account: principal,
-                asset: Some(asset),
-                amount: 1_000,
-            }]
+            derive_native_profile_effects(
+                &disclosure,
+                NativeAdmissionProfile::Registration { fee_asset },
+            ),
+            Err(EffectsError::Unsupported("Register"))
         );
-        assert!(admitted.gross_per_asset().is_empty());
-        assert_eq!(admitted.rate_actions(), 1);
+        assert_eq!(
+            derive_native_registration(&disclosure, fee_asset),
+            Err(EffectsError::Unsupported("Register"))
+        );
         assert_eq!(
             derive_native_registration(&disclosure, [0; 32]),
             Err(EffectsError::Unsupported("Register"))
@@ -991,15 +1181,16 @@ mod tests {
             Err(EffectsError::InvalidNativeDisclosure)
         );
 
-        let commitment = must(native_registration_commitment(&disclosure, 3, 17, [5; 32], fee_asset));
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(&disclosure, 3, 17, [5; 32], [8; 32]))
-        );
-        assert_ne!(
-            commitment,
-            must(native_registration_commitment(&disclosure, 3, 17, [6; 32], fee_asset))
-        );
+        for (digest, fee) in [
+            ([5; 32], fee_asset),
+            ([5; 32], [8; 32]),
+            ([6; 32], fee_asset),
+        ] {
+            assert_eq!(
+                native_registration_commitment(&disclosure, 3, 17, digest, fee,),
+                Err(EffectsError::Unsupported("Register"))
+            );
+        }
         for (protocol, network, fee) in [(2, 17, fee_asset), (3, 0, fee_asset), (3, 17, [0; 32])] {
             assert_eq!(
                 native_registration_commitment(&disclosure, protocol, network, [5; 32], fee),

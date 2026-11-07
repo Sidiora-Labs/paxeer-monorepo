@@ -1,81 +1,50 @@
-//! Receipt-bound program custody reads from the production Programs adapter.
+//! Program custody reads from layerxprograms at a committed block height.
 
-use layerx_programs::{ProgramId, ProgramLifecycle, Registry, VerifiedProgramBalanceRead};
-use layerx_programs_protocol_adapter::{read_program_state, ProtocolAdapterError};
+use super::program_node::ProgramReadError;
+use layerx_client::sequencer::{SequencerEndpoint, SequencerError};
+use layerx_programs::{ProgramId, ProgramLifecycle, VerifiedProgramBalanceRead};
 
-/// Node-injected production read route. The opaque context is never created by
-/// the agent: its owner must be the live Programs context of the node serving
-/// the same canonical head and receipts used by other agent reads.
+pub use super::program_node::read_committed_program_balances as program_balances_from_protocol;
+
+/// A program balance reader bound to an authenticated sequencer endpoint.
 pub struct ProtocolProgramBalanceReader {
-    context: core::ptr::NonNull<core::ffi::c_void>,
-    registry: Registry,
-    staleness_limit: u64,
+    endpoint: SequencerEndpoint,
 }
 
 impl ProtocolProgramBalanceReader {
-    /// Binds the agent route to a node-owned live Programs read context.
-    ///
-    /// # Errors
-    ///
-    /// Refuses a null context or a zero staleness limit as a non-canonical
-    /// view.
-    ///
-    /// # Safety
-    ///
-    /// `context` must remain the synchronous live node Programs context for
-    /// the full lifetime of this reader and must not refer to an independent
-    /// agent-local protocol state.
-    #[allow(unsafe_code)]
-    pub unsafe fn bind(
-        context: *mut core::ffi::c_void,
-        registry: Registry,
-        staleness_limit: u64,
-    ) -> Result<Self, ProtocolAdapterError> {
-        let context =
-            core::ptr::NonNull::new(context).ok_or(ProtocolAdapterError::NonCanonicalView)?;
-        if staleness_limit == 0 {
-            return Err(ProtocolAdapterError::NonCanonicalView);
-        }
-        Ok(Self {
-            context,
-            registry,
-            staleness_limit,
-        })
+    /// Binds the reader to the sequencer used for committed block lookups and calls.
+    #[must_use]
+    pub fn bind(endpoint: SequencerEndpoint) -> Self {
+        Self { endpoint }
     }
 
-    /// Serves one current, receipt-bound program balance read.
+    /// Reads the requested accounts from layerxprograms at one committed height.
     ///
     /// # Errors
-    ///
-    /// Refuses unavailable, stale, historical or identity-mismatched protocol
-    /// evidence and never substitutes a cached or caller-supplied balance.
-    ///
-    /// # Safety
-    ///
-    /// The bound context must still be the live node Programs context for the
-    /// duration of this synchronous call.
-    #[allow(unsafe_code)]
-    pub unsafe fn read(
-        &mut self,
+    /// Refuses unavailable blocks, malformed ABI results, account substitution
+    /// and a block that changes while the read is in progress.
+    pub fn read(
+        &self,
         program: ProgramId,
-        receipt_digest: [u8; 32],
-        now: u64,
-    ) -> Result<ProgramBalanceRead, ProtocolAdapterError> {
-        let read = unsafe {
-            program_balances_from_protocol(
-                self.context.as_ptr(),
-                &mut self.registry,
-                program,
-                receipt_digest,
-                now,
-                self.staleness_limit,
-            )
-        }?;
-        if read.program != program.bytes() || now > read.freshness.valid_through {
-            return Err(ProtocolAdapterError::NonCanonicalView);
-        }
-        Ok(read)
+        accounts: &[[u8; 32]],
+        height: u64,
+    ) -> Result<ProgramBalanceRead<CommittedProgramBalanceFreshness>, SequencerError> {
+        super::program_node::LayerxdProgramBalanceReader::read_at(
+            &self.endpoint,
+            program,
+            accounts,
+            height,
+        )
     }
+}
+
+/// Coordinates of the committed state used by every call in a balance read.
+/// An eth_call answer carries no kernel receipt or state-inclusion proof.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CommittedProgramBalanceFreshness {
+    pub height: u64,
+    pub block_hash: [u8; 32],
+    pub timestamp: u64,
 }
 
 /// One real derived account rendered for an agent without losing its asset or
@@ -85,7 +54,7 @@ pub struct ProgramValueBalance {
     pub account: [u8; 32],
     pub asset: [u8; 32],
     pub amount: u128,
-    pub frozen: bool,
+    pub frozen: Option<bool>,
 }
 
 /// Current-head evidence attached to the complete program account list.
@@ -98,25 +67,24 @@ pub struct ProgramBalanceFreshness {
     pub valid_through: u64,
 }
 
-/// Agent-facing custody surface. It can only be constructed from the private,
-/// proof-verified registry wrapper, never from caller-supplied balances.
+/// Agent-facing balances with the evidence coordinates of their read path.
 #[derive(Clone, Debug, Eq, PartialEq)]
-pub struct ProgramBalanceRead {
+pub struct ProgramBalanceRead<F = ProgramBalanceFreshness> {
     pub program: [u8; 32],
     pub lifecycle: ProgramLifecycle,
     pub accounts: Vec<ProgramValueBalance>,
-    pub freshness: ProgramBalanceFreshness,
+    pub freshness: F,
 }
 
 pub(super) fn program_balances(
     read: &VerifiedProgramBalanceRead,
     staleness_limit: u64,
-) -> Result<ProgramBalanceRead, ProtocolAdapterError> {
+) -> Result<ProgramBalanceRead, ProgramReadError> {
     let valid_through = read
         .freshness()
         .observed_at
         .checked_add(staleness_limit)
-        .ok_or(ProtocolAdapterError::NonCanonicalView)?;
+        .ok_or(ProgramReadError::NonCanonicalView)?;
     Ok(ProgramBalanceRead {
         program: read.program().bytes(),
         lifecycle: read.lifecycle(),
@@ -127,7 +95,7 @@ pub(super) fn program_balances(
                 account: account.account_id,
                 asset: account.asset_id,
                 amount: account.balance,
-                frozen: account.frozen,
+                frozen: Some(account.frozen),
             })
             .collect(),
         freshness: ProgramBalanceFreshness {
@@ -138,38 +106,4 @@ pub(super) fn program_balances(
             valid_through,
         },
     })
-}
-
-/// Reads the production C Programs/account-state adapter and immediately
-/// projects its opaque verified result onto the agent surface.
-///
-/// # Errors
-///
-/// Propagates every adapter refusal from the underlying state read and the
-/// freshness-window projection unchanged.
-///
-/// # Safety
-///
-/// `context` must be the live read-only module context supplied by the node
-/// and remain valid for this synchronous call.
-#[allow(unsafe_code)]
-pub unsafe fn program_balances_from_protocol(
-    context: *mut core::ffi::c_void,
-    registry: &mut Registry,
-    program: ProgramId,
-    receipt_digest: [u8; 32],
-    now: u64,
-    staleness_limit: u64,
-) -> Result<ProgramBalanceRead, ProtocolAdapterError> {
-    let read = unsafe {
-        read_program_state(
-            context,
-            registry,
-            program,
-            receipt_digest,
-            now,
-            staleness_limit,
-        )
-    }?;
-    program_balances(&read.into_balances(), staleness_limit)
 }

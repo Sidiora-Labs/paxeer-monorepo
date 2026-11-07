@@ -1,5 +1,6 @@
 #include "lx_service_dispatch.h"
 
+#include "layerx/lx_escrow.h"
 #include "layerx/lxp_crypto.h"
 #include "layerx/lxp_kernel.h"
 
@@ -15,6 +16,31 @@ static const uint32_t activity_types[] = {
 };
 
 enum { LX_SERVICE_ORDINAL_COUNT = 13 };
+
+lxp_result lx_service_kernel_escrow_link_read(
+    void *user, const uint8_t escrow_id[32], lx_service_escrow_link *link)
+{
+    lxp_kernel *kernel = user;
+    lxp_module_ctx ctx;
+    lx_escrow_record record;
+    lxp_arena arena;
+    uint8_t bytes[4096];
+    lxp_result status;
+    if (kernel == NULL || escrow_id == NULL || link == NULL)
+        return LXP_ERR_NON_CANONICAL;
+    status = lxp_arena_init(&arena, bytes, sizeof(bytes));
+    if (status == LXP_OK)
+        status = lxp_module_ctx_init(&ctx, kernel, LXP_MODULE_ESCROW,
+                                     0U, kernel->epoch, 0U, UINT64_MAX, &arena, false);
+    if (status == LXP_OK) status = lx_escrow_lookup(&ctx, escrow_id, &record);
+    if (status != LXP_OK) return status;
+    (void)memcpy(link->holder, record.owner, 32U);
+    (void)memcpy(link->beneficiary, record.beneficiary, 32U);
+    (void)memcpy(link->asset_id, record.asset_id, 32U);
+    (void)memcpy(link->arbiter, record.arbiter, 32U);
+    link->state = (uint8_t)record.state;
+    return LXP_OK;
+}
 
 static lxp_result module_genesis(lxp_module_ctx *ctx, const uint8_t *manifest,
                                  size_t length)
@@ -316,10 +342,20 @@ static lxp_result execute_dispute_open(
     lxp_module_ctx *ctx, const lxp_authority_resolved *authority,
     const lx_service_dispute_open_payload *payload)
 {
+    const lx_service_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_service_dispute_request request;
+    lx_service_agreement agreement;
     lx_service_dispute dispute;
     lxp_result status;
+    if (runtime == NULL || runtime->read_escrow_link == NULL)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&request, 0, sizeof(request));
+    status = lx_service_agreement_lookup(ctx, payload->agreement_id,
+                                         &agreement);
+    if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
+    status = runtime->read_escrow_link(runtime->user, agreement.escrow_id,
+                                      &request.escrow_link);
+    if (status != LXP_OK) return status;
     request.authority = authority;
     (void)memcpy(request.dispute.dispute_id, payload->dispute_id, 32U);
     (void)memcpy(request.dispute.activity_id, lxp_ctx_activity_id(ctx), 32U);
@@ -340,10 +376,22 @@ static lxp_result execute_dispute_resolve(
     lxp_module_ctx *ctx, const lxp_authority_resolved *authority,
     const lx_service_dispute_resolve_payload *payload)
 {
+    const lx_service_runtime *runtime = lxp_ctx_module_runtime(ctx);
     lx_service_dispute_request request;
+    lx_service_agreement agreement;
     lx_service_dispute dispute;
     lxp_result status;
+    if (runtime == NULL || runtime->read_escrow_link == NULL)
+        return LXP_ERR_MODULE_DISABLED;
     (void)memset(&request, 0, sizeof(request));
+    status = lx_service_dispute_lookup(ctx, payload->dispute_id, &dispute);
+    if (status != LXP_OK) return LXP_ERR_AGREEMENT_STATE;
+    status = lx_service_agreement_lookup(ctx, dispute.agreement_id,
+                                         &agreement);
+    if (status != LXP_OK) return LXP_ERR_UNAUTHORIZED_DISPUTANT;
+    status = runtime->read_escrow_link(runtime->user, agreement.escrow_id,
+                                      &request.escrow_link);
+    if (status != LXP_OK) return status;
     request.authority = authority;
     (void)memcpy(request.dispute.dispute_id, payload->dispute_id, 32U);
     request.dispute.ruling = payload->ruling;

@@ -27,6 +27,7 @@ const FormFieldRadioContent = <
   itemProps,
   onValueChange,
   disabled,
+  rules,
   controllerProps,
   ...rest
 }: FormFieldRadioProps<FormFields, Name>) => {
@@ -34,6 +35,7 @@ const FormFieldRadioContent = <
   const { field, formState } = useController<FormFields, typeof name>({
     control,
     name,
+    rules,
     ...controllerProps,
   });
 

@@ -4,7 +4,6 @@ import base64
 import copy
 import importlib.util
 import json
-import struct
 import threading
 import unittest
 from collections.abc import Callable
@@ -14,7 +13,6 @@ from pathlib import Path
 from typing import Any
 
 from layerx_sdk import (
-    AuthorizedReceiptBatch,
     ReceiptFailureCode,
     ReceiptVerificationError,
     WebSearchAssetTerms,
@@ -31,10 +29,12 @@ from layerx_sdk import (
     web_content_bytes,
 )
 from layerx_sdk.x402 import receipt_protocol_version
+from layerx_sdk.verifier import ReceiptKey, verify_sequencer_receipt
+from payment_receipt_evidence import unhex
 from layerx_sdk.exchange import encode_abi_call
 from layerx_sdk.production import PlatformSdkError, SdkErrorCode
 from layerx_sdk.revert import RevertReasonError
-from layerx_sdk.web_search import _bound_payer_did, _derived, _payment_error
+from layerx_sdk.web_search import _bound_payer_did, _derived, _payer_account, _payment_error
 from layerx_sdk.x402_rpc import PaymentRpcError, _decode_rpc_response
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
@@ -73,8 +73,9 @@ BUYER = _fixture("gateway/buyer.json")
 CONFIG = _fixture("config/valid.json")
 ASSETS = CONFIG["assets"]
 TRUSTED_KEY = BUYER["sequencerPublicKey"]
-UNTRUSTED_KEY = CONFIG["gateway"]["sequencer_public_key"]
+UNTRUSTED_KEY = f"{int(TRUSTED_KEY[:2], 16) ^ 1:02x}" + TRUSTED_KEY[2:]
 PAYER_DID = BUYER["payerDid"]
+PAYER_ADDRESS = EXCHANGE[0]["request"]["headers"]["LAYERX-PAYER-ADDRESS"]
 CURRENCIES = ("SID", "PAX", "USDC", "USDL")
 SEARCH_PAID = EXCHANGE[1]
 
@@ -90,40 +91,23 @@ def _fetch_url(currency: str) -> str:
 USDC_PAID = _fetch_index("USDC")
 
 
-def _batch_facts(receipt: bytes, sequencer_public_key: str) -> AuthorizedReceiptBatch:
-    offset = 6
+# Receipt keys come from the producer's governed height range, never from
+# fields or offsets inside the receipt being verified.
+RECEIPT_KEY = ReceiptKey(
+    bytes.fromhex(BUYER["sequencerId"]), bytes.fromhex(TRUSTED_KEY),
+    BUYER["firstBatchNumber"], BUYER["lastBatchNumber"],
+)
+EXACT_RPC = _fixture("gateway/exact.json")
 
-    def bounded() -> bytes:
-        nonlocal offset
-        (length,) = struct.unpack_from(">I", receipt, offset)
-        offset += 4
-        value = receipt[offset : offset + length]
-        offset += length
-        return value
 
-    bounded()
-    offset += 8
-    previous = bounded()
-    resulting = bounded()
-    bounded()
-    offset += 4
-    (effects,) = struct.unpack_from(">I", receipt, offset)
-    offset += 4
-    for _ in range(effects):
-        offset += 8
-        bounded()
-        bounded()
-    offset += 16
-    batch_id = bounded()
-    offset += 11
-    asset = bounded()
-    return AuthorizedReceiptBatch(
-        batch_id=batch_id,
-        asset=asset,
-        previous_state_root=previous,
-        resulting_state_root=resulting,
-        sequencer_public_key=bytes.fromhex(sequencer_public_key),
+def _exact_evidence(currency: str) -> tuple[bytes, bytes]:
+    payment = EXACT_RPC["payments"][currency]
+    answer = next(
+        row["result"] for row in EXACT_RPC["endpoints"]["gateway"]["*"]
+        if row["method"] == "pax_sequencerReceipt"
+        and row["params"] == [payment["txHash"]]
     )
+    return unhex(answer["receipt"]), unhex(payment["rawTransaction"])
 
 
 def _header_value(value: object) -> str:
@@ -258,18 +242,16 @@ def _metered_sid() -> _Payer:
         preferences=(WebSearchPreference("SID", "metered"),),
         did=PAYER_DID,
         grant=lambda _: WebSearchMeteredPayment(
-            bytes.fromhex(payload["grant"]), payload["idempotencyKey"]
+            bytes.fromhex(BUYER["grants"]["SID"]), payload["idempotencyKey"]
         ),
     )
 
 
 def _exact_in(currency: str) -> _Payer:
-    payload = EXCHANGE[_fetch_index(currency)]["request"]["headers"][
-        "PAYMENT-SIGNATURE"
-    ]["payload"]
+    receipt, raw = _exact_evidence(currency)
     return _Payer(
         preferences=(WebSearchPreference(currency, "exact"),),
-        receipt=lambda _: WebSearchExactPayment(base64.b64decode(payload["receipt"])),
+        receipt=lambda _: WebSearchExactPayment(receipt, raw),
     )
 
 
@@ -294,44 +276,18 @@ def _client(
 ) -> WebSearchClient:
     return WebSearchClient(
         endpoint,
-        "eip155:1337",
+        "eip155:125",
         ASSETS["PAX"]["asset_id"],
         assets if assets is not None else _terms(),
         payer,
-        lambda receipt, _: _batch_facts(receipt, key),
-        LayerXSignatureVerifier(),
-        protocol_version=3,
+        (ReceiptKey(RECEIPT_KEY.key_id, bytes.fromhex(key),
+                    RECEIPT_KEY.first_height, RECEIPT_KEY.last_height),),
         now=lambda: 1_000_000_000,
     )
 
 
 def _unbounded_client(endpoint: str, payer: _Payer) -> WebSearchClient:
-    return WebSearchClient(
-        endpoint,
-        "eip155:1337",
-        ASSETS["PAX"]["asset_id"],
-        _terms(),
-        payer,
-        lambda receipt, _: _batch_facts(receipt, TRUSTED_KEY),
-        LayerXSignatureVerifier(),
-        now=lambda: 1_000_000_000,
-    )
-
-
-def _bounded_client(
-    endpoint: str, payer: _Payer, protocol_version: Any
-) -> WebSearchClient:
-    return WebSearchClient(
-        endpoint,
-        "eip155:1337",
-        ASSETS["PAX"]["asset_id"],
-        _terms(),
-        payer,
-        lambda receipt, _: _batch_facts(receipt, TRUSTED_KEY),
-        LayerXSignatureVerifier(),
-        protocol_version=protocol_version,
-        now=lambda: 1_000_000_000,
-    )
+    return _client(endpoint, payer)
 
 
 class WebSearchClientTest(unittest.TestCase):
@@ -368,14 +324,20 @@ class WebSearchClientTest(unittest.TestCase):
             asset = ASSETS[currency]["asset_id"]
             canonical = bytes.fromhex(BUYER["grants"][currency])
             grant = decode_payer_grant(canonical)
-            name, account = _derived(PAYER_DID, asset, native, "offer-payer-mismatch")
+            name, account = _payer_account(PAYER_ADDRESS, asset, native)
+            owner_did = "did:layerx:" + PAYER_ADDRESS[2:].zfill(64)
             expected_name = (
-                f"agent:{PAYER_DID}:main"
+                f"agent:{owner_did}:main"
                 if currency == "PAX"
-                else f"agent:{PAYER_DID}:asset:{asset}"
+                else f"agent:{owner_did}:asset:{asset}"
             )
             self.assertEqual(name, expected_name)
             self.assertEqual(account, grant["from"])
+            self.assertEqual(grant["public_key"], PAYER_DID.removeprefix("did:layerx:"))
+            self.assertEqual(
+                _derived(owner_did, asset, native, "offer-payer-mismatch"),
+                (name, account),
+            )
             offers = EXCHANGE[_fetch_index(currency) - 1]["response"]["headers"][
                 "PAYMENT-REQUIRED"
             ]["accepts"]
@@ -539,7 +501,7 @@ class WebSearchClientTest(unittest.TestCase):
                     fetched.settlement.currency,
                     fetched.settlement.network,
                 ),
-                ("exact", currency, "eip155:1337"),
+                ("exact", currency, "eip155:125"),
             )
             self.assertEqual(fetched.settlement.payer, settlement["payer"])
             self.assertEqual(fetched.settlement.transaction, settlement["transaction"])
@@ -604,7 +566,7 @@ class WebSearchClientTest(unittest.TestCase):
                 self.assertEqual(sidecar.served, [0, 1])
 
     def test_refused_settlements(self) -> None:
-        other = BUYER["exact"]["SID"]
+        other = EXCHANGE[_fetch_index("SID")]["response"]["headers"]["PAYMENT-RESPONSE"]["extensions"]["layerx"]
 
         def swap(settlement: dict) -> None:
             settlement["extensions"] = {
@@ -657,24 +619,14 @@ class WebSearchClientTest(unittest.TestCase):
                 "missing-payment-response",
             )
 
-    def test_recorded_receipts_carry_protocol_version_three(self) -> None:
-        receipts = [
-            base64.b64decode(
-                EXCHANGE[_fetch_index(currency)]["request"]["headers"][
-                    "PAYMENT-SIGNATURE"
-                ]["payload"]["receipt"]
-            )
-            for currency in CURRENCIES
-        ]
-        receipts.append(
-            base64.b64decode(
-                SEARCH_PAID["response"]["headers"]["PAYMENT-RESPONSE"]["extensions"][
-                    "layerx"
-                ]["receipt"]
-            )
-        )
-        for receipt in receipts:
-            self.assertEqual((receipt[0:2], receipt[4:6]), (b"\x00\x03", b"\x00\x03"))
+    def test_recorded_receipts_carry_sequencer_protocol_version_two(self) -> None:
+        for currency in CURRENCIES:
+            receipt, raw = _exact_evidence(currency)
+            self.assertEqual((receipt[0:2], receipt[4:6]), (b"\x00\x02", b"\x00\x02"))
+            verified = verify_sequencer_receipt(receipt, raw, (RECEIPT_KEY,))
+            self.assertEqual(verified.height, 9)
+            self.assertEqual(verified.receipt.activity_id.hex(),
+                             EXACT_RPC["payments"][currency]["txHash"][2:])
 
     def test_unconfigured_client_verifies_by_the_carried_version(self) -> None:
         for position, currency in enumerate(CURRENCIES):
@@ -705,56 +657,43 @@ class WebSearchClientTest(unittest.TestCase):
         )
         with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
             self._refused(
-                lambda: WebSearchClient(
-                    sidecar.endpoint,
-                    "eip155:1337",
-                    ASSETS["PAX"]["asset_id"],
-                    _terms(),
-                    _exact_usdc(),
-                    lambda receipt, _: _batch_facts(receipt, UNTRUSTED_KEY),
-                    LayerXSignatureVerifier(),
-                    now=lambda: 1_000_000_000,
-                ).fetch(_fetch_url("USDC")),
+                lambda: _client(sidecar.endpoint, _exact_usdc(), UNTRUSTED_KEY).fetch(
+                    _fetch_url("USDC")
+                ),
                 "receipt-unverified",
             )
             self.assertEqual(sidecar.served, [USDC_PAID - 1])
 
-    def test_configured_version_two_refuses_version_three_receipts(self) -> None:
-        with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
-            self._refused(
-                lambda: _bounded_client(sidecar.endpoint, _exact_usdc(), 2).fetch(
-                    _fetch_url("USDC")
-                ),
-                "receipt-protocol-version",
-            )
-            self.assertEqual(sidecar.served, [USDC_PAID - 1])
-        with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
-            self._refused(
-                lambda: _bounded_client(sidecar.endpoint, _metered_sid(), 2).search(
-                    "paxeer"
-                ),
-                "receipt-protocol-version",
-            )
-            self.assertEqual(sidecar.served, [0, 1])
-        recorded = base64.b64decode(
-            EXCHANGE[USDC_PAID]["response"]["headers"]["PAYMENT-RESPONSE"][
-                "extensions"
-            ]["layerx"]["receipt"]
-        )
-        self.assertEqual(receipt_protocol_version(recorded), 3)
+    def test_version_three_layouts_and_unsupported_versions_are_refused(self) -> None:
+        receipt, raw = _exact_evidence("USDC")
+        for version in (1, 3, 4):
+            changed = (version.to_bytes(2, "big") + receipt[2:4]
+                       + version.to_bytes(2, "big") + receipt[6:])
+            payer = _exact_usdc()
+            payer.receipt = lambda _, value=changed: WebSearchExactPayment(value, raw)
+            with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:
+                self._refused(
+                    lambda: _client(sidecar.endpoint, payer).fetch(_fetch_url("USDC")),
+                    "receipt-unverified",
+                )
+                self.assertEqual(sidecar.served, [USDC_PAID - 1])
+                self.assertEqual(sidecar.unrecorded, [])
+        self.assertEqual(receipt_protocol_version(receipt), 2)
         with self.assertRaises(ReceiptVerificationError) as raised:
-            receipt_protocol_version(recorded[:5])
+            receipt_protocol_version(receipt[:5])
         self.assertIs(raised.exception.check, ReceiptFailureCode.DECODE)
-        with self.assertRaises(ReceiptVerificationError) as raised:
-            receipt_protocol_version(
-                b"\x00\x04" + recorded[2:4] + b"\x00\x04" + recorded[6:]
-            )
-        self.assertIs(raised.exception.check, ReceiptFailureCode.PROTOCOL_VERSION)
-        for version in (1, 4, True, "3"):
-            self._refused(
-                lambda: _bounded_client("http://127.0.0.1:1", _exact_usdc(), version),
-                "invalid-protocol-version",
-            )
+        for version in (1, 4):
+            with self.assertRaises(ReceiptVerificationError) as raised:
+                receipt_protocol_version(version.to_bytes(2, "big") + receipt[2:4]
+                                         + version.to_bytes(2, "big") + receipt[6:])
+            self.assertIs(raised.exception.check, ReceiptFailureCode.RECEIPT_VERSION)
+        # The retired protocol-version option must not re-enable old authority.
+        for version in (1, 2, 3, 4, True, "3"):
+            with self.assertRaisesRegex(TypeError, "protocol_version"):
+                WebSearchClient(
+                    "http://127.0.0.1:1", "eip155:125", ASSETS["PAX"]["asset_id"],
+                    _terms(), _exact_usdc(), (RECEIPT_KEY,), protocol_version=version,
+                )
 
     def test_untrusted_sequencer_receipt_is_never_sent(self) -> None:
         with _Replay(copy.deepcopy(EXCHANGE)) as sidecar:

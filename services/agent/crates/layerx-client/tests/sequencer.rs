@@ -3,11 +3,12 @@ use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
 use std::thread::JoinHandle;
 
+use layerx_crypto::evm_transaction::Eip1559Call;
+
 use layerx_client::sequencer::{
     CallRequest, ExecutedReceipt, ReceiptKeyEntry, RpcRefusal, SequencerBlock, SequencerEndpoint,
     SequencerError, SequencerLog, SequencerReceipt,
 };
-use layerx_crypto::evm_transaction::Eip1559Call;
 use serde_json::{json, Value};
 
 trait Must<T> {
@@ -27,7 +28,7 @@ fn hex(bytes: &[u8]) -> String {
     })
 }
 
-const TX_HASH: &str = "0x8f1c4b2a9e7d3c5b1a0f2e4d6c8b0a1928374655647382910a1b2c3d4e5f6071";
+const TX_HASH: &str = "0xa52f2455a87ccb3b84a90ae4e3c9153e7122b66cd69cb080ae9ecd9732619277";
 
 fn tx_hash() -> [u8; 32] {
     decode32(TX_HASH)
@@ -96,64 +97,120 @@ fn endpoint(url: &str) -> SequencerEndpoint {
     SequencerEndpoint::new(url, &[]).must()
 }
 
+#[test]
+fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+    assert_eq!(
+        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert_eq!(
+        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
+    assert_eq!(
+        SequencerEndpoint::new("http://router.railway.internal:9443", &[]).map(|_| ()),
+        Err(SequencerError::Endpoint)
+    );
+}
+
+fn producer_vectors() -> Value {
+    let vectors: Value = serde_json::from_str(include_str!(
+        "../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json"
+    ))
+    .must();
+    assert_eq!(
+        vectors["provenance"]["generator"],
+        "rpc/sequencer_receipt_vectors_test.go"
+    );
+    vectors
+}
+
 fn receipted_members() -> String {
-    format!(
-        r#""rung":"receipted","txHash":"{TX_HASH}","nonce":"0x7","seq":"0x2a","height":"0x3e8","index":"0x3","timestamp":"0x67a1b2c3","status":"0x1","returnData":"0x0000000000000000000000000000000000000000000000000000000000000001","logs":[{{"address":"0x000000000000000000000000000000000000101a","topics":["0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef","0x00000000000000000000000011223344556677889900aabbccddeeff00112233"],"data":"0x0de0b6b3a7640000","logIndex":"0x0"}},{{"address":"0x000000000000000000000000000000000000101A","topics":[],"data":"0x","logIndex":"0x1"}}],"gasUsed":"0x5208","cumulativeGasUsed":"0xa410","effectiveGasPrice":"0x3b9aca00","feeDenom":"upax","feeAmount":"0x1312d00000000","sponsor":"0x0000000000000000000000000000000000000000","from":"0x11223344556677889900aabbccddeeff00112233","to":"0x000000000000000000000000000000000000101a","contractAddress":"0x0000000000000000000000000000000000000000","vmError":"","keyId":"0x0101010101010101010101010101010101010101010101010101010101010101","receipt":"0x00025201000200aabbccdd""#
+    let view = producer_vectors()["cases"][0]["receiptJson"].to_string();
+    view[1..view.len() - 1].to_owned()
+}
+
+fn vector_text(value: &Value) -> &str {
+    value.as_str().unwrap_or_else(|| panic!("string: {value}"))
+}
+
+fn vector_bytes(value: &Value) -> Vec<u8> {
+    unhex(
+        vector_text(value)
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("hex: {value}")),
     )
 }
 
-fn expected_receipt() -> ExecutedReceipt {
-    let mut amount = [0_u8; 32];
-    amount[25..].copy_from_slice(&[0x01, 0x31, 0x2d, 0x00, 0x00, 0x00, 0x00]);
-    let mut token = [0_u8; 20];
-    token[18] = 0x10;
-    token[19] = 0x1a;
-    let mut sender_topic = [0_u8; 32];
-    sender_topic[12..].copy_from_slice(&from());
+fn vector_quantity(value: &Value) -> u64 {
+    u64::from_str_radix(
+        vector_text(value)
+            .strip_prefix("0x")
+            .unwrap_or_else(|| panic!("quantity: {value}")),
+        16,
+    )
+    .must()
+}
+
+fn expected_receipt(case: &Value) -> ExecutedReceipt {
+    let view = &case["receiptJson"];
+    let fee = vector_text(&view["feeAmount"])
+        .strip_prefix("0x")
+        .unwrap_or_else(|| panic!("fee"));
+    let fee_amount = unhex(&format!("{fee:0>64}")).try_into().must();
+    assert_eq!(view["receipt"], case["signedReceipt"]);
     ExecutedReceipt {
-        tx_hash: tx_hash(),
-        nonce: 7,
-        seq: 42,
-        height: 1000,
-        index: 3,
-        timestamp: 0x67a1_b2c3,
-        success: true,
-        return_data: {
-            let mut word = vec![0_u8; 32];
-            word[31] = 1;
-            word
+        tx_hash: vector_bytes(&view["txHash"]).try_into().must(),
+        nonce: vector_quantity(&view["nonce"]),
+        seq: vector_quantity(&view["seq"]),
+        height: vector_quantity(&view["height"]),
+        index: vector_quantity(&view["index"]),
+        timestamp: vector_quantity(&view["timestamp"]),
+        success: match vector_quantity(&view["status"]) {
+            0 => false,
+            1 => true,
+            other => panic!("status: {other}"),
         },
-        logs: vec![
-            SequencerLog {
-                address: token,
-                topics: vec![
-                    decode32("0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef"),
-                    sender_topic,
-                ],
-                data: vec![0x0d, 0xe0, 0xb6, 0xb3, 0xa7, 0x64, 0x00, 0x00],
-                log_index: 0,
-            },
-            SequencerLog {
-                address: token,
-                topics: vec![],
-                data: vec![],
-                log_index: 1,
-            },
-        ],
-        gas_used: 21_000,
-        cumulative_gas_used: 42_000,
-        effective_gas_price: 1_000_000_000,
-        fee_denom: "upax".to_owned(),
-        fee_amount: amount,
-        sponsor: [0; 20],
-        from: from(),
-        to: token,
-        contract_address: [0; 20],
-        vm_error: String::new(),
-        key_id: [1; 32],
-        receipt: vec![
-            0x00, 0x02, 0x52, 0x01, 0x00, 0x02, 0x00, 0xaa, 0xbb, 0xcc, 0xdd,
-        ],
+        return_data: vector_bytes(&view["returnData"]),
+        logs: view["logs"]
+            .as_array()
+            .unwrap_or_else(|| panic!("logs"))
+            .iter()
+            .map(|log| SequencerLog {
+                address: vector_bytes(&log["address"]).try_into().must(),
+                topics: log["topics"]
+                    .as_array()
+                    .unwrap_or_else(|| panic!("topics"))
+                    .iter()
+                    .map(|topic| vector_bytes(topic).try_into().must())
+                    .collect(),
+                data: vector_bytes(&log["data"]),
+                log_index: vector_quantity(&log["logIndex"]),
+            })
+            .collect(),
+        gas_used: vector_quantity(&view["gasUsed"]),
+        cumulative_gas_used: vector_quantity(&view["cumulativeGasUsed"]),
+        effective_gas_price: vector_quantity(&view["effectiveGasPrice"]),
+        fee_denom: vector_text(&view["feeDenom"]).to_owned(),
+        payment_denom: vector_text(&view["paymentDenom"]).to_owned(),
+        fee_amount,
+        sponsor: vector_bytes(&view["sponsor"]).try_into().must(),
+        from: vector_bytes(&view["from"]).try_into().must(),
+        to: vector_bytes(&view["to"]).try_into().must(),
+        contract_address: vector_bytes(&view["contractAddress"]).try_into().must(),
+        vm_error: vector_text(&view["vmError"]).to_owned(),
+        key_id: vector_bytes(&view["keyId"]).try_into().must(),
+        receipt: vector_bytes(&case["signedReceipt"]),
+        signing_key: vector_bytes(&view["signingKey"]).try_into().must(),
     }
 }
 
@@ -184,12 +241,14 @@ fn receipted_and_committed_receipts_decode_every_field() {
     let endpoint = endpoint(&url);
     assert_eq!(
         endpoint.sequencer_receipt(&tx_hash()),
-        Ok(Some(SequencerReceipt::Receipted(expected_receipt())))
+        Ok(Some(SequencerReceipt::Receipted(expected_receipt(
+            &producer_vectors()["cases"][0]
+        ))))
     );
     assert_eq!(
         endpoint.sequencer_receipt(&tx_hash()),
         Ok(Some(SequencerReceipt::Committed {
-            receipt: expected_receipt(),
+            receipt: expected_receipt(&producer_vectors()["cases"][0]),
             block_number: 1001,
             block_hash: [0xab; 32],
         }))
@@ -224,7 +283,7 @@ fn submitted_and_null_rungs_decode_and_other_shapes_are_refused() {
             "pax_sequencerReceipt",
             Some(format!(
                 r#""result":{{{}}}"#,
-                receipted_members().replace("\"0x7\"", "\"0x07\"")
+                receipted_members().replace("\"nonce\":\"0x0\"", "\"nonce\":\"0x00\"")
             )),
         ),
         (
@@ -276,40 +335,41 @@ fn public_key(seed: u8) -> [u8; 32] {
 
 #[test]
 fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
-    let entry = |id: u8, key: [u8; 32], first: &str, last: &str| {
+    let entry = |id: u8, key: [u8; 32], first: u64, last: u64| {
         let key = hex(&key);
         format!(
-            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":"{first}","lastHeight":"{last}"}}"#,
+            r#"{{"keyId":"0x{}","publicKey":"0x{key}","firstHeight":{first},"lastHeight":{last}}}"#,
             format!("{id:02x}").repeat(32)
         )
     };
     let listed = format!(
-        r#""result":[{},{}]"#,
-        entry(1, public_key(7), "0x1", "0x3e7"),
-        entry(2, public_key(8), "0x3e8", "0xffffffffffffffff")
+        r#""result":{{"keys":[{},{}]}}"#,
+        entry(1, public_key(7), 1, 999),
+        entry(2, public_key(8), 1000, u64::MAX)
     );
     let (url, server) = serve(vec![
+        ("px_getReceiptKeys", Some(listed.clone())),
         ("px_getReceiptKeys", Some(listed)),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{},{}]"#,
-                entry(1, public_key(7), "0x1", "0x3e7"),
-                entry(1, public_key(8), "0x3e8", "0x7d0")
+                r#""result":{{"keys":[{},{}]}}"#,
+                entry(1, public_key(7), 1, 999),
+                entry(1, public_key(8), 1000, 2000)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(1, public_key(7), "0x3e8", "0x3e7")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(1, public_key(7), 1000, 999)
             )),
         ),
         (
             "px_getReceiptKeys",
             Some(format!(
-                r#""result":[{}]"#,
-                entry(0, public_key(7), "0x1", "0x2")
+                r#""result":{{"keys":[{}]}}"#,
+                entry(0, public_key(7), 1, 2)
             )),
         ),
     ]);
@@ -331,6 +391,23 @@ fn receipt_keys_decode_height_ranges_and_refuse_invalid_entries() {
             },
         ])
     );
+    assert_eq!(
+        endpoint.receipt_keys(),
+        Ok(vec![
+            ReceiptKeyEntry {
+                key_id: [1; 32],
+                public_key: public_key(7),
+                first_height: 1,
+                last_height: 999
+            },
+            ReceiptKeyEntry {
+                key_id: [2; 32],
+                public_key: public_key(8),
+                first_height: 1000,
+                last_height: u64::MAX
+            },
+        ])
+    );
     for _ in 0..3 {
         assert_eq!(endpoint.receipt_keys(), Err(SequencerError::Malformed));
     }
@@ -348,6 +425,43 @@ fn revert_data(reason: &str) -> String {
     data.extend_from_slice(reason.as_bytes());
     data.resize(data.len() + (32 - reason.len() % 32) % 32, 0);
     hex(&data)
+}
+
+#[test]
+fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
+    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
+    let (url, server) = serve(vec![
+        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
+        (
+            "eth_call",
+            Some(format!(
+                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
+            )),
+        ),
+    ]);
+    let endpoint = endpoint(&url);
+    let mut to = [0_u8; 20];
+    to[18] = 0x10;
+    to[19] = 0x04;
+    assert_eq!(
+        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
+        Ok(vec![0x00, 0xff, 0x10])
+    );
+    assert_eq!(
+        endpoint.call_at(0, &to, &[]),
+        Err(SequencerError::Rpc(RpcRefusal {
+            code: 3,
+            message: "execution reverted".to_owned(),
+            data: Some(Value::String(format!("0x{reason}"))),
+        }))
+    );
+    assert_eq!(
+        server.join().must(),
+        vec![
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
+            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
+        ]
+    );
 }
 
 #[test]
@@ -410,6 +524,64 @@ fn bound_address_reads_the_addr_precompile_and_decodes_the_unbound_revert() {
 }
 
 #[test]
+fn chain_id_reads_eth_chain_id_and_refuses_a_non_quantity() {
+    let results = [
+        json!("0x7d"),
+        json!("0xffffffffffffffff"),
+        json!(125),
+        json!("125"),
+        json!("0x"),
+        json!("0x07d"),
+        json!("0x10000000000000000"),
+    ];
+    let (url, server) = serve(
+        results
+            .iter()
+            .map(|result| ("eth_chainId", Some(format!(r#""result":{result}"#))))
+            .collect(),
+    );
+    let endpoint = endpoint(&url);
+    assert_eq!(endpoint.chain_id(), Ok(125));
+    assert_eq!(endpoint.chain_id(), Ok(u64::MAX));
+    for _ in &results[2..] {
+        assert_eq!(endpoint.chain_id(), Err(SequencerError::Malformed));
+    }
+    assert_eq!(server.join().must(), vec![json!([]); results.len()]);
+}
+
+#[test]
+fn balance_reads_the_pending_tag_and_decodes_a_256_bit_quantity() {
+    let (url, server) = serve(vec![
+        (
+            "eth_getBalance",
+            Some(
+                r#""result":"0xf123456789abcdef00112233445566778899aabbccddeefffedcba9876543210""#
+                    .to_owned(),
+            ),
+        ),
+        ("eth_getBalance", Some(r#""result":"0x123""#.to_owned())),
+        ("eth_getBalance", Some(r#""result":"0x0""#.to_owned())),
+    ]);
+    let endpoint = endpoint(&url);
+    assert_eq!(
+        endpoint.balance(&from()),
+        Ok([
+            0xf1, 0x23, 0x45, 0x67, 0x89, 0xab, 0xcd, 0xef, 0x00, 0x11, 0x22, 0x33, 0x44, 0x55,
+            0x66, 0x77, 0x88, 0x99, 0xaa, 0xbb, 0xcc, 0xdd, 0xee, 0xff, 0xfe, 0xdc, 0xba, 0x98,
+            0x76, 0x54, 0x32, 0x10,
+        ])
+    );
+    let mut small_balance = [0_u8; 32];
+    small_balance[30..].copy_from_slice(&[0x01, 0x23]);
+    assert_eq!(endpoint.balance(&from()), Ok(small_balance));
+    assert_eq!(endpoint.balance(&from()), Ok([0; 32]));
+    assert_eq!(
+        server.join().must(),
+        vec![json!(["0x11223344556677889900aabbccddeeff00112233", "pending"]); 3]
+    );
+}
+
+#[test]
 fn pending_reads_and_send_use_the_pending_tag_and_exact_params() {
     let (url, server) = serve(vec![
         (
@@ -463,6 +635,7 @@ fn pending_reads_and_send_use_the_pending_tag_and_exact_params() {
     assert_eq!(params[3], json!(["0x02f86b"]));
 }
 
+// JSON-RPC refusal coverage remains after the LNI module is removed.
 #[test]
 fn refusal_keeps_code_message_and_data() {
     let (url, server) = serve(vec![(
@@ -541,30 +714,103 @@ fn unusable_send_answer_is_unavailable() {
 }
 
 #[test]
-fn endpoint_refuses_plain_remote_urls_and_unpinned_https() {
+fn railway_private_network_opt_in_accepts_only_strict_private_urls() {
+    for url in [
+        "http://router.railway.internal:9443",
+        "http://router-1.railway.internal:1",
+        "http://1.railway.internal:65535",
+    ] {
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).is_ok(),
+            "{url}"
+        );
+    }
+    let longest = format!("http://{}.railway.internal:9443", "a".repeat(63));
+    assert!(SequencerEndpoint::new_with_railway_private_network(&longest, &[]).is_ok());
+    for url in [
+        "http://router.example:9443",
+        "http://192.168.1.1:9443",
+        "http://.railway.internal:9443",
+        "http://-router.railway.internal:9443",
+        "http://router-.railway.internal:9443",
+        "http://Router.railway.internal:9443",
+        "http://router_name.railway.internal:9443",
+        "http://sub.router.railway.internal:9443",
+        "http://router.railway.internal.example:9443",
+        "http://router.railway.internal.:9443",
+        "http://user@router.railway.internal:9443",
+        "http://router.railway.internal",
+        "http://router.railway.internal:",
+        "http://router.railway.internal:0",
+        "http://router.railway.internal:65536",
+        "http://router.railway.internal:000001",
+        "http://router.railway.internal:+9443",
+        "http://router.railway.internal:9443/",
+        "http://router.railway.internal:9443/rpc",
+        "http://router.railway.internal:9443?query=1",
+        "http://router.railway.internal:9443#fragment",
+        "ftp://router.railway.internal:9443",
+    ] {
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+    }
+    let too_long = format!("http://{}.railway.internal:9443", "a".repeat(64));
     assert_eq!(
-        SequencerEndpoint::new("http://router.example/", &[]).map(|_| ()),
+        SequencerEndpoint::new_with_railway_private_network(&too_long, &[]).map(|_| ()),
         Err(SequencerError::Endpoint)
     );
+}
+
+#[test]
+fn railway_private_network_opt_in_keeps_https_pinning_and_loopback() {
+    for url in [
+        "https://router.example/",
+        "https://router.railway.internal:9443",
+    ] {
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+        assert_eq!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[&[]]).map(|_| ()),
+            Err(SequencerError::Endpoint),
+            "{url}"
+        );
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[&[0x30, 0x82]]).is_ok(),
+            "{url}"
+        );
+    }
+    for url in [
+        "http://127.0.0.1:9443/",
+        "http://localhost:9443/",
+        "http://[::1]:9443/",
+    ] {
+        assert!(SequencerEndpoint::new(url, &[]).is_ok(), "{url}");
+        assert!(
+            SequencerEndpoint::new_with_railway_private_network(url, &[]).is_ok(),
+            "{url}"
+        );
+    }
     assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[]).map(|_| ()),
+        SequencerEndpoint::new_with_railway_private_network(
+            "http://router.railway.internal:9443",
+            &[&[]],
+        )
+        .map(|_| ()),
         Err(SequencerError::Endpoint)
     );
-    assert_eq!(
-        SequencerEndpoint::new("https://router.example/", &[&[]]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert_eq!(
-        SequencerEndpoint::new("ftp://127.0.0.1/", &[]).map(|_| ()),
-        Err(SequencerError::Endpoint)
-    );
-    assert!(SequencerEndpoint::new("https://router.example/", &[&[0x30, 0x82]]).is_ok());
 }
 
 const BLOCK_HASH: &str = "0x4b1f2c9d8e7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b7c6d5e4f3a2b1c";
 const PARENT_HASH: &str = "0x9a8b7c6d5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7e6f5a4b3c2d1e0f9a8b";
 const TRANSACTIONS_ROOT: &str =
     "0x1c2d3e4f5a6b7c8d9e0f1a2b3c4d5e6f7a8b9c0d1e2f3a4b5c6d7e8f9a0b1c2d";
+const RECEIPTS_ROOT: &str = "0x4444444444444444444444444444444444444444444444444444444444444444";
 
 /// The EIP-155 example: nonce 9, 20 gwei, 21000 gas, 1 ether to 0x3535..35
 /// on chain 1, signed with the key 0x4646..46.
@@ -632,7 +878,7 @@ fn dynamic_fee_transaction(index: u64) -> (Vec<u8>, String) {
 
 fn block(transactions: &str) -> String {
     format!(
-        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
+        r#""result":{{"number":"0x3e8","hash":"{BLOCK_HASH}","parentHash":"{PARENT_HASH}","timestamp":"0x67a1b2c3","transactionsRoot":"{TRANSACTIONS_ROOT}","receiptsRoot":"{RECEIPTS_ROOT}","gasLimit":"0x1c9c380","gasUsed":"0x1a9f8","miner":"0x0000000000000000000000000000000000000000","transactions":[{transactions}]}}"#
     )
 }
 
@@ -651,6 +897,7 @@ fn full_block_decodes_raw_transactions_in_index_order() {
             parent_hash: decode32(PARENT_HASH),
             timestamp: 0x67a1_b2c3,
             transactions_root: decode32(TRANSACTIONS_ROOT),
+            receipts_root: decode32(RECEIPTS_ROOT),
             transactions: vec![unhex(LEGACY_RAW), dynamic_raw],
         }))
     );
@@ -715,38 +962,231 @@ fn closed_connection_during_block_read_is_unavailable() {
 }
 
 #[test]
-fn call_at_sends_the_explicit_height_and_keeps_a_revert_at_that_height() {
-    let reason = revert_data("LXP_ADDR_DID_NOT_BOUND: no binding at this height");
-    let (url, server) = serve(vec![
-        ("eth_call", Some(r#""result":"0x00ff10""#.to_owned())),
-        (
-            "eth_call",
-            Some(format!(
-                r#""error":{{"code":3,"message":"execution reverted","data":"0x{reason}"}}"#
-            )),
+fn producer_receipts_refuse_missing_payment_denom_invalid_asset_and_truncated_bytes() {
+    let vectors = producer_vectors();
+    for case in vectors["cases"]
+        .as_array()
+        .unwrap_or_else(|| panic!("cases"))
+    {
+        if case["expected"].get("refusedAt").is_some() {
+            assert_producer_refusal(case);
+            continue;
+        }
+        assert_eq!(case["expected"]["verifier"], "accepts");
+        let view = case["receiptJson"].clone();
+        let hash = decode32(view["txHash"].as_str().unwrap_or_else(|| panic!("tx hash")));
+        let mut missing = view.clone();
+        assert!(missing
+            .as_object_mut()
+            .unwrap_or_else(|| panic!("object"))
+            .remove("paymentDenom")
+            .is_some());
+        let mut invalid_asset = view.clone();
+        invalid_asset["paymentDenom"] = json!("foreign-asset");
+        let mut truncated = view.clone();
+        let bytes = view["receipt"]
+            .as_str()
+            .unwrap_or_else(|| panic!("receipt"));
+        truncated["receipt"] = json!(&bytes[..bytes.len() - 2]);
+        let (url, server) = serve(vec![
+            ("pax_sequencerReceipt", Some(format!("\"result\":{view}"))),
+            (
+                "pax_sequencerReceipt",
+                Some(format!("\"result\":{missing}")),
+            ),
+            (
+                "pax_sequencerReceipt",
+                Some(format!("\"result\":{invalid_asset}")),
+            ),
+            (
+                "pax_sequencerReceipt",
+                Some(format!("\"result\":{truncated}")),
+            ),
+        ]);
+        let sequencer = endpoint(&url);
+        let Some(SequencerReceipt::Receipted(execution)) =
+            sequencer.sequencer_receipt(&hash).must()
+        else {
+            panic!("producer receipted result")
+        };
+        assert_eq!(execution, expected_receipt(case), "{}", case["id"]);
+        assert_eq!(
+            execution.receipt,
+            unhex(
+                case["signedReceipt"]
+                    .as_str()
+                    .unwrap_or_else(|| panic!("signed"))
+                    .trim_start_matches("0x")
+            )
+        );
+        let keys =
+            layerx_client::sequencer::decode_receipt_keys(&json!({"keys":[case["pinnedKey"]]}))
+                .must();
+        let authorizations: Vec<_> = keys
+            .iter()
+            .map(|key| {
+                layerx_proof::inclusion::SequencerAuthorization::new(
+                    key.key_id,
+                    key.public_key,
+                    key.first_height,
+                    key.last_height,
+                )
+            })
+            .collect();
+        let signed = layerx_proof::receipt::verify_sequencer_signature(
+            &execution.receipt,
+            authorizations.as_slice(),
+        )
+        .must();
+        assert_eq!(
+            signed
+                .protocol()
+                .unwrap_or_else(|| panic!("protocol"))
+                .activity_id(),
+            hash
+        );
+        // The authenticated path reconciles every execution field and every log with the Go receipt.
+        let (auth_url, auth_server) = serve(vec![
+            ("pax_sequencerReceipt", Some(format!("\"result\":{view}"))),
+            (
+                "eth_getTransactionReceipt",
+                Some("\"result\":null".to_owned()),
+            ),
+        ]);
+        let authenticated = layerx_client::rpc::receipt::lookup_authenticated(
+            &endpoint(&auth_url),
+            hash,
+            layerx_client::rpc::receipt::LookupContext {
+                receipt_keys: &keys,
+            },
+        )
+        .must();
+        let layerx_client::rpc::receipt::Lookup::Verified(authenticated) = authenticated else {
+            panic!("authenticated receipt")
+        };
+        assert_eq!(authenticated.execution(), &execution);
+        assert_eq!(
+            authenticated.rung(),
+            layerx_client::rpc::receipt::Rung::Receipted
+        );
+        assert_eq!(auth_server.join().must(), vec![json!([view["txHash"]]); 2]);
+        for label in ["missing paymentDenom", "invalid asset", "truncated receipt"] {
+            assert_eq!(
+                sequencer.sequencer_receipt(&hash),
+                Err(SequencerError::Malformed),
+                "{}: {label}",
+                case["id"]
+            );
+        }
+        assert_eq!(server.join().must(), vec![json!([view["txHash"]]); 4]);
+    }
+}
+
+fn assert_producer_refusal(case: &Value) {
+    use layerx_client::rpc::receipt::{lookup_authenticated, LookupContext, ReceiptError};
+    use layerx_proof::receipt::{
+        verify_outcome, verify_sequencer_signature, AuthorizedBatch, ReceiptCheck,
+    };
+    use sha2::{Digest as _, Sha256};
+
+    let view = &case["receiptJson"];
+    let bytes = vector_bytes(&case["signedReceipt"]);
+    assert_eq!(vector_bytes(&view["receipt"]), bytes);
+    let keys =
+        layerx_client::sequencer::decode_receipt_keys(&json!({"keys":[case["pinnedKey"]]})).must();
+    let authorizations: Vec<_> = keys
+        .iter()
+        .map(|key| {
+            layerx_proof::inclusion::SequencerAuthorization::new(
+                key.key_id,
+                key.public_key,
+                key.first_height,
+                key.last_height,
+            )
+        })
+        .collect();
+    let signed = verify_sequencer_signature(&bytes, authorizations.as_slice());
+    let stage = vector_text(&case["expected"]["refusedAt"]);
+    match vector_text(&case["expected"]["verifier"]) {
+        "Decode" => assert_eq!(signed.as_ref().unwrap_err().check, ReceiptCheck::Decode),
+        "SequencerSignature" => assert_eq!(
+            signed.as_ref().unwrap_err().check,
+            ReceiptCheck::SequencerSignature
         ),
-    ]);
-    let endpoint = endpoint(&url);
-    let mut to = [0_u8; 20];
-    to[18] = 0x10;
-    to[19] = 0x04;
-    assert_eq!(
-        endpoint.call_at(1000, &to, &[0xc4, 0x13, 0xba, 0xd3]),
-        Ok(vec![0x00, 0xff, 0x10])
+        "accepts" => {
+            assert!(signed.is_ok(), "{}: {signed:?}", case["id"]);
+        }
+        other => panic!("unexpected verifier: {other}"),
+    }
+    let requested_hash = if stage == "R4" {
+        layerx_crypto::evm_transaction::transaction_hash(&vector_bytes(&case["rawTransaction"]))
+    } else {
+        decode32(vector_text(&view["txHash"]))
+    };
+    let mut exchanges = vec![("pax_sequencerReceipt", Some(format!("\"result\":{view}")))];
+    if stage == "R6" {
+        exchanges.push((
+            "eth_getTransactionReceipt",
+            Some("\"result\":null".to_owned()),
+        ));
+    }
+    let (url, server) = serve(exchanges);
+    let result = lookup_authenticated(
+        &endpoint(&url),
+        requested_hash,
+        LookupContext {
+            receipt_keys: &keys,
+        },
     );
-    assert_eq!(
-        endpoint.call_at(0, &to, &[]),
-        Err(SequencerError::Rpc(RpcRefusal {
-            code: 3,
-            message: "execution reverted".to_owned(),
-            data: Some(Value::String(format!("0x{reason}"))),
-        }))
-    );
+    match stage {
+        "R2" | "R4" => assert_eq!(
+            result,
+            Err(ReceiptError::Sequencer(SequencerError::Malformed))
+        ),
+        "R3" => assert_eq!(result, Err(ReceiptError::Verification(signed.unwrap_err()))),
+        "R5" => assert_eq!(
+            result,
+            Err(ReceiptError::Logs(
+                layerx_proof::sequencer_logs::SequencerLogRefusal::Log {
+                    index: 0,
+                    field: layerx_proof::sequencer_logs::LogField::Data
+                }
+            ))
+        ),
+        "R6" => {
+            // Root-chain verification takes the independently recorded predecessor,
+            // not the untrusted receipt's claimed successor.
+            let layerx_client::rpc::receipt::Lookup::Verified(authenticated) = result.must() else {
+                panic!("authenticated receipt")
+            };
+            assert_eq!(authenticated.rung(), layerx_types::rung::Rung::Receipted);
+            let signed = signed.must();
+            let protocol = signed.protocol().unwrap_or_else(|| panic!("protocol"));
+            let previous = decode32(vector_text(&case["prevSeqHash"]));
+            assert_ne!(protocol.previous_state_root(), previous);
+            let mut chain = Sha256::new();
+            chain.update(b"PAXEER/v1/sequence\0");
+            chain.update(previous);
+            chain.update(protocol.global_sequence().to_be_bytes());
+            chain.update(requested_hash);
+            let expected_root: [u8; 32] = chain.finalize().into();
+            let batch = AuthorizedBatch::from_receipt_keys(
+                &bytes,
+                authorizations.as_slice(),
+                protocol.asset(),
+                previous,
+                expected_root,
+            )
+            .must();
+            assert_eq!(
+                verify_outcome(&bytes, &batch).unwrap_err().check,
+                ReceiptCheck::PreviousStateRoot
+            );
+        }
+        other => panic!("unexpected refusal stage: {other}"),
+    }
     assert_eq!(
         server.join().must(),
-        vec![
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0xc413bad3"}, "0x3e8"]),
-            json!([{"to": "0x0000000000000000000000000000000000001004", "data": "0x"}, "0x0"]),
-        ]
+        vec![json!([format!("0x{}", hex(&requested_hash))]); if stage == "R6" { 2 } else { 1 }]
     );
 }

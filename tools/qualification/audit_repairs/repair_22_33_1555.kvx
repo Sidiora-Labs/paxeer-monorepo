@@ -1,0 +1,54 @@
+# Audit 22.30.97 documentation closure; README ownership follows decision 2525.
+
+[task]
+id = "22.33.1555"
+mode = "BUILD"
+audit = "22.30.97"
+acceptance = "22998.1"
+base_revision = "399c122802fbe3326c62ef9251760c3e53ee4060"
+reviewed_revision = "302634481cee4d9cb697b7433192bf220b923385"
+repair = "Add focused offline assertions for doc_root against the production README supplied by task 22.31.470. README.md is outside this task's scope and is read without modification. No production interface or stateful runtime is changed."
+wiring_requests = []
+
+[finding.doc_root]
+audit = "22.30.97"
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+owner_domain = 17
+owner_task = "22.31.470"
+observed = "The audited introduction described a separate layerxd daemon, checkpoint settlement and make layerxd; those instructions are absent from the README supplied by 22.31.470."
+expected = "One paxd BFT network with the kernel proposing committed blocks, EVM chain 125, root api1..api14 JSON-RPC hosts, transaction and committed receipt flows, retired custody/checkpoint executors, and merged build/operations entry points in the supported layout."
+tests = ["test_doc_root_merged_network_and_embedded_proposer", "test_doc_root_public_rpc_hosts_and_chain_probe", "test_doc_root_transaction_transport_and_committed_receipt", "test_doc_root_custody_and_checkpoint_executors_are_retired", "test_doc_root_build_operations_and_supported_layout"]
+source_proof = "The pytest module reads README.md directly; checks embedded paxd execution and BFT topology, chain 125 and root hosts; parses the documented curl argv and JSON-RPC request; checks ordered signing, broadcast, durable receipt and committed-state consumer guidance and diagrams; asserts authenticated commitment and retired executor semantics; parses build/start argv and resolves the documented source layout. A sixth test parses this record and the original audit and requires every mapped proving test to be declared."
+review_only = "These are documentation source assertions, not runtime certification. Native compilation, node startup, transaction execution, WAL restart/recovery, BFT consensus, signature/proof validation and endpoint availability are not exercised. No shell script, unit file, manifest or build file is repaired; shell examples are parsed in-process rather than executed. No credentials, environment variables, network calls, external binaries, subprocess toolchains, native artifacts or devices are required by the module."
+wiring = "README.md | owning domain 17 | task 22.31.470: rewrite architecture, build and operations for merged paxd and committed-block finality, removing separate kernel/checkpoint deployment guidance; already supplied at the reviewed revision, with the expected facts asserted here and no missing fact identified during source review."
+
+[baseline]
+working_tree = "Initial git status and diff showed only pre-existing .cgignore and spec task bookkeeping; both scoped files were absent. No prior /out/run/gates.jsonl existed and gate.json recorded zero builds and verifies. These inherited changes are preserved."
+verification = "No pre-change verify was run and no pre-change test failures are claimed. The explicit implementation-first order and exclusive hf-done gate prohibit the older task step requesting a separate unchanged-tree verify; the new module checks the README unchanged from the reviewed revision during the sole authorized verification."
+
+[qualification]
+build_cmd = "python3 --version"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_1555.py"
+done_cmd = "cg spec done 22.33.1555 -f layerx-merge --root /work/paxeer-monorepo"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "The last hf-done evidence row in the private ledger names the exact content-derived verified candidate revision, command, exit code and log path; the final response copies that row verbatim. This record is finalized before qualification because embedding its own candidate hash would change that hash. Build and verification must refer to the same candidate revision."
+publication = "The runner retains private gate logs and publishes the task; no manual commit or push. A passing build alone is not qualification and no passing verification is claimed in advance."
+format = "No Python or KVX formatter is configured for these paths; after the complete implementation apply .editorconfig UTF-8, LF, final-newline and trailing-whitespace conventions to these two files only."
+
+[qualification.first_attempt]
+revision = "509fe9c2300b338c33e35e7b65d2a7af068f0e9b"
+command = "cg spec done 22.33.1555 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Five tests passed; the daemon substring check incorrectly classified the current getLayerXDid ABI method as layerxd. Repair the name parser to use identifier boundaries and additionally require getLayerXDid(address), preserving the prohibition on the retired daemon in commands, paths and prose."
+
+[gotcha.1]
+observed = "Broad combined reads exceeded output limits, and cg brief/survey reported cached unrelated work."
+resolution = "Use bounded task and audit sections, actual Git status/diff and the private gate ledger. Task-specific notes remain here because GOTCHA.kvx and spec files are outside scope."
+
+[gotcha.2]
+observed = "Case-insensitive substring matching of layerxd also matches the valid getLayerXDid identifier."
+resolution = "Match the retired daemon at word boundaries and preserve an explicit assertion for the documented current ABI method."

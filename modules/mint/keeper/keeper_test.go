@@ -1,6 +1,7 @@
 package keeper_test
 
 import (
+	"math"
 	"testing"
 	"time"
 
@@ -134,6 +135,46 @@ func TestGetNextScheduledTokenRelease(t *testing.T) {
 			mintKeeper.GetNextScheduledTokenRelease(epoch, tokenReleaseSchedule, currentMinter)
 		})
 	})
+}
+
+func TestParamChangeRefusesReleaseAmountAboveInt64(t *testing.T) {
+	t.Parallel()
+	app, ctx := createTestApp(t, false)
+	mintKeeper := app.MintKeeper
+	refusedStart := time.Date(2025, time.January, 2, 12, 0, 0, 0, time.UTC)
+	params := mintKeeper.GetParams(ctx)
+	params.TokenReleaseSchedule = []mintTypes.ScheduledTokenRelease{
+		{
+			StartDate:          "2024-01-01",
+			EndDate:            "2025-01-01",
+			TokenReleaseAmount: 1000,
+		},
+	}
+	mintKeeper.SetParams(ctx, params)
+	previousMinter := mintTypes.NewMinter("2024-01-01", "2025-01-01", params.MintDenom, 1000)
+	previousMinter.RemainingMintAmount = 0
+	previousMinter.LastMintAmount = 1000
+	previousMinter.LastMintDate = "2025-01-01"
+	mintKeeper.SetMinter(ctx, previousMinter)
+	require.False(t, previousMinter.OngoingRelease())
+	previousParams := mintKeeper.GetParams(ctx)
+
+	schedule := []mintTypes.ScheduledTokenRelease{
+		{
+			StartDate:          refusedStart.Format(mintTypes.TokenReleaseDateFormat),
+			EndDate:            refusedStart.AddDate(0, 0, 1).Format(mintTypes.TokenReleaseDateFormat),
+			TokenReleaseAmount: uint64(math.MaxInt64) + 1,
+		},
+	}
+	value, err := app.LegacyAmino().MarshalAsJSON(schedule)
+	require.NoError(t, err)
+	err = mintKeeper.GetParamSpace().Update(ctx, mintTypes.KeyTokenReleaseSchedule, value)
+	require.ErrorContains(t, err, "token release amount exceeds int64 bounds")
+	require.Equal(t, previousParams, mintKeeper.GetParams(ctx))
+
+	epoch := epochTypes.Epoch{CurrentEpochStartTime: refusedStart}
+	require.Equal(t, previousMinter, mintKeeper.GetOrUpdateLatestMinter(ctx, epoch))
+	require.Equal(t, previousMinter, mintKeeper.GetMinter(ctx))
 }
 
 func TestGetOrUpdateLatestMinter(t *testing.T) {

@@ -4,7 +4,7 @@
 
 [English](../../README.md) · [Español](README.es.md) · [日本語](README.ja.md) · [Русский](README.ru.md) · [简体中文](README.zh-CN.md) · [Português](README.pt-BR.md) · Deutsch · [Français](README.fr.md)
 
-*Weicht diese Fassung von der englischen README ab, gilt die englische Fassung.*
+*Diese Fassung beschreibt das zusammengeführte Netzwerk gemäß [`spec/layerx-merge/spec.kvx`](../../spec/layerx-merge/spec.kvx).*
 
 <p align="center">
   <!-- ═══ Network Identity ═══ -->
@@ -34,63 +34,89 @@
 
 ## Was Paxeer X Network ist
 
-Paxeer X Network ist ein Netzwerk mit zwei Ausführungsdomänen: der Paxeer-X-Chain (`paxd`, Go, EVM-Chain-ID 125) und dem LayerX-Kernel (`layerxd`, C17), der deterministischen Ausführungs- und Buchungsdomäne für autonome Agenten. Offizielle Website: [paxeer.network](https://paxeer.network/). Dokumentation: [docs.paxeer.app](https://docs.paxeer.app/).
+Paxeer X Network ist ein BFT-Netzwerk mit einem Ausführungsbereich im Knoten `paxd` und der EVM-Chain-ID **125** (`0x7d`). Der LayerX-Kernel ist in den Knoten integriert: Er führt Agentenaktivitäten deterministisch aus und ist Teil der Blockvorschlagserstellung. Eine signierte Ausführungsquittung ist final, sobald ihr Block durch den BFT-Konsens committed wurde. Offizielle Website: [paxeer.network](https://paxeer.network/). Dokumentation: [docs.paxeer.app](https://docs.paxeer.app/).
 
-Die Paxeer-X-Chain führt EVM-Ausführung auf Tendermint-Konsens aus und trägt die Module `layerxcustody`, `layerxexchange`, `layerxbridge` und `launchpad`, die Contracts über die Precompiles an `0x1013`, `0x1015`, `0x1016` und `0x1017` erreichen. Der LayerX-Kernel führt Agentenaktivität deterministisch aus, verbucht sie und gibt für jede Activity eine signierte Quittung zurück; seine Checkpoints werden über das Precompile `layerxAnchor` an `0x1014` auf der Chain abgewickelt.
+Der Go-Knoten bindet den C17-Kernel über [`modules/lxphost/host.go`](../../modules/lxphost/host.go) ein. EVM, native Module und Kernel arbeiten innerhalb desselben Netzwerks. Die früheren Custody- und Anchor-Precompiles an `0x1013` und `0x1014` sind seit dem Merge stillgelegt; sie sind kein Betriebsweg für Einzahlung oder Checkpoint-Abwicklung. Für die nativen Konstrukte führt die Merge-Adresstabelle in [`precompiles/setup.go`](../../precompiles/setup.go) folgende Precompiles auf (Adressen hier gekürzt):
 
-Dieses Repository ist das Monorepo von Sidiora Labs für Paxeer X Network: die Paxeer-X-Chain und der LayerX-Kernel in einem Repository. Die gemeinsame Ablage hält Kernel, Chain, Contracts und Entwickleroberflächen an einem Ort prüfbar. Jedes Subsystem behält seine eigene Build-, Release-, Deployment- und Vertrauensgrenze. Die maßgebliche Spezifikation ist [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx), gerendert als [`spec/paxeer-x/design.md`](../../spec/paxeer-x/design.md); Release Notes stehen in [`CHANGELOG.md`](../../CHANGELOG.md).
+| Precompile | Adresse |
+| --- | --- |
+| `layerxledger` | `0x101A` |
+| `layerxpay` | `0x101B` |
+| `layerxauth` | `0x101C` |
+| `layerxprograms` | `0x101D` |
+| `layerxchains` | `0x101E` |
+
+Die Bridge bleibt über `layerxBridge` an `0x1016` mit dem Modul `layerxbridge` verbunden. Welche versionierten Precompiles an einer bestimmten Höhe aktiv sind, bestimmen die Upgrade-Registrierungen in [`node/app.go`](../../node/app.go) und [`precompiles/setup.go`](../../precompiles/setup.go).
+
+Dieses Monorepo von Sidiora Labs enthält Knoten, Kernel, Contracts, Dienste und Clients. Die maßgebliche Merge-Spezifikation ist [`spec/layerx-merge/spec.kvx`](../../spec/layerx-merge/spec.kvx); Release Notes stehen in [`CHANGELOG.md`](../../CHANGELOG.md). Sub-Chains sind Mandantendomänen mit eigenem Namensraum in der Datenbank, verwaltet durch [`modules/layerxchains/`](../../modules/layerxchains/). Für eine solche Domäne ist keine neue Knoten-Infrastruktur erforderlich.
 
 ## Das Netzwerk ausprobieren
 
-Die limitierte Beta ist noch nicht geöffnet. Die Gateway-API wird verfügbar, sobald sie öffnet. Dies ist eine Mainnet-Beta mit echten Werten, daher gibt es keinen Faucet für die allgemeine Nutzung; zugelassene Entwickler erhalten Testzuteilungen vom Team.
+Die öffentliche Mainnet-Beta verwendet Chain-ID 125. Verbinden Sie Wallets und JSON-RPC-Clients direkt mit einem Knoten am URL-Wurzelpfad:
 
-Um sich mit der Paxeer-X-Chain (Chain-ID 125) zu verbinden, verwenden Sie einen der öffentlichen JSON-RPC-Namen aus [`docs/site/docs/reference/public-rpc.md`](../../docs/site/docs/reference/public-rpc.md). Die Checkliste für den öffentlichen Endpunkt ist [`docs/wiki/Getting-Started-Beta.md`](../../docs/wiki/Getting-Started-Beta.md). Der Pfad für Wallet, Finanzierung und Zahlungen ist [`docs/wiki/PaymentsQuickstart.md`](../../docs/wiki/PaymentsQuickstart.md). Assets: [`docs/wiki/Assets.md`](../../docs/wiki/Assets.md). RPC-Methoden: [`docs/wiki/PublicRpc.md`](../../docs/wiki/PublicRpc.md). Commitment-Stufen: [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md). Öffentliche Payment-API: [`docs/wiki/PublicAPI.md`](../../docs/wiki/PublicAPI.md).
+| Zugriff | Beispiel |
+| --- | --- |
+| HTTPS JSON-RPC | `https://api-mainnet-beta.paxeer.network` |
+| Nummerierter Knoten | `https://api1.mainnet-beta.paxeer.network` |
+| WebSocket | `wss://api1.mainnet-beta.paxeer.network` |
 
-Kernel-Entwickler beginnen mit der gehosteten Dokumentation unter [docs.paxeer.app](https://docs.paxeer.app/); die Anleitung für den lokalen Cluster ist [`docs/wiki/Quickstart.md`](../../docs/wiki/Quickstart.md).
+Die nummerierten Hosts reichen von `api1.mainnet-beta.paxeer.network` bis `api14.mainnet-beta.paxeer.network`. Die vollständige Liste und Nutzungshinweise stehen in [`docs/site/docs/reference/public-rpc.md`](../site/docs/reference/public-rpc.md). Prüfen Sie vor dem Signieren die Chain-ID; diese Anfrage erwartet `"0x7d"` als Ergebnis:
+
+```sh
+curl -sS --max-time 15 https://api1.mainnet-beta.paxeer.network \
+  -H 'content-type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"eth_chainId","params":[]}'
+```
+
+Die öffentlichen Knoten-Namensräume sind `debug`, `echo`, `eth`, `net`, `pax`, `test` und `txpool`; die verfügbare Methodenauswahl hängt von der Knotenkonfiguration ab. Die gehostete Gateway-API hat ihren eigenen Vertrag in [`services/platform/hosted/gateway/openrpc.json`](../../services/platform/hosted/gateway/openrpc.json). Ihre `px_`-Methoden sind nicht automatisch an jedem öffentlichen Knoten verfügbar. Der Bibliotheksmirror `node.hyperpaxeer.com` wird von hpx-Build-Skripten verwendet und ist kein JSON-RPC-Endpunkt.
+
+Die Checkliste ist [`Getting-Started-Beta.md`](../wiki/Getting-Started-Beta.md); Wallet, Finanzierung und Zahlungen beschreibt [`PaymentsQuickstart.md`](../wiki/PaymentsQuickstart.md). Weitere Einstiege: [`Assets.md`](../wiki/Assets.md), [`PublicRpc.md`](../wiki/PublicRpc.md), [`CommitmentLevels.md`](../wiki/CommitmentLevels.md) und [`PublicAPI.md`](../wiki/PublicAPI.md). Hinweise zur lokalen Entwicklung stehen in [`Quickstart.md`](../wiki/Quickstart.md). Eine lokale Entwicklungsumgebung und öffentliches Mainnet sind unterschiedliche Betriebsumgebungen.
 
 ## Aus dem Quellcode bauen
 
-Der Knoten der Paxeer-X-Chain ist in Go 1.25.6 geschrieben (`go.mod`). Der LayerX-Kernel ist C17 (`-std=c17` im Root-`Makefile`). Die Agent-, Human- und Platform-Workspaces verwenden Rust 1.91.1 (`rust-toolchain.toml`). Die Settlement-Contracts des Kernels in `contracts/` verwenden Solidity 0.8.27 (`foundry.toml`). Die Replay-Qualifikation braucht GCC 13, Clang 18, Docker, einen amd64-musl-Runner sowie einen AArch64-Cross-Compiler mit QEMU; siehe [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md).
+Die Toolchain-Versionen stehen in den Build-Dateien: Go 1.25.8 in [`go.mod`](../../go.mod), C17 im Root-[`Makefile`](../../Makefile), Rust 1.91.1 in [`rust-toolchain.toml`](../../rust-toolchain.toml) und Solidity 0.8.27 für das Root-Foundry-Projekt in [`foundry.toml`](../../foundry.toml).
 
-Targets des LayerX-Kernels:
+Bauen Sie den integrierten Knoten aus dem Repository-Root:
+
+```sh
+make paxd-build
+```
+
+Dieses Target baut zuerst die Kernel-Bibliothek und die Programs-Runtime, die `paxd` einbindet, und erzeugt dann `build/paxd` über `chain.mk`. `make paxeer-build` reicht nur den Go-Build weiter und ersetzt diese Vorbereitung nicht. Beide verwenden `GOPROXY=off`; die benötigten Go-Abhängigkeiten müssen bereits verfügbar sein. Die Kernel-Bibliothek und die vorhandenen Test-Targets können separat bearbeitet werden:
 
 ```sh
 make build
 make test
 make test-contracts
-make ci
-```
-
-Targets der Paxeer-X-Chain (`paxd`, definiert in `chain.mk`), ohne das Verzeichnis zu wechseln:
-
-```sh
-make paxeer-build
-make paxeer-lint
 make paxeer-test
-make paxeer-ci
+make paxeer-lint
 ```
 
-`make ci` führt `public-audit`, die Kernel-Tests, einen Vergleich zweier Builds des Archivs, Prüfungen der Konsens-Symbole und Sanitizer-Suiten aus. `make monorepo-ci` ist ein separates subsystemübergreifendes Gate. Ein lokaler Erfolg ist keine Berechtigung, Contracts zu deployen, Verwahrung zu bewegen oder echte Werte zu handhaben.
+Diese Targets prüfen unterschiedliche Komponenten. Übergreifende Gates wie `make ci`, `make paxeer-ci` und `make monorepo-ci` sowie die zusätzlichen Replay-Toolchains sind in [`docs/QUALIFICATION.md`](../QUALIFICATION.md) beschrieben. Die Kernel-Bibliothek wird im Knoten ausgeführt; ihr eigener Build bedeutet keinen zusätzlichen Netzwerkprozess.
 
 ## Repository-Aufbau
 
 | Pfad | Zweck |
 | --- | --- |
-| `src/`, `include/` | C17-Runtime des LayerX-Kernels: Zustandsmaschine, Speicher, Sequenzierung, Replay und Settlement-Anbindung |
-| `cmd/` | Kernel-Daemons und Werkzeuge (`layerxd`, `layerxctl`, `layerx-guarantor`, Genesis, Verifikation) |
-| `agent/` | Rust-Agentenschnittstelle, SDK, Daemon, MCP-Server, Kodierung, Kryptografie und Beweisprüfung |
-| `human/` | Human-Steuerungsebene, typisierter Intent-Compiler, KMS, Explorer-Index sowie Web- und Wallet-Anwendungen |
-| `services/platform/` | Entwicklerplattform, gehostete Dienste, Middleware, SDKs, Emulator, CLI und Release-Werkzeuge |
-| `programs/` | Programs-Runtime, Registry, Interpreter, Sandbox, Markt und Programm-SDKs für den LayerX-Kernel |
-| `interop/` | Oberflächen für Agenten-Commerce und netzübergreifende Interoperabilität, einschließlich des Bridge-Relayers |
-| `contracts/` | Solidity-Contracts auf der Paxeer-X-Chain für Verwahrung, Checkpoints, Garantenbonds, Ansprüche, Streitfälle und Ausstiege |
-| `bridge/` | Bridge-Vault-Contracts und Deployment-Runbook für EVM-Chains und Solana |
-| `explorer/` | Block-Explorer, ein Blockscout-Fork, getrennt vom Rest des Monorepos gehalten |
-| `go.mod`, `chain.mk`, `daemon/`, `node/`, `modules/`, `consensus/`, `sdk/`, `rpc/`, `precompiles/`, `storage/`, `wasm/`, `docker/` | Knoten der Paxeer-X-Chain (`paxd`), EVM/RPC-Kompatibilität, Speicher-Engines, Module, Precompiles und subsystemeigene Builds |
-| `spec/` | Normative KVX-Spezifikation, generiertes Design, Anforderungen und Aufgabengraph |
-| `tests/`, `tests/fuzz/` | Native, Contract-, Replay-, Invarianten-, Fehler- und Fuzz-Suiten |
-| `migrations/` | SQL für die Genesis-Importabschnitte des Kernels, wiederaufbaubare Projektionen und den Verlaufsindex |
-| `docs/` | Wiki, Quellen der Dokumentationsseite, Monorepo-Notizen und Qualifikationsdokumentation |
+| `src/`, `include/` | C17-Kernel: deterministische Zustandsmaschine, Speicher, Buchung und Replay |
+| `modules/lxphost/` | cgo-Einbindung des Kernels und der Programs-Runtime in den Knoten |
+| `node/`, `daemon/`, `consensus/`, `modules/` | Anwendung `paxd`, BFT-Konsens und native Chain-Module |
+| `rpc/`, `precompiles/`, `storage/`, `wasm/` | JSON-RPC, EVM-Precompiles, Speicher und CosmWasm-Integration |
+| `cmd/` | Kernel-Werkzeuge, darunter `layerxctl`, Genesis und Verifikation |
+| `services/agent/` | Agenten-Clients, SDKs, `layerx-agentd`, MCP, Kodierung und Beweisprüfung |
+| `services/human/` | Human-Steuerungsebene, Intent-Verarbeitung und KMS |
+| `services/platform/` | Gehostete Plattformdienste und Middleware |
+| `services/interop/` | Agenten-Commerce und Interoperabilität, einschließlich des Bridge-Relayers |
+| `services/explorer/`, `apps/explorer/` | Explorer-Dienste und Blockscout-Anwendung |
+| `apps/web/`, `apps/wallet/`, `apps/bridge/` | Web-, Wallet- und Bridge-Anwendungen |
+| `programs/` | Programs-Runtime, Registry, Interpreter, Sandbox und Programm-SDKs |
+| `contracts/`, `contracts/bridge/` | Solidity-Quellen sowie EVM-Vaults, Solana-Bridge-Programm und Testvektoren |
+| `services/bridge/` | Bridge-Deployment-Material |
+| `sdk/platform/`, `sdk/integrations/`, `tools/platform/` | Weitere SDKs, Integrationen, Entwickler-CLI, Emulator und Release-Werkzeuge |
+| `spec/` | KVX-Spezifikationen, Anforderungen und Aufgabengraph |
+| `tests/`, `tests/fuzz/` | Native Tests, Contract-, Replay-, Invarianten- und Fuzz-Suiten |
+| `migrations/` | SQL für Genesis-Import und wiederaufbaubare Projektionen |
+| `docs/` | Wiki, Dokumentationsseite, Übersetzungen und Qualifikationshinweise |
 
 ## Dokumentation
 
@@ -103,7 +129,7 @@ make paxeer-ci
 - Commitment-Stufen: [`docs/wiki/CommitmentLevels.md`](../../docs/wiki/CommitmentLevels.md)
 - Monorepo-Aufbau und Release-Tags: [`docs/MONOREPO.md`](../../docs/MONOREPO.md)
 - Qualifikations-Gates: [`docs/QUALIFICATION.md`](../../docs/QUALIFICATION.md)
-- Spezifikation: [`spec/paxeer-x/spec.kvx`](../../spec/paxeer-x/spec.kvx)
+- Spezifikation: [`spec/layerx-merge/spec.kvx`](../../spec/layerx-merge/spec.kvx)
 - Release Notes: [`CHANGELOG.md`](../../CHANGELOG.md)
 
 ## SDKs und Integrationen
@@ -122,127 +148,37 @@ make paxeer-ci
 
 ## Architektur
 
-Paxeer X Network ist ein Netzwerk mit zwei Ausführungsdomänen: dem Knoten der Paxeer-X-Chain (`paxd`, Go) und dem LayerX-Kernel (`layerxd`, C17), verbunden auf der einen Seite durch EVM-Precompiles und auf der anderen durch gehostete Plattformdienste. Abgerundete Kästen sind laufende Dienste, Zylinder sind dauerhafte Speicher, Sechsecke sind Contracts und EVM-Precompiles (mit ihrer Adresse beschriftet), und einfache Kästen sind Module innerhalb einer Zustandsmaschine. Pfeile folgen der Richtung, in der Daten fließen: durchgezogene Pfeile reichen ein oder schreiben, gepunktete Pfeile tragen Lesezugriffe, Events und Beweise.
+Der Knoten `paxd` enthält Ausführung, Kernel und Blockvorschlagserstellung. [`node/sequencer/`](../../node/sequencer/) implementiert die geordnete Ausführung und signierte Quittungen; die Vorschlagsprüfung ist in [`node/app.go`](../../node/app.go) eingebunden. Eine Quittung vor dem Block-Commit ist eine Ausführungsbestätigung; Finalität entsteht mit dem BFT-Commit ihres Blocks. Explorer und Indexer lesen Chain-Daten und schaffen keine zusätzliche Finalitätsstufe.
 
 ```mermaid
 flowchart TB
-  subgraph users ["Users and agents"]
-    direction TB
-    human(["Human"])
-    agent(["Autonomous agent"])
-    web("Human web app")
-    hsvc("layerx-human-service")
-    intents("layerx-intents<br/>typed intent compiler")
-    kms("layerx-human-kms")
-    mcp("layerx-mcp")
-    sdk("layerx-sdk<br/>Rust · TypeScript · Python")
-    agentd("layerx-agentd")
+  clients["Wallets · Web · Agenten · SDKs"]
+  subgraph network ["Paxeer X Network · Chain-ID 125"]
+    subgraph node ["paxd"]
+      rpc["JSON-RPC am Wurzelpfad"]
+      execution["Geordnete Ausführung · signierte Quittungen"]
+      evm["EVM · native Module"]
+      host["modules/lxphost · integrierter Kernel"]
+      proposal["Blockvorschlag"]
+      state[("Chain-Zustand · Mandantendomänen")]
+    end
+    consensus["BFT-Validierung und Commit"]
   end
-
-  subgraph platform ["Platform services"]
-    direction TB
-    gateway("layerx-gateway<br/>eth_* relay · px_* · px_getCapabilities")
-    indexer("layerx-indexer<br/>LayerX and Paxeer ingesters")
-    idxdb[("SQLite history")]
-    relay("relay/archive node")
-  end
-
-  subgraph lx ["LayerX kernel · C17"]
-    direction TB
-    layerxd("layerxd<br/>LNI server · sequencer")
-    kernel["Activity kernel<br/>module dispatch"]
-    perps["perps · 6"]
-    spot["spot · 10"]
-    gov["governance · 7"]
-    kbridge["bridge · 8"]
-    ledger["402LXP ledger<br/>sole balance writer"]
-    alog[("Activity log")]
-    guarantor("layerx-guarantor")
-  end
-
-  subgraph px ["Paxeer X node · paxd"]
-    direction TB
-    evm("EVM JSON-RPC<br/>pax-geth")
-    cons("Tendermint consensus")
-    occ("OCC parallel executor")
-    pAnchor{{"layerxAnchor<br/>0x1014"}}
-    pCustody{{"layerxCustody<br/>0x1013"}}
-    pExch{{"layerxExchange<br/>0x1015"}}
-    pBridge{{"layerxBridge<br/>0x1016"}}
-    pLaunch{{"launchpad<br/>0x1017"}}
-    mCustody["layerxcustody module"]
-    mExch["layerxexchange module"]
-    mBridge["layerxbridge module"]
-    mLaunch["launchpad module"]
-    paxdb[("PaxDB state store")]
-  end
-
-  subgraph eth ["Bridge to Ethereum"]
-    direction TB
-    relayer("layerx-bridge-relayer")
-    vault{{"PaxeerXVault"}}
-  end
-
-  human --> web
-  web -->|"HTTPS"| hsvc
-  hsvc -->|"typed intent"| intents
-  hsvc -->|"custody signing"| kms
-  intents -->|"compiled Activity"| agentd
-  agent --> mcp
-  agent --> sdk
-  mcp -->|"tool calls"| agentd
-  sdk -->|"daemon socket"| agentd
-  agentd -->|"LNI frames"| layerxd
-
-  layerxd --> kernel
-  kernel --> perps & spot & gov & kbridge
-  kernel -->|"transfer sets"| ledger
-  ledger -->|"signed receipt"| alog
-  alog -->|"sealed batch"| guarantor
-  guarantor -->|"submitCheckpoint"| pAnchor
-
-  layerxd -.->|"batch sync"| relay
-  relay -.->|"history batches"| indexer
-  evm -.->|"blocks · logs · tx_search"| indexer
-  indexer --> idxdb
-  indexer -.->|"px_getHistory"| gateway
-  layerxd -.->|"lx_* reads"| gateway
-  gateway -->|"eth_* relay"| evm
-  gateway -.->|"eth_call · eth_getLogs"| web
-  gateway -.->|"px_* reads"| hsvc
-
-  evm -->|"txs"| cons
-  cons -->|"ordered blocks"| occ
-  occ --> pAnchor & pCustody & pExch & pBridge & pLaunch
-  pCustody --> mCustody
-  pExch -->|"pending intent"| mExch
-  pExch -->|"margin deposit"| mCustody
-  pBridge --> mBridge
-  pLaunch --> mLaunch
-  occ -->|"state commits"| paxdb
-
-  pExch -.->|"intent logs decoded"| intents
-  mCustody -.->|"custody credit proof"| kbridge
-
-  vault -.->|"Deposit event"| relayer
-  relayer -->|"bridgeIn"| pBridge
-  pBridge -.->|"BridgeOut event"| relayer
-  relayer -->|"release"| vault
-
-  classDef actor fill:#e4dcf2,stroke:#7a68ad,color:#2a2340
-  classDef svc fill:#d8e5f3,stroke:#4d77a8,color:#1b2a3c
-  classDef store fill:#e1ecd4,stroke:#6a8c48,color:#23321a
-  classDef contract fill:#f3e2cc,stroke:#ad7a3e,color:#3b2913
-  classDef module fill:#e6e8eb,stroke:#6b7480,color:#22272e
-
-  class human,agent actor
-  class web,hsvc,intents,kms,mcp,sdk,agentd,gateway,indexer,relay,layerxd,guarantor,evm,cons,occ,relayer svc
-  class idxdb,alog,paxdb store
-  class pAnchor,pCustody,pExch,pBridge,pLaunch,vault contract
-  class kernel,perps,spot,gov,kbridge,ledger,mCustody,mExch,mBridge,mLaunch module
+  explorer["Explorer · Indexer"]
+  clients --> rpc
+  rpc --> execution
+  execution --> evm
+  evm --> host
+  execution --> proposal
+  proposal --> consensus
+  consensus --> state
+  rpc -.-> state
+  state -.-> explorer
 ```
 
-Die Bridge zu Ethereum im Detail: Jede Relayer-Instanz hält einen Attestor-Schlüssel hinter einem Remote-Signer, journalisiert jedes beobachtete Event und jede signierte Transaktion vor dem Senden und erreicht eine Signaturschwelle über eins, indem sie Signaturen mit anderen Instanzen austauscht.
+Die Bridge zu Ethereum bleibt eine Verbindung zu einem anderen Netzwerk. Der [`layerx-bridge-relayer`](../../services/interop/crates/layerx-bridge-relayer/src/lib.rs) verarbeitet `PaxeerXVault`-Einzahlungen über `bridgeIn` an `layerxBridge` (`0x1016`); in Gegenrichtung führen `BridgeOut`-Events zu `PaxeerXVault.release`. Das Modul [`layerxbridge`](../../modules/layerxbridge/) prüft Attestierungen, Limits und Nullifier und nutzt `tokenfactory` für Mint und Burn.
+
+Jede Relayer-Instanz verwendet einen Attestor-Schlüssel über einen Remote-Signer, journalisiert beobachtete Events und signierte Transaktionsbytes vor dem Senden und tauscht Signaturen über ein Cosign-Verzeichnis aus, wenn die konfigurierte Schwelle größer als eins ist. Nach einem Neustart werden bereits signierte Bytes erneut gesendet; Nullifier verhindern die doppelte Verarbeitung. Die Finalitätsanforderungen der externen Chain und die Bridge-Signaturschwelle sind vom BFT-Commit auf Paxeer zu unterscheiden. Contracts und Vektoren stehen in [`contracts/bridge/`](../../contracts/bridge/).
 
 ```mermaid
 flowchart LR

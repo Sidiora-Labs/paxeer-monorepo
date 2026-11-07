@@ -45,6 +45,33 @@ impl SourcifyApiClient {
 }
 
 impl SourcifyApiClient {
+    pub(super) async fn supports_etherscan_import(
+        &self,
+        chain_id: &str,
+    ) -> Result<bool, anyhow::Error> {
+        #[derive(serde::Deserialize)]
+        struct Chain {
+            #[serde(rename = "chainId")]
+            chain_id: u64,
+            supported: bool,
+            #[serde(rename = "etherscanAPI")]
+            etherscan_api: bool,
+        }
+
+        let chains: Vec<Chain> = self
+            .reqwest_client
+            .get(self.host.join("chains")?)
+            .send()
+            .await?
+            .error_for_status()?
+            .json()
+            .await?;
+
+        Ok(chains.into_iter().any(|chain| {
+            chain.chain_id.to_string() == chain_id && chain.supported && chain.etherscan_api
+        }))
+    }
+
     pub(super) async fn verification_request(
         &self,
         params: &ApiRequest,

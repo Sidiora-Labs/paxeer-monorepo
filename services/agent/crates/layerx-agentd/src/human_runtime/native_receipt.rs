@@ -1,6 +1,5 @@
 use super::HumanOperationError;
-use layerx_client::receipt::ReceiptError;
-use layerx_proof::receipt::NativeOwnerOutcomeContext;
+use layerx_client::rpc::receipt::ReceiptError;
 use layerx_types::payload::ModuleRegistry;
 use layerx_wire::activity::{decode_signed, encode_signed, Activity};
 use layerx_wire::hash::activity_id;
@@ -15,7 +14,8 @@ impl RetainedNativeOwner {
     pub(super) fn decode(
         canonical: Vec<u8>,
         registry: &ModuleRegistry,
-        node: &layerx_client::lni::handshake::NodeInfo,
+        network_id: u32,
+        protocol_version: u16,
         action: [u8; 32],
         identifier: [u8; 32],
     ) -> Result<Option<Self>, HumanOperationError> {
@@ -24,8 +24,8 @@ impl RetainedNativeOwner {
         if encode_signed(&activity).map_err(|_| HumanOperationError::Refused)? != canonical
             || activity_id(&activity).map_err(|_| HumanOperationError::Refused)? != identifier
             || activity.idempotency_key() != action
-            || activity.network_id() != node.network_id
-            || activity.protocol_version() != node.protocol_version
+            || activity.network_id() != network_id
+            || activity.protocol_version() != protocol_version
         {
             return Err(HumanOperationError::Refused);
         }
@@ -44,25 +44,13 @@ impl RetainedNativeOwner {
             owner,
         }))
     }
-
-    pub(super) fn context(&self) -> NativeOwnerOutcomeContext<'_> {
-        NativeOwnerOutcomeContext {
-            canonical_activity: &self.canonical,
-            actor: self.activity.actor_did(),
-            action_key: self.activity.idempotency_key(),
-            activity_type: self.activity.activity_type(),
-            owner_public_key: self.owner,
-            network_id: self.activity.network_id(),
-        }
-    }
 }
 
 pub(super) fn map_lookup_error(error: ReceiptError) -> HumanOperationError {
-    match error {
-        ReceiptError::Transport(_)
-        | ReceiptError::Disconnected
-        | ReceiptError::UnavailableCapability => HumanOperationError::Unavailable,
-        _ => HumanOperationError::Refused,
+    if error.is_unavailable() {
+        HumanOperationError::Unavailable
+    } else {
+        HumanOperationError::Refused
     }
 }
 
@@ -72,28 +60,17 @@ pub(super) fn persist(
     action: [u8; 32],
     receipt: &layerx_proof::receipt::VerifiedReceipt,
     batch: &layerx_proof::receipt::AuthorizedBatch,
-    native: Option<&NativeOwnerOutcomeContext<'_>>,
 ) -> Result<crate::receipt::ServedReceipt, HumanOperationError> {
     let mut store = shared
         .lock()
         .map_err(|_| HumanOperationError::Unavailable)?;
-    let ingress = if let Some(expected) = native {
-        crate::receipt::store_native_owner_if_absent(
-            &mut store,
-            tenant,
-            receipt.canonical_bytes(),
-            batch,
-            expected,
-        )
-    } else {
-        crate::receipt::store_verified_if_absent(
-            &mut store,
-            tenant,
-            action,
-            receipt.canonical_bytes(),
-            batch,
-        )
-    };
+    let ingress = crate::receipt::store_verified_if_absent(
+        &mut store,
+        tenant,
+        action,
+        receipt.canonical_bytes(),
+        batch,
+    );
     ingress.map_err(|error| match error {
         crate::receipt::ReceiptStoreError::Missing
         | crate::receipt::ReceiptStoreError::Store(_) => HumanOperationError::Unavailable,

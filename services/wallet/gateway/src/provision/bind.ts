@@ -2,24 +2,29 @@ import { createHash, createPublicKey, verify as edVerify } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   bytesToHex,
-  decodeAbiParameters,
   decodeFunctionResult,
   encodeFunctionData,
   getAddress,
   hexToBytes,
-  keccak256,
   parseAbi,
   recoverTransactionAddress,
+  recoverAddress,
+  parseSignature,
+  serializeSignature,
   serializeTransaction,
   type Hex,
   type TransactionSerializableEIP1559,
 } from 'viem';
 import { publicKeyToAddress } from 'viem/accounts';
-import { AttestorClient } from '../attestor/client.js';
+import { GasStationClient, StationAdapterError } from '../sponsor/station.js';
+import { z } from 'zod';
+import { AttestorClient, constructionDigest, sponsorQuoteDigest, type Authorisation, type SignPayload, type ConstructionWire } from '../attestor/client.js';
 import { RpcPool, RpcResponseError } from '../rpc/pool.js';
+import { transactionHash } from '../chain.js';
+
+export { transactionHash } from '../chain.js';
 
 export const ADDR_PRECOMPILE = '0x0000000000000000000000000000000000001004' as const;
-export const ANCHOR_PRECOMPILE = '0x0000000000000000000000000000000000001014' as const;
 export const BIND_DOMAIN = 'LX:PAXEER-BIND:v1';
 export const DID_PREFIX = 'did:layerx:';
 
@@ -29,8 +34,6 @@ export const addrAbi = parseAbi([
   'function getUnifiedAccount(address evm) view returns (address evm, string paxAddr, bytes32 didPublicKey, bytes32 layerxMainAccountId)',
   'event LayerXBound(address indexed evm, bytes32 indexed didPublicKey, uint64 nonce)',
 ]);
-
-export const anchorAbi = parseAbi(['function latestFinalized() view returns (uint64 batchNumber, bool exists)']);
 
 const ZERO32 = `0x${'00'.repeat(32)}` as Hex;
 
@@ -124,21 +127,15 @@ export async function readBindNonce(rpc: RpcPool, address: `0x${string}`): Promi
 }
 
 export type KernelAvailability =
-  | { state: 'available'; finalized_batch: string }
+  | { state: 'available' }
   | { state: 'unavailable'; reason: string };
 
 export async function readKernelAvailability(rpc: RpcPool): Promise<KernelAvailability> {
   try {
-    const data = encodeFunctionData({ abi: anchorAbi, functionName: 'latestFinalized' });
-    const out = await rpc.request<Hex>('eth_call', [{ to: ANCHOR_PRECOMPILE, data }, 'latest']);
-    const [batch, exists] = decodeAbiParameters(
-      [{ type: 'uint64' }, { type: 'bool' }],
-      out,
-    );
-    if (!exists) return { state: 'unavailable', reason: 'no kernel checkpoint is finalized on chain' };
-    return { state: 'available', finalized_batch: batch.toString() };
+    await readBindNonce(rpc, '0x0000000000000000000000000000000000000000');
+    return { state: 'available' };
   } catch (err) {
-    return { state: 'unavailable', reason: `kernel anchor could not be read: ${(err as Error).message}` };
+    return { state: 'unavailable', reason: `kernel bind nonce could not be read: ${(err as Error).message}` };
   }
 }
 
@@ -178,9 +175,7 @@ export interface SignedPayload {
   signers: string[];
 }
 
-export type SignBody =
-  | { kind: 'evm_tx'; transaction: Hex }
-  | { kind: 'lx_bind'; message: Hex };
+export type SignBody = Extract<SignPayload, { kind: 'evm_tx' | 'lx_bind' | 'eth_sign_digest' | 'eip7702_authorization' }>;
 
 export interface AttestorDaemonOptions {
   endpoints: string[];
@@ -199,8 +194,8 @@ export class AttestorDaemonClient {
       timeoutMs: opts.timeoutMs, healthIntervalMs: 5_000 });
   }
   close(): void { this.client.stop(); }
-  async health(): Promise<Array<{ url: string; nodeId: string | null; ready: boolean }>> {
-    return (await this.client.refreshHealth()).map((node) => ({ url: node.endpoint, nodeId: node.nodeId, ready: node.healthy }));
+  async health(): Promise<Array<{ url: string; nodeId: string | null; ready: boolean; lastError: string | null }>> {
+    return (await this.client.refreshHealth()).map((node) => ({ url: node.endpoint, nodeId: node.nodeId, ready: node.healthy, lastError: node.lastError }));
   }
   async generate(keyId: string, curve: 'secp256k1' | 'ed25519', owner: string, account?: string): Promise<GeneratedKey> {
     const generated = await this.client.generateKey({ keyId, curve, owner, ...(account ? { account } : {}) });
@@ -216,7 +211,10 @@ export class AttestorDaemonClient {
     return { keyId, curve, publicKey: pub, address: null, did };
   }
   async sign(keyId: string, body: SignBody, bearerToken: string): Promise<SignedPayload> {
-    const result = await this.client.sign({ keyId, payload: body, authorisation: { scheme: 'supabase_jwt', token: bearerToken } });
+    return this.signAuthorized(keyId, body, { scheme: 'supabase_jwt', token: bearerToken });
+  }
+  async signAuthorized(keyId: string, body: SignBody, authorisation: Authorisation): Promise<SignedPayload> {
+    const result = await this.client.sign({ keyId, payload: body, authorisation });
     return { signature: strip(result.signature), recoveryId: result.recoveryId, signers: result.participants };
   }
 }
@@ -277,10 +275,6 @@ export async function signTransactionWithAttestors(
   return signed;
 }
 
-export function transactionHash(raw: Hex): Hex {
-  return keccak256(raw);
-}
-
 export interface ChainReceipt {
   status: 'success' | 'reverted';
   gasUsed: bigint;
@@ -288,9 +282,13 @@ export interface ChainReceipt {
 }
 
 export async function readReceipt(rpc: RpcPool, hash: Hex): Promise<ChainReceipt | null> {
-  const r = await rpc.request<{ status: Hex; gasUsed: Hex; blockNumber: Hex } | null>('eth_getTransactionReceipt', [hash]);
-  if (!r) return null;
-  return { status: BigInt(r.status) === 1n ? 'success' : 'reverted', gasUsed: BigInt(r.gasUsed), blockNumber: BigInt(r.blockNumber) };
+  const r = await rpc.sequencerReceipt(hash);
+  if (!r || r.rung === 'submitted') return null;
+  return {
+    status: BigInt(r.status) === 1n ? 'success' : 'reverted',
+    gasUsed: BigInt(r.gasUsed),
+    blockNumber: BigInt(r.rung === 'committed' ? r.blockNumber : r.height),
+  };
 }
 
 export async function broadcastOnce(rpc: RpcPool, raw: Hex): Promise<Hex> {
@@ -312,7 +310,7 @@ export async function waitForReceipt(rpc: RpcPool, hash: Hex, timeoutMs: number,
     const r = await readReceipt(rpc, hash);
     if (r) return r;
     if (Date.now() >= deadline) throw new Error(`transaction ${hash} has no receipt after ${timeoutMs} ms`);
-    await new Promise((resolve) => setTimeout(resolve, pollMs));
+    await new Promise((resolve) => setTimeout(resolve, Math.min(pollMs, Math.max(0, deadline - Date.now()))));
   }
 }
 
@@ -340,3 +338,131 @@ export function bindLayerX(input: BindTransactionInput): TransactionSerializable
     maxPriorityFeePerGas: input.maxPriorityFeePerGas,
   };
 }
+
+
+export const SIDIORA_TOKEN = '0x21f7b20a555199fa73A238B1a91FD0f549068fEe' as const;
+export const sponsoredBindAbi = parseAbi([
+  'function nonce() view returns (uint256)',
+  'function executeSponsored((address to,uint256 value,bytes data)[] calls,(address sponsor,address token,uint256 maxTokenAmount,uint256 tokenAmount,uint256 deadline,uint256 quoteNonce,uint256 gasCost) quote,bytes accountSignature,bytes relayerSignature)',
+]);
+const stationUint = z.string().max(78).regex(/^(0|[1-9][0-9]*)$/).refine(value => BigInt(value) < 1n << 256n);
+const stationAddress = z.string().regex(/^0x[0-9a-fA-F]{40}$/);
+const stationQuote = z.object({
+  quote: z.object({
+    sponsor: stationAddress, token: stationAddress,
+    maxTokenAmount: stationUint, tokenAmount: stationUint, deadline: stationUint,
+    quoteNonce: stationUint, gasCost: stationUint, decimals: z.literal(6),
+  }).strict(),
+  relayerSignature: z.string().regex(/^0x[0-9a-fA-F]{130}$/),
+}).strict();
+
+export function provisioningStationConfig(): { paymaster: Hex; gasLimit: bigint; maxTokenAmount: bigint } {
+  const paymaster = stationAddress.safeParse(process.env.PAXEER_GAS_STATION_PAYMASTER);
+  const gasLimit = stationUint.safeParse(process.env.PAXEER_GAS_STATION_GAS_LIMIT);
+  const maximum = stationUint.safeParse(process.env.PAXEER_GAS_STATION_MAX_TOKEN_AMOUNT);
+  if (!paymaster.success || !gasLimit.success || !maximum.success
+    || BigInt(gasLimit.data) === 0n || BigInt(maximum.data) === 0n
+    || BigInt(paymaster.data) === 0n || paymaster.data.toLowerCase() === SIDIORA_TOKEN.toLowerCase()) {
+    throw new StationAdapterError(503, 'gas_station_configuration');
+  }
+  return { paymaster: getAddress(paymaster.data), gasLimit: BigInt(gasLimit.data), maxTokenAmount: BigInt(maximum.data) };
+}
+
+export interface SponsoredBindConstruction {
+  batch: {
+    chainId: string; account: Hex; nonce: string;
+    calls: Array<{ to: typeof ADDR_PRECOMPILE; value: string; data: Hex }>;
+    quote: z.infer<typeof stationQuote>['quote'];
+  };
+  authorization: { chainId: string; address: Hex; nonce: string };
+  relayerSignature: Hex;
+  accountSignature?: Hex;
+}
+
+export async function sponsoredBindRequest(input: {
+  station: GasStationClient; rpc: RpcPool; chainId: number; address: Hex;
+  publicKey: string; signature: string; gasCost: bigint;
+  paymaster: Hex; maxTokenAmount: bigint;
+  sign: (payload: SignBody) => Promise<SignedPayload>;
+  retained?: SponsoredBindConstruction;
+  persist: (construction: SponsoredBindConstruction) => Promise<void>;
+}) {
+  const { rpc, address, paymaster } = input;
+  let retained = input.retained;
+  if (!retained) {
+    const code = await rpc.request<Hex>('eth_getCode', [address, 'pending']);
+    const data = encodeFunctionData({ abi: sponsoredBindAbi, functionName: 'nonce' });
+    let encoded: Hex;
+    if (code === '0x') {
+      const delegateCode = await rpc.request<Hex>('eth_getCode', [paymaster, 'pending']);
+      if (!/^0x(?:[0-9a-fA-F]{2})+$/.test(delegateCode) || delegateCode.startsWith('0xef0100'))
+        throw new StationAdapterError(503, 'gas_station_delegate_unavailable');
+      encoded = await rpc.request<Hex>('eth_call', [{ to: address, data }, 'pending', { [address]: { code: delegateCode } }]);
+    } else {
+      if (code.toLowerCase() !== `0xef0100${paymaster.slice(2).toLowerCase()}`)
+        throw new StationAdapterError(409, 'gas_station_incompatible_delegation');
+      encoded = await rpc.request<Hex>('eth_call', [{ to: address, data }, 'pending']);
+    }
+    if (!/^0x[0-9a-fA-F]{64}$/.test(encoded)) throw new StationAdapterError(502, 'gas_station_invalid_nonce');
+    const nonce = decodeFunctionResult({ abi: sponsoredBindAbi, functionName: 'nonce', data: encoded }).toString();
+    const calls: SponsoredBindConstruction['batch']['calls'] = [{ to: ADDR_PRECOMPILE, value: '0', data: bindLayerXCalldata(input.publicKey, input.signature) }];
+    const chainId = input.chainId.toString();
+    const quoted = stationQuote.safeParse(await input.station.quote({
+      account: address, nonce, calls, maxTokenAmount: input.maxTokenAmount.toString(),
+      gasCost: input.gasCost.toString(), chainId, token: SIDIORA_TOKEN, decimals: 6,
+    }));
+    if (!quoted.success) throw new StationAdapterError(502, 'gas_station_invalid_response');
+    const { quote, relayerSignature } = quoted.data;
+    if (quote.token.toLowerCase() !== SIDIORA_TOKEN.toLowerCase()
+      || quote.maxTokenAmount !== input.maxTokenAmount.toString() || quote.gasCost !== input.gasCost.toString()
+      || BigInt(quote.tokenAmount) > input.maxTokenAmount || BigInt(quote.deadline) <= BigInt(Math.floor(Date.now() / 1000))
+      || quote.sponsor.toLowerCase() === address.toLowerCase()) throw new StationAdapterError(502, 'gas_station_invalid_quote');
+    const construction: ConstructionWire = { kind: 'sponsored_batch', chainId, account: address, nonce, calls,
+      quote: { sponsor: quote.sponsor, token: quote.token, maxTokenAmount: quote.maxTokenAmount,
+        tokenAmount: quote.tokenAmount, deadline: quote.deadline, quoteNonce: quote.quoteNonce, gasCost: quote.gasCost } };
+    if (getAddress(await recoverAddress({ hash: sponsorQuoteDigest(construction), signature: relayerSignature as Hex })) !== getAddress(quote.sponsor))
+      throw new StationAdapterError(502, 'gas_station_quote_signature');
+    const accountNonce = BigInt(await rpc.request<Hex>('eth_getTransactionCount', [address, 'pending']));
+    if (accountNonce >= (1n << 64n) - 1n) throw new StationAdapterError(409, 'gas_station_account_nonce');
+    retained = { batch: { chainId, account: address, nonce, calls, quote }, relayerSignature: relayerSignature as Hex,
+      authorization: { chainId, address: paymaster, nonce: accountNonce.toString() } };
+    await input.persist(retained);
+  }
+  const { batch, relayerSignature } = retained;
+  const { chainId, nonce, calls, quote } = batch;
+  const construction: ConstructionWire = { kind: 'sponsored_batch', chainId, account: batch.account, nonce,
+    calls: calls.map(call => ({ to: call.to, value: call.value, data: call.data })),
+    quote: { sponsor: quote.sponsor, token: quote.token, maxTokenAmount: quote.maxTokenAmount,
+      tokenAmount: quote.tokenAmount, deadline: quote.deadline, quoteNonce: quote.quoteNonce, gasCost: quote.gasCost } };
+  const authConstruction: ConstructionWire = { kind: 'eip7702_authorization', chainId: retained.authorization.chainId,
+    address: retained.authorization.address, nonce: retained.authorization.nonce };
+  const signDigest = async (payload: SignBody, digest: Hex): Promise<Hex> => {
+    const signed = await input.sign(payload);
+    const raw = hexToBytes(`0x${strip(signed.signature)}`);
+    if (raw.length !== 65 || signed.recoveryId === null) throw new AttestorUnavailable('attestor account signature is malformed');
+    const signature = serializeSignature({ r: bytesToHex(raw.slice(0, 32)), s: bytesToHex(raw.slice(32, 64)), yParity: signed.recoveryId & 1 });
+    if (getAddress(await recoverAddress({ hash: digest, signature })) !== getAddress(address))
+      throw new AttestorUnavailable('attestor signature recovers another account');
+    return signature;
+  };
+  const digest = constructionDigest(construction);
+  const accountSignature = retained.accountSignature ?? await signDigest({ kind: 'eth_sign_digest', digest, construction }, digest);
+  if (!retained.accountSignature) {
+    retained = { ...retained, accountSignature };
+    await input.persist(retained);
+  }
+  const authSignature = await signDigest({ kind: 'eip7702_authorization', construction: authConstruction }, constructionDigest(authConstruction));
+  const auth = parseSignature(authSignature);
+  const authorization = { ...retained.authorization, yParity: auth.yParity!, r: auth.r, s: auth.s };
+  const call = { to: address, value: '0', data: encodeFunctionData({
+    abi: sponsoredBindAbi, functionName: 'executeSponsored', args: [
+      calls.map(call => ({ to: call.to, value: BigInt(call.value), data: call.data })),
+      { sponsor: getAddress(quote.sponsor), token: getAddress(quote.token), maxTokenAmount: BigInt(quote.maxTokenAmount),
+        tokenAmount: BigInt(quote.tokenAmount), deadline: BigInt(quote.deadline), quoteNonce: BigInt(quote.quoteNonce), gasCost: BigInt(quote.gasCost) },
+      accountSignature, relayerSignature as Hex,
+    ],
+  }) };
+  return { call, authorization, batch: { chainId, account: address, nonce, calls, quote }, accountSignature, relayerSignature };
+}
+
+export type SponsoredBindRequest = Awaited<ReturnType<typeof sponsoredBindRequest>>;

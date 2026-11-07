@@ -14,7 +14,6 @@ import (
 	putils "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/utils"
 	storetypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/store/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
-	upgradekeeper "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/x/upgrade/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/utils/metrics"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -44,12 +43,14 @@ type PrecompileExecutor interface {
 
 type Precompile struct {
 	abi.ABI
-	address  common.Address
-	name     string
-	executor PrecompileExecutor
-	reasons  bool
-	lxp      bool
-	gas      GasTable
+	address    common.Address
+	name       string
+	executor   PrecompileExecutor
+	reasons    bool
+	lxp        bool
+	gas        GasTable
+	retirePlan string
+	retired    map[string]bool
 }
 
 // MethodGas is one row of a fixed per-method gas table: the KV read or write
@@ -90,6 +91,10 @@ func withLXPCode(code string, err error) error {
 
 var _ vm.PrecompiledContract = &Precompile{}
 
+func UnknownMethodError(precompile, method string) error {
+	return withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("LXP_PRECOMPILE_UNKNOWN_METHOD: %s method %s is unavailable", precompile, method))
+}
+
 func NewPrecompile(a abi.ABI, executor PrecompileExecutor, address common.Address, name string) *Precompile {
 	return &Precompile{ABI: a, executor: executor, address: address, name: name}
 }
@@ -98,6 +103,12 @@ func NewPrecompile(a abi.ABI, executor PrecompileExecutor, address common.Addres
 // Error(string) carrying the error text, so a caller sees why it reverted.
 func (p *Precompile) WithRevertReasons() *Precompile {
 	p.reasons = true
+	return p
+}
+
+func (p *Precompile) WithLegacyRevertReasons() *Precompile {
+	p.WithRevertReasons()
+	p.lxp = false
 	return p
 }
 
@@ -114,6 +125,15 @@ func (p *Precompile) WithLXPReasons() *Precompile {
 // method without a row instead of charging a default.
 func (p *Precompile) WithGasTable(table GasTable) *Precompile {
 	p.gas = table
+	return p
+}
+
+func (p *Precompile) WithRetirement(plan string, methods ...string) *Precompile {
+	p.retirePlan = plan
+	p.retired = make(map[string]bool, len(methods))
+	for _, method := range methods {
+		p.retired[method] = true
+	}
 	return p
 }
 
@@ -186,21 +206,40 @@ func (p Precompile) RequiredGas(input []byte) uint64 {
 
 func (p Precompile) Run(evm *vm.EVM, caller common.Address, callingContract common.Address, input []byte, value *big.Int, readOnly bool, isFromDelegateCall bool, hooks *tracing.Hooks) (bz []byte, err error) {
 	operation := fmt.Sprintf("%s_unknown", p.name)
+	retiredCall := false
 	defer func() {
 		HandlePrecompileError(err, evm, operation)
 		if err != nil {
-			if p.reasons {
+			if errors.Is(err, vm.ErrExecutionReverted) && len(bz) > 0 {
+				err = vm.ErrExecutionReverted
+				return
+			}
+			if p.reasons && !retiredCall {
 				bz = revertData(err, p.lxp)
 			}
 			err = vm.ErrExecutionReverted
 		}
 	}()
-	ctx, method, args, err := p.Prepare(evm, input)
+	ctx, method, err := p.prepareMethod(evm, input)
 	if err != nil {
 		return nil, err
 	}
 
 	operation = method.Name
+	if p.retirePlan != "" && (len(p.retired) == 0 || p.retired[method.Name]) {
+		var reader UpgradeActivationReader
+		if getter, ok := p.executor.(interface{ EVMKeeper() putils.EVMKeeper }); ok {
+			reader = UpgradeReaderOf(getter.EVMKeeper())
+		}
+		if RetiredAt(ctx, reader, p.retirePlan, ctx.BlockHeight()) {
+			retiredCall = true
+			return RetiredRevert(p.name), vm.ErrExecutionReverted
+		}
+	}
+	args, err := method.Inputs.Unpack(input[4:])
+	if err != nil {
+		return nil, err
+	}
 	em := ctx.EventManager()
 	ctx = ctx.WithEventManager(sdk.NewEventManager())
 	ctx = ctx.WithEVMPrecompileCalledFromDelegateCall(isFromDelegateCall)
@@ -225,29 +264,34 @@ func HandlePrecompileError(err error, evm *vm.EVM, operation string) {
 }
 
 func (p Precompile) Prepare(evm *vm.EVM, input []byte) (sdk.Context, *abi.Method, []interface{}, error) {
+	ctx, method, err := p.prepareMethod(evm, input)
+	if err != nil {
+		return sdk.Context{}, nil, nil, err
+	}
+	args, err := method.Inputs.Unpack(input[4:])
+	if err != nil {
+		return sdk.Context{}, nil, nil, err
+	}
+	return ctx, method, args, nil
+}
+
+func (p Precompile) prepareMethod(evm *vm.EVM, input []byte) (sdk.Context, *abi.Method, error) {
 	ctxer := state.GetDBImpl(evm.StateDB)
 	if ctxer == nil {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_NO_CONTEXT", errors.New("cannot get context from EVM"))
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_NO_CONTEXT", errors.New("cannot get context from EVM"))
 	}
 	methodID, err := ExtractMethodID(input)
 	if err != nil {
-		return sdk.Context{}, nil, nil, err
+		return sdk.Context{}, nil, err
 	}
 	method, err := p.MethodById(methodID)
 	if err != nil {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", err)
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", err)
 	}
 	if _, ok := p.gas[method.Name]; p.gas != nil && !ok {
-		return sdk.Context{}, nil, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("no method with id: %#x", methodID))
+		return sdk.Context{}, nil, withLXPCode("LXP_PRECOMPILE_UNKNOWN_METHOD", fmt.Errorf("no method with id: %#x", methodID))
 	}
-
-	argsBz := input[4:]
-	args, err := method.Inputs.Unpack(argsBz)
-	if err != nil {
-		return sdk.Context{}, nil, nil, err
-	}
-
-	return ctxer.Ctx(), method, args, nil
+	return ctxer.Ctx(), method, nil
 }
 
 func (p Precompile) GetABI() abi.ABI {
@@ -316,14 +360,7 @@ func (d DynamicGasPrecompile) mergePlanActive(evm *vm.EVM) bool {
 	if sdb == nil {
 		return false
 	}
-	getter, ok := d.executor.EVMKeeper().(interface {
-		UpgradeKeeper() *upgradekeeper.Keeper
-	})
-	if !ok {
-		return false
-	}
-	ctx := sdb.Ctx()
-	return getter.UpgradeKeeper().IsUpgradeActiveAtHeight(ctx.WithGasMeter(sdk.NewInfiniteGasMeter(1, 1)), MergeUpgrade, ctx.BlockHeight())
+	return MergePlanActive(sdb.Ctx(), d.executor.EVMKeeper())
 }
 
 func (d DynamicGasPrecompile) RunAndCalculateGas(evm *vm.EVM, caller common.Address, callingContract common.Address, input []byte, suppliedGas uint64, value *big.Int, hooks *tracing.Hooks, readOnly bool, isFromDelegateCall bool) (ret []byte, remainingGas uint64, err error) {
@@ -331,7 +368,6 @@ func (d DynamicGasPrecompile) RunAndCalculateGas(evm *vm.EVM, caller common.Addr
 	defer func() {
 		HandlePrecompileError(err, evm, operation)
 		if err != nil {
-			fmt.Printf("precompile %s encountered error: %v\n", d.name, err)
 			if d.reasons && d.mergePlanActive(evm) {
 				ret = revertData(err, d.lxp)
 			}

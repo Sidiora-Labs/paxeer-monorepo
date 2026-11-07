@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { DrawerBody, DrawerContent, DrawerRoot, DrawerTrigger } from 'toolkit/chakra/drawer';
+import { DrawerBody, DrawerContent, DrawerRoot, DrawerTrigger, DrawerHeader, DrawerTitle, DrawerCloseTrigger } from 'toolkit/chakra/drawer';
 import { IconButton } from 'toolkit/chakra/icon-button';
 import { useDisclosure } from 'toolkit/hooks/useDisclosure';
 import IconSvg from 'ui/shared/IconSvg';
@@ -29,11 +29,15 @@ const Burger = ({ isMarketplaceAppPage }: Props) => {
             name="burger"
             boxSize={ 6 }
             display="block"
-            color={{ _light: 'gray.600', _dark: 'white' }}
+            color="text.primary"
           />
         </IconButton>
       </DrawerTrigger>
-      <DrawerContent >
+      <DrawerContent bg="raised" borderColor="hairline" borderWidth="1px">
+        <DrawerHeader>
+          <DrawerTitle>Navigation</DrawerTitle>
+          <DrawerCloseTrigger/>
+        </DrawerHeader>
         <DrawerBody display="flex" flexDirection="column" overflowX="hidden" overflowY="auto">
           <TestnetBadge alignSelf="flex-start" mb={ 2 }/>
           <RollupStageBadge alignSelf="flex-start" mb={ 2 }/>

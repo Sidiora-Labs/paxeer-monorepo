@@ -5,12 +5,14 @@ Runs the prebuilt native kernel settlement test and the Rust transfer-law and
 real-guest monetary-law executables recorded by the scoped producer manifest.
 Nothing is compiled here; the manifest must bind the exact checkout.
 """
+import argparse
 import datetime
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 
@@ -32,7 +34,7 @@ INPUTS = sorted({"tests/programs/test_monetary_law.c", "programs/Cargo.lock", "r
                  "tools/paxeer-x/build/104.30.2.mk", "tools/paxeer-x/gates/104.30.2.sh",
                  "tools/qualification/paxeer-x/program_transfer_authority.py",
                  "tests/programs/test_call_activity.c", "services/agent/Cargo.toml", "services/agent/Cargo.lock",
-                 "programs/Cargo.toml", "contracts/config/checkpoint-settlement.json", "Makefile"})
+                 "programs/Cargo.toml", "Makefile"})
 BINARIES = ("native_monetary_law", "runtime_unit", "monetary_law", "sandbox_staticlib")
 UNIT = [
     "real_guest_mixed_effects_seal_exact_dual_authority_kernel_set",
@@ -187,16 +189,54 @@ def native(binary, log):
     return ["native:" + n for n in NATIVE], int(passed[-1])
 
 
+def evidence_directory():
+    selected = os.environ.get("PAXEER_X_EVIDENCE_DIR") or os.environ.get("TASK_LOG_DIR")
+    if not selected or not selected.strip():
+        raise Fail("explicit private evidence directory is required")
+    path = Path(selected)
+    if not path.is_absolute() or path.resolve(strict=True) != path:
+        raise Fail("evidence directory must be absolute, canonical and nonsymlink")
+    info = path.lstat()
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != os.geteuid()
+            or stat.S_IMODE(info.st_mode) != 0o700 or path == ROOT or ROOT in path.parents):
+        raise Fail("evidence directory must be caller-owned mode 0700 outside the checkout")
+    return path
+
+
+def private_output(directory, name):
+    if Path(name).name != name or name in ("", ".", ".."):
+        raise Fail("evidence output must be a single filename")
+    directory = Path(directory)
+    if (not directory.is_absolute() or directory.resolve(strict=True) != directory
+            or directory == ROOT or ROOT in directory.parents):
+        raise Fail("evidence output directory must be canonical and outside the checkout")
+    # Keep creation relative to the admitted directory descriptor across renames.
+    descriptor = os.open(directory, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:
+        info = os.fstat(descriptor)
+        if info.st_uid != os.geteuid() or stat.S_IMODE(info.st_mode) != 0o700:
+            raise Fail("private evidence directory changed")
+        output = os.open(name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW,
+                         0o600, dir_fd=descriptor)
+        os.fchmod(output, 0o600)
+        return os.fdopen(output, "w", encoding="utf-8")
+    finally:
+        os.close(descriptor)
+
+
 def main():
-    evidence = Path(os.environ.get("PAXEER_X_EVIDENCE_DIR") or os.environ.get("TASK_LOG_DIR") or "")
-    if not evidence.is_dir():
-        print("program_transfer_authority: no private evidence directory", file=sys.stderr)
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.parse_args()
+    try:
+        evidence = evidence_directory()
+    except (Fail, OSError) as error:
+        print("program_transfer_authority: " + str(error), file=sys.stderr)
         return 2
     stamp = datetime.datetime.now(datetime.timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     log_path = evidence / ("104.30.2-cases-" + stamp + ".log")
     record = {"task": TASK, "started_at": stamp, "result": "fail"}
     try:
-        with open(log_path, "x", encoding="utf-8") as log:
+        with private_output(evidence, log_path.name) as log:
             manifest_path, data = load_manifest()
             record["producer_manifest"] = {"path": str(manifest_path), "sha256": digest(manifest_path)}
             record["scope"] = scope()
@@ -217,9 +257,8 @@ def main():
         return 1
     finally:
         out = evidence / ("104.30.2-transfer-authority-" + stamp + ".json")
-        with open(out, "x", encoding="utf-8") as stream:
+        with private_output(evidence, out.name) as stream:
             json.dump(record, stream, indent=2, sort_keys=True)
-        os.chmod(out, 0o600)
         print("evidence: " + str(out))
 
 

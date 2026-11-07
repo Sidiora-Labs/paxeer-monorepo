@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import argparse
 import hashlib
 import json
 import os
@@ -12,6 +13,27 @@ import shutil
 sys.dont_write_bytecode = True
 
 ROOT = Path(__file__).resolve().parents[3]
+TEST_SOURCES = {
+    'client': ROOT / 'services/agent/crates/layerx-client/tests/committed_caps.rs',
+    'agentd': ROOT / 'services/agent/crates/layerx-agentd/tests/budget_schema.rs',
+}
+
+
+def qualification_counts(test_sources, native_vectors):
+    counts = {}
+    for name, source in test_sources.items():
+        count = len(re.findall(r'^\s*#\[test\]\s*$', source.read_text(), re.M))
+        if not count:
+            raise RuntimeError('missing test cases in source: ' + name)
+        counts[name] = count
+    if isinstance(native_vectors, dict):
+        native_vectors = {name: value for name, value in native_vectors.items()
+                          if name not in ('producer', 'budget_key')}
+    elif not isinstance(native_vectors, list):
+        raise ValueError('native vectors must be an object or array')
+    if not native_vectors:
+        raise RuntimeError('missing native vectors')
+    return {'test_groups': counts, 'native_vectors': len(native_vectors)}
 
 
 def codec_gate(runtime):
@@ -38,6 +60,7 @@ def codec_gate(runtime):
     native = json.loads(vectors.read_text())
     if native.get('producer') != 'native-budget-codec-and-grant-save':
         raise RuntimeError('unexpected native producer contract')
+    expected = qualification_counts(TEST_SOURCES, native)
     native_inputs = Path('/tmp/caps-native')
     native_inputs.mkdir(mode=0o755)
     for name, artifact in manifest['authority_binaries'].items():
@@ -49,9 +72,7 @@ def codec_gate(runtime):
                 raise RuntimeError('isolated native executable copy mismatch')
     env = dict(os.environ, LAYERX_CAPS_VECTORS=str(vectors), LAYERX_TEST_NATIVE_BIN_DIR=str(native_inputs))
     env.update(LAYERX_TEST_PAXEER_CHAIN_ID=str(runtime.manifest['chain_id']),
-               LAYERX_TEST_PAXEER_RPC_PORT=str(runtime.ports[0]),
-               LAYERX_TEST_SETTLEMENT_CONTRACT='0x0000000000000000000000000000000000001014',
-               LAYERX_TEST_CHECKPOINT_REGISTRY='0x0000000000000000000000000000000000001014')
+               LAYERX_TEST_PAXEER_RPC_PORT=str(runtime.ports[0]))
     if runtime.rpc('eth_chainId') != hex(runtime.manifest['chain_id']):
         raise RuntimeError('actual isolated chain id mismatch')
     counts = {}
@@ -63,10 +84,10 @@ def codec_gate(runtime):
         if result.returncode:
             raise RuntimeError(name + ' test exit ' + str(result.returncode))
         match = re.search(r'test result: ok\. (\d+) passed; 0 failed; 0 ignored;', result.stdout)
-        if not match or int(match[1]) != {'client': 4, 'agentd': 5}[name]:
+        if not match or int(match[1]) != expected['test_groups'][name]:
             raise RuntimeError('missing cases or skipped tests: ' + name)
         counts[name] = int(match[1])
-    record = {'revision': revision, 'exit_code': 0, 'tests': sum(counts.values()), 'test_groups': counts, 'native_vectors': 6, 'skipped': 0, 'claim': 'canonical codecs and existing reconciliation compatibility only'}
+    record = {'revision': revision, 'exit_code': 0, 'tests': sum(counts.values()), 'test_groups': counts, 'native_vectors': expected['native_vectors'], 'skipped': 0, 'claim': 'canonical codecs and existing reconciliation compatibility only'}
     path = output / 'gate-result.json'
     path.write_text(json.dumps(record, indent=2) + '\n')
     path.chmod(0o600)
@@ -74,12 +95,16 @@ def codec_gate(runtime):
 
 
 def main():
+    parser = argparse.ArgumentParser(description='Verify prebuilt capability codec artifacts.')
+    parser.add_argument('--worker', type=Path, metavar='DIRECTORY',
+                        help='run the codec gate inside the isolated runtime directory')
+    args = parser.parse_args()
     os.umask(0o077)
     sys.path.insert(0, str(ROOT / 'tests/daemon'))
     import paxeer_x_runtime_fixture as fixture
     bundle = fixture.artifacts(os.environ['PAXEER_X_RUNTIME_ARTIFACTS'])
     client = fixture.client_artifact(os.environ['PAXEER_X_RUNTIME_CLIENT_MANIFEST'])
-    if len(sys.argv) == 3 and sys.argv[1] == '--worker':
+    if args.worker is not None:
         if os.geteuid() != 0 or os.getegid() != 4020:
             raise RuntimeError('isolated producer requires UID0/GID4020')
         for name in ('net', 'pid', 'mnt'):
@@ -97,7 +122,7 @@ def main():
         subprocess.run(['mount', '--bind', sys.prefix, str(python_root)], check=True)
         subprocess.run(['mount', '-o', 'remount,bind,ro,nosuid,nodev', str(python_root)], check=True)
         os.environ['PATH'] = str(python_root / 'bin') + ':/usr/local/bin:/usr/bin:/bin'
-        runtime = fixture.RuntimeFixture(sys.argv[2], bundle, client)
+        runtime = fixture.RuntimeFixture(str(args.worker), bundle, client)
         try:
             runtime.generate()
             codec_gate(runtime)

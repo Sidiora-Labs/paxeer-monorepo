@@ -1,0 +1,24 @@
+[repair.22.33.1301]
+finding = "fixture-block-metadata-diverges"
+proof = "TestRepairM_1301_FixtureBlockMetadata"
+implementation = "SetupTestServer and SetupBlocks retain the exact consensus headers hashed and passed to FinalizeBlock; Block, Header and BlockByHash serve those headers. Each next header carries the real preceding commit and deterministic transaction-result roots. The proof compares producer context and committed block ID with historical loopback RPC blocks, transaction chain identity and receipts."
+baseline = "Not run: the explicit gate order requires complete implementation before the first hf-build and hf-done, and forbids running verify_cmd manually. No pre-change failing-test claim is made."
+initial_root = "The initial header has no preceding commit; its stateRoot is asserted against the producer, while a later committed header retains the nonzero-root assertion."
+wiring_requests = []
+evidence = "The runner records the exact candidate revision, command, exit and private log in its hf-build/hf-done ledger."
+
+[qualification.attempt_2]
+status = "implemented_not_qualified"
+revision = "ce25b46104fdab9841f60033d47125f8d74ad456"
+command = "go build ./rpc/tests/..."
+exit = 1
+log = "/out/logs/build-1.log"
+observed = "Out-of-scope auth, staking and tokenfactory CLI callers consume one value from tx.NewFactoryCLI, whose signature returns (Factory, error); the build cannot reach task verification."
+verification = "hf-done was not run because hf-build did not pass; no gate is claimed for the subsequent record-only update."
+wiring_requests = ["sdk/x/auth/client/cli and sdk/x/staking/client/cli: SDK domain must update NewFactoryCLI callers to handle its error return.", "modules/tokenfactory/client/cli: tokenfactory domain must update NewFactoryCLI callers to handle its error return."]
+
+[qualification.attempt_3]
+base = "13531a9e95bc34a9b21e00a3e375a215261f2bd6"
+continuation = "Retain the attempt-2 implementation and qualify on the base containing repair 22.31.463; its SDK and tokenfactory CLI callers now handle both NewFactoryCLI return values."
+evidence = "Current qualification is established only by the runner's hf-build/hf-done ledger, which records the exact candidate revision, command, exit and private log; the attempt-2 failure above remains historical evidence."
+wiring_requests = []

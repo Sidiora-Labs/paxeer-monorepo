@@ -11,7 +11,14 @@ import sys
 import tempfile
 import time
 from comet import qualify as qualify_comet
+from tls_shutdown import qualify as qualify_tls_shutdown
 
+if 'LAYERX_PAXEER_QUALIFICATION_ACTIVE' in os.environ:
+    sys.stderr.write('refusing qualification re-entry: LAYERX_PAXEER_QUALIFICATION_ACTIVE is already set\n')
+    sys.exit(2)
+
+env = os.environ.copy()
+env['LAYERX_PAXEER_QUALIFICATION_ACTIVE'] = '1'
 ROOT = Path(__file__).resolve().parents[5]
 PAXD = os.environ.get('PAXD', str(ROOT / 'build/paxd'))
 
@@ -23,13 +30,13 @@ def port():
 
 
 def run(*args, **kwargs):
+    kwargs.setdefault('env', env)
     return subprocess.run(args, check=True, stdout=subprocess.DEVNULL,
                           stderr=subprocess.PIPE, **kwargs)
 
 
 with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
     work = Path(work)
-    env = os.environ.copy()
     # The guarantor pays for every submitCheckpoint from its own account, so genesis funds it.
     submitter = '0x2b5ad5c4795c026514f8317c7a215e218dccd6cf'
     submitter_wei = 10 ** 12 * 10 ** 12
@@ -104,8 +111,7 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
         evm_chain_id = int(data['result'], 16)
         qualify_comet(raw_request, int(env['LAYERX_PAXEER_RPC_PORT']),
                       Path(tempfile.gettempdir()) / f'paxeer-comet-proof-{node.pid}.json')
-        run(sys.executable, str(Path(__file__).with_name('tls_shutdown.py')),
-            str(boundary_port), str(work/'ca.pem'))
+        qualify_tls_shutdown(boundary_port, str(work/'ca.pem'))
         status, headers, body = raw_request('GET', '/genesis')
         assert status == 200, body
         assert headers.get_all('X-LayerX-Genesis-SHA256') == [hashlib.sha256(body).hexdigest()]
@@ -142,10 +148,6 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
         rows = [line.split()[1] for line in Path('/proc/net/tcp').read_text().splitlines()[1:]
                 if line.split()[1].endswith(':' + expected) and line.split()[3] == '0A']
         assert rows == ['0100007F:' + expected], rows
-        run('openssl', 'x509', '-in', str(work/'ca.pem'), '-outform', 'DER', '-out', str(work/'ca.der'))
-        client_env = env | {'LAYERX_PAXEER_TEST_CLIENT_URL': f'https://localhost:{boundary_port}',
-                            'LAYERX_PAXEER_TEST_CLIENT_CA': str(work/'ca.der')}
-        run(sys.argv[2], '--exact', 'real_paxd_boundary', env=client_env)
         signing_key = ((Path(deployment_inputs)/'keys/deployer.key').read_text().strip()
                        if deployment_inputs else '0x' + '0' * 63 + '1')
         signed = subprocess.run(['cast', 'mktx', '--rpc-url', f'https://localhost:{boundary_port}',
@@ -168,34 +170,19 @@ with tempfile.TemporaryDirectory(prefix='layerx-paxeer-real-') as work:
             raise AssertionError(f'real EVM transfer receipt unavailable: {transaction}')
         assert status == 200 and receipt['result']['status'] == '0x1', receipt
         if deployment_inputs:
-            inputs = Path(deployment_inputs)
-            settlement = inputs/'checkpoint-settlement.json'
-            settlement.write_bytes((ROOT/'contracts/config/checkpoint-settlement.json').read_bytes())
-            deploy_env = client_env | {
-                'LAYERX_PAXEER_BOUNDARY_URL': f'https://localhost:{boundary_port}',
-                'LAYERX_PAXEER_BOUNDARY_CA_DER': str(work/'ca.der'),
-                'LAYERX_PAXEER_DEPLOYER_KEY_FILE': str(inputs/'keys/deployer.key'),
-                'LAYERX_PAXEER_GENESIS_DIR': str(inputs/'genesis'),
-                'LAYERX_PAXEER_DEPLOYMENT_INPUT': str(inputs/'deployment-input.json'),
-                'LAYERX_PAXEER_GUARANTORS': str(inputs/'guarantors.json'),
-                'LAYERX_PAXEER_GUARANTOR_KEYS_DIR': str(inputs/'keys'),
-                'LAYERX_PAXEER_DEPLOYMENT_RECORD': str(inputs/'deployment.json'),
-                'LAYERX_PAXEER_SETTLEMENT_JSON': str(settlement)}
-            immediate = json.loads((inputs/'deployment-input.json').read_text()).get('timelock_profile') == 'immediate-beta'
-            phase = 'bootstrap' if immediate else 'deploy'
-            try:
-                run('bash', str(ROOT/'services/platform/hosted/paxeer/deploy-contracts.sh'), phase, env=deploy_env)
-            except subprocess.CalledProcessError as error:
-                sys.stderr.buffer.write(error.stderr)
-                raise
-            if immediate:
-                deployment = json.loads((inputs/'deployment.json').read_text())
-                assert deployment['phases'] == ['deploy', 'permissions', 'activate', 'bond', 'finalize'], deployment['phases']
-                run('bash', str(ROOT/'services/platform/hosted/paxeer/deploy-contracts.sh'), 'status', env=deploy_env)
-            domain = json.loads(settlement.read_text())['settlement_domains']['beta']
-            assert domain['paxeer_chain_id'] == 125
-            assert domain['guarantor_set'] == [{key: row[key].lower() for key in ['guarantor_id', 'signer', 'public_key']}
-                                               for row in json.loads((inputs/'guarantors.json').read_text())]
+            # Current deployment evidence comes from committed native membership.
+            evidence_run = subprocess.run([
+                sys.argv[2], 'evidence',
+                f'http://127.0.0.1:{env["LAYERX_PAXEER_EVM_PORT"]}/',
+                f'http://127.0.0.1:{env["LAYERX_PAXEER_RPC_PORT"]}/'],
+                capture_output=True, text=True, check=True)
+            evidence = json.loads(evidence_run.stdout)
+            assert evidence['chain_id'] == 125
+            assert evidence['consensus_chain_id'] == genesis['chain_id']
+            assert evidence['height'] > 0 and evidence['validators']
+            assert all(int(member['voting_power']) > 0 for member in evidence['validators'])
+            assert 'guarantor_set' not in evidence
+            assert 'settlement_contract' not in evidence
         healthy_port = boundary_port
         boundary_port = port()
         wrong_env = env | {'LAYERX_PAXEER_CHAIN_ID': '126',

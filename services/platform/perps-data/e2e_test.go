@@ -36,14 +36,17 @@ import (
 
 	perpsabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/perps/abi"
 	spotabi "github.com/Sidiora-Labs/Paxeer-X-Network/precompiles/spot/abi"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/bech32"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/config"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/decode"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/delivery"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/explorer"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/gateway"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/indexer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/markets"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/portal"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/publish"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/rest"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/source"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/services/platform/perps-data/internal/stream"
@@ -115,12 +118,304 @@ type sent struct {
 	block uint64
 }
 
-func TestEndToEnd(t *testing.T) {
-	if os.Getenv(e2eDatabaseEnv) == "" && os.Getenv(e2eRPCEnv) == "" && os.Getenv(e2eCometEnv) == "" {
-		t.Skip("TestEndToEnd needs " + e2eDatabaseEnv + ", " + e2eRPCEnv + " and " + e2eCometEnv)
+// TestEndToEndChainMarkets needs a disposable PostgreSQL database allowing the
+// perps schema to be dropped and migrated, and EVM and Comet RPCs for one chain.
+func TestEndToEndChainMarkets(t *testing.T) {
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEndChainMarkets requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
 	}
-	t.Run("module_builds", testModuleBuilds)
+	e := setupE2E(t)
+	ctx, cancel := context.WithTimeout(context.Background(), waitShort)
+	defer cancel()
+	metrics, err := telemetry.New(config.Indexer)
+	if err != nil {
+		t.Fatalf("telemetry: %v", err)
+	}
+	runCtx, stop := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() { done <- markets.Run(runCtx, e.db, e.client, time.Minute, metrics) }()
+	t.Cleanup(func() {
+		stop()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("markets.Run = %v, want context.Canceled", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("markets.Run did not stop")
+		}
+	})
+	var height int64
+	for {
+		var refreshed bool
+		var block sql.NullInt64
+		if err := e.db.QueryRowContext(ctx, `SELECT count(*) > 0 AND bool_and(source = 'chain' AND refreshed_block IS NOT NULL)
+  AND min(refreshed_block) = max(refreshed_block), min(refreshed_block) FROM perps.markets`).Scan(&refreshed, &block); err != nil {
+			t.Fatalf("read markets refresh: %v", err)
+		}
+		if refreshed && block.Valid {
+			height = block.Int64
+			break
+		}
+		select {
+		case err := <-done:
+			done <- err
+			t.Fatalf("markets.Run returned before refreshing: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("markets.Run did not refresh all markets within %s: %v", waitShort, ctx.Err())
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 
+	perps := mustABI(t, perpsabi.ABI)
+	at := big.NewInt(height)
+	call := func(method string, args ...any) []any {
+		t.Helper()
+		input, err := perps.Pack(method, args...)
+		if err != nil {
+			t.Fatalf("pack %s: %v", method, err)
+		}
+		raw, err := e.client.CallContract(ctx, ethereum.CallMsg{To: &perpsPrecompile, Data: input}, at)
+		if err != nil {
+			t.Fatalf("call %s at %d: %v", method, height, err)
+		}
+		out, err := perps.Unpack(method, raw)
+		if err != nil {
+			t.Fatalf("unpack %s: %v", method, err)
+		}
+		return out
+	}
+	out := call("totalMarkets")
+	if len(out) != 1 {
+		t.Fatalf("totalMarkets returned %d outputs, want 1", len(out))
+	}
+	total, ok := out[0].(*big.Int)
+	if !ok || total == nil || !total.IsUint64() || total.Sign() == 0 || total.Uint64() > markets.MaxMarkets {
+		t.Fatalf("invalid totalMarkets: %v", out[0])
+	}
+	want := make(map[string]string, total.Uint64())
+	for id := uint64(0); id < total.Uint64(); id++ {
+		var decoded struct {
+			Config struct {
+				MarketId             *big.Int
+				Symbol               string
+				Name                 string
+				OracleSymbol         string
+				SzDecimals           uint8
+				PxDecimals           uint8
+				TickSize             *big.Int
+				LotSize              *big.Int
+				MaxLeverage          *big.Int
+				TierClass            uint8
+				ImpactNotionalUsd    *big.Int
+				OiCapUsd             *big.Int
+				FundingCapPpmPerHour *big.Int
+				Enabled              bool
+				ListedAt             uint64
+			}
+		}
+		if err := perps.Methods["getMarketConfig"].Outputs.Copy(&decoded, call("getMarketConfig", new(big.Int).SetUint64(id))); err != nil {
+			t.Fatalf("decode getMarketConfig(%d): %v", id, err)
+		}
+		cfg := decoded.Config
+		if cfg.MarketId == nil || !cfg.MarketId.IsUint64() || cfg.MarketId.Uint64() != id || cfg.Symbol == "" {
+			t.Fatalf("getMarketConfig(%d) returned market_id %v, symbol %q", id, cfg.MarketId, cfg.Symbol)
+		}
+		want[cfg.MarketId.String()] = cfg.Symbol
+	}
+
+	routes, err := rest.NewMarkets(e.db, nil)
+	if err != nil {
+		t.Fatalf("rest.NewMarkets: %v", err)
+	}
+	mux := http.NewServeMux()
+	routes.Register(mux)
+	var body struct {
+		Markets []rest.MarketRecord `json:"markets"`
+	}
+	getJSON(t, serve(t, mux)+"/api/markets", &body)
+	if uint64(len(body.Markets)) != total.Uint64() {
+		t.Fatalf("GET /api/markets lists %d markets, totalMarkets at %d is %s", len(body.Markets), height, total)
+	}
+	seen := make(map[string]bool, len(body.Markets))
+	for _, record := range body.Markets {
+		symbol, ok := want[record.MarketID]
+		if !ok || record.Symbol != symbol {
+			t.Fatalf("GET /api/markets record market_id %q symbol %q, getMarketConfig wants %q (known id: %t)", record.MarketID, record.Symbol, symbol, ok)
+		}
+		if seen[record.MarketID] {
+			t.Fatalf("GET /api/markets repeats market_id %s", record.MarketID)
+		}
+		seen[record.MarketID] = true
+	}
+}
+
+// TestEndToEndGraphQLMarkets uses the same database and chain inputs as
+// TestEndToEndChainMarkets; it compares gateway responses with on-chain state.
+func TestEndToEndGraphQLMarkets(t *testing.T) {
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEndGraphQLMarkets requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
+	}
+	e := setupE2E(t)
+	ctx, cancel := context.WithTimeout(context.Background(), waitShort)
+	defer cancel()
+	if err := markets.Refresh(ctx, e.db, e.client); err != nil {
+		t.Fatalf("markets.Refresh: %v", err)
+	}
+	var height int64
+	if err := e.db.QueryRowContext(ctx, `SELECT refreshed_block FROM perps.fee_config WHERE id = 1`).Scan(&height); err != nil {
+		t.Fatalf("read markets refresh height: %v", err)
+	}
+	if height <= 0 {
+		t.Fatalf("markets refresh height = %d, want a committed block", height)
+	}
+
+	metrics, err := telemetry.New(config.Gateway)
+	if err != nil {
+		t.Fatalf("telemetry: %v", err)
+	}
+	srv, err := gateway.NewServer(ctx, gateway.Options{DB: e.db, NATS: e.nc, Chain: e.chain, AuthSecret: e2eSecret, Node: e.client, Metrics: metrics})
+	if err != nil {
+		t.Fatalf("gateway.NewServer: %v", err)
+	}
+	var body struct {
+		Markets []struct {
+			MarketID    int32   `json:"marketId"`
+			Symbol      string  `json:"symbol"`
+			SzDecimals  *int32  `json:"szDecimals"`
+			TickSize    *string `json:"tickSize"`
+			LotSize     *string `json:"lotSize"`
+			MarginTiers []struct {
+				Tier           int32  `json:"tier"`
+				LowerBoundUSD  string `json:"lowerBoundUsd"`
+				MaxLeverage    string `json:"maxLeverage"`
+				MaintenanceBps string `json:"maintenanceBps"`
+				DeductionUSD   string `json:"deductionUsd"`
+			} `json:"marginTiers"`
+		} `json:"markets"`
+	}
+	graphQL(t, serve(t, srv.Handler()), `{ markets {
+  marketId symbol szDecimals tickSize lotSize
+  marginTiers { tier lowerBoundUsd maxLeverage maintenanceBps deductionUsd }
+} }`, nil, &body)
+
+	perps := mustABI(t, perpsabi.ABI)
+	at := big.NewInt(height)
+	call := func(method string, args ...any) []any {
+		t.Helper()
+		input, err := perps.Pack(method, args...)
+		if err != nil {
+			t.Fatalf("pack %s: %v", method, err)
+		}
+		raw, err := e.client.CallContract(ctx, ethereum.CallMsg{To: &perpsPrecompile, Data: input}, at)
+		if err != nil {
+			t.Fatalf("call %s at %d: %v", method, height, err)
+		}
+		out, err := perps.Unpack(method, raw)
+		if err != nil {
+			t.Fatalf("unpack %s: %v", method, err)
+		}
+		return out
+	}
+	out := call("totalMarkets")
+	if len(out) != 1 {
+		t.Fatalf("totalMarkets returned %d outputs, want 1", len(out))
+	}
+	total, ok := out[0].(*big.Int)
+	if !ok || total == nil || !total.IsUint64() || total.Sign() == 0 || total.Uint64() > markets.MaxMarkets {
+		t.Fatalf("invalid totalMarkets: %v", out[0])
+	}
+	if uint64(len(body.Markets)) != total.Uint64() {
+		t.Fatalf("POST /graphql lists %d markets, totalMarkets at %d is %s", len(body.Markets), height, total)
+	}
+	seen := make(map[int32]bool, len(body.Markets))
+	for _, market := range body.Markets {
+		id := market.MarketID
+		if id < 0 || uint64(id) >= total.Uint64() || seen[id] {
+			t.Fatalf("POST /graphql returned invalid or duplicate marketId %d", id)
+		}
+		seen[id] = true
+		var decoded struct {
+			Config struct {
+				MarketId             *big.Int
+				Symbol               string
+				Name                 string
+				OracleSymbol         string
+				SzDecimals           uint8
+				PxDecimals           uint8
+				TickSize             *big.Int
+				LotSize              *big.Int
+				MaxLeverage          *big.Int
+				TierClass            uint8
+				ImpactNotionalUsd    *big.Int
+				OiCapUsd             *big.Int
+				FundingCapPpmPerHour *big.Int
+				Enabled              bool
+				ListedAt             uint64
+			}
+		}
+		arg := big.NewInt(int64(id))
+		if err := perps.Methods["getMarketConfig"].Outputs.Copy(&decoded, call("getMarketConfig", arg)); err != nil {
+			t.Fatalf("decode getMarketConfig(%d): %v", id, err)
+		}
+		cfg := decoded.Config
+		if cfg.MarketId == nil || cfg.MarketId.Cmp(arg) != 0 || cfg.Symbol != market.Symbol {
+			t.Fatalf("POST /graphql market %d symbol %q, getMarketConfig returned marketId %v symbol %q", id, market.Symbol, cfg.MarketId, cfg.Symbol)
+		}
+		if market.SzDecimals == nil || *market.SzDecimals != int32(cfg.SzDecimals) {
+			t.Fatalf("POST /graphql market %d szDecimals = %v, getMarketConfig at %d wants %d", id, market.SzDecimals, height, cfg.SzDecimals)
+		}
+		if market.TickSize == nil || cfg.TickSize == nil || *market.TickSize != cfg.TickSize.String() {
+			t.Fatalf("POST /graphql market %d tickSize = %v, getMarketConfig at %d wants %v", id, market.TickSize, height, cfg.TickSize)
+		}
+		if market.LotSize == nil || cfg.LotSize == nil || *market.LotSize != cfg.LotSize.String() {
+			t.Fatalf("POST /graphql market %d lotSize = %v, getMarketConfig at %d wants %v", id, market.LotSize, height, cfg.LotSize)
+		}
+
+		var tiers struct {
+			Tiers []struct {
+				LowerBoundUsd  *big.Int
+				MaxLeverage    *big.Int
+				MaintenanceBps *big.Int
+				DeductionUsd   *big.Int
+			}
+		}
+		if err := perps.Methods["getMarginTiers"].Outputs.Copy(&tiers, call("getMarginTiers", arg)); err != nil {
+			t.Fatalf("decode getMarginTiers(%d): %v", id, err)
+		}
+		if market.MarginTiers == nil || len(market.MarginTiers) != len(tiers.Tiers) {
+			t.Fatalf("POST /graphql market %d marginTiers = %+v, getMarginTiers at %d wants %d tiers", id, market.MarginTiers, height, len(tiers.Tiers))
+		}
+		for i, want := range tiers.Tiers {
+			got := market.MarginTiers[i]
+			if got.Tier != int32(i) {
+				t.Fatalf("POST /graphql market %d marginTiers[%d].tier = %d, want %d", id, i, got.Tier, i)
+			}
+			for _, field := range []struct {
+				name string
+				got  string
+				want *big.Int
+			}{
+				{"lowerBoundUsd", got.LowerBoundUSD, want.LowerBoundUsd},
+				{"maxLeverage", got.MaxLeverage, want.MaxLeverage},
+				{"maintenanceBps", got.MaintenanceBps, want.MaintenanceBps},
+				{"deductionUsd", got.DeductionUSD, want.DeductionUsd},
+			} {
+				if field.want == nil || field.got != field.want.String() {
+					t.Fatalf("POST /graphql market %d marginTiers[%d].%s = %q, getMarginTiers at %d wants %v", id, i, field.name, field.got, height, field.want)
+				}
+			}
+		}
+	}
+}
+
+// TestEndToEnd additionally needs PERPS_DATA_TEST_SEED_KEY_FILE for an account
+// funded with native gas, USDL and perps collateral, a tradable PAX market 11,
+// and retained block history containing FundingSettled receipts.
+func TestEndToEnd(t *testing.T) {
+	if os.Getenv(e2eDatabaseEnv) == "" || os.Getenv(e2eRPCEnv) == "" || os.Getenv(e2eCometEnv) == "" {
+		t.Fatalf("TestEndToEnd requires %s, %s and %s to all be set", e2eDatabaseEnv, e2eRPCEnv, e2eCometEnv)
+	}
 	e := setupE2E(t)
 	ctx := context.Background()
 	opKey := seedKey(t)
@@ -140,10 +435,38 @@ func TestEndToEnd(t *testing.T) {
 	if err != nil {
 		t.Fatalf("head: %v", err)
 	}
-	// The position projections hold only what the indexer saw, so it follows
-	// the chain from its first block, past at least one hourly settlement.
-	e.latestFunding(t, head)
-	start := uint64(1)
+	var earliest *ethtypes.Header
+	if err := e.client.Client().CallContext(ctx, &earliest, "eth_getBlockByNumber", "earliest", false); err != nil {
+		t.Fatalf("earliest block: %v", err)
+	}
+	if earliest == nil || earliest.Number == nil || !earliest.Number.IsUint64() {
+		t.Fatal("earliest block has no valid height")
+	}
+	start := earliest.Number.Uint64()
+	// Exported-state nodes serve no blocks before start. A fresh node also
+	// needs the next whole hour of block time before SettleFunding emits its
+	// first settlement; wait within the existing catch-up budget for that log.
+	fundingCtx, cancelFunding := context.WithTimeout(ctx, catchUp)
+	defer cancelFunding()
+	waitStarted := time.Now()
+	fundingHeight := e.latestFunding(t, fundingCtx, start, head)
+	for fundingHeight == 0 {
+		if time.Since(waitStarted) < time.Second {
+			t.Logf("waiting up to %s for the first hourly FundingSettled log from block %d", catchUp, start)
+		}
+		select {
+		case <-fundingCtx.Done():
+			t.Fatalf("no FundingSettled log within %s: %v", catchUp, fundingCtx.Err())
+		case <-time.After(time.Second):
+		}
+		head, err = e.client.BlockNumber(fundingCtx)
+		if err != nil {
+			t.Fatalf("head while waiting for FundingSettled: %v", err)
+		}
+		fundingHeight = e.latestFunding(t, fundingCtx, start, head)
+	}
+	t.Logf("first available FundingSettled log observed after %s", time.Since(waitStarted))
+	// Position projections hold only what the indexer saw, including funding.
 	ix := e.startIndexer(t, "e2e-a", start)
 	e.waitIndexed(t, ix, head, catchUp)
 
@@ -196,28 +519,24 @@ func TestEndToEnd(t *testing.T) {
 
 	nextLive(t, readerA, guard, densityA, perpTopic)
 
-	var welcomeB string
-	var readerB <-chan frameOrErr
+	// The process stops: its server, its hub and every socket it held.
+	gwA.stop(t)
+	if err := connA.Close(); err != nil {
+		t.Fatalf("close socket: %v", err)
+	}
+	for range readerA {
+	}
+	e.startGateway(t, gwAddr)
+	connB, welcomeB := dialData(t, gwURL)
+	readerB := readFrames(connB)
 	densityB := map[string]uint64{}
-	t.Run("restart_new_snapshot_id", func(t *testing.T) {
-		// The process stops: its server, its hub and every socket it held.
-		gwA.stop(t)
-		if err := connA.Close(); err != nil {
-			t.Fatalf("close socket: %v", err)
-		}
-		for range readerA {
-		}
-		e.startGateway(t, gwAddr)
-		var connB *websocket.Conn
-		connB, welcomeB = dialData(t, gwURL)
+	if !t.Run("restart_new_snapshot_id", func(t *testing.T) {
 		if welcomeB == welcomeA {
 			t.Fatalf("welcome snapshotId %q after the restart, want a new one", welcomeB)
 		}
-		readerB = readFrames(connB)
 		subscribe(t, connB, perpTopic)
 		expectSnapshots(t, readerB, guard, densityB, welcomeB, perpTopic)
-	})
-	if readerB == nil {
+	}) {
 		t.FailNow()
 	}
 
@@ -269,8 +588,12 @@ func TestEndToEnd(t *testing.T) {
 		}
 		for _, table := range []string{"funding_settlements", "funding_rates"} {
 			rows := e.endBlockRows(t, table)
+			t.Logf("funding receipt finding: perps.%s has %d end-block heights; synthetic receipt tx_index is the consensus tx_count, not the block-event index -1", table, len(rows))
 			if len(rows) == 0 {
 				t.Errorf("no perps.%s row with receipt_kind perps_endblock", table)
+			}
+			if _, ok := rows[fundingHeight]; !ok {
+				t.Errorf("no perps.%s end-block row for observed FundingSettled block %d after indexing through %d", table, fundingHeight, withdrawLast.block)
 			}
 			for block, hash := range rows {
 				if want := source.SyntheticHash("perps-endblock", block); hash != want {
@@ -306,10 +629,16 @@ func TestEndToEnd(t *testing.T) {
 	})
 
 	t.Run("rest_graphql", func(t *testing.T) {
-		var markets []map[string]any
+		var markets struct {
+			TS      int64               `json:"ts"`
+			Markets []rest.MarketRecord `json:"markets"`
+		}
 		getJSON(t, gwURL+"/api/markets", &markets)
-		if len(markets) == 0 {
+		if len(markets.Markets) == 0 {
 			t.Error("/api/markets is empty")
+		}
+		if markets.TS <= 0 {
+			t.Error("/api/markets has no timestamp")
 		}
 		var one map[string]any
 		getJSON(t, gwURL+"/api/markets/"+e2eSymbol, &one)
@@ -388,13 +717,35 @@ func TestEndToEnd(t *testing.T) {
 		if link == "" {
 			t.Fatalf("explorer history of %s lacks deposit %s with a link", op.Hex(), depositOp.hash.Hex())
 		}
-		var tx struct {
-			Hash         string            `json:"hash"`
-			Transactions []json.RawMessage `json:"transactions"`
+		t.Log("deposit link finding 3.54.7.1: the missing CollateralDeposited action mapping skipped the deposit in store.txActions; section 16 now maps it to Collateral Deposited")
+		if n := e.count(t, `SELECT count(*) FROM perps.tx_actions WHERE tx_hash = $1 AND kind = 'CollateralDeposited' AND action = $2 AND account = $3 AND size = $4`,
+			depositOp.hash.Bytes(), explorer.ActionCollateralDeposited, op.Bytes(), usd(20).String()); n != 1 {
+			t.Fatalf("deposit has %d matching tx_actions rows, want 1", n)
 		}
+		var tx explorer.TransactionDetail
 		getJSON(t, link, &tx)
 		if !strings.EqualFold(tx.Hash, depositOp.hash.Hex()) || len(tx.Transactions) == 0 {
 			t.Fatalf("explorer link %s answered hash %q with %d transactions", link, tx.Hash, len(tx.Transactions))
+		}
+		wantUser, err := bech32.ConvertAndEncode("pax", op.Bytes())
+		if err != nil {
+			t.Fatal(err)
+		}
+		foundDeposit := false
+		for _, action := range tx.Transactions {
+			if action.Action != explorer.ActionCollateralDeposited {
+				continue
+			}
+			foundDeposit = true
+			if !strings.EqualFold(action.Hash, depositOp.hash.Hex()) || action.Block != int64(depositOp.block) || action.User != wantUser || action.Size == nil || *action.Size != 20 || action.Link != link {
+				t.Errorf("deposit action has incorrect hash, block, depositor, amount or link: %+v", action)
+			}
+			if action.Symbol != nil || action.Side != nil || action.Price != nil {
+				t.Errorf("deposit action has market-only fields: %+v", action)
+			}
+		}
+		if !foundDeposit {
+			t.Fatal("explorer transaction lacks the Collateral Deposited action")
 		}
 		portalURL := servePortal(t, gwURL, explorerURL+"/api/chain/tx")
 		page := get(t, portalURL+"/accounts/"+strings.ToLower(op.Hex()))
@@ -407,6 +758,7 @@ func TestEndToEnd(t *testing.T) {
 
 	t.Run("replay_identical", func(t *testing.T) {
 		ix.stop(t)
+		e.drainOutbox(t, ix.publisher)
 		cursor, ok, err := store.Cursor(ctx, e.db)
 		if err != nil || !ok {
 			t.Fatalf("cursor %v %v", ok, err)
@@ -417,7 +769,7 @@ func TestEndToEnd(t *testing.T) {
 		funding := e.firstEndBlockFunding(t)
 		for _, args := range [][]string{
 			{"--from", strconv.FormatUint(funding, 10), "--to", strconv.FormatUint(funding, 10)},
-			{"--from", strconv.FormatUint(first, 10)},
+			{"--from", strconv.FormatUint(start, 10)},
 		} {
 			e.runReplay(t, bin, args...)
 		}
@@ -457,6 +809,7 @@ func TestEndToEnd(t *testing.T) {
 			}
 		}
 	})
+	t.Run("module_builds", testModuleBuilds)
 }
 
 // testModuleBuilds is acceptance 7.1.1: the tree builds and vets as packages
@@ -578,8 +931,9 @@ func moduleAddress(name string) common.Address {
 
 // runningIndexer is one indexer process: Run in a goroutine until stop.
 type runningIndexer struct {
-	cancel context.CancelFunc
-	done   chan error
+	cancel    context.CancelFunc
+	done      chan error
+	publisher *publish.Publisher
 }
 
 func (e *e2e) startIndexer(t *testing.T, holder string, start uint64) *runningIndexer {
@@ -620,7 +974,7 @@ func (e *e2e) startIndexer(t *testing.T, holder string, start uint64) *runningIn
 		t.Fatalf("indexer.New: %v", err)
 	}
 	runCtx, cancel := context.WithCancel(ctx)
-	r := &runningIndexer{cancel: cancel, done: make(chan error, 1)}
+	r := &runningIndexer{cancel: cancel, done: make(chan error, 1), publisher: publisher}
 	go func() { r.done <- ix.Run(runCtx) }()
 	t.Cleanup(func() {
 		cancel()
@@ -645,6 +999,34 @@ func (r *runningIndexer) stop(t *testing.T) {
 		r.done <- err
 	case <-time.After(30 * time.Second):
 		t.Fatal("indexer did not stop")
+	}
+}
+
+func (e *e2e) drainOutbox(t *testing.T, publisher *publish.Publisher) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), waitShort)
+	done := make(chan error, 1)
+	go func() { done <- publisher.Run(ctx) }()
+	defer func() {
+		cancel()
+		select {
+		case err := <-done:
+			if !errors.Is(err, context.Canceled) {
+				t.Errorf("drain publisher: %v", err)
+			}
+		case <-time.After(30 * time.Second):
+			t.Error("drain publisher did not stop")
+		}
+	}()
+	for e.count(t, `SELECT count(*) FROM perps.delivery_outbox WHERE state <> 'published'`) != 0 {
+		select {
+		case err := <-done:
+			done <- err
+			t.Fatalf("publisher stopped before draining the outbox: %v", err)
+		case <-ctx.Done():
+			t.Fatalf("outbox did not drain within %s: %v", waitShort, ctx.Err())
+		case <-time.After(10 * time.Millisecond):
+		}
 	}
 }
 
@@ -685,7 +1067,8 @@ func (e *e2e) count(t *testing.T, query string, args ...any) int {
 // endBlockRows returns block -> tx_hash of the perps_endblock rows of table.
 func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 	t.Helper()
-	rows, err := e.db.Query(`SELECT block, tx_hash FROM perps.` + table + ` WHERE receipt_kind = 'perps_endblock' AND tx_index = -1`)
+	rows, err := e.db.Query(`SELECT f.block, f.tx_hash, f.tx_index, b.tx_count FROM perps.` + table + ` f
+JOIN perps.blocks b ON b.number = f.block WHERE f.receipt_kind = 'perps_endblock'`)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -694,8 +1077,12 @@ func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 	for rows.Next() {
 		var block int64
 		var hash []byte
-		if err := rows.Scan(&block, &hash); err != nil {
+		var txIndex, txCount int64
+		if err := rows.Scan(&block, &hash, &txIndex, &txCount); err != nil {
 			t.Fatal(err)
+		}
+		if txIndex != txCount {
+			t.Errorf("perps.%s block %d end-block tx_index %d, want consensus transaction count %d", table, block, txIndex, txCount)
 		}
 		out[uint64(block)] = common.BytesToHash(hash)
 	}
@@ -707,16 +1094,18 @@ func (e *e2e) endBlockRows(t *testing.T, table string) map[uint64]common.Hash {
 
 // latestFunding is the height of the newest FundingSettled log of 0x1015 on
 // the node at or below head.
-func (e *e2e) latestFunding(t *testing.T, head uint64) uint64 {
+func (e *e2e) latestFunding(t *testing.T, ctx context.Context, earliest, head uint64) uint64 {
 	t.Helper()
 	perps := mustABI(t, perpsabi.ABI)
 	topic := perps.Events["FundingSettled"].ID
-	for to := head; ; to -= scanWindow {
-		from := uint64(1)
+	for to := head; to >= earliest; {
+		from := earliest
 		if to > scanWindow {
-			from = to - scanWindow + 1
+			if candidate := to - scanWindow + 1; candidate > from {
+				from = candidate
+			}
 		}
-		logs, err := e.client.FilterLogs(context.Background(), ethereum.FilterQuery{FromBlock: new(big.Int).SetUint64(from),
+		logs, err := e.client.FilterLogs(ctx, ethereum.FilterQuery{FromBlock: new(big.Int).SetUint64(from),
 			ToBlock: new(big.Int).SetUint64(to), Addresses: []common.Address{perpsPrecompile}, Topics: [][]common.Hash{{topic}}})
 		if err != nil {
 			t.Fatalf("FundingSettled logs %d-%d: %v", from, to, err)
@@ -724,10 +1113,12 @@ func (e *e2e) latestFunding(t *testing.T, head uint64) uint64 {
 		if len(logs) > 0 {
 			return logs[len(logs)-1].BlockNumber
 		}
-		if from == 1 {
-			t.Fatal("the node holds no FundingSettled log")
+		if from == earliest {
+			break
 		}
+		to = from - 1
 	}
+	return 0
 }
 
 func (e *e2e) firstEndBlockFunding(t *testing.T) uint64 {
@@ -878,7 +1269,7 @@ func (e *e2e) serveExplorer(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("explorer.NewServer: %v", err)
 	}
-	late.h = srv
+	late.h = srv.Handler()
 	return base
 }
 

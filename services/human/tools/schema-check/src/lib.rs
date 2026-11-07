@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -24,6 +24,8 @@ pub struct Violation {
 pub struct SchemaReport {
     pub declarations: usize,
     pub operations: usize,
+    pub retired_operations: Vec<String>,
+    pub retired_variants: BTreeMap<String, Vec<String>>,
     pub golden_vectors: usize,
     pub additions_beyond_baseline: usize,
 }
@@ -350,6 +352,7 @@ struct SchemaFile {
     name: String,
     path: PathBuf,
     sections: Sections,
+    section_order: Vec<String>,
 }
 
 struct Header {
@@ -370,6 +373,7 @@ struct Scalar {
 
 struct EnumDef {
     variants: Vec<String>,
+    retired_variants: Vec<String>,
 }
 
 struct Field {
@@ -391,6 +395,7 @@ struct Operation {
     request: String,
     response: String,
     idempotency: bool,
+    retired: bool,
     origin: PathBuf,
 }
 
@@ -417,6 +422,15 @@ fn load_kvx(root: &Path, name: &str, violations: &mut Vec<Violation>) -> Option<
             name: name.to_owned(),
             path,
             sections,
+            section_order: body
+                .lines()
+                .filter_map(|line| {
+                    line.trim()
+                        .strip_prefix('[')
+                        .and_then(|name| name.strip_suffix(']'))
+                        .map(str::to_owned)
+                })
+                .collect(),
         }),
         Err(detail) => {
             violations.push(violation(&path, "invalid-kvx", detail));
@@ -776,6 +790,7 @@ fn collect_enum(
     file: &SchemaFile,
     name: &str,
     variants_value: &str,
+    entries: &BTreeMap<String, String>,
     model: &mut Model,
     violations: &mut Vec<Violation>,
 ) {
@@ -788,14 +803,71 @@ fn collect_enum(
         ));
         return;
     }
+    let retired_variants = retired_variants(file, name, entries, &variants, violations);
     if name_is_free(model, name) {
-        model.enums.insert(name.to_owned(), EnumDef { variants });
+        model.enums.insert(
+            name.to_owned(),
+            EnumDef {
+                variants,
+                retired_variants,
+            },
+        );
     } else {
         violations.push(violation(
             &file.path,
             "duplicate-declaration",
             format!("{name} is declared more than once"),
         ));
+    }
+}
+
+fn retired_variants(
+    file: &SchemaFile,
+    name: &str,
+    entries: &BTreeMap<String, String>,
+    variants: &[String],
+    violations: &mut Vec<Violation>,
+) -> Vec<String> {
+    let Some(value) = entries.get("retired_variants") else {
+        return Vec::new();
+    };
+    let Some(retired) = parse_list(value) else {
+        violations.push(violation(
+            &file.path,
+            "invalid-retired-variants",
+            format!("type.{name} retired_variants must be a list of strings"),
+        ));
+        return Vec::new();
+    };
+    for variant in &retired {
+        if !variants.contains(variant) {
+            violations.push(violation(
+                &file.path,
+                "retired-variant-not-declared",
+                format!("type.{name} retired variant {variant} must remain in variants"),
+            ));
+        }
+    }
+    retired
+}
+
+fn retired(
+    file: &SchemaFile,
+    section: &str,
+    entries: &BTreeMap<String, String>,
+    violations: &mut Vec<Violation>,
+) -> bool {
+    match entries.get("retired").map(String::as_str) {
+        None => false,
+        Some("\"true\"") => true,
+        Some(other) => {
+            violations.push(violation(
+                &file.path,
+                "invalid-retired-flag",
+                format!("{section} retired must be the quoted string \"true\", not {other}"),
+            ));
+            false
+        }
     }
 }
 
@@ -851,6 +923,7 @@ fn collect_operation(
             false
         }
     };
+    let retired = retired(file, &section, entries, violations);
     if model
         .operations
         .iter()
@@ -870,6 +943,7 @@ fn collect_operation(
         request,
         response,
         idempotency,
+        retired,
         origin: file.path.clone(),
     });
 }
@@ -889,7 +963,7 @@ fn collect_declarations(files: &[SchemaFile], violations: &mut Vec<Violation>) -
                             format!("{section} declares both variants and required"),
                         ));
                     } else {
-                        collect_enum(file, name, variants, &mut model, violations);
+                        collect_enum(file, name, variants, entries, &mut model, violations);
                     }
                 } else if entries.contains_key("required") {
                     collect_record(
@@ -2272,9 +2346,10 @@ fn check_compatibility(
         )),
     }
     let rows: Vec<(&String, &BTreeMap<String, String>)> = file
-        .sections
+        .section_order
         .iter()
-        .filter(|(name, _)| name.starts_with("compatibility.row."))
+        .filter(|name| name.starts_with("compatibility.row."))
+        .filter_map(|name| file.sections.get_key_value(name))
         .collect();
     if rows.is_empty() {
         violations.push(violation(
@@ -2283,6 +2358,9 @@ fn check_compatibility(
             "the matrix must record at least one row",
         ));
     }
+    let mut recorded_minors = BTreeSet::new();
+    let mut previous_minor = None;
+    let prefix = format!("{major}.");
     for (name, entries) in &rows {
         for key in ["schema", "service", "web_app"] {
             if quoted(entries, key).is_none_or(str::is_empty) {
@@ -2293,6 +2371,36 @@ fn check_compatibility(
                 ));
             }
         }
+        let schema = quoted(entries, "schema");
+        let row_minor = schema
+            .and_then(|version| version.strip_prefix(&prefix))
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| schema == Some(format!("{major}.{value}").as_str()));
+        match row_minor {
+            Some(value) => {
+                if previous_minor.is_some_and(|previous| value <= previous) {
+                    violations.push(violation(
+                        &file.path,
+                        "compatibility-row-order",
+                        format!("{name} schema {major}.{value} must follow earlier minors in strictly ascending order without duplicates"),
+                    ));
+                }
+                recorded_minors.insert(value);
+                previous_minor = Some(value);
+            }
+            None => violations.push(violation(
+                &file.path,
+                "compatibility-row-order",
+                format!("{name} schema must be a version of the form {major}.<minor>"),
+            )),
+        }
+    }
+    if let Some(missing) = (0..=minor).find(|value| !recorded_minors.contains(value)) {
+        violations.push(violation(
+            &file.path,
+            "compatibility-row-missing",
+            format!("no matrix row records schema version {major}.{missing}"),
+        ));
     }
     let wanted = format!("{major}.{minor}");
     let recorded = rows
@@ -2461,6 +2569,18 @@ pub fn human_api_schema(root: &Path) -> Result<SchemaReport, Vec<Violation>> {
         Ok(SchemaReport {
             declarations: current.len(),
             operations: model.operations.len(),
+            retired_operations: model
+                .operations
+                .iter()
+                .filter(|operation| operation.retired)
+                .map(|operation| operation.name.clone())
+                .collect(),
+            retired_variants: model
+                .enums
+                .iter()
+                .filter(|(_, definition)| !definition.retired_variants.is_empty())
+                .map(|(name, definition)| (name.clone(), definition.retired_variants.clone()))
+                .collect(),
             golden_vectors,
             additions_beyond_baseline: additions,
         })

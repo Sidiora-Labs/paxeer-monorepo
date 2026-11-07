@@ -1,3 +1,5 @@
+Code.require_file("compiler_version_fixture.exs", __DIR__)
+
 defmodule Explorer.SmartContract.CompilerVersionTest do
   use ExUnit.Case
 
@@ -17,16 +19,7 @@ defmodule Explorer.SmartContract.CompilerVersionTest do
 
   describe "fetch_versions/1" do
     setup do
-      bypass = Bypass.open()
-
-      on_exit(fn ->
-        Application.put_env(:tesla, :adapter, Explorer.Mock.TeslaAdapter)
-      end)
-
-      Application.put_env(:tesla, :adapter, Tesla.Adapter.Mint)
-      Application.put_env(:explorer, :solc_bin_api_url, "http://localhost:#{bypass.port}")
-
-      {:ok, bypass: bypass}
+      Explorer.SmartContract.CompilerVersionFixture.install()
     end
 
     test "fetches the list of the solidity compiler versions", %{bypass: bypass} do

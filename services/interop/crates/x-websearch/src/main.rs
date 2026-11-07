@@ -15,11 +15,8 @@ use x_websearch::content::{self, ContentStore};
 use x_websearch::crawl::{CrawlBudget, CrawlReport, Crawler, StopSignal};
 use x_websearch::fetch::Fetcher;
 use x_websearch::index::WebIndex;
-use x_websearch::kernel::{
-    self, KernelAttestor, KernelRelay, KernelWatcher, ObservationSubmitter, ProgramExchange, Step,
-};
-use x_websearch::keys::ATTESTOR_KEY_FILE;
-use x_websearch::payment::{system_clock, GatewayRpc, PaymentGate, RpcAnswer};
+use x_websearch::payment::{system_clock, PaymentGate};
+use x_websearch::program::{self, ProgramAttestor, ProgramExchange, ProgramRelay, Step};
 
 #[derive(Clone, Copy, Eq, PartialEq, Serialize)]
 #[serde(rename_all = "snake_case")]
@@ -54,7 +51,7 @@ struct Readiness {
 }
 
 impl Readiness {
-    fn new(config: &Config, evm: bool, kernel: bool) -> Self {
+    fn new(network_id: u32, evm: bool, program: bool) -> Self {
         let mut roles = BTreeMap::new();
         let mut add = |role, names: &[&'static str], budget| {
             roles.insert(
@@ -98,24 +95,21 @@ impl Readiness {
                 60_000,
             );
         }
-        if kernel {
+        if program {
             add(
-                "kernel_relay",
+                "program_relay",
                 &[
                     "evm_chain",
                     "registered_peer_quorum",
-                    "kernel_authority",
                     "relay_progress",
-                    "kernel_journal",
+                    "program_journal",
                 ],
-                config.kernel.as_ref().map_or(60_000, |settings| {
-                    settings.poll_interval_ms.saturating_mul(3).max(60_000)
-                }),
+                60_000,
             );
         }
         Self {
             roles: Mutex::new(roles),
-            network_id: config.kernel_network_id,
+            network_id,
             relay_lag: Mutex::new(None),
         }
     }
@@ -208,35 +202,12 @@ fn directory_usable(path: &std::path::Path) -> bool {
             .is_ok()
 }
 
-fn settlement_usable(config: &Config, endpoint: &str) -> bool {
-    let Ok(rpc) = GatewayRpc::new(endpoint) else {
-        return false;
-    };
-    let rpc = match config.gateway.authorization_file.as_deref() {
-        Some(path) => match rpc.with_authorization_file(path) {
-            Ok(rpc) => rpc,
-            Err(_) => return false,
-        },
-        None => return false,
-    };
-    let Some(RpcAnswer::Result(node)) = rpc.call("lx_getNodeInfo", &serde_json::json!([])) else {
-        return false;
-    };
-    node.get("network_id").and_then(serde_json::Value::as_u64)
-        == Some(u64::from(config.kernel_network_id))
-        && node
-            .get("protocol_version")
-            .and_then(serde_json::Value::as_u64)
-            == Some(u64::from(x_websearch::payment::PROTOCOL_VERSION))
-        && node
-            .get("authorised_sequencer_key")
-            .and_then(serde_json::Value::as_str)
-            == Some(x_websearch::payment::hex(&config.gateway.sequencer.public_key).as_str())
-        && layerx_wire::handover::sequencer_id(&config.gateway.sequencer.public_key).ok()
-            == Some(config.gateway.sequencer.sequencer_id)
-}
-
-fn peer_quorum_usable(config: &Config, set: &attest::AttestorSet, signer: [u8; 20]) -> bool {
+fn peer_quorum_usable(
+    config: &Config,
+    network_id: u32,
+    set: &attest::AttestorSet,
+    signer: [u8; 20],
+) -> bool {
     use x_websearch::fetch::{HttpClient, Url};
     if set.threshold == 0 || !set.contains(&signer) || set.threshold as usize > set.signers.len() {
         return false;
@@ -302,18 +273,11 @@ fn peer_quorum_usable(config: &Config, set: &attest::AttestorSet, signer: [u8; 2
         if let (Some(checked), Some(signature)) = (checked, signature) {
             if set.contains(&peer_signer)
                 && value["peer_readiness"]["nonce"] == x_websearch::payment::hex(&nonce)
-                && value["peer_readiness"]["network_id"].as_u64()
-                    == Some(u64::from(config.kernel_network_id))
+                && value["peer_readiness"]["network_id"].as_u64() == Some(u64::from(network_id))
                 && now_ms() >= checked
                 && now_ms().saturating_sub(checked) <= 60_000
                 && attest::recover_signer(
-                    &peer_readiness_digest(
-                        config.kernel_network_id,
-                        peer_signer,
-                        nonce,
-                        true,
-                        checked,
-                    ),
+                    &peer_readiness_digest(network_id, peer_signer, nonce, true, checked),
                     &signature,
                 )
                 .ok()
@@ -369,7 +333,7 @@ impl ReadinessProbe {
         self.readiness.update(
             "paid_delivery",
             "settlement_authority",
-            settlement_usable(&self.config, &self.config.gateway.endpoint),
+            self.gate.settlement_usable(),
         );
         if let Some(signer) = self.signer {
             let rpc = EvmRpc::new(&self.config.evm.endpoint);
@@ -382,8 +346,10 @@ impl ReadinessProbe {
                 .as_ref()
                 .ok()
                 .and_then(|rpc| submit::attestor_set(rpc).ok())
-                .is_some_and(|set| peer_quorum_usable(&self.config, &set, signer));
-            for role in ["evm_attestor", "kernel_relay"] {
+                .is_some_and(|set| {
+                    peer_quorum_usable(&self.config, self.readiness.network_id, &set, signer)
+                });
+            for role in ["evm_attestor", "program_relay"] {
                 self.readiness.update(role, "evm_chain", chain);
                 self.readiness
                     .update(role, "registered_peer_quorum", quorum);
@@ -395,24 +361,22 @@ impl ReadinessProbe {
                     && directory_usable(&self.config.data_dir.join("watch")),
             );
         }
-        if let Some(kernel) = &self.config.kernel {
+        if self.signer.is_some() {
             self.readiness.update(
-                "kernel_relay",
-                "kernel_authority",
-                settlement_usable(&self.config, &kernel.endpoint),
-            );
-            self.readiness.update(
-                "kernel_relay",
-                "kernel_journal",
-                directory_usable(&self.config.data_dir.join("kernel"))
-                    && directory_usable(&self.config.data_dir.join("kernel-attest")),
+                "program_relay",
+                "program_journal",
+                directory_usable(&self.config.data_dir.join("program-watch"))
+                    && directory_usable(&self.config.data_dir.join("program-attest"))
+                    && directory_usable(&self.config.data_dir.join("program-submit")),
             );
         }
     }
 }
 use x_websearch::server::Stopper;
 use x_websearch::submit::{self, Outcome, Submitter};
-use x_websearch::watch::{Canonical, EvmRpc, RequestWatcher, WebRequest, WorkStage};
+use x_websearch::watch::{
+    kernel_network_id, Canonical, EvmRpc, RequestWatcher, WatchOwnership, WebRequest, WorkStage,
+};
 use x_websearch::{search, Config, KeyFiles, Keys, Limits, RouteTable, Server};
 
 /// How long after the start of one attestation round the next one starts.
@@ -436,33 +400,54 @@ fn config_path(arguments: impl IntoIterator<Item = OsString>) -> Option<PathBuf>
         .then(|| PathBuf::from(path))
 }
 
-/// The kernel relay and what it runs beside: the EVM endpoint it reads the
+/// The program relay and what it runs beside: the EVM endpoint it reads the
 /// registered attestor set from and the time between its steps.
-struct RelayLoop {
-    relay: KernelRelay,
+struct RelayParts {
+    relay: ProgramRelay,
     rpc: EvmRpc,
     interval: Duration,
+    confirmations: u64,
 }
 
 /// What the configuration and the keys assemble into: the routes, the
-/// crawler, the index it writes, the attestor's loops and the kernel relay.
+/// crawler, the index it writes, the attestor's loops and the program relay.
 struct Assembled {
     routes: RouteTable,
     crawler: Crawler,
     index: Arc<WebIndex>,
     pipeline: Option<Pipeline>,
-    relay: Option<RelayLoop>,
+    relay: Option<RelayParts>,
     probe: ReadinessProbe,
 }
 
 /// The routes and the crawler built from the configuration and the keys.
 /// Every refusal names the configuration field or key it concerns.
 fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
+    let rpc =
+        EvmRpc::new(&config.evm.endpoint).map_err(|error| format!("evm.endpoint: {error}"))?;
+    let network_id =
+        kernel_network_id(&rpc).map_err(|error| format!("kernel_network_id: {error}"))?;
+    if network_id == 0 {
+        return Err("kernel_network_id: the chain returned zero".to_owned());
+    }
+    if let Some(configured) = config.kernel_network_id {
+        if configured != network_id {
+            return Err(format!(
+                "kernel_network_id: configured {configured} differs from chain {network_id}"
+            ));
+        }
+    }
     let conformance = x_websearch::conformance_suite()
         .map_err(|error| format!("payment conformance suite: {error}"))?;
     let gate = Arc::new(
-        PaymentGate::new(config, keys.receiver(), conformance, system_clock)
-            .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
+        PaymentGate::new_with_network_id(
+            config,
+            network_id,
+            keys.receiver(),
+            conformance,
+            system_clock,
+        )
+        .map_err(|error| format!("assets, gateway or data_dir: {error}"))?,
     );
     gate.recover_pending_deliveries()
         .map_err(|error| format!("payment delivery recovery in data_dir: {error}"))?;
@@ -485,8 +470,20 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
     content::register(&mut routes, &gate, &fetcher, &store)
         .map_err(|error| format!("route /fetch or /content: {error}"))?;
     let pipeline = pipeline(config, keys, &mut routes, &fetcher, &index, &store)?;
-    let relay = relay(config, keys, &mut routes, &fetcher, &index, &store)?;
-    let readiness = Arc::new(Readiness::new(config, pipeline.is_some(), relay.is_some()));
+    let relay = relay(
+        config,
+        network_id,
+        keys,
+        &mut routes,
+        &fetcher,
+        &index,
+        &store,
+    )?;
+    let readiness = Arc::new(Readiness::new(
+        network_id,
+        pipeline.is_some(),
+        relay.is_some(),
+    ));
     let eligibility = Arc::clone(&readiness);
     routes
         .set_serving_eligibility(move || eligibility.snapshot().0)
@@ -506,12 +503,12 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         "live": true,
         "readiness_scope": "process-liveness",
         "upstream_payment_verified": false,
-        "network_id": config.kernel_network_id,
+        "network_id": network_id,
         "wire_version": x_websearch::payment::PROTOCOL_VERSION.to_string(),
         "protocol_version": x_websearch::payment::PROTOCOL_VERSION,
         "source_revision": option_env!("PAXEER_X_SOURCE_REVISION"),
         "evm_attestation_enabled": pipeline.is_some(),
-        "kernel_attestation_enabled": relay.is_some()
+        "program_attestation_enabled": relay.is_some()
     });
     let attestor_key = keys.attestor().cloned();
     let signer = attestor_key.as_ref().map(attest::signer_address);
@@ -519,7 +516,7 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
         serde_json::json!(x_websearch::payment::hex(&signer))
     });
     let health_view = Arc::clone(&readiness);
-    let network = config.kernel_network_id;
+    let network = network_id;
     routes
         .set_health(move |request| {
             let mut body = health.clone();
@@ -558,78 +555,77 @@ fn assemble(config: &Config, keys: &Keys) -> Result<Assembled, String> {
     })
 }
 
-/// The kernel relay when the `kernel` settings are present, with the program
-/// signature-exchange route registered; none without them. The relay signs
-/// with the attestor key and posts as the receiver key. Its journal under
-/// `<data_dir>/kernel` is loaded before any new work, so requests awaiting
-/// quorum, submissions with their exact signed bytes and recorded refusals
-/// survive a restart; a journal that cannot be read refuses startup.
 fn relay(
     config: &Config,
+    network_id: u32,
     keys: &Keys,
     routes: &mut RouteTable,
     fetcher: &Arc<Fetcher>,
     index: &Arc<WebIndex>,
     store: &Arc<ContentStore>,
-) -> Result<Option<RelayLoop>, String> {
-    let Some(settings) = &config.kernel else {
+) -> Result<Option<RelayParts>, String> {
+    let Some(attestor_key) = keys.attestor() else {
         return Ok(None);
     };
-    let attestor_key = keys
-        .attestor()
-        .ok_or_else(|| format!("kernel: the kernel relay needs {ATTESTOR_KEY_FILE}"))?;
     let rpc =
         EvmRpc::new(&config.evm.endpoint).map_err(|error| format!("evm.endpoint: {error}"))?;
-    let authorization_file = config
-        .gateway
-        .authorization_file
-        .as_deref()
-        .ok_or_else(|| "gateway.authorization_file is required for kernel relay".to_owned())?;
-    let topics: Vec<&[u8]> = settings.topics.iter().map(String::as_bytes).collect();
-    let watcher = KernelWatcher::open(&settings.endpoint, &config.data_dir.join("kernel"), 0)
-        .map_err(|error| format!("kernel.endpoint or data_dir: {error}"))?
-        .with_authorization_file(authorization_file)
-        .map_err(|error| format!("gateway.authorization_file: {error}"))?
-        .with_topics(&topics)
-        .map_err(|error| format!("kernel.topics: {error}"))?;
+    let watcher = RequestWatcher::open(
+        rpc.clone(),
+        config.evm.confirmations,
+        &config.data_dir.join("program-watch"),
+        None,
+    )
+    .map_err(|error| format!("program watcher: {error}"))?
+    .with_chain_id(config.evm.chain_id)
+    .map_err(|error| format!("evm.chain_id: {error}"))?
+    .with_ownership(WatchOwnership::Program)
+    .map_err(|error| format!("watch ownership: {error}"))?;
     let exchange = Arc::new(
-        ProgramExchange::open(&config.data_dir.join("kernel-attest"), &config.peers)
+        ProgramExchange::open(&config.data_dir.join("program-attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
     );
-    kernel::register(routes, &exchange)
+    exchange
+        .bind_chain(
+            config.evm.chain_id,
+            network_id,
+            attest::signer_address(attestor_key),
+        )
+        .map_err(|error| format!("program exchange identity: {error}"))?;
+    program::register(routes, &exchange)
         .map_err(|error| format!("route /program-attestations: {error}"))?;
-    let attestor = KernelAttestor::new(
+    let attestor = ProgramAttestor::new(
         attestor_key.clone(),
-        config.kernel_network_id,
+        network_id,
         Arc::clone(fetcher),
         Arc::clone(index),
         Arc::clone(store),
     );
-    let submitter = ObservationSubmitter::new(
-        &settings.endpoint,
-        keys.receiver().clone(),
-        settings.submitter_did.clone(),
-        config.kernel_network_id,
-        settings.fee_limit,
+    let submitter_key = keys.submitter().ok_or_else(|| {
+        format!(
+            "program relay needs {}",
+            x_websearch::keys::SUBMITTER_KEY_FILE
+        )
+    })?;
+    let submitter = Submitter::open(
+        rpc.clone(),
+        submitter_key.clone(),
+        config.evm.chain_id,
+        &config.data_dir.join("program-submit"),
     )
-    .map_err(|error| format!("kernel.endpoint: {error}"))?
-    .with_authorization_file(authorization_file)
-    .map_err(|error| format!("gateway.authorization_file: {error}"))?
-    .with_receipt_key(config.gateway.sequencer.public_key);
-    let relay = KernelRelay::open(
+    .map_err(|error| format!("program submitter: {error}"))?
+    .with_confirmations(u64::from(config.evm.confirmations));
+    let relay = ProgramRelay {
         watcher,
         attestor,
         exchange,
-        attest::AttestorSet::default(),
+        set: attest::AttestorSet::default(),
         submitter,
-        &config.data_dir.join("kernel"),
-    )
-    .map_err(|error| format!("kernel journal: {error}"))?
-    .with_backoff(settings.poll_interval_ms, kernel::MAX_RETRY_BACKOFF_MS);
-    Ok(Some(RelayLoop {
+    };
+    Ok(Some(RelayParts {
         relay,
         rpc,
-        interval: settings.poll_interval(),
+        interval: ATTEST_INTERVAL,
+        confirmations: u64::from(config.evm.confirmations),
     }))
 }
 
@@ -656,7 +652,9 @@ fn pipeline(
     )
     .map_err(|error| format!("data_dir: {error}"))?
     .with_chain_id(config.evm.chain_id)
-    .map_err(|error| format!("evm.chain_id: {error}"))?;
+    .map_err(|error| format!("evm.chain_id: {error}"))?
+    .with_ownership(WatchOwnership::Ordinary)
+    .map_err(|error| format!("watch ownership: {error}"))?;
     let exchange = Arc::new(
         SignatureExchange::open(&config.data_dir.join("attest"), &config.peers)
             .map_err(|error| format!("peers or data_dir: {error}"))?,
@@ -1063,7 +1061,7 @@ fn now_ms() -> u64 {
 
 /// One relay step: refresh the registered attestor set, then answer, exchange
 /// and post the program requests.
-fn relay_round(relay: &mut RelayLoop) -> bool {
+fn relay_round(relay: &mut RelayParts) -> bool {
     let set_usable = match submit::attestor_set(&relay.rpc) {
         Ok(set) => {
             relay.relay.set = set;
@@ -1075,51 +1073,24 @@ fn relay_round(relay: &mut RelayLoop) -> bool {
             false
         }
     };
-    let progressed = match relay.relay.step(now_ms()) {
+    let progressed = match relay.relay.step() {
         Ok(steps) => {
             for step in steps {
                 match step {
-                    Step::Posted {
+                    Step::Submitted {
                         program_id,
                         request_id,
-                        ..
+                        outcome,
                     } => eprintln!(
-                        "x-websearch posted the observation of program {} request {request_id}",
+                        "x-websearch program {} request {request_id}: {outcome:?}",
                         x_websearch::payment::hex(&program_id)
                     ),
-                    Step::Refused {
-                        program_id,
-                        request_id,
-                        reason,
-                    } => eprintln!(
-                        "x-websearch could not answer program {} request {request_id}: {reason}",
-                        x_websearch::payment::hex(&program_id)
-                    ),
-                    Step::Committed {
-                        program_id,
-                        request_id,
-                        activity_id,
-                        ..
-                    } => eprintln!(
-                        "x-websearch committed the observation of program {} request {request_id} as activity {}",
-                        x_websearch::payment::hex(&program_id),
-                        x_websearch::payment::hex(&activity_id)
-                    ),
-                    Step::Unknown {
-                        program_id,
-                        request_id,
-                        activity_id,
-                    } => eprintln!(
-                        "x-websearch observation of program {} request {request_id} awaits its receipt (activity {})",
-                        x_websearch::payment::hex(&program_id),
-                        x_websearch::payment::hex(&activity_id)
-                    ),
-                    Step::Rejected {
+                    Step::Discarded {
                         program_id,
                         request_id,
                         code,
                     } => eprintln!(
-                        "x-websearch gateway refused the observation of program {} request {request_id} with {code}",
+                        "x-websearch discarded program {} request {request_id}: {code}",
                         x_websearch::payment::hex(&program_id)
                     ),
                 }
@@ -1127,7 +1098,7 @@ fn relay_round(relay: &mut RelayLoop) -> bool {
             true
         }
         Err(error) => {
-            eprintln!("x-websearch kernel relay step failed: {error}");
+            eprintln!("x-websearch program relay step failed: {error}");
             false
         }
     };
@@ -1138,35 +1109,36 @@ fn relay_round(relay: &mut RelayLoop) -> bool {
 /// raised. The journalled requests and submissions were loaded when the
 /// relay opened, before this loop takes any new work.
 fn start_relay(
-    mut relay: RelayLoop,
+    mut relay: RelayParts,
     stop: StopSignal,
     readiness: Arc<Readiness>,
 ) -> std::io::Result<JoinHandle<()>> {
     thread::Builder::new()
-        .name("x-websearch-kernel-relay".to_owned())
+        .name("x-websearch-program-relay".to_owned())
         .spawn(move || {
-            eprintln!(
-                "x-websearch kernel relay started from sequence {} with {} journalled requests in {}",
-                relay.relay.watcher.next_sequence(),
-                relay.relay.entries().len(),
-                relay
-                    .relay
-                    .journal_path()
-                    .unwrap_or_else(|| std::path::Path::new(""))
-                    .display()
-            );
+            eprintln!("x-websearch program relay started");
             while !stop.is_raised() {
                 let started = Instant::now();
                 let usable = relay_round(&mut relay);
-                readiness.update("kernel_relay", "relay_progress", usable);
+                readiness.update("program_relay", "relay_progress", usable);
                 if let Ok(mut lag) = readiness.relay_lag.lock() {
-                    *lag = Some(relay.relay.lag(now_ms()).value());
+                    let watcher = &relay.relay.watcher;
+                    *lag = Some(serde_json::json!({
+                        "role": "program_relay",
+                        "head": watcher.last_head(),
+                        "next_block": watcher.next_block(),
+                        "blocks_behind": watcher.next_block().map_or(0, |next| watcher.last_head()
+                            .saturating_sub(relay.confirmations)
+                            .saturating_add(1)
+                            .saturating_sub(next)),
+                        "pending": watcher.program_work().len(),
+                    }));
                 }
                 if stop.wait_timeout(relay.interval.saturating_sub(started.elapsed())) {
                     break;
                 }
             }
-            eprintln!("x-websearch kernel relay stopped");
+            eprintln!("x-websearch program relay stopped");
         })
 }
 
@@ -1346,12 +1318,12 @@ fn main() -> ExitCode {
 }
 
 /// Starts the crawler, with an attestor key the attestor loop, and with the
-/// kernel settings the kernel relay. The handles of the threads that started
+/// submitter key the EVM program relay. The handles of the threads that started
 /// come back with the first failure.
 fn start_loops(
     crawler: Crawler,
     pipeline: Option<Pipeline>,
-    relay: Option<RelayLoop>,
+    relay: Option<RelayParts>,
     seeds: Vec<String>,
     interval: Duration,
     probe: ReadinessProbe,
@@ -1386,7 +1358,7 @@ fn start_loops(
     if let Some(relay) = relay {
         match start_relay(relay, stop.clone(), Arc::clone(&readiness)) {
             Ok(handle) => loops.push(handle),
-            Err(error) => return (loops, Err(format!("kernel relay thread: {error}"))),
+            Err(error) => return (loops, Err(format!("program relay thread: {error}"))),
         }
     }
     (loops, Ok(()))

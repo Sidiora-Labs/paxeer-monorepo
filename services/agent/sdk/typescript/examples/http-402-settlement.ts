@@ -5,9 +5,9 @@ export interface SettlementRequest { readonly paymentRequirement: Uint8Array }
 export async function settle402(
   client: Client,
   request: IdempotentMutation<SettlementRequest>,
-): Promise<string> {
+): Promise<Extract<SubmissionState, { kind: "Receipted" | "Committed" }>> {
   const state = await client.call<typeof request, SubmissionState>("submit", request);
-  if (state.kind === "Unknown") throw new Error("settlement_unknown");
-  if (state.kind !== "Executed") throw new Error(`settlement_failed:${state.kind}`);
-  return state.receiptRef;
+  if (state.kind === "Submitted") throw new Error(`settlement_not_receipted:${state.txHash}`);
+  if (state.kind === "Reverted") throw new Error(`settlement_reverted:${state.revertReason}`);
+  return state;
 }

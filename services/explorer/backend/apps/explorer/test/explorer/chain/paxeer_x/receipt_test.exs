@@ -2,78 +2,12 @@ defmodule Explorer.Chain.PaxeerX.ReceiptTest do
   use Explorer.DataCase
 
   alias Ecto.Multi
-  alias Explorer.Chain.Import.Runner.PaxeerX.Receipts
   alias Explorer.Chain.PaxeerX.Receipt
   alias Explorer.Chain.PaxeerX.Receipt.KernelCursor
 
   @cursor_identity String.duplicate("0a", 32)
 
-  describe "changeset/2" do
-    test "accepts a receipt with an account and a payload hash" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      changeset = Receipt.changeset(%Receipt{}, attributes(block, transaction))
-
-      assert changeset.valid?
-      assert {:ok, receipt} = Repo.insert(changeset)
-      assert receipt.status == :batch_included
-      refute is_nil(receipt.receipt_id)
-      refute is_nil(receipt.account)
-      refute is_nil(receipt.payload_hash)
-      assert receipt.block_number == block.number
-    end
-
-    test "requires the key, the receipt id and the status" do
-      changeset = Receipt.changeset(%Receipt{}, %{})
-
-      refute changeset.valid?
-
-      errors = changeset_errors(changeset)
-
-      assert errors[:transaction_hash] == ["can't be blank"]
-      assert errors[:log_index] == ["can't be blank"]
-      assert errors[:block_hash] == ["can't be blank"]
-      assert errors[:block_number] == ["can't be blank"]
-      assert errors[:receipt_id] == ["can't be blank"]
-      assert errors[:status] == ["can't be blank"]
-    end
-
-    test "admits every rung of the verification lattice" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      assert Receipt.statuses() == [
-               :unverified,
-               :sequencer_signed,
-               :batch_included,
-               :state_proven,
-               :checkpoint_finalised,
-               :settlement_anchored
-             ]
-
-      for {status, index} <- Enum.with_index(Receipt.statuses()) do
-        attrs =
-          block
-          |> attributes(transaction)
-          |> Map.merge(%{status: status, log_index: index, receipt_id: block_hash()})
-
-        assert {:ok, receipt} = %Receipt{} |> Receipt.changeset(attrs) |> Repo.insert()
-        assert receipt.status == status
-      end
-    end
-
-    test "rejects a rung outside the verification lattice" do
-      %{block: block, transaction: transaction} = block_with_transaction()
-
-      attrs = block |> attributes(transaction) |> Map.put(:status, :accepted)
-
-      changeset = Receipt.changeset(%Receipt{}, attrs)
-
-      refute changeset.valid?
-      assert {"is invalid", _} = changeset.errors[:status]
-    end
-  end
-
-  describe "run/3" do
+  describe "historical archive rows" do
     test "inserts a receipt row keyed by transaction hash and log index" do
       %{block: block, transaction: transaction} = block_with_transaction()
 
@@ -150,6 +84,27 @@ defmodule Explorer.Chain.PaxeerX.ReceiptTest do
     Map.merge(%{source: "https://relay.invalid", source_identity: @cursor_identity, last_batch: 2}, attributes)
   end
 
+  test "live import refuses receipt archive writes" do
+    previous = Application.get_env(:explorer, :chain_type)
+    Application.put_env(:explorer, :chain_type, :paxeer_x)
+    on_exit(fn -> Application.put_env(:explorer, :chain_type, previous) end)
+    alias Explorer.Chain.Import.Runner.PaxeerX.{AccountBindings, MarketEvents}
+    assert Explorer.Chain.Import.Stage.ChainTypeSpecific.runners() == [AccountBindings, MarketEvents]
+
+    {[multi], remaining} =
+      Explorer.Chain.Import.Stage.ChainTypeSpecific.multis(
+        %{Explorer.Chain.Import.Runner.PaxeerX.Receipts => [%{}]},
+        %{}
+      )
+
+    assert Ecto.Multi.to_list(multi) == []
+    assert remaining == %{Explorer.Chain.Import.Runner.PaxeerX.Receipts => [%{}]}
+    refute function_exported?(Receipt, :changeset, 2)
+    %{block: block, transaction: transaction} = block_with_transaction()
+    assert {:error, _} = Explorer.Chain.Import.all(%{paxeer_x_receipts: %{params: [attributes(block, transaction)]}})
+    assert Repo.aggregate(Receipt, :count) == 0
+  end
+
   defp block_with_transaction do
     block = insert(:block)
     transaction = :transaction |> insert() |> with_block(block)
@@ -172,11 +127,25 @@ defmodule Explorer.Chain.PaxeerX.ReceiptTest do
   end
 
   defp run_changes(changes) when is_list(changes) do
+    rows =
+      Enum.map(changes, fn attrs ->
+        Ecto.Changeset.cast(%Receipt{}, attrs, Map.keys(attrs))
+        |> Ecto.Changeset.apply_changes()
+        |> Map.from_struct()
+        |> Map.take(Map.keys(attrs))
+        |> Map.merge(%{inserted_at: DateTime.utc_now(), updated_at: DateTime.utc_now()})
+      end)
+
     Multi.new()
-    |> Receipts.run(changes, %{
-      timeout: :infinity,
-      timestamps: %{inserted_at: DateTime.utc_now(), updated_at: DateTime.utc_now()}
-    })
+    |> Multi.run(:insert_paxeer_x_receipts, fn repo, _ ->
+      {_count, inserted} =
+        repo.insert_all(Receipt, rows,
+          on_conflict: :nothing,
+          returning: true
+        )
+
+      {:ok, inserted}
+    end)
     |> Repo.transaction()
   end
 end

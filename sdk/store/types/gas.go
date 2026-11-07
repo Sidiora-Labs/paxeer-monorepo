@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/bits"
 	"sync"
 
-	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/telemetry"
-	"github.com/armon/go-metrics"
 	"go.opentelemetry.io/otel/attribute"
 	otelmetric "go.opentelemetry.io/otel/metric"
 )
@@ -98,11 +97,16 @@ func addUint64Overflow(a, b uint64) (uint64, bool) {
 }
 
 func (g *basicGasMeter) ConsumeGas(amount Gas, descriptor string) {
+	g.consumeGas(amount, false, descriptor)
+}
+
+func (g *basicGasMeter) consumeGas(amount Gas, overflow bool, descriptor string) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	var overflow bool
-	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
+	if !overflow {
+		g.consumed, overflow = addUint64Overflow(g.consumed, amount)
+	}
 	if overflow {
 		g.consumed = math.MaxUint64
 		g.incrGasExceededCounter("overflow", descriptor)
@@ -120,13 +124,6 @@ func (g *basicGasMeter) incrGasExceededCounter(errorType string, descriptor stri
 		attribute.String("error", errorType),
 		attribute.String("descriptor", descriptor),
 	))
-	// TODO(PLT-353): remove once store_gas_exceeded verified
-	telemetry.IncrCounterWithLabels(
-		[]string{"gas", "exceeded"},
-		1,
-		// descriptor is a label to distinguish between different gas meters (e.g block vs tx)
-		[]metrics.Label{telemetry.NewLabel("error", errorType), telemetry.NewLabel("descriptor", descriptor)},
-	)
 }
 
 // RefundGas will deduct the given amount from the gas consumed. If the amount is greater than the
@@ -174,7 +171,13 @@ type multiplierGasMeter struct {
 	multiplierDenominator uint64
 }
 
+// NewMultiplierGasMeter rejects a zero denominator. Scaling rounds down after
+// full-width multiplication. Consumption overflow saturates at MaxUint64 and
+// panics with ErrorGasOverflow; refund overflow panics without changing consumption.
 func NewMultiplierGasMeter(limit Gas, multiplierNumerator uint64, multiplierDenominator uint64) GasMeter {
+	if multiplierDenominator == 0 {
+		panic("gas multiplier denominator must be positive")
+	}
 	return &multiplierGasMeter{
 		basicGasMeter: basicGasMeter{
 			limit:    limit,
@@ -186,16 +189,33 @@ func NewMultiplierGasMeter(limit Gas, multiplierNumerator uint64, multiplierDeno
 	}
 }
 
-func (g *multiplierGasMeter) adjustGas(original Gas) Gas {
-	return original * g.multiplierNumerator / g.multiplierDenominator
+// multiplyDivideGas returns floor(original*numerator/denominator), checking the
+// quotient rather than the intermediate product for overflow. Denominator is
+// nonzero because both multiplier constructors validate it.
+func multiplyDivideGas(original Gas, numerator, denominator uint64) (Gas, bool) {
+	high, low := bits.Mul64(original, numerator)
+	if high >= denominator {
+		return 0, true
+	}
+	quotient, _ := bits.Div64(high, low, denominator)
+	return quotient, false
+}
+
+func (g *multiplierGasMeter) adjustGas(original Gas) (Gas, bool) {
+	return multiplyDivideGas(original, g.multiplierNumerator, g.multiplierDenominator)
 }
 
 func (g *multiplierGasMeter) ConsumeGas(amount Gas, descriptor string) {
-	g.basicGasMeter.ConsumeGas(g.adjustGas(amount), descriptor)
+	adjusted, overflow := g.adjustGas(amount)
+	g.basicGasMeter.consumeGas(adjusted, overflow, descriptor)
 }
 
 func (g *multiplierGasMeter) RefundGas(amount Gas, descriptor string) {
-	g.basicGasMeter.RefundGas(g.adjustGas(amount), descriptor)
+	adjusted, overflow := g.adjustGas(amount)
+	if overflow {
+		panic(ErrorGasOverflow{Descriptor: descriptor})
+	}
+	g.basicGasMeter.RefundGas(adjusted, descriptor)
 }
 
 func (g *multiplierGasMeter) Multiplier() (numerator uint64, denominator uint64) {
@@ -229,15 +249,22 @@ func (g *infiniteGasMeter) Limit() Gas {
 }
 
 func (g *infiniteGasMeter) ConsumeGas(amount Gas, descriptor string) {
+	g.consumeGas(amount, false, descriptor)
+}
+
+func (g *infiniteGasMeter) consumeGas(amount Gas, overflow bool, descriptor string) {
 	g.lock.Lock()
 	defer g.lock.Unlock()
 
-	var overflow bool
-	// TODO: Should we set the consumed field after overflow checking?
-	g.consumed, overflow = addUint64Overflow(g.consumed, amount)
+	consumed := g.consumed
+	if !overflow {
+		consumed, overflow = addUint64Overflow(g.consumed, amount)
+	}
 	if overflow {
+		g.consumed = math.MaxUint64
 		panic(ErrorGasOverflow{descriptor})
 	}
+	g.consumed = consumed
 }
 
 // RefundGas will deduct the given amount from the gas consumed. If the amount is greater than the
@@ -282,7 +309,12 @@ type infiniteMultiplierGasMeter struct {
 	multiplierDenominator uint64
 }
 
+// NewInfiniteMultiplierGasMeter uses the same ratio validation, rounding and
+// overflow behavior as NewMultiplierGasMeter, without enforcing a gas limit.
 func NewInfiniteMultiplierGasMeter(multiplierNumerator uint64, multiplierDenominator uint64) GasMeter {
+	if multiplierDenominator == 0 {
+		panic("gas multiplier denominator must be positive")
+	}
 	return &infiniteMultiplierGasMeter{
 		infiniteGasMeter: infiniteGasMeter{
 			consumed: 0,
@@ -293,16 +325,21 @@ func NewInfiniteMultiplierGasMeter(multiplierNumerator uint64, multiplierDenomin
 	}
 }
 
-func (g *infiniteMultiplierGasMeter) adjustGas(original Gas) Gas {
-	return original * g.multiplierNumerator / g.multiplierDenominator
+func (g *infiniteMultiplierGasMeter) adjustGas(original Gas) (Gas, bool) {
+	return multiplyDivideGas(original, g.multiplierNumerator, g.multiplierDenominator)
 }
 
 func (g *infiniteMultiplierGasMeter) ConsumeGas(amount Gas, descriptor string) {
-	g.infiniteGasMeter.ConsumeGas(g.adjustGas(amount), descriptor)
+	adjusted, overflow := g.adjustGas(amount)
+	g.infiniteGasMeter.consumeGas(adjusted, overflow, descriptor)
 }
 
 func (g *infiniteMultiplierGasMeter) RefundGas(amount Gas, descriptor string) {
-	g.infiniteGasMeter.RefundGas(g.adjustGas(amount), descriptor)
+	adjusted, overflow := g.adjustGas(amount)
+	if overflow {
+		panic(ErrorGasOverflow{Descriptor: descriptor})
+	}
+	g.infiniteGasMeter.RefundGas(adjusted, descriptor)
 }
 
 func (g *infiniteMultiplierGasMeter) Multiplier() (numerator uint64, denominator uint64) {

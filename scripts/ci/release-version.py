@@ -34,7 +34,6 @@ CRATES = {
     "layerx-proof": "services/agent/crates/layerx-proof/Cargo.toml",
     "layerx-sdk": "services/agent/crates/layerx-sdk/Cargo.toml",
     "layerx-types": "services/agent/crates/layerx-types/Cargo.toml",
-    "layerx-wire": "services/agent/crates/layerx-wire/Cargo.toml",
 }
 NPM_PACKAGES = {
     "@sidiora/layerx-agent-integrations": "sdk/integrations/agents/package.json",

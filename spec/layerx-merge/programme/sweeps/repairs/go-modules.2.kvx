@@ -1,0 +1,8 @@
+[repair.go-modules.2]
+target = "modules/epoch/client/cli"
+command = "make -s paxd-native-libs && CGO_ENABLED=1 go vet ./modules/epoch/client/cli/ && CGO_ENABLED=1 go test -count=1 -timeout 35m ./modules/epoch/client/cli/"
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+result = "already-passing"
+change = "none"
+producer_input_tests = []
+wall_time_measurement = "The build and verification evidence records command start and finish times; modules/epoch/client/cli contains no test functions or waits for external input."

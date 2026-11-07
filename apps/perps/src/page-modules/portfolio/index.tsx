@@ -12,9 +12,7 @@ import { usePerpsWallet } from "@/hooks/perps/usePerpsWallet";
 import { usePortfolioStats } from "@/hooks/perps/usePortfolioStats";
 import { useDailyPnl } from "@/hooks/perps/useDailyPnl";
 import { usePerfdbTraderStats } from "@/hooks/perps/usePerfdbTraderStats";
-import { getAccount, getWalletBalance } from "@/hooks/perps/useAccount";
 
-import { COLLATERAL_TOKENS } from "@/core/perps/config";
 import { parse18 } from "@/ui/utils/format";
 
 import {
@@ -31,9 +29,11 @@ import {
   PlaceholderPanel,
   ConnectGate,
   type PortfolioNavKey,
-  type TokenBalance,
 } from "@/widgets/portfolio";
 import { PortfolioSpotSection } from "@/widgets/portfolio/PortfolioSpotSection";
+import { usePortfolioBalances } from "./balances";
+import { PortfolioBalanceBoundary } from "./PortfolioBalanceBoundary";
+import { PortfolioOrdersAvailability } from "./PortfolioOrdersAvailability";
 
 /* ══════════════════════════════════════════════════════════════════════
    /portfolio page — thin orchestrator.
@@ -53,6 +53,7 @@ export function overviewDailyPnlProps(result: ReturnType<typeof useDailyPnl>) {
     dailyPnlLoading: result.isLoading,
     dailyPnlError: result.error,
     dailyPnlSkippedDays: result.skippedDays,
+    dailyPnlHistoryCapped: result.historyCapped,
   };
 }
 
@@ -89,43 +90,12 @@ export default function PortfolioPage() {
   const [privacy, setPrivacy] = useState(false);
   const [refreshCounter, setRefreshCounter] = useState(0);
 
-  // ── Cross-margin account at 0x1015 (USDL); the first deposit opens it ──
-  const [accountResolved, setAccountResolved] = useState(false);
-  const [balances, setBalances] = useState<TokenBalance[]>([]);
-  useEffect(() => {
-    if (!isConnected || !address) {
-      setBalances([]);
-      setAccountResolved(false);
-      return;
-    }
-    let cancelled = false;
-    const usdl = COLLATERAL_TOKENS.usdl;
-    const account = address as `0x${string}`;
-    (async () => {
-      const [acc, wb] = await Promise.allSettled([
-        getAccount(account),
-        getWalletBalance(account),
-      ]);
-      if (cancelled) return;
-      const collateral = acc.status === "fulfilled" ? acc.value.collateral : 0n;
-      const withdrawable = acc.status === "fulfilled" ? acc.value.withdrawable : 0n;
-      setBalances([
-        {
-          symbol: usdl.symbol,
-          address: usdl.address,
-          decimals: usdl.decimals,
-          vaultBalance: collateral,
-          lockedBalance: collateral > withdrawable ? collateral - withdrawable : 0n,
-          walletBalance: wb.status === "fulfilled" ? wb.value : 0n,
-          available: withdrawable,
-        },
-      ]);
-      setAccountResolved(true);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [isConnected, address, refreshCounter]);
+  const { snapshot: balanceSnapshot, balances, retry: retryBalances } = usePortfolioBalances(
+    isConnected && address ? address as `0x${string}` : null,
+    refreshCounter,
+  );
+  const accountResolved = balanceSnapshot.account.status === "ready" &&
+    balanceSnapshot.wallet.status === "ready";
 
   // ── Deep-link the nav tab via `?tab=overview|positions|…` ──
   useEffect(() => {
@@ -176,25 +146,27 @@ export default function PortfolioPage() {
 
         <ErrorBoundary fallbackLabel={`Portfolio · ${activeNav}`}>
           {activeNav === "overview" ? (
-            <PortfolioOverviewPanel
-              isConnected={isConnected}
-              hasVault={isConnected}
-              address={address}
-              totalVaultUsd={totalVaultUsd}
-              unrealizedPnl={unrealizedPnl}
-              openPositions={positions.length}
-              realizedPnl={realizedPnl}
-              totalTrades={totalTrades}
-              balances={balances}
-              {...overviewDailyPnlProps(dailyPnlResult)}
-              isLoading={statsLoading}
-              privacy={privacy}
-              onTogglePrivacy={onTogglePrivacy}
-              onRefresh={onRefresh}
-              onConnect={connect}
-              onDeposit={onDepositOrWithdraw}
-              onWithdraw={onDepositOrWithdraw}
-            />
+            <PortfolioBalanceBoundary snapshot={balanceSnapshot} onRetry={retryBalances}>
+              <PortfolioOverviewPanel
+                isConnected={isConnected}
+                hasVault={isConnected}
+                address={address}
+                totalVaultUsd={totalVaultUsd}
+                unrealizedPnl={unrealizedPnl}
+                openPositions={positions.length}
+                realizedPnl={realizedPnl}
+                totalTrades={totalTrades}
+                balances={balances}
+                {...overviewDailyPnlProps(dailyPnlResult)}
+                isLoading={statsLoading}
+                privacy={privacy}
+                onTogglePrivacy={onTogglePrivacy}
+                onRefresh={onRefresh}
+                onConnect={connect}
+                onDeposit={onDepositOrWithdraw}
+                onWithdraw={onDepositOrWithdraw}
+              />
+            </PortfolioBalanceBoundary>
           ) : activeNav === "positions" ? (
             <PortfolioPositionsPanel
               positions={positions}
@@ -204,11 +176,7 @@ export default function PortfolioPage() {
             />
           ) : activeNav === "orders" ? (
             <>
-              <PlaceholderPanel
-                title="Open orders"
-                subtitle="Limit orders and conditional orders live here."
-                hint="Coming soon — order management via Diamond OrderBook facet."
-              />
+              <PortfolioOrdersAvailability />
               <PortfolioSpotSection
                 title="Spot Orders"
                 emptyMessage="No open spot orders"

@@ -22,7 +22,7 @@ export interface Props {
   resetPage: () => void;
 }
 
-// One feed for chain-side and kernel-side activity, each row carrying its rung on the status ladder.
+// Native network activity, each row carrying its rung on the status ladder.
 const ActivityList = ({ items, isLoading, page, total, hasNextPage, canGoBackwards,
   onNextPageClick, onPrevPageClick, resetPage }: Props) => {
   const paginationNode = (
@@ -51,7 +51,7 @@ const ActivityList = ({ items, isLoading, page, total, hasNextPage, canGoBackwar
   return (
     <ScanTableCard
       title={ title }
-      note="Chain-side and kernel-side entries in one feed, newest first"
+      note="Native network activity, newest first"
       pagination={ paginationNode }
 
     >

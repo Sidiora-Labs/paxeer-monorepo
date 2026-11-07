@@ -6,10 +6,11 @@ use std::time::Duration;
 use layerx_indexer::abi::AbiRegistry;
 use layerx_indexer::api;
 use layerx_indexer::backfill::Backfill;
+use layerx_indexer::chains::{chains_abi, ChainsConfig};
 use layerx_indexer::config::{BackfillConfig, Config};
 use layerx_indexer::explorer::ExplorerApi;
 use layerx_indexer::follow::StepOutcome;
-use layerx_indexer::layerx::LayerXIngester;
+use layerx_indexer::names::{names_abi, NamesConfig};
 use layerx_indexer::paxeer::PaxeerIngester;
 use layerx_indexer::paxscan::PaxscanDatabase;
 use layerx_indexer::store::Store;
@@ -38,6 +39,7 @@ where
                     IndexError::Source(_) => "source_unavailable",
                     IndexError::Decode(_) => "source_decode_failed",
                     IndexError::Store(_) => "store_unavailable",
+                    IndexError::NameResultLimit => "names_result_limit_exceeded",
                     IndexError::Config(_) => "source_configuration_invalid",
                     IndexError::Integrity(_) => "source_integrity_failed",
                     IndexError::ReorgBeyondFinality { .. } => "reorg_beyond_finality",
@@ -64,14 +66,19 @@ where
 }
 
 fn load_registry(config: &Config) -> Result<AbiRegistry, IndexError> {
-    let registry = config
+    let mut registry = config
         .abi_dir
         .as_deref()
         .map_or_else(|| Ok(AbiRegistry::default()), AbiRegistry::load_dir)?;
-    eprintln!(
-        "layerx-indexer loaded {} precompile ABIs",
-        registry.abis().len()
-    );
+    if let Some(names) = NamesConfig::from_env()? {
+        for abi in names_abi(&names)? {
+            registry.insert(abi);
+        }
+    }
+    for abi in chains_abi(&ChainsConfig::from_env()?) {
+        registry.insert(abi);
+    }
+    eprintln!("layerx-indexer loaded {} ABIs", registry.abis().len());
     Ok(registry)
 }
 
@@ -96,7 +103,7 @@ fn backfill(args: &[String]) -> Result<(), IndexError> {
     let plan = Backfill::new(&node, settings.cutover, settings.range_blocks);
     plan.next_height(&store)?;
     let mut paxscan = PaxscanDatabase::connect(&settings.paxscan_url, &settings.paxscan_tls)?;
-    let cutover = plan.run(&store, |from, to| paxscan.range(from, to))?;
+    let cutover = plan.run(&store, |from, to| paxscan.range_verified(from, to, &node))?;
     eprintln!(
         "layerx-indexer backfill reached the cutover {cutover}; live ingestion resumes at {}",
         cutover + 1
@@ -148,14 +155,6 @@ fn run() -> Result<(), IndexError> {
                 },
             ),
         };
-    if let Some(source) = config.layerx.clone() {
-        let ingester = LayerXIngester::new(source.relay, source.policy, source.start_batch);
-        readiness.sources.push("layerx");
-        store.start_source("layerx")?;
-        follow("layerx", Arc::clone(&store), config.poll, move |store| {
-            ingester.step(store)
-        });
-    }
     if let Some(source) = config.paxeer.clone() {
         if source.comet.is_some() {
             readiness.sources.push("comet");
@@ -174,8 +173,29 @@ fn run() -> Result<(), IndexError> {
         readiness.sources.push("paxeer");
         store.start_source("paxeer")?;
         follow("paxeer", Arc::clone(&store), config.poll, move |store| {
-            ingester.observe_comet(store)?;
-            ingester.step(store)
+            ingester.daemon_step(store)
+        });
+    }
+    if let Some(path) = std::env::var_os("LAYERX_INDEXER_AI_CONFIG") {
+        let (mut runtime, endpoint) =
+            layerx_indexer::ai_runtime::RuntimeConfig::read(std::path::Path::new(&path))?
+                .open(&config.database)?;
+        readiness.sources.push("ai");
+        store.start_source("ai")?;
+        let observations = Arc::clone(&store);
+        let poll = config.poll;
+        thread::spawn(move || loop {
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .ok()
+                .and_then(|n| u64::try_from(n.as_millis()).ok());
+            let result = now_ms
+                .ok_or_else(|| IndexError::Source("AI publication clock unavailable".to_owned()))
+                .and_then(|now| runtime.daemon_poll(&observations, &endpoint, now));
+            if let Err(error) = result {
+                eprintln!("layerx-indexer AI capture refused: {error}");
+            }
+            thread::sleep(poll);
         });
     }
     eprintln!(

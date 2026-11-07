@@ -1,0 +1,42 @@
+[sweep.rust-build-human]
+revision = "ace3608260f2ec826292dab08cd058031efe2f46"
+command = "cargo build --locked --manifest-path services/human/Cargo.toml -p TARGET --all-targets"
+targets_total = 7
+targets_passed = 7
+targets_failed = 0
+targets_not_run = 0
+
+[target.rust-build-human.1]
+target = "layerx-human-security-provider"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.2]
+target = "layerx-human-service"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.3]
+target = "layerx-human-kms"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.4]
+target = "layerx-intents"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.5]
+target = "layerx-network-gateway"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.6]
+target = "layerx-human-identity-provider"
+result = "passed"
+exit_code = 0
+
+[target.rust-build-human.7]
+target = "layerx-human-test-support"
+result = "passed"
+exit_code = 0

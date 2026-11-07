@@ -1,35 +1,19 @@
-use std::collections::{BTreeMap, BTreeSet, VecDeque};
+use std::collections::BTreeSet;
 use std::fs::{File, OpenOptions};
-use std::io::{Read as _, Write as _};
-use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
-use std::os::unix::net::{UnixListener, UnixStream};
-use std::path::{Path, PathBuf};
+use std::io::{BufRead as _, BufReader, Read as _, Write as _};
+use std::net::{TcpListener, TcpStream};
 use std::thread::{self, JoinHandle};
+use std::time::Duration;
 
-use layerx_client::lni::framing::{read_frame, write_frame};
-use layerx_client::lni::handshake::{encode_node_info, NodeInfo, NodeRole};
-use layerx_client::lni::schema::{
-    decode_envelope, encode_envelope, Capability, Envelope, SchemaError, Version,
-};
-use layerx_crypto::{ed25519, SignatureMessage};
-use layerx_intents::canonical::{activity_id, payload_hash, Domain};
-use layerx_intents::canonical::{
-    decode_signed_activity as decode_signed, unsigned_activity_bytes as encode_unsigned,
-};
-use layerx_intents::canonical::{MAX_MESSAGE_BYTES, PROTOCOL_VERSION};
-use layerx_types::payload::ModuleRegistry;
-use layerx_types::result::{KnownResult, ResultCode};
+use ed25519_dalek::SigningKey;
+use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+use serde_json::{json, Value};
+use std::os::unix::fs::{OpenOptionsExt as _, PermissionsExt as _};
+use std::path::{Path, PathBuf};
+
+use layerx_intents::canonical::MAX_MESSAGE_BYTES;
+use layerx_types::result::ResultCode;
 use sha2::{Digest as _, Sha256};
-
-const NODE_INFO_REQUEST_TAG: u16 = 1;
-const NODE_INFO_RESPONSE_TAG: u16 = 2;
-const SUBMIT_REQUEST_TAG: u16 = 3;
-const SUBMIT_RESPONSE_TAG: u16 = 4;
-const ERROR_RESPONSE_TAG: u16 = 25;
-
-const MALFORMED_REFUSAL_CLASS: u8 = 1;
-const ADMISSION_REFUSAL_CLASS: u8 = 4;
-const AUTHENTICATION_REFUSAL_CLASS: u8 = 6;
 
 const JOURNAL_NAME: &str = "admission.journal";
 const JOURNAL_MAGIC: &[u8; 4] = b"LXHA";
@@ -39,34 +23,16 @@ const RECORD_MAGIC: &[u8; 4] = b"LXAR";
 const RECORD_HEADER_BYTES: usize = 40;
 const RECORD_DIGEST_BYTES: usize = 32;
 
-pub const FRAME_BYTES: usize = 1_048_576;
-
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct Refusal {
     pub class: u8,
     pub result: ResultCode,
 }
 
-impl Refusal {
-    const fn known(class: u8, result: KnownResult) -> Self {
-        Self {
-            class,
-            result: ResultCode::from_raw(result.raw()),
-        }
-    }
-
-    fn payload(self) -> [u8; 5] {
-        let mut payload = [0_u8; 5];
-        payload[0] = self.class;
-        payload[1..].copy_from_slice(&self.result.raw().to_be_bytes());
-        payload
-    }
-}
-
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct AdmissionRecord {
-    pub activity_id: [u8; 32],
-    pub activity: Vec<u8>,
+    pub tx_hash: [u8; 32],
+    pub raw_transaction: Vec<u8>,
 }
 
 #[derive(Debug)]
@@ -96,7 +62,12 @@ impl AdmissionJournal {
             .open(&path)
             .unwrap_or_else(|error| panic!("admission journal: {error}"));
         let records = if existed {
-            Self::recover_from(&mut file, network_id)
+            let (records, valid_bytes) = Self::recover_from(&mut file, network_id);
+            file.set_len(valid_bytes as u64)
+                .unwrap_or_else(|error| panic!("truncate admission tail: {error}"));
+            file.sync_data()
+                .unwrap_or_else(|error| panic!("sync recovered admission tail: {error}"));
+            records
         } else {
             file.write_all(&superblock(network_id))
                 .unwrap_or_else(|error| panic!("admission superblock: {error}"));
@@ -107,7 +78,7 @@ impl AdmissionJournal {
                 .unwrap_or_else(|error| panic!("admission directory fsync: {error}"));
             Vec::new()
         };
-        let admitted = records.iter().map(|record| record.activity_id).collect();
+        let admitted = records.iter().map(|record| record.tx_hash).collect();
         Self {
             directory: directory.to_path_buf(),
             file,
@@ -122,10 +93,10 @@ impl AdmissionJournal {
     pub fn recover(directory: &Path, network_id: u32) -> Vec<AdmissionRecord> {
         let mut file = File::open(directory.join(JOURNAL_NAME))
             .unwrap_or_else(|error| panic!("recover admission journal: {error}"));
-        Self::recover_from(&mut file, network_id)
+        Self::recover_from(&mut file, network_id).0
     }
 
-    fn recover_from(file: &mut File, network_id: u32) -> Vec<AdmissionRecord> {
+    fn recover_from(file: &mut File, network_id: u32) -> (Vec<AdmissionRecord>, usize) {
         let mut bytes = Vec::new();
         file.read_to_end(&mut bytes)
             .unwrap_or_else(|error| panic!("read admission journal: {error}"));
@@ -145,29 +116,29 @@ impl AdmissionJournal {
                 header[4], header[5], header[6], header[7],
             ]))
             .unwrap_or_else(|_| panic!("admission record length overflow"));
-            let mut activity_id = [0_u8; 32];
-            activity_id.copy_from_slice(&header[8..40]);
+            let mut tx_hash = [0_u8; 32];
+            tx_hash.copy_from_slice(&header[8..40]);
             let body_end = cursor + RECORD_HEADER_BYTES + length;
             let record_end = body_end + RECORD_DIGEST_BYTES;
             if length == 0 || length > MAX_MESSAGE_BYTES || record_end > bytes.len() {
                 break;
             }
-            let activity = &bytes[cursor + RECORD_HEADER_BYTES..body_end];
-            if bytes[body_end..record_end] != record_digest(&header[4..40], activity) {
+            let raw_transaction = &bytes[cursor + RECORD_HEADER_BYTES..body_end];
+            if bytes[body_end..record_end] != record_digest(&header[4..40], raw_transaction) {
                 break;
             }
             records.push(AdmissionRecord {
-                activity_id,
-                activity: activity.to_vec(),
+                tx_hash,
+                raw_transaction: raw_transaction.to_vec(),
             });
             cursor = record_end;
         }
-        records
+        (records, cursor)
     }
 
     #[must_use]
-    pub fn contains(&self, activity_id: &[u8; 32]) -> bool {
-        self.admitted.contains(activity_id)
+    pub fn contains(&self, tx_hash: &[u8; 32]) -> bool {
+        self.admitted.contains(tx_hash)
     }
 
     #[must_use]
@@ -180,24 +151,24 @@ impl AdmissionJournal {
         &self.directory
     }
 
-    fn admit(&mut self, activity_id: [u8; 32], activity: &[u8]) -> std::io::Result<()> {
+    fn admit(&mut self, tx_hash: [u8; 32], raw_transaction: &[u8]) -> std::io::Result<()> {
         let mut record =
-            Vec::with_capacity(RECORD_HEADER_BYTES + activity.len() + RECORD_DIGEST_BYTES);
+            Vec::with_capacity(RECORD_HEADER_BYTES + raw_transaction.len() + RECORD_DIGEST_BYTES);
         record.extend_from_slice(RECORD_MAGIC);
-        let length = u32::try_from(activity.len())
+        let length = u32::try_from(raw_transaction.len())
             .map_err(|_| std::io::Error::other("admission record length overflow"))?;
         record.extend_from_slice(&length.to_be_bytes());
-        record.extend_from_slice(&activity_id);
-        record.extend_from_slice(activity);
-        let digest = record_digest(&record[4..RECORD_HEADER_BYTES], activity);
+        record.extend_from_slice(&tx_hash);
+        record.extend_from_slice(raw_transaction);
+        let digest = record_digest(&record[4..RECORD_HEADER_BYTES], raw_transaction);
         record.extend_from_slice(&digest);
         self.file.write_all(&record)?;
         self.file.sync_data()?;
         self.records.push(AdmissionRecord {
-            activity_id,
-            activity: activity.to_vec(),
+            tx_hash,
+            raw_transaction: raw_transaction.to_vec(),
         });
-        self.admitted.insert(activity_id);
+        self.admitted.insert(tx_hash);
         Ok(())
     }
 }
@@ -210,283 +181,218 @@ fn superblock(network_id: u32) -> [u8; JOURNAL_SUPERBLOCK_BYTES] {
     bytes
 }
 
-fn record_digest(header_tail: &[u8], activity: &[u8]) -> [u8; RECORD_DIGEST_BYTES] {
+fn record_digest(header_tail: &[u8], raw_transaction: &[u8]) -> [u8; RECORD_DIGEST_BYTES] {
     let mut digest = Sha256::new();
     digest.update(b"LXH/v1/admission-record\0");
     digest.update(header_tail);
-    digest.update(activity);
+    digest.update(raw_transaction);
     digest.finalize().into()
 }
 
-#[derive(Debug)]
+/// In-process JSON-RPC producer with authenticated, durable transaction admission.
+/// The retired Unix LNI listener is replaced by the same HTTP boundary NodeRpc uses.
 pub struct EvidenceNode {
-    info: NodeInfo,
-    registry: ModuleRegistry,
-    identities: BTreeMap<Vec<u8>, [u8; 32]>,
     journal: AdmissionJournal,
-    queue: VecDeque<[u8; 32]>,
-    queue_capacity: usize,
-    authentication_refusals: u64,
-    fail_stopped: bool,
+    receipt_key: [u8; 32],
+    network_id: u32,
+    senders: BTreeSet<[u8; 20]>,
+    requests: usize,
+    served: Vec<String>,
 }
 
 impl EvidenceNode {
-    /// # Panics
-    /// Panics if queue capacity is zero or opening the admission journal fails.
     #[must_use]
-    pub fn new(
-        authorised_sequencer_key: [u8; 32],
-        network_id: u32,
-        registry: ModuleRegistry,
-        admission_directory: &Path,
-        queue_capacity: usize,
-    ) -> Self {
+    pub fn new(directory: &Path, network_id: u32, signer: &SigningKey, requests: usize) -> Self {
         assert!(
-            queue_capacity > 0,
-            "admission queue capacity must be bounded above zero"
+            requests > 0,
+            "evidence_node.rs: producer requires bounded requests"
         );
         Self {
-            info: NodeInfo {
-                interface_version: Version::V1_3,
-                protocol_version: PROTOCOL_VERSION,
-                network_id,
-                role: NodeRole::Sequencer,
-                chain_head_sequence: 50,
-                latest_sealed_batch: 7,
-                latest_finalised_checkpoint: [0x91; 32],
-                authorised_sequencer_key,
-                advertised_capabilities: vec![
-                    Capability::AuthenticatedDurableSubmit.name().to_owned(),
-                    Capability::NodeInfo.name().to_owned(),
-                    Capability::Submit.name().to_owned(),
-                ],
-            },
-            registry,
-            identities: BTreeMap::new(),
-            journal: AdmissionJournal::open(admission_directory, network_id),
-            queue: VecDeque::new(),
-            queue_capacity,
-            authentication_refusals: 0,
-            fail_stopped: false,
+            journal: AdmissionJournal::open(directory, network_id),
+            receipt_key: signer.verifying_key().to_bytes(),
+            network_id,
+            senders: BTreeSet::new(),
+            requests,
+            served: Vec::new(),
         }
     }
 
-    pub fn register_identity(&mut self, actor_did: &[u8], owner_key: [u8; 32]) {
-        self.identities.insert(actor_did.to_vec(), owner_key);
+    pub fn register_sender(&mut self, sender: [u8; 20]) {
+        self.senders.insert(sender);
     }
 
     #[must_use]
-    pub const fn journal(&self) -> &AdmissionJournal {
+    pub fn journal(&self) -> &AdmissionJournal {
         &self.journal
     }
 
     #[must_use]
-    pub fn queued(&self) -> Vec<[u8; 32]> {
-        self.queue.iter().copied().collect()
+    pub fn served(&self) -> &[String] {
+        &self.served
     }
 
-    #[must_use]
-    pub const fn authentication_refusals(&self) -> u64 {
-        self.authentication_refusals
+    fn submit(&mut self, raw: &[u8]) -> Result<[u8; 32], &'static str> {
+        if raw.is_empty() || raw.len() > MAX_MESSAGE_BYTES {
+            return Err("LXP_MALFORMED_ENVELOPE: bounded signed transaction required");
+        }
+        let (transaction, signature) =
+            decode_signed(raw).map_err(|_| "LXP_MALFORMED_ENVELOPE: invalid signed transaction")?;
+        let sender = recover_sender(&transaction, &signature)
+            .map_err(|_| "LXP_BAD_SIGNATURE: sender recovery failed")?;
+        if transaction.chain_id != 125 {
+            return Err("LXP_WRONG_NETWORK: chain id differs");
+        }
+        if !self.senders.contains(&sender) {
+            return Err("LXP_UNKNOWN_DID: sender is not registered");
+        }
+        let hash = transaction_hash(raw);
+        if !self.journal.contains(&hash) {
+            self.journal
+                .admit(hash, raw)
+                .unwrap_or_else(|error| panic!("durable admission before response: {error}"));
+        }
+        Ok(hash)
     }
 
-    #[must_use]
-    pub const fn fail_stopped(&self) -> bool {
-        self.fail_stopped
+    fn result(&mut self, method: &str, params: &Value) -> Value {
+        match method {
+            "eth_chainId" => {
+                assert_eq!(params, &json!([]));
+                json!({"result": "0x7d"})
+            }
+            "px_getReceiptKeys" => {
+                assert_eq!(params, &json!([]));
+                let key = crate::encode_hex(&self.receipt_key);
+                json!({"result": {"keys": [{"keyId": format!("0x{key}"),
+                    "publicKey": format!("0x{key}"), "firstHeight": 7, "lastHeight": 7}]}})
+            }
+            "eth_sendRawTransaction" => {
+                let raw = params
+                    .as_array()
+                    .filter(|items| items.len() == 1)
+                    .and_then(|items| items[0].as_str())
+                    .and_then(decode_hex);
+                match raw
+                    .as_deref()
+                    .ok_or("LXP_MALFORMED_ENVELOPE: invalid hex")
+                    .and_then(|raw| self.submit(raw))
+                {
+                    Ok(hash) => json!({"result": format!("0x{}", crate::encode_hex(&hash))}),
+                    Err(reason) => {
+                        json!({"error": {"code": 3, "message": "execution reverted", "data": reason}})
+                    }
+                }
+            }
+            "pax_sequencerReceipt" => {
+                let hash = params[0].as_str().and_then(decode_hex);
+                let record = hash.as_deref().and_then(|hash| {
+                    self.journal
+                        .records()
+                        .iter()
+                        .find(|record| record.tx_hash == hash)
+                });
+                let result = record.map(|record| {
+                    let (transaction, _) = decode_signed(&record.raw_transaction)
+                        .unwrap_or_else(|error| panic!("admitted transaction decode: {error:?}"));
+                    json!({"rung": "submitted", "txHash": format!("0x{}", crate::encode_hex(&record.tx_hash)),
+                        "nonce": format!("{:#x}", transaction.nonce)})
+                });
+                json!({"result": result})
+            }
+            method => panic!(
+                "evidence_node.rs: unexpected producer method {method} on network {}",
+                self.network_id
+            ),
+        }
     }
 
-    /// # Panics
-    /// Panics if a worker cannot start; the worker panics on invalid handshakes or I/O failures.
+    /// Serves a finite number of real JSON-RPC requests and returns the producer state.
     #[must_use]
-    pub fn serve(mut self, listener: UnixListener) -> JoinHandle<Self> {
+    pub fn serve(mut self, listener: TcpListener) -> JoinHandle<Self> {
+        listener
+            .set_nonblocking(true)
+            .unwrap_or_else(|error| panic!("evidence listener: {error}"));
         thread::spawn(move || {
-            let (mut stream, _) = listener
-                .accept()
-                .unwrap_or_else(|error| panic!("accept evidence node connection: {error}"));
-            self.serve_connection(&mut stream);
+            for _ in 0..self.requests {
+                let stream = accept_request(&listener, 5_000);
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(2)))
+                    .unwrap_or_else(|error| panic!("evidence read timeout: {error}"));
+                stream
+                    .set_write_timeout(Some(Duration::from_secs(2)))
+                    .unwrap_or_else(|error| panic!("evidence write timeout: {error}"));
+                let mut reader = BufReader::new(stream);
+                let mut length = None;
+                loop {
+                    let mut line = String::new();
+                    assert_ne!(
+                        reader
+                            .read_line(&mut line)
+                            .unwrap_or_else(|error| panic!("evidence header: {error}")),
+                        0
+                    );
+                    if line == "\r\n" {
+                        break;
+                    }
+                    if let Some(value) = line.to_ascii_lowercase().strip_prefix("content-length:") {
+                        length = Some(
+                            value
+                                .trim()
+                                .parse::<usize>()
+                                .unwrap_or_else(|error| panic!("evidence length: {error}")),
+                        );
+                    }
+                }
+                let length = length.expect("evidence_node.rs: content length required");
+                assert!(length <= 2 * MAX_MESSAGE_BYTES);
+                let mut body = vec![0; length];
+                reader
+                    .read_exact(&mut body)
+                    .unwrap_or_else(|error| panic!("evidence body: {error}"));
+                let request: Value = serde_json::from_slice(&body)
+                    .unwrap_or_else(|error| panic!("evidence JSON: {error}"));
+                assert_eq!(request["jsonrpc"], "2.0");
+                let method = request["method"]
+                    .as_str()
+                    .expect("evidence_node.rs: method required");
+                self.served.push(method.to_owned());
+                let mut response = self.result(method, &request["params"]);
+                response["jsonrpc"] = json!("2.0");
+                response["id"] = request["id"].clone();
+                let answer = response.to_string();
+                let mut stream = reader.into_inner();
+                write!(stream, "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{answer}", answer.len())
+                    .unwrap_or_else(|error| panic!("evidence response: {error}"));
+                stream
+                    .flush()
+                    .unwrap_or_else(|error| panic!("evidence flush: {error}"));
+            }
             self
         })
     }
+}
 
-    fn serve_connection(&mut self, stream: &mut UnixStream) {
-        let request = read_frame(stream, FRAME_BYTES)
-            .unwrap_or_else(|error| panic!("read evidence handshake: {error:?}"));
-        let request = decode_envelope(&request)
-            .unwrap_or_else(|error| panic!("decode evidence handshake: {error:?}"));
-        assert_eq!(request.message_tag, NODE_INFO_REQUEST_TAG);
-        assert_eq!(request.correlation_id, 0);
-        assert!(request.canonical_payload.is_empty());
-        assert!(request.proof_material.is_empty());
-        let payload = encode_node_info(&self.info)
-            .unwrap_or_else(|error| panic!("encode evidence node information: {error:?}"));
-        self.respond(stream, NODE_INFO_RESPONSE_TAG, 0, &payload, &[]);
-        while !self.fail_stopped {
-            let Ok(frame) = read_frame(stream, FRAME_BYTES) else {
-                break;
-            };
-            let Ok(request) = decode_envelope(&frame) else {
-                break;
-            };
-            let correlation_id = request.correlation_id;
-            if request.message_tag != SUBMIT_REQUEST_TAG {
-                let refusal =
-                    Refusal::known(MALFORMED_REFUSAL_CLASS, KnownResult::MalformedEnvelope);
-                self.respond(
-                    stream,
-                    ERROR_RESPONSE_TAG,
-                    correlation_id,
-                    &refusal.payload(),
-                    &[],
-                );
-                continue;
+fn accept_request(listener: &TcpListener, attempts: usize) -> TcpStream {
+    for _ in 0..attempts {
+        match listener.accept() {
+            Ok((stream, _)) => return stream,
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                thread::sleep(Duration::from_millis(1));
             }
-            match self.admit(&request) {
-                Ok(activity_id) => {
-                    let echoed = request.canonical_payload.to_vec();
-                    self.respond(
-                        stream,
-                        SUBMIT_RESPONSE_TAG,
-                        correlation_id,
-                        &echoed,
-                        &activity_id,
-                    );
-                }
-                Err(Some(refusal)) => {
-                    self.respond(
-                        stream,
-                        ERROR_RESPONSE_TAG,
-                        correlation_id,
-                        &refusal.payload(),
-                        &[],
-                    );
-                }
-                Err(None) => {
-                    self.fail_stopped = true;
-                }
-            }
+            Err(error) => panic!("evidence accept: {error}"),
         }
     }
+    panic!("evidence_node.rs: missing consumer request");
+}
 
-    fn respond(
-        &self,
-        stream: &mut UnixStream,
-        message_tag: u16,
-        correlation_id: u64,
-        canonical_payload: &[u8],
-        proof_material: &[u8],
-    ) {
-        let response = encode_envelope(Envelope {
-            version: self.info.interface_version,
-            message_tag,
-            correlation_id,
-            canonical_payload,
-            proof_material,
-        })
-        .unwrap_or_else(|error: SchemaError| panic!("encode evidence node response: {error:?}"));
-        write_frame(stream, &response, FRAME_BYTES)
-            .unwrap_or_else(|error| panic!("write evidence node response: {error:?}"));
+fn decode_hex(text: &str) -> Option<Vec<u8>> {
+    let digits = text.strip_prefix("0x")?;
+    if digits.len() % 2 != 0 {
+        return None;
     }
-
-    fn admit(&mut self, request: &Envelope<'_>) -> Result<[u8; 32], Option<Refusal>> {
-        let payload = request.canonical_payload;
-        if !request.proof_material.is_empty()
-            || payload.is_empty()
-            || payload.len() > MAX_MESSAGE_BYTES
-        {
-            return Err(Some(Refusal::known(
-                MALFORMED_REFUSAL_CLASS,
-                KnownResult::MalformedEnvelope,
-            )));
-        }
-        let activity = decode_signed(payload, &self.registry).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-        if activity.protocol_version() != self.info.protocol_version {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::VersionUnsupported,
-            )));
-        }
-        if activity.network_id() != self.info.network_id {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::WrongNetwork,
-            )));
-        }
-        let expected_payload_hash = payload_hash(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-        if expected_payload_hash != activity.payload_hash() {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::PayloadHashMismatch,
-            )));
-        }
-        let identifier = activity_id(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-
-        let Some(current_key) = self.identities.get(activity.actor_did()).copied() else {
-            return Err(Some(self.authentication_refusal(KnownResult::UnknownDid)));
-        };
-        if activity.authority() != current_key.as_slice() {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        }
-        let Some(signature) = activity
-            .signature()
-            .and_then(|bytes| <[u8; 64]>::try_from(bytes).ok())
-        else {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        };
-        let unsigned = encode_unsigned(&activity).map_err(|error| {
-            Some(Refusal {
-                class: ADMISSION_REFUSAL_CLASS,
-                result: error.result,
-            })
-        })?;
-        let message = SignatureMessage::new(
-            Domain::SignaturePreimage,
-            activity.protocol_version(),
-            activity.network_id(),
-            &unsigned,
-        )
-        .map_err(|error| Some(self.authentication_refusal_code(error.result_code())))?;
-        if ed25519::verify(&current_key, &signature, message).is_err() {
-            return Err(Some(self.authentication_refusal(KnownResult::BadSignature)));
-        }
-
-        if self.journal.contains(&identifier) {
-            return Ok(identifier);
-        }
-        if self.queue.len() >= self.queue_capacity {
-            return Err(Some(Refusal::known(
-                ADMISSION_REFUSAL_CLASS,
-                KnownResult::LengthLimit,
-            )));
-        }
-        self.journal.admit(identifier, payload).map_err(|_| None)?;
-        self.queue.push_back(identifier);
-        Ok(identifier)
-    }
-
-    fn authentication_refusal(&mut self, result: KnownResult) -> Refusal {
-        self.authentication_refusal_code(ResultCode::from_raw(result.raw()))
-    }
-
-    fn authentication_refusal_code(&mut self, result: ResultCode) -> Refusal {
-        self.authentication_refusals = self.authentication_refusals.saturating_add(1);
-        Refusal {
-            class: AUTHENTICATION_REFUSAL_CLASS,
-            result,
-        }
-    }
+    digits
+        .as_bytes()
+        .chunks_exact(2)
+        .map(|pair| u8::from_str_radix(std::str::from_utf8(pair).ok()?, 16).ok())
+        .collect()
 }

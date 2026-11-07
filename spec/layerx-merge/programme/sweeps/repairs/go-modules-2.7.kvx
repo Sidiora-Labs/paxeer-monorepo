@@ -1,0 +1,9 @@
+[repair.go-modules-2.7]
+target = "modules/spot"
+command = "CGO_ENABLED=1 go vet ./modules/spot/ && CGO_ENABLED=1 go test -count=1 -timeout 35m -v ./modules/spot/"
+revision = "5903ffbb1db92c2e133ddd0fa7f87c058af7b5ed"
+result = "already-passing"
+change = "modules/spot/module_test.go reports test-suite progress and measured wall time while preserving every test assertion and the suite exit code; no product behavior changed."
+producer_input_tests = []
+recorded_timeout_seconds = 600
+wall_time_measurement = "TestMain reports the measured test-suite wall time as spot package test wall time in verbose verification output; command evidence records start and finish times including compilation."

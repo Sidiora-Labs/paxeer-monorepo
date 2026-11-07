@@ -1,0 +1,8 @@
+[repair.22.31.291]
+finding = "prefix-enumeration-keyspace"
+tests = ["TestRepair_291_EnumerationKeyspace", "TestRepair_291_CacheDeleteAllWrite"]
+proof = "Real memory store, nested prefix stores and CacheWrap exercise relative enumeration through Get/Delete and DeleteAll/Write; the physical store must retain every sibling and out-of-range value."
+baseline = "Not run: the ordered bounded-gate instructions require complete implementation before hf-build and hf-done, superseding step 5's unchanged-tree verification. No baseline failure is claimed."
+qualification_observation = "At 0dc300ef8af852cccdc516396b4ab20d79c8870a, cg spec done 22.31.291 -f layerx-merge --root /work/paxeer-monorepo exited 1 (/out/logs/verify-1.log): MemDB rejected the empty bound from the nil-prefix fixture; tests now compose all cases beneath a real root namespace with every assertion retained."
+wiring_requests = []
+evidence = "The hf-done gate ledger records the exact candidate revision, command, exit code and private log location."

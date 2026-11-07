@@ -13,7 +13,7 @@ use std::thread;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use zeroize::Zeroizing;
 
-const CHAIN_ID: &str = "0x7d0";
+const CHAIN_ID: &str = "0x7d";
 const LATEST_BLOCK: &str = "0x1a2b";
 const ACCOUNT: &str = "0x102132435465768798a9bacbdcedfe0f1e2d3c4b";
 
@@ -155,9 +155,16 @@ impl Drop for Gateway {
 impl Gateway {
     fn rpc(&self, method: &str, params: &Value) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
+        assert_eq!(
+            self.client
+                .post("/rpc", request.to_string().as_bytes())
+                .expect("retired RPC refusal")
+                .status,
+            404
+        );
         let answer = self
             .client
-            .post("/rpc", request.to_string().as_bytes())
+            .post("/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("{method} must be answered: {error:?}"));
         assert_eq!(answer.status, 200, "{method}");
         let document: Value = serde_json::from_slice(&answer.body)
@@ -234,7 +241,7 @@ impl PlainGateway {
     fn rpc(&self, method: &str, params: &Value) -> Value {
         let request = json!({"jsonrpc": "2.0", "id": 7, "method": method, "params": params});
         let (status, body) = self
-            .exchange("POST", "/rpc", request.to_string().as_bytes())
+            .exchange("POST", "/", request.to_string().as_bytes())
             .unwrap_or_else(|error| panic!("{method} must be answered over plain HTTP: {error}"));
         assert_eq!(status, 200, "{method}");
         let document: Value = serde_json::from_slice(&body)
@@ -289,21 +296,45 @@ fn precompile_answers() -> Vec<(String, String)> {
         .unwrap_or_else(|| panic!("ABI vector cases missing"))
         .iter()
         .filter_map(|case| {
+            let result = case["result"].as_str()?;
+            let result = if case["name"] == "addr.getUnifiedAccount" {
+                result.replace(&"7c".repeat(32), &main_account())
+            } else {
+                result.to_owned()
+            };
             Some((
                 format!("0x{}", case["calldata"].as_str()?),
-                format!("0x{}", case["result"].as_str()?),
+                format!("0x{result}"),
             ))
         })
         .collect()
 }
 
+fn main_account() -> String {
+    let name = format!("agent:did:layerx:{}:main", "61".repeat(32));
+    let account = layerx_types::account::AccountId::parse(&name).unwrap();
+    layerx_wire::hash::account_id_for_protocol(&account, 3)
+        .unwrap()
+        .iter()
+        .map(|byte| format!("{byte:02x}"))
+        .collect()
+}
+
 fn chain_answer(answers: &[(String, String)], request: &http::Request) -> http::Response {
+    chain_answer_for_chain(answers, request, CHAIN_ID)
+}
+
+fn chain_answer_for_chain(
+    answers: &[(String, String)],
+    request: &http::Request,
+    chain_id: &str,
+) -> http::Response {
     let Ok(call) = serde_json::from_slice::<Value>(&request.body) else {
         return http::refusal(400, "invalid_json", None);
     };
     let id = call["id"].clone();
     let result = match call["method"].as_str() {
-        Some("eth_chainId") => Some(json!(CHAIN_ID)),
+        Some("eth_chainId") => Some(json!(chain_id)),
         Some("eth_blockNumber") => Some(json!(LATEST_BLOCK)),
         Some("eth_call") => call["params"][0]["data"].as_str().and_then(|data| {
             answers
@@ -328,13 +359,17 @@ fn secret(directory: &Path, name: &str, value: &str) -> String {
     path(&file).to_owned()
 }
 
-const KERNEL_SIDE_VARIABLES: [&str; 8] = [
+const KERNEL_SIDE_VARIABLES: [&str; 12] = [
+    "LAYERX_GATEWAY_COMPONENT_TOKEN_FILE",
+    "LAYERX_GATEWAY_PUBLIC_CORE_URL",
+    "LAYERX_GATEWAY_AUTHORITY_URL",
+    "LAYERX_GATEWAY_AUTHORITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_IDENTITY_URL",
+    "LAYERX_GATEWAY_IDENTITY_TOKEN_FILE",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_URL",
+    "LAYERX_GATEWAY_PROGRAM_REGISTRY_TOKEN_FILE",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PKCS12",
     "LAYERX_GATEWAY_CLIENT_IDENTITY_PASSWORD_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_PUBLIC_KEY_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_ID_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_FIRST_BATCH_FILE",
-    "LAYERX_GATEWAY_SEQUENCER_LAST_BATCH_FILE",
     "LAYERX_GATEWAY_KEY_PROVISIONING_KEY_FILE",
     "LAYERX_GATEWAY_MODULE_REGISTRY_FILE",
 ];
@@ -426,9 +461,20 @@ fn gateway_command(environment: &[(String, String)]) -> Command {
     command
 }
 
-fn start_gateway(redis: &RedisProcess, chain_port: u16, producer: bool) -> Gateway {
+fn start_gateway(
+    redis: &RedisProcess,
+    chain_port: u16,
+    producer: bool,
+    receipt_keys: Option<&str>,
+) -> Gateway {
     let listen = free_port();
-    let environment = chain_only_environment(redis, chain_port, listen, producer);
+    let mut environment = chain_only_environment(redis, chain_port, listen, producer);
+    if let Some(path) = receipt_keys {
+        environment.push((
+            "LAYERX_GATEWAY_RECEIPT_KEYS_FILE".to_owned(),
+            path.to_owned(),
+        ));
+    }
     assert!(environment.iter().all(|(name, _)| {
         !KERNEL_SIDE_VARIABLES.contains(&name.as_str()) && name != "LAYERX_GATEWAY_COMPONENT_URL"
     }));
@@ -518,13 +564,12 @@ fn startup_refusal(environment: &[(String, String)]) -> (Option<i32>, String) {
     )
 }
 
-fn assert_kernel_unavailable(answer: &Value, backend: &str) {
+fn assert_method_not_found(answer: &Value) {
     assert!(answer.get("result").is_none(), "{answer}");
-    assert_eq!(answer["error"]["code"], -32010, "{answer}");
-    assert_eq!(answer["error"]["message"], "Kernel unavailable");
     assert_eq!(
-        answer["error"]["data"],
-        json!({"code": "kernel_unavailable", "backend": backend, "reason": "not_configured"})
+        answer["error"],
+        json!({"code": -32601, "message": "Method not found"}),
+        "{answer}"
     );
 }
 
@@ -538,7 +583,7 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
@@ -550,27 +595,36 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
             "evm_address": ACCOUNT,
             "pax_address": "pax1exampleaccount",
             "layerx_did": format!("did:layerx:{}", "61".repeat(32)),
-            "layerx_account": "7c".repeat(32),
+            "layerx_account": main_account(),
             "bound": true
         }),
         "{resolved}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_getAccount", &json!(["ab".repeat(32)])),
-        "public_core",
-    );
-    assert_kernel_unavailable(
-        &gateway.rpc("px_getBalances", &json!([ACCOUNT])),
-        "public_core",
+    assert_method_not_found(&gateway.rpc("lx_getAccount", &json!(["ab".repeat(32)])));
+    let balances = gateway.rpc("px_getBalances", &json!([ACCOUNT]));
+    let vectors: Value = serde_json::from_str(include_str!("fixtures/paxeer-abi-vectors.json"))
+        .unwrap_or_else(|error| panic!("ABI vectors: {error}"));
+    let coins = &vectors["cases"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|case| case["name"] == "bank.all_balances")
+        .unwrap()["out"]["response"];
+    assert!(balances.get("error").is_none(), "{balances}");
+    assert_eq!(
+        balances["result"],
+        json!({"account": resolved["result"], "height": 6699, "balances": coins}),
+        "{balances}"
     );
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK})
@@ -579,28 +633,16 @@ fn degraded_endpoint_serves_the_chain_and_refuses_kernel_methods_without_the_ker
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    let backends = &readiness["backends"];
+    assert_eq!(readiness["status"], "ready", "{readiness}");
     assert_eq!(
-        backends["paxeer_chain"],
-        json!({"state": "ready", "reason": "ready"}),
+        readiness["backends"],
+        json!({
+            "paxeer_chain": {"state": "ready", "reason": "ready"},
+            "durable_store": {"state": "ready", "reason": "ready"},
+            "consensus": {"state": "unavailable", "reason": "not_configured"}
+        }),
         "{readiness}"
     );
-    assert_eq!(
-        backends["durable_store"],
-        json!({"state": "ready", "reason": "ready"})
-    );
-    for kernel in [
-        "core_agent_boundary",
-        "independent_receipt_authority",
-        "program_registry",
-    ] {
-        assert_eq!(
-            backends[kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
-        );
-    }
     drop(gateway);
     drop(chain);
 }
@@ -614,35 +656,33 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
     let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
         chain_answer(&answers, request)
     });
-    let gateway = start_gateway(&redis, chain.port, true);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
         "{network}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
-    let activity = gateway
+    let settlement = gateway
         .client
-        .post("/v1/activities", b"{}")
-        .unwrap_or_else(|error| panic!("activity route must be answered: {error:?}"));
-    assert_eq!(activity.status, 503);
-    let refusal: Value = serde_json::from_slice(&activity.body)
-        .unwrap_or_else(|error| panic!("activity refusal must be JSON: {error}"));
+        .post("/v1/settle", b"{}")
+        .unwrap_or_else(|error| panic!("settlement route must be answered: {error:?}"));
+    assert_eq!(settlement.status, 503);
+    let refusal: Value = serde_json::from_slice(&settlement.body)
+        .unwrap_or_else(|error| panic!("settlement refusal must be JSON: {error}"));
     assert_eq!(
         refusal,
         json!({"ok": false, "error": {"code": "kernel_unavailable", "backend": "core_agent_boundary", "reason": "not_configured"}})
@@ -650,18 +690,71 @@ fn degraded_endpoint_starts_chain_only_through_its_real_configuration() {
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    for kernel in [
-        "core_agent_boundary",
-        "independent_receipt_authority",
-        "program_registry",
-    ] {
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
+        "{readiness}"
+    );
+    for backend in ["durable_store", "paxeer_chain"] {
         assert_eq!(
-            readiness["backends"][kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
+            readiness["backends"][backend],
+            json!({"state": "ready", "reason": "ready"}),
+            "{readiness}"
         );
     }
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
+    }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
+        "{readiness}"
+    );
+    drop(gateway);
+    drop(chain);
+}
+
+#[test]
+fn chain_only_gateway_pins_receipt_keys_without_the_component_url() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+    let redis = RedisProcess::start();
+    let (tls, _) = payment_events::tls(&redis);
+    let answers = precompile_answers();
+    let chain = payment_events::Listener::start(Arc::clone(&tls), move |request| {
+        chain_answer_for_chain(&answers, request, "0x7d")
+    });
+    let signer = ed25519_dalek::SigningKey::from_bytes(&[0x42; 32]);
+    let receipt_keys = secret(
+        &redis.directory,
+        "receipt-keys.json",
+        &json!([{
+            "key_id": layerx_platform_internal::base64::encode(&[0x51; 32]),
+            "public_key": layerx_platform_internal::base64::encode(
+                &signer.verifying_key().to_bytes()
+            ),
+            "first_height": 0,
+            "last_height": u64::MAX,
+        }])
+        .to_string(),
+    );
+    let gateway = start_gateway(&redis, chain.port, false, Some(&receipt_keys));
+
+    let (status, liveness) = gateway.get("/livez");
+    assert_eq!(status, 200, "{liveness}");
+
+    let (status, readiness) = gateway.get("/readyz");
+    assert_eq!(status, 200, "{readiness}");
+    assert_eq!(
+        readiness["backends"]["paxeer_chain"],
+        json!({"state": "ready", "reason": "ready"}),
+        "{readiness}"
+    );
     drop(gateway);
     drop(chain);
 }
@@ -703,34 +796,31 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
     assert!(environment
         .iter()
         .all(|(name, _)| !name.starts_with("LAYERX_EVENTS_")));
-    let gateway = start_gateway(&redis, chain.port, false);
+    let gateway = start_gateway(&redis, chain.port, false, None);
 
     let chain_id = gateway.rpc("eth_chainId", &json!([]));
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
         "{network}"
     );
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
-    assert_eq!(
-        readiness["backends"]["event_producer"],
-        json!({"state": "unavailable", "reason": "not_configured"}),
+    assert_eq!(readiness["status"], "ready", "{readiness}");
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
         "{readiness}"
     );
     assert_eq!(
@@ -741,6 +831,20 @@ fn degraded_endpoint_starts_without_the_event_producer_and_reports_it_unconfigur
     assert_eq!(
         readiness["backends"]["paxeer_chain"],
         json!({"state": "ready", "reason": "ready"}),
+        "{readiness}"
+    );
+    for kernel in [
+        "core_agent_boundary",
+        "public_core",
+        "independent_receipt_authority",
+        "identity",
+        "program_registry",
+    ] {
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
+    }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
         "{readiness}"
     );
     drop(gateway);
@@ -818,11 +922,12 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
     assert_eq!(chain_id["result"], CHAIN_ID, "{chain_id}");
 
     let network = gateway.rpc("px_getNetwork", &json!([]));
+    assert_eq!(network["result"]["consensus"], Value::Null, "{network}");
     assert_eq!(
-        network["result"]["kernel"],
-        json!({"available": false, "reason": "not_configured"}),
+        network["result"]["reason"], "consensus_unavailable",
         "{network}"
     );
+    assert_eq!(network["result"]["paxeer"]["chain_id"], "0x7d", "{network}");
     assert_eq!(
         network["result"]["paxeer"],
         json!({"chain_id": CHAIN_ID, "latest_block": LATEST_BLOCK}),
@@ -830,14 +935,11 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
     );
     assert_eq!(network["result"]["network_id"], "paxeer-degraded");
 
-    assert_kernel_unavailable(
-        &gateway.rpc("lx_sendActivity", &json!(["00"])),
-        "core_agent_boundary",
-    );
+    assert_method_not_found(&gateway.rpc("lx_sendActivity", &json!(["00"])));
 
     let (status, readiness) = gateway.get("/readyz");
     assert_eq!(status, 200, "{readiness}");
-    assert_eq!(readiness["status"], "degraded");
+    assert_eq!(readiness["status"], "ready", "{readiness}");
     assert_eq!(
         readiness["backends"]["paxeer_chain"],
         json!({"state": "ready", "reason": "ready"}),
@@ -848,22 +950,24 @@ fn degraded_endpoint_serves_the_chain_over_the_plain_listener() {
         json!({"state": "ready", "reason": "ready"}),
         "{readiness}"
     );
-    assert_eq!(
-        readiness["backends"]["event_producer"],
-        json!({"state": "unavailable", "reason": "not_configured"}),
+    assert!(
+        readiness["backends"].get("event_producer").is_none(),
         "{readiness}"
     );
     for kernel in [
         "core_agent_boundary",
+        "public_core",
         "independent_receipt_authority",
+        "identity",
         "program_registry",
     ] {
-        assert_eq!(
-            readiness["backends"][kernel],
-            json!({"state": "unavailable", "reason": "not_configured"}),
-            "{kernel}"
-        );
+        assert!(readiness["backends"].get(kernel).is_none(), "{readiness}");
     }
+    assert_eq!(
+        readiness["components"],
+        json!({"durable_store": "ready"}),
+        "{readiness}"
+    );
     drop(gateway);
     drop(chain);
 }

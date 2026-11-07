@@ -1,0 +1,48 @@
+{
+  "name": "@paxeer/names",
+  "version": "0.1.0",
+  "description": "Paxeer names, manifests and content hashes",
+  "license": "UNLICENSED",
+  "packageManager": "pnpm@10.15.1",
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": "^10.15.1"
+  },
+  "type": "module",
+  "main": "./dist/index.js",
+  "module": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@confio/ics23": "^0.6.8",
+    "@noble/curves": "^1.9.7",
+    "@noble/hashes": "^1.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tinypool": "2.1.2",
+    "typescript": "^5.6.3",
+    "vitest": "^4.1.12"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ],
+    "overrides": {
+      "protobufjs": "7.6.5"
+    }
+  }
+}

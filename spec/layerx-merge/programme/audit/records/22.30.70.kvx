@@ -1,0 +1,1933 @@
+# Pre-upgrade audit of the declared 22.30.70 package. Source repairs are proposals only.
+
+[audit.22.30.70]
+task = "22.30.70"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 142
+findings = 93
+docs_reviewed = 27
+upgrade_ready = false
+blocking = ["export-consensus-loss", "rosetta-results-discarded", "rosetta-normal-tx-lookup", "rosetta-multisigner-key"]
+note = "Audited source revision above. The package enumerates 400 produced registry ids despite produces_total=409, and 397 consumed ids; the explicit id lists define this review. Generated files use the brief exemption. This record proposes repairs and does not claim that any underlying Go, Rust, TypeScript or deployment gate passed."
+
+[file.1]
+path = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+lines = 89
+verdict = "issues"
+note = "Read in full; findings sdk-install-agent-skill."
+
+[file.2]
+path = "sdk/chainflow/go/README.md"
+lines = 166
+verdict = "issues"
+note = "Read in full; findings sdk-install-readme."
+
+[file.3]
+path = "sdk/chainflow/go/SECURITY.md"
+lines = 19
+verdict = "clean"
+note = "Read in full; security guidance separates SDK runtime reports from service issues and forbids public credential disclosure."
+
+[file.4]
+path = "sdk/chainflow/go/SKILL.md"
+lines = 89
+verdict = "issues"
+note = "Read in full; findings sdk-install-skill."
+
+[file.5]
+path = "sdk/chainflow/go/aliases.go"
+lines = 9
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.6]
+path = "sdk/chainflow/go/api.md"
+lines = 701
+verdict = "issues"
+note = "Read in full; findings sdk-token-example."
+
+[file.7]
+path = "sdk/chainflow/go/client.go"
+lines = 112
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.8]
+path = "sdk/chainflow/go/coingecko.go"
+lines = 892
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.9]
+path = "sdk/chainflow/go/coingecko_test.go"
+lines = 39
+verdict = "clean"
+note = "Read in full; the CoinGecko query test exercises the real Go request builder and requires the expected query serialization without introducing a network or finality claim."
+
+[file.10]
+path = "sdk/chainflow/go/coinmarketcap.go"
+lines = 613
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.11]
+path = "sdk/chainflow/go/default_http_client.go"
+lines = 30
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.12]
+path = "sdk/chainflow/go/explorer.go"
+lines = 347
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.13]
+path = "sdk/chainflow/go/field.go"
+lines = 47
+verdict = "clean"
+note = "Read in full; public F and optional field aliases forward the SDK param representation without changing omission, null or value semantics."
+
+[file.14]
+path = "sdk/chainflow/go/gateway.go"
+lines = 169
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.15]
+path = "sdk/chainflow/go/internal/apierror/apierror.go"
+lines = 53
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.16]
+path = "sdk/chainflow/go/internal/apiform/encoder.go"
+lines = 383
+verdict = "clean"
+note = "Read in full; form serialization walks declared tags and field state, escapes values and reports unsupported kinds rather than inventing API fields."
+
+[file.17]
+path = "sdk/chainflow/go/internal/apiform/form.go"
+lines = 5
+verdict = "clean"
+note = "Read in full; the form Marshaler interface agrees with the encoder call boundary and owns no runtime state."
+
+[file.18]
+path = "sdk/chainflow/go/internal/apiform/tag.go"
+lines = 70
+verdict = "clean"
+note = "Read in full; form tag parsing matches the encoder field selection and excludes ignored fields."
+
+[file.19]
+path = "sdk/chainflow/go/internal/apijson/decoder.go"
+lines = 695
+verdict = "issues"
+note = "Read in full; findings sdk-json-syntax, sdk-array-panic."
+
+[file.20]
+path = "sdk/chainflow/go/internal/apijson/encoder.go"
+lines = 398
+verdict = "clean"
+note = "Read in full; JSON serialization preserves optional-field state, tags and registered union variants used by generated request models."
+
+[file.21]
+path = "sdk/chainflow/go/internal/apijson/field.go"
+lines = 41
+verdict = "clean"
+note = "Read in full; JSON field presence and raw-data access agree with generated response metadata handling."
+
+[file.22]
+path = "sdk/chainflow/go/internal/apijson/port.go"
+lines = 120
+verdict = "clean"
+note = "Read in full; port registration bridges parameter field types and JSON representations without additional external state."
+
+[file.23]
+path = "sdk/chainflow/go/internal/apijson/registry.go"
+lines = 41
+verdict = "clean"
+note = "Read in full; union registrations and variant lookup agree with the JSON encoder/decoder type keys."
+
+[file.24]
+path = "sdk/chainflow/go/internal/apijson/tag.go"
+lines = 69
+verdict = "clean"
+note = "Read in full; JSON tag parsing preserves field names, omission and inline metadata conventions used by the models."
+
+[file.25]
+path = "sdk/chainflow/go/internal/apiquery/encoder.go"
+lines = 348
+verdict = "clean"
+note = "Read in full; query serialization escapes keys and values and applies declared nested/array query settings consistently."
+
+[file.26]
+path = "sdk/chainflow/go/internal/apiquery/query.go"
+lines = 50
+verdict = "clean"
+note = "Read in full; query format constants and Queryer contract match the encoder and public request options."
+
+[file.27]
+path = "sdk/chainflow/go/internal/apiquery/tag.go"
+lines = 41
+verdict = "clean"
+note = "Read in full; query tag parsing matches the encoder field naming and ignored-field handling."
+
+[file.28]
+path = "sdk/chainflow/go/internal/param/field.go"
+lines = 29
+verdict = "clean"
+note = "Read in full; Field and FieldLike preserve absent/null/value state shared by the public F helper and serializers."
+
+[file.29]
+path = "sdk/chainflow/go/internal/requestconfig/requestconfig.go"
+lines = 718
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.30]
+path = "sdk/chainflow/go/internal/requestconfig/requestconfig_test.go"
+lines = 100
+verdict = "clean"
+note = "Read in full; the request configuration tests exercise real request construction, header and option behavior without asserting a different response producer shape."
+
+[file.31]
+path = "sdk/chainflow/go/internal/testutil/testutil.go"
+lines = 27
+verdict = "issues"
+note = "Read in full; findings sdk-test-probe."
+
+[file.32]
+path = "sdk/chainflow/go/internal/version.go"
+lines = 5
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.33]
+path = "sdk/chainflow/go/market.go"
+lines = 766
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.34]
+path = "sdk/chainflow/go/option/middleware.go"
+lines = 80
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.35]
+path = "sdk/chainflow/go/option/requestoption.go"
+lines = 292
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.36]
+path = "sdk/chainflow/go/pricefeed.go"
+lines = 742
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.37]
+path = "sdk/chainflow/go/tests/smoke-test.go"
+lines = 865
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.38]
+path = "sdk/chainflow/go/tradingview.go"
+lines = 1117
+verdict = "generated"
+note = "Scalar-generated SDK artifact; generation provenance inspected. Generated-file exception applies: this is not a handwritten full-file clean verdict; changes belong in the API schema or generator and regeneration."
+
+[file.39]
+path = "sdk/names/package.json"
+lines = 48
+verdict = "clean"
+note = "Read in full; names package exports, build/test commands and dependency declarations match its TypeScript module layout; dependency install gates were not run in this audit."
+
+[file.40]
+path = "sdk/names/pnpm-workspace.yaml"
+lines = 2
+verdict = "clean"
+note = "Read in full; the local pnpm workspace declaration matches the names package boundary and carries no deployment assumptions."
+
+[file.41]
+path = "sdk/names/src/contenthash.ts"
+lines = 17
+verdict = "clean"
+note = "Read in full; fixed Paxeer contenthash prefix and 32-byte digest checks round-trip with the documented names encoding."
+
+[file.42]
+path = "sdk/names/src/header.ts"
+lines = 397
+verdict = "issues"
+note = "Read in full; findings names-chain-trust."
+
+[file.43]
+path = "sdk/names/src/index.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full; the names entrypoint exports the actual hashing, manifest, proof and header APIs without renaming their types."
+
+[file.44]
+path = "sdk/names/src/manifest.ts"
+lines = 66
+verdict = "clean"
+note = "Read in full; canonical manifest ordering, exact entry shape, safe sizes and digest generation agree with the manifest consumer and vectors."
+
+[file.45]
+path = "sdk/names/src/namehash.ts"
+lines = 28
+verdict = "clean"
+note = "Read in full; normalization and right-to-left label hashing match the EIP-137 vector contract and UTF-8 hash input."
+
+[file.46]
+path = "sdk/names/src/proof.ts"
+lines = 165
+verdict = "clean"
+note = "Read in full; proof decoding checks the IAVL/multistore path and binds store, key, value or absence to the supplied root; root authentication belongs to the recorded header-source findings."
+
+[file.47]
+path = "sdk/names/src/resolve.ts"
+lines = 171
+verdict = "issues"
+note = "Read in full; findings names-untrusted-root, names-successor-availability, names-network-bounds."
+
+[file.48]
+path = "sdk/names/src/slot.ts"
+lines = 13
+verdict = "clean"
+note = "Read in full; contenthashSlot uses the committed resolver mapping slot and ABI-sized namehash input."
+
+[file.49]
+path = "sdk/names/test/contenthash.test.ts"
+lines = 42
+verdict = "clean"
+note = "Read in full; contenthash tests preserve digest round-trip and reject invalid prefix/width inputs."
+
+[file.50]
+path = "sdk/names/test/header.test.ts"
+lines = 310
+verdict = "issues"
+note = "Read in full; findings names-producer-test."
+
+[file.51]
+path = "sdk/names/test/manifest.test.ts"
+lines = 87
+verdict = "clean"
+note = "Read in full; manifest tests assert canonical ordering, digest stability and invalid entry/path refusals against the actual serializer."
+
+[file.52]
+path = "sdk/names/test/namehash.test.ts"
+lines = 49
+verdict = "clean"
+note = "Read in full; label/name normalization tests use ENS vectors and reject invalid names without weakening normalization."
+
+[file.53]
+path = "sdk/names/test/proof.test.ts"
+lines = 428
+verdict = "clean"
+note = "Read in full; storage proof and proven-absence tests use committed storage data and cover altered value, key and root refusals; the HTTP cases do not claim to start a real node."
+
+[file.54]
+path = "sdk/names/test/slot.test.ts"
+lines = 34
+verdict = "clean"
+note = "Read in full; resolver layout vectors and storage-slot assertions agree with the ABI hashing implementation."
+
+[file.55]
+path = "sdk/names/tsconfig.json"
+lines = 13
+verdict = "clean"
+note = "Read in full; strict TypeScript compilation options and included source/tests match the names package exports."
+
+[file.56]
+path = "sdk/server/README.md"
+lines = 128
+verdict = "clean"
+note = "Read in full; server documentation describes real Cobra context and SDK startup configuration, without a retired LayerX endpoint or separate daemon."
+
+[file.57]
+path = "sdk/server/api/server.go"
+lines = 156
+verdict = "clean"
+note = "Read in full; SDK API routes, gRPC gateway registration and HTTP listener wiring match their application registration hooks and configured limits."
+
+[file.58]
+path = "sdk/server/cmd/execute.go"
+lines = 36
+verdict = "clean"
+note = "Read in full; Cobra execution binds server/client command context and propagates command errors through the documented entrypoint."
+
+[file.59]
+path = "sdk/server/config/config.go"
+lines = 442
+verdict = "issues"
+note = "Read in full; findings config-label-panic, config-pruning-roundtrip."
+
+[file.60]
+path = "sdk/server/config/config_test.go"
+lines = 398
+verdict = "clean"
+note = "Read in full; configuration tests exercise actual templates, parsing and write-mode rejection; they do not assert that malformed labels or omitted pruning fields are supported."
+
+[file.61]
+path = "sdk/server/config/toml.go"
+lines = 273
+verdict = "clean"
+note = "Read in full; TOML template keys map to the declared server config groups, including storage write mode and genesis settings; loader defects are recorded in config.go."
+
+[file.62]
+path = "sdk/server/constructors_test.go"
+lines = 22
+verdict = "clean"
+note = "Read in full; constructor smoke coverage creates the actual server commands and does not replace their public signatures."
+
+[file.63]
+path = "sdk/server/doc.go"
+lines = 30
+verdict = "clean"
+note = "Read in full; package documentation describes SDK node startup and command wiring without a retired LayerX network endpoint."
+
+[file.64]
+path = "sdk/server/export.go"
+lines = 197
+verdict = "issues"
+note = "Read in full; findings export-consensus-loss, export-stream-error."
+
+[file.65]
+path = "sdk/server/grpc/gogoreflection/doc.go"
+lines = 5
+verdict = "clean"
+note = "Read in full; package comment scopes gogoproto reflection compatibility and matches its registration helper."
+
+[file.66]
+path = "sdk/server/grpc/gogoreflection/fix_registration.go"
+lines = 143
+verdict = "clean"
+note = "Read in full; interface registration repairs protobuf descriptor references through real interface registry metadata and reports descriptor failures."
+
+[file.67]
+path = "sdk/server/grpc/gogoreflection/fix_registration_test.go"
+lines = 22
+verdict = "clean"
+note = "Read in full; regression coverage invokes the real reflection registration helper with the actual protobuf types."
+
+[file.68]
+path = "sdk/server/grpc/gogoreflection/serverreflection.go"
+lines = 477
+verdict = "clean"
+note = "Read in full; gRPC-derived reflection service resolves registered services, descriptors and symbols through the configured server; it is adapted source with upstream provenance, not a live LayerX daemon."
+
+[file.69]
+path = "sdk/server/grpc/grpc_web.go"
+lines = 46
+verdict = "clean"
+note = "Read in full; gRPC-Web wraps the configured gRPC server, applies the declared CORS policy and owns listener shutdown; the trailer-decoder defect belongs to its test."
+
+[file.70]
+path = "sdk/server/grpc/grpc_web_test.go"
+lines = 313
+verdict = "issues"
+note = "Read in full; findings grpc-web-supply-assertion."
+
+[file.71]
+path = "sdk/server/grpc/reflection/v2alpha1/reflection.go"
+lines = 201
+verdict = "clean"
+note = "Read in full; v2alpha1 descriptors enumerate the actual app codecs, auth, chain and query service interfaces and return typed reflection responses."
+
+[file.72]
+path = "sdk/server/grpc/server.go"
+lines = 60
+verdict = "clean"
+note = "Read in full; gRPC server registers application query services, SDK reflection and gogo reflection and returns the listener/server ownership expected by node startup."
+
+[file.73]
+path = "sdk/server/grpc/server_test.go"
+lines = 279
+verdict = "issues"
+note = "Read in full; findings grpc-test-source-errors."
+
+[file.74]
+path = "sdk/server/init.go"
+lines = 63
+verdict = "clean"
+note = "Read in full; server initialization registers the actual command set with module initialization hooks and configured home."
+
+[file.75]
+path = "sdk/server/mock/app.go"
+lines = 167
+verdict = "clean"
+note = "Read in full; mock application is explicitly test support implementing the real Application contract, not a production substitute or evidence of live recovery."
+
+[file.76]
+path = "sdk/server/mock/app_test.go"
+lines = 74
+verdict = "clean"
+note = "Read in full; mock application tests assert test-support behavior without representing it as a network proof."
+
+[file.77]
+path = "sdk/server/mock/helpers.go"
+lines = 17
+verdict = "clean"
+note = "Read in full; helper values belong to SDK unit-test support and do not introduce runtime endpoint assumptions."
+
+[file.78]
+path = "sdk/server/mock/store.go"
+lines = 241
+verdict = "clean"
+note = "Read in full; mock multistore implements the test interface used by rollback unit coverage; no production persistence claim is made."
+
+[file.79]
+path = "sdk/server/mock/store_test.go"
+lines = 35
+verdict = "clean"
+note = "Read in full; mock store tests verify the explicit test-support contract and preserve its state assertions."
+
+[file.80]
+path = "sdk/server/mock/tx.go"
+lines = 86
+verdict = "clean"
+note = "Read in full; mock transaction implements the SDK test transaction interface and uses declared signing types."
+
+[file.81]
+path = "sdk/server/pruning.go"
+lines = 40
+verdict = "clean"
+note = "Read in full; pruning options consume supported Viper keys and enforce custom pruning bounds through the actual pruning package."
+
+[file.82]
+path = "sdk/server/pruning_test.go"
+lines = 73
+verdict = "clean"
+note = "Read in full; pruning tests preserve valid and invalid strategy cases against the real option parser."
+
+[file.83]
+path = "sdk/server/rollback.go"
+lines = 145
+verdict = "issues"
+note = "Read in full; findings rollback-preflight."
+
+[file.84]
+path = "sdk/server/rollback_test.go"
+lines = 604
+verdict = "issues"
+note = "Read in full; findings rollback-recovery-test."
+
+[file.85]
+path = "sdk/server/rosetta.go"
+lines = 43
+verdict = "clean"
+note = "Read in full; standalone Rosetta command maps flags into the actual Config and server constructor; service support gaps are recorded at their owners."
+
+[file.86]
+path = "sdk/server/rosetta/client_offline.go"
+lines = 135
+verdict = "clean"
+note = "Read in full; offline client explicitly refuses online-only calls and delegates conversion using the declared codec and signer interfaces."
+
+[file.87]
+path = "sdk/server/rosetta/client_online.go"
+lines = 514
+verdict = "issues"
+note = "Read in full; findings rosetta-results-discarded, rosetta-normal-tx-lookup, rosetta-bank-pagination."
+
+[file.88]
+path = "sdk/server/rosetta/client_online_test.go"
+lines = 15
+verdict = "clean"
+note = "Read in full; initial-height regex test has a deliberately historical genesis fragment and asserts only extraction of initial_height, not a current chain or consensus-parameter shape."
+
+[file.89]
+path = "sdk/server/rosetta/codec.go"
+lines = 22
+verdict = "clean"
+note = "Read in full; codec setup registers the SDK interfaces used by Rosetta conversion and does not supply alternate transaction wire types."
+
+[file.90]
+path = "sdk/server/rosetta/config.go"
+lines = 204
+verdict = "clean"
+note = "Read in full; Rosetta config validates offline/online prerequisites and creates the actual online or offline client and converter."
+
+[file.91]
+path = "sdk/server/rosetta/converter.go"
+lines = 770
+verdict = "issues"
+note = "Read in full; findings rosetta-multisigner-key, rosetta-operation-index, rosetta-combine-identity."
+
+[file.92]
+path = "sdk/server/rosetta/converter_test.go"
+lines = 352
+verdict = "issues"
+note = "Read in full; findings rosetta-skipped-suite."
+
+[file.93]
+path = "sdk/server/rosetta/lib/errors/errors.go"
+lines = 146
+verdict = "clean"
+note = "Read in full; registered errors map gRPC failures and SDK error identity into Rosetta code/message/retriable fields; registry immutability is a separate recorded defect."
+
+[file.94]
+path = "sdk/server/rosetta/lib/errors/errors_test.go"
+lines = 69
+verdict = "issues"
+note = "Read in full; findings rosetta-error-seal-test."
+
+[file.95]
+path = "sdk/server/rosetta/lib/errors/registry.go"
+lines = 48
+verdict = "issues"
+note = "Read in full; findings rosetta-error-seal."
+
+[file.96]
+path = "sdk/server/rosetta/lib/internal/service/construction.go"
+lines = 138
+verdict = "clean"
+note = "Read in full; construction service delegates typed preprocess, metadata, payload, combine and submit requests to the real Client contract; converter defects are recorded on the producer."
+
+[file.97]
+path = "sdk/server/rosetta/lib/internal/service/data.go"
+lines = 159
+verdict = "issues"
+note = "Read in full; findings rosetta-balance-height, rosetta-block-membership."
+
+[file.98]
+path = "sdk/server/rosetta/lib/internal/service/offline.go"
+lines = 63
+verdict = "clean"
+note = "Read in full; offline adapter exposes supported construction routes and returns explicit offline errors for data services."
+
+[file.99]
+path = "sdk/server/rosetta/lib/internal/service/online.go"
+lines = 71
+verdict = "clean"
+note = "Read in full; online adapter resolves the genesis block and advertises operations and sealed errors; version and registry defects are recorded at the declared value and mutation owners."
+
+[file.100]
+path = "sdk/server/rosetta/lib/server/server.go"
+lines = 126
+verdict = "issues"
+note = "Read in full; findings rosetta-resource-lifecycle."
+
+[file.101]
+path = "sdk/server/rosetta/lib/types/types.go"
+lines = 164
+verdict = "issues"
+note = "Read in full; findings rosetta-empty-version."
+
+[file.102]
+path = "sdk/server/rosetta/types.go"
+lines = 104
+verdict = "clean"
+note = "Read in full; construction metadata structs declare uint64 signing values and expected JSON names; the loss of precision occurs in util.go transport conversion and is recorded there."
+
+[file.103]
+path = "sdk/server/rosetta/util.go"
+lines = 43
+verdict = "issues"
+note = "Read in full; findings rosetta-metadata-precision."
+
+[file.104]
+path = "sdk/server/start.go"
+lines = 469
+verdict = "issues"
+note = "Read in full; findings start-genesis-error, start-validation-ignored, start-late-service-error."
+
+[file.105]
+path = "sdk/server/test_helpers.go"
+lines = 26
+verdict = "clean"
+note = "Read in full; test helper builds the actual server context and command plumbing for SDK tests."
+
+[file.106]
+path = "sdk/server/tm_cmds.go"
+lines = 123
+verdict = "clean"
+note = "Read in full; Tendermint operator commands query the configured node keys and address formats through real consensus types."
+
+[file.107]
+path = "sdk/server/types/app.go"
+lines = 90
+verdict = "clean"
+note = "Read in full; Application, AppCreator, AppExporter and ExportedApp declare the real app hooks and protobuf consensus params used by startup and export."
+
+[file.108]
+path = "sdk/server/util.go"
+lines = 479
+verdict = "clean"
+note = "Read in full; server context, configuration interception, logger and signal helpers agree with the Cobra and node lifecycle contracts; no retired public RPC path is configured."
+
+[file.109]
+path = "sdk/server/util_test.go"
+lines = 441
+verdict = "clean"
+note = "Read in full; utility tests exercise the actual SDK context/config helpers, file behavior and key handling without substituting a different runtime message shape."
+
+[file.110]
+path = "services/platform/examples/README.md"
+lines = 56
+verdict = "issues"
+note = "Read in full; findings examples-authority-doc."
+
+[file.111]
+path = "services/platform/examples/paid-api/index.mjs"
+lines = 202
+verdict = "issues"
+note = "Read in full; findings paid-api-durable-fulfillment."
+
+[file.112]
+path = "services/platform/examples/paid-api/layerx.example.json"
+lines = 36
+verdict = "clean"
+note = "Read in full; emulator and beta both offer eip155:125, receipt keys come from LAYERX_RECEIPT_KEYS_JSON and beta rpcUrl is the public endpoint root; retired authority-url and protocol-version keys are absent."
+
+[file.113]
+path = "services/platform/examples/paid-api/package.json"
+lines = 18
+verdict = "clean"
+note = "Read in full; paid API scripts select the supported application environments and depend on the real seller middleware workspace package."
+
+[file.114]
+path = "services/platform/examples/paid-api/resource.json"
+lines = 5
+verdict = "clean"
+note = "Read in full; the paid resource payload is public weather sample data with protocol-integer units and contains no secret or retired network endpoint."
+
+[file.115]
+path = "services/platform/hosted/paxeer/Cargo.toml"
+lines = 23
+verdict = "issues"
+note = "Read in full; findings relay-retirement-1."
+
+[file.116]
+path = "services/platform/hosted/paxeer/contracts/BetaUsdl.sol"
+lines = 68
+verdict = "issues"
+note = "Read in full; findings relay-retirement-2."
+
+[file.117]
+path = "services/platform/hosted/paxeer/custody-genesis.py"
+lines = 94
+verdict = "issues"
+note = "Read in full; findings relay-retirement-3."
+
+[file.118]
+path = "services/platform/hosted/paxeer/deploy-contracts.sh"
+lines = 569
+verdict = "issues"
+note = "Read in full; findings relay-retirement-4, deployment-key-argv, deployment-phase-recovery."
+
+[file.119]
+path = "services/platform/hosted/paxeer/deployment-input.beta.json"
+lines = 27
+verdict = "issues"
+note = "Read in full; findings relay-retirement-5."
+
+[file.120]
+path = "services/platform/hosted/paxeer/deployment.yaml"
+lines = 91
+verdict = "issues"
+note = "Read in full; findings relay-retirement-6."
+
+[file.121]
+path = "services/platform/hosted/paxeer/evm.py"
+lines = 456
+verdict = "issues"
+note = "Read in full; findings relay-retirement-7."
+
+[file.122]
+path = "services/platform/hosted/paxeer/fork-rehearsal.sh"
+lines = 577
+verdict = "issues"
+note = "Read in full; findings relay-retirement-8."
+
+[file.123]
+path = "services/platform/hosted/paxeer/gov-consensus-params.sh"
+lines = 267
+verdict = "issues"
+note = "Read in full; findings relay-retirement-9, governance-proposal-association."
+
+[file.124]
+path = "services/platform/hosted/paxeer/gov-lib.sh"
+lines = 300
+verdict = "issues"
+note = "Read in full; findings relay-retirement-10, governance-shell-arguments, governance-query-failure, governance-validator-page."
+
+[file.125]
+path = "services/platform/hosted/paxeer/gov-upgrade.sh"
+lines = 321
+verdict = "issues"
+note = "Read in full; findings relay-retirement-11."
+
+[file.126]
+path = "services/platform/hosted/paxeer/init-chain.sh"
+lines = 299
+verdict = "issues"
+note = "Read in full; findings relay-retirement-12, initialization-restart-drift."
+
+[file.127]
+path = "services/platform/hosted/paxeer/prepare-beta.py"
+lines = 126
+verdict = "issues"
+note = "Read in full; findings relay-retirement-13, preparation-key-argv."
+
+[file.128]
+path = "services/platform/hosted/paxeer/settlement-domain.py"
+lines = 149
+verdict = "issues"
+note = "Read in full; findings relay-retirement-14."
+
+[file.129]
+path = "services/platform/hosted/paxeer/src/comet.rs"
+lines = 560
+verdict = "issues"
+note = "Read in full; findings relay-retirement-15."
+
+[file.130]
+path = "services/platform/hosted/paxeer/src/genesis.rs"
+lines = 215
+verdict = "issues"
+note = "Read in full; findings relay-retirement-16."
+
+[file.131]
+path = "services/platform/hosted/paxeer/src/main.rs"
+lines = 725
+verdict = "issues"
+note = "Read in full; findings relay-retirement-17, boundary-cumulative-deadline, boundary-wrong-chain-forwarding."
+
+[file.132]
+path = "services/platform/hosted/paxeer/src/transport.rs"
+lines = 73
+verdict = "issues"
+note = "Read in full; findings relay-retirement-18."
+
+[file.133]
+path = "services/platform/hosted/paxeer/tests/comet.py"
+lines = 95
+verdict = "issues"
+note = "Read in full; findings relay-retirement-19."
+
+[file.134]
+path = "services/platform/hosted/paxeer/tests/deployment_profile.py"
+lines = 69
+verdict = "issues"
+note = "Read in full; findings relay-retirement-20."
+
+[file.135]
+path = "services/platform/hosted/paxeer/tests/genesis.py"
+lines = 286
+verdict = "issues"
+note = "Read in full; findings relay-retirement-21."
+
+[file.136]
+path = "services/platform/hosted/paxeer/tests/genesis.rs"
+lines = 11
+verdict = "issues"
+note = "Read in full; findings relay-retirement-22."
+
+[file.137]
+path = "services/platform/hosted/paxeer/tests/gov-scripts-test.sh"
+lines = 257
+verdict = "issues"
+note = "Read in full; findings relay-retirement-23."
+
+[file.138]
+path = "services/platform/hosted/paxeer/tests/real_chain.py"
+lines = 237
+verdict = "issues"
+note = "Read in full; findings relay-retirement-24, deployment-test-old-interface."
+
+[file.139]
+path = "services/platform/hosted/paxeer/tests/real_chain.rs"
+lines = 75
+verdict = "issues"
+note = "Read in full; findings relay-retirement-25."
+
+[file.140]
+path = "services/platform/hosted/paxeer/tests/settlement_domains.py"
+lines = 59
+verdict = "issues"
+note = "Read in full; findings relay-retirement-26."
+
+[file.141]
+path = "services/platform/hosted/paxeer/tests/tls_listen.rs"
+lines = 64
+verdict = "issues"
+note = "Read in full; findings relay-retirement-27."
+
+[file.142]
+path = "services/platform/hosted/paxeer/tests/tls_shutdown.py"
+lines = 53
+verdict = "issues"
+note = "Read in full; findings relay-retirement-28."
+
+[finding.sdk-install-readme]
+file = "sdk/chainflow/go/README.md"
+line = 28
+class = "doc-drift"
+severity = "medium"
+observed = "The installation command is go get chainflow-data-gateway, and examples import that same hostname-free module path; a new consumer cannot resolve it from a public module host."
+expected = "The published SDK installation instructions must identify a resolvable module and imports, or explain the local checkout and replace directive required to consume it."
+proposal = "In sdk/chainflow/go/README.md, document the actual published Go module path and matching imports; until publication exists, give a working local module replace workflow and qualify it from a new consumer module."
+owner_domain = 8
+
+[finding.sdk-install-skill]
+file = "sdk/chainflow/go/SKILL.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The installation command is go get chainflow-data-gateway, and examples import that same hostname-free module path; a new consumer cannot resolve it from a public module host."
+expected = "The published SDK installation instructions must identify a resolvable module and imports, or explain the local checkout and replace directive required to consume it."
+proposal = "In sdk/chainflow/go/SKILL.md, document the actual published Go module path and matching imports; until publication exists, give a working local module replace workflow and qualify it from a new consumer module."
+owner_domain = 8
+
+[finding.sdk-install-agent-skill]
+file = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+line = 13
+class = "doc-drift"
+severity = "medium"
+observed = "The installation command is go get chainflow-data-gateway, and examples import that same hostname-free module path; a new consumer cannot resolve it from a public module host."
+expected = "The published SDK installation instructions must identify a resolvable module and imports, or explain the local checkout and replace directive required to consume it."
+proposal = "In sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md, document the actual published Go module path and matching imports; until publication exists, give a working local module replace workflow and qualify it from a new consumer module."
+owner_domain = 8
+
+[finding.sdk-token-example]
+file = "sdk/chainflow/go/api.md"
+line = 99
+class = "doc-drift"
+severity = "medium"
+observed = "The NewWebSocketToken example prints gateway, a *WsToken whose exported Token field contains the bearer credential, immediately after saying the response secret must never be logged."
+expected = "WebSocket minting examples must keep the opaque 300-second credential out of console output and application logs, consistent with the API reference security instruction."
+proposal = "Change the api.md minting example and the SDK generator documentation template to use the token for the handshake without printing the response; show only non-secret expiry and scope information."
+owner_domain = 8
+
+[finding.sdk-json-syntax]
+file = "sdk/chainflow/go/internal/apijson/decoder.go"
+line = 85
+class = "runtime-risk"
+severity = "medium"
+observed = "decoderBuilder.unmarshal calls gjson.ParseBytes without a syntax check; the struct decoder iterates node.Map without requiring an object, so malformed or scalar responses can become empty successful models."
+expected = "The SDK must distinguish a valid API object from malformed JSON or an incompatible root type before returning a successful typed response to a consumer."
+proposal = "In internal/apijson/decoder.go validate complete JSON syntax and the required root kind before decoding; retain documented unknown-field handling and add malformed, truncated and scalar response cases through the request path."
+owner_domain = 15
+
+[finding.sdk-array-panic]
+file = "sdk/chainflow/go/internal/apijson/decoder.go"
+line = 345
+class = "runtime-risk"
+severity = "low"
+observed = "The reflect.Array branch uses newArrayTypeDecoder, which always constructs a slice and passes it to value.Set; a fixed-size array destination therefore panics rather than decoding or returning an error."
+expected = "An advertised supported reflection kind must be assigned with its own Go type, and invalid array lengths must return an ordinary decoding error rather than panic."
+proposal = "In internal/apijson/decoder.go construct a value of the fixed array type, enforce its length and assign each element; retain the separate slice behavior and cover both exact and invalid lengths."
+owner_domain = 15
+
+[finding.sdk-test-probe]
+file = "sdk/chainflow/go/internal/testutil/testutil.go"
+line = 10
+class = "test-gap"
+severity = "medium"
+observed = "CheckTestServer uses http.Get without a timeout, never closes a successful response body, and returns true after a connection error when SKIP_MOCK_TESTS is unset; no member calls this helper."
+expected = "A test-server readiness helper must have bounded resource use and report an unavailable prerequisite as a failure; its return value must not claim that an unreachable server exists."
+proposal = "In internal/testutil/testutil.go close the response body, use a bounded client and fail on every probe error; either wire the helper into its intended tests or remove the unused helper in its owning SDK task without adding new skip paths."
+owner_domain = 15
+
+[finding.names-untrusted-root]
+file = "sdk/names/src/resolve.ts"
+line = 150
+class = "security"
+severity = "medium"
+observed = "tendermintHeaders returns an unsigned RPC app_hash through the same structural HeaderSource type accepted by resolveContent, which always labels an accepted digest verified:true; the helper comment acknowledges RPC trust."
+expected = "A product-level verified resolution must identify its trusted header source and must not imply validator authentication when the proof and its root come from the same unauthenticated RPC source."
+proposal = "In sdk/names/src/resolve.ts distinguish trusted RPC roots from commit-verified header sources in the public API and result assurance; require the authenticated source for the verified product flow and cover a forged root plus matching proof."
+owner_domain = 8
+
+[finding.names-successor-availability]
+file = "sdk/names/src/resolve.ts"
+line = 139
+class = "runtime-risk"
+severity = "medium"
+observed = "resolveContent reads the current eth_blockNumber h and immediately asks for header h+1. A live node may not yet have committed that successor, so a valid published name can fail until another block arrives."
+expected = "Requirement 181381.1 requires proof height h and appHashAt(h+1); the resolution flow must also cope with the ordinary interval before that committing successor becomes available."
+proposal = "In sdk/names/src/resolve.ts preserve the required h and h+1 binding while waiting for the successor under a bounded deadline; expose a retriable not-yet-committed result on expiry and exercise resolution against a progressing paxd node."
+owner_domain = 8
+
+[finding.names-network-bounds]
+file = "sdk/names/src/resolve.ts"
+line = 75
+class = "runtime-risk"
+severity = "medium"
+observed = "The eth_blockNumber, eth_getProof and unsigned commit fetches have no caller cancellation, deadline or response-size bound; a stalled RPC can leave resolution pending indefinitely and an oversized proof is fully buffered."
+expected = "Name resolution over public RPC must stop within a caller-selected budget and reject responses exceeding the documented proof and header limits before allocating an unbounded body."
+proposal = "Add an AbortSignal and bounded response reader to sdk/names/src/resolve.ts and the header fetch adapter, propagate them through all resolution requests, and test slow headers, oversized bodies and cancellation without weakening proof verification."
+owner_domain = 8
+
+[finding.names-chain-trust]
+file = "sdk/names/src/header.ts"
+line = 389
+class = "security"
+severity = "medium"
+observed = "verifiedTendermintHeaders supplies chainId:header.chain_id to verifyCommit. The expected chain identity is therefore read from the same untrusted response, although verifyCommit itself supports an independent chain-id check."
+expected = "A pinned validator set must be bound to the independently configured Paxeer chain identity; a valid signature from another chain using the same keys must not authenticate this network."
+proposal = "In sdk/names/src/header.ts require the trusted chain id alongside validators and pass that configured value to verifyCommit; thread it through callers and add an adapter-level wrong-chain refusal with otherwise valid signatures."
+owner_domain = 8
+
+[finding.names-producer-test]
+file = "sdk/names/test/header.test.ts"
+line = 62
+class = "test-gap"
+severity = "medium"
+observed = "The end-to-end resolution test rebuilds signedStorageHeader with locally generated validator keys and serves a hand-built RPC envelope. Its storage root is real vector data, but the matching header and transport are produced by the test."
+expected = "Brief check 7 requires a real producer-to-transport-to-consumer proof; the existing signature-mutation test proves the fixture path but cannot prove that a live node emits the exact shape consumed by the adapter."
+proposal = "Keep the mutation and vector assertions in sdk/names/test/header.test.ts, and add a disposable paxd flow that writes a resolver value, obtains its real proof and successor commit, then resolves it through the production HTTP adapters."
+owner_domain = 8
+
+[finding.export-consensus-loss]
+file = "sdk/server/export.go"
+line = 114
+class = "interface-mismatch"
+severity = "high"
+observed = "Both export branches reconstruct ConsensusParams using only Block, Evidence and Validator. ExportedApp carries protobuf Version, Synchrony, Timeout and Abci too, so their nondefault values disappear in the genesis consumed on restart."
+expected = "ExportCmd must preserve the complete consensus-critical state emitted by the app exporter and understood by consensus/types/params.go; export and genesis import must round-trip all parameter groups."
+proposal = "In sdk/server/export.go use a complete, nil-aware protobuf-to-consensus conversion for both export modes, preserving every parameter; prove export, parse and restarted-node behavior with nondefault version, timing and ABCI settings."
+owner_domain = 15
+interface = "15.go-server-export-cmd-j76"
+
+[finding.export-stream-error]
+file = "sdk/server/export.go"
+line = 141
+class = "runtime-risk"
+severity = "medium"
+observed = "The streaming export branch returns fmt.Errorf after fmt.Fprintf regardless of whether err is nil, so a successful write still reports error writing genesis state to file: <nil>. Deferred Close errors are ignored."
+expected = "A successful streamed export must report success only after its output has been written and closed successfully, and genuine I/O failures must retain their actual error."
+proposal = "In sdk/server/export.go return an error only for a failed write or close and return nil after successful completion; qualify the actual streaming export command with successful output and an actual I/O failure."
+owner_domain = 15
+
+[finding.start-genesis-error]
+file = "sdk/server/start.go"
+line = 180
+class = "runtime-risk"
+severity = "medium"
+observed = "StartCmd discards GenesisDocFromFile errors and immediately reads genesisFile.ChainID, so missing or malformed genesis produces a nil-pointer panic instead of the actionable load error."
+expected = "Node startup must reject unreadable or invalid genesis with its original diagnostic before accessing fields or starting services."
+proposal = "In sdk/server/start.go check and wrap the GenesisDocFromFile error before comparing chain ids; exercise missing and malformed genesis through StartCmd and preserve the chain-id mismatch refusal."
+owner_domain = 15
+
+[finding.start-validation-ignored]
+file = "sdk/server/start.go"
+line = 299
+class = "config-drift"
+severity = "medium"
+observed = "startInProcess ignores every Config.ValidateBasic error and logs the same minimum-gas-prices warning. Validation also rejects incompatible snapshot and pruning settings, so invalid configurations proceed to app creation."
+expected = "The runtime must enforce the configuration validator result and identify the actual invalid setting; a legacy warning must not suppress unrelated validation failures."
+proposal = "In sdk/server/start.go return the actual ValidateBasic error before appCreator; if a specific historical gas-price policy is intentionally warn-only, encode that policy explicitly and keep all other validation failures fatal."
+owner_domain = 15
+
+[finding.start-late-service-error]
+file = "sdk/server/start.go"
+line = 385
+class = "runtime-risk"
+severity = "medium"
+observed = "API and Rosetta goroutines send errors on unbuffered errCh channels selected only during the five-second startup window. A later server failure leaves the sender blocked and the node running without that service."
+expected = "Started services must be supervised for the full node lifecycle and a later failure must reach shutdown or restart handling without leaking a blocked goroutine."
+proposal = "In sdk/server/start.go supervise service errors together with shutdown and restart signals for the lifetime of startInProcess, and exercise a listener failure after ServerStartTime to prove propagation and cleanup."
+owner_domain = 15
+
+[finding.config-label-panic]
+file = "sdk/server/config/config.go"
+line = 325
+class = "runtime-risk"
+severity = "medium"
+observed = "GetConfig asserts labelsRaw[0] and labelsRaw[1] are strings without checking their types, and silently drops label arrays of a different length. User TOML with numeric label values can panic startup."
+expected = "Telemetry global labels must be validated as exactly two strings and invalid configuration must return a named parse error through the declared GetConfig error result."
+proposal = "In sdk/server/config/config.go validate both element types and pair length, return a label-indexed error, and add config-file cases for numeric elements and malformed pairs alongside the existing valid-label coverage."
+owner_domain = 15
+
+[finding.config-pruning-roundtrip]
+file = "sdk/server/config/config.go"
+line = 347
+class = "config-drift"
+severity = "medium"
+observed = "GetConfig copies pruning-keep-recent and pruning-interval into BaseConfig but omits PruningKeepEvery, although BaseConfig and the TOML configuration declare pruning-keep-every. The returned Config drops the configured value."
+expected = "The declared configuration loader must preserve every supported pruning field consistently with ParseConfig and the Viper values used by the pruning consumer."
+proposal = "In sdk/server/config/config.go populate PruningKeepEvery from pruning-keep-every and prove equivalent Config results from both supported loaders using nondefault pruning settings; keep the existing pruning validity checks intact."
+owner_domain = 15
+
+[finding.rosetta-resource-lifecycle]
+file = "sdk/server/rosetta/lib/server/server.go"
+line = 45
+class = "restart-recovery"
+severity = "medium"
+observed = "Server.Start owns an unexposed local http.Server and offers no shutdown method. startInProcess restarts in a loop without closing this listener; Client.Bootstrap also retains no closeable gRPC connection owner."
+expected = "An enabled Rosetta listener and its node connections must stop before an in-process node restart, release their addresses and reconnect to the new app state."
+proposal = "In sdk/server/rosetta/lib/server/server.go give Server explicit Shutdown ownership, retain and close the client connection, and call cleanup from sdk/server/start.go; prove two node start/stop cycles with the same Rosetta address."
+owner_domain = 15
+
+[finding.rosetta-results-discarded]
+file = "sdk/server/rosetta/client_online.go"
+line = 459
+class = "interface-mismatch"
+severity = "high"
+observed = "blockTxs fetches blockResults.TxsResults and checks its length but passes an empty ResponseDeliverTx to every converter.Tx call. Real failure codes and transaction events are discarded before /block returns its transactions."
+expected = "The declared BlockTransactionsResponse consumed by service/data.go must preserve each committed transaction result; failed transactions must be reverted and balance operations must reflect the producer events."
+proposal = "In sdk/server/rosetta/client_online.go map each indexed real execution result into the converter input with its code and events; qualify real successful and failed transactions through paxd RPC, blockTxs and the Rosetta HTTP /block response."
+owner_domain = 15
+interface = "15.go-server-rosetta-lib-types-block-transactions-response-j76"
+
+[finding.rosetta-normal-tx-lookup]
+file = "sdk/server/rosetta/client_online.go"
+line = 263
+class = "interface-mismatch"
+severity = "high"
+observed = "GetTx recognizes only BeginBlockTx and EndBlockTx. HashToTxType returns DeliverTxTx for a normal 32-byte transaction hash, but that value falls into invalid tx hash instead of retrieving the transaction exposed by /block."
+expected = "The Client.GetTx contract used by /block/transaction must retrieve an ordinary committed transaction by the same hash emitted in the block response, with its actual result."
+proposal = "In sdk/server/rosetta/client_online.go handle DeliverTxTx using the real transaction RPC result and converter, propagate not-found distinctly, and prove that a /block transaction identifier round-trips through /block/transaction."
+owner_domain = 15
+interface = "15.go-server-rosetta-lib-types-client-j76"
+
+[finding.rosetta-multisigner-key]
+file = "sdk/server/rosetta/converter.go"
+line = 701
+class = "interface-mismatch"
+severity = "high"
+observed = "SigningComponents loops over signers but always converts rosPubKeys[0]. A valid second signer with its distinct ordered public key is compared with the first key and rejected, preventing valid multi-signer construction."
+expected = "The Converter construction interface must preserve the association of each signer, metadata entry, ordered public key and signing payload across payload generation and combination."
+proposal = "In sdk/server/rosetta/converter.go use the public key at the current signer index and qualify at least two distinct real signers through preprocess, metadata, payloads, combine, parse and submitted transaction verification."
+owner_domain = 15
+interface = "15.go-server-rosetta-converter-j76"
+
+[finding.rosetta-operation-index]
+file = "sdk/server/rosetta/converter.go"
+line = 189
+class = "runtime-risk"
+severity = "medium"
+observed = "UnsignedTx starts its related-operation loop at j=0, reads ops[i+j] and increments i inside it. It rechecks the first operation, skips some actual siblings, and larger signer counts or truncated groups can index beyond ops."
+expected = "Construction must consume exactly one contiguous operation per signer with bounded indexes and must reject incomplete or inconsistent signer groups without a panic."
+proposal = "In sdk/server/rosetta/converter.go retain an immutable group start, check the complete group bound and validate each subsequent operation before advancing the outer index once; cover two, three and four signers and truncated input."
+owner_domain = 15
+
+[finding.rosetta-combine-identity]
+file = "sdk/server/rosetta/converter.go"
+line = 627
+class = "security"
+severity = "medium"
+observed = "SignedTx copies signatures by position and explicitly leaves public-key matching as a TODO. Submitted PublicKey, SigningPayload and signature type are not checked against the unsigned transaction before returning a signed transaction."
+expected = "Construction combine must reject signatures attached to the wrong account, payload or curve/type, rather than returning success for a transaction known to be inconsistent before broadcast."
+proposal = "In sdk/server/rosetta/converter.go bind every supplied signature to the unsigned transaction signer and canonical payload and validate supported types; add wrong-key, reordered-signature and wrong-payload refusals through the construction API."
+owner_domain = 15
+
+[finding.rosetta-balance-height]
+file = "sdk/server/rosetta/lib/internal/service/data.go"
+line = 22
+class = "runtime-risk"
+severity = "medium"
+observed = "AccountBalance fetches the latest block when no BlockIdentifier is supplied but leaves height at zero. Balances receives &height, so its latest-state query can observe a newer block than the BlockIdentifier returned to the client."
+expected = "Every balance response must be pinned to the exact height of its accompanying block identifier, including when the caller requests the current balance."
+proposal = "In sdk/server/rosetta/lib/internal/service/data.go assign height from the resolved block on every branch before querying balances; prove consistency while a real node advances between block lookup and bank query."
+owner_domain = 15
+
+[finding.rosetta-block-membership]
+file = "sdk/server/rosetta/lib/internal/service/data.go"
+line = 91
+class = "runtime-risk"
+severity = "medium"
+observed = "BlockTransaction ignores request.BlockIdentifier and queries only TransactionIdentifier.Hash. Even a synthetic begin/end transaction from one block can be returned while the request names a different block."
+expected = "The block/transaction endpoint must establish that the returned transaction belongs to the requested committed block; instant finality does not make different blocks interchangeable."
+proposal = "In sdk/server/rosetta/lib/internal/service/data.go bind lookup to the requested block hash and index and return not-found on a mismatch; cover an existing transaction requested with another real block identifier."
+owner_domain = 15
+
+[finding.rosetta-bank-pagination]
+file = "sdk/server/rosetta/client_online.go"
+line = 163
+class = "runtime-risk"
+severity = "medium"
+observed = "Balances calls bank.AllBalances without following pagination, and coins calls TotalSupply the same way. Accounts and networks with more than the server default page of denominations produce incomplete balance and currency lists."
+expected = "The Rosetta account balance interface must return all relevant assets at one pinned height, including assets beyond the first bank query page."
+proposal = "In sdk/server/rosetta/client_online.go follow next_key on both bank queries with the same height metadata, bound iteration, and qualify a real account with more assets than one query page."
+owner_domain = 15
+
+[finding.rosetta-metadata-precision]
+file = "sdk/server/rosetta/util.go"
+line = 37
+class = "runtime-risk"
+severity = "medium"
+observed = "marshalMetadata JSON-decodes into map[string]interface{} with default float64 numbers. ConstructionMetadata and SignerData contain uint64 gas limits, sequences and account numbers, whose values above 2^53 can change on the round-trip."
+expected = "Construction metadata must retain exact unsigned integer values from account and transaction state through the JSON metadata transport and back into the signing payload."
+proposal = "In sdk/server/rosetta/util.go and types.go define a lossless wire representation shared with consumers, using exact decimal strings or json.Number throughout; prove boundary values through metadata-to-payload conversion."
+owner_domain = 15
+
+[finding.rosetta-error-seal]
+file = "sdk/server/rosetta/lib/errors/registry.go"
+line = 21
+class = "interface-mismatch"
+severity = "medium"
+observed = "errorRegistry.add logs that registration after sealing or with a duplicate code will be ignored, but then still assigns the map entry. The network/options sealed snapshot can disagree with subsequently emitted error codes or definitions."
+expected = "SealAndListErrors must freeze the error vocabulary advertised to Rosetta clients, and duplicate registration must not replace an existing code after it was advertised."
+proposal = "In sdk/server/rosetta/lib/errors/registry.go return before mutation for sealed registries and duplicate codes, and prove the network/options error list remains equal to every emitted registered error after initialization."
+owner_domain = 15
+interface = "15.go-server-rosetta-lib-errors-seal-and-list-errors-j76"
+
+[finding.rosetta-error-seal-test]
+file = "sdk/server/rosetta/lib/errors/errors_test.go"
+line = 31
+class = "test-gap"
+severity = "medium"
+observed = "TestRegisterError registers code 1024 after SealAndListErrors and only asserts a nonnil return. It never checks that the sealed list or duplicate definitions remain unchanged, so the registry mutation bug is accepted."
+expected = "The tests must assert the documented immutable error vocabulary after sealing and refusal of redefinition, including the values exposed to network/options clients."
+proposal = "In sdk/server/rosetta/lib/errors/errors_test.go preserve the existing error behavior assertions and add exact before/after registry snapshots for late registration and conflicting duplicate definitions using an isolated real registry."
+owner_domain = 15
+
+[finding.rosetta-empty-version]
+file = "sdk/server/rosetta/lib/types/types.go"
+line = 11
+class = "config-drift"
+severity = "medium"
+observed = "SpecVersion is an empty string and networkOptionsFromClient copies it into Version.RosettaVersion. An enabled Rosetta server therefore advertises no supported specification version to API clients."
+expected = "The network/options version must identify the actual Rosetta specification implemented by its controllers and validation layer, in the format required by the client contract."
+proposal = "In sdk/server/rosetta/lib/types/types.go pin the supported specification version consistent with the installed Rosetta SDK, and qualify the real network/options response with the client asserter."
+owner_domain = 15
+
+[finding.rosetta-skipped-suite]
+file = "sdk/server/rosetta/converter_test.go"
+line = 350
+class = "test-gap"
+severity = "medium"
+observed = "TestConverterTestSuite unconditionally calls t.Skip with the comment rosetta is deprecated, while StartCmd, the standalone command and config still expose the converter-backed service."
+expected = "A reachable declared service must have executing conversion coverage; requirement 22998.1 forbids claiming inventory repair qualification by deleting, skipping or weakening the preserved tests."
+proposal = "In sdk/server/rosetta/converter_test.go restore execution of the preserved suite as part of the Rosetta owner repair, resolve real failures without weakening assertions, and record the exact verified revision and command."
+owner_domain = 15
+
+[finding.grpc-test-source-errors]
+file = "sdk/server/grpc/server_test.go"
+line = 49
+class = "test-gap"
+severity = "medium"
+observed = "The norace integration target refers to undefined t in paxapp.Setup, calls network.DefaultConfig without its required *testing.T, and uses insecure.NewCredentials without importing the insecure package. These are static source errors; this audit runs no Go build."
+expected = "The declared integration target must compile against the actual node setup, network constructor and gRPC credential interfaces before it can prove live query and reflection behavior."
+proposal = "In sdk/server/grpc/server_test.go pass s.T() to the real constructors and import the actual credential package; execute the preserved integration suite under its norace tag and record its verified revision without skipping assertions."
+owner_domain = 15
+
+[finding.grpc-web-supply-assertion]
+file = "sdk/server/grpc/grpc_web_test.go"
+line = 95
+class = "test-gap"
+severity = "medium"
+observed = "Test_Total_Supply checks the response count and trailers but discards the protobuf Unmarshal error and never asserts the decoded supply. An invalid payload or incorrect bank supply can satisfy its current assertions."
+expected = "The real bank producer through gRPC-Web must be decoded successfully and its supply values compared with the initialized chain state; transport success alone does not prove the declared response semantics."
+proposal = "In sdk/server/grpc/grpc_web_test.go assert the protobuf decode error is nil and compare every returned denomination and amount with the real test chain genesis supply, preserving existing status, content-type and response-count assertions."
+owner_domain = 15
+
+[finding.rollback-preflight]
+file = "sdk/server/rollback.go"
+line = 78
+class = "restart-recovery"
+severity = "medium"
+observed = "NewRollbackCmd accepts zero or negative num-blocks and, on equal heights, rolls application state back before checking whether consensus rollback can reach that target. A later consensus error leaves only one store changed."
+expected = "An operator rollback must validate a positive backward target and available state in both stores before irreversible mutation, and provide a deterministic recovery path if interrupted between stores."
+proposal = "In sdk/server/rollback.go preflight target range and both store capabilities, persist a recoverable rollback intent and close the app resource; qualify interrupted rollback and restart without assuming unequal app hashes are always invalid."
+owner_domain = 15
+
+[finding.rollback-recovery-test]
+file = "sdk/server/rollback_test.go"
+line = 1
+class = "test-gap"
+severity = "medium"
+observed = "The rollback tests exercise mock application and store state and height comparisons, but do not interrupt the actual two-store command and restart paxd to prove recoverability after only one rollback has completed."
+expected = "Brief check 5 requires restart and recovery evidence for state-changing operator workflows; height-only mocks cannot prove the persisted consensus and application stores recover together."
+proposal = "Retain sdk/server/rollback_test.go unit assertions and add a disposable real-node rollback qualification that interrupts between the two store mutations, reruns recovery and confirms resumed block production at the intended height."
+owner_domain = 15
+
+[finding.paid-api-durable-fulfillment]
+file = "services/platform/examples/paid-api/index.mjs"
+line = 63
+class = "restart-recovery"
+severity = "medium"
+observed = "FileFulfillmentRepository releases the resource before exclusive creation, then writes JSON directly into the final filename. A crash can leave a permanently truncated record; concurrent EEXIST readers can parse a partial write and release can run twice."
+expected = "The paid resource fulfillment record must survive restart as a complete recoverable record and serialize concurrent deliveries for one idempotency key without an extra release."
+proposal = "In services/platform/examples/paid-api/index.mjs claim the idempotency key durably, publish complete records atomically and reconcile an interrupted claim; prove concurrent deliveries and close/reopen after interruption through SellerMiddleware."
+owner_domain = 8
+
+[finding.examples-authority-doc]
+file = "services/platform/examples/README.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The guide describes batch authority and emulator v3 provisioning from a published sequencer trust anchor. The paid API now consumes eip155:125 transactions and pinned receipt keys through its configured node RPC."
+expected = "The examples guide must explain the merged-chain offer and receipt-key setup actually consumed by the paid API, with root-path RPC and distinct pending, unknown and refused states."
+proposal = "Rewrite services/platform/examples/README.md setup and qualification sections around current per-application rpcUrl and receiptKeysEnvironment, and identify any historical emulator workflow explicitly rather than presenting it as the merged production path."
+owner_domain = 8
+
+[finding.relay-retirement-1]
+file = "services/platform/hosted/paxeer/Cargo.toml"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The manifest still declares and builds layerx-platform-paxeer-boundary and its layerx-paxeer-boundary binary."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove the relay workspace member and binary wiring from services/platform after moving any retained node tools to their owning node package."
+owner_domain = 8
+
+[finding.relay-retirement-2]
+file = "services/platform/hosted/paxeer/contracts/BetaUsdl.sol"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "The relay deployment tree still ships a BetaUsdl token artifact for its old custody-chain bring-up."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move any still-required beta token fixture to the maintained node test fixtures, preserve its real token assertions there, and remove the artifact from the retired relay deployment."
+owner_domain = 8
+
+[finding.relay-retirement-3]
+file = "services/platform/hosted/paxeer/custody-genesis.py"
+line = 2
+class = "retired-reference"
+severity = "medium"
+observed = "The generator still emits layerxcustody deposit_root_authority, sequencer_authorizations and delay-based withdrawal settings for live initialization."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove custody-genesis.py and its beta-cluster invocation; initialize merged bank and layerxledger funding through the maintained paxd genesis tooling instead of retired custody parameters."
+owner_domain = 8
+
+[finding.relay-retirement-4]
+file = "services/platform/hosted/paxeer/deploy-contracts.sh"
+line = 2
+class = "retired-reference"
+severity = "medium"
+observed = "The deployer still broadcasts the retired checkpoint, guarantor-bond and vault settlement suite and writes checkpoint-settlement.json."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove deploy-contracts.sh from merged bring-up and its callers; if historical migration support is required, isolate an explicitly pre-merge tool and use committed chain height and validator evidence for current finality."
+owner_domain = 8
+
+[finding.relay-retirement-5]
+file = "services/platform/hosted/paxeer/deployment-input.beta.json"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "The beta input still configures checkpoint thresholds, maximum ages, challenge windows and unbonding for the retired settlement suite."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove this settlement input with the retired deployer and define only the merged node and tenant-domain inputs in the maintained deployment profile."
+owner_domain = 8
+
+[finding.relay-retirement-6]
+file = "services/platform/hosted/paxeer/deployment.yaml"
+line = 2
+class = "retired-reference"
+severity = "medium"
+observed = "The manifest still deploys the boundary sidecar, its TLS secrets, relay services and relay-only network policy, with custody-genesis mounted into the init container."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Replace services/platform/hosted/paxeer/deployment.yaml and beta-cluster consumers with the maintained paxd deployment; route node RPC at the root and migrate retained initialization without the separate relay or custody configuration."
+owner_domain = 8
+
+[finding.relay-retirement-7]
+file = "services/platform/hosted/paxeer/evm.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The retired relay tree still owns a standalone boundary EVM signer and RPC client used by old deployment scripts."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move only the EVM tooling still needed by supported node operator tasks to their owning package with its signing and refusal coverage, update callers, then remove this retired relay copy."
+owner_domain = 8
+
+[finding.relay-retirement-8]
+file = "services/platform/hosted/paxeer/fork-rehearsal.sh"
+line = 36
+class = "retired-reference"
+severity = "medium"
+observed = "The rehearsal remains under the retired relay tree and defaults to v6.6 plus depositCount at 0x1013 and threshold at 0x1014 as successful post-upgrade probes."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move rehearsal support to maintained paxd operator tooling with explicit versioned profiles; for the merged profile require the retired-method refusals and prove committed-header finality instead of successful custody or anchor views."
+owner_domain = 8
+
+[finding.relay-retirement-9]
+file = "services/platform/hosted/paxeer/gov-consensus-params.sh"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The useful consensus-governance operator command is still shipped as part of the relay deployment tree slated for deletion."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move this command and its real governance interface coverage to the maintained paxd operator tooling before deleting the relay tree; update runbook and executable callers to its supported location."
+owner_domain = 8
+
+[finding.relay-retirement-10]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The shared governance query and transaction helpers remain owned by the retired hosted/paxeer relay tree."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move the retained governance library with its node operator consumers and arithmetic coverage to maintained paxd tooling, then remove the relay-owned copy and update source paths."
+owner_domain = 8
+
+[finding.relay-retirement-11]
+file = "services/platform/hosted/paxeer/gov-upgrade.sh"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The software-upgrade planning, submission and confirmation command remains under the relay tree that requirement 11010 deletes."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move the supported upgrade command to maintained paxd operator tooling with its proposal and halt checks preserved, update its runbook callers, and remove the retired deployment copy."
+owner_domain = 8
+
+[finding.relay-retirement-12]
+file = "services/platform/hosted/paxeer/init-chain.sh"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "The init script still merges app_state.layerxcustody and requires sequencer authorizations and a deposit-root authority as part of the separate relay deployment."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Replace relay-owned initialization and beta-cluster mounts with maintained paxd genesis tooling using bank and ledger funding, and remove the post-merge dependency on custody-root publication."
+owner_domain = 8
+
+[finding.relay-retirement-13]
+file = "services/platform/hosted/paxeer/prepare-beta.py"
+line = 15
+class = "retired-reference"
+severity = "medium"
+observed = "The preparation tool still creates three guarantors and a protocol-v3 LXGB request for the retired settlement bootstrap."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove this guarantor and checkpoint bootstrap from merged deployment; migrate any required account-key provisioning to maintained node tooling with per-tenant configuration and committed-chain funding."
+owner_domain = 8
+
+[finding.relay-retirement-14]
+file = "services/platform/hosted/paxeer/settlement-domain.py"
+line = 15
+class = "retired-reference"
+severity = "medium"
+observed = "write_domain still requires a guarantor_set and finality_policy in a layerx/checkpoint-settlement/1 document for current Paxeer bring-up."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove settlement-domain.py consumers from merged deployment and offline evidence; use chain id 125 and the validator set at the committed height, moving independently useful key helpers to a supported owner."
+owner_domain = 8
+
+[finding.relay-retirement-15]
+file = "services/platform/hosted/paxeer/src/comet.rs"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The Comet proof and status allowlist remains implemented inside the separately deployed relay, despite its correct custody-path refusal coverage."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Serve the supported proof and status interfaces through the maintained node service, preserve proved-EVM acceptance and custody refusal tests there, then remove the redundant relay module."
+owner_domain = 8
+
+[finding.relay-retirement-16]
+file = "services/platform/hosted/paxeer/src/genesis.rs"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The relay still fetches direct or chunked Comet genesis and exposes a separate genesis proxy response and SHA256 header."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Keep genesis transport and byte-identity coverage with the maintained node interface where required and remove the separate relay genesis route and its configuration."
+owner_domain = 8
+
+[finding.relay-retirement-17]
+file = "services/platform/hosted/paxeer/src/main.rs"
+line = 398
+class = "retired-reference"
+severity = "medium"
+observed = "The layerx-paxeer-boundary process still accepts TLS requests and forwards EVM and receipt RPC to another local node."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Remove the relay process and its service wiring from the merged deployment, and expose the supported node RPC directly at the configured root endpoint with its refusal and resource bounds preserved."
+owner_domain = 8
+
+[finding.relay-retirement-18]
+file = "services/platform/hosted/paxeer/src/transport.rs"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The retired relay tree still ships a dedicated deadline-wrapped Comet transport used by its genesis and proof proxy."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Preserve the useful cumulative-deadline behavior in any maintained node-side transport that needs it, update callers and delete the redundant relay transport with the process."
+owner_domain = 8
+
+[finding.relay-retirement-19]
+file = "services/platform/hosted/paxeer/tests/comet.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "This qualification still starts the separate boundary to exercise its Comet forwarding route and proof errors."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move the proved-EVM and custody-refusal assertions to the maintained node transport test path, preserve their real transport checks and remove the boundary launch dependency."
+owner_domain = 8
+
+[finding.relay-retirement-20]
+file = "services/platform/hosted/paxeer/tests/deployment_profile.py"
+line = 9
+class = "retired-reference"
+severity = "medium"
+observed = "DeploymentProfileTests still qualifies immediate-beta and standard profiles of the retired checkpoint deployer."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Preserve any historical deployment-profile assertions in explicitly pre-merge tooling if required, while qualifying the merged node deployment profile at its maintained owner and removing this relay-owned test target."
+owner_domain = 8
+
+[finding.relay-retirement-21]
+file = "services/platform/hosted/paxeer/tests/genesis.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The genesis transport tests launch the separate boundary and assert its custom proxy behavior rather than the maintained merged-node surface."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move applicable byte-identity, size and deadline assertions to supported node genesis transport coverage, retaining the negative cases and removing the relay process prerequisite."
+owner_domain = 8
+
+[finding.relay-retirement-22]
+file = "services/platform/hosted/paxeer/tests/genesis.rs"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "This Rust test target invokes genesis.py using the retired layerx-paxeer-boundary binary."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Retarget the preserved genesis qualification to the maintained node interface, then remove the relay binary environment binding and obsolete Rust launcher."
+owner_domain = 8
+
+[finding.relay-retirement-23]
+file = "services/platform/hosted/paxeer/tests/gov-scripts-test.sh"
+line = 13
+class = "retired-reference"
+severity = "medium"
+observed = "The governance arithmetic and fixture tests source commands from the relay directory that the retirement inventory removes."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move the governance tests with the retained node operator commands, keep their arithmetic and deadline assertions and update executable paths before removing the retired relay tree."
+owner_domain = 8
+
+[finding.relay-retirement-24]
+file = "services/platform/hosted/paxeer/tests/real_chain.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The real-chain qualification still provisions a separate TLS boundary, and its optional deployment branch reads the retired checkpoint settlement document."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Preserve real transaction, wrong-chain, node-loss and re-entry assertions against the maintained merged-node path, remove the extra relay launch and move historical settlement coverage out of the merged qualification."
+owner_domain = 8
+
+[finding.relay-retirement-25]
+file = "services/platform/hosted/paxeer/tests/real_chain.rs"
+line = 4
+class = "retired-reference"
+severity = "medium"
+observed = "The Rust launcher still binds CARGO_BIN_EXE_layerx-paxeer-boundary and runs a separate settlement_domains qualification."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Move the preserved real-node qualification and re-entry refusal to a maintained node test target and remove the retired relay binary and settlement-domain launcher bindings."
+owner_domain = 8
+
+[finding.relay-retirement-26]
+file = "services/platform/hosted/paxeer/tests/settlement_domains.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The test asserts preservation and mutation of the retired checkpoint-settlement.json guarantor domains as its success condition."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Retain historical export compatibility only in an explicitly versioned migration test, and replace current evidence coverage with chain-id and height-specific validator-set evidence before removing this relay test."
+owner_domain = 8
+
+[finding.relay-retirement-27]
+file = "services/platform/hosted/paxeer/tests/tls_listen.rs"
+line = 12
+class = "retired-reference"
+severity = "medium"
+observed = "The test qualifies the address reported by the separately deployed relay TLS listener."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Apply the useful listener-address and TLS assertions to the supported node-facing service that owns TLS after the merge, and remove the retired relay launch target."
+owner_domain = 8
+
+[finding.relay-retirement-28]
+file = "services/platform/hosted/paxeer/tests/tls_shutdown.py"
+line = 1
+class = "retired-reference"
+severity = "medium"
+observed = "The shutdown qualification launches the old boundary binary to test repeated TLS connection cleanup."
+expected = "Retirement inventory component.eth-relay and requirement 11010 delete services/platform/hosted/paxeer: one paxd network serves the merged chain without a separately deployed EVM relay. Retained node tools need a maintained owner."
+proposal = "Preserve bounded TLS shutdown and resource-release assertions in the maintained service test owner, then delete the separate relay process dependency and its test target."
+owner_domain = 8
+
+[finding.deployment-key-argv]
+file = "services/platform/hosted/paxeer/deploy-contracts.sh"
+line = 139
+class = "security"
+severity = "medium"
+observed = "The deployer reads private keys from files but passes their contents in cast wallet address and cast send --private-key arguments, making the secrets visible in process argument inspection while commands run."
+expected = "Operator signing keys must remain confined to their owner-only key storage and signing interface; loading a key from a protected file must not re-expose its value through process arguments."
+proposal = "If historical deploy-contracts.sh support is retained, use a supported protected keystore or file/stdin signing interface for cast and verify process arguments contain no secret; remove these commands entirely from merged bring-up."
+owner_domain = 8
+
+[finding.preparation-key-argv]
+file = "services/platform/hosted/paxeer/prepare-beta.py"
+line = 30
+class = "security"
+severity = "medium"
+observed = "keypair writes an owner-only key file but calls cast wallet address and public-key with --private-key followed by the raw secret, exposing the generated account key in subprocess arguments."
+expected = "Generating beta accounts must not expose private keys to process observers, even when the final key file has restrictive permissions."
+proposal = "In the maintained replacement for prepare-beta.py derive public keys in-process with the supported cryptographic library or use a protected signer interface; preserve exact address derivation and qualify that child argv contains no private key."
+owner_domain = 8
+
+[finding.deployment-phase-recovery]
+file = "services/platform/hosted/paxeer/deploy-contracts.sh"
+line = 367
+class = "restart-recovery"
+severity = "medium"
+observed = "Deployment broadcasts and timelock calls happen before their resulting addresses, operation nonces and completed phases are fully recorded. WORK receipts are removed on exit, and phase record replacement has no durable transaction reconciliation journal."
+expected = "A supported operator deployment workflow must resume after a crash by reconciling committed transaction hashes and operation nonces instead of rebroadcasting a phase whose chain effects already occurred."
+proposal = "If the historical deployment runner remains supported, journal intent and transaction hashes durably before advancing phases, reconcile receipts on restart and atomically persist the record; prove interruption after broadcast and before record publication."
+owner_domain = 8
+
+[finding.deployment-test-old-interface]
+file = "services/platform/hosted/paxeer/tests/real_chain.py"
+line = 190
+class = "test-gap"
+severity = "medium"
+observed = "The immediate profile invokes bootstrap without its required Ed25519 authority argument, omits the checkpoint submitter key configuration, and expects five phases while the runner now records authority-schedule and authority-execute as well."
+expected = "A retained historical deployment qualification must use the real deployer argument and phase contract and exercise every preserved authority check; an obsolete fixture must not stand in for the producer."
+proposal = "If retained for historical migration, update real_chain.py inputs from the actual generated authority and submitter artifacts and assert the complete seven-phase record through the real runner; keep merged-node qualification independent of retired deployment."
+owner_domain = 8
+
+[finding.initialization-restart-drift]
+file = "services/platform/hosted/paxeer/init-chain.sh"
+line = 146
+class = "restart-recovery"
+severity = "medium"
+observed = "When the initialization marker exists, custody comparison checks network id, deposit-root authority and asset ids only. Changed denoms, delay settings or sequencer_authorizations with the same ids are silently accepted as already initialized."
+expected = "A repeat initialization request must either match every immutable genesis input or refuse with a precise drift diagnostic; a marker must not hide a changed requested authority or asset mapping."
+proposal = "In the maintained paxd initializer persist and compare a canonical digest of all immutable inputs before honoring the marker; qualify a close/reopen with the same inputs and refusals for changed denomination, authority and delay settings."
+owner_domain = 8
+
+[finding.boundary-cumulative-deadline]
+file = "services/platform/hosted/paxeer/src/main.rs"
+line = 563
+class = "security"
+severity = "medium"
+observed = "The main TLS/EVM path uses per-read and per-write socket timeouts rather than a cumulative request deadline. A client trickling bytes before each timeout can occupy one of MAX_CONNECTIONS=128 for a very long time; Comet transport already uses a deadline."
+expected = "Public network work must have a bounded total request lifetime so slow clients cannot exhaust all accepted connection slots by making minimal periodic progress."
+proposal = "Apply a cumulative client and upstream deadline to the maintained node-facing transport; while historical boundary support remains, reuse transport.rs deadline semantics in main.rs and prove slow-progress requests release their slots within that budget."
+owner_domain = 8
+
+[finding.boundary-wrong-chain-forwarding]
+file = "services/platform/hosted/paxeer/src/main.rs"
+line = 398
+class = "runtime-risk"
+severity = "medium"
+observed = "readyz compares upstream eth_chainId with config.chain_id, but relay forwards eth_sendRawTransaction without establishing that identity. Direct service callers can still reach a wrong upstream between or independently of readiness routing."
+expected = "A boundary configured for one chain must refuse forwarding write traffic when its upstream identity differs, rather than relying entirely on an external readiness consumer."
+proposal = "Remove the relay in the merged deployment; for any supported historical boundary bind forwarding to validated upstream identity with bounded revalidation, and extend the real wrong-chain scenario to assert that write traffic is not forwarded."
+owner_domain = 8
+
+[finding.governance-shell-arguments]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+line = 268
+class = "runtime-risk"
+severity = "medium"
+observed = "tx_flags renders values with printf %q, but run_tx injects the resulting text through unquoted command substitution. Bash does not reparse those escapes, so spaces in HOME_DIR or a key name split arguments and globs may expand."
+expected = "The governance command executed must contain the exact same argument values shown to the operator, including paths and key names containing whitespace or wildcard characters."
+proposal = "In the maintained governance library build flags in a Bash array and pass the array directly to paxd; format that same array only for display and qualify a real CLI parse with whitespace and wildcard characters."
+owner_domain = 8
+
+[finding.governance-query-failure]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+line = 190
+class = "runtime-risk"
+severity = "medium"
+observed = "paxd_query_optional converts every failed paxd query into {}, including network outages, invalid credentials or unsupported interfaces. Upgrade and proposal logic can mistake those failures for an absent plan or empty proposal list."
+expected = "An optional missing chain object must remain distinguishable from failure to query the chain, so operator safety decisions never infer absence from an unavailable node."
+proposal = "In the maintained governance library handle only the precise documented not-found response as absence and propagate all other failures with their diagnostics; cover actual no-plan, unreachable-node and malformed-query outcomes."
+owner_domain = 8
+
+[finding.governance-validator-page]
+file = "services/platform/hosted/paxeer/gov-lib.sh"
+line = 212
+class = "runtime-risk"
+severity = "low"
+observed = "validator_count counts .validators from the default first RPC page, then callers label it the bonded validator total and print that many operator vote commands. Networks beyond one validators page are undercounted."
+expected = "Operator planning output must distinguish a page length from the total validator set and must not omit validator vote instructions because of transport pagination."
+proposal = "In the maintained governance library read the RPC total or paginate at one pinned height, and qualify planning output with a real validator set larger than one page while preserving voting power semantics."
+owner_domain = 8
+
+[finding.governance-proposal-association]
+file = "services/platform/hosted/paxeer/gov-consensus-params.sh"
+line = 255
+class = "runtime-risk"
+severity = "medium"
+observed = "After submission the script discards run_tx output, lists proposals and selects the last whose first change key is TimeoutParams. A concurrently submitted proposal can become that last row and receive this command's yes vote."
+expected = "A submitted governance action must track the exact proposal id emitted by its own committed transaction, and confirm its content before any automatic vote or success wait."
+proposal = "In the maintained gov-consensus-params command extract proposal_id from the successful transaction events, fetch that exact proposal and compare subspace, key and value before voting; qualify concurrent distinct parameter submissions."
+owner_domain = 8
+
+[finding.docs-monorepo]
+file = "docs/MONOREPO.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The opening identifies the running kernel as layerxd, and lines 68-72 describe independent deployment/trust boundaries and custody/checkpoint contracts as the current architecture."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/MONOREPO.md introduction and boundaries around the kernel linked into paxd and commit-based finality; retain valid source-layout and toolchain guidance with current paths."
+owner_domain = 8
+
+[finding.docs-root-readme]
+file = "README.md"
+line = 47
+class = "doc-drift"
+severity = "medium"
+observed = "The component list calls layerxd the active C17 daemon, the build section tells readers to build it, and line 181 says the merge is draft and the kernel currently runs separately and settles checkpoints."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update README.md components, supported build commands and merge-status paragraph to the implemented single paxd network, and remove live setup instructions for the retired daemon and checkpoint topology."
+owner_domain = 8
+
+[finding.docs-chain-index]
+file = "docs/paxeer-chain-docs.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The chain documentation index describes Paxeer as the EVM L1 LayerX uses for custody and checkpoint settlement and explicitly says co-location does not merge the two trust boundaries."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/paxeer-chain-docs.md architecture and contract links for the merged paxd network and direct committed-state verification; keep the valid EVM id 125 and source documentation links."
+owner_domain = 8
+
+[finding.docs-network]
+file = "docs/paxeer-network.md"
+line = 5
+class = "doc-drift"
+severity = "medium"
+observed = "The network overview says ordinary LayerX activity stays on a separate LayerX sequencer and periodic checkpoints settle on Paxeer; the following tree and balance-writer descriptions retain that split."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/paxeer-network.md overview, subsystem table and finality explanation for one chain with native bank/ledger funding and commit finality, and verify the retained developer commands against maintained targets."
+owner_domain = 8
+
+[finding.docs-site-home]
+file = "docs/site/docs/index.md"
+line = 11
+class = "doc-drift"
+severity = "medium"
+observed = "Despite saying one network in the introduction, the page says ordinary activity executes inside LayerX and checkpoints settle to Paxeer, and its settlement table still lists guarantor attestations and emergency exits."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/index.md execution, settlement and financial-doorway descriptions around committed blocks, current ledger funding and supported merged interfaces; remove separate settlement-component onboarding."
+owner_domain = 8
+
+[finding.docs-site-monorepo]
+file = "docs/site/docs/overview/monorepo.md"
+line = 3
+class = "doc-drift"
+severity = "medium"
+observed = "The site monorepo guide presents LayerX Network and Paxeer Network as independently deployed trust boundaries, and line 29 leaves finality and custody with checkpoint and guarantor contracts."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update docs/site/docs/overview/monorepo.md to one paxd runtime and current repository layout, keeping useful language-specific build guidance while replacing the old deployment and settlement boundaries."
+owner_domain = 8
+
+[finding.docs-quickstart]
+file = "docs/site/docs/overview/quickstart.md"
+line = 20
+class = "doc-drift"
+severity = "medium"
+observed = "The quickstart advertises public POST /rpc, GET /rpc/ws, node network 402, anchor precompile configuration and checkpoint-registry environment values. Lines 214-215 give those retired paths on the public beta host."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/overview/quickstart.md public endpoints and wallet/payment examples for root-path node RPC, eip155:125 and pinned receipt keys; remove anchor and separate-sequencer bootstrap requirements and align gateway methods with its OpenRPC contract."
+owner_domain = 8
+
+[finding.docs-payments]
+file = "docs/site/docs/overview/payments.md"
+line = 21
+class = "doc-drift"
+severity = "medium"
+observed = "The payments walkthrough exports RPC_URL ending in /rpc and describes batch/checkpoint fields and old live watch surfaces as the current wallet and payment contract."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/overview/payments.md runnable examples against root node RPC and the current eip155 receipt and ledger ABI, replacing batch/checkpoint finality guidance with committed-height verification."
+owner_domain = 8
+
+[finding.docs-i18n-zh-cn]
+file = "docs/site/docs/overview/i18n/zh-cn.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The localized overview at lines 18-20 describes ordinary LayerX activity outside Paxeer transactions and periodic checkpoint settlement; its component table at line 98 lists the retired layerxd daemon."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/zh-cn.md architecture, build examples and component table in the page's language from the merged-network English source, retaining chain id 125 and replacing separate sequencer and checkpoint finality claims."
+owner_domain = 8
+
+[finding.docs-i18n-ru]
+file = "docs/site/docs/overview/i18n/ru.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The localized overview at lines 18-20 describes ordinary LayerX activity outside Paxeer transactions and periodic checkpoint settlement; its component table at line 98 lists the retired layerxd daemon."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/ru.md architecture, build examples and component table in the page's language from the merged-network English source, retaining chain id 125 and replacing separate sequencer and checkpoint finality claims."
+owner_domain = 8
+
+[finding.docs-i18n-es]
+file = "docs/site/docs/overview/i18n/es.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The localized overview at lines 18-20 describes ordinary LayerX activity outside Paxeer transactions and periodic checkpoint settlement; its component table at line 98 lists the retired layerxd daemon."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Rewrite docs/site/docs/overview/i18n/es.md architecture, build examples and component table in the page's language from the merged-network English source, retaining chain id 125 and replacing separate sequencer and checkpoint finality claims."
+owner_domain = 8
+
+[finding.docs-i18n-de]
+file = "docs/site/docs/overview/i18n/de.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The additional localized architecture and layout excerpts repeat the separate LayerX activity/checkpoint model at lines 18-20 and the retired layerxd component at line 98."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update docs/site/docs/overview/i18n/de.md alongside the maintained translated overview, replacing the cited architecture and daemon entries with one paxd network and committed-block finality."
+owner_domain = 8
+
+[finding.docs-i18n-fr]
+file = "docs/site/docs/overview/i18n/fr.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The additional localized architecture and layout excerpts repeat the separate LayerX activity/checkpoint model at lines 18-20 and the retired layerxd component at line 98."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update docs/site/docs/overview/i18n/fr.md alongside the maintained translated overview, replacing the cited architecture and daemon entries with one paxd network and committed-block finality."
+owner_domain = 8
+
+[finding.docs-i18n-ja]
+file = "docs/site/docs/overview/i18n/ja.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The additional localized architecture and layout excerpts repeat the separate LayerX activity/checkpoint model at lines 18-20 and the retired layerxd component at line 98."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update docs/site/docs/overview/i18n/ja.md alongside the maintained translated overview, replacing the cited architecture and daemon entries with one paxd network and committed-block finality."
+owner_domain = 8
+
+[finding.docs-i18n-pt-br]
+file = "docs/site/docs/overview/i18n/pt-br.md"
+line = 18
+class = "doc-drift"
+severity = "medium"
+observed = "The additional localized architecture and layout excerpts repeat the separate LayerX activity/checkpoint model at lines 18-20 and the retired layerxd component at line 98."
+expected = "The finished network is one BFT paxd chain with EVM id 125 and finality at commit; public node JSON-RPC uses the endpoint root, and px_ methods belong to the hosted gateway contract. Separate LayerX daemons, routers and checkpoint settlement are retired."
+proposal = "Update docs/site/docs/overview/i18n/pt-br.md alongside the maintained translated overview, replacing the cited architecture and daemon entries with one paxd network and committed-block finality."
+owner_domain = 8
+
+[doc.1]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Lines 3 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.2]
+path = "README.md"
+status = "stale"
+notes = "Lines 47 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.3]
+path = "docs/README.md"
+status = "accurate"
+notes = "Read in full. This page is a navigation index, not a deployment contract; its listed destinations require the separate stale-page rewrites recorded here."
+
+[doc.4]
+path = "docs/paxeer-chain-docs.md"
+status = "stale"
+notes = "Lines 5 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.5]
+path = "docs/paxeer-network.md"
+status = "stale"
+notes = "Lines 5 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.6]
+path = "docs/site/docs/index.md"
+status = "stale"
+notes = "Lines 11 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.7]
+path = "docs/site/docs/overview/monorepo.md"
+status = "stale"
+notes = "Lines 3 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.8]
+path = "docs/site/docs/overview/quickstart.md"
+status = "stale"
+notes = "Read in full. Stale endpoint passages at 20, 167-168, 214-215, 302, 497, 518 and 596-597; old anchor/network setup at 65, 132 and 154 also needs a coordinated rewrite."
+
+[doc.9]
+path = "docs/site/docs/overview/payments.md"
+status = "stale"
+notes = "Lines 21 onward describe pre-merge behavior; rewrite the cited passage and matching examples for the single merged network."
+
+[doc.10]
+path = "docs/site/docs/overview/i18n/zh-cn.md"
+status = "stale"
+notes = "Read in full. Architecture at 18-20 and the daemon/settlement component table at 98-104 describe the pre-merge topology."
+
+[doc.11]
+path = "docs/site/docs/overview/i18n/ru.md"
+status = "stale"
+notes = "Read in full. Architecture at 18-20 and the daemon/settlement component table at 98-104 describe the pre-merge topology."
+
+[doc.12]
+path = "docs/site/docs/overview/i18n/es.md"
+status = "stale"
+notes = "Read in full. Architecture at 18-20 and the daemon/settlement component table at 98-104 describe the pre-merge topology."
+
+[doc.13]
+path = "docs/site/docs/overview/i18n/de.md"
+status = "stale"
+notes = "Additional page inspected for the architecture and layout excerpts at 18-20 and 98-104; these passages repeat the pre-merge topology. No full-page clean claim is made."
+
+[doc.14]
+path = "docs/site/docs/overview/i18n/fr.md"
+status = "stale"
+notes = "Additional page inspected for the architecture and layout excerpts at 18-20 and 98-104; these passages repeat the pre-merge topology. No full-page clean claim is made."
+
+[doc.15]
+path = "docs/site/docs/overview/i18n/ja.md"
+status = "stale"
+notes = "Additional page inspected for the architecture and layout excerpts at 18-20 and 98-104; these passages repeat the pre-merge topology. No full-page clean claim is made."
+
+[doc.16]
+path = "docs/site/docs/overview/i18n/pt-br.md"
+status = "stale"
+notes = "Additional page inspected for the architecture and layout excerpts at 18-20 and 98-104; these passages repeat the pre-merge topology. No full-page clean claim is made."
+
+[doc.17]
+path = "sdk/chainflow/go/README.md"
+status = "stale"
+notes = "Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[doc.18]
+path = "sdk/chainflow/go/SKILL.md"
+status = "stale"
+notes = "Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[doc.19]
+path = "sdk/chainflow/go/.claude/skills/chainflow-data-gateway-go-sdk/SKILL.md"
+status = "stale"
+notes = "Read in full. The installation command uses a hostname-free Go module path with no publication or local replace setup; the installation finding names the concrete correction."
+
+[doc.20]
+path = "sdk/chainflow/go/SECURITY.md"
+status = "accurate"
+notes = "Read in full. Distinguishes generated SDK reports from API-service issues and forbids disclosing credentials; no live-network endpoint or retirement claim is present."
+
+[doc.21]
+path = "sdk/chainflow/go/api.md"
+status = "misleading"
+notes = "Read in full. The WebSocket minting section at 85-99 forbids logging the response but prints the credential-bearing WsToken; other operation descriptions were compared with the generated client surface."
+
+[doc.22]
+path = "sdk/server/README.md"
+status = "accurate"
+notes = "Read in full. Describes the reusable Cobra/server setup and SDK configuration wiring rather than a separate LayerX network; operational lifecycle defects are recorded against their implementation files."
+
+[doc.23]
+path = "services/platform/examples/README.md"
+status = "stale"
+notes = "Read in full. Lines 18, 28-34 and 54 retain batch-authority and old emulator provisioning guidance; align the paid API instructions with its current eip155 offer and receipt-key configuration."
+
+[doc.24]
+path = "spec/layerx-merge/contracts/platform-examples.md"
+status = "accurate"
+notes = "Read the configuration and JavaScript-export contract rows relevant to the paid API and runtime loader. Pinned historical source/planned statuses are explicit; current eip155 and receipt-key changes were compared with the implementation."
+
+[doc.25]
+path = "spec/layerx-merge/contracts/platform-hosted.md"
+status = "accurate"
+notes = "Read the relevant Paxeer CLI, environment, route and retirement-context sections. The page explicitly freezes a historical revision; supported historical boundary rows do not supersede requirement 11010 deleting the relay."
+
+[doc.26]
+path = "spec/layerx-merge/contracts/platform-middleware.md"
+status = "accurate"
+notes = "Read the paid API configuration, seller exports and portable-receipt context. The declared eip155 network and pinned-height receipt-key contract agree with the paid API configuration; persistence issues are recorded in the consumer."
+
+[doc.27]
+path = "spec/layerx-merge/contracts/cosmos-fork.md"
+status = "accurate"
+notes = "Read the server/SDK CLI and Go API contract rows relevant to this package. The page is an explicitly pinned interface index; the export and Rosetta producer/consumer defects are recorded against their implementation paths."

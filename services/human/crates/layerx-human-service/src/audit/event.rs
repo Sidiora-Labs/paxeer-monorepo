@@ -196,40 +196,31 @@ impl ApprovalOutcome {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum JourneyKind {
     Onboarding,
-    WalletBinding,
-    Deposit,
-    Withdraw,
-    Exit,
     Move,
     AgentCreate,
     AgentFund,
     AgentPause,
     AgentRetire,
+    Closed,
 }
 
 impl JourneyKind {
     const fn code(self) -> u8 {
         match self {
             Self::Onboarding => 1,
-            Self::WalletBinding => 2,
-            Self::Deposit => 3,
-            Self::Withdraw => 4,
-            Self::Exit => 5,
             Self::Move => 6,
             Self::AgentCreate => 7,
             Self::AgentFund => 8,
             Self::AgentPause => 9,
             Self::AgentRetire => 10,
+            Self::Closed => 0,
         }
     }
 
     fn from_code(value: u8) -> Result<Self, AuditError> {
         match value {
             1 => Ok(Self::Onboarding),
-            2 => Ok(Self::WalletBinding),
-            3 => Ok(Self::Deposit),
-            4 => Ok(Self::Withdraw),
-            5 => Ok(Self::Exit),
+            2..=5 => Ok(Self::Closed),
             6 => Ok(Self::Move),
             7 => Ok(Self::AgentCreate),
             8 => Ok(Self::AgentFund),
@@ -251,6 +242,7 @@ pub enum JourneyState {
     StillChecking,
     Refused,
     WaitingForYou,
+    Closed,
 }
 
 impl JourneyState {
@@ -264,6 +256,7 @@ impl JourneyState {
             Self::StillChecking => 6,
             Self::Refused => 7,
             Self::WaitingForYou => 8,
+            Self::Closed => 9,
         }
     }
 
@@ -277,6 +270,7 @@ impl JourneyState {
             6 => Ok(Self::StillChecking),
             7 => Ok(Self::Refused),
             8 => Ok(Self::WaitingForYou),
+            9 => Ok(Self::Closed),
             _ => Err(AuditError::Corrupt("unknown journey state")),
         }
     }
@@ -295,6 +289,7 @@ pub enum SecurityChangeKind {
     WalletRebinding,
     AgentArchive,
     KeyExported,
+    KeyExportAcknowledged,
 }
 
 impl SecurityChangeKind {
@@ -310,6 +305,7 @@ impl SecurityChangeKind {
             Self::WalletRebinding => 8,
             Self::AgentArchive => 9,
             Self::KeyExported => 10,
+            Self::KeyExportAcknowledged => 11,
         }
     }
 
@@ -325,6 +321,7 @@ impl SecurityChangeKind {
             8 => Ok(Self::WalletRebinding),
             9 => Ok(Self::AgentArchive),
             10 => Ok(Self::KeyExported),
+            11 => Ok(Self::KeyExportAcknowledged),
             _ => Err(AuditError::Corrupt("unknown security change")),
         }
     }
@@ -482,6 +479,21 @@ impl AuditEvent {
     }
 
     pub(super) fn encode(&self, output: &mut Vec<u8>) -> Result<(), AuditError> {
+        if matches!(
+            self,
+            Self::SigningDecision {
+                operation: SigningOperation::EmergencyExit,
+                ..
+            } | Self::JourneyTransition {
+                kind: JourneyKind::Closed,
+                ..
+            } | Self::IdentityLifecycle {
+                event: IdentityEvent::WalletBinding,
+                ..
+            }
+        ) {
+            return Err(AuditError::Corrupt("retired audit event kind"));
+        }
         match self {
             Self::Authentication { method, outcome } => {
                 output.push(1);
@@ -564,11 +576,19 @@ impl AuditEvent {
             4 => {
                 let text = std::str::from_utf8(reader.bytes()?)
                     .map_err(|_| AuditError::Corrupt("journey label is not UTF-8"))?;
+                let journey = Label::new(text)?;
+                let kind = JourneyKind::from_code(reader.byte()?)?;
+                let from = JourneyState::from_code(reader.byte()?)?;
+                let to = JourneyState::from_code(reader.byte()?)?;
                 Ok(Self::JourneyTransition {
-                    journey: Label::new(text)?,
-                    kind: JourneyKind::from_code(reader.byte()?)?,
-                    from: JourneyState::from_code(reader.byte()?)?,
-                    to: JourneyState::from_code(reader.byte()?)?,
+                    journey,
+                    kind,
+                    from,
+                    to: if kind == JourneyKind::Closed {
+                        JourneyState::Closed
+                    } else {
+                        to
+                    },
                 })
             }
             5 => Ok(Self::SecurityChange {

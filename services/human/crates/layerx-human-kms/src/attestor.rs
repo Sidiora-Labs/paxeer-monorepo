@@ -5,21 +5,23 @@ use std::path::PathBuf;
 use std::sync::{Mutex, MutexGuard};
 use std::time::Duration;
 
+use layerx_crypto::disclosure::call::{bind_call, ConstructMethod};
+
+#[path = "call.rs"]
+pub mod call;
 use layerx_crypto::disclosure::{
-    bind, AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
+    AmountRole, Counterparty, CounterpartyRole, DisclosedAmount, Disclosure,
 };
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_crypto::payments::Payment;
-use layerx_crypto::send::{encode_send_envelope, EnvelopeOptions, SendDebit};
 use layerx_crypto::signer::SignError;
-use layerx_intents::canonical::Domain;
-use layerx_types::payload::{ModuleId, ModuleRegistry};
+use layerx_types::payload::ModuleId;
 use rustls::pki_types::CertificateDer;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
 pub const KIND_ACTIVITY: &str = "lx_activity";
-pub const KIND_SEND_AUTHORIZATION: &str = "lx_send_authorization";
 pub const MIN_SIGNERS: usize = 3;
 pub const APPROVAL_VERSION: u8 = 1;
 const PATH_SIGN: &str = "/v1/sign";
@@ -209,6 +211,7 @@ impl AttestorSignature {
 pub struct AttestorClient {
     agent: ureq::Agent,
     nodes: BTreeMap<String, SocketAddr>,
+    deadline: Duration,
 }
 
 impl fmt::Debug for AttestorClient {
@@ -289,6 +292,7 @@ impl AttestorClient {
         Ok(Self {
             agent,
             nodes: table,
+            deadline,
         })
     }
 
@@ -354,7 +358,10 @@ impl AttestorClient {
         for (node, result) in self.post_all(&nodes, PATH_GENERATE, &body, None) {
             let raw = result?;
             let response: KeyBody = serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
-            if response.node_id != node || response.key_id != key_id || response.curve != "ed25519"
+            if response.node_id != node
+                || response.key_id != key_id
+                || response.curve != "ed25519"
+                || response.audit_sequence == 0
             {
                 return Err(malformed(&node));
             }
@@ -381,6 +388,17 @@ impl AttestorClient {
         owner: &str,
         assertion: &str,
     ) -> Result<[u8; 20], AttestorError> {
+        self.public_wallet_key(ed_key_id, public_key, owner, assertion)
+            .map(|(_, address)| address)
+    }
+
+    fn public_wallet_key(
+        &self,
+        ed_key_id: &str,
+        public_key: &[u8; 32],
+        owner: &str,
+        assertion: &str,
+    ) -> Result<(String, [u8; 20]), AttestorError> {
         if !valid_identifier(ed_key_id) || owner.is_empty() || assertion.is_empty() {
             return Err(AttestorError::Configuration(
                 "public wallet identity request",
@@ -434,7 +452,7 @@ impl AttestorClient {
             }
         }
         identity
-            .map(|(_, _, _, address)| address)
+            .map(|(key_id, _, _, address)| (key_id, address))
             .ok_or(AttestorError::Configuration("no attestor wallet identity"))
     }
 
@@ -451,6 +469,7 @@ impl AttestorClient {
         path: &str,
         body: &[u8],
         bearer: Option<&str>,
+        budget: Option<Duration>,
     ) -> Result<Vec<u8>, AttestorError> {
         let address = self.address(node)?;
         let mut request = self
@@ -462,6 +481,9 @@ impl AttestorClient {
             request = request.header("authorization", format!("Bearer {token}"));
         }
         let response = request
+            .config()
+            .timeout_global(Some(budget.unwrap_or(self.deadline).min(self.deadline)))
+            .build()
             .send(body)
             .map_err(|error| transport_error(node, &error))?;
         let (status, body) = read_body(node, response)?;
@@ -479,13 +501,23 @@ impl AttestorClient {
         body: &[u8],
         bearer: Option<&str>,
     ) -> Vec<(String, Result<Vec<u8>, AttestorError>)> {
+        self.post_all_bounded(nodes, path, body, bearer, None)
+    }
+    fn post_all_bounded(
+        &self,
+        nodes: &[String],
+        path: &str,
+        body: &[u8],
+        bearer: Option<&str>,
+        budget: Option<Duration>,
+    ) -> Vec<(String, Result<Vec<u8>, AttestorError>)> {
         std::thread::scope(|scope| {
             let handles: Vec<_> = nodes
                 .iter()
                 .map(|node| {
                     (
                         node,
-                        scope.spawn(move || self.post(node, path, body, bearer)),
+                        scope.spawn(move || self.post(node, path, body, bearer, budget)),
                     )
                 })
                 .collect();
@@ -506,20 +538,26 @@ pub struct AttestorSigner {
     client: AttestorClient,
     key_id: String,
     public_key: [u8; 32],
+    evm_key_id: String,
+    evm_address: [u8; 20],
+    evm_assertion: Option<Zeroizing<String>>,
     signers: Vec<String>,
     network: u32,
     audit: Mutex<BTreeMap<String, u64>>,
     native_replays: Mutex<BTreeMap<String, NativeReplay>>,
+    session: Mutex<()>,
+    native_journal: Option<NativeJournal>,
+    native_clock: Option<std::sync::Arc<dyn layerx_types::clock::Clock>>,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttestorNodeConfig {
     pub id: String,
     pub address: SocketAddr,
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, serde::Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct AttestorSignerConfig {
     pub nodes: Vec<AttestorNodeConfig>,
@@ -528,6 +566,8 @@ pub struct AttestorSignerConfig {
     pub client_private_key_pkcs8: PathBuf,
     pub key_id: String,
     pub public_key: [u8; 32],
+    pub evm_key_id: String,
+    pub evm_address: [u8; 20],
     pub signers: Vec<String>,
     pub network_id: u32,
     pub timeout_seconds: u64,
@@ -547,6 +587,12 @@ impl fmt::Debug for AttestorSigner {
 
 impl AttestorSigner {
     pub fn from_config(config: &AttestorSignerConfig) -> Result<Self, AttestorError> {
+        if config.evm_key_id.trim().is_empty() || !valid_identifier(&config.evm_key_id) {
+            return Err(AttestorError::Configuration("EVM key id"));
+        }
+        if config.evm_address == [0; 20] {
+            return Err(AttestorError::Configuration("attestor chain or address"));
+        }
         if config.timeout_seconds == 0 || config.timeout_seconds > 60 {
             return Err(AttestorError::Configuration("attestor timeout"));
         }
@@ -582,83 +628,170 @@ impl AttestorSigner {
             .iter()
             .map(String::as_str)
             .collect::<Vec<_>>();
-        Self::new(
+        let mut signer = Self::new(
             client,
             &config.key_id,
             config.public_key,
             &signers,
             config.network_id,
-        )
+        )?;
+        signer.evm_key_id.clone_from(&config.evm_key_id);
+        signer.evm_address = config.evm_address;
+        Ok(signer)
     }
 
-    pub fn sign_payment_grant(
-        &self,
-        grant: &layerx_crypto::payments::Grant,
-        session_id: &str,
-        assertion: &str,
-    ) -> Result<Vec<u8>, AttestorError> {
-        if !valid_identifier(session_id)
-            || assertion.is_empty()
-            || grant.public_key != self.public_key
-            || grant.id != [0; 32]
-            || grant.signature != [0; 64]
-        {
-            return Err(AttestorError::Configuration("payment grant binding"));
+    pub fn set_evm_assertion(&mut self, assertion: &str) -> Result<(), AttestorError> {
+        if assertion.is_empty() || assertion.len() > 65_536 {
+            return Err(AttestorError::Configuration("EVM owner assertion"));
         }
-        let digest = grant
-            .signing_digest()
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
+        self.evm_assertion = Some(Zeroizing::new(assertion.to_owned()));
+        Ok(())
+    }
+
+    pub fn with_public_wallet(
+        mut self,
+        owner: &str,
+        assertion: &str,
+    ) -> Result<Self, AttestorError> {
+        self.set_evm_assertion(assertion)?;
+        let (key_id, address) =
+            self.client
+                .public_wallet_key(&self.key_id, &self.public_key, owner, assertion)?;
+        self.evm_key_id = key_id;
+        self.evm_address = address;
+        Ok(self)
+    }
+
+    #[must_use]
+    pub const fn evm_address(&self) -> [u8; 20] {
+        self.evm_address
+    }
+
+    pub fn sign_evm_transaction(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+    ) -> Result<[u8; 65], AttestorError> {
+        self.sign_evm_transaction_bounded(unsigned, chain_id, None)
+    }
+    /// Signs the exact transaction within the smaller of the caller's remaining budget
+    /// and the configured attestor timeout, preserving the same quorum and key checks.
+    pub fn sign_evm_transaction_bounded(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+        budget: Option<Duration>,
+    ) -> Result<[u8; 65], AttestorError> {
+        if budget.is_some_and(|budget| budget.is_zero()) {
+            return Err(AttestorError::Timeout {
+                node: self.key_id.clone(),
+            });
+        }
+        if !valid_identifier(&self.evm_key_id) {
+            return Err(AttestorError::Configuration("EVM key id"));
+        }
+        let assertion = self
+            .evm_assertion
+            .as_ref()
+            .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
+        self.sign_evm_transaction_with_assertion(
+            unsigned,
+            chain_id,
+            assertion,
+            &session_id("evm")?,
+            budget,
+        )
+        .map(|signed| signed.signature)
+    }
+
+    fn sign_evm_transaction_with_assertion(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+        assertion: &str,
+        session: &str,
+        budget: Option<Duration>,
+    ) -> Result<AttestorCallSignature, AttestorError> {
+        self.sign_evm_transaction_for_key(
+            unsigned,
+            chain_id,
+            assertion,
+            session,
+            budget,
+            &self.evm_key_id,
+            self.evm_address,
+        )
+    }
+    fn sign_evm_transaction_for_key(
+        &self,
+        unsigned: &[u8],
+        chain_id: u64,
+        assertion: &str,
+        session: &str,
+        budget: Option<Duration>,
+        key_id: &str,
+        address: [u8; 20],
+    ) -> Result<AttestorCallSignature, AttestorError> {
+        if !valid_identifier(&key_id) {
+            return Err(AttestorError::Configuration("EVM key id"));
+        }
+        let _session = self
+            .session
+            .lock()
+            .map_err(|_| AttestorError::Configuration("signing session lock"))?;
+        let (digest, transaction) = evm_transaction(unsigned, chain_id)?;
         let body = Zeroizing::new(
             serde_json::to_vec(&serde_json::json!({
-                "session_id": session_id,
-                "key_id": self.key_id,
-                "kind": "lx_grant",
-                "clock_profile": "native-v3-ms",
+                "session_id": session,
+                "key_id": key_id,
+                "kind": "evm_tx",
                 "signers": self.signers,
-                "grant": {
-                    "from": encode_hex(&grant.from),
-                    "recipient": encode_hex(&grant.recipient),
-                    "asset": encode_hex(&grant.asset),
-                    "per_draw_maximum": grant.per_draw_maximum.to_string(),
-                    "allowance": grant.allowance.to_string(),
-                    "recurring": grant.recurring,
-                    "window_length": grant.window_length,
-                    "expiration": grant.expiration,
-                    "purpose_hash": encode_hex(&grant.purpose_hash),
-                    "has_reference": grant.has_reference,
-                    "reference_hash": encode_hex(&grant.reference_hash),
-                    "revocation_sequence": grant.revocation_sequence,
-                }
+                "transaction": encode_hex(&transaction),
             }))
-            .map_err(|_| AttestorError::Configuration("payment grant request"))?,
+            .map_err(|_| AttestorError::Configuration("EVM sign request"))?,
         );
-        let results = self
-            .client
-            .post_all(&self.signers, PATH_SIGN, &body, Some(assertion));
         let mut signature = None;
         let mut audit = BTreeMap::new();
-        for (node, result) in results {
+        for (node, result) in
+            self.client
+                .post_all_bounded(&self.signers, PATH_SIGN, &body, Some(assertion), budget)
+        {
             let raw = result?;
             let response: SignResponseBody =
                 serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
+            let returned =
+                decode_fixed::<65>(&response.signature).ok_or_else(|| malformed(&node))?;
             if response.node_id != node
-                || response.key_id != self.key_id
-                || response.kind != "lx_grant"
-                || response.recovery_id.is_some()
+                || response.key_id != key_id
+                || response.kind != "evm_tx"
+                || response.recovery_id != Some(returned[64])
+                || returned[64] > 1
+                || decode_fixed::<32>(&response.signed_bytes) != Some(digest)
             {
                 return Err(malformed(&node));
             }
-            let signed =
-                decode_fixed::<32>(&response.signed_bytes).ok_or_else(|| malformed(&node))?;
-            if !layerx_crypto::ct::eq_fixed(&signed, &digest) {
+            let invalid = || AttestorError::SignatureInvalid { node: node.clone() };
+            let compact =
+                k256::ecdsa::Signature::from_slice(&returned[..64]).map_err(|_| invalid())?;
+            if compact.normalize_s().is_some() {
+                return Err(invalid());
+            }
+            let recovery = k256::ecdsa::RecoveryId::from_byte(returned[64]).ok_or_else(invalid)?;
+            let recovered =
+                k256::ecdsa::VerifyingKey::recover_from_prehash(&digest, &compact, recovery)
+                    .map_err(|_| invalid())?;
+            let point = recovered.to_encoded_point(false);
+            if sha3::Keccak256::digest(&point.as_bytes()[1..])[12..] != address {
+                return Err(invalid());
+            }
+            if signature.is_some_and(|agreed| agreed != returned) {
                 return Err(malformed(&node));
             }
-            let returned =
-                decode_fixed::<64>(&response.signature).ok_or_else(|| malformed(&node))?;
-            layerx_crypto::ed25519::verify_digest(&self.public_key, &returned, &digest)
-                .map_err(|_| AttestorError::SignatureInvalid { node: node.clone() })?;
-            signature.get_or_insert(returned);
+            signature = Some(returned);
             audit.insert(node, response.audit_sequence);
+        }
+        if audit.len() < MIN_SIGNERS {
+            return Err(AttestorError::Configuration("signing quorum"));
         }
         let signature = signature.ok_or(AttestorError::Configuration("signing quorum"))?;
         let mut recorded = self.recorded();
@@ -671,13 +804,16 @@ impl AttestorSigner {
                 return Err(malformed(node));
             }
         }
-        recorded.extend(audit);
-        let mut signed = grant.clone();
-        signed.id = digest;
-        signed.signature = signature;
-        Payment::IssueGrant(signed)
-            .encode(b"")
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))
+        recorded.extend(
+            audit
+                .iter()
+                .map(|(node, sequence)| (node.clone(), *sequence)),
+        );
+        Ok(AttestorCallSignature {
+            signature,
+            digest,
+            audit,
+        })
     }
 
     /// Binds a client to one attestor-held Ed25519 key, its expected group key, the signing
@@ -715,10 +851,16 @@ impl AttestorSigner {
             client,
             key_id: key_id.to_owned(),
             public_key,
+            evm_key_id: String::new(),
+            evm_address: [0; 20],
+            evm_assertion: None,
             signers: distinct.into_iter().map(str::to_owned).collect(),
             network,
             audit: Mutex::new(BTreeMap::new()),
             native_replays: Mutex::new(BTreeMap::new()),
+            session: Mutex::new(()),
+            native_journal: None,
+            native_clock: None,
         })
     }
 
@@ -742,327 +884,104 @@ impl AttestorSigner {
         self.recorded().clone()
     }
 
-    /// Signs one disclosed activity preimage through the attestor quorum with the user's
-    /// assertion, after proving the disclosure describes exactly these canonical bytes.
-    ///
-    /// # Errors
-    /// Refuses a mismatched disclosure or foreign network before any request is sent, any
-    /// quorum refusal, transport and authentication failures, a response for other bytes, a
-    /// signature that fails the crate's verifier and an audit sequence that does not advance.
+    /// Signs a disclosure-bound EIP-1559 ledger call through the attestor quorum.
     pub fn sign_activity(
         &self,
-        canonical: &[u8],
+        call: &Eip1559Call,
         disclosure: &Disclosure,
-        registry: &ModuleRegistry,
+        from: [u8; 20],
         approval: &Approval<'_>,
         assertion: &str,
-    ) -> Result<AttestorSignature, AttestorError> {
-        self.sign_activity_with_clock(canonical, disclosure, registry, approval, assertion, false)
+    ) -> Result<AttestorCallSignature, AttestorError> {
+        self.sign_activity_with_clock(call, disclosure, from, approval, assertion, false)
     }
 
     fn sign_activity_with_clock(
         &self,
-        canonical: &[u8],
+        call: &Eip1559Call,
         disclosure: &Disclosure,
-        registry: &ModuleRegistry,
+        from: [u8; 20],
         approval: &Approval<'_>,
         assertion: &str,
         native_clock: bool,
-    ) -> Result<AttestorSignature, AttestorError> {
-        validate_disclosure(canonical, disclosure, registry)?;
-        let activity = layerx_intents::canonical::decode_unsigned_activity(canonical, registry)
-            .map_err(|_| AttestorError::Disclosure(SignError::InvalidDisclosure))?;
-        if activity.network_id() != self.network {
+    ) -> Result<AttestorCallSignature, AttestorError> {
+        validate_disclosure(call, disclosure, from)?;
+        let Some(ConstructMethod::LedgerSend { payload }) = disclosure
+            .construct_method()
+            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?
+        else {
+            return Err(AttestorError::Disclosure(SignError::InvalidDisclosure));
+        };
+        // bind_call has validated the payload, including its trailing network and version.
+        let scope = &payload[payload.len() - 6..];
+        let network = u32::from_be_bytes(scope[..4].try_into().map_err(|_| native_invalid())?);
+        let version = u16::from_be_bytes(scope[4..].try_into().map_err(|_| native_invalid())?);
+        if network != self.network {
             return Err(AttestorError::WrongNetwork {
                 expected: self.network,
-                actual: activity.network_id(),
+                actual: network,
             });
+        }
+        let chain = u32::try_from(call.chain_id)
+            .map_err(|_| AttestorError::Configuration("EVM chain id"))?;
+        if chain != self.network {
+            return Err(AttestorError::WrongNetwork {
+                expected: self.network,
+                actual: chain,
+            });
+        }
+        let (key_id, address) = if self.evm_address == [0; 20] {
+            self.client.public_wallet_key(
+                &self.key_id,
+                &self.public_key,
+                approval.principal,
+                assertion,
+            )?
+        } else {
+            (self.evm_key_id.clone(), self.evm_address)
+        };
+        if from != address {
+            return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
+                "from",
+            )));
         }
         if assertion.is_empty() {
             return Err(AttestorError::Configuration("user assertion"));
         }
-        let approved = project(disclosure)?;
-        approval.check(disclosure.expiry.not_after)?;
-        let digest = preimage(canonical);
-        if native_clock {
-            self.request_signature_with_clock(
-                KIND_ACTIVITY,
-                canonical,
-                digest,
-                &approved,
-                approval,
-                activity.protocol_version(),
-                assertion,
-                true,
-            )
-        } else {
-            self.request_signature(
-                KIND_ACTIVITY,
-                canonical,
-                digest,
-                &approved,
-                approval,
-                activity.protocol_version(),
-                assertion,
-            )
-        }
-    }
-
-    /// Signs an asset send with the attestor-held owner key: the quorum first signs the owner
-    /// authorization digest of the unsigned send under `lx_send_authorization`, the signature
-    /// is embedded in the send payload, and the completed send envelope is then signed as
-    /// `lx_activity`. Each request carries its own assertion from `assertion`.
-    ///
-    /// # Errors
-    /// Refuses a debit or envelope on another network, an envelope authority that is not the
-    /// held key, a non-owner authorization kind, any quorum refusal with its refusal code, a
-    /// returned signature that does not verify over the authorization digest and every
-    /// `sign_activity` refusal.
-    pub fn sign_send(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        assertion: impl FnMut() -> Result<String, AttestorError>,
-    ) -> Result<SignedSend, AttestorError> {
-        self.sign_send_with_clock(debit, options, approval, assertion, false)
-    }
-
-    pub fn sign_native_send(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        assertion: impl FnMut() -> Result<String, AttestorError>,
-    ) -> Result<SignedSend, AttestorError> {
-        if debit.protocol_version != 3
-            || options.protocol_version != 3
-            || approval
-                .expires_at
-                .checked_mul(1000)
-                .is_none_or(|expiry| expiry > options.not_after)
-        {
-            return Err(AttestorError::Configuration("native send clock binding"));
-        }
-        self.sign_send_with_clock(debit, options, approval, assertion, true)
-    }
-
-    fn sign_send_with_clock(
-        &self,
-        debit: &SendDebit,
-        options: &EnvelopeOptions<'_>,
-        approval: &SendApproval<'_>,
-        mut assertion: impl FnMut() -> Result<String, AttestorError>,
-        native_clock: bool,
-    ) -> Result<SignedSend, AttestorError> {
-        if debit.network_id != self.network {
-            return Err(AttestorError::WrongNetwork {
-                expected: self.network,
-                actual: debit.network_id,
-            });
-        }
-        if options.network_id != self.network {
-            return Err(AttestorError::WrongNetwork {
-                expected: self.network,
-                actual: options.network_id,
-            });
-        }
-        if debit.authorization_kind != OWNER_AUTHORIZATION
-            || options.public_key != self.public_key
-            || debit.protocol_version != options.protocol_version
-            || debit.idempotency_key != options.idempotency_key
-        {
-            return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-                "send_authorization",
-            )));
-        }
-        let message = debit
-            .authorization_message()
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        let digest = layerx_crypto::SignatureMessage::new(
-            Domain::SignaturePreimage,
-            debit.protocol_version,
-            debit.network_id,
-            &message,
-        )
-        .map_err(|_| AttestorError::Disclosure(SignError::InvalidDisclosure))?
-        .digest();
-        let placeholder = placeholder_envelope(&message, options)?;
-        // Stage one discloses the approved debit itself, never a decoding of the placeholder.
-        let approved = disclosure_wire(
-            debit.from,
-            "asset",
-            5,
-            vec![(debit.asset, debit.amount)],
-            vec![debit.to],
-            options.identity_sequence,
-            options.not_before,
-            options.not_after,
-        );
-        if approval.authorization_session == approval.activity_session {
-            return Err(AttestorError::Configuration("send approval sessions"));
-        }
-        let authorization_approval = Approval {
-            principal: approval.principal,
-            session_id: approval.authorization_session,
-            expires_at: approval.expires_at,
-        };
-        authorization_approval.check(options.not_after)?;
-        let first = assertion()?;
-        if first.is_empty() {
-            return Err(AttestorError::Configuration("user assertion"));
-        }
-        let authorization = self.request_signature_with_clock(
-            KIND_SEND_AUTHORIZATION,
-            &placeholder,
-            digest,
-            &approved,
-            &authorization_approval,
-            debit.protocol_version,
-            &first,
-            native_clock,
-        )?;
-        let payload = debit
-            .encode_signed(self.public_key, *authorization.signature())
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        let envelope = encode_send_envelope(&payload, options)
-            .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-        if project(&envelope.disclosure)? != approved {
-            return Err(AttestorError::Disclosure(SignError::DisclosureMismatch(
-                "send_semantics",
-            )));
-        }
-        let second = assertion()?;
-        let activity = self.sign_activity_with_clock(
-            &envelope.canonical,
-            &envelope.disclosure,
-            &envelope.registry,
-            &Approval {
-                principal: approval.principal,
-                session_id: approval.activity_session,
-                expires_at: approval.expires_at,
-            },
-            &second,
-            native_clock,
-        )?;
-        Ok(SignedSend {
-            payload,
-            canonical: envelope.canonical,
-            disclosure: envelope.disclosure,
-            authorization,
-            activity,
-        })
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn request_signature(
-        &self,
-        kind: &str,
-        canonical: &[u8],
-        digest: [u8; 32],
-        disclosure: &DisclosureWire,
-        approval: &Approval<'_>,
-        protocol_version: u16,
-        assertion: &str,
-    ) -> Result<AttestorSignature, AttestorError> {
-        self.request_signature_with_clock(
-            kind,
-            canonical,
-            digest,
-            disclosure,
-            approval,
-            protocol_version,
-            assertion,
-            false,
-        )
-    }
-
-    fn request_signature_with_clock(
-        &self,
-        kind: &str,
-        canonical: &[u8],
-        digest: [u8; 32],
-        disclosure: &DisclosureWire,
-        approval: &Approval<'_>,
-        protocol_version: u16,
-        assertion: &str,
-        native_clock: bool,
-    ) -> Result<AttestorSignature, AttestorError> {
-        if native_clock && protocol_version != 3 {
+        if native_clock && version != 3 {
             return Err(AttestorError::Configuration("native signing clock binding"));
         }
-        let activity_hex = encode_hex(canonical);
-        let body = Zeroizing::new(
-            serde_json::to_vec(&SignBody {
-                session_id: approval.session_id,
-                key_id: &self.key_id,
-                kind,
-                clock_profile: native_clock.then_some("native-v3-ms"),
-                signers: &self.signers,
-                activity: &activity_hex,
-                disclosure,
-                approval: ApprovalWire {
-                    version: APPROVAL_VERSION,
-                    principal: approval.principal,
-                    key_id: &self.key_id,
-                    network_id: self.network,
-                    protocol_version,
-                    session_id: approval.session_id,
-                    activity_digest: encode_hex(&digest),
-                    expires_at: approval.expires_at.to_string(),
-                },
-            })
-            .map_err(|_| AttestorError::Configuration("sign request"))?,
-        );
-        let results = self
-            .client
-            .post_all(&self.signers, PATH_SIGN, &body, Some(assertion));
-        let mut signature = None;
-        let mut audit = BTreeMap::new();
-        for (node, result) in results {
-            let raw = result?;
-            let response: SignResponseBody =
-                serde_json::from_slice(&raw).map_err(|_| malformed(&node))?;
-            if response.node_id != node
-                || response.key_id != self.key_id
-                || response.kind != kind
-                || response.recovery_id.is_some()
-            {
-                return Err(malformed(&node));
+        approval.check(
+            disclosure
+                .expiry
+                .not_after
+                .min(disclosure.expiry.payload_expires_at),
+        )?;
+        let signer = AttestorTransactionSigner {
+            signer: self,
+            key_id: &key_id,
+            address,
+            assertion,
+            session: approval.session_id,
+            result: Mutex::new(None),
+        };
+        let mut future =
+            layerx_crypto::signer::sign_disclosed_call(&signer, call, disclosure, from);
+        let mut context = std::task::Context::from_waker(std::task::Waker::noop());
+        let signature = match future.as_mut().poll(&mut context) {
+            std::task::Poll::Ready(result) => result,
+            std::task::Poll::Pending => {
+                return Err(AttestorError::Configuration("synchronous attestor signer"));
             }
-            let signed =
-                decode_fixed::<32>(&response.signed_bytes).ok_or_else(|| malformed(&node))?;
-            if !layerx_crypto::ct::eq_fixed(&signed, &digest) {
-                return Err(malformed(&node));
-            }
-            let returned =
-                decode_fixed::<64>(&response.signature).ok_or_else(|| malformed(&node))?;
-            layerx_crypto::ed25519::verify_digest(&self.public_key, &returned, &digest)
-                .map_err(|_| AttestorError::SignatureInvalid { node: node.clone() })?;
-            signature.get_or_insert(returned);
-            audit.insert(node, response.audit_sequence);
-        }
-        let signature = signature.ok_or(AttestorError::Configuration("signing quorum"))?;
-        let mut recorded = self.recorded();
-        for (node, sequence) in &audit {
-            if recorded
-                .get(node)
-                .is_some_and(|previous| sequence <= previous)
-                || *sequence == 0
-            {
-                return Err(malformed(node));
-            }
-        }
-        recorded.extend(
-            audit
-                .iter()
-                .map(|(node, sequence)| (node.clone(), *sequence)),
-        );
-        Ok(AttestorSignature {
-            signature,
-            digest,
-            audit,
-        })
+        };
+        drop(future);
+        let result = signer
+            .result
+            .into_inner()
+            .map_err(|_| AttestorError::Configuration("signing result lock"))?;
+        let mut signed = result.ok_or(AttestorError::Configuration("missing signing result"))??;
+        signed.signature = *signature.map_err(AttestorError::Disclosure)?.as_bytes();
+        Ok(signed)
     }
 
     pub fn sign_native_preparation_purpose(
@@ -1079,6 +998,7 @@ impl AttestorSigner {
         if &decoded != purpose {
             return Err(native_invalid());
         }
+        let purpose_expiry = purpose.expires_at_ms;
         let purpose = encode_hex(&canonical);
         self.request_native_signature(
             NativeSignBody {
@@ -1087,29 +1007,39 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "preparation-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
                 expiry_ms: None,
             },
             Sha256::digest(&canonical).into(),
+            purpose_expiry,
             assertion,
         )
     }
 
     pub fn sign_native_send_purpose(
         &self,
-        purpose: &layerx_agent_api::identity::NativeSendPurposeV1,
+        purpose: &layerx_agent_api::identity::NativeSendPurposeV2,
         session_id: &str,
         assertion: &str,
     ) -> Result<AttestorSignature, AttestorError> {
         let canonical = purpose.canonical_bytes().map_err(|_| native_invalid())?;
         let decoded =
-            layerx_agent_api::identity::NativeSendPurposeV1::from_canonical_bytes(&canonical)
+            layerx_agent_api::identity::NativeSendPurposeV2::from_canonical_bytes(&canonical)
                 .map_err(|_| native_invalid())?;
-        if &decoded != purpose || purpose.owner_public_key != self.public_key {
+        if &decoded != purpose || purpose.consent_public_key != self.public_key {
             return Err(native_invalid());
         }
+        let owner = assertion_claims(assertion)?.subject;
+        let (_, sender) =
+            self.client
+                .public_wallet_key(&self.key_id, &self.public_key, &owner, assertion)?;
+        if purpose.evm_sender != sender {
+            return Err(native_invalid());
+        }
+        let purpose_expiry = purpose.expires_at_ms;
         let purpose = encode_hex(&canonical);
         self.request_native_signature(
             NativeSignBody {
@@ -1118,12 +1048,14 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "send-purpose",
                 signers: &self.signers,
+                grant: None,
                 purpose: Some(&purpose),
                 capability: None,
                 native_session: None,
                 expiry_ms: None,
             },
             Sha256::digest(&canonical).into(),
+            purpose_expiry,
             assertion,
         )
     }
@@ -1149,24 +1081,109 @@ impl AttestorSigner {
                 key_id: &self.key_id,
                 operation: "local-grant-consent",
                 signers: &self.signers,
+                grant: None,
                 purpose: None,
                 capability: Some(&capability),
                 native_session: Some(&native_session),
                 expiry_ms: Some(&expiry),
             },
             Sha256::digest(&canonical).into(),
+            grant.expires_at_ms,
             assertion,
         )
+    }
+
+    pub fn sign_ledger_grant(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+        session_id: &str,
+        assertion: &str,
+    ) -> Result<AttestorSignature, AttestorError> {
+        if grant.public_key != self.public_key || grant.signature != [0; 64] {
+            return Err(native_invalid());
+        }
+        let digest = grant.signing_digest().map_err(|_| native_invalid())?;
+        let canonical = [
+            grant.id.as_slice(),
+            grant.from.as_slice(),
+            grant.recipient.as_slice(),
+            grant.asset.as_slice(),
+            &grant.per_draw_maximum.to_be_bytes(),
+            &grant.allowance.to_be_bytes(),
+            &[u8::from(grant.recurring)],
+            &grant.window_length.to_be_bytes(),
+            &grant.expiration.to_be_bytes(),
+            &grant.purpose_hash,
+            &[u8::from(grant.has_reference)],
+            &grant.reference_hash,
+            &grant.revocation_sequence.to_be_bytes(),
+            &grant.public_key,
+            &grant.signature,
+        ]
+        .concat();
+        let expiry = grant.expiration;
+        let grant = encode_hex(&canonical);
+        self.request_native_signature(
+            NativeSignBody {
+                profile: 2,
+                session_id,
+                key_id: &self.key_id,
+                operation: "ledger-issue-grant",
+                signers: &self.signers,
+                grant: Some(&grant),
+                purpose: None,
+                capability: None,
+                native_session: None,
+                expiry_ms: None,
+            },
+            digest,
+            expiry,
+            assertion,
+        )
+    }
+
+    pub fn sign_ledger_grant_with_stored_assertion(
+        &self,
+        grant: &layerx_crypto::payments::Grant,
+    ) -> Result<AttestorSignature, AttestorError> {
+        let assertion = self
+            .evm_assertion
+            .as_ref()
+            .ok_or(AttestorError::Configuration("EVM owner assertion"))?;
+        self.sign_ledger_grant(grant, &session_id("ledger-grant")?, assertion)
     }
 
     fn request_native_signature(
         &self,
         body: NativeSignBody<'_>,
         digest: [u8; 32],
+        expires_at_ms: u64,
         assertion: &str,
     ) -> Result<AttestorSignature, AttestorError> {
         if !valid_identifier(body.session_id) || assertion.is_empty() {
             return Err(AttestorError::Configuration("native assertion/session"));
+        }
+        let _session = self
+            .session
+            .lock()
+            .map_err(|_| AttestorError::Configuration("signing session lock"))?;
+        let runtime;
+        let clock = if let Some(clock) = &self.native_clock {
+            clock.as_ref()
+        } else {
+            runtime = layerx_client::runtime_clock::RuntimeClock::from_environment()
+                .map_err(|_| AttestorError::Configuration("native replay clock"))?;
+            runtime.as_ref()
+        };
+        let now = clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| AttestorError::Configuration("native replay clock"))?
+            .unix_seconds();
+        let claims = assertion_claims(assertion)?;
+        claims.check(now)?;
+        let retain_until = claims.retain_until(expires_at_ms);
+        if now >= retain_until {
+            return Err(assertion_expired());
         }
         let bytes = Zeroizing::new(
             serde_json::to_vec(&body)
@@ -1177,14 +1194,38 @@ impl AttestorSigner {
             .native_replays
             .lock()
             .map_err(|_| AttestorError::Configuration("native replay lock"))?;
-        let previous = replays.get(body.session_id).cloned();
+        let mut staged = replays.clone();
+        staged.retain(|_, record| record.retain_until > now);
+        let previous = staged.get(body.session_id).cloned();
         if previous
             .as_ref()
             .is_some_and(|record| record.request_digest != request_digest)
-            || (previous.is_none() && replays.len() >= 512)
         {
             return Err(native_invalid());
         }
+        // Without a local journal, the native-v2 attestor's durable key/session request binding
+        // is authoritative. This cache only recognizes recent exact replies; evicted stale
+        // replies remain refused by the monotonic audit check below.
+        if previous.is_none() && self.native_journal.is_none() && staged.len() >= 512 {
+            let oldest = staged
+                .iter()
+                .min_by_key(|(_, record)| record.audit.values().copied().min().unwrap_or(0))
+                .map(|(key, _)| key.clone());
+            if let Some(oldest) = oldest {
+                staged.remove(&oldest);
+            }
+        }
+        staged
+            .entry(body.session_id.to_owned())
+            .or_insert_with(|| NativeReplay {
+                request_digest,
+                signature: Vec::new(),
+                digest,
+                audit: BTreeMap::new(),
+                retain_until,
+            });
+        self.persist_native(&staged)?;
+        *replays = staged;
         let results =
             self.client
                 .post_all(&self.signers, PATH_SIGN_NATIVE, &bytes, Some(assertion));
@@ -1244,11 +1285,13 @@ impl AttestorSigner {
             body.session_id.to_owned(),
             NativeReplay {
                 request_digest,
-                signature,
+                signature: signature.to_vec(),
                 digest,
                 audit: audit.clone(),
+                retain_until,
             },
         );
+        self.persist_native(&replays)?;
         Ok(AttestorSignature {
             signature,
             digest,
@@ -1256,6 +1299,148 @@ impl AttestorSigner {
         })
     }
 
+    /// Retains native-v2 key/session bindings through restart until the earlier of the
+    /// consent expiry and the owner assertion's one-hour authorization horizon. The
+    /// protected journal is byte bounded; capacity is refused before contacting attestors.
+    pub fn with_native_replay_journal(
+        mut self,
+        path: PathBuf,
+        clock: std::sync::Arc<dyn layerx_types::clock::Clock>,
+    ) -> Result<Self, AttestorError> {
+        use std::os::unix::fs::OpenOptionsExt;
+        if !path.is_absolute() {
+            return Err(AttestorError::Configuration("native journal path"));
+        }
+        let lock = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(path.with_extension("lock"))
+            .map_err(|_| AttestorError::Configuration("native journal lock"))?;
+        use std::os::unix::fs::MetadataExt;
+        let metadata = lock
+            .metadata()
+            .map_err(|_| AttestorError::Configuration("native journal metadata"))?;
+        if !metadata.is_file()
+            || metadata.uid() != rustix::process::geteuid().as_raw()
+            || metadata.mode() & 0o077 != 0
+        {
+            return Err(AttestorError::Configuration("native journal ownership"));
+        }
+        lock.try_lock()
+            .map_err(|_| AttestorError::Configuration("native journal already owned"))?;
+        let records = if path
+            .try_exists()
+            .map_err(|_| AttestorError::Configuration("native journal lookup"))?
+        {
+            let bytes = crate::config::protected(&path, NATIVE_JOURNAL_BYTES, true)
+                .map_err(|_| AttestorError::Configuration("native journal source"))?;
+            let journal: NativeJournalData = serde_json::from_slice(&bytes)
+                .map_err(|_| AttestorError::Configuration("native journal encoding"))?;
+            if journal.key_id != self.key_id
+                || journal.public_key != self.public_key
+                || journal.network != self.network
+                || journal.signers != self.signers
+            {
+                return Err(AttestorError::Configuration("native journal key binding"));
+            }
+            journal.records
+        } else {
+            BTreeMap::new()
+        };
+        let now = clock
+            .sample(Duration::from_secs(1))
+            .map_err(|_| AttestorError::Configuration("native replay clock"))?
+            .unix_seconds();
+        let mut records = records;
+        records.retain(|_, record| record.retain_until > now);
+        for record in records.values() {
+            if !record.signature.is_empty() && record.signature.len() != 64 {
+                return Err(native_invalid());
+            }
+            if !record.signature.is_empty() {
+                let signature: [u8; 64] = record
+                    .signature
+                    .as_slice()
+                    .try_into()
+                    .map_err(|_| native_invalid())?;
+                layerx_crypto::ed25519::verify_digest(&self.public_key, &signature, &record.digest)
+                    .map_err(|_| native_invalid())?;
+                if record.audit.len() != self.signers.len()
+                    || record
+                        .audit
+                        .iter()
+                        .any(|(node, sequence)| *sequence == 0 || !self.signers.contains(node))
+                {
+                    return Err(native_invalid());
+                }
+            }
+            for (node, sequence) in &record.audit {
+                let mut audit = self.recorded();
+                let value = audit.entry(node.clone()).or_default();
+                *value = (*value).max(*sequence);
+            }
+        }
+        self.native_replays = Mutex::new(records);
+        self.native_clock = Some(clock);
+        self.native_journal = Some(NativeJournal { path, _lock: lock });
+        {
+            let replays = self.native_replays.lock().map_err(|_| native_invalid())?;
+            self.persist_native(&replays)?;
+        }
+        Ok(self)
+    }
+    fn persist_native(
+        &self,
+        records: &BTreeMap<String, NativeReplay>,
+    ) -> Result<(), AttestorError> {
+        use std::io::Write;
+        use std::os::unix::fs::OpenOptionsExt;
+        let Some(journal) = &self.native_journal else {
+            return Ok(());
+        };
+        let data = NativeJournalData {
+            key_id: self.key_id.clone(),
+            public_key: self.public_key,
+            network: self.network,
+            signers: self.signers.clone(),
+            records: records.clone(),
+        };
+        let bytes = Zeroizing::new(serde_json::to_vec(&data).map_err(|_| native_invalid())?);
+        let reserved = records
+            .values()
+            .filter(|record| record.signature.is_empty())
+            .count()
+            .saturating_mul(2048);
+        if bytes.len().saturating_add(reserved) > NATIVE_JOURNAL_BYTES {
+            return Err(AttestorError::Configuration("native journal capacity"));
+        }
+        let temp = journal.path.with_extension("next");
+        let mut file = std::fs::OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(true)
+            .mode(0o600)
+            .custom_flags(rustix::fs::OFlags::NOFOLLOW.bits() as i32)
+            .open(&temp)
+            .map_err(|_| AttestorError::Configuration("native journal write"))?;
+        file.write_all(&bytes)
+            .and_then(|()| file.sync_all())
+            .map_err(|_| AttestorError::Configuration("native journal sync"))?;
+        std::fs::rename(temp, &journal.path)
+            .and_then(|()| {
+                std::fs::File::open(
+                    journal
+                        .path
+                        .parent()
+                        .ok_or_else(|| std::io::Error::other("journal parent"))?,
+                )
+                .and_then(|file| file.sync_all())
+            })
+            .map_err(|_| AttestorError::Configuration("native journal publish"))
+    }
     fn recorded(&self) -> MutexGuard<'_, BTreeMap<String, u64>> {
         match self.audit.lock() {
             Ok(guard) => guard,
@@ -1265,14 +1450,14 @@ impl AttestorSigner {
 }
 
 fn validate_disclosure(
-    canonical: &[u8],
+    call: &Eip1559Call,
     disclosure: &Disclosure,
-    registry: &ModuleRegistry,
+    from: [u8; 20],
 ) -> Result<(), AttestorError> {
     let refuse =
         |field: &'static str| AttestorError::Disclosure(SignError::DisclosureMismatch(field));
-    let actual = bind(canonical, registry)
-        .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
+    let actual =
+        bind_call(call, from).map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
     macro_rules! require_field {
         ($($field:ident),+) => {
             $(if disclosure.$field != actual.$field {
@@ -1298,79 +1483,101 @@ fn validate_disclosure(
         onboarding,
         native_operation
     );
-    let reencoded = disclosure
-        .reencode()
-        .map_err(|error| AttestorError::Disclosure(SignError::from(error)))?;
-    if !layerx_crypto::ct::eq(&reencoded, canonical) || *disclosure != actual {
+    if *disclosure != actual {
         return Err(refuse("canonical_bytes"));
     }
     Ok(())
 }
 
-const OWNER_AUTHORIZATION: u8 = 1;
-const SEND_FIELD_COUNT: [u8; 2] = [0x00, 0x0a];
-const SEND_MESSAGE_TAIL: usize = 32 + 4 + 2;
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct AttestorCallSignature {
+    signature: [u8; 65],
+    digest: [u8; 32],
+    audit: BTreeMap<String, u64>,
+}
 
-/// Builds the unsigned send envelope the attestors authorize: the send payload carries the
-/// envelope authority as its key and 64 zero signature bytes, in the kernel send layout.
-fn placeholder_envelope(
-    message: &[u8],
-    options: &EnvelopeOptions<'_>,
-) -> Result<Vec<u8>, AttestorError> {
-    use layerx_types::activity::{Authority, EnvelopeBuilder, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, Payload};
-    fn bad<E>(_: E) -> AttestorError {
-        AttestorError::Disclosure(SignError::InvalidDisclosure)
+impl AttestorCallSignature {
+    #[must_use]
+    pub const fn signature(&self) -> &[u8; 65] {
+        &self.signature
     }
-    if message.len() < 2 + SEND_MESSAGE_TAIL {
-        return Err(AttestorError::Disclosure(SignError::InvalidDisclosure));
+
+    #[must_use]
+    pub const fn digest(&self) -> &[u8; 32] {
+        &self.digest
     }
-    let split = message.len() - SEND_MESSAGE_TAIL;
-    let mut payload = Vec::with_capacity(message.len() + 2 + 32 + 64);
-    payload.extend_from_slice(&message[..2]);
-    payload.extend_from_slice(&SEND_FIELD_COUNT);
-    payload.extend_from_slice(&message[2..split]);
-    payload.extend_from_slice(&options.public_key);
-    payload.extend_from_slice(&[0_u8; 64]);
-    payload.extend_from_slice(&message[split..]);
-    let kind = ActivityType::new(ModuleId::Asset, 5).map_err(bad)?;
-    let registry =
-        ModuleRegistry::new(&[ModuleRegistration::new(ModuleId::Asset, &[kind]).map_err(bad)?])
-            .map_err(bad)?;
-    let mut hash = Sha256::new();
-    hash.update(Domain::PayloadHash.tag());
-    hash.update(&payload);
-    let mut builder = EnvelopeBuilder::new();
-    builder
-        .protocol_version(options.protocol_version)
-        .map_err(bad)?;
-    builder.network_id(options.network_id).map_err(bad)?;
-    builder.activity_type(kind).map_err(bad)?;
-    builder
-        .actor_did(Did::new(options.actor.as_bytes()).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .authority(Authority::owner(&options.public_key).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .account_sequence(options.identity_sequence)
-        .map_err(bad)?;
-    builder
-        .timestamp_bound(TimestampBound::new(options.not_before, options.not_after).map_err(bad)?)
-        .map_err(bad)?;
-    builder
-        .idempotency_key(IdempotencyKey::new(options.idempotency_key))
-        .map_err(bad)?;
-    builder
-        .fee_limit(Amount::from_u128(options.fee_limit))
-        .map_err(bad)?;
-    builder.payload_hash(hash.finalize().into()).map_err(bad)?;
-    builder
-        .payload(Payload::new(&registry, kind, &payload).map_err(bad)?)
-        .map_err(bad)?;
-    layerx_intents::canonical::unsigned_envelope_bytes(&builder.build().map_err(bad)?).map_err(bad)
+
+    #[must_use]
+    pub const fn audit(&self) -> &BTreeMap<String, u64> {
+        &self.audit
+    }
+}
+
+struct AttestorTransactionSigner<'a> {
+    signer: &'a AttestorSigner,
+    assertion: &'a str,
+    key_id: &'a str,
+    address: [u8; 20],
+    session: &'a str,
+    result: Mutex<Option<Result<AttestorCallSignature, AttestorError>>>,
+}
+
+impl fmt::Debug for AttestorTransactionSigner<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("AttestorTransactionSigner")
+            .field("signer", self.signer)
+            .finish_non_exhaustive()
+    }
+}
+
+impl layerx_crypto::signer::Signer for AttestorTransactionSigner<'_> {
+    fn public_key(&self) -> [u8; 32] {
+        self.signer.public_key()
+    }
+
+    fn sign<'a>(
+        &'a self,
+        _request: layerx_crypto::signer::SigningRequest<'a>,
+    ) -> layerx_crypto::signer::SignFuture<'a> {
+        // This adapter authorizes EVM transactions only; DID signing uses the native endpoints.
+        Box::pin(std::future::ready(Err(SignError::RemoteRefused)))
+    }
+
+    fn evm_address(&self) -> Option<[u8; 20]> {
+        Some(self.address)
+    }
+
+    fn sign_transaction<'a>(
+        &'a self,
+        call: &'a Eip1559Call,
+    ) -> layerx_crypto::signer::TransactionSignFuture<'a> {
+        Box::pin(async move {
+            let result = self.signer.sign_evm_transaction_for_key(
+                &unsigned_evm_transaction(call),
+                call.chain_id,
+                self.assertion,
+                self.session,
+                None,
+                self.key_id,
+                self.address,
+            );
+            let signature = match &result {
+                Ok(signed) => {
+                    let mut signature = signed.signature;
+                    signature[64] += 27;
+                    layerx_crypto::signer::AgentSignature::new(signature)
+                        .map_err(|_| SignError::ReturnedSignatureInvalid)
+                }
+                Err(_) => Err(SignError::RemoteRefused),
+            };
+            *self
+                .result
+                .lock()
+                .map_err(|_| SignError::RemoteUnavailable)? = Some(result);
+            signature
+        })
+    }
 }
 
 /// Computes the domain-separated activity preimage the attestors sign.
@@ -1380,6 +1587,191 @@ pub fn preimage(canonical: &[u8]) -> [u8; 32] {
     hash.update(PREIMAGE_DOMAIN);
     hash.update(canonical);
     hash.finalize().into()
+}
+
+fn evm_rlp_item(raw: &[u8]) -> Option<(&[u8], usize, bool)> {
+    let prefix = *raw.first()?;
+    if prefix < 0x80 {
+        return Some((&raw[..1], 1, false));
+    }
+    let list = prefix >= 0xc0;
+    let short = if list { 0xc0 } else { 0x80 };
+    let long = short + 55;
+    let (offset, length) = if prefix <= long {
+        (1, usize::from(prefix - short))
+    } else {
+        let count = usize::from(prefix - long);
+        let encoded = raw.get(1..1 + count)?;
+        if encoded.first() == Some(&0) {
+            return None;
+        }
+        let length = encoded.iter().try_fold(0_usize, |length, byte| {
+            length.checked_mul(256)?.checked_add(usize::from(*byte))
+        })?;
+        if length <= 55 {
+            return None;
+        }
+        (1 + count, length)
+    };
+    let end = offset.checked_add(length)?;
+    let payload = raw.get(offset..end)?;
+    if !list && length == 1 && payload[0] < 0x80 {
+        return None;
+    }
+    Some((payload, end, list))
+}
+
+fn evm_rlp_list(payload: &[u8]) -> Vec<u8> {
+    let mut out = Vec::new();
+    if let Ok(length @ 0..=55) = u8::try_from(payload.len()) {
+        out.push(0xc0 + length);
+    } else {
+        let length = payload.len().to_be_bytes();
+        let significant = &length[length.iter().take_while(|byte| **byte == 0).count()..];
+        out.push(0xf7 + significant.iter().fold(0_u8, |count, _| count + 1));
+        out.extend_from_slice(significant);
+    }
+    out.extend_from_slice(payload);
+    out
+}
+
+pub fn unsigned_evm_transaction(call: &Eip1559Call) -> Vec<u8> {
+    fn bytes(value: &[u8], out: &mut Vec<u8>) {
+        if value.len() == 1 && value[0] < 0x80 {
+            out.extend_from_slice(value);
+        } else {
+            let mut encoded = evm_rlp_list(value);
+            encoded[0] -= 0x40;
+            out.extend(encoded);
+        }
+    }
+    fn integer(value: &[u8], out: &mut Vec<u8>) {
+        let start = value
+            .iter()
+            .position(|byte| *byte != 0)
+            .unwrap_or(value.len());
+        bytes(&value[start..], out);
+    }
+    let mut fields = Vec::new();
+    integer(&call.chain_id.to_be_bytes(), &mut fields);
+    integer(&call.nonce.to_be_bytes(), &mut fields);
+    integer(&call.max_priority_fee_per_gas.to_be_bytes(), &mut fields);
+    integer(&call.max_fee_per_gas.to_be_bytes(), &mut fields);
+    integer(&call.gas_limit.to_be_bytes(), &mut fields);
+    bytes(&call.to, &mut fields);
+    fields.push(0x80);
+    bytes(&call.data, &mut fields);
+    fields.push(0xc0);
+    let mut unsigned = vec![2];
+    unsigned.extend(evm_rlp_list(&fields));
+    unsigned
+}
+
+pub fn decode_unsigned_evm_transaction(unsigned: &[u8]) -> Result<Eip1559Call, AttestorError> {
+    let invalid = || AttestorError::Configuration("unsigned EIP-1559 call");
+    if unsigned.first() != Some(&2) || unsigned.len() > 1_048_576 {
+        return Err(invalid());
+    }
+    let (mut fields, length, list) = evm_rlp_item(&unsigned[1..]).ok_or_else(invalid)?;
+    if !list || length != unsigned.len() - 1 {
+        return Err(invalid());
+    }
+    fn take<'a>(fields: &mut &'a [u8]) -> Option<(&'a [u8], bool)> {
+        let (value, length, list) = evm_rlp_item(fields)?;
+        *fields = &fields[length..];
+        Some((value, list))
+    }
+    fn integer<const N: usize>(fields: &mut &[u8]) -> Option<[u8; N]> {
+        let (value, list) = take(fields)?;
+        if list || value.first() == Some(&0) || value.len() > N {
+            return None;
+        }
+        let mut out = [0; N];
+        out[N - value.len()..].copy_from_slice(value);
+        Some(out)
+    }
+    let chain_id = u64::from_be_bytes(integer(&mut fields).ok_or_else(invalid)?);
+    let nonce = u64::from_be_bytes(integer(&mut fields).ok_or_else(invalid)?);
+    let max_priority_fee_per_gas = u128::from_be_bytes(integer(&mut fields).ok_or_else(invalid)?);
+    let max_fee_per_gas = u128::from_be_bytes(integer(&mut fields).ok_or_else(invalid)?);
+    let gas_limit = u64::from_be_bytes(integer(&mut fields).ok_or_else(invalid)?);
+    let (to, list) = take(&mut fields).ok_or_else(invalid)?;
+    if list || integer::<32>(&mut fields) != Some([0; 32]) {
+        return Err(invalid());
+    }
+    let to = to.try_into().map_err(|_| invalid())?;
+    let (data, list) = take(&mut fields).ok_or_else(invalid)?;
+    if list || take(&mut fields) != Some((&[][..], true)) || !fields.is_empty() || chain_id == 0 {
+        return Err(invalid());
+    }
+    let call = Eip1559Call {
+        chain_id,
+        nonce,
+        max_priority_fee_per_gas,
+        max_fee_per_gas,
+        gas_limit,
+        to,
+        data: data.to_vec(),
+    };
+    if unsigned_evm_transaction(&call) != unsigned {
+        return Err(invalid());
+    }
+    Ok(call)
+}
+
+fn evm_transaction(unsigned: &[u8], chain_id: u64) -> Result<([u8; 32], Vec<u8>), AttestorError> {
+    let invalid = || AttestorError::Configuration("unsigned EIP-1559 transaction");
+    if unsigned.first() != Some(&2) || unsigned.len() > 1_048_576 || chain_id == 0 {
+        return Err(invalid());
+    }
+    let (payload, length, list) = evm_rlp_item(&unsigned[1..]).ok_or_else(invalid)?;
+    if !list || length != unsigned.len() - 1 {
+        return Err(invalid());
+    }
+    let mut fields = Vec::new();
+    let mut offset = 0;
+    while offset < payload.len() {
+        let (value, length, list) = evm_rlp_item(&payload[offset..]).ok_or_else(invalid)?;
+        fields.push((value, list, offset + length));
+        offset += length;
+        if fields.len() > 12 {
+            return Err(invalid());
+        }
+    }
+    if fields.len() != 9 && fields.len() != 12 {
+        return Err(invalid());
+    }
+    for index in [0, 1, 2, 3, 4, 6] {
+        let (value, list, _) = fields[index];
+        let max = if matches!(index, 0 | 1 | 4) { 8 } else { 32 };
+        if list || value.len() > max || value.first() == Some(&0) {
+            return Err(invalid());
+        }
+    }
+    let actual = fields[0]
+        .0
+        .iter()
+        .fold(0_u64, |value, byte| (value << 8) | u64::from(*byte));
+    if actual != chain_id
+        || fields[5].1
+        || !matches!(fields[5].0.len(), 0 | 20)
+        || fields[7].1
+        || !fields[8].1
+        || fields[9..]
+            .iter()
+            .any(|(value, list, _)| *list || !value.is_empty())
+    {
+        return Err(invalid());
+    }
+    let signing_fields = &payload[..fields[8].2];
+    let mut preimage = vec![2];
+    preimage.extend(evm_rlp_list(signing_fields));
+    let digest = sha3::Keccak256::digest(preimage).into();
+    let mut wire_fields = signing_fields.to_vec();
+    wire_fields.extend_from_slice(&[0x80, 0x80, 0x80]);
+    let mut wire = vec![2];
+    wire.extend(evm_rlp_list(&wire_fields));
+    Ok((digest, wire))
 }
 
 #[derive(Serialize)]
@@ -1751,6 +2143,8 @@ struct NativeSignBody<'a> {
     operation: &'a str,
     signers: &'a [String],
     #[serde(skip_serializing_if = "Option::is_none")]
+    grant: Option<&'a str>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     purpose: Option<&'a str>,
     #[serde(skip_serializing_if = "Option::is_none")]
     capability: Option<&'a str>,
@@ -1851,6 +2245,42 @@ impl<'a> NativeReader<'a> {
         }
         Ok(values)
     }
+}
+
+/// Checks consent and independently recovers the prepared transaction's sender
+/// before Human releases the signed transaction to the daemon.
+pub fn validate_native_send_release(
+    canonical_signed_purpose: &[u8],
+    current_owner: &layerx_agent_api::identity::AgentDid,
+    current_consent_key: &[u8; 32],
+    current_sender: &[u8; 20],
+    signed_transaction: &[u8],
+) -> Result<(), AttestorError> {
+    use layerx_agent_api::identity::SignedNativeSendPurposeV2;
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    let signed = SignedNativeSendPurposeV2::from_canonical_bytes(canonical_signed_purpose)
+        .map_err(|_| native_invalid())?;
+    let purpose = &signed.purpose;
+    purpose
+        .check_current_owner(current_owner, current_consent_key, current_sender)
+        .map_err(|_| native_invalid())?;
+    layerx_crypto::ed25519::verify_digest(
+        current_consent_key,
+        &signed.signature,
+        &Sha256::digest(purpose.canonical_bytes().map_err(|_| native_invalid())?).into(),
+    )
+    .map_err(|_| native_invalid())?;
+    let (transaction, signature) =
+        decode_signed(signed_transaction).map_err(|_| native_invalid())?;
+    let sender = recover_sender(&transaction, &signature).map_err(|_| native_invalid())?;
+    purpose
+        .check_prepared_transaction(
+            2,
+            transaction.chain_id,
+            &sender,
+            &Sha256::digest(transaction.encode_unsigned()).into(),
+        )
+        .map_err(|_| native_invalid())
 }
 
 pub fn native_local_grant_signing_bytes(
@@ -2006,10 +2436,237 @@ pub fn validate_native_local_grant(
     })
 }
 
-#[derive(Clone)]
+#[derive(Clone, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 struct NativeReplay {
     request_digest: [u8; 32],
-    signature: [u8; 64],
+    signature: Vec<u8>,
     digest: [u8; 32],
     audit: BTreeMap<String, u64>,
+    retain_until: u64,
+}
+
+const NATIVE_JOURNAL_BYTES: usize = 8 * 1024 * 1024;
+struct NativeJournal {
+    path: PathBuf,
+    _lock: std::fs::File,
+}
+#[derive(Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct NativeJournalData {
+    key_id: String,
+    public_key: [u8; 32],
+    network: u32,
+    signers: Vec<String>,
+    records: BTreeMap<String, NativeReplay>,
+}
+
+fn assertion_expired() -> AttestorError {
+    AttestorError::Refused {
+        node: "owner-assertion".into(),
+        status: 401,
+        category: "authorization".into(),
+        code: "assertion.expired".into(),
+        policy_code: None,
+    }
+}
+
+/// Owner identity and lifetime claims; attestors verify the assertion's signature.
+pub struct AssertionClaims {
+    pub subject: String,
+    issued: u64,
+    expires: u64,
+}
+impl AssertionClaims {
+    pub fn retain_until(&self, consent_expires_at_ms: u64) -> u64 {
+        (consent_expires_at_ms / 1000)
+            .min(self.expires)
+            .min(self.issued.saturating_add(3600))
+    }
+    pub fn check(&self, now: u64) -> Result<(), AttestorError> {
+        if self.issued > now || self.expires <= now || now.saturating_sub(self.issued) >= 3600 {
+            return Err(AttestorError::Refused {
+                node: "owner-assertion".into(),
+                status: 401,
+                category: "authorization".into(),
+                code: "assertion.expired".into(),
+                policy_code: None,
+            });
+        }
+        Ok(())
+    }
+}
+/// Decodes the bounded owner claims used for refresh and replay retention.
+pub fn assertion_claims(assertion: &str) -> Result<AssertionClaims, AttestorError> {
+    use base64::Engine;
+    let invalid = || AttestorError::Configuration("owner assertion claims");
+    let mut parts = assertion.split('.');
+    let header = parts.next().ok_or_else(invalid)?;
+    let payload = parts.next().ok_or_else(invalid)?;
+    let signature = parts.next().ok_or_else(invalid)?;
+    if header.is_empty() || signature.is_empty() || parts.next().is_some() {
+        return Err(invalid());
+    }
+    let bytes = Zeroizing::new(
+        base64::engine::general_purpose::URL_SAFE_NO_PAD
+            .decode(payload)
+            .map_err(|_| invalid())?,
+    );
+    let value: serde_json::Value = serde_json::from_slice(&bytes).map_err(|_| invalid())?;
+    let subject = value["sub"]
+        .as_str()
+        .filter(|subject| !subject.is_empty() && subject.len() <= 1024)
+        .ok_or_else(invalid)?
+        .to_owned();
+    let issued = value["iat"].as_u64().ok_or_else(invalid)?;
+    let expires = value["exp"].as_u64().ok_or_else(invalid)?;
+    if expires <= issued {
+        return Err(invalid());
+    }
+    Ok(AssertionClaims {
+        subject,
+        issued,
+        expires,
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use layerx_agent_api::identity::{
+        AgentDid, CapabilityId, NativeActivity, NativeSendPurposeV2, SessionId,
+        SignedNativeSendPurposeV2, TenantId,
+    };
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender};
+    use ring::signature::{Ed25519KeyPair, KeyPair as _};
+
+    fn checked<T, E: fmt::Debug>(value: Result<T, E>) -> T {
+        value.unwrap_or_else(|error| panic!("native send attestor: {error:?}"))
+    }
+
+    #[test]
+    fn attestor_release_recovers_sender_for_rotated_stable_owner_and_refuses_v1() {
+        let original = checked(Ed25519KeyPair::from_seed_unchecked(&[0x31; 32]));
+        let current = checked(Ed25519KeyPair::from_seed_unchecked(&[0x32; 32]));
+        let public: [u8; 32] = checked(current.public_key().as_ref().try_into());
+        let owner = checked(AgentDid::new(format!(
+            "did:layerx:{}",
+            encode_hex(original.public_key().as_ref())
+        )));
+        let transaction = Eip1559Call {
+            chain_id: 125,
+            nonce: 7,
+            max_priority_fee_per_gas: 1,
+            max_fee_per_gas: 2,
+            gas_limit: 100_000,
+            to: [0x33; 20],
+            data: vec![0x44; 32],
+        };
+        let raw = checked(transaction.sign(&[0x35; 32]));
+        let (decoded, signature) = checked(decode_signed(&raw));
+        let sender = checked(recover_sender(&decoded, &signature));
+        let digest = Sha256::digest(transaction.encode_unsigned()).into();
+        let purpose = NativeSendPurposeV2 {
+            tenant: checked(TenantId::new("tenant-a")),
+            agent_did: owner.clone(),
+            owner_did: owner.clone(),
+            consent_public_key: public,
+            evm_sender: sender,
+            session_id: checked(SessionId::new("51".repeat(32))),
+            generation: 2,
+            expires_at_ms: 1_010_000,
+            capability_id: checked(CapabilityId::new("52".repeat(32))),
+            transaction_type: 2,
+            chain_id: 125,
+            activity: checked(NativeActivity::new(1, 5)),
+            preparation_id: digest,
+            canonical_digest: digest,
+            economic_action: [0x53; 32],
+            idempotency_key: [0x54; 32],
+            commitment: [0x55; 32],
+        };
+        let sign = |purpose: NativeSendPurposeV2| {
+            let signature = current.sign(&Sha256::digest(checked(purpose.canonical_bytes())));
+            SignedNativeSendPurposeV2 {
+                purpose,
+                signature: checked(signature.as_ref().try_into()),
+            }
+        };
+        let signed = sign(purpose.clone());
+        let frame = checked(signed.canonical_bytes());
+        assert_eq!(
+            validate_native_send_release(&frame, &owner, &public, &sender, &raw),
+            Ok(())
+        );
+        assert_ne!(
+            purpose.consent_public_key.as_slice(),
+            original.public_key().as_ref()
+        );
+        let old_public = checked(original.public_key().as_ref().try_into());
+        assert_eq!(
+            validate_native_send_release(&frame, &owner, &old_public, &sender, &raw),
+            Err(native_invalid())
+        );
+        let other_owner = checked(AgentDid::new(format!("did:layerx:{}", "66".repeat(32))));
+        assert_eq!(
+            validate_native_send_release(&frame, &other_owner, &public, &sender, &raw),
+            Err(native_invalid())
+        );
+        let mut changed = purpose.clone();
+        changed.evm_sender[0] ^= 1;
+        let wrong_sender = changed.evm_sender;
+        let changed = checked(sign(changed).canonical_bytes());
+        assert_eq!(
+            validate_native_send_release(&changed, &owner, &public, &wrong_sender, &raw),
+            Err(native_invalid())
+        );
+        let other_transaction = Eip1559Call {
+            nonce: 8,
+            ..transaction.clone()
+        };
+        assert_eq!(
+            validate_native_send_release(
+                &frame,
+                &owner,
+                &public,
+                &sender,
+                &checked(other_transaction.sign(&[0x35; 32]))
+            ),
+            Err(native_invalid())
+        );
+        assert_eq!(
+            validate_native_send_release(
+                &frame,
+                &owner,
+                &public,
+                &sender,
+                &checked(transaction.sign(&[0x36; 32]))
+            ),
+            Err(native_invalid())
+        );
+        let mut forged = signed.clone();
+        forged.signature[0] ^= 1;
+        assert_eq!(
+            validate_native_send_release(
+                &checked(forged.canonical_bytes()),
+                &owner,
+                &public,
+                &sender,
+                &raw
+            ),
+            Err(native_invalid())
+        );
+        let mut legacy = frame.clone();
+        let offset = SignedNativeSendPurposeV2::DOMAIN.len() + 4;
+        let domain = b"LayerX/native/send-purpose/v1\0";
+        legacy[offset..offset + domain.len()].copy_from_slice(domain);
+        legacy[offset + domain.len()] = 1;
+        assert_eq!(
+            validate_native_send_release(&legacy, &owner, &public, &sender, &raw),
+            Err(native_invalid())
+        );
+        assert!(
+            NativeSendPurposeV2::from_canonical_bytes(&legacy[offset..legacy.len() - 64]).is_err()
+        );
+    }
 }

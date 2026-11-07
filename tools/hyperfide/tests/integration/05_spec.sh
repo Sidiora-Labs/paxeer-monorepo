@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# spec render (golden parity, --check), task engine, commit tagging
+. "$(dirname "$0")/../lib.sh"
+
+cp -r "$FIXTURES/specrepo" "$TMP/repo"
+cd "$TMP/repo"
+
+# The legacy goldens pin the old regeneration hint. Compare everything else
+# byte-for-byte, then check that the current renderer considers its output fresh.
+"$CG" spec render >/dev/null
+python3 - "$FIXTURES/specrepo" <<'PY'
+import pathlib, sys
+for name in ('CLAUDE.md', '.cursor/rules/spec-workflow.mdc'):
+    expected = (pathlib.Path(sys.argv[1]) / name).read_bytes()
+    canonical = expected.replace(b'run `spec/specgen`', b'run `hyperfide spec render`')
+    assert pathlib.Path(name).read_bytes() in (expected, canonical), name
+PY
+cp CLAUDE.md "$TMP/expected-CLAUDE.md"
+out="$("$CG" spec render --check)"
+has "$out" "0 stale"
+
+# corrupting an output makes --check fail with exit 2
+echo "corrupted" >> CLAUDE.md
+expect_rc 2 "$CG" spec render --check
+"$CG" spec render >/dev/null 2>&1
+cmp -s CLAUDE.md "$TMP/expected-CLAUDE.md" \
+    || fail "render did not restore CLAUDE.md byte-identically"
+
+# render finds the spec root from a subdirectory
+( cd spec/demo && "$CG" spec render --check >/dev/null 2>&1 ) \
+    || fail "root discovery from subdirectory"
+
+# ---- task engine ----
+out="$("$CG" spec status)"
+has "$out" "feature: demo"
+has "$out" "3 — 1 done, 0 implemented, 0 in progress, 2 pending"
+has "$out" "next: 1.2"
+
+"$CG" spec status --json | python3 -c "
+import json, sys
+d = json.load(sys.stdin)
+assert d['feature'] == 'demo' and d['tasks'] == 3, d
+assert d['done'] == 1 and d['pending'] == 2, d
+assert d['next']['id'] == '1.2', d
+"
+
+# next expands acceptance criteria from [req.*]
+out="$("$CG" spec next)"
+has "$out" "task 1.2"
+has "$out" "byte-stable"          # text of req.2 ac_1
+
+# 2.1 is blocked by requires=[1.2]
+out="$("$CG" spec start 2.1 2>&1)" && fail "start 2.1 should refuse"
+has "$out" "unmet requires"
+
+# group tasks are not startable
+out="$("$CG" spec start 1 2>&1)" && fail "start 1 should refuse"
+has "$out" "group heading"
+
+"$CG" spec start 1.2 >/dev/null
+grep -q -- "- \[-\] 1.2" spec/demo/tasks.md \
+    || fail "tasks.md checkbox not refreshed to [-]"
+
+# default workflow limit remains one in progress at a time
+out="$("$CG" spec start 2.1 2>&1)" && fail "second start should refuse"
+has "$out" "limit 1"
+
+# verify_cmd gates done (fixture task needs verify.marker in repo root)
+out="$("$CG" spec done 1.2 2>&1)" && fail "done should refuse without marker"
+has "$out" "verify_cmd failed"
+out="$("$CG" spec status)"
+has "$out" "1 in progress"        # still in_progress after refused done
+
+touch verify.marker
+out="$("$CG" spec done 1.2)"
+has "$out" "done 1.2"
+has "$out" "next: 2.1"
+grep -q -- "- \[x\] 1.2" spec/demo/tasks.md \
+    || fail "tasks.md checkbox not refreshed to [x]"
+
+# done on a task that is not in_progress refuses without --force
+out="$("$CG" spec done 2.1 2>&1)" && fail "done pending should refuse"
+has "$out" "not in_progress"
+"$CG" spec done 2.1 --force >/dev/null
+
+# the kvx survived surgically: comments intact, only status lines changed
+grep -q "# Demo feature spec — exercises every render path." spec/demo/spec.kvx \
+    || fail "kvx comment lost"
+n_changed="$(diff "$FIXTURES/specrepo/spec/demo/spec.kvx" spec/demo/spec.kvx \
+    | grep -c '^<' || true)"
+[ "$n_changed" -eq 2 ] || fail "expected exactly 2 changed lines, got $n_changed"
+diff "$FIXTURES/specrepo/spec/demo/spec.kvx" spec/demo/spec.kvx \
+    | grep '^>' | grep -v 'status' && fail "non-status line changed" || true
+
+# ---- commit tagging ----
+"$CG" init >/dev/null
+# no task in_progress -> no tag
+echo x > scratch.txt
+out="$("$CG" commit -m "untagged work")"
+hasnt "$out" "[spec:"
+
+# reset 2.1 to try the tagged path (done -> pending via the engine is not a
+# feature; rewrite with the same surgical writer through a fresh start)
+python3 - <<'EOF'
+import re
+p = "spec/demo/spec.kvx"
+s = open(p).read()
+s = s.replace('[task.2.1]\ntitle    = "Check mode"\nstatus   = "done"',
+              '[task.2.1]\ntitle    = "Check mode"\nstatus   = "pending"')
+open(p, "w").write(s)
+EOF
+"$CG" spec start 2.1 >/dev/null
+echo y >> scratch.txt
+out="$("$CG" commit -m "tagged work")"
+has "$out" "[spec:demo/2.1]"
+
+# already-tagged messages are not double-tagged
+echo z >> scratch.txt
+out="$("$CG" commit -m "manual [spec:demo/9.9]")"
+has "$out" "[spec:demo/9.9]"
+hasnt "$out" "2.1"
+
+# ---- configured parallel tasks, explicit tags and snapshot amend ----
+cp -r "$FIXTURES/specrepo" "$TMP/multi"
+cd "$TMP/multi"
+python3 - <<'EOF'
+p = "spec/workflow.kvx"
+s = open(p).read()
+s = s.replace("[loop]", "[limits]\nmax_in_progress = 2\n\n[loop]")
+open(p, "w").write(s)
+p = "spec/demo/spec.kvx"
+s = open(p).read().replace('requires = ["1.2"]', 'requires = ["1.1"]')
+open(p, "w").write(s)
+EOF
+"$CG" spec start 1.2 >/dev/null
+"$CG" spec start 2.1 >/dev/null
+out="$("$CG" spec start 1.1 2>&1)" && fail "done task restart should refuse"
+has "$out" "already done"
+
+"$CG" init >/dev/null
+echo a > scratch.txt
+out="$("$CG" commit -m "ambiguous parallel work")"
+hasnt "$out" "[spec:"
+echo b >> scratch.txt
+out="$("$CG" commit -m "selected work" --task 2.1)"
+has "$out" "[spec:demo/2.1]"
+out="$("$CG" commit -m "corrected selection" --task 1.2 --amend)"
+has "$out" "[spec:demo/1.2]"
+out="$("$CG" log)"
+has "$out" "corrected selection"
+hasnt "$out" "selected work"
+out="$("$CG" commit -m "bad selection" --task 9.9 2>&1)" \
+    && fail "unknown explicit task should refuse"
+has "$out" "not an in_progress task"
+
+# ---- Prod mode: implementation and qualification are separate states ----
+cp -r "$FIXTURES/specrepo" "$TMP/prod"
+cd "$TMP/prod"
+
+out="$("$CG" spec status)"
+has "$out" "mode: standard"
+cp spec/workflow.kvx workflow.before-invalid
+out="$("$CG" spec mode unknown 2>&1)" && fail "unknown spec mode should refuse"
+has "$out" "mode must be standard, prod, or parallel"
+cmp -s spec/workflow.kvx workflow.before-invalid \
+    || fail "invalid mode changed workflow.kvx"
+
+cat >> spec/workflow.kvx <<'EOF'
+
+[mode]
+name = "${CODIFY_TEST_MODE}"
+EOF
+out="$(CODIFY_TEST_MODE=prod "$CG" spec status --json)"
+has "$out" '"mode":"standard"'
+
+"$CG" spec start 1.2 >/dev/null
+out="$("$CG" spec implemented 1.2 2>&1)" \
+    && fail "implemented should require Prod mode"
+has "$out" "requires Prod mode"
+
+"$CG" spec mode prod >/dev/null
+out="$("$CG" spec implemented 1.2 --force 2>&1)" \
+    && fail "implemented must not expose a force bypass"
+has "$out" "does not support --force"
+
+python3 - <<'EOF'
+p = "spec/demo/spec.kvx"
+s = open(p).read().replace('verify_cmd = "test -f verify.marker"',
+                            'verify_cmd = "touch qualification.ran"')
+open(p, "w").write(s)
+EOF
+"$CG" spec implemented 1.2 >/dev/null
+[ ! -e qualification.ran ] || fail "implemented executed verify_cmd"
+
+out="$("$CG" spec status)"
+has "$out" "mode: prod"
+has "$out" "1 done, 1 implemented, 0 in progress, 1 pending"
+has "$out" "coding progress:"
+has "$out" "qualified progress:"
+has "$out" "next: 2.1"
+"$CG" spec status --json | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["mode"] == "prod", d
+assert d["done"] == 1 and d["implemented"] == 1, d
+assert d["in_progress"] == 0 and d["pending"] == 1, d
+assert d["next"]["id"] == "2.1", d
+'
+grep -q -- '- \[ \] 1.2 Render the mirror — \*\*Implemented - qualification pending\*\*' \
+    spec/demo/tasks.md || fail "implemented task rendered incorrectly"
+out="$("$CG" spec next)"
+has "$out" "task 2.1"
+has "$out" "1.2(implemented)"
+
+# Returning to standard mode blocks implemented dependencies but still permits
+# the prerequisite itself to be qualified and promoted later.
+"$CG" spec mode standard >/dev/null
+out="$("$CG" spec next)"
+hasnt "$out" "task 2.1"
+out="$("$CG" spec start 2.1 2>&1)" \
+    && fail "standard mode must not unlock implemented dependencies"
+has "$out" "unmet requires: 1.2"
+"$CG" spec mode prod >/dev/null
+
+# Qualification failures, including --force, preserve implemented state.
+python3 - <<'EOF'
+p = "spec/demo/spec.kvx"
+s = open(p).read().replace('verify_cmd = "touch qualification.ran"',
+                            'verify_cmd = "false"')
+open(p, "w").write(s)
+EOF
+out="$("$CG" spec done 1.2 2>&1)" && fail "failed qualification should refuse"
+has "$out" "verify_cmd failed"
+out="$("$CG" spec done 1.2 --force 2>&1)" \
+    && fail "force must not promote implemented past qualification"
+has "$out" "cannot force an implemented task to done"
+"$CG" spec status --json | python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+assert d["implemented"] == 1 and d["done"] == 1, d
+'
+
+python3 - <<'EOF'
+p = "spec/demo/spec.kvx"
+s = open(p).read().replace('verify_cmd = "false"',
+                            'verify_cmd = "touch qualification.ran"')
+open(p, "w").write(s)
+EOF
+"$CG" spec done 1.2 >/dev/null
+[ -e qualification.ran ] || fail "done did not execute verify_cmd"
+grep -q -- '- \[x\] 1.2 Render the mirror' spec/demo/tasks.md \
+    || fail "qualified task not rendered done"
+"$CG" spec render --check >/dev/null
+
+"$CG" spec mode standard >/dev/null
+out="$("$CG" spec status --json)"
+has "$out" '"mode":"standard"'
+
+echo ok

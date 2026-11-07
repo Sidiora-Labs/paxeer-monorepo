@@ -56,7 +56,7 @@
     "@types/react-dom": "18.3.1",
     "@vitejs/plugin-react": "4.3.4",
     "typescript": "5.9.2",
-    "vite": "6.4.1",
+    "vite": "6.4.5",
     "vite-plugin-dts": "4.5.4",
     "vite-plugin-svgr": "4.5.0",
     "vite-tsconfig-paths": "5.1.4"
@@ -68,7 +68,17 @@
     "access": "public"
   },
   "resolutions": {
-    "vite-plugin-dts/**/brace-expansion": "2.0.2",
-    "vite-plugin-svgr/**/js-yaml": "4.1.1"
+    "@babel/core": "7.29.6",
+    "browserslist": "4.28.7",
+    "fast-uri": "3.1.9",
+    "js-yaml": "4.3.2",
+    "lodash": "4.18.0",
+    "nanoid": "3.3.18",
+    "picomatch": "4.0.4",
+    "postcss": "8.5.23",
+    "rollup": "4.59.0",
+    "source-map-js": "1.2.2",
+    "@microsoft/api-extractor": "7.52.10",
+    "minimatch": "11.0.1"
   }
 }

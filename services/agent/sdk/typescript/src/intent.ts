@@ -28,6 +28,7 @@ const JOURNEY_ID = /^jrn_[0-9a-z]{1,64}$/u;
 const LOWER_TOKEN = /^[a-z][a-z0-9-]{0,63}$/u;
 const HEADER_VALUE = /^[\x21-\x7e]{1,255}$/u;
 const MAX_U64 = 18446744073709551615n;
+const MAX_U256 = (1n << 256n) - 1n;
 
 export const INTENT_ENDPOINT_KINDS = ["paxeer-wallet", "human", "agent", "agent-budget"] as const;
 export type IntentEndpointKind = (typeof INTENT_ENDPOINT_KINDS)[number];
@@ -155,6 +156,12 @@ export interface IntentLeg {
   readonly destination: IntentEndpointRef;
   readonly money: IntentMoney;
   readonly fee: IntentMoney;
+  readonly call: { readonly to: string; readonly data: string; readonly value: bigint } | null;
+  readonly chainId: bigint | null;
+  readonly gasLimit: bigint | null;
+  readonly maxFeePerGas: bigint | null;
+  readonly maxPriorityFeePerGas: bigint | null;
+  readonly nonce: bigint | null;
 }
 
 export interface IntentSigningRequirement {
@@ -168,8 +175,10 @@ export interface IntentPlan {
   readonly planDigest: string;
   readonly journeyKind: string;
   readonly totalFee: IntentMoney;
+  readonly sponsored: boolean;
   readonly legs: readonly IntentLeg[];
   readonly signingRequirements: readonly IntentSigningRequirement[];
+  readonly txHash: string | null;
 }
 
 export interface IntentLegBinding {
@@ -418,9 +427,21 @@ export function decodeHumanError(status: number, value: unknown, trace: string):
 
 export function decodeIntentPlan(value: unknown): IntentPlan {
   const plan = record(value);
-  exactKeys(plan, ["plan_digest", "journey_kind", "total_fee", "legs", "signing_requirements"]);
+  exactKeys(plan, ["plan_digest", "journey_kind", "total_fee", "legs", "signing_requirements"], ["tx_hash"]);
+  const txHash = plan.tx_hash;
+  if (txHash !== undefined && (typeof txHash !== "string" || !/^0x[0-9a-fA-F]{64}$/u.test(txHash))) throw decodeFailure();
   if (!Array.isArray(plan.legs) || plan.legs.length === 0 || plan.legs.length > MAX_LEGS) throw decodeFailure();
-  const legs = plan.legs.map((leg, position) => decodeIntentLeg(leg, position));
+  const sponsored = plan.legs.every((leg: unknown) => record(leg).nonce === undefined || record(leg).nonce === null);
+  const legs = plan.legs.map((leg, position) => decodeIntentLeg(leg, position, sponsored));
+  if (!sponsored) {
+    let previous: bigint | null = null;
+    for (const leg of legs) {
+      if (leg.nonce === null || (previous !== null && leg.nonce !== previous + 1n)) {
+        throw nonceFailure(leg.index);
+      }
+      previous = leg.nonce;
+    }
+  }
   if (!Array.isArray(plan.signing_requirements) || plan.signing_requirements.length > MAX_LEGS) throw decodeFailure();
   const seen = new Set<number>();
   const signingRequirements = plan.signing_requirements.map((requirement) => {
@@ -433,8 +454,10 @@ export function decodeIntentPlan(value: unknown): IntentPlan {
     planDigest: decodedHex32(plan.plan_digest),
     journeyKind: decodedToken(plan.journey_kind),
     totalFee: decodeMoney(plan.total_fee),
+    sponsored,
     legs: Object.freeze(legs),
     signingRequirements: Object.freeze(signingRequirements),
+    txHash: txHash ?? null,
   });
 }
 
@@ -457,9 +480,11 @@ export function decodeIntentSubmission(value: unknown): IntentSubmission {
   });
 }
 
-function decodeIntentLeg(value: unknown, position: number): IntentLeg {
+function decodeIntentLeg(value: unknown, position: number, sponsored: boolean): IntentLeg {
   const leg = record(value);
-  exactKeys(leg, ["index", "mechanism", "domain", "source", "destination", "money", "fee"]);
+  if (!sponsored && (leg.nonce === undefined || leg.nonce === null)) throw nonceFailure(position);
+  exactKeys(leg, ["index", "mechanism", "domain", "source", "destination", "money", "fee"],
+    ["to", "value", "calldata", "nonce", "chain_id", "gas_limit", "max_fee_per_gas", "max_priority_fee_per_gas"]);
   if (leg.index !== position) throw decodeFailure();
   const domain = leg.domain;
   if (typeof domain !== "string" || !(INTENT_DOMAINS as readonly string[]).includes(domain)) throw decodeFailure();
@@ -467,10 +492,73 @@ function decodeIntentLeg(value: unknown, position: number): IntentLeg {
     index: position,
     mechanism: decodedToken(leg.mechanism),
     domain: domain as IntentDomain,
-    source: decodeEndpoint(leg.source),
-    destination: decodeEndpoint(leg.destination),
+    source: decodeIntentLegEndpoint(leg.source),
+    destination: decodeIntentLegEndpoint(leg.destination),
     money: decodeMoney(leg.money),
     fee: decodeMoney(leg.fee),
+    call: decodeIntentCall(leg),
+    nonce: leg.nonce === undefined || leg.nonce === null ? null : decodedWireU64(leg.nonce),
+    chainId: leg.chain_id === undefined ? null : decodedWireU64(leg.chain_id),
+    gasLimit: leg.gas_limit === undefined ? null : decodedWireU64(leg.gas_limit),
+    maxFeePerGas: leg.max_fee_per_gas === undefined ? null : decodedUnsigned(leg.max_fee_per_gas, MAX_U256),
+    maxPriorityFeePerGas: leg.max_priority_fee_per_gas === undefined ? null : decodedUnsigned(leg.max_priority_fee_per_gas, MAX_U256),
+  });
+}
+
+function decodeIntentCall(leg: Readonly<Record<string, unknown>>): IntentLeg["call"] {
+  if (leg.to === undefined && leg.calldata === undefined && leg.value === undefined) return null;
+  const to = leg.to;
+  const data = leg.calldata;
+  if (typeof to !== "string" || !/^0x[0-9a-fA-F]{40}$/u.test(to)
+    || typeof data !== "string" || !/^0x(?:[0-9a-fA-F]{2})*$/u.test(data)) {
+    throw decodeFailure();
+  }
+  return Object.freeze({ to, data, value: decodedUnsigned(leg.value, MAX_U256) });
+}
+
+function decodedWireU64(value: unknown): bigint {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value < 0) throw decodeFailure();
+  const decoded = BigInt(value);
+  if (decoded > MAX_U64) throw decodeFailure();
+  return decoded;
+}
+
+/** Resolved account facts belong to response legs, never request endpoints. */
+function decodeIntentLegEndpoint(value: unknown): IntentEndpointRef {
+  const endpoint = record(value);
+  const resolvedKeys = ["layerx_public_key", "evm_address", "resolution"];
+  if (!resolvedKeys.some((key) => key in endpoint)) return decodeEndpoint(endpoint);
+  exactKeys(endpoint, ["kind", "account", ...resolvedKeys]);
+  decodedHex32(endpoint.layerx_public_key);
+  if (typeof endpoint.account !== "string" || !ACCOUNT_NAME.test(endpoint.account)
+    || typeof endpoint.evm_address !== "string" || !/^0x[0-9a-fA-F]{40}$/u.test(endpoint.evm_address)) throw decodeFailure();
+  const resolution = record(endpoint.resolution);
+  exactKeys(resolution, ["to", "chainId", "data", "result"]);
+  if (resolution.to !== "0x0000000000000000000000000000000000001004"
+    || resolution.data !== `0xc413bad3${endpoint.layerx_public_key}`
+    || resolution.result !== `0x${"0".repeat(24)}${endpoint.evm_address.slice(2)}`) throw decodeFailure();
+  decodedWireU64(resolution.chainId);
+  return decodeEndpoint(endpoint.kind === "paxeer-wallet"
+    ? { kind: endpoint.kind }
+    : { kind: endpoint.kind, account: endpoint.account });
+}
+
+function decodedUnsigned(value: unknown, maximum: bigint): bigint {
+  if (typeof value !== "string" || value.length > 78 || !/^(0|[1-9][0-9]*)$/u.test(value)) throw decodeFailure();
+  const decoded = BigInt(value);
+  if (decoded > maximum) throw decodeFailure();
+  return decoded;
+}
+
+function nonceFailure(position: number): HumanIntentError {
+  return new HumanIntentError({
+    status: 502,
+    humanCode: "refused-by-protocol",
+    copyKey: "error.intent.invalid-nonce",
+    retriability: "final",
+    trace: "",
+    field: `legs[${position}].nonce`,
+    retryAfterMs: null,
   });
 }
 
@@ -545,8 +633,9 @@ function record(value: unknown): Readonly<Record<string, unknown>> {
   return value as Readonly<Record<string, unknown>>;
 }
 
-function exactKeys(value: Readonly<Record<string, unknown>>, required: readonly string[]): void {
-  if (Object.keys(value).length !== required.length || required.some((key) => !(key in value))) throw decodeFailure();
+function exactKeys(value: Readonly<Record<string, unknown>>, required: readonly string[], optional: readonly string[] = []): void {
+  if (required.some((key) => !(key in value))
+    || Object.keys(value).some((key) => !required.includes(key) && !optional.includes(key))) throw decodeFailure();
 }
 
 function decodedHex32(value: unknown): string {

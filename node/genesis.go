@@ -2,6 +2,8 @@ package app
 
 import (
 	"encoding/json"
+	"fmt"
+	"strings"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/codec"
 	genesistypes "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types/genesis"
@@ -20,7 +22,7 @@ var DefaultGenesisConfig = genesistypes.GenesisImportConfig{
 
 const (
 	flagGenesisStreamImport = "genesis.stream-import"
-	flagGenesisImportFile   = "genesis.import-file"
+	flagGenesisImportFile   = "genesis.genesis-stream-file"
 )
 
 func ReadGenesisImportConfig(opts servertypes.AppOptions) (genesistypes.GenesisImportConfig, error) {
@@ -32,7 +34,12 @@ func ReadGenesisImportConfig(opts servertypes.AppOptions) (genesistypes.GenesisI
 		}
 	}
 	if v := opts.Get(flagGenesisImportFile); v != nil {
-		cfg.GenesisStreamFile = v.(string)
+		if cfg.GenesisStreamFile, err = cast.ToStringE(v); err != nil {
+			return cfg, err
+		}
+	}
+	if cfg.StreamGenesisImport && strings.TrimSpace(cfg.GenesisStreamFile) == "" {
+		return cfg, fmt.Errorf("%s must be set when %s is enabled", flagGenesisImportFile, flagGenesisStreamImport)
 	}
 	return cfg, nil
 }

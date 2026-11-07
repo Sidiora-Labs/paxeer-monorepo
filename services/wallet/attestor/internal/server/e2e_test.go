@@ -26,6 +26,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -45,7 +46,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/transport"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 const (
@@ -200,6 +201,7 @@ type testNode struct {
 	audit   *audit.Log
 	store   *store.Store
 	stop    func()
+	stopped atomic.Bool
 }
 
 type testNodeConfig struct {
@@ -212,23 +214,25 @@ type testNodeConfig struct {
 }
 
 type testCluster struct {
-	ca       *testCA
-	nodes    []*testNode
-	client   *http.Client
-	idp      *identityProvider
-	ids      []string
-	peers    []transport.Peer
-	configs  []testNodeConfig
-	registry *lxwire.Registry
-	ceremony bool
-	doc      *policy.Document
-	tune     func(*Options)
-	operator *testCA
-	opClient *http.Client
-	clients  *ClientAuthorities
-	kernel   *lx.Document
-	nonceURL string
-	nonceRPC *http.Client
+	ca              *testCA
+	nodes           []*testNode
+	client          *http.Client
+	idp             *identityProvider
+	ids             []string
+	peers           []transport.Peer
+	configs         []testNodeConfig
+	registry        *lxwire.Registry
+	ceremony        bool
+	doc             *policy.Document
+	tune            func(*Options)
+	operator        *testCA
+	opClient        *http.Client
+	clients         *ClientAuthorities
+	kernel          *lx.Document
+	nonceURL        string
+	nonceRPC        *http.Client
+	importMu        sync.Mutex
+	importInventory *nativeInventoryAuthority
 }
 
 const kernelTestPolicy = `{"version":1,"defaults":{"modules":{"asset":[5]},"caps":{"native":{"per_operation":"6000000","daily":"8000000"}}}}`
@@ -281,7 +285,7 @@ func testPolicy() *policy.Document {
 		Version: policy.Version,
 		Defaults: policy.Rules{
 			ChainID:                &chain,
-			Kinds:                  append([]string{policy.KindSponsoredBatch, policy.KindAuthorization}, SignKinds()...),
+			Kinds:                  append([]string{policy.KindSponsoredBatch, policy.KindAuthorization, policy.KindLXSendAuth}, SignKinds()...),
 			Caps:                   map[string]policy.Cap{policy.AssetNative: {PerTransaction: "1000000000000000000", Daily: "10000000000000000000"}},
 			RatePerMinute:          &rate,
 			AuthorizationDelegates: []string{"0x2222222222222222222222222222222222222222"},
@@ -417,6 +421,7 @@ func (c *testCluster) startNode(t *testing.T, i int, peerListener, apiListener n
 	node := &testNode{id: cfg.id, index: i, apiAddr: cfg.apiAddr, server: srv, audit: lg, store: st}
 	node.stop = func() {
 		once.Do(func() {
+			node.stopped.Store(true)
 			_ = api.Close()
 			_ = tr.Close()
 			_ = st.Close()
@@ -564,87 +569,96 @@ func expectError(t *testing.T, label string, r apiResult, code string) Error {
 
 func importKey(t *testing.T, c *testCluster, keyID string, curve dealer.Curve, secret *big.Int, account string) []KeyResponse {
 	t.Helper()
-	bundles, _, err := dealer.Split(curve, secret, c.ids)
+	return importKeyOn(t, c, c.ids, keyID, curve, secret, account)
+}
+
+func importKeyOn(t *testing.T, c *testCluster, members []string, keyID string, curve dealer.Curve, secret *big.Int, account string) []KeyResponse {
+	t.Helper()
+	c.importMu.Lock()
+	defer c.importMu.Unlock()
+	bundles, publicKey, err := dealer.Split(curve, secret, members)
 	if err != nil {
 		t.Fatal(err)
 	}
-	byNode := map[string]ShareBundleJSON{}
-	for _, b := range bundles {
-		byNode[b.ParticipantID] = EncodeBundle(b)
+	publicBytes, err := publicKeyBytes(curve, publicKey)
+	if err != nil {
+		t.Fatal(err)
 	}
-	results := c.callAll(t, c.nodes, PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
+	approveTestKeys(t, c, members, InventoryKey{KeyID: keyID, Curve: curveName(curve), PublicKey: hex.EncodeToString(publicBytes), Owner: testOwner, Operations: []string{"import", "refresh", "sign"}})
+	byNode := map[string]ShareBundleJSON{}
+	for _, bundle := range bundles {
+		byNode[bundle.ParticipantID] = EncodeBundle(bundle)
+	}
+	results := c.callAll(t, c.byID(members...), PathImport, func(n *testNode) any {
+		return ImportRequest{CeremonyID: "metrics-ceremony", SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, PublicKey: hex.EncodeToString(publicBytes), Participants: members, Threshold: dealer.Threshold, Account: account, Share: byNode[n.id]}
 	}, "")
 	return decodeOK[KeyResponse](t, "import "+keyID, results)
 }
 
+func (c *testCluster) publishImportEpoch(t *testing.T, keyID string, epoch uint64) {
+	t.Helper()
+	c.importMu.Lock()
+	defer c.importMu.Unlock()
+	for i := range c.importInventory.keys {
+		if c.importInventory.keys[i].KeyID == keyID {
+			c.importInventory.keys[i].Epoch = epoch
+			c.importInventory.publish(t)
+			return
+		}
+	}
+	t.Fatalf("no approved import inventory for %s", keyID)
+}
+
+func TestImportNamesTheMissingCeremonyID(t *testing.T) {
+	c := newTestCluster(t, 5, true)
+	bundles, publicKey, err := dealer.Split(dealer.Secp256k1, big.NewInt(424242), c.ids)
+	if err != nil {
+		t.Fatal(err)
+	}
+	publicBytes, err := publicKeyBytes(dealer.Secp256k1, publicKey)
+	if err != nil {
+		t.Fatal(err)
+	}
+	req := ImportRequest{
+		SessionID: "import-missing-ceremony", KeyID: "missing-ceremony", Owner: testOwner,
+		PublicKey: hex.EncodeToString(publicBytes), Participants: c.ids, Threshold: dealer.Threshold,
+		Share: EncodeBundle(bundles[0]),
+	}
+	for _, tc := range []struct{ name, ceremonyID string }{
+		{"missing", ""},
+		{"slash", "bad/ceremony"},
+		{"too long", strings.Repeat("c", 129)},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req.CeremonyID = tc.ceremonyID
+			raw, err := json.Marshal(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(raw, &body); err != nil {
+				t.Fatal(err)
+			}
+			if tc.name == "missing" {
+				delete(body, "ceremony_id")
+			}
+			result := c.call(t, c.nodes[0], PathImport, body, "")
+			if result.status != http.StatusBadRequest {
+				t.Fatalf("status %d, want %d: %s", result.status, http.StatusBadRequest, result.body)
+			}
+			refusal := expectError(t, "invalid ceremony id", result, CodeSessionBadRequest)
+			if refusal.Message != "ceremony_id must be 1 to 128 characters without a slash" {
+				t.Fatalf("unexpected ceremony refusal: %q", refusal.Message)
+			}
+		})
+	}
+}
+
 func kernelActivityFor(t *testing.T, signer ed25519.PrivateKey, sequence uint64) ([]byte, []byte) {
 	t.Helper()
-	var key [32]byte
-	copy(key[:], signer.Public().(ed25519.PublicKey))
-	did := lxwire.DIDFromKey(key)
-	from, err := lxwire.AccountID([]byte(lxwire.MainAccountName(did)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	var peer [32]byte
-	for i := range peer {
-		peer[i] = 0x52
-	}
-	to, err := lxwire.AccountID([]byte(lxwire.MainAccountName(lxwire.DIDFromKey(peer))))
-	if err != nil {
-		t.Fatal(err)
-	}
 	now := uint64(time.Now().Unix())
-	idempotency := sha256.Sum256([]byte(fmt.Sprintf("attestor end-to-end activity %d", sequence)))
-	context := sha256.Sum256([]byte(fmt.Sprintf("attestor end-to-end send context %d", sequence)))
-	send := &lxwire.Send{
-		From:              from,
-		To:                to,
-		Amount:            lxwire.Uint128{Lo: 5_000_000},
-		SourceSequence:    sequence,
-		IdempotencyKey:    idempotency,
-		ExpiresAt:         now + 600,
-		ContextHash:       context,
-		AuthorizationKind: lxwire.OwnerAuthorization,
-		Controller:        from,
-		PublicKey:         key,
-		SignedContextHash: context,
-		NetworkID:         testChainID,
-		ProtocolVersion:   lxwire.MaxProtocolVersion,
-	}
-	digest, err := send.AuthorizationDigest()
-	if err != nil {
-		t.Fatal(err)
-	}
-	copy(send.Signature[:], ed25519.Sign(signer, digest[:]))
-	payload, err := send.Encode()
-	if err != nil {
-		t.Fatal(err)
-	}
-	a := &lxwire.Activity{
-		ProtocolVersion: lxwire.MaxProtocolVersion,
-		NetworkID:       testChainID,
-		Type:            lx.OpAssetTransfer,
-		ActorDID:        []byte(did),
-		Authority:       key[:],
-		AccountSequence: sequence,
-		NotBefore:       now - 60,
-		NotAfter:        now + 600,
-		IdempotencyKey:  idempotency,
-		FeeLimit:        lxwire.Uint128{Lo: 1000},
-		PayloadHash:     lxwire.PayloadHash(payload),
-		Payload:         payload,
-	}
-	unsigned, err := lxwire.EncodeUnsignedActivity(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	pre, err := lxwire.SignaturePreimage(a)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return unsigned, pre[:]
+	pending := newPendingSend(t, signer.Public().(ed25519.PublicKey), nil, sequence, 5_000_000, now-60, now+600)
+	return pending.envelope(t), pending.digest(t)
 }
 
 // approvedActivity plays the original approval boundary: it reviews the canonical activity
@@ -655,7 +669,7 @@ func approvedActivity(t *testing.T, c *testCluster, unsigned []byte, keyID, sess
 	if err != nil {
 		t.Fatal(err)
 	}
-	effect, err := lx.DecodeEffect(a)
+	send, effect, err := lx.DecodeSendAuthorization(a)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -663,7 +677,7 @@ func approvedActivity(t *testing.T, c *testCluster, unsigned []byte, keyID, sess
 	if !ok {
 		t.Fatalf("activity module %d is unknown", a.Type.Module())
 	}
-	pre, err := lxwire.SignaturePreimage(a)
+	pre, err := send.AuthorizationDigest()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -710,7 +724,7 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	substitute, _ := kernelActivityFor(t, signer, 12)
 	const session = "approved-activity"
 	request := func(activity []byte, d *lx.Disclosure, a *lx.Approval) SignRequest {
-		return SignRequest{SessionID: session, KeyID: "approved-lx", Kind: KindLXActivity, Activity: hex.EncodeToString(activity), Disclosure: d, Approval: a}
+		return SignRequest{SessionID: session, KeyID: "approved-lx", Kind: KindLXSendAuth, Activity: hex.EncodeToString(activity), Disclosure: d, Approval: a}
 	}
 	disclosure, approval := approvedActivity(t, c, approvedBytes, "approved-lx", session, testOwner)
 
@@ -778,7 +792,7 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	importKey(t, c, "approved-recovery", dealer.Ed25519, recoveryScalar, common.HexToAddress("0x5555555555555555555555555555555555555555").Hex())
 	recoveryBytes, recoveryPreimage := kernelActivityFor(t, recoverySigner, 1)
 	recoveryDisclosure, recoveryApproval := approvedActivity(t, c, recoveryBytes, "approved-recovery", "approved-recovery-session", testOwner)
-	recovered := SignRequest{SessionID: "approved-recovery-session", KeyID: "approved-recovery", Kind: KindLXActivity, Activity: hex.EncodeToString(recoveryBytes), Disclosure: recoveryDisclosure, Approval: recoveryApproval}
+	recovered := SignRequest{SessionID: "approved-recovery-session", KeyID: "approved-recovery", Kind: KindLXSendAuth, Activity: hex.EncodeToString(recoveryBytes), Disclosure: recoveryDisclosure, Approval: recoveryApproval}
 	for _, r := range decodeOK[SignResponse](t, "approved activity after a restart", sign(recovered, fresh())) {
 		sig, _ := hex.DecodeString(r.Signature)
 		if !ed25519.Verify(recoverySigner.Public().(ed25519.PublicKey), recoveryPreimage, sig) {
@@ -787,10 +801,114 @@ func TestApprovedDisclosureBindsActivitySignatures(t *testing.T) {
 	}
 }
 
-const mailTypedData = `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Person":[{"name":"name","type":"string"},{"name":"wallet","type":"address"}],"Mail":[{"name":"from","type":"Person"},{"name":"to","type":"Person"},{"name":"contents","type":"string"}]},"primaryType":"Mail","domain":{"name":"Ether Mail","version":"1","chainId":125,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"from":{"name":"Cow","wallet":"0xCD2a3d9F938E13CD947Ec05AbC7FE734Df8DD826"},"to":{"name":"Bob","wallet":"0xbBbBBBBbbBBBbbbBbbBbbbbBBbBbbbbBbBbbBBbB"},"contents":"Hello, Bob!"}}`
+const permitTypedData = `{"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"Permit":[{"name":"owner","type":"address"},{"name":"spender","type":"address"},{"name":"value","type":"uint256"},{"name":"nonce","type":"uint256"},{"name":"deadline","type":"uint256"}]},"primaryType":"Permit","domain":{"name":"Attestor test token","version":"1","chainId":125,"verifyingContract":"0xCcCCccccCCCCcCCCCCCcCcCccCcCCCcCcccccccC"},"message":{"owner":"%s","spender":"0x1111111111111111111111111111111111111111","value":"100","nonce":"0","deadline":"4102444800"}}`
+
+func TestEVMReviewThenSignAcrossQuorum(t *testing.T) {
+	tokenAddress := common.HexToAddress("0x2222222222222222222222222222222222222222")
+	recipient := common.HexToAddress("0x3333333333333333333333333333333333333333")
+	amount := big.NewInt(600)
+	doc := testPolicy()
+	doc.Defaults.Caps[tokenAddress.Hex()] = policy.Cap{PerTransaction: "1000", Daily: "1000"}
+	c := newTestClusterWith(t, 5, true, doc, nil)
+	const keyID = "review-then-sign-evm"
+	imported, authority := importMetricsKey(t, c, keyID)
+	address := common.HexToAddress(imported[0].Address)
+	for _, result := range imported {
+		if !common.IsHexAddress(result.Address) || common.HexToAddress(result.Address) != address {
+			t.Fatalf("%s: imported address %s, want %s", result.NodeID, result.Address, address)
+		}
+	}
+	epoch := uint64(0)
+	refreshed := decodeOK[KeyResponse](t, "refresh EVM review key", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
+		return RefreshRequest{
+			SessionID: "refresh-review-then-sign", KeyID: keyID, CeremonyID: "metrics-ceremony",
+			ImportSessionID: "import-" + keyID, ExpectedEpoch: &epoch,
+		}
+	}, ""))
+	for _, result := range refreshed {
+		if result.Epoch != 1 || !result.Refreshed || result.PublicKey != imported[0].PublicKey {
+			t.Fatalf("%s: unexpected refreshed key: %+v", result.NodeID, result)
+		}
+	}
+	authority.keys[0].Epoch = 1
+	authority.publish(t)
+
+	data := append(common.FromHex("0xa9059cbb"), common.LeftPadBytes(recipient.Bytes(), 32)...)
+	data = append(data, common.LeftPadBytes(amount.Bytes(), 32)...)
+	tx := types.NewTx(&types.DynamicFeeTx{
+		ChainID: big.NewInt(testChainID), Nonce: 7, GasTipCap: big.NewInt(1), GasFeeCap: big.NewInt(2),
+		Gas: 80000, To: &tokenAddress, Value: big.NewInt(0), Data: data,
+	})
+	raw, err := tx.MarshalBinary()
+	if err != nil {
+		t.Fatal(err)
+	}
+	transaction := "0x" + hex.EncodeToString(raw)
+	wantHash := types.LatestSignerForChainID(big.NewInt(testChainID)).Hash(tx)
+	signers := []string{"node-1", "node-3", "node-5"}
+	nodes := c.byID(signers...)
+	account := policy.AccountKey(address.Hex())
+	assertSpent := func(stage string, want *big.Int) {
+		t.Helper()
+		for _, node := range c.nodes {
+			var ledger policy.Ledger = node.server.spends
+			now, err := ledger.Now()
+			if err != nil {
+				t.Fatalf("%s %s: ledger clock: %v", stage, node.id, err)
+			}
+			spent, err := ledger.Spent(account, policy.TokenAsset(tokenAddress), now.Add(-policy.SpendWindow))
+			if err != nil || spent.Cmp(want) != 0 {
+				t.Fatalf("%s %s: spent %v, want %s: %v", stage, node.id, spent, want, err)
+			}
+		}
+	}
+	assertSpent("before review", big.NewInt(0))
+	reviews := decodeOK[EVMReviewResponse](t, "EVM review across quorum", c.callAll(t, nodes, PathEVMReview, func(*testNode) any {
+		return EVMReviewRequest{SessionID: "review-then-sign", KeyID: keyID, Transaction: transaction}
+	}, c.idp.mint(t, c.idp.key, testOwner)))
+	for i, review := range reviews {
+		if review.NodeID != signers[i] || review.KeyID != keyID || review.Decision != policy.CodeAllowed ||
+			review.SigningHash != wantHash.Hex() || review.SigningHash != reviews[0].SigningHash ||
+			review.To != tokenAddress.Hex() || review.Value != "0" || review.Data != "0x"+hex.EncodeToString(data) ||
+			review.Method != "transfer" || review.Destination != "erc20" || review.ChainID != testChainID || review.AuditSequence == 0 {
+			t.Fatalf("%s: unexpected ERC-20 review: %+v, want signing hash %s", signers[i], review, wantHash)
+		}
+	}
+	assertSpent("after review", big.NewInt(0))
+	reviewedHash, err := hex.DecodeString(strings.TrimPrefix(reviews[0].SigningHash, "0x"))
+	if err != nil || len(reviewedHash) != 32 {
+		t.Fatalf("invalid reviewed signing hash %s: %v", reviews[0].SigningHash, err)
+	}
+	results := decodeOK[SignResponse](t, "sign reviewed EVM transaction", c.callAll(t, nodes, PathSign, func(*testNode) any {
+		return SignRequest{
+			SessionID: "sign-reviewed-evm", KeyID: keyID, Kind: KindEVMTransaction,
+			Signers: signers, Transaction: transaction,
+		}
+	}, c.idp.mint(t, c.idp.key, testOwner)))
+	for i, result := range results {
+		if result.NodeID != signers[i] || result.KeyID != keyID || result.Kind != KindEVMTransaction ||
+			result.SignedBytes != hex.EncodeToString(reviewedHash) || result.AuditSequence == 0 {
+			t.Fatalf("%s: signing response differs from reviewed digest %s: %+v", signers[i], reviews[i].SigningHash, result)
+		}
+		signature, err := hex.DecodeString(result.Signature)
+		if err != nil || len(signature) != 65 || result.RecoveryID == nil || signature[64] != *result.RecoveryID {
+			t.Fatalf("%s: invalid signature %s or recovery id %v: %v", result.NodeID, result.Signature, result.RecoveryID, err)
+		}
+		publicKey, err := gethcrypto.SigToPub(reviewedHash, signature)
+		if err != nil {
+			t.Fatalf("%s: recover signature over reviewed signing hash: %v", result.NodeID, err)
+		}
+		if recovered := gethcrypto.PubkeyToAddress(*publicKey); recovered != address {
+			t.Fatalf("%s: signature over reviewed signing hash recovers %s, want %s", result.NodeID, recovered, address)
+		}
+	}
+	assertSpent("after signing once", amount)
+}
 
 func TestFiveNodeEndToEnd(t *testing.T) {
-	c := newTestCluster(t, 5, true)
+	doc := testPolicy()
+	doc.Defaults.Caps["0xcccccccccccccccccccccccccccccccccccccccc"] = policy.Cap{PerTransaction: "1000", Daily: "10000"}
+	c := newTestClusterWith(t, 5, true, doc, nil)
 	token := c.idp.mint(t, c.idp.key, testOwner)
 	fresh := func() string { return c.idp.mint(t, c.idp.key, testOwner) }
 
@@ -836,7 +954,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 		go func(i int, keyID string) {
 			defer wg.Done()
 			results := c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-				return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID}
+				return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 			}, "")
 			for j, r := range results {
 				if r.status != http.StatusOK {
@@ -855,6 +973,9 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 	wg.Wait()
 	if t.Failed() {
 		t.FailNow()
+	}
+	for _, keyID := range []string{"evm-key", "lx-key"} {
+		c.publishImportEpoch(t, keyID, 1)
 	}
 	for i, set := range refreshed {
 		for _, r := range set {
@@ -901,17 +1022,18 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 		}
 	}
 
-	var mail apitypes.TypedData
-	if err := json.Unmarshal([]byte(mailTypedData), &mail); err != nil {
+	typedData := fmt.Sprintf(permitTypedData, address.Hex())
+	var permit apitypes.TypedData
+	if err := json.Unmarshal([]byte(typedData), &permit); err != nil {
 		t.Fatal(err)
 	}
-	mailDigest, _, err := apitypes.TypedDataAndHash(mail)
+	permitDigest, _, err := apitypes.TypedDataAndHash(permit)
 	if err != nil {
 		t.Fatal(err)
 	}
-	tdResults := decodeOK[SignResponse](t, "typed data", sign("sign-typed-data", SignRequest{KeyID: "evm-key", Kind: KindTypedData, TypedData: mailTypedData}, fresh()))
+	tdResults := decodeOK[SignResponse](t, "typed data", sign("sign-typed-data", SignRequest{KeyID: "evm-key", Kind: KindTypedData, TypedData: typedData}, fresh()))
 	for _, r := range tdResults {
-		if r.SignedBytes != hex.EncodeToString(mailDigest) {
+		if r.SignedBytes != hex.EncodeToString(permitDigest) {
 			t.Fatalf("%s: typed data digest %s", r.NodeID, r.SignedBytes)
 		}
 		digest, _ := hex.DecodeString(r.SignedBytes)
@@ -933,7 +1055,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 
 	unsigned, preimage := kernelActivityFor(t, ed25519.NewKeyFromSeed(edSeed[:]), 1)
 	actDisclosure, actApproval := approvedActivity(t, c, unsigned, "lx-key", "sign-activity", testOwner)
-	actResults := decodeOK[SignResponse](t, "activity", sign("sign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXActivity, Activity: hex.EncodeToString(unsigned), Disclosure: actDisclosure, Approval: actApproval}, fresh()))
+	actResults := decodeOK[SignResponse](t, "activity", sign("sign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXSendAuth, Activity: hex.EncodeToString(unsigned), Disclosure: actDisclosure, Approval: actApproval}, fresh()))
 	for _, r := range actResults {
 		sig, _ := hex.DecodeString(r.Signature)
 		if r.SignedBytes != hex.EncodeToString(preimage) || !ed25519.Verify(edPub, preimage, sig) {
@@ -953,6 +1075,21 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 		pub, err := gethcrypto.SigToPub(authDigest.Bytes(), sig)
 		if r.SignedBytes != hex.EncodeToString(authDigest.Bytes()) || err != nil || gethcrypto.PubkeyToAddress(*pub) != address {
 			t.Fatalf("%s: authorization signature does not recover the key over the recomputed digest (%v)", r.NodeID, err)
+		}
+	}
+	unlistedDelegate := common.HexToAddress("0x4444444444444444444444444444444444444444")
+	unlistedDigest, err := evm.AuthorizationDigest(big.NewInt(testChainID), unlistedDelegate, 3)
+	if err != nil {
+		t.Fatal(err)
+	}
+	unlistedConstruction := &ConstructionJSON{Kind: policy.KindAuthorization, ChainID: "125", Address: unlistedDelegate.Hex(), Nonce: "3"}
+	unlistedResults := c.callAll(t, c.nodes, PathSign, func(*testNode) any {
+		return SignRequest{SessionID: "sign-unlisted-authorization", KeyID: "evm-key", Kind: KindEthSignDigest, Signers: c.ids, Digest: unlistedDigest.Hex(), Construction: unlistedConstruction}
+	}, fresh())
+	for i, r := range unlistedResults {
+		e := expectError(t, c.nodes[i].id+": unlisted authorization delegate", r, CodePolicyDenied)
+		if e.PolicyCode != policy.CodeDelegateNotAllowed {
+			t.Fatalf("%s: unlisted authorization delegate: policy code %s", c.nodes[i].id, e.PolicyCode)
 		}
 	}
 	for _, r := range sign("sign-bare-digest", SignRequest{KeyID: "evm-key", Kind: KindEthSignDigest, Digest: authDigest.Hex()}, fresh()) {
@@ -986,7 +1123,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 	peerSeed := sha256.Sum256([]byte("attestor end-to-end foreign identity"))
 	foreign, _ := kernelActivityFor(t, ed25519.NewKeyFromSeed(peerSeed[:]), 3)
 	foreignDisclosure, foreignApproval := approvedActivity(t, c, foreign, "lx-key", "sign-foreign-activity", testOwner)
-	for _, r := range sign("sign-foreign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXActivity, Activity: hex.EncodeToString(foreign), Disclosure: foreignDisclosure, Approval: foreignApproval}, fresh()) {
+	for _, r := range sign("sign-foreign-activity", SignRequest{KeyID: "lx-key", Kind: KindLXSendAuth, Activity: hex.EncodeToString(foreign), Disclosure: foreignDisclosure, Approval: foreignApproval}, fresh()) {
 		e := expectError(t, "activity for another identity", r, CodePolicyDenied)
 		if e.PolicyCode != lx.CodeAuthorityMismatch {
 			t.Fatalf("activity for another identity: policy code %s", e.PolicyCode)
@@ -998,7 +1135,7 @@ func TestFiveNodeEndToEnd(t *testing.T) {
 			t.Fatalf("stale bind nonce: policy code %s", e.PolicyCode)
 		}
 	}
-	gatewayOnRefresh := c.callAs(t, c.client, c.nodes[0], PathRefresh, RefreshRequest{SessionID: "refresh-by-gateway", KeyID: "evm-key"}, "")
+	gatewayOnRefresh := c.callAs(t, c.client, c.nodes[0], PathRefresh, RefreshRequest{SessionID: "refresh-by-gateway", KeyID: "evm-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-evm-key", ExpectedEpoch: new(uint64)}, "")
 	if gatewayOnRefresh.status != http.StatusForbidden {
 		t.Fatalf("gateway identity on refresh: status %d", gatewayOnRefresh.status)
 	}
@@ -1069,20 +1206,10 @@ func TestAddShareBindsOwnerAcrossParticipants(t *testing.T) {
 		t.Fatal(err)
 	}
 	account := common.HexToAddress("0x3333333333333333333333333333333333333333").Hex()
-	bundles, _, err := dealer.Split(dealer.Ed25519, edScalar, holders)
-	if err != nil {
-		t.Fatal(err)
-	}
-	byNode := map[string]ShareBundleJSON{}
-	for _, b := range bundles {
-		byNode[b.ParticipantID] = EncodeBundle(b)
-	}
-	decodeOK[KeyResponse](t, "import", c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-		return ImportRequest{SessionID: "import-bound", KeyID: "bound-key", Owner: testOwner, Account: account, Share: byNode[n.id]}
-	}, ""))
-
-	quorum := []string{"node-1", "node-2", "node-3"}
+	importKeyOn(t, c, holders, "bound-key", dealer.Ed25519, edScalar, account)
+	quorum := []string{"node-1", "node-2", "node-3", "node-4"}
 	newcomer := "node-6"
+	approveTestKeys(t, c, append(append([]string(nil), quorum...), newcomer))
 	addShare := func(session, newcomerOwner string) []apiResult {
 		return c.callAll(t, c.byID(append(append([]string{}, quorum...), newcomer)...), PathAddShare, func(n *testNode) any {
 			owner := testOwner
@@ -1189,7 +1316,12 @@ func TestImportRefusesSharesOutsideTheCustodyScheme(t *testing.T) {
 		t.Fatal("a share outside the custody scheme was stored")
 	}
 	good := bundleFor([]*big.Int{secret, coefficient("c1"), coefficient("c2")}, plain, dealer.Threshold)
-	decodeOK[KeyResponse](t, "custody scheme import", []apiResult{c.call(t, c.byID("node-1")[0], PathImport, ImportRequest{SessionID: "import-scheme-good", KeyID: "scheme-key", Owner: testOwner, Share: good}, "")})
+	pub, err := publicKeyBytes(dealer.Secp256k1, pt.ScalarBaseMult(curve, secret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	approveTestKeys(t, c, c.ids, InventoryKey{KeyID: "scheme-key", Curve: "secp256k1", PublicKey: hex.EncodeToString(pub), Owner: testOwner, Operations: []string{"import", "sign"}})
+	decodeOK[KeyResponse](t, "custody scheme import", []apiResult{c.call(t, c.byID("node-1")[0], PathImport, ImportRequest{CeremonyID: "metrics-ceremony", SessionID: "import-scheme-good", KeyID: "scheme-key", Owner: testOwner, Share: good, PublicKey: hex.EncodeToString(pub), Participants: c.ids, Threshold: dealer.Threshold}, "")})
 }
 
 func (c *testCluster) verifyOn(t *testing.T, client *http.Client, signers []string, session, keyID, importSession string) []apiResult {
@@ -1198,11 +1330,15 @@ func (c *testCluster) verifyOn(t *testing.T, client *http.Client, signers []stri
 	results := make([]apiResult, len(nodes))
 	var wg sync.WaitGroup
 	for i, node := range nodes {
+		record, err := node.store.Get(keyID)
+		if err != nil {
+			t.Fatal(err)
+		}
 		wg.Add(1)
-		go func(i int, node *testNode) {
+		go func(i int, node *testNode, epoch uint64) {
 			defer wg.Done()
-			results[i] = c.callAs(t, client, node, PathSign, VerificationRequest{SessionID: session, KeyID: keyID, Kind: KindOperatorVerification, Signers: signers, ImportSessionID: importSession}, "")
-		}(i, node)
+			results[i] = c.callAs(t, client, node, PathSign, VerificationRequest{SessionID: session, KeyID: keyID, Kind: KindOperatorVerification, Signers: signers, ImportSessionID: importSession, CeremonyID: "metrics-ceremony", ExpectedEpoch: &epoch}, "")
+		}(i, node, record.Epoch)
 	}
 	wg.Wait()
 	return results
@@ -1239,8 +1375,9 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 	importKey(t, c, "verify-lx", dealer.Ed25519, edScalar, address.Hex())
 	for _, keyID := range []string{"verify-evm", "verify-lx"} {
 		decodeOK[KeyResponse](t, "refresh "+keyID, c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-			return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID}
+			return RefreshRequest{SessionID: "refresh-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 		}, ""))
+		c.publishImportEpoch(t, keyID, 1)
 	}
 	secpMsg := policy.VerificationMessage("verify-evm", secpPub, "import-verify-evm")
 	edMsg := policy.VerificationMessage("verify-lx", edPub, "import-verify-lx")
@@ -1292,7 +1429,7 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 			req.Message, req.Transaction = "", raw
 		case KindTypedData:
 			req.Message, req.TypedData = "", `{"types":{"EIP712Domain":[{"name":"chainId","type":"uint256"}],"Note":[{"name":"text","type":"string"}]},"primaryType":"Note","domain":{"chainId":125},"message":{"text":"`+VerificationDomain+`"}}`
-		case KindLXActivity:
+		case KindLXSendAuth:
 			req.Message, req.Activity = "", raw
 		case KindEthSignDigest:
 			req.Message, req.Digest = "", hex.EncodeToString(gethcrypto.Keccak256(secpMsg))
@@ -1305,6 +1442,7 @@ func TestOperatorVerificationInTheCeremonyWindow(t *testing.T) {
 		}
 	}
 
+	approveTestKeys(t, c, c.ids, InventoryKey{KeyID: "verify-generated", Curve: "ed25519", Owner: testOwner, Operations: []string{"generate"}})
 	decodeOK[KeyResponse](t, "generate", c.callAll(t, c.nodes, PathGenerate, func(*testNode) any {
 		return GenerateRequest{SessionID: "generate-verify", KeyID: "verify-generated", Curve: "ed25519", Owner: testOwner, Account: address.Hex()}
 	}, ""))
@@ -1370,21 +1508,8 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	importOn := func(keyID string, curve dealer.Curve, secret *big.Int, account string) {
-		bundles, _, err := dealer.Split(curve, secret, holders)
-		if err != nil {
-			t.Fatal(err)
-		}
-		byNode := map[string]ShareBundleJSON{}
-		for _, b := range bundles {
-			byNode[b.ParticipantID] = EncodeBundle(b)
-		}
-		decodeOK[KeyResponse](t, "import "+keyID, c.callAll(t, c.byID(holders...), PathImport, func(n *testNode) any {
-			return ImportRequest{SessionID: "import-" + keyID, KeyID: keyID, Owner: testOwner, Account: account, Share: byNode[n.id]}
-		}, ""))
-	}
-	importOn("replace-evm", dealer.Secp256k1, new(big.Int).SetBytes(secpSeed[:]), "")
-	importOn("replace-lx", dealer.Ed25519, edScalar, address.Hex())
+	importKeyOn(t, c, holders, "replace-evm", dealer.Secp256k1, new(big.Int).SetBytes(secpSeed[:]), "")
+	importKeyOn(t, c, holders, "replace-lx", dealer.Ed25519, edScalar, address.Hex())
 	keys := []string{"replace-evm", "replace-lx"}
 
 	refreshAll := func(label string, nodes []string) [][]apiResult {
@@ -1395,7 +1520,7 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 			go func(i int, keyID string) {
 				defer wg.Done()
 				out[i] = c.callAll(t, c.byID(nodes...), PathRefresh, func(*testNode) any {
-					return RefreshRequest{SessionID: label + "-" + keyID, KeyID: keyID}
+					return RefreshRequest{SessionID: label + "-" + keyID, KeyID: keyID, CeremonyID: "metrics-ceremony", ImportSessionID: "import-" + keyID, ExpectedEpoch: new(uint64)}
 				}, "")
 			}(i, keyID)
 		}
@@ -1410,6 +1535,10 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 		}
 	}
 
+	for _, keyID := range keys {
+		c.publishImportEpoch(t, keyID, 1)
+	}
+	approveTestKeys(t, c, append(append([]string(nil), survivors...), replacement))
 	c.byID(lost)[0].stop()
 
 	wantPublic := map[string]string{"replace-evm": "", "replace-lx": hex.EncodeToString(edPub)}
@@ -1455,6 +1584,7 @@ func TestDescribedFieldsReplaceALostParticipant(t *testing.T) {
 				t.Fatalf("%s: refresh after add-share %+v", r.NodeID, r)
 			}
 		}
+		c.publishImportEpoch(t, keyID, a.Epoch+1)
 		onReplacement := decodeOK[DescribeResponse](t, "describe on the replacement "+keyID, []apiResult{
 			c.call(t, c.byID(replacement)[0], PathDescribe, DescribeRequest{SessionID: "describe-new-" + keyID, KeyID: keyID}, ""),
 		})[0]

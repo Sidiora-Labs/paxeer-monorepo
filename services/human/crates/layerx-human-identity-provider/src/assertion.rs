@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 use std::io;
-use std::sync::Mutex;
-use std::time::{Duration, Instant};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+
+use layerx_types::clock::{Clock, ClockReading};
 
 use jsonwebtoken::jwk::{AlgorithmParameters, EllipticCurve, Jwk, KeyAlgorithm, PublicKeyUse};
 use jsonwebtoken::{Algorithm, DecodingKey, Validation};
@@ -304,22 +306,22 @@ impl VerifiedAssertion {
     }
 }
 
-#[derive(Default)]
 struct KeyCache {
+    clock: Arc<dyn Clock>,
     keys: HashMap<String, (Algorithm, DecodingKey)>,
-    fetched: Option<Instant>,
-    attempted: Option<Instant>,
+    fetched: Option<ClockReading>,
+    attempted: Option<ClockReading>,
 }
 
 impl KeyCache {
-    fn expire(&mut self, lifetime: Duration) {
-        if self
-            .fetched
-            .is_some_and(|fetched| fetched.elapsed() >= lifetime)
-        {
-            self.keys.clear();
-            self.fetched = None;
+    fn expire(&mut self, now: ClockReading, lifetime: Duration) -> io::Result<()> {
+        if let Some(fetched) = self.fetched {
+            if now.elapsed_since(fetched).map_err(io::Error::other)? >= lifetime {
+                self.keys.clear();
+                self.fetched = None;
+            }
         }
+        Ok(())
     }
 
     fn find(&self, key_id: &str, algorithm: Algorithm) -> Option<DecodingKey> {
@@ -352,6 +354,15 @@ impl AssertionVerifier {
     /// Refuses invalid configuration, an invalid producer key and unavailable trust roots.
     pub fn new(config: AssertionConfig) -> io::Result<Self> {
         config.validate()?;
+        Self::new_with_clock(
+            config,
+            layerx_client::runtime_clock::RuntimeClock::from_environment()
+                .map_err(io::Error::other)?,
+        )
+    }
+
+    pub fn new_with_clock(config: AssertionConfig, clock: Arc<dyn Clock>) -> io::Result<Self> {
+        config.validate()?;
         let agent: ureq::Agent = ureq::Agent::config_builder()
             .tls_config(
                 ureq::tls::TlsConfig::builder()
@@ -367,9 +378,26 @@ impl AssertionVerifier {
         Ok(Self {
             config,
             agent,
-            cache: Mutex::new(KeyCache::default()),
+            cache: Mutex::new(KeyCache {
+                clock,
+                keys: HashMap::new(),
+                fetched: None,
+                attempted: None,
+            }),
             producer: BindingProducer::from_environment()?,
         })
+    }
+
+    pub(crate) fn set_clock(&self, clock: Arc<dyn Clock>) -> io::Result<()> {
+        let mut cache = self
+            .cache
+            .lock()
+            .map_err(|_| io::Error::other("assertion key cache poisoned"))?;
+        cache.clock = clock;
+        cache.keys.clear();
+        cache.fetched = None;
+        cache.attempted = None;
+        Ok(())
     }
 
     /// Replaces the wallet binding producer key with an uncompressed SEC1 P-256
@@ -456,13 +484,20 @@ impl AssertionVerifier {
             .lock()
             .map_err(|_| io::Error::other("assertion key cache poisoned"))?;
         let interval = Duration::from_secs(self.config.refresh_interval_seconds);
-        cache.expire(interval);
+        let now = cache
+            .clock
+            .sample(Duration::from_secs(1))
+            .map_err(io::Error::other)?;
+        cache.expire(now, interval)?;
         if let Some(key) = cache.find(key_id, algorithm) {
             return Ok(key);
         }
         if cache
             .attempted
-            .is_some_and(|attempted| attempted.elapsed() < interval)
+            .map(|attempted| now.elapsed_since(attempted))
+            .transpose()
+            .map_err(io::Error::other)?
+            .is_some_and(|elapsed| elapsed < interval)
         {
             return Err(if cache.fetched.is_some() {
                 invalid("unknown assertion key")
@@ -470,7 +505,7 @@ impl AssertionVerifier {
                 io::Error::other("assertion key set unavailable")
             });
         }
-        let started = Instant::now();
+        let started = now;
         cache.attempted = Some(started);
         cache.keys = self.fetch()?;
         cache.fetched = Some(started);

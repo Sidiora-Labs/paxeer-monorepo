@@ -66,8 +66,8 @@ for (const refused of [
   "1.5",
   "007",
   "0xgg",
-  `0x${"f".repeat(33)}`,
-  "340282366920938463463374607431768211456",
+  `0x${"f".repeat(65)}`,
+  (1n << 256n).toString(),
   1.5,
   -1,
   null,
@@ -118,6 +118,201 @@ const balances = {
   ],
   joined_limit: 16,
 };
+
+function px_amounts_decode_up_to_uint256() {
+  const sdkPackage = JSON.parse(
+    readFileSync(new URL("../../package.json", import.meta.url), "utf8"),
+  );
+  assert.ok(
+    sdkPackage.scripts.test
+      .split(" && ")
+      .includes("node scripts/run-tests.mjs self-contained"),
+  );
+  const testRunner = readFileSync(
+    new URL("../../scripts/run-tests.mjs", import.meta.url),
+    "utf8",
+  );
+  assert.match(testRunner, /selected = \["ai-market\.test\.ts"\];/u);
+  assert.match(
+    testRunner,
+    /case "self-contained":\s+selected = discovered\.filter\(\(name\) => !special\.includes\(name\)\);/u,
+  );
+  assert.ok(
+    !Object.values(sdkPackage.sdkTestRequirements)
+      .flat()
+      .includes("ai-market.test.ts"),
+  );
+  assert.ok(
+    readFileSync(new URL("../../test/ai-market.test.ts", import.meta.url), "utf8")
+      .length > 0,
+  );
+  const amounts = [0n, 1n << 128n, 1n << 200n, (1n << 256n) - 1n];
+  const accepted = amounts.flatMap((amount) =>
+    [amount.toString(), `0x${amount.toString(16)}`].map((quantity) => ({
+      quantity,
+      expected: amount.toString(),
+      balances: {
+        ...balances,
+        balances: [
+          {
+            ...balances.balances[0]!,
+            custody: { ...custody, custody_cap: quantity },
+            paxeer: { denom: "ulxp", amount: quantity },
+          },
+        ],
+      },
+      assets: {
+        assets: [
+          {
+            asset_id: NATIVE,
+            layerx: null,
+            paxeer: { ...custody, custody_cap: quantity },
+          },
+        ],
+        joined_limit: 16,
+      },
+    })),
+  );
+  for (const entry of accepted) {
+    const expected = BigInt(entry.expected);
+    assert.equal(pxQuantity(entry.quantity), expected);
+    const row = decodePxAccountBalances(entry.balances).balances[0]!;
+    assert.equal(row.paxeer?.amount, expected);
+    assert.equal(row.custody?.custodyCap, expected);
+    assert.equal(
+      decodePxAssetTable(entry.assets).assets[0]!.paxeer?.custodyCap,
+      expected,
+    );
+  }
+
+  const overflow = 1n << 256n;
+  const invalidQuantities = [overflow.toString(), `0x${overflow.toString(16)}`];
+  const invalidBalances = invalidQuantities.flatMap((quantity) => [
+    {
+      ...balances,
+      balances: [
+        {
+          ...balances.balances[0]!,
+          paxeer: { denom: "ulxp", amount: quantity },
+        },
+      ],
+    },
+    {
+      ...balances,
+      balances: [
+        {
+          ...balances.balances[0]!,
+          custody: { ...custody, custody_cap: quantity },
+        },
+      ],
+    },
+  ]);
+  const invalidAssets = invalidQuantities.map((quantity) => ({
+    assets: [
+      {
+        asset_id: NATIVE,
+        layerx: null,
+        paxeer: { ...custody, custody_cap: quantity },
+      },
+    ],
+    joined_limit: 16,
+  }));
+  const invalidCounts = [
+    (1n << 64n).toString(),
+    `0x${(1n << 64n).toString(16)}`,
+  ].map((joined_limit) => ({ ...balances, joined_limit }));
+  for (const value of invalidQuantities)
+    assert.throws(() => pxQuantity(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidBalances)
+    assert.throws(() => decodePxAccountBalances(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidAssets)
+    assert.throws(() => decodePxAssetTable(value), {
+      message: "Invalid gateway quantity",
+    });
+  for (const value of invalidCounts)
+    assert.throws(() => decodePxAccountBalances(value), {
+      message: "Invalid gateway count",
+    });
+  assert.equal(
+    decodePxAccountBalances({
+      ...balances,
+      joined_limit: ((1n << 64n) - 1n).toString(),
+    }).joinedLimit,
+    (1n << 64n) - 1n,
+  );
+
+  const script = `
+import json
+import sys
+from layerx_sdk.px import px_quantity, decode_px_account_balances, decode_px_asset_table
+
+document = json.load(sys.stdin)
+decoded = []
+for entry in document["accepted"]:
+    row = decode_px_account_balances(entry["balances"]).balances[0]
+    asset = decode_px_asset_table(entry["assets"]).assets[0].paxeer
+    decoded.append([str(px_quantity(entry["quantity"])), str(row.paxeer.amount), str(row.custody.custody_cap), str(asset.custody_cap)])
+    assert px_quantity(int(entry["expected"])) == int(entry["expected"])
+errors = []
+for group, decoder in [("invalidQuantities", px_quantity), ("invalidBalances", decode_px_account_balances), ("invalidAssets", decode_px_asset_table), ("invalidCounts", decode_px_account_balances)]:
+    for value in document[group]:
+        try:
+            decoder(value)
+        except ValueError as error:
+            errors.append(str(error))
+        else:
+            raise AssertionError("invalid gateway input accepted")
+try:
+    px_quantity(1 << 256)
+except ValueError as error:
+    assert str(error) == "invalid-px-quantity"
+else:
+    raise AssertionError("uint256 overflow accepted")
+print(json.dumps({"decoded": decoded, "errors": errors}))
+`;
+  const result = spawnSync("python3", ["-B", "-c", script], {
+    env: {
+      ...process.env,
+      PYTHONPATH: fileURLToPath(new URL("../../../python/", import.meta.url)),
+      PYTHONDONTWRITEBYTECODE: "1",
+    },
+    input: JSON.stringify({
+      accepted,
+      invalidQuantities,
+      invalidBalances,
+      invalidAssets,
+      invalidCounts,
+    }),
+    encoding: "utf8",
+    timeout: 30_000,
+    maxBuffer: 1024 * 1024,
+  });
+  assert.equal(result.error, undefined);
+  assert.equal(result.signal, null);
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), {
+    decoded: accepted.map(({ expected }) => [
+      expected,
+      expected,
+      expected,
+      expected,
+    ]),
+    errors: [
+      ...new Array<string>(
+        invalidQuantities.length +
+          invalidBalances.length +
+          invalidAssets.length,
+      ).fill("invalid-px-quantity"),
+      ...invalidCounts.map(() => "invalid-px-count"),
+    ],
+  });
+}
+
+await test(px_amounts_decode_up_to_uint256);
 
 const decoded = decodePxAccountBalances(balances);
 assert.equal(decoded.account.evmAddress, EVM);
@@ -218,24 +413,68 @@ assert.equal(assets.assets[1]!.layerx, null);
 const networkDocument = {
   network_id: "eip155:125",
   paxeer: { chain_id: "0x7d", latest_block: "0x2b67" },
-  layerx: { node_info: { network: "eip155:125" } },
-  latest_committed_height: "11110",
+  consensus: {
+    latest_height: "11110",
+    latest_block_hash: "12".repeat(32),
+    latest_app_hash: "34".repeat(32),
+    catching_up: false,
+  },
 };
 const maximumHeight = "18446744073709551615";
-const networkCases = [
+const networkDocuments = [
   networkDocument,
   {
     ...networkDocument,
-    latest_committed_height: "0",
+    consensus: { ...networkDocument.consensus, latest_height: "0" },
     layerx: { node_info: null },
   },
-  { ...networkDocument, latest_committed_height: "0x2b67", layerx: null },
+  {
+    ...networkDocument,
+    consensus: { ...networkDocument.consensus, latest_height: "0x2b67" },
+    layerx: null,
+  },
   {
     ...networkDocument,
     paxeer: { chain_id: 125, latest_block: maximumHeight },
-    latest_committed_height: maximumHeight,
+    consensus: { ...networkDocument.consensus, latest_height: maximumHeight },
   },
 ];
+function networkCases() {
+  const document = {
+    network_id: "eip155:125",
+    paxeer: { chain_id: "0x7d", latest_block: 16 },
+    consensus: { ...networkDocument.consensus, latest_height: 9 },
+  };
+  const network = decodePxNetworkHead(document);
+  assert.deepEqual(network, {
+    networkId: "eip155:125",
+    paxeer: { chainId: 125n, latestBlock: 16n },
+    layerx: null,
+    latestCommittedHeight: 9n,
+  });
+  assert.throws(
+    () =>
+      decodePxNetworkHead({
+        ...document,
+        consensus: null,
+        reason: "consensus_unavailable",
+      }),
+    { message: "Gateway consensus unavailable" },
+  );
+  assert.throws(
+    () =>
+      decodePxNetworkHead({
+        ...document,
+        consensus: { ...document.consensus, latest_height: 17 },
+      }),
+    { message: "Invalid gateway finality" },
+  );
+  assert.throws(() => decodePxNetworkHead({ ...document, anchor: null }), {
+    message: "Invalid gateway finality",
+  });
+}
+await test(networkCases);
+
 const invalidNetworks: readonly {
   readonly value: unknown;
   readonly ts: string;
@@ -252,12 +491,29 @@ const invalidNetworks: readonly {
     py: "incomplete-px-document",
   },
   {
+    value: {
+      ...networkDocument,
+      consensus: null,
+      reason: "consensus_unavailable",
+    },
+    ts: "Gateway consensus unavailable",
+    py: "px-consensus-unavailable",
+  },
+  {
+    value: { ...networkDocument, consensus: {} },
+    ts: "Incomplete gateway document",
+    py: "incomplete-px-document",
+  },
+  {
     value: { ...networkDocument, anchor: null },
     ts: "Invalid gateway finality",
     py: "invalid-px-finality",
   },
   {
-    value: { ...networkDocument, latest_committed_height: "11112" },
+    value: {
+      ...networkDocument,
+      consensus: { ...networkDocument.consensus, latest_height: "11112" },
+    },
     ts: "Invalid gateway finality",
     py: "invalid-px-finality",
   },
@@ -273,7 +529,10 @@ const invalidNetworks: readonly {
   },
   ...[null, true, -1, 1.5, "-1", "01", "18446744073709551616"].map(
     (height) => ({
-      value: { ...networkDocument, latest_committed_height: height },
+      value: {
+        ...networkDocument,
+        consensus: { ...networkDocument.consensus, latest_height: height },
+      },
       ts:
         height === "18446744073709551616"
           ? "Invalid gateway count"
@@ -291,23 +550,26 @@ await test("network_finality_from_commit", () => {
   assert.deepEqual(network, {
     networkId: "eip155:125",
     paxeer: { chainId: 125n, latestBlock: 11111n },
-    layerx: { node_info: { network: "eip155:125" } },
+    layerx: null,
     latestCommittedHeight: 11110n,
   });
   assert.equal("anchor" in network, false);
   assert.equal(Object.isFrozen(network), true);
   assert.equal(Object.isFrozen(network.paxeer), true);
-  assert.equal(decodePxNetworkHead(networkCases[1]).latestCommittedHeight, 0n);
-  assert.deepEqual(decodePxNetworkHead(networkCases[1]).layerx, {
+  assert.equal(
+    decodePxNetworkHead(networkDocuments[1]).latestCommittedHeight,
+    0n,
+  );
+  assert.deepEqual(decodePxNetworkHead(networkDocuments[1]).layerx, {
     node_info: null,
   });
-  assert.equal(decodePxNetworkHead(networkCases[2]).layerx, null);
+  assert.equal(decodePxNetworkHead(networkDocuments[2]).layerx, null);
   assert.equal(
-    decodePxNetworkHead(networkCases[2]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[2]).latestCommittedHeight,
     11111n,
   );
   assert.equal(
-    decodePxNetworkHead(networkCases[3]).latestCommittedHeight,
+    decodePxNetworkHead(networkDocuments[3]).latestCommittedHeight,
     18446744073709551615n,
   );
   for (const { value, ts } of invalidNetworks)
@@ -316,70 +578,172 @@ await test("network_finality_from_commit", () => {
     () =>
       decodePxNetworkHead({
         ...networkDocument,
-        latest_committed_height: Number.MAX_SAFE_INTEGER + 1,
+        consensus: {
+          ...networkDocument.consensus,
+          latest_height: Number.MAX_SAFE_INTEGER + 1,
+        },
       }),
     { message: "Invalid gateway quantity" },
   );
 });
 
+function px_network_head_carries_the_commit_finality_and_no_anchor() {
+  const network = decodePxNetworkHead(networkDocument);
+  assert.deepEqual(network, {
+    networkId: "eip155:125",
+    paxeer: { chainId: 125n, latestBlock: 11111n },
+    layerx: null,
+    latestCommittedHeight: 11110n,
+  });
+  assert.equal("anchor" in network, false);
+  assert.equal(Object.isFrozen(network), true);
+  assert.equal(Object.isFrozen(network.paxeer), true);
+  assert.equal(
+    decodePxNetworkHead(networkDocuments[1]).latestCommittedHeight,
+    0n,
+  );
+  assert.equal(
+    decodePxNetworkHead(networkDocuments[2]).latestCommittedHeight,
+    11111n,
+  );
+  assert.equal(
+    decodePxNetworkHead(networkDocuments[3]).latestCommittedHeight,
+    18446744073709551615n,
+  );
+  for (const anchor of [
+    null,
+    undefined,
+    {
+      latest_finalized_batch: "11110",
+      status: 3,
+      status_name: "finalized",
+      status_ladder: { "3": "finalized" },
+    },
+  ]) {
+    assert.throws(() => decodePxNetworkHead({ ...networkDocument, anchor }), {
+      message: "Invalid gateway finality",
+    });
+  }
+  for (const { value, ts } of invalidNetworks)
+    assert.throws(() => decodePxNetworkHead(value), { message: ts });
+}
+
+await test(px_network_head_carries_the_commit_finality_and_no_anchor);
+
+async function px_methods_list_is_the_hosted_gateway_px_set() {
+  assert.deepEqual(PX_METHODS, [
+    "px_resolveAccount",
+    "px_getAccount",
+    "px_getBalances",
+    "px_listAssets",
+    "px_getNetwork",
+    "px_getReceiptKeys",
+    "px_getHistory",
+    "px_getUnifiedHistory",
+  ]);
+  const client = new PxClient({ endpoint: "http://127.0.0.1:1/" });
+  const call = Reflect.get(client, "call");
+  assert.equal(typeof call, "function");
+  for (const method of [
+    ...PX_METHODS.map((name) => name.replace(/^px_/u, "lx_")),
+    "lx_getNodeInfo",
+    "lx_getSequence",
+  ]) {
+    assert.equal(
+      PX_METHODS.some((name) => name === method),
+      false,
+    );
+    assert.throws(
+      () => decodePxNetworkHead({ ...networkDocument, [method]: null }),
+      { message: "Invalid gateway network field" },
+    );
+    await assert.rejects(() => Reflect.apply(call, client, [method, []]), {
+      message: "Invalid gateway method",
+    });
+  }
+}
+
+await test(px_methods_list_is_the_hosted_gateway_px_set);
+
 const receiptFixture = JSON.parse(
   readFileSync(
     new URL(
-      "../../../../../../sdk/platform/conformance/fixtures/receipt-positive-v2.json",
+      "../../../../../../sdk/platform/conformance/fixtures/sequencer-receipt-v1.json",
       import.meta.url,
     ),
     "utf8",
   ),
 ) as {
-  authorized_batch: { sequencer_public_key_hex: string };
+  cases: { pinnedKey: { publicKey: string } }[];
 };
-const publicKey = receiptFixture.authorized_batch.sequencer_public_key_hex;
+assert.ok(receiptFixture.cases[0]);
+const publicKey = receiptFixture.cases[0].pinnedKey.publicKey.slice(2);
 const receiptKey = {
-  keyId: Buffer.alloc(32, 11).toString("base64"),
-  publicKey: Buffer.from(publicKey, "hex").toString("base64"),
-  firstHeight: "100",
-  lastHeight: "199",
+  keyId: `0x${Buffer.alloc(32, 11).toString("hex")}`,
+  publicKey: `0x${publicKey}`,
+  firstHeight: 100,
+  lastHeight: 199,
 };
 const rotatedKey = {
   ...receiptKey,
-  keyId: Buffer.alloc(32, 12).toString("base64"),
-  firstHeight: "200",
+  keyId: `0x${Buffer.alloc(32, 12).toString("hex")}`,
+  firstHeight: 200,
   lastHeight: maximumHeight,
 };
 const receiptKeyCases = [
-  [],
-  [receiptKey, rotatedKey],
-  [receiptKey, { ...rotatedKey, firstHeight: "100" }],
-  [{ ...receiptKey, firstHeight: "0", lastHeight: "0" }],
+  { keys: [] },
+  { keys: [receiptKey, rotatedKey] },
+  { keys: [receiptKey, { ...rotatedKey, firstHeight: "100" }] },
+  { keys: [{ ...receiptKey, firstHeight: 0, lastHeight: 0 }] },
 ];
 const invalidReceiptKeys: readonly {
   readonly value: unknown;
   readonly ts: string;
   readonly py: string;
 }[] = [
-  ...[null, {}, { keys: [receiptKey] }, "keys"].map((value) => ({
+  ...[
+    null,
+    {},
+    [],
+    [receiptKey],
+    { keys: null },
+    { keys: {} },
+    { keys: [], extra: 1 },
+    "keys",
+  ].map((value) => ({
     value,
     ts: "Invalid gateway receipt keys",
     py: "invalid-px-receipt-keys",
   })),
-  { value: [null], ts: "Invalid gateway document", py: "invalid-px-document" },
   {
-    value: [{}],
+    value: { keys: [null] },
+    ts: "Invalid gateway document",
+    py: "invalid-px-document",
+  },
+  ...[
+    {},
+    ...Object.keys(receiptKey).map((field) =>
+      Object.fromEntries(
+        Object.entries(receiptKey).filter(([key]) => key !== field),
+      ),
+    ),
+  ].map((entry) => ({
+    value: { keys: [entry] },
     ts: "Incomplete gateway document",
     py: "incomplete-px-document",
-  },
+  })),
   {
-    value: [{ ...receiptKey, extra: 1 }],
+    value: { keys: [{ ...receiptKey, extra: 1 }] },
     ts: "Invalid gateway receipt key",
     py: "invalid-px-receipt-key",
   },
   {
-    value: [receiptKey, receiptKey],
+    value: { keys: [receiptKey, receiptKey] },
     ts: "Invalid gateway receipt key",
     py: "invalid-px-receipt-key",
   },
   {
-    value: [{ ...receiptKey, firstHeight: "200" }],
+    value: { keys: [{ ...receiptKey, firstHeight: "200" }] },
     ts: "Invalid gateway receipt key range",
     py: "invalid-px-receipt-key-range",
   },
@@ -387,24 +751,30 @@ const invalidReceiptKeys: readonly {
     [
       null,
       "00".repeat(32),
-      "!".repeat(44),
-      Buffer.alloc(31, 11).toString("base64"),
-      Buffer.alloc(33, 11).toString("base64"),
+      "!".repeat(66),
+      `0x${"0b".repeat(31)}`,
+      `0x${"0b".repeat(33)}`,
       receiptKey.keyId.slice(0, -1),
+      Buffer.alloc(32, 11).toString("base64"),
+      `0x${"gg".repeat(32)}`,
+      ` ${receiptKey.keyId}`,
+      `${receiptKey.keyId}\n`,
+      `${receiptKey.keyId}\r`,
+      `${receiptKey.keyId}\r\n`,
     ].map((bytes) => ({
-      value: [{ ...receiptKey, [field]: bytes }],
+      value: { keys: [{ ...receiptKey, [field]: bytes }] },
       ts: "Invalid gateway receipt key bytes",
       py: "invalid-px-receipt-key-bytes",
     })),
   ),
   ...["keyId", "publicKey"].map((field) => ({
-    value: [{ ...receiptKey, [field]: Buffer.alloc(32).toString("base64") }],
+    value: { keys: [{ ...receiptKey, [field]: `0x${"00".repeat(32)}` }] },
     ts: "Invalid gateway receipt key",
     py: "invalid-px-receipt-key",
   })),
   ...["firstHeight", "lastHeight"].flatMap((field) =>
     [null, true, -1, 1.5, "-1", "01", "18446744073709551616"].map((height) => ({
-      value: [{ ...receiptKey, [field]: height }],
+      value: { keys: [{ ...receiptKey, [field]: height }] },
       ts:
         height === "18446744073709551616"
           ? "Invalid gateway count"
@@ -417,7 +787,7 @@ const invalidReceiptKeys: readonly {
   ),
 ];
 
-await test("receipt_keys_shape", () => {
+function receipt_keys_shape() {
   assert.deepEqual(PX_METHODS, [
     "px_resolveAccount",
     "px_getAccount",
@@ -440,24 +810,34 @@ await test("receipt_keys_shape", () => {
   ]);
   assert.equal(Object.isFrozen(keys), true);
   assert.equal(Object.isFrozen(keys[0]), true);
-  assert.deepEqual(decodePxReceiptKeys([]), []);
+  assert.deepEqual(decodePxReceiptKeys({ keys: [] }), []);
   assert.equal(decodePxReceiptKeys(receiptKeyCases[2])[1]?.firstHeight, 100n);
   assert.equal(decodePxReceiptKeys(receiptKeyCases[3])[0]?.lastHeight, 0n);
   for (const { value, ts } of invalidReceiptKeys)
     assert.throws(() => decodePxReceiptKeys(value), { message: ts });
   assert.throws(
     () =>
-      decodePxReceiptKeys([
-        { ...receiptKey, lastHeight: Number.MAX_SAFE_INTEGER + 1 },
-      ]),
+      decodePxReceiptKeys({
+        keys: [{ ...receiptKey, lastHeight: Number.MAX_SAFE_INTEGER + 1 }],
+      }),
     { message: "Invalid gateway quantity" },
   );
-  const nonCanonical = receiptKey.keyId.slice(0, -2) + "t=";
   assert.throws(
-    () => decodePxReceiptKeys([{ ...receiptKey, keyId: nonCanonical }]),
-    { message: "Invalid gateway receipt key bytes" },
+    () =>
+      decodePxReceiptKeys({
+        keys: [
+          receiptKey,
+          {
+            ...receiptKey,
+            keyId: "0x" + receiptKey.keyId.slice(2).toUpperCase(),
+          },
+        ],
+      }),
+    { message: "Invalid gateway receipt key" },
   );
-});
+}
+
+await test(receipt_keys_shape);
 
 await test("python_px_matches_ts", () => {
   const script = `
@@ -511,7 +891,7 @@ print(json.dumps({"networks": networks, "keys": keys}))
     },
     input: JSON.stringify({
       methods: PX_METHODS,
-      networks: networkCases,
+      networks: networkDocuments,
       keys: receiptKeyCases,
       invalidNetworks,
       invalidKeys: invalidReceiptKeys,
@@ -524,7 +904,7 @@ print(json.dumps({"networks": networks, "keys": keys}))
   assert.equal(result.signal, null);
   assert.equal(result.status, 0, result.stderr);
   const expected = {
-    networks: networkCases.map(decodePxNetworkHead),
+    networks: networkDocuments.map(decodePxNetworkHead),
     keys: receiptKeyCases.map(decodePxReceiptKeys),
   };
   assert.deepEqual(
@@ -539,6 +919,12 @@ print(json.dumps({"networks": networks, "keys": keys}))
 
 const requests: { readonly method: unknown; readonly params: unknown }[] = [];
 const gateway = http.createServer((request, response) => {
+  if (request.url !== "/") {
+    request.resume();
+    response.writeHead(404);
+    response.end();
+    return;
+  }
   const chunks: Buffer[] = [];
   request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
   request.on("end", () => {
@@ -550,7 +936,7 @@ const gateway = http.createServer((request, response) => {
     };
     assert.equal(request.method, "POST");
     assert.equal(request.headers["content-type"], "application/json");
-    assert.equal(request.url, "/rpc");
+    assert.equal(request.url, "/");
     assert.equal(body.jsonrpc, "2.0");
     requests.push({ method: body.method, params: body.params });
     const answer =
@@ -581,8 +967,13 @@ assert(
   "gateway listener missing",
 );
 try {
+  for (const suffix of ["/rpc", "/rpc/ws"]) {
+    const response: Response = await fetch(`http://127.0.0.1:${address.port}${suffix}`, { method: "POST", body: "{}" });
+    assert.equal(response.status, 404);
+  }
+  assert.equal(requests.length, 0);
   const client = new PxClient({
-    endpoint: `http://127.0.0.1:${address.port}/rpc`,
+    endpoint: `http://127.0.0.1:${address.port}`,
   });
   const table = await client.getBalances(ACCOUNT.toUpperCase());
   assert.equal(table.balances.length, 2);
@@ -642,237 +1033,463 @@ try {
   await once(gateway, "close");
 }
 
-assert.throws(() => new PxClient({ endpoint: "http://example.com/rpc" }));
+assert.throws(() => new PxClient({ endpoint: "http://example.com/" }));
 assert.throws(
-  () => new PxClient({ endpoint: "https://user:secret@example.com/rpc" }),
+  () => new PxClient({ endpoint: "https://user:secret@example.com/" }),
 );
-assert.throws(() => new PxClient({ endpoint: "wss://example.com/rpc" }));
-assert.throws(() => new PxClient({ endpoint: "https://example.com/rpc#head" }));
+assert.throws(() => new PxClient({ endpoint: "wss://example.com/" }));
+assert.throws(() => new PxClient({ endpoint: "https://example.com/#head" }));
 await assert.rejects(
-  new PxClient({ endpoint: "http://127.0.0.1:1/rpc" }).getNetwork(),
+  new PxClient({ endpoint: "http://127.0.0.1:1/" }).getNetwork(),
 );
 await assert.rejects(
-  new PxClient({ endpoint: "https://example.com/rpc" }).getBalances(
+  new PxClient({ endpoint: "https://example.com/" }).getBalances(
     "not-an-account",
   ),
 );
 
-// A px_getUnifiedHistory answer recorded from the gateway history read over a
-// loopback indexer store; the gateway's own tests keep it equal to what the
-// gateway answers. Its px_getHistory page is the same rows without `side`.
-const recordedUnified = (
-  JSON.parse(
-    readFileSync(
-      new URL(
-        "../../../../../../apps/web/e2e/fixtures/px-get-unified-history.json",
-        import.meta.url,
+async function px_history_routes() {
+  // A px_getUnifiedHistory answer recorded from the gateway history read over a
+  // loopback indexer store; the gateway's own tests keep it equal to what the
+  // gateway answers. Its px_getHistory page is the same rows without `side`.
+  const recordedUnified = (
+    JSON.parse(
+      readFileSync(
+        new URL(
+          "../../../../../../apps/web/e2e/fixtures/px-get-unified-history.json",
+          import.meta.url,
+        ),
+        "utf8",
       ),
-      "utf8",
-    ),
-  ) as { result: Record<string, unknown> & { items: Record<string, unknown>[] } }
-).result;
-const EVE = `0x${"ee".repeat(20)}`;
-const CURSOR = "0000000000000000000000000000000c";
-const recordedRows = recordedUnified.items;
-const { accounts: _accounts, ...recordedEnvelope } = recordedUnified;
-const recordedPaxeer = {
-  ...recordedEnvelope,
-  account: EVE,
-  items: recordedRows.map(({ side: _side, ...row }) => row),
-};
+    ) as {
+      result: Record<string, unknown> & { items: Record<string, unknown>[] };
+    }
+  ).result;
+  const EVE = `0x${"ee".repeat(20)}`;
+  const CURSOR = "000000000000000c0000000100000000";
+  const recordedRows = recordedUnified.items;
+  const { accounts: _accounts, ...recordedEnvelope } = recordedUnified;
+  const recordedPaxeer = {
+    ...recordedEnvelope,
+    account: EVE,
+    items: recordedRows.map(({ side: _side, ...row }) => row),
+  };
 
-assert.deepEqual(historyParams(EVE), [EVE, null, null, null]);
-assert.deepEqual(
-  historyParams(EVE, { cursor: CURSOR, limit: 7, kind: "erc20_transfer" }),
-  [EVE, CURSOR, 7, "erc20_transfer"],
-);
-for (const refused of [
-  { cursor: "" },
-  { cursor: "9" },
-  { cursor: "1&limit=500" },
-  { cursor: CURSOR.toUpperCase() },
-  { cursor: `${CURSOR}00` },
-  { limit: 0 },
-  { limit: 101 },
-  { limit: 1.5 },
-  { kind: "Transfer" },
-  { kind: "" },
-]) {
-  assert.throws(() => historyParams(EVE, refused));
-}
-assert.equal(HISTORY_DEFAULT_LIMIT, 50);
-assert.equal(historyAccount(` ${DID.toUpperCase()} `), DID);
-assert.equal(historyAccount(EVE.toUpperCase().replace("0X", "0x")), EVE);
-assert.throws(() => historyAccount(ACCOUNT));
-assert.throws(() => historyAccount("not-an-account"));
-
-const unifiedPage = decodeUnifiedHistoryPage(recordedUnified);
-assert.deepEqual(
-  unifiedPage.items.map((row) => [
-    row.id,
-    row.side,
-    row.blockHeight,
-    row.txIndex,
-    row.logIndex,
-  ]),
-  [
-    [3n, "paxeer", 10, 0, 0],
-    [6n, "paxeer", 11, 0, 0],
-    [9n, "paxeer", 12, 0, 0],
-    [11n, "paxeer", 12, 1, 0],
-  ],
-);
-assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
-assert.equal(unifiedPage.nextCursor, null);
-assert.equal(unifiedPage.account.evm_address, EVE);
-assert.equal(unifiedPage.items[0]!.direction, "out");
-assert.equal(unifiedPage.items[0]!.amount, 1000000000000000000n);
-assert.equal(unifiedPage.items[0]!.assetMetadata?.decimals, 18);
-assert.equal(unifiedPage.items[0]!.assetMetadata?.symbol, null);
-assert.equal(unifiedPage.items[1]!.assetMetadata?.pointer, `0x${"cc".repeat(20)}`);
-assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
-assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
-assert.equal(unifiedPage.items[3]!.assetMetadata, null);
-
-const paxeerPage = decodePaxeerHistoryPage(recordedPaxeer);
-assert.equal(paxeerPage.account, EVE);
-assert.equal(paxeerPage.nextCursor, null);
-assert.deepEqual(
-  paxeerPage.items.map((row) => [row.id, row.side]),
-  [
-    [3n, null],
-    [6n, null],
-    [9n, null],
-    [11n, null],
-  ],
-);
-assert.equal(
-  decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: null })
-    .items.length,
-  0,
-);
-assert.equal(
-  decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR }).nextCursor,
-  CURSOR,
-);
-
-const [native, pointer, , erc20] = recordedRows as [
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-  Record<string, unknown>,
-];
-for (const refused of [
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [...recordedRows].reverse(),
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [native, recordedPaxeer.items[1]],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [native, { ...pointer, txIndex: "0" }],
-    }),
-  () => decodePaxeerHistoryPage({ ...recordedPaxeer, account: DID }),
-  () => decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: "9" }),
-  () =>
-    decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: CURSOR }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [{ ...native, amount: "-7" }],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [{ ...native, direction: "sideways" }],
-    }),
-  () =>
-    decodeUnifiedHistoryPage({
-      ...recordedUnified,
-      items: [
-        {
-          ...native,
-          asset_metadata: { ...(pointer.asset_metadata as object) },
-        },
-      ],
-    }),
-  () => decodeUnifiedHistoryPage(recordedUnified, 3),
-  () =>
-    decodeHistoryAssetMetadata({
-      ...(native.asset_metadata as object),
-      decimals: 256,
-    }),
-]) {
-  assert.throws(refused);
-}
-assert.equal(erc20.side, "paxeer");
-
-assert.equal("getHistory" in JsonRpcClient.prototype, false);
-
-const historyRequests: {
-  readonly method: unknown;
-  readonly params: unknown;
-}[] = [];
-const historyGateway = http.createServer((request, response) => {
-  const chunks: Buffer[] = [];
-  request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
-  request.on("end", () => {
-    const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
-      id: string;
-      method: string;
-      params: unknown;
-    };
-    historyRequests.push({ method: body.method, params: body.params });
-    const result =
-      body.method === "px_getHistory" ? recordedPaxeer : recordedUnified;
-    const encoded = Buffer.from(
-      JSON.stringify({ jsonrpc: "2.0", id: body.id, result }),
-      "utf8",
-    );
-    response.writeHead(200, {
-      "Content-Type": "application/json",
-      "Content-Length": encoded.length,
-    });
-    response.end(encoded);
-  });
-});
-historyGateway.listen(0, "127.0.0.1");
-await once(historyGateway, "listening");
-const historyAddress = historyGateway.address();
-assert(
-  historyAddress !== null && typeof historyAddress === "object",
-  "history gateway listener missing",
-);
-try {
-  const px = new PxClient({
-    endpoint: `http://127.0.0.1:${historyAddress.port}/rpc`,
-  });
-  const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
+  assert.deepEqual(historyParams(EVE), [EVE, null, null, null]);
   assert.deepEqual(
-    unified.items.map((row) => row.id),
-    [3n, 6n, 9n, 11n],
+    historyParams(EVE, { cursor: CURSOR, limit: 7, kind: "erc20_transfer" }),
+    [EVE, CURSOR, 7, "erc20_transfer"],
   );
-  const paxeer = await px.getHistory(DID, {
-    cursor: CURSOR,
-    kind: "erc20_transfer",
+  for (const refused of [
+    { cursor: "" },
+    { cursor: "9" },
+    { cursor: "1&limit=500" },
+    { cursor: CURSOR.toUpperCase() },
+    { cursor: `${CURSOR}00` },
+    { limit: 0 },
+    { limit: 101 },
+    { limit: 1.5 },
+    { kind: "Transfer" },
+    { kind: "" },
+  ]) {
+    assert.throws(() => historyParams(EVE, refused));
+  }
+  assert.equal(HISTORY_DEFAULT_LIMIT, 50);
+  assert.equal(historyAccount(` ${DID.toUpperCase()} `), DID);
+  assert.equal(historyAccount(EVE.toUpperCase().replace("0X", "0x")), EVE);
+  assert.throws(() => historyAccount(ACCOUNT));
+  assert.throws(() => historyAccount("not-an-account"));
+
+  const unifiedPage = decodeUnifiedHistoryPage(recordedUnified);
+  assert.deepEqual(
+    unifiedPage.items.map((row) => [
+      row.id,
+      row.side,
+      row.blockHeight,
+      row.txIndex,
+      row.logIndex,
+      row.txHash,
+    ]),
+    [
+      [
+        "3",
+        "paxeer",
+        10,
+        0,
+        0,
+        "0x797e9e5578c09ef56843fde44d70bb75668b3f5e7a353e83765492ed9518138d",
+      ],
+      [
+        "6",
+        "paxeer",
+        11,
+        0,
+        0,
+        "0x5766dcd17f15367e378fa8ad1fac961e315a11e636bc83369712ce41d64c1c23",
+      ],
+      [
+        "9",
+        "paxeer",
+        12,
+        0,
+        0,
+        "0xf50e88695bb40383a5ca8146cbb9f9b981400cd8ecb47bc748cae8a00203c59d",
+      ],
+      [
+        "11",
+        "paxeer",
+        12,
+        1,
+        0,
+        "0x7c95a881e0beba2f55c5d2f38648f0db27466dbca57aa196c90505e6ce0d0238",
+      ],
+    ],
+  );
+  assert.deepEqual(unifiedPage.accounts, [{ side: "paxeer", account: EVE }]);
+  assert.equal(unifiedPage.nextCursor, null);
+  assert.equal(unifiedPage.account.evm_address, EVE);
+  assert.equal(unifiedPage.items[0]!.direction, "out");
+  assert.equal(unifiedPage.items[0]!.amount, 1000000000000000000n);
+  assert.equal(unifiedPage.items[0]!.assetMetadata?.decimals, 18);
+  assert.equal(unifiedPage.items[0]!.assetMetadata?.symbol, null);
+  assert.equal(
+    unifiedPage.items[1]!.assetMetadata?.pointer,
+    `0x${"cc".repeat(20)}`,
+  );
+  assert.equal(unifiedPage.items[1]!.assetMetadata?.denom, "ulxp");
+  assert.equal(unifiedPage.items[1]!.assetMetadata?.symbol, "LXP");
+  assert.equal(unifiedPage.items[3]!.assetMetadata, null);
+
+  function history_boundary_rows_decode(): void {
+    const MAX_U256 = (1n << 256n) - 1n;
+    const first = {
+      id: "explorer:1",
+      height_or_seq: "10",
+      chain: "paxeer",
+      kind: "native_transfer",
+      direction: "out",
+      account: EVE,
+      counterparty: EVM,
+      asset: "evm:native",
+      amount: MAX_U256.toString(),
+      tx_hash: `0x${"12".repeat(32)}`,
+      ordinal: "0",
+      final: false,
+      decoded: { position: "10" },
+      asset_metadata: {
+        asset: "evm:native",
+        chain: "paxeer",
+        kind: "native",
+        address: null,
+        denom: null,
+        symbol: null,
+        decimals: 18,
+        native_id: null,
+        pointer: null,
+        metadata: {},
+      },
+      blockHeight: 10,
+      txIndex: 0,
+      logIndex: 0,
+      side: "paxeer",
+    };
+    const layerx = {
+      ...first,
+      id: "2",
+      height_or_seq: "11",
+      chain: "layerx",
+      kind: "asset_transfer",
+      direction: "in",
+      account: ACCOUNT,
+      counterparty: UNJOINED,
+      asset: NATIVE,
+      amount: "7",
+      tx_hash: `0x${"34".repeat(32)}`,
+      ordinal: "1",
+      final: true,
+      decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+      asset_metadata: {
+        asset: NATIVE,
+        chain: "layerx",
+        kind: "native",
+        address: null,
+        denom: "ulxp",
+        symbol: "LXP",
+        decimals: 6,
+        native_id: NATIVE,
+        pointer: EVM,
+        metadata: {
+          display: { name: "LayerX asset", tags: ["native", "LXP"] },
+        },
+      },
+      blockHeight: 11,
+      txIndex: 1,
+      logIndex: 1,
+      side: "layerx",
+    };
+    const items = [
+      first,
+      layerx,
+      {
+        ...first,
+        id: "explorer:3",
+        height_or_seq: "12",
+        amount: "2",
+        asset_metadata: null,
+        blockHeight: 12,
+        txIndex: 2,
+        logIndex: 2,
+      },
+      {
+        ...first,
+        id: "4",
+        height_or_seq: "13",
+        amount: "3",
+        counterparty: null,
+        blockHeight: 13,
+        txIndex: 3,
+        logIndex: 3,
+      },
+    ];
+    const document = {
+      account: identities,
+      accounts: [
+        { side: "paxeer", account: EVE },
+        { side: "layerx", account: ACCOUNT },
+      ],
+      items,
+      next_cursor: "000000000000000d0000000300000003",
+    };
+    const page = decodeUnifiedHistoryPage(document);
+    assert.deepEqual(page.account, identities);
+    assert.deepEqual(page.accounts, document.accounts);
+    assert.deepEqual(
+      page.items.map((row) => row.id),
+      ["explorer:1", "2", "explorer:3", "4"],
+    );
+    assert.deepEqual(
+      page.items.map((row) => [row.blockHeight, row.txIndex, row.logIndex]),
+      [
+        [10, 0, 0],
+        [11, 1, 1],
+        [12, 2, 2],
+        [13, 3, 3],
+      ],
+    );
+    assert.equal(page.items[0]!.amount, MAX_U256);
+    assert.deepEqual(page.items[1], {
+      id: "2",
+      heightOrSeq: 11n,
+      chain: "layerx",
+      kind: "asset_transfer",
+      direction: "in",
+      account: ACCOUNT,
+      counterparty: UNJOINED,
+      asset: NATIVE,
+      amount: 7n,
+      txHash: `0x${"34".repeat(32)}`,
+      ordinal: 1n,
+      final: true,
+      decoded: { transfer: { amount: "7", recipient: ACCOUNT } },
+      assetMetadata: {
+        asset: NATIVE,
+        chain: "layerx",
+        kind: "native",
+        address: null,
+        denom: "ulxp",
+        symbol: "LXP",
+        decimals: 6,
+        nativeId: NATIVE,
+        pointer: EVM,
+        metadata: {
+          display: { name: "LayerX asset", tags: ["native", "LXP"] },
+        },
+      },
+      blockHeight: 11,
+      txIndex: 1,
+      logIndex: 1,
+      side: "layerx",
+    });
+    assert.equal(page.items[2]!.assetMetadata, null);
+    assert.equal(page.items[3]!.counterparty, null);
+    assert.equal(page.nextCursor, document.next_cursor);
+    assert.throws(
+      () =>
+        decodeUnifiedHistoryPage({
+          ...document,
+          items: [
+            { ...first, amount: (1n << 256n).toString() },
+            ...items.slice(1),
+          ],
+        }),
+      /^Error: Invalid history decimal$/,
+    );
+  }
+  test(history_boundary_rows_decode);
+
+  const paxeerPage = decodePaxeerHistoryPage(recordedPaxeer);
+  assert.equal(paxeerPage.account, EVE);
+  assert.equal(paxeerPage.nextCursor, null);
+  assert.deepEqual(
+    paxeerPage.items.map((row) => [row.id, row.side]),
+    [
+      ["3", null],
+      ["6", null],
+      ["9", null],
+      ["11", null],
+    ],
+  );
+  assert.equal(
+    decodePaxeerHistoryPage({ ...recordedPaxeer, items: [], next_cursor: null })
+      .items.length,
+    0,
+  );
+  assert.equal(
+    decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: CURSOR })
+      .nextCursor,
+    CURSOR,
+  );
+
+  const [native, pointer, , erc20] = recordedRows as [
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+    Record<string, unknown>,
+  ];
+  for (const refused of [
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [...recordedRows].reverse(),
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [native, recordedPaxeer.items[1]],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [native, { ...pointer, txIndex: "0" }],
+      }),
+    () => decodePaxeerHistoryPage({ ...recordedPaxeer, account: DID }),
+    () => decodePaxeerHistoryPage({ ...recordedPaxeer, next_cursor: "9" }),
+    () =>
+      decodePaxeerHistoryPage({
+        ...recordedPaxeer,
+        items: [],
+        next_cursor: CURSOR,
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [{ ...native, amount: "-7" }],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [{ ...native, direction: "sideways" }],
+      }),
+    () =>
+      decodeUnifiedHistoryPage({
+        ...recordedUnified,
+        items: [
+          {
+            ...native,
+            asset_metadata: { ...(pointer.asset_metadata as object) },
+          },
+        ],
+      }),
+    () => decodeUnifiedHistoryPage(recordedUnified, 3),
+    () =>
+      decodeHistoryAssetMetadata({
+        ...(native.asset_metadata as object),
+        decimals: 256,
+      }),
+  ]) {
+    assert.throws(refused);
+  }
+  assert.equal(erc20.side, "paxeer");
+
+  assert.equal("getHistory" in JsonRpcClient.prototype, false);
+
+  const historyRequests: {
+    readonly method: unknown;
+    readonly params: unknown;
+  }[] = [];
+  const historyGateway = http.createServer((request, response) => {
+    if (request.url !== "/") {
+      request.resume();
+      response.writeHead(404);
+      response.end();
+      return;
+    }
+    const chunks: Buffer[] = [];
+    request.on("data", (chunk: Buffer) => chunks.push(Buffer.from(chunk)));
+    request.on("end", () => {
+      const body = JSON.parse(Buffer.concat(chunks).toString("utf8")) as {
+        id: string;
+        method: string;
+        params: unknown;
+      };
+      assert.equal(request.method, "POST");
+      assert.equal(request.url, "/");
+      assert.equal(request.headers["content-type"], "application/json");
+      historyRequests.push({ method: body.method, params: body.params });
+      const result =
+        body.method === "px_getHistory" ? recordedPaxeer : recordedUnified;
+      const encoded = Buffer.from(
+        JSON.stringify({ jsonrpc: "2.0", id: body.id, result }),
+        "utf8",
+      );
+      response.writeHead(200, {
+        "Content-Type": "application/json",
+        "Content-Length": encoded.length,
+      });
+      response.end(encoded);
+    });
   });
-  assert.equal(paxeer.items.length, 4);
-  await px.getHistory(EVE.toUpperCase().replace("0X", "0x"));
-  await assert.rejects(px.getUnifiedHistory(EVE, { limit: 2 }));
-  await assert.rejects(px.getHistory(ACCOUNT));
-  assert.deepEqual(historyRequests, [
-    { method: "px_getUnifiedHistory", params: [DID, null, 4, null] },
-    { method: "px_getHistory", params: [DID, CURSOR, null, "erc20_transfer"] },
-    { method: "px_getHistory", params: [EVE, null, null, null] },
-    { method: "px_getUnifiedHistory", params: [EVE, null, 2, null] },
-  ]);
-} finally {
-  historyGateway.close();
-  await once(historyGateway, "close");
+  historyGateway.listen(0, "127.0.0.1");
+  await once(historyGateway, "listening");
+  const historyAddress = historyGateway.address();
+  assert(
+    historyAddress !== null && typeof historyAddress === "object",
+    "history gateway listener missing",
+  );
+  try {
+    for (const suffix of ["/rpc", "/rpc/ws"]) {
+      const response: Response = await fetch(`http://127.0.0.1:${historyAddress.port}${suffix}`, { method: "POST", body: "{}" });
+      assert.equal(response.status, 404);
+    }
+    assert.equal(historyRequests.length, 0);
+    const px = new PxClient({
+      endpoint: `http://127.0.0.1:${historyAddress.port}`,
+    });
+    const unified = await px.getUnifiedHistory(DID.toUpperCase(), { limit: 4 });
+    assert.deepEqual(
+      unified.items.map((row) => row.id),
+      ["3", "6", "9", "11"],
+    );
+    const paxeer = await px.getHistory(DID, {
+      cursor: CURSOR,
+      kind: "erc20_transfer",
+    });
+    assert.equal(paxeer.items.length, 4);
+    await px.getHistory(EVE.toUpperCase().replace("0X", "0x"));
+    await assert.rejects(px.getUnifiedHistory(EVE, { limit: 2 }));
+    await assert.rejects(px.getHistory(ACCOUNT));
+    assert.deepEqual(historyRequests, [
+      { method: "px_getUnifiedHistory", params: [DID, null, 4, null] },
+      {
+        method: "px_getHistory",
+        params: [DID, CURSOR, null, "erc20_transfer"],
+      },
+      { method: "px_getHistory", params: [EVE, null, null, null] },
+      { method: "px_getUnifiedHistory", params: [EVE, null, 2, null] },
+    ]);
+  } finally {
+    historyGateway.close();
+    await once(historyGateway, "close");
+  }
 }
+await test(px_history_routes);

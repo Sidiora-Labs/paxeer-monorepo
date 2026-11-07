@@ -13,11 +13,13 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
     },
     "./scan": {
       "types": "./dist/scan.d.ts",
-      "import": "./dist/scan.js"
+      "import": "./dist/scan.js",
+      "default": "./dist/scan.js"
     }
   },
   "bin": {
@@ -28,12 +30,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json"
+    "prebuild": "npm --prefix ../../.. run build:dependencies -- @sidiora/layerx-next",
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test test/receipt-keys.test.mjs",
+    "test:fulfillment": "node --test example/test/repair-22-33-619.test.mjs"
   },
   "dependencies": {
-    "@sidiora/layerx-buyer-middleware": "0.1.0",
-    "@sidiora/layerx-sdk": "0.1.0",
-    "@sidiora/layerx-seller-middleware": "0.1.0"
+    "@sidiora/layerx-buyer-middleware": "file:../../../services/platform/middleware/buyer",
+    "@sidiora/layerx-sdk": "file:../../../services/agent/sdk/typescript",
+    "@sidiora/layerx-seller-middleware": "file:../../../services/platform/middleware/seller"
   },
   "peerDependencies": {
     "next": ">=14"
@@ -44,9 +49,12 @@
     }
   },
   "devDependencies": {
+    "@noble/hashes": "2.4.0",
     "typescript": "5.9.2"
   },
   "engines": {
     "node": ">=22"
-  }
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts"
 }

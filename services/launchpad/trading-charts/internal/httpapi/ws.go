@@ -18,6 +18,7 @@ import (
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/constants"
+	sharedhttp "github.com/Sidiora-Technologies/KindleLaunch/shared/http"
 )
 
 const (
@@ -84,36 +85,14 @@ func RegisterWS(ctx context.Context, r chi.Router, deps WSDeps) {
 			deps.Logger.Error("durable replay gateway registration failed", "error", err)
 		}
 	}
-	hub := &wsHub{
-		clients:           make(map[*clientSub]struct{}),
-		subscriptionIndex: make(map[string]map[*clientSub]struct{}),
-		wildcardSubs:      make(map[*clientSub]struct{}),
-		ipCounts:          make(map[string]int),
-		logger:            deps.Logger,
-		maxConns:          deps.MaxConnections,
-		maxPerIP:          deps.MaxPerIP,
-		origins:           deps.AllowedOrigins, channel: deps.CandleChannel,
-		retentionCapacity: deps.CandleRetentionCapacity,
-	}
-	if hub.maxConns <= 0 {
-		hub.maxConns = 10000
-	}
-	if hub.maxPerIP <= 0 {
-		hub.maxPerIP = 20
-	}
-
-	// Redis subscriber for candle updates (dedicated connection).
-	go hub.runRedisSubscriber(ctx, deps.RedisURL)
-	go func() {
-		<-ctx.Done()
-		hub.mu.RLock()
-		defer hub.mu.RUnlock()
-		for c := range hub.clients {
-			c.stop()
-		}
-	}()
-
-	r.Get("/ws", hub.handleWS)
+	// The raw-unit development builder cannot supply the legacy decimal snapshot
+	// contract or durable replay. The admitted source is the common v2 gateway.
+	r.Get("/ws", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Link", `</v2/stream>; rel="successor-version"`)
+		sharedhttp.WriteJSON(w, http.StatusGone, map[string]any{
+			"code": "LEGACY_STREAM_RETIRED", "message": "Use /v2/snapshots and /v2/stream for durable candle delivery", "retryable": false,
+		})
+	})
 }
 
 func (h *wsHub) subKey(pool, tf string) string {

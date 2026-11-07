@@ -18,6 +18,7 @@ ed25519-dalek.workspace = true
 getrandom.workspace = true
 keyring.workspace = true
 keyring-core.workspace = true
+k256 = { version = '=0.13.4', default-features = false, features = ['ecdsa'] }
 layerx-client = { path = "../../../services/agent/crates/layerx-client" }
 layerx-mcp = { path = "../../../services/agent/crates/layerx-mcp" }
 layerx-platform-emulator = { path = "../emulator" }
@@ -43,7 +44,12 @@ tungstenite = { version = "=0.29.0", features = ["native-tls"] }
 zeroize.workspace = true
 
 [dev-dependencies]
+shlex = "=2.0.1"
 layerx-agentd = { path = "../../../services/agent/crates/layerx-agentd" }
+
+[[test]]
+name = "repair_22_33_1499"
+path = "tests/repair_22_33_1499.rs"
 
 [lints]
 workspace = true

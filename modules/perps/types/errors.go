@@ -10,6 +10,9 @@ func PerpsCode(name string) string {
 	return "LXP_PERPS_" + name
 }
 
+// Registered errors are the shared identity of keeper refusals, ABCI codes and
+// LXP reasons. Add context with Error.Wrapf: ABCIInfo follows Cause(), whereas
+// fmt.Errorf with %w only provides Unwrap() and loses the registered wire code.
 var (
 	ErrInvalidParams            = sdkerrors.Register(ModuleName, 2, PerpsCode("INVALID_PARAMS"))
 	ErrUnknownMarket            = sdkerrors.Register(ModuleName, 3, PerpsCode("UNKNOWN_MARKET"))
@@ -56,3 +59,52 @@ var (
 	ErrTokenTransferFailed      = sdkerrors.Register(ModuleName, 44, PerpsCode("TOKEN_TRANSFER_FAILED"))
 	ErrPaused                   = sdkerrors.Register(ModuleName, 45, PerpsCode("PAUSED"))
 )
+
+func RegisteredErrors() []*sdkerrors.Error {
+	return []*sdkerrors.Error{
+		ErrInvalidParams,
+		ErrUnknownMarket,
+		ErrMarketDisabled,
+		ErrPriceStale,
+		ErrZeroAmount,
+		ErrUnsupportedCollateral,
+		ErrInsufficientCollateral,
+		ErrInsufficientMargin,
+		ErrLeverageTooHigh,
+		ErrTickSize,
+		ErrLotSize,
+		ErrMinOrderValue,
+		ErrMaxOrderValue,
+		ErrOpenInterestCap,
+		ErrInvalidTimeInForce,
+		ErrInvalidOrderType,
+		ErrPostOnlyWouldCross,
+		ErrFokNotFilled,
+		ErrNoLiquidity,
+		ErrSlippageExceeded,
+		ErrDeadlineExpired,
+		ErrReduceOnlyViolation,
+		ErrDuplicateCloid,
+		ErrUnknownOrder,
+		ErrNotOrderHolder,
+		ErrUnknownPosition,
+		ErrNotPositionHolder,
+		ErrInvalidTriggerPrice,
+		ErrTriggerNotReached,
+		ErrTooManyOpenOrders,
+		ErrCrossMarginOnly,
+		ErrNotLiquidatable,
+		ErrLiquidationCooldown,
+		ErrUnauthorized,
+		ErrStaticCall,
+		ErrDelegatecall,
+		ErrOverflow,
+		ErrInvalidGenesis,
+		ErrCloseSizeExceedsPosition,
+		ErrSelfTransfer,
+		ErrZeroAddress,
+		ErrNoAccount,
+		ErrTokenTransferFailed,
+		ErrPaused,
+	}
+}

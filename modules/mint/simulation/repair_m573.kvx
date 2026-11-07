@@ -1,0 +1,22 @@
+[task.22.33.573]
+finding = "mint-simulation-overlap"
+proof = ["TestRepairM_573_NonOverlappingGenesis", "TestRepairM_573_ReproducibleSeedAndGenesisTime", "TestRepairM_573_ValidationBeforeSerialization"]
+path = "AppModule.GenerateGenesisState -> RandomizedGenState -> ValidateGenesis -> ProtoCodec JSON -> AppModuleBasic.ValidateGenesis"
+baseline = "Not run: the explicit gate order prohibits verification before full implementation and prohibits invoking verify_cmd by hand; there were no prior gate ledger entries."
+wiring_requests = []
+evidence = "The bounded hf-build and hf-done receipts record the candidate revision, exact command, exit code and private log location."
+
+[gotcha.1]
+observed = "The task's baseline verification step conflicts with its explicit implementation-first, hf-build then hf-done gate order."
+resolution = "Follow the explicit gate order; report no baseline result rather than claiming a gate that did not run."
+
+[gotcha.2]
+observed = "The local JSONCodec interface exposes UnmarshalAsJSON rather than UnmarshalJSON; the initial regression test did not compile."
+resolution = "Decode the generated genesis through JSONCodec.UnmarshalAsJSON."
+
+[qualification.initial]
+revision = "0ea21a44241ff4ab0db11b8eebf77819ab8c5930"
+command = "cg spec done 22.33.573 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The new test called an unavailable JSONCodec method; corrected to the repository's UnmarshalAsJSON method before rerunning both gates."

@@ -1,0 +1,11 @@
+[repair.22.33.293]
+audit = "22.30.134"
+counter_fallback_tenant = "counterFallbackTenantIsolation; counterFallbackRefusesMissingChainRpc"
+counter_fallback_invents_counts = "counterFallbackPreservesIncomingActivityAndTransfers; counterFallbackSurfacesRpcFailure; counterFallbackDistinguishesTrueZero"
+zero_balance_fallback = "zeroBalanceFallbackAndHttpRecovery; nonzeroBalanceFallback; balanceRpcFailureStillRecoversHttp; disabledAndForbiddenAddressesDoNotUseRpc"
+wiring_request = "Domain 14: apps/explorer/ui/address/details/AddressCounterItem.tsx must render unavailable/error counters as unavailable instead of 0; label outgoingTransactionCount as outgoing nonce if displayed and surface rpcError separately."
+baseline = "No unchanged-tree verify ran: ordered instructions prohibit testing before implementation and require hf-build before hf-done; the allowed gates provide no baseline run. Regression tests exercise the recorded faulty branches."
+gotcha = "Task record and GOTCHA.kvx updates are outside the allowed paths; closure mapping, consumer wiring and the conflicting baseline instruction are recorded here within scope."
+test_registration = "Vitest treats test(function) as a todo name without a handler; each declared function is passed as both the name and handler so every assertion executes."
+formatter = "ESLint layout formatting applied only to touched TypeScript; its Vitest lint rules cannot follow the required separately declared test functions (valid-title and expect-expect); checks remain intact and the declared gates determine qualification."
+tooling_gotcha = "A scoped edit command used repository-relative paths from the application directory and failed before changing files; subsequent edits run from the repository root."

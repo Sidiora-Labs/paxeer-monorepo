@@ -266,6 +266,12 @@ fn go_signed_positive_and_revert_receipts_verify_with_identical_fields() {
         let receipt = verified(case).unwrap_or_else(|failure| panic!("{}: {failure:?}", id(case)));
         assert_eq!(text(case, "expected.rung"), "receipted");
         assert_eq!(text(case, "expected.verifier"), "accepts");
+        assert_eq!(
+            array::<32>(case, "receiptJson.signingKey"),
+            array::<32>(case, "pinnedKey.publicKey"),
+            "{}: receiptJson.signingKey must match pinnedKey.publicKey",
+            id(case)
+        );
         assert_eq!(hex(case, "receiptJson.receipt"), signed, "{}", id(case));
         assert_eq!(
             encode(&receipt).unwrap_or_else(|error| panic!("{error:?}")),
@@ -300,7 +306,21 @@ fn go_signed_positive_and_revert_receipts_verify_with_identical_fields() {
             other => panic!("unexpected vector {other}"),
         }
     }
-    assert_eq!(seen, (4, 1));
+    assert_eq!(seen, (5, 1));
+    assert_eq!(
+        cases(&document)
+            .iter()
+            .filter(|case| text(case, "vector") == "V1")
+            .map(id)
+            .collect::<Vec<_>>(),
+        [
+            "V1-pax-transfer",
+            "V1-erc20-approve",
+            "V1-layerxledger-pay-exact",
+            "V1-layerxbridge-bridge-out",
+            "V1-layerxprograms-call",
+        ]
+    );
 }
 
 #[test]

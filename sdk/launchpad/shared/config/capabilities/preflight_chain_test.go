@@ -76,6 +76,238 @@ type quoteArtifact struct {
 	} `json:"immutableReferences"`
 }
 
+type creationFeeReadObserver struct {
+	*PinnedRPCReader
+	usdl         common.Address
+	balanceReads int
+}
+
+func (r *creationFeeReadObserver) CallContract(ctx context.Context, call ethereum.CallMsg, block *big.Int) ([]byte, error) {
+	if call.To != nil && *call.To == r.usdl && len(call.Data) >= 4 && bytes.Equal(call.Data[:4], crypto.Keccak256([]byte("balanceOf(address)"))[:4]) {
+		r.balanceReads++
+	}
+	return r.PinnedRPCReader.CallContract(ctx, call, block)
+}
+
+func TestReconcileCreationFeeAcceptsSurfaceTreasury(t *testing.T) {
+	withSurfaceTreasuryCreationFees(t, func(ctx context.Context, engine *PreflightEngine, observer *creationFeeReadObserver, hash common.Hash, identity deployment.Role) {
+		observer.balanceReads = 0
+		_, err := engine.ReconcileCreationFee(ctx, hash, identity)
+		// The genuine surface forwards to the native launchpad precompile,
+		// which Anvil lacks. Reaching USDL balance reads proves that the
+		// identity and actual receipt's fee log have both been accepted.
+		if observer.balanceReads != 4 {
+			t.Fatalf("surface Treasury did not pass identity and receipt checks: balance reads=%d error=%v", observer.balanceReads, err)
+		}
+		var issue deployment.Issue
+		if !errors.As(err, &issue) || issue.Code != "creation_fee_reconciliation_unverified" {
+			t.Fatalf("missing native Treasury ledger must remain unverified: %v", err)
+		}
+	})
+}
+
+func TestReconcileCreationFeeRejectsSurfaceTreasuryWithImplementation(t *testing.T) {
+	withSurfaceTreasuryCreationFees(t, func(ctx context.Context, engine *PreflightEngine, observer *creationFeeReadObserver, hash common.Hash, identity deployment.Role) {
+		observer.balanceReads = 0
+		_, _ = engine.ReconcileCreationFee(ctx, hash, identity)
+		if observer.balanceReads != 4 {
+			t.Fatal("valid surface identity failed to reach balance reads")
+		}
+		for _, fields := range []struct {
+			name    string
+			address string
+			hash    string
+		}{
+			{"address", "0x2000000000000000000000000000000000000002", ""},
+			{"hash", "", crypto.Keccak256Hash([]byte("implementation")).Hex()},
+			{"both", "0x2000000000000000000000000000000000000002", crypto.Keccak256Hash([]byte("implementation")).Hex()},
+		} {
+			t.Run(fields.name, func(t *testing.T) {
+				invalid := identity
+				invalid.ImplementationAddress = fields.address
+				invalid.ImplementationHash = fields.hash
+				observer.balanceReads = 0
+				result, err := engine.ReconcileCreationFee(ctx, hash, invalid)
+				var issue deployment.Issue
+				if !errors.As(err, &issue) || issue.Code != "creation_fee_reconciliation_unverified" || result != (CreationFeeReconciliation{}) || observer.balanceReads != 0 {
+					t.Fatalf("surface with implementation fields passed identity: result=%+v balance reads=%d error=%v", result, observer.balanceReads, err)
+				}
+			})
+		}
+	})
+}
+
+func withSurfaceTreasuryCreationFees(t *testing.T, inspect func(context.Context, *PreflightEngine, *creationFeeReadObserver, common.Hash, deployment.Role)) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(t.Context(), 25*time.Second)
+	defer cancel()
+	dir, err := os.MkdirTemp("", "kindle-preflight-chain-")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.RemoveAll(dir) })
+	ipc := filepath.Join(dir, "rpc.ipc")
+	genesis := time.Now().Unix() - 45
+	command := exec.Command("anvil", "--host", "127.0.0.1", "--port", "0", "--ipc", ipc, "--chain-id", "125", "--timestamp", strconv.FormatInt(genesis, 10), "--accounts", "0", "--threads", "2", "--silent")
+	command.Env = append(os.Environ(), "RAYON_NUM_THREADS=2")
+	command.Stdout = io.Discard
+	var stderr lockedBuffer
+	command.Stderr = &stderr
+	if err = command.Start(); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- command.Wait() }()
+	exited := false
+	t.Cleanup(func() {
+		if !exited {
+			_ = command.Process.Kill()
+			<-done
+		}
+	})
+	var client *rpc.Client
+	for {
+		client, err = rpc.DialIPC(ctx, ipc)
+		if err == nil {
+			break
+		}
+		select {
+		case waitErr := <-done:
+			exited = true
+			t.Fatalf("anvil exited before serving IPC: %v\nstderr:\n%s", waitErr, stderr.String())
+		default:
+		}
+		if ctx.Err() != nil {
+			t.Fatalf("anvil IPC unavailable: %v\nstderr:\n%s", ctx.Err(), stderr.String())
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Cleanup(client.Close)
+	// Anvil requires strictly increasing block timestamps. Every block this
+	// fixture produces (about 40) takes its timestamp from one monotonic clock
+	// that never runs ahead of wall time and stays within 40s behind it, well
+	// inside the one-minute freshness policy the engine enforces.
+	clock := &blockClock{last: genesis, slack: 40}
+	reader, err := NewPinnedRPCReader(client)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := os.ReadFile("../deployment/testdata/evm-artifacts.json")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifacts struct {
+		Contracts map[string]quoteArtifact `json:"contracts"`
+	}
+	if err := json.Unmarshal(encoded, &artifacts); err != nil {
+		t.Fatal(err)
+	}
+	manifest := historicalPreflightManifest(t)
+	manifest.Status = "eligible"
+	manifest.ActivationHeight = 1
+	trader := common.HexToAddress("0x1000000000000000000000000000000000000005")
+	install := func(name string, address common.Address) []byte {
+		t.Helper()
+		artifact, ok := artifacts.Contracts[name]
+		if !ok {
+			t.Fatalf("actual artifact missing: %s", name)
+		}
+		code := common.FromHex(artifact.Runtime)
+		for id, references := range artifact.Immutables {
+			value := common.LeftPadBytes(address.Bytes(), 32)
+			if name == "SidioraERC20" {
+				switch artifact.ImmutableNames[id] {
+				case "decimals":
+					value = common.LeftPadBytes(big.NewInt(6).Bytes(), 32)
+				case "_cachedChainId":
+					value = common.LeftPadBytes(big.NewInt(125).Bytes(), 32)
+				case "_nameHash":
+					value = crypto.Keccak256([]byte("USD Ledger"))
+				case "_cachedDomainSeparator":
+					typ, err := abi.NewType("bytes32", "", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					uintType, err := abi.NewType("uint256", "", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					addressType, err := abi.NewType("address", "", nil)
+					if err != nil {
+						t.Fatal(err)
+					}
+					arguments := abi.Arguments{{Type: typ}, {Type: typ}, {Type: typ}, {Type: uintType}, {Type: addressType}}
+					encoded, err := arguments.Pack(crypto.Keccak256Hash([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")), crypto.Keccak256Hash([]byte("USD Ledger")), crypto.Keccak256Hash([]byte("1")), big.NewInt(125), address)
+					if err != nil {
+						t.Fatal(err)
+					}
+					value = crypto.Keccak256(encoded)
+				case "deploymentFactory":
+					value = common.LeftPadBytes(trader.Bytes(), 32)
+				default:
+					t.Fatalf("unreviewed token immutable: %s", artifact.ImmutableNames[id])
+				}
+			}
+			for _, reference := range references {
+				if reference.Length != 32 || reference.Start < 0 || reference.Start+32 > len(code) {
+					t.Fatal("immutable range malformed")
+				}
+				copy(code[reference.Start:reference.Start+32], value)
+			}
+		}
+		if err := client.CallContext(ctx, nil, "anvil_setCode", address, hexutil.Bytes(code)); err != nil {
+			t.Fatal(err)
+		}
+		return code
+	}
+	set := func(address common.Address, key, value common.Hash) {
+		t.Helper()
+		if err := client.CallContext(ctx, nil, "anvil_setStorageAt", address, key, value); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for name, role := range manifest.Roles {
+		address := common.HexToAddress(role.Address)
+		switch role.Kind {
+		case "erc1967":
+			role.RuntimeHash = crypto.Keccak256Hash(install("UUPSProxy", address)).Hex()
+			implementation := common.HexToAddress(role.ImplementationAddress)
+			role.ImplementationHash = crypto.Keccak256Hash(install(name, implementation)).Hex()
+			set(address, deployment.ImplementationSlot, common.BytesToHash(implementation.Bytes()))
+		case "beacon":
+			role.RuntimeHash = crypto.Keccak256Hash(install("PoolBeacon", address)).Hex()
+			implementation := common.HexToAddress(role.ImplementationAddress)
+			role.ImplementationHash = crypto.Keccak256Hash(install("SidioraPool", implementation)).Hex()
+			set(address, common.Hash{}, common.BytesToHash(implementation.Bytes()))
+			set(address, common.BigToHash(big.NewInt(1)), common.BytesToHash(common.HexToAddress(manifest.Governance.ExpectedBeaconOwner).Bytes()))
+		case "direct":
+			role.RuntimeHash = crypto.Keccak256Hash(install("SidioraERC20", address)).Hex()
+		}
+		manifest.Roles[name] = role
+	}
+	observer := &creationFeeReadObserver{PinnedRPCReader: reader, usdl: common.HexToAddress(manifest.Roles["USDL"].Address)}
+	poolHash := crypto.Keccak256Hash(common.FromHex(artifacts.Contracts["BeaconProxy"].Runtime)).Hex()
+	engine, err := NewPreflightEngine(observer, manifest, poolHash, strings.Repeat("a", 64), time.Minute, 10*time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assertActualCreationFees(t, ctx, client, reader, clock, engine, manifest, install, set, func(hash common.Hash, proxy deployment.Role) {
+		surface := deployment.Current().Roles["Treasury"]
+		surface.Address = proxy.Address
+		code := common.FromHex("0x363d3d373360601b36523d3d601436013d3d6110175af13d600060003e6024573d6000fd5b3d6000f3")
+		if len(code) != 41 || crypto.Keccak256Hash(code).Hex() != surface.RuntimeHash {
+			t.Fatal("surface runtime identity mismatch")
+		}
+		if err := client.CallContext(ctx, nil, "anvil_setCode", common.HexToAddress(surface.Address), hexutil.Bytes(code)); err != nil {
+			t.Fatal(err)
+		}
+		defer func() {
+			install("UUPSProxy", common.HexToAddress(proxy.Address))
+		}()
+		inspect(ctx, engine, observer, hash, surface)
+	})
+}
+
 func TestPinnedQuoteReadsActualQuoterPoolAndProtocolBytecode(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 25*time.Second)
 	defer cancel()
@@ -252,7 +484,7 @@ func TestPinnedQuoteReadsActualQuoterPoolAndProtocolBytecode(t *testing.T) {
 	if err != nil || len(actual) != 96 || new(big.Int).SetBytes(actual[:32]).String() != quote.AmountOut {
 		t.Fatal("preflight differs from exact actual Quoter return")
 	}
-	manifest := deployment.Current()
+	manifest := historicalPreflightManifest(t)
 	// Exercise the pre-handoff epoch explicitly; the shipped manifest is active.
 	manifest.Status = "pending-beacon-acceptance"
 	manifest.ActivationHeight = 1
@@ -285,9 +517,207 @@ func TestPinnedQuoteReadsActualQuoterPoolAndProtocolBytecode(t *testing.T) {
 	}
 }
 
+func historicalPreflightManifest(t *testing.T) deployment.Manifest {
+	t.Helper()
+	manifest, ok := deployment.Approved(32_226_215)
+	if !ok {
+		t.Fatal("approved historical Solidity deployment missing")
+	}
+	for name, role := range manifest.Roles {
+		switch role.Kind {
+		case "erc1967", "beacon", "direct":
+		default:
+			t.Fatalf("historical Solidity fixture cannot install %s kind %s", name, role.Kind)
+		}
+	}
+	return manifest
+}
+
+func TestPinnedPreflightCurrentNativeSurfaces(t *testing.T) {
+	assertCurrentNativePreflightDrift(t)
+}
+
+func assertCurrentNativePreflightDrift(t *testing.T) {
+	t.Helper()
+	assertRecordedPreflightDrift(t, true)
+}
+
+func assertRecordedPreflightDrift(t *testing.T, native bool) {
+	t.Helper()
+	for _, scenario := range []struct {
+		name              string
+		supported         bool
+		reason            ReasonCode
+		creationSupported bool
+		quoteSupported    bool
+	}{
+		{"fee", true, "", false, true},
+		{"optical", false, OpticalQuoteUnsupported, true, true},
+		{"quoter_identity", false, IdentityUnverified, true, false},
+		{"governance", false, IdentityUnverified, false, false},
+		{"pool_state", true, "", true, true},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			c := repair38OpenChain(t, native)
+			selected := historicalPreflightManifest(t)
+			if native {
+				selected = deployment.Current()
+			}
+			selectedHash, err := selected.Hash()
+			if err != nil {
+				t.Fatal(err)
+			}
+			engineHash, err := c.engine.manifest.Hash()
+			if err != nil || engineHash != selectedHash {
+				t.Fatalf("fixture changed the selected deployment: %s want %s: %v", engineHash, selectedHash, err)
+			}
+			b, pool := c.peer, c.peer.epoch.Pool
+			block := b.blocks[0]
+			publication, err := c.engine.Capabilities(c.ctx, block)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for name, role := range selected.Roles {
+				identity, found := publication.ObservedIdentities[name]
+				if !found || !identity.Verified || identity.Address != role.Address {
+					t.Fatalf("selected %s identity was not attested: %+v", name, identity)
+				}
+				if role.Kind == "surface" && (identity.RuntimeHash != role.RuntimeHash || identity.ImplementationAddress != "" || identity.ImplementationHash != "" || identity.BeaconAddress != "") {
+					t.Fatalf("native %s was interpreted as a proxy: %+v", name, identity)
+				}
+			}
+			request := c.request(PlainQuote, block)
+			request.Pool = pool
+			previous, err := c.engine.Preflight(c.ctx, request)
+			if err != nil || !previous.Supported || previous.Pool == nil || previous.Quote == nil {
+				t.Fatalf("selected deployment did not produce a pinned quote: %+v %v", previous, err)
+			}
+			if duplicate, err := c.engine.Revalidate(c.ctx, previous, request); err != nil || duplicate.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 {
+				t.Fatalf("unchanged disclosure was not idempotent: %+v %v", duplicate, err)
+			}
+			changedRequest := request
+			changedRequest.AmountIn = "1000001"
+			if _, err := c.engine.Revalidate(c.ctx, previous, changedRequest); err == nil {
+				t.Fatal("changed request reused the old disclosure")
+			}
+			connected := c.connected(request)
+			if !connected.Supported || !connected.Pool.Present || connected.Pool.Value == nil || !connected.Quote.Present || connected.Quote.Value == nil || connected.Pool.Value.ImplementationVersion != previous.Pool.ImplementationVersion || connected.Quote.Value.AmountOut != previous.Quote.AmountOut || connected.RequestSha256 != previous.RequestSHA256 || connected.BlockHash != previous.BlockHash || connected.Revision.RevisionSha256 != previous.Revision.RevisionSHA256 {
+				t.Fatalf("HTTP consumer lost pinned producer state: %+v", connected)
+			}
+			next := b.blocks[1]
+			unchangedRequest := request
+			unchangedRequest.BlockHash = next
+			if unchanged, err := c.engine.RevalidateAt(c.ctx, previous, unchangedRequest); err != nil || !unchanged.Supported || unchanged.ObservedRevisionSHA256 != previous.ObservedRevisionSHA256 {
+				t.Fatalf("moving to an unchanged committed state invalidated the disclosure: %+v %v", unchanged, err)
+			}
+			override := func(address common.Address, signature string, value []byte, args ...any) {
+				t.Helper()
+				key := repair38Key(address, repair38Call(t, signature, args...), next)
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				if _, recorded := b.calls[key]; !recorded {
+					t.Fatalf("drift has no recorded baseline: %s", key)
+				}
+				b.overrides[key] = value
+			}
+			switch scenario.name {
+			case "fee":
+				override(b.address("ProtocolConfig"), "creationFee()", repair38Word(2_000_000))
+			case "optical":
+				override(pool, "opticalAddress()", repair38Address(c.trader))
+				if native {
+					key := repair38Key(b.address("PoolRegistry"), repair38Call(t, "getPoolMetadata(address)", pool), next)
+					metadata := append([]byte(nil), b.calls[key]...)
+					copy(metadata[64:96], repair38Address(c.trader))
+					override(b.address("PoolRegistry"), "getPoolMetadata(address)", metadata, pool)
+				}
+			case "quoter_identity":
+				b.mu.Lock()
+				if native {
+					b.codes[b.address("Quoter")] = append([]byte(nil), b.codes[b.address("USDL")]...)
+				} else {
+					b.storage[b.address("Quoter").Hex()+"/"+deployment.ImplementationSlot.Hex()] = repair38Address(common.HexToAddress(selected.Roles["Router"].ImplementationAddress))
+				}
+				b.mu.Unlock()
+			case "governance":
+				override(b.address("PoolBeacon"), "pendingOwner()", repair38Address(c.trader))
+			case "pool_state":
+				next = b.blocks[2]
+			}
+			request.BlockHash = next
+			changed, err := c.engine.RevalidateAt(c.ctx, previous, request)
+			var unavailable Unavailable
+			if !errors.As(err, &unavailable) || unavailable.ReasonCode != RevisionMismatch || changed.ObservedRevisionSHA256 == previous.ObservedRevisionSHA256 || changed.Supported != scenario.supported || (!scenario.supported && (changed.ExecutionPermitted || changed.ReasonCode != scenario.reason)) {
+				t.Fatalf("%s drift reused a disclosure or lost its refusal: %+v %v", scenario.name, changed, err)
+			}
+			consumed := c.connected(request)
+			if consumed.Supported != changed.Supported || consumed.ExecutionPermitted != changed.ExecutionPermitted || consumed.RequestSha256 != changed.RequestSHA256 || consumed.BlockHash != changed.BlockHash || consumed.Revision.RevisionSha256 != changed.Revision.RevisionSHA256 || (!scenario.supported && (!consumed.ReasonCode.Present || consumed.ReasonCode.Value != string(scenario.reason))) {
+				t.Fatalf("HTTP consumer lost drift outcome: %+v", consumed)
+			}
+			afterPublication, err := c.engine.Capabilities(c.ctx, next)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if (scenario.name == "fee" || scenario.name == "quoter_identity" || scenario.name == "governance") && afterPublication.ObservedRevisionSHA256 == publication.ObservedRevisionSHA256 {
+				t.Fatal("contract drift reused the capability publication revision")
+			}
+			for _, published := range afterPublication.Families {
+				capability := published.Capability
+				if capability.Family == Creation && capability.Supported != scenario.creationSupported {
+					t.Fatalf("creation dependency isolation changed: %+v", capability)
+				}
+				if capability.Family == PlainQuote && capability.Supported != scenario.quoteSupported {
+					t.Fatalf("quote dependency isolation changed: %+v", capability)
+				}
+				if (capability.Family == Creation || capability.Family == PlainQuote) && capability.OracleRequired {
+					t.Fatal("core capability acquired an optional oracle dependency")
+				}
+				if capability.Family == DisplayConversion && (capability.Supported || capability.ReasonCode != DisplayUnavailable) {
+					t.Fatal("display outage fabricated a price")
+				}
+			}
+			if scenario.name == "optical" && (changed.Pool == nil || changed.Pool.Optical != c.trader.Hex() || changed.Quote != nil) {
+				t.Fatal("optical drift retained an executable quote")
+			}
+			if scenario.name == "pool_state" {
+				if changed.Pool == nil || changed.Pool.RealUSDLBalance != "997000" || changed.Quote == nil || changed.Quote.AmountOut == previous.Quote.AmountOut {
+					t.Fatal("committed pool trade did not change the disclosed state and quote")
+				}
+				oldRequest := request
+				oldRequest.BlockHash = block
+				old, err := c.engine.Revalidate(c.ctx, previous, oldRequest)
+				if err != nil || old.Pool == nil || *old.Pool != *previous.Pool || old.Quote == nil || *old.Quote != *previous.Quote {
+					t.Fatalf("later state contaminated the pinned block: %+v %v", old, err)
+				}
+			}
+			canceled, cancel := context.WithCancel(c.ctx)
+			cancel()
+			if _, err := c.engine.Capabilities(canceled, next); err == nil {
+				t.Fatal("interrupted inspection published cached capabilities")
+			}
+			if native {
+				b.mu.Lock()
+				defer b.mu.Unlock()
+				for name, role := range selected.Roles {
+					address := common.HexToAddress(role.Address)
+					if role.Kind == "surface" && (b.seen["code/"+address.Hex()] == 0 || b.seen["storage/"+address.Hex()+"/"+deployment.ImplementationSlot.Hex()] != 0) {
+						t.Fatalf("native %s was not read as a surface", name)
+					}
+					if role.Kind == "precompile" && b.seen["code/"+address.Hex()] != 0 {
+						t.Fatal("native dispatcher was interpreted as EVM bytecode")
+					}
+				}
+				if b.seen["storage/"+pool.Hex()+"/"+deployment.BeaconSlot.Hex()] != 0 {
+					t.Fatal("native pool was interpreted as a beacon proxy")
+				}
+			}
+		})
+	}
+}
+
 func assertActualPreflightDrift(t *testing.T, ctx context.Context, client *rpc.Client, reader *PinnedRPCReader, clock *blockClock, artifacts map[string]quoteArtifact, pool, trader common.Address, mine func() common.Hash, set func(common.Address, common.Hash, common.Hash)) {
 	t.Helper()
-	manifest := deployment.Current()
+	manifest := historicalPreflightManifest(t)
 	manifest.Status = "eligible"
 	manifest.ActivationHeight = 1
 	install := func(name string, address common.Address) []byte {
@@ -391,7 +821,7 @@ func assertActualPreflightDrift(t *testing.T, ctx context.Context, client *rpc.C
 	if err != nil {
 		t.Fatal(err)
 	}
-	assertActualCreationFees(t, ctx, client, reader, clock, engine, manifest, install, set)
+	assertActualCreationFees(t, ctx, client, reader, clock, engine, manifest, install, set, nil)
 	block := mine()
 	header, err := reader.HeaderByHash(ctx, block)
 	if err != nil {
@@ -475,7 +905,7 @@ func assertActualPreflightDrift(t *testing.T, ctx context.Context, client *rpc.C
 	}
 }
 
-func assertActualCreationFees(t *testing.T, ctx context.Context, client *rpc.Client, reader *PinnedRPCReader, clock *blockClock, engine *PreflightEngine, manifest deployment.Manifest, install func(string, common.Address) []byte, set func(common.Address, common.Hash, common.Hash)) {
+func assertActualCreationFees(t *testing.T, ctx context.Context, client *rpc.Client, reader *PinnedRPCReader, clock *blockClock, engine *PreflightEngine, manifest deployment.Manifest, install func(string, common.Address) []byte, set func(common.Address, common.Hash, common.Hash), inspect func(common.Hash, deployment.Role)) {
 	t.Helper()
 	key, err := crypto.GenerateKey()
 	if err != nil {
@@ -573,6 +1003,9 @@ func assertActualCreationFees(t *testing.T, ctx context.Context, client *rpc.Cli
 		again, err := engine.ReconcileCreationFee(ctx, hash, treasuryIdentity)
 		if err != nil || again != reconciled {
 			t.Fatal("duplicate receipt reconciliation changed fee")
+		}
+		if inspect != nil {
+			inspect(hash, treasuryIdentity)
 		}
 		wrong := treasuryIdentity
 		wrong.ImplementationHash = manifest.Roles["Router"].ImplementationHash

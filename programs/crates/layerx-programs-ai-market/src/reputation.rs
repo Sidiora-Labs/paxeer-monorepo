@@ -16,7 +16,8 @@ pub const JOINT_CAP: usize = 24576;
 pub const COMMON_CAP: usize = 196_608;
 pub const UNIT: u32 = 1_000_000;
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct SegmentKey {
     pub market: MarketId,
     pub worker: WorkerId,
@@ -26,7 +27,8 @@ pub struct SegmentKey {
     pub reset_generation: Version,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum HistoryStatus {
     Active = 1,
@@ -38,6 +40,7 @@ impl HistoryStatus {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the byte is not 1, 2 or 3.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::Active),
@@ -47,7 +50,8 @@ impl HistoryStatus {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 #[repr(u8)]
 pub enum ClosureReason {
     OwnerReset = 1,
@@ -60,6 +64,7 @@ impl ClosureReason {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the byte is not 1 through 4.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn decode(value: u8) -> CodecResult<Self> {
         match value {
             1 => Ok(Self::OwnerReset),
@@ -70,12 +75,14 @@ impl ClosureReason {
         }
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct Observation {
     pub epoch: u64,
     pub height: u64,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReputationCurrent {
     pub worker: WorkerId,
     pub segment: Digest32,
@@ -118,6 +125,7 @@ impl ReputationCurrent {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the qualifying count exceeds 32, the reset generation disagrees with the previous-segment presence, or the observation, applied-epoch, coverage and transition-height fields are inconsistent.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.qualifying_count > 32 {
             return Err(NON_CANONICAL);
@@ -174,7 +182,8 @@ impl ReputationCurrent {
         confidence(self.qualifying_count)
     }
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct CompletedHistory {
     pub epoch: u64,
     pub execution_height: u64,
@@ -190,6 +199,7 @@ impl CompletedHistory {
     ///
     /// # Errors
     /// Returns `NON_CANONICAL` when the execution height is zero, the total exceeds 32, or the observed or covered count exceeds the total.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.execution_height == 0
             || self.total_workers > 32
@@ -201,7 +211,8 @@ impl CompletedHistory {
         Ok(())
     }
 }
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub struct ReputationState {
     pub market: MarketId,
     pub(crate) current: [Option<ReputationCurrent>; LIMIT],
@@ -210,15 +221,31 @@ pub struct ReputationState {
     pub(crate) history_len: u8,
     pub(crate) completed_through: Presence<u64>,
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum CompletionIdentity {
     New,
     Retained(CompletedHistory),
 }
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Eq, PartialEq)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Debug))]
 pub enum HistoryLookupError {
     HistoryOutsideRetention,
 }
+impl Clone for ReputationState {
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
+    fn clone(&self) -> Self {
+        Self {
+            market: self.market,
+            current: self.current,
+            history: self.history,
+            current_len: self.current_len,
+            history_len: self.history_len,
+            completed_through: self.completed_through,
+        }
+    }
+}
+
 impl ReputationState {
     #[must_use]
     pub const fn new(market: MarketId) -> Self {
@@ -270,6 +297,7 @@ impl ReputationState {
     ///
     /// # Errors
     /// Returns `CAPACITY` when a length exceeds `LIMIT`; `NON_CANONICAL` when a record is invalid, slots and lengths disagree, workers or epochs are not strictly ascending, heights decrease, or `completed_through` disagrees with the rows.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn validate(&self) -> CodecResult<()> {
         if self.current_len as usize > LIMIT || self.history_len as usize > LIMIT {
             return Err(CAPACITY);
@@ -344,6 +372,7 @@ impl ReputationState {
     ///
     /// # Errors
     /// Propagates `validate`'s `CAPACITY`/`NON_CANONICAL` refusals; returns `F07_RESOURCE_LIMIT` when the size exceeds `SECTION_CAP`.
+    #[cfg_attr(target_arch = "wasm32", inline(never))]
     pub fn encoded_len(&self) -> CodecResult<usize> {
         self.validate()?;
         let n = HEADER_BYTES

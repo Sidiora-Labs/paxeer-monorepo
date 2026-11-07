@@ -110,12 +110,12 @@ def discovery(sequence: int, observed_at: int, valid_through: int, state_root: s
 def envelope(value: object, *, achieved: bool) -> bytes:
     verification: dict[str, object]
     if achieved:
-        verification = {"state": "Achieved", "level": "SequencerSigned"}
+        verification = {"state": "achieved", "rung": "receipted"}
     else:
         verification = {
-            "state": "Unverified",
-            "requested": "SequencerSigned",
-            "achieved": "Unverified",
+            "state": "unverified",
+            "requested": "receipted",
+            "achieved": "submitted",
             "reason": "server_side_receipt_verification_only",
         }
     return json.dumps({

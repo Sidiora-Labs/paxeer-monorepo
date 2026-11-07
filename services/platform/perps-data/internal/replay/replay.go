@@ -53,6 +53,7 @@ var holderToken = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,128}$`)
 var projectionTables = []string{
 	"positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily",
 	"market_stats_rolling", "leaderboard", "spot_token_seen", "market_snapshots", "protocol_snapshots",
+	"spot_account_legs", "spot_leaderboard",
 }
 
 var (
@@ -275,10 +276,37 @@ func (r *Runner) Run(ctx context.Context, req Request) (rep Report, err error) {
 }
 
 // batch rewrites [from, to] in one transaction and returns its counts.
-func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryRun bool) ([]TableCount, error) {
+func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryRun bool) (_ []TableCount, err error) {
 	if err := renewLease(ctx, r.DB, r.Holder, r.LeaseTTL); err != nil {
 		return nil, err
 	}
+	ctx, cancelBatch := context.WithCancelCause(ctx)
+	renewCtx, stopRenewing := context.WithCancel(ctx)
+	renewed := make(chan struct{})
+	go func() {
+		defer close(renewed)
+		ticker := time.NewTicker(r.LeaseTTL / 3)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-renewCtx.Done():
+				return
+			case <-ticker.C:
+				if err := renewLease(renewCtx, r.DB, r.Holder, r.LeaseTTL); err != nil {
+					if renewCtx.Err() == nil {
+						cancelBatch(err)
+					}
+					return
+				}
+			}
+		}
+	}()
+	defer func() {
+		stopRenewing()
+		<-renewed
+		err = errors.Join(err, context.Cause(ctx))
+		cancelBatch(nil)
+	}()
 	tx, err := r.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("begin: %w", err)
@@ -303,6 +331,10 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 	}
 	if err := snapshot(ctx, tx, tables, from, to); err != nil {
 		return nil, err
+	}
+	recovery, err := store.CaptureRecovery(ctx, tx, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("capture recovery: %w", err)
 	}
 	var maxSeq int64
 	if err := tx.QueryRowContext(ctx, `SELECT COALESCE(max(perps_seq), 0) FROM perps.delivery_outbox`).Scan(&maxSeq); err != nil {
@@ -332,7 +364,10 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 			}
 		}
 	}
-	if err := store.Rebuild(ctx, tx, from, to); err != nil {
+	if err := snapshotReplacementSpotAccounts(ctx, tx, from, to); err != nil {
+		return nil, err
+	}
+	if err := store.Rebuild(ctx, tx, from, to, recovery); err != nil {
 		return nil, fmt.Errorf("rebuild projections: %w", err)
 	}
 	if _, err := tx.ExecContext(ctx, `UPDATE perps.cursors SET height = $2, hash = $3, updated_at = $4 WHERE name = $1`,
@@ -341,6 +376,11 @@ func (r *Runner) batch(ctx context.Context, tables []table, from, to int64, dryR
 	}
 	counts, err := diff(ctx, tx, tables, from, to, maxSeq)
 	if err != nil {
+		return nil, err
+	}
+	stopRenewing()
+	<-renewed
+	if err := context.Cause(ctx); err != nil {
 		return nil, err
 	}
 	if err := renewLease(ctx, tx, r.Holder, r.LeaseTTL); err != nil {
@@ -424,11 +464,9 @@ const (
 	snapshotProjection = "replay_before_projection_"
 )
 
-// snapshot copies the rows of the range, and the projection tables whole, into
-// temporary tables dropped with the transaction.
-// ponytail: projections are copied whole per batch, fine while they fit in a
-// transaction; key the copy by the accounts and markets of the range if they
-// outgrow it.
+// snapshot copies the rows of the range and their account, market and token
+// projections into temporary tables dropped with the transaction. Protocol
+// snapshots have no venue key and are compared in full.
 func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) error {
 	for i, t := range tables {
 		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotName(i)+` ON COMMIT DROP AS SELECT * FROM perps.`+pq.QuoteIdentifier(t.name)+` WHERE block BETWEEN $1 AND $2`, from, to); err != nil {
@@ -438,12 +476,93 @@ func snapshot(ctx context.Context, tx *sql.Tx, tables []table, from, to int64) e
 	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotBlocks+` ON COMMIT DROP AS SELECT * FROM perps.blocks WHERE number BETWEEN $1 AND $2`, from, to); err != nil {
 		return fmt.Errorf("snapshot perps.blocks: %w", err)
 	}
+	keys := []struct {
+		name, typ string
+		columns   []string
+	}{
+		{"replay_accounts", "bytea", []string{"account", "user", "maker", "taker", "from_account", "to_account"}},
+		{"replay_markets", "numeric", []string{"market_id"}},
+		{"replay_tokens", "bytea", []string{"token", "stablecoin", "token_other", "token_in", "token_out", "share_token"}},
+	}
+	for _, key := range keys {
+		parts := []string{`SELECT NULL::` + key.typ + ` AS key WHERE false`}
+		for i, t := range tables {
+			for _, c := range t.columns {
+				for _, column := range key.columns {
+					if c == column {
+						q := pq.QuoteIdentifier(c)
+						parts = append(parts, `SELECT `+q+` FROM `+snapshotName(i)+` WHERE `+q+` IS NOT NULL`)
+					}
+				}
+			}
+		}
+		if key.name == "replay_markets" {
+			for _, p := range []string{"positions_current", "orders"} {
+				parts = append(parts, `SELECT market_id FROM perps.`+p+` WHERE account IN (SELECT key FROM replay_accounts)`)
+			}
+		}
+		if key.name == "replay_tokens" {
+			parts = append(parts, `SELECT token FROM perps.spot_orders WHERE account IN (SELECT key FROM replay_accounts)`,
+				`SELECT stablecoin FROM perps.spot_orders WHERE account IN (SELECT key FROM replay_accounts)`)
+		}
+		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+key.name+` ON COMMIT DROP AS `+strings.Join(parts, ` UNION `)); err != nil {
+			return fmt.Errorf("snapshot %s: %w", key.name, err)
+		}
+	}
+	if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE replay_spot_accounts ON COMMIT DROP AS SELECT key FROM replay_accounts`); err != nil {
+		return fmt.Errorf("snapshot spot accounts: %w", err)
+	}
 	for _, p := range projectionTables {
-		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotProjection+p+` ON COMMIT DROP AS SELECT * FROM perps.`+pq.QuoteIdentifier(p)); err != nil {
+		query, err := projectionQuery(p)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.ExecContext(ctx, `CREATE TEMP TABLE `+snapshotProjection+p+` ON COMMIT DROP AS `+query); err != nil {
 			return fmt.Errorf("snapshot perps.%s: %w", p, err)
 		}
 	}
 	return nil
+}
+
+// WriteFacts has not changed projections yet. Capture the prior legs of any
+// newly discovered owners before Rebuild, keeping the union of old and new
+// accounts for the diff. The complete board was captured before rewriting:
+// changing one account can move every other account's rank.
+func snapshotReplacementSpotAccounts(ctx context.Context, tx *sql.Tx, from, to int64) error {
+	if _, err := tx.ExecContext(ctx, `INSERT INTO replay_spot_accounts (key)
+SELECT account FROM (
+ SELECT "user" AS account FROM perps.spot_swaps WHERE block BETWEEN $1 AND $2
+ UNION SELECT account FROM perps.spot_order_events WHERE block BETWEEN $1 AND $2
+ UNION SELECT o.account FROM perps.spot_order_events e JOIN perps.spot_orders o
+  ON e.order_id = o.order_id AND e.kind = o.kind || '_executed' WHERE e.block BETWEEN $1 AND $2
+) replacement WHERE account IS NOT NULL AND account NOT IN (SELECT key FROM replay_spot_accounts)`, from, to); err != nil {
+		return fmt.Errorf("snapshot replacement spot accounts: %w", err)
+	}
+	if _, err := tx.ExecContext(ctx, `INSERT INTO `+snapshotProjection+`spot_account_legs
+SELECT p.* FROM perps.spot_account_legs p
+WHERE p.account IN (SELECT key FROM replay_spot_accounts)
+AND NOT EXISTS (SELECT 1 FROM `+snapshotProjection+`spot_account_legs s WHERE s.account = p.account)`); err != nil {
+		return fmt.Errorf("snapshot replacement spot legs: %w", err)
+	}
+	return nil
+}
+
+func projectionQuery(name string) (string, error) {
+	query := `SELECT * FROM perps.` + pq.QuoteIdentifier(name)
+	switch name {
+	case "positions_current", "orders", "spot_orders", "account_margin", "user_stats", "user_pnl_daily", "leaderboard":
+		return query + ` WHERE account IN (SELECT key FROM replay_accounts)`, nil
+	case "market_stats_rolling", "market_snapshots":
+		return query + ` WHERE market_id IN (SELECT key FROM replay_markets)`, nil
+	case "spot_token_seen":
+		return query + ` WHERE token IN (SELECT key FROM replay_tokens)`, nil
+	case "spot_account_legs":
+		return query + ` WHERE account IN (SELECT key FROM replay_spot_accounts)`, nil
+	case "protocol_snapshots", "spot_leaderboard":
+		return query, nil
+	default:
+		return "", fmt.Errorf("replay: no snapshot scope for projection %s", name)
+	}
 }
 
 // restoreRowIDs gives every rewritten row of t the row_id of its first index,
@@ -483,12 +602,20 @@ func diff(ctx context.Context, tx *sql.Tx, tables []table, from, to, maxSeq int6
 	}
 	scopes = append(scopes, scope{"perps.blocks", `SELECT * FROM perps.blocks WHERE number BETWEEN $1 AND $2`, snapshotBlocks, []any{from, to}})
 	for _, p := range projectionTables {
-		scopes = append(scopes, scope{"perps." + p, `SELECT * FROM perps.` + pq.QuoteIdentifier(p), snapshotProjection + p, nil})
+		query, err := projectionQuery(p)
+		if err != nil {
+			return nil, err
+		}
+		scopes = append(scopes, scope{"perps." + p, query, snapshotProjection + p, nil})
 	}
 	out := make([]TableCount, 0, len(scopes)+1)
 	for _, s := range scopes {
 		c := TableCount{Table: s.table}
-		query := `SELECT (SELECT count(*) FROM (` + s.current + `) cur),
+		rowQuery := s.current
+		if strings.HasPrefix(s.before, snapshotProjection) {
+			rowQuery = `SELECT * FROM perps.` + pq.QuoteIdentifier(strings.TrimPrefix(s.before, snapshotProjection))
+		}
+		query := `SELECT (SELECT count(*) FROM (` + rowQuery + `) cur),
 (SELECT count(*) FROM (SELECT * FROM ` + s.before + ` EXCEPT ALL ` + s.current + `) removed)
 + (SELECT count(*) FROM (` + s.current + ` EXCEPT ALL SELECT * FROM ` + s.before + `) added)`
 		if err := tx.QueryRowContext(ctx, query, s.args...).Scan(&c.Rows, &c.Changed); err != nil {
@@ -543,9 +670,9 @@ func waitLease(ctx context.Context, db *sql.DB, holder string, ttl, retry time.D
 	}
 }
 
-// renewLease extends the unexpired lease of holder through e. Run calls it
-// before each batch and again inside the batch transaction before commit, so
-// the commit is fenced by the lease row lock.
+// renewLease extends the unexpired lease of holder through e. A batch renews
+// through the database every LeaseTTL/3, then stops that renewal before
+// renewing inside the transaction to fence the commit with the lease row lock.
 func renewLease(ctx context.Context, e execer, holder string, ttl time.Duration) error {
 	res, err := e.ExecContext(ctx, `UPDATE perps.writer_lease SET expires_at = clock_timestamp() + $3::bigint * interval '1 millisecond'
 WHERE name = $1 AND holder = $2 AND expires_at > clock_timestamp()`, leaseName, holder, ttl.Milliseconds())

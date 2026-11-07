@@ -1,10 +1,16 @@
 # Perps data services contract
 
-The perps data services index the perpetuals precompile (0x…1015), the pricefeed module and precompile (0x…1020), the spot precompiles (0x…1021 to 0x…1025 and their share pointers) and the USDL token contract of Paxeer X Network, and serve the Hyperpax application, the chain explorer views and the portal. This document fixes the database schema, the stream, every route and frame, the GraphQL surface, health and metrics, the images and the Railway layout. Section anchors are referenced by the acceptance criteria of feature 7. Chart candles are not part of these services: the application reads them from the Chainflow feed (section 12).
+This release-era page retains its numbered sections and the event table consumed by ABI conformance tests. The operating guidance below describes the current merged-network implementation; the [current service contract](../../../contracts/perps-data.md) is the integration entry point, and the [frozen interface inventory](../../layerx-merge/contracts/perps-data.md) records its own historical revision.
+
+The services index native perpetuals (0x…1015), pricefeed (0x…1020), spot rails (0x…1021–0x…1025 and discovered share pointers), and USDL transfers, then serve the [perps application](../../../apps/perps), explorer and portal. Paxeer mainnet-beta is one BFT network, chain ID 125 (`0x7d`): the kernel is part of the network and proposes blocks, and receipts are final when their blocks commit. Indexing, delivery and replay track data-service progress, with no additional settlement stage.
+
+Public node JSON-RPC uses HTTPS at the root of `api1.mainnet-beta.paxeer.network` through `api14.mainnet-beta.paxeer.network`, and `api-mainnet-beta.paxeer.network`; see [public RPC](../../../docs/site/docs/reference/public-rpc.md). Configure CometBFT listeners separately. The data gateway described here serves REST, GraphQL and sockets; it does not proxy node JSON-RPC. Sub-chains are tenant domains in the database, not separate consensus infrastructure. Chart candles remain on the configured Chainflow feed (section 12).
 
 ## 1. Scope, code home and reuse
 
-All code lives in the root module under `platform/perps-data/`. Binaries are under `platform/perps-data/cmd/`: perps-indexer, perps-gateway, perps-explorer, perps-portal, perps-replay and perps-loadtest (six binaries). Packages are under `platform/perps-data/internal/`.
+Code lives in the root Go module under [services/platform/perps-data](../../../services/platform/perps-data). Its [cmd directory](../../../services/platform/perps-data/cmd) contains six binaries: perps-indexer, perps-gateway, perps-explorer, perps-portal, perps-replay and perps-loadtest. Packages are under `services/platform/perps-data/internal/`; deployment files are under `services/platform/perps-data/deploy/`.
+
+Implementation sources for the numbered sections are [migrations](../../../services/platform/perps-data/migrations), [source following](../../../services/platform/perps-data/internal/source), [decoding](../../../services/platform/perps-data/internal/decode), [storage](../../../services/platform/perps-data/internal/store), [delivery](../../../services/platform/perps-data/internal/delivery), [REST](../../../services/platform/perps-data/internal/rest), [topic feeds](../../../services/platform/perps-data/internal/feeds), [GraphQL](../../../services/platform/perps-data/internal/graphql/schema.go), and [gateway registration](../../../services/platform/perps-data/internal/gateway/server.go). These sources define exact types, nullability and route registration.
 
 Packages copied from the launchpad backend (github.com/Sidiora-Labs/Launch-x) keep their behaviour; each copy names its origin in the package comment.
 
@@ -20,9 +26,9 @@ Packages copied from the launchpad backend (github.com/Sidiora-Labs/Launch-x) ke
 | deploy/Dockerfile | deploy/Dockerfile.svc | SERVICE build argument |
 | deploy/nats/nats.conf | deploy/production/bootstrap/nats.conf | cluster block and permissions |
 
-Dependencies: the root go.mod has no nats or graphql module today (go.mod:27-55 lists neither, and go.sum:1287 holds only the `github.com/graph-gophers/graphql-go v1.3.0/go.mod` line, no module hash). The module task adds `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` and `github.com/graph-gophers/graphql-go` with `go get` at pinned versions and commits both go.sum lines (h1 and go.mod) of each; the go.mod edit lands after the layerx-merge go.mod task 0.154 and rebases onto it.
+Dependencies are already declared in the [root go.mod](../../../go.mod): `github.com/nats-io/nats.go`, `github.com/nats-io/nats-server/v2` and `github.com/graph-gophers/graphql-go`. Use the checked-in module graph and checksums; adding these libraries is not a deployment prerequisite.
 
-ABI imports: the indexer imports only the leaf ABI packages `precompiles/perps/abi`, `precompiles/pricefeed/abi` and `precompiles/spot/abi` (an embed of `abi.json` with no other import), never the precompile packages, because those import the node keepers and modules/lxphost is built only under `//go:build cgo` (both node images build with CGO_ENABLED=1, docker/paxeer/Dockerfile.paxd-node:20 and docker/layerx/Dockerfile:44). The data images build with CGO_ENABLED=0 (section 20). The USDL Transfer event is the ERC20 standard event and is declared in the indexer.
+ABI imports: the decoders import the leaf packages `precompiles/perps/abi`, `precompiles/pricefeed/abi` and `precompiles/spot/abi`, which embed the ABI without importing node keepers or the native host. The USDL Transfer event is declared by the decoder. This permits the data images to build with CGO_ENABLED=0 (section 20).
 
 The launchpad configuration loader is not reused because it requires Redis variables these services do not read; see section 23.
 
@@ -32,33 +38,33 @@ One address set is used by the follower, the decoders, the replay tool and the t
 
 | address | name | logs |
 | --- | --- | --- |
-| 0x0000000000000000000000000000000000001015 | perpetuals | contracts/perps.md section 18 |
-| 0x0000000000000000000000000000000000001020 | pricefeed | FeedKeyRegistered, FeedKeyRevoked (contracts/pricefeed.md, Events) |
-| 0x0000000000000000000000000000000000001021 | PECOR | contracts/spot.md, Events |
-| 0x0000000000000000000000000000000000001022 | PECOROrders | contracts/spot.md, Events |
-| 0x0000000000000000000000000000000000001023 | PECORStopOrders | contracts/spot.md, Events |
+| 0x0000000000000000000000000000000000001015 | perpetuals | [perps contract](perps.md) section 18 |
+| 0x0000000000000000000000000000000000001020 | pricefeed | FeedKeyRegistered, FeedKeyRevoked ([pricefeed contract](pricefeed.md), Events) |
+| 0x0000000000000000000000000000000000001021 | PECOR | [spot contract](spot.md), Events |
+| 0x0000000000000000000000000000000000001022 | PECOROrders | [spot contract](spot.md), Events |
+| 0x0000000000000000000000000000000000001023 | PECORStopOrders | [spot contract](spot.md), Events |
 | 0x0000000000000000000000000000000000001024 | PECORQuoter | view only, no logs |
-| 0x0000000000000000000000000000000000001025 | PECORVault | contracts/spot.md, Events |
+| 0x0000000000000000000000000000000000001025 | PECORVault | [spot contract](spot.md), Events |
 | every share pointer returned by `shareTokens(address)` (0x96153f07) of 0x1025 | PECORVaultShare | Transfer, Approval, OwnershipTransferred |
-| 0x85FcD13735F4309833A503EE804ea32395851479 | USDL, 6 decimals (Launch-x:contracts/libraries/Constants.sol:14) | ERC20 Transfer, filtered to transfers touching a venue custody address (the perps or the spot module EVM address) |
+| 0x85FcD13735F4309833A503EE804ea32395851479 | USDL, 6 decimals (decode.USDLAddress and store.USDL) | ERC20 Transfer, filtered to transfers touching a venue custody address (the perps or the spot module EVM address) |
 
-The USDL address is a code constant of the indexer; USDL is an ERC20 contract, not a bank denom and not a pointer. The pricefeed aggregates are Cosmos block events, read per height from CometBFT `block_results` (section 5). No other address is read; 0x1026 and 0x1027 carry no code (contracts/spot.md, Address set) and are not part of the set.
+Module EVM addresses are the first 20 bytes of SHA-256 of the module name (`perps`, `spot`, `pricefeed`), as wired by the indexer command; they are distinct from precompile addresses. The USDL address is a code constant of the indexer; USDL is an ERC20 contract, not a bank denom and not a pointer. The pricefeed aggregates are Cosmos block events, read per height from CometBFT `block_results` (section 5). The monitored venue log set excludes 0x1026 and 0x1027; share addresses are discovered from the vault rather than assumed to occupy a fixed precompile slot.
 
 ### Synthetic receipts
 
-Logs written by an end block or by the activation are carried in synthetic receipts that baseline task 1.0.6 serves through eth_getLogs, pax_getLogs, eth_getBlockReceipts, eth_getTransactionReceipt and the block bloom (today rpc/utils.go:521-526 includes synthetic receipts only on the pax namespace, and rpc/utils.go:533-553 builds the block hash list). The indexer reads through those paths and checks every synthetic receipt against this table:
+The [source follower](../../../services/platform/perps-data/internal/source/follower.go) reads `eth_getLogs` and classifies logs from end-block execution and activation as synthetic receipts. Hashes and indexes must match the table below, where N is the total number of consensus transactions in the block, including non-EVM transactions. It is not the count of EVM transactions in a filtered block response. The node's block API (`rpc/block.go`) and receipt utilities (`rpc/utils.go`) distinguish namespace-specific block transaction lists; do not assume every block or receipt-list method returns the same synthetic entries.
 
 | receipt_kind | tx hash | TransactionIndex | logs |
 | --- | --- | --- | --- |
-| perps_endblock | keccak256("perps-endblock" ‖ height as 8 big-endian bytes) | highest real TxIndex + 1, or 0 in a block without transactions | the end-block logs of 0x1015 (contracts/perps.md section 23) |
-| spot_endblock | keccak256("spot-endblock" ‖ height as 8 big-endian bytes) | highest real TxIndex + 2, or 1 without transactions | the end-block logs of 0x1021 to 0x1025 and the share pointers |
-| activation | keccak256("v6120-activation" ‖ height as 8 big-endian bytes) | highest real TxIndex + 3, or 2 without transactions | the activation logs of InitV6120 (contracts/spot.md, Activation) |
+| perps_endblock | keccak256("perps-endblock" ‖ height as 8 big-endian bytes) | N (0 in a block without transactions) | the end-block logs of 0x1015 ([perps contract](perps.md) section 23) |
+| spot_endblock | keccak256("spot-endblock" ‖ height as 8 big-endian bytes) | N + 1 (1 without transactions) | the end-block logs of 0x1021 to 0x1025 and the share pointers |
+| activation | keccak256("v6120-activation" ‖ height as 8 big-endian bytes) | N + 2 (2 without transactions) | the activation logs of InitV6120 ([spot contract](spot.md), Activation) |
 
 A synthetic receipt whose hash or index differs from the table stops the follower with the height, the expected and the served values; it is never stored under a guessed key. A receipt of a real transaction has receipt_kind tx.
 
 ## 2. Postgres schema
 
-One database, schema `perps`. Migrations are embedded SQL files applied in lexical order by store.Migrate, one transaction per file, recorded with their sha256 in `perps.schema_migrations (file text primary key, sha256 bytea, applied_at timestamptz)`. A changed hash refuses start. The files are 0001_facts.sql (common columns, fact tables, chain tables), 0002_projections.sql, 0003_delivery.sql, 0004_accounts.sql and 0005_markets_seed.sql (section 11).
+One database, schema `perps`. Migrations are embedded SQL files applied in lexical order by store.Migrate, one transaction per file, recorded with their sha256 in `perps.schema_migrations (file text primary key, sha256 bytea, applied_at timestamptz)`. A changed or missing recorded migration refuses start. The [migration directory](../../../services/platform/perps-data/migrations) currently contains 0001 through 0015: facts, projections, delivery, accounts and market seeds, followed by nullable market decimals, ledger row IDs, ordered delivery indexes, raw-log lookup classes, projection seeds, chain market configuration, chain counters, margin tiers and spot leaderboard projections.
 
 ### Common fact columns
 
@@ -179,10 +185,12 @@ One row per log or block event that maps to an explorer action (section 16): the
 | perps.blocks | number bigint, hash bytea, parent_hash bytea, time timestamptz, proposer text (upper-case hex of the CometBFT header ProposerAddress), tx_count integer | primary key number; unique hash |
 | perps.cursors | name text, height bigint, hash bytea, updated_at timestamptz | primary key name; the indexer uses name head |
 | perps.writer_lease | name text, holder text, expires_at timestamptz | primary key name; one writer at a time |
-| perps.markets | market_id perps.uint256, symbol text, name text, oracle_symbol text, sz_decimals smallint, px_decimals smallint, max_leverage perps.uint256, maintenance_margin_bps perps.uint256, max_open_interest perps.uint256, enabled boolean, source text (seed or chain), refreshed_block bigint null | primary key market_id; unique symbol |
+| perps.markets | market_id perps.uint256, symbol text, name text, oracle_symbol text, sz_decimals smallint, px_decimals smallint, max_leverage perps.uint256, maintenance_margin_bps perps.uint256, max_open_interest perps.uint256, enabled boolean, source text (seed or chain), refreshed_block bigint null; tick_size, lot_size, impact_notional_usd, oi_cap_usd, funding_cap_ppm_per_hour perps.uint256, tier_class smallint, listed_at timestamptz | primary key market_id; unique symbol |
 | perps.fee_config | id smallint (always 1), taker_fee_ppm, maker_fee_ppm, liquidation_fee_ppm, insurance_share_ppm perps.uint256, refreshed_block bigint | primary key id |
 
-perps.markets and perps.fee_config are written by the seed migration and the startup refresh of section 11; a rewind never deletes them.
+Additional tables are `perps.market_tiers` (market_id, tier, lower_bound_usd, max_leverage, maintenance_bps, deduction_usd, refreshed_block; primary key market_id + tier) and `perps.chain_counters` (name, value). Triggers maintain the blocks and tx_actions counters on insert and delete.
+
+perps.markets, perps.market_tiers and perps.fee_config are maintained by the seed migrations and periodic chain refresh of section 11; source reconciliation preserves the registry and fee configuration. Nullable decimals in the schema are not permission to invent decimals for a new chain market: successful refresh writes both from getMarketConfig.
 
 ### Projection tables
 
@@ -202,13 +210,15 @@ Projections are rebuilt from facts by store.Rebuild for any height range; their 
 | perps.market_snapshots | market_id, hour, mark_price, index_price, funding_rate, volume_usd, trades_count | mark_prices, funding_rates, fills | primary key (market_id, hour) |
 | perps.protocol_snapshots | hour, total_volume_usd, total_oi_usd, total_fees_usd, tvl_usd, insurance_total_usd, accounts, trades_count | fills, open_interest, fees, usdl_transfers, insurance_events | primary key hour |
 | perps.projection_seeds | kind (order, position), id, block, height, path (at_height, latest), account, market_id, is_long, size_usd, the order columns order_type, time_in_force, order_status, reduce_only, limit_price, trigger_price, acceptable_price, size_base, filled_base, remaining_size_usd, status, deadline, cloid, and the position columns collateral_usd, collateral_amount, collateral_token, entry_price, leverage, take_profit_price, stop_loss_price | the state getters, read by the decoder (Decoding, Projection seed) | primary key (kind, id); (block); a fact table: a rewind deletes its rows above the fork, store.Rebuild keeps them |
+| perps.spot_account_legs | account, realized_usd, volume_usd, trades, updated_block | stablecoin-denominated spot market/simple swaps and executed orders | primary key account |
+| perps.spot_leaderboard | kind (pnl, volume, win-rate), rank, account, value, updated_block | FoldSpotBoard over account history | primary key (kind, rank); unique (kind, account) |
 | perps.keeper_cycles | block, block_time, markets_updated, orders_executed, liquidations_executed, orders_failed (always 0), liquidations_failed (always 0) | the logs of one perps_endblock receipt | primary key block |
 
 Projection rules:
 
 - orders: OrderPlaced inserts status active with remaining_size_usd = size_usd; OrderOptions fills the option columns of the same order_id; each Fill whose maker_order_id or taker_order_id is the order subtracts its size_usd from remaining_size_usd; OrderTriggered sets status triggered; the order closes with status filled when remaining_size_usd reaches 0, cancelled on OrderCancelled and expired on OrderExpired. OrderExecuted sets position_id and execution_price and never closes the order by itself.
-- seeded rows: an update by id (OrderOptions, OrderTriggered, OrderExecuted, OrderCancelled, OrderExpired, a Fill, PositionModified, EntryPriceChanged, TpSlSet, PositionFundingApplied, ADLExecuted, PositionClosed, Liquidation) that finds no orders or positions_current row inserts it from the projection_seeds row of that id with projected_from 'state' and projected_height the seed height, then applies the update. A seeded order takes account, market_id, is_long, order_type, time_in_force, reduce_only, limit_price, trigger_price, acceptable_price, size_usd, deadline and cloid from getOrderDetails, remaining_size_usd = floor(sizeUsd × (sizeBase − filledBase) / sizeBase), and status active for Untriggered and a Resting limit order, triggered for any other Resting order, filled, cancelled or expired for Filled, Cancelled and Expired; position_id, execution_price and placed_block are null. A seeded position takes account, market_id, is_long, size_usd (the notional at mark, where events carry the notional at the reference price), collateral_usd, collateral_amount, collateral_token and entry_price from getPosition, leverage from getPositionDetails, take_profit_price and stop_loss_price from getPositionDetails and null when 0, status open; realized_pnl, opened_block and closed_block are null, never guessed. spot_orders are not seeded.
-- account_margin: balance is the new_balance of the latest CollateralDeposited or CollateralWithdrawn of the account, plus or minus every later CollateralTransferred; locked is the sum of collateral_amount of the account's open positions; margin_mode is the constant 0 (cross), the only mode getMarginMode returns (contracts/perps.md section 4).
+- seeded rows: an update by id (OrderOptions, OrderTriggered, OrderExecuted, OrderCancelled, OrderExpired, a Fill, PositionModified, PositionEntryPriceChanged, PositionTpSlSet, PositionFundingApplied, ADLExecuted, PositionClosed, Liquidation) that finds no orders or positions_current row inserts it from the projection_seeds row of that id with projected_from 'state' and projected_height the seed height, then applies the update. A seeded order takes account, market_id, is_long, order_type, time_in_force, reduce_only, limit_price, trigger_price, acceptable_price, size_usd, deadline and cloid from getOrderDetails, remaining_size_usd = floor(sizeUsd × (sizeBase − filledBase) / sizeBase), and status active for Untriggered and a Resting limit order, triggered for any other Resting order, filled, cancelled or expired for Filled, Cancelled and Expired; position_id, execution_price and placed_block are null. A seeded position takes account, market_id, is_long, collateral_usd, collateral_amount, collateral_token and entry_price from getPosition. Its size_usd is floor(getPositionDetails.sizeBase × getPosition.entryPrice / 10^18), the 18-decimal USD entry notional; leverage comes from getPositionDetails, take_profit_price and stop_loss_price come from getPositionDetails and are null when 0, and status is open; realized_pnl, opened_block and closed_block are null, never guessed. spot_orders are not seeded.
+- account_margin: balance is the new_balance of the latest CollateralDeposited or CollateralWithdrawn of the account, plus or minus every later CollateralTransferred; locked is the sum of collateral_amount of the account's open positions; margin_mode is the constant 0 (cross), the only mode getMarginMode returns ([perps contract](perps.md) section 4).
 - user_stats: win_count and loss_count count PositionClosed rows with realized_pnl above and below 0; total_pnl = realized_pnl − fees_usd + funding_usd.
 - market_stats_rolling: volume, trades_count, high, low, open and last_price fold each Fill once per match; open interest is the latest OpenInterestChanged. TradeSettled is folded only into the account projections.
 - keeper_cycles: one row per perps_endblock receipt; markets_updated counts its MarkPriceUpdated logs, orders_executed its OrderExecuted logs, liquidations_executed its Liquidation logs.
@@ -219,7 +229,7 @@ Projection rules:
 | --- | --- |
 | perps.account_ledger | the union of collateral_events (entry_type 0 deposited, 1 withdrawn, 2 transferred_in, 3 transferred_out; position_id 0), fees (entry_type 4), funding_payments (entry_type 5) and trade_settlements (entry_type 6), each with account, token (USDL), amount, position_id, is_debit and the common keys |
 
-All amount columns of projections are perps.uint256, or perps.int256 when signed, in the raw decimals of the source event; scaling happens only in the gateway responses. No candle table exists.
+Venue projection amounts use perps.uint256 or signed perps.int256 in the raw decimals of the source event; spot leaderboard values use numeric as declared by migration 0015. Display scaling happens in responses. No candle table exists.
 
 ### Account tables
 
@@ -253,7 +263,7 @@ One JetStream stream, `PERPS_V1`.
 | duplicate window | 2 minutes |
 | max message size | 1048576 bytes |
 
-EnsureStream creates the stream when absent and refuses start when the live configuration differs.
+EnsureStream creates the stream when absent and refuses start when the live configuration differs. The 1048576-byte transport limit includes mandatory headers; delivery.MaxEnvelopeBytes reserves header space before accepting a body.
 
 | subject | kinds | payload |
 | --- | --- | --- |
@@ -266,7 +276,7 @@ EnsureStream creates the stream when absent and refuses start when the live conf
 
 ## 4. Sequence semantics
 
-- Event id: `<chain>:<block>:<block_hash>:<tx_index>:<log_index>:<sub>` with block_hash lower-case 0x hex. JetStream refuses a second message with the same id inside the duplicate window; the consumer inbox refuses it after the window. Because the block hash is part of the id, a log of a rewritten height is a new event even when its indexes are equal.
+- Event id: `<chain>:<block>:<block_hash>:<tx_index>:<log_index>:<sub>` with block_hash lower-case 0x hex. JetStream deduplicates publication of the same id inside the duplicate window; consumer inbox admission prevents reapplication after the window. Because the block hash is part of the id, a log of a rewritten height is a new event even when its indexes are equal.
 - Perps-Seq: a bigint from the outbox identity, strictly increasing in (block, tx_index, log_index, sub) order; the relay publishes in Perps-Seq order and records the broker stream sequence with MarkPublished.
 - The JetStream stream sequence is therefore increasing in the same order. The gateway records the stream sequence of the last applied message and resumes from it.
 - WebSocket seq (section 8) is a separate dense counter per topic and per gateway process, carried with the snapshotId of the process.
@@ -275,16 +285,16 @@ EnsureStream creates the stream when absent and refuses start when the live conf
 ## 5. Indexer head follower and reorg handling
 
 - The follower polls the head every 100 ms with up to 10 ms jitter over PERPS_RPC_URLS, falling back to the next URL on error.
-- For each new height it reads the header, the logs of the address set of section 1 including the synthetic receipts of task 1.0.6, the CometBFT `header` route (consensus/internal/rpc/core/routes.go:44) for the proposer (consensus/types/block.go:423 ProposerAddress, written as upper-case hex) and the CometBFT `block_results` route (consensus/internal/rpc/core/routes.go:48) over PERPS_COMET_URLS for `finalize_block_events` (consensus/rpc/coretypes/responses.go:93, filled from ResponseFinalizeBlock.Events at node/app.go:2802 with the mid-block events appended at node/app.go:2227). It keeps the block, transaction and log indexes of the receipts.
-- Batch: catch-up reads at most 500 blocks per eth_getLogs call, below the node limit MaxBlocksForLog 2000 and with each response under MaxLogNoBlock 10000 logs (rpc/config/config.go:195-196); a response refused for size halves the range and retries.
+- For each new height it reads the EVM header and venue logs, including synthetic logs, then the CometBFT `header` and `block_results` routes over PERPS_COMET_URLS. The consensus header supplies time and the upper-case hex proposer address; `finalize_block_events` supplies pricefeed aggregates. Receipt transaction and log indexes are preserved. The implementations are [follower.go](../../../services/platform/perps-data/internal/source/follower.go) and [comet.go](../../../services/platform/perps-data/internal/source/comet.go).
+- Batch: [source.RPC](../../../services/platform/perps-data/internal/source) bounds an eth_getLogs request to 500 blocks. A response refused for size halves the range and retries; node-selection and timeout rules live in the source package.
 - Continuity: the parent hash of height n must equal the stored hash of n-1. On a mismatch the follower walks back to the highest stored height whose hash equals the node hash; the fork height is that height plus one, the first height whose stored hash differs.
 - Rewind: in one transaction it deletes facts and projections at and above the fork height, rebuilds affected projections, moves the cursor to the fork height minus one and enqueues the rewind message; then it indexes forward again from the fork height.
 - One indexer writes at a time under perps.writer_lease; a second instance waits.
-- Readiness: Postgres answers, the lease is held, the cursor is at most 30 blocks behind the head and the oldest pending outbox row is at most 30 seconds old.
+- Readiness: Postgres answers, the lease is held, the cursor is at most 30 blocks behind the head, the oldest open outbox row is at most 30 seconds old, no outbox row is quarantined, and a complete chain market refresh has reached an indexed block no more than 120 seconds old (section 11).
 
 ## 6. Event decoding
 
-Decoders are generated from the ABI exported by the leaf packages of section 1 at the same commit, so a signature change fails the build; TestDecoderColumnsMatchABI checks every row below against those ABI files. The table is the complete set: every event the precompiles of this release emit has a row, and no row names an event they do not emit.
+Decoders load the ABI exported by the leaf packages of section 1 and register typed event handlers. [TestDecoderColumnsMatchABI](../../../services/platform/perps-data/internal/decode/abi_test.go) reads this exact section and checks event signatures, indexed arguments, decoder coverage and fact columns against the ABI and migration. Preserve this table's five-column layout and the numbered section boundaries when updating it.
 
 | event (indexed arguments marked) | source | table | kind | account |
 | --- | --- | --- | --- | --- |
@@ -364,30 +374,30 @@ Rules:
 
 - Signed columns: grossPnl, fundingPaidUsd, realizedPnl, makerFeeUsd, fundingRate, longPayment, shortPayment, newRatePerSecond, fundingRate24h, fundingPaymentUsd and the pricefeed basis decode as int256 and are validated by bigint.ValidateRawInt256; every other integer is unsigned.
 - Account: the column account takes the argument named in the last column; "the user of the order" or "of the position" is read from the earlier placed or opened row of that id; "module address" is the EVM address of the venue's module account. tx_from is the transaction sender only for receipt_kind tx and is null otherwise; it never supplies the account.
-- Enumerations, the numbering of contracts/perps.md section 2: tradeType 0 open, 1 close, 2 liquidation, 3 reduce, 4 increase, 5 adl, 6 backstop; feeType 0 trading, 4 maker rebate, 1 to 3 never emitted. A value outside an enumeration (feeType 1 to 3 included) is stored as emitted and counted in perps_indexer_enum_unknown_total.
-- Not decoded: the events of contracts/perps.md section 25 that this release does not emit (margin lock and transfer events, MarginModeChanged, LedgerEntryRecorded, VaultBalanceChanged, MarkPriceChanged and the administrative setters), BorrowingFeeAccrued, and the pricefeed Cosmos events other than the two aggregate events. A log of one of these, should it appear, goes to raw_logs with failure_class unknown_topic.
+- Enumerations, the numbering of [perps contract](perps.md) section 2: tradeType 0 open, 1 close, 2 liquidation, 3 reduce, 4 increase, 5 adl, 6 backstop; feeType 0 trading, 4 maker rebate, 1 to 3 never emitted. A value outside an enumeration (feeType 1 to 3 included) is stored as emitted and counted in perps_indexer_enum_unknown_total.
+- Not decoded: the events of [perps contract](perps.md) section 25 that this release does not emit (margin lock and transfer events, MarginModeChanged, LedgerEntryRecorded, VaultBalanceChanged, MarkPriceChanged and the administrative setters), BorrowingFeeAccrued, and the pricefeed Cosmos events other than the two aggregate events. A log of one of these, should it appear, goes to raw_logs with failure_class unknown_topic.
 - Account lookup: an id-only order or position event whose id has no earlier placed or opened row, no projection row and no projection seed reads its user from state (Projection seed); an id state does not know goes to raw_logs with failure_class account_lookup.
 - Projection seed: the first event of a block batch that updates an order or position id with no projection row and no projection_seeds row calls `getOrderDetails(uint256)` on 0x…1015 for an order, `getPosition(uint256)` then `getPositionDetails(uint256)` for a position, at the height before the event (path at_height), or at the latest height when that height is pruned on every node (path latest), and writes one projection_seeds row with that height. An id the precompile reverts as unknown (PerpsUnknownOrder, PerpsUnknownPosition) goes to raw_logs with failure_class projection_lookup, or account_lookup for an id-only event, and the indexer logs it once per id and continues. A later batch reads the stored row and makes no state call.
-- Spot order token: the order events carry no token, so the decoder resolves token and stablecoin by eth_call at the event height: `getLimitOrder(uint256)` (0x53061026) on 0x1022, `getStopLimitOrder(uint256)` (0x307ff324) and `getStopLossOrder(uint256)` (0x4c34cf02) on 0x1023. When that height is pruned on every node it calls the latest height, because an order's token and stablecoin never change. A zero record (unknown order) writes the log to raw_logs with failure_class order_lookup. Side: limit orderType 0 buy, 1 sell; a stop-loss order is a sell.
-- Share pointers: discovery is two-pass. Pass one decodes the logs of 0x1025 of a block and records each ShareTokenCreated; pass two decodes the logs of the share pointers known after pass one, so the activation receipt that creates a pointer and its first Transfer in the same block are both indexed (contracts/spot.md, Activation). At start the indexer also reads `getRegisteredTokens()` (0x14cbd993) and `shareTokens(address)` (0x96153f07) on 0x1025 to seed the pointer set; a share pointer log whose token cannot be resolved goes to raw_logs with failure_class share_lookup.
-- USDL: only Transfer logs of the USDL address whose from or to is the perps module EVM address or the spot module EVM address (contracts/address-table.md, module accounts) are stored, because the venues hold USDL there and not at their precompile addresses; venue is that custody address and kind is in when it receives. TVL of a venue is Σ in − Σ out.
-- Pricefeed block events: each `pricefeed_aggregate` and `pricefeed_aggregate_skipped` of `finalize_block_events` writes one index_prices row with receipt_kind block_event, tx_index -1, log_index its position in `finalize_block_events`, tx_hash the block hash and emitter 0x…1020. Attribute values are decimal strings in the order listed by contracts/pricefeed.md, Events; basis is signed.
+- Spot order token: the order events carry no token, so the decoder resolves token and stablecoin by eth_call at the event height: `getLimitOrder(uint256)` (0x53061026) on 0x1022, `getStopLimitOrder(uint256)` (0x307ff324) and `getStopLossOrder(uint256)` (0x4c34cf02) on 0x1023. When that height is pruned on every node it calls the latest height, because an order's token and stablecoin never change. A zero record (unknown order) writes the log to raw_logs with failure_class order_lookup. Side: orderType 0 limit buy, 1 limit sell, 3 stop-limit buy, 4 stop-limit sell; a stop-loss order is a sell.
+- Share pointers: discovery is two-pass. Pass one decodes the logs of 0x1025 of a block and records each ShareTokenCreated; pass two decodes the logs of the share pointers known after pass one, so the activation receipt that creates a pointer and its first Transfer in the same block are both indexed ([spot contract](spot.md), Activation). At start the indexer also reads `getRegisteredTokens()` (0x14cbd993) and `shareTokens(address)` (0x96153f07) on 0x1025 to seed the pointer set; a share pointer log whose token cannot be resolved goes to raw_logs with failure_class share_lookup.
+- USDL: only Transfer logs of the USDL address whose from or to is the perps module EVM address or the spot module EVM address ([address-table contract](address-table.md), module accounts) are stored, because the venues hold USDL there and not at their precompile addresses; venue is that custody address and kind is in when it receives. TVL of a venue is Σ in − Σ out.
+- Pricefeed block events: each `pricefeed_aggregate` and `pricefeed_aggregate_skipped` of `finalize_block_events` writes one index_prices row with receipt_kind block_event, tx_index -1, log_index its position in `finalize_block_events`, tx_hash the block hash and emitter 0x…1020. Attribute values are decimal strings in the order listed by [pricefeed contract](pricefeed.md), Events; basis is signed.
 - An unknown topic0 is stored in raw_logs with decoded false and counted in perps_indexer_unknown_logs_total.
 - Identical logs in one fetch decode once.
 - PECORQuoter 0x…1024 is view-only and emits no log.
 
 ## 7. Replay tool
 
-`perps-replay --from <h> --to <h> [--dry-run]`
+`perps-replay --from <h> [--to <h>] [--dry-run]`
 
-- from must not exceed to and must not exceed the cursor; exit code 2 on refusal.
+- --from is required; omitted --to resolves to the stored cursor. The range must be non-negative, ordered, within the stored cursor, and have to − from below 1000000; exit code 2 on refusal. See [replay.go](../../../services/platform/perps-data/internal/replay/replay.go).
 - It takes the writer lease, deletes facts and projections in the range, re-reads the range from the node (logs, synthetic receipts and `block_results` over PERPS_COMET_URLS), writes it and rebuilds projections; the indexer waits on the lease.
 - Messages reuse the event ids of the first index, so the stream and the inbox deduplicate them.
 - --dry-run prints per-table counts of rows that would change and writes nothing.
 
 ## 8. Shared WebSocket protocol
 
-The gateway serves the topic protocol at `/ws` and `/`, and at the socket paths the application opens: `/ws/<symbol>` (the symbol socket, Hyperpax:src/hooks/perps/useSidPaxMarketStream.ts:60-70 and Hyperpax:src/hooks/spot/useSpotMarketStream.ts:31-34), `/ws/markets` (Hyperpax:src/hooks/perps/useMarketsStream.ts:22-29) and `/ws/explorer` (Hyperpax:src/hooks/chain/useExplorerStream.ts:29). A socket opened on `/ws/<symbol>` is subscribed on open to the topics of section 10 for that symbol, `/ws/markets` to markets@all and markets@totals, and `/ws/explorer` to chain@blocks and chain@transactions; further frames work as on `/ws`. No authentication and no subprotocol.
+The gateway serves the topic protocol at `/ws` and `/`, and at `/ws/<symbol>`, `/ws/markets` and `/ws/explorer`. A symbol socket subscribes on open to that symbol's served topics of section 10; `/ws/markets` subscribes to markets@all and markets@totals; `/ws/explorer` subscribes to chain@blocks and chain@transactions. Further frames work as on `/ws`. No authentication and no subprotocol. Registration is in [gateway/server.go](../../../services/platform/perps-data/internal/gateway/server.go); client recovery is in [realtime.ts](../../../apps/perps/src/core/net/realtime.ts).
 
 | client frame | effect |
 | --- | --- |
@@ -409,24 +419,24 @@ Error codes (ws.ErrorCode): invalid_json, missing_topic, unknown_event, unknown_
 - snapshotId is constant per gateway process; a change means the client drops state and resubscribes.
 - seq is dense per topic: every delta increments it by exactly 1. The snapshot frame carries the seq of the last broadcast at build time; the client applies deltas with greater seq.
 - A gap the gateway cannot fill, a consumer reset beyond retention, or shedding closes the socket with code 1013 and reason `retry-after=<seconds>`, 5 to 30 seconds with jitter.
-- Frames whose data is older than 60 seconds are not sent; the topic sends a fresh snapshot instead. The 60000 ms bound is the stale-frame bound of the application client (Hyperpax:src/core/net/realtime.ts:68).
+- Frames whose data is older than 60 seconds are not sent; the topic sends a fresh snapshot instead. The 60000 ms bound is the stale-frame bound of the application client (apps/perps/src/core/net/realtime.ts).
 - Limits per socket: 200 subscriptions, 50 subscribe operations per second. The server pings every 30 seconds and closes a socket that answers no ping within two intervals.
 - A rewind message makes every affected topic send a fresh snapshot with the next seq.
 
 ## 9. Symbol REST routes
 
-Symbol routes are mounted at `/api/<symbol>/` with <symbol> in lower case, for the eighteen symbols of the application feed list (Hyperpax:src/core/feeds.ts:4). An unknown symbol answers 404 `{"error":"Unknown symbol: <SYMBOL>"}`.
+Symbol routes are mounted at `/api/<symbol>/`, matched case-insensitively against `perps.markets`. The eighteen activation seeds are the initial set, not a permanent admission list: [records.MarketSet](../../../services/platform/perps-data/internal/records/marketset.go) refreshes symbol identities with a 30-second cache and bounded miss refreshes. An unknown symbol answers 404 `{"error":"Unknown symbol: <SYMBOL>"}`.
 
 | route | response |
 | --- | --- |
 | GET /price | symbol, price (latest index_price), timestamp, open, high, low (24 hours of fills) |
 | GET /stats | symbol, volume_24h, open_interest, last_funding_rate_hourly, last_funding_rate; last_funding_rate_hourly is a decimal string, the hourly rate of the latest FundingSettled, exact, null before the first FundingSettled; last_funding_rate is the same settled hourly rate as a JSON number (funding_rate / 10^18), null before the first FundingSettled |
 | GET /perp_stats | the /stats fields plus mark_price, index_price, basis_bps, long_short_ratio, liq_volume_24h |
-| GET /trades/<SYMBOL>?limit=N | symbol, count, trades[id, side, price, size, trade_time] newest first, from spot swaps and executed spot orders of the token (PAX and SID only; other symbols answer an empty list) |
-| GET /perp_trades/<SYMBOL>?limit=N | symbol, count, trades[id, side, price, contracts, notional, liquidation, trade_time] from perps.fills, side the taker side, liquidation true when the fill shares a log group with a Liquidation |
+| GET /trades?limit=N or /trades/<SYMBOL>?limit=N | symbol, count, trades[id, side, price, size, trade_time] newest first, from spot swaps and executed spot orders of the token (PAX and SID only; other symbols answer an empty list) |
+| GET /perp_trades?limit=N or /perp_trades/<SYMBOL>?limit=N | symbol, count, trades[id, side, price, contracts, notional, liquidation, trade_time] from perps.fills, side the taker side, liquidation true when the fill shares a log group with a Liquidation |
 | GET /health | status, backfill, lastFill (block time of the latest fill of the market, null when none), symbol |
 
-limit is clamped to [1, 1000] with default 100. Prices and sizes are scaled from the raw columns by the decimals of the Events headings. /price and /stats carry Cache-Control max-age 1. Chart history is not served here (section 12).
+limit is clamped to [1, 1000] with default 100. Perps prices and USD notionals use 18-decimal scaling; the opening PAX/SID spot amounts use 6 decimals. Missing prices and settled rates retain their declared null values. /price and /stats carry Cache-Control max-age 1. Chart history is not served here (section 12).
 
 ## 10. Symbol WebSocket topics
 
@@ -448,9 +458,9 @@ limit is clamped to [1, 1000] with default 100. Prices and sizes are scaled from
 
 | route or topic | content |
 | --- | --- |
-| GET /api/markets | {markets: [record]} one record per market |
-| GET /api/markets/<symbol> | {market: record}, case-insensitive; 404 Unknown symbol |
-| GET /api/totals | {totals: {total_trades, volume_24h, volume_7d, volume_30d, total_oi}} |
+| GET /api/markets | {ts, markets: [record]} one record per market |
+| GET /api/markets/<symbol> | {ts, market: record}, case-insensitive; 404 Unknown symbol |
+| GET /api/totals | {ts, totals: {total_trades, volume_24h, volume_7d, volume_30d, total_oi}} |
 | GET /api/markets/health | {ok, service, symbols, uptimeSec} |
 | markets@all | the markets array on subscribe and every 5 seconds |
 | markets@totals | the totals object on subscribe and every 5 seconds |
@@ -458,7 +468,7 @@ limit is clamped to [1, 1000] with default 100. Prices and sizes are scaled from
 
 The fixed routes /api/markets/health, /api/markets/open-interest, /api/markets/tickers and /api/markets/ticker/<SYMBOL> (section 24) take precedence over /api/markets/<symbol>.
 
-The record has 23 fields: symbol, symbol_full, price, change_24h, volume_24h, open_interest, funding_8h, last_funding_rate_hourly, volume_7d, volume_30d, trades_count, last_updated and the eleven perp_ fields of the application data protocol (perp_mark_price, perp_index_price, perp_basis_bps, perp_next_funding_ms and the others listed there).
+The [MarketRecord type](../../../services/platform/perps-data/internal/records/records.go) has 24 fields: market_id (decimal string), symbol, symbol_full, price, change_24h, volume_24h, open_interest, funding_8h, last_funding_rate_hourly, volume_7d, volume_30d, trades_count, last_updated, and perp_mark_price, perp_index_price, perp_basis_bps, perp_funding_rate, perp_next_funding_ms, perp_long_short_ratio, perp_liq_volume_24h, perp_oi_contracts, perp_oi_usd, perp_volume24h_contracts, perp_volume24h_usd. Prices and notionals are display units; last_updated and perp_next_funding_ms are epoch milliseconds. Missing source values retain the type's nullability.
 
 - change_24h = (last_price − open_24h) / open_24h of perps.market_stats_rolling: last_price the price of the market's latest fill, open_24h the price of its first fill in the 24 hours before the latest fill-touching block, null when open_24h is null or 0.
 - Funding fields, identical on GET /api/markets, GET /api/markets/<symbol>, markets@all and <SYMBOL>@market, all three exact decimal strings read from the same latest FundingSettled row (records.LastFundingRateHourlySQL and records.Funding8hSQL), all three null before the first FundingSettled (never "0"); the FundingRateUpdated rate plays no part:
@@ -470,12 +480,14 @@ The record has 23 fields: symbol, symbol_full, price, change_24h, volume_24h, op
 
 Market seed and refresh:
 
-- migrations/0005_markets_seed.sql inserts the eighteen markets of contracts/perps-markets.md section 2 (ids 0 to 17: BTC, ETH, SOL, AVAX, LINK, TSLA, NVDA, NAS100, XAU, SPX500, GOOGL, PAX, SID, HYPE, XRP, ASTER, TRUMP, BNB) with symbol, name, oracle_symbol, sz_decimals, px_decimals and max_leverage 1000 each, source seed.
-- At start the indexer calls `totalMarkets()` and `getMarket(uint256)` (`returns (string name, string symbol, uint256 maxLeverage, uint256 maintenanceMarginBps, uint256 maxOpenInterest, bool enabled)`, contracts/perps.md section 9) on 0x1015 at the latest height and updates name, max_leverage, maintenance_margin_bps, max_open_interest and enabled with source chain; a market id outside the seed is inserted with the chain values and null decimals. It calls `getFees()` (`returns (takerFeePpm, makerFeePpm, liquidationFeePpm, insuranceSharePpm)`, contracts/perps.md section 10) and writes perps.fee_config. A failed call keeps the stored rows and is retried every 60 seconds; readiness does not wait for it.
+- migrations/0005_markets_seed.sql inserts the eighteen markets of [perps-markets contract](perps-markets.md) section 2 (ids 0 to 17: BTC, ETH, SOL, AVAX, LINK, TSLA, NVDA, NAS100, XAU, SPX500, GOOGL, PAX, SID, HYPE, XRP, ASTER, TRUMP, BNB) with symbol, name, oracle_symbol, sz_decimals, px_decimals and max_leverage 1000 each, source seed.
+- [markets.Run](../../../services/platform/perps-data/internal/markets/markets.go) refreshes immediately and every 60 seconds. It pins reads of `totalMarkets()`, `getMarket(uint256)`, `getMarketConfig(uint256)`, `getMarginTiers(uint256)` and `getFees()` on 0x1015 to one latest height. It admits at most 1024 markets and validates ABI results and market identity before writing.
+- One transaction updates or inserts chain market rows, replaces margin tiers and updates perps.fee_config. New markets carry chain-owned oracle symbol, size/price decimals, tick/lot sizes, tier class, impact notional, OI cap, funding cap and listing time. A failed read or write preserves the previous rows and retries after 60 seconds.
+- `markets.Check` gates indexer readiness: every market must have source chain at the same refreshed_block, that block must already be present in perps.blocks, and its timestamp must be at most 120 seconds old. Seed rows alone or a failed/stale refresh cannot make the indexer ready. The refresh exports perps_markets_refresh_height and perps_markets_refresh_failures_total.
 
 ## 12. Charts and candles
 
-Chart candles are owned by the Chainflow feed and are not produced by these services. The application builds its chart feed URLs from FEED_ORIGIN (Hyperpax:src/core/feeds.ts:2, the Chainflow origin unless NEXT_PUBLIC_MARKET_PROXY_HOST overrides it) in candleFeedUrl (Hyperpax:src/core/feeds.ts:8-14), and those URLs stay pointed at Chainflow.
+Chart candles are owned by the configured Chainflow feed and are not produced by these services. The application builds candle URLs with FEED_ORIGIN and candleFeedUrl in [feeds.ts](../../../apps/perps/src/core/feeds.ts); NEXT_PUBLIC_MARKET_PROXY_HOST can override the feed origin. Configuring the data gateway does not add candle routes.
 
 - No UDF route (/config, /time, /symbols, /search, /history, /quotes, /marks, /timescale_marks) is mounted by the gateway, and no kline topic exists.
 - No candle table exists in the schema and no candle package exists in the code tree.
@@ -483,9 +495,9 @@ Chart candles are owned by the Chainflow feed and are not produced by these serv
 
 ## 13. GraphQL endpoint and query roots
 
-POST `/graphql` and its alias `/api/subgraph` take `{query, variables}` and answer `{data}` or `{errors:[{message}]}` with HTTP 200. Depth limit 10, parallelism 20. limit defaults to 50, clamped to [1, 500]; offset clamped to [0, 100000]. Addresses compare in lower case. Single roots answer null for an unknown id; list roots answer []. Integer `id` fields are the row_id of the source row (section 2).
+POST `/graphql` and its alias `/api/subgraph` take `{query, operationName, variables}` and answer `{data}` or `{errors:[{message}]}` with HTTP 200. Depth limit 10, parallelism 20. limit defaults to 50, clamped to [1, 500]; offset clamped to [0, 100000]. Addresses compare in lower case. Single roots answer null for an unknown id; list roots answer []. Integer `id` fields are the row_id of the source row (section 2).
 
-The schema is the application schema (Hyperpax:src/core/perps/perpetual.graphql) with these required additions: Query.leaderboard(limit, offset): [LeaderboardEntry!]!, UserVault.marginMode: Int, and the Subscription type of section 15. Every field the gateway adds to the application schema is nullable or list-typed, so an application built against the unextended schema reads it null-safe.
+The executable [SDL](../../../services/platform/perps-data/internal/graphql/schema.go) is authoritative. It includes Query.leaderboard, nullable UserVault.marginMode, native market configuration and marginTiers, the account roots of section 27 and the Subscription type of section 15. BigDecimal fields carry canonical raw integer strings, BigInt carries canonical unsigned integer strings, and DateTime is RFC 3339. Do not infer availability from an older application schema or the historical operation list.
 
 | root | type | resolver source and field mapping |
 | --- | --- | --- |
@@ -500,7 +512,7 @@ The schema is the application schema (Hyperpax:src/core/perps/perpetual.graphql)
 | latestPrices | LatestPrice | perps.mark_prices, latest row per market: price = index_price, onchainTimestamp = block time in seconds |
 | priceHistory | PriceUpdate | perps.index_prices kind aggregate: price = index_price, onchainTimestamp = timestamp_ms / 1000, txHash = the block hash |
 | fundingRates | FundingRate | perps.funding_rates |
-| userVault | UserVault | perps.vaults (vaultAddress 0x…1015, createdAt the block time of VaultCreated) and account_margin |
+| userVault | UserVault | perps.vaults (vaultAddress from the VaultCreated vault argument, createdAt its block time) and account_margin |
 | vaultEvents | VaultEvent | perps.collateral_events: eventType deposited, withdrawn, transferred_in or transferred_out; tokenAddress USDL |
 | collateralTokens | CollateralToken | one constant row: tokenAddress 0x85FcD13735F4309833A503EE804ea32395851479, decimals 6, isActive true, addedAt the activation block time |
 | poolStates | PoolState | latest perps.mark_prices per market: baseReserve "0", quoteReserve "0", oraclePrice = the latest index_price |
@@ -534,16 +546,12 @@ The schema is the application schema (Hyperpax:src/core/perps/perpetual.graphql)
 | spotOrder | SpotOrder | perps.spot_orders: side 0 buy, 1 sell (a stop-loss is a sell); orderType 0 limit, 1 stop_limit, 2 stop_loss; offsetBps 0; size = amount; filledSize = amount when executed, else 0 |
 | spotOrders | SpotOrder | as spotOrder |
 | spotOrderFills | SpotOrderFill | perps.spot_order_events executed kinds only: fillSize the order amount, fillPrice the execution price, fillScore 0 |
-| spotBatchClearings | SpotBatchClearing | no source event; answers [] |
-| spotEpochSettlements | SpotEpochSettlement | no source event; answers [] |
-| spotFastSettlements | SpotFastSettlement | no source event; answers [] |
 | spotCollateralMovements | SpotCollateralMovement | perps.spot_vault_events kinds deposit, withdrawal, lp_withdrawal, native_deposit, native_withdrawal; native rows carry the registered PAX token address |
-| spotMarketModeChanges | SpotMarketModeChange | no source event; answers [] |
-| spotPofqUpdates | SpotPofqUpdate | no source event; answers [] |
-| spotPLVs | SpotPLV | no source event; answers [] |
-| spotKeeperCycles | SpotKeeperCycle | no source event; answers [] |
-| spotBatchClearFailures | SpotBatchClearFailure | no source event; answers [] |
 | leaderboard | LeaderboardEntry | perps.leaderboard |
+
+The removed roots `spotBatchClearings`, `spotEpochSettlements`, `spotFastSettlements`, `spotMarketModeChanges`, `spotPofqUpdates`, `spotPLVs`, `spotKeeperCycles` and `spotBatchClearFailures` are absent from Query. Asking for one fails schema validation with `Cannot query field "<name>" on type "Query".`; it does not return an empty success. [TestRetiredSpotRoots](../../../services/platform/perps-data/internal/graphql/retired_test.go) preserves that refusal.
+
+Market also exposes oracleSymbol, szDecimals, pxDecimals, tickSize, lotSize, tierClass, oiCapUsd and createdAt from the chain refresh. marginTiers reads perps.market_tiers; its lowerBoundUsd, maxLeverage, maintenanceBps and deductionUsd fields are raw BigInt strings.
 
 LeaderboardEntry fields: rank, userAddress, totalRealizedPnl, totalTrades, winRate, avgHoldTime, openPositions, totalVolume. The account roots of section 27 are part of the same schema.
 
@@ -551,7 +559,7 @@ Position.market and Market.latestPrice are batched per request.
 
 ## 14. GraphQL operation set
 
-The 51 operations of the application run unchanged; the test data file holds them verbatim.
+The current conformance set contains 43 venue operations below, plus the nine account operations of section 27. Documents and variables live in [testdata/operations.graphql](../../../services/platform/perps-data/internal/graphql/testdata/operations.graphql) and [operations_test.go](../../../services/platform/perps-data/internal/graphql/operations_test.go). The eight operations for removed spot roots are no longer supported; their unknown-field refusal is described in section 13.
 
 | operation | roots | status filter |
 | --- | --- | --- |
@@ -574,7 +582,7 @@ The 51 operations of the application run unchanged; the test data file holds the
 | GetDelegates | delegates | none |
 | GetTradingAccountEvents | tradingAccountEvents | none |
 | GetKeeperCycles | keeperCycles | none |
-| GetTPSLOrders | orders | active |
+| GetTPSLOrders | orders (aliased as takeProfits and stopLosses) | active |
 | DashboardV2 | userVault, positions, orders, delegates, userStats | open |
 | GetAllOrdersV2 | orders | none |
 | GetLeaderboard | leaderboard | none |
@@ -597,15 +605,7 @@ The 51 operations of the application run unchanged; the test data file holds the
 | GetSpotOrders | spotOrders | none |
 | GetSpotOrder | spotOrder | none |
 | GetSpotOrderFills | spotOrderFills | none |
-| GetSpotBatchClearings | spotBatchClearings | none |
-| GetSpotEpochSettlements | spotEpochSettlements | none |
-| GetSpotFastSettlements | spotFastSettlements | none |
 | GetSpotCollateralMovements | spotCollateralMovements | none |
-| GetSpotMarketModeChanges | spotMarketModeChanges | none |
-| GetSpotPofqUpdates | spotPofqUpdates | none |
-| GetSpotPLVs | spotPLVs | none |
-| GetSpotKeeperCycles | spotKeeperCycles | none |
-| GetSpotBatchClearFailures | spotBatchClearFailures | none |
 
 ## 15. GraphQL subscriptions
 
@@ -628,19 +628,19 @@ A rewind sends the current state again on every affected subscription.
 
 ## 16. Chain explorer routes
 
-The explorer is REST only; chain@blocks (snapshot of 20) and chain@transactions (snapshot of 50) are served on the gateway socket, including `/ws/explorer` (section 8). The application consumes none of these routes or chain topics: its chain stream and health probe stay on Chainflow (contracts/application.md, Data surfaces), and they are served for API clients.
+The explorer is REST only; chain@blocks (snapshot of 20) and chain@transactions (snapshot of 50) are served on the gateway socket, including `/ws/explorer` (section 8). The application consumes none of these routes or chain topics: its chain stream and health probe stay on Chainflow ([application contract](application.md), Data surfaces), and they are served for API clients.
 
 | route | response |
 | --- | --- |
 | GET /api/chain/blocks?limit=N | {blocks:[block_number, time, proposer, hash, transactions, link]} newest first; limit [1, 50], default 20 |
 | GET /api/chain/transactions?limit=N | {transactions:[hash, action, block, time, user, symbol, side, price, size, link]}; limit [1, 200], default 50 |
 | GET /api/chain/health | {status, ts, chain_connected, blocks_seen, txs_seen} |
-| GET /api/explorer/health | {latest_block, chain_connected}, the shape the application network indicator reads (Hyperpax:src/widgets/network-pill/NetworkPill.tsx:38) |
+| GET /api/explorer/health | {latest_block, chain_connected}, the shape the application network indicator reads (apps/perps/src/widgets/network-pill/NetworkPill.tsx) |
 | GET /api/chain/accounts/<address>/history?cursor=C&limit=N | {items, next_cursor} keyset (block, tx_index, log_index) descending |
 | GET /api/chain/markets/<symbol>/history?cursor=C&limit=N | as above |
 | GET /api/chain/tx/<hash> | the tx_actions rows of the transaction or synthetic receipt; 404 {error: unknown transaction} |
 
-Action mapping (the six actions of the application data protocol):
+Action mapping (seven actions, including collateral deposits):
 
 | action | rows |
 | --- | --- |
@@ -650,9 +650,11 @@ Action mapping (the six actions of the application data protocol):
 | OROB Fill | one row per Fill (user the taker, side the taker side, price, size sizeUsd); LimitOrderExecuted, StopLimitExecuted, StopLossOrderExecuted, MarketOrderExecuted, NativeSwap, SimpleSwap |
 | Oracle Updated | one row per block that carries pricefeed_aggregate events: hash the block hash, size the count of markets updated, keyed at the first aggregate event of the block |
 | Sealed Batch Executed | one row per perps_endblock and per spot_endblock synthetic receipt: hash the receipt hash, size the count of its logs |
+| Collateral Deposited | one row per CollateralDeposited log: user the depositing account, hash the transaction hash, size the deposited USDL amount divided by 10^6; symbol, side and price null |
 
-- user is the bech32 form with prefix pax (node/const.go:5) of the row account; proposer is the upper-case hex of the CometBFT header (section 5).
+- user is the bech32 form with prefix pax (`node/const.go`) of the row account; proposer is the upper-case hex of the CometBFT header (section 5).
 - A synthetic receipt hash is rendered from the stored rows only; the explorer never calls eth_getTransactionByHash for it.
+- Finding 3.54.7.1: account history linked collateral deposits while the six-action mapping omitted CollateralDeposited, so `store.txActions` wrote no row and the transaction route returned 404. The seventh mapping stores the deposit in `perps.tx_actions` so the history link resolves from the same indexed facts.
 
 link is PERPS_EXPLORER_TX_BASE + /tx/<hash> or /address/<address>; it is omitted when the variable is empty. Responses carry Cache-Control max-age 2; excess requests answer 429 with Retry-After.
 
@@ -665,7 +667,7 @@ Server-rendered with html/template from the gateway REST and GraphQL; no client 
 | / | markets table and totals | /api/markets, /api/totals |
 | /markets/<symbol> | record, last 100 perpetual fills, funding history, hourly snapshots of 7 days (mark price, index price, volume) | /api/markets/<symbol>, /perp_trades, fundingRates, marketSnapshots |
 | /accounts/<address> | positions, orders, fills, funding, liquidations, collateral events with explorer links | GetPositions, GetAllOrdersV2, GetTradeSettlements, GetFundingPayments, GetLiquidations, GetVaultEvents |
-| /leaderboard | windows all, 30d, 7d | GetLeaderboard |
+| /leaderboard | windows all, 30d, 7d | GetLeaderboard for all; /v2/leaderboard with period for 30d and 7d |
 | /stats | global statistics, protocol snapshots, indexer status | globalStats, protocolSnapshots, indexerStatus |
 
 Pages are cached 5 seconds per path and query. Unknown keys answer 404 inside the layout. Content-Security-Policy is default-src self. Readiness follows the gateway readiness.
@@ -681,11 +683,13 @@ Pages are cached 5 seconds per path and query. Unknown keys answer 404 inside th
 
 ## 19. Health and metrics
 
-Every binary serves `/healthz/live` (200 while running), `/healthz/ready` (200, or 503 naming the failing check) and `/metrics` (Prometheus text).
+The four long-running HTTP services serve `/healthz/live` (200 while running), `/healthz/ready` (200, or 503 naming the failing check) and `/metrics` (Prometheus text). The replay and loadtest commands are finite operator tools without HTTP health servers.
 
 | metric | type | service |
 | --- | --- | --- |
 | perps_http_requests_total{route,status} | counter | all |
+| perps_markets_refresh_height | gauge | indexer |
+| perps_markets_refresh_failures_total | counter | indexer |
 | perps_indexer_head_height | gauge | indexer |
 | perps_indexer_cursor_height | gauge | indexer |
 | perps_indexer_lag_blocks | gauge | indexer |
@@ -701,15 +705,15 @@ Every binary serves `/healthz/live` (200 while running), `/healthz/ready` (200, 
 | perps_gateway_graphql_duration_seconds{operation} | histogram | gateway |
 | perps_portal_render_seconds{page} | histogram | portal |
 
-Readiness: indexer as section 5 (cursor at most 30 blocks behind, oldest pending outbox row at most 30 seconds old); gateway when Postgres answers, the consumer is attached and the last applied message is at most 10 seconds behind the stream head (otherwise new sockets close 1013); explorer when Postgres answers; portal when the gateway is ready.
+Readiness: indexer as section 5, including market completeness/freshness and the quarantine check; gateway when Postgres answers, the consumer is attached and the last applied message is at most 10 seconds behind the stream head (otherwise new sockets close 1013); explorer when Postgres answers; portal when the gateway is ready.
 
 ## 20. Container images
 
-One `deploy/Dockerfile` builds every binary: BUILD_IMAGE and RUNTIME_IMAGE pinned by digest, CGO_ENABLED=0, -mod=readonly, -trimpath, ARG SERVICE selecting the binary under platform/perps-data/cmd, user 65532:65532, ENTRYPOINT /app/app, no fixed EXPOSE (the process listens on PORT). CGO_ENABLED=0 holds because the binaries import only the leaf ABI packages of section 1, never a package that reaches modules/lxphost. The build context is the repository root. Images are tagged with the commit and published to the organisation registry. `deploy/nats/Dockerfile` copies nats.conf onto a nats image pinned by digest and runs as a non-root user.
+The [data Dockerfile](../../../services/platform/perps-data/deploy/Dockerfile) builds every binary: BUILD_IMAGE and RUNTIME_IMAGE pinned by digest, CGO_ENABLED=0, -mod=readonly, -trimpath, ARG SERVICE selecting the binary under services/platform/perps-data/cmd, user 65532:65532, ENTRYPOINT /app/app, no fixed EXPOSE (long-running HTTP services listen on PORT). CGO_ENABLED=0 holds because the binaries import only the leaf ABI packages of section 1, never a package that reaches modules/lxphost. The build context is the repository root. Image publication is an external deployment step; the Dockerfile does not establish that any particular revision is deployed. `deploy/nats/Dockerfile` copies nats.conf onto a nats image pinned by digest and runs as a non-root user.
 
 ## 21. Railway service layout
 
-One dedicated Railway project, perps-data, declared in `deploy/services.json`. Variables are named only; values are Railway references or operator inputs. No host name, address or fixed port appears. The service names below are the names used everywhere, including the service records of the spec.
+The declared Railway layout is one project, perps-data, in [deploy/services.json](../../../services/platform/perps-data/deploy/services.json). Variables are named only; values are Railway references or operator inputs. No host name, address or fixed port appears. The service names below are the names used everywhere, including the service records of the spec.
 
 | service | built from | replicas | restart | public | healthcheck |
 | --- | --- | --- | --- | --- | --- |
@@ -721,7 +725,7 @@ One dedicated Railway project, perps-data, declared in `deploy/services.json`. V
 | postgres | Railway Postgres with a volume | 1 | always | no | provider |
 | nats | deploy/nats/Dockerfile | 3 members of one cluster (nats-1, nats-2, nats-3) | always | no | monitoring endpoint |
 
-NATS: jetstream with store_dir /data on the service volume, max_file_store from NATS_MAX_FILE_STORE at 90 percent of the volume, cluster perps-data with routes from NATS_ROUTES, max_payload 1048576; the indexer user may publish perps.>, the gateway user may only subscribe; credentials come from variables.
+NATS: jetstream with store_dir /data on the service volume, max_file_store from NATS_MAX_FILE_STORE (operators must size it to leave volume headroom), cluster perps-data with routes from NATS_ROUTES, max_payload 1048576; the indexer user may publish perps.>, the gateway user may subscribe to data subjects and publish only the JetStream API requests needed to inspect and consume the stream, never venue data; credentials come from variables.
 
 ## 22. Load profile
 
@@ -741,32 +745,36 @@ TestLoadProfile runs the profile scaled to 2000 sockets in-process; perps-loadte
 
 | variable | services | rule |
 | --- | --- | --- |
-| PERPS_CHAIN_ID | all | required, numeric; used in every subject and block row |
+| PERPS_CHAIN_ID | all | required, nonzero uint64 decimal; use 125 on mainnet-beta; identifies subjects and event IDs for the configured chain |
 | PERPS_RPC_URLS | indexer, replay, gateway | comma list, at least one http or https entry; EVM JSON-RPC |
 | PERPS_COMET_URLS | indexer, replay | comma list, at least one http or https entry; CometBFT RPC serving `header` and `block_results` |
 | DATABASE_URL | indexer, gateway, explorer, replay | required; printed redacted |
 | NATS_URL | indexer, gateway | required; printed redacted |
-| PORT | all long-running | required, numeric |
+| PORT | all long-running | required, integer from 1 to 65535 |
 | PERPS_AUTH_SECRET | gateway | required, at least 32 bytes; signs the sign-in tokens of section 26; printed redacted |
-| PERPS_EXPLORER_TX_BASE | explorer, portal | optional; link base |
-| PERPS_GATEWAY_URL | portal, loadtest | required for those |
-| PERPS_START_HEIGHT | indexer | optional, not below zero; first height on an empty cursor |
+| PERPS_EXPLORER_TX_BASE | explorer, portal | HTTP(S) link base; optional in config and explorer, but portal.NewPages currently requires a nonempty HTTP(S) value |
+| PERPS_GATEWAY_URL | portal, loadtest | required; portal requires HTTP(S), loadtest also accepts WS(S) |
+| PERPS_START_HEIGHT | indexer | required, at least 1; first indexed height on an empty cursor, the v6.12.0 activation height on mainnet |
+| PERPS_TRUSTED_PROXY_CIDRS | gateway, explorer | optional comma-separated proxy CIDRs; empty trusts no forwarded headers; invalid CIDRs or more than 32 entries refuse startup |
 | NATS_MAX_FILE_STORE, NATS_ROUTES | nats | required for the cluster |
+| NATS_CLUSTER_PASSWORD, NATS_INDEXER_PASSWORD, NATS_GATEWAY_PASSWORD | nats | required broker credentials from operator configuration |
+
+[config.Load](../../../services/platform/perps-data/internal/config/config.go) reads only variables used by the named service, except PERPS_CHAIN_ID, which every service requires. It provides no default chain ID, port or start height. The [deployment guide](../../../services/platform/perps-data/deploy/README.md) explains trusted proxy identity: forwarding headers from untrusted peers are ignored. Config logging redacts DATABASE_URL, NATS_URL and PERPS_AUTH_SECRET; other endpoint strings are currently printed verbatim, so they do not have the same redaction guarantee.
 
 Tests read PERPS_DATA_TEST_DATABASE_URL (a real Postgres) and PERPS_DATA_TEST_RPC and PERPS_DATA_TEST_COMET (a node started with make run-local-node); a test needing one fails, never skips, when it is unset. NATS runs in-process from nats-server/v2.
 
 ## 24. Venue REST routes
 
-Served by the gateway; fixed route names take precedence over the `/api/<symbol>/` pattern of section 9 and the `/api/markets/<symbol>` route of section 11. Numbers are JSON numbers in USD units, scaled from the raw event integers. The application requests these under its market data base MARKET_DATA_URL = FEED_ORIGIN + /api/markets (Hyperpax:src/core/feeds.ts:3; Hyperpax:src/hooks/perps/useQuoter.ts:54 and :82; Hyperpax:src/hooks/perps/useRealtimePrices.ts:56), so each route is mounted at both paths below.
+Served by the gateway; fixed route names take precedence over the `/api/<symbol>/` pattern of section 9 and the `/api/markets/<symbol>` route of section 11. Numbers are JSON numbers in USD units, scaled from the raw event integers. The application requests these under its market data base MARKET_DATA_URL = FEED_ORIGIN + /api/markets (apps/perps/src/core/feeds.ts; apps/perps/src/hooks/perps/useQuoter.ts; apps/perps/src/hooks/perps/useRealtimePrices.ts), so each route is mounted at both paths below.
 
 | route | response |
 | --- | --- |
-| GET /api/orderbook/<SYMBOL>?depth=N | {success: true, data: {asks: [{price, quantity}], bids: [{price, quantity}]}} from the perpetual book of section 10; asks ascending, bids descending; depth default 20, clamped to [1, 100] |
+| GET /api/orderbook/<SYMBOL>?depth=N and /api/markets/orderbook/<SYMBOL>?depth=N | {success: true, data: {asks: [{price, quantity}], bids: [{price, quantity}]}} from the perpetual book of section 10; asks ascending, bids descending; depth default 20, clamped to [1, 100] |
 | GET /api/open-interest and /api/markets/open-interest | {success: true, data: [{paxeerSymbol, long_oi, short_oi}]}, one entry per market from the latest OpenInterestChanged |
 | GET /api/ticker/<SYMBOL> and /api/markets/ticker/<SYMBOL> | {success: true, data: {symbol, index_price, mark_price, last_funding_rate_hourly, last_funding_rate, open_interest, volume_24h}} from MarkPriceUpdated, FundingSettled and market_stats_rolling; last_funding_rate_hourly is a decimal string, the hourly rate of the latest FundingSettled, exact and never truncated (it is the last settled rate, not an estimate), null before the first FundingSettled |
-| GET /api/markets/tickers | {success: true, data: [TickerEntry]} one entry per market with the fields of Hyperpax:src/hooks/perps/useRealtimePrices.ts:6-20: symbol (PERP_<SYMBOL>_USDC), paxeerSymbol, mark_price, index_price, open_interest, last_funding_rate_hourly (as in the ticker), last_funding_rate, 24h_open, 24h_close, 24h_high, 24h_low, 24h_amount, 24h_volume |
+| GET /api/tickers and /api/markets/tickers | {success: true, data: [TickerEntry]} one entry per market with the fields consumed by [useRealtimePrices.ts](../../../apps/perps/src/hooks/perps/useRealtimePrices.ts): symbol (PERP_<SYMBOL>_USDC), paxeerSymbol, mark_price, index_price, open_interest, last_funding_rate_hourly (as in the ticker), last_funding_rate, 24h_open, 24h_close, 24h_high, 24h_low, 24h_amount, 24h_volume |
 
-/api/open-interest and /api/ticker/<SYMBOL>, with their /api/markets aliases, have no application consumer (contracts/application.md, Data surfaces rule 3) and are served for API clients. An unknown symbol answers 404 `{success: false, error: "Unknown symbol: <SYMBOL>"}`. A database failure answers 503 `{success: false}`, on which the application reads the chain directly.
+/api/open-interest and /api/ticker/<SYMBOL>, with their /api/markets aliases, have no application consumer ([application contract](application.md), Data surfaces rule 3) and are served for API clients. An unknown symbol answers 404 `{success: false, error: "Unknown symbol: <SYMBOL>"}`. A database failure answers 503 `{success: false}`, on which the application reads the chain directly.
 
 ## 25. Spot user routes and socket
 
@@ -782,7 +790,9 @@ The routes are served at the gateway origin with the paths exactly as the spot c
 | GET /v1/users/<address>/closed-legs | limit, afterId | {address, count, limit, items: [{id, token, qty, entryPrice, exitPrice, pnl, pnlUsd, pnlPct, holdingSeconds, openedAt, closedAt, closeTxHash, fullyClosed, symbol, name, decimals}], nextCursor: {afterId} or null} |
 | GET /v1/users/<address>/pnl/summary and /pnl | none | {address, realizedUsd, unrealizedUsd, totalUsd, tradeCount, closedLegCount} |
 | GET /v1/users/<address>/identity | none | {address, paxscan: {firstSeenBlock, txCount}, trading24h: {trades, volumeUsd}, latestSnapshot: {realizedUsd, at}} |
-| GET /v1/leaderboards/<kind> | kind pnl, volume or win-rate | {kind, as_of, omitted_accounts, items: [{rank, address, value}]}; as_of is the ISO millisecond time of the fold of every account the board was ranked from (one fold serves 30 s), omitted_accounts the number of accounts that fold left out because their legs cannot be folded (each logged with the reason); an unknown kind answers 404 |
+| GET /v1/leaderboards/<kind> | kind pnl, volume or win-rate | {kind, as_of, omitted_accounts, items: [{rank, address, value}]}; items are read from persisted perps.spot_leaderboard, not folded at request time; current as_of is the request time and omitted_accounts is always 0; an unknown kind currently answers 400 |
+
+The registered [leaderboard handler](../../../services/platform/perps-data/internal/rest/spotusers.go) calls projectedRank. The older 30-second in-memory fold is not the HTTP serving path. These are unresolved audit gaps, not freshness guarantees: the intended contract requires a durable generation timestamp, an honest persisted omission count and HTTP 404 for an unsupported kind (invalid limit remains HTTP 400). [Audit findings 11–13](../../layerx-merge/programme/audit/records/22.30.18.kvx) retain those protections for the owning repair; as_of and zero omissions currently cannot prove the projection is fresh or complete.
 
 ### Spot user socket
 

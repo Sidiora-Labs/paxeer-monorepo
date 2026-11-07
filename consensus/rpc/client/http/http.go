@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/bytes"
+	tmjson "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/libs/json"
 	rpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/client"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/coretypes"
 	jsonrpcclient "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/rpc/jsonrpc/client"
@@ -174,7 +175,19 @@ func (c *HTTP) NewBatch() *BatchHTTP {
 // single request. On success, this returns a list of the deserialized results
 // from each request in the sent batch.
 func (b *BatchHTTP) Send(ctx context.Context) ([]any, error) {
-	return b.rpcBatch.Send(ctx)
+	results, err := b.rpcBatch.Send(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for i, result := range results {
+		if status, ok := result.(*statusResponse); ok {
+			if status.result == nil {
+				return nil, ErrInvalidStatusResponse
+			}
+			results[i] = status.result
+		}
+	}
+	return results, nil
 }
 
 // Clear will empty out this batch of requests and return the number of requests
@@ -191,10 +204,36 @@ func (b *BatchHTTP) Count() int {
 //-----------------------------------------------------------------------------
 // baseRPCClient
 
+// ErrInvalidStatusResponse identifies a status response without a chain identity.
+// Both full nodes and light proxies identify the chain in NodeInfo.Network;
+// light proxies may leave full-node SyncInfo and ValidatorInfo fields empty.
+var ErrInvalidStatusResponse = errors.New("status response has no chain identity")
+
+// statusResponse validates at decode time, including deferred batch responses.
+type statusResponse struct {
+	result *coretypes.ResultStatus
+}
+
+func (r *statusResponse) UnmarshalJSON(data []byte) error {
+	var decoded coretypes.ResultStatus
+	if err := tmjson.Unmarshal(data, &decoded); err != nil {
+		return err
+	}
+	if decoded.NodeInfo.Network == "" {
+		return ErrInvalidStatusResponse
+	}
+	*r.result = decoded
+	return nil
+}
+
 func (c *baseRPCClient) Status(ctx context.Context) (*coretypes.ResultStatus, error) {
 	result := new(coretypes.ResultStatus)
-	if err := c.caller.Call(ctx, "status", nil, result); err != nil {
+	response := &statusResponse{result: result}
+	if err := c.caller.Call(ctx, "status", nil, response); err != nil {
 		return nil, err
+	}
+	if response.result == nil {
+		return nil, ErrInvalidStatusResponse
 	}
 	return result, nil
 }

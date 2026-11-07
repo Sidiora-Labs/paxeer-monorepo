@@ -1,0 +1,140 @@
+# Assessed against the supplied programme base 17990ad653409cef92fe8e31bd2b5dc14e23e6ff.
+# The qualification ledger repeats finding 12.10.4.1 verbatim; its disposition appears once.
+
+[disposition.12.10.4.1]
+finding = "12.10.4.1"
+status = "resolved"
+evidence = "Commit d84caa914 replaces the native-transfer fixture with ERC-20 transfer calldata at services/wallet/gateway/test/evm-sign.test.ts:25 and supplies the in-process sequencer at :89, eliminating both the empty-method review failure and external sequencer credentials requirement."
+follow_up = "closure"
+
+[disposition.12.35.4.11]
+finding = "12.35.4.11"
+status = "resolved"
+evidence = "Commit 05002d39b makes validateBlockExecutionReceipts recognize and skip a valid sequence batch only at transaction zero at rpc/utils.go:338, while every other transaction still passes through the strict SDK decoder."
+follow_up = "closure"
+
+[disposition.12.35.4.15]
+finding = "12.35.4.15"
+status = "resolved"
+evidence = "The fixture now starts a standalone primary without a standby address at tools/qualification/localnode/v6120-node.sh:677 and checks a single bonded primary validator at :723, removing the proposing standby and its replication acknowledgement deadlock from this topology."
+follow_up = "closure"
+
+[disposition.12.13.2.3]
+finding = "12.13.2.3"
+status = "resolved"
+evidence = "The assertions now count the 0xffffffff eth_call probe at services/wallet/gateway/test/agent-precompiles-scheduler.test.ts:371 and services/wallet/gateway/test/agent-precompiles-streams.test.ts:342 and exclude it from EIP-712 route calls at services/wallet/gateway/test/agent-precompiles-eip712.test.ts:253, matching ensureServed at services/wallet/gateway/src/precompiles.ts:65."
+follow_up = "closure"
+
+[disposition.12.35.4.17]
+finding = "12.35.4.17"
+status = "resolved"
+evidence = "Commit 92ea1d44f logs recovered RPC panic values and stacks at rpc/utils.go:492, repairs the standalone replication acknowledgement sequence, and adds the started-node send path with signed receipt and pending-feed assertions at node/sequencer/standalone_primary_test.go:30."
+follow_up = "closure"
+
+[disposition.12.35.11.1]
+finding = "12.35.11.1"
+status = "resolved"
+evidence = "Commit 92ea1d44f stores Block.MaxGasWanted = 50_000_000 in newSendSeqHarness before its first FinalizeBlock at rpc/send_sequencer_test.go:155, removing the unintended zero-gas admission cap."
+follow_up = "closure"
+
+[disposition.12.35.2.3]
+finding = "12.35.2.3"
+status = "resolved"
+evidence = "Both SDK exports now have default conditions at services/agent/sdk/typescript/package.json:19 and :24, while commit b64a7eec2 adds dev-server stdout capture and a 600-second readiness timeout at apps/wallet/playwright.wallet-app.config.ts:58 and includes next-env.d.ts in the task change."
+follow_up = "closure"
+
+[disposition.12.35.2.4]
+finding = "12.35.2.4"
+status = "resolved"
+evidence = "The harness now overrides the imported Next configuration and supplies conf at apps/wallet/playwright.wallet-app.config.ts:12 and :28, and the task build installs Chromium before listing tests at spec/layerx-merge/spec.kvx:180940."
+follow_up = "closure"
+
+[disposition.12.35.2.5]
+finding = "12.35.2.5"
+status = "resolved"
+evidence = "Commit b64a7eec2 aligns the browser base URL and readiness URL with /wallet/ at apps/wallet/playwright.wallet-app.config.ts:53 and :59 and strips that prefix before dispatching to Next at :38, eliminating the root-path readiness mismatch."
+follow_up = "closure"
+
+[disposition.12.35.2.7]
+finding = "12.35.2.7"
+status = "resolved"
+evidence = "Commit b64a7eec2 adds separate loading, shell-heading and provider-button assertions at apps/wallet/e2e/send.spec.ts:827 and reports provider announcements, page errors, document response and rendered body at :832, distinguishing the previously ambiguous onboarding timeout."
+follow_up = "closure"
+
+[disposition.12.35.2.8]
+finding = "12.35.2.8"
+status = "resolved"
+evidence = "Commit b64a7eec2 replaces the dev-server harness at apps/wallet/playwright.wallet-app.config.ts:12 and records hydration errors, overlay text and navigation response at apps/wallet/e2e/send.spec.ts:832 after asserting the served HTML contains Paxeer Wallet at :823."
+follow_up = "closure"
+
+[disposition.12.35.2.9]
+finding = "12.35.2.9"
+status = "resolved"
+evidence = "Commit b64a7eec2 checks the server document independently before browser navigation at apps/wallet/e2e/send.spec.ts:809, requires HTML containing the wallet heading at :821, and replaces the server with explicit configuration loading and /wallet/ dispatch at apps/wallet/playwright.wallet-app.config.ts:12."
+follow_up = "closure"
+
+[disposition.12.35.2.10]
+finding = "12.35.2.10"
+status = "resolved"
+evidence = "The gas-price poll now retries both pending-base-fee and pending-block variants of the no-open-block error at apps/wallet/e2e/send.spec.ts:858, while other errors still propagate."
+follow_up = "closure"
+
+[disposition.12.35.2.11]
+finding = "12.35.2.11"
+status = "resolved"
+evidence = "The transient transfer assertion now accepts pending, submitted or included at apps/wallet/e2e/send.spec.ts:907 before the unchanged receipt-evidence assertions, accommodating inclusion before the first page observation."
+follow_up = "closure"
+
+[disposition.12.35.2.12]
+finding = "12.35.2.12"
+status = "resolved"
+evidence = "The send test now uses 60-second polls at apps/wallet/e2e/send.spec.ts:867 and :935, waits for blockHash at :933, accepts receipted or committed at :940 and preserves the receipted saved step at :944."
+follow_up = "closure"
+
+[disposition.12.35.2.13]
+finding = "12.35.2.13"
+status = "resolved"
+evidence = "ReceiptSource.Committed now advances its watermark and moves hashes into committedOrder without deleting their entries at node/sequencer/receipt_source.go:111, so SequencerSend at :98 can still serve committed sends until capacity eviction."
+follow_up = "closure"
+
+[disposition.12.35.2.14]
+finding = "12.35.2.14"
+status = "resolved"
+evidence = "observeTransfer now inserts a receipted receipt step when the node reports committed without matching explorer commitment at sdk/wallet/src/ladder.ts:436, retaining receipt evidence for the local profile without promoting it to explorer-confirmed commitment."
+follow_up = "closure"
+
+[disposition.12.35.3.1]
+finding = "12.35.3.1"
+status = "resolved"
+evidence = "Commit 8e7599b48 replaces external explorer credentials and proxying with a status route at apps/wallet/e2e/send.spec.ts:594 that constructs mismatching and matching block documents directly from the sequencer receipt at :614."
+follow_up = "closure"
+
+[disposition.12.35.3.2]
+finding = "12.35.3.2"
+status = "resolved"
+evidence = "The committed-test verify command at spec/layerx-merge/spec.kvx:180986 now starts the local sequencer fixture, sources its environment and supplies all four WALLET_TRANSFER_TRUTH variables before running the committed-test pattern."
+follow_up = "closure"
+
+[disposition.12.35.3.3]
+finding = "12.35.3.3"
+status = "resolved"
+evidence = "Commit 842da652b makes StatusLadder prefer an explorer-sourced committed step before other evidence at apps/wallet/src/account/StatusLadder.tsx:45, so the committed row identifies explorer evidence even when the receipt step comes first."
+follow_up = "closure"
+
+[disposition.12.35.3.4]
+finding = "12.35.3.4"
+status = "resolved"
+evidence = "The committed test now counts only alerts with non-whitespace text at apps/wallet/e2e/send.spec.ts:721, excluding the empty Next announcer while retaining the assertion against readable error alerts."
+follow_up = "closure"
+
+[disposition.12.35.3.5]
+finding = "12.35.3.5"
+status = "resolved"
+evidence = "The explorer route now makes one receipt read at apps/wallet/e2e/send.spec.ts:599 and immediately fulfills a submitted status when commitment is unavailable at :600, leaving the committed poll in the test body at :644 so reload requests no longer wait inside the handler."
+follow_up = "closure"
+
+[disposition.12.95.1.1]
+finding = "12.95.1.1"
+status = "resolved"
+evidence = "Commit 7c1f87c58 removes the layerx_wire::activity import and kernel round trip from the vectors generator while preserving its local encoder, and services/wallet/attestor/internal/policy/lx/testdata/kernelvectors/tests/no_kernel_codec.rs:7 now rejects activity and sign codec imports."
+follow_up = "closure"

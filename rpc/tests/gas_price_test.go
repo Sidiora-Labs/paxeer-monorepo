@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/node"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/rpc"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	testkeeper "github.com/Sidiora-Labs/Paxeer-X-Network/tests/testutil/keeper"
@@ -27,21 +26,24 @@ func TestGasPriceCongestionThreshold(t *testing.T) {
 	oneGwei := big.NewInt(1000000000)
 	median := big.NewInt(2000000000) // 2 gwei
 
-	// Exactly at 80% → not congested → 10% bump on base fee
-	gasPrice, err := i.GasPriceHelper(
+	// Exactly at 80% → not congested → 10% bump on base fee plus the default priority fee
+	gasPrice, err := evmrpc.GasPriceHelper(
+		i,
 		baseCtx.Context(),
 		oneGwei,
 		8000000, // 80% of 10,000,000
 		median,
 	)
 	require.NoError(t, err)
-	// expected = baseFee * 110 / 100
+	// expected = baseFee * 110 / 100 + 1 gwei default priority fee
 	expectedNotCongested := new(big.Int).Mul(new(big.Int).Set(oneGwei), big.NewInt(110))
 	expectedNotCongested.Div(expectedNotCongested, big.NewInt(100))
+	expectedNotCongested.Add(expectedNotCongested, oneGwei)
 	require.Equal(t, expectedNotCongested, gasPrice.ToInt())
 
 	// Just above 80% → congested → baseFee + median
-	gasPrice, err = i.GasPriceHelper(
+	gasPrice, err = evmrpc.GasPriceHelper(
+		i,
 		baseCtx.Context(),
 		oneGwei,
 		8000001,
@@ -54,12 +56,7 @@ func TestGasPriceCongestionThreshold(t *testing.T) {
 func TestGasPriceInvokesFeeHistoryMedian(t *testing.T) {
 	// Single empty block is sufficient; FeeHistory will still execute and return zeros
 	// and GasPrice will compute based on baseFee without error.
-	SetupMockPacificTestServer(t, func(app *app.App, _ *MockClient) sdk.Context {
-		// height can be any valid block height
-		ctx := app.RPCContextProvider(evmrpc.LatestCtxHeight).WithClosestUpgradeName("pacific-1")
-		cp := &tmproto.ConsensusParams{Block: &tmproto.BlockParams{MaxGas: 10_000_000}}
-		return ctx.WithConsensusParams(cp)
-	}).Run(func(port int) {
+	SetupTestServer(t, nil).Run(func(port int) {
 		res := sendRequestWithNamespace("eth", port, "gasPrice")
 
 		// Ensure no top-level error is returned by the RPC

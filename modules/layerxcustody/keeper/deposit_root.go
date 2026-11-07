@@ -50,12 +50,14 @@ func (k *Keeper) GetDepositRoot(ctx sdk.Context, checkpointID [32]byte) (types.D
 // RegisterDepositRoot records the deposit root of a finalized checkpoint. The
 // registration is the domain followed by the checkpoint identifier, its state
 // root, the deposit root, the custody reference, the network and the protocol
-// version. Only the account that submitted the checkpoint may register it, the
-// checkpoint must be final under that state root, and the registration must
-// carry the deposit root authority's Ed25519 signature. The leaf ordering is
-// bound into the commitment, not checked against the root.
+// version. The checkpoint must be final under that state root, and the
+// registration must carry the deposit root authority's Ed25519 signature. The
+// leaf ordering is bound into the commitment, not checked against the root.
 func (k *Keeper) RegisterDepositRoot(ctx sdk.Context, proposer sdk.AccAddress, registration, signature []byte,
 	leafOrdering [][32]byte) (types.DepositRootRegistration, error) {
+	if k.Retired(ctx) {
+		return types.DepositRootRegistration{}, sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	offset := len(depositRootDomain)
 	if len(registration) != offset+134 || len(signature) != 64 || len(leafOrdering) == 0 ||
 		len(leafOrdering) > MaxDepositRootLeaves || !bytes.Equal(registration[:offset], depositRootDomain) {
@@ -72,9 +74,6 @@ func (k *Keeper) RegisterDepositRoot(ctx sdk.Context, proposer sdk.AccAddress, r
 	checkpoint, found := k.Anchor().FinalizedCheckpoint(ctx, checkpointID)
 	if !found {
 		return types.DepositRootRegistration{}, sdkerrors.Wrap(types.ErrInvalidDepositRoot, "checkpoint is not final")
-	}
-	if !checkpoint.Proposer.Equals(proposer) {
-		return types.DepositRootRegistration{}, types.ErrDepositRootProposer
 	}
 	params := k.GetParams(ctx)
 	if checkpoint.StateRoot != stateRoot || depositRoot == ([32]byte{}) || custodyReference == ([32]byte{}) ||

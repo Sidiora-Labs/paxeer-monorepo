@@ -1,48 +1,45 @@
-import importlib.util
 import json
 import unittest
+from copy import deepcopy
 from pathlib import Path
 
 from layerx_sdk.production import PlatformSdkError
-from layerx_sdk.program_wire import decode_and_verify_program_terminal
-from layerx_sdk.programs import ProgramTrustContext, _execution, verify_program_receipt
-from layerx_sdk.verifier import AuthorizedReceiptBatch, verify_receipt_outcome
+from layerx_sdk.programs import _execution
+from layerx_sdk.verifier import SequencerReceiptVerificationError
+
+from program_receipt_evidence import ProgramReceiptEvidence
 
 
 class ProgramExecutedV3Test(unittest.TestCase):
     def test_actual_kernel_runtime_receipt_and_module_binding(self):
-        root = Path(__file__).resolve().parents[4]
-        fixture = json.loads((root / "sdk/platform/conformance/fixtures/receipt-programs-executed-v3.json").read_text())
-        spec = importlib.util.spec_from_file_location("executed_v3_signatures", root / "sdk/integrations/fastapi/layerx_fastapi/signatures.py")
-        self.assertIsNotNone(spec)
-        self.assertIsNotNone(spec.loader)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        signatures = module.LayerXSignatureVerifier()
-        source = fixture["authorized_batch"]
-        authority = AuthorizedReceiptBatch(**{field: bytes.fromhex(source[field + "_hex"]) for field in ("batch_id", "asset", "previous_state_root", "resulting_state_root", "sequencer_public_key")})
-        canonical = bytes.fromhex(fixture["canonical_receipt_hex"])
-        receipt = verify_receipt_outcome(canonical, authority, signatures, protocol_version=3).receipt
-        self.assertEqual((receipt.protocol_version, receipt.module_version, receipt.operation), (3, 4, 3))
-        self.assertIsNotNone(receipt.program_outcome)
-        terminal = decode_and_verify_program_terminal(bytes.fromhex(fixture["terminal_payload_hex"]), bytes.fromhex(fixture["call_graph_hex"]), fixture["program_id_hex"], receipt.program_outcome, 3)
-        document = fixture["execution_document"]
-        self.assertEqual(document["usage"], terminal.usage)
-        self.assertEqual(document["outcome"], terminal.outcome)
+        evidence = ProgramReceiptEvidence()
+        verified = evidence.verify()
+        self.assertEqual(verified, evidence.verified)
+        self.assertEqual(
+            (verified.receipt.module_id, verified.receipt.module_version, verified.receipt.operation),
+            (12, 1, 2),
+        )
+        self.assertEqual(verified.receipt_digest.hex(), evidence.vector["receiptDigest"][2:])
+        self.assertEqual(evidence.submission(), evidence.vector["receiptJson"])
+        with self.assertRaisesRegex(ValueError, "receipt binding failed"):
+            evidence.verify({**evidence.execution, "module_version": 3})
+        document = json.loads(
+            (Path(__file__).resolve().parents[4]
+             / "tests/fixtures/programs/emulator-response-code/execution.json").read_text()
+        )
         parsed = _execution(document, "executed")
         self.assertEqual(parsed["module_version"], 4)
-        trust = ProgramTrustContext(authority.sequencer_public_key, protocol_version=3)
-        verified = verify_program_receipt(parsed, authority, signatures, trust)
-        self.assertEqual(verified.verification.receipt_digest.hex(), fixture["receipt_digest_hex"])
-        with self.assertRaises((ValueError, PlatformSdkError)):
-            verify_program_receipt(_execution({**document, "module_version": 3}, "executed"), authority, signatures, trust)
-        with self.assertRaises((ValueError, PlatformSdkError)):
-            verify_program_receipt(parsed, authority, signatures, ProgramTrustContext(authority.sequencer_public_key, protocol_version=2))
         for field in ("module_version", "guest_abi_version", "result_code"):
-            with self.assertRaises((ValueError, PlatformSdkError)):
-                verify_program_receipt({**document, field: True}, authority, signatures, trust)
-        for value in (0, 5, True):
-            with self.assertRaises(ValueError): _execution({**document, "module_version": value}, "executed")
-        corrupted = canonical[:-1] + bytes([canonical[-1] ^ 1])
-        with self.assertRaises((ValueError, PlatformSdkError)):
-            verify_program_receipt(_execution({**document, "receipt": corrupted.hex()}, "executed"), authority, signatures, trust)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                _execution({**document, field: True}, "executed")
+        for value in (0, 6, True):
+            with self.subTest(module=value), self.assertRaises(ValueError):
+                _execution({**document, "module_version": value}, "executed")
+        corrupted = evidence.encoded[:-1] + bytes([evidence.encoded[-1] ^ 1])
+        changed = deepcopy(evidence.execution)
+        changed["receipt"] = corrupted.hex()
+        with self.assertRaises(SequencerReceiptVerificationError) as raised:
+            evidence.verify(changed)
+        self.assertEqual(raised.exception.check, "bad_signature")
+        with self.assertRaises(PlatformSdkError):
+            evidence.verify({**evidence.execution, "receipt": document["receipt"]})

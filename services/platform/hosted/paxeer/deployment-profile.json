@@ -1,0 +1,14 @@
+{
+  "schema": "paxeer/native-deployment/1",
+  "node": {
+    "manifest": "../node/deployment.yaml",
+    "bootstrap": "../node/bootstrap.sh",
+    "chain_id": "hyperpax_125-1",
+    "evm_chain_id": 125,
+    "rpc": "http://127.0.0.1:8545/",
+    "consensus_rpc": "http://127.0.0.1:26657/"
+  },
+  "tenant": {
+    "gateway_rpc": "https://layerx-gateway.layerx-testnet.svc.cluster.local:9443/"
+  }
+}

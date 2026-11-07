@@ -1,0 +1,28 @@
+[repair.22.33.475]
+audit = "22.30.149"
+requirement = "22998.1"
+baseline = "Not executed: the task's ordered gate instructions require complete implementation before hf-build and hf-done; no baseline failures or passing browser run are claimed."
+evidence = "The runner records the exact candidate revision, command, exit and private log location for hf-build and hf-done; closure requires hf-done passing."
+
+[finding.verification-browser-test-skipped]
+repair = "Removed the skip; follow the real chooser link before filling; scope options to their selects; click visible optimization labels; wait for verified contract content before checking the exact original destination. The original success assertion remains intact."
+proving_tests = ["verification-browser-test-skipped: real form exposes the headless interaction targets", "verification-browser-test-skipped: recorded contract publication reaches the success consumer"]
+wiring_request = "Domain 14: execute services/explorer/backend/apps/block_scout_web/test/block_scout_web/features/address_contract_verification_test.exs with the owning browser/compiler gate; this focused gate does not qualify headless execution or compiler authenticity."
+
+[finding.verification-error-not-asserted]
+repair = "Bind and assert has_message?; use Wallaby's visible-text retry, an available compiler version, a boolean optimization input and the address hash; require the production field-specific Empty contract source code. response rather than the unknown-error fallback text."
+proving_tests = ["verification-error-not-asserted: submitted empty source returns visible validation over the real channel"]
+
+[finding.application-feature-tests-commented]
+repair = "Restored all five indexing scenarios as executable API and channel tests; the declared repair gate loads the same tests."
+proving_tests = ["shows blocks indexed percentage", "shows internal transactions loading after blocks finish", "updates blocks indexed percentage", "updates when blocks are fully indexed", "removes indexing indication when chain is indexed"]
+replacement_coverage = "ViewingAppTest covers /api/v2/main-page/indexing-status plus blocks:indexing and blocks:indexing_internal_transactions/index_status, which feed apps/explorer/ui/snippets/header/alerts/IndexingBlocksAlert.tsx and apps/explorer/ui/snippets/footer/IntTxsIndexingStatus.tsx; the old server-rendered loading-bar selectors are obsolete."
+wiring_request = "Domain 14: add frontend component assertions for apps/explorer/ui/snippets/header/alerts/IndexingBlocksAlert.tsx and apps/explorer/ui/snippets/footer/IntTxsIndexingStatus.tsx under the separately authorized frontend gate; backend coverage proves the actual HTTP and websocket payloads, not React rendering."
+
+[qualification.first]
+revision = "351d0143ffe807772c2901ed7b52f47738d0f15b"
+command = "cg spec done 22.33.475 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Eight cases ran; three indexing cases expected 1 instead of the actual exact 1.00 serialization, and contract detail attempted RPC because its known non-proxy fixture entry was missing."
+repair = "Require exact 1.00 completion payloads and persist SimpleStorage's known empty proxy-implementation result through the existing factory; retain every assertion and all eight cases."

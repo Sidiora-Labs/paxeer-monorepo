@@ -1,0 +1,42 @@
+[repair.22.33.1259]
+finding = "historical-rewards-value-v620"
+source_base = "145f7e64b030fb018121d34ae4c3fe408d3a4079"
+continuation_base = "a1ae360874f9260f704cf62f7a49c3d32b62b896"
+qualification_base = "ca3015b61333a7ebcaedf0914337d4460107fe1a"
+implementation = "Keep distribution.go and abi.json byte-identical; pin historical payment behavior and the existing live nonpayable repair through the production distribution registry, keeper, EVM and distribution store."
+proof = ["TestRepairM_1259_HistoricalRawCALL", "TestRepairM_1259_LiveRoutingActivation", "TestRepairM_1259_PreActivationCompatibility", "TestRepairM_1259_HistoricalBoundaryAndStaticQuery"]
+client_warning = "README.md documents that historical rewards CALL accepts and retains attached value; clients must query with zero value or STATICCALL."
+baseline = "No baseline gate ran: the explicit ordered gate instructions require complete implementation before hf-build and the single hf-done verification; no pre-existing test failure is claimed."
+evidence = "The runner hf-done gate ledger records the exact verified candidate revision, command, exit code and private log location; qualification is claimed only for a passing entry on the same candidate as hf-build."
+wiring_request_tests = "Domain 6, precompiles/distribution: include the in-scope TestRepairM_1259_* historical replay and live-routing vectors in the parent distribution release gate; parent tests and the node-wide registration integration check are outside this task's scope."
+wiring_request_docs = "Domain 6, docs/system/precompiles.md: link the historical value warning in precompiles/distribution/legacy/v620/README.md from the distribution client catalogue; public catalogue edits are outside this task's scope."
+wiring_request_sdk = "Domain 15, sdk/x/auth/client/cli/{tx_multisign.go,tx_sign.go,validate_sigs.go} and sdk/x/staking/client/cli/tx.go: handle both results from tx.NewFactoryCLI so the production EVM keeper and its Wasm keeper dependency compile for the required routing proof."
+wiring_resolution_sdk = "The qualification base contains 22.31.463: the recorded auth/staking callers and modules/tokenfactory/client/cli/tx.go now handle both NewFactoryCLI results; retain the attempt-2 keeper fixture and qualify it through hf-build and hf-done."
+
+[qualification.note]
+observed = "The generic baseline-run step conflicts with the explicit one-build/one-verification order, and the task-record/spec and root GOTCHA append instructions conflict with the explicit scope and prohibition on spec edits."
+resolution = "Follow the explicit gate order; keep the repair record and this qualification note in scope, leave spec and GOTCHA untouched, and let the runner own completion and publication."
+
+[qualification.initial_node_fixture]
+revision = "03bf96d4436148360eefe18eb292b7346275cf66"
+command = "cg spec done 22.33.1259 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1259.log"
+observed = "The node-app fixture imports SDK auth/staking and tokenfactory CLI callers that still use the former single-result tx.NewFactoryCLI signature."
+assumption = "Leave those out-of-scope callers untouched; construct the production keepers on an in-memory multistore and install distribution.GetVersioned on the real EVM keeper instead."
+
+[qualification.continuation]
+revision = "372f6550f6920432c50f0674690b9331643cdf02"
+command = "cg spec done 22.33.1259 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail /tmp/repair-m1259.log"
+observed = "hf-build passed on this revision; hf-done failed before any repair test ran because the production EVM keeper imports wasm/x/wasm/keeper, whose SDK auth/staking imports reach the same CLI return-value mismatches recorded above."
+assumption = "The in-memory fixture cannot avoid this production dependency while retaining real keeper routing; the owning SDK domain must repair the callers, and this task remains unqualified without weakening its tests or changing frozen v620 code."
+
+[qualification.balance_representation]
+revision = "bf5bb1abfc1957225b1b848f3b390f29da5951c8"
+command = "cg spec done 22.33.1259 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler and assertion detail /out/logs/repair-m1259-verify-1.log"
+observed = "Only HistoricalRawCALL/height_20/value_0 and HistoricalRawCALL/height_29/value_0 failed: reflect equality distinguished nil and empty big.Int magnitude slices although both balances were exactly zero; the other three test functions passed."
+repair = "Compare every immediate and reopened balance as an exact uint256 value, matching the production balance type and retaining all caller and recipient value assertions."

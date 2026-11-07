@@ -114,3 +114,49 @@ macro_rules! process_batch_verification_request_conversion {
     };
 }
 pub(crate) use process_batch_verification_request_conversion;
+
+#[allow(clippy::result_large_err)]
+pub fn validate_source_paths(
+    paths: impl IntoIterator<Item = impl AsRef<std::path::Path>>,
+) -> Result<(), tonic::Status> {
+    use std::path::Component;
+
+    for path in paths {
+        let path = path.as_ref();
+        let text = path.as_os_str().to_string_lossy();
+        let bytes = text.as_bytes();
+        let windows_prefix = bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':';
+        if path.file_name().is_none()
+            || text.contains('\0')
+            || text.starts_with('\\')
+            || windows_prefix
+            || text.split(['/', '\\']).any(|part| part == "..")
+            || path.components().any(|component| {
+                matches!(
+                    component,
+                    Component::Prefix(_) | Component::RootDir | Component::ParentDir
+                )
+            })
+        {
+            return Err(tonic::Status::invalid_argument(
+                "source paths must be relative files without parent components",
+            ));
+        }
+    }
+    Ok(())
+}
+
+pub fn validate_standard_json_source_paths<T>(
+    input: Result<smart_contract_verifier::SolcInput, serde_json::Error>,
+    convert: impl FnOnce() -> Result<T, smart_contract_verifier::RequestParseError>,
+) -> Result<T, smart_contract_verifier::RequestParseError> {
+    match input {
+        Ok(input) => {
+            validate_source_paths(input.0.sources.keys())
+                .map_err(|error| anyhow::anyhow!(error.message().to_owned()))?;
+            convert()
+        }
+        // The canonical converter produces the existing malformed-input response.
+        Err(_) => convert(),
+    }
+}

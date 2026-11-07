@@ -18,6 +18,7 @@ export interface TokenInfo {
   total_supply: string | null;
   icon_url: string | null;
   circulating_market_cap: string | null;
+  volume_24h?: string | null;
   reputation: TokenReputation | null;
   // bridged token fields
   is_bridged?: boolean | null;

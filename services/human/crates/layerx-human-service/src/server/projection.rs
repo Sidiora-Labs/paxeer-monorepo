@@ -1,4 +1,4 @@
-use layerx_agent_api::verify::Level;
+use layerx_types::rung::Rung;
 use serde_json::{json, Value};
 
 use super::agent_runtime::{
@@ -7,14 +7,19 @@ use super::agent_runtime::{
 use super::backend::ApiFailure;
 use crate::approvals::{AgentApprovalState, VerifiedBudgetAfter};
 
-pub(super) fn verification(rank: u8) -> Result<&'static str, ApiFailure> {
-    match rank {
-        0 => Ok("unverified"),
-        1..=3 => Ok("receipt-verified"),
-        4 => Ok("checkpoint-finalised"),
-        5 => Ok("settlement-anchored"),
-        _ => Err(ApiFailure::upstream_degraded()),
+impl super::HumanComponentServer {
+    #[must_use]
+    pub fn verification_level_name(rung: Rung) -> &'static str {
+        match rung {
+            Rung::Submitted => "unverified",
+            Rung::Receipted => "receipt-verified",
+            Rung::Committed => "checkpoint-finalised",
+        }
     }
+}
+
+pub(super) fn verification(rung: Rung) -> &'static str {
+    super::HumanComponentServer::verification_level_name(rung)
 }
 
 pub(super) fn hex(bytes: &[u8]) -> String {
@@ -99,7 +104,7 @@ pub(super) fn managed_evidence(value: &ManagedAgentEvidence) -> Result<Value, Ap
         return Err(ApiFailure::upstream_degraded());
     }
     Ok(
-        json!({"evidence_id":format!("evd_{}",hex(&digest)),"class":"layerx-receipt","verification":verification(value.verification)?}),
+        json!({"evidence_id":format!("evd_{}",hex(&digest)),"class":"layerx-receipt","verification":verification(value.verification)}),
     )
 }
 
@@ -116,7 +121,7 @@ pub(super) fn managed_agent(value: &ManagedAgentView) -> Result<Value, ApiFailur
     Ok(
         json!({"agent_id":value.agent_id,"name":value.name,"purpose":value.purpose,"state":state,"state_copy_key":format!("agent.state.{state}"),
         "limit":{"monthly":{"amount":value.monthly_limit.to_string(),"currency":value.currency},"enforcement":enforcement,"enforcement_copy_key":if value.limit_enforcement==0 {"agent.limit.protocol-backed"} else {"agent.limit.app-enforced"}},
-        "spend":{"period_start":native_time(&value.period_start)?,"period_end":native_time(&value.period_end)?,"spent":{"amount":value.spent.to_string(),"currency":value.currency},"remaining":{"amount":value.remaining.to_string(),"currency":value.currency},"verification":verification(value.spend_verification)?},
+        "spend":{"period_start":native_time(&value.period_start)?,"period_end":native_time(&value.period_end)?,"spent":{"amount":value.spent.to_string(),"currency":value.currency},"remaining":{"amount":value.remaining.to_string(),"currency":value.currency},"verification":verification(value.spend_verification)},
         "created_at":native_time(&value.created_at)?,"updated_at":native_time(&value.updated_at)?,"evidence":value.evidence.iter().map(managed_evidence).collect::<Result<Vec<_>,_>>()?}),
     )
 }
@@ -124,7 +129,7 @@ pub(super) fn managed_agent(value: &ManagedAgentView) -> Result<Value, ApiFailur
 pub(super) fn managed_export(value: &ManagedReceiptExport) -> Result<Value, ApiFailure> {
     use base64::Engine as _;
     Ok(
-        json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification)?,"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)}),
+        json!({"evidence_id":format!("evd_{}",hex(&value.digest)),"class":"layerx-receipt","verification":verification(value.verification),"content_type":"application/vnd.layerx.receipt","bytes_base64":base64::engine::general_purpose::STANDARD.encode(&value.canonical_bytes)}),
     )
 }
 
@@ -167,15 +172,8 @@ pub(super) fn native_state(
     }
 }
 
-pub(super) fn level(level: Level) -> Result<&'static str, ApiFailure> {
-    verification(match level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    })
+pub(super) fn level(rung: Rung) -> Result<&'static str, ApiFailure> {
+    Ok(super::HumanComponentServer::verification_level_name(rung))
 }
 
 pub(super) fn native_approval(
@@ -290,15 +288,7 @@ pub(super) fn approval(
     let approval_id = format!("apr_{}", hex(&hold.approval_id));
     let money = json!({"amount":amount.amount.0.to_string(),"currency":managed.currency});
     let expires_at = unix_time(facts.activity_expires_at_unix_seconds)?;
-    let rank = match budget.level {
-        Level::Unverified => 0,
-        Level::SequencerSigned => 1,
-        Level::BatchIncluded => 2,
-        Level::StateProven => 3,
-        Level::CheckpointFinalised => 4,
-        Level::SettlementAnchored => 5,
-    };
-    let remaining = json!({"money":{"amount":budget.remaining.to_string(),"currency":managed.currency},"verification":verification(rank)?});
+    let remaining = json!({"money":{"amount":budget.remaining.to_string(),"currency":managed.currency},"verification":super::HumanComponentServer::verification_level_name(budget.rung)});
     let summary = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"counterparty":counterparty.as_str(),"amount":money,"reason_copy_key":reason,"expires_at":expires_at,"state":state,"budget_remaining_after":remaining});
     let detail = json!({"approval_id":approval_id,"agent_id":managed.agent_id,"agent_name":managed.name,"state":state,"state_copy_key":format!("approval.state.{state}"),"reason_copy_key":reason,
         "facts":{"amount":money,"counterparty":counterparty.as_str(),"asset":managed.currency,"fees":{"amount":hold.held_activity.fee_limit.0.to_string(),"currency":managed.currency},"expires_at":expires_at},
@@ -537,10 +527,7 @@ pub(super) fn program_budget(
         || budget.checkpoint_digest == [0; 32]
         || budget.proof_digest == [0; 32]
         || budget.verified_proof_bytes.is_empty()
-        || !matches!(
-            budget.verification,
-            Level::CheckpointFinalised | Level::SettlementAnchored
-        )
+        || budget.verification != Rung::Committed
         || budget.age_sequences > budget.maximum_age_sequences
         || <[u8; 32]>::from(Sha256::digest(&budget.verified_proof_bytes)) != budget.proof_digest
         || proof_reference["evidence_id"] != json!(format!("evd_{}", hex(&budget.proof_digest)))

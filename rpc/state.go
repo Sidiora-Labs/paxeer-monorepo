@@ -40,10 +40,11 @@ type StateAPI struct {
 	ctxProvider    func(int64) sdk.Context
 	connectionType ConnectionType
 	watermarks     *WatermarkManager
+	root           storetypes.Queryable
 }
 
-func NewStateAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func(int64) sdk.Context, connectionType ConnectionType, watermarks *WatermarkManager) *StateAPI {
-	return &StateAPI{tmClient: tmClient, keeper: k, ctxProvider: ctxProvider, connectionType: connectionType, watermarks: watermarks}
+func NewStateAPI(tmClient client.LocalClient, k *keeper.Keeper, ctxProvider func(int64) sdk.Context, connectionType ConnectionType, watermarks *WatermarkManager, root storetypes.Queryable) *StateAPI {
+	return &StateAPI{tmClient: tmClient, keeper: k, ctxProvider: ctxProvider, connectionType: connectionType, watermarks: watermarks, root: root}
 }
 
 func (a *StateAPI) GetBalance(ctx context.Context, address common.Address, blockNrOrHash rpc.BlockNumberOrHash) (result *hexutil.Big, returnErr error) {
@@ -51,12 +52,8 @@ func (a *StateAPI) GetBalance(ctx context.Context, address common.Address, block
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getBalance", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	statedb := state.NewDBImpl(sdkCtx, a.keeper, true)
@@ -68,12 +65,8 @@ func (a *StateAPI) GetCode(ctx context.Context, address common.Address, blockNrO
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getCode", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	code := a.keeper.GetCode(sdkCtx, address)
@@ -85,12 +78,8 @@ func (a *StateAPI) GetStorageAt(ctx context.Context, address common.Address, hex
 	defer func() {
 		recordMetricsWithError(ctx, "eth_getStorageAt", a.connectionType, startTime, returnErr, recover())
 	}()
-	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	sdkCtx, err := a.stateContext(ctx, blockNrOrHash)
 	if err != nil {
-		return nil, err
-	}
-	sdkCtx := a.ctxProvider(height)
-	if err := checkStateVersion(sdkCtx, height, a.keeper); err != nil {
 		return nil, err
 	}
 	key, _, err := decodeHash(hexKey)
@@ -99,6 +88,25 @@ func (a *StateAPI) GetStorageAt(ctx context.Context, address common.Address, hex
 	}
 	state := a.keeper.GetState(sdkCtx, address, key)
 	return state[:], nil
+}
+
+func (a *StateAPI) stateContext(ctx context.Context, blockNrOrHash rpc.BlockNumberOrHash) (sdk.Context, error) {
+	if isPendingBlockNrOrHash(blockNrOrHash) {
+		snapshot, height, open, err := a.watermarks.pendingSnapshot(ctx)
+		if err != nil {
+			return sdk.Context{}, err
+		}
+		if open {
+			return snapshot, nil
+		}
+		blockNrOrHash = rpc.BlockNumberOrHashWithNumber(rpc.BlockNumber(height))
+	}
+	height, err := a.watermarks.ResolveHeight(ctx, blockNrOrHash)
+	if err != nil {
+		return sdk.Context{}, err
+	}
+	sdkCtx := a.ctxProvider(height)
+	return sdkCtx, checkStateVersion(sdkCtx, height, a.keeper)
 }
 
 // checkStateVersion checks that the state stores exist at a committed height.
@@ -113,7 +121,7 @@ func checkStateVersion(sdkCtx sdk.Context, height int64, k *keeper.Keeper) error
 
 // Result structs for GetProof
 // This differs from go-ethereum AccountResult in two ways:
-// 1. Proof object is an iavl proof, not a trie proof
+// 1. Proof object is an ICS23 proof through the app root, not a trie proof
 // 2. Per-account fields are excluded because there is no per-account root
 type ProofResult struct {
 	Address      common.Address     `json:"address"`
@@ -147,9 +155,8 @@ func (a *StateAPI) GetProof(ctx context.Context, address common.Address, storage
 	if err := CheckVersion(sdkCtx, a.keeper); err != nil {
 		return nil, err
 	}
-	queryStore, err := findQueryableKVStore(sdkCtx.MultiStore().GetKVStore(a.keeper.GetStoreKey()))
-	if err != nil {
-		return nil, err
+	if a.root == nil {
+		return nil, errors.New("cannot generate storage proof: missing proof root")
 	}
 	if len(storageKeys) > MaxStorageKeysPerProof {
 		return nil, fmt.Errorf("too many storage keys: got %d, max %d", len(storageKeys), MaxStorageKeysPerProof)
@@ -165,12 +172,15 @@ func (a *StateAPI) GetProof(ctx context.Context, address common.Address, storage
 	proofResult := ProofResult{Address: address}
 	for _, paddedKey := range paddedKeys {
 		formattedKey := append(types.StateKey(address), paddedKey[:]...)
-		qres := queryStore.Query(ctx, abci.RequestQuery{
-			Path:   "/key",
+		qres := a.root.Query(ctx, abci.RequestQuery{
+			Path:   "/" + a.keeper.GetStoreKey().Name() + "/key",
 			Data:   formattedKey,
 			Height: block.Block.Height,
 			Prove:  true,
 		})
+		if qres.Code != 0 {
+			return nil, fmt.Errorf("storage proof query failed (code %d): %s", qres.Code, qres.Log)
+		}
 		proofResult.HexValues = append(proofResult.HexValues, hex.EncodeToString(qres.Value))
 		proofResult.StorageProof = append(proofResult.StorageProof, qres.ProofOps)
 	}

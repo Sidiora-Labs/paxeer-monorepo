@@ -1,0 +1,65 @@
+[manifest]
+task = "22.32.134"
+domain = 14
+owner_role = "fm-web-explorer-bridge"
+pages = 3
+
+[page.1]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+bytes = 47953
+source_1 = "record 22.30.105 [doc.06] (misleading): Lines 39-42 advertise a unified router and EVM-only node names; lines 50-52 and 198-200 advertise /rpc surfaces; line 51 says 15 methods while the wiki says 18."
+source_2 = "record 22.30.11 [doc.11] (misleading): Lines 39-52, 198-200 and 609 describe the retired unified router and /rpc routes; finding hosted-unified-router-documentation requests separate native node and hosted px_ documentation."
+source_3 = "record 22.30.114 [doc.11] (stale): Read in full. Unified router and /rpc/ws/schema/lx_ public contract conflict with root node RPC and the current hosted px_ contract."
+source_4 = "record 22.30.116 [doc.03] (misleading): Read the page and checked its network, endpoint and lifecycle claims. The page calls the public origin a router URL and declares POST /rpc, GET /rpc/schema and GET /rpc/ws at lines 50-51 and 198-200. Its 15-method statement also differs from the wiki 18-method statement. Rewrite proposal: Rewrite docs/site/docs/platform/hosted-gateway.md from services/platform/hosted/gateway/openrpc.json, distinguishing hosted px_ methods from root node namespaces and removing the unified router and obsolete endpoint instructions."
+source_5 = "record 22.30.118 [doc.009] (misleading): Lines 40-51 call the gateway the unified router with /rpc; lines 441-470 use independent sequencer authority; lines 608-632 retain router/daemon registry bootstrap."
+source_6 = "record 22.30.12 [doc.011] (misleading): Lines 38-50, 202-204 and 605-606 advertise a unified router and /rpc surfaces. Describe hosted px methods separately from the root node namespaces and remove the sixteen-node/separate-EVM-domain claim."
+source_7 = "record 22.30.125 [doc.gateway_site] (misleading): Read full page. Lines 38-41 describe unified router and EVM-only nodes; 50-52, 198-201 and 609-611 advertise retired /rpc paths. Lines 285-300 retain legacy lx submission and network/authority language. Replace with root node JSON-RPC and hosted px OpenRPC; see gateway_site_router."
+source_8 = "record 22.30.131 [doc.9] (stale): Unified router and mixed namespaces at lines 39-42; /rpc family at 50-52 and 198-200; legacy daemon description later. Site/wiki method counts differ (15 versus 18)."
+source_9 = "record 22.30.132 [doc.10] (stale): Finding gateway-router-description-site: The page calls api-mainnet-beta.paxeer.network the only unified router for eth_*, lx_* and px_*, assigns public nodes to an EVM-only domain and advertises /rpc, /rpc/schema and /rpc/ws. The site says 15 methods and the wiki 18."
+source_10 = "record 22.30.137 [doc.011] (misleading): Hosted gateway calls the public surface a unified router spanning eth_, lx_ and px_, advertises /rpc/schema and /rpc/ws near lines 50-52 and describes separate sequencer-pinned receipt finality later in the page. Rewrite proposal: Rewrite docs/site/docs/platform/hosted-gateway.md topology, route tables and receipt sections around the actual root node service and hosted gateway openrpc.json, replacing unified-router paths and separate sequencer authority instructions."
+source_11 = "record 22.30.139 [doc.09] (stale): Lines 39-51 advertise sixteen numbered public RPC nodes and an eth/lx/px router at /rpc, /rpc/schema and /rpc/ws; lines 198-200 repeat the removed interface split. Rewrite: List api1 through api14.mainnet-beta.paxeer.network and api-mainnet-beta.paxeer.network at root, document public node namespaces and hosted px methods separately, and use gateway/openrpc.json for hosted behavior."
+source_12 = "record 22.30.141 [doc.9] (stale): Lines 39-51,107,198-200 and 221 retain a router, unified /rpc routes and receipt-authority service. The site and wiki also disagree on the advertised method count (15 versus 18); both need regeneration from the current gateway contract."
+source_13 = "record 22.30.144 [doc.9] (stale): Stale at lines 39-52, 198-213 and receipt/readiness sections: unified router, separate core and legacy program ingress."
+source_14 = "record 22.30.145 [doc.02] (stale): Read the gateway architecture, endpoint/auth tables, startup and recovery instructions, and compared the site/wiki copies. Lines 39-51, 198-200 and 609-621 retain /rpc routing and daemon custody assumptions; hosted-site/hosted-wiki record the rewrite and differing method counts."
+source_15 = "record 22.30.146 [doc.004] (misleading): Lines 39-52 present a unified router and /rpc, /rpc/schema, /rpc/ws as the network interface; lines 615-632 retain LNI. Site and wiki also disagree on 15 versus 18 methods."
+source_16 = "record 22.30.147 [doc.08] (stale): line 50: gateway-network — The hosted gateway guide publishes POST /rpc, GET /rpc/schema and /rpc/ws, advertises lx_ methods, and describes pinned sequencer keys and independent authorized-batch receipt verification."
+source_17 = "record 22.30.148 [doc.12] (stale): Entire page reviewed. Lines 39-52 and 198-200 conflate hosted ingress, a unified router, node RPC and retired /rpc transports; see gateway-unified-endpoint-drift."
+source_18 = "record 22.30.151 [doc.12] (misleading): Lines 39-42, 50-51 and 198-200 describe a unified router for eth/lx/px; line 609 retains a /rpc route. The px_ gateway contract remains real, but node root JSON-RPC must be documented as a separate producer."
+source_19 = "record 22.30.152 [doc.1] (stale): Lines39-51,198-213,443-470 and617-632 retain unified /rpc, retired authority submission and daemon preparation instructions; see the corresponding hosted documentation finding."
+source_20 = "record 22.30.153 [doc.9] (misleading): Lines 39 onward describe obsolete operating behavior; finding gateway-unified-router records the exact contradiction and concrete rewrite proposal."
+source_21 = "record 22.30.154 [doc.9] (misleading): Lines 39-51, 198-200 and 609 repeat unified router paths; lines 617-631 describe daemon/custody module discovery. Findings gateway_unified_router and gateway_daemon_module_registry."
+source_22 = "record 22.30.156 [doc.08] (misleading): Lines 39-51 and 198-200 advertise unified router /rpc paths and incorrect public-node ownership/count; later independent receipt-authority/LNI assumptions also need migration."
+source_23 = "record 22.30.157 [doc.12] (stale): Lines 39-42 call api-mainnet-beta the unified router for eth_*, lx_* and px_*; lines 50-51 and 198-199 advertise /rpc, /rpc/schema and /rpc/ws. Authority-token and receipt sections retain a separate replica/sequencer authority lifecycle."
+source_24 = "record 22.30.158 [doc.011] (stale): Read the complete gateway page. Lines 39-51 and 198-200 advertise a unified router and /rpc/schema/ws; receipt and program sections retain independent authority/checkpoint assumptions."
+source_25 = "record 22.30.16 [doc.06] (stale): Read in full; lines 39-51 and route table publish a router and unified /rpc paths. Node root RPC and hosted px_ need distinct accurate descriptions."
+source_26 = "record 22.30.160 [doc.08] (stale): Read the complete page. Line 39: The gateway guide presents one router joining eth_, lx_ and px_ methods and advertises /rpc, /rpc/schema and /rpc/ws at lines 39-52 and 198-200. That architecture conflicts with root-path node namespaces and the gateway openrpc contract."
+source_27 = "record 22.30.162 [doc.008] (stale): Current operating guidance conflicts with the merged network; exact locations and rewrite proposals are recorded in hosted-gateway-router."
+source_28 = "record 22.30.164 [doc.11] (misleading): Read all 632 lines. Lines 39-51, 198-200 and 609 advertise the retired router and /rpc paths, and the claimed 15 methods disagree with the 17-method OpenRPC declaration."
+source_29 = "record 22.30.18 [doc.12] (misleading): Full page read. Lines 39-52, 198-200 and 609-611 advertise the retired unified router and /rpc surfaces. Current readiness discussion does not repair those operator-facing transport claims."
+source_30 = "record 22.30.21 [doc.5] (stale): Reviewed the page and its package-facing guidance; exact drift and owner rewrite proposals are recorded in gateway-site-rpc, gateway-method-counts."
+source_31 = "record 22.30.22 [doc.08] (misleading): Lines 50-51 and 198-200 advertise the retired public router endpoints and old combined interface; see gateway-router-doc."
+source_32 = "record 22.30.23 [doc.3] (stale): Lines 39-51 advertise a unified eth/lx/px router and /rpc, /rpc/schema and /rpc/ws; lines 617-632 still bind daemon LNI and node registry behavior."
+source_33 = "record 22.30.26 [doc.gateway] (misleading): Read the complete page including Redis durability and readiness. Unified router and /rpc paths conflate node and hosted contracts; removed Programs REST submission remains advertised. See gateway_unified_router and gateway_retired_programs_ingress."
+source_34 = "record 22.30.28 [doc.010] (stale): The hosted gateway page calls the public mainnet-beta host a router and advertises /rpc, /rpc/schema and /rpc/ws there at lines 39-51 and 198-200."
+source_35 = "record 22.30.29 [doc.05] (misleading): site-gateway: line50 The gateway page declares POST /rpc, GET /rpc/schema and GET /rpc/ws as public JSON-RPC and repeats them in the route table at lines198-200. The site also claims15 methods while the wiki claims18 for that same legacy surface."
+source_36 = "record 22.30.30 [doc.01] (stale): Read in full. finding.gateway-doc-site at line 39. Retired topology and endpoint instructions require a coordinated rewrite."
+source_37 = "record 22.30.35 [doc.2] (stale): Lines 39-41, 50-51, 198-200 and 609 advertise retired unified-router paths; public hosts and method count also need reconciliation. Finding 18."
+source_38 = "record 22.30.39 [doc.10] (misleading): Lines 39-52, 198-200, 609-632 retain unified router paths and daemon/LNI preparation; separate root public RPC from hosted px_. Finding 30."
+source_39 = "record 22.30.43 [doc.009] (misleading): Lines 50-51, 198-200 and 609 expose retired /rpc, /rpc/schema and /rpc/ws routes; the site and wiki also disagree on the method count (15 versus 18)."
+source_40 = "record 22.30.46 [doc.11] (stale): Lines 39-51 and 198-200 advertise router eth/lx/px consolidation and /rpc/schema/ws; lines 609-623 reintroduce daemon/custody deployment. Rewrite the boundary and transport table."
+source_41 = "record 22.30.94 [doc.11] (stale): Reviewed the complete page, including mirror differences where applicable. Exact drift and rewrite proposals are recorded in hosted_topology, hosted_lni_snapshot."
+
+[page.2]
+path = "docs/site/docs/platform/index.md"
+status = "misleading"
+bytes = 2353
+source_1 = "record 22.30.135 [doc.003] (misleading): Lines 14 and 27-29 instruct integrators to use the retired router /rpc and /rpc/ws; line 19 names a sequencer pod. Publish root node RPC separately from hosted gateway px methods."
+source_2 = "record 22.30.175 [doc.05] (misleading): Lines 14,19,27-30 advertise retired router paths, a separate sequencer pod and custody-credit funding; see finding.platform-router-retirement. Root-path RPC and native funding replacements need to be stated."
+source_3 = "record 22.30.55 [doc.7] (misleading): Read all 43 lines; lines 14, 19 and 27-30 advertise retired unified RPC/router and sequencer deployment surfaces. See platform-retired-rpc."
+
+[page.3]
+path = "docs/site/docs/protocol/commitment-levels.md"
+status = "stale"
+bytes = 3255
+source_1 = "record 22.30.138 [doc.07] (stale): Read in full. Current-deployment transport/topology or finality drift is anchored in commitment-finality-doc. Rewrite for one paxd chain, root node RPC and committed-block finality."

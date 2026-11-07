@@ -161,3 +161,9 @@ func (suite *IntegrationTestSuite) TestQuerierRouteNotFound() {
 	_, err := querier(ctx, []string{"invalid"}, req)
 	suite.Error(err)
 }
+
+// TestQuerier_QueryTotalSupplyRESTPagination retains the direct querier assertions
+// and compares them with requests produced by the registered legacy REST handler.
+func (suite *IntegrationTestSuite) TestQuerier_QueryTotalSupplyRESTPagination() {
+	repairM665SupplyPages(suite.T())
+}

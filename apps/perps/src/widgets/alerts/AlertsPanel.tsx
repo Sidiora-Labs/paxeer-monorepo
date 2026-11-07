@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { Lock, Trash2, Bell, Loader2 } from "lucide-react";
 import { useSignMessage } from "wagmi";
 import { cn } from "@/ui/utils/cn";
@@ -11,9 +11,14 @@ import {
   type PerfdbAlert,
 } from "@/hooks/perps/usePerfdbAlerts";
 import { usePerfdbAuth } from "@/hooks/perps/usePerfdbAuth";
-import { PERPS_MARKETS } from "@/core/perps/config";
+import { marketLabel as catalogMarketLabel } from "@/core/perps/marketLabel";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { classifyError } from "@/core/errors/classify";
 import { reportError } from "@/core/errors/report";
+
+export function alertErrorText(error: ReturnType<typeof classifyError>): string {
+  return error.suggestedFix ? `${error.message} ${error.suggestedFix}` : error.message;
+}
 
 interface AlertsPanelProps {
   address: string | undefined;
@@ -26,10 +31,15 @@ const ALERT_TYPE_OPTIONS: { value: AlertType; label: string }[] = [
   { value: "funding_threshold", label: "Funding Threshold" },
 ];
 
-function marketLabel(marketId: number | null): string {
+function marketLabel(
+  marketId: number | null,
+  catalog: ReturnType<typeof usePerpsMarkets>["catalog"],
+): string {
   if (marketId === null || marketId === undefined) return "All markets";
-  const m = PERPS_MARKETS.find((mk) => mk.marketId === marketId);
-  return m ? `${m.symbol}/USD` : `Market ${marketId}`;
+  return `${catalogMarketLabel(
+    BigInt(marketId),
+    catalog.map((market) => ({ ...market, marketId: BigInt(market.marketId) })),
+  )}/USD`;
 }
 
 function alertTypeLabel(t: AlertType): string {
@@ -37,6 +47,7 @@ function alertTypeLabel(t: AlertType): string {
 }
 
 export function AlertsPanel({ address }: AlertsPanelProps) {
+  const { catalog } = usePerpsMarkets();
   const { alerts, isLoading, error, createAlert, deleteAlert } =
     usePerfdbAlerts(address);
   const auth = usePerfdbAuth();
@@ -57,12 +68,12 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
     setFormError(null);
     try {
       await auth.authenticate(address, async (msg) =>
-        signMessageAsync({ message: msg })
+        signMessageAsync({ message: msg }),
       );
     } catch (err) {
       const ufe = classifyError(err, "alerts/sign-in");
       setFormError(
-        ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+        alertErrorText(ufe),
       );
       void reportError(ufe);
     } finally {
@@ -84,21 +95,21 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
         await createAlert(
           selectedType,
           marketId,
-          threshold.trim() === "" ? undefined : threshold.trim()
+          threshold.trim() === "" ? undefined : threshold.trim(),
         );
         setMarketIdStr("");
         setThreshold("");
       } catch (err) {
         const ufe = classifyError(err, "alerts/create");
         setFormError(
-          ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+          alertErrorText(ufe),
         );
         void reportError(ufe);
       } finally {
         setIsSubmitting(false);
       }
     },
-    [createAlert, selectedType, marketIdStr, threshold]
+    [createAlert, selectedType, marketIdStr, threshold],
   );
 
   const handleDelete = useCallback(
@@ -109,14 +120,14 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
       } catch (err) {
         const ufe = classifyError(err, "alerts/delete");
         setFormError(
-          ufe.suggestedFix ? `${ufe.message} ${ufe.suggestedFix}` : ufe.message,
+          alertErrorText(ufe),
         );
         void reportError(ufe);
       } finally {
         setDeletingId(null);
       }
     },
-    [deleteAlert]
+    [deleteAlert],
   );
 
   // ── Auth gate ─────────────────────────────────────────────────
@@ -193,18 +204,16 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
                       "text-xs px-2 py-0.5 rounded-full",
                       a.isActive
                         ? "bg-emerald-500/20 text-emerald-400"
-                        : "bg-muted text-muted-foreground"
+                        : "bg-muted text-muted-foreground",
                     )}
                   >
                     {alertTypeLabel(a.alertType)}
                   </span>
                   <span className="text-sm text-muted-foreground">
-                    {marketLabel(a.marketId)}
+                    {marketLabel(a.marketId, catalog)}
                   </span>
                   {a.threshold && (
-                    <span className="text-sm font-mono">
-                      @ {a.threshold}
-                    </span>
+                    <span className="text-sm font-mono">@ {a.threshold}</span>
                   )}
                 </div>
                 <button
@@ -239,9 +248,7 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
             <select
               className="w-full rounded-[var(--radius-md)] bg-surface-2 px-3 py-2 text-sm"
               value={selectedType}
-              onChange={(e) =>
-                setSelectedType(e.target.value as AlertType)
-              }
+              onChange={(e) => setSelectedType(e.target.value as AlertType)}
             >
               {ALERT_TYPE_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>
@@ -275,9 +282,7 @@ export function AlertsPanel({ address }: AlertsPanelProps) {
             />
           </div>
         </div>
-        {formError && (
-          <p className="text-xs text-red-500">{formError}</p>
-        )}
+        {formError && <p className="text-xs text-red-500">{formError}</p>}
         {error && !formError && (
           <p className="text-xs text-red-500">{error.message}</p>
         )}

@@ -2,6 +2,7 @@ package server
 
 import (
 	"bytes"
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/hex"
@@ -25,7 +26,7 @@ import (
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/policy/lx"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/store"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealer"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/human/wallet/attestor/internal/tss/dealershare"
 )
 
 func importEd25519(t *testing.T, c *testCluster, keyID, label string) (ed25519.PublicKey, string) {
@@ -79,10 +80,10 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		_, _ = c.post(stopped.apiAddr, PathRefresh, RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key"}, "")
+		_, _ = c.post(stopped.apiAddr, PathRefresh, RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64)}, "")
 	}()
 	results := c.callAll(t, others, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key"}
+		return RefreshRequest{SessionID: "refresh-stopped", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64)}
 	}, "")
 	select {
 	case <-staged:
@@ -126,7 +127,7 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 	verifyBind(t, "sign at the old epoch after the node returned", pub, account, signBind(t, c, "lx-key", "sign-after-return", []string{"node-1", "node-3", "node-5"}, account, c.idp.mint(t, c.idp.key, testOwner)))
 
 	refreshed := decodeOK[KeyResponse](t, "refresh with every participant", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-all", KeyID: "lx-key"}
+		return RefreshRequest{SessionID: "refresh-all", KeyID: "lx-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-lx-key", ExpectedEpoch: new(uint64), RecoverySessionID: "refresh-stopped"}
 	}, ""))
 	for _, r := range refreshed {
 		if r.Epoch != 1 || !r.Refreshed {
@@ -138,6 +139,7 @@ func TestRefreshKeepsTheOldEpochWhenAParticipantStopsBeforeCommit(t *testing.T) 
 			t.Fatalf("%s: committed epoch after a full refresh: %+v %v", n.id, rec, err)
 		}
 	}
+	c.publishImportEpoch(t, "lx-key", 1)
 	verifyBind(t, "sign at the new epoch", pub, account, signBind(t, c, "lx-key", "sign-new-epoch", []string{"node-2", "node-4", "node-5"}, account, c.idp.mint(t, c.idp.key, testOwner)))
 
 	_, account2 := importEd25519(t, c, "skew-key", "attestor epoch skew ed25519 key")
@@ -177,13 +179,14 @@ func TestSpendLedgerHoldsAcrossSignerSetsAndRestarts(t *testing.T) {
 	address := gethcrypto.PubkeyToAddress(key.PublicKey)
 	importKey(t, c, "evm-key", dealer.Secp256k1, new(big.Int).SetBytes(seed[:]), "")
 	for _, r := range decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-ledger", KeyID: "evm-key"}
+		return RefreshRequest{SessionID: "refresh-ledger", KeyID: "evm-key", CeremonyID: "metrics-ceremony", ImportSessionID: "import-evm-key", ExpectedEpoch: new(uint64)}
 	}, "")) {
 		if r.Epoch != 1 {
 			t.Fatalf("%s: refresh committed epoch %d", r.NodeID, r.Epoch)
 		}
 	}
 
+	c.publishImportEpoch(t, "evm-key", 1)
 	to := common.HexToAddress("0x1111111111111111111111111111111111111111")
 	txSigner := types.LatestSignerForChainID(big.NewInt(testChainID))
 	onePAX := big.NewInt(1_000_000_000_000_000_000)
@@ -260,7 +263,7 @@ func TestStalledPeerAbortsTheSessionWithAnAuditEntry(t *testing.T) {
 	verifyBind(t, "sign after a stalled session", pub, account, signBind(t, c, "lx-key", "sign-after-stall", signers, account, c.idp.mint(t, c.idp.key, testOwner)))
 }
 
-const kernelLedgerPolicy = `{"version":1,"defaults":{"modules":{"programs":[5]},"caps":{"native":{"per_operation":"6000000","daily":"%s"}}}}`
+const kernelLedgerPolicy = `{"version":1,"defaults":{"modules":{"asset":[5]},"caps":{"native":{"per_operation":"6000000","daily":"%s"}}}}`
 
 var kernelNative = "lx:" + hex.EncodeToString(make([]byte, 32))
 
@@ -289,54 +292,113 @@ func importKernelKey(t *testing.T, c *testCluster, keyID, label, account string)
 
 func programTransfer(t *testing.T, pub ed25519.PublicKey, sequence uint64, amount int64) ([]byte, []byte) {
 	t.Helper()
-	var key [32]byte
-	copy(key[:], pub)
-	did := lxwire.DIDFromKey(key)
-	from, err := lxwire.AccountID([]byte(lxwire.MainAccountName(did)))
-	if err != nil {
-		t.Fatal(err)
+	if amount < 0 {
+		t.Fatal("send amount must be nonnegative")
 	}
-	to, err := lxwire.AccountID([]byte(lxwire.MainAccountName(lxwire.DIDFromKey(sha256.Sum256([]byte("kernel ledger recipient"))))))
-	if err != nil {
-		t.Fatal(err)
-	}
-	program := sha256.Sum256([]byte("kernel ledger program"))
-	value := make([]byte, 16)
-	big.NewInt(amount).FillBytes(value)
-	payload := append(append([]byte{}, program[:]...), 0, 1)
-	payload = append(append(append(append(payload, from[:]...), make([]byte, 32)...), to[:]...), value...)
 	now := uint64(time.Now().Unix())
-	a := &lxwire.Activity{
-		ProtocolVersion: lxwire.MaxProtocolVersion,
-		NetworkID:       testChainID,
-		Type:            lx.OpProgramCall,
-		ActorDID:        []byte(did),
-		Authority:       key[:],
-		AccountSequence: sequence,
-		NotBefore:       now - 60,
-		NotAfter:        now + 600,
-		IdempotencyKey:  sha256.Sum256([]byte(fmt.Sprintf("kernel ledger activity %d", sequence))),
-		FeeLimit:        lxwire.Uint128{Lo: 1000},
-		PayloadHash:     lxwire.PayloadHash(payload),
-		Payload:         payload,
+	pending := newPendingSend(t, pub, nil, sequence, uint64(amount), now-60, now+600)
+	return pending.envelope(t), pending.digest(t)
+}
+
+// signKernel authorizes a send, then injects an accepted debit for ledger tests.
+// This helper does not supply production committed-receipt evidence.
+func signKernel(t *testing.T, c *testCluster, keyID, session string, signers []string, unsigned []byte) []apiResult {
+	t.Helper()
+	disclosure, approval := approvedActivity(t, c, unsigned, keyID, session, testOwner)
+	results := c.callAll(t, c.byID(signers...), PathSign, func(*testNode) any {
+		return SignRequest{SessionID: session, KeyID: keyID, Kind: KindLXSendAuth, Signers: signers, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}
+	}, c.idp.mint(t, c.idp.key, testOwner))
+	for _, result := range results {
+		if result.status != http.StatusOK {
+			return results
+		}
 	}
+	a, err := lxwire.DecodeUnsignedActivity(unsigned, c.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	send, _, err := lx.DecodeSendAuthorization(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	responses := decodeOK[SignResponse](t, "authorize ledger send", results)
+	signature, err := hex.DecodeString(responses[0].Signature)
+	if err != nil || len(signature) != ed25519.SignatureSize {
+		t.Fatalf("invalid send authorization signature: %v", err)
+	}
+	copy(send.Signature[:], signature)
+	payload, err := send.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.Payload, a.PayloadHash = payload, lxwire.PayloadHash(payload)
+	completed, err := lxwire.EncodeUnsignedActivity(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	acceptKernelSend(t, c, keyID, session, signers[0], completed)
+	return results
+}
+
+func acceptKernelSend(t *testing.T, c *testCluster, keyID, session, nodeID string, completed []byte) {
+	t.Helper()
+	node := c.byID(nodeID)[0]
+	rec, held, failure := node.server.loadShare(keyID)
+	if failure != nil {
+		t.Fatal(failure)
+	}
+	a, err := lxwire.DecodeUnsignedActivity(completed, c.registry)
+	if err != nil {
+		t.Fatal(err)
+	}
+	send, err := lxwire.DecodeSend(a.Payload)
+	if err != nil || !send.AuthorizationValid() || !bytes.Equal(send.PublicKey[:], rec.PublicKey) {
+		t.Fatalf("completed send has no valid held-key authorization: %v", err)
+	}
+	effect, err := lx.DecodeEffect(a)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := send.AuthorizationDigest()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var pub [32]byte
+	copy(pub[:], rec.PublicKey)
+	disclosure := lx.Disclosure{Account: effect.Account, Module: "asset", Operation: a.Type.Ordinal(),
+		Amounts: effect.Amounts, Destinations: effect.Destinations, Sequence: a.AccountSequence, NotBefore: a.NotBefore, NotAfter: a.NotAfter}
+	send.Signature = [64]byte{}
+	a.Payload, err = send.Encode()
+	if err != nil {
+		t.Fatal(err)
+	}
+	a.PayloadHash = lxwire.PayloadHash(a.Payload)
 	unsigned, err := lxwire.EncodeUnsignedActivity(a)
 	if err != nil {
 		t.Fatal(err)
 	}
-	pre, err := lxwire.SignaturePreimage(a)
+	decision := node.server.opts.Kernel.EvaluateSendAuthorization(common.HexToAddress(held.Account),
+		&lx.SendAuthorizationRequest{Envelope: unsigned, Digest: digest, PublicKey: pub, Disclosure: disclosure},
+		node.server.spends.ForRequest(requestID(keyID, session)))
+	if !decision.Allowed {
+		t.Fatalf("completed send policy refused: %s: %s", decision.Code, decision.Reason)
+	}
+	if len(decision.Spends) != 0 {
+		t.Fatalf("send authorization recorded spends: %+v", decision.Spends)
+	}
+	debit, err := lx.DecodeAuthorizedSendDebit(lx.SendDebitBinding{
+		KeyID: keyID, Account: common.HexToAddress(held.Account), PublicKey: pub,
+		NetworkID: testChainID, AuthorizationDigest: digest,
+	}, completed)
 	if err != nil {
 		t.Fatal(err)
 	}
-	return unsigned, pre[:]
-}
-
-func signKernel(t *testing.T, c *testCluster, keyID, session string, signers []string, unsigned []byte) []apiResult {
-	t.Helper()
-	disclosure, approval := approvedActivity(t, c, unsigned, keyID, session, testOwner)
-	return c.callAll(t, c.byID(signers...), PathSign, func(*testNode) any {
-		return SignRequest{SessionID: session, KeyID: keyID, Kind: KindLXActivity, Signers: signers, Activity: hex.EncodeToString(unsigned), Disclosure: disclosure, Approval: approval}
-	}, c.idp.mint(t, c.idp.key, testOwner))
+	if err := node.server.spends.Apply(policy.AccountKey(held.Account), requestID(keyID, session), debit.Spends, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if acked, silent := node.server.Announce(context.Background(), keyID, session, held.Account, rec.Participants, debit.Spends); acked != len(rec.Participants) {
+		t.Fatalf("completed send replicated to %d participants, silent %v", acked, silent)
+	}
 }
 
 func verifyKernel(t *testing.T, label string, pub ed25519.PublicKey, preimage []byte, results []apiResult) {
@@ -391,8 +453,9 @@ func TestRequestRateCountsEVMAndKernelSignsAcrossARestart(t *testing.T) {
 	address := gethcrypto.PubkeyToAddress(key.PublicKey)
 	importKey(t, c, "rate-evm", dealer.Secp256k1, new(big.Int).SetBytes(seed[:]), "")
 	decodeOK[KeyResponse](t, "refresh", c.callAll(t, c.nodes, PathRefresh, func(*testNode) any {
-		return RefreshRequest{SessionID: "refresh-rate", KeyID: "rate-evm"}
+		return RefreshRequest{SessionID: "refresh-rate", KeyID: "rate-evm", CeremonyID: "metrics-ceremony", ImportSessionID: "import-rate-evm", ExpectedEpoch: new(uint64)}
 	}, ""))
+	c.publishImportEpoch(t, "rate-evm", 1)
 	pub := importKernelKey(t, c, "rate-lx", "attestor shared rate ed25519 key", address.Hex())
 
 	to := common.HexToAddress("0x1111111111111111111111111111111111111111")

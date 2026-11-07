@@ -2,12 +2,10 @@ package layerx
 
 import (
 	"bytes"
-	"context"
 	"crypto/ed25519"
 	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
-	"io"
 	"os"
 	"testing"
 )
@@ -108,7 +106,26 @@ func TestNativeLifecycleCFixtures(t *testing.T) {
 					t.Fatalf("accepted changed protocol/type at %d", offset)
 				}
 			}
-			for length := 0; length < len(signed); length++ {
+			unsignedRequest, unsignedErr := NewNativeProgramLifecycleRequest(ordinal, payload, nil)
+			if ordinal == 1 || ordinal == 2 {
+				if unsignedErr != nil {
+					t.Fatalf("externally signed EVM lifecycle request rejected: %v", unsignedErr)
+				}
+				if !bytes.Equal(unsignedRequest.payload, payload) || len(unsignedRequest.signedActivity) != 0 || unsignedRequest.binding != (programCallBinding{}) {
+					t.Fatal("unsigned EVM lifecycle request changed its payload or claimed a native activity binding")
+				}
+				unsignedCalldata, err := unsignedRequest.EVMCalldata()
+				if err != nil {
+					t.Fatal(err)
+				}
+				signedCalldata, err := request.EVMCalldata()
+				if err != nil || !bytes.Equal(unsignedCalldata, signedCalldata) {
+					t.Fatalf("native signed activity changed the EVM lifecycle calldata: %v", err)
+				}
+			} else if unsignedErr == nil {
+				t.Fatal("accepted unsigned native wind-down")
+			}
+			for length := 1; length < len(signed); length++ {
 				if _, err := NewNativeProgramLifecycleRequest(ordinal, payload, signed[:length]); err == nil {
 					t.Fatalf("accepted signed prefix %d", length)
 				}
@@ -167,56 +184,10 @@ func TestNativeLifecycleRefusals(t *testing.T) {
 	}
 }
 
-func TestNativeLifecycleHTTPRequestsAreSignedOctets(t *testing.T) {
-	secret, err := NewSecretBytes([]byte("fixture-bearer"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer secret.Destroy()
-	transport, err := NewProgramBearerHTTPTransport("http://127.0.0.1:8080", nil, secret)
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, name := range []string{"deploy", "upgrade", "wind-down-route", "wind-down-deprecate", "wind-down-tombstone", "wind-down-exit"} {
-		ordinal, payload, signed, fixture := lifecycleFixture(t, name)
-		operation := map[uint16]string{1: "program.deploy", 2: "program.upgrade", 7: "program.wind-down"}[ordinal]
-		key, err := NewIdempotencyKey(hex.EncodeToString(lifecycleFixtureBytes(t, fixture, "idempotency_key_hex")))
-		if err != nil {
-			t.Fatal(err)
-		}
-		body, err := json.Marshal(map[string]string{"payload": hex.EncodeToString(payload), "signed_activity": hex.EncodeToString(signed)})
-		if err != nil {
-			t.Fatal(err)
-		}
-		call := TransportCall{Plane: PlaneAgent, Operation: operation, Request: body, IdempotencyKey: key}
-		request, err := transport.request(context.Background(), call)
-		if err != nil {
-			t.Fatal(err)
-		}
-		encoded, err := io.ReadAll(request.Body)
-		request.Body.Close()
-		if err != nil {
-			t.Fatal(err)
-		}
-		if !bytes.Equal(encoded, signed) || request.Method != "POST" || request.URL.Path != programLifecyclePaths[operation] || request.Header.Get("Content-Type") != "application/octet-stream" || request.Header.Get("Idempotency-Key") != key.String() || request.Header.Get("Authorization") != "Bearer fixture-bearer" {
-			t.Fatal("lifecycle HTTP binding differs")
-		}
-		call.IdempotencyKey = IdempotencyKey{}
-		if _, err := transport.request(context.Background(), call); err == nil {
-			t.Fatal("missing idempotency accepted")
-		}
-		call.IdempotencyKey, err = NewIdempotencyKey(hex.EncodeToString(make([]byte, 32)))
-		if err != nil {
-			t.Fatal(err)
-		}
-		if _, err := transport.request(context.Background(), call); err == nil {
-			t.Fatal("different idempotency accepted")
-		}
-	}
-}
-
+// TestLifecycleVerifierRejectsCallOutcomeReceipt constructs a signed CALL outcome
+// bound to the retained v4 activity: no retained fixture carries a CALL receipt.
 func TestLifecycleVerifierRejectsCallOutcomeReceipt(t *testing.T) {
-	raw, err := os.ReadFile("../conformance/fixtures/receipt-programs-positive-v3.json")
+	raw, err := os.ReadFile("../conformance/fixtures/native-program-call-v4.json")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -224,17 +195,95 @@ func TestLifecycleVerifierRejectsCallOutcomeReceipt(t *testing.T) {
 	if err := json.Unmarshal(raw, &fixture); err != nil {
 		t.Fatal(err)
 	}
-	canonical := lifecycleFixtureBytes(t, fixture, "canonical_receipt_hex")
+	for field, expected := range map[string]uint16{"protocol_version": 3, "module": 9, "ordinal": 3} {
+		var value uint16
+		if err := json.Unmarshal(fixture[field], &value); err != nil || value != expected {
+			t.Fatalf("invalid %s in retained CALL activity", field)
+		}
+	}
+	activity := lifecycleFixtureBytes(t, fixture, "activity_id_hex")
+	if len(activity) != 32 {
+		t.Fatal("invalid CALL activity ID length")
+	}
+	receipt := ProtocolReceipt{
+		ProtocolVersion: 3, GlobalSequence: 1, ResultingStateRoot: [32]byte{1},
+		ModuleID: 9, ModuleVersion: 4, ParameterVersion: 1, Timestamp: 1,
+		ResultCode: 1,
+	}
+	copy(receipt.ActivityID[:], activity)
+	key := ed25519.NewKeyFromSeed(bytes.Repeat([]byte{1}, ed25519.SeedSize))
+	var sequencer [32]byte
+	copy(sequencer[:], key.Public().(ed25519.PublicKey))
+	signReceipt := func(outcome []byte) []byte {
+		unsigned := encodeSequencerReceipt(receipt, false)
+		unsigned = append(unsigned[:len(unsigned)-1], outcome...)
+		unsigned = append(unsigned, 0)
+		digest := domainDigest(receiptDomain, unsigned)
+		canonical := append(unsigned[:len(unsigned)-1], 1)
+		canonical = appendUint32(canonical, ed25519.SignatureSize)
+		return append(canonical, ed25519.Sign(key, digest[:])...)
+	}
+	control := signReceipt(nil)
+	decodedControl, err := decodeProtocolReceipt(control)
+	if err != nil {
+		t.Fatal(err)
+	}
+	controlDigest := domainDigest(receiptDomain, decodedControl.unsigned)
+	if !ed25519.Verify(sequencer[:], controlDigest[:], decodedControl.signature[:]) {
+		t.Fatal("legacy lifecycle control signature is invalid")
+	}
+	if verified, err := VerifyProgramLifecycleReceipt(control, receipt.ActivityID, sequencer); err == nil || verified.Level != "" {
+		t.Fatalf("valid retired lifecycle receipt accepted: %+v %v", verified, err)
+	}
+
+	// A v4 revert outcome has no occupancy or transfer effects.
+	outcome := appendUint32(nil, ProgramOutcomeTagV4)
+	outcome = append(outcome, 2) // Reverted terminal.
+	outcome = appendUint32(outcome, uint32(receipt.ResultCode))
+	outcome = appendUint16(outcome, 1) // Runtime version.
+	outcome = appendUint16(outcome, 4) // ABI version.
+	outcome = appendUint32(outcome, 1) // Fee schedule version.
+	outcome = appendUint32(outcome, 1) // Metering schedule version.
+	for range [4]uint64{} {            // CPU, memory, storage read and storage write.
+		outcome = appendUint64(outcome, 0)
+	}
+	outcome = appendUint32(outcome, 0) // Output values.
+	outcome = appendUint64(outcome, 0) // Output bytes.
+	for range [4]uint64{} {            // Occupancy byte-batches and fee units (u128).
+		outcome = appendUint64(outcome, 0)
+	}
+	for range [7]uint64{} { // Fee schedule prices.
+		outcome = appendUint64(outcome, 0)
+	}
+	appendRoot := func(root [32]byte) {
+		outcome = appendUint32(outcome, uint32(len(root)))
+		outcome = append(outcome, root[:]...)
+	}
+	for range [3]uint8{} { // Occupancy asset, evidence digest and transfer root.
+		appendRoot([32]byte{})
+	}
+	outcome = appendUint64(outcome, 0) // Fee units (u128).
+	outcome = appendUint64(outcome, 0)
+	appendRoot([32]byte{1}) // Call graph root.
+	appendRoot([32]byte{2}) // Terminal payload root.
+	appendRoot([32]byte{})  // Transfer root.
+	appendRoot([32]byte{3}) // Applied legs digest.
+	receipt.Operation = 3
+	canonical := signReceipt(outcome)
 	decoded, err := decodeProtocolReceipt(canonical)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if decoded.protocol.Operation != 3 {
-		t.Fatal("fixture is not a CALL outcome")
+	if decoded.protocol.Operation != 3 || decoded.protocol.ProgramOutcome == nil || decoded.protocol.ProgramOutcome.EncodingVersion != 4 || decoded.activityID != receipt.ActivityID {
+		t.Fatal("constructed receipt is not a v4 CALL outcome for the retained activity")
 	}
-	_, err = VerifyProgramLifecycleReceipt(canonical, decoded.activityID, [32]byte{1})
+	digest := domainDigest(receiptDomain, decoded.unsigned)
+	if !ed25519.Verify(sequencer[:], digest[:], decoded.signature[:]) {
+		t.Fatal("constructed CALL receipt signature is invalid")
+	}
+	_, err = VerifyProgramLifecycleReceipt(canonical, decoded.activityID, sequencer)
 	refusal, ok := err.(*VerificationError)
 	if !ok || refusal.Check != ReceiptCheckReceiptShape {
-		t.Fatal("CALL outcome accepted as a lifecycle state receipt")
+		t.Fatalf("want CALL outcome refusal at receipt shape, got %v", err)
 	}
 }

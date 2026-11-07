@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/Sidiora-Technologies/KindleLaunch/core/indexer/internal/decode"
+	"github.com/Sidiora-Technologies/KindleLaunch/shared/accounting"
 	"github.com/Sidiora-Technologies/KindleLaunch/shared/config/deployment"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -66,6 +67,7 @@ type DiscoveredMarket struct {
 	Token, Pool      common.Address
 	Height           uint64
 	TransactionIndex uint
+	Creation         *MarketCreationProvenance `json:",omitempty"`
 }
 
 type pinnedBlock struct {
@@ -290,12 +292,16 @@ func (a *RPCQualification) immutableRanges(e RPCCodeEpoch) []CodeRange {
 	if e.Identity.Kind != "direct" || e.Deployment.Role != "SidioraERC20" {
 		return nil
 	}
-	for _, id := range a.options.Manifest.Roles {
+	manifest, err := a.epochManifest(e)
+	if err != nil {
+		return nil
+	}
+	for _, id := range manifest.Roles {
 		if common.HexToAddress(id.Address) == e.Deployment.Address {
 			return nil
 		}
 	}
-	for _, template := range a.options.Discovery {
+	for _, template := range a.epochDiscovery(e) {
 		if template.Role == "SidioraERC20" && template.ABIRevision == e.Deployment.ABIRevision && common.HexToHash(template.RuntimeHash) == common.HexToHash(e.Identity.RuntimeHash) {
 			return template.Immutables
 		}
@@ -369,11 +375,18 @@ func (a *RPCQualification) discoveryEpoch(owned RPCOptions, address common.Addre
 	}
 	identity := deployment.Role{Address: address.Hex(), Kind: "direct", RuntimeHash: template.RuntimeHash}
 	if role == "SidioraPool" {
-		beacon := owned.Manifest.Roles["PoolBeacon"]
-		identity.Kind = "beacon_proxy"
-		identity.BeaconAddress = beacon.Address
-		identity.ImplementationAddress = beacon.ImplementationAddress
-		identity.ImplementationHash = beacon.ImplementationHash
+		switch template.Kind {
+		case "", "beacon_proxy":
+			beacon := owned.Manifest.Roles["PoolBeacon"]
+			identity.Kind = "beacon_proxy"
+			identity.BeaconAddress = beacon.Address
+			identity.ImplementationAddress = beacon.ImplementationAddress
+			identity.ImplementationHash = beacon.ImplementationHash
+		case "surface":
+			identity.Kind = "surface"
+		default:
+			return RPCCodeEpoch{}, ErrQualification
+		}
 	}
 	return RPCCodeEpoch{Deployment: decode.Deployment{Address: address, Role: role, ABIRevision: template.ABIRevision, From: from}, Identity: identity}, nil
 }
@@ -393,9 +406,12 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	}
 	read, cancel := context.WithTimeout(ctx, a.options.Timeout)
 	defer cancel()
-	_, head, err := a.headerByNumber(read, nil)
+	headHeader, head, err := a.headerByNumber(read, nil)
 	if err != nil {
 		return err
+	}
+	if headHeader.Number.Uint64() < a.options.Manifest.ActivationHeight {
+		return fmt.Errorf("%w: rehydrate head below activation", ErrQualification)
 	}
 	a.sourceMu.Lock()
 	defer a.sourceMu.Unlock()
@@ -405,7 +421,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	}
 	owned, err := clone(base.options)
 	if err != nil {
-		return err
+		return fmt.Errorf("%w: rehydrate runtime options: %v", ErrQualification, err)
 	}
 	known := map[common.Address]bool{}
 	for _, e := range owned.Epochs {
@@ -415,42 +431,86 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	registry := common.HexToAddress(owned.Manifest.Roles["PoolRegistry"].Address)
 	changed := false
 	for _, market := range markets {
-		if market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || market.Height < owned.Manifest.ActivationHeight {
-			return ErrQualification
+		if market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || market.Height > headHeader.Number.Uint64() {
+			return fmt.Errorf("%w: rehydrate market coordinates", ErrQualification)
 		}
-		from := decode.Order{Block: market.Height, Transaction: market.TransactionIndex, Log: 0}
-		for _, item := range []struct {
-			Address common.Address
-			Role    string
-		}{{market.Token, "SidioraERC20"}, {market.Pool, "SidioraPool"}} {
-			if known[item.Address] {
-				continue
-			}
-			e, err := base.discoveryEpoch(owned, item.Address, item.Role, from)
+		generation := base
+		if market.Height < owned.Manifest.ActivationHeight {
+			generation, err = base.historicalAuthority(read, market.Height)
 			if err != nil {
-				return err
+				return fmt.Errorf("%w: rehydrate historical authority: %v", ErrQualification, err)
 			}
-			if _, err = base.validateCode(read, e, head); err != nil {
-				return fmt.Errorf("%w: rehydrate %s %s", err, item.Role, strings.ToLower(item.Address.Hex()))
+			if err = generation.proveHistoricalMarket(read, market); err != nil {
+				return fmt.Errorf("%w: rehydrate historical creation: %v", ErrQualification, err)
+			}
+			for _, epoch := range generation.options.Epochs {
+				// A role at a reused address switches at the already configured
+				// epoch; distinct historical surfaces retain their own identity.
+				for _, next := range owned.Epochs {
+					if next.Deployment.Address == epoch.Deployment.Address && next.Deployment.From.Block > epoch.Deployment.From.Block && (epoch.Deployment.Until == nil || next.Deployment.From.Block < epoch.Deployment.Until.Block) {
+						until := next.Deployment.From
+						epoch.Deployment.Until = &until
+					}
+				}
+				duplicate := false
+				for _, prior := range owned.Epochs {
+					if prior.Deployment.Address == epoch.Deployment.Address && prior.Deployment.Role == epoch.Deployment.Role && prior.Deployment.From == epoch.Deployment.From {
+						duplicate = true
+						break
+					}
+				}
+				if !duplicate {
+					if len(owned.Epochs) >= 4096 {
+						return ErrQualification
+					}
+					owned.Epochs = append(owned.Epochs, epoch)
+					changed = true
+				}
+			}
+		}
+		factory = common.HexToAddress(generation.options.Manifest.Roles["SidioraFactory"].Address)
+		marketEpochs, err := base.rehydratedMarketEpochs(market, generation)
+		if err != nil {
+			return fmt.Errorf("%w: rehydrate market epochs: %v", ErrQualification, err)
+		}
+		for _, e := range marketEpochs {
+			at := head
+			if e.Deployment.Until != nil && e.Deployment.Until.Block <= owned.Manifest.ActivationHeight {
+				at = market.Creation.BlockHash
+			}
+			if _, err = base.validateCode(read, e, at); err != nil {
+				return fmt.Errorf("%w: rehydrate %s %s", err, e.Deployment.Role, strings.ToLower(e.Deployment.Address.Hex()))
+			}
+			if known[e.Deployment.Address] {
+				matched := false
+				for _, prior := range owned.Epochs {
+					if prior.Deployment.Address == e.Deployment.Address && prior.Deployment.Role == e.Deployment.Role && prior.Deployment.From == e.Deployment.From && prior.Identity == e.Identity && prior.Deployment.ABIRevision == e.Deployment.ABIRevision && prior.SourceActivationHeight == e.SourceActivationHeight {
+						matched = true
+					}
+				}
+				if !matched {
+					return fmt.Errorf("%w: rehydrate conflicting %s epoch", ErrQualification, e.Deployment.Role)
+				}
+				continue
 			}
 			if len(owned.Epochs) >= 4096 {
 				return ErrQualification
 			}
 			owned.Epochs = append(owned.Epochs, e)
-			known[item.Address] = true
 			changed = true
 		}
+		known[market.Token], known[market.Pool] = true, true
 		source, err := base.address(read, market.Token, "deploymentFactory()", head)
 		if err != nil || source != factory {
-			return ErrQualification
+			return fmt.Errorf("%w: rehydrate deployment factory %s, expected %s: %v", ErrQualification, source, factory, err)
 		}
 		registered, err := base.word(read, registry, "isRegisteredPool(address)", head, market.Pool)
 		if err != nil || new(big.Int).SetBytes(registered).Cmp(big.NewInt(1)) != 0 {
-			return ErrQualification
+			return fmt.Errorf("%w: rehydrate pool registration: %v", ErrQualification, err)
 		}
 		linked, err := base.address(read, registry, "getPoolByToken(address)", head, market.Token)
 		if err != nil || linked != market.Pool {
-			return ErrQualification
+			return fmt.Errorf("%w: rehydrate pool token binding: %v", ErrQualification, err)
 		}
 	}
 	if !changed {
@@ -464,7 +524,7 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 	if err != nil {
 		return err
 	}
-	a.discovered = &RPCQualification{client: a.client, options: owned, registry: registryDecoder, manifestHash: a.manifestHash, privateFixture: a.privateFixture, reads: a.reads}
+	a.discovered = &RPCQualification{client: a.client, options: owned, registry: registryDecoder, manifestHash: a.manifestHash, privateFixture: a.privateFixture, identityVerified: a.identityVerified, reads: a.reads}
 	return nil
 }
 
@@ -472,6 +532,8 @@ func (a *RPCQualification) Rehydrate(ctx context.Context, markets []DiscoveredMa
 type PoolReserves struct {
 	VirtualUSDL, RealUSDL, Token, Price *big.Int
 }
+
+var getReservesSelector = crypto.Keccak256([]byte("getReserves()"))[:4]
 
 // PoolReserves reads getReserves() and getPrice() of a qualified pool pinned to
 // block (EIP-1898 by block identity), i.e. the pool state after that block.
@@ -495,7 +557,7 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	if err != nil {
 		return out, err
 	}
-	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: crypto.Keccak256([]byte("getReserves()"))[:4], Gas: rpcReadGas}, block)
+	raw, err := authority.client.CallContractAtHash(read, ethereum.CallMsg{To: &pool, Data: getReservesSelector, Gas: rpcReadGas}, block)
 	release()
 	if err != nil {
 		return out, errors.Join(ErrQualification, err)
@@ -509,4 +571,221 @@ func (a *RPCQualification) PoolReserves(ctx context.Context, pool common.Address
 	}
 	out = PoolReserves{VirtualUSDL: new(big.Int).SetBytes(raw[:32]), RealUSDL: new(big.Int).SetBytes(raw[32:64]), Token: new(big.Int).SetBytes(raw[64:96]), Price: new(big.Int).SetBytes(price)}
 	return out, nil
+}
+
+// RPCGeneration supplies the reviewed code templates and ABI epochs for an
+// approved earlier deployment. The manifest itself is loaded from approved
+// history, so caller-provided generation data cannot select a new deployment.
+type RPCGeneration struct {
+	ActivationHeight uint64
+	Epochs           []RPCCodeEpoch
+	Discovery        []RPCDiscovery
+}
+
+// MarketCreationProvenance binds a durable market to the originally qualified
+// creation. Boot must carry these fields from the canonical creation row.
+type MarketCreationProvenance struct {
+	TransactionHash common.Hash
+	BlockHash       common.Hash
+	LogIndex        uint
+	Provenance      accounting.Provenance
+}
+
+// MigrateV6120 installs this exact nonpayable forwarding program on role and
+// market surfaces. The approved manifest's surface template predates the
+// CALLVALUE guard; the execution epoch must name the installed program.
+const migratedSurfaceRuntime = "0x3415600957600080fd5b363d3d373360601b36523d3d601436013d3d6110175af13d600060003e602e573d6000fd5b3d6000f3"
+
+func migratedRoleEpoch(manifest deployment.Manifest, e RPCCodeEpoch) RPCCodeEpoch {
+	if manifest.DeploymentVersion != "paxeer125-v6.12.0" || manifest.ActivationHeight != 37220320 || e.Deployment.From.Block < manifest.ActivationHeight {
+		return e
+	}
+	approved, ok := deployment.Approved(manifest.ActivationHeight)
+	if !ok || approved.Roles[e.Deployment.Role] != e.Identity || e.Identity.Kind != "surface" || e.Deployment.Address != common.HexToAddress(e.Identity.Address) {
+		return e
+	}
+	e.Identity.RuntimeHash = crypto.Keccak256Hash(common.FromHex(migratedSurfaceRuntime)).Hex()
+	return e
+}
+
+func (a *RPCQualification) rehydratedMarketEpochs(market DiscoveredMarket, generation *RPCQualification) ([]RPCCodeEpoch, error) {
+	if a == nil || generation == nil || market.Token == (common.Address{}) || market.Pool == (common.Address{}) || market.Token == market.Pool || market.Height < generation.options.Manifest.ActivationHeight {
+		return nil, ErrQualification
+	}
+	historical := generation.options.Manifest.ActivationHeight < a.options.Manifest.ActivationHeight
+	if historical && (market.Creation == nil || market.Height >= a.options.Manifest.ActivationHeight || market.Creation.Provenance.DeploymentID != generation.options.Manifest.DeploymentVersion) {
+		return nil, ErrQualification
+	}
+	var epochs []RPCCodeEpoch
+	for _, item := range []struct {
+		address common.Address
+		role    string
+	}{{market.Token, "SidioraERC20"}, {market.Pool, "SidioraPool"}} {
+		from := decode.Order{Block: market.Height, Transaction: market.TransactionIndex}
+		original, err := generation.discoveryEpoch(generation.options, item.address, item.role, from)
+		if err != nil {
+			return nil, err
+		}
+		if !historical {
+			epochs = append(epochs, original)
+			continue
+		}
+		activation := decode.Order{Block: a.options.Manifest.ActivationHeight}
+		original.Deployment.Until = &activation
+		active, err := a.discoveryEpoch(a.options, item.address, item.role, activation)
+		if err != nil {
+			return nil, err
+		}
+		if item.role == "SidioraPool" && active.Identity.Kind == "surface" {
+			// MigrateV6120 installs keeper.SurfaceRuntime on the approved
+			// historical pools. This nonpayable surface has its own exact code
+			// identity; the earlier discovery template names a different runtime.
+			active.Identity.RuntimeHash = crypto.Keccak256Hash(common.FromHex(migratedSurfaceRuntime)).Hex()
+		}
+		active.SourceActivationHeight = generation.options.Manifest.ActivationHeight
+		epochs = append(epochs, original, active)
+	}
+	return epochs, nil
+}
+
+func (a *RPCQualification) sourceManifest(e RPCCodeEpoch) (deployment.Manifest, error) {
+	if e.SourceActivationHeight == 0 {
+		return a.epochManifest(e)
+	}
+	if e.SourceActivationHeight >= a.options.Manifest.ActivationHeight || e.Deployment.From.Block < a.options.Manifest.ActivationHeight {
+		return deployment.Manifest{}, ErrQualification
+	}
+	manifest, approved := deployment.Approved(e.SourceActivationHeight)
+	if !approved {
+		return deployment.Manifest{}, ErrQualification
+	}
+	for _, generation := range a.options.History {
+		if generation.ActivationHeight == manifest.ActivationHeight {
+			return manifest, nil
+		}
+	}
+	return deployment.Manifest{}, ErrQualification
+}
+
+func approvedManifestAt(height uint64) (deployment.Manifest, error) {
+	var selected deployment.Manifest
+	for activation, ok := deployment.NextActivationHeight(0); ok && activation <= height; activation, ok = deployment.NextActivationHeight(activation) {
+		manifest, approved := deployment.Approved(activation)
+		if !approved {
+			return deployment.Manifest{}, ErrQualification
+		}
+		selected = manifest
+	}
+	if selected.ActivationHeight == 0 {
+		return deployment.Manifest{}, ErrQualification
+	}
+	return selected, nil
+}
+
+func (a *RPCQualification) epochManifest(e RPCCodeEpoch) (deployment.Manifest, error) {
+	if a.privateFixture || e.Deployment.From.Block >= a.options.Manifest.ActivationHeight {
+		return a.options.Manifest, nil
+	}
+	manifest, err := approvedManifestAt(e.Deployment.From.Block)
+	if err != nil {
+		return deployment.Manifest{}, err
+	}
+	for _, generation := range a.options.History {
+		if generation.ActivationHeight == manifest.ActivationHeight {
+			return manifest, nil
+		}
+	}
+	return deployment.Manifest{}, ErrQualification
+}
+
+func (a *RPCQualification) epochDiscovery(e RPCCodeEpoch) []RPCDiscovery {
+	if e.Deployment.From.Block < a.options.Manifest.ActivationHeight && !a.privateFixture {
+		manifest, err := a.epochManifest(e)
+		if err != nil {
+			return nil
+		}
+		for _, generation := range a.options.History {
+			if generation.ActivationHeight == manifest.ActivationHeight {
+				return generation.Discovery
+			}
+		}
+		return nil
+	}
+	return a.options.Discovery
+}
+
+func (a *RPCQualification) historicalAuthority(ctx context.Context, height uint64) (*RPCQualification, error) {
+	if a.privateFixture {
+		return nil, ErrQualification
+	}
+	manifest, err := approvedManifestAt(height)
+	if err != nil || manifest.ActivationHeight >= a.options.Manifest.ActivationHeight {
+		return nil, ErrQualification
+	}
+	for _, generation := range a.options.History {
+		if generation.ActivationHeight != manifest.ActivationHeight {
+			continue
+		}
+		options, err := clone(a.options)
+		if err != nil {
+			return nil, err
+		}
+		options.Manifest, options.Epochs, options.Discovery, options.History = manifest, generation.Epochs, generation.Discovery, nil
+		hash, err := manifest.Hash()
+		if err != nil {
+			return nil, err
+		}
+		return newRPCQualification(ctx, a.client, options, hash, false, func(_ context.Context, anchor BlockAnchor) error {
+			// The derived authority shares the already attested source and pin.
+			if !a.identityVerified || a.options.Anchor == nil || *a.options.Anchor != anchor {
+				return ErrAnchorUnavailable
+			}
+			return nil
+		})
+	}
+	return nil, ErrQualification
+}
+
+func (a *RPCQualification) proveHistoricalMarket(ctx context.Context, market DiscoveredMarket) error {
+	proof := market.Creation
+	if proof == nil || proof.BlockHash == (common.Hash{}) || proof.TransactionHash == (common.Hash{}) || proof.Provenance.DeploymentID != a.options.Manifest.DeploymentVersion {
+		return ErrQualification
+	}
+	bundle, err := a.Bundle(ctx, proof.TransactionHash)
+	if err != nil {
+		return err
+	}
+	if bundleBlockHash(bundle) != proof.BlockHash || bundle.Receipt.BlockNumber.Uint64() != market.Height || bundle.Receipt.TransactionIndex != market.TransactionIndex {
+		return ErrQualification
+	}
+	_, receipts, err := a.pinnedBlock(ctx, proof.BlockHash)
+	if err != nil {
+		return err
+	}
+	discovered, err := a.discover(ctx, receipts)
+	if err != nil {
+		return err
+	}
+	qualified, err := Qualify(ctx, discovered.registry, discovered, bundle)
+	if err != nil {
+		return err
+	}
+	for _, log := range bundle.Receipt.Logs {
+		if log.Index != proof.LogIndex {
+			continue
+		}
+		env, err := discovered.registry.Decode(*log)
+		if err != nil || env.Event == nil || env.EventName != "MarketCreated" || env.EmitterRole != "SidioraFactory" || log.Address != common.HexToAddress(a.options.Manifest.Roles["SidioraFactory"].Address) {
+			return ErrQualification
+		}
+		if env.Event.Args["token"] != strings.ToLower(market.Token.Hex()) || env.Event.Args["pool"] != strings.ToLower(market.Pool.Hex()) {
+			return ErrQualification
+		}
+		actual, err := qualified.SourceProvenance(ctx, log.Address)
+		if err != nil || actual != proof.Provenance {
+			return ErrQualification
+		}
+		return nil
+	}
+	return ErrQualification
 }

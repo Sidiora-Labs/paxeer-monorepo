@@ -2,7 +2,6 @@ import { Flex, VStack } from '@chakra-ui/react';
 import React from 'react';
 
 import type { NovesDescribeTxsResponse } from 'types/api/noves';
-import type { Transaction } from 'types/api/transaction';
 import type { ClusterChainConfig } from 'types/multichain';
 
 import config from 'configs/app';
@@ -22,6 +21,7 @@ import NativeCoinValue from 'ui/shared/value/NativeCoinValue';
 import TxAdditionalInfo from 'ui/txs/TxAdditionalInfo';
 
 import TxAdditionalInfoContent from './TxAdditionalInfoContent';
+import type { TransactionFeedItem } from './TxPriceUpdate';
 import { isPriceUpdate, PriceUpdateFromTo, priceUpdateHref, priceUpdateMethod } from './TxPriceUpdate';
 import TxTranslationType from './TxTranslationType';
 import TxType from './TxType';
@@ -29,7 +29,7 @@ import TxType from './TxType';
 const SELECTOR_LENGTH = 10;
 
 type Props = {
-  tx: Transaction;
+  tx: TransactionFeedItem;
   showBlockInfo: boolean;
   currentAddress?: string;
   enableTimeIncrement?: boolean;
@@ -53,13 +53,13 @@ const TxsTableItem = ({
   translationData,
   isMobile,
 }: Props) => {
-  const dataTo = tx.to ? tx.to : tx.created_contract;
-
-  const protocolTag = tx.to?.hash !== currentAddress && tx.to?.metadata?.tags?.find(tag => tag.tagType === 'protocol');
-
   const priceUpdate = isPriceUpdate(tx);
+  const evmTx = priceUpdate ? undefined : tx;
+  const dataTo = priceUpdate ? null : tx.to ?? tx.created_contract;
 
-  const evmMethod = tx.method ?? (tx.raw_input && tx.raw_input.length >= SELECTOR_LENGTH ? tx.raw_input.slice(0, SELECTOR_LENGTH) : undefined);
+  const protocolTag = evmTx?.to?.hash !== currentAddress && evmTx?.to?.metadata?.tags?.find(tag => tag.tagType === 'protocol');
+
+  const evmMethod = evmTx?.method ?? (evmTx?.raw_input && evmTx.raw_input.length >= SELECTOR_LENGTH ? evmTx.raw_input.slice(0, SELECTOR_LENGTH) : undefined);
   const method = priceUpdate ? priceUpdateMethod(tx) : evmMethod;
 
   return (
@@ -120,12 +120,12 @@ const TxsTableItem = ({
             return <TxType types={ tx.transaction_types } isLoading={ isLoading }/>;
           })() }
           { protocolTag && <EntityTag data={ protocolTag } isLoading={ isLoading } maxW="100%" noColors/> }
-          <TxWatchListTags tx={ tx } isLoading={ isLoading }/>
+          { !priceUpdate && <TxWatchListTags tx={ tx } isLoading={ isLoading }/> }
         </VStack>
       </TableCell>
       { showBlockInfo && (
-        <TableCell>
-          <Flex alignItems="center" gap={ 2 }>
+        <TableCell isNumeric>
+          <Flex alignItems="center" justifyContent="flex-end" gap={ 2 }>
             { tx.block_number && (
               <BlockEntity
                 isLoading={ isLoading }
@@ -135,7 +135,7 @@ const TxsTableItem = ({
                 fontWeight={ 500 }
               />
             ) }
-            { tx.is_pending_update && <BlockPendingUpdateHint view="tx"/> }
+            { evmTx?.is_pending_update && <BlockPendingUpdateHint view="tx"/> }
           </Flex>
         </TableCell>
       ) }
@@ -171,7 +171,7 @@ const TxsTableItem = ({
               exchangeRate={ tx.exchange_rate }
               historicalExchangeRate={ tx.historic_exchange_rate }
               layout="vertical"
-              rowGap={ 3 }
+              rowGap={ 0 }
             />
           ) }
         </TableCell>
@@ -185,7 +185,7 @@ const TxsTableItem = ({
               loading={ isLoading }
               noSymbol={ !(tx.celo || tx.stability_fee) }
               layout="vertical"
-              rowGap={ 3 }
+              rowGap={ 0 }
             />
           ) }
         </TableCell>

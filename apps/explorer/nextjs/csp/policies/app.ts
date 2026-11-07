@@ -1,5 +1,7 @@
 import type CspDev from 'csp-dev';
 
+import { getFeaturePayload } from 'configs/app/features/types';
+
 import config from 'configs/app';
 
 import { KEY_WORDS } from '../utils';
@@ -19,6 +21,18 @@ const externalFontsDomains = (() => {
       .map((urlString) => new URL(urlString))
       .map((url) => url.hostname);
   } catch (error) {}
+})();
+
+const apiDocsSpecDomains = (() => {
+  try {
+    const coreApiSpecUrl = getFeaturePayload(config.features.apiDocs)?.coreApiSpecUrl;
+    if (!coreApiSpecUrl) {
+      return [];
+    }
+    return [ new URL(coreApiSpecUrl).origin ];
+  } catch (error) {
+    return [];
+  }
 })();
 
 export function app(isPrivateMode = false): CspDev.DirectiveDescriptor {
@@ -47,6 +61,9 @@ export function app(isPrivateMode = false): CspDev.DirectiveDescriptor {
 
       // github (spec for api-docs page)
       'raw.githubusercontent.com',
+
+      // custom location of the core API spec (api-docs page)
+      ...apiDocsSpecDomains,
 
       // github api (used for Stylus contract verification)
       'api.github.com',

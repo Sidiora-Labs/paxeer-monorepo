@@ -38,6 +38,8 @@ type Eip712Precompile struct {
 
 var _ pcommon.PrecompileExecutor = (*Eip712Precompile)(nil)
 
+var domainTypeHash = crypto.Keccak256Hash([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"))
+
 func NewPrecompile(upgrade *upgradekeeper.Keeper, planName string, maxNameBytes, maxVersionBytes int) (*agentcommon.Precompile, error) {
 	if upgrade == nil || planName == "" {
 		return nil, fmt.Errorf("%w: no merge upgrade activation reader bound", agentcommon.ErrNotActive)
@@ -134,7 +136,7 @@ func (p *Eip712Precompile) DomainSeparator(name, version string, chainID *big.In
 		return [32]byte{}, fmt.Errorf("%w: chainId must be uint256", agentcommon.ErrABIDecode)
 	}
 	var input [160]byte
-	copy(input[:32], crypto.Keccak256([]byte("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)")))
+	copy(input[:32], domainTypeHash[:])
 	copy(input[32:64], crypto.Keccak256([]byte(name)))
 	copy(input[64:96], crypto.Keccak256([]byte(version)))
 	chainID.FillBytes(input[96:128])

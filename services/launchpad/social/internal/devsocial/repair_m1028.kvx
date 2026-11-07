@@ -1,0 +1,76 @@
+[meta]
+task = "22.33.1028"
+audit = "22.30.39"
+base_revision = "117197c811684e097104c96b29e872d45034cebb"
+evidence = "/out/run/gates.jsonl records the runner-owned candidate revision, exact commands, exits and private logs."
+baseline = "The supplied attempt-1 evidence reports all seven TestRepairM_1028_* functions failing; report intake and retry returned 401 AUTH_EXPIRED. No additional unchanged-tree verify was run because the continuation requires build then verify once on the final candidate."
+
+[finding.6]
+tests = ["TestRepairM_1028_PlatformDMPermissions", "TestRepairM_1028_ConnectedPolicyChangesAndReadAuthorization", "TestRepairM_1028_IdentityGuards"]
+implementation = "The existing platform assembly selects CanonicalPools, which now delegates DMs to interactions.PGPolicy with the existing chat session/account guards and installs PGPolicy-backed read authorization. Sender legacy bans remain enforced."
+proof = "The production Runtime, ticket/request authenticators, protocol-v2 Hub, pgx transactions and DurableStore execute through a loopback reverse proxy over a committed in-memory pgwire peer. Real SetBlock, SetPrivacy and safety.Store.Ban producers persist restrictions. Both block directions, inbox modes and follow direction, missing preferences, scoped/global/expired/revoked/unrelated bans, erasure, account/session guards, connected changes, reopen and authenticated member history are asserted."
+limits = "The database peer retains state while the runtime and pool close/reopen; this gate does not run PostgreSQL, Redis, the separate gateway module or the app platform assembly. It proves committed message and delivery-intent creation/refusal plus recovered history, not Redis live fanout."
+
+[finding.7]
+tests = ["TestRepairM_1028_ReportSafetyIntakeAndRestart", "TestRepairM_1028_ReportAtomicityAndReasonMapping", "TestRepairM_1028_ReportTargetMapping", "TestRepairM_1028_ReportRetryAfterTargetRemoval"]
+implementation = "Each frozen report, canonical safety case and deterministic intake event commit in one transaction. The first report ID is the case ID unless an existing canonical case owns that target; every receipt has a durable reportId-to-entityId event link. Raw reason maps to category and evidence to private case description; v2_reports retains normalized reason, original reason and every submission's evidence."
+proof = "Actual frozen request/response codecs, HTTP handler, pgx transaction and safety moderator HTTP/ListCases consumer run through the proxy. Duplicate and conflicting keys, a second receipt for the same case, rollback on either intake write failure, exact maximum-size evidence, target scope/owner mapping, unchanged replay after target removal and first moderator listing after runtime/pool reopen are asserted."
+privacy = "Intake events contain only case/report identity and revision; evidence stays in restricted report/case relations. Intake does not alter target visibility."
+
+[wiring.1]
+request = "Domain 11: services/launchpad/gateway/internal/proxy must run the equivalent ticket-only socket and frozen-report/restart checks through its real route registration and ticket issuer; this social-package gate uses a loopback reverse proxy because gateway internal packages are outside scope and cannot be imported here."
+
+[wiring.2]
+request = "Domain 4: services/launchpad/social/internal/app/app.go and the stream-owning authority must resolve stream report pool/affected-wallet context; frozen stream receipts enter globally visible safety intake pending that external interface."
+
+[wiring.3]
+request = "Domain 4: services/launchpad/social/internal/migrate and coordinator-owned schema grants must retain EXECUTE on chat.interaction_session_valid/chat.interaction_account_active and safety-case/outbox write access for the platform credential; this task uses existing guards and creates no schema objects."
+
+[wiring.4]
+request = "Domain 4: the moderation evidence view owning services/launchpad/social/internal/safety/store.go must expose additional v2_reports submissions through their durable safety_outbox reportId/entityId association, preserving the canonical case's original evidence."
+
+[wiring.5]
+request = "Domain 4: the operational migration owning chat.v2_reports must backfill unretried historical receipts into safety intake; retries are healed transactionally here, but this task does not run an out-of-scope production data migration."
+
+[gotcha.1]
+observed = "The requested unchanged-tree verify conflicts with the explicit ordered gates and no pre-change test file existed; the baseline was not run."
+
+[gotcha.2]
+observed = "The gate runner counts a repair build and a repair verify as two budget uses; keep any qualification repair in one complete edit before rebuilding and verifying."
+
+[qualification.1]
+revision = "719f276e4924051e4e45f26b7c6b8edc8ea902ee"
+command = "cg spec done 22.33.1028 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; compiler detail: /tmp/repair-m1028.log"
+observed = "The new pgwire peer supplied an integer cancellation key, but pgx v5.10 requires a byte slice; corrected without changing assertions."
+
+[gotcha.3]
+observed = "pgx v5.10 BackendKeyData.SecretKey is a byte slice; the fixture also declares JSONB byte-slice parameters to match production prepared-query inference when using extended execution without preparation."
+
+[continuation.2]
+implementation = "Retained the five inherited repair paths. Session fixtures now follow app/platform_test.go identityWire.session: fresh UUID account/session identifiers, UTC proof and expiry, and the identity session-check contract returns HTTP 200. Issued sessions pass the real VerifiedRequestAuthenticator, PrincipalFromContext and interactions.Identity paths before each scenario; the actor-substitution assertion remains ErrDenied."
+evidence = "/out/run/gates.jsonl records hf-build and hf-done for the unchanged final candidate; no agent commit or push is performed."
+
+[gotcha.4]
+observed = "HTTPStreamAuthority.call accepts HTTP 200 for session:check; an HTTP 204 response makes principal revalidation fail and frozen-report writes return AUTH_EXPIRED even after request authentication succeeds."
+
+[continuation.4]
+implementation = "Reviewed and retained the inherited five-path repair on current head 117197c811684e097104c96b29e872d45034cebb after prerequisite 22.31.461 landed. The launchpad workspace declares Go 1.27.0; qualification uses that workspace unchanged. The session fixture matches app/platform_test.go identityWire.session and returns HTTP 200 from session:check; request, session and interaction validation run before each scenario."
+evidence = "/out/run/gates.jsonl records the final candidate revision, hf-build and hf-done commands, exits and private evidence logs; the runner owns publication."
+
+[gotcha.5]
+observed = "The Codify graph search returned no candidates for the app identity fixtures and interaction policy; direct source reads confirmed the committed session and policy contracts without changing graph configuration."
+
+[qualification.2]
+revision = "7a51bc995f52552cec18ae9fee9017744c0b824a"
+command = "cg spec done 22.33.1028 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log; detail: /tmp/repair-m1028.log"
+observed = "Successful sends reached the production hub admission policy, which now requires Redis; the inherited fixture's closed port refused admission before persistence."
+
+[continuation.4_repair]
+implementation = "Reused the committed fanout repair_m1027 RESP2 in-memory peer inside the scoped test file to exercise real Redis clients, atomic fixed-window admission and the pinned safety token-bucket script contract. Counter and bucket state survive runtime reopen; successful sends assert both admission paths ran. The pgwire peer now supports the production new-conversation existence query. All original assertions remain intact."
+
+[gotcha.6]
+observed = "Protocol-v2 hub sends now require Redis-backed fixed-window and shared abuse admission; socket fixtures must supply a committed loopback RESP peer and the conversation-existence query instead of assuming durable sends never consult Redis."

@@ -96,7 +96,15 @@ defmodule Indexer.Fetcher.InternalTransaction do
 
   @impl BufferedTask
   def init(initial, reducer, json_rpc_named_arguments) do
-    stream_reducer = RangesHelper.stream_reducer_traceable(reducer)
+    data_type = queue_data_type(json_rpc_named_arguments)
+    oldest = oldest_traceable_block_number()
+
+    stream_reducer =
+      RangesHelper.stream_reducer_traceable(fn entry, acc ->
+        if is_nil(oldest) or traceable_entry?(entry, data_type, oldest),
+          do: reducer.(entry, acc),
+          else: acc
+      end)
 
     {:ok, final} =
       case queue_data_type(json_rpc_named_arguments) do
@@ -210,7 +218,7 @@ defmodule Indexer.Fetcher.InternalTransaction do
   @spec block_traceable_variants() :: [module()]
   def block_traceable_variants do
     if Application.get_env(:ethereum_jsonrpc, EthereumJSONRPC.Geth)[:block_traceable?] do
-      [EthereumJSONRPC.Geth | @default_block_traceable_variants]
+      [EthereumJSONRPC.Geth, EthereumJSONRPC.PaxeerX | @default_block_traceable_variants]
     else
       @default_block_traceable_variants
     end
@@ -246,7 +254,8 @@ defmodule Indexer.Fetcher.InternalTransaction do
   trace transactions.
 
   `nil` or a non-positive value disables the lookback rule, in which case every pending operation is
-  retried for as long as it stays pending.
+  retried for as long as it stays pending. When switching to an archive source, disable this
+  rule and restart the fetcher to resume the durable deferred operations.
   """
   @spec lookback_blocks() :: integer() | nil
   def lookback_blocks do
@@ -265,8 +274,54 @@ defmodule Indexer.Fetcher.InternalTransaction do
     end
   end
 
-  # Blocks that fell out of the node's trace window can never be traced again, so their pending
-  # operations are cleared instead of being retried on every pass of the fetcher.
+  @doc """
+  Reports missing trace coverage from the durable pending-operation tables.
+
+  Deferred operations remain pending until a trace source can serve them. Counts include
+  both queue formats so coverage remains visible while changing the JSON-RPC variant.
+  """
+  @spec trace_coverage() :: %{
+          oldest_traceable_block_number: integer() | nil,
+          pending_blocks: non_neg_integer(),
+          pending_transactions: non_neg_integer(),
+          deferred_blocks: non_neg_integer(),
+          deferred_transactions: non_neg_integer()
+        }
+  def trace_coverage do
+    oldest = oldest_traceable_block_number()
+    boundary = oldest || -1
+
+    blocks =
+      Repo.one(
+        from(po in PendingBlockOperation,
+          select: %{
+            pending: count(po.block_hash),
+            deferred: filter(count(po.block_hash), po.block_number < ^boundary)
+          }
+        )
+      )
+
+    transactions =
+      Repo.one(
+        from(po in PendingTransactionOperation,
+          join: transaction in assoc(po, :transaction),
+          select: %{
+            pending: count(po.transaction_hash),
+            deferred: filter(count(po.transaction_hash), transaction.block_number < ^boundary)
+          }
+        )
+      )
+
+    %{
+      oldest_traceable_block_number: oldest,
+      pending_blocks: blocks.pending,
+      pending_transactions: transactions.pending,
+      deferred_blocks: blocks.deferred,
+      deferred_transactions: transactions.deferred
+    }
+  end
+
+  # Keep identities in the existing durable queue, but do not retry the pruned source.
   defp drop_blocks_outside_lookback(data, data_type) do
     case oldest_traceable_block_number() do
       nil ->
@@ -299,41 +354,23 @@ defmodule Indexer.Fetcher.InternalTransaction do
 
   defp mark_not_traceable([], _data_type, _oldest_traceable_block_number), do: :ok
 
-  defp mark_not_traceable(block_numbers, :block_number, oldest_traceable_block_number) do
-    {cleared_count, _} =
-      Repo.delete_all(from(pending_ops in PendingBlockOperation, where: pending_ops.block_number in ^block_numbers))
-
-    log_not_traceable(length(block_numbers), cleared_count, oldest_traceable_block_number)
-  end
-
-  defp mark_not_traceable(transactions_params, :transaction_params, oldest_traceable_block_number) do
-    transaction_hashes = Enum.map(transactions_params, & &1.hash)
-
-    {cleared_count, _} =
-      Repo.delete_all(
-        from(pending_ops in PendingTransactionOperation, where: pending_ops.transaction_hash in ^transaction_hashes)
-      )
-
-    log_not_traceable(length(transactions_params), cleared_count, oldest_traceable_block_number)
-  end
-
-  defp log_not_traceable(not_traceable_count, cleared_count, oldest_traceable_block_number) do
+  defp mark_not_traceable(entries, data_type, oldest_traceable_block_number) do
     Logger.warning(
       fn ->
         [
-          "Skipping ",
-          to_string(not_traceable_count),
+          "Deferring ",
+          to_string(length(entries)),
+          " ",
+          to_string(data_type),
           " entries below the oldest traceable block number ",
           to_string(oldest_traceable_block_number),
           " (lookback of ",
           to_string(lookback_blocks()),
-          " blocks); cleared ",
-          to_string(cleared_count),
-          " pending operations that the node can no longer trace."
+          " blocks); pending operations retained for archive backfill."
         ]
       end,
-      not_traceable_count: not_traceable_count,
-      cleared_pending_operations_count: cleared_count
+      deferred_trace_operations_count: length(entries),
+      oldest_traceable_block_number: oldest_traceable_block_number
     )
   end
 

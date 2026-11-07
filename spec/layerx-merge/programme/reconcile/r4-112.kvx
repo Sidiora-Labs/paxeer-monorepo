@@ -1,0 +1,243 @@
+[reconcile.r4-112]
+revision = "53150198caf59defafffab36d79dbc66d921ae57"
+rows = 30
+
+[row.r4-112.1]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-revoked"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1652
+symbol = "PoolRegistryRoleRevoked"
+evidence = "The registered signature 'type PoolRegistryRoleRevoked struct' is declared at line 1652, moved from registered line 1413 in the same generated Go binding. This event struct contains Role [32]byte, Account and Sender common.Address, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.2]
+interface = "interface.4.go-protocol-bindings-pool-registry-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1585
+symbol = "PoolRegistryRoleRevokedIterator"
+evidence = "The registered signature 'type PoolRegistryRoleRevokedIterator struct' is declared at line 1585, moved from registered line 1346 in the same generated Go binding. The struct contains Event *PoolRegistryRoleRevoked, contract, event, logs, sub, done and fail fields and is returned by FilterRoleRevoked; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.3]
+interface = "interface.4.go-protocol-bindings-pool-registry-upgraded"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1814
+symbol = "PoolRegistryUpgraded"
+evidence = "The registered signature 'type PoolRegistryUpgraded struct' is declared at line 1814, moved from registered line 1575 in the same generated Go binding. This event struct contains Implementation common.Address and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.4]
+interface = "interface.4.go-protocol-bindings-pool-registry-upgraded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/poolregistry.go"
+line = 1747
+symbol = "PoolRegistryUpgradedIterator"
+evidence = "The registered signature 'type PoolRegistryUpgradedIterator struct' is declared at line 1747, moved from registered line 1508 in the same generated Go binding. The struct contains Event *PoolRegistryUpgraded, contract, event, logs, sub, done and fail fields and is returned by FilterUpgraded; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.5]
+interface = "interface.4.go-protocol-bindings-quoter-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 757
+symbol = "QuoterInitializedIterator"
+evidence = "The registered signature 'type QuoterInitializedIterator struct' is declared at line 757, moved from registered line 680 in the same generated Go binding. The struct contains Event *QuoterInitialized, contract, event, logs, sub, done and fail fields and is returned by FilterInitialized; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.6]
+interface = "interface.4.go-protocol-bindings-quoter-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 891
+symbol = "QuoterRoleAdminChangedIterator"
+evidence = "The registered signature 'type QuoterRoleAdminChangedIterator struct' is declared at line 891, moved from registered line 814 in the same generated Go binding. The struct contains Event *QuoterRoleAdminChanged, contract, event, logs, sub, done and fail fields and is returned by FilterRoleAdminChanged; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.7]
+interface = "interface.4.go-protocol-bindings-quoter-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 1053
+symbol = "QuoterRoleGrantedIterator"
+evidence = "The registered signature 'type QuoterRoleGrantedIterator struct' is declared at line 1053, moved from registered line 976 in the same generated Go binding. The struct contains Event *QuoterRoleGranted, contract, event, logs, sub, done and fail fields and is returned by FilterRoleGranted; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.8]
+interface = "interface.4.go-protocol-bindings-quoter-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 1215
+symbol = "QuoterRoleRevokedIterator"
+evidence = "The registered signature 'type QuoterRoleRevokedIterator struct' is declared at line 1215, moved from registered line 1138 in the same generated Go binding. The struct contains Event *QuoterRoleRevoked, contract, event, logs, sub, done and fail fields and is returned by FilterRoleRevoked; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.9]
+interface = "interface.4.go-protocol-bindings-quoter-upgraded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/quoter.go"
+line = 1377
+symbol = "QuoterUpgradedIterator"
+evidence = "The registered signature 'type QuoterUpgradedIterator struct' is declared at line 1377, moved from registered line 1300 in the same generated Go binding. The struct contains Event *QuoterUpgraded, contract, event, logs, sub, done and fail fields and is returned by FilterUpgraded; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.10]
+interface = "interface.4.go-protocol-bindings-router-buy"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 835
+symbol = "RouterBuy"
+evidence = "The registered signature 'type RouterBuy struct' is declared at line 835, moved from registered line 688 in the same generated Go binding. This event struct contains Pool and Buyer common.Address, UsdlIn and TokensOut *big.Int, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.11]
+interface = "interface.4.go-protocol-bindings-router-buy-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 768
+symbol = "RouterBuyIterator"
+evidence = "The registered signature 'type RouterBuyIterator struct' is declared at line 768, moved from registered line 621 in the same generated Go binding. The struct contains Event *RouterBuy, contract, event, logs, sub, done and fail fields and is returned by FilterBuy; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.12]
+interface = "interface.4.go-protocol-bindings-router-initialized"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 990
+symbol = "RouterInitialized"
+evidence = "The registered signature 'type RouterInitialized struct' is declared at line 990, moved from registered line 843 in the same generated Go binding. This event struct contains Version uint64 and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.13]
+interface = "interface.4.go-protocol-bindings-router-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 923
+symbol = "RouterInitializedIterator"
+evidence = "The registered signature 'type RouterInitializedIterator struct' is declared at line 923, moved from registered line 776 in the same generated Go binding. The struct contains Event *RouterInitialized, contract, event, logs, sub, done and fail fields and is returned by FilterInitialized; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.14]
+interface = "interface.4.go-protocol-bindings-router-market-created"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1124
+symbol = "RouterMarketCreated"
+evidence = "The registered signature 'type RouterMarketCreated struct' is declared at line 1124, moved from registered line 977 in the same generated Go binding. This event struct contains Token, Pool and Creator common.Address, NftId *big.Int, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.15]
+interface = "interface.4.go-protocol-bindings-router-market-created-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1057
+symbol = "RouterMarketCreatedIterator"
+evidence = "The registered signature 'type RouterMarketCreatedIterator struct' is declared at line 1057, moved from registered line 910 in the same generated Go binding. The struct contains Event *RouterMarketCreated, contract, event, logs, sub, done and fail fields and is returned by FilterMarketCreated; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.16]
+interface = "interface.4.go-protocol-bindings-router-role-admin-changed"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1452
+symbol = "RouterRoleAdminChanged"
+evidence = "The registered signature 'type RouterRoleAdminChanged struct' is declared at line 1452, moved from registered line 1140 in the same generated Go binding. This event struct contains Role, PreviousAdminRole and NewAdminRole [32]byte, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.17]
+interface = "interface.4.go-protocol-bindings-router-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1385
+symbol = "RouterRoleAdminChangedIterator"
+evidence = "The registered signature 'type RouterRoleAdminChangedIterator struct' is declared at line 1385, moved from registered line 1073 in the same generated Go binding. The struct contains Event *RouterRoleAdminChanged, contract, event, logs, sub, done and fail fields and is returned by FilterRoleAdminChanged; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.18]
+interface = "interface.4.go-protocol-bindings-router-role-granted"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1614
+symbol = "RouterRoleGranted"
+evidence = "The registered signature 'type RouterRoleGranted struct' is declared at line 1614, moved from registered line 1302 in the same generated Go binding. This event struct contains Role [32]byte, Account and Sender common.Address, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.19]
+interface = "interface.4.go-protocol-bindings-router-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1547
+symbol = "RouterRoleGrantedIterator"
+evidence = "The registered signature 'type RouterRoleGrantedIterator struct' is declared at line 1547, moved from registered line 1235 in the same generated Go binding. The struct contains Event *RouterRoleGranted, contract, event, logs, sub, done and fail fields and is returned by FilterRoleGranted; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.20]
+interface = "interface.4.go-protocol-bindings-router-role-revoked"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1776
+symbol = "RouterRoleRevoked"
+evidence = "The registered signature 'type RouterRoleRevoked struct' is declared at line 1776, moved from registered line 1464 in the same generated Go binding. This event struct contains Role [32]byte, Account and Sender common.Address, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.21]
+interface = "interface.4.go-protocol-bindings-router-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1709
+symbol = "RouterRoleRevokedIterator"
+evidence = "The registered signature 'type RouterRoleRevokedIterator struct' is declared at line 1709, moved from registered line 1397 in the same generated Go binding. The struct contains Event *RouterRoleRevoked, contract, event, logs, sub, done and fail fields and is returned by FilterRoleRevoked; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.22]
+interface = "interface.4.go-protocol-bindings-router-sell"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1938
+symbol = "RouterSell"
+evidence = "The registered signature 'type RouterSell struct' is declared at line 1938, moved from registered line 1626 in the same generated Go binding. This event struct contains Pool and Seller common.Address, TokensIn and UsdlOut *big.Int, and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.23]
+interface = "interface.4.go-protocol-bindings-router-sell-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 1871
+symbol = "RouterSellIterator"
+evidence = "The registered signature 'type RouterSellIterator struct' is declared at line 1871, moved from registered line 1559 in the same generated Go binding. The struct contains Event *RouterSell, contract, event, logs, sub, done and fail fields and is returned by FilterSell; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.24]
+interface = "interface.4.go-protocol-bindings-router-upgraded"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 2093
+symbol = "RouterUpgraded"
+evidence = "The registered signature 'type RouterUpgraded struct' is declared at line 2093, moved from registered line 1781 in the same generated Go binding. This event struct contains Implementation common.Address and Raw types.Log; the other occurrences are its comment, iterator Event field and filter/watch/parse uses."
+
+[row.r4-112.25]
+interface = "interface.4.go-protocol-bindings-router-upgraded-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/router.go"
+line = 2026
+symbol = "RouterUpgradedIterator"
+evidence = "The registered signature 'type RouterUpgradedIterator struct' is declared at line 2026, moved from registered line 1714 in the same generated Go binding. The struct contains Event *RouterUpgraded, contract, event, logs, sub, done and fail fields and is returned by FilterUpgraded; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.26]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-initialized-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 829
+symbol = "SidioraFactoryInitializedIterator"
+evidence = "The registered signature 'type SidioraFactoryInitializedIterator struct' is declared at line 829, moved from registered line 765 in the same generated Go binding. The struct contains Event *SidioraFactoryInitialized, contract, event, logs, sub, done and fail fields and is returned by FilterInitialized; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.27]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-market-created-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 963
+symbol = "SidioraFactoryMarketCreatedIterator"
+evidence = "The registered signature 'type SidioraFactoryMarketCreatedIterator struct' is declared at line 963, moved from registered line 899 in the same generated Go binding. The struct contains Event *SidioraFactoryMarketCreated, contract, event, logs, sub, done and fail fields and is returned by FilterMarketCreated; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.28]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-role-admin-changed-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 1127
+symbol = "SidioraFactoryRoleAdminChangedIterator"
+evidence = "The registered signature 'type SidioraFactoryRoleAdminChangedIterator struct' is declared at line 1127, moved from registered line 1063 in the same generated Go binding. The struct contains Event *SidioraFactoryRoleAdminChanged, contract, event, logs, sub, done and fail fields and is returned by FilterRoleAdminChanged; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.29]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-role-granted-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 1289
+symbol = "SidioraFactoryRoleGrantedIterator"
+evidence = "The registered signature 'type SidioraFactoryRoleGrantedIterator struct' is declared at line 1289, moved from registered line 1225 in the same generated Go binding. The struct contains Event *SidioraFactoryRoleGranted, contract, event, logs, sub, done and fail fields and is returned by FilterRoleGranted; the other occurrences are its comment, method receivers and uses."
+
+[row.r4-112.30]
+interface = "interface.4.go-protocol-bindings-sidiora-factory-role-revoked-iterator"
+verdict = "served"
+path = "sdk/launchpad/protocol/bindings/sidiorafactory.go"
+line = 1451
+symbol = "SidioraFactoryRoleRevokedIterator"
+evidence = "The registered signature 'type SidioraFactoryRoleRevokedIterator struct' is declared at line 1451, moved from registered line 1387 in the same generated Go binding. The struct contains Event *SidioraFactoryRoleRevoked, contract, event, logs, sub, done and fail fields and is returned by FilterRoleRevoked; the other occurrences are its comment, method receivers and uses."

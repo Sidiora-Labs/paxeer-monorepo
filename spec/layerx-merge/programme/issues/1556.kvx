@@ -1,0 +1,51 @@
+[issue.1556]
+number = 1556
+title = "[P2] Reconcile agent event ingestion with sequencer logs that have no block hash"
+revision = "210639d0360c53f5c2fdd81c9c7c5e84b24b8c84"
+verdict = "task"
+evidence = "The Logs request at services/agent/crates/layerx-client/src/subscription.rs:67 selects the receipt feed wired at rpc/server.go:520 through rpc/subscribe.go:331, whose rpc/filter.go:487 emits seq and blockHash:null, but services/agent/crates/layerx-agentd/src/events/ingest.rs:707 consumes the notification before :682 and :931 reject its null hash, while services/agent/crates/layerx-agentd/tests/gaps.rs:219 supplies only hashed logs and ingest.rs:791 compares recovery copies byte-for-byte."
+close_comment = "Receipted sequencer logs currently fail event ingestion because they carry no block hash. The required fix preserves receipted evidence and reconciles committed recovery without duplicate delivery."
+
+[task.18.1556.1]
+title = "Issue #1556: Ingest receipted logs and reconcile their committed copies"
+status = "pending"
+mode = "BUILD"
+wave = 1
+requires = []
+reqs = ["181556.1"]
+capabilities = []
+interfaces = []
+do_1 = "Represent the sequencer's receipted log state explicitly in services/agent/crates/layerx-agentd/src/events/ingest.rs:610 and decode_log at :663: accept the valid seq plus null blockHash shape emitted by rpc/filter.go:487 without fabricating a hash, and retain strict quantity, address, topic, data and removed-log validation; hashed logs must still contain a valid 32-byte hash."
+do_2 = "Reconcile receipt evidence in CoreEvent::from_log_bytes at services/agent/crates/layerx-agentd/src/events/ingest.rs:627 and commit_block at :850 with actual verified commitment; BATCH_INCLUDED at :635 already maps to Receipted under services/agent/crates/layerx-types/src/verify.rs:80, so preserve that mapping and promote only after a matching committed log and verified checkpoint establish the real block hash."
+do_3 = "Update pending, durable and buffered recovery in services/agent/crates/layerx-agentd/src/events/ingest.rs:767 and committed backfill decoding in services/agent/crates/layerx-agentd/src/events/gap.rs:340 so a receipted log and its committed copy reconcile by validated transaction/log identity and payload despite seq/blockHash representation changes; preserve cursor order and persisted progress across reopen, refuse conflicting payloads or hashes, and never deliver the same event twice."
+do_4 = "Capture real receipt-feed logs and their committed counterparts serialized through rpc/filter.go:471 into services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json, including producer transaction hashes and multiple log positions; declare receipted_logs_recover_committed_without_duplicate_delivery in services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs and send the captured producer bytes through the supported Logs subscription and EventIngestor::read_log rather than replacing a null hash as the existing test does at :33."
+do_5 = "The single regression test must assert successful null-hash receipted ingestion with the Receipted rung, ordered delivery, committed backfill overlap with live logs, checkpoint-backed promotion using the producer's actual hash, restart recovery and no duplicate delivery; also assert refusal of missing or malformed seq on null-hash logs, malformed non-null hashes, removed logs, conflicting committed copies and mismatched checkpoint hashes without advancing the watermark."
+symbols = ["EthereumLog", "CoreEvent", "EventIngestor", "decode_log", "attempt_backfill", "receipted_logs_recover_committed_without_duplicate_delivery"]
+touches = ["services/agent/crates/layerx-agentd/src/events/ingest.rs", "services/agent/crates/layerx-agentd/src/events/gap.rs", "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs", "services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+tests = ["services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs::receipted_logs_recover_committed_without_duplicate_delivery"]
+planned_paths = ["services/agent/crates/layerx-agentd/tests/fixtures/receipted-log-transition.json"]
+build_cmd = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd"
+verify_cmd = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test ingest_eth_subscribe receipted_logs_recover_committed_without_duplicate_delivery"
+gate_kind = "planned"
+sandbox_profile = "rust"
+owner_role = "fm-agent"
+rollback = "Revert the task's commit."
+max_builds = 1
+max_verify_runs = 1
+max_repair_cycles = 2
+time_limit_minutes = 30
+stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
+path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
+evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+
+[req.181556]
+title = "Agent event ingestion accepts sequencer receipt logs and reconciles verified commitment"
+ac_1 = "Given receipted logs emitted with seq and blockHash:null by rpc/filter.go:487, when EventIngestor::read_log at services/agent/crates/layerx-agentd/src/events/ingest.rs:702 consumes them and committed backfill overlaps them across restart, then ingestion preserves the actual Receipted rung, uses only verified committed evidence for promotion, maintains block/transaction/log cursor order, delivers each event once and refuses malformed or conflicting logs without advancing durable progress."
+
+[acceptance.18.1556.1]
+feature = "18"
+req = "181556.1"
+scenario = "Given producer-emitted receipted logs without a block hash and matching committed copies, when the supported Logs subscription, ingestion, backfill and checkpoint verification run across a store reopen, then valid logs retain their actual rung, committed promotion uses the real hash, cursors stay ordered, delivery has no duplicates and malformed or conflicting evidence is refused."
+contract = "contracts/agent-api.md#subscription-create"
+test = "services/agent/crates/layerx-agentd/tests/ingest_eth_subscribe.rs::receipted_logs_recover_committed_without_duplicate_delivery (planned)"
+qualification = "UNRUN"

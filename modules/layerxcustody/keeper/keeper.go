@@ -75,6 +75,13 @@ func (k *Keeper) GetParams(ctx sdk.Context) types.Params {
 }
 
 func (k *Keeper) SetParams(ctx sdk.Context, params types.Params) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
+	return k.setParams(ctx, params)
+}
+
+func (k *Keeper) setParams(ctx sdk.Context, params types.Params) error {
 	if err := params.Validate(); err != nil {
 		return err
 	}
@@ -102,6 +109,9 @@ func (k *Keeper) GetEmergency(ctx sdk.Context) bool {
 }
 
 func (k *Keeper) SetEmergency(ctx sdk.Context, enabled bool) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
 	if enabled {
 		k.store(ctx).Set(types.EmergencyKey, []byte{1})
 	} else {
@@ -126,13 +136,30 @@ func (k *Keeper) setDepositCount(ctx sdk.Context, count uint64) {
 // denom or pointer already bound to another asset is refused, and the denom
 // of an asset that holds custody or pending claims cannot change.
 func (k *Keeper) SetAsset(ctx sdk.Context, asset types.AssetMapping) error {
+	if k.Retired(ctx) {
+		return sdkerrors.Wrapf(types.ErrModuleRetired, "%s from height %d", types.MergePlanUpgrade, ctx.BlockHeight())
+	}
+	return k.setAsset(ctx, asset)
+}
+
+func (k *Keeper) setAsset(ctx sdk.Context, asset types.AssetMapping) error {
 	if err := asset.Validate(); err != nil {
 		return err
 	}
 	assetID, _ := types.ParseHash32(asset.AssetId)
+	var pointer common.Address
+	if asset.Pointer != "" {
+		pointer, _ = types.ParseAddress(asset.Pointer)
+		asset.Pointer = types.Address(pointer)
+	}
 	var conflict error
 	k.IterateAssets(ctx, func(other types.AssetMapping) bool {
-		if other.AssetId != asset.AssetId && (other.Denom == asset.Denom || (asset.Pointer != "" && other.Pointer == asset.Pointer)) {
+		pointerConflict := false
+		if asset.Pointer != "" && other.Pointer != "" {
+			otherPointer, _ := types.ParseAddress(other.Pointer)
+			pointerConflict = pointer == otherPointer
+		}
+		if other.AssetId != asset.AssetId && (other.Denom == asset.Denom || pointerConflict) {
 			conflict = sdkerrors.Wrapf(types.ErrInvalidAsset, "denom or pointer already maps asset %s", other.AssetId)
 		}
 		return conflict != nil
@@ -151,8 +178,6 @@ func (k *Keeper) SetAsset(ctx sdk.Context, asset types.AssetMapping) error {
 		}
 	}
 	if asset.Pointer != "" {
-		pointer, _ := types.ParseAddress(asset.Pointer)
-		asset.Pointer = types.Address(pointer)
 		k.store(ctx).Set(types.AssetPointerKey(pointer), assetID[:])
 	}
 	k.store(ctx).Set(types.AssetKey(assetID), k.cdc.MustMarshal(&asset))

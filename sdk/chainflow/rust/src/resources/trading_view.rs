@@ -114,7 +114,15 @@ impl ListDatafeedConfigRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send::<crate::models::UdfConfig, _>(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send::<crate::models::UdfConfig, _>(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -176,7 +184,15 @@ impl ListFeedTimeRequestBuilder {
             max_retries: self.max_retries,
         };
         self.client
-            .send_bytes(http::Method::GET, &path, &query, &headers, body, true, overrides)
+            .send_bytes(
+                http::Method::GET,
+                &path,
+                &query,
+                &headers,
+                body,
+                crate::client::SecurityScheme::RestApiKey,
+                overrides,
+            )
             .await
     }
 }
@@ -254,7 +270,7 @@ impl ResolveSymbolRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -348,7 +364,7 @@ impl SearchRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -454,7 +470,7 @@ impl ListCandleHistoryRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await
@@ -540,7 +556,7 @@ impl ListQuotesRequestBuilder {
                 &query,
                 &headers,
                 body,
-                true,
+                crate::client::SecurityScheme::RestApiKey,
                 overrides,
             )
             .await

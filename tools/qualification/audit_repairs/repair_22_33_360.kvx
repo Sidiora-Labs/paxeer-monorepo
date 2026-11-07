@@ -1,0 +1,55 @@
+[task.22.33.360]
+mode = "BUILD"
+source_revision = "00614466646b07799a236d2742211fd5eb2d85c5"
+implementation = "Rewrite the health guidance to match the already-corrected override, controller and Rust models; narrowly synchronize the merged generator input's health operation and schemas, removing its obsolete v1 operation. Preserve the shared legacy schemas referenced by the unrelated Celestia operation. Keep the retained Rust compatibility refusal and every existing test intact. The recording example already used /api/health at this prerequisite revision and is now protected by the declared regression gate."
+source_proof = "The Python gate validates the documented JSON and committed upstream transcript plus all five source-derived lifecycle cases against the actual merged generator schema, checks required-field rejection, and ties the recorder, mounted router, controller and Rust fields to the documented contract. No alternate client implementation is introduced."
+runtime_limits = "Rust integration cases exercise the production ApiClient over real loopback HTTP using the committed upstream health recording and explicitly labeled source-derived lifecycle fixtures. They are registered in the existing crate manifest but not executed by this Python-only gate. No Rust compilation, Elixir producer execution, deployment compatibility or restart recovery is claimed; doc-13 changes documentation and generator health inputs without changing runtime interfaces."
+baseline = "No pre-change verification was run: the baseline clause conflicts with the explicit implementation-first order, hf-build-before-hf-done requirement and prohibition on invoking verify_cmd by hand. No baseline failures are claimed. At inspection the scoped tests and record were absent, gate.json recorded zero builds and verifications, and gates.jsonl was absent. Existing runner-prepared .cgignore and spec task-start edits are preserved."
+planned_paths = "Register services/explorer/services/libs/tests/repair_22_33_360.rs in the existing blockscout-client/crate/Cargo.toml with a relative test path. The workspace Cargo.lock already exists and no dependency changes are needed."
+build_cmd = "python3 -m py_compile tools/qualification/audit_repairs/test_repair_22_33_360.py"
+verify_cmd = "python3 -m pytest -q tools/qualification/audit_repairs/test_repair_22_33_360.py"
+evidence_ledger = "/out/run/gates.jsonl"
+verified_revision = "Acceptance 22998.1 is evidenced by the final hf-done JSON and private evidence ledger containing the exact candidate revision, command, exit code and log location. Build and verification must pass on the same candidate revision. This record is written before qualification because embedding its own content-derived revision would change that revision. No edit follows a passing hf-done; the runner publishes the qualified result."
+wiring_requests = []
+gotcha = "The prerequisite health override and generated Rust models were already aligned, while README still described their old defects and the merged generator input still contained metadata.latest_block, cache.mber and HealthV1. Repair only those health portions; do not rerun the whole merge or regenerate unrelated operations. The explicit scope forbids appending this discovery to GOTCHA.kvx or editing spec files."
+
+[finding.doc-13]
+audit = "22.30.139"
+file = "services/explorer/services/libs/blockscout-client/README.md"
+class = "doc-drift"
+severity = "medium"
+owner_domain = 14
+observed = "The client generation overview is coherent, but the record-stubs example still instructs recording /api/v1/health, an operation absent from the current backend router."
+expected = "Current operator and integrator guidance must describe the integrated chain-125 network and the registered code paths at the audited revision, with historical or planned behavior explicitly identified."
+tests = ["test_doc_13_recording_command_matches_real_recorder_and_route", "test_doc_13_health_inputs_match_current_contract_without_legacy_operation", "test_doc_13_documented_example_and_committed_lifecycle_validate", "test_doc_13_controller_and_generated_consumer_preserve_documented_fields", "test_doc_13_real_client_integration_is_registered_and_disclosed", "test_doc_13_repair_record_maps_finding_and_exact_evidence_policy"]
+rust_tests = ["doc_13_recorded_health_uses_mounted_route_and_both_consumers", "doc_13_controller_lifecycle_preserves_metadata_and_errors", "doc_13_legacy_health_refuses_before_transport"]
+
+[qualification.preexisting_merged_yaml]
+revision = "058fff69fdff346ad8393c332cf249524f0bcf09"
+command = "cg spec done 22.33.360 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "hf-build passed; hf-done ran six tests (four passed, two failed) because the merged generator YAML has a pre-existing misplaced health/schema/examples block in the transaction response, producing ParserError at line 462; git show HEAD and the working file contain the identical malformed lines 446-468."
+assumption = "Domain 14 must repair the unrelated transaction/schema structure in services/explorer/services/libs/blockscout-client/swaggers/blockscout-api-final.yaml before qualification; the task forbids neighboring changes, weakening assertions and rerunning a recorded unrelated failure, so both failed checks remain intact and no completion is claimed."
+
+[continuation.attempt_2]
+authorization = "The continuation ruling explicitly authorizes repairing the malformed merged YAML within this task's paths and rerunning the declared gates."
+repair = "Remove the misplaced duplicate v1Data block from the token-transfer response and restore its examples indentation; retain the canonical components.schemas.v1Data and all health contract changes."
+regression = "test_doc_13_health_inputs_match_current_contract_without_legacy_operation loads the complete merged YAML and additionally compares the complete token-transfer operation with the committed upstream input, preserving schemas, examples and HTTP 400. All six original checks and all Rust integration cases remain intact."
+prior_attribution_correction = "The previous qualification entry records attempt 1's failure, not an outstanding wiring request: inspection of the current base shows the original token-transfer examples correctly nested, and the carried attempt introduced the misplaced duplicate schema."
+evidence = "The final hf-build and hf-done results in /out/run/gates.jsonl record the exact revision, command, exit code and private log location; qualification must use the same candidate revision and no scoped edits follow passing verification."
+
+[qualification.legacy_schema_reference]
+revision = "267570e0e9545bfc3196c13125da674cb692ece5"
+command = "cg spec done 22.33.360 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "The YAML repair passes parsing and the new token-transfer preservation assertion; five of six checks pass, but the inherited legacy-schema assertion compares merged v1HealthCheckResponse (status, healthy, data) to upstream (status only), and also expects v1Data in an upstream input that does not declare it."
+assumption = "Qualification remains blocked by the inherited preservation-check/source contradiction; changing unrelated upstream contracts or replacing its expected schemas would violate the instructions to preserve meaning and leave conflicting checks intact, so the failure is recorded without weakening assertions or rerunning an unchanged gate."
+
+[continuation.attempt_3]
+authorization = "The continuation ruling and gotcha 3008 replace only the incorrect upstream equality for v1HealthCheckResponse and v1Data with a producer-to-consumer contract check; all other checks and carried implementation remain intact."
+repair = "Compare each committed schema's complete properties and property types with the serialized fields of its generated Rust model, require every public model field to participate, and assert that HTTP 200 from /api/v2/health still references v1HealthCheckResponse."
+regeneration = "The committed final document diverges from ts-src/merge-overrides.ts output for v1HealthCheckResponse and v1Data: the script deep-merges swaggers/blockscout-api-v2.yaml and the sorted overrides, none of which defines these two schemas, while the committed document and generated models retain the healthy/data and block fields. Settle this divergence at the next intentional regeneration using the README procedure; do not regenerate or change those schemas here."
+package_entrypoint = "The required package.json touch exposes the existing Python documentation gate as yarn test:doc-13 from the client directory; the gate checks that this entry point names the same proving test."
+evidence = "No gates have run in this continuation at implementation time; final hf-build and hf-done evidence in /out/run/gates.jsonl must pass on the same candidate revision. The final hf-done JSON supplies the exact verified revision, command, exit and private log path without a self-referential record edit."

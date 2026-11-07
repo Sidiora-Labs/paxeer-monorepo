@@ -1,8 +1,32 @@
+[package]
+name = "layerx-programs-integration-tests"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+autolib = false
+autobins = false
+autoexamples = false
+autotests = false
+autobenches = false
+
+[[test]]
+name = "repair_22_33_238"
+path = "tests/repair_22_33_238.rs"
+
+[dev-dependencies]
+layerx-programs-registry = { path = "crates/layerx-programs-registry" }
+ed25519-dalek = { version = "=2.2.0", default-features = false }
+sha2.workspace = true
+
+[lints]
+workspace = true
+
 [workspace]
 members = [
     "benches/compiled-equivalent",
     "crates/layerx-programs-registry",
-    "crates/layerx-programs-protocol-adapter",
     "crates/layerx-programs-interpreter",
     "crates/layerx-programs-market",
     "crates/layerx-programs-ai-market",
@@ -34,6 +58,9 @@ lto = true
 codegen-units = 1
 panic = "abort"
 strip = true
+
+[profile.release.package.layerx-programs-ai-market]
+opt-level = "z"
 
 [workspace.package]
 edition = "2021"

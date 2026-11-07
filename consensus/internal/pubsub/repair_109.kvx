@@ -1,0 +1,10 @@
+[task.22.31.109]
+finding = "pubsub-unsubscribe-ignores-id"
+tests = ["TestRepair_109_WebsocketUnsubscribeID", "TestRepair_109_UnsubscribeSelectors", "TestRepair_109_UnsubscribeAllQuery"]
+repair = "Resolve server-issued IDs within the requesting client's subindex entries and intersect any non-nil query constraint; without an ID match the registered query exactly, including query.All. Only UnsubscribeAll removes every client subscription."
+proof = "Real EventBus emits subscription IDs in messages; a real websocket transports those IDs through Environment.Unsubscribe to pubsub, while unrelated streams continue delivering. Selector tests cover query intersection and ID renewal after resubscription."
+baseline = "Not run: the explicit gate order forbids verification before complete implementation; no pre-change test failures are claimed."
+wiring = "No out-of-path implementation is required for the audited UnsubscribeArgs interface; the test invokes the existing websocket consumer unchanged."
+evidence = "The runner's hf-build/hf-done ledger records the exact qualified revision, command, exit code and private log path."
+gotcha = "query.All is nil: reject neither its registration nor its exact-query unsubscription; a missing ID and nil query select only that registered all-events stream."
+qualification_repair = "Initial verification de060f9c9ae0937747ce1541134330518b8f2f0c, cg spec done 22.31.109 -f layerx-merge --root /work/paxeer-monorepo, exit 1, /out/logs/verify-1.log: task-added validation rejected TestResubscribe's valid query.All selector; preserve exact-query matching and add TestRepair_109_UnsubscribeAllQuery."

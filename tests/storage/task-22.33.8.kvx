@@ -1,0 +1,35 @@
+[task.22.33.8]
+audit_record = "22.30.1"
+scope = ["src/storage", "tests"]
+build = "hf-build: make -s all"
+verify = "hf-done: cg spec done 22.33.8 -f layerx-merge --root /work/paxeer-monorepo; verify_cmd make -s test-storage"
+evidence = "The runner's private gate ledger and final evidence JSON identify the exact candidate revision, command, exit code and log location."
+baseline = "Not run: the explicit gate order forbids verification before complete implementation and requires hf-build before hf-done; no pre-change failures are claimed."
+wiring_requests = []
+
+[finding.21]
+test = "tests/storage/lxp_test_log_durability.c:test_segment_create_sync_restart"
+proof = "The production fault harness terminates a child after segment creation, activity/receipt appends and two file syncs; reopening and recovery check the durable marker, sequence, durable head and both record bodies."
+repair = "Sync the containing directory after the initial durable marker, retry EINTR and propagate directory open/sync/close errors with segment cleanup."
+
+[finding.22]
+test = "tests/storage/lxp_test_rebuild.c:test_projection_stale_restart_rebuild"
+proof = "A real SQLite uniqueness failure leaves a durable-log replay gap; close/reopen retains stale and watermark, later applies cannot change rows, an interrupted rebuild rolls back, and a complete rebuild plus another reopen recovers every receipt and balance."
+repair = "Load persisted metadata, enforce stale and sequential watermark admission, and commit rebuild data and healthy metadata in one SQLite transaction."
+
+[finding.23]
+test = "tests/storage/lxp_test_recovery.c:test_snapshot_crash_same_sequence_retry"
+proof = "Produce a snapshot from committed kernel journal state; crash the production writer after header, body and file sync; retry the same sequence with the orphan still present, reopen and load into a fresh kernel, and verify state, immutable final-name conflicts and digest corruption refusal."
+repair = "Use unique temporary files and atomic no-replace publication, retaining manifest digest validation and file/directory durability barriers."
+
+[gotcha.gate_order]
+observed = "The task's baseline-verify step contradicts its explicit implementation-first bounded gate order."
+resolution = "Follow the explicit gate order and record the absence of baseline evidence without editing out-of-scope spec or gotcha ledgers."
+
+[repair.1]
+revision = "02156f640a8fc51914482fcf0f8b53e8786f71e3"
+command = "cg spec done 22.33.8 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Calling the general kernel constructor pulled programs-runtime references into the C-only storage link; the segment restart test passed before the linker failure."
+repair = "Initialize the concrete in-memory kernel fixtures directly; retain production journal commit, snapshot serialization, storage, loading, root and recovered-state assertions."

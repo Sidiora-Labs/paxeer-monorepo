@@ -31,7 +31,11 @@ export type LaunchpadWrite = keyof typeof LAUNCHPAD_WRITES;
 
 /** Builds a call of any launchpad write a direct call to the precompile resolves, by canonical signature. */
 export function launchpadCall(method: LaunchpadWrite, args: readonly AbiArgument[], value = 0n): PrecompileCall {
-  return precompileWriteCall(LAUNCHPAD_PRECOMPILE, method, LAUNCHPAD_WRITES[method], args, value);
+  const write = LAUNCHPAD_WRITES[method];
+  if (write === undefined) {
+    throw new PrecompileAbiError("invalid_value", `launchpad has no ${method}`);
+  }
+  return precompileWriteCall(LAUNCHPAD_PRECOMPILE, method, write, args, value);
 }
 
 /** A Router swap: `amountIn` is the USDL paid in for a buy and the tokens sold for a sell; the Router pays the caller. */
@@ -96,7 +100,12 @@ async function viewWord(rpc: Eip1193Requester, to: string, data: string): Promis
   return BigInt(answer.slice(0, 66));
 }
 
-const wordAddress = (word: bigint): string => `0x${word.toString(16).padStart(40, "0")}`;
+function wordAddress(word: bigint): string {
+  if (word >> 160n !== 0n) {
+    throw new PrecompileAbiError("non_canonical_word");
+  }
+  return `0x${word.toString(16).padStart(40, "0")}`;
+}
 
 /**
  * Reads the token and amount the Router will pull for `spend` and the
@@ -125,11 +134,11 @@ export async function waitLaunchpadApproval(rpc: Eip1193Requester, hash: string,
       if ((receipt as { status?: unknown }).status === "0x1") {
         return;
       }
-      throw new PrecompileAbiError("malformed_wallet_answer", `approve ${hash} reverted`);
+      throw new PrecompileAbiError("approve_reverted", `approve ${hash} reverted`);
     }
     await new Promise((resolve) => setTimeout(resolve, intervalMs));
   }
-  throw new PrecompileAbiError("malformed_wallet_answer", `approve ${hash} not mined`);
+  throw new PrecompileAbiError("approve_not_mined", `approve ${hash} not mined`);
 }
 
 /**

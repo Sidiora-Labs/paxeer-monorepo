@@ -77,6 +77,7 @@ function fixtureCodeHash(value: unknown): Hash {
   return value.toLowerCase() as Hash;
 }
 export function parsePrivateFixtureAuthorityProfileV1(input: unknown): PrivateFixtureAuthorityProfileV1 {
+  if (process.env.NODE_ENV === 'production' && input !== undefined) throw new Error('Private fixture authority is unavailable in production');
   if (typeof input === 'string') {
     if (!input || new TextEncoder().encode(input).byteLength > 64 * 1024) throw new Error('Reviewed local network input is unavailable');
     input = JSON.parse(input) as unknown;
@@ -99,6 +100,14 @@ export function parsePrivateFixtureAuthorityProfileV1(input: unknown): PrivateFi
     return [role, Object.freeze(parsed)];
   })) as Record<RuntimeAuthorityRoleV1, Readonly<PrivateFixtureRoleIdentityV1>>;
   return Object.freeze({ schemaVersion: 1, profile: 'PRIVATE_FIXTURE', chainId: 125, applicationOrigin: loopbackHTTPS(profile.applicationOrigin, true), sourceManifestSha256: fixtureDigest(profile.sourceManifestSha256), revision: Object.freeze(parsedRevision), networkSha256: fixtureDigest(profile.networkSha256), publicRPC: loopbackHTTPS(profile.publicRPC), explorerBase: loopbackHTTPS(profile.explorerBase), expectedBeaconOwner: fixtureAddress(profile.expectedBeaconOwner), roles: Object.freeze(parsedRoles), sourceArtifacts: Object.freeze({ chainSha256: fixtureDigest(artifacts.chainSha256), compilerArtifactsSha256: fixtureDigest(artifacts.compilerArtifactsSha256), reviewedManifestSha256: fixtureDigest(artifacts.reviewedManifestSha256) }) });
+}
+export function resolvePrivateFixtureAuthorityProfileV1({ privateFixtureProfile, privateFixtureProfileInput }: {
+  privateFixtureProfile?: PrivateFixtureAuthorityProfileV1;
+  privateFixtureProfileInput?: string;
+}): PrivateFixtureAuthorityProfileV1 | undefined {
+  if (privateFixtureProfile !== undefined && privateFixtureProfileInput !== undefined) throw new Error('Approved network input is ambiguous');
+  const input = privateFixtureProfileInput === undefined ? privateFixtureProfile : privateFixtureProfileInput;
+  return input === undefined ? undefined : parsePrivateFixtureAuthorityProfileV1(input);
 }
 function assertFixtureOrigin(profile: PrivateFixtureAuthorityProfileV1) {
   if (typeof window === 'undefined' || loopbackHTTPS(window.location.origin, true) !== profile.applicationOrigin) throw new Error('Approved local network origin is unavailable');
@@ -169,7 +178,13 @@ async function readAuthority(signal: AbortSignal, fixture?: PrivateFixtureAuthor
     if (fixture) {
       const expected = fixture.roles[role];
       if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash || expected.kind === 'direct' && (identity.implementationAddress !== undefined || identity.implementationHash !== undefined) || expected.kind !== 'direct' && (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== expected.implementationAddress || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash)) throw new Error(`Reviewed network identity differs for ${role}`);
-    } else if (role !== 'USDL' && (typeof identity.implementationAddress !== 'string' || !/^0x[0-9a-fA-F]{40}$/.test(identity.implementationAddress) || /^0x0{40}$/.test(identity.implementationAddress) || typeof identity.implementationHash !== 'string' || !hashes.test(identity.implementationHash))) throw new Error(`Implementation identity is unavailable for ${role}`);
+    } else {
+      const expected = CORE_DEPLOYMENT.roleIdentity[field];
+      if (identity.runtimeHash.toLowerCase() !== expected.runtimeHash) throw new Error(`Reviewed network runtime differs for ${role}`);
+      if (expected.kind === 'surface' || expected.kind === 'direct') {
+        if (identity.implementationAddress !== undefined || identity.implementationHash !== undefined || identity.beaconAddress !== undefined) throw new Error(`Reviewed network identity differs for ${role}`);
+      } else if (typeof identity.implementationAddress !== 'string' || getAddress(identity.implementationAddress) !== getAddress(expected.implementationAddress) || typeof identity.implementationHash !== 'string' || identity.implementationHash.toLowerCase() !== expected.implementationHash) throw new Error(`Reviewed network implementation differs for ${role}`);
+    }
   }
   if (typeof head.number !== 'string' || !/^(0|[1-9][0-9]{0,19})$/.test(head.number) || typeof head.hash !== 'string' || !hashes.test(head.hash) || !Number.isSafeInteger(attestation.blockNumber) || BigInt(attestation.blockNumber as number) !== BigInt(head.number) || attestation.blockHash !== head.hash || attestation.manifestHash !== network.manifestHash || attestation.deploymentVersion !== network.deploymentVersion || attestation.eligible !== true || (attestation.issues !== undefined && (!Array.isArray(attestation.issues) || attestation.issues.length)) || attestation.creationFeeRaw !== '1000000' || attestation.usdlDecimals !== 6 || typeof attestation.settlementAddress !== 'string' || getAddress(attestation.settlementAddress) !== getAddress(addresses.USDL as string) || attestation.pendingOwner !== '0x0000000000000000000000000000000000000000') throw new Error('Committed network activation is unavailable');
   if (fixture && (typeof attestation.actualOwner !== 'string' || getAddress(attestation.actualOwner) !== fixture.expectedBeaconOwner)) throw new Error('Reviewed network governance identity differs');

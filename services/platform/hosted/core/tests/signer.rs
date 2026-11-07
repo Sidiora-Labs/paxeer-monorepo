@@ -4,8 +4,8 @@
 
 use ed25519_dalek::SigningKey;
 use layerx_platform_core::{
-    asset_registry, build_send_with_identity_sequence, build_send_with_signer, did_for_public_key,
-    SeedSigner, SendError, SendRequest, SocketSigner, TreasurySigner as _,
+    build_send_with_identity_sequence, build_send_with_signer, did_for_public_key, SeedSigner,
+    SendError, SendRequest, SocketSigner, TreasurySigner as _,
 };
 use std::fmt::Debug;
 use std::fs;
@@ -147,6 +147,19 @@ impl Drop for Signer {
     }
 }
 
+fn evm_sender(seed: &[u8; 32]) -> layerx_platform_internal::evm_sender::EvmSender {
+    let account = must(
+        layerx_crypto::account_derivation::derive_from_seed(seed, 0),
+        "derive EVM signer",
+    );
+    let secret = account.evm_secret().expect("derived EVM secret");
+    let encoded = zeroize::Zeroizing::new(layerx_platform_core::hex_encode(secret));
+    must(
+        layerx_platform_internal::evm_sender::EvmSender::from_hex_secret(&encoded),
+        "EVM sender",
+    )
+}
+
 fn request(source_did: &str) -> SendRequest {
     SendRequest {
         network_id: 42,
@@ -170,7 +183,7 @@ fn socket_signer_signs_the_treasury_send_the_seed_holder_signs() {
     assert_eq!(seed_signer.public_key(), expected_key);
     let signer_process = Signer::start(&seed);
     let socket = must(
-        SocketSigner::connect(&signer_process.socket),
+        SocketSigner::connect_with_evm_sender(&signer_process.socket, evm_sender(&seed)),
         "connect to the signer",
     );
     assert_eq!(socket.public_key(), expected_key);
@@ -200,13 +213,39 @@ fn socket_signer_signs_the_treasury_send_the_seed_holder_signs() {
     );
     assert_eq!(over_socket, in_process);
     assert_eq!(over_socket.signer_public_key, expected_key);
-    let (registry, _) = must(asset_registry(), "asset registry");
-    let activity = must(
-        layerx_wire::activity::decode_signed(&over_socket.canonical, &registry),
+    let (call, signature) = must(
+        layerx_crypto::evm_transaction::decode_signed(&over_socket.canonical),
         "decode the socket-signed send",
     );
-    assert_eq!(activity.account_sequence(), 11);
-    assert_eq!(activity.actor_did(), treasury_did.as_bytes());
+    assert_eq!(call.nonce, 11);
+    assert_eq!(call.chain_id, 125);
+    assert_eq!(call.gas_limit, 1_000);
+    assert_eq!(
+        call.to,
+        [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x10, 0x1a]
+    );
+    let sender = must(
+        layerx_crypto::evm_transaction::recover_sender(&call, &signature),
+        "recover sender",
+    );
+    assert_eq!(sender, evm_sender(&seed).address());
+    let disclosure = must(
+        layerx_crypto::payments::bind_call(&call, sender),
+        "bind call",
+    );
+    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) =
+        must(disclosure.construct_method(), "ledger calldata")
+    else {
+        panic!("send calldata required")
+    };
+    assert_eq!(&payload[4..36], over_socket.source_account);
+    assert_eq!(&payload[36..68], over_socket.destination_account);
+    assert_eq!(&payload[230..262], expected_key);
+    assert_eq!(disclosure.idempotency_key, request.idempotency_key);
+    assert_eq!(
+        over_socket.activity_id,
+        layerx_crypto::evm_transaction::transaction_hash(&over_socket.canonical)
+    );
 }
 
 #[test]
@@ -230,7 +269,7 @@ fn socket_signer_refuses_absent_or_relative_sockets_and_reports_outages() {
     );
 
     let socket = must(
-        SocketSigner::connect(&signer_process.socket),
+        SocketSigner::connect_with_evm_sender(&signer_process.socket, evm_sender(&seed)),
         "connect to the signer",
     );
     let request = request(&did_for_public_key(&socket.public_key()));

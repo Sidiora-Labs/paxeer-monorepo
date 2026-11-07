@@ -15,7 +15,10 @@ grep -q 'flyctl\|LAYERX_FLY_TLS_DIR\|fly_ssh\|fly_app\|\.internal"' "$ca" && fai
 
 # services: every row completed from the names file.
 "$ca" services >"$work/services"
-[ "$(wc -l <"$work/services")" -eq 33 ] || fail "want 33 rows"
+# This completed roster was independently reviewed with the merged issuance
+# inventory. Compare all six fields, including ownership and every SAN.
+diff -u "$root/tools/bringup/tests/fixtures/repair_m794/approved-roster.tsv" "$work/services" ||
+	fail "services differ from the approved merged roster"
 awk 'NF != 6 { exit 1 }' "$work/services" || fail "a row is not six fields"
 awk '$2 ~ /^box:/ && $3 != "volume" { exit 1 } $2 ~ /^railway:/ && $3 !~ /^[A-Z][A-Z0-9_]*$/ { exit 1 } $2 !~ /^(box|railway):/ { exit 1 }' \
 	"$work/services" || fail "a row's target and custody disagree"
@@ -26,7 +29,7 @@ san identity DNS:identity.railway.internal
 san identity DNS:localhost
 san internal-kms DNS:internal-kms.railway.internal
 san internal-redis DNS:redis-internal.railway.internal
-san gateway-redis DNS:redis-router.railway.internal
+san gateway-redis DNS:redis-gateway.railway.internal
 san indexer DNS:indexer.railway.internal
 san developer DNS:webhooks-ingress.railway.internal
 san developer DNS:webhooks-public.railway.internal

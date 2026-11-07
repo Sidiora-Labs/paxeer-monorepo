@@ -23,8 +23,9 @@ defmodule BlockScoutWeb.API.V2.StatsController do
   alias BlockScoutWeb.API.V2.Helper
   alias BlockScoutWeb.Chain.MarketHistoryChartController
   alias Explorer.{Chain, Market}
-  alias Explorer.Chain.Cache.Counters.{AddressesCount, AverageBlockTime, BlocksCount, GasUsageSum, TransactionsCount}
+  alias Explorer.Chain.Cache.Counters.{AddressesCount, AverageBlockTime, GasUsageSum, TransactionsCount}
   alias Explorer.Chain.Cache.GasPriceOracle
+  alias Explorer.Chain.PaxeerX.PriceFeed
   alias Explorer.Chain.Supply.RSK
   alias Explorer.Chain.Transaction.History.TransactionStats
   alias Explorer.Stats.HotSmartContracts
@@ -95,9 +96,9 @@ defmodule BlockScoutWeb.API.V2.StatsController do
     json(
       conn,
       %{
-        "total_blocks" => BlocksCount.get() |> to_string(),
+        "total_blocks" => Chain.block_height() |> to_string(),
         "total_addresses" => AddressesCount.fetch() |> to_string(),
-        "total_transactions" => TransactionsCount.get() |> to_string(),
+        "total_transactions" => (TransactionsCount.get() + PriceFeed.total_update_count()) |> to_string(),
         "average_block_time" => AverageBlockTime.average_block_time() |> Duration.to_milliseconds(),
         "coin_image" => exchange_rate.image_url,
         "secondary_coin_image" => secondary_coin_exchange_rate.image_url,

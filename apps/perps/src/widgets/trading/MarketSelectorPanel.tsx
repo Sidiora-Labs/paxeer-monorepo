@@ -1,6 +1,8 @@
 import React, { useState, useMemo, forwardRef } from "react";
 import { cn } from "@/ui/utils/cn";
-import { PERPS_MARKETS, coinLogoUrl } from "@/core/perps/config";
+import { coinLogoUrl } from "@/core/perps/config";
+import type { MarketCatalogEntry } from "@/core/perps/marketCatalog";
+import { usePerpsMarkets } from "@/hooks/perps/usePerpsMarkets";
 import { useRealtimePrices } from "@/hooks/perps/useRealtimePrices";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { IcoSearch, IcoClock } from "@/ui/atoms/custom-icon";
@@ -17,8 +19,29 @@ interface MarketWatchlistProps {
 
 type FilterTab = "all" | "rwa" | "new";
 
-const NEW_MARKET_IDS = [5, 6, 7, 8, 9, 10];
-const RWA_MARKET_IDS = [5, 6, 7, 8, 9, 10];
+type WatchlistMetadata = Pick<MarketCatalogEntry, "category" | "listedAt"> & {
+  isNew?: boolean;
+  assetCategory?: string;
+};
+
+export function watchlistMetadata(market: WatchlistMetadata, now = Date.now()) {
+  const listedAt = market.listedAt === null ? NaN : Date.parse(market.listedAt);
+  const isNew = market.isNew ?? (Number.isFinite(listedAt)
+    && listedAt <= now && now - listedAt <= 14 * 24 * 60 * 60 * 1000);
+  const category = market.assetCategory ?? market.category;
+  return { isNew, isRwa: ["rwa", "stocks", "indices", "commodities"].includes(category) };
+}
+
+export function filterWatchlist<T extends WatchlistMetadata & { symbol: string; name: string }>(
+  markets: readonly T[], tab: FilterTab, search: string, now = Date.now(),
+): T[] {
+  const query = search.toLowerCase();
+  return markets.filter((market) => {
+    const metadata = watchlistMetadata(market, now);
+    return (tab === "all" || (tab === "rwa" ? metadata.isRwa : metadata.isNew))
+      && (!query || market.symbol.toLowerCase().includes(query) || market.name.toLowerCase().includes(query));
+  });
+}
 
 function formatPrice(price: number): string {
   if (price >= 10000) return price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -35,19 +58,14 @@ function fmtVol(v: number): string {
 
 export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(function MarketWatchlist({ chrome = "rail", width, collapsed, onToggle, onSelect, selectedSymbol }, ref) {
   const { prices, tickers } = useRealtimePrices();
+  const { tradeable } = usePerpsMarkets();
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<FilterTab>("all");
 
-  const filtered = useMemo(() => {
-    let list = [...PERPS_MARKETS];
-    if (tab === "rwa") list = list.filter((m) => RWA_MARKET_IDS.includes(m.marketId));
-    else if (tab === "new") list = list.filter((m) => NEW_MARKET_IDS.includes(m.marketId));
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((m) => m.symbol.toLowerCase().includes(q) || m.name.toLowerCase().includes(q));
-    }
-    return list;
-  }, [tab, search]);
+  const filtered = useMemo(
+    () => filterWatchlist(tradeable, tab, search),
+    [tradeable, tab, search],
+  );
 
   const handleSelect = (symbol: string) => {
     onSelect(symbol);
@@ -86,7 +104,7 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
         </button>
         {/* Mini market icons */}
         <div className="flex flex-col items-center gap-1.5 mt-2 overflow-y-auto scrollbar-hide flex-1 py-1">
-          {PERPS_MARKETS.slice(0, 8).map((m) => {
+          {tradeable.slice(0, 8).map((m) => {
             const isSelected = selectedSymbol === m.symbol;
             return (
               <button
@@ -317,8 +335,8 @@ export const MarketWatchlist = forwardRef<HTMLDivElement, MarketWatchlistProps>(
                   >
                     {m.symbol}
                   </span>
-                  {NEW_MARKET_IDS.includes(m.marketId) && (
-                    <span
+                  {watchlistMetadata(m).isNew && (
+                    <span aria-label="New listing"
                       style={{
                         padding: "1px 4px",
                         borderRadius: 3,

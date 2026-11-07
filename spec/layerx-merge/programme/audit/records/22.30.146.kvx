@@ -1,0 +1,1794 @@
+# Pre-upgrade explorer audit; product repairs are proposals only.
+
+[audit.22.30.146]
+task = "22.30.146"
+revision = "2b99f88520e4e809ad5593f3bee2df74fe355d7b"
+files_reviewed = 169
+findings = 63
+docs_reviewed = 16
+upgrade_ready = false
+blocking = ["transaction-nullability", "smart-contract-abi", "smart-contract-field-drift", "transfer-total-discrimination", "transfer-null-total", "trace-address", "trace-call-type", "trace-call-gas", "trace-create-gas", "trace-refund-address", "internal-creation-destination", "log-wire-shape", "log-structured-parameter", "state-change-address", "holder-address", "contract-list-address", "search-miss-nullability", "search-native-result", "search-address-nullability", "search-token-supply", "transaction-feed-native-items", "homepage-native-items", "address-list-market-nullability", "market-supply-integer", "daily-balance-envelope", "health-blocks-envelope", "summary-variable-map", "address-cursors", "block-cursors", "internal-cursors", "transfer-cursors", "token-cursors", "transaction-cursors", "contract-cursors", "withdrawal-cursors", "search-cursors", "health-node-height"]
+requirements = ["22108.1", "22998.1"]
+requirement_review = "Decision 2515 defines this record-only audit. Package requirement 22108.1 concerns dependency alert disposition; task acceptance 22998.1 concerns the recorded inventory command. Neither authorizes dependency/product repairs or full explorer qualification here. No test is deleted, skipped or weakened, and no unrun install, build or runtime gate is claimed."
+interfaces_reviewed = ["14.http-get-api-health", "14.http-get-api-health-l564", "14.http-get-api-v2-addresses", "14.http-get-api-v2-addresses-address-hash-param", "14.http-get-api-v2-addresses-address-hash-param-blocks-validated", "14.http-get-api-v2-addresses-address-hash-param-coin-balance-history", "14.http-get-api-v2-addresses-address-hash-param-coin-balance-history-by-day", "14.http-get-api-v2-addresses-address-hash-param-counters", "14.http-get-api-v2-addresses-address-hash-param-internal-transactions", "14.http-get-api-v2-addresses-address-hash-param-logs", "14.http-get-api-v2-addresses-address-hash-param-nft", "14.http-get-api-v2-addresses-address-hash-param-nft-collections", "14.http-get-api-v2-addresses-address-hash-param-token-balances", "14.http-get-api-v2-addresses-address-hash-param-token-transfers", "14.http-get-api-v2-addresses-address-hash-param-tokens", "14.http-get-api-v2-addresses-address-hash-param-transactions", "14.http-get-api-v2-addresses-address-hash-param-withdrawals", "14.http-get-api-v2-blocks", "14.http-get-api-v2-blocks-block-hash-or-number-param", "14.http-get-api-v2-blocks-block-hash-or-number-param-transactions", "14.http-get-api-v2-blocks-block-hash-or-number-param-withdrawals", "14.http-get-api-v2-internal-transactions", "14.http-get-api-v2-main-page-blocks", "14.http-get-api-v2-main-page-indexing-status", "14.http-get-api-v2-main-page-transactions", "14.http-get-api-v2-proxy-account-abstraction-status", "14.http-get-api-v2-search", "14.http-get-api-v2-search-check-redirect", "14.http-get-api-v2-smart-contracts", "14.http-get-api-v2-smart-contracts-address-hash-param", "14.http-get-api-v2-smart-contracts-counters", "14.http-get-api-v2-stats", "14.http-get-api-v2-stats-charts-market", "14.http-get-api-v2-stats-charts-transactions", "14.http-get-api-v2-token-transfers", "14.http-get-api-v2-tokens", "14.http-get-api-v2-tokens-address-hash-param", "14.http-get-api-v2-tokens-address-hash-param-counters", "14.http-get-api-v2-tokens-address-hash-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-transfers", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-transfers-count", "14.http-get-api-v2-tokens-address-hash-param-transfers", "14.http-get-api-v2-transactions", "14.http-get-api-v2-transactions-transaction-hash-param", "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions", "14.http-get-api-v2-transactions-transaction-hash-param-logs", "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace", "14.http-get-api-v2-transactions-transaction-hash-param-state-changes", "14.http-get-api-v2-transactions-transaction-hash-param-summary", "14.http-get-api-v2-transactions-transaction-hash-param-token-transfers", "14.http-get-api-v2-withdrawals", "14.http-patch-api-v2-tokens-address-hash-param-instances-token-id-param-refetch-metadata", "7.rpc-eth-sign"]
+interface_review = "This slice produces no registered interface. The 55 explorer route rows, including both health mounts and metadata PATCH, were compared with backend mounts, reqwest construction and nested response models. REST path parameters are encoded, filters use query fields, CAPTCHA uses JSON, and raw status/body survive 4xx/5xx. Response/cursor disagreements are findings. The eth_sign row is embedded vendored commentary, not an executable consumer. Auxiliary Celestia bindings describe an external service rather than a node namespace."
+lifecycle_review = "Rust clients retain shared configuration/HTTP connections with no durable chain, tenant or pagination checkpoint. Reads can repeat after restart; absent cursor support prevents complete traversal. Metadata PATCH delegates refresh to existing backend CAPTCHA/protection and refresh lifecycle with no client success persistence. SQL sandbox fixtures roll back test state; unsafe global cache restart ownership is a finding. There is no in-scope migration, background indexer or program ABI registration."
+security_review = "No in-scope code introduces node signing or a receipt-verification bypass. Public REST reads and backend metadata-refresh protection stay on mounted producer paths; the client sends CAPTCHA JSON. Credential Debug exposure and unbounded default transport are findings. Historical Solidity/compiler fixtures describe data to verify, not live deployment choices."
+review_limit = "Static source/interface/documentation audit with explicit generated and vendored dispositions. Declared gates validate the record and task graph only; they do not run Elixir/Rust integration tests, contact production, prove dependency remediation or establish upgrade readiness."
+
+[file.001]
+path = "services/explorer/backend/apps/block_scout_web/test/support/api_schema_assertions.ex"
+lines = 115
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: schema-missing, schema-specificity. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.002]
+path = "services/explorer/backend/apps/block_scout_web/test/support/channel_case.ex"
+lines = 41
+verdict = "clean"
+note = "Read in full: Phoenix.ChannelTest endpoint/factory wiring and sandbox sharing follow async tags. SubscriptionCase composes the fixture; no credentials, durable restart state or retired router path is introduced. Checkout discards its result, so this helper alone does not prove database acquisition."
+
+[file.003]
+path = "services/explorer/backend/apps/block_scout_web/test/support/conn_case.ex"
+lines = 56
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: conn-global-cache. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.004]
+path = "services/explorer/backend/apps/block_scout_web/test/support/feature_case.ex"
+lines = 40
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: feature-global-cache. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.005]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/compiler_tests.json"
+lines = 13
+verdict = "vendored"
+note = "Historical verification fixture with embedded upstream Solidity/token/library source, compiler version, runtime/deployment bytecode, optimization and external-library addresses. Old compiler versions and deliberately unusual contract behavior are fixture subject matter, not recommendations for live deployment."
+
+[file.006]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/contract_with_lib.json"
+lines = 14
+verdict = "vendored"
+note = "Historical verification fixture with embedded upstream Solidity/token/library source, compiler version, runtime/deployment bytecode, optimization and external-library addresses. Old compiler versions and deliberately unusual contract behavior are fixture subject matter, not recommendations for live deployment."
+
+[file.007]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_alliance_sources_partial_response.json"
+lines = 43
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.008]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_alliance_sources_partial_response_eth_bdb_full.json"
+lines = 43
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.009]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_alliance_sources_response.json"
+lines = 43
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.010]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_local_sources_response.json"
+lines = 59
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.011]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_sourcify_sources_response.json"
+lines = 30
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.012]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_all_sourcify_sources_with_libs_response.json"
+lines = 47
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. eth_sign appears only in an embedded OpenZeppelin documentation comment; it is not an executable node signing request."
+
+[file.013]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/eth_bytecode_db_search_response.json"
+lines = 17
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.014]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/smart_contract_verifier_vyper_multi_part_blueprint_response.json"
+lines = 21
+verdict = "vendored"
+note = "Upstream verifier response fixture: complete JSON envelope, source descriptors, serialized ABI/compiler settings, libraries and FULL/PARTIAL or blueprint status inspected. Embedded Solidity and bytecode are historical test artifacts, not deployed services or current explorer API response contracts. "
+
+[file.015]
+path = "services/explorer/backend/apps/block_scout_web/test/support/fixture/smart_contract/solc_bin.json"
+lines = 7894
+verdict = "vendored"
+note = "Vendored historical solc release-index fixture: 717 build records, 49 release entries and latestRelease 0.5.5. Paths, versions, hashes and checksums describe upstream compiler artifacts for verification tests, not production compiler defaults or live node endpoints."
+
+[file.016]
+path = "services/explorer/backend/apps/block_scout_web/test/support/subscription_case.ex"
+lines = 27
+verdict = "clean"
+note = "Read in full: composes ChannelCase, real UserSocket and Absinthe schema; checks socket connect/join results and returns the joined socket. No durable cursor, tenant cache or retired daemon call is present."
+
+[file.017]
+path = "services/explorer/backend/apps/block_scout_web/test/support/test_helper.ex"
+lines = 21
+verdict = "clean"
+note = "Read in full: asserts the actual 404 HTML error for above-tip blocks through ConnCase and Floki. It does not invent a JSON shape or weaken status assertions; global cache setup risk is recorded on ConnCase."
+
+[file.018]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/addresses_api.rs"
+lines = 1635
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: daily-balance-envelope, address-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-addresses", "14.http-get-api-v2-addresses-address-hash-param", "14.http-get-api-v2-addresses-address-hash-param-blocks-validated", "14.http-get-api-v2-addresses-address-hash-param-coin-balance-history", "14.http-get-api-v2-addresses-address-hash-param-coin-balance-history-by-day", "14.http-get-api-v2-addresses-address-hash-param-counters", "14.http-get-api-v2-addresses-address-hash-param-internal-transactions", "14.http-get-api-v2-addresses-address-hash-param-logs", "14.http-get-api-v2-addresses-address-hash-param-nft", "14.http-get-api-v2-addresses-address-hash-param-nft-collections", "14.http-get-api-v2-addresses-address-hash-param-token-balances", "14.http-get-api-v2-addresses-address-hash-param-token-transfers", "14.http-get-api-v2-addresses-address-hash-param-tokens", "14.http-get-api-v2-addresses-address-hash-param-transactions", "14.http-get-api-v2-addresses-address-hash-param-withdrawals"]
+
+[file.019]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/blocks_api.rs"
+lines = 447
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: block-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-blocks", "14.http-get-api-v2-blocks-block-hash-or-number-param", "14.http-get-api-v2-blocks-block-hash-or-number-param-transactions", "14.http-get-api-v2-blocks-block-hash-or-number-param-withdrawals"]
+
+[file.020]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/celestia_service_api.rs"
+lines = 388
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares CelestiaServiceApiClient. Request path/verb, query/body encoding, local typed-success helpers and raw 4xx/5xx error propagation inspected; generated boilerplate is not independently runtime-qualified. "
+
+[file.021]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/config_api.rs"
+lines = 126
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: unmounted-config-discovery. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.022]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/configuration.rs"
+lines = 66
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: wrong-default-origin, configuration-debug-secrets, unbounded-http. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.023]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/health_api.rs"
+lines = 197
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: unmounted-v1-health. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-health", "14.http-get-api-health-l564"]
+
+[file.024]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/internal_transactions_api.rs"
+lines = 127
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: internal-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-internal-transactions"]
+
+[file.025]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/main_page_api.rs"
+lines = 296
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: homepage-native-items. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-main-page-blocks", "14.http-get-api-v2-main-page-indexing-status", "14.http-get-api-v2-main-page-transactions"]
+
+[file.026]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/mod.rs"
+lines = 464
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: deep-object-array-panic. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.027]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/proxy_api.rs"
+lines = 134
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ProxyApiClient. Request path/verb, query/body encoding, local typed-success helpers and raw 4xx/5xx error propagation inspected; generated boilerplate is not independently runtime-qualified. "
+interfaces = ["14.http-get-api-v2-proxy-account-abstraction-status"]
+
+[file.028]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/search_api.rs"
+lines = 244
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: search-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-search", "14.http-get-api-v2-search-check-redirect"]
+
+[file.029]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/smart_contracts_api.rs"
+lines = 344
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: contract-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-smart-contracts", "14.http-get-api-v2-smart-contracts-address-hash-param", "14.http-get-api-v2-smart-contracts-counters"]
+
+[file.030]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/stats_api.rs"
+lines = 289
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares StatsApiClient. Request path/verb, query/body encoding, local typed-success helpers and raw 4xx/5xx error propagation inspected; generated boilerplate is not independently runtime-qualified. "
+interfaces = ["14.http-get-api-v2-stats", "14.http-get-api-v2-stats-charts-market", "14.http-get-api-v2-stats-charts-transactions"]
+
+[file.031]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/token_transfers_api.rs"
+lines = 128
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transfer-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-token-transfers"]
+
+[file.032]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/tokens_api.rs"
+lines = 1193
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: token-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-tokens", "14.http-get-api-v2-tokens-address-hash-param", "14.http-get-api-v2-tokens-address-hash-param-counters", "14.http-get-api-v2-tokens-address-hash-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-holders", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-transfers", "14.http-get-api-v2-tokens-address-hash-param-instances-token-id-param-transfers-count", "14.http-get-api-v2-tokens-address-hash-param-transfers", "14.http-patch-api-v2-tokens-address-hash-param-instances-token-id-param-refetch-metadata"]
+
+[file.033]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/transactions_api.rs"
+lines = 892
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transaction-cursors, success-decode-observability. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-transactions", "14.http-get-api-v2-transactions-transaction-hash-param", "14.http-get-api-v2-transactions-transaction-hash-param-internal-transactions", "14.http-get-api-v2-transactions-transaction-hash-param-logs", "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace", "14.http-get-api-v2-transactions-transaction-hash-param-state-changes", "14.http-get-api-v2-transactions-transaction-hash-param-summary", "14.http-get-api-v2-transactions-transaction-hash-param-token-transfers"]
+
+[file.034]
+path = "services/explorer/services/libs/blockscout-client/crate/src/apis/withdrawals_api.rs"
+lines = 123
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: withdrawal-cursors. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+interfaces = ["14.http-get-api-v2-withdrawals"]
+
+[file.035]
+path = "services/explorer/services/libs/blockscout-client/crate/src/lib.rs"
+lines = 13
+verdict = "clean"
+note = "Read in full: exposes models/apis and re-exports concrete ApiClient, Api, Configuration, Error and ResponseContent. No endpoint, secret, persistent state or retired transport is introduced here."
+
+[file.036]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address.rs"
+lines = 82
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Address. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.037]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_counters.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressCounters. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.038]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_nft_collection.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressNftCollection. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.039]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_nft_instance.rs"
+lines = 50
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressNftInstance. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.040]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_nft_instance_collection.rs"
+lines = 50
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressNftInstanceCollection. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.041]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_param.rs"
+lines = 43
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressParam. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.042]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_tag.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressTag. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.043]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/address_with_tx_count.rs"
+lines = 84
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares AddressWithTxCount. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.044]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/argument.rs"
+lines = 30
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Argument. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.045]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/block.rs"
+lines = 90
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Block. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.046]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/code_and_message.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares CodeAndMessage. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.047]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/coin_balance_history_by_days_entry.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares CoinBalanceHistoryByDaysEntry. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.048]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/coin_balance_history_entry.rs"
+lines = 29
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares CoinBalanceHistoryEntry. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.049]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/contract_source.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ContractSource. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.050]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/decoded_input.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares DecodedInput. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.051]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/decoded_input_log.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares DecodedInputLog. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.052]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/decoded_input_log_parameter.rs"
+lines = 26
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: log-structured-parameter. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.053]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/decoded_input_parameter.rs"
+lines = 28
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares DecodedInputParameter. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.054]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/error.rs"
+lines = 23
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Error. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.055]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/extended_revert_reason_as_map.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ExtendedRevertReasonAsMap. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.056]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/external_library.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ExternalLibrary. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.057]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/fee.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Fee. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.058]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_blocks_validated_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressBlocksValidated200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.059]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_coin_balance_history_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressCoinBalanceHistory200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.060]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_internal_txs_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressInternalTxs200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.061]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_logs_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressLogs200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.062]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_nft_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressNft200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.063]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_nft_collections_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressNftCollections200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.064]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_token_transfers_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressTokenTransfers200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.065]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_address_tokens_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetAddressTokens200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.066]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_addresses_200_response.rs"
+lines = 26
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: address-list-market-nullability. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.067]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_block_txs_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetBlockTxs200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.068]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_block_withdrawals_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetBlockWithdrawals200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.069]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_blocks_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetBlocks200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.070]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_internal_transactions_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetInternalTransactions200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.071]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_json_rpc_url_200_response.rs"
+lines = 23
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetJsonRpcUrl200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.072]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_market_chart_200_response.rs"
+lines = 24
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: market-supply-integer. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.073]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_nft_instance_transfers_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetNftInstanceTransfers200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.074]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_nft_instance_transfers_count_200_response.rs"
+lines = 23
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetNftInstanceTransfersCount200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.075]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_nft_instances_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetNftInstances200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.076]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_smart_contracts_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetSmartContracts200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.077]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_smart_contracts_counters_200_response.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetSmartContractsCounters200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.078]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_token_holders_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTokenHolders200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.079]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_token_instance_holders_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTokenInstanceHolders200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.080]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_token_token_transfers_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTokenTokenTransfers200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.081]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_token_transfers_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTokenTransfers200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.082]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_tokens_list_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTokensList200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.083]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_transaction_internal_txs_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTransactionInternalTxs200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.084]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_transaction_logs_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTransactionLogs200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.085]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_transaction_state_changes_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTransactionStateChanges200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.086]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_transaction_token_transfers_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTransactionTokenTransfers200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.087]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_txs_200_response.rs"
+lines = 24
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transaction-feed-native-items. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.088]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/get_txs_chart_200_response.rs"
+lines = 23
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares GetTxsChart200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.089]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares HealthCheckResponse. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.090]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_metadata.rs"
+lines = 24
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: health-blocks-envelope. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.091]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_serving_status.rs"
+lines = 51
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares HealthCheckResponseServingStatus. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.092]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/holder.rs"
+lines = 28
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: holder-address. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.093]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/indexing_status.rs"
+lines = 29
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares IndexingStatus. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Chain.indexed_ratio_blocks/internal_transactions return Decimal serialized as strings; the numeric OpenAPI description alone does not establish a Rust string-decoding failure."
+
+[file.094]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/internal_transaction.rs"
+lines = 38
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: internal-creation-destination. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.095]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/latest_block.rs"
+lines = 27
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: health-node-height. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.096]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/latest_block_cache.rs"
+lines = 27
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: health-cache-number. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.097]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/latest_block_db.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares LatestBlockDb. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.098]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/log.rs"
+lines = 37
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: log-wire-shape. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.099]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/market_chart_item.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares MarketChartItem. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.100]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/mod.rs"
+lines = 395
+verdict = "clean"
+note = "Complete module/re-export index reviewed: declarations and exports use matching Rust names. No decoder, network origin, persistent state or retired runtime call exists here; behavioral findings are attached to defining model files."
+
+[file.101]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/nft_change.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares NftChange. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.102]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/nft_instance.rs"
+lines = 46
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares NftInstance. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.103]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/output_and_names.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares OutputAndNames. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.104]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/protobuf_any.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ProtobufAny. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Auxiliary external-service type; its presence does not make a separate execution/finality domain a Paxeer dependency."
+
+[file.105]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace.rs"
+lines = 31
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: trace-address. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.106]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_action.rs"
+lines = 34
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RawTraceAction. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.107]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_call_action.rs"
+lines = 28
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: trace-call-type. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.108]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_call_result.rs"
+lines = 24
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: trace-call-gas. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.109]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_create_action.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RawTraceCreateAction. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.110]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_create_result.rs"
+lines = 25
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: trace-create-gas. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.111]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_result.rs"
+lines = 32
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RawTraceResult. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.112]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_self_destruct_action.rs"
+lines = 25
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: trace-refund-address. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.113]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/read_method_query_body.rs"
+lines = 29
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ReadMethodQueryBody. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.114]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/read_method_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ReadMethodResponse. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.115]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/read_method_response_result.rs"
+lines = 38
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares ReadMethodResponseResult. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.116]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/recaptcha_body.rs"
+lines = 23
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RecaptchaBody. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.117]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/refetch_token_instance_metadata_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RefetchTokenInstanceMetadata200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.118]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/refetch_token_instance_metadata_403_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RefetchTokenInstanceMetadata403Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.119]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/reward.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Reward. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.120]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/rpc_status.rs"
+lines = 30
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares RpcStatus. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Auxiliary external-service type; its presence does not make a separate execution/finality domain a Paxeer dependency."
+
+[file.121]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_200_response.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Search200Response. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.122]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_200_response_items_inner.rs"
+lines = 36
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: search-native-result. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.123]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_address_or_contract.rs"
+lines = 31
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: search-address-nullability. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.124]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_block.rs"
+lines = 31
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares SearchResultBlock. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.125]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_redirect.rs"
+lines = 25
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: search-miss-nullability. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.126]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_token.rs"
+lines = 49
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: search-token-supply. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.127]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_transaction.rs"
+lines = 28
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares SearchResultTransaction. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.128]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/smart_contract.rs"
+lines = 105
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: smart-contract-abi, smart-contract-field-drift. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.129]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/smart_contract_for_list.rs"
+lines = 41
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: contract-list-address. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.130]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/state_change.rs"
+lines = 41
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: state-change-address. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.131]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/state_change_change.rs"
+lines = 32
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares StateChangeChange. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.132]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/stats_response.rs"
+lines = 57
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares StatsResponse. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.133]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/summary.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Summary. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.134]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/summary_template_variables.rs"
+lines = 25
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: summary-variable-map. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.135]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/summary_variable.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares SummaryVariable. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.136]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/summary_variable_currency.rs"
+lines = 26
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares SummaryVariableCurrency. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.137]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/summary_variable_token.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares SummaryVariableToken. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.138]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token.rs"
+lines = 45
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Token. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.139]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_address_param.rs"
+lines = 34
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TokenAddressParam. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.140]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_balance.rs"
+lines = 33
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TokenBalance. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.141]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_counters.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TokenCounters. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.142]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_info.rs"
+lines = 51
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TokenInfo. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.143]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_info_detailed.rs"
+lines = 74
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TokenInfoDetailed. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.144]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_transfer.rs"
+lines = 36
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transfer-null-total. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.145]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/token_transfer_total.rs"
+lines = 34
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transfer-total-discrimination. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.146]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/total_erc1155.rs"
+lines = 31
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TotalErc1155. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.147]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/total_erc20.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TotalErc20. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.148]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/total_erc721.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TotalErc721. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.149]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction.rs"
+lines = 79
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: transaction-nullability. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.150]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action.rs"
+lines = 40
+verdict = "issues"
+note = "Source and applicable producer path reviewed; findings: action-variant-collapse. OpenAPI-generated binding with local helpers; repairs belong in the source schema/generator and must retain valid typed-success helpers. Request wiring and response shape were compared separately; this audit proposes repairs and changes no product behavior."
+
+[file.151]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action_aave_v3_bswrf.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionActionAaveV3Bswrf. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.152]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action_aave_v3_enable_disable_collateral.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionActionAaveV3EnableDisableCollateral. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.153]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action_aave_v3_liquidation_call.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionActionAaveV3LiquidationCall. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.154]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action_uniswap_v3_bcs.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionActionUniswapV3Bcs. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.155]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action_uniswap_v3_mint_nft.rs"
+lines = 25
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionActionUniswapV3MintNft. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.156]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_chart_item.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionChartItem. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.157]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_reward.rs"
+lines = 27
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionReward. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.158]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_summary.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionSummary. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.159]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_summary_obj.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares TransactionSummaryObj. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.160]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_celestia_blob.rs"
+lines = 39
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1CelestiaBlob. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Auxiliary external-service type; its presence does not make a separate execution/finality domain a Paxeer dependency."
+
+[file.161]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_celestia_blob_id.rs"
+lines = 30
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1CelestiaBlobId. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Auxiliary external-service type; its presence does not make a separate execution/finality domain a Paxeer dependency."
+
+[file.162]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_celestia_l2_batch_metadata.rs"
+lines = 51
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1CelestiaL2BatchMetadata. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. Auxiliary external-service type; its presence does not make a separate execution/finality domain a Paxeer dependency."
+
+[file.163]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_data.rs"
+lines = 33
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1Data. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.164]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_entry_point_indexer_status.rs"
+lines = 33
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1EntryPointIndexerStatus. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.165]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_health_check_response.rs"
+lines = 30
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1HealthCheckResponse. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.166]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/v1_indexer_status.rs"
+lines = 30
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares V1IndexerStatus. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.167]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/watchlist_name.rs"
+lines = 24
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares WatchlistName. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.168]
+path = "services/explorer/services/libs/blockscout-client/crate/src/models/withdrawal.rs"
+lines = 33
+verdict = "generated"
+note = "OpenAPI Generator output for API document version 1.0.0, dispositioned as generated material under the brief exemption; source schema/generator owns future changes. Declares Withdrawal. Field/serde declarations inspected in their response context; nested defects are attached to defining models, and this generated disposition is not a claim of runtime schema qualification. "
+
+[file.169]
+path = "services/explorer/services/libs/blockscout-client/tsconfig.json"
+lines = 11
+verdict = "clean"
+note = "Read in full: strict ES6/CommonJS compilation targets ts-src and dist; esModuleInterop/skipLibCheck affect recording tooling, not runtime protocol validation. No RPC origin, tenant state or retired daemon configuration is present."
+
+[finding.schema-missing]
+file = "services/explorer/backend/apps/block_scout_web/test/support/api_schema_assertions.ex"
+class = "test-gap"
+severity = "medium"
+observed = "maybe_assert_schema returns :ok when a path, operation or response schema is absent. ConnCase imports this helper for API tests, so responses without any contract still pass the advertised validation."
+expected = "BRIEF check_7 requires actual producer responses to be checked against declared shapes; absent coverage for a covered API route must be visible as an assertion failure."
+proposal = "In block_scout_web/test/support/api_schema_assertions.ex fail explicitly for missing API path, operation and response schemas, document intentionally schema-free routes, and add focused cases for each missing declaration."
+owner_domain = 14
+line = 37
+
+[finding.schema-specificity]
+file = "services/explorer/backend/apps/block_scout_web/test/support/api_schema_assertions.ex"
+class = "test-gap"
+severity = "medium"
+observed = "match_template_path selects the first matching map entry and treats placeholders as wildcards. Both /v2/transactions/stats and /v2/transactions/{transaction_hash_param} can match the stats request without static-route precedence."
+expected = "Schema selection must follow the router: a static endpoint wins over a dynamic hash endpoint, independent of map traversal and public/private specification order."
+proposal = "In block_scout_web/test/support/api_schema_assertions.ex resolve exact paths first, then the most specific compatible template, reject ambiguous templates, and cover static-versus-placeholder collisions."
+owner_domain = 14
+line = 70
+
+[finding.conn-global-cache]
+file = "services/explorer/backend/apps/block_scout_web/test/support/conn_case.ex"
+class = "test-gap"
+severity = "medium"
+observed = "conn_case.ex terminates and restarts global Transactions and Accounts cache children on every setup, including async tests, and ignores all supervisor results. Concurrent cases can lose cache processes or observe a partial reset."
+expected = "Concurrent explorer tests need isolated cache state or serialized ownership of global resets; fixture setup must establish that all required cache processes are running before assertions."
+proposal = "In block_scout_web/test/support/conn_case.ex isolate cache processes per test where possible, otherwise serialize tests sharing the reset and check terminate/restart results; exercise concurrent fixture setup without weakening product assertions."
+owner_domain = 14
+line = 49
+
+[finding.feature-global-cache]
+file = "services/explorer/backend/apps/block_scout_web/test/support/feature_case.ex"
+class = "test-gap"
+severity = "medium"
+observed = "feature_case.ex terminates and restarts global Transactions and Accounts cache children on every setup, including async tests, and ignores all supervisor results. Concurrent cases can lose cache processes or observe a partial reset."
+expected = "Concurrent explorer tests need isolated cache state or serialized ownership of global resets; fixture setup must establish that all required cache processes are running before assertions."
+proposal = "In block_scout_web/test/support/feature_case.ex isolate cache processes per test where possible, otherwise serialize tests sharing the reset and check terminate/restart results; exercise concurrent fixture setup without weakening product assertions."
+owner_domain = 14
+line = 30
+
+[finding.wrong-default-origin]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/configuration.rs"
+class = "config-drift"
+severity = "medium"
+observed = "Configuration::default and Configuration::new select https://eth.blockscout.com. A default client reads Ethereum explorer data while this package belongs to the Paxeer chain-125 explorer."
+expected = "Merged-network clients must explicitly select their intended explorer instance and must not silently return another network's addresses, transactions or health data."
+proposal = "In blockscout-client/crate/src/apis/configuration.rs require an explicit explorer REST origin or a deployment-supplied Paxscan origin and document chain-identity validation; keep REST and node JSON-RPC origins distinct."
+owner_domain = 14
+line = 56
+
+[finding.configuration-debug-secrets]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/configuration.rs"
+class = "security"
+severity = "medium"
+observed = "Configuration derives Debug while storing basic_auth passwords, oauth_access_token, bearer_access_token and ApiKey.key as strings; ApiKey derives Debug too, so diagnostic formatting exposes configured credentials."
+expected = "BRIEF check_8 requires secrets never to be logged; client configuration diagnostics must redact credentials while retaining useful non-secret endpoint information."
+proposal = "In blockscout-client/crate/src/apis/configuration.rs replace derived Debug with redacted implementations for Configuration and ApiKey and verify formatting populated credentials never contains their secret values."
+owner_domain = 14
+line = 17
+
+[finding.unbounded-http]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/configuration.rs"
+class = "runtime-risk"
+severity = "medium"
+observed = "The default middleware wraps reqwest::Client::new without a total request deadline. API methods await execute and buffer the complete response using text().await, allowing stalled peers to hold requests and oversized bodies to consume unbounded response memory."
+expected = "Explorer integrations need bounded request completion and response memory so stalled or oversized upstream responses cannot exhaust service request slots or memory."
+proposal = "In blockscout-client transport configuration set explicit connect/total deadlines and a configurable response-byte limit; apply bounded body reads in generated API templates while preserving error evidence up to that limit."
+owner_domain = 14
+line = 58
+
+[finding.deep-object-array-panic]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/mod.rs"
+class = "runtime-risk"
+severity = "medium"
+observed = "parse_deep_object recurses into array elements as though each were an object, then reaches unimplemented! for a scalar element such as a string. The public helper panics on ordinary JSON; no production caller was found in this slice."
+expected = "A public request-encoding utility must encode supported scalar array elements or return an explicit unsupported-value error without terminating its caller."
+proposal = "In blockscout-client/crate/src/apis/mod.rs implement scalar array encoding or return a typed error from parse_deep_object and its callers; cover nested objects, scalar arrays and null without panic or silent omission."
+owner_domain = 14
+line = 105
+
+[finding.unmounted-config-discovery]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/config_api.rs"
+class = "wiring-gap"
+severity = "medium"
+observed = "ConfigApi.get_json_rpc_url sends GET /api/v2/config/json-rpc-url, but the current block_scout_web router/controller tree has no matching route. ApiClient still exposes it and its existing integration test is commented out."
+expected = "RPC discovery exposed by the explorer client needs a mounted producer or an explicit unsupported-capability result, rather than presenting a removed upstream route as a working Paxeer endpoint."
+proposal = "In blockscout-client generation inputs and config_api.rs align RPC discovery with a declared backend capability or explicit root node-origin configuration; restore actual-producer coverage without relying on the commented fixture test."
+owner_domain = 14
+line = 57
+
+[finding.transaction-nullability]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "Transaction requires timestamp, block_number, status, to, gas_used, base_fee_per_gas, exchange_rate and position. TransactionView.prepare_transaction (transaction_view.ex:451-537) emits null for pending block fields, creation destinations, absent base fee and unavailable exchange rate, rejecting valid detail/list responses."
+expected = "The transaction-detail interface and every list using Transaction must round-trip pending, mined, creation and historical transactions without invented block, destination or market values."
+proposal = "Correct nullability in the blockscout-client source OpenAPI and regenerate transaction.rs; decode real TransactionView JSON for pending transactions, contract creation, historical base-fee absence and missing market data."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param"
+line = 22
+
+[finding.smart-contract-abi]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/smart_contract.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SmartContract.abi is Option<String>, but SmartContractView.prepare_smart_contract emits target_contract.abi as the stored ABI array of objects (smart_contract_view.ex:207). Verified contracts with an ABI reject the declared typed success."
+expected = "Smart-contract detail must preserve structured ABI and compiler information so clients can inspect verified contracts using the producer's actual representation."
+proposal = "In blockscout-client source OpenAPI define abi as the actual nullable array of ABI entries, regenerate smart_contract.rs and require typed decoding of real SmartContractView output for verified and unverified contracts."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts-address-hash-param"
+line = 71
+
+[finding.smart-contract-field-drift]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/smart_contract.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The model expects optimizations_runs and minimal_proxy_address_hash while SmartContractView emits optimization_runs plus proxy_type, implementations and conflicting_implementations. Serde discards those current fields and loses compiler/proxy resolution information."
+expected = "Contract-detail consumers must retain the compiler optimization field and current implementation identities, including multiple or conflicting proxy implementations."
+proposal = "Update blockscout-client OpenAPI property names and proxy detail types to SmartContractView's optimization_runs and implementation records, regenerate smart_contract.rs and verify these values survive decoding and serialization."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts-address-hash-param"
+line = 59
+
+[finding.transfer-total-discrimination]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/token_transfer_total.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "TokenTransferTotal tries TotalErc20 first; both its properties are optional and unknown properties are ignored. ERC721 and ERC1155 total objects therefore match ERC20 first, silently dropping token_id and token_instance emitted by TokenTransferView:72-105."
+expected = "Transfer totals must preserve token standard, NFT identity, instance metadata, amount and decimals, including the producer's ERC404-compatible totals."
+proposal = "In blockscout-client OpenAPI and token_transfer_total.rs discriminate variants using the surrounding token standard or exact structural validation; exercise lossless real ERC20, ERC721, ERC1155 and ERC404 responses."
+owner_domain = 14
+interface = "14.http-get-api-v2-token-transfers"
+line = 21
+
+[finding.transfer-null-total]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/token_transfer.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "TokenTransfer.total requires TokenTransferTotal, while TokenTransferView.prepare_token_transfer_total returns nil when TokensHelper cannot determine the amount. This supported incomplete-indexing response cannot deserialize."
+expected = "Transfers with unavailable amounts must remain identifiable and distinguish an unknown total from an actual zero while indexing catches up."
+proposal = "In blockscout-client OpenAPI and token_transfer.rs represent the producer's nullable total explicitly and add decoder coverage for the actual incomplete-token-metadata producer branch, retaining transfer identity."
+owner_domain = 14
+interface = "14.http-get-api-v2-token-transfers"
+line = 33
+
+[finding.trace-address]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "raw_trace.rs requires trace_address without a serde wire-name mapping, whereas raw node traces use traceAddress. TransactionController.raw_trace and TransactionView pass traces through unchanged; transaction_controller_test.exs:2102-2133 explicitly confirms the camelCase call shape."
+expected = "The registered raw-trace endpoint must preserve node trace encoding, including traceAddress, across call, create and self-destruct variants rather than requiring a different snake_case payload."
+proposal = "In blockscout-client OpenAPI specify the traceAddress wire property and regenerate raw_trace.rs with its serde mapping; decode actual node call/create/self-destruct traces through the explorer response."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+line = 24
+
+[finding.trace-call-type]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_call_action.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "raw_trace_call_action.rs requires call_type without a serde wire-name mapping, whereas raw node traces use callType. TransactionController.raw_trace and TransactionView pass traces through unchanged; transaction_controller_test.exs:2102-2133 explicitly confirms the camelCase call shape."
+expected = "The registered raw-trace endpoint must preserve node trace encoding, including callType, across call, create and self-destruct variants rather than requiring a different snake_case payload."
+proposal = "In blockscout-client OpenAPI specify the callType wire property and regenerate raw_trace_call_action.rs with its serde mapping; decode actual node call/create/self-destruct traces through the explorer response."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+line = 22
+
+[finding.trace-call-gas]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_call_result.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "raw_trace_call_result.rs requires gas_used without a serde wire-name mapping, whereas raw node traces use gasUsed. TransactionController.raw_trace and TransactionView pass traces through unchanged; transaction_controller_test.exs:2102-2133 explicitly confirms the camelCase call shape."
+expected = "The registered raw-trace endpoint must preserve node trace encoding, including gasUsed, across call, create and self-destruct variants rather than requiring a different snake_case payload."
+proposal = "In blockscout-client OpenAPI specify the gasUsed wire property and regenerate raw_trace_call_result.rs with its serde mapping; decode actual node call/create/self-destruct traces through the explorer response."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+line = 22
+
+[finding.trace-create-gas]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_create_result.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "raw_trace_create_result.rs requires gas_used without a serde wire-name mapping, whereas raw node traces use gasUsed. TransactionController.raw_trace and TransactionView pass traces through unchanged; transaction_controller_test.exs:2102-2133 explicitly confirms the camelCase call shape."
+expected = "The registered raw-trace endpoint must preserve node trace encoding, including gasUsed, across call, create and self-destruct variants rather than requiring a different snake_case payload."
+proposal = "In blockscout-client OpenAPI specify the gasUsed wire property and regenerate raw_trace_create_result.rs with its serde mapping; decode actual node call/create/self-destruct traces through the explorer response."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+line = 24
+
+[finding.trace-refund-address]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/raw_trace_self_destruct_action.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "raw_trace_self_destruct_action.rs requires refund_address without a serde wire-name mapping, whereas raw node traces use refundAddress. TransactionController.raw_trace and TransactionView pass traces through unchanged; transaction_controller_test.exs:2102-2133 explicitly confirms the camelCase call shape."
+expected = "The registered raw-trace endpoint must preserve node trace encoding, including refundAddress, across call, create and self-destruct variants rather than requiring a different snake_case payload."
+proposal = "In blockscout-client OpenAPI specify the refundAddress wire property and regenerate raw_trace_self_destruct_action.rs with its serde mapping; decode actual node call/create/self-destruct traces through the explorer response."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-raw-trace"
+line = 24
+
+[finding.internal-creation-destination]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/internal_transaction.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "InternalTransaction.to requires AddressParam. InternalTransactionView.prepare_internal_transaction emits Helper.address_with_info for to_address_hash, which returns nil for an absent destination as in contract creation; created_contract is a separate field."
+expected = "Global, address and transaction internal-transaction interfaces must represent contract creation without inventing a destination or rejecting the containing page."
+proposal = "Correct nullable destination in blockscout-client OpenAPI and internal_transaction.rs, retaining created_contract independently; decode actual create, create2, failed creation and ordinary call producer responses."
+owner_domain = 14
+interface = "14.http-get-api-v2-internal-transactions"
+line = 34
+
+[finding.log-wire-shape]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/log.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "Log requires decoded and smart_contract objects and expects address_hash. TransactionView.prepare_log:353-377 emits address, nullable decoded for unverified/undecodable events and possibly null smart_contract. The backend test around line 2904 explicitly expects decoded=nil."
+expected = "Transaction/address log pages must retain the emitter address and raw topics/data even when ABI decoding or enclosing contract information is unavailable."
+proposal = "In blockscout-client OpenAPI and log.rs align address and nullable decoded/smart_contract with TransactionView; decode actual verified, unverified and address-log responses without losing raw event data."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-logs"
+line = 32
+
+[finding.log-structured-parameter]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/decoded_input_log_parameter.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "DecodedInputLogParameter.value is String. TransactionView.prepare_log_mapping calls Explorer.Chain.DecodingHelper.value_json; its array/tuple branches return JSON lists and its rescue branch returns nil, rejecting valid structured decoded events."
+expected = "Decoded log parameters must preserve ABI scalar, array and tuple values with original nesting and distinguish decoding failures from string values."
+proposal = "In blockscout-client OpenAPI and decoded_input_log_parameter.rs model the actual recursive JSON value and nullability; decode real producer logs with arrays, nested tuples, bytes and a decoding error."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-logs"
+line = 24
+
+[finding.state-change-address]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/state_change.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "StateChange expects optional address_hash but TransactionView.prepare_state_change:857-876 emits address. Serde accepts the response while discarding the affected account, leaving balances and changes without their identity."
+expected = "The state-changes interface must preserve which account each native coin or token balance change belongs to."
+proposal = "Correct the address wire property in blockscout-client OpenAPI and state_change.rs; round-trip real coin, ERC20 and NFT state changes and assert account hash and before/after values survive."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-state-changes"
+line = 28
+
+[finding.holder-address]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/holder.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "Holder expects optional address_hash while TokenView.prepare_token_holder:109-115 emits address containing Helper.address_with_info. Holder pages deserialize but silently lose the owner identity."
+expected = "Token and token-instance holder endpoints must retain owner address with balance and token_id so consumers can identify ownership."
+proposal = "Align the holder wire property with TokenView in blockscout-client OpenAPI and holder.rs; decode both registered holder endpoints from actual producer JSON and assert owner hash, token_id and balance."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-holders"
+line = 23
+
+[finding.contract-list-address]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/smart_contract_for_list.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SmartContractForList expects optional address_hash, but SmartContractView.prepare_smart_contract_address_for_list:310-330 emits address. Typed listing silently loses each contract identity while retaining compiler/verification attributes."
+expected = "The verified-contract listing must preserve the address identifying each source and verification record."
+proposal = "In blockscout-client OpenAPI and smart_contract_for_list.rs align the wire property with address and regenerate; assert actual SmartContractView listing entries retain verified address and timestamp."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts"
+line = 23
+
+[finding.search-miss-nullability]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_redirect.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SearchResultRedirect requires parameter and type strings; SearchView.render for {:error,:not_found}:26-27 emits redirect=false, type=null and parameter=null. A normal search miss cannot decode into the declared result."
+expected = "The check-redirect endpoint must represent a normal no-match result without a schema error or an invented redirect destination."
+proposal = "In blockscout-client OpenAPI and search_result_redirect.rs represent non-redirect null fields explicitly and decode actual found/not-found SearchView responses through the HTTP consumer."
+owner_domain = 14
+interface = "14.http-get-api-v2-search-check-redirect"
+line = 22
+
+[finding.search-native-result]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/search_200_response_items_inner.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "Search200ResponseItemsInner contains only token, address/contract, block and transaction shapes. SearchView emits native price_update objects with type/hash/block_number/timestamp and no url, which match none of these variants."
+expected = "Merged explorer search must represent native price-feed submissions alongside EVM results without rejecting the page containing them."
+proposal = "Add the producer's price_update result to blockscout-client OpenAPI and the search union, inventory its user-operation/blob variants too, and decode actual mixed native/EVM search pages with explicit variant assertions."
+owner_domain = 14
+interface = "14.http-get-api-v2-search"
+line = 22
+
+[finding.search-address-nullability]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_address_or_contract.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SearchResultAddressOrContract requires name/url strings. SearchView's address/label/ens_domain branch emits name directly and guards url with address_hash, permitting unnamed addresses and unresolved ENS results with null fields."
+expected = "Search results must retain type and available identity even when a display name or resolved address URL is unavailable."
+proposal = "Align nullability in blockscout-client OpenAPI and search_result_address_or_contract.rs with SearchView; cover unnamed address and unresolved ENS responses while retaining type and any supplied hash."
+owner_domain = 14
+interface = "14.http-get-api-v2-search"
+line = 30
+
+[finding.search-token-supply]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/search_result_token.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SearchResultToken requires total_supply:String, but SearchView's token branch passes through nullable search_result.total_supply. Tokens whose supply is not yet fetched are valid results but reject this model."
+expected = "Token search must work while optional supply and market metadata are unavailable without confusing unknown supply with zero."
+proposal = "In blockscout-client OpenAPI and search_result_token.rs reflect nullable total_supply and decode a real producer token search result whose supply is not indexed."
+owner_domain = 14
+interface = "14.http-get-api-v2-search"
+line = 47
+
+[finding.transaction-feed-native-items]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/get_txs_200_response.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetTxs200Response.items is Vec<Transaction>. TransactionController.transactions:269-308 merges PriceUpdateList entries with EVM transactions and renders native FeedView objects, so a valid chain-125 page rejects the accepted item model."
+expected = "The merged transaction feed must preserve EVM transactions and native price-feed submissions with their producer discriminator and paging cursor."
+proposal = "In blockscout-client OpenAPI and get_txs_200_response.rs introduce the actual discriminated feed union from PriceUpdateList.render_items; decode mixed controller pages and paginate across both types."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions"
+line = 22
+
+[finding.homepage-native-items]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/main_page_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetMainPageTxsSuccess accepts only Vec<Transaction>. MainPageController.transactions:104-124 merges native price updates and renders PriceUpdateList items; the operation also declares a mixed feed, so native activity breaks typed homepage decoding."
+expected = "The homepage must show committed native price-feed submissions and EVM transactions together without losing entries or requiring EVM transaction fields on native activity."
+proposal = "Update blockscout-client source schema and main_page_api.rs to share the discriminated EVM/native item type with the transaction list and decode actual mixed homepage output."
+owner_domain = 14
+interface = "14.http-get-api-v2-main-page-transactions"
+line = 256
+
+[finding.address-list-market-nullability]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/get_addresses_200_response.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetAddresses200Response requires exchange_rate and total_supply strings. AddressView.render addresses.json:55-59 emits exchange_rate.fiat_value and total_supply && to_string(total_supply), nullable when price/supply data are absent."
+expected = "The top-address listing must remain readable without external price/supply metadata and must retain all on-chain account balances."
+proposal = "Correct nullable exchange_rate/total_supply in blockscout-client OpenAPI and get_addresses_200_response.rs and decode actual AddressView output with each source absent, preserving all addresses."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses"
+line = 22
+
+[finding.market-supply-integer]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/get_market_chart_200_response.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetMarketChart200Response.available_supply is String. StatsController.market_chart forwards MarketHistoryChartController.available_supply, whose :ok branch returns integer 0 when exchange_rate.available_supply is nil; its operation explicitly permits an integer."
+expected = "The market-chart interface must accept documented producer supply encodings, including numeric zero when supply is unavailable, without rejecting chart data."
+proposal = "Align blockscout-client OpenAPI and get_market_chart_200_response.rs with the actual string/integer supply union or establish one canonical producer encoding at both ends; decode the no-supply branch and decimal values."
+owner_domain = 14
+interface = "14.http-get-api-v2-stats-charts-market"
+line = 22
+
+[finding.daily-balance-envelope]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/addresses_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "GetAddressCoinBalanceHistoryByDaySuccess and its parse helper require Vec<CoinBalanceHistoryByDaysEntry>. AddressView.render coin_balances_by_day.json:37-44 emits an object with items/days, so valid daily-history responses miss the typed success."
+expected = "Daily coin-balance responses must carry both history entries and configured day-window metadata through the client."
+proposal = "Correct the daily-history response envelope in blockscout-client OpenAPI, regenerate addresses_api.rs and its model, and decode actual AddressView JSON asserting both items and days."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param-coin-balance-history-by-day"
+line = 1205
+
+[finding.health-blocks-envelope]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/health_check_response_metadata.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "HealthCheckResponseMetadata expects metadata.latest_block while API.HealthController.health:34-40 emits metadata.blocks with healthy/latest_block/error. The model drops blocks; crate/tests/it_works.rs:51-70 instead asserts the old Ethereum recording shape."
+expected = "Both registered /api/health mounts must retain database/cache/node block diagnostics and error information so consumers can distinguish lagging components."
+proposal = "Update blockscout-client health OpenAPI and health_check_response_metadata.rs to the actual blocks envelope, retaining healthy/error fields; add actual healthy/unhealthy HealthController response coverage."
+owner_domain = 14
+interface = "14.http-get-api-health"
+line = 23
+
+[finding.health-cache-number]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/latest_block_cache.rs"
+class = "interface-mismatch"
+severity = "medium"
+observed = "LatestBlockCache names its optional height mber. API.HealthController.blocks_indexing_status emits latest_block.cache.number, so the cache height is discarded even after correcting the surrounding health envelope."
+expected = "Health diagnostics must retain cache block height using the same number property as the producer and database/node diagnostics."
+proposal = "Correct the source property to number in blockscout-client OpenAPI and latest_block_cache.rs; decode actual health output with distinct database/cache/node heights to catch dropped or swapped values."
+owner_domain = 14
+interface = "14.http-get-api-health"
+line = 26
+
+[finding.summary-variable-map]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/summary_template_variables.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "SummaryTemplateVariables requires fixed keys action_type, amount and token. TransactionInterpretation.preload_template_variables:307-318 preserves arbitrary names; the real controller test:2948-3017 uses outgoing_amount, incoming_amount, incoming_token, rnd_address and market instead."
+expected = "Transaction summaries must retain all named template variables and their string/currency/token/address/dexTag values so every template placeholder can be rendered."
+proposal = "In blockscout-client OpenAPI and summary_template_variables.rs model a map keyed by variable name with the producer's typed values; decode actual summary responses and render every placeholder from retained values."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param-summary"
+line = 23
+
+[finding.action-variant-collapse]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/transaction_action.rs"
+class = "interface-mismatch"
+severity = "medium"
+observed = "Every TransactionAction alternative requires the same data:Value, protocol:String and type:String. Untagged decoding always selects TransactionActionAaveV3LiquidationCall, including for Uniswap and other Aave actions; raw fields survive but enum classification is false."
+expected = "Typed action variants must follow the producer's protocol/type discriminator so downstream callers can safely choose action-specific behavior."
+proposal = "In blockscout-client OpenAPI and transaction_action.rs use protocol/type-aware decoding or one honest generic action representation; verify each supported producer action selects its intended variant while retaining raw data."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions-transaction-hash-param"
+line = 21
+
+[finding.address-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/addresses_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The addresses_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for address transactions, internal transactions, logs, validated blocks, withdrawals, coin balances, token/NFT lists and transfers. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/addresses_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-addresses-address-hash-param-blocks-validated"
+line = 185
+
+[finding.block-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/blocks_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The blocks_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for blocks, block transactions and withdrawals. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/blocks_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-blocks"
+line = 99
+
+[finding.internal-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/internal_transactions_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The internal_transactions_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for global internal transactions. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/internal_transactions_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-internal-transactions"
+line = 32
+
+[finding.transfer-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/token_transfers_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The token_transfers_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for global token transfers. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/token_transfers_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-token-transfers"
+line = 32
+
+[finding.token-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/tokens_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The tokens_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for token lists, holders, instance holders, instances and transfers. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/tokens_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-tokens-address-hash-param-holders"
+line = 194
+
+[finding.transaction-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/transactions_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The transactions_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for transactions, transaction internal calls, logs, transfers and state changes. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/transactions_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-transactions"
+line = 174
+
+[finding.contract-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/smart_contracts_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The smart_contracts_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for verified contract lists. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/smart_contracts_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-smart-contracts"
+line = 77
+
+[finding.withdrawal-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/withdrawals_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The withdrawals_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for global withdrawals. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/withdrawals_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-withdrawals"
+line = 32
+
+[finding.search-cursors]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/search_api.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "The search_api requests expose only path/filter parameters (or none) and never serialize the producer's next_page_params cursor for search results. Response models retain a cursor the typed client cannot send back, repeating the first page."
+expected = "A paginated registered explorer interface must round-trip the complete next_page_params query to retrieve subsequent pages, retaining original filters and cursor values without truncation or duplication."
+proposal = "In blockscout-client OpenAPI and apis/search_api.rs expose producer cursor fields or a lossless validated cursor map, serialize them with original filters and traverse two actual backend pages plus the terminal null cursor."
+owner_domain = 14
+interface = "14.http-get-api-v2-search"
+line = 59
+
+[finding.success-decode-observability]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/transactions_api.rs"
+class = "runtime-risk"
+severity = "medium"
+observed = "Transaction methods return Ok for every non-4xx/non-5xx status and discard serde decode errors with .ok(); success enums accept UnknownValue. A malformed/incompatible successful body appears successful until callers explicitly invoke a parsing helper."
+expected = "Typed consumers need a visible schema error with route, status and safe response context when a successful HTTP body cannot represent the declared model."
+proposal = "In blockscout-client generation templates and transactions_api.rs separate raw response access from typed success, propagate decode errors and enforce declared success statuses; cover malformed JSON and incompatible success bodies."
+owner_domain = 14
+line = 218
+
+[finding.docs-root-architecture]
+file = "README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "README.md:44-49 describes a separate LayerX daemon checkpointing into Paxeer; line 83 presents layerxVerify/layerxCustody/layerxAnchor as active, and line 145 still builds layerxd."
+expected = "BRIEF facts 1-3 define one paxd chain, block-commit finality, root node JSON-RPC and retired executor refusals instead of a separate daemon or settlement domain."
+proposal = "Rewrite README.md architecture, native modules and quick-start for chain-125 paxd with its in-node kernel, committed-block receipts and retired-method refusals; cite current deployment/build targets."
+owner_domain = 17
+line = 44
+
+[finding.docs-cli]
+file = "docs/site/docs/platform/cli.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc URLs ending in /rpc at line 8 and later documents daemon/legacy receipt stages. The unimplemented list around lines 103-148 contradicts commands described as implemented earlier on the page."
+expected = "The CLI must describe the merged node root endpoint and committed-block evidence with one accurate command/capability table matching the shipped client."
+proposal = "Rewrite docs/site/docs/platform/cli.md against current tools/platform/cli commands and root chain-125 node RPC, distinguish hosted px_ gateway calls, remove retired-daemon/finality guidance and reconcile command support across both mirrors."
+owner_domain = 8
+line = 8
+
+[finding.docs-cli-mirror]
+file = "docs/wiki/Cli.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The CLI guide requires --rpc URLs ending in /rpc at line 8 and later documents daemon/legacy receipt stages. The unimplemented list around lines 103-148 contradicts commands described as implemented earlier on the page."
+expected = "The CLI must describe the merged node root endpoint and committed-block evidence with one accurate command/capability table matching the shipped client."
+proposal = "Rewrite docs/wiki/Cli.md against current tools/platform/cli commands and root chain-125 node RPC, distinguish hosted px_ gateway calls, remove retired-daemon/finality guidance and reconcile command support across both mirrors."
+owner_domain = 8
+line = 8
+
+[finding.docs-gateway]
+file = "docs/site/docs/platform/hosted-gateway.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page calls it the network's only unified endpoint for eth_*, lx_* and px_* and advertises /rpc, /rpc/schema and /rpc/ws. Later sections present LNI and old authority/module preparation as current operation."
+expected = "BRIEF facts 2-3 retire unified router paths and the separate LayerX interface; node RPC is at named node origins' root, while hosted px_ methods have the gateway openrpc.json contract."
+proposal = "Rewrite docs/site/docs/platform/hosted-gateway.md for the actual hosted px_ contract and root node RPC boundary, remove LNI/separate-daemon setup and derive both mirrors' method tables/counts from services/platform/hosted/gateway/openrpc.json."
+owner_domain = 8
+line = 50
+
+[finding.docs-gateway-mirror]
+file = "docs/wiki/HostedGateway.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The gateway page calls it the network's only unified endpoint for eth_*, lx_* and px_* and advertises /rpc, /rpc/schema and /rpc/ws. Later sections present LNI and old authority/module preparation as current operation."
+expected = "BRIEF facts 2-3 retire unified router paths and the separate LayerX interface; node RPC is at named node origins' root, while hosted px_ methods have the gateway openrpc.json contract."
+proposal = "Rewrite docs/wiki/HostedGateway.md for the actual hosted px_ contract and root node RPC boundary, remove LNI/separate-daemon setup and derive both mirrors' method tables/counts from services/platform/hosted/gateway/openrpc.json."
+owner_domain = 8
+line = 50
+
+[finding.docs-monorepo]
+file = "docs/MONOREPO.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The overview introduces the LayerX kernel as layerxd at line 3 and assigns custody, checkpoint registration, guarantor bonds and exits to settlement contracts around lines 70-72, presenting retired architecture as the trust boundary."
+expected = "The merged architecture has one paxd execution/commit boundary; retained directories and refusing legacy interfaces must be distinguished from running components."
+proposal = "Update docs/MONOREPO.md architecture/trust boundaries for the in-node kernel, native bank/ledger and block-commit evidence, explicitly labeling retained legacy source instead of offering separate runtime services."
+owner_domain = 17
+line = 3
+
+[finding.docs-paxeer-boundary]
+file = "docs/site/docs/concepts/paxeer-boundary.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The guide presents services/platform/hosted/paxeer as a required JSON-RPC TLS relay and includes settlement-suite deployment/bootstrap at lines 117-129. programme/data/retired.kvx retires this eth-relay component."
+expected = "Merged integrations use chain-125 root node JSON-RPC and in-node committed state without deploying the retired relay or settlement executors as a live boundary."
+proposal = "Replace docs/site/docs/concepts/paxeer-boundary.md with direct node/hosted-gateway boundaries and retired-client migration guidance; remove old relay manifests, trust-anchor and settlement bootstrap instructions."
+owner_domain = 8
+line = 5
+
+[finding.docs-internal-deployment]
+file = "docs/site/docs/operators/hosted-internal.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The page says IMAGE_NAMES excludes an internal image and manifests_render/manifests_apply omit internal workloads. beta-images.sh:4,20 includes layerx-internal and beta-cluster.sh:1765,1979 renders/applies internal.yaml, contradicting this operator procedure."
+expected = "Operators need the actual installation/readiness path, including which internal workloads beta bring-up applies and which later require explicit material provisioning."
+proposal = "Update docs/site/docs/operators/hosted-internal.md installation/topology from current beta image/render/apply paths; remove obsolete absence claims and distinguish deployed workloads from later key/material provisioning."
+owner_domain = 8
+line = 71
+
+[finding.docs-beta-control]
+file = "docs/site/docs/operators/beta-control.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-control guide submits custody credits to a router near line 5 and documents LNI treasury funding around lines 293-300, requiring retired admission/funding components."
+expected = "The chain-125 beta network uses the merged paxd execution domain and native committed account funding, with no router or LNI runtime dependency."
+proposal = "Rewrite docs/site/docs/operators/beta-control.md funding/reset for current native bank/ledger and node control interfaces, preserving disposable-environment restrictions and recovery checks for retained funding state."
+owner_domain = 8
+line = 5
+
+[finding.docs-beta-cluster]
+file = "docs/site/docs/operators/beta-cluster.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The beta-cluster guide describes a Paxeer chain plus LayerX daemon/separate authority stack at line 3 and later requires legacy custody/registry and read-only LNI preparation for bring-up."
+expected = "Upgrade rehearsal must launch one chain-125 paxd network with in-node kernel, native funding and block-commit evidence without requiring retired daemon/LNI/settlement services."
+proposal = "Rewrite docs/site/docs/operators/beta-cluster.md topology/bootstrap/readiness for the merged upgrade; label retained legacy images explicitly and replace LNI/settlement preparation with actual node state and restart/recovery checks."
+owner_domain = 8
+line = 3
+
+[finding.docs-agent-running]
+file = "docs/site/docs/agents/running.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The guide submits A2A transactions to /rpc at line 512 and offers sequencer-signed, batch-included, checkpoint-finalised and settlement-anchored verification defaults at line 701."
+expected = "Agent submission uses root node JSON-RPC and a receipt becomes final when its block commits; tenant selection and receipt-key-at-height verification remain explicit."
+proposal = "Update docs/site/docs/agents/running.md submission URL and verification settings to committed-block node evidence, with declared root node origins and current per-tenant receipt verification."
+owner_domain = 9
+line = 512
+
+[finding.docs-agentd]
+file = "docs/site/docs/agents/agentd.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The guide initializes trust through a separate sequencer-authority file/handshake then promotes verification through batch/checkpoint/settlement levels (470-480,524-525), presenting retired finality authority as a current write prerequisite."
+expected = "The merged node owns receipt ordering and block-commit finality; agent trust/recovery must derive from node evidence and receipt keys valid at the committed height."
+proposal = "Rewrite docs/site/docs/agents/agentd.md startup/trust/finality against current node receipt/key-at-height APIs, including fail-closed key rotation and persisted recovery without a separate sequencer service."
+owner_domain = 9
+line = 13
+
+[finding.docs-client-generation]
+file = "services/explorer/services/libs/blockscout-client/README.md"
+class = "doc-drift"
+severity = "medium"
+observed = "The client README recommends generate-from-remote and recorded stubs exemplified by /api/v1/health. The local backend has no such route; existing tests use tests/recorded/eth_blockscout_com, leaving merged response variants outside documented validation."
+expected = "Regeneration/client validation must use the deployed explorer's current schema and representative native/EVM/error responses; upstream recordings alone cannot prove Paxeer interface agreement."
+proposal = "Update services/explorer/services/libs/blockscout-client/README.md with authoritative local schema generation and actual-producer validation, retaining recordings as labeled upstream samples and documenting required REST-origin configuration."
+owner_domain = 14
+line = 37
+
+[finding.unmounted-v1-health]
+file = "services/explorer/services/libs/blockscout-client/crate/src/apis/health_api.rs"
+class = "wiring-gap"
+severity = "medium"
+observed = "HealthApi.health_v1 requests /api/v1/health and crate/tests/it_works.rs validates an upstream recording. Current api_router.ex mounts health at /api/health; its /v1 scope has no health action and forwards other paths to the legacy RPC translator."
+expected = "A health operation exposed for the current explorer must reach its real health producer and decode that producer's envelope instead of reporting an upstream-only capability as available."
+proposal = "In blockscout-client source OpenAPI and health_api.rs scope health operations to the current backend capability set, explicitly distinguish unsupported upstream variants and validate /api/health against actual backend healthy/unhealthy responses."
+owner_domain = 14
+line = 98
+
+[finding.health-node-height]
+file = "services/explorer/services/libs/blockscout-client/crate/src/models/latest_block.rs"
+class = "interface-mismatch"
+severity = "high"
+observed = "LatestBlock models only cache and db. API.HealthController.blocks_indexing_status emits latest_block.node.number as the node height; even after repairing the outer blocks envelope, the typed model discards the live node height used to assess indexing lag."
+expected = "The declared health endpoint must preserve database, cache and node heights together so consumers can distinguish chain progress from explorer indexing progress."
+proposal = "In blockscout-client health OpenAPI and latest_block.rs add the producer's node-height record and decode actual HealthController output with different node/cache/database heights, preserving all three values."
+owner_domain = 14
+interface = "14.http-get-api-health"
+line = 21
+
+[doc.001]
+path = "README.md"
+status = "stale"
+notes = "Lines 44-49 describe two execution domains and a separate layerxd; line 83 lists retired executors as active; line 145 still builds layerxd. Directory/language descriptions remain useful."
+
+[doc.002]
+path = "docs/site/docs/platform/cli.md"
+status = "misleading"
+notes = "Line 8 requires a /rpc suffix; lines 103-148 contradict the earlier implemented-command table; later daemon and receipt-level guidance retain pre-merge assumptions. Rewrite site and wiki together."
+
+[doc.003]
+path = "docs/wiki/Cli.md"
+status = "misleading"
+notes = "Line 8 requires a /rpc suffix; lines 103-148 contradict the earlier implemented-command table; later daemon and receipt-level guidance retain pre-merge assumptions. Rewrite site and wiki together."
+
+[doc.004]
+path = "docs/site/docs/platform/hosted-gateway.md"
+status = "misleading"
+notes = "Lines 39-52 present a unified router and /rpc, /rpc/schema, /rpc/ws as the network interface; lines 615-632 retain LNI. Site and wiki also disagree on 15 versus 18 methods."
+
+[doc.005]
+path = "docs/wiki/HostedGateway.md"
+status = "misleading"
+notes = "Lines 39-52 present a unified router and /rpc, /rpc/schema, /rpc/ws as the network interface; lines 615-632 retain LNI. Site and wiki also disagree on 15 versus 18 methods."
+
+[doc.006]
+path = "docs/MONOREPO.md"
+status = "stale"
+notes = "Line 3 names layerxd as a separate subsystem; lines 70-72 retain custody/checkpoint/guarantor settlement boundaries. Physical directory inventory does not establish active runtime components."
+
+[doc.007]
+path = "docs/site/docs/concepts/paxeer-boundary.md"
+status = "stale"
+notes = "Lines 3-50 prescribe the retired TLS eth relay and clients; lines 117-129 prescribe old settlement bootstrap. Replace the page instead of adding relay deployment instructions."
+
+[doc.008]
+path = "docs/site/docs/operators/hosted-internal.md"
+status = "misleading"
+notes = "Lines 67-81 claim beta images/apply omit internal workloads; beta-images.sh includes layerx-internal and beta-cluster.sh:1765,1979 renders/applies internal.yaml. Reconcile later Human workload absence claims too."
+
+[doc.009]
+path = "docs/site/docs/operators/beta-control.md"
+status = "stale"
+notes = "Lines 3-9 describe router-based custody funding for a hosted LayerX network; lines 293-300 fund treasury through LNI. Preserve private/disposable restrictions while replacing the retired path."
+
+[doc.010]
+path = "docs/site/docs/operators/beta-cluster.md"
+status = "stale"
+notes = "Line 3 describes a chain plus separate daemon/authorities; old custody bootstrap and read-only LNI preparation remain, including lines 104-116. Current image names do not validate those workflows."
+
+[doc.011]
+path = "docs/site/docs/agents/running.md"
+status = "stale"
+notes = "Line 512 submits eth_sendRawTransaction to /rpc; line 701 lists checkpoint/settlement finality defaults. Retain current tenant/MCP binding material while replacing transport/finality guidance."
+
+[doc.012]
+path = "docs/site/docs/agents/agentd.md"
+status = "stale"
+notes = "Lines 13-15,51-84 prescribe separate sequencer-authority handshake/batch roots; lines 470-480,524-525 retain checkpoint/settlement finality. Replace with node block-commit evidence."
+
+[doc.013]
+path = "services/explorer/services/libs/blockscout-client/README.md"
+status = "stale"
+notes = "Lines 17-26 prescribe remote generation; lines 31-47 recommend upstream stubs including unmounted /api/v1/health. No guidance binds generation/tests to the local Paxeer producer."
+
+[doc.014]
+path = "spec/layerx-merge/programme/audit/BRIEF.kvx"
+status = "accurate"
+notes = "Normative merged-network/audit baseline: chain-125 paxd, root node RPC, retired router/daemon, nine checks and record grammar; used as the assessment baseline rather than deployment evidence."
+
+[doc.015]
+path = "spec/layerx-merge/contracts/explorer-http-api.md"
+status = "accurate"
+notes = "Generated pinned-revision route contract; read the package-linked health and v2 address/block/internal/main-page/proxy/search/contract/stats/transfer/token/transaction/withdrawal sections. It freezes routing rather than complete field schemas; source producer mismatches are findings."
+
+[doc.016]
+path = "spec/layerx-merge/contracts/evm-rpc.md"
+status = "accurate"
+notes = "Reviewed package-linked eth-sign lines 1827-1835: keyring RPC is guarded and refused on a live chain. In-slice eth_sign occurs only in vendored OpenZeppelin source commentary, not an executable signing request."
+

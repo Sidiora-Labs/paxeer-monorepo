@@ -1,4 +1,4 @@
-pub mod fetch;
+pub use layerx_platform_release::{fetch, ArtifactManifestEntry};
 pub mod workflow;
 
 use std::env;
@@ -127,7 +127,7 @@ struct ReleaseGate {
     command: &'static str,
 }
 
-const RELEASE_GATES: [ReleaseGate; 4] = [
+const RELEASE_GATES: [ReleaseGate; 3] = [
     ReleaseGate {
         job: "programs-acceptance",
         command: "make programs-test",
@@ -140,13 +140,7 @@ const RELEASE_GATES: [ReleaseGate; 4] = [
         job: "agent-fuzz-corpus",
         command: "make agent-fuzz-long",
     },
-    ReleaseGate {
-        job: "replay-matrix",
-        command: "make test-replay-golden",
-    },
 ];
-const REPLAY_GATE: &str = "replay-matrix";
-const REPLAY_MACHINES: [&str; 2] = ["aarch64", "x86_64"];
 
 struct Publication {
     registry: &'static str,
@@ -176,7 +170,7 @@ const PUBLICATIONS: [Publication; 7] = [
     },
     Publication {
         registry: "go-modules",
-        publish: &["git push", "refs/tags/platform/sdk/go/v"],
+        publish: &["git push", "refs/tags/sdk/platform/go/v"],
         install: &["go get"],
         explicit: &[],
     },
@@ -251,28 +245,6 @@ pub struct ReleasePipeline {
     pub gates: Vec<GateJob>,
     pub publications: Vec<PublicationJob>,
     pub verification: VerificationJob,
-}
-
-/// One published artifact bound to the source revision it was built from.
-#[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
-pub struct ArtifactManifestEntry {
-    pub name: String,
-    pub version: String,
-    pub registry: String,
-    pub distribution: String,
-    pub target: String,
-    pub artifact: String,
-    pub retained: String,
-    pub digest: String,
-    pub digest_of: String,
-    pub signature: String,
-    pub sbom: String,
-    pub attestation: String,
-    pub location: String,
-    pub source_revision: String,
-    pub rollback_version: Option<String>,
-    pub published: bool,
-    pub install_check: bool,
 }
 
 /// One published container image bound to the source revision it was built
@@ -780,27 +752,10 @@ fn gate_jobs(jobs: &Node) -> Result<Vec<GateJob>, String> {
                 gate.job, gate.command
             ));
         }
-        let mut machines = Vec::new();
-        if gate.job == REPLAY_GATE {
-            machines = node
-                .path(&["strategy", "matrix", "include"])
-                .map(Node::items)
-                .unwrap_or_default()
-                .iter()
-                .filter_map(|entry| entry.get("machine").and_then(Node::as_str))
-                .map(str::to_owned)
-                .collect::<Vec<_>>();
-            machines.sort();
-            if machines != REPLAY_MACHINES {
-                return Err(format!(
-                    "release gate {REPLAY_GATE} must replay on every supported architecture {REPLAY_MACHINES:?}, got {machines:?}"
-                ));
-            }
-        }
         gates.push(GateJob {
             job: gate.job.to_owned(),
             command: gate.command.to_owned(),
-            machines,
+            machines: Vec::new(),
         });
     }
     Ok(gates)

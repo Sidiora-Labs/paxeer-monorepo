@@ -1,21 +1,23 @@
-import { validateDaemonSpend, decodeDaemonPrepared, decodeDaemonSubmission, daemonApprovalHold, signedActivityId, type DaemonPreparation } from "./daemon.js";
-export { decodeDaemonSubmission, decodeDaemonPrepared, signedActivityId } from "./daemon.js";
+import { validateDaemonSpend, decodeDaemonPrepared, decodeDaemonSubmission, decodeDaemonSubmitResult, resolveDaemonReceipt, daemonApprovalHold, resumedActivityId, signedTransactionBytes, type DaemonPreparation } from "./daemon.js";
+export { decodeDaemonSubmission, decodeDaemonSubmitResult, resolveDaemonReceipt, decodeDaemonPrepared, signedActivityId, signedTransactionBytes } from "./daemon.js";
 export type { DaemonPreparation, DaemonPrepareRequest } from "./daemon.js";
-import { paymentCommitment, protocolSelection, requireProtocolVersion, verifyPaymentReceipt, type GrantDrawExecution, type SellerSettlementOutcome } from "@sidiora/layerx-seller-middleware";
+import { paymentCommitment, verifyPaymentReceipt, ReceiptPayloadAuthority, LAYERX_LEDGER_ADDRESS, type PaymentReceiptVerification, type GrantDrawExecution, type SellerSettlementOutcome } from "@sidiora/layerx-seller-middleware";
 import { verifyPaymentCommitment, type PaymentCommitment, type PaymentCommitmentResolver } from "@sidiora/layerx-seller-middleware";
+import { decodePaymentDrawnLog, LEDGER_DRAW_SELECTOR, paymentPurpose } from "@sidiora/layerx-seller-middleware";
 import {
   PlatformSdkError,
   ProductionClient,
   SDK_ERROR_CODES,
   idempotencyKey,
   protocolAmount,
-  verifyReceipt,
-  type AuthorizedReceiptBatch,
-  type ProtocolSelection,
+  decodeRawEip1559,
+  keccak256,
+  verifySequencerReceipt,
+  type SequencerReceiptKey,
+  type SequencerReceiptVerification,
   type ReceiptVerification,
   type RetryClass,
   type SdkErrorCode,
-  type SelectableProtocolVersion,
 } from "@sidiora/layerx-sdk";
 
 const POST_SUBMIT_UNCERTAIN_CODES: ReadonlySet<SdkErrorCode> = new Set([
@@ -114,8 +116,15 @@ export interface AgentBudgetLedger {
 
 export interface PreparedActivity {
   readonly preparation_ref: string;
-  readonly unsigned_canonical_bytes: string;
-  readonly signing_preimage: string;
+  readonly chain_id: string;
+  readonly nonce: string;
+  readonly max_priority_fee_per_gas: string;
+  readonly max_fee_per_gas: string;
+  readonly gas_limit: string;
+  readonly to: string;
+  readonly data: string;
+  readonly signing_hash: string;
+  readonly sender: string;
   readonly disclosure: Readonly<Record<string, unknown>>;
   readonly expiry: string;
   readonly approval?: ApprovalHold;
@@ -130,20 +139,38 @@ export interface AgentSigner {
 }
 
 export interface Submission {
+  readonly preparation_ref?: string;
+  readonly activity_id?: string;
+  readonly rung?: "submitted" | "receipted" | "committed";
+  readonly observation?: Readonly<Record<string, unknown>>;
+  readonly signed_receipt?: string;
+  readonly result_code?: string;
   readonly submission_ref: string;
   readonly state: string | Readonly<Record<string, unknown>>;
   readonly evidence?: readonly unknown[];
-  readonly verification_level?: string;
-  readonly activity_id?: string;
+  readonly verification_level?: "Submitted" | "Receipted" | "Committed";
+  readonly tx_hash: string;
   readonly receipt_ref?: string;
   readonly receiptEvidence?: AgentReceiptEvidence;
+  readonly portableReceipt?: PortableReceiptV2;
   readonly transitions?: readonly unknown[];
 }
 
-export interface AgentReceiptEvidence {
-  readonly canonicalReceipt: Uint8Array;
-  readonly authorizedBatch: AuthorizedReceiptBatch;
+export interface PortableReceiptV2 {
+  readonly format: "layerx-receipt-proof-v2";
+  readonly verificationLevel: "receipted" | "committed";
+  readonly rawTransaction: string;
+  readonly signedReceipt: string;
+  readonly receiptDigest: string;
+  readonly receiptKey: {
+    readonly keyId: string;
+    readonly publicKey: string;
+    readonly firstHeight: string;
+    readonly lastHeight: string;
+  };
 }
+
+export interface AgentReceiptEvidence extends PortableReceiptV2 {}
 
 export interface AgentReceiptContext {
   readonly idempotencyKey: string;
@@ -193,7 +220,7 @@ export interface AgentPreparationBudget {
   spendPrepared(request: AgentSpendRequest, requestDigest: string, services: {
     readonly signer: AgentSigner;
     readonly receipts: AgentReceiptResolver;
-    readonly protocolVersion: SelectableProtocolVersion;
+    readonly receiptKeys: readonly SequencerReceiptKey[];
     readonly commitments?: PaymentCommitmentResolver;
   }): Promise<OwnerBudgetSpendResult>;
 }
@@ -201,7 +228,7 @@ export interface AgentPreparationBudget {
 export interface AgentMiddlewareConfig {
   readonly commitments?: PaymentCommitmentResolver;
   readonly client: ProductionClient;
-  readonly protocolVersion: SelectableProtocolVersion;
+  readonly receiptKeys: readonly SequencerReceiptKey[];
   readonly budgets?: AgentBudgetLedger;
   readonly preparationBudgets?: AgentPreparationBudget;
   readonly signer: AgentSigner;
@@ -227,8 +254,7 @@ export type AgentSpendResult =
 export class AgentMiddleware {
   readonly #commitments: PaymentCommitmentResolver | undefined;
   readonly #client: ProductionClient;
-  readonly #protocolVersion: SelectableProtocolVersion;
-  readonly #protocol: ProtocolSelection;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
   readonly #budgets: AgentBudgetLedger | undefined;
   readonly #preparationBudgets: AgentPreparationBudget | undefined;
   readonly #signer: AgentSigner;
@@ -239,8 +265,7 @@ export class AgentMiddleware {
   public constructor(config: AgentMiddlewareConfig) {
     this.#commitments = config.commitments;
     this.#client = config.client;
-    this.#protocolVersion = requireProtocolVersion(config.protocolVersion);
-    this.#protocol = protocolSelection(this.#protocolVersion);
+    this.#receiptKeys = copyReceiptKeys(config.receiptKeys);
     this.#budgets = config.budgets;
     this.#preparationBudgets = config.preparationBudgets;
     if ((this.#budgets === undefined) === (this.#preparationBudgets === undefined)) throw new AgentMiddlewareError("invalid-request");
@@ -253,11 +278,15 @@ export class AgentMiddleware {
     }
   }
 
-  public get protocolVersion(): SelectableProtocolVersion {
-    return this.#protocolVersion;
+  public async spend(input: AgentSpendRequest): Promise<AgentSpendResult> {
+    return this.#spend(input);
   }
 
-  public async spend(input: AgentSpendRequest): Promise<AgentSpendResult> {
+  public async resume(input: AgentSpendRequest, rawTransaction: string, submissionRef: string): Promise<AgentSpendResult> {
+    return this.#spend(input, { rawTransaction, submissionRef });
+  }
+
+  async #spend(input: AgentSpendRequest, resume?: { readonly rawTransaction: string; readonly submissionRef: string }): Promise<AgentSpendResult> {
     let request: AgentSpendRequest;
     try { request = freezeRequest(JSON.parse(JSON.stringify(input))) as AgentSpendRequest; }
     catch { throw new AgentMiddlewareError("invalid-request"); }
@@ -268,14 +297,14 @@ export class AgentMiddleware {
         && !("variant" in request.preparation && this.#preparationBudgets !== undefined)) {
       throw new PlatformSdkError({ code: "policy-refusal", retry: "never" });
     }
-    if (request.commitment !== undefined && request.commitment.level !== "executed" && this.#commitments === undefined) throw new AgentMiddlewareError("invalid-request");
+    if (request.commitment?.level === "committed" && this.#commitments === undefined) throw new AgentMiddlewareError("invalid-request");
     const amount = protocolAmount(request.amount).toString();
     const mutationKey = idempotencyKey(request.preparation.idempotency_key);
     const requestDigest = await digestSpend(request);
     if ("variant" in request.preparation && this.#preparationBudgets !== undefined) {
       const { approvalReleaseRef: _release, walletApprovalId: _walletConsent, ...admissionRequest } = request;
       return this.#preparationBudgets.spendPrepared(request, await digestSpend(admissionRequest), {
-        signer: this.#signer, receipts: this.#receipts, protocolVersion: this.#protocolVersion,
+        signer: this.#signer, receipts: this.#receipts, receiptKeys: this.#receiptKeys,
         ...(this.#commitments === undefined ? {} : { commitments: this.#commitments }),
       });
     }
@@ -314,15 +343,33 @@ export class AgentMiddleware {
     if (reservation.state === "committed") {
       try {
         const evidence = await this.#receipts.resolve(reservation.receiptDigest);
-        return await verifyCommittedAgentPayment(evidence, reservation, request, this.#commitments, this.#protocol);
+        if (decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId !== BigInt(request.networkId)) {
+          throw new AgentMiddlewareError("verification-failure");
+        }
+        return await verifyCommittedAgentPayment(evidence, reservation, request, this.#receiptKeys, this.#commitments);
       } catch {
         return { kind: "unknown", reservation };
+      }
+    }
+    if (resume !== undefined) {
+      try {
+        const raw = receiptBytes(resume.rawTransaction);
+        const expectedActivityId = resumedActivityId(raw, request);
+        if (resume.submissionRef !== expectedActivityId || decodeRawEip1559(raw).chainId !== BigInt(request.networkId)) {
+          throw new AgentMiddlewareError("invalid-request");
+        }
+        const submission = await resolveDaemonReceipt(decodeDaemonSubmission(await this.#client.agent("track", {
+          submission_ref: resume.submissionRef,
+        }), expectedActivityId, resume.submissionRef), raw, this.#receiptKeys);
+        return this.#settleSubmission(request, reservation, budget, expectedActivityId, raw, submission);
+      } catch (error) {
+        return this.#sdkFailure(error, reservation, budget, true);
       }
     }
     let prepared: PreparedActivity;
     try {
       prepared = decodeDaemonPrepared(await this.#client.agent("prepare", request.preparation,
-        { idempotencyKey: mutationKey }), request, this.#protocolVersion);
+        { idempotencyKey: mutationKey }), request, 0);
     } catch (error) {
       return this.#sdkFailure(error, reservation, budget, false);
     }
@@ -336,19 +383,21 @@ export class AgentMiddleware {
       return this.#sdkFailure(error, reservation, budget, false);
     }
     let expectedActivityId: string;
+    let rawTransaction: Uint8Array;
     try {
-      expectedActivityId = signedActivityId(prepared, signature, request.signerPublicKey);
+      rawTransaction = signedTransactionBytes(prepared, signature, request.signerPublicKey);
+      expectedActivityId = toHex(keccak256(rawTransaction));
     } catch (error) {
       return this.#sdkFailure(error, reservation, budget, false);
     }
     let submission: Submission;
     try {
-      submission = decodeDaemonSubmission(await this.#client.agent("submit", {
+      submission = await resolveDaemonReceipt(decodeDaemonSubmitResult(await this.#client.agent("submit", {
         preparation_ref: prepared.preparation_ref,
         signature,
         signer_public_key: request.signerPublicKey,
         approval_release_ref: request.approvalReleaseRef ?? null,
-      }, { idempotencyKey: idempotencyKey(request.submitIdempotencyKey) }), expectedActivityId);
+      }, { idempotencyKey: idempotencyKey(request.submitIdempotencyKey) }), expectedActivityId, prepared.preparation_ref), rawTransaction, this.#receiptKeys);
     } catch (error) {
       if (error instanceof PlatformSdkError && (error.code === "policy-refusal" || error.code === "budget-refusal")) {
         let approval: ApprovalHold | undefined;
@@ -363,6 +412,15 @@ export class AgentMiddleware {
       }
       return this.#sdkFailure(error, reservation, budget, true);
     }
+    return this.#settleSubmission(request, reservation, budget, expectedActivityId, rawTransaction, submission);
+  }
+
+  async #settleSubmission(
+    request: AgentSpendRequest, reservation: ReservedBudgetReservation, budget: BudgetFacts,
+    expectedActivityId: string, rawTransaction: Uint8Array, initialSubmission: Submission,
+  ): Promise<AgentSpendResult> {
+    const { amount, requestDigest } = budget;
+    let submission = initialSubmission;
     let state: ReturnType<typeof submissionState>;
     try {
       state = submissionState(submission);
@@ -372,9 +430,9 @@ export class AgentMiddleware {
     for (let poll = 0; poll < this.#maximumTrackPolls && state === "Pending"; poll += 1) {
       await this.#wait(Math.min((poll + 1) * 250, 2_500));
       try {
-        submission = decodeDaemonSubmission(await this.#client.agent("track", {
+        submission = await resolveDaemonReceipt(decodeDaemonSubmission(await this.#client.agent("track", {
           submission_ref: submission.submission_ref,
-        }), expectedActivityId, submission.submission_ref);
+        }), expectedActivityId, submission.submission_ref), rawTransaction, this.#receiptKeys);
         state = submissionState(submission);
       } catch (error) {
         if (error instanceof PlatformSdkError && error.retry === "unknown-outcome") {
@@ -419,22 +477,23 @@ export class AgentMiddleware {
     } catch {
       return { kind: "pending", submission, reservation };
     }
-    let verification: ReceiptVerification;
+    let verification: PaymentReceiptVerification;
     try {
-      verification = await verifyAgentPayment(evidence, request, this.#commitments, this.#protocol);
+      verification = await verifyAgentPayment(evidence, request, this.#receiptKeys, this.#commitments);
     } catch {
       return { kind: "unknown", reservation, submission };
     }
     if (
       !constantTimeHex(verification.receipt.activityId, expectedActivityId)
-      || verification.receipt.amount !== BigInt(amount)
-      || !constantTimeHex(verification.receipt.asset, request.asset)
-      || !constantTimeHex(verification.receipt.to, request.recipient)
+      || verification.payment.amount !== BigInt(amount)
+      || !constantTimeHex(verification.payment.assetId, request.asset)
+      || !constantTimeHex(verification.payment.to, request.recipient)
     ) {
       return { kind: "unknown", reservation, submission };
     }
     const receiptDigest = toHex(verification.receiptDigest);
     let committed: BudgetReservation;
+    if (this.#budgets === undefined) throw new AgentMiddlewareError("budget-conflict");
     try {
       await this.#receipts.retainVerified?.({
         idempotencyKey: request.preparation.idempotency_key, activityId: expectedActivityId,
@@ -685,8 +744,8 @@ function sameRefusal(left: AgentRefusal, right: AgentRefusal): boolean {
 function validateSpend(request: AgentSpendRequest): void {
   try { validateDaemonSpend(request); } catch { throw new AgentMiddlewareError("invalid-request"); }
   if (typeof request.tenant !== "string" || request.tenant.length === 0 || request.tenant.length > 255 || request.tenant.includes("\0")) throw new AgentMiddlewareError("invalid-request");
-  if (request.commitment !== undefined && (!/^layerx:[A-Za-z0-9._-]{1,64}$/u.test(request.commitment.network)
-    || !["executed", "batched", "finalised"].includes(request.commitment.level))) throw new AgentMiddlewareError("invalid-request");
+  if (request.commitment !== undefined && (!/^eip155:[0-9]+$/u.test(request.commitment.network)
+    || !["receipted", "committed"].includes(request.commitment.level))) throw new AgentMiddlewareError("invalid-request");
   protocolAmount(request.amount);
   if (!/^[0-9a-f]{64}$/u.test(request.asset) || !/^[0-9a-f]{64}$/u.test(request.recipient)) throw new AgentMiddlewareError("invalid-request");
 }
@@ -695,6 +754,7 @@ function submissionState(submission: Submission): "Pending" | "Unknown" | "Execu
   const state = submission.state;
   if (typeof state === "string") {
     if (["Prepared", "Signed", "Queued", "Submitted", "Acknowledged"].includes(state)) return "Pending";
+    if (state === "Receipted" || state === "Committed") return "Executed";
     if (state === "Unknown" || state === "Executed" || state === "Failed" || state === "Expired") return state;
   } else {
     for (const candidate of ["Unknown", "Executed", "Failed", "Expired", "Pending"] as const) {
@@ -706,7 +766,7 @@ function submissionState(submission: Submission): "Pending" | "Unknown" | "Execu
 }
 
 function executedReceiptRef(submission: Submission): string | undefined {
-  if (submission.state === "Executed" && submission.receipt_ref !== undefined) return submission.receipt_ref;
+  if (["Executed", "Committed", "Receipted"].includes(submission.state as string) && submission.receipt_ref !== undefined) return submission.receipt_ref;
   if (typeof submission.state === "object") {
     const executed = submission.state["Executed"];
     if (executed !== null && typeof executed === "object" && !Array.isArray(executed)) {
@@ -792,84 +852,238 @@ function toHex(bytes: Uint8Array): string {
   return Array.from(bytes, (byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-export async function verifyCommittedAgentPayment(
-  evidence: AgentReceiptEvidence,
-  reservation: CommittedBudgetReservation,
-  request: Pick<AgentSpendRequest, "amount" | "asset" | "recipient" | "commitment">,
-  commitments?: PaymentCommitmentResolver,
-  selection?: ProtocolSelection,
-): Promise<Extract<AgentSpendResult, { readonly kind: "verified" }>> {
-  const verification = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, selection);
-  if (toHex(verification.receiptDigest) !== reservation.receiptDigest
-    || verification.receipt.amount !== protocolAmount(request.amount)
-    || reservation.amount !== request.amount
-    || reservation.asset !== request.asset
-    || !constantTimeHex(verification.receipt.asset, request.asset)
-    || !constantTimeHex(verification.receipt.to, request.recipient)) {
-    throw new AgentMiddlewareError("budget-conflict");
-  }
-  if (request.commitment !== undefined) await verifyPaymentCommitment(verification,
-    evidence.authorizedBatch.sequencerPublicKey, request.commitment.network, request.commitment.level, commitments);
-  return { kind: "verified", verification, reservation };
+function copyReceiptKeys(keys: readonly SequencerReceiptKey[]): readonly SequencerReceiptKey[] {
+  new ReceiptPayloadAuthority(keys);
+  return Object.freeze(keys.map((key) => Object.freeze({
+    ...key, keyId: key.keyId.slice(), publicKey: key.publicKey.slice(),
+  })));
 }
 
-export async function verifyAgentPayment(evidence: AgentReceiptEvidence, request: AgentSpendRequest,
-  commitments?: PaymentCommitmentResolver, selection?: ProtocolSelection): Promise<ReceiptVerification> {
-  validateSpend(request);
-  const verification = await verifyReceipt(evidence.canonicalReceipt, evidence.authorizedBatch, selection);
-  if (verification.receipt.amount !== BigInt(request.amount)
-    || !constantTimeHex(verification.receipt.asset, request.asset)
-    || !constantTimeHex(verification.receipt.to, request.recipient)) throw new AgentMiddlewareError("verification-failure");
-  if (request.commitment !== undefined) await verifyPaymentCommitment(verification,
-    evidence.authorizedBatch.sequencerPublicKey, request.commitment.network, request.commitment.level, commitments);
+function receiptBytes(value: string): Uint8Array {
+  if (typeof value !== "string" || value.length > 131072 || !/^0x(?:[0-9a-f]{2})+$/u.test(value)) {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+  return Uint8Array.from(value.slice(2).match(/../gu)!, (byte) => Number.parseInt(byte, 16));
+}
+
+type AgentPaymentTerms = Pick<AgentSpendRequest, "amount" | "asset" | "recipient" | "commitment">;
+
+async function verifyAgentReceiptPayment(
+  evidence: AgentReceiptEvidence,
+  request: AgentPaymentTerms,
+  receiptKeys: readonly SequencerReceiptKey[],
+  commitments?: PaymentCommitmentResolver,
+): Promise<PaymentReceiptVerification> {
+  const proof = structuredClone(evidence);
+  const rawTransaction = receiptBytes(proof.rawTransaction);
+  const signedReceipt = receiptBytes(proof.signedReceipt);
+  const keys = copyReceiptKeys(receiptKeys);
+  const signed = await verifySequencerReceipt(signedReceipt, rawTransaction, keys);
+  const network = `eip155:${decodeRawEip1559(rawTransaction).chainId}`;
+  if (request.commitment !== undefined && request.commitment.network !== network) {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+  const topic = toHex(keccak256(new TextEncoder().encode("PaymentExact(bytes32,bytes32,bytes32,bytes32,uint128)")));
+  const log = signed.receipt.effects.find((effect) => effect.kind === 3
+    && toHex(effect.body.subarray(0, 20)) === LAYERX_LEDGER_ADDRESS.slice(2)
+    && effect.body[20] === 4 && toHex(effect.body.subarray(21, 53)) === topic);
+  if (log === undefined) throw new AgentMiddlewareError("verification-failure");
+  const verified = await verifyPaymentReceipt(proof, {
+    scheme: "exact", network, amount: request.amount, asset: `0x${request.asset}`,
+    payTo: `0x${request.recipient}`, maxTimeoutSeconds: 120,
+    extra: { layerx: { commitment: "receipted", purposeHash: toHex(log.body.subarray(53, 85)) } },
+  }, keys, commitments);
+  const verification = Object.freeze({ ...verified });
+  if (verification.payment.amount !== protocolAmount(request.amount)
+    || !constantTimeHex(verification.payment.assetId, request.asset)
+    || !constantTimeHex(verification.payment.to, request.recipient)) {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+  await verifyPaymentCommitment(verification, network, request.commitment?.level ?? "receipted", commitments);
   return verification;
 }
 
+export async function verifyCommittedAgentPayment(
+  evidence: AgentReceiptEvidence,
+  reservation: CommittedBudgetReservation,
+  request: AgentPaymentTerms,
+  receiptKeys: readonly SequencerReceiptKey[],
+  commitments?: PaymentCommitmentResolver,
+): Promise<Extract<AgentSpendResult, { readonly kind: "verified" }>> {
+  if (reservation.amount !== request.amount || reservation.asset !== request.asset) {
+    throw new AgentMiddlewareError("budget-conflict");
+  }
+  const verification = await verifyAgentReceiptPayment(evidence, request, receiptKeys, commitments);
+  if (!constantTimeHex(verification.receiptDigest, reservation.receiptDigest)) {
+    throw new AgentMiddlewareError("budget-conflict");
+  }
+  return { kind: "verified", verification, reservation };
+}
+
+export async function verifyAgentPayment(
+  evidence: AgentReceiptEvidence,
+  request: AgentSpendRequest,
+  receiptKeys: readonly SequencerReceiptKey[],
+  commitments?: PaymentCommitmentResolver,
+): Promise<PaymentReceiptVerification> {
+  validateSpend(request);
+  if (decodeRawEip1559(receiptBytes(evidence.rawTransaction)).chainId !== BigInt(request.networkId)) {
+    throw new AgentMiddlewareError("verification-failure");
+  }
+  return verifyAgentReceiptPayment(evidence, request, receiptKeys, commitments);
+}
+
+export interface AgentGrantStateResolver {
+  resolve(input: { readonly network: string; readonly grantId: string }): Promise<{
+    readonly grantId: string;
+    readonly network: string;
+    readonly payer: string;
+    readonly asset: string;
+  }>;
+}
+
 export class AgentGrantMiddleware implements GrantDrawExecution {
-  readonly #protocol: ProtocolSelection;
+  readonly #receiptKeys: readonly SequencerReceiptKey[];
 
   public constructor(private readonly config: {
     readonly tenant: string;
-    readonly protocolVersion: SelectableProtocolVersion;
+    readonly receiptKeys: readonly SequencerReceiptKey[];
     readonly budgets: AgentBudgetLedger;
     readonly draws: GrantDrawExecution;
+    readonly grants: AgentGrantStateResolver;
     readonly receipts: AgentReceiptResolver;
     readonly commitments?: PaymentCommitmentResolver;
   }) {
     if (!config.tenant || config.tenant.length > 512 || config.tenant.includes("\0")) throw new AgentMiddlewareError("invalid-request");
-    this.#protocol = protocolSelection(config.protocolVersion);
+    this.#receiptKeys = copyReceiptKeys(config.receiptKeys);
+  }
+
+  public resolveGrant(grantId: string, network: string): ReturnType<GrantDrawExecution["resolveGrant"]> {
+    return this.config.draws.resolveGrant(grantId, network);
   }
 
   public async execute(request: Parameters<GrantDrawExecution["execute"]>[0]): Promise<SellerSettlementOutcome> {
     const requirements = request.requirements;
     if (requirements.scheme !== "metered" && requirements.scheme !== "subscription") throw new AgentMiddlewareError("invalid-request");
     const commitment = paymentCommitment(requirements.extra);
-    if (commitment !== "executed" && this.config.commitments === undefined) throw new AgentMiddlewareError("invalid-request");
+    if (commitment !== "receipted" && this.config.commitments === undefined) throw new AgentMiddlewareError("invalid-request");
     const amount = protocolAmount(requirements.amount).toString();
     if (!/^[0-9a-f]{64}$/u.test(request.requestDigest) || !/^[0-9a-f]{64}$/u.test(request.idempotencyKey)) throw new AgentMiddlewareError("invalid-request");
-    const facts = { amount, asset: requirements.asset, requestDigest: request.requestDigest };
+    if (!/^0x[0-9a-f]{64}$/u.test(requirements.asset) || !/^0x[0-9a-f]{64}$/u.test(requirements.payTo)) {
+      throw new AgentMiddlewareError("invalid-request");
+    }
+    const facts = { amount, asset: requirements.asset.slice(2), requestDigest: request.requestDigest };
     const result = await this.config.budgets.reserve({ tenant: this.config.tenant, idempotencyKey: request.idempotencyKey, ...facts });
     if (result.kind === "exhausted") return { kind: "refused", reason: "budget_refused" };
     if (result.kind === "conflict") throw new AgentMiddlewareError("budget-conflict");
     const reservation = validateBudgetReservation(result.reservation, facts);
+    let transaction: ReturnType<typeof decodeRawEip1559>;
+    try {
+      transaction = decodeRawEip1559(receiptBytes(request.rawTransaction));
+    } catch {
+      throw new AgentMiddlewareError("invalid-request");
+    }
+    const data = transaction.data;
+    if (toHex(transaction.to) !== LAYERX_LEDGER_ADDRESS.slice(2) || transaction.value !== 0n
+      || requirements.network !== `eip155:${transaction.chainId}`
+      || data.length !== 4 + 7 * 32 || toHex(data.subarray(0, 4)) !== toHex(LEDGER_DRAW_SELECTOR)
+      || toHex(data.subarray(36, 68)) !== requirements.payTo.slice(2)
+      || toHex(data.subarray(164, 196)) !== paymentPurpose(requirements.extra, true)
+      || BigInt(`0x${toHex(data.subarray(68, 100))}`) !== BigInt(reservation.amount)
+      || BigInt(`0x${toHex(data.subarray(132, 164))}`) >= 1n << 64n
+      || toHex(data.subarray(100, 132)) !== request.idempotencyKey) {
+      throw new AgentMiddlewareError("budget-conflict");
+    }
+    const grant = Object.freeze({ ...await this.config.grants.resolve({ network: requirements.network, grantId: toHex(data.subarray(4, 36)) }) });
+    if (grant.network !== requirements.network || grant.grantId !== toHex(data.subarray(4, 36))
+      || !/^[0-9a-f]{64}$/u.test(grant.payer) || !/^[0-9a-f]{64}$/u.test(grant.asset)
+      || grant.asset !== requirements.asset.slice(2)) throw new AgentMiddlewareError("budget-conflict");
     if (reservation.state === "held") return { kind: "pending" };
     if (reservation.state === "released") return { kind: "refused", reason: "budget_released" };
     if (reservation.state === "committed") {
       const evidence = await this.config.receipts.resolve(reservation.receiptDigest);
-      const outcome: SellerSettlementOutcome = { kind: "settled", ...evidence };
-      const verification = await verifyPaymentReceipt(outcome, requirements, this.config.commitments, this.#protocol);
-      if (toHex(verification.receiptDigest) !== reservation.receiptDigest) throw new AgentMiddlewareError("budget-conflict");
+      const outcome: SellerSettlementOutcome = { ...evidence, kind: "settled" };
+      const verified = await this.#verifyDrawReceipt(outcome, request, data, grant);
+      if (toHex(verified.receiptDigest) !== reservation.receiptDigest) throw new AgentMiddlewareError("budget-conflict");
       return outcome;
     }
     const outcome = await this.config.draws.execute(request);
     if (outcome.kind !== "settled") return outcome;
-    const verification = await verifyPaymentReceipt(outcome, requirements, this.config.commitments, this.#protocol);
-    const receiptDigest = toHex(verification.receiptDigest);
+    const verified = await this.#verifyDrawReceipt(outcome, request, data, grant);
+    const receiptDigest = toHex(verified.receiptDigest);
     await this.config.receipts.retainVerified?.({
-      idempotencyKey: request.idempotencyKey, activityId: toHex(verification.receipt.activityId), receiptDigest,
+      idempotencyKey: request.idempotencyKey, activityId: `0x${toHex(keccak256(receiptBytes(outcome.rawTransaction)))}`, receiptDigest,
     });
     const committed = validateBudgetReservation(await this.config.budgets.commit({ reservationId: reservation.reservationId, ...facts, receiptDigest }), facts, reservation.reservationId);
     if (committed.state !== "committed" || committed.receiptDigest !== receiptDigest) throw new AgentMiddlewareError("budget-conflict");
     return outcome;
+  }
+
+  async #verifyDrawReceipt(
+    evidence: PortableReceiptV2,
+    request: Parameters<GrantDrawExecution["execute"]>[0],
+    data: Uint8Array,
+    grant: { readonly payer: string; readonly asset: string },
+  ): Promise<SequencerReceiptVerification> {
+    try {
+      const proof = structuredClone(evidence);
+      const signedReceipt = receiptBytes(proof.signedReceipt);
+      const keys = this.#receiptKeys.filter((key) => `0x${toHex(key.keyId)}` === proof.receiptKey.keyId
+        && `0x${toHex(key.publicKey)}` === proof.receiptKey.publicKey
+        && /^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(proof.receiptKey.firstHeight)
+        && /^0x(?:0|[1-9a-f][0-9a-f]*)$/u.test(proof.receiptKey.lastHeight)
+        && key.first_height === BigInt(proof.receiptKey.firstHeight)
+        && key.last_height === BigInt(proof.receiptKey.lastHeight));
+      if (proof.format !== "layerx-receipt-proof-v2" || proof.rawTransaction !== request.rawTransaction
+        || (proof.verificationLevel !== "receipted" && proof.verificationLevel !== "committed")
+        || keys.length === 0
+        || (paymentCommitment(request.requirements.extra) === "committed" && proof.verificationLevel !== "committed")) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      const verified = await verifySequencerReceipt(signedReceipt, receiptBytes(proof.rawTransaction), keys);
+      if (proof.receiptDigest !== `0x${toHex(verified.receiptDigest)}`) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      const { receipt } = verified;
+      const summary = receipt.effects[0];
+      if (receipt.resultCode !== 0 || receipt.moduleId <= 11 || summary === undefined
+        || summary.moduleId !== receipt.moduleId || summary.ordinal !== 0 || summary.kind !== 1
+        || summary.monetary || summary.eventType !== 0 || summary.body.length < 110
+        || summary.body[108] === 0 || summary.body[108]! > 64 || summary.body.length !== 109 + summary.body[108]!
+        || new DataView(new Uint8Array(summary.body).buffer).getUint32(104, false) !== receipt.effects.length - 1) {
+        throw new AgentMiddlewareError("verification-failure");
+      }
+      const eventData = new Uint8Array(128);
+      eventData.set(receiptBytes(`0x${grant.asset}`));
+      eventData.set(data.subarray(68, 132), 32);
+      eventData.set(data.subarray(196, 228), 96);
+      const digest = toHex(new Uint8Array(await crypto.subtle.digest("SHA-256", eventData)));
+      const topic = toHex(keccak256(new TextEncoder().encode("PaymentDrawn(bytes32,bytes32,bytes32,bytes32,uint128,bytes32,bytes32)")));
+      let matches = 0;
+      for (const [index, effect] of receipt.effects.slice(1).entries()) {
+        const body = effect.body;
+        const count = body[20];
+        if (effect.moduleId !== receipt.moduleId || effect.ordinal !== index + 1 || effect.kind !== 3
+          || effect.monetary || effect.eventType !== 0 || count === undefined || count > 4
+          || body.length !== 53 + count * 32) throw new AgentMiddlewareError("verification-failure");
+        if (toHex(body.subarray(0, 20)) !== LAYERX_LEDGER_ADDRESS.slice(2) || toHex(body.subarray(21, 53)) !== topic) continue;
+        if (toHex(body.subarray(body.length - 32)) !== digest) throw new AgentMiddlewareError("verification-failure");
+        const payment = decodePaymentDrawnLog({ address: LAYERX_LEDGER_ADDRESS, data: eventData,
+          topics: Array.from({ length: count }, (_, i) => body.slice(21 + i * 32, 53 + i * 32)) });
+        if (toHex(payment.grantId) !== toHex(data.subarray(4, 36))
+          || toHex(payment.from) !== grant.payer
+          || toHex(payment.to) !== toHex(data.subarray(36, 68))
+          || toHex(payment.to) !== request.requirements.payTo.slice(2)
+          || toHex(payment.assetId) !== grant.asset
+          || payment.amount !== BigInt(request.requirements.amount)
+          || toHex(payment.idempotencyKey) !== request.idempotencyKey) throw new AgentMiddlewareError("verification-failure");
+        matches += 1;
+      }
+      if (matches !== 1) throw new AgentMiddlewareError("verification-failure");
+      await verifyPaymentCommitment(verified, request.requirements.network, proof.verificationLevel, this.config.commitments);
+      return verified;
+    } catch {
+      throw new AgentMiddlewareError("verification-failure");
+    }
   }
 }

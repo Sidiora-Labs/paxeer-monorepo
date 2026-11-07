@@ -8,6 +8,7 @@ import {
   activityFailure,
   agentFilterOptions,
   detailUnresolved,
+  detailEvidence,
   emptyFilterValues,
   entryStatusKey,
   entryVerification,
@@ -140,6 +141,22 @@ const mockUnresolvedDetail: ActivityEntryDetail = {
   evidence: [],
   stages: [],
 };
+
+export function observeActivityVerification(detail: ActivityEntryDetail): string {
+  return verificationLabel(entryVerification(detailEvidence(validatedDetail(detail))));
+}
+
+function activity_consumer_refuses_retired_receipt() {
+  assert.equal(observeActivityVerification(mockActivityDetail), copyEntry("activity.verification.checkpoint_finalised").message);
+  const retired: ActivityEntryDetail = {
+    ...mockActivityDetail,
+    stages: [],
+    evidence: mockActivityDetail.evidence.map((reference) => ({ ...reference, verification: "settlement-anchored" })),
+  };
+  assert.throws(() => observeActivityVerification(retired), /verified receipt/u);
+}
+
+test(activity_consumer_refuses_retired_receipt);
 
 test("feedGroups transforms ActivityPage groups into FeedGroupView", () => {
   const groups = feedGroups(mockActivityPage);
@@ -455,7 +472,7 @@ test("explorerPath builds explorer URLs for receipts and checkpoints", () => {
 });
 
 test("verificationLabel returns localized label for verification levels", () => {
-  const levels = ["unverified", "receipt-verified", "checkpoint-finalised", "paxeer-finalised"] as const;
+  const levels = ["unverified", "receipt-verified", "checkpoint-finalised"] as const;
   for (const level of levels) {
     const label = verificationLabel(level);
     assert.equal(typeof label, "string");

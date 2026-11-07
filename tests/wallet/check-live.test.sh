@@ -35,17 +35,51 @@ const [portFile] = process.argv.slice(2);
 const profiles = {
   good: {},
   wrong_chain: { eth_chainId: { result: "0x1" } },
-  kernel_reachable: {
+  network_malformed: {
+    px_getNetwork: {
+      result: {
+        network_id: "local",
+        consensus: null,
+        reason: "consensus_unavailable",
+      },
+    },
+  },
+  network_consensus: {
     px_getNetwork: {
       result: {
         network_id: "local",
         paxeer: { chain_id: "0x7d", latest_block: "0x10" },
-        kernel: { available: true, reason: "available" },
+        consensus: { latest_height: "9", catching_up: false },
       },
     },
   },
-  kernel_data: {
-    lx_getAccount: { result: { name: "account", balance: "1", next_sequence: 1 } },
+  network_wrong_chain: {
+    px_getNetwork: {
+      result: {
+        network_id: "local",
+        paxeer: { chain_id: "0x1", latest_block: "0x10" },
+        consensus: { latest_height: "9", catching_up: false },
+      },
+    },
+  },
+  network_wrong_reason: {
+    px_getNetwork: {
+      result: {
+        network_id: "local",
+        paxeer: { chain_id: "0x7d", latest_block: "0x10" },
+        consensus: null,
+        reason: "unknown",
+      },
+    },
+  },
+  account_read_refused: {
+    px_getAccount: {
+      error: {
+        code: -32001,
+        message: "Native account reverse resolution unsupported",
+        data: { code: "native_account_reverse_resolution_unsupported" },
+      },
+    },
   },
   resolve_error: {
     px_resolveAccount: {
@@ -68,14 +102,22 @@ const base = {
     result: {
       network_id: "local",
       paxeer: { chain_id: "0x7d", latest_block: "0x10" },
-      kernel: { available: false, reason: "not_configured" },
+      consensus: null,
+      reason: "consensus_unavailable",
     },
   },
-  lx_getAccount: {
-    error: {
-      code: -32010,
-      message: "Kernel unavailable",
-      data: { code: "kernel_unavailable", backend: "public_core", reason: "not_configured" },
+  px_getAccount: {
+    result: {
+      account: {
+        bound: false,
+        evm_address: "0x000000000000000000000000000000000000dead",
+      },
+      paxeer: {
+        address: "0x000000000000000000000000000000000000dead",
+        balance: "0x0",
+        nonce: "0x0",
+        height: 16,
+      },
     },
   },
 };
@@ -285,33 +327,50 @@ const server = http.createServer((request, response) => {
     response.end(JSON.stringify(report));
     return;
   }
-  const [, profile, rest] = request.url.match(/^\/([a-z_]+)(\/.*)$/) || [];
-  if (request.method !== "POST" || rest !== "/rpc" || !(profile in profiles)) {
-    response.writeHead(404, { "content-type": "application/json" });
-    response.end('{"ok":false}');
-    return;
+  response.writeHead(404, { "content-type": "application/json" });
+  response.end('{"ok":false}');
+});
+
+const ports = { services: null, endpoints: {} };
+const publishPorts = () => {
+  if (ports.services !== null && Object.keys(ports.endpoints).length === Object.keys(profiles).length) {
+    fs.writeFileSync(portFile, JSON.stringify(ports));
   }
-  let body = "";
-  request.on("data", (chunk) => (body += chunk));
-  request.on("end", () => {
-    let call;
-    try {
-      call = JSON.parse(body);
-    } catch {
-      response.writeHead(400, { "content-type": "application/json" });
-      response.end('{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}');
+};
+server.listen(0, "127.0.0.1", () => {
+  ports.services = server.address().port;
+  publishPorts();
+});
+for (const profile of Object.keys(profiles)) {
+  const endpoint = http.createServer((request, response) => {
+    if (request.method !== "POST" || request.url !== "/") {
+      response.writeHead(404, { "content-type": "application/json" });
+      response.end('{"ok":false}');
       return;
     }
-    const answer = profiles[profile][call.method] || base[call.method] || {
-      error: { code: -32601, message: "Method not found" },
-    };
-    response.writeHead(200, { "content-type": "application/json" });
-    response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, ...answer }));
+    let body = "";
+    request.on("data", (chunk) => (body += chunk));
+    request.on("end", () => {
+      let call;
+      try {
+        call = JSON.parse(body);
+      } catch {
+        response.writeHead(400, { "content-type": "application/json" });
+        response.end('{"jsonrpc":"2.0","id":null,"error":{"code":-32700,"message":"Parse error"}}');
+        return;
+      }
+      const answer = profiles[profile][call.method] || base[call.method] || {
+        error: { code: -32601, message: "Method not found" },
+      };
+      response.writeHead(200, { "content-type": "application/json" });
+      response.end(JSON.stringify({ jsonrpc: "2.0", id: call.id, ...answer }));
+    });
   });
-});
-server.listen(0, "127.0.0.1", () => {
-  fs.writeFileSync(portFile, String(server.address().port));
-});
+  endpoint.listen(0, "127.0.0.1", () => {
+    ports.endpoints[profile] = endpoint.address().port;
+    publishPorts();
+  });
+}
 JS
 
 node "$work/responder.mjs" "$work/port" &
@@ -324,7 +383,13 @@ if [ ! -s "$work/port" ]; then
 	echo "check-live.test: responder did not start" >&2
 	exit 2
 fi
-port="$(cat "$work/port")"
+port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["services"])' "$work/port")"
+
+endpoint_base() {
+	local profile="$1" endpoint_port
+	endpoint_port="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["endpoints"][sys.argv[2]])' "$work/port" "$profile")"
+	printf 'http://127.0.0.1:%s/' "$endpoint_port"
+}
 
 failures=0
 
@@ -335,7 +400,7 @@ run_checker() {
 expect() {
 	local name="$1" profile="$2" want_status="$3" output status=0
 	shift 3
-	output="$(run_checker "http://127.0.0.1:$port/$profile" endpoint)" || status=$?
+	output="$(run_checker "$(endpoint_base "$profile")" endpoint)" || status=$?
 	local ok=1 line
 	[ "$status" -eq "$want_status" ] || ok=0
 	for line in "$@"; do
@@ -350,26 +415,43 @@ expect() {
 	fi
 }
 
-expect check_live_passing_endpoint good 0 \
-	"pass eth_chainId 0x7d" \
-	"pass px_resolveAccount bound=false" \
-	"pass px_getNetwork kernel.available=false reason=not_configured" \
-	"pass lx_getAccount code=-32010 backend=public_core reason=not_configured" \
-	"check-live: all checks passed"
+check_live_passing_endpoint() {
+	expect check_live_passing_endpoint good 0 \
+		"pass eth_chainId 0x7d" \
+		"pass px_resolveAccount bound=false" \
+		"pass px_getNetwork consensus=unavailable" \
+		"pass px_getAccount bound=false height=16" \
+		"check-live: all checks passed"
+
+	expect check_live_consensus_endpoint network_consensus 0 \
+		"pass px_getNetwork consensus=9" \
+		"check-live: all checks passed"
+
+	expect check_live_network_malformed network_malformed 1 \
+		"pass eth_chainId 0x7d" \
+		'fail px_getNetwork {"consensus":null,"network_id":"local","reason":"consensus_unavailable"}' \
+		"check-live: 1 check(s) failed"
+}
+
+check_live_passing_endpoint
 
 expect check_live_wrong_chain_id wrong_chain 1 \
 	'fail eth_chainId "0x1"' \
 	"pass px_resolveAccount bound=false" \
 	"check-live: 1 check(s) failed"
 
-expect check_live_kernel_reported_reachable kernel_reachable 1 \
-	"pass eth_chainId 0x7d" \
-	'fail px_getNetwork {"available":true,"reason":"available"}' \
+expect check_live_network_wrong_chain network_wrong_chain 1 \
+	'fail px_getNetwork {"consensus":{"catching_up":false,"latest_height":"9"},"network_id":"local","paxeer":{"chain_id":"0x1","latest_block":"0x10"}}' \
 	"check-live: 1 check(s) failed"
 
-expect check_live_kernel_method_answers_data kernel_data 1 \
-	"fail lx_getAccount" \
-	'"name":"account"' \
+expect check_live_network_wrong_reason network_wrong_reason 1 \
+	'fail px_getNetwork {"consensus":null,"network_id":"local","paxeer":{"chain_id":"0x7d","latest_block":"0x10"},"reason":"unknown"}' \
+	"check-live: 1 check(s) failed"
+
+expect check_live_account_read_refused account_read_refused 1 \
+	"fail px_getAccount" \
+	'"code":-32001' \
+	'"code":"native_account_reverse_resolution_unsupported"' \
 	"check-live: 1 check(s) failed"
 
 expect check_live_resolve_read_error resolve_error 1 \

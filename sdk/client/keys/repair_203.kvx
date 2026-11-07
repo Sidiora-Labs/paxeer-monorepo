@@ -1,0 +1,9 @@
+[repair.22.31.203]
+finding = "key-overwrite-loss"
+audit = "22.30.84"
+base_revision = "a2c1b83e1c3e7ecd65fa771738df55e7e34f56fd"
+tests = ["TestRepair_203_KeyOverwriteLoss", "TestRepair_203_ReplacementPersists", "TestRepair_203_StagedStorageFailure", "TestRepair_203_CommitFailure", "TestRepair_203_ConcurrentChangePreserved", "TestRepair_203_DryRunPreservesIdentity", "TestRepair_203_UnsupportedBackendPreservesIdentity"]
+implementation = "Stage the real encrypted file/test keyring, validate and persist the replacement privately, validate command output, sync staged data, detect intervening writes, and atomically exchange the complete keyring directory, including its address indexes. Every failure before exchange leaves the live keyring unchanged; unsupported backend/platform replacement returns an explicit error."
+baseline = "No pre-change test run: the ordered task instructions prohibit running verify_cmd by hand or before the implementation is complete. No baseline failures are claimed."
+evidence = "The final task response and the private hf-build/hf-done gate ledger name the exact verified candidate revision, command, exit code and log."
+wiring_request = "sdk/crypto/keyring (owner: fm-cosmos-fork, domain 15): expose a backend-native atomic Replace operation, with persistent recovery and writer coordination across all keyring consumers, for os/kwallet/pass/memory backends and platforms without atomic directory exchange; these replacements fail closed here."

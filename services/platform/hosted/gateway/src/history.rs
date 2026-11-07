@@ -91,6 +91,9 @@ impl Source<'_> {
             } => http::loopback_get(*address, authority, &format!("{base_path}{path}"), query),
         };
         let upstream = upstream.map_err(|_| "indexer_unreachable")?;
+        if path == "/v1/assets" && upstream.status == 429 {
+            return Ok((429, Value::Null));
+        }
         if upstream.content_type != "application/json" {
             return Err("invalid_indexer_response");
         }
@@ -257,8 +260,10 @@ fn page(source: &Source<'_>, account: &str, query: &Query) -> Result<Page, Failu
         if items.last().is_some_and(|((last, ..), _)| *last > position) {
             return Err(invalid());
         }
+        let tx_hash = text(row, "tx_id").ok_or_else(invalid)?.to_owned();
         let mut row = row.clone();
         if let Some(object) = row.as_object_mut() {
+            object.insert("tx_hash".to_owned(), json!(tx_hash));
             object.insert("blockHeight".to_owned(), json!(position.height));
             object.insert("txIndex".to_owned(), json!(position.tx_index));
             object.insert("logIndex".to_owned(), json!(position.log_index));
@@ -367,9 +372,17 @@ fn asset_metadata(asset: &str, record: &Value, registry: &[Value]) -> Value {
     })
 }
 
+fn registry_matches(asset: &str, record: &Value, entry: &Value) -> bool {
+    if text(record, "kind") == Some("layerx") {
+        text(entry, "asset") == Some(asset)
+    } else {
+        text(record, "denom").is_some() && text(entry, "denom") == text(record, "denom")
+    }
+}
+
 fn join_assets(
     source: &Source<'_>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     items: &mut [Value],
 ) -> Result<(), Failure> {
     if items.is_empty() {
@@ -397,7 +410,21 @@ fn join_assets(
         };
         records.insert(asset.to_owned(), record);
     }
-    let registry = registry()?;
+    let needed: BTreeMap<_, _> = records
+        .iter()
+        .filter(|(_, record)| {
+            record.is_object()
+                && text(record, "kind") != Some("native")
+                && (text(&record["metadata"], "symbol").is_none()
+                    || record["metadata"]["decimals"].as_u64().is_none())
+        })
+        .map(|(asset, record)| (asset.clone(), record.clone()))
+        .collect();
+    let registry = if needed.is_empty() {
+        Vec::new()
+    } else {
+        registry(&needed)?
+    };
     for item in items.iter_mut() {
         let asset = text(item, "asset").unwrap_or_default().to_owned();
         let joined = records.get(&asset).map_or(Value::Null, |record| {
@@ -420,7 +447,7 @@ fn join_assets(
 /// repeats nor skips a row.
 pub(super) fn history(
     source: &Source<'_>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     accounts: &[(&'static str, String)],
     query: &Query,
     tagged: bool,
@@ -500,8 +527,99 @@ fn refusal(id: &Value, code: i32, message: &str, data: Value) -> Value {
     refusal
 }
 
-fn registry(config: &Config) -> Result<Vec<Value>, Failure> {
-    registry_result(super::rpc::read_result(config, "/v1/assets"))
+#[cfg(test)]
+fn registry(source: Option<&Source<'_>>) -> Result<Vec<Value>, Failure> {
+    registry_for(source, None)
+}
+
+fn registry_for(
+    source: Option<&Source<'_>>,
+    needed: Option<&BTreeMap<String, Value>>,
+) -> Result<Vec<Value>, Failure> {
+    let source = source.ok_or(Failure::Unavailable("registry_unavailable"))?;
+    let mut assets = Vec::new();
+    let mut cursor = 0;
+    // The catalogue API has no denom selector. Bound discovery to 3,200 records;
+    // exhaustion is an explicit refusal, never incomplete fallback metadata.
+    for _ in 0..32 {
+        let query = if cursor == 0 {
+            format!("limit={MAXIMUM_LIMIT}")
+        } else {
+            format!("limit={MAXIMUM_LIMIT}&cursor={cursor}")
+        };
+        let (status, body) = source
+            .get("/v1/assets", &query)
+            .map_err(Failure::Unavailable)?;
+        match status {
+            200 => {}
+            429 => return Err(Failure::Unavailable("registry_rate_limited")),
+            _ => return Err(Failure::Unavailable("registry_unavailable")),
+        }
+        if body.get("version") != Some(&json!(1)) {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
+        let rows = body
+            .get("items")
+            .and_then(Value::as_array)
+            .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+        if rows.len() > MAXIMUM_LIMIT as usize {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
+        for row in rows {
+            if text(row, "asset").is_none()
+                || text(row, "kind").is_none()
+                || !row.get("metadata").is_some_and(Value::is_object)
+            {
+                return Err(Failure::Unavailable("invalid_indexer_response"));
+            }
+            if text(row, "kind") != Some("layerx")
+                || needed.is_some_and(|needed| {
+                    !needed
+                        .iter()
+                        .any(|(asset, record)| registry_matches(asset, record, row))
+                })
+            {
+                continue;
+            }
+            assets.push(json!({
+                "asset_id": row["asset"],
+                "denom": row["denom"],
+                "symbol": row["metadata"]["symbol"],
+                "decimals": row["metadata"]["decimals"],
+            }));
+        }
+        // Validate the page envelope even when this page resolves every field.
+        if !matches!(body.get("next_cursor"), Some(Value::Null))
+            && !body
+                .get("next_cursor")
+                .and_then(Value::as_str)
+                .and_then(decimal)
+                .is_some_and(|next| next > cursor)
+        {
+            return Err(Failure::Unavailable("invalid_indexer_response"));
+        }
+        if needed.is_some_and(|needed| {
+            needed.iter().all(|(asset, record)| {
+                let metadata = asset_metadata(asset, record, &assets);
+                metadata["symbol"].is_string() && metadata["decimals"].is_u64()
+            })
+        }) {
+            return Ok(assets);
+        }
+        match body.get("next_cursor") {
+            Some(Value::Null) => return registry_result(Some(json!({"assets": assets}))),
+            Some(Value::String(next)) => {
+                cursor = decimal(next)
+                    .filter(|next| *next > cursor)
+                    .ok_or(Failure::Unavailable("invalid_indexer_response"))?;
+                if rows.is_empty() {
+                    return Err(Failure::Unavailable("invalid_indexer_response"));
+                }
+            }
+            _ => return Err(Failure::Unavailable("invalid_indexer_response")),
+        }
+    }
+    Err(Failure::Unavailable("registry_unavailable"))
 }
 
 fn registry_result(result: Option<Value>) -> Result<Vec<Value>, Failure> {
@@ -521,7 +639,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
     served(
         &mut |request| super::paxeer::node(config, request),
         source.as_ref(),
-        &|| registry(config),
+        &|needed| registry_for(source.as_ref(), Some(needed)),
         method,
         id,
         params,
@@ -533,7 +651,7 @@ fn answer(config: &Config, method: &str, id: &Value, params: Option<&Value>) -> 
 fn served(
     node: &mut super::paxeer::Node<'_>,
     source: Option<&Source<'_>>,
-    registry: &dyn Fn() -> Result<Vec<Value>, Failure>,
+    registry: &dyn Fn(&BTreeMap<String, Value>) -> Result<Vec<Value>, Failure>,
     method: &str,
     id: &Value,
     params: Option<&Value>,
@@ -849,6 +967,7 @@ pub(super) fn status(config: &Config) -> &'static str {
 mod tests {
     use super::*;
     use layerx_indexer::store::{AssetRow, HolderRow, Position, Store, TransferRow, Unit};
+    use sha2::{Digest, Sha256};
     use std::net::TcpListener;
     use std::sync::Arc;
 
@@ -862,6 +981,13 @@ mod tests {
     const POINTER: &str = "0xcccccccccccccccccccccccccccccccccccccccc";
     const TICKET: &str = "denom:factory/pax1issuer/ticket";
     const BUDGET: &str = "0101010101010101010101010101010101010101010101010101010101010101";
+
+    fn transaction_hash(kind: &str, position: u64, tx_index: u32) -> String {
+        format!(
+            "0x{}",
+            crate::hex(&Sha256::digest(format!("{kind}-{position}-{tx_index}")))
+        )
+    }
 
     /// One transfer leg of transaction `tx_index` at `position`: a native
     /// value row when `ordinal` is 0, else the log at index `ordinal - 1`.
@@ -883,7 +1009,7 @@ mod tests {
             counterparty: Some(counterparty.to_owned()),
             asset: asset.to_owned(),
             amount: amount.to_owned(),
-            tx_id: format!("{kind}-{position}-{tx_index}"),
+            tx_id: transaction_hash(kind, position, tx_index),
             ordinal,
             decoded: json!({"position": position.to_string()}),
         }
@@ -1030,7 +1156,7 @@ mod tests {
                     record_id: BUDGET.to_owned(),
                     event: "BudgetCreated",
                     state: "active",
-                    tx_id: "budget-12-2".to_owned(),
+                    tx_id: transaction_hash("budget", 12, 2),
                     decoded: json!({"args": {"amount": "500"}}),
                 }],
                 ..unit(
@@ -1078,7 +1204,7 @@ mod tests {
         Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"))
     }
 
-    fn registry() -> Result<Vec<Value>, Failure> {
+    fn registry(_: &BTreeMap<String, Value>) -> Result<Vec<Value>, Failure> {
         Ok(vec![
             json!({"asset_id": LXP, "symbol": "LXP", "name": "LayerX Points", "decimals": 6, "denom": "ulxp"}),
         ])
@@ -1194,9 +1320,16 @@ mod tests {
             assert_eq!(item["blockHeight"], json!(at.height));
             assert_eq!(item["txIndex"], json!(at.tx_index));
             assert_eq!(item["logIndex"], json!(at.log_index));
+            assert_eq!(item["tx_hash"], row["tx_id"]);
             let mut stripped = item.clone();
             if let Some(object) = stripped.as_object_mut() {
-                for field in ["asset_metadata", "blockHeight", "txIndex", "logIndex"] {
+                for field in [
+                    "asset_metadata",
+                    "blockHeight",
+                    "txIndex",
+                    "logIndex",
+                    "tx_hash",
+                ] {
                     object.remove(field);
                 }
             }
@@ -1368,7 +1501,7 @@ mod tests {
         let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
         let token = "evm:0x0000000000000000000000000000000000000abc";
         let swap = |row: TransferRow| TransferRow {
-            tx_id: "swap-20-0".to_owned(),
+            tx_id: transaction_hash("swap", 20, 0),
             ..row
         };
         let units = [
@@ -1488,11 +1621,12 @@ mod tests {
                 )
             })
             .collect();
+        let swap_hash = transaction_hash("swap", 20, 0);
         assert_eq!(
             legs,
             vec![
-                ("swap-20-0", "native_transfer", "0"),
-                ("swap-20-0", "erc20_transfer", "1")
+                (swap_hash.as_str(), "native_transfer", "0"),
+                (swap_hash.as_str(), "erc20_transfer", "1")
             ]
         );
         assert_eq!(history["next_cursor"], Value::Null);
@@ -1829,6 +1963,467 @@ mod tests {
         )
     }
 
+    fn history_config(indexer: Option<Indexer>, paxeer: Option<Vec<Endpoint>>) -> Config {
+        let ca = native_tls::Certificate::from_pem(include_bytes!(
+            "../../../../../consensus/rpc/jsonrpc/server/test.crt"
+        ))
+        .unwrap_or_else(|error| panic!("test certificate must parse: {error}"));
+        Config {
+            wallet_caps: None,
+            routes: crate::routes::Registry::configured("layerx-testnet", "1")
+                .unwrap_or_else(|error| panic!("test routes must configure: {error}")),
+            listen: "127.0.0.1:0"
+                .parse()
+                .unwrap_or_else(|error| panic!("test address must parse: {error}")),
+            listener: crate::Listener::Plain,
+            client: Client::without_identity(ca.clone()),
+            client_identity: false,
+            kernel: None,
+            identity: None,
+            receipt_keys: None,
+            committed_state: None,
+            state_clock: crate::now,
+            paxeer,
+            capabilities: crate::capabilities::Cache::new(std::time::Duration::from_secs(1)),
+            indexer,
+            registration_token: None,
+            trusted_proxies: Vec::new(),
+            faucet: None,
+            store: Arc::new(crate::RedisStore::new(
+                crate::RedisEndpoint::parse("rediss://localhost:6379")
+                    .unwrap_or_else(|error| panic!("test Redis endpoint must parse: {error}")),
+                ca,
+                zeroize::Zeroizing::new("gateway".to_owned()),
+                zeroize::Zeroizing::new(String::new()),
+            )),
+            event_producer: false,
+            network_id: "layerx-testnet".to_owned(),
+            wire_version: "1".to_owned(),
+            protocol_version: 1,
+            protocol_network_id: 1,
+            idempotency_seconds: 3600,
+        }
+    }
+
+    #[test]
+    fn unified_history_answer_reads_the_paxeer_node_over_http() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
+        let address = listener
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error}"));
+        let node = std::thread::spawn(move || {
+            let mut requests = Vec::new();
+            for expected in [
+                "eth_chainId",
+                "eth_call",
+                "eth_chainId",
+                "eth_call",
+                "eth_chainId",
+                "eth_blockNumber",
+            ] {
+                let (mut stream, _) = listener.accept().unwrap_or_else(|error| panic!("{error}"));
+                stream
+                    .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap_or_else(|error| panic!("{error}"));
+                stream
+                    .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                    .unwrap_or_else(|error| panic!("{error}"));
+                let request =
+                    http::read_request(&mut stream, 4096).unwrap_or_else(|error| panic!("{error}"));
+                assert_eq!(request.method, "POST");
+                assert_eq!(request.path, "/rpc");
+                let request: Value =
+                    serde_json::from_slice(&request.body).unwrap_or_else(|error| panic!("{error}"));
+                assert_eq!(request["jsonrpc"], "2.0");
+                assert_eq!(request["method"], expected);
+                let response = if expected == "eth_chainId" {
+                    assert_eq!(request["id"], "route-network");
+                    assert_eq!(request["params"], json!([]));
+                    json!({"jsonrpc": "2.0", "id": request["id"], "result": "0x7d"})
+                } else {
+                    chain(&request).unwrap_or_else(|code| panic!("{code}"))
+                };
+                http::write_response(
+                    &mut stream,
+                    &http::OutgoingResponse {
+                        status: 200,
+                        content_type: "application/json".to_owned(),
+                        headers: Vec::new(),
+                        body: serde_json::to_vec(&response)
+                            .unwrap_or_else(|error| panic!("{error}")),
+                        retry_after: None,
+                    },
+                )
+                .unwrap_or_else(|error| panic!("{error}"));
+                requests.push(request);
+            }
+            requests
+        });
+        let mut endpoint = Endpoint::plain(address.ip().to_string(), address.port());
+        endpoint.base_path = "/rpc".to_owned();
+        let config = history_config(Some(indexer()), Some(vec![endpoint]));
+        let id = json!("http-history");
+        let response = answer(
+            &config,
+            "px_getUnifiedHistory",
+            &id,
+            Some(&json!([EVE, null, 100, null])),
+        );
+        assert!(response.get("error").is_none(), "{response}");
+        assert_eq!(response["jsonrpc"], "2.0");
+        assert_eq!(response["id"], id);
+        assert_eq!(ids(&response["result"]), vec![3, 6, 9, 11]);
+        let (did, main) = binding();
+        assert_eq!(
+            response["result"]["account"],
+            json!({
+                "evm_address": EVE,
+                "pax_address": PAX_EVE,
+                "layerx_did": format!("did:layerx:{}", crate::hex(&did)),
+                "layerx_account": crate::hex(&main),
+                "bound": true
+            })
+        );
+        assert_eq!(
+            response["result"]["accounts"],
+            json!([{"side": "paxeer", "account": EVE}])
+        );
+        assert_eq!(response["result"]["chainHeight"], 12);
+        let requests = node.join().unwrap_or_else(|error| panic!("{error:?}"));
+        assert_eq!(requests.len(), 6);
+        assert_eq!(
+            requests[1]["params"][0]["data"],
+            format!(
+                "0x{}",
+                crate::hex(&evm::calldata_address(
+                    evm::SELECTOR_GET_UNIFIED_ACCOUNT,
+                    &[0xee; 20],
+                ))
+            )
+        );
+        assert_eq!(
+            requests[3]["params"][0]["data"],
+            format!(
+                "0x{}",
+                crate::hex(&evm::calldata_word(
+                    evm::SELECTOR_GET_EVM_ADDR_BY_LAYERX,
+                    &did,
+                ))
+            )
+        );
+    }
+
+    #[test]
+    fn unified_history_with_a_did_selector_resolves_through_addr() {
+        let indexer = indexer();
+        let (did, main) = binding();
+        let response = answered(
+            &indexer,
+            "px_getUnifiedHistory",
+            &json!([format!("did:layerx:{}", crate::hex(&did)), null, 100, null]),
+        );
+        let evm = answered(
+            &indexer,
+            "px_getUnifiedHistory",
+            &json!([EVE, null, 100, null]),
+        );
+        assert!(response.get("error").is_none(), "{response}");
+        assert_eq!(ids(&response["result"]), vec![3, 6, 9, 11]);
+        assert_eq!(
+            response["result"]["accounts"],
+            json!([{"side": "paxeer", "account": EVE}])
+        );
+        assert_eq!(
+            response["result"]["account"],
+            json!({
+                "evm_address": EVE,
+                "pax_address": PAX_EVE,
+                "layerx_did": format!("did:layerx:{}", crate::hex(&did)),
+                "layerx_account": crate::hex(&main),
+                "bound": true
+            })
+        );
+        assert_eq!(response, evm);
+    }
+
+    #[test]
+    fn unified_history_without_paxeer_config_answers_unconfigured() {
+        let config = history_config(Some(indexer()), None);
+        let id = json!("unconfigured-history");
+        let response = answer(
+            &config,
+            "px_getUnifiedHistory",
+            &id,
+            Some(&json!([EVE, null, 100, null])),
+        );
+        assert_eq!(response, crate::paxeer::unconfigured(&id));
+        assert_eq!(
+            response,
+            json!({
+                "jsonrpc": "2.0",
+                "id": id,
+                "error": {
+                    "code": -32001,
+                    "message": "Paxeer endpoint not configured",
+                    "data": {"code": "paxeer_rpc_not_configured"}
+                }
+            })
+        );
+    }
+
+    #[test]
+    fn history_registry_reads_the_indexer_assets() {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        let mut expected = Vec::new();
+        let mut rows = Vec::new();
+        for number in 0..=MAXIMUM_LIMIT {
+            let id = format!("{number:064x}");
+            let denom = format!("uasset{number}");
+            let symbol = format!("ASSET{number}");
+            rows.push(AssetRow {
+                metadata: json!({"symbol": symbol, "decimals": 6}),
+                ..asset(&id, "layerx", "layerx", None, Some(&denom))
+            });
+            expected.push(json!({
+                "asset_id": id, "denom": denom, "symbol": symbol, "decimals": 6,
+            }));
+        }
+        rows.push(asset(
+            &format!("evm:{POINTER}"),
+            "paxeer",
+            "pointer",
+            Some(POINTER),
+            Some("uasset0"),
+        ));
+        store
+            .register_assets(&rows)
+            .unwrap_or_else(|error| panic!("{error}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let registered =
+            super::registry(Some(&source)).unwrap_or_else(|failure| panic!("{failure:?}"));
+        assert_eq!(registered, expected);
+        let pointer = raw(&indexer, &format!("/v1/assets/evm%3A{POINTER}"), "");
+        let joined = asset_metadata(&format!("evm:{POINTER}"), &pointer["asset"], &registered);
+        assert_eq!(joined["symbol"], json!("ASSET0"));
+        assert_eq!(joined["decimals"], json!(6));
+        assert_eq!(joined["native_id"], json!(format!("{:064x}", 0)));
+        assert_eq!(
+            super::registry(None),
+            Err(Failure::Unavailable("registry_unavailable"))
+        );
+        let Indexer::Loopback {
+            address, authority, ..
+        } = indexer
+        else {
+            panic!("expected loopback indexer");
+        };
+        let missing = Indexer::Loopback {
+            address,
+            authority,
+            base_path: "/missing".to_owned(),
+        };
+        assert_eq!(
+            super::registry(Some(&Source {
+                indexer: &missing,
+                client: None
+            })),
+            Err(Failure::Unavailable("registry_unavailable"))
+        );
+    }
+
+    #[test]
+    fn history_registry_skipped_for_native_only_pages() {
+        let store = Store::open_in_memory().unwrap_or_else(|error| panic!("{error}"));
+        store
+            .commit(
+                &unit(
+                    "paxeer",
+                    10,
+                    vec![
+                        leg(
+                            (10, 0, 0),
+                            "native_transfer",
+                            "out",
+                            EVE,
+                            FRANK,
+                            "evm:native",
+                            "1",
+                        ),
+                        leg(
+                            (10, 1, 1),
+                            "erc20_transfer",
+                            "in",
+                            EVE,
+                            FRANK,
+                            &format!("evm:{POINTER}"),
+                            "2",
+                        ),
+                    ],
+                    Vec::new(),
+                ),
+                64,
+            )
+            .unwrap_or_else(|error| panic!("{error}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let reads = std::cell::Cell::new(0);
+        let unavailable = |_: &BTreeMap<String, Value>| {
+            reads.set(reads.get() + 1);
+            Err(Failure::Unavailable("registry_unavailable"))
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            for (kind, expected) in [
+                (Value::Null, vec![1, 2]),
+                (json!("native_transfer"), vec![1]),
+                (json!("erc20_transfer"), vec![2]),
+                (json!("lxp_transfer"), vec![]),
+            ] {
+                let answer = served(
+                    &mut chain,
+                    Some(&source),
+                    &unavailable,
+                    method,
+                    &json!(7),
+                    Some(&json!([EVE, null, 100, kind])),
+                );
+                assert!(answer.get("error").is_none(), "{method} {answer}");
+                assert_eq!(ids(&answer["result"]), expected, "{method} {answer}");
+                for item in items(&answer["result"]) {
+                    assert_eq!(item["asset_metadata"], Value::Null, "{item}");
+                }
+            }
+        }
+        let mut rows = [
+            json!({"kind": "native_transfer", "asset": null}),
+            json!({"kind": "native_transfer"}),
+        ];
+        assert_eq!(join_assets(&source, &unavailable, &mut rows), Ok(()));
+        for row in rows {
+            assert_eq!(row.get("asset_metadata"), Some(&Value::Null));
+        }
+        assert_eq!(reads.get(), 0);
+    }
+
+    #[test]
+    fn history_registry_skipped_for_present_native_and_complete_assets() {
+        let store = Store::open_in_memory().unwrap_or_else(|e| panic!("{e}"));
+        let complete = format!("evm:{POINTER}");
+        store
+            .commit(
+                &unit(
+                    "paxeer",
+                    10,
+                    vec![
+                        leg(
+                            (10, 0, 0),
+                            "native_transfer",
+                            "out",
+                            EVE,
+                            FRANK,
+                            "evm:native",
+                            "1",
+                        ),
+                        leg(
+                            (10, 1, 1),
+                            "erc20_transfer",
+                            "in",
+                            EVE,
+                            FRANK,
+                            &complete,
+                            "2",
+                        ),
+                    ],
+                    vec![
+                        asset("evm:native", "paxeer", "native", None, None),
+                        AssetRow {
+                            metadata: json!({"symbol":"TOKEN", "decimals":6}),
+                            ..asset(&complete, "paxeer", "erc20", Some(POINTER), None)
+                        },
+                    ],
+                ),
+                64,
+            )
+            .unwrap_or_else(|e| panic!("{e}"));
+        let indexer = serve(store);
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        let reads = std::cell::Cell::new(0);
+        let unavailable = |_: &BTreeMap<String, Value>| {
+            reads.set(reads.get() + 1);
+            Err(Failure::Unavailable("registry_unavailable"))
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = served(
+                &mut chain,
+                Some(&source),
+                &unavailable,
+                method,
+                &json!(7),
+                Some(&json!([EVE, null, 100])),
+            );
+            assert!(answer.get("error").is_none(), "{answer}");
+            assert_eq!(ids(&answer["result"]), vec![1, 2]);
+            let rows = items(&answer["result"]);
+            assert_eq!(rows[0]["asset_metadata"]["kind"], "native");
+            assert_eq!(rows[0]["asset_metadata"]["decimals"], 18);
+            assert_eq!(rows[1]["asset_metadata"]["symbol"], "TOKEN");
+            assert_eq!(rows[1]["asset_metadata"]["decimals"], 6);
+            for row in rows {
+                assert_eq!(row["tx_hash"], row["tx_id"]);
+            }
+        }
+        assert_eq!(reads.get(), 0);
+    }
+
+    #[test]
+    fn history_registry_passes_through_refusal_codes() {
+        let closed = TcpListener::bind("127.0.0.1:0").unwrap_or_else(|error| panic!("{error}"));
+        let address = closed
+            .local_addr()
+            .unwrap_or_else(|error| panic!("{error}"));
+        drop(closed);
+        let gone =
+            Indexer::parse(&format!("http://{address}")).unwrap_or_else(|error| panic!("{error}"));
+        let unavailable = Source {
+            indexer: &gone,
+            client: None,
+        };
+        assert_eq!(
+            super::registry(Some(&unavailable)),
+            Err(Failure::Unavailable("indexer_unreachable"))
+        );
+        let indexer = indexer();
+        let source = Source {
+            indexer: &indexer,
+            client: None,
+        };
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = served(
+                &mut chain,
+                Some(&source),
+                &|_| super::registry(Some(&unavailable)),
+                method,
+                &json!(7),
+                Some(&json!([EVE, null, 100])),
+            );
+            assert_eq!(answer["error"]["code"], json!(-32001), "{method} {answer}");
+            assert_eq!(
+                answer["error"]["data"]["code"],
+                json!("indexer_unreachable"),
+                "{method} {answer}"
+            );
+        }
+    }
+
     #[test]
     fn history_registry_read_failures_refuse_both_rpc_methods() {
         let indexer = indexer();
@@ -1846,7 +2441,7 @@ mod tests {
                 let answer = served(
                     &mut chain,
                     Some(&source),
-                    &|| registry_result(result.clone()),
+                    &|_| registry_result(result.clone()),
                     method,
                     &json!(7),
                     Some(&json!([EVE, null, 100])),
@@ -1867,6 +2462,34 @@ mod tests {
             }
         }
         assert_eq!(registry_result(Some(json!({"assets": []}))), Ok(vec![]));
+    }
+
+    #[test]
+    fn history_rows_carry_the_transaction_hash() {
+        let indexer = indexer();
+        let upstream = raw(&indexer, &format!("/v1/history/{EVE}"), "limit=100");
+        assert_eq!(ids(&upstream), vec![3, 6, 9, 11]);
+        for method in ["px_getHistory", "px_getUnifiedHistory"] {
+            let answer = answered(&indexer, method, &json!([EVE, null, 100, null]));
+            assert!(answer.get("error").is_none(), "{answer}");
+            assert_eq!(ids(&answer["result"]), ids(&upstream));
+            for (row, indexed) in items(&answer["result"]).iter().zip(items(&upstream)) {
+                assert_eq!(row["tx_id"], indexed["tx_id"]);
+                assert_eq!(row["tx_hash"], indexed["tx_id"]);
+                let hash = row["tx_hash"].as_str().unwrap_or_else(|| panic!("{row}"));
+                assert_eq!(hash.len(), 66, "{row}");
+                assert!(hash.starts_with("0x"), "{row}");
+                assert!(
+                    hash[2..]
+                        .bytes()
+                        .all(|byte| byte.is_ascii_digit() || (b'a'..=b'f').contains(&byte)),
+                    "{row}"
+                );
+                if method == "px_getUnifiedHistory" {
+                    assert_eq!(row["side"], json!("paxeer"), "{row}");
+                }
+            }
+        }
     }
 
     #[test]
@@ -1962,9 +2585,20 @@ mod tests {
             super::super::paxeer::history_refusal(&id, "paxeer_unreachable")["error"]["code"],
             json!(-32001)
         );
+        let config = history_config(None, None);
+        let request = crate::IncomingRequest {
+            method: "POST".into(),
+            path: "/rpc".into(),
+            headers: BTreeMap::new(),
+            body: Vec::new(),
+        };
         assert_eq!(
-            super::super::rpc::selector("lx_getHistory", Some(&json!([ALICE]))),
-            Err(-32601)
+            super::super::rpc::dispatch(
+                &config,
+                &request,
+                &json!({"jsonrpc": "2.0", "id": id, "method": "lx_getHistory", "params": [ALICE]})
+            ),
+            Some(super::super::rpc::error(&id, -32601, "Method not found"))
         );
     }
 
@@ -1985,7 +2619,7 @@ mod tests {
                 "PayerGrantIssued"
             },
             state: "active",
-            tx_id: format!("{kind}-{height}"),
+            tx_id: transaction_hash(kind, height, 0),
             decoded: json!({}),
         }
     }

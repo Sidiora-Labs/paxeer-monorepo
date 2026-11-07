@@ -4,11 +4,14 @@ use std::collections::BTreeSet;
 use std::fmt::{Display, Formatter};
 
 use layerx_agent_api::identity::{AgentDid, AuthorityRef};
+use layerx_client::rpc::receipt::AuthenticatedReceipt;
+use layerx_crypto::evm_transaction::Eip1559Call;
 use layerx_intents::compile;
 use layerx_proof::receipt::canonical_protocol_facts;
 use layerx_sdk::Client as AgentClient;
 use layerx_types::payload::ModuleRegistry;
 use layerx_types::result::{KnownResult, ResultCode};
+use layerx_types::rung::Rung;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256};
 
@@ -36,10 +39,11 @@ pub struct MoveLegExecution {
     action_key: [u8; 32],
     actor: AgentDid,
     authority: AuthorityRef,
-    account_sequence: u64,
+    pending_nonce: u64,
     not_before: u64,
     not_after: u64,
     fee_ceiling: u128,
+    receipt: Option<AuthenticatedReceipt>,
 }
 
 impl MoveLegExecution {
@@ -53,7 +57,7 @@ impl MoveLegExecution {
         action_key: [u8; 32],
         actor: AgentDid,
         authority: AuthorityRef,
-        account_sequence: u64,
+        pending_nonce: u64,
         not_before: u64,
         not_after: u64,
         fee_ceiling: u128,
@@ -71,11 +75,67 @@ impl MoveLegExecution {
             action_key,
             actor,
             authority,
-            account_sequence,
+            pending_nonce,
             not_before,
             not_after,
             fee_ceiling,
+            receipt: None,
         })
+    }
+
+    #[must_use]
+    pub const fn pending_nonce(&self) -> u64 {
+        self.pending_nonce
+    }
+
+    #[must_use]
+    pub fn rung(&self) -> Rung {
+        self.receipt
+            .as_ref()
+            .map_or(Rung::Submitted, AuthenticatedReceipt::rung)
+    }
+
+    #[must_use]
+    pub fn complete(&self) -> bool {
+        self.rung() >= Rung::Receipted
+    }
+
+    #[must_use]
+    pub fn finalised(&self) -> bool {
+        self.rung() == Rung::Committed
+    }
+
+    pub fn complete_from_receipt(
+        &mut self,
+        tx_hash: [u8; 32],
+        receipt: &AuthenticatedReceipt,
+    ) -> Result<(), MoveJourneyError> {
+        let execution = receipt.execution();
+        let mut ceiling = [0; 32];
+        ceiling[16..].copy_from_slice(&self.fee_ceiling.to_be_bytes());
+        if tx_hash == [0; 32]
+            || receipt.activity_id() != tx_hash
+            || execution.nonce != self.pending_nonce
+            || !execution.success
+            || receipt.rung() < Rung::Receipted
+            || execution.timestamp < self.not_before
+            || execution.timestamp > self.not_after
+            || execution.fee_amount > ceiling
+            || (execution.to[18..] == 0x1001_u16.to_be_bytes()
+                && execution.to[..18] == [0; 18]
+                && (execution.return_data.len() != 32
+                    || execution.return_data[..31] != [0; 31]
+                    || execution.return_data[31] != 1))
+            || self.receipt.as_ref().is_some_and(|previous| {
+                previous.activity_id() != tx_hash
+                    || previous.canonical_bytes() != receipt.canonical_bytes()
+                    || previous.rung() > receipt.rung()
+            })
+        {
+            return Err(MoveJourneyError::ReceiptMismatch);
+        }
+        self.receipt = Some(receipt.clone());
+        Ok(())
     }
 
     /// Returns the stable economic action key.
@@ -97,7 +157,7 @@ impl MoveLegExecution {
             self.action_key,
             &self.actor,
             &self.authority,
-            self.account_sequence,
+            self.pending_nonce,
             self.not_before,
             self.not_after,
             self.fee_ceiling,
@@ -112,7 +172,7 @@ impl MoveLegExecution {
         action_key: [u8; 32],
         actor: AgentDid,
         authority: AuthorityRef,
-        account_sequence: u64,
+        pending_nonce: u64,
         not_before: u64,
         not_after: u64,
         fee_ceiling: u128,
@@ -121,7 +181,7 @@ impl MoveLegExecution {
             action_key,
             actor,
             authority,
-            account_sequence,
+            pending_nonce,
             not_before,
             not_after,
             fee_ceiling,
@@ -196,13 +256,15 @@ pub struct MovePlan {
     route: Route,
     executions: Vec<MoveLegExecution>,
     quote: MoveQuote,
+    bank_requests: Vec<RouteRequest>,
+    bank_transfers: Vec<Eip1559Call>,
 }
 
 impl MovePlan {
     /// Canonically encodes the complete immutable plan without debug or serde forms.
     #[must_use]
     pub fn canonical_encode(&self) -> Vec<u8> {
-        let mut out = vec![1];
+        let mut out = vec![if self.bank_requests.is_empty() { 1 } else { 2 }];
         wire_text(&mut out, self.journey_id.as_str());
         out.extend(self.idempotency_key);
         wire_text(&mut out, self.custody_key.as_str());
@@ -214,25 +276,26 @@ impl MovePlan {
                 .to_be_bytes(),
         );
         out.extend(route);
+        if !self.bank_requests.is_empty() {
+            out.extend((self.bank_requests.len() as u16).to_be_bytes());
+            for request in &self.bank_requests {
+                let bytes = request.canonical_encode();
+                out.extend((bytes.len() as u32).to_be_bytes());
+                out.extend(bytes);
+            }
+        }
         out.extend(
             u16::try_from(self.executions.len())
                 .unwrap_or_else(|_| unreachable!("bounded movement legs"))
                 .to_be_bytes(),
         );
         for execution in &self.executions {
-            let (
-                action_key,
-                actor,
-                authority,
-                account_sequence,
-                not_before,
-                not_after,
-                fee_ceiling,
-            ) = execution.to_wire_parts();
+            let (action_key, actor, authority, pending_nonce, not_before, not_after, fee_ceiling) =
+                execution.to_wire_parts();
             out.extend(action_key);
             wire_text(&mut out, actor.as_str());
             wire_text(&mut out, authority.as_str());
-            out.extend(account_sequence.to_be_bytes());
+            out.extend(pending_nonce.to_be_bytes());
             out.extend(not_before.to_be_bytes());
             out.extend(not_after.to_be_bytes());
             out.extend(fee_ceiling.to_be_bytes());
@@ -251,7 +314,8 @@ impl MovePlan {
             return Err(MoveJourneyError::InvalidPlan);
         }
         let mut r = MoveWire::new(bytes);
-        if r.u8()? != 1 {
+        let version = r.u8()?;
+        if version != 1 && version != 2 {
             return Err(MoveJourneyError::InvalidPlan);
         }
         let journey_id = JourneyId::new(r.text(128)?).map_err(|_| MoveJourneyError::InvalidPlan)?;
@@ -264,6 +328,23 @@ impl MovePlan {
         }
         let request =
             RouteRequest::canonical_decode(r.take(route_len)?).map_err(MoveJourneyError::Route)?;
+        let mut bank_requests = Vec::new();
+        if version == 2 {
+            let count = r.u16()? as usize;
+            if count == 0 || count > 64 {
+                return Err(MoveJourneyError::InvalidPlan);
+            }
+            for _ in 0..count {
+                let len = r.u32()? as usize;
+                if len == 0 || len > 262_144 {
+                    return Err(MoveJourneyError::InvalidPlan);
+                }
+                bank_requests.push(RouteRequest::canonical_decode(r.take(len)?)?);
+            }
+            if bank_requests.first() != Some(&request) {
+                return Err(MoveJourneyError::InvalidPlan);
+            }
+        }
         let count = r.u16()? as usize;
         if count == 0 || count > 64 {
             return Err(MoveJourneyError::InvalidPlan);
@@ -286,17 +367,31 @@ impl MovePlan {
         if !r.done() {
             return Err(MoveJourneyError::InvalidPlan);
         }
-        let plan = Self::from_wire_parts(
-            journey_id,
-            idempotency_key,
-            custody_key,
-            operation,
-            request,
-            executions,
-            fee_estimate,
-            asset_label,
-            arrival_expectation,
-        )?;
+        let plan = if version == 2 {
+            Self::new_bank_transfers(
+                journey_id,
+                idempotency_key,
+                custody_key,
+                operation,
+                bank_requests,
+                executions,
+                fee_estimate,
+                asset_label,
+                arrival_expectation,
+            )?
+        } else {
+            Self::from_wire_parts(
+                journey_id,
+                idempotency_key,
+                custody_key,
+                operation,
+                request,
+                executions,
+                fee_estimate,
+                asset_label,
+                arrival_expectation,
+            )?
+        };
         if plan.canonical_encode() != bytes {
             return Err(MoveJourneyError::InvalidPlan);
         }
@@ -379,6 +474,22 @@ impl MovePlan {
         asset_label: impl Into<String>,
         arrival_expectation: impl Into<String>,
     ) -> Result<Self, MoveJourneyError> {
+        if matches!(
+            request.relationship,
+            super::Relationship::BankTransfer { .. }
+        ) {
+            return Self::new_bank_transfers(
+                journey_id,
+                idempotency_key,
+                custody_key,
+                operation,
+                vec![request],
+                executions,
+                fee_estimate,
+                asset_label,
+                arrival_expectation,
+            );
+        }
         let route = RouteResolver::resolve(&request)?;
         if idempotency_key == [0; 32]
             || route.legs().is_empty()
@@ -433,6 +544,8 @@ impl MovePlan {
             request,
             route,
             executions,
+            bank_requests: Vec::new(),
+            bank_transfers: Vec::new(),
             quote: MoveQuote {
                 amount,
                 asset_label,
@@ -443,6 +556,160 @@ impl MovePlan {
                 plain_language,
             },
         })
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    pub fn new_bank_transfers(
+        journey_id: JourneyId,
+        idempotency_key: [u8; 32],
+        custody_key: KeyId,
+        operation: Operation,
+        requests: Vec<RouteRequest>,
+        executions: Vec<MoveLegExecution>,
+        fee_estimate: u128,
+        asset_label: impl Into<String>,
+        arrival_expectation: impl Into<String>,
+    ) -> Result<Self, MoveJourneyError> {
+        if idempotency_key == [0; 32]
+            || requests.is_empty()
+            || requests.len() > 64
+            || requests.len() != executions.len()
+        {
+            return Err(MoveJourneyError::InvalidPlan);
+        }
+        let request = requests[0].clone();
+        let route = RouteResolver::resolve(&request)?;
+        let first_nonce = executions[0].pending_nonce;
+        let mut bank_transfers = Vec::with_capacity(requests.len());
+        let mut amount = 0_u128;
+        let mut fee_ceiling = 0_u128;
+        let mut keys = BTreeSet::new();
+        let mut sender = None;
+        let mut denomination = None;
+        for (index, (request, execution)) in requests.iter().zip(&executions).enumerate() {
+            let super::Relationship::BankTransfer { from, denom, .. } = &request.relationship
+            else {
+                return Err(MoveJourneyError::InvalidPlan);
+            };
+            let resolved = RouteResolver::resolve(request)?;
+            let [call] = resolved.bank_transfers() else {
+                return Err(MoveJourneyError::InvalidPlan);
+            };
+            let expected_nonce = first_nonce
+                .checked_add(index as u64)
+                .ok_or(MoveJourneyError::InvalidPlan)?;
+            if request.asset != requests[0].asset
+                || sender.is_some_and(|previous| previous != *from)
+                || denomination.is_some_and(|previous| previous != denom)
+                || bank_transfers
+                    .first()
+                    .is_some_and(|first: &Eip1559Call| first.chain_id != call.chain_id)
+                || call.nonce != expected_nonce
+                || execution.pending_nonce != expected_nonce
+                || !keys.insert(execution.action_key)
+                || execution.receipt.is_some()
+                || u128::from(call.gas_limit)
+                    .checked_mul(call.max_fee_per_gas)
+                    .is_none_or(|fee| fee > execution.fee_ceiling)
+            {
+                return Err(MoveJourneyError::InvalidPlan);
+            }
+            sender = Some(*from);
+            denomination = Some(denom);
+            amount = amount
+                .checked_add(request.amount.value())
+                .ok_or(MoveJourneyError::InvalidPlan)?;
+            fee_ceiling = fee_ceiling
+                .checked_add(execution.fee_ceiling)
+                .ok_or(MoveJourneyError::InvalidPlan)?;
+            bank_transfers.push(call.clone());
+        }
+        let asset_label = asset_label.into();
+        let arrival_expectation = arrival_expectation.into();
+        if fee_estimate > fee_ceiling
+            || !valid_text(&asset_label)
+            || !valid_text(&arrival_expectation)
+        {
+            return Err(MoveJourneyError::InvalidPlan);
+        }
+        let irreversibility = IRREVERSIBILITY.to_owned();
+        let steps = vec!["send the money to the recipient"; requests.len()].join(", then ");
+        let plain_language = format!(
+            "Move {amount} {asset_label}: {steps}. Estimated fees are {fee_estimate} {asset_label} and cannot exceed {fee_ceiling} {asset_label}. Expected arrival: {arrival_expectation}. {irreversibility}"
+        );
+        if plain_language.len() > TEXT_LIMIT.saturating_mul(5) {
+            return Err(MoveJourneyError::InvalidPlan);
+        }
+        Ok(Self {
+            journey_id,
+            idempotency_key,
+            custody_key,
+            operation,
+            request,
+            route,
+            executions,
+            bank_requests: requests,
+            bank_transfers,
+            quote: MoveQuote {
+                amount,
+                asset_label,
+                fee_estimate,
+                fee_ceiling,
+                arrival_expectation,
+                irreversibility,
+                plain_language,
+            },
+        })
+    }
+
+    #[must_use]
+    pub fn bank_transfers(&self) -> &[Eip1559Call] {
+        &self.bank_transfers
+    }
+
+    #[must_use]
+    pub fn executions(&self) -> &[MoveLegExecution] {
+        &self.executions
+    }
+
+    pub fn complete_bank_leg(
+        &mut self,
+        index: usize,
+        signed_transaction: &[u8],
+        receipt: &AuthenticatedReceipt,
+    ) -> Result<(), MoveJourneyError> {
+        let expected = self
+            .bank_transfers
+            .get(index)
+            .ok_or(MoveJourneyError::InvalidPlan)?;
+        let (call, signature) = layerx_crypto::evm_transaction::decode_signed(signed_transaction)
+            .map_err(|_| MoveJourneyError::ReceiptMismatch)?;
+        let sender = layerx_crypto::evm_transaction::recover_sender(&call, &signature)
+            .map_err(|_| MoveJourneyError::ReceiptMismatch)?;
+        let super::Relationship::BankTransfer { from, .. } =
+            &self.bank_requests[index].relationship
+        else {
+            return Err(MoveJourneyError::InvalidPlan);
+        };
+        if &call != expected
+            || sender != from.bytes()
+            || receipt.execution().from != sender
+            || receipt.execution().to != expected.to
+        {
+            return Err(MoveJourneyError::ReceiptMismatch);
+        }
+        let hash = layerx_crypto::evm_transaction::transaction_hash(signed_transaction);
+        self.executions[index].complete_from_receipt(hash, receipt)
+    }
+
+    #[must_use]
+    pub fn complete(&self) -> bool {
+        !self.bank_transfers.is_empty() && self.executions.iter().all(MoveLegExecution::complete)
+    }
+
+    #[must_use]
+    pub fn finalised(&self) -> bool {
+        !self.bank_transfers.is_empty() && self.executions.iter().all(MoveLegExecution::finalised)
     }
 
     /// Returns the deterministic plain-language review.
@@ -693,6 +960,8 @@ struct StoredLeg {
     mechanism: u8,
     action_key: [u8; 32],
     fee_ceiling: u128,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bank_amount: Option<u128>,
 }
 
 #[derive(Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -709,6 +978,8 @@ struct StoredMove {
     arrival_expectation: String,
     irreversibility: String,
     legs: Vec<StoredLeg>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    bank_plan: Option<Vec<u8>>,
 }
 
 /// Durable move-money facade over the generic journey engine.
@@ -755,6 +1026,9 @@ impl MoveJourney {
         now: u64,
         native: bool,
     ) -> Result<Self, MoveJourneyError> {
+        if native && !plan.bank_transfers.is_empty() {
+            return Err(MoveJourneyError::InvalidPlan);
+        }
         if let MoveAuthorization::Refused(refusal) = authorization {
             return Err(MoveJourneyError::Refused(refusal));
         }
@@ -839,6 +1113,78 @@ impl MoveJourney {
         self.status()
     }
 
+    /// Drives the same durable engine through the merged node's bank transaction transport.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn advance_bank(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        endpoint: &layerx_client::sequencer::SequencerEndpoint,
+        receipt_keys: &[super::ReceiptKeyEntry],
+        custody: &CustodySigner,
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<MoveStatus, MoveJourneyError> {
+        self.engine
+            .advance_bank(scope, endpoint, receipt_keys, custody, trace, now)
+            .await?;
+        self.status()
+    }
+
+    /// Advances with pinned consensus evidence for every committed sequence batch.
+    #[allow(clippy::too_many_arguments)]
+    pub async fn advance_bank_with_commit(
+        &mut self,
+        scope: &mut PrincipalScope<'_>,
+        endpoint: &layerx_client::sequencer::SequencerEndpoint,
+        receipt_keys: &[super::ReceiptKeyEntry],
+        commit_evidence: &[super::BankCommitEvidence],
+        custody: &CustodySigner,
+        trace: &TraceId,
+        now: u64,
+    ) -> Result<MoveStatus, MoveJourneyError> {
+        self.engine
+            .advance_bank_with_commit(
+                scope,
+                endpoint,
+                receipt_keys,
+                commit_evidence,
+                custody,
+                trace,
+                now,
+            )
+            .await?;
+        self.status()
+    }
+
+    #[must_use]
+    pub fn bank_commit_evidence(&self, index: usize) -> Option<&super::BankCommitEvidence> {
+        self.engine.bank_commit_evidence(index)
+    }
+
+    #[must_use]
+    pub fn signed_transaction(&self, index: usize) -> Option<&[u8]> {
+        self.engine.signed_transaction(index)
+    }
+
+    pub fn verified_leg_evidence(
+        &self,
+        index: usize,
+    ) -> Result<Option<super::VerifiedLegEvidence>, MoveJourneyError> {
+        Ok(self.engine.verified_leg_evidence(index)?)
+    }
+
+    pub fn rung(&self) -> Result<Rung, MoveJourneyError> {
+        let mut rung = Rung::Committed;
+        for index in 0..self.record.legs.len() {
+            rung = rung.min(
+                self.engine
+                    .verified_leg_evidence(index)?
+                    .map_or(Rung::Submitted, |evidence| evidence.rung),
+            );
+        }
+        Ok(rung)
+    }
+
     /// Derives public progress and actuals only from independently verified
     /// engine receipts.
     ///
@@ -855,6 +1201,8 @@ impl MoveJourney {
         let mut receipts = Vec::new();
         let mut actual_fees = 0_u128;
         let mut final_amount = None;
+        let bank = self.record.legs.iter().all(|leg| leg.bank_amount.is_some());
+        let mut bank_amount = 0_u128;
         for (index, (stored, phase)) in self
             .record
             .legs
@@ -871,7 +1219,7 @@ impl MoveJourney {
                 let facts = canonical_protocol_facts(&evidence.canonical_receipt)
                     .map_err(|_| MoveJourneyError::ReceiptMismatch)?;
                 if facts.result_code() != 0
-                    || facts.asset() != self.record.expected_asset
+                    || (!bank && facts.asset() != self.record.expected_asset)
                     || facts.fee_charged() > stored.fee_ceiling
                 {
                     return Err(MoveJourneyError::ReceiptMismatch);
@@ -879,18 +1227,20 @@ impl MoveJourney {
                 actual_fees = actual_fees
                     .checked_add(facts.fee_charged())
                     .ok_or(MoveJourneyError::ReceiptMismatch)?;
-                final_amount = Some(facts.amount());
+                let amount = stored.bank_amount.unwrap_or(facts.amount());
+                if bank {
+                    bank_amount = bank_amount
+                        .checked_add(amount)
+                        .ok_or(MoveJourneyError::ReceiptMismatch)?;
+                }
+                final_amount = Some(if bank { bank_amount } else { amount });
                 let reference = MoveReceiptReference {
                     leg: index,
                     activity_id: evidence.activity_id,
                     digest: evidence.receipt_digest,
                 };
                 receipts.push(reference.clone());
-                (
-                    Some(reference),
-                    Some(facts.amount()),
-                    Some(facts.fee_charged()),
-                )
+                (Some(reference), Some(amount), Some(facts.fee_charged()))
             } else {
                 (None, None, None)
             };
@@ -908,7 +1258,7 @@ impl MoveJourney {
             JourneyState::GettingReady => MoveStage::Committed,
             JourneyState::Sending | JourneyState::Processing => MoveStage::Moving,
             JourneyState::StillChecking => MoveStage::StillChecking,
-            JourneyState::Done => MoveStage::Done,
+            JourneyState::Done | JourneyState::Closed => MoveStage::Done,
             JourneyState::Refused => MoveStage::Refused,
         };
         let refusal = if stage == MoveStage::Refused {
@@ -952,46 +1302,90 @@ fn stored_move(plan: &MovePlan, plan_digest: [u8; 32]) -> StoredMove {
         idempotency_key: plan.idempotency_key,
         plan_digest,
         expected_asset: plan.request.asset.bytes(),
-        requested_amount: plan.request.amount.value(),
+        requested_amount: if plan.bank_transfers.is_empty() {
+            plan.request.amount.value()
+        } else {
+            plan.quote.amount
+        },
         fee_estimate: plan.quote.fee_estimate,
         fee_ceiling: plan.quote.fee_ceiling,
         asset_label: plan.quote.asset_label.clone(),
         arrival_expectation: plan.quote.arrival_expectation.clone(),
         irreversibility: plan.quote.irreversibility.clone(),
-        legs: plan
-            .route
-            .legs()
-            .iter()
-            .zip(&plan.executions)
-            .map(|(route, execution)| StoredLeg {
-                term: term_code(route.term()),
-                mechanism: mechanism_code(route.mechanism()),
-                action_key: execution.action_key,
-                fee_ceiling: execution.fee_ceiling,
-            })
-            .collect(),
+        bank_plan: (!plan.bank_transfers.is_empty()).then(|| plan.canonical_encode()),
+        legs: if plan.bank_transfers.is_empty() {
+            plan.route
+                .legs()
+                .iter()
+                .zip(&plan.executions)
+                .map(|(route, execution)| StoredLeg {
+                    term: term_code(route.term()),
+                    mechanism: mechanism_code(route.mechanism()),
+                    action_key: execution.action_key,
+                    fee_ceiling: execution.fee_ceiling,
+                    bank_amount: None,
+                })
+                .collect()
+        } else {
+            plan.bank_requests
+                .iter()
+                .zip(&plan.executions)
+                .map(|(request, execution)| StoredLeg {
+                    term: term_code(MovementTerm::Transfer),
+                    mechanism: mechanism_code(Mechanism::Send),
+                    action_key: execution.action_key,
+                    fee_ceiling: execution.fee_ceiling,
+                    bank_amount: Some(request.amount.value()),
+                })
+                .collect()
+        },
     }
 }
 
 fn engine_plan(plan: &MovePlan) -> Result<JourneyPlan, MoveJourneyError> {
-    let legs = plan
-        .route
-        .legs()
-        .iter()
-        .zip(&plan.executions)
-        .map(|(route, execution)| {
-            JourneyLeg::new(
-                route.intent().clone(),
-                execution.action_key,
-                execution.actor.clone(),
-                execution.authority.clone(),
-                execution.account_sequence,
-                execution.not_before,
-                execution.not_after,
-                execution.fee_ceiling,
-            )
-        })
-        .collect::<Result<Vec<_>, _>>()?;
+    let legs = if !plan.bank_transfers.is_empty() {
+        plan.bank_transfers
+            .iter()
+            .zip(&plan.bank_requests)
+            .zip(&plan.executions)
+            .map(|((call, request), execution)| {
+                let super::Relationship::BankTransfer { from, denom, .. } = &request.relationship
+                else {
+                    return Err(JourneyError::InvalidPlan);
+                };
+                JourneyLeg::bank(
+                    call.clone(),
+                    from.bytes(),
+                    denom.clone(),
+                    execution.action_key,
+                    execution.actor.clone(),
+                    execution.authority.clone(),
+                    execution.not_before,
+                    execution.not_after,
+                    execution.fee_ceiling,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    } else {
+        plan.route
+            .legs()
+            .iter()
+            .zip(&plan.executions)
+            .map(|(route, execution)| {
+                JourneyLeg::new(
+                    route.intent().clone(),
+                    execution.action_key,
+                    execution.actor.clone(),
+                    execution.authority.clone(),
+                    execution.pending_nonce,
+                    execution.pending_nonce,
+                    execution.not_before,
+                    execution.not_after,
+                    execution.fee_ceiling,
+                )
+            })
+            .collect::<Result<Vec<_>, _>>()?
+    };
     Ok(JourneyPlan::new(
         plan.journey_id.clone(),
         super::engine::JourneyKind::Move,
@@ -1008,6 +1402,10 @@ fn move_plan_digest(
 ) -> Result<[u8; 32], MoveJourneyError> {
     let mut digest = Sha256::new();
     digest.update(PLAN_DOMAIN);
+    if !plan.bank_transfers.is_empty() {
+        digest.update(plan.canonical_encode());
+        return Ok(digest.finalize().into());
+    }
     hash_text(&mut digest, plan.journey_id.as_str());
     digest.update(plan.idempotency_key);
     hash_text(&mut digest, plan.custody_key.as_str());
@@ -1026,7 +1424,7 @@ fn move_plan_digest(
         digest.update(execution.action_key);
         hash_text(&mut digest, execution.actor.as_str());
         hash_text(&mut digest, execution.authority.as_str());
-        digest.update(execution.account_sequence.to_be_bytes());
+        digest.update(execution.pending_nonce.to_be_bytes());
         digest.update(execution.not_before.to_be_bytes());
         digest.update(execution.not_after.to_be_bytes());
         digest.update(execution.fee_ceiling.to_be_bytes());
@@ -1099,9 +1497,6 @@ fn review_text(
             Mechanism::Send => "send the money to the recipient",
             Mechanism::BudgetDefund => "return the money from the agent's budget",
             Mechanism::ReceiveUnderPayerGrant => "receive the authorised payment",
-            Mechanism::BridgeDepositCredit | Mechanism::BridgeWithdrawRequest => {
-                "cross the wallet boundary"
-            }
         })
         .collect::<Vec<_>>()
         .join(", then ");
@@ -1142,6 +1537,14 @@ fn decode_move(bytes: &[u8]) -> Result<StoredMove, MoveJourneyError> {
         return Err(MoveJourneyError::Corrupt(
             "move record invariants are invalid",
         ));
+    }
+    if let Some(bytes) = &record.bank_plan {
+        let plan = MovePlan::canonical_decode(bytes)?;
+        if plan.bank_transfers.is_empty() || stored_move(&plan, record.plan_digest) != record {
+            return Err(MoveJourneyError::Corrupt("bank plan metadata changed"));
+        }
+    } else if record.legs.iter().any(|leg| leg.bank_amount.is_some()) {
+        return Err(MoveJourneyError::Corrupt("bank metadata lacks its plan"));
     }
     let mut keys = BTreeSet::new();
     let total_ceiling = record.legs.iter().try_fold(0_u128, |total, leg| {
@@ -1188,8 +1591,6 @@ const fn mechanism_code(value: Mechanism) -> u8 {
         Mechanism::Send => 3,
         Mechanism::BudgetDefund => 4,
         Mechanism::ReceiveUnderPayerGrant => 5,
-        Mechanism::BridgeDepositCredit => 6,
-        Mechanism::BridgeWithdrawRequest => 7,
     }
 }
 

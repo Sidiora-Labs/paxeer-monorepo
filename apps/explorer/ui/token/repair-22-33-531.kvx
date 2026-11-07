@@ -1,0 +1,17 @@
+[repair.22.33.531]
+audit = "22.30.155"
+base_revision = "9e535b4932ba8111a729a5cef10e0ca2370ca435"
+tests = "apps/explorer/ui/token/repair-22-33-531.spec.ts"
+path = "Loopback HTTP inventory store -> useApiFetch JSON transport -> useQueryWithPages -> TokenInventory -> real selector, NFT cards and pagination controls; token metadata passes through useApiQuery and Next RouterContext uses an in-memory route history."
+baseline = "Not executed: the explicit ordered gate instructions require complete implementation before any test and prohibit running verify_cmd by hand; no baseline test failure is claimed."
+registration_repair = "The first gate at fd63609090ed0211a1388d23d4bbfb75a5807620 returned zero but executed no tests: Vitest treated test(function, options) as todo because the body was absent. Pass each named function as both title and executable body; the final gate must report three executed tests. The first gate is not behavioral qualification."
+qualification = "The hf-done private evidence ledger supplies the exact verified candidate revision, command, exit code and log."
+continuation_base_revision = "f25ab9129415b70e1e47d668e4d2d04777519969"
+teardown_repair = "Attempt 2 executed and passed all three tests, then failed during suite cleanup: fetchMock.disableMocks and enableMocks return the callable fetch mock, which Vitest treats as a returned cleanup callback and invokes without a request. Block-bodied lifecycle hooks return void while retaining real HTTP transport and restoring the suite fetch configuration; all behavioral assertions are preserved."
+wiring_requests = []
+formatter_note = "ESLint formatting applied; vitest/valid-title and vitest/expect-expect reject the task-required named-function test registration, as recorded by sibling repair 22.33.529. Every registered function contains assertions; neither rules nor tests are disabled."
+
+[finding.rows-NFT]
+tests = ["rowsNftTraversesEveryLocalSubpageBeforeAdvancingTheServerCursor", "rowsNftPaginatesATerminalFiftyRecordResponse", "rowsNftResizesAndReturnsToFirstFromALaterServerPage"]
+repair = "Consume each local subpage before advancing the server cursor; return to the preceding server page's last subpage; reset local position on row-size, token, chain or owner changes; offer 25 and 50 records per page, within the fixed 50-record server response."
+before_change = "Selecting 25 on the old component skips instances 26-50 on Next, has no local Next for a terminal 50-record response, and offers unsupported size 100; the tests assert exact ordered traversal, cursor requests, terminal navigation and resizing."

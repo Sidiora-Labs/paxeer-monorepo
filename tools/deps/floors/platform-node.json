@@ -1,0 +1,32 @@
+{
+  "manifests": {
+    "package-lock.json": {
+      "@hono/node-server": "2.1.3",
+      "@modelcontextprotocol/sdk": "1.32.0",
+      "body-parser": "2.4.0",
+      "fast-uri": "3.1.9",
+      "hono": "4.13.7",
+      "ip-address": "10.7.4",
+      "next": "16.4.1",
+      "proxy-addr": "2.0.8",
+      "qs": "6.16.1",
+      "sharp": "0.35.5",
+      "source-map-js": "1.2.2",
+      "undici": "7.30.1",
+      "zod": "4.6.6"
+    },
+    "sdk/integrations/agents/package.json": {
+      "@modelcontextprotocol/sdk": "1.32.0",
+      "zod": "4.6.6"
+    },
+    "sdk/integrations/next/example/package.json": {
+      "next": "16.4.1"
+    },
+    "apps/web/package-lock.json": {
+      "next": "16.4.1"
+    },
+    "services/platform/examples/samples/paid-route-next/package.json": {
+      "next": "16.4.1"
+    }
+  }
+}

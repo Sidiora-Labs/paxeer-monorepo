@@ -1,29 +1,14 @@
 import { copyEntry } from "../../../copy/runtime";
-import { explorerLink } from "../../explorer/client";
-import { ExplorerFrame, ExplorerUnavailable } from "../../explorer/components";
-import { ExplorerExternalLink, ExplorerLookupForm, ExplorerPanel } from "../../kit/explorer";
+import { ExplorerFrame } from "../../explorer/components";
+import { ExplorerLookupForm, ExplorerPanel } from "../../kit/explorer";
 import { PlaneRouteAction } from "../../kit/plane-route-action";
 
 export default function ExplorerPlanePage() {
-  let anchors;
-  try {
-    anchors = explorerLink({ kind: "anchor" });
-  } catch {
-    return <ExplorerUnavailable />;
-  }
   return (
     <ExplorerFrame
       title={copyEntry("explorer.title").message}
       description={copyEntry("explorer.summary").message}
     >
-      <ExplorerPanel title={copyEntry("explorer.anchors.title").message}>
-        <p className="text-sm text-foreground-secondary">
-          {copyEntry("explorer.anchors.body").message}
-        </p>
-        <ExplorerExternalLink href={anchors}>
-          {copyEntry("explorer.anchors.action").message}
-        </ExplorerExternalLink>
-      </ExplorerPanel>
       <div className="grid gap-4 lg:grid-cols-2">
         <ExplorerPanel title={copyEntry("explorer.lookup.receipt.title").message}>
           <ExplorerLookupForm

@@ -32,7 +32,7 @@ jobs:
           evidence_directory=$(mktemp -d "$RUNNER_TEMP/layerx-platform-evidence.XXXXXXXX")
           printf 'PAXEER_X_EVIDENCE_DIR=%s\n' "$evidence_directory" >> "$GITHUB_ENV"
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -56,7 +56,7 @@ jobs:
       - name: Install locked platform JavaScript dependencies
         run: make platform-js-install
       - name: Install Java 21 for JVM dependencies and conformance
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
@@ -118,11 +118,11 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Java 21
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
@@ -152,7 +152,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install the project generator
@@ -174,11 +174,11 @@ jobs:
     timeout-minutes: 30
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
         with:
           node-version: 22
           cache: npm
@@ -238,7 +238,7 @@ jobs:
         framework: [mcp, a2a, openai, anthropic, langchain, vercel-ai]
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Node.js
@@ -310,7 +310,7 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Fetch a fresh signed webhook delivery from the real service
@@ -351,11 +351,11 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Java 21
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
@@ -397,7 +397,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install native dependencies
@@ -433,7 +433,7 @@ jobs:
       CARGO_PROFILE_TEST_DEBUG: "1"
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install native dependencies
@@ -444,7 +444,7 @@ jobs:
           rustup toolchain install nightly-2025-11-10 --profile minimal --component rust-src &&
           rustup default 1.91.1
       - name: Install settlement test tools
-        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09
+        uses: foundry-rs/foundry-toolchain@908c540300062bd5a7e473851cdb4282204cee09 # v1.9.1
         with:
           version: v1.8.1
       - name: Install native fixture dependencies
@@ -479,7 +479,7 @@ jobs:
     timeout-minutes: 120
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Rust toolchain and fuzz runner
@@ -498,44 +498,9 @@ jobs:
           path: spec/layerx-beta/evidence
           if-no-files-found: error
 
-  replay-matrix:
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - machine: x86_64
-            runner: ubuntu-24.04
-            ordinal: 4
-          - machine: aarch64
-            runner: ubuntu-24.04-arm
-            ordinal: 5
-    env:
-      LXP_REPLAY_MACHINE: ${{ matrix.machine }}
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          persist-credentials: false
-      - name: Install native dependencies
-        run: >-
-          sudo apt-get update && sudo apt-get install --yes
-          build-essential clang libssl-dev libsqlite3-dev ripgrep
-      - name: Replay the golden ledger on this architecture and record its gate
-        run: scripts/ci/release-gate.sh --job replay-matrix-${{ matrix.machine }} --ordinal ${{ matrix.ordinal }} -- make test-replay-golden
-      - name: Retain the gate record and log
-        if: ${{ always() }}
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
-        with:
-          name: release-gate-replay-matrix-${{ matrix.machine }}
-          path: spec/layerx-beta/evidence
-          if-no-files-found: error
-
   release-pipeline:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/sdk-v')
-    needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus, replay-matrix]
+    needs: [programs-acceptance, agent-sanitizers, agent-fuzz-corpus]
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
@@ -545,7 +510,7 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install pinned Rust toolchain
@@ -591,12 +556,12 @@ jobs:
       LAYERX_RELEASE_DISTRIBUTION: https://crates.io
       LAYERX_RELEASE_PACKAGES: >-
         layerx-agent-api layerx-client layerx-crypto layerx-mirror layerx-programs-runtime
-        layerx-proof layerx-sdk layerx-types layerx-wire
+        layerx-proof layerx-sdk layerx-types
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
       LAYERX_RELEASE_OUTPUT: build/release/crates-io
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install native dependencies for the SDK verification build
@@ -762,7 +727,7 @@ jobs:
       LAYERX_RELEASE_OUTPUT: build/release/npm
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Node.js
@@ -881,11 +846,11 @@ jobs:
       LAYERX_RELEASE_OUTPUT: build/release/pypi
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Python
-        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c
+        uses: actions/setup-python@7f4fc3e22c37d6ff65e88745f38bd3157c663f7c # v4
         with:
           python-version: "3.12"
       - name: Install the pinned wheel builder
@@ -990,12 +955,12 @@ jobs:
     env:
       LAYERX_RELEASE_REGISTRY: go-modules
       LAYERX_RELEASE_DISTRIBUTION: https://proxy.golang.org
-      LAYERX_RELEASE_PACKAGES: github.com/Sidiora-Labs/LayerX-Network/platform/sdk/go
+      LAYERX_RELEASE_PACKAGES: github.com/Sidiora-Labs/LayerX-Network/sdk/platform/go
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
       LAYERX_RELEASE_OUTPUT: build/release/go-modules
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Go
@@ -1049,15 +1014,15 @@ jobs:
           LAYERX_RELEASE_GPG_PASSPHRASE: ${{ secrets.LAYERX_RELEASE_GPG_PASSPHRASE }}
         run: |
           test -n "$LAYERX_RELEASE_GO_TAG_TOKEN"
-          tag=${LAYERX_RELEASE_PACKAGES#github.com/Sidiora-Labs/LayerX-Network/}/v$LAYERX_RELEASE_VERSION
+          tag=sdk/platform/go/v$LAYERX_RELEASE_VERSION
           git config user.name "LayerX release pipeline"
           git config user.email "$GITHUB_ACTOR@users.noreply.github.com"
           git config gpg.program "$RUNNER_TEMP/gpg-loopback"
           git config user.signingkey "$LAYERX_RELEASE_GPG_KEY_ID"
           git tag -s "$tag" -m "LayerX Go SDK $LAYERX_RELEASE_VERSION from $GITHUB_SHA" "$GITHUB_SHA"
           git tag --verify "$tag" 2>&1 | tee "$LAYERX_RELEASE_OUTPUT/tag-signature.txt"
-          repository=${LAYERX_RELEASE_PACKAGES%/platform/sdk/go}
-          git push "https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git" "refs/tags/platform/sdk/go/v$LAYERX_RELEASE_VERSION"
+          repository=${LAYERX_RELEASE_PACKAGES%/sdk/platform/go}
+          git push "https://x-access-token:$LAYERX_RELEASE_GO_TAG_TOKEN@$repository.git" "refs/tags/sdk/platform/go/v$LAYERX_RELEASE_VERSION"
           echo published=true >> "$LAYERX_RELEASE_OUTPUT/publication.txt"
       - name: Install the module from the proxy through the checksum database and verify it byte for byte
         if: startsWith(github.ref, 'refs/tags/sdk-v')
@@ -1083,7 +1048,8 @@ jobs:
           diff -r "$directory" "$GITHUB_WORKSPACE/sdk/platform/go"
           output=$GITHUB_WORKSPACE/$LAYERX_RELEASE_OUTPUT
           sha256sum "$zip" | tee "$output/registry-digest.txt"
-          checksum=$(grep " $module v$LAYERX_RELEASE_VERSION h1:" go.sum | tee -a "$output/registry-digest.txt")
+          checksum=$(python3 "$GITHUB_WORKSPACE/.github/workflows/scripts/go_publication_checksum.py" \
+            "$module" "v$LAYERX_RELEASE_VERSION" go.sum download.json "$output/registry-digest.txt")
           test -n "$checksum"
           cp "$zip" "$output/layerx-go-v$LAYERX_RELEASE_VERSION.zip"
           escaped=$(printf '%s' "$module" | sed 's/[A-Z]/!\L&/g')
@@ -1117,11 +1083,11 @@ jobs:
       LAYERX_RELEASE_OUTPUT: build/release/maven-central
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Java 21
-        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
         with:
           distribution: temurin
           java-version: "21"
@@ -1264,7 +1230,7 @@ jobs:
       LAYERX_RELEASE_OUTPUT: build/release/swiftpm
     steps:
       - name: Check out source with history for the package split
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -1402,7 +1368,7 @@ jobs:
       LAYERX_RELEASE_OUTPUT: build/release/nuget
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install .NET
@@ -1526,7 +1492,7 @@ jobs:
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
     steps:
       - name: Check out source with every release tag for the rollback identity
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -1549,7 +1515,6 @@ jobs:
       - name: Gate seller and buyer quickstarts against the actual public registry snapshot
         run: make platform-test-ten-line
       - name: Retain the actual published-package integration line counts
-        if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ten-line-counts-${{ github.job }}-${{ github.run_attempt }}
@@ -1557,7 +1522,7 @@ jobs:
           if-no-files-found: error
           retention-days: 14
       - name: Collect every retained publication bundle
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: release-*
           path: build/release
@@ -1596,7 +1561,7 @@ jobs:
       LAYERX_RELEASE_VERSION: ${{ needs.release-pipeline.outputs.version }}
     steps:
       - name: Collect every retained release artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
           pattern: release-*
           path: build/release
@@ -1635,7 +1600,7 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: Install Node.js for hosted reference applications

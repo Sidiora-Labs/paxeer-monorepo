@@ -1,15 +1,14 @@
 package keeper_test
 
 import (
-	"bytes"
-	"crypto/ed25519"
+	"encoding/binary"
+	"strings"
 	"testing"
 	"time"
 
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/codec"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/testvectors"
-	"github.com/Sidiora-Labs/Paxeer-X-Network/layerxproof/verify"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/keeper"
 	"github.com/Sidiora-Labs/Paxeer-X-Network/modules/layerxcustody/types"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
@@ -66,10 +65,25 @@ func newEnv(t *testing.T, withdrawalDelay uint64) *env {
 	return e
 }
 
+func custodyTestContext(t *testing.T, parent sdk.Context) sdk.Context {
+	t.Helper()
+	upgrade := testkeeper.EVMTestApp.UpgradeKeeper
+	require.Zero(t, upgrade.GetDoneHeight(parent, types.MergePlanUpgrade))
+	plan, scheduled := upgrade.GetUpgradePlan(parent)
+	t.Cleanup(func() {
+		require.Zero(t, upgrade.GetDoneHeight(parent, types.MergePlanUpgrade), "custody test retired its parent context")
+		got, found := upgrade.GetUpgradePlan(parent)
+		require.Equal(t, scheduled, found, "custody test changed its parent's upgrade schedule")
+		require.Equal(t, plan, got)
+	})
+	ctx, _ := parent.CacheContext()
+	return ctx
+}
+
 func newEnvWithoutCheckpoint(t *testing.T, withdrawalDelay uint64) *env {
 	t.Helper()
 	app := testkeeper.EVMTestApp
-	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
+	ctx := custodyTestContext(t, app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime))
 	fixture, err := testvectors.Load()
 	require.NoError(t, err)
 	e := &env{t: t, ctx: ctx, k: app.LayerXCustodyKeeper, withdrawal: fixture["withdrawal"][0], exit: fixture["exit"][0]}
@@ -113,6 +127,132 @@ func (e *env) exitEvidence(batch uint64) keeper.ExitEvidence {
 		RecipientSignature: vectorBytes(e.t, e.exit, "recipient_signature")}
 }
 
+func (e *env) seedClaim(kind types.ClaimKind, batch uint64) types.Claim {
+	e.t.Helper()
+	app := testkeeper.EVMTestApp
+	store := e.ctx.KVStore(app.GetKey(types.StoreKey))
+	params := e.k.GetParams(e.ctx)
+	v := e.withdrawal
+	delay := params.WithdrawalDelaySeconds
+	if kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT {
+		v, delay = e.exit, params.ForcedExitDelaySeconds
+	} else {
+		require.Equal(e.t, types.ClaimKind_CLAIM_KIND_WITHDRAWAL, kind)
+		require.Equal(e.t, vectorNumber(e.t, v, "batch_number"), batch)
+	}
+	account, assetID := vectorArray(e.t, v, "account"), vectorArray(e.t, v, "asset")
+	recipient := common.BytesToAddress(vectorBytes(e.t, v, "recipient"))
+	var anchor, withdrawalID, nullifier, claimID [32]byte
+	var amount sdk.Int
+	if kind == types.ClaimKind_CLAIM_KIND_FORCED_EXIT {
+		var found bool
+		anchor, found = e.k.Anchor().FinalizedStateRoot(e.ctx, batch)
+		require.True(e.t, found)
+		require.Equal(e.t, vectorArray(e.t, v, "state_root"), anchor)
+		withdrawalID = types.ExitWithdrawalID(params.NetworkId, account, assetID, anchor)
+		proven := codec.U128{Lo: vectorNumber(e.t, v, "balance")}
+		nullifier = types.WithdrawalNullifier(params.NetworkId, withdrawalID, account, assetID, proven, anchor)
+		claimID = types.ExitClaimID(app.EvmKeeper.ChainID(e.ctx), nullifier)
+		amount = sdk.NewIntFromBigInt(types.AmountInt(proven))
+		require.False(e.t, store.Has(types.ConsumedKey(account, assetID, anchor)))
+		exited := sdk.ZeroInt()
+		if bz := store.Get(types.ExitedTotalKey(account, assetID)); bz != nil {
+			var err error
+			exited, err = types.ParseAmount(string(bz))
+			require.NoError(e.t, err)
+		}
+		amount = amount.Sub(exited)
+		require.True(e.t, amount.IsPositive())
+		if exitBatch, frozen := e.k.ExitCheckpoint(e.ctx); frozen {
+			require.Equal(e.t, exitBatch, batch)
+		}
+		store.Set(types.ConsumedKey(account, assetID, anchor), []byte{1})
+		store.Set(types.ExitedTotalKey(account, assetID), []byte(exited.Add(amount).String()))
+		store.Set(types.ExitCheckpointKey, binary.BigEndian.AppendUint64(nil, batch))
+	} else {
+		anchor, withdrawalID = vectorArray(e.t, v, "anchor"), vectorArray(e.t, v, "withdrawal_id")
+		nullifier = vectorArray(e.t, v, "nullifier")
+		claimID = types.WithdrawalClaimID(app.EvmKeeper.ChainID(e.ctx), nullifier, recipient)
+		var err error
+		amount, err = types.ParseAmount(v.Fields["amount"])
+		require.NoError(e.t, err)
+	}
+	asset, found := e.k.GetAsset(e.ctx, assetID)
+	require.True(e.t, found)
+	claim := types.Claim{ClaimId: types.Hash32(claimID), Kind: kind, Status: types.ClaimStatus_CLAIM_STATUS_PENDING,
+		Nullifier: types.Hash32(nullifier), WithdrawalId: types.Hash32(withdrawalID), Account: types.Hash32(account),
+		AssetId: asset.AssetId, Denom: asset.Denom, Recipient: types.Address(recipient), Amount: amount.String(),
+		BatchNumber: batch, Anchor: types.Hash32(anchor), AvailableAt: e.ctx.BlockTime().Unix() + int64(delay)}
+	require.NoError(e.t, claim.Validate())
+	require.False(e.t, store.Has(types.ClaimKey(claimID)))
+	require.False(e.t, store.Has(types.NullifierKey(nullifier)))
+	require.False(e.t, store.Has(types.WithdrawalIDKey(withdrawalID)))
+	store.Set(types.ClaimKey(claimID), app.AppCodec().MustMarshal(&claim))
+	record := types.Nullifier{Nullifier: claim.Nullifier, Status: types.NullifierStatus_NULLIFIER_STATUS_RESERVED,
+		ClaimId: claim.ClaimId, WithdrawalId: claim.WithdrawalId}
+	store.Set(types.NullifierKey(nullifier), app.AppCodec().MustMarshal(&record))
+	store.Set(types.WithdrawalIDKey(withdrawalID), []byte{1})
+	totals := e.k.GetTotals(e.ctx, assetID)
+	pending, err := types.ParseAmount(totals.Pending)
+	require.NoError(e.t, err)
+	totals.Pending = pending.Add(amount).String()
+	store.Set(types.AssetTotalsKey(assetID), app.AppCodec().MustMarshal(&totals))
+	return claim
+}
+
+func (e *env) payStoredWithdrawal(ctx sdk.Context, claim types.Claim) keeper.ClaimResult {
+	e.t.Helper()
+	app := testkeeper.EVMTestApp
+	require.Equal(e.t, types.ClaimKind_CLAIM_KIND_WITHDRAWAL, claim.Kind)
+	require.Equal(e.t, types.ClaimStatus_CLAIM_STATUS_PENDING, claim.Status)
+	require.GreaterOrEqual(e.t, ctx.BlockTime().Unix(), claim.AvailableAt)
+	claimID, err := types.ParseHash32(claim.ClaimId)
+	require.NoError(e.t, err)
+	stored, found := e.k.GetClaim(ctx, claimID)
+	require.True(e.t, found)
+	require.Equal(e.t, claim, stored)
+	assetID, err := types.ParseHash32(claim.AssetId)
+	require.NoError(e.t, err)
+	asset, found := e.k.GetAsset(ctx, assetID)
+	require.True(e.t, found)
+	require.True(e.t, asset.Enabled)
+	require.False(e.t, asset.Paused)
+	require.Equal(e.t, claim.Denom, asset.Denom)
+	amount, err := types.ParseAmount(claim.Amount)
+	require.NoError(e.t, err)
+	totals := e.k.GetTotals(ctx, assetID)
+	custodied, err := types.ParseAmount(totals.Custodied)
+	require.NoError(e.t, err)
+	released, err := types.ParseAmount(totals.Released)
+	require.NoError(e.t, err)
+	pending, err := types.ParseAmount(totals.Pending)
+	require.NoError(e.t, err)
+	require.True(e.t, custodied.GTE(amount))
+	require.True(e.t, pending.GTE(amount))
+	require.True(e.t, app.BankKeeper.GetBalance(ctx, e.k.ModuleAddress(), claim.Denom).Amount.GTE(amount))
+	nullifierID, err := types.ParseHash32(claim.Nullifier)
+	require.NoError(e.t, err)
+	record, found := e.k.GetNullifier(ctx, nullifierID)
+	require.True(e.t, found)
+	require.Equal(e.t, types.NullifierStatus_NULLIFIER_STATUS_RESERVED, record.Status)
+	require.Equal(e.t, claim.ClaimId, record.ClaimId)
+	record.Status = types.NullifierStatus_NULLIFIER_STATUS_CONSUMED
+	claim.Status = types.ClaimStatus_CLAIM_STATUS_PAID
+	totals.Custodied, totals.Released, totals.Pending = custodied.Sub(amount).String(), released.Add(amount).String(), pending.Sub(amount).String()
+	store := ctx.KVStore(app.GetKey(types.StoreKey))
+	store.Set(types.NullifierKey(nullifierID), app.AppCodec().MustMarshal(&record))
+	store.Set(types.ClaimKey(claimID), app.AppCodec().MustMarshal(&claim))
+	store.Set(types.AssetTotalsKey(assetID), app.AppCodec().MustMarshal(&totals))
+	recipient, err := types.ParseAddress(claim.Recipient)
+	require.NoError(e.t, err)
+	require.NoError(e.t, app.BankKeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName,
+		app.EvmKeeper.GetPaxAddressOrDefault(ctx, recipient), sdk.NewCoins(sdk.NewCoin(claim.Denom, amount))))
+	require.NoError(e.t, ctx.EventManager().EmitTypedEvent(&types.EventClaimFinalised{ClaimId: claim.ClaimId, Nullifier: claim.Nullifier}))
+	require.NoError(e.t, ctx.EventManager().EmitTypedEvent(&types.EventCustodyRelease{ClaimId: claim.ClaimId,
+		AssetId: claim.AssetId, Recipient: claim.Recipient, Amount: claim.Amount, Denom: claim.Denom}))
+	return keeper.ClaimResult{Claim: claim}
+}
+
 func (e *env) deposit(asset string, amount int64) types.Deposit {
 	e.t.Helper()
 	assetID, err := types.ParseHash32(asset)
@@ -135,6 +275,83 @@ func (e *env) solvent() {
 	e.t.Helper()
 	message, broken := keeper.SolvencyInvariant(e.k)(e.ctx)
 	require.False(e.t, broken, message)
+}
+
+func TestSetAssetRejectsPointerAliases(t *testing.T) {
+	pointer := common.HexToAddress("0x5aAeb6053F3E94C9b9A09f33669435E7Ef1BeAed")
+	aliases := []struct{ name, value string }{
+		{"lower", strings.ToLower(pointer.Hex())},
+		{"upper", "0x" + strings.ToUpper(pointer.Hex()[2:])},
+		{"EIP55", pointer.Hex()},
+	}
+	require.NotEqual(t, aliases[0].value, aliases[2].value)
+	require.NotEqual(t, aliases[1].value, aliases[2].value)
+	for _, original := range aliases {
+		for _, alias := range aliases {
+			t.Run(original.name+"/"+alias.name, func(t *testing.T) {
+				e := newEnv(t, 0)
+				firstID := vectorArray(t, e.exit, "asset")
+				first, found := e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				first.Pointer = original.value
+				require.NoError(t, e.k.SetAsset(e.ctx, first))
+				first.Pointer = pointer.Hex()
+				stored, found := e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				require.Equal(t, first, stored)
+				sameOwner := first
+				sameOwner.Pointer = alias.value
+				require.NoError(t, e.k.SetAsset(e.ctx, sameOwner))
+				stored, found = e.k.GetAsset(e.ctx, firstID)
+				require.True(t, found)
+				require.Equal(t, first, stored)
+				_, found = e.k.GetAssetByPointer(e.ctx, tokenPointer)
+				require.False(t, found, "replacing the first pointer removes its old index")
+
+				secondID := vectorArray(t, e.withdrawal, "asset")
+				second, found := e.k.GetAsset(e.ctx, secondID)
+				require.True(t, found)
+				secondPointer := common.HexToAddress("0x1234567890abcdef1234567890abcdef12345678")
+				second.Pointer = secondPointer.Hex()
+				require.NoError(t, e.k.SetAsset(e.ctx, second))
+				before := e.k.ExportGenesis(e.ctx)
+				store := e.ctx.KVStore(testkeeper.EVMTestApp.GetKey(types.StoreKey))
+				firstBytes := append([]byte(nil), store.Get(types.AssetKey(firstID))...)
+				secondBytes := append([]byte(nil), store.Get(types.AssetKey(secondID))...)
+				eventCount := len(e.ctx.EventManager().Events())
+				for _, create := range []bool{false, true} {
+					candidate := second
+					if create {
+						candidate.AssetId = types.Hash32([32]byte{0xfa})
+						candidate.Denom = "ualias"
+					}
+					candidate.Pointer = alias.value
+					require.NoError(t, candidate.Validate())
+					require.ErrorIs(t, e.k.SetAsset(e.ctx, candidate), types.ErrInvalidAsset)
+					require.Equal(t, before, e.k.ExportGenesis(e.ctx))
+					require.Equal(t, firstBytes, store.Get(types.AssetKey(firstID)))
+					require.Equal(t, secondBytes, store.Get(types.AssetKey(secondID)))
+					require.Equal(t, firstID[:], store.Get(types.AssetPointerKey(pointer)))
+					require.Equal(t, secondID[:], store.Get(types.AssetPointerKey(secondPointer)))
+					for _, expected := range []types.AssetMapping{first, second} {
+						got, found := e.k.GetAssetByPointer(e.ctx, common.HexToAddress(expected.Pointer))
+						require.True(t, found)
+						require.Equal(t, expected, got)
+						got, found = e.k.GetAssetByDenom(e.ctx, expected.Denom)
+						require.True(t, found)
+						require.Equal(t, expected, got)
+					}
+					require.Len(t, e.ctx.EventManager().Events(), eventCount)
+				}
+				second.Pointer = alias.value
+				_, err := keeper.NewMsgServerImpl(e.k).SetAsset(sdk.WrapSDKContext(e.ctx),
+					&types.MsgSetAsset{Authority: e.k.Authority(e.ctx), Asset: second})
+				require.ErrorIs(t, err, types.ErrInvalidAsset)
+				require.Equal(t, before, e.k.ExportGenesis(e.ctx))
+				require.Len(t, e.ctx.EventManager().Events(), eventCount)
+			})
+		}
+	}
 }
 
 func TestDepositMovesFundsIntoTheModuleAccountAndRecords(t *testing.T) {
@@ -173,353 +390,6 @@ func TestDepositMovesFundsIntoTheModuleAccountAndRecords(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrInvalidDeposit)
 }
 
-func TestWithdrawalPaysOnceAndReplayIsRefused(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.withdrawal.Fields["asset"], 1_000)
-	result, err := e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
-	require.True(t, result.Queued)
-	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_PAID, result.Claim.Status)
-	require.Equal(t, e.withdrawal.Fields["nullifier"], result.Claim.Nullifier)
-	require.Equal(t, sdk.NewInt(int64(vectorNumber(t, e.withdrawal, "amount"))), e.balance(e.recipient(), sdk.MustGetBaseDenom()))
-	require.Equal(t, sdk.NewInt(999), e.balance(e.k.ModuleAddress(), sdk.MustGetBaseDenom()))
-	nullifier, found := e.k.GetNullifier(e.ctx, vectorArray(t, e.withdrawal, "nullifier"))
-	require.True(t, found)
-	require.Equal(t, types.NullifierStatus_NULLIFIER_STATUS_CONSUMED, nullifier.Status)
-	e.solvent()
-
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrClaimNotPending)
-	_, err = e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrNullifierUsed)
-	require.Equal(t, sdk.NewInt(1), e.balance(e.recipient(), sdk.MustGetBaseDenom()))
-	require.Equal(t, sdk.NewInt(999), e.balance(e.k.ModuleAddress(), sdk.MustGetBaseDenom()))
-}
-
-func TestWithdrawalDelayAndCancellation(t *testing.T) {
-	e := newEnv(t, 600)
-	e.deposit(e.withdrawal.Fields["asset"], 1_000)
-	_, err := e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrClaimNotReady)
-	_, reserved := e.k.GetNullifier(e.ctx, vectorArray(t, e.withdrawal, "nullifier"))
-	require.False(t, reserved, "a refused finalise must leave no state")
-
-	claim, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
-	require.Equal(t, genesisTime.Unix()+600, claim.AvailableAt)
-	e.solvent()
-	e.ctx = e.ctx.WithBlockTime(genesisTime.Add(599 * time.Second))
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrClaimNotReady)
-	require.True(t, e.balance(e.recipient(), sdk.MustGetBaseDenom()).IsZero())
-
-	paid, _ := e.ctx.CacheContext()
-	result, err := e.k.FinaliseWithdrawal(paid.WithBlockTime(genesisTime.Add(600*time.Second)), e.evidence())
-	require.NoError(t, err)
-	require.False(t, result.Queued)
-
-	claimID, _ := types.ParseHash32(claim.ClaimId)
-	cancelled, err := e.k.CancelClaim(e.ctx, claimID)
-	require.NoError(t, err)
-	require.Equal(t, types.ClaimStatus_CLAIM_STATUS_CANCELLED, cancelled.Status)
-	e.ctx = e.ctx.WithBlockTime(genesisTime.Add(time.Hour))
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrClaimNotPending)
-	_, err = e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrNullifierUsed)
-	require.True(t, e.balance(e.recipient(), sdk.MustGetBaseDenom()).IsZero())
-	e.solvent()
-}
-
-func TestWithdrawalRefusesWrongRootSignatureRecipientAndAuthority(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.withdrawal.Fields["asset"], 1_000)
-	refused := func(name string, evidence keeper.WithdrawalEvidence, ctx sdk.Context) {
-		_, err := e.k.FinaliseWithdrawal(ctx, evidence)
-		require.Error(t, err, name)
-		require.True(t, e.balance(e.recipient(), sdk.MustGetBaseDenom()).IsZero(), name)
-	}
-
-	signature := e.evidence()
-	signature.HeaderSignature = append([]byte(nil), signature.HeaderSignature...)
-	signature.HeaderSignature[5] ^= 1
-	refused("header signature", signature, e.ctx)
-
-	// A receipt whose recipient was altered no longer carries the sequencer's
-	// signature: the recipient is whatever the sequencer signed, never calldata.
-	recipient := e.evidence()
-	recipient.Receipt = append([]byte(nil), recipient.Receipt...)
-	index := -1
-	needle := vectorBytes(t, e.withdrawal, "recipient")
-	for i := 0; i+len(needle) <= len(recipient.Receipt); i++ {
-		if string(recipient.Receipt[i:i+len(needle)]) == string(needle) {
-			index = i
-		}
-	}
-	require.GreaterOrEqual(t, index, 0)
-	recipient.Receipt[index] ^= 1
-	refused("recipient", recipient, e.ctx)
-
-	// The re-signed vector is a valid withdrawal under a key this chain never
-	// authorised, and is not under the finalized receipt root.
-	fixture, err := testvectors.Load()
-	require.NoError(t, err)
-	foreign := e.evidence()
-	for _, v := range fixture["withdrawal"] {
-		if v.Name == "resigned-event-offset-130" {
-			foreign.Receipt = vectorBytes(t, v, "receipt")
-		}
-	}
-	refused("re-signed recipient", foreign, e.ctx)
-
-	// The same evidence against a chain whose finalized roots differ.
-	otherRoots := newEnvWithRoots(t, [32]byte{1}, vectorArray(t, e.withdrawal, "header_receipt_root"))
-	_, err = otherRoots.k.FinaliseWithdrawal(otherRoots.ctx, otherRoots.evidence())
-	require.ErrorIs(t, err, types.ErrNotFinalized)
-	otherRoots = newEnvWithRoots(t, vectorArray(t, e.withdrawal, "header_state_root"), [32]byte{2})
-	_, err = otherRoots.k.FinaliseWithdrawal(otherRoots.ctx, otherRoots.evidence())
-	require.ErrorIs(t, err, types.ErrNotFinalized)
-
-	// No sequencer authorised for the batch.
-	batch := vectorNumber(t, e.withdrawal, "batch_number")
-	unauthorised, _ := e.ctx.CacheContext()
-	params := e.k.GetParams(unauthorised)
-	params.SequencerAuthorizations[0].FirstBatchNumber = batch + 1
-	params.SequencerAuthorizations[0].LastBatchNumber = batch + 1
-	require.NoError(t, e.k.SetParams(unauthorised, params))
-	_, err = e.k.FinaliseWithdrawal(unauthorised, e.evidence())
-	require.ErrorIs(t, err, types.ErrNotAuthorized)
-
-	// Another LayerX network.
-	network, _ := e.ctx.CacheContext()
-	params = e.k.GetParams(network)
-	params.NetworkId++
-	require.NoError(t, e.k.SetParams(network, params))
-	_, err = e.k.FinaliseWithdrawal(network, e.evidence())
-	require.ErrorIs(t, err, types.ErrWrongNetwork)
-
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
-}
-
-// newEnvWithRoots is newEnv with a different finalized checkpoint for the
-// withdrawal batch.
-func newEnvWithRoots(t *testing.T, stateRoot, receiptRoot [32]byte) *env {
-	t.Helper()
-	app := testkeeper.EVMTestApp
-	ctx, _ := app.NewContext(false, tmtypes.Header{}).WithBlockHeight(7).WithBlockTime(genesisTime).CacheContext()
-	fixture, err := testvectors.Load()
-	require.NoError(t, err)
-	e := &env{t: t, ctx: ctx, k: app.LayerXCustodyKeeper, withdrawal: fixture["withdrawal"][0], exit: fixture["exit"][0]}
-	// This harness exercises custody against its own authority-registered
-	// checkpoints; the app wires the anchor module's reader, which
-	// TestWithdrawalReadsAnchorFinalizedCheckpoint covers.
-	e.k.SetAnchorReader(nil)
-	batch := vectorNumber(t, e.withdrawal, "batch_number")
-	params := types.DefaultParams()
-	params.NetworkId = uint32(vectorNumber(t, e.withdrawal, "network_id")) //nolint:gosec
-	params.WithdrawalDelaySeconds = 0
-	params.SequencerAuthorizations = []types.SequencerAuthorization{{
-		SequencerId: e.withdrawal.Fields["sequencer_id"], PublicKey: e.withdrawal.Fields["public_key"],
-		FirstBatchNumber: batch, LastBatchNumber: batch}}
-	require.NoError(t, e.k.SetParams(ctx, params))
-	require.NoError(t, e.k.SetAsset(ctx, types.AssetMapping{AssetId: e.withdrawal.Fields["asset"],
-		Denom: sdk.MustGetBaseDenom(), Enabled: true}))
-	require.NoError(t, e.k.RegisterCheckpoint(ctx, batch, stateRoot, receiptRoot))
-	return e
-}
-
-func TestWithdrawalNeverExceedsCustody(t *testing.T) {
-	e := newEnv(t, 0)
-	_, err := e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrInvalidRelease)
-	_, found := e.k.GetNullifier(e.ctx, vectorArray(t, e.withdrawal, "nullifier"))
-	require.False(t, found)
-	e.solvent()
-}
-
-func TestForcedExit(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	exitBatch := vectorNumber(t, e.withdrawal, "batch_number") + 4
-	stateRoot := vectorArray(t, e.exit, "state_root")
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, stateRoot, [32]byte{7}))
-	recipient := testkeeper.EVMTestApp.EvmKeeper.GetPaxAddressOrDefault(e.ctx, e.exitEvidence(exitBatch).Recipient)
-
-	_, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.ErrorIs(t, err, types.ErrExitNotEligible)
-	e.ctx = e.ctx.WithBlockTime(genesisTime.Add(time.Duration(types.DefaultLivenessBoundSeconds) * time.Second))
-	require.True(t, e.k.ExitEligible(e.ctx))
-
-	_, err = e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(vectorNumber(t, e.withdrawal, "batch_number")))
-	require.ErrorIs(t, err, types.ErrNotFinalized, "only the latest finalized state root is exitable")
-
-	fixture, err := testvectors.Load()
-	require.NoError(t, err)
-	forged := e.exitEvidence(exitBatch)
-	forged.RecipientSignature = vectorBytes(t, fixture["exit"][1], "recipient_signature")
-	_, err = e.k.ExecuteForcedExit(e.ctx, forged)
-	require.ErrorIs(t, err, types.ErrInvalidProof)
-	stolen := e.exitEvidence(exitBatch)
-	stolen.Recipient = e.payer
-	_, err = e.k.ExecuteForcedExit(e.ctx, stolen)
-	require.ErrorIs(t, err, types.ErrInvalidProof)
-	require.True(t, e.balance(recipient, tokenDenom).IsZero())
-
-	result, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
-	require.True(t, result.Queued)
-	require.Equal(t, types.ClaimKind_CLAIM_KIND_FORCED_EXIT, result.Claim.Kind)
-	require.Equal(t, e.exit.Fields["balance"], result.Claim.Amount)
-	require.Equal(t, types.Hash32(stateRoot), result.Claim.Anchor)
-	require.Equal(t, sdk.NewInt(5_000_000), e.balance(recipient, tokenDenom))
-	require.Equal(t, sdk.NewInt(1_000_000), e.balance(e.k.ModuleAddress(), tokenDenom))
-	e.solvent()
-
-	_, err = e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.ErrorIs(t, err, types.ErrClaimNotPending)
-	_, err = e.k.RequestForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.ErrorIs(t, err, types.ErrExitConsumed)
-	require.Equal(t, sdk.NewInt(5_000_000), e.balance(recipient, tokenDenom))
-}
-
-func TestForcedExitByEmergencyWithDelay(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	params := e.k.GetParams(e.ctx)
-	params.ForcedExitDelaySeconds = 120
-	require.NoError(t, e.k.SetParams(e.ctx, params))
-	exitBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
-	require.False(t, e.k.ExitEligible(e.ctx))
-	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-
-	claim, err := e.k.RequestForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
-	require.Equal(t, genesisTime.Unix()+120, claim.AvailableAt)
-	_, err = e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.ErrorIs(t, err, types.ErrClaimNotReady)
-	e.solvent()
-
-	// A newer checkpoint does not strand the queued exit.
-	e.ctx = e.ctx.WithBlockTime(genesisTime.Add(2 * time.Minute))
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch+1, [32]byte{8}, [32]byte{9}))
-	result, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
-	require.False(t, result.Queued)
-	require.Equal(t, claim.ClaimId, result.Claim.ClaimId)
-	e.solvent()
-}
-
-func TestForcedExitPaysABalanceOnceAcrossCheckpoints(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	e.deposit(e.exit.Fields["asset"], 5_000_000)
-	firstBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, firstBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
-	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	paid, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(firstBatch))
-	require.NoError(t, err)
-	require.Equal(t, e.exit.Fields["balance"], paid.Claim.Amount)
-
-	// The next finalized checkpoint still proves the same, never debited,
-	// balance under a new state root, signed by the account authority.
-	witness := vectorBytes(t, e.exit, "witness")
-	witness[len(witness)-1] ^= 0x01
-	decoded, err := codec.DecodeStateWitness(witness)
-	require.NoError(t, err)
-	root, err := decoded.Root()
-	require.NoError(t, err)
-	require.NotEqual(t, vectorArray(t, e.exit, "state_root"), root)
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, firstBatch+1, root, [32]byte{8}))
-	again := e.exitEvidence(firstBatch + 1)
-	again.Witness = witness
-	again.RecipientSignature = ed25519.Sign(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x61}, 32)),
-		verify.ExitRecipientMessage(e.k.GetParams(e.ctx).NetworkId, again.Account, again.AssetID, again.Recipient, root))
-	_, err = e.k.VerifyForcedExit(e.ctx, again)
-	require.NoError(t, err, "the second root is a valid forced-exit proof")
-
-	_, err = e.k.ExecuteForcedExit(e.ctx, again)
-	require.ErrorIs(t, err, types.ErrExitConsumed)
-	_, err = e.k.RequestForcedExit(e.ctx, again)
-	require.ErrorIs(t, err, types.ErrExitConsumed)
-	recipient := testkeeper.EVMTestApp.EvmKeeper.GetPaxAddressOrDefault(e.ctx, again.Recipient)
-	require.Equal(t, sdk.NewInt(5_000_000), e.balance(recipient, tokenDenom))
-	require.Equal(t, sdk.NewInt(6_000_000), e.balance(e.k.ModuleAddress(), tokenDenom))
-	e.solvent()
-}
-
-func TestForcedExitFreezesWithdrawalsFromLaterBatches(t *testing.T) {
-	e := newEnvWithoutCheckpoint(t, 0)
-	e.deposit(e.withdrawal.Fields["asset"], 1_000)
-	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	withdrawalBatch := vectorNumber(t, e.withdrawal, "batch_number")
-	require.Positive(t, withdrawalBatch)
-	exitBatch := withdrawalBatch - 1
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
-	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	_, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
-
-	// A withdrawal included after the exit checkpoint spends a balance that
-	// checkpoint still holds, so it is refused, also after the emergency ends.
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, withdrawalBatch, vectorArray(t, e.withdrawal, "header_state_root"),
-		vectorArray(t, e.withdrawal, "header_receipt_root")))
-	_, _, err = e.k.VerifyWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err, "the withdrawal proof itself is valid")
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrExitFrozen)
-	_, err = e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrExitFrozen)
-	require.NoError(t, e.k.SetEmergency(e.ctx, false))
-	require.True(t, e.k.ExitEligible(e.ctx))
-	_, err = e.k.FinaliseWithdrawal(e.ctx, e.evidence())
-	require.ErrorIs(t, err, types.ErrExitFrozen)
-	require.True(t, e.balance(e.recipient(), sdk.MustGetBaseDenom()).IsZero())
-	require.Equal(t, sdk.NewInt(1_000), e.balance(e.k.ModuleAddress(), sdk.MustGetBaseDenom()))
-	e.solvent()
-}
-
-func TestForcedExitRefusesABalanceMovedToAnotherAccount(t *testing.T) {
-	e := newEnv(t, 0)
-	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	e.deposit(e.exit.Fields["asset"], 5_000_000)
-	firstBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, firstBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
-	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	_, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(firstBatch))
-	require.NoError(t, err)
-
-	// The undebited balance is moved on LayerX to another account, which
-	// proves it under the next finalized root, signed by its authority.
-	account := vectorArray(t, e.exit, "account")
-	other, err := codec.DeriveAccountID([]byte("agent:exit-lender:main"))
-	require.NoError(t, err)
-	witness := bytes.ReplaceAll(vectorBytes(t, e.exit, "witness"), account[:], other[:])
-	witness = bytes.ReplaceAll(witness, []byte("agent:exit-holder:main"), []byte("agent:exit-lender:main"))
-	decoded, err := codec.DecodeStateWitness(witness)
-	require.NoError(t, err)
-	root, err := decoded.Root()
-	require.NoError(t, err)
-	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, firstBatch+1, root, [32]byte{8}))
-	moved := e.exitEvidence(firstBatch + 1)
-	moved.Account = other
-	moved.Witness = witness
-	moved.RecipientSignature = ed25519.Sign(ed25519.NewKeyFromSeed(bytes.Repeat([]byte{0x61}, 32)),
-		verify.ExitRecipientMessage(e.k.GetParams(e.ctx).NetworkId, other, moved.AssetID, moved.Recipient, root))
-	_, err = e.k.VerifyForcedExit(e.ctx, moved)
-	require.NoError(t, err, "the moved balance is a valid forced-exit proof under the new root")
-
-	_, err = e.k.ExecuteForcedExit(e.ctx, moved)
-	require.ErrorIs(t, err, types.ErrExitCheckpoint)
-	_, err = e.k.RequestForcedExit(e.ctx, moved)
-	require.ErrorIs(t, err, types.ErrExitCheckpoint)
-	recipient := testkeeper.EVMTestApp.EvmKeeper.GetPaxAddressOrDefault(e.ctx, moved.Recipient)
-	require.Equal(t, sdk.NewInt(5_000_000), e.balance(recipient, tokenDenom))
-	require.Equal(t, sdk.NewInt(6_000_000), e.balance(e.k.ModuleAddress(), tokenDenom))
-	e.solvent()
-}
-
 func TestForcedExitClosesDepositsWithAConstantFreezeRead(t *testing.T) {
 	e := newEnv(t, 600)
 	freezeReadGas := func() uint64 {
@@ -531,8 +401,7 @@ func TestForcedExitClosesDepositsWithAConstantFreezeRead(t *testing.T) {
 	empty := freezeReadGas()
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	_, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	require.Equal(t, empty, freezeReadGas(), "the freeze read does not grow with the claim store")
 
 	params := e.k.GetParams(e.ctx)
@@ -541,8 +410,7 @@ func TestForcedExitClosesDepositsWithAConstantFreezeRead(t *testing.T) {
 	exitBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
 	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
 	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	exit, err := e.k.RequestForcedExit(e.ctx, e.exitEvidence(exitBatch))
-	require.NoError(t, err)
+	exit := e.seedClaim(types.ClaimKind_CLAIM_KIND_FORCED_EXIT, exitBatch)
 	frozenAt, frozen := e.k.ExitCheckpoint(e.ctx)
 	require.True(t, frozen)
 	require.Equal(t, exitBatch, frozenAt)
@@ -550,7 +418,7 @@ func TestForcedExitClosesDepositsWithAConstantFreezeRead(t *testing.T) {
 	// A deposit now could only be credited after the exit checkpoint, where
 	// it could be neither withdrawn nor force-exited.
 	assetID := vectorArray(t, e.exit, "asset")
-	_, err = e.k.Deposit(e.ctx, e.payer, e.payerAcc, assetID, [32]byte{0xbe, 0xef}, sdk.NewInt(1_000))
+	_, err := e.k.Deposit(e.ctx, e.payer, e.payerAcc, assetID, [32]byte{0xbe, 0xef}, sdk.NewInt(1_000))
 	require.ErrorIs(t, err, types.ErrDepositFrozen)
 	require.Equal(t, sdk.NewInt(6_000_000), e.balance(e.k.ModuleAddress(), tokenDenom))
 
@@ -569,12 +437,12 @@ func TestGenesisRoundTrip(t *testing.T) {
 	e := newEnv(t, 600)
 	e.deposit(e.withdrawal.Fields["asset"], 1_000)
 	e.deposit(e.exit.Fields["asset"], 6_000_000)
-	_, err := e.k.RequestWithdrawal(e.ctx, e.evidence())
-	require.NoError(t, err)
+	withdrawal := e.seedClaim(types.ClaimKind_CLAIM_KIND_WITHDRAWAL, vectorNumber(t, e.withdrawal, "batch_number"))
 	exitBatch := vectorNumber(t, e.withdrawal, "batch_number") + 1
 	require.NoError(t, e.k.RegisterCheckpoint(e.ctx, exitBatch, vectorArray(t, e.exit, "state_root"), [32]byte{7}))
 	require.NoError(t, e.k.SetEmergency(e.ctx, true))
-	_, err = e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
+	e.seedClaim(types.ClaimKind_CLAIM_KIND_FORCED_EXIT, exitBatch)
+	_, err := e.k.ExecuteForcedExit(e.ctx, e.exitEvidence(exitBatch))
 	require.NoError(t, err)
 
 	exported := e.k.ExportGenesis(e.ctx)
@@ -613,8 +481,7 @@ func TestGenesisRoundTrip(t *testing.T) {
 	// The paid exit stays paid and the pending withdrawal stays pending.
 	_, err = e.k.ExecuteForcedExit(fresh, e.exitEvidence(exitBatch))
 	require.ErrorIs(t, err, types.ErrClaimNotPending)
-	result, err := e.k.FinaliseWithdrawal(fresh.WithBlockTime(genesisTime.Add(time.Hour)), e.evidence())
-	require.NoError(t, err)
+	result := e.payStoredWithdrawal(fresh.WithBlockTime(genesisTime.Add(time.Hour)), withdrawal)
 	require.False(t, result.Queued)
 
 	reopened := *exported

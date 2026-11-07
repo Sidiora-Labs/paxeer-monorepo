@@ -1,0 +1,28 @@
+[task]
+id = "22.31.191"
+audit = "22.30.79"
+acceptance = "22998.1"
+evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done."
+baseline = "Not run: the task's gate-only order prohibits a manual verify before implementation, and the declared test target was absent on the start tree. No baseline failure is claimed."
+
+[finding.036]
+test = "finding_036_account_state_relays_are_retired_over_tls"
+repair = "Removed the old account-state HTTP relay contract and its loopback transport; authenticated callers receive not_found without any upstream request."
+transport = "finding_037_readiness_and_receipts_need_only_chain_dependencies drives producer-recorded sequencer receipt output through TCP RPC, the real TLS boundary and the height-pinned receipt consumer."
+
+[finding.037]
+tests = ["finding_037_readiness_and_receipts_need_only_chain_dependencies", "finding_037_receipt_reads_enforce_the_pinned_key_height"]
+repair = "Startup needs only retained TLS/identity/network and chain receipt/key configuration, creates no kernel journal, and readiness reports chain receipt reads without claiming snapshots or synchronous execution."
+
+[wiring.registry]
+request = "services/platform/hosted/registry/src/node_state.rs; owner domain 8 (fm-platform): migrate account-state consumers to merged chain state/proof APIs at a shared committed height; old boundary GET relays now return 404."
+
+[wiring.agent]
+request = "services/agent/crates/layerx-agentd/src/read/program_node.rs; owner domain 9 (agent): migrate remaining layerxd account-state consumers to merged chain state/proof APIs at the same committed height."
+
+[wiring.deployment]
+request = "services/platform/hosted/agent-boundary/deployment.yaml; owner domain 8 (fm-platform): remove retired NODE_URL, NODE_BEARER_TOKEN_FILE and kernel journal/config settings; retain CHAIN_RPC_URL and RECEIPT_KEYS_FILE."
+
+[scope_conflict]
+observed = "tests/chain_receipt.rs::boundary_starts_without_an_lni_socket still requires the unused state/journal directory to exist; that file is outside this task's scope."
+request = "services/platform/hosted/agent-boundary/tests/chain_receipt.rs; owner domain 8 (fm-platform): require absence of unused journal directories after the configuration retirement."

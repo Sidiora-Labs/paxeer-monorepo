@@ -62,6 +62,7 @@ func newProgramSuite(t *testing.T, denoms ...string) *programSuite {
 	key := sdk.NewKVStoreKey(types.StoreKey)
 	k := keeper.NewKeeper(key, testApp.BankKeeper, &testApp.EvmKeeper)
 	ctx = xwebtestutil.WithXWebStore(ctx, key)
+	testApp.UpgradeKeeper.SetDone(ctx.WithBlockHeight(startHeight), keeper.ProgramOriginPlan)
 	k.InitGenesis(ctx, *types.DefaultGenesis())
 	s := &programSuite{suite: &suite{t: t, app: testApp, ctx: ctx, k: k, attestors: xwebtestutil.Attestors(3)}, key: key}
 	for _, attestor := range s.attestors {

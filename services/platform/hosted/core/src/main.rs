@@ -1,28 +1,15 @@
-mod caps_reads;
-mod program_accounts;
-mod program_lifecycle;
+mod chain_fund;
+mod funding_native;
 mod public_reads;
-mod withdrawal;
 
-use layerx_client::client::{Client, ClientConfig, ReconnectPolicy};
-use layerx_client::lni::handshake::{perform, Handshake, HandshakeConfig};
-use layerx_client::lni::program_read::{ProgramReadError, ProgramReadResult};
-use layerx_client::lni::refusal::decode_core_refusal;
-use layerx_client::lni::schema::{decode_envelope, encode_envelope, Capability, Envelope, Version};
-use layerx_client::lni::simulate::SimulateError;
-use layerx_client::lni::transport::{ConnectionGate, FrameTransport, Limits, Uds};
-use layerx_client::read::ReadError;
-use layerx_client::submit::{Submission, SubmitError};
+use layerx_client::px::PxEndpoint;
+use layerx_client::sequencer::SequencerEndpoint;
 use layerx_platform_core::{
-    asset_registry, build_send_with_signer, did_for_public_key, fixed_hex, hex_decode, hex_encode,
-    main_account, SendError, SendRequest, SocketSigner, TreasurySigner as _,
+    asset_registry, did_for_public_key, fixed_hex, hex_decode, hex_encode, main_account, SendError,
+    SocketSigner, TreasurySigner as _,
 };
-use layerx_proof::inclusion::SequencerAuthorization;
 use layerx_proof::receipt::{verify_outcome, AuthorizedBatch};
-use layerx_proof::state::decode_account_value;
 use layerx_types::payload::{ActivityType, ModuleId, ModuleRegistration, ModuleRegistry};
-use layerx_types::program_call::NativeProgramCall;
-use layerx_types::verify::VerificationLevel;
 use rustls::pki_types::{CertificateDer, PrivateKeyDer, PrivatePkcs8KeyDer};
 use rustls::server::WebPkiClientVerifier;
 use rustls::{RootCertStore, ServerConfig, ServerConnection, StreamOwned};
@@ -45,15 +32,11 @@ use zeroize::{Zeroize, Zeroizing};
 
 const MAX_REQUEST_BYTES: usize = 4 * 1024 * 1024;
 const MAX_RELAY_BYTES: usize = 4 * 1024 * 1024;
+const MAX_RECEIPT_BYTES: usize = 1_212_416;
 const IO_TIMEOUT: Duration = layerx_platform_internal::http::IO_TIMEOUT;
 const RESET_TIMEOUT: Duration = Duration::from_secs(180);
 const MAX_CONNECTIONS: usize = 128;
-const LNI_FRAME_BYTES: usize = 1_212_416;
-const LNI_DEADLINE: Duration = Duration::from_secs(5);
 const WIRE_VERSION: &str = "3";
-const RECEIPT_LOOKUP_REQUEST_TAG: u16 = 5;
-const RECEIPT_LOOKUP_RESPONSE_TAG: u16 = 6;
-const ERROR_RESPONSE_TAG: u16 = 25;
 const MAX_JOURNAL_BYTES: u64 = 16 * 1024 * 1024;
 const MAX_REQUESTS_PER_CONNECTION: usize = 128;
 
@@ -80,7 +63,8 @@ struct Config {
     admin_listen: SocketAddr,
     tls: Arc<ServerConfig>,
     admin_tls: Arc<ServerConfig>,
-    lni_socket: PathBuf,
+    sequencer: SequencerEndpoint,
+    network: PxEndpoint,
     network_id: u32,
     node: NodeEndpoint,
     node_token: Zeroizing<String>,
@@ -89,9 +73,10 @@ struct Config {
     replica: NodeEndpoint,
     replica_token: Zeroizing<String>,
     admin_token: Zeroizing<String>,
-    treasury: SocketSigner,
+    treasury: Arc<dyn layerx_platform_core::TreasurySigner>,
     treasury_did: String,
     treasury_asset: [u8; 32],
+    funding: chain_fund::FundingSlot,
     sequencer_id: [u8; 32],
     supervisor_socket: PathBuf,
     state_dir: PathBuf,
@@ -131,12 +116,6 @@ struct FundingCommand {
     amount: u64,
 }
 
-#[derive(Deserialize)]
-#[serde(deny_unknown_fields)]
-struct ActivityBody {
-    activity: String,
-}
-
 #[derive(Deserialize, serde::Serialize)]
 struct JournalEntry {
     request_digest: String,
@@ -149,8 +128,8 @@ struct JournalEntry {
 #[serde(deny_unknown_fields)]
 struct PreparedFunding {
     canonical: Vec<u8>,
-    activity_id: [u8; 32],
-    signer_public_key: [u8; 32],
+    transaction_hash: [u8; 32],
+    sender: [u8; 20],
 }
 
 #[derive(Deserialize, serde::Serialize)]
@@ -180,6 +159,9 @@ const MAX_FUNDING_RECORDS: usize = 4096;
 const MAX_FUNDING_RECORD_BYTES: u64 = MAX_JOURNAL_BYTES;
 const MAX_FUNDING_INVENTORY_BYTES: u64 = 64 * 1024 * 1024;
 
+// These are native facts obtained by authenticating sequencer receipt bytes,
+// independent of the TypeScript conformance ReceiptFacts fixture input. Portable
+// middleware evidence must still cross its receipt decoder and verifier.
 struct ReceiptFacts {
     activity_id: [u8; 32],
     batch_id: [u8; 32],
@@ -331,6 +313,22 @@ fn config() -> Result<Config, String> {
     fs::File::open(&state_dir)
         .and_then(|directory| directory.sync_all())
         .map_err(|error| format!("LAYERX_CORE_STATE_DIR is not durable: {error}"))?;
+    let sequencer_url = required("LAYERX_CORE_SEQUENCER_ENDPOINT")?;
+    let trust_anchor_path = required("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER")?;
+    let mut trust_anchor = Vec::new();
+    fs::File::open(&trust_anchor_path)
+        .and_then(|file| file.take(1_048_577).read_to_end(&mut trust_anchor))
+        .map_err(|error| format!("LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER: {error}"))?;
+    if trust_anchor.is_empty() || trust_anchor.len() > 1_048_576 {
+        return Err("invalid LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER".to_owned());
+    }
+    RootCertStore::empty()
+        .add(CertificateDer::from(trust_anchor.clone()))
+        .map_err(|error| format!("invalid LAYERX_CORE_SEQUENCER_TRUST_ANCHOR_DER: {error}"))?;
+    let sequencer = SequencerEndpoint::new(&sequencer_url, &[&trust_anchor])
+        .map_err(|error| format!("LayerX sequencer endpoint rejected: {error:?}"))?;
+    let network = PxEndpoint::new(&sequencer_url, &[&trust_anchor])
+        .map_err(|error| format!("LayerX sequencer network endpoint rejected: {error:?}"))?;
     Ok(Config {
         listen: parse_listen("LAYERX_CORE_LISTEN", "0.0.0.0:9443")?,
         admin_listen: parse_listen("LAYERX_CORE_ADMIN_LISTEN", "0.0.0.0:9444")?,
@@ -344,22 +342,30 @@ fn config() -> Result<Config, String> {
             "LAYERX_CORE_ADMIN_TLS_KEY_DER",
             None,
         )?,
-        lni_socket: PathBuf::from(required("LAYERX_CORE_LNI_SOCKET")?),
+        sequencer,
+        network,
         network_id,
-        node: parse_node_url(&required("LAYERX_CORE_NODE_URL")?)?,
-        node_token: read_secret("LAYERX_CORE_NODE_BEARER_TOKEN_FILE")?,
+        node: NodeEndpoint {
+            host: String::new(),
+            port: 0,
+        },
+        node_token: Zeroizing::new(String::new()),
         wallet_caps_token: env::var_os("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_WALLET_CAPS_TOKEN_FILE"))
             .transpose()?,
         receipt_events_token: env::var_os("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE")
             .map(|_| read_secret("LAYERX_CORE_RECEIPT_EVENTS_TOKEN_FILE"))
             .transpose()?,
-        replica: parse_node_url(&required("LAYERX_CORE_REPLICA_URL")?)?,
-        replica_token: read_secret("LAYERX_CORE_REPLICA_BEARER_TOKEN_FILE")?,
+        replica: NodeEndpoint {
+            host: String::new(),
+            port: 0,
+        },
+        replica_token: Zeroizing::new(String::new()),
         admin_token: read_secret("LAYERX_CORE_ADMIN_TOKEN_FILE")?,
         treasury_did: did_for_public_key(&treasury.public_key()),
-        treasury,
+        treasury: Arc::new(treasury),
         treasury_asset,
+        funding: chain_fund::FundingSlot::from_env(),
         sequencer_id,
         supervisor_socket: PathBuf::from(required("LAYERX_CORE_SUPERVISOR_SOCKET")?),
         state_dir,
@@ -551,134 +557,6 @@ fn write_response(
     .map_err(|error| error.to_string())
 }
 
-fn lni_limits() -> Limits {
-    Limits {
-        maximum_frame_bytes: LNI_FRAME_BYTES,
-        maximum_connections: 4,
-        maximum_streams: 1,
-        maximum_queued_bytes: 4 * 1024 * 1024,
-        deadline: LNI_DEADLINE,
-    }
-}
-
-fn handshake_config(config: &Config) -> HandshakeConfig {
-    HandshakeConfig {
-        built_interface_version: Version::V1_6,
-        expected_protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
-        expected_network_id: config.network_id,
-    }
-}
-
-fn connect_client(config: &Config) -> Result<Client, String> {
-    Client::connect(ClientConfig {
-        endpoint: config.lni_socket.clone(),
-        handshake: handshake_config(config),
-        limits: lni_limits(),
-        reconnect: ReconnectPolicy {
-            maximum_attempts: 1,
-            base_delay: Duration::from_millis(100),
-            maximum_delay: Duration::from_secs(1),
-            jitter_percent: 0,
-        },
-    })
-    .map_err(|error| format!("LNI connection failed: {error:?}"))
-}
-
-fn connect_raw(config: &Config) -> Result<(Uds, Handshake), String> {
-    connect_raw_with_deadline(config, LNI_DEADLINE)
-}
-
-fn connect_raw_with_deadline(
-    config: &Config,
-    deadline: Duration,
-) -> Result<(Uds, Handshake), String> {
-    let gate = ConnectionGate::new(1);
-    let mut limits = lni_limits();
-    limits.deadline = deadline.min(limits.deadline);
-    let mut transport = Uds::connect(&config.lni_socket, &gate, limits)
-        .map_err(|error| format!("LNI connection failed: {error:?}"))?;
-    let handshake = perform(&mut transport, &handshake_config(config), None)
-        .map_err(|error| format!("LNI handshake failed: {error:?}"))?;
-    Ok((transport, handshake))
-}
-
-fn lookup_receipt_bytes(
-    transport: &mut Uds,
-    handshake: &Handshake,
-    activity_id: [u8; 32],
-    correlation_id: u64,
-    wait_publication: bool,
-) -> Result<Option<Vec<u8>>, String> {
-    let mut selector = Vec::with_capacity(37);
-    selector.push(1);
-    selector.extend_from_slice(&activity_id);
-    lookup_receipt_selector(
-        transport,
-        handshake,
-        selector,
-        correlation_id,
-        wait_publication,
-    )
-}
-
-fn lookup_receipt_selector(
-    transport: &mut Uds,
-    handshake: &Handshake,
-    mut selector: Vec<u8>,
-    correlation_id: u64,
-    wait_publication: bool,
-) -> Result<Option<Vec<u8>>, String> {
-    if !handshake.capabilities().contains(Capability::ReceiptLookup) {
-        return Err("receipt_lookup capability is unavailable".to_owned());
-    }
-    if wait_publication {
-        if handshake.node().interface_version.minor < 5 {
-            return Err("receipt publication wait requires LNI minor 5".to_owned());
-        }
-        selector.push(1);
-    } else if handshake.node().interface_version.minor >= Version::V1_6.minor {
-        selector.push(0);
-    }
-    let request = encode_envelope(Envelope {
-        version: handshake.node().interface_version,
-        message_tag: RECEIPT_LOOKUP_REQUEST_TAG,
-        correlation_id,
-        canonical_payload: &selector,
-        proof_material: &[],
-    })
-    .map_err(|error| format!("receipt lookup encoding failed: {error:?}"))?;
-    transport
-        .send(&request)
-        .map_err(|error| format!("receipt lookup send failed: {error:?}"))?;
-    let response_bytes = transport
-        .receive()
-        .map_err(|error| format!("receipt lookup receive failed: {error:?}"))?;
-    let response = decode_envelope(&response_bytes)
-        .map_err(|error| format!("receipt lookup response is malformed: {error:?}"))?;
-    if response.version.major != handshake.node().interface_version.major
-        || !response.proof_material.is_empty()
-        || response.correlation_id != correlation_id
-    {
-        return Err("receipt lookup response correlation mismatch".to_owned());
-    }
-    if response.message_tag == ERROR_RESPONSE_TAG {
-        let refusal = decode_core_refusal(response.canonical_payload)
-            .ok_or_else(|| "receipt lookup refusal is malformed".to_owned())?;
-        return Err(format!(
-            "receipt lookup refused: class {} result {}",
-            refusal.class,
-            refusal.result.raw()
-        ));
-    }
-    if response.message_tag != RECEIPT_LOOKUP_RESPONSE_TAG {
-        return Err("receipt lookup response has an unexpected tag".to_owned());
-    }
-    if response.canonical_payload.is_empty() {
-        return Ok(None);
-    }
-    Ok(Some(response.canonical_payload.to_vec()))
-}
-
 fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, String> {
     let decoded = layerx_wire::receipt::decode(bytes)
         .map_err(|error| format!("receipt does not decode: {error:?}"))?;
@@ -692,17 +570,6 @@ fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, 
         protocol.resulting_state_root(),
         sequencer_key,
     );
-    if protocol.module_id() == 9 && protocol.operation() == 0 {
-        program_lifecycle::verify_receipt(bytes, &authorised, protocol.activity_id())?;
-        return Ok(ReceiptFacts {
-            activity_id: protocol.activity_id(),
-            batch_id: protocol.batch_id(),
-            global_sequence: protocol.global_sequence(),
-            result_code: protocol.result_code(),
-            state_root: protocol.resulting_state_root(),
-            canonical: bytes.to_vec(),
-        });
-    }
     let verified = verify_outcome(bytes, &authorised)
         .map_err(|error| format!("receipt verification failed: {error:?}"))?;
     let receipt = verified
@@ -719,39 +586,110 @@ fn receipt_facts(bytes: &[u8], sequencer_key: [u8; 32]) -> Result<ReceiptFacts, 
     })
 }
 
+fn await_authenticated_receipt(
+    config: &Config,
+    tx_hash: [u8; 32],
+    deadline: Duration,
+) -> Result<layerx_client::rpc::receipt::Lookup, String> {
+    use layerx_client::rpc::receipt::{lookup_authenticated, Lookup, LookupContext};
+    let started = Instant::now();
+    let keys = config
+        .sequencer
+        .receipt_keys()
+        .map_err(|error| format!("receipt keys unavailable: {error:?}"))?;
+    loop {
+        let outcome = lookup_authenticated(
+            &config.sequencer,
+            tx_hash,
+            LookupContext {
+                receipt_keys: &keys,
+            },
+        )
+        .map_err(|error| format!("receipt lookup failed: {error:?}"))?;
+        if let Lookup::Verified(receipt) = &outcome {
+            if !keys.iter().any(|key| {
+                key.key_id == receipt.execution().key_id
+                    && key.public_key == receipt.execution().signing_key
+                    && (key.first_height..=key.last_height).contains(&receipt.height())
+            }) {
+                return Err("receipt signing key differs".to_owned());
+            }
+            return Ok(outcome);
+        }
+        let Some(remaining) = deadline
+            .checked_sub(started.elapsed())
+            .filter(|remaining| !remaining.is_zero())
+        else {
+            return Ok(outcome);
+        };
+        thread::sleep(remaining.min(Duration::from_millis(250)));
+    }
+}
+
+enum ReceiptRead {
+    Absent,
+    Submitted { tx_hash: [u8; 32], nonce: u64 },
+    Verified(ReceiptFacts),
+}
+
+impl ReceiptRead {
+    fn into_verified(self) -> Option<ReceiptFacts> {
+        match self {
+            Self::Verified(facts) => Some(facts),
+            Self::Absent | Self::Submitted { .. } => None,
+        }
+    }
+}
+
 fn await_receipt(
     config: &Config,
-    activity_id: [u8; 32],
+    tx_hash: [u8; 32],
     deadline: Duration,
-) -> Result<Option<ReceiptFacts>, String> {
-    let total_started = Instant::now();
-    let connect_started = Instant::now();
-    let (mut transport, handshake) = if deadline.is_zero() {
-        connect_raw(config)?
-    } else {
-        connect_raw_with_deadline(config, deadline)?
+) -> Result<ReceiptRead, String> {
+    use layerx_client::rpc::receipt::Lookup;
+    let receipt = match await_authenticated_receipt(config, tx_hash, deadline)? {
+        Lookup::Absent => return Ok(ReceiptRead::Absent),
+        Lookup::Submitted { tx_hash, nonce } => {
+            return Ok(ReceiptRead::Submitted { tx_hash, nonce });
+        }
+        Lookup::Verified(receipt) => receipt,
     };
-    pay_timing("core.receipt.connect_handshake", connect_started);
-    let wait_started = Instant::now();
-    let bytes = lookup_receipt_bytes(
-        &mut transport,
-        &handshake,
-        activity_id,
-        1,
-        !deadline.is_zero(),
-    )?;
-    pay_timing("core.receipt.publication_wait", wait_started);
-    let Some(bytes) = bytes else {
-        return Ok(None);
-    };
-    let verify_started = Instant::now();
-    let facts = receipt_facts(&bytes, handshake.node().authorised_sequencer_key)?;
-    pay_timing("core.receipt.verify", verify_started);
-    if facts.activity_id != activity_id {
-        return Err("receipt names another activity".to_owned());
+    let landing = receipt.landing().ok_or("native receipt has not landed")?;
+    let (batch, state_root) =
+        layerx_platform_core::native_committed_state(&config.sequencer, landing.block_number)?;
+    validate_receipt_landing(&receipt, &batch)?;
+    Ok(ReceiptRead::Verified(ReceiptFacts {
+        activity_id: receipt.activity_id(),
+        global_sequence: receipt.global_sequence(),
+        result_code: receipt.result_code().raw(),
+        canonical: receipt.canonical_bytes().to_vec(),
+        batch_id: batch.hash,
+        state_root,
+    }))
+}
+
+fn validate_receipt_landing(
+    receipt: &layerx_client::rpc::receipt::AuthenticatedReceipt,
+    block: &layerx_client::sequencer::SequencerBlock,
+) -> Result<(), String> {
+    let landing = receipt.landing().ok_or("native receipt has not landed")?;
+    let index =
+        usize::try_from(landing.transaction_index).map_err(|_| "native receipt index overflow")?;
+    if block.transactions.get(index).is_none_or(|transaction| {
+        layerx_crypto::evm_transaction::transaction_hash(transaction) != receipt.activity_id()
+    }) {
+        return Err("native receipt transaction is absent from its landing block".into());
     }
-    pay_timing("core.receipt.total", total_started);
-    Ok(Some(facts))
+    if block.number != landing.block_number
+        || block.number < receipt.height()
+        || landing.status != receipt.execution().success
+        || receipt
+            .covering_block()
+            .is_some_and(|(height, hash)| height != block.number || hash != block.hash)
+    {
+        return Err("native receipt landing block differs".into());
+    }
+    Ok(())
 }
 
 fn receipt_result(facts: &ReceiptFacts) -> serde_json::Value {
@@ -800,498 +738,63 @@ fn submission_registry() -> Result<ModuleRegistry, String> {
     registry_with_asset_ordinals(&ASSET_SUBMISSION_ORDINALS)
 }
 
-fn submission_decode_registry() -> Result<ModuleRegistry, String> {
-    let mut ordinals = ASSET_SUBMISSION_ORDINALS.to_vec();
-    ordinals.push(9);
-    ordinals.sort_unstable();
-    registry_with_asset_ordinals(&ordinals)
-}
-
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
-enum SubmissionValidationError {
-    AssetOrdinalReserved,
-    InvalidAssetActivity,
-    InvalidProgramCall,
-    InvalidProgramAccountOperation,
-    InvalidProgramLifecycle,
-}
-
-impl SubmissionValidationError {
-    fn response(self) -> Response {
-        match self {
-            Self::AssetOrdinalReserved => refusal(422, "asset_ordinal_reserved", None),
-            Self::InvalidAssetActivity => refusal(400, "invalid_asset_activity", None),
-            Self::InvalidProgramCall => refusal(400, "invalid_program_call", None),
-            Self::InvalidProgramAccountOperation => {
-                refusal(400, "invalid_program_account_operation", None)
-            }
-            Self::InvalidProgramLifecycle => refusal(400, "invalid_program_lifecycle", None),
-        }
+fn validate_fee_program_account(ordinal: u16, payload: &[u8]) -> Result<(), ()> {
+    if payload.len() < 32 || payload[..32] == [0; 32] {
+        return Err(());
     }
-}
-
-fn validate_submission_payload(
-    canonical: &[u8],
-    activity: &layerx_wire::activity::Activity,
-    registry: &ModuleRegistry,
-) -> Result<(), SubmissionValidationError> {
-    let module = activity.activity_type().module();
-    let ordinal = activity.activity_type().ordinal();
-    if module == ModuleId::Asset {
-        if ordinal == 9 {
-            return Err(SubmissionValidationError::AssetOrdinalReserved);
+    match ordinal {
+        5 => {
+            let count = payload.get(32..34).ok_or(())?;
+            let count = usize::from(u16::from_be_bytes([count[0], count[1]]));
+            if count == 0 || count > 256 || payload.len() != 34 + count * 112 {
+                return Err(());
+            }
         }
-        let unsigned = layerx_wire::activity::encode_unsigned(activity)
-            .map_err(|_| SubmissionValidationError::InvalidAssetActivity)?;
-        layerx_crypto::disclosure::bind(&unsigned, registry)
-            .map(|_| ())
-            .map_err(|_| SubmissionValidationError::InvalidAssetActivity)?;
-    } else if module == ModuleId::Programs {
-        if ordinal == 3 {
-            NativeProgramCall::decode(activity.payload())
-                .map_err(|_| SubmissionValidationError::InvalidProgramCall)?;
-        } else if matches!(ordinal, 5 | 6) {
-            let unsigned = layerx_wire::activity::encode_unsigned(activity)
-                .map_err(|_| SubmissionValidationError::InvalidProgramAccountOperation)?;
-            layerx_crypto::disclosure::bind(&unsigned, registry)
-                .map_err(|_| SubmissionValidationError::InvalidProgramAccountOperation)?;
-            program_accounts::validate(ordinal, activity.payload())
-                .map_err(|()| SubmissionValidationError::InvalidProgramAccountOperation)?;
-        } else {
-            program_lifecycle::validate(canonical, registry, ordinal)
-                .map_err(|_| SubmissionValidationError::InvalidProgramLifecycle)?;
+        6 => {
+            if payload.get(32..37) != Some(b"LXPA1") || payload.get(37..69).ok_or(())? == [0; 32] {
+                return Err(());
+            }
+            let length: [u8; 4] = payload.get(69..73).ok_or(())?.try_into().map_err(|_| ())?;
+            let length = u32::from_be_bytes(length);
+            if length > 128 || payload.len() != 73 + usize::try_from(length).map_err(|_| ())? {
+                return Err(());
+            }
         }
+        _ => return Err(()),
     }
     Ok(())
 }
 
-fn submit_activity(
-    config: &Config,
-    canonical: &[u8],
-    program_ordinal: Option<u16>,
-) -> Result<Response, Response> {
-    let total_started = Instant::now();
-    let validate_started = Instant::now();
-    let decode_registry =
-        submission_decode_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &decode_registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if let Some(ordinal) = program_ordinal {
-        if activity.activity_type().module() != ModuleId::Programs
-            || activity.activity_type().ordinal() != ordinal
-            || activity.protocol_version() != 3
-        {
-            return Err(refusal(400, "program_route_mismatch", None));
+fn validate_fee_lifecycle_payload(ordinal: u16, payload: &[u8]) -> Result<[u8; 32], String> {
+    let invalid = |_| "invalid canonical program lifecycle payload".to_owned();
+    let (program_id, encoded) = match ordinal {
+        1 => {
+            let value = layerx_types::program_lifecycle::NativeProgramDeploy::decode(payload)
+                .map_err(invalid)?;
+            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
+                return Err("program Wasm hash mismatch".to_owned());
+            }
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
         }
-    }
-    let registry = if activity.activity_type().module() == ModuleId::Asset
-        && activity.activity_type().ordinal() == 9
-    {
-        withdrawal::registry(config, &activity)?
-    } else {
-        validate_submission_payload(canonical, &activity, &decode_registry)
-            .map_err(SubmissionValidationError::response)?;
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?
-    };
-    pay_timing("core.submit.validate", validate_started);
-    let signer = signer_key(activity.authority())
-        .ok_or_else(|| refusal(400, "authority_unsupported", None))?;
-    let connect_started = Instant::now();
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    pay_timing("core.submit.connect_handshake", connect_started);
-    let admission_started = Instant::now();
-    let submission = client
-        .submit_signed(&registry, signer, 1, 1, canonical)
-        .map_err(|error| match error {
-            SubmitError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: submission refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "submission_refused", None)
+        2 => {
+            let value = layerx_types::program_lifecycle::NativeProgramUpgrade::decode(payload)
+                .map_err(invalid)?;
+            if <[u8; 32]>::from(Sha256::digest(value.wasm)) != value.new_hash {
+                return Err("program Wasm hash mismatch".to_owned());
             }
-            SubmitError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            SubmitError::Disconnected => refusal(503, "node_unavailable", Some(5)),
-            _ => refusal(400, "invalid_activity", None),
-        })?;
-    pay_timing("core.submit.admission", admission_started);
-    drop(client);
-    let activity_id = match submission {
-        Submission::Acknowledged(acknowledgement) => acknowledgement.activity_id(),
-        Submission::Unknown(unknown) => unknown.activity_id(),
-    };
-    let receipt_started = Instant::now();
-    let result = match await_receipt(config, activity_id, config.receipt_deadline) {
-        Ok(Some(facts)) => {
-            if program_ordinal.is_some_and(|ordinal| matches!(ordinal, 1 | 2 | 7)) {
-                Ok(success(&serde_json::json!({
-                    "state": if facts.result_code == 0 { "completed" } else { "refused" },
-                    "activity_id": hex_encode(&facts.activity_id), "receipt": hex_encode(&facts.canonical),
-                    "terminal_payload": "", "call_graph": "",
-                })))
-            } else {
-                Ok(success(&receipt_result(&facts)))
-            }
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
         }
-        Ok(None) => Ok(json_response(
-            202,
-            &serde_json::json!({
-                "ok": true,
-                "result": { "state": "pending", "activity_id": hex_encode(&activity_id) },
-                "trace": next_trace(),
-            }),
-        )),
-        Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
-            Err(refusal(503, "receipt_unavailable", Some(5)))
+        7 => {
+            let value = layerx_types::program_lifecycle::NativeProgramWindDown::decode(payload)
+                .map_err(invalid)?;
+            (value.program_id.bytes(), value.encode().map_err(invalid)?)
         }
+        _ => return Err("unsupported program lifecycle ordinal".to_owned()),
     };
-    pay_timing("core.submit.receipt", receipt_started);
-    pay_timing("core.submit.total", total_started);
-    result
-}
-
-fn simulate_activity(config: &Config, canonical: &[u8]) -> Result<Response, Response> {
-    let registry =
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
-        return Err(refusal(400, "not_program_call", None));
+    if encoded != payload {
+        return Err("noncanonical program lifecycle payload".to_owned());
     }
-    let call = NativeProgramCall::decode(activity.payload())
-        .map_err(|_| refusal(400, "invalid_program_call", None))?;
-    let expected_activity_id = layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let sequencer_key = client.handshake().node().authorised_sequencer_key;
-    let simulation = client
-        .simulate(&registry, canonical, 1)
-        .map_err(|error| match error {
-            SimulateError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: simulation refused class {class} result {}",
-                    result.raw()
-                );
-                if class == 3 {
-                    refusal(503, "capability_unavailable", Some(30))
-                } else {
-                    refusal(422, "simulation_refused", None)
-                }
-            }
-            SimulateError::UnavailableCapability | SimulateError::InterfaceVersion(_) => {
-                refusal(503, "capability_unavailable", Some(30))
-            }
-            SimulateError::Disconnected | SimulateError::Transport(_) => {
-                refusal(503, "node_unavailable", Some(5))
-            }
-            SimulateError::MalformedRequest => refusal(400, "invalid_activity", None),
-            other => {
-                eprintln!("layerx-core-boundary: simulation unverifiable: {other:?}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-        })?;
-    drop(client);
-    if simulation.execution.activity_id != expected_activity_id {
-        return Err(refusal(503, "node_unavailable", Some(5)));
-    }
-    let receipt = layerx_proof::receipt::verify_sequencer_signature(
-        &simulation.execution.receipt,
-        sequencer_key,
-    )
-    .map_err(|_| refusal(503, "node_unavailable", Some(5)))?;
-    let protocol = receipt
-        .protocol()
-        .ok_or_else(|| refusal(503, "node_unavailable", Some(5)))?;
-    let state = if protocol.result_code() == 0 {
-        "simulated"
-    } else {
-        "refused"
-    };
-    Ok(success(&serde_json::json!({
-        "committed": false,
-        "execution": {
-            "state": state,
-            "activity_id": hex_encode(&simulation.execution.activity_id),
-            "program_id": hex_encode(&call.callee().bytes()),
-            "result_code": protocol.result_code(),
-            "receipt": hex_encode(&simulation.execution.receipt),
-            "terminal_payload": hex_encode(&simulation.execution.terminal_payload),
-            "call_graph": hex_encode(&simulation.execution.call_graph),
-        },
-        "simulation_evidence": {
-            "boundary_id": hex_encode(&simulation.evidence.boundary_id),
-            "activity_id": hex_encode(&simulation.evidence.activity_id),
-            "previous_state_root": hex_encode(&simulation.evidence.previous_state_root),
-            "hypothetical_state_root": hex_encode(&simulation.evidence.hypothetical_state_root),
-            "observed_sequence": simulation.evidence.observed_sequence.to_string(),
-            "observed_at": simulation.evidence.observed_at.to_string(),
-            "committed": false,
-            "public_key": hex_encode(&simulation.evidence.public_key),
-            "signature": hex_encode(&simulation.evidence.signature),
-        }
-    })))
-}
-
-struct ProgramReadFreshness {
-    minimum_sequence: u64,
-    expected_state_root: Option<[u8; 32]>,
-}
-
-fn program_read_freshness(request: &Request) -> Result<ProgramReadFreshness, Response> {
-    let minimum_sequence =
-        request
-            .headers
-            .get("layerx-minimum-sequence")
-            .map_or(Ok(0), |value| {
-                if value.is_empty()
-                    || (value.len() > 1 && value.starts_with('0'))
-                    || !value.bytes().all(|byte| byte.is_ascii_digit())
-                {
-                    return Err(refusal(400, "invalid_minimum_sequence", None));
-                }
-                value
-                    .parse::<u64>()
-                    .map_err(|_| refusal(400, "invalid_minimum_sequence", None))
-            })?;
-    let expected_state_root = request
-        .headers
-        .get("layerx-expected-state-root")
-        .map(|value| {
-            if value.bytes().any(|byte| byte.is_ascii_uppercase()) {
-                return Err(refusal(400, "invalid_expected_state_root", None));
-            }
-            fixed_hex::<32>("expected state root", value)
-                .ok()
-                .filter(|root| *root != [0; 32])
-                .ok_or_else(|| refusal(400, "invalid_expected_state_root", None))
-        })
-        .transpose()?;
-    Ok(ProgramReadFreshness {
-        minimum_sequence,
-        expected_state_root,
-    })
-}
-
-fn program_read_response(
-    result: &ProgramReadResult,
-    program_id: [u8; 32],
-    result_code: i32,
-) -> Response {
-    success(&serde_json::json!({
-        "committed": false,
-        "read_only": true,
-        "execution": {
-            "state": if result_code == 0 { "read" } else { "refused" },
-            "activity_id": hex_encode(&result.execution.activity_id),
-            "program_id": hex_encode(&program_id),
-            "result_code": result_code,
-            "receipt": hex_encode(&result.execution.receipt),
-            "receipt_kind": "hypothetical",
-            "terminal_payload": hex_encode(&result.execution.terminal_payload),
-            "call_graph": hex_encode(&result.execution.call_graph),
-        },
-        "simulation_evidence": {
-            "boundary_id": hex_encode(&result.evidence.boundary_id),
-            "activity_id": hex_encode(&result.evidence.activity_id),
-            "previous_state_root": hex_encode(&result.evidence.previous_state_root),
-            "hypothetical_state_root": hex_encode(&result.evidence.hypothetical_state_root),
-            "observed_sequence": result.evidence.observed_sequence.to_string(),
-            "observed_at": result.evidence.observed_at.to_string(),
-            "committed": false,
-            "public_key": hex_encode(&result.evidence.public_key),
-            "signature": hex_encode(&result.evidence.signature),
-        },
-        "snapshot": {
-            "minimum_sequence": result.snapshot.minimum_sequence.to_string(),
-            "observed_sequence": result.snapshot.observed_sequence.to_string(),
-            "state_root": hex_encode(&result.snapshot.state_root),
-            "verification": "sequencer_signed_snapshot",
-        }
-    }))
-}
-
-fn program_read_activity(
-    config: &Config,
-    canonical: &[u8],
-    freshness: ProgramReadFreshness,
-) -> Result<Response, Response> {
-    let registry =
-        submission_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let activity = layerx_wire::activity::decode_signed(canonical, &registry)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    if activity.activity_type().module() != ModuleId::Programs
-        || activity.activity_type().ordinal() != 3
-    {
-        return Err(refusal(400, "not_program_call", None));
-    }
-    let call = NativeProgramCall::decode(activity.payload())
-        .map_err(|_| refusal(400, "invalid_program_call", None))?;
-    let expected_activity_id = layerx_wire::hash::activity_id(&activity)
-        .map_err(|_| refusal(400, "invalid_activity", None))?;
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let sequencer_key = client.handshake().node().authorised_sequencer_key;
-    let result = client
-        .read_program(
-            &registry,
-            canonical,
-            1,
-            freshness.minimum_sequence,
-            freshness.expected_state_root,
-        )
-        .map_err(|error| match error {
-            ProgramReadError::SnapshotStale => refusal(409, "snapshot_stale", Some(1)),
-            ProgramReadError::SnapshotMismatch => refusal(409, "snapshot_mismatch", None),
-            ProgramReadError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: program read refused class {class} result {}",
-                    result.raw()
-                );
-                if class == 3 {
-                    refusal(503, "capability_unavailable", Some(30))
-                } else {
-                    refusal(422, "program_read_refused", None)
-                }
-            }
-            ProgramReadError::UnavailableCapability | ProgramReadError::InterfaceVersion(_) => {
-                refusal(503, "capability_unavailable", Some(30))
-            }
-            ProgramReadError::CanonicalActivity | ProgramReadError::MalformedRequest => {
-                refusal(400, "invalid_activity", None)
-            }
-            ProgramReadError::Disconnected | ProgramReadError::Transport(_) => {
-                refusal(503, "node_unavailable", Some(5))
-            }
-            other => {
-                eprintln!("layerx-core-boundary: program read unverifiable: {other:?}");
-                refusal(503, "node_unavailable", Some(5))
-            }
-        })?;
-    drop(client);
-    if result.execution.activity_id != expected_activity_id {
-        return Err(refusal(503, "node_unavailable", Some(5)));
-    }
-    let receipt =
-        layerx_proof::receipt::verify_sequencer_signature(&result.execution.receipt, sequencer_key)
-            .map_err(|_| refusal(503, "node_unavailable", Some(5)))?;
-    let protocol = receipt
-        .protocol()
-        .ok_or_else(|| refusal(503, "node_unavailable", Some(5)))?;
-    Ok(program_read_response(
-        &result,
-        call.callee().bytes(),
-        protocol.result_code(),
-    ))
-}
-
-fn program_read_route(config: &Config, request: &Request) -> Response {
-    let freshness = match program_read_freshness(request) {
-        Ok(freshness) => freshness,
-        Err(response) => return response,
-    };
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
-    if canonical.is_empty() || canonical.len() > LNI_FRAME_BYTES {
-        return refusal(400, "invalid_argument", None);
-    }
-    match program_read_activity(config, &canonical, freshness) {
-        Ok(response) | Err(response) => response,
-    }
-}
-
-fn simulate_route(config: &Config, request: &Request) -> Response {
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
-    if canonical.is_empty() || canonical.len() > LNI_FRAME_BYTES {
-        return refusal(400, "invalid_argument", None);
-    }
-    match simulate_activity(config, &canonical) {
-        Ok(response) | Err(response) => response,
-    }
-}
-
-fn activities_route(config: &Config, request: &Request) -> Response {
-    let total_started = Instant::now();
-    let decode_started = Instant::now();
-    let ordinal = program_lifecycle::ordinal(&request.path)
-        .or_else(|| (request.path == "/v1/programs/call").then_some(3));
-    if program_lifecycle::ordinal(&request.path).is_some()
-        && request.headers.get("content-type").map(String::as_str)
-            != Some("application/octet-stream")
-    {
-        return refusal(415, "activity_content_type_required", None);
-    }
-    let canonical = match request.headers.get("content-type").map(String::as_str) {
-        Some("application/octet-stream") => request.body.clone(),
-        Some("application/json") => {
-            let Ok(body) = serde_json::from_slice::<ActivityBody>(&request.body) else {
-                return refusal(400, "invalid_argument", None);
-            };
-            match hex_decode(&body.activity) {
-                Ok(bytes) => bytes,
-                Err(_) => return refusal(400, "invalid_argument", None),
-            }
-        }
-        _ => return refusal(400, "content_type_required", None),
-    };
-    if canonical.is_empty() || canonical.len() > 1_048_576 {
-        return refusal(400, "invalid_argument", None);
-    }
-    if ordinal.is_some() {
-        let Some(key) = request.headers.get("idempotency-key") else {
-            return refusal(400, "idempotency_key_required", None);
-        };
-        let Ok(registry) = submission_registry() else {
-            return refusal(503, "registry_unavailable", Some(5));
-        };
-        let Ok(activity) = layerx_wire::activity::decode_signed(&canonical, &registry) else {
-            return refusal(400, "invalid_activity", None);
-        };
-        if key != &hex_encode(&activity.idempotency_key()) {
-            return refusal(409, "protocol_idempotency_mismatch", None);
-        }
-    }
-    pay_timing("core.activity.decode", decode_started);
-    let submit_started = Instant::now();
-    let response = match submit_activity(config, &canonical, ordinal) {
-        Ok(response) | Err(response) => response,
-    };
-    pay_timing("core.activity.submit", submit_started);
-    pay_timing("core.activity.total", total_started);
-    response
+    Ok(program_id)
 }
 
 fn receipt_route(config: &Config, activity_hex: &str) -> Response {
@@ -1302,223 +805,96 @@ fn receipt_route(config: &Config, activity_hex: &str) -> Response {
         return refusal(400, "invalid_argument", None);
     }
     match await_receipt(config, activity_id, Duration::ZERO) {
-        Ok(Some(facts)) => success(&serde_json::json!({
+        Ok(ReceiptRead::Verified(facts)) => success(&serde_json::json!({
             "activity_id": activity_hex,
             "receipt": hex_encode(&facts.canonical),
+            "block_hash": hex_encode(&facts.batch_id),
+            "state_root": hex_encode(&facts.state_root),
         })),
-        Ok(None) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Absent) => refusal(404, "not_found", None),
+        Ok(ReceiptRead::Submitted { tx_hash, nonce }) => json_response(
+            202,
+            &serde_json::json!({"result": {
+                "state": "pending", "rung": "submitted",
+                "activity_id": hex_encode(&tx_hash), "nonce": nonce.to_string()
+            }}),
+        ),
         Err(error) => {
             eprintln!("layerx-core-boundary: {error}");
-            refusal(503, "node_unavailable", Some(5))
+            refusal(503, "receipt_unavailable", Some(5))
         }
     }
-}
-
-fn program_idempotency_receipt(config: &Config, key: &str) -> Response {
-    #[derive(Deserialize)]
-    #[serde(deny_unknown_fields)]
-    struct Document {
-        activity_id: String,
-        receipt: String,
-    }
-    if key.len() != 64
-        || key
-            .bytes()
-            .any(|byte| !byte.is_ascii_digit() && !(b'a'..=b'f').contains(&byte))
-    {
-        return refusal(400, "invalid_idempotency_key", None);
-    }
-    let target = format!("/v1/programs/receipts/by-idempotency/{key}");
-    let body = match node_get(&config.node, &config.node_token, &target) {
-        Ok((200, body)) => body,
-        Ok((404, _)) => return refusal(404, "receipt_not_found", None),
-        _ => return refusal(503, "receipt_unavailable", Some(5)),
-    };
-    let document: Document = match serde_json::from_slice(&body) {
-        Ok(value) => value,
-        Err(_) => return refusal(502, "receipt_invalid", None),
-    };
-    let bytes = match hex_decode(&document.receipt) {
-        Ok(value)
-            if !value.is_empty()
-                && value.len() <= 1_048_576
-                && hex_encode(&value) == document.receipt =>
-        {
-            value
-        }
-        _ => return refusal(502, "receipt_invalid", None),
-    };
-    let Ok((_, handshake)) = connect_raw(config) else {
-        return refusal(503, "node_unavailable", Some(5));
-    };
-    let Ok(receipt) = layerx_proof::receipt::verify_sequencer_signature(
-        &bytes,
-        handshake.node().authorised_sequencer_key,
-    ) else {
-        return refusal(502, "receipt_invalid", None);
-    };
-    let Some(protocol) = receipt.protocol() else {
-        return refusal(502, "receipt_invalid", None);
-    };
-    if protocol.protocol_version() != 3
-        || protocol.module_id() != 9
-        || protocol.module_version() != 4
-        || document.activity_id != hex_encode(&protocol.activity_id())
-    {
-        return refusal(502, "receipt_invalid", None);
-    }
-    success(&serde_json::json!({"activity_id": document.activity_id, "receipt": document.receipt}))
 }
 
 fn readiness(config: &Config) -> Response {
-    match connect_client(config) {
-        Ok(client) => {
-            let zero = "0".repeat(64);
-            let target = format!("/v1/batches/{zero}/receipt-authority?receipt_digest={zero}");
-            if !matches!(
-                node_get(&config.replica, &config.replica_token, &target),
-                Ok((200 | 404, _))
-            ) {
-                return refusal(503, "replica_unavailable", Some(5));
-            }
-            let Ok(_guard) = config.journal_lock.lock() else {
-                return refusal(503, "journal_unavailable", Some(5));
-            };
-            if journal_probe(&config.state_dir.join("journal/ready")).is_err() {
-                return refusal(503, "journal_unavailable", Some(5));
-            }
-            let node = client.handshake().node();
-            json_response(
-                200,
-                &serde_json::json!({
-                    "ready": true,
-                    "network_id": node.network_id.to_string(),
-                    "wire_version": WIRE_VERSION,
-                    "synchronous_receipts": true,
-                    "state_snapshot": true,
-                }),
-            )
+    let mut response = (|| {
+        let (Ok(chain_id), Ok(height)) =
+            (config.sequencer.chain_id(), config.sequencer.block_number())
+        else {
+            return refusal(503, "node_unavailable", Some(5));
+        };
+        let Ok((block, app_hash)) =
+            layerx_platform_core::native_committed_state(&config.sequencer, height)
+        else {
+            return refusal(503, "committed_chain_unavailable", Some(5));
+        };
+        let Ok(_guard) = config.journal_lock.lock() else {
+            return refusal(503, "journal_unavailable", Some(5));
+        };
+        if journal_probe(&config.state_dir.join("journal/ready")).is_err() {
+            return refusal(503, "journal_unavailable", Some(5));
         }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: readiness: {error}");
-            refusal(503, "node_unavailable", Some(5))
-        }
+        json_response(
+            200,
+            &serde_json::json!({
+                "ready": true, "network_id": format!("eip155:{chain_id}"),
+                "paxeer": {"chain_id": chain_id, "latest_block": block.number},
+                "latest_committed_height": block.number, "block_hash": hex_encode(&block.hash),
+                "app_hash": hex_encode(&app_hash), "wire_version": WIRE_VERSION,
+                "synchronous_receipts": true, "state_snapshot": true,
+            }),
+        )
+    })();
+    let funding = config
+        .funding
+        .get()
+        .and_then(chain_fund::ChainFunding::readiness)
+        .unwrap_or_else(|reason| serde_json::json!({"ready": false, "reason": reason}));
+    let mut document: serde_json::Value =
+        serde_json::from_str(&response.body).expect("readiness response is JSON");
+    document["funding"] = funding;
+    response.body = document.to_string();
+    response
+}
+
+fn native_state_route(config: &Config) -> Response {
+    let Ok(height) = config.sequencer.block_number() else {
+        return refusal(503, "node_unavailable", Some(5));
+    };
+    match layerx_platform_core::native_committed_state(&config.sequencer, height) {
+        Ok((block, root)) => success(&serde_json::json!({
+            "height": block.number.to_string(), "block_hash": hex_encode(&block.hash),
+            "state_root": hex_encode(&root), "commitment": "native_app_hash"
+        })),
+        Err(_) => refusal(503, "committed_chain_unavailable", Some(5)),
     }
 }
 
 fn sequencer_route(config: &Config) -> Response {
-    match connect_client(config) {
-        Ok(client) => {
-            let node = client.handshake().node();
-            success(&serde_json::json!({
-                "network_id": node.network_id,
-                "sequencer_public_key": hex_encode(&node.authorised_sequencer_key),
-                "chain_head_sequence": node.chain_head_sequence,
-                "latest_sealed_batch": node.latest_sealed_batch,
-            }))
-        }
+    match config.network.network() {
+        Ok(head) => success(&serde_json::json!({
+            "network_id": head.network_id,
+            "paxeer": {
+                "chain_id": head.paxeer.chain_id,
+                "latest_block": head.paxeer.latest_block,
+            },
+            "layerx": head.layerx,
+            "latest_committed_height": head.latest_committed_height,
+        })),
         Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
+            eprintln!("layerx-core-boundary: {error:?}");
             refusal(503, "node_unavailable", Some(5))
         }
-    }
-}
-
-fn read_relay_response(stream: &mut TcpStream) -> Result<(u16, Vec<u8>), String> {
-    let mut bytes = Vec::with_capacity(4096);
-    let mut chunk = [0_u8; 4096];
-    loop {
-        let count = stream.read(&mut chunk).map_err(|error| error.to_string())?;
-        if count == 0 {
-            break;
-        }
-        if bytes.len().saturating_add(count) > MAX_RELAY_BYTES {
-            return Err("node response exceeds its bound".to_owned());
-        }
-        bytes.extend_from_slice(&chunk[..count]);
-    }
-    let header_end = bytes
-        .windows(4)
-        .position(|window| window == b"\r\n\r\n")
-        .ok_or_else(|| "node response has no header terminator".to_owned())?;
-    let head = std::str::from_utf8(&bytes[..header_end])
-        .map_err(|_| "node response headers are not UTF-8".to_owned())?;
-    let status = head
-        .split_whitespace()
-        .nth(1)
-        .and_then(|value| value.parse::<u16>().ok())
-        .ok_or_else(|| "node response status is invalid".to_owned())?;
-    let mut body = bytes[header_end + 4..].to_vec();
-    for line in head.split("\r\n").skip(1) {
-        if let Some((name, value)) = line.split_once(':') {
-            if name.trim().eq_ignore_ascii_case("content-length") {
-                let length = value
-                    .trim()
-                    .parse::<usize>()
-                    .map_err(|_| "node content length is invalid".to_owned())?;
-                if length > body.len() {
-                    return Err("node response body is truncated".to_owned());
-                }
-                body.truncate(length);
-            }
-        }
-    }
-    Ok((status, body))
-}
-
-fn node_get(node: &NodeEndpoint, token: &str, target: &str) -> Result<(u16, Vec<u8>), String> {
-    TcpStream::connect((node.host.as_str(), node.port))
-        .and_then(|mut stream| {
-            stream.set_read_timeout(Some(IO_TIMEOUT))?;
-            stream.set_write_timeout(Some(IO_TIMEOUT))?;
-            write!(stream, "GET {target} HTTP/1.1\r\nHost: {}:{}\r\nAuthorization: Bearer {token}\r\nAccept: application/json\r\nConnection: close\r\n\r\n", node.host, node.port)?;
-            Ok(stream)
-        })
-        .map_err(|error| error.to_string())
-        .and_then(|mut stream| read_relay_response(&mut stream))
-}
-
-fn relay_route(config: &Config, request: &Request) -> Response {
-    let target = request.query.as_ref().map_or_else(
-        || request.path.clone(),
-        |query| format!("{}?{query}", request.path),
-    );
-    let relayed = node_get(&config.node, &config.node_token, &target);
-    match relayed {
-        Ok((status @ (200 | 404 | 503), body)) => {
-            let Ok(body) = String::from_utf8(body) else {
-                return refusal(503, "node_unavailable", Some(5));
-            };
-            if serde_json::from_str::<serde_json::Value>(&body).is_err() {
-                return refusal(503, "node_unavailable", Some(5));
-            }
-            Response {
-                status,
-                body,
-                retry_after: None,
-                authoritative_replay: false,
-            }
-        }
-        Ok((status, _)) => {
-            eprintln!("layerx-core-boundary: node answered {status} for {target}");
-            refusal(503, "node_unavailable", Some(5))
-        }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: relay {target}: {error}");
-            refusal(503, "node_unavailable", Some(5))
-        }
-    }
-}
-
-fn wrapped_relay_route(config: &Config, request: &Request) -> Response {
-    let response = relay_route(config, request);
-    if response.status == 200 {
-        serde_json::from_str(&response.body).map_or_else(
-            |_| refusal(503, "node_unavailable", Some(5)),
-            |value| success(&value),
-        )
-    } else {
-        response
     }
 }
 
@@ -1526,7 +902,7 @@ fn is_hex64(value: &str) -> bool {
     value.len() == 64 && value.bytes().all(|byte| byte.is_ascii_hexdigit())
 }
 
-fn relay_target(path: &str) -> bool {
+fn retired_contract(path: &str) -> bool {
     let segments: Vec<&str> = path.trim_start_matches('/').split('/').collect();
     match segments.as_slice() {
         ["v1", "protocol", "account-state", "head"]
@@ -1581,7 +957,9 @@ fn gateway_readiness(config: &Config, request: &Request) -> Response {
     let Some(token) = &config.receipt_events_token else {
         return refusal(503, "gateway_readiness_not_configured", None);
     };
-    let supplied = request.headers.get("authorization")
+    let supplied = request
+        .headers
+        .get("authorization")
         .and_then(|value| value.strip_prefix("Bearer "))
         .unwrap_or("");
     if !bool::from(supplied.as_bytes().ct_eq(token.as_bytes())) {
@@ -1612,7 +990,8 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         } else if request.query.is_some() {
             refusal(400, "invalid_request", None)
         } else {
-            program_idempotency_receipt(config, key)
+            let _ = key;
+            refusal(410, "retired_http_contract", None)
         };
     }
     if unavailable_capability(path) {
@@ -1626,12 +1005,16 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         } else if request.query.is_some() {
             refusal(400, "invalid_request", None)
         } else {
-            wrapped_relay_route(config, request)
+            refusal(410, "retired_http_contract", None)
         };
     }
-    if relay_target(path) {
+    if retired_contract(path) {
         return if method == "GET" {
-            relay_route(config, request)
+            if path == "/v1/protocol/account-state/head" {
+                native_state_route(config)
+            } else {
+                refusal(410, "retired_http_contract", None)
+            }
         } else {
             refusal(405, "method_not_allowed", None)
         };
@@ -1643,76 +1026,13 @@ fn protocol_route(config: &Config, request: &Request) -> Response {
         ("GET", "/livez") => json_response(200, &serde_json::json!({ "live": true })),
         ("GET", "/readyz") => readiness(config),
         ("GET", "/v1/sequencer") => sequencer_route(config),
-        (
-            "POST",
-            "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down",
-        ) => {
-            if let Some(ordinal) = program_lifecycle::ordinal(path) {
-                if request.headers.get("content-type").map(String::as_str)
-                    != Some("application/octet-stream")
-                {
-                    return refusal(415, "activity_content_type_required", None);
-                }
-                let Some(key) = request.headers.get("idempotency-key") else {
-                    return refusal(400, "idempotency_key_required", None);
-                };
-                let Ok(registry) = submission_registry() else {
-                    return refusal(503, "registry_unavailable", Some(5));
-                };
-                let Ok(activity) = layerx_wire::activity::decode_signed(&request.body, &registry)
-                else {
-                    return refusal(400, "invalid_activity", None);
-                };
-                if activity.activity_type().module() != ModuleId::Programs
-                    || activity.activity_type().ordinal() != ordinal
-                    || activity.protocol_version() != 3
-                {
-                    return refusal(400, "program_route_mismatch", None);
-                }
-                if program_lifecycle::validate(&request.body, &registry, ordinal).is_err() {
-                    return refusal(400, "invalid_program_lifecycle", None);
-                }
-                if key != &hex_encode(&activity.idempotency_key()) {
-                    return refusal(409, "protocol_idempotency_mismatch", None);
-                }
-            }
-            stateful(config, "activities", request, || {
-                activities_route(config, request)
-            })
-        }
-        ("POST", "/v1/programs/read") => program_read_route(config, request),
-        ("POST", "/v1/programs/simulate") => simulate_route(config, request),
-        ("GET", "/v1/state") => wrapped_relay_route(
-            config,
-            &Request {
-                method: "GET".to_owned(),
-                path: "/v1/protocol/account-state/head".to_owned(),
-                query: None,
-                headers: BTreeMap::new(),
-                body: Vec::new(),
-            },
-        ),
+        ("GET", "/v1/state") => native_state_route(config),
         ("GET", other) if other.starts_with("/v1/receipts/") => {
             receipt_route(config, &other["/v1/receipts/".len()..])
         }
-        (
-            _,
-            "/livez"
-            | "/readyz"
-            | "/v1/sequencer"
-            | "/v1/activities"
-            | "/v1/programs/call"
-            | "/v1/programs/deploy"
-            | "/v1/programs/upgrade"
-            | "/v1/programs/wind-down"
-            | "/v1/programs/read"
-            | "/v1/programs/simulate"
-            | "/v1/state",
-        ) => refusal(405, "method_not_allowed", None),
+        (_, "/livez" | "/readyz" | "/v1/sequencer" | "/v1/state") => {
+            refusal(405, "method_not_allowed", None)
+        }
         _ => refusal(404, "not_found", None),
     }
 }
@@ -1874,12 +1194,11 @@ fn stateful(
     }
     match prior {
         Ok(Some(entry)) if entry.request_digest == digest => {
-            if (entry.status == 202 && program_lifecycle::ordinal(&request.path).is_some())
-                || (matches!(scope, "fund" | "reset")
-                    && (entry.status == 202
-                        || entry.status == 409
-                        || entry.status >= 500
-                        || entry.retry_after.is_some()))
+            if matches!(scope, "fund" | "reset")
+                && (entry.status == 202
+                    || entry.status == 409
+                    || entry.status >= 500
+                    || entry.retry_after.is_some())
             {
                 if journal_write(&path, &entry).is_err() {
                     return refusal(503, "journal_unavailable", Some(5));
@@ -2020,42 +1339,6 @@ fn send_refusal(error: SendError) -> Response {
     }
 }
 
-fn treasury_sequence(config: &Config, client: &mut Client, amount: u128) -> Result<u64, Response> {
-    let treasury = main_account(&config.treasury_did)
-        .map_err(|_| refusal(503, "treasury_unavailable", Some(60)))?;
-    let authorization = SequencerAuthorization::new(
-        config.sequencer_id,
-        client.handshake().node().authorised_sequencer_key,
-        1,
-        u64::MAX,
-    );
-    let value = client
-        .account(treasury, VerificationLevel::STATE_PROVEN, 2, authorization)
-        .map_err(|error| match error {
-            ReadError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: treasury read refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "treasury_account_unavailable", Some(60))
-            }
-            ReadError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            other => {
-                eprintln!("layerx-core-boundary: treasury read failed: {other:?}");
-                refusal(422, "treasury_account_unavailable", Some(60))
-            }
-        })?;
-    let account = decode_account_value(treasury, value.canonical_bytes())
-        .map_err(|_| refusal(422, "treasury_account_unavailable", Some(60)))?;
-    let holds_amount = account
-        .asset
-        .is_some_and(|held| held.asset_id == config.treasury_asset && held.balance >= amount);
-    if !holds_amount {
-        return Err(refusal(422, "insufficient_treasury_balance", Some(60)));
-    }
-    Ok(account.next_sequence)
-}
-
 fn fund(config: &Config, request: &Request, key: &str) -> Response {
     let Ok(command) = serde_json::from_slice::<FundingCommand>(&request.body) else {
         return refusal(400, "invalid_argument", None);
@@ -2078,75 +1361,11 @@ fn fund(config: &Config, request: &Request, key: &str) -> Response {
 
 fn prepare_funding(
     config: &Config,
-    client: &mut Client,
+    request: &Request,
     command: &FundingCommand,
     key: &str,
-) -> Result<PreparedFunding, Response> {
-    let stage_path = journal_path(config, "fund-canonical", key);
-    let command_bytes =
-        serde_json::to_vec(command).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    let command_digest = hex_encode(&Sha256::digest(&command_bytes));
-    let staged =
-        journal_read(&stage_path).map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    let signed = if let Some(entry) = staged {
-        if entry.request_digest != command_digest {
-            return Err(refusal(409, "idempotency_conflict", None));
-        }
-        serde_json::from_str::<PreparedFunding>(&entry.body)
-            .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?
-    } else {
-        let amount = u128::from(command.amount);
-        let actor = layerx_types::ids::Did::new(config.treasury_did.as_bytes())
-            .map_err(|_| refusal(503, "treasury_unavailable", Some(60)))?;
-        let identity_sequence = client
-            .preparation_state(&actor, 3)
-            .map_err(|error| {
-                eprintln!("layerx-core-boundary: treasury preparation failed: {error:?}");
-                refusal(503, "treasury_identity_unavailable", Some(5))
-            })?
-            .account_sequence;
-        client.reconnect().map_err(|error| {
-            eprintln!("layerx-core-boundary: treasury authority refresh failed: {error:?}");
-            refusal(503, "treasury_identity_unavailable", Some(5))
-        })?;
-        let sequence = treasury_sequence(config, client, amount)?;
-        let now = now_ms();
-        let signed = build_send_with_signer(
-            &config.treasury,
-            identity_sequence,
-            &SendRequest {
-                network_id: config.network_id,
-                source_did: config.treasury_did.clone(),
-                destination_did: command.did.clone(),
-                asset: config.treasury_asset,
-                amount,
-                account_sequence: sequence,
-                idempotency_key: send_idempotency(key),
-                not_before_ms: now.saturating_sub(60_000),
-                expires_at_ms: now.saturating_add(240_000),
-                fee_limit: config.fee_limit,
-            },
-        )
-        .map_err(send_refusal)?;
-        let staged = PreparedFunding {
-            canonical: signed.canonical,
-            activity_id: signed.activity_id,
-            signer_public_key: signed.signer_public_key,
-        };
-        journal_write(
-            &stage_path,
-            &JournalEntry {
-                request_digest: command_digest,
-                status: 202,
-                body: serde_json::to_string(&staged)
-                    .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?,
-                retry_after: Some(5),
-            },
-        )
-        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-        staged
-    };
-    Ok(signed)
+) -> Result<chain_fund::NativeTransfer, Response> {
+    funding_native::prepare(config, request, command, key)
 }
 
 fn fund_send(
@@ -2155,82 +1374,56 @@ fn fund_send(
     command: &FundingCommand,
     key: &str,
 ) -> Result<Response, Response> {
-    let mut client = connect_client(config).map_err(|error| {
-        eprintln!("layerx-core-boundary: {error}");
-        refusal(503, "node_unavailable", Some(5))
-    })?;
-    let signed = prepare_funding(config, &mut client, command, key)?;
-    let intent = FundingIntent {
-        version: 1,
-        key: key.to_owned(),
-        request_digest: request_digest(request),
-        request_body: request.body.clone(),
-        command: command.clone(),
-        network_id: config.network_id,
-        asset: config.treasury_asset,
-        sequencer_id: config.sequencer_id,
-        sequencer_key: client.handshake().node().authorised_sequencer_key,
-        signed: signed.clone(),
-    };
-    persist_funding_intent(config, &intent)
-        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
-    match await_receipt(config, signed.activity_id, Duration::ZERO) {
-        Ok(Some(facts)) => return intent_funding_response(config, &intent, &facts, false),
-        Ok(None) => {}
-        Err(error) => {
-            eprintln!("layerx-core-boundary: retained funding receipt: {error}");
-            return Err(refusal(503, "receipt_unavailable", Some(5)));
-        }
-    }
-    let (registry, _) =
-        asset_registry().map_err(|_| refusal(503, "registry_unavailable", Some(5)))?;
-    let submission = client
-        .submit_signed(&registry, signed.signer_public_key, 3, 1, &signed.canonical)
-        .map_err(|error| match error {
-            SubmitError::CoreRefusal { class, result } => {
-                eprintln!(
-                    "layerx-core-boundary: funding submission refused class {class} result {}",
-                    result.raw()
-                );
-                refusal(422, "submission_refused", None)
+    if let Some(bytes) = funding_read(&funding_record_path(config, "funding-intents", key))
+        .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?
+    {
+        if !funding_native::is_native(&bytes) {
+            // Version one is an authenticated native ledger SEND, not a
+            // value transfer. Replay it through its original chain interface.
+            let intent: FundingIntent = serde_json::from_slice(&bytes)
+                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+            validate_funding_intent(config, &intent)
+                .map_err(|_| refusal(503, "journal_unavailable", Some(5)))?;
+            if intent.request_digest != request_digest(request) {
+                return Err(refusal(409, "idempotency_conflict", None));
             }
-            SubmitError::UnavailableCapability => refusal(503, "capability_unavailable", Some(30)),
-            SubmitError::Disconnected => refusal(503, "node_unavailable", Some(5)),
-            other => {
-                eprintln!("layerx-core-boundary: funding submission failed: {other:?}");
-                refusal(422, "send_unbuildable", None)
-            }
-        })?;
-    drop(client);
-    let activity_id = match submission {
-        Submission::Acknowledged(acknowledgement) => acknowledgement.activity_id(),
-        Submission::Unknown(unknown) => unknown.activity_id(),
-    };
-    if activity_id != signed.activity_id {
-        return Err(refusal(422, "send_unbuildable", None));
-    }
-    let transaction_id = hex_encode(&activity_id);
-    match await_receipt(config, activity_id, config.receipt_deadline) {
-        Ok(Some(facts)) => intent_funding_response(config, &intent, &facts, true),
-        Ok(None) => {
-            let mut response = json_response(
-                202,
-                &serde_json::json!({
-                    "funding_id": command.funding_id,
-                    "state": "pending",
-                    "transaction_id": transaction_id,
-                }),
-            );
-            response.authoritative_replay = true;
-            Ok(response)
-        }
-        Err(error) => {
-            eprintln!("layerx-core-boundary: {error}");
-            let mut response = refusal(503, "receipt_unavailable", Some(5));
-            response.authoritative_replay = true;
-            Err(response)
+            config
+                .sequencer
+                .send_raw_transaction(&intent.signed.canonical)
+                .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
+            let facts = await_receipt(
+                config,
+                intent.signed.transaction_hash,
+                config.receipt_deadline,
+            )
+            .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
+            .into_verified()
+            .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+            return intent_funding_response(config, &intent, &facts, true);
         }
     }
+    let transfer = prepare_funding(config, request, command, key)?;
+    let funding = config
+        .funding
+        .get()
+        .map_err(|_| refusal(503, "treasury_unavailable", Some(5)))?;
+    if transfer.sender != funding.sender_address() || transfer.chain_id != funding.chain_id {
+        return Err(refusal(409, "funding_sender_conflict", None));
+    }
+    funding.submit(&transfer.signed)?;
+    let receipt = funding.confirmation(&transfer)?;
+    if let Some(receipt) = receipt {
+        funding_native::archive(config, key, receipt)?;
+        return funding_native::archived_response(config, request, key)?
+            .ok_or_else(|| refusal(503, "journal_unavailable", Some(5)));
+    }
+    Ok(json_response(
+        202,
+        &serde_json::json!({
+            "funding_id": command.funding_id, "state": "pending",
+            "transaction_id": transfer.signed.transaction_hash,
+        }),
+    ))
 }
 
 fn funding_record_path(config: &Config, directory: &str, key: &str) -> PathBuf {
@@ -2267,7 +1460,10 @@ fn funding_read(path: &Path) -> Result<Option<Vec<u8>>, String> {
         || metadata.mode() & 0o400 == 0
         || metadata.len() > MAX_FUNDING_RECORD_BYTES
         || metadata.nlink() != 1
-        || metadata.uid() != fs::symlink_metadata(parent).map_err(|error| error.to_string())?.uid()
+        || metadata.uid()
+            != fs::symlink_metadata(parent)
+                .map_err(|error| error.to_string())?
+                .uid()
     {
         return Err("funding record is invalid or exceeds its bound".to_owned());
     }
@@ -2341,12 +1537,19 @@ fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<()
         || intent.network_id != config.network_id
         || intent.asset != config.treasury_asset
         || intent.sequencer_id != config.sequencer_id
-        || intent.signed.signer_public_key != config.treasury.public_key()
     {
         return Err("funding intent identity differs".to_owned());
     }
     let command: FundingCommand =
         serde_json::from_slice(&intent.request_body).map_err(|error| error.to_string())?;
+    if !valid_key(&command.funding_id)
+        || command.amount == 0
+        || !is_hex64(&command.public_key)
+        || command.did != format!("did:layerx:{}", command.public_key.to_ascii_lowercase())
+        || command.did == config.treasury_did
+    {
+        return Err("funding command differs".to_owned());
+    }
     if serde_json::to_vec(&command).map_err(|error| error.to_string())?
         != serde_json::to_vec(&intent.command).map_err(|error| error.to_string())?
         || intent.request_digest
@@ -2360,35 +1563,91 @@ fn validate_funding_intent(config: &Config, intent: &FundingIntent) -> Result<()
     {
         return Err("funding request binding differs".to_owned());
     }
-    let (registry, kind) = asset_registry()?;
-    let activity = layerx_wire::activity::decode_signed(&intent.signed.canonical, &registry)
-        .map_err(|error| format!("{error:?}"))?;
-    if activity.protocol_version() != 3
-        || activity.network_id() != config.network_id
-        || activity.activity_type() != kind
-        || activity.actor_did() != config.treasury_did.as_bytes()
-        || signer_key(activity.authority()) != Some(intent.signed.signer_public_key)
-        || activity.idempotency_key() != send_idempotency(&intent.key)
-        || layerx_wire::hash::activity_id(&activity).map_err(|error| format!("{error:?}"))?
-            != intent.signed.activity_id
-        || layerx_wire::activity::encode_signed(&activity).map_err(|error| format!("{error:?}"))?
-            != intent.signed.canonical
+    use layerx_crypto::evm_transaction::{decode_signed, recover_sender, transaction_hash};
+    use layerx_crypto::payments::{bind_call, ledger_payment_call, CallOptions, SendDebit};
+    let (call, signature) =
+        decode_signed(&intent.signed.canonical).map_err(|error| error.to_string())?;
+    let sender = recover_sender(&call, &signature).map_err(|error| error.to_string())?;
+    let treasury = config
+        .treasury
+        .transaction_signer()
+        .evm_address()
+        .ok_or("treasury address unavailable")?;
+    let mut ledger = [0; 20];
+    ledger[18..].copy_from_slice(&0x101a_u16.to_be_bytes());
+    if call.chain_id != 125
+        || call.to != ledger
+        || sender != treasury
+        || sender != intent.signed.sender
+        || transaction_hash(&intent.signed.canonical) != intent.signed.transaction_hash
     {
         return Err("canonical funding identity differs".to_owned());
     }
-    let unsigned =
-        layerx_wire::activity::encode_unsigned(&activity).map_err(|error| format!("{error:?}"))?;
-    let digest =
-        layerx_platform_core::domain_hash(layerx_wire::hash::Domain::SignaturePreimage, &unsigned);
-    let signature: [u8; 64] = activity
-        .signature()
-        .ok_or("missing funding signature")?
+    let disclosure = bind_call(&call, sender).map_err(|error| format!("{error:?}"))?;
+    let Some(layerx_crypto::disclosure::call::ConstructMethod::LedgerSend { payload }) = disclosure
+        .construct_method()
+        .map_err(|error| format!("{error:?}"))?
+    else {
+        return Err("canonical funding is not a ledger send".to_owned());
+    };
+    if payload.len() != 364 {
+        return Err("canonical funding debit differs".to_owned());
+    }
+    let source = main_account(&config.treasury_did)?;
+    let destination = main_account(&intent.command.did)?;
+    let idempotency_key = send_idempotency(&intent.key);
+    let debit = SendDebit {
+        from: source,
+        to: destination,
+        asset: intent.asset,
+        amount: u128::from(intent.command.amount),
+        source_sequence: u64::from_be_bytes(
+            payload[116..124]
+                .try_into()
+                .map_err(|_| "invalid debit sequence")?,
+        ),
+        idempotency_key,
+        expires_at: u64::from_be_bytes(
+            payload[156..164]
+                .try_into()
+                .map_err(|_| "invalid debit expiry")?,
+        ),
+        context_hash: layerx_platform_core::send_context_hash(
+            &source,
+            &destination,
+            &intent.asset,
+            u128::from(intent.command.amount),
+            &idempotency_key,
+        ),
+        conditions: Vec::new(),
+        authorization_kind: layerx_types::intent::SendAuthorizationKind::Owner as u8,
+        network_id: config.network_id,
+        protocol_version: layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION,
+    };
+    let payload_signature = payload[262..326]
         .try_into()
-        .map_err(|_| "invalid funding signature")?;
-    layerx_crypto::ed25519::verify_digest(&intent.signed.signer_public_key, &signature, &digest)
+        .map_err(|_| "invalid debit signature")?;
+    let expected_payload = debit
+        .encode_signed(config.treasury.public_key(), payload_signature)
         .map_err(|error| format!("{error:?}"))?;
-    let disclosure = layerx_crypto::disclosure::bind(&unsigned, &registry)
-        .map_err(|error| format!("{error:?}"))?;
+    if payload != expected_payload {
+        return Err("canonical funding debit differs".to_owned());
+    }
+    let expected = ledger_payment_call(
+        &expected_payload,
+        &CallOptions {
+            from: sender,
+            chain_id: 125,
+            nonce: call.nonce,
+            max_priority_fee_per_gas: call.max_priority_fee_per_gas,
+            max_fee_per_gas: call.max_fee_per_gas,
+            gas_limit: call.gas_limit,
+        },
+    )
+    .map_err(|error| format!("{error:?}"))?;
+    if call != expected.call || disclosure != expected.disclosure {
+        return Err("canonical funding call differs".to_owned());
+    }
     use layerx_crypto::disclosure::{AmountRole, CounterpartyRole};
     if disclosure.asset != config.treasury_asset
         || disclosure.counterparties.len() != 2
@@ -2419,6 +1678,8 @@ fn persist_funding_intent(config: &Config, intent: &FundingIntent) -> Result<(),
         validate_funding_intent(config, &existing)?;
         if existing.request_digest != intent.request_digest
             || existing.signed.canonical != intent.signed.canonical
+            || existing.signed.transaction_hash != intent.signed.transaction_hash
+            || existing.signed.sender != intent.signed.sender
         {
             return Err("durable funding intent differs".to_owned());
         }
@@ -2428,6 +1689,127 @@ fn persist_funding_intent(config: &Config, intent: &FundingIntent) -> Result<(),
         &path,
         &serde_json::to_vec(intent).map_err(|error| error.to_string())?,
     )
+}
+
+fn funding_intent_route(config: &Config, request: &Request) -> Response {
+    let unavailable = || refusal(503, "journal_unavailable", Some(5));
+    let Ok(_guard) = config.admin_lock.lock() else {
+        return unavailable();
+    };
+    if request.path == "/admin/v1/testnet/funding-intents" {
+        if request.method == "POST" && funding_native::is_native(&request.body) {
+            if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
+                return refusal(400, "content_type_required", None);
+            }
+            return funding_native::route(config, request);
+        }
+    } else if let Some(key) = request
+        .path
+        .strip_prefix("/admin/v1/testnet/funding-intents/")
+    {
+        if !valid_key(key) || !request.body.is_empty() {
+            return refusal(400, "invalid_funding_intent", None);
+        }
+        match funding_read(&funding_record_path(config, "funding-intents", key)) {
+            Ok(Some(bytes)) if funding_native::is_native(&bytes) => {
+                return funding_native::route(config, request)
+            }
+            Err(_) => return unavailable(),
+            _ => {}
+        }
+    }
+    if request.path == "/admin/v1/testnet/funding-intents" {
+        if request.method != "POST" {
+            return refusal(405, "method_not_allowed", None);
+        }
+        if request.headers.get("content-type").map(String::as_str) != Some("application/json") {
+            return refusal(400, "content_type_required", None);
+        }
+        let Ok(intent) = serde_json::from_slice::<FundingIntent>(&request.body) else {
+            return refusal(400, "invalid_funding_intent", None);
+        };
+        if request.headers.get("idempotency-key") != Some(&intent.key)
+            || validate_funding_intent(config, &intent).is_err()
+        {
+            return refusal(400, "invalid_funding_intent", None);
+        }
+        let stage_path = journal_path(config, "fund-canonical", &intent.key);
+        let Ok(command_bytes) = serde_json::to_vec(&intent.command) else {
+            return unavailable();
+        };
+        let command_digest = hex_encode(&Sha256::digest(&command_bytes));
+        let stage = match journal_read(&stage_path) {
+            Ok(stage) => stage,
+            Err(_) => return unavailable(),
+        };
+        if let Some(stage) = &stage {
+            let Ok(signed) = serde_json::from_str::<PreparedFunding>(&stage.body) else {
+                return refusal(409, "idempotency_conflict", None);
+            };
+            if stage.request_digest != command_digest
+                || signed.canonical != intent.signed.canonical
+                || signed.transaction_hash != intent.signed.transaction_hash
+                || signed.sender != intent.signed.sender
+            {
+                return refusal(409, "idempotency_conflict", None);
+            }
+        }
+        if persist_funding_intent(config, &intent).is_err() {
+            return unavailable();
+        }
+        if stage.is_none() {
+            let Ok(body) = serde_json::to_string(&intent.signed) else {
+                return unavailable();
+            };
+            if journal_write(
+                &stage_path,
+                &JournalEntry {
+                    request_digest: command_digest,
+                    status: 202,
+                    body,
+                    retry_after: Some(5),
+                },
+            )
+            .is_err()
+            {
+                return unavailable();
+            }
+        }
+        return success(&serde_json::json!({
+            "state": "prepared",
+            "transaction_hash": hex_encode(&intent.signed.transaction_hash),
+            "sender": hex_encode(&intent.signed.sender)
+        }));
+    }
+    if request.method != "GET" {
+        return refusal(405, "method_not_allowed", None);
+    }
+    let Some(key) = request
+        .path
+        .strip_prefix("/admin/v1/testnet/funding-intents/")
+    else {
+        return refusal(404, "not_found", None);
+    };
+    if !valid_key(key) || !request.body.is_empty() {
+        return refusal(400, "invalid_funding_intent", None);
+    }
+    let bytes = match funding_read(&funding_record_path(config, "funding-intents", key)) {
+        Ok(Some(bytes)) => bytes,
+        Ok(None) => return refusal(404, "not_found", None),
+        Err(_) => return unavailable(),
+    };
+    let Ok(intent) = serde_json::from_slice::<FundingIntent>(&bytes) else {
+        return unavailable();
+    };
+    if intent.key != key || validate_funding_intent(config, &intent).is_err() {
+        return unavailable();
+    }
+    success(&serde_json::json!({
+        "state": "prepared",
+        "transaction_hash": hex_encode(&intent.signed.transaction_hash),
+        "sender": hex_encode(&intent.signed.sender),
+        "canonical_hex": hex_encode(&intent.signed.canonical)
+    }))
 }
 
 fn funding_archive_facts(
@@ -2440,7 +1822,7 @@ fn funding_archive_facts(
     if archive.version != 1
         || archive.intent_digest != hex_encode(&Sha256::digest(intent_bytes))
         || archive.receipt.is_empty()
-        || archive.receipt.len() > LNI_FRAME_BYTES
+        || archive.receipt.len() > MAX_RECEIPT_BYTES
     {
         return Err("funding archive binding differs".to_owned());
     }
@@ -2459,7 +1841,7 @@ fn funding_intent_receipt_facts(
     let receipt = decoded
         .protocol()
         .ok_or("funding receipt is not protocol receipt")?;
-    if facts.activity_id != intent.signed.activity_id
+    if facts.activity_id != intent.signed.transaction_hash
         || receipt.asset() != intent.asset
         || receipt.amount() != u128::from(intent.command.amount)
         || receipt.from() != main_account(&config.treasury_did)?
@@ -2479,8 +1861,8 @@ fn intent_funding_response(
     facts: &ReceiptFacts,
     submitted: bool,
 ) -> Result<Response, Response> {
-    let verified = funding_intent_receipt_facts(config, intent, &facts.canonical)
-        .map_err(|_| {
+    let verified =
+        funding_intent_receipt_facts(config, intent, &facts.canonical).map_err(|_| {
             let mut response = refusal(503, "receipt_unavailable", Some(5));
             response.authoritative_replay = submitted;
             response
@@ -2514,6 +1896,9 @@ fn archived_funding_response(
             Ok(None)
         };
     };
+    if funding_native::is_native(&intent_bytes) {
+        return funding_native::archived_response(config, request, key);
+    }
     let intent: FundingIntent = serde_json::from_slice(&intent_bytes).map_err(|_| unavailable())?;
     validate_funding_intent(config, &intent).map_err(|_| unavailable())?;
     if intent.key != key || intent.request_digest != request_digest(request) {
@@ -2542,11 +1927,14 @@ fn archived_funding_response(
         if prior.request_digest != intent.request_digest {
             return Err(refusal(409, "idempotency_conflict", None));
         }
-        if prior.status == 202 || prior.status == 409 || prior.status >= 500
+        if prior.status == 202
+            || prior.status == 409
+            || prior.status >= 500
             || prior.retry_after.is_some()
         {
             journal_write(&response_path, &prior).map_err(|_| unavailable())?;
-        } else if prior.status != response.status || prior.body != response.body
+        } else if prior.status != response.status
+            || prior.body != response.body
             || prior.retry_after != response.retry_after
         {
             return Err(unavailable());
@@ -2559,7 +1947,10 @@ fn funding_inventory(directory: &Path) -> Result<Vec<PathBuf>, String> {
     funding_directory(directory)?;
     let mut paths = Vec::new();
     let mut total = 0u64;
-    for (index, entry) in fs::read_dir(directory).map_err(|error| error.to_string())?.enumerate() {
+    for (index, entry) in fs::read_dir(directory)
+        .map_err(|error| error.to_string())?
+        .enumerate()
+    {
         if index >= MAX_FUNDING_RECORDS {
             return Err("funding inventory exceeds bound".to_owned());
         }
@@ -2609,7 +2000,10 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
         let entry = journal_read(&path)
             .map_err(|_| unavailable())?
             .ok_or_else(unavailable)?;
-        if serde_json::from_str::<PreparedFunding>(&entry.body).is_ok() {
+        if serde_json::from_str::<PreparedFunding>(&entry.body).is_ok()
+            || serde_json::from_str::<chain_fund::SignedFunding>(&entry.body).is_ok()
+            || serde_json::from_str::<chain_fund::NativeTransfer>(&entry.body).is_ok()
+        {
             let counterpart = config
                 .state_dir
                 .join("funding-intents")
@@ -2624,6 +2018,10 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
         let bytes = funding_read(&path)
             .map_err(|_| unavailable())?
             .ok_or_else(unavailable)?;
+        if funding_native::is_native(&bytes) {
+            funding_native::retain(config, &bytes)?;
+            continue;
+        }
         let intent: FundingIntent = serde_json::from_slice(&bytes).map_err(|_| unavailable())?;
         validate_funding_intent(config, &intent).map_err(|_| unavailable())?;
         if path != funding_record_path(config, "funding-intents", &intent.key) {
@@ -2639,20 +2037,16 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
                     .receipt_deadline
                     .checked_sub(started.elapsed())
                     .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
-                let (mut transport, handshake) = connect_raw_with_deadline(config, remaining)
-                    .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
-                if handshake.node().authorised_sequencer_key != intent.sequencer_key {
+                let lookup =
+                    await_authenticated_receipt(config, intent.signed.transaction_hash, remaining)
+                        .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?;
+                let layerx_client::rpc::receipt::Lookup::Verified(receipt) = lookup else {
+                    return Err(refusal(503, "receipt_unavailable", Some(5)));
+                };
+                if receipt.execution().signing_key != intent.sequencer_key {
                     return Err(refusal(503, "receipt_unavailable", Some(5)));
                 }
-                let receipt = lookup_receipt_bytes(
-                    &mut transport,
-                    &handshake,
-                    intent.signed.activity_id,
-                    1,
-                    false,
-                )
-                .map_err(|_| refusal(503, "receipt_unavailable", Some(5)))?
-                .ok_or_else(|| refusal(503, "receipt_unavailable", Some(5)))?;
+                let receipt = receipt.canonical_bytes().to_vec();
                 FundingArchive {
                     version: 1,
                     intent_digest: hex_encode(&Sha256::digest(&bytes)),
@@ -2673,8 +2067,8 @@ fn retain_funding_receipts(config: &Config) -> Result<(), Response> {
         let signed: PreparedFunding =
             serde_json::from_str(&stage.body).map_err(|_| unavailable())?;
         if signed.canonical != intent.signed.canonical
-            || signed.activity_id != intent.signed.activity_id
-            || signed.signer_public_key != intent.signed.signer_public_key
+            || signed.transaction_hash != intent.signed.transaction_hash
+            || signed.sender != intent.signed.sender
             || stage.request_digest
                 != hex_encode(&Sha256::digest(
                     serde_json::to_vec(&intent.command).map_err(|_| unavailable())?,
@@ -2754,28 +2148,39 @@ fn supervisor_exchange(
     request: &SupervisorRequest<'_>,
     attempted: &mut bool,
 ) -> Result<SupervisorReply, String> {
-    let mut stream = UnixStream::connect(&config.supervisor_socket)
+    let mut stream =
+        UnixStream::connect(&config.supervisor_socket).map_err(|error| error.to_string())?;
+    stream
+        .set_read_timeout(Some(RESET_TIMEOUT))
         .map_err(|error| error.to_string())?;
-    stream.set_read_timeout(Some(RESET_TIMEOUT)).map_err(|error| error.to_string())?;
-    stream.set_write_timeout(Some(IO_TIMEOUT)).map_err(|error| error.to_string())?;
+    stream
+        .set_write_timeout(Some(IO_TIMEOUT))
+        .map_err(|error| error.to_string())?;
     let mut bytes = serde_json::to_vec(request).map_err(|error| error.to_string())?;
     bytes.push(b'\n');
     *attempted = request.operation == "reset";
-    stream.write_all(&bytes).map_err(|error| error.to_string())?;
+    stream
+        .write_all(&bytes)
+        .map_err(|error| error.to_string())?;
     stream.flush().map_err(|error| error.to_string())?;
     let mut line = String::new();
-    BufReader::new(stream).take(4097).read_line(&mut line).map_err(|error| error.to_string())?;
+    BufReader::new(stream)
+        .take(4097)
+        .read_line(&mut line)
+        .map_err(|error| error.to_string())?;
     if line.len() > 4096 || !line.ends_with('\n') {
         return Err("supervisor response framing differs".to_owned());
     }
-    serde_json::from_str(line.trim_end_matches(['\r', '\n']))
-        .map_err(|error| error.to_string())
+    serde_json::from_str(line.trim_end_matches(['\r', '\n'])).map_err(|error| error.to_string())
 }
 
 fn reset_pending(reset_id: &str) -> Response {
-    let mut response = json_response(202, &serde_json::json!({
-        "state": "pending", "reset_id": reset_id,
-    }));
+    let mut response = json_response(
+        202,
+        &serde_json::json!({
+            "state": "pending", "reset_id": reset_id,
+        }),
+    );
     response.retry_after = Some(30);
     response.authoritative_replay = true;
     response
@@ -2784,15 +2189,20 @@ fn reset_pending(reset_id: &str) -> Response {
 fn reset_authoritative_reply(reply: &SupervisorReply, reset_id: &str) -> Option<Response> {
     if reply.error.is_some()
         || reply.reset_id.as_deref() != Some(reset_id)
-        || !reply.generation.is_some_and(|value| value > 0 && value <= i64::MAX as u64)
+        || !reply
+            .generation
+            .is_some_and(|value| value > 0 && value <= i64::MAX as u64)
     {
         return None;
     }
     match reply.state.as_deref()? {
         "reset" => {
-            let mut response = json_response(200, &serde_json::json!({
-                "state": "reset", "reset_id": reset_id,
-            }));
+            let mut response = json_response(
+                200,
+                &serde_json::json!({
+                    "state": "reset", "reset_id": reset_id,
+                }),
+            );
             response.authoritative_replay = true;
             Some(response)
         }
@@ -2812,11 +2222,18 @@ fn reset_pre_admission_refusal(reply: &SupervisorReply) -> Option<Response> {
         return None;
     }
     match error.code.as_str() {
-        "wrong_network" | "digest_mismatch" | "unsupported_version" | "unauthorized_peer"
-        | "identity_conflict" | "reset_in_progress" | "state_capacity" | "generation_exhausted"
-        | "invalid_request" | "invalid_operation" | "invalid_reset_id" | "invalid_digest" => {
-            Some(refusal(503, &error.code, None))
-        }
+        "wrong_network"
+        | "digest_mismatch"
+        | "unsupported_version"
+        | "unauthorized_peer"
+        | "identity_conflict"
+        | "reset_in_progress"
+        | "state_capacity"
+        | "generation_exhausted"
+        | "invalid_request"
+        | "invalid_operation"
+        | "invalid_reset_id"
+        | "invalid_digest" => Some(refusal(503, &error.code, None)),
         _ => None,
     }
 }
@@ -2824,8 +2241,11 @@ fn reset_pre_admission_refusal(reply: &SupervisorReply) -> Option<Response> {
 fn reset(config: &Config, request: &Request, key: &str) -> Response {
     let (reset_id, digest) = reset_identity(config, request, key);
     let status_request = SupervisorRequest {
-        version: 1, operation: "status", reset_id: &reset_id,
-        network: config.network_id, request_digest: &digest,
+        version: 1,
+        operation: "status",
+        reset_id: &reset_id,
+        network: config.network_id,
+        request_digest: &digest,
     };
     let path = journal_path(config, "reset", key);
     let previous_attempt = match journal_read(&path) {
@@ -2846,9 +2266,11 @@ fn reset(config: &Config, request: &Request, key: &str) -> Response {
             if let Some(response) = reset_pre_admission_refusal(&reply) {
                 return response;
             }
-            if !reply.error.as_ref().is_some_and(|error| error.code == "unknown_reset"
-                && error.retry == "never" && error.retry_after_seconds == Some(0))
-            {
+            if !reply.error.as_ref().is_some_and(|error| {
+                error.code == "unknown_reset"
+                    && error.retry == "never"
+                    && error.retry_after_seconds == Some(0)
+            }) {
                 return if previous_attempt {
                     reset_pending(&reset_id)
                 } else {
@@ -2871,13 +2293,23 @@ fn reset(config: &Config, request: &Request, key: &str) -> Response {
         }
     }
     let pending = reset_pending(&reset_id);
-    if journal_write(&path, &JournalEntry {
-        request_digest: request_digest(request), status: pending.status,
-        body: pending.body.clone(), retry_after: pending.retry_after,
-    }).is_err() {
+    if journal_write(
+        &path,
+        &JournalEntry {
+            request_digest: request_digest(request),
+            status: pending.status,
+            body: pending.body.clone(),
+            retry_after: pending.retry_after,
+        },
+    )
+    .is_err()
+    {
         return refusal(503, "journal_unavailable", Some(5));
     }
-    let admission = SupervisorRequest { operation: "reset", ..status_request };
+    let admission = SupervisorRequest {
+        operation: "reset",
+        ..status_request
+    };
     match supervisor_exchange(config, &admission, &mut attempted) {
         Ok(reply) => {
             if let Some(response) = reset_authoritative_reply(&reply, &reset_id) {
@@ -2924,6 +2356,13 @@ fn admin_route(config: &Config, request: &Request) -> Response {
     if request.query.is_some() {
         return refusal(400, "invalid_request", None);
     }
+    if request.path == "/admin/v1/testnet/funding-intents"
+        || request
+            .path
+            .starts_with("/admin/v1/testnet/funding-intents/")
+    {
+        return funding_intent_route(config, request);
+    }
     if request.method != "POST" {
         return match request.path.as_str() {
             "/admin/v1/testnet/fund" | "/admin/v1/testnet/reset" => {
@@ -2951,9 +2390,7 @@ fn admin_route(config: &Config, request: &Request) -> Response {
                 Ok(None) => {}
                 Err(response) => return response,
             }
-            stateful(config, "fund", request, || {
-                admin_result(fund(config, request, &key))
-            })
+            stateful(config, "fund", request, || fund(config, request, &key))
         }
         "/admin/v1/testnet/reset" => {
             if request.body != b"{}" {
@@ -3064,248 +2501,6 @@ fn main() {
     if let Err(error) = config().and_then(platform_core) {
         eprintln!("layerx-core-boundary: {error}");
         std::process::exit(2);
-    }
-}
-
-#[cfg(test)]
-mod admission_tests {
-    use super::{
-        submission_decode_registry, submission_registry, validate_submission_payload,
-        SubmissionValidationError, ASSET_SUBMISSION_ORDINALS, PROGRAM_SUBMISSION_ORDINALS,
-    };
-    use ed25519_dalek::{Signer, SigningKey};
-    use layerx_platform_core::{build_send, treasury_did, SendRequest};
-    use layerx_types::activity::{Authority, EnvelopeBuilder, Signature, TimestampBound};
-    use layerx_types::amount::Amount;
-    use layerx_types::ids::{Did, IdempotencyKey};
-    use layerx_types::payload::{ActivityType, ModuleId, Payload};
-
-    const ACTOR: &str = "did:layerx:alice";
-    const ASSET_FIXTURES: [(u16, &str); 7] = [
-        (
-            1,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-1.hex"),
-        ),
-        (
-            4,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-4.hex"),
-        ),
-        (
-            6,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-6.hex"),
-        ),
-        (
-            7,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-7.hex"),
-        ),
-        (
-            8,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-8.hex"),
-        ),
-        (
-            10,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-10.hex"),
-        ),
-        (
-            11,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/1-11.hex"),
-        ),
-    ];
-    const PROGRAM_PAYMENT_FIXTURES: [(u16, &str); 2] = [
-        (
-            5,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/9-5.hex"),
-        ),
-        (
-            6,
-            include_str!("../../../../../services/agent/crates/layerx-crypto/tests/fixtures/payments/9-6.hex"),
-        ),
-    ];
-
-    fn required<T, E: std::fmt::Debug>(result: Result<T, E>) -> T {
-        result.unwrap_or_else(|error| panic!("{error:?}"))
-    }
-
-    fn hex(value: &str) -> Vec<u8> {
-        value
-            .trim()
-            .as_bytes()
-            .chunks_exact(2)
-            .map(|pair| {
-                let digits = std::str::from_utf8(pair).unwrap_or_else(|error| panic!("{error}"));
-                u8::from_str_radix(digits, 16).unwrap_or_else(|error| panic!("{error}"))
-            })
-            .collect()
-    }
-
-    fn signed(module: ModuleId, ordinal: u16, payload_bytes: &[u8], actor: &str) -> Vec<u8> {
-        let key = SigningKey::from_bytes(&[42; 32]);
-        let registry = required(submission_decode_registry());
-        let activity_type = required(ActivityType::new(module, ordinal));
-        let payload = required(Payload::new(&registry, activity_type, payload_bytes));
-        let payload_hash = required(layerx_wire::hash::payload_hash_for(&payload));
-        let mut builder = EnvelopeBuilder::new();
-        required(
-            builder
-                .protocol_version(layerx_wire::limits::STATE_COMMITMENT_PROTOCOL_VERSION)
-                .and_then(|value| value.network_id(17))
-                .and_then(|value| value.activity_type(activity_type))
-                .and_then(|value| value.actor_did(required(Did::new(actor.as_bytes()))))
-                .and_then(|value| {
-                    value.authority(required(Authority::owner(&key.verifying_key().to_bytes())))
-                })
-                .and_then(|value| value.account_sequence(7))
-                .and_then(|value| value.timestamp_bound(required(TimestampBound::new(1, u64::MAX))))
-                .and_then(|value| value.idempotency_key(IdempotencyKey::new([0x71; 32])))
-                .and_then(|value| value.fee_limit(Amount::from_u128(1_000_000)))
-                .and_then(|value| value.payload_hash(payload_hash))
-                .and_then(|value| value.payload(payload)),
-        );
-        let unsigned = required(builder.build());
-        let preimage = required(layerx_wire::sign::preimage_unsigned(&unsigned));
-        let signature = key.sign(preimage.as_bytes()).to_bytes();
-        required(layerx_wire::activity::encode_signed_envelope(
-            &unsigned.attach_signature(required(Signature::new(&signature))),
-        ))
-    }
-
-    fn validate(canonical: &[u8]) -> Result<(), SubmissionValidationError> {
-        let registry = required(submission_decode_registry());
-        let activity = required(layerx_wire::activity::decode_signed(canonical, &registry));
-        validate_submission_payload(canonical, &activity, &registry)
-    }
-
-    #[test]
-    fn submission_registry_declares_only_executable_asset_and_program_types() {
-        let registry = required(submission_registry());
-        for ordinal in ASSET_SUBMISSION_ORDINALS {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-        }
-        for ordinal in PROGRAM_SUBMISSION_ORDINALS {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Programs, ordinal))));
-        }
-        for ordinal in [9, 12] {
-            assert!(!registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-        }
-    }
-
-    #[test]
-    fn every_native_asset_payload_is_strictly_admitted_and_malformed_bytes_are_refused() {
-        for (ordinal, fixture) in ASSET_FIXTURES {
-            let payload = hex(fixture);
-            let canonical = signed(ModuleId::Asset, ordinal, &payload, ACTOR);
-            assert_eq!(validate(&canonical), Ok(()), "Asset ordinal {ordinal}");
-            let malformed = signed(
-                ModuleId::Asset,
-                ordinal,
-                &payload[..payload.len() - 1],
-                ACTOR,
-            );
-            assert_eq!(
-                validate(&malformed),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} malformed body"
-            );
-        }
-
-        let source_seed = [9; 32];
-        let source_did = treasury_did(&source_seed);
-        let send = required(build_send(
-            &source_seed,
-            &SendRequest {
-                network_id: 17,
-                source_did: source_did.clone(),
-                destination_did: treasury_did(&[10; 32]),
-                asset: [3; 32],
-                amount: 1,
-                account_sequence: 7,
-                idempotency_key: [0x71; 32],
-                not_before_ms: 1,
-                expires_at_ms: u64::MAX,
-                fee_limit: 1_000_000,
-            },
-        ));
-        assert_eq!(validate(&send.canonical), Ok(()), "Asset ordinal 5");
-        let registry = required(submission_decode_registry());
-        let activity = required(layerx_wire::activity::decode_signed(
-            &send.canonical,
-            &registry,
-        ));
-        let malformed_payload = &activity.payload()[..activity.payload().len() - 1];
-        let malformed = signed(ModuleId::Asset, 5, malformed_payload, &source_did);
-        assert_eq!(
-            validate(&malformed),
-            Err(SubmissionValidationError::InvalidAssetActivity)
-        );
-    }
-
-    #[test]
-    fn asset_pause_and_unpause_are_admitted_and_malformed_bodies_are_refused() {
-        let registry = required(submission_registry());
-        let mut payload = vec![0x00, 0x01];
-        payload.extend_from_slice(&[7; 32]);
-        for ordinal in [2u16, 3u16] {
-            assert!(registry.declares(required(ActivityType::new(ModuleId::Asset, ordinal))));
-            assert_eq!(
-                validate(&signed(ModuleId::Asset, ordinal, &payload, ACTOR)),
-                Ok(()),
-                "Asset ordinal {ordinal}"
-            );
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Asset,
-                    ordinal,
-                    &payload[..payload.len() - 1],
-                    ACTOR,
-                )),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} truncated body"
-            );
-            let mut unsupported_version = payload.clone();
-            unsupported_version[1] = 2;
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Asset,
-                    ordinal,
-                    &unsupported_version,
-                    ACTOR
-                )),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} unsupported payload version"
-            );
-            let mut zero_asset = payload.clone();
-            zero_asset[2..].fill(0);
-            assert_eq!(
-                validate(&signed(ModuleId::Asset, ordinal, &zero_asset, ACTOR)),
-                Err(SubmissionValidationError::InvalidAssetActivity),
-                "Asset ordinal {ordinal} zero asset id"
-            );
-        }
-    }
-
-    #[test]
-    fn reserved_asset_ordinal_and_program_payment_malformations_are_typed() {
-        let reserved = signed(ModuleId::Asset, 9, &[], ACTOR);
-        assert_eq!(
-            validate(&reserved),
-            Err(SubmissionValidationError::AssetOrdinalReserved)
-        );
-        for (ordinal, fixture) in PROGRAM_PAYMENT_FIXTURES {
-            let payload = hex(fixture);
-            assert_eq!(
-                validate(&signed(ModuleId::Programs, ordinal, &payload, ACTOR)),
-                Ok(())
-            );
-            assert_eq!(
-                validate(&signed(
-                    ModuleId::Programs,
-                    ordinal,
-                    &payload[..payload.len() - 1],
-                    ACTOR,
-                )),
-                Err(SubmissionValidationError::InvalidProgramAccountOperation)
-            );
-        }
     }
 }
 

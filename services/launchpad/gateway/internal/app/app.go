@@ -331,16 +331,8 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 		Health: sharedhttp.HealthDeps{
 			Custom: secretChecks,
 			State:  tracker.Ready,
-			DB: func(c context.Context) error {
-				if pool == nil {
-					return fmt.Errorf("identity_database_missing")
-				}
-				if cfg.NodeEnv != "production" {
-					return pool.Ping(c)
-				}
-				return cfg.CheckRuntimeSchema(c, pool)
-			},
-			Redis: func(c context.Context) error { return rdb.Ping(c).Err() },
+			DB:     identityDatabaseCheck(cfg, pool),
+			Redis:  func(c context.Context) error { return rdb.Ping(c).Err() },
 		},
 	})
 
@@ -369,6 +361,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					}
 					gr.Method(route.Method, route.Template, handler)
 				}
+			}
+			for _, route := range proxy.RetiredConnectedRoutes() {
+				gr.Method(route.Method, route.Template, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { auth.WriteNotServed(w) }))
 			}
 			socketHandler, e := connected.control.RequireCapability("socket", connected.socket)
 			if e != nil {
@@ -408,6 +403,9 @@ func New(ctx context.Context, cfg config.Config, logger *slog.Logger) (*App, err
 					guard = sessions.Require
 				}
 				gr.With(guard).Method(route.Method, route.Template, followProxy)
+			}
+			for _, route := range proxy.RetiredConnectedRoutes() {
+				gr.Method(route.Method, route.Template, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { auth.WriteNotServed(w) }))
 			}
 		}
 		// Account owner routes whose service (media/user's connected
@@ -1201,6 +1199,7 @@ func (r *gatewayConnectedRuntime) close() {
 }
 
 func publicGatewayHandler(next http.Handler, cfg config.Config) http.Handler {
+	next = identityIngressDeadline(next)
 	origins := map[string]bool{}
 	for _, origin := range strings.Split(cfg.CORSAllowedOrigins, ",") {
 		origins[origin] = true

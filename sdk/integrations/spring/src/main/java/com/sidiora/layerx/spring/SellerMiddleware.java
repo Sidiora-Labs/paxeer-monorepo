@@ -4,7 +4,6 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.sidiora.layerx.sdk.PlatformSdkException;
 import com.sidiora.layerx.sdk.verify.LocalVerifier;
 import java.io.IOException;
-import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -29,7 +28,7 @@ public final class SellerMiddleware {
     }
 
     public record ReleasedDecision(X402.SettlementResponse settlement, String header,
-                                   LocalVerifier.ReceiptVerification verification, LayerXResource resource)
+                                   LocalVerifier.SequencerReceiptVerification verification, LayerXResource resource)
         implements SellerDecision {
         @Override public int status() { return 200; }
     }
@@ -40,7 +39,7 @@ public final class SellerMiddleware {
 
     public record Refused(String reason) implements SettlementOutcome {}
 
-    public record Settled(byte[] canonicalReceipt, LocalVerifier.AuthorizedReceiptBatch authorizedBatch)
+    public record Settled(byte[] rawTransaction, byte[] signedReceipt, LocalVerifier.ReceiptKey receiptKey)
         implements SettlementOutcome {}
 
     public record SettlementRequest(String principal, X402.PaymentPayload payload,
@@ -52,34 +51,39 @@ public final class SellerMiddleware {
         SettlementOutcome settle(SettlementRequest request);
     }
 
-    @FunctionalInterface
-    public interface AuthorizedBatchResolver {
-        LocalVerifier.AuthorizedReceiptBatch resolve(byte[] canonicalReceipt);
-    }
-
     public static final class ReceiptPayloadAuthority implements PaymentAuthority {
-        private final AuthorizedBatchResolver authorizedBatches;
+        private final LocalVerifier.ReceiptKeys receiptKeys;
 
-        public ReceiptPayloadAuthority(AuthorizedBatchResolver authorizedBatches) {
-            this.authorizedBatches = Objects.requireNonNull(authorizedBatches, "authorizedBatches");
+        public ReceiptPayloadAuthority(LocalVerifier.ReceiptKeys receiptKeys) {
+            this.receiptKeys = Objects.requireNonNull(receiptKeys, "receiptKeys");
         }
 
         @Override
         public SettlementOutcome settle(SettlementRequest request) {
             X402.ReceiptEvidence evidence = X402.parseReceiptEvidence(request.payload().payload());
-            byte[] canonicalReceipt =
-                X402.decodeBase64(evidence.receipt(), MiddlewareException.Code.INVALID_PAYMENT_PAYLOAD);
-            String digest = X402.hex(X402.merkleLeafDigest(canonicalReceipt));
-            if (!X402.constantTimeEquals(evidence.receiptDigest(), digest)) {
-                throw MiddlewareException.of(MiddlewareException.Code.VERIFICATION_FAILURE);
+            LocalVerifier.ReceiptKey pinned = receiptKeys.entries().stream()
+                .filter(key -> sameKey(key, evidence.receiptKey()))
+                .findFirst().orElseThrow(() ->
+                    MiddlewareException.of(MiddlewareException.Code.VERIFICATION_FAILURE));
+            MiddlewareException.Code code = MiddlewareException.Code.VERIFICATION_FAILURE;
+            byte[] rawTransaction = X402.parseReceiptHex(evidence.rawTransaction(), code);
+            byte[] signedReceipt = X402.parseReceiptHex(evidence.signedReceipt(), code);
+            verifyPaymentReceipt(
+                signedReceipt, rawTransaction, new LocalVerifier.ReceiptKeys(java.util.List.of(pinned)),
+                request.requirements());
+            if (!X402.constantTimeEquals(X402.parseHex32(evidence.receiptDigest(), code),
+                    NativePaymentVerifier.receiptDigest(signedReceipt))) {
+                throw MiddlewareException.of(code);
             }
-            return new Settled(canonicalReceipt, authorizedBatches.resolve(canonicalReceipt));
+            return new Settled(rawTransaction, signedReceipt, pinned);
         }
     }
 
-    public static AuthorizedBatchResolver staticAuthorizedBatches(LocalVerifier.AuthorizedReceiptBatch batch) {
-        Objects.requireNonNull(batch, "batch");
-        return canonicalReceipt -> batch;
+    static boolean sameKey(LocalVerifier.ReceiptKey left, LocalVerifier.ReceiptKey right) {
+        return X402.constantTimeEquals(left.keyId(), right.keyId())
+            && X402.constantTimeEquals(left.publicKey(), right.publicKey())
+            && left.firstHeight().equals(right.firstHeight())
+            && left.lastHeight().equals(right.lastHeight());
     }
 
     private final X402.PaymentRequired required;
@@ -119,29 +123,35 @@ public final class SellerMiddleware {
             return new RefusedDecision(settlement, X402.encodeSettlementHeader(settlement));
         }
         Settled settled = (Settled) outcome;
+        LocalVerifier.ReceiptKeys keys = new LocalVerifier.ReceiptKeys(java.util.List.of(settled.receiptKey()));
+        LocalVerifier.SequencerReceiptVerification verification =
+            verifyPaymentReceipt(settled.signedReceipt(), settled.rawTransaction(), keys, requirements);
         Fulfillments.ProposedFulfillment proposed = new Fulfillments.ProposedFulfillment(
-            idempotencyKey, requestDigest, settled.canonicalReceipt(), settled.authorizedBatch());
-        LocalVerifier.ReceiptVerification verification =
-            verifyPaymentReceipt(proposed.canonicalReceipt(), proposed.authorizedBatch(), requirements);
+            idempotencyKey, requestDigest, settled.signedReceipt(), settled.receiptKey(),
+            verification.receipt().activityId());
         Fulfillments.StoredFulfillment stored = fulfillments.fulfill(proposed, release);
-        if (!stored.idempotencyKey().equals(idempotencyKey) || !stored.requestDigest().equals(requestDigest)) {
+        if (!stored.idempotencyKey().equals(idempotencyKey) || !stored.requestDigest().equals(requestDigest)
+                || !sameKey(stored.receiptKey(), settled.receiptKey())
+                || !X402.constantTimeEquals(stored.transactionHash(), verification.receipt().activityId())) {
             throw MiddlewareException.of(MiddlewareException.Code.FULFILLMENT_CONFLICT);
         }
-        LocalVerifier.ReceiptVerification storedVerification =
-            verifyPaymentReceipt(stored.canonicalReceipt(), stored.authorizedBatch(), requirements);
+        LocalVerifier.SequencerReceiptVerification storedVerification =
+            verifyPaymentReceipt(stored.canonicalReceipt(), settled.rawTransaction(), keys, requirements);
         if (!X402.constantTimeEquals(verification.receiptDigest(), storedVerification.receiptDigest())) {
             throw MiddlewareException.of(MiddlewareException.Code.FULFILLMENT_CONFLICT);
         }
-        String receiptDigest = X402.hex(X402.merkleLeafDigest(stored.canonicalReceipt()));
-        X402.ReceiptEvidence evidence = X402.ReceiptEvidence.sequencerSigned(
-            X402.encodeBase64(stored.canonicalReceipt()), receiptDigest);
+        String receiptDigest = X402.hex(NativePaymentVerifier.receiptDigest(stored.canonicalReceipt()));
+        X402.ReceiptEvidence evidence = X402.ReceiptEvidence.receipted(
+            "0x" + X402.hex(settled.rawTransaction()), "0x" + X402.hex(stored.canonicalReceipt()),
+            "0x" + receiptDigest,
+            stored.receiptKey());
         Map<String, JsonNode> extensions = new LinkedHashMap<>();
         extensions.put("layerx", evidence.toNode());
         X402.SettlementResponse settlement = new X402.SettlementResponse(
             true,
             null,
             X402.hex(storedVerification.receipt().from()),
-            "lxp:" + receiptDigest,
+            "0x" + X402.hex(storedVerification.receipt().activityId()),
             requirements.network(),
             requirements.amount(),
             extensions);
@@ -149,46 +159,47 @@ public final class SellerMiddleware {
             stored.resource());
     }
 
-    public static LocalVerifier.ReceiptVerification verifyPaymentReceipt(
-            byte[] canonicalReceipt, LocalVerifier.AuthorizedReceiptBatch authorized,
+    public static LocalVerifier.SequencerReceiptVerification verifyPaymentReceipt(
+            byte[] signedReceipt, byte[] rawTransaction, LocalVerifier.ReceiptKeys keys,
             X402.PaymentRequirements requirements) {
-        LocalVerifier.ReceiptVerification verified;
+        LocalVerifier.SequencerReceiptVerification verified;
         try {
-            verified = LocalVerifier.verifyReceipt(canonicalReceipt, authorized);
+            verified = LocalVerifier.verifySequencerReceipt(signedReceipt, rawTransaction, keys);
+            verified.requireSuccess();
         } catch (PlatformSdkException error) {
             throw MiddlewareException.of(MiddlewareException.Code.VERIFICATION_FAILURE);
         }
-        MiddlewareException.Code code = MiddlewareException.Code.VERIFICATION_FAILURE;
-        if (!verified.receipt().amount().equals(new BigInteger(requirements.amount()))
-                || !X402.constantTimeEquals(verified.receipt().asset(), X402.parseHex32(requirements.asset(), code))
-                || !X402.constantTimeEquals(verified.receipt().to(), X402.parseHex32(requirements.payTo(), code))) {
-            throw MiddlewareException.of(code);
-        }
+        NativePaymentVerifier.verify(verified, rawTransaction, requirements);
         return verified;
     }
 
     public static void assertReceiptBacked(ReleasedDecision decision, X402.PaymentRequirements requirements) {
-        Map<String, JsonNode> extensions = decision.settlement().extensions();
-        JsonNode layerx = extensions == null ? null : extensions.get("layerx");
-        if (layerx == null || !layerx.isObject() || !layerx.has("receiptDigest")
-                || !layerx.get("receiptDigest").isTextual()
-                || !X402.isLowerHex32(layerx.get("receiptDigest").textValue())) {
-            throw MiddlewareException.of(MiddlewareException.Code.RECEIPT_NOT_BACKED);
-        }
-        String receiptDigest = X402.hex(X402.merkleLeafDigest(decision.verification().canonicalBytes()));
         MiddlewareException.Code code = MiddlewareException.Code.RECEIPT_NOT_BACKED;
-        if (decision.verification().level() != LocalVerifier.VerificationLevel.SEQUENCER_SIGNED
-                || decision.verification().receipt().resultCode() != 0
-                || !decision.settlement().success()
-                || !decision.settlement().network().equals(requirements.network())
-                || !requirements.amount().equals(decision.settlement().amount())
-                || !decision.settlement().transaction().equals("lxp:" + receiptDigest)
-                || !X402.constantTimeEquals(layerx.get("receiptDigest").textValue(), receiptDigest)
-                || !decision.verification().receipt().amount().equals(new BigInteger(requirements.amount()))
-                || !X402.constantTimeEquals(decision.verification().receipt().asset(),
-                    X402.parseHex32(requirements.asset(), code))
-                || !X402.constantTimeEquals(decision.verification().receipt().to(),
-                    X402.parseHex32(requirements.payTo(), code))) {
+        try {
+            Map<String, JsonNode> extensions = decision.settlement().extensions();
+            JsonNode layerx = extensions == null ? null : extensions.get("layerx");
+            Map<String, JsonNode> fields = new LinkedHashMap<>();
+            if (layerx == null || !layerx.isObject()) throw MiddlewareException.of(code);
+            layerx.fields().forEachRemaining(entry -> fields.put(entry.getKey(), entry.getValue()));
+            X402.ReceiptEvidence evidence = X402.parseReceiptEvidence(fields);
+            byte[] raw = X402.parseReceiptHex(evidence.rawTransaction(), code);
+            byte[] signed = X402.parseReceiptHex(evidence.signedReceipt(), code);
+            LocalVerifier.SequencerReceiptVerification verified = verifyPaymentReceipt(signed, raw,
+                new LocalVerifier.ReceiptKeys(java.util.List.of(evidence.receiptKey())), requirements);
+            if (decision.verification().level() != LocalVerifier.VerificationLevel.RECEIPTED
+                    || !X402.constantTimeEquals(decision.verification().canonicalBytes(), signed)
+                    || !X402.constantTimeEquals(decision.verification().receiptDigest(), verified.receiptDigest())
+                    || !decision.settlement().success()
+                    || decision.settlement().payer() == null
+                    || !decision.settlement().network().equals(requirements.network())
+                    || !requirements.amount().equals(decision.settlement().amount())
+                    || !decision.settlement().transaction().equals("0x" + X402.hex(verified.receipt().activityId()))
+                    || !X402.constantTimeEquals(X402.parseHex32(evidence.receiptDigest(), code),
+                        NativePaymentVerifier.receiptDigest(signed))
+                    || !X402.constantTimeEquals(decision.settlement().payer(), X402.hex(verified.receipt().from()))) {
+                throw MiddlewareException.of(code);
+            }
+        } catch (MiddlewareException | PlatformSdkException error) {
             throw MiddlewareException.of(code);
         }
     }
