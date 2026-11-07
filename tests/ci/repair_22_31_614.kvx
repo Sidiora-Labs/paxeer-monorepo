@@ -1,0 +1,54 @@
+[repair.22.31.614]
+base_revision = "ef3da93a17f1c7005cbb48cb8addba4bbc0619d9"
+previous_lock_revision = "ef11ec4bc2"
+decision = "2790"
+gotcha = "3410"
+resolution_command = "cargo metadata --format-version 1 --manifest-path services/platform/Cargo.toml"
+resolution_runs = 1
+resolution_exit = 0
+resolution_log = "/tmp/platform-lockfile-22-31-614-resolution.log"
+added_entries = []
+removed_entries = []
+version_changes = []
+summary = "The single resolution preserves every package version and checksum; the stale layerx-sdk dependency list gains two existing locked packages. No manifest was changed and cargo update was not run."
+verified_revision_evidence = "/out/run/gates.jsonl records the exact candidate revision, command, exit code and private log for hf-build and hf-done; the final response copies the last hf-done receipt. The candidate includes this repair record, so its revision is retained externally rather than embedded in the content it hashes."
+build_command = "cargo tree --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock --depth 1"
+verify_command = "cargo build --locked --manifest-path services/platform/Cargo.toml -p layerx-runtime-clock --bin layerx-runtime-clock && python3 -m pytest -q tests/ci/test_platform_lockfile_current.py"
+
+[lock.layerx-sdk]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = ["ed25519-dalek 2.2.0", "layerx-programs-registry 0.1.0"]
+removed_dependencies = []
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+manifest_commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+reason = "This commit moves ed25519-dalek and layerx_programs_registry from dev-dependencies into normal dependencies; platform path consumers must now resolve both. Both packages were already present in the platform lock."
+
+[lock.layerx-platform-webhooks]
+version_before = "0.1.0"
+version_after = "0.1.0"
+added_dependencies = []
+removed_dependencies = []
+manifest = "services/platform/hosted/webhooks/Cargo.toml"
+manifest_commit = "none"
+reason = "Cargo only sorts layerx-programs-ai-market before layerx-proof in the dependency list; no dependency or version changes and no manifest change requires this ordering."
+
+[manifest_history.6c7e27fb0d]
+commit = "6c7e27fb0d116ba3070a75df75f2340f71eda62b"
+manifests = ["services/agent/crates/layerx-agentd/Cargo.toml", "services/platform/hosted/authority/Cargo.toml"]
+effect = "Adds the authority library as an agentd dev-dependency and names that library explicitly. Neither requires a new platform lock entry or version change."
+
+[manifest_history.8e43ba58e4]
+commit = "8e43ba58e4a37c952559a08f376d9b3c4fe6b1d8"
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+effect = "Introduces layerx_programs_registry as an SDK dev-dependency; c59eebe59b subsequently promotes it to a normal dependency, requiring the layerx-sdk lock dependency edge recorded above."
+
+[manifest_history.c59eebe59b]
+commit = "c59eebe59b00e0fb5979c34c767379276680606f"
+manifest = "services/agent/crates/layerx-sdk/Cargo.toml"
+effect = "Promotes ed25519-dalek and layerx_programs_registry to normal dependencies and adds SDK dev-dependencies; the two promoted edges are the only semantic lockfile delta."
+
+[manifest_history.other]
+command = "git log --format='%H %s' ef11ec4bc2..HEAD -- services/agent/crates/layerx-sdk/Cargo.toml services/agent/crates/layerx-agentd/Cargo.toml services/platform/hosted/webhooks/Cargo.toml"
+commit = "486af708d60a76a3dd6832fd25ae23d18bcc116d"
+effect = "The remaining agentd manifest commit in this interval changes documentation, requiring no lock entry or version change."

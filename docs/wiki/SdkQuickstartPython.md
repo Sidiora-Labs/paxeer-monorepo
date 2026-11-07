@@ -1,10 +1,9 @@
 # Python SDK quickstart
 
-Package: `layerx-sdk` at `services/agent/sdk/python`. There is no `rpc`
-module of typed `lx_*` wrappers. `PaymentRpc` in
-`layerx_sdk.x402_rpc` is a generic JSON-RPC client whose public
-`call` can name any method. Dedicated helpers exist only for
-`lx_sendActivity`, `lx_getReceipt`, and `lx_getActivityStatus`.
+Package: `layerx-sdk` at `services/agent/sdk/python`. `PaymentRpc` in
+`layerx_sdk.x402_rpc` submits native signed transactions and reads their
+sequencer and committed receipts. Its public `call` sends generic JSON-RPC
+requests. `PxClient` in `layerx_sdk.px` provides typed `px_` read helpers.
 
 ---
 
@@ -28,53 +27,67 @@ helper for that.
 
 ## Fund from faucet
 
-No `request_funds()` helper. `PaymentRpc.call` can send
-`lx_requestFunds`. The gateway requires a Bearer identity session.
-Pass it in `PaymentRpc`'s `headers`:
+Call the hosted `px_requestFunds` operation using `PaymentRpc.call` with
+an identity session in the `Authorization` header:
 
 ```python
 from layerx_sdk import PaymentRpc
 
-def request_funds(endpoint: str, session_token: str, did: str, signer_public_key: str) -> dict:
-    rpc = PaymentRpc(endpoint, {"Authorization": f"Bearer {session_token}"})
-    return rpc.call("lx_requestFunds", [did, signer_public_key])
+
+def request_funds(
+    hosted_endpoint: str, session_token: str, did: str, signer_public_key: str
+) -> dict:
+    rpc = PaymentRpc(
+        hosted_endpoint,
+        {"Authorization": f"Bearer {session_token}"},
+        hosted_gateway_endpoint=hosted_endpoint,
+    )
+    result = rpc.call("px_requestFunds", [did, signer_public_key])
+    if not isinstance(result, dict):
+        raise ValueError("invalid-faucet-response")
+    return result
 ```
 
-`PaymentRpc` refuses non-HTTPS endpoints except loopback
-`http://localhost`, `127.0.0.1`, or `::1`, and requires the root path
-(`/` or empty) unless the endpoint equals the configured
-`hosted_gateway_endpoint`. The generated agent operation `"faucet.claim"` exists on
-`Client.call` / `ProductionClient.agent` but
-`AgentHttpTransport` is programs-only.
+Use the configured hosted gateway endpoint, a DID, and a 32-byte signer
+public key encoded as lowercase hex. This authenticated faucet request is
+separate from native transaction submission at the node root.
+`PaymentRpc` requires HTTPS except for loopback; the explicit
+`hosted_gateway_endpoint` permits the configured hosted path.
+See [Hosted faucet](HostedFaucet.md).
 
 ---
 
 ## Send
 
-```python
-from layerx_sdk import PaymentRpc
-
-def send(rpc: PaymentRpc, canonical_hex: str, commitment: str = "executed") -> dict:
-    return rpc.send(canonical_hex, commitment)
-```
-
-`commitment` must be `executed`, `batched`, or `finalised`. For
-`lx_sendActivity` attach `LayerX-Key` via `headers`, not Bearer.
-
-Hosted human-plane send, as in
-`services/platform/examples/samples/first-payment-python`:
+Build and sign a native EVM transaction with your wallet, using the target
+network's chain ID, nonce, gas limit and fees. Pass its `0x`-prefixed signed
+bytes to `PaymentRpc.send`, which calls `eth_sendRawTransaction` at the
+node root (`/`):
 
 ```python
-from layerx_sdk import IdempotencyKey, ProductionClient
+from layerx_sdk import PaymentRpc, PxClient
 
-def pay(layerx: ProductionClient, source, destination, money, payment_key):
-    quote = layerx.human("move.quote", {"source": source, "destination": destination, "money": money})
-    return layerx.human("move.commit", {"quote_id": quote["quote_id"]}, idempotency_key=IdempotencyKey(payment_key))
+
+def send(node_root: str, signed_transaction: str) -> str:
+    return PaymentRpc(node_root).send(signed_transaction)
+
+
+def read_state(node_root: str, account: str):
+    px = PxClient(node_root)
+    return px.get_account(account), px.get_balances(account), px.get_network()
 ```
 
-`ProductionClient` needs a `ProductionTransport`. The in-repo sample
-uses `layerx_transport.HumanApiTransport`, which is **not** shipped
-inside the `layerx-sdk` package.
+`send` returns a transaction hash, not a receipt, and takes no commitment
+argument. `PaymentRpc.receipt(transaction_hash)` reads
+`pax_sequencerReceipt`; `PaymentRpc.status(transaction_hash)` reads
+`eth_getTransactionReceipt`. A null receipt is pending. Sequencer rungs
+are submitted, receipted and committed; receipt evidence must still be
+verified before it is trusted.
+
+The `PxClient` calls above use `px_getAccount`, `px_getBalances` and
+`px_getNetwork` from `layerx_sdk/px.py` at the same node root. These are
+state reads, not submission or receipt verification. Use a separate
+`PaymentRpc` instance for the hosted faucet's Bearer session.
 
 ---
 

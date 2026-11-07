@@ -1,0 +1,172 @@
+[repair.22.31.539]
+acceptance = "22998.1"
+decision = 2601
+gotchas = [2962, 3142, 3143, 3144, 3168]
+base_revision = "0c9ea2c53e7997cef4beea00fb2fe79e1f915465"
+policy = "COMMITTED is the current committed verification level, emitted as wire rank 6. Persisted and received legacy ranks 4 and 5 and the two legacy names normalize to COMMITTED. No deprecated current-level constant remains in daemon production code; events/ingest.rs retains its separate legacy type."
+
+[sites.production]
+receipt = "src/receipt.rs: persist_authenticated_receipt labels committed-rung receipts COMMITTED; encode_metadata retains wire_rank; decode_metadata maps 4, 5 and 6 to COMMITTED."
+human_runtime = "src/human_runtime.rs: native_purpose_owner, validate_owner, subject_bound_address, subject_owner and read_bound_address enforce COMMITTED; augment_receipt_evidence raises COMMITTED; production_rung_floor returns COMMITTED; rank accepts 4/5/6; verification_level accepts committed and the two legacy spellings; verification_code writes wire_rank; receipt_rung_code writes committed as 6."
+subject = "src/human_runtime/subject.rs: the subject-context label decoder accepts committed and both legacy spellings so a current identity producer can authenticate its subject."
+managed = "src/managed_agent.rs: evidence_export reports COMMITTED."
+reads = "src/read/committed.rs: CommittedCaps::level and CommittedCall::level report COMMITTED."
+frame = "src/human_receipt_frame.rs: owner frame documentation names 6 COMMITTED; decoder maps 4/5/6 to COMMITTED; writer retains wire_rank."
+config = "src/config.rs: parse_verification_defaults accepts committed, checkpoint-finalised and settlement-anchored as COMMITTED."
+mcp = "src/session_control/mcp_record.rs: McpInvocationRecord::decode (used by src/session_control.rs) normalizes legacy ranks before validation, accepts current ranks through from_wire_rank, requires STATE_PROVEN just like mcp_reconcile_effect, and preserves Corrupt on refusal."
+routing = "src/agent_rpc_dispatch.rs: rung retains 0/1/2 and accepts legacy verification ranks 4/5 plus committed rank 6 as the committed rung."
+pay2 = "services/agent/qualification/pay2/sequence.rs: committed evidence reports COMMITTED."
+
+[sites.tests]
+current_levels = ["tests/admin_retry_rung.rs", "tests/bootstrap_bind_layerx.rs", "tests/identity.rs", "tests/native_send_preview_evm.rs", "tests/operator.rs", "tests/repair_22_31_219.rs", "tests/repair_22_33_1525.rs", "tests/tenant_isolation.rs", "src/budget/program_sources.rs", "src/human_runtime.rs", "src/agent_rpc_dispatch.rs", "services/agent/qualification/pay2/tests/repair_22_31_229.rs", "services/agent/crates/layerx-client/tests/evidence_rpc.rs", "services/agent/crates/layerx-proof/tests/repair_22_33_1557.rs"]
+receipt_and_frame = "tests/repair_22_31_539.rs: the real Go MemIAVL/Comet/node producer feeds the production client authenticator over HTTP, then the real receipt store, restart and owner-frame producer/decoder; metadata byte 6 and legacy 4/5 reload as COMMITTED."
+identity = "tests/repair_22_31_539.rs: reuse the native-send EVM harness with its TLS authority client and shared owner; native_send_owner_preview_v1 refuses STATE_PROVEN and accepts COMMITTED. The existing native-send test and assertions remain intact."
+mcp = "tests/repair_22_31_539.rs: persisted_mcp_receipt_ranks_normalize_after_restart compiles the identical private production codec in src/session_control/mcp_record.rs, exercises its event/record writer, durable store/index, reopen and public evidence consumer at ranks 6, 4, 5 and 3, with Corrupt for 2, 0, 7 and 255 from the same decoder and the durable index admission before those invalid bytes reach disk. The receipt bytes come from the node producer's checked-in conformance vectors. This private-codec regression executes in the declared integration gate; production uses the same append_event and encode methods."
+other_codecs = "src/config.rs and src/human_runtime.rs retain current and legacy name/rank assertions; agent_rpc_dispatch.rs retains legacy rung cases. The admin refusal case retains the unsupported retired settlement input solely as a negative compatibility case and the current COMMITTED retry requests the committed rung."
+
+[warnings]
+before_count = 147
+before_source = "GOTCHA.kvx gotcha 3143; no extra baseline build is authorized."
+after_required_count = 0
+after_count = "Read the final build log referenced by the private gate ledger; the required count outside the unchanged events/ingest.rs legacy type is zero."
+after_source = "The inherited attempt reported zero retired current-level warnings and 18 warnings for the separate legacy type across repeated compilation; this attempt records its actual warning count in the final gate log without another baseline build."
+
+[qualification]
+ledger = "/out/run/gates.jsonl"
+build_command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client -p layerx-proof --tests && cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+verify_command = "cg spec done 22.31.539 -f layerx-merge --root /work/paxeer-monorepo"
+verify_test_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --lib -- receipt_rung_wire_tests human_receipt_frame:: receipt:: managed_agent:: mcp_record && cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_539 --test admin_retry_rung --test identity --test operator --test tenant_isolation --test bootstrap_bind_layerx --test native_send_preview_evm --test repair_22_31_219 --test repair_22_33_1525"
+results = "The final build and verify rows in /out/run/gates.jsonl contain revision, exact command, exit code and private log location; passing rows must name the same candidate revision. No gate success is claimed before execution."
+no_amendment = "This record is written before qualification and references the ledger; no task file is amended after the final gates. Runner-owned bookkeeping is preserved; only the runner commits and publishes."
+dependencies = "No credential, externally supplied environment setting or live endpoint. Tests use local producer tooling, local anvil, protected temporary stores and loopback transports, as the existing declared suites do."
+
+[continuation]
+attempt = 2
+decision = 2602
+prerequisites = "The seeded implementation is applied without conflicts onto the main-line base containing 22.31.541 at 564839115943e41402162a70541e2553d2293b78 and 22.31.516 at e938bb696964460bec9f3639ce8b6e6bb55424c0; their landed test and authority-library repairs are preserved."
+gates = "Read this attempt’s final build and verify results and warning count from the private gate ledger named above; no record is amended after the final gates."
+
+[repair.cycle_1]
+observed = "The previous attempt replaced two unsupported retired-level refusal inputs with UNVERIFIED, whose current rung is Submitted, so receipt_rung_code correctly returned Ok(0) and the new library assertion failed."
+change = "Restore the retired settlement value solely as the negative compatibility input in the routing and admin codec tests, with deprecation annotations confined to those tests; preserve the exact Refused and ProgressUnavailable assertions. Production behavior is unchanged."
+gates = "Read the repaired candidate's build and verify rows from the private gate ledger; no files are amended after the final qualification runs."
+
+[qualification.inherited_library_failures]
+revision = "bc6c6e9ddf8593868c0d260748a755d50f23774d"
+command = "cg spec done 22.31.539 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Besides the task's negative codec input, 45 unchanged library tests failed on clock-required approval APIs, store ownership and writer locking, missing TLS producer input, malformed native-send fixtures, unsupported fixture activities, or proof/selector refusals; Cargo stopped before the declared integration tests."
+assumption = "These failures precede this task's COMMITTED changes and are recorded rather than repaired or investigated further; the bounded rerun is required to qualify the corrected task-owned assertion."
+
+[continuation.attempt_3]
+attempt = 3
+decision = 2621
+prerequisites = "The entire attempt-2 tree is seeded onto main-line base 0c9ea2c53e7997cef4beea00fb2fe79e1f915465, which already contains 22.31.545 and 22.31.550; no additional rebase or conflict resolution is needed."
+verification = "The declared library invocation filters receipt_rung_wire_tests, human_receipt_frame, receipt, managed_agent and mcp_record; the separate integration invocation executes all nine declared targets, including the regression target. The unrelated library failures recorded above remain owned by their existing tasks."
+results = "Use this attempt's final build and verify rows in /out/run/gates.jsonl for the exact candidate revision, commands, exit codes and private logs. No success is claimed before the gates run and no task file is amended after the final gates."
+
+[continuation.attempt_6]
+attempt = 6
+decision = 2634
+base_revision = "3e7a4e49951a4031f757d2b7d3a37b9a6f6eb7cf"
+prerequisites = "The runner merged the landed 22.31.560 prerequisite (3c7ca50d93e2d846dfa1b316dca1b190ce397b23) before applying the standing attempt-5 implementation; 22.31.572 is also present."
+conflict_resolution = "native_send_preview_evm.rs retains the landed HEAD of 64 and the seed's pub(crate) fixture lock used by the identity-floor regression. All landed native-send production changes are preserved."
+inherited_read_labels = "Both read/committed.rs level implementations already return COMMITTED from 22.31.560. Their existing acquired-checkpoint and inventory tests now assert the current level and wire rank 6."
+gates = "This attempt's build and verify evidence, including warning counts from the build log, is the final pair of rows in /out/run/gates.jsonl; no task files change after qualification."
+
+[continuation.attempt_6.repair_1]
+revision = "01301ec07a913d3e8ba8cabf1e85a39cb0493448"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client -p layerx-proof --tests && cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The seeded mutable-identity harness changed authority_peer's argument type, breaking the newly landed repair_22_31_560.rs caller with E0308."
+change = "Keep authority_peer's CoreIdentity argument and delegate to authority_peer_with_identity, which the identity-floor regression fixture uses with its shared identity; the same real TLS authority transport serves both callers."
+warnings = "The first build emitted zero retired-label warnings from changed production paths. Outside the unchanged legacy ingest decoder, warnings were confined to the pre-existing protocol_evidence.rs and repair_22_31_560.rs test references; final counts are read from the final build log in the ledger."
+
+
+[continuation.attempt_7]
+attempt = 7
+gotcha = 3347
+base_revision = "7a7e3452c1c6e3f4f71f1ae1858597575771e9ba"
+diagnostic_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test bootstrap_bind_layerx -- --nocapture"
+diagnostic_exit = 101
+diagnostic_log = "/out/logs/bootstrap-diagnostic.log"
+diagnostic_sites = "Temporary file-and-line diagnostics covered bootstrap_authority, endpoint and prepared-call chain ids, native_purpose_owner permit boundaries, subject/uid/tenant/session conditions, identity read and frozen/level/head/revocation/primary-key conditions, and subject::verify_context; all instrumentation was removed before final qualification."
+observed = "human_runtime.rs:5119 in the instrumented tree refused at native_purpose_owner's initial guard: core_sequence=0, public_key nonzero, subject present, uid=7, peer/principal/origin tenants equal and origin/principal session ids equal. The subject-context response had head 50 and checkpoint_finalised, accepted by the compatibility decoder. The identity read and later session/chain-id comparisons were not reached; the second case failed only on the poisoned fixture lock."
+fixture_repair = "bootstrap_bind_layerx.rs now mines 50 real Anvil blocks before creating the production operations and asserts endpoint.block_number()==HEAD (50), matching the identity, session opening and issued grant. Both authority response labels now say committed. No daemon admission check, session record, assertion, cache entry or persisted authority was weakened or rewritten."
+qualification = "The final build and verify entries in /out/run/gates.jsonl name the exact final revision, commands, exits and private evidence; warning counts are read from that build log. No task files are amended after the final qualification pair."
+
+[continuation.attempt_8]
+attempt = 8
+decision = 2740
+gotcha = 3353
+base_revision = "12ca7af6a4ddd5034ba93c76f0486eef7ea7e8df"
+prerequisite = "The checked-out main-line base contains 22.31.583 (merged at 400db2166f), whose real bindLayerX disclosure permits bootstrap preparation. The attempt-7 daemon implementation and fixture mining 50 real Anvil blocks stand."
+conflict_resolution = "native_send_preview_evm.rs keeps every landed core_identity assertion and integrates the shared mutable identity used by the STATE_PROVEN refusal and COMMITTED acceptance regression. The assertion and subject-context response use COMMITTED; authority_peer retains its CoreIdentity interface for existing callers."
+qualification = "The final build and verify rows in /out/run/gates.jsonl provide the candidate revision, exact commands, exits and private logs, including any later bootstrap or independent session assertion. The final build log supplies the retired-label warning count after the change; no task files change after the final gates."
+
+[continuation.attempt_8.repair_1]
+revision = "1eee86e302f935b56f32ca153d7ce9a04328242c"
+command = "cargo build --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd -p layerx-client -p layerx-proof --tests && cargo build --locked --manifest-path services/agent/qualification/pay2/Cargo.toml --tests"
+exit = 101
+log = "/out/logs/build-1.log"
+observed = "The agent crates built successfully; PAY2 refused its inherited stale lockfile, which omits the current layerx-sdk dependencies ed25519-dalek and layerx-programs-registry."
+change = "Cargo refreshed only those two local dependency edges in PAY2 Cargo.lock, preserving all versions and checksums. Offline metadata subsequently refused to download the uncached macOS-only core-foundation crate; the Linux locked build determines qualification."
+warnings = "The first build reports zero retired-label deprecation warnings in changed production code. Four retired-label diagnostics remain: the unchanged legacy events/ingest.rs decoder compiled twice and the pre-existing protocol_evidence.rs and repair_22_31_560.rs test references. The final build log and ledger provide the final counts and gate results."
+
+
+[continuation.attempt_9]
+attempt = 9
+decision = 2768
+gotcha = 3382
+base_revision = "fad9077237fd4577df5b422105d4790ea4916e24"
+diagnostic_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_219 history_window_completeness -- --nocapture"
+diagnostic_exit = 101
+diagnostic_log = "/out/logs/history-diagnostic.log"
+observed_request = "px_getHistory params=[0xfe3b557e8fb62b89f4916b721be55ceb828dbd73,00000000000003a8ffffffffffffffff,100], after eth_chainId, eth_call and eth_blockNumber."
+observed_response = "The fixture answered indexedHeight=1000, next_cursor=null and two rows at blockHeight=1000, txIndex=1/2, logIndex=0 with the recorded transaction hashes; account, chainHeight and freshness were absent. The client sequencer decode_history_page requires all six envelope fields and refused this fixture response as Sequencer(Malformed)."
+fixture_repair = "repair_22_31_219.rs Directory canonicalizes temp_dir before joining its unique name, creates the directory and sets mode 0700. Its px_getHistory arm now echoes the requested account, supplies chainHeight=HEIGHT and carries the recorded unified-history freshness response, preserving the recorded receipt rows and every negative completeness case. The production reader and all assertions are unchanged; diagnostic instrumentation was removed."
+qualification = "The final build and verify rows in /out/run/gates.jsonl provide the exact final revision, commands, exits and private logs. The final build log supplies the warning count after the change. No task files change after the final gates, and only the runner commits."
+
+
+[continuation.attempt_10]
+attempt = 10
+decision = 2776
+gotcha = 3392
+base_revision = "c23ceff9cd8dd87ba1ffcf9403803efb0dfdb741"
+diagnostic_command = "cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_31_219 -- finalization_ journey_wire_rotate_recover_bind_persisted_key_policy_over_socket --nocapture"
+diagnostic_exit = 101
+diagnostic_log = "/out/logs/managed-refusal-diagnostic.log"
+key_policy_refusal = "managed_agent.rs key_policy_observation: trace line 793 refused from_wire_rank(4), before comparing with COMMITTED rank 6. The observation is otherwise valid: revision=1, delay=required=10, maximum=20, ready_at=1750000451, finalized_at=1750000441, effective=1, observed=1000, digest matches, nonzero checkpoint, age=0, maximum_age=10, offset=length=201."
+finalization_refusal = "managed_agent.rs validate_projected_effect: trace line 1807 refused restoring the signed outbox transaction for both positive finalization cases. outbox_present=false and prepared_present=false; receipt metadata was committed, successful, at height 1000 with matching hash/digest and the expected module/operation. The malformed session observation and Receipted rung refusals were expected negative cases."
+production_change = "key_policy_observation decodes legacy ranks 4 and 5 as COMMITTED before its unchanged COMMITTED floor; current ranks still use from_wire_rank and unknown ranks remain Refused. No authority, transaction, effect, session, observation, budget or freshness condition is relaxed. All temporary diagnostic instrumentation is removed."
+fixture_change = "repair_22_31_219.rs now signs real EIP-1559 lifecycle calls, enqueues exact bytes through Outbox, and retains signed native protocol receipts with matching log effects and committed ABCI inclusion. Owner authority derives from the signing key, custody matches the existing actor, budget accounts parse, replacement budgets use the production digest domain, grants use issue_session_key, and delayed-key payloads use the intent compiler and disclosure verifier. Budget snapshots emit COMMITTED. Every existing assertion and negative case is preserved."
+regression = "repair_22_31_539.rs reuses the real lifecycle harness to write key-policy observations, reopen the store, validate authority revocation and cross the lifecycle socket for ranks 6, 4 and 5; ranks 3, 2, 0, 7 and 255 remain refused. The included existing harness tests also execute and keep their original assertions."
+small_errors = "No earlier ledger exists in this fresh sandbox. cg brief reports stale graph state unrelated to git status; the runner synchronizes the task paths at hf-done. These observations are recorded here because direct task instructions forbid editing GOTCHA.kvx or spec files."
+qualification = "Read this attempt's final build and verify rows in /out/run/gates.jsonl for the exact revision, commands, exits and private logs; both rows must identify the same candidate. Read retired-label warning counts from that build log. This record is written before the gates; no file changes follow a passing final pair. Only the runner commits and publishes."
+
+
+[continuation.attempt_10.repair_1]
+revision = "3c42a3801d895f42577ccf918102aacbb33197ab"
+command = "cg spec done 22.31.539 -f layerx-merge --root /work/paxeer-monorepo"
+exit = 1
+log = "/out/logs/verify-1.log"
+observed = "Build and dependent-crate checks passed; the filtered library suite and seven integration targets passed, including both repaired finalization cases. The rotate/recover case stopped in the fixture intent compiler with UndeclaredActivity(458754), before the managed-agent check; the regression target had not yet run."
+repair = "The delayed-key producer declares exactly Governance activity 2 in its ModuleRegistry and compiles Intent::v3 so its DID identifier uses the current protocol-3 length-framed hash required by validate_projected_effect. The real intent, disclosure, transaction, receipt and policy guards and all assertions remain intact."
+warnings = "Build 1 emitted zero retired current-level warnings from changed production paths. Five retired-label diagnostics were the unchanged events/ingest.rs legacy decoder compiled three times and the pre-existing protocol_evidence.rs and repair_22_31_560.rs test references. The final build log in the ledger is the final warning-count evidence."
+qualification = "Read the final build and hf-done rows in /out/run/gates.jsonl; no source or record changes follow that final qualification pair."
+
+
+[continuation.attempt_11]
+attempt = 11
+decision = 2776
+gotcha = 3406
+base_revision = "7db2d91b9097da346cb9a2eef4cf8c5e7db432dd"
+diagnostic_command = "RUST_BACKTRACE=1 cargo test --locked --manifest-path services/agent/Cargo.toml -p layerx-agentd --test repair_22_33_1525 offline_export_producer_rpc_consumer_and_mismatched_fact_refusal"
+diagnostic_exit = 101
+diagnostic_log = "/out/logs/export-diagnostic.log"
+observed = "The single diagnostic reproduces Contract; the backtrace stops at must and the test frame because the unit error retains no creation backtrace. The export state branch at src/export.rs:306 passes account_proof to verify_account, which calls decode_storage_witnesses at line 768; its serde_json decoder at line 710 refuses the fixture's RLP account proof. Neither retain_bundle nor this export path reads IdentityTranscript or an identity verification level."
+producer_repair = "Only the portable fixture in repair_22_33_1525.rs changes: use the checked-in ICS23 EVM storage producer vector through loopback eth_getProof and the production SequencerEndpoint::storage_witness decoder, verify its exact operations against the vector app hash, and encode it through export::encode_storage_witnesses. The fixture signs the existing committed header with that app hash. No consumer, label policy, assertion or other six test cases change; the identity fixture stays COMMITTED."
+small_errors = "This fresh sandbox has no earlier /out/run/gates.jsonl. The diagnostic backtrace does not name a unit error's construction site, so the evidence path and decoded input format are recorded explicitly. All inherited task changes and runner-owned bookkeeping remain; direct task instructions forbid editing GOTCHA.kvx, spec files, committing or pushing."
+qualification = "The final hf-build and hf-done rows in /out/run/gates.jsonl name the final candidate revision, commands, exits and private logs. Read final retired-label warning counts from that build log; changed production paths require zero, excluding the separate legacy ingest decoder. No task file is amended after the final gate pair. Only the runner commits and publishes."
