@@ -153015,7 +153015,7 @@ do_15 = "Attempt 10 (continue, gotcha 3345, decision 2734): the attempt-9 tree s
 
 [task.22.37.18]
 title = "Native mode for the plugin router and integration queue with outage, publication and manager integration qualification"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 2
 requires = ["22.36.1", "22.37.17", "22.37.30"]
@@ -333437,7 +333437,7 @@ do_4 = "Attempt 2 (continue, gotcha 3471, decisions 2820 and 2821): the attempt-
 
 [task.22.39.72]
 title = "Remove the deleted scripts and the deleted fixture generator from the make recipes that workflows call"
-status = "pending"
+status = "done"
 mode = "BUILD"
 wave = 1
 requires = []
