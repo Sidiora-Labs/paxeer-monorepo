@@ -33619,3 +33619,19 @@ symbol = "layerx-programs-ai-market"
 observed = "Attempt 22 at 7d5daec19bd1: build 3 exit 2 at the bound check of the host boundary target (guest 553180 bytes against 524184); the routing conflict and the availability assertions were repaired before the check; the verification never ran because both repair cycles were spent."
 assumption = "The growth sits on main (four room-market commits since attempt 10) and inside the attempt tree alike; the repair at main plus the same techniques on the attempt code bring the merged guest under the bound."
 severity = "high"
+
+[finding.22.37.2.5]
+task = "22.37.2"
+file = "tools/hyperfide/tests/hyperfide/cases/source_control/layout_receipt_gate_test.py"
+symbol = "layout_receipt_gate_test.py"
+observed = "Attempt 5 at 279f4adf5f44: build 1 exit 0, verify 1 exit 1: nineteen receipt-gate cases passed and the pending aggregation check refused the candidate at source.final-revision-clean because two tracked root paths (the spec file and the ignore file) were modified by the task bookkeeping."
+assumption = "The check reads the whole repository; limiting it to the layout root removes the only refusal and keeps the candidate bound to the vendored tree."
+severity = "high"
+
+[finding.22.39.8.2]
+task = "22.39.8"
+file = "services/wallet/attestor/internal/server/native_purpose_test.go"
+symbol = "native_purpose_test.go"
+observed = "Attempt 2 at 5f8a72b33391: build 1 exit 101 at the consumer step: the lock file services/human/Cargo.lock needs to be updated but the locked flag was passed; the native library build and the vet passed; neither real-profile test ran."
+assumption = "With the human lockfile refreshed the consumer builds and the two tests run; nothing in the attempt tree caused the refusal."
+severity = "high"
