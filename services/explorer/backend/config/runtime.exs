@@ -312,18 +312,7 @@ paxeer_x_receipt_authority =
         bytes
       end
 
-      pins =
-        Enum.map(keys, fn key ->
-          %{"keyId" => id, "publicKey" => public, "firstHeight" => first, "lastHeight" => last} = key
-
-          unless is_integer(first) and is_integer(last) and first >= 0 and first <= last,
-            do: raise(ArgumentError, "invalid governed receipt key range")
-
-          public = hash32.(public)
-          id = hash32.(id)
-          unless :crypto.hash(:sha256, public) == id, do: raise(ArgumentError, "receipt key id mismatch")
-          %{key_id: id, public_key: public, first_height: first, last_height: last}
-        end)
+      pins = Explorer.Chain.PaxeerX.ReceiptKeysConfig.parse(keys)
 
       checkpoints =
         Map.new(checkpoints, fn {height, checkpoint} ->

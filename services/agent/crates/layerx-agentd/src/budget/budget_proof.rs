@@ -381,7 +381,6 @@ fn verify_native_budget_proof(
             && id(&state.asset)? == record.asset_id
             && state.revocation_sequence == record.revocation_sequence
             && state.revocation_sequence > 0
-            && state.revocation_sequence <= checkpoint.height
             && state.observed_head_sequence == checkpoint.height
             && id(&state.evidence_digest)? == evidence_digest
             && id(&state.receipt_digest)? == receipt_digest

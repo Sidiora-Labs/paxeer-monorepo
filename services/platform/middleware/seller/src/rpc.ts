@@ -88,7 +88,7 @@ class BoundedRpc {
 }
 
 export class HostedGatewayRpc extends BoundedRpc {
-  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/rpc"); }
+  public constructor(endpoint: string, headers: Readonly<Record<string, string>> = {}) { super(endpoint, headers, "/"); }
   public override call(method: string, params: readonly unknown[]): Promise<unknown> {
     if (!/^px_[A-Za-z0-9_]+$/u.test(method)) throw new Error("invalid-gateway-method");
     return super.call(method, params);

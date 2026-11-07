@@ -2,8 +2,9 @@
 //
 // Repairs node/genesis.go:ReadGenesisImportConfig accepting an enabled stream
 // with no filename, and node/app.go:InitChainer accepting an unreadable stream
-// as an empty genesis. The proof also uses App.ExportAppToFileStateAndValidators
-// to produce the stream consumed by a fresh App after the exporter has closed.
+// as an empty genesis. The proof also uses paxd export, including its
+// App.ExportAppToFileStateAndValidators callback and terminal genesis metadata,
+// to produce the stream consumed by a fresh App after the exporter has exited.
 package app
 
 import (
@@ -25,6 +26,7 @@ import (
 	tmproto "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/proto/tendermint/types"
 	tmtypes "github.com/Sidiora-Labs/Paxeer-X-Network/consensus/types"
 	seqtypes "github.com/Sidiora-Labs/Paxeer-X-Network/modules/sequencer/types"
+	"github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server"
 	serverconfig "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/server/config"
 	sdk "github.com/Sidiora-Labs/Paxeer-X-Network/sdk/types"
 	"github.com/spf13/viper"
@@ -143,8 +145,19 @@ func TestProofNodeGenesis(t *testing.T) {
 		ConsensusParams: &consensusParams, AppStateBytes: doc.AppState,
 	})
 	require.NoError(t, err)
-	header := tmproto.Header{ChainID: chainID, Height: 1, Time: doc.GenesisTime}
-	ctx := a.NewContext(false, header)
+	block := tmtypes.MakeBlock(1, nil, &tmtypes.Commit{}, nil)
+	block.ChainID = chainID
+	block.Time = doc.GenesisTime
+	block.ProposerAddress = validator.Key.PubKey.Address()
+	block.ValidatorsHash = tmtypes.NewValidatorSet([]*tmtypes.Validator{
+		tmtypes.NewValidator(validator.Key.PubKey, 1),
+	}).Hash()
+	block.NextValidatorsHash = block.ValidatorsHash
+	require.NoError(t, block.Header.ValidateBasic())
+	blockHash := block.Hash()
+	require.NotEmpty(t, blockHash)
+	header := *block.Header.ToProto()
+	ctx := a.NewContext(false, header).WithHeaderHash(blockHash)
 	want := seqtypes.GenesisState{
 		Leaders:          [][32]byte{[32]byte(leader)},
 		ReceiptKeys:      []seqtypes.ReceiptKey{{KeyId: keyID, PublicKey: [32]byte(public), FirstHeight: 1, LastHeight: 1000}},
@@ -168,20 +181,25 @@ func TestProofNodeGenesis(t *testing.T) {
 	_, err = a.Commit(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, int64(1), a.LastBlockHeight())
+	require.Equal(t, blockHash.Bytes(), a.LastBlockID().Hash)
 	require.NoError(t, a.Close())
 	a = nil
 	a = openApp(home, readOptions(filepath.Join(home, "config", "app.toml")))
 	require.Equal(t, int64(1), a.LastBlockHeight())
+	require.Equal(t, blockHash.Bytes(), a.LastBlockID().Hash)
 	assertConsumer(a, a.NewUncachedContext(true, header))
 
 	streamPath := filepath.Join(t.TempDir(), "genesis-stream.json")
-	stream, err := os.Create(streamPath)
-	require.NoError(t, err)
-	exported, err := a.ExportAppToFileStateAndValidators(false, nil, stream)
-	require.NoError(t, err)
-	require.NoError(t, stream.Close())
+	require.NoError(t, opts.WriteConfig())
 	require.NoError(t, a.Close())
 	a = nil
+	succeed("export", "--streaming", "--streaming-file", streamPath, "--chain-id", chainID)
+	exported, err := server.LoadStreamingGenesisDoc(context.Background(), streamPath)
+	require.NoError(t, err)
+	require.Equal(t, doc.GenesisTime, exported.GenesisTime)
+	require.Equal(t, chainID, exported.ChainID)
+	require.Equal(t, int64(2), exported.InitialHeight)
+	require.Equal(t, doc.ConsensusParams, exported.ConsensusParams)
 
 	// Persist the actual template key, close its writer, then reopen via Viper
 	// and the server config reader as well as the node's own config reader.
@@ -206,12 +224,13 @@ func TestProofNodeGenesis(t *testing.T) {
 	require.Equal(t, serverConfig.Genesis.StreamImport, importConfig.StreamGenesisImport)
 	require.Equal(t, serverConfig.Genesis.GenesisStreamFile, importConfig.GenesisStreamFile)
 	a = openApp(streamHome, streamOpts)
+	exportedConsensusParams := exported.ConsensusParams.ToProto()
 	_, err = a.InitChain(context.Background(), &abci.RequestInitChain{
-		Time: doc.GenesisTime, ChainId: chainID, InitialHeight: exported.Height,
-		ConsensusParams: exported.ConsensusParams,
+		Time: exported.GenesisTime, ChainId: exported.ChainID, InitialHeight: exported.InitialHeight,
+		ConsensusParams: &exportedConsensusParams,
 	})
 	require.NoError(t, err)
-	assertConsumer(a, a.NewContext(false, tmproto.Header{ChainID: chainID, Height: exported.Height, Time: doc.GenesisTime}))
+	assertConsumer(a, a.NewContext(false, tmproto.Header{ChainID: chainID, Height: exported.InitialHeight, Time: exported.GenesisTime}))
 
 	// Refuse an absent or non-file stream before any module can overwrite the
 	// successfully imported state. This previously silently imported nothing.
