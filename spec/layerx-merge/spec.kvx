@@ -9855,6 +9855,12 @@ value = "When a task changes the dependencies of a crate that a second cargo loc
 basis = "Gotcha 3410, decisions 2762 and 2781"
 affects = ["2", "2", ".", "3", "1", ".", "6", "1", "4", ",", " ", "9", ".", "9", "8", ".", "4", ",", " ", "2", "2", ".", "3", "1", ".", "5", "5", "4", ",", " ", "2", "2", ".", "3", "1", ".", "5", "5", "5", ",", " ", "9", ".", "3", "5", ".", "1", "9", " ", "t", "o", " ", "9", ".", "3", "5", ".", "2", "4", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "a", "s", "k", " ", "t", "h", "a", "t", " ", "c", "h", "a", "n", "g", "e", "s", " ", "a", "n", " ", "a", "g", "e", "n", "t", ",", " ", "p", "r", "o", "g", "r", "a", "m", " ", "o", "r", " ", "i", "n", "t", "e", "r", "o", "p", " ", "m", "a", "n", "i", "f", "e", "s", "t"]
 
+[decision.2791]
+title = "A gate whose test runs a compiled consumer executable or needs the runtime clock carries the consumer build in its build command, exports the executable path in its verification, runs through the clock helper and uses the mixed image"
+value = "When a test reads an environment variable naming a compiled consumer of another language (the attestor real-profile tests read PAXEER_X_NATIVE_CUSTODY_RUST_TEST) or its consumer reads the runtime clock socket, the build command of the task compiles that consumer with cargo test --no-run, the verification exports the path and runs under tools/runtime/run-with-clock.sh, the task uses the mixed image, and the task requires the current platform lockfile repair while one is pending; a gate written without the consumer is a gate defect of the task, never a reason to skip or weaken the test."
+basis = "Gotcha 3411, decisions 2790 and 2762, task 18.1110.1"
+affects = ["2", "2", ".", "3", "9", ".", "8", " ", "a", "n", "d", " ", "e", "v", "e", "r", "y", " ", "t", "a", "s", "k", " ", "w", "h", "o", "s", "e", " ", "t", "e", "s", "t", "s", " ", "r", "u", "n", " ", "a", " ", "c", "r", "o", "s", "s", "-", "l", "a", "n", "g", "u", "a", "g", "e", " ", "c", "o", "n", "s", "u", "m", "e", "r"]
+
 [feature.1]
 name = "kernel"
 scope = "The LayerX C kernel and its cgo host inside paxd: include/layerx/, src/, modules/lxphost/, layerxproof/, custodyproof/ and the kernel tests tests/arith, tests/codec, tests/crypto, tests/fuzz; the activity executor, result-code registry, module contexts and the host entry HostExecute with its staged writeback."
@@ -286807,8 +286813,8 @@ do_18 = "Attempt 35 (566d189c8) fails only because the kernel receipt projection
 title = "Make the attestor RealProfiles tests pass with the native library built"
 status = "pending"
 mode = "BUILD"
-wave = 1
-requires = []
+wave = 2
+requires = ["22.31.614"]
 reqs = ["22998.1"]
 capabilities = ["22.39.8"]
 interfaces = []
@@ -286818,10 +286824,10 @@ symbols = ["TestNativeCustodyRealProfiles", "TestNativeSendPurposeRealProfiles"]
 touches = ["services/wallet/attestor/internal/server/native_purpose_test.go", "services/wallet/attestor/internal/server/native_purpose.go", ".github/workflows/wallet-go-test.yml"]
 tests = ["services/wallet/attestor/internal/server/native_purpose_test.go"]
 planned_paths = ["services/wallet/attestor/repair_22_39_8.kvx"]
-build_cmd = "make build/liblayerx.a && cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/"
-verify_cmd = "cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go test -count=1 ./internal/server/ -run 'RealProfiles$'"
+build_cmd = "make build/liblayerx.a && (cd services/wallet/attestor && CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build go vet ./internal/server/) && cargo test --locked --manifest-path services/human/Cargo.toml -p layerx-human-kms --test attestor_native_profile --no-run"
+verify_cmd = "exe=$(realpath $(ls -t ${CARGO_TARGET_DIR:-services/human/target}/debug/deps/attestor_native_profile-* | grep -v -e [.]d$ | head -1)) && cd services/wallet/attestor && PAXEER_X_NATIVE_CUSTODY_RUST_TEST=$exe CGO_ENABLED=1 CGO_LDFLAGS=-L$PWD/../../../build sh ../../../tools/runtime/run-with-clock.sh go test -count=1 ./internal/server/ -run 'RealProfiles$'"
 gate_kind = "planned"
-sandbox_profile = "go-cgo"
+sandbox_profile = "mixed"
 owner_role = "fm-wallet"
 rollback = "Revert the task's commit."
 max_builds = 1
@@ -286831,6 +286837,7 @@ time_limit_minutes = 180
 stop_condition = "Stop on the bounded gate result; record exact revision, command, exit code and private evidence location. Do not mark complete without the declared evidence."
 path_policy = "Existing paths are modified in place. Planned paths must be created or explicitly mapped to an existing module before implementation; a planned path never authorizes a duplicate implementation tree. A task touches only the paths it declares."
 evidence_policy = "Retain credentials, operational inventories and raw qualification records in access-controlled storage; publish only reviewed technical product material."
+do_3 = "Attempt 2 (continue, gotcha 3411, decisions 2790 and 2762, after 22.31.614 lands): the attempt-1 tree stands (the inventory wiring of the two real-profile tests, the native_purpose.go change, the record and the one-line change to the wallet test file of the public checks). Carry it onto main once 22.31.614 has landed; the build now also compiles the attestor_native_profile test executable of layerx-human-kms with cargo test --no-run, and the verification exports its path as PAXEER_X_NATIVE_CUSTODY_RUST_TEST and runs the two real-profile tests through tools/runtime/run-with-clock.sh under the mixed image, as task 18.1110.1 did. Record in services/wallet/attestor/repair_22_39_8.kvx the outcome of both tests with the refusal code of any remaining failure; a refusal at a site inside the task touches is repaired once and the verification rerun once; a refusal inside the Rust consumer or the clock helper is recorded as a finding and the attempt stops."
 
 [task.22.31.611]
 title = "Port the pay precompile tests to the three-value escrow views of the keeper"
