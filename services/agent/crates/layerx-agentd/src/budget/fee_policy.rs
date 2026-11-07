@@ -124,6 +124,15 @@ pub fn native_fee_policy(
     endpoint: &SequencerEndpoint,
     height: u64,
 ) -> Result<NativeFeePolicy, FeeReadError> {
+    native_fee_policy_for(endpoint, height, [0; 20])
+}
+
+/// Reads the selected fee denomination for the authenticated native transaction payer.
+pub fn native_fee_policy_for(
+    endpoint: &SequencerEndpoint,
+    height: u64,
+    payer: [u8; 20],
+) -> Result<NativeFeePolicy, FeeReadError> {
     if height == 0 || endpoint.block_number()? < height {
         return Err(FeeReadError::Snapshot);
     }
@@ -137,7 +146,8 @@ pub fn native_fee_policy(
         return Err(FeeReadError::Snapshot);
     }
     let mut call = selector(b"getFeeDenom(address)");
-    call.extend([0; 32]);
+    call.extend([0; 12]);
+    call.extend(payer);
     let answer = endpoint.call_at(height, &FEE_TOKEN, &call)?;
     let denom = text(&answer, 0, 1, 128).map_err(|_| FeeReadError::Denomination)?;
     if !denom.iter().all(|byte| byte.is_ascii_graphic()) {
