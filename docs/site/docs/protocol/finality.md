@@ -6,5 +6,5 @@ Finality is CometBFT block finality on Paxeer EVM chain ID `125`.
 The proposer executes transactions, and a receipt is final when its block is
 committed.
 
-See the [Paxeer Network guide](../../../paxeer-network.md) for the current
+See the [Paxeer Network guide](../overview/unified-network.md) for the current
 execution and finality model.
