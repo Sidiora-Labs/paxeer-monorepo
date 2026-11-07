@@ -34175,3 +34175,43 @@ symbol = "test_go_build_tags_wired.py"
 observed = "Attempt 2 at ddb3191922ab: build exit 0; verification exit 1: wiring tests passed, go test -tags=mock_block_validation ./consensus/types/... failed in TestBlockValidateBasic; the chain validation leg and the registry tests were not reached."
 assumption = "The mock policy replaces the default one by design (decision 2817); a default-policy assertion belongs behind the default-policy constraint."
 severity = "high"
+
+[finding.22.37.18.4]
+task = "22.37.18"
+file = "tools/hyperfide/plugins/hyperfide-dispatch/src/integrate/queue.test.ts"
+symbol = "queue.test.ts"
+observed = "Attempt 4 at e5ec1ae9d850: build exit 0; verification exit 1: all 23 plugin tests passed, the component case 4_2 failed on a deep-equal of a readiness receipt the actual value carried and the expected value lacked; the assertion repair in the final tree is unverified because both repair cycles were used."
+assumption = "The receipt is new producer output of the control plane and the case consumer did not follow it; the plugin changes themselves pass."
+severity = "high"
+
+[finding.22.39.107.1]
+task = "22.39.107"
+file = "tests/ci/test_image_compile_inputs_not_ignored.py"
+symbol = "test_image_compile_inputs_not_ignored.py"
+observed = "Attempt 1 at 5302b6de0464 (base deb2deb978c0): build exit 0; dependents check exit 101 in the hosted gateway mirror test: unresolved imports crate::canary and crate::rooms; verification not reached; no repair cycle used."
+assumption = "The mirror currency repair of 22.31.620 landed at 14:56Z after the attempt base; nothing in the attempt touches the mirror."
+severity = "high"
+
+[finding.22.39.31.1]
+task = "22.39.31"
+file = "tests/ci/test_platform_site_finality_model.py"
+symbol = "test_platform_site_finality_model.py"
+observed = "Attempt 1 at 8f3bcecaca85: build exit 0; verification exit 1: 13 passed, test_platform_hand_written_pages_do_not_name_layerx_network failed naming concepts/enforcement.md, guide/reference-applications.md and quickstart/rust.md; the site check was not reached; no repair cycle used."
+assumption = "The three pages are hand-written and outside the generated reference directory; the guard is right and the touches list was short."
+severity = "high"
+
+[finding.22.31.542.2]
+task = "22.31.542"
+file = "services/agent/crates/layerx-agentd/tests/rpc_surface_major_two.rs"
+symbol = "rpc_surface_major_two.rs"
+observed = "Attempt 2 at 43cb551943d4: build exit 0, 16 dependent checks exit 0; verification exit 101: library suite 309 passed, 24 failed (approval, human_runtime, ops::program, outbound_tls, read::committed, session_control, budget), integration targets not reached; no repair cycle used."
+assumption = "None of the 24 failures is in a module the task changed; nine belong to 22.31.555, two need the boundary producer and thirteen go to repair task 22.39.122."
+severity = "high"
+
+[finding.22.39.118.1]
+task = "22.39.118"
+file = "tools/platform/cli::rpc::tests::positional_requests_match_published_contract"
+symbol = "cli::rpc::tests::positional_requests_match_published_contract"
+observed = "Attempt 1 at 8aaa799401bd: build exit 0; verification exit 2: 24 library tests passed, binary tests 79 passed and 1 failed (wallet::tests::policy_scope_and_sdk_wait_fail_closed, MissingFinalityTrust expected); no repair cycle used."
+assumption = "The SDK producer changed the zero-timeout path to return Pending before any finality check and the CLI consumer test did not follow; the crate directory is already the touches."
+severity = "high"

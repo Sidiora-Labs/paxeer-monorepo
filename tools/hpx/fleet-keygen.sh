@@ -12,7 +12,7 @@
 #
 # Usage:
 #   ./fleet-keygen.sh                      # servers from registry /api/nodes
-#   SERVERS='203.0.113.10 203.0.113.11' ./fleet-keygen.sh
+#   SERVERS='192.0.2.10 198.51.100.11' ./fleet-keygen.sh  # documentation addresses
 #   SERVERS_FILE=ips.txt ./fleet-keygen.sh
 #   HPX_PUSH=0 ./fleet-keygen.sh           # skip push (servers already updated)
 # =============================================================================
