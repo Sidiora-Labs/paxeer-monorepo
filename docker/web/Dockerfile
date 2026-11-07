@@ -1,4 +1,4 @@
-FROM node:24.11.0-bookworm-slim AS build
+FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152 AS build
 WORKDIR /src/apps/web
 COPY package.json package-lock.json /src/
 COPY services/agent/sdk/typescript /src/services/agent/sdk/typescript
@@ -15,7 +15,7 @@ RUN npm ci --ignore-scripts --no-audit --no-fund
 ARG LAYERX_HUMAN_SERVICE_URL=https://layerx-human.layerx-testnet.svc:9443
 RUN LAYERX_HUMAN_SERVICE_URL="$LAYERX_HUMAN_SERVICE_URL" npm run build
 
-FROM node:24.11.0-bookworm-slim
+FROM node:24.11.0-bookworm-slim@sha256:76d0ed0ed93bed4f4376211e9d8fddac4d8b3fbdb54cc45955696001a3c91152
 RUN apt-get update && apt-get install -y --no-install-recommends socat \
     && rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production PORT=3000 HOSTNAME=0.0.0.0

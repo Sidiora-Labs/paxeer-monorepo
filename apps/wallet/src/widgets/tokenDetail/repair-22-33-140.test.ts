@@ -527,7 +527,13 @@ async function token_detail_precision_is_null_aware_and_validated() {
       await act(async () => {
         await walletContext().verifyEmailCode(EMAIL, EMAIL_CODE);
       });
-    await until(() => current?.status === 'ready' && client.isFetching() === 0);
+    await until(
+      () =>
+        current?.status === 'ready' &&
+        client.getQueryState(scopedQueryKey(['tokenMeta', CHAIN_ID, TOKEN_A.toLowerCase(), false]))
+          ?.status === 'success' &&
+        client.isFetching() === 0
+    );
     expect(metric('Decimals')).toBe('0');
     expect(button('Send').disabled).toBe(false);
   }

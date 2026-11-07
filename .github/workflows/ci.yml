@@ -29,14 +29,18 @@ jobs:
       - name: Install native test dependencies
         run: >-
           sudo apt-get update && sudo apt-get install --yes
-          build-essential libssl-dev libsqlite3-dev ripgrep python3-venv
+          build-essential libssl-dev libsqlite3-dev pkg-config ripgrep python3-venv jq openssl
       - name: Install Python test dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/tests-python"
-          "$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest cryptography PyYAML
+          "$RUNNER_TEMP/tests-python/bin/python3" -m pip install pytest PyYAML -r tests/bridge/requirements.txt
           echo "$RUNNER_TEMP/tests-python/bin" >> "$GITHUB_PATH"
+      - name: Install pinned native suite toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
       - name: Run Python repository tests
         run: make test-tests-python
+      - name: Run Python command, daemon, conformance and hosted suites
+        run: make test-python-suites
 
   programs-reference-fixtures:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
@@ -102,8 +106,10 @@ jobs:
         with:
           version: v1.7.1
           cache: false
-      - name: Install state surface tooling
-        run: sudo apt-get update && sudo apt-get install --yes ripgrep
+      - name: Install Solidity and mirror test dependencies
+        run: sudo apt-get update && sudo apt-get install --yes ripgrep build-essential libssl-dev pkg-config python3 openssl
+      - name: Install pinned mirror toolchain
+        run: rustup toolchain install 1.91.1 --profile minimal
       - name: Check formatting and state surface
         run: forge fmt --check && scripts/ci/solidity-state-surface.sh
       - name: Bootstrap pinned Solidity libraries
@@ -111,7 +117,9 @@ jobs:
       - name: Build contracts
         run: forge build --sizes
       - name: Run contract and invariant suites
-        run: forge test -vvv
+        run: make test-contracts
+      - name: Run mirror suites
+        run: make interop-test-mirrors
 
   loadtest:
     runs-on: ${{ (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository) && 'ubuntu-24.04' || vars.CI_LINUX_RUNNER || 'ubuntu-24.04' }}
